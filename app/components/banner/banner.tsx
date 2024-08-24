@@ -1,4 +1,4 @@
-import { IBannerProps } from "@/app/models/IBanner"
+import { IBannerProps } from "@/app/models/IBanner";
 
 const Banner: React.FC<IBannerProps> = ({
     children,
@@ -12,7 +12,7 @@ const Banner: React.FC<IBannerProps> = ({
         >
             {children}
         </div>
-   )
+    );
 }
 
-export default Banner
+export default Banner;

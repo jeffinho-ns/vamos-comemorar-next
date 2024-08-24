@@ -1,7 +1,6 @@
 // app/models/IBanner.ts
 export interface IBannerProps {
-    // Defina as propriedades aqui
-    title: string;
-    imageUrl: string;
-    // Outras propriedades que você precisa
+    id: string;
+    className: string;
+    children?: React.ReactNode; // Incluindo a propriedade children como opcional
   }
