@@ -1,0 +1,108 @@
+.programacao {
+  padding: 1rem;
+  background: #fff;
+
+  .sectionTitle {
+    text-align: center;
+    margin-bottom: 1rem;
+    font-size: 24px;
+    font-family: Poppins;
+  }
+
+  .events {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+
+    .eventCard {
+      display: flex;
+      background-color: white;
+      border: 1px solid #ddd;
+      border-radius: 5px;
+      padding: 10px;
+      position: relative;
+      overflow: hidden;
+
+      &:hover {
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+      }
+
+      .dateDotLine {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        margin-right: 10px;
+
+        .selectButton {
+          width: 30px;
+          height: 30px;
+          background-color: #ffffff;
+    border: 9px solid #08738a;
+          border-radius: 50%;
+          cursor: pointer;
+          margin-bottom: 10px;
+        }
+
+        .dotLine {
+          width: 2px;
+          background-color: #ddd;
+          flex-grow: 1;
+        }
+
+        .eventDate {
+          margin: 0;
+          font-size: 12px;
+          color: #999;
+          text-align: center;
+          margin-top: 5px;
+        }
+      }
+
+      .eventContent {
+        display: flex;
+        flex-direction: column;
+        flex-grow: 1;
+
+        .eventImage {
+          width: 90%;
+          height: 170px;
+          object-fit: cover;
+          border-radius: 5px;
+        }
+
+        .eventDetails {
+          margin-top: 10px;
+
+          .eventTitle {
+            font-size: 16px;
+            margin: 0 0 5px;
+            font-family: Poppins;
+            color: #08738a;
+            font-weight: 500;
+          }
+
+          .eventCategory {
+            font-size: 14px;
+            color: #999;
+            margin: 0 0 10px;
+          }
+
+          .eventTimeContainer {
+            display: flex;
+            align-items: center;
+
+            .icon {
+              margin-right: 5px;
+              color: #08738a;
+            }
+
+            .eventTime {
+              margin: 0;
+              font-size: 14px;
+            }
+          }
+        }
+      }
+    }
+  }
+}

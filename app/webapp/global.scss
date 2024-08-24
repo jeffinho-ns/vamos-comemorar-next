@@ -1,0 +1,130 @@
+.container {
+  overflow-x: hidden; /* Remove o scroll horizontal */
+}
+
+.cards-container {
+  display: flex;
+  gap: 1rem; /* Espaçamento entre os cards */
+  overflow-x: auto; /* Habilita o scroll horizontal */
+  padding-bottom: 1rem; /* Adiciona padding inferior para o scroll */
+}
+
+.card-container {
+  flex: 0 0 auto;
+  width: calc(
+    100% / 1.5
+  ); /* Define a largura dos cards para exibir 1.5 cards no mobile */
+  position: relative;
+  overflow: hidden;
+  height: 550px; /* Ajuste conforme necessário */
+  border-radius: 30px;
+}
+
+@media (max-width: 768px) {
+  .card-container {
+    height: auto; /* Ajusta a altura para a versão mobile */
+    width: calc(
+      100vw / 1.5
+    ); /* Define a largura dos cards para exibir 1.5 cards no mobile */
+  }
+}
+
+.card-container .relative {
+  height: 450px; /* Ajustando a altura do card */
+}
+
+.card-container h2 {
+  font-size: 1.25rem; /* Ajustando o tamanho da fonte do título */
+  font-weight: bold;
+}
+
+.card-container p {
+  font-size: 1rem; /* Ajustando o tamanho da fonte do endereço */
+}
+
+.card-button {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background-color: rgba(0, 0, 0, 0.7);
+  color: white;
+  padding: 8px 16px;
+  border: none;
+  border-radius: 4px;
+  opacity: 0;
+  transition: opacity 0.3s ease-in-out;
+}
+
+p.title {
+  padding: 5rem 3rem 0rem 3rem;
+  font-size: 30px;
+  font-weight: 500;
+}
+
+input#data {
+  border-radius: 30px;
+  background: #f3f3f3;
+  height: 50px;
+}
+
+svg.text-blue-600.text-2xl.absolute.right-2 {
+  background: #08738a;
+  color: #fff;
+  width: 35px;
+  height: 35px;
+  border-radius: 40px;
+  font-size: 10px;
+  padding: 6px;
+}
+
+.card-container:hover .card-button {
+  opacity: 1;
+}
+
+.text-red-500 {
+  --tw-text-opacity: 1;
+  color: #a41414;
+}
+
+.hideMenuNav {
+  display: none;
+}
+
+header {
+  &.bg-transparent {
+    background: transparent;
+  }
+
+  &.bg-blue-800 {
+    background: rgb(53, 47, 173);
+  }
+
+  .mobile-only {
+    display: block;
+  }
+
+  @media (min-width: 768px) {
+    .mobile-only {
+      display: none;
+    }
+  }
+}
+
+#home-container.reduce-scale {
+  transform: scale(0.7) translateX(75%);
+  transition: transform 0.3s ease;
+  background: #fff;
+  border-radius: 30px;
+  display: block;
+  z-index: 999;
+  position: sticky;
+  box-shadow: -63px 63px 19px rgba(255, 255, 255, 0.26);
+
+  .barra-header {
+    background: #08738a !important;
+  }
+}
+.HAMBURGER-ICON {
+  cursor: pointer;
+}

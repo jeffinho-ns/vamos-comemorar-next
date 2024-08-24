@@ -1,0 +1,27 @@
+@use '../../variables';
+
+.grid-container {
+    width: 100%;
+    display: flex;
+    background-color: variables.$bg-white;
+    height: 300px;
+}
+
+.grid-container > div {
+    display: flex;
+    justify-content: space-between;
+    width: 100%;
+    height: 100%;
+}
+
+.header-grid span {
+    color: variables.$text-dark-gray;
+    font-weight: bold;
+}
+
+.header-grid,
+.grid-content ul li {
+    display: flex;
+    flex-direction: column;
+}
+
