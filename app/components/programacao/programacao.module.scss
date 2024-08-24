@@ -1,0 +1,99 @@
+.programacao {
+  // Estilos da seção de programação como um todo
+
+  .sectionTitle {
+    // Estilos do título da seção
+  }
+
+  h2 {
+    padding: 0 5rem 1rem;
+    font-size: 24px;
+    font-family: Poppins;
+  }
+  .events {
+    display: flex;
+    justify-content: space-between;
+    gap: 20px;
+    flex-wrap: wrap;
+    padding-left: 5rem;
+    padding-right: 5rem;
+
+    .eventCard {
+      display: flex;
+      background-color: white;
+      border: 1px solid #ddd;
+      border-radius: 5px;
+      overflow: hidden;
+      width: calc(
+        25% - 20px
+      ); // Calcula o width considerando o gap entre os cards
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+
+      &:hover {
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+      }
+
+      .eventImage {
+        width: 45%;
+        height: 260px;
+        object-fit: cover;
+        border-top-left-radius: 5px;
+        border-top-right-radius: 5px;
+      }
+
+      .eventDetails {
+        padding: 1rem;
+        margin: 0 auto;
+
+        .eventTitle {
+          font-size: 20px;
+          margin: 10px 0;
+          font-family: Poppins;
+          color: #08738a;
+          font-weight: 500;
+        }
+
+        .eventDateTime {
+          display: flex;
+          align-items: center;
+          margin-bottom: 10px;
+
+          .dateTimeContainer {
+            display: flex;
+            align-items: center;
+            margin-right: 20px;
+
+            .icon {
+              margin-right: 5px;
+              color: #08738a; /* Cor dos ícones */
+            }
+
+            .eventDate,
+            .eventTime {
+              margin: 0;
+              font-size: 16px; /* Tamanho da fonte da data e hora */
+            }
+          }
+        }
+
+        .eventPrice {
+          margin-bottom: 10px;
+        }
+
+        .reserveButton {
+          background-color: #08738a;
+          color: white;
+          border: none;
+          padding: 8px 16px;
+          border-radius: 5px;
+          cursor: pointer;
+          transition: background-color 0.3s ease;
+
+          &:hover {
+            background-color: #065c67;
+          }
+        }
+      }
+    }
+  }
+}

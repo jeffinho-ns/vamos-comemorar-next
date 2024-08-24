@@ -1,0 +1,34 @@
+/* style.scss */
+.mobile-footer {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .mobile-footer {
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+  
+    bottom: 0;
+    width: 100%;
+    background: #f2f2f2;
+    padding: 1rem 0;
+    box-shadow: 0 -1px 6px rgba(0, 0, 0, 0.1);
+  }
+
+  .footer-icons {
+    display: flex;
+    justify-content: space-around;
+    width: 100%;
+  }
+
+  .footer-icon {
+    text-align: center;
+    color: #767676;
+  }
+
+  .footer-icon .icon {
+    width: 24px;
+    height: 24px;
+  }
+}

@@ -1,0 +1,238 @@
+/* Estilos gerais */
+body,
+html {
+  margin: 0;
+  padding: 0;
+  font-family: Arial, sans-serif;
+  box-sizing: border-box;
+}
+
+/* Container do banner */
+.banner-container {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+}
+
+.banner-container img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.register {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background-color: rgba(255, 255, 255, 0.8);
+  padding: 20px;
+  border-radius: 10px;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+  text-align: center;
+  max-width: 900px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.account-text {
+  font-size: 14px;
+  color: #333;
+}
+
+.account-link {
+  color: #007bff;
+  text-decoration: none;
+  font-weight: bold;
+}
+
+.account-link:hover {
+  text-decoration: underline;
+}
+
+.form-container {
+  position: relative;
+  margin-top: 20px;
+  padding: 20px;
+  background-color: #f0f0f0;
+  border-radius: 10px;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+  text-align: center;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.title {
+  margin-bottom: 20px;
+}
+
+.account-text {
+  font-size: 14px;
+  color: #333;
+}
+
+.account-link {
+  color: #007bff;
+  text-decoration: none;
+  font-weight: bold;
+}
+
+.account-link:hover {
+  text-decoration: underline;
+}
+
+/* Estilo do formulário */
+.form-register {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.input-container {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.column {
+  display: flex;
+  flex-direction: column;
+  width: 48%;
+}
+
+.column input,
+.column select {
+  margin-bottom: 15px;
+  width: 100%;
+}
+
+.form-register small {
+  float: right;
+  font-size: 12px;
+}
+
+.form-register a {
+  display: block;
+  margin-top: 10px;
+  font-size: 14px;
+}
+
+/* Estilo do botão de cadastro */
+.btn-register {
+  background-color: #007bff;
+  color: #fff;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 10px;
+  cursor: pointer;
+  width: 250px;
+  margin: 20px auto 0 auto; /* Espaçamento ajustado */
+}
+
+.btn-register:hover {
+  background-color: #0056b3;
+}
+
+/* Ajustes para inputs, botões e selects */
+button,
+input,
+optgroup,
+select,
+textarea {
+  font-family: inherit;
+  font-feature-settings: inherit;
+  font-variation-settings: inherit;
+  font-size: 100%;
+  font-weight: inherit;
+  line-height: inherit;
+  letter-spacing: inherit;
+  color: inherit;
+  padding: 15px;
+  margin: 10px 0;
+  border-radius: 10px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* Ajustes para o checkbox */
+input[type="checkbox"] {
+  width: auto;
+  margin: 0 10px 0 0;
+}
+
+.terms-container {
+  display: flex;
+  align-items: center;
+  margin: 10px 0;
+}
+
+.terms-container label {
+  font-size: 14px;
+  color: #333;
+}
+
+.terms-link {
+  color: #007bff;
+  text-decoration: none;
+}
+
+.terms-link:hover {
+  text-decoration: underline;
+}
+
+/* Ajustes específicos para espaçamento */
+.forgot-password {
+  margin-top: 20px;
+  margin-bottom: 20px;
+  font-size: 14px;
+}
+
+/* Media queries para responsividade */
+@media (max-width: 768px) {
+  .input-container {
+    flex-direction: column;
+  }
+
+  .column {
+    width: 100%;
+  }
+
+  .register {
+    width: 100%;
+    padding: 10px;
+  }
+
+  .btn-register {
+    width: 200px;
+  }
+
+  button,
+  input,
+  optgroup,
+  select,
+  textarea {
+    padding: 12px;
+    margin: 8px 0;
+  }
+}
+
+@media (max-width: 480px) {
+  .register {
+    width: 100%;
+    padding: 10px;
+  }
+
+  .btn-register {
+    width: 100%;
+  }
+
+  button,
+  input,
+  optgroup,
+  select,
+  textarea {
+    padding: 10px;
+    margin: 5px 0;
+  }
+}

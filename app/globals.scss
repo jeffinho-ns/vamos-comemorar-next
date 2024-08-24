@@ -1,0 +1,69 @@
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* {
+  margin: 0;
+  padding: 0;
+  outline: 0;
+  box-sizing: border-box;
+}
+
+html,
+body {
+  width: 100%;
+  height: 100%;
+  background-color: white;
+}
+
+main.container.pl-8.pr-5.bg-white.pb-8 {
+  margin: 0 auto;
+}
+
+.relative.w-full.h-48.-mt-16 {
+  height: 300px;
+  width: 90%;
+  margin: 0 auto;
+}
+
+.relative.bg-white.rounded-lg.shadow-md.overflow-hidden.mx-4.mt-16 {
+  height: 570px;
+}
+
+p.text-gray-700.mb-2 {
+  color: #08738a;
+}
+
+.text-xl {
+  font-size: 35px;
+  line-height: 2rem;
+}
+
+
+.card-container {
+  position: relative;
+  overflow: hidden;
+}
+
+.card-button {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background-color: rgba(0, 0, 0, 0.7);
+  color: white;
+  padding: 8px 16px;
+  border: none;
+  border-radius: 4px;
+  opacity: 0;
+  transition: opacity 0.3s ease-in-out;
+}
+
+.card-container:hover .card-button {
+  opacity: 1;
+}
+
+button.bg-blue-500.text-white.py-2.px-4.rounded {
+  width: 20%;
+}

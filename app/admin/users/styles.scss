@@ -1,0 +1,19 @@
+@use "../../variables";
+
+.table-container {
+  width: 100%;
+}
+
+.search-container {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  padding: 1rem;
+}
+
+.search-container .search-input {
+  background-color: variables.$bg-white;
+  padding: 1rem;
+  box-shadow: 1px 1px 10px #cecece;
+  margin-bottom: 48px;
+}

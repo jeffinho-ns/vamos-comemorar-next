@@ -1,0 +1,48 @@
+@use '../../variables'
+
+.table-container 
+    width: 100%
+
+    .search-container
+        display: flex
+        flex-direction: column
+        width: 100%
+        padding: 1rem
+
+        .search-input
+            background-color: variables.$bg-white
+            padding: 1rem
+            box-shadow: 1px 1px 10px #cecece
+            margin-bottom: 48px
+
+        .search-select
+            background-color: #D1D7DB
+            padding: 1rem
+            box-shadow: 1px 1px 10px #cecece
+
+
+    .btn-table-actions
+        display: flex
+        padding: 1rem
+        width: 100%
+
+        .btn-add,
+        .btn-refresh
+            width: 56px
+            height: 56px
+            border-radius: 50%
+            display: flex
+            justify-content: center
+            align-items: center
+            color: #fff
+            font-size: 1.5rem
+
+        .btn-add
+            background-color: variables.$bg-secondary-color-blue
+        
+        .btn-refresh
+            background-color: variables.$bg-dark-gray
+            margin-right: 1rem
+
+
+   

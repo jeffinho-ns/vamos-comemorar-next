@@ -1,0 +1,270 @@
+/* Global Styles */
+.bannerContainer {
+  position: relative;
+  width: 100%;
+  height: 600px;
+}
+
+.bannerImage {
+  object-fit: cover;
+}
+
+.barInfo {
+  padding: 20px;
+  text-align: center;
+}
+
+.barName {
+  font-size: 2rem;
+  font-weight: bold;
+  text-align: center;
+  margin-top: 2rem;
+}
+
+
+.reserveButton {
+  background-color: #08738a;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+
+  &:hover {
+    background-color: #065c67;
+  }
+}
+.barDetails {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 1rem;
+}
+
+.icon {
+  margin-right: 10px;
+}
+
+.barDescription {
+  font-size: 1rem;
+  color: #555;
+  padding-top: 3rem;
+  text-align: center;
+  padding-left: 10rem;
+  padding-right: 10rem;
+}
+
+.sections {
+  padding: 20px;
+  text-align: center;
+}
+
+.section {
+  margin-bottom: 40px;
+}
+
+.sectionTitle {
+  font-size: 1.8rem;
+  margin-bottom: 20px;
+  text-align: left;
+  padding-left: 10rem;
+}
+
+.images {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.image {
+  cursor: pointer;
+  transition: transform 0.3s;
+  width: 400px;
+  height: 250px;
+  object-fit: cover;
+  border-radius: 5px;
+}
+
+.image:hover {
+  transform: scale(1.05);
+}
+
+.mapContainer {
+  width: 100%;
+  height: 450px;
+  margin: 20px 0;
+  text-align: center;
+}
+
+.flexButtonContainer {
+  position: absolute;
+  bottom: -32px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: #fff;
+  width: 30%;
+  padding: 1rem;
+  border-radius: 20px;
+}
+
+.flexButtonContainerBar {
+  display: flex;
+  justify-content: space-between;
+  width: 70%;
+}
+
+.button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background-color: #fff;
+  color: #666;
+  padding: 1px;
+  border: none;
+  border-radius: 20px;
+  cursor: pointer;
+  transition: background-color 0.3s ease, transform 0.3s ease;
+  width: 50%;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  text-align: center;
+}
+
+.button:hover {
+  background-color: #f0f0f0;
+  transform: translateY(-5px);
+}
+
+.button .icon {
+  font-size: 2rem;
+  margin-bottom: 0.5rem;
+}
+
+/* Specific Components */
+
+/* Modal Image */
+.modalImageContainer {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.modalImage {
+  max-width: 90vw;
+  max-height: 90vh;
+  object-fit: contain;
+}
+
+/* Bar Info Section */
+.barInfo {
+  .infoContainer {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: flex-start;
+
+    @media (max-width: 768px) {
+      flex-direction: column;
+    }
+  }
+
+  .leftColumn {
+    flex-basis: calc(33.33% - 20px);
+    margin-right: 20px;
+
+    @media (max-width: 768px) {
+      margin-right: 0;
+      margin-bottom: 20px;
+      flex-basis: 100%;
+    }
+  }
+
+  .middleColumn {
+    flex-basis: 200px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-right: 20px;
+
+    @media (max-width: 768px) {
+      margin-right: 0;
+      margin-bottom: 20px;
+      flex-basis: 100%;
+    }
+  }
+
+  .rightColumn {
+    flex-basis: calc(33.33% - 20px);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-top: 50px;
+
+    @media (max-width: 768px) {
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .iconContainer {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      flex-wrap: wrap;
+
+      .iconItem {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+
+        img {
+          width: 40px;
+          height: 40px;
+          object-fit: cover;
+          border-radius: 50%;
+        }
+
+        .iconTitle {
+          font-size: 0.8rem;
+          color: #888;
+          margin-top: 5px;
+        }
+      }
+    }
+  }
+}
+/* Modal Styles */
+.modal {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  right: auto;
+  bottom: auto;
+  transform: translate(-50%, -50%);
+  background: white;
+  padding: 20px;
+  border-radius: 10px;
+  max-width: 90vw;
+  max-height: 90vh;
+  overflow: auto;
+}
+
+.modalOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.75);
+}
+
+
+

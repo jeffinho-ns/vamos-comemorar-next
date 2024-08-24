@@ -1,0 +1,21 @@
+.app {
+  height: 100vh;
+  display: block;
+}
+
+.background-gradient {
+  background: linear-gradient(
+    0deg,
+    rgba(44, 44, 44, 0.2),
+    rgba(53, 47, 173, 0.6)
+  ) !important;
+}
+
+.img-banner {
+  background-position: 25% 75%;
+}
+
+.form-search {
+  border-top-left-radius: 30px;
+  border-top-right-radius: 30px;
+}
