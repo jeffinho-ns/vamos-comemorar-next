@@ -1,0 +1,167 @@
+/*!********************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************!*\
+  !*** css ./node_modules/next/dist/build/webpack/loaders/css-loader/src/index.js??ruleSet[1].rules[13].oneOf[9].use[2]!./node_modules/next/dist/build/webpack/loaders/postcss-loader/src/index.js??ruleSet[1].rules[13].oneOf[9].use[3]!./node_modules/next/dist/build/webpack/loaders/resolve-url-loader/index.js??ruleSet[1].rules[13].oneOf[9].use[4]!./node_modules/next/dist/compiled/sass-loader/cjs.js??ruleSet[1].rules[13].oneOf[9].use[5]!./app/webapp/components/headerNotificatioin/headerNotification.module.scss ***!
+  \********************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************/
+@charset "UTF-8";
+/* headerLike.module.scss */
+.headerNotification_headerLike__56AM3 {
+  background: transparent;
+  padding: 0.5rem; /* Ajuste o padding se necessário */
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  position: fixed; /* Mantenha o header fixo no topo */
+  z-index: 9;
+  width: 100%;
+  top: 0;
+  left: 0;
+}
+/*!***************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************!*\
+  !*** css ./node_modules/next/dist/build/webpack/loaders/css-loader/src/index.js??ruleSet[1].rules[13].oneOf[13].use[2]!./node_modules/next/dist/build/webpack/loaders/postcss-loader/src/index.js??ruleSet[1].rules[13].oneOf[13].use[3]!./node_modules/next/dist/build/webpack/loaders/resolve-url-loader/index.js??ruleSet[1].rules[13].oneOf[13].use[4]!./node_modules/next/dist/compiled/sass-loader/cjs.js??ruleSet[1].rules[13].oneOf[13].use[5]!./app/webapp/components/footer/style.scss ***!
+  \***************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************/
+/* style.scss */
+.mobile-footer {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .mobile-footer {
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    bottom: 0;
+    width: 100%;
+    background: #f2f2f2;
+    padding: 1rem 0;
+    box-shadow: 0 -1px 6px rgba(0, 0, 0, 0.1);
+    border-radius: 20px;
+  }
+  .footer-icons {
+    display: flex;
+    justify-content: space-around;
+    width: 100%;
+  }
+  .footer-icon {
+    text-align: center;
+    color: #767676;
+  }
+  .footer-icon .icon {
+    width: 24px;
+    height: 24px;
+  }
+}
+/*!**********************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************!*\
+  !*** css ./node_modules/next/dist/build/webpack/loaders/css-loader/src/index.js??ruleSet[1].rules[13].oneOf[9].use[2]!./node_modules/next/dist/build/webpack/loaders/postcss-loader/src/index.js??ruleSet[1].rules[13].oneOf[9].use[3]!./node_modules/next/dist/build/webpack/loaders/resolve-url-loader/index.js??ruleSet[1].rules[13].oneOf[9].use[4]!./node_modules/next/dist/compiled/sass-loader/cjs.js??ruleSet[1].rules[13].oneOf[9].use[5]!./app/webapp/profile/profile.module.scss ***!
+  \**********************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************/
+.profile_profileContainer__Q8tHd {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background-color: white;
+  min-height: 100vh;
+  padding: 2rem;
+}
+
+button.profile_w-full__6q0sB.profile_bg-teal-500__UINHz.profile_text-white__ltneg.profile_py-2__e2vJ9.profile_rounded-lg__fkRx9.profile_mb-4__FGh1C.profile_flex__vbsGt.profile_items-center__iDK0S.profile_justify-center__giCD8 {
+  height: 100px;
+  border-radius: 30px;
+  width: 50%;
+  margin: 0 auto;
+}
+
+.profile_profileContent__GErg7 {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  max-width: 500px;
+  flex-grow: 1;
+}
+
+.profile_profileHeader__CVgBY {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+.profile_profilePicture__Cuf0b {
+  width: 6rem;
+  height: 6rem;
+  background-color: #e0e0e0;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 0.5rem;
+}
+
+.profile_profilePictureText__xmIiQ {
+  color: #7d7d7d;
+}
+
+.profile_profileName__Zl_Bj {
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.profile_profileId__jEHrL {
+  color: #7d7d7d;
+}
+
+.profile_profileActions__UR_IZ {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.profile_profileActionItem__8rtjV {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  padding: 1rem;
+  border-bottom: 1px solid #e0e0e0;
+  cursor: pointer;
+}
+
+.profile_profileActionItem__8rtjV:last-child {
+  border-bottom: none;
+}
+
+.profile_actionReservas__tdQRJ {
+  background-color: #00796b;
+  color: white;
+  border-radius: 0.5rem;
+  justify-content: center;
+  margin-bottom: 1rem;
+}
+
+.profile_actionIcon__CuyxP {
+  margin-right: 0.5rem;
+}
+
+.profile_actionText__V8Xxq {
+  font-size: 1rem;
+}
+
+.profile_actionArrow__gyb5P {
+  margin-left: auto;
+  color: #7d7d7d;
+}
+
+@media (max-width: 768px) {
+  .profile_mobile-footer__YvkOi {
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    bottom: 0;
+    width: 100%;
+    background: #f2f2f2;
+    padding: 1rem 0;
+    box-shadow: 0 -1px 6px rgba(0, 0, 0, 0.1);
+    border-radius: 20px;
+    position: absolute;
+  }
+}
+.profile_mobile-footer__YvkOi {
+  position: absolute;
+}

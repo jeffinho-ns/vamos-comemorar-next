@@ -1,0 +1,14 @@
+/* headerLike.module.scss */
+.headerLike {
+  background: transparent;
+  padding: 0.5rem; /* Ajuste o padding se necessário */
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  position: fixed; /* Mantenha o header fixo no topo */
+  z-index: 9;
+  width: 100%;
+  top: 0;
+  left: 0;
+}
+

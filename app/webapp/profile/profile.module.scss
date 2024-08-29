@@ -1,0 +1,115 @@
+.profileContainer {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    background-color: white;
+    min-height: 100vh;
+    padding: 2rem;
+  }
+
+  button.w-full.bg-teal-500.text-white.py-2.rounded-lg.mb-4.flex.items-center.justify-center {
+    height: 100px;
+    border-radius: 30px;
+    width: 50%;
+    margin: 0 auto;
+}
+  
+  .profileContent {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+    max-width: 500px;
+    flex-grow: 1;
+  }
+  
+  .profileHeader {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-bottom: 1.5rem;
+  }
+  
+  .profilePicture {
+    width: 6rem;
+    height: 6rem;
+    background-color: #e0e0e0;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 0.5rem;
+  }
+  
+  .profilePictureText {
+    color: #7d7d7d;
+  }
+  
+  .profileName {
+    font-size: 1.25rem;
+    font-weight: 600;
+  }
+  
+  .profileId {
+    color: #7d7d7d;
+  }
+  
+  .profileActions {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+  }
+  
+  .profileActionItem {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    padding: 1rem;
+    border-bottom: 1px solid #e0e0e0;
+    cursor: pointer;
+  }
+  
+  .profileActionItem:last-child {
+    border-bottom: none;
+  }
+  
+  .actionReservas {
+    background-color: #00796b;
+    color: white;
+    border-radius: 0.5rem;
+    justify-content: center;
+    margin-bottom: 1rem;
+  }
+  
+  .actionIcon {
+    margin-right: 0.5rem;
+  }
+  
+  .actionText {
+    font-size: 1rem;
+  }
+  
+  .actionArrow {
+    margin-left: auto;
+    color: #7d7d7d;
+  }
+  
+  @media (max-width: 768px) {
+    .mobile-footer {
+        display: flex;
+        justify-content: space-around;
+        align-items: center;
+        bottom: 0;
+        width: 100%;
+        background: #f2f2f2;
+        padding: 1rem 0;
+        box-shadow: 0 -1px 6px rgba(0, 0, 0, 0.1);
+        border-radius: 20px;
+        position: absolute;
+    }
+}
+
+.mobile-footer {
+ 
+    position: absolute;
+}
