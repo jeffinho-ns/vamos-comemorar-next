@@ -1,9 +1,10 @@
 {
   "/_not-found/page": "app/_not-found/page.js",
-  "/webapp/profile/page": "app/webapp/profile/page.js",
   "/webapp/page": "app/webapp/page.js",
+  "/justino/page": "app/justino/page.js",
+  "/ohfregues/page": "app/ohfregues/page.js",
+  "/about/page": "app/about/page.js",
   "/webapp/pracinha/page": "app/webapp/pracinha/page.js",
-  "/page": "app/page.js",
-  "/login/page": "app/login/page.js",
-  "/favicon.ico/route": "app/favicon.ico/route.js"
+  "/favicon.ico/route": "app/favicon.ico/route.js",
+  "/webapp/profile/page": "app/webapp/profile/page.js"
 }
