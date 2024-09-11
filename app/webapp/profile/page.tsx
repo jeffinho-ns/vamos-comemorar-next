@@ -21,7 +21,7 @@ export default function PerfilMobile() {
           <div className="w-24 h-24 bg-gray-200 rounded-full flex items-center justify-center mb-2">
             <span className="text-gray-500">Adicionar foto</span>
           </div>
-          <h2 className="text-xl font-semibold">Renan Santos</h2>
+          <h2 className="text-xl font-semibold">Jefferson Lima</h2>
           <p className="text-gray-400">ID : 0000001</p>
         </div>
 

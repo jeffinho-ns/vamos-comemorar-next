@@ -8,10 +8,6 @@ const HeaderNotification = () => {
   const [likes, setLikes] = useState(0);
   const [router, setRouter] = useState(null);
 
-  useEffect(() => {
-    // Verifica se está no lado do cliente e inicializa o router
-    import("next/router").then((mod) => setRouter(mod.useRouter()));
-  }, []);
 
   const handleBackClick = () => {
     window.history.back();
