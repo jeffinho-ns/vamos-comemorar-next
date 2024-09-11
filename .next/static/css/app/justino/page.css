@@ -1,0 +1,768 @@
+/*!********************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************!*\
+  !*** css ./node_modules/next/dist/build/webpack/loaders/css-loader/src/index.js??ruleSet[1].rules[13].oneOf[13].use[2]!./node_modules/next/dist/build/webpack/loaders/postcss-loader/src/index.js??ruleSet[1].rules[13].oneOf[13].use[3]!./node_modules/next/dist/build/webpack/loaders/resolve-url-loader/index.js??ruleSet[1].rules[13].oneOf[13].use[4]!./node_modules/next/dist/compiled/sass-loader/cjs.js??ruleSet[1].rules[13].oneOf[13].use[5]!./app/components/footer/style.scss ***!
+  \********************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************/
+footer.bg-neutral-100.text-center.text-neutral-600.dark\:bg-neutral-600.dark\:text-neutral-200.lg\:text-left {
+  padding: 3rem;
+  background: #f2f2f2;
+  color: #767676;
+}
+
+a.text-neutral-600.dark\:text-neutral-200 {
+  color: #767676;
+}
+
+.bg-neutral-200.p-6.text-center.dark\:bg-neutral-700 {
+  background: #cfcfcf;
+}
+/*!*********************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************!*\
+  !*** css ./node_modules/next/dist/build/webpack/loaders/css-loader/src/index.js??ruleSet[1].rules[13].oneOf[13].use[2]!./node_modules/next/dist/build/webpack/loaders/postcss-loader/src/index.js??ruleSet[1].rules[13].oneOf[13].use[3]!./node_modules/next/dist/build/webpack/loaders/resolve-url-loader/index.js??ruleSet[1].rules[13].oneOf[13].use[4]!./node_modules/next/dist/compiled/sass-loader/cjs.js??ruleSet[1].rules[13].oneOf[13].use[5]!./app/components/header/styles.scss ***!
+  \*********************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************/
+.hideMenuNav {
+  display: none;
+}
+
+.showMenuNav {
+  display: block;
+  position: absolute;
+  width: 100%;
+  height: 100vh;
+  top: 0;
+  left: 0;
+  background: white;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-evenly;
+  align-items: center;
+}
+
+header.bg-transparent {
+  background: transparent;
+}
+header.bg-blue-800 {
+  background: rgb(53, 47, 173);
+}
+/*!**********************************************************************************************************************************************************************************************************************************************************************************************!*\
+  !*** css ./node_modules/next/dist/build/webpack/loaders/css-loader/src/index.js??ruleSet[1].rules[13].oneOf[12].use[2]!./node_modules/next/dist/build/webpack/loaders/postcss-loader/src/index.js??ruleSet[1].rules[13].oneOf[12].use[3]!./node_modules/react-multi-carousel/lib/styles.css ***!
+  \**********************************************************************************************************************************************************************************************************************************************************************************************/
+@font-face{font-family:"revicons";fallback:fallback;src:url(/_next/static/media/revicons.ff59b316.woff) format('woff'),url(/_next/static/media/revicons.b96bdb22.ttf) format('ttf'),url(/_next/static/media/revicons.652e7269.eot) format('ttf')}.react-multi-carousel-list{display:flex;align-items:center;overflow:hidden;position:relative}.react-multi-carousel-track{list-style:none;padding:0;margin:0;display:flex;flex-direction:row;position:relative;transform-style:preserve-3d;backface-visibility:hidden;will-change:transform,transition}.react-multiple-carousel__arrow{position:absolute;outline:0;transition:all .5s;border-radius:35px;z-index:1000;border:0;background:rgba(0,0,0,0.5);min-width:43px;min-height:43px;opacity:1;cursor:pointer}.react-multiple-carousel__arrow:hover{background:rgba(0,0,0,0.8)}.react-multiple-carousel__arrow::before{font-size:20px;color:#fff;display:block;font-family:revicons;text-align:center;z-index:2;position:relative}.react-multiple-carousel__arrow:disabled{cursor:default;background:rgba(0,0,0,0.5)}.react-multiple-carousel__arrow--left{left:calc(4% + 1px)}.react-multiple-carousel__arrow--left::before{content:"\e824"}.react-multiple-carousel__arrow--right{right:calc(4% + 1px)}.react-multiple-carousel__arrow--right::before{content:"\e825"}.react-multi-carousel-dot-list{position:absolute;bottom:0;display:flex;left:0;right:0;justify-content:center;margin:auto;padding:0;margin:0;list-style:none;text-align:center}.react-multi-carousel-dot button{display:inline-block;width:12px;height:12px;border-radius:50%;opacity:1;padding:5px 5px 5px 5px;box-shadow:none;transition:background .5s;border-width:2px;border-style:solid;border-color:grey;padding:0;margin:0;margin-right:6px;outline:0;cursor:pointer}.react-multi-carousel-dot button:hover:active{background:#080808}.react-multi-carousel-dot--active button{background:#080808}.react-multi-carousel-item{transform-style:preserve-3d;backface-visibility:hidden}@media all and (-ms-high-contrast:none),(-ms-high-contrast:active){.react-multi-carousel-item{flex-shrink:0 !important}.react-multi-carousel-track{overflow:visible !important}}[dir='rtl'].react-multi-carousel-list{direction:rtl}.rtl.react-multiple-carousel__arrow--right{right:auto;left:calc(4% + 1px)}.rtl.react-multiple-carousel__arrow--right::before{content:"\e824"}.rtl.react-multiple-carousel__arrow--left{left:auto;right:calc(4% + 1px)}.rtl.react-multiple-carousel__arrow--left::before{content:"\e825"}
+/*!**********************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************!*\
+  !*** css ./node_modules/next/dist/build/webpack/loaders/css-loader/src/index.js??ruleSet[1].rules[13].oneOf[9].use[2]!./node_modules/next/dist/build/webpack/loaders/postcss-loader/src/index.js??ruleSet[1].rules[13].oneOf[9].use[3]!./node_modules/next/dist/build/webpack/loaders/resolve-url-loader/index.js??ruleSet[1].rules[13].oneOf[9].use[4]!./node_modules/next/dist/compiled/sass-loader/cjs.js??ruleSet[1].rules[13].oneOf[9].use[5]!./app/components/programacao/programacao.module.scss ***!
+  \**********************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************/
+@charset "UTF-8";
+.programacao_programacao__yzjaS h2 {
+  padding: 0 5rem 1rem;
+  font-size: 24px;
+  font-family: Poppins;
+}
+.programacao_programacao__yzjaS .programacao_events__fr3KV {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  flex-wrap: wrap;
+  padding-left: 5rem;
+  padding-right: 5rem;
+}
+.programacao_programacao__yzjaS .programacao_events__fr3KV .programacao_eventCard__I6H_Z {
+  display: flex;
+  background-color: white;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+  overflow: hidden;
+  width: calc(25% - 20px);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+.programacao_programacao__yzjaS .programacao_events__fr3KV .programacao_eventCard__I6H_Z:hover {
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+.programacao_programacao__yzjaS .programacao_events__fr3KV .programacao_eventCard__I6H_Z .programacao_eventImage__D3ilm {
+  width: 45%;
+  height: 260px;
+  object-fit: cover;
+  border-top-left-radius: 5px;
+  border-top-right-radius: 5px;
+}
+.programacao_programacao__yzjaS .programacao_events__fr3KV .programacao_eventCard__I6H_Z .programacao_eventDetails___ATug {
+  padding: 1rem;
+  margin: 0 auto;
+}
+.programacao_programacao__yzjaS .programacao_events__fr3KV .programacao_eventCard__I6H_Z .programacao_eventDetails___ATug .programacao_eventTitle__nsBOZ {
+  font-size: 20px;
+  margin: 10px 0;
+  font-family: Poppins;
+  color: #08738a;
+  font-weight: 500;
+}
+.programacao_programacao__yzjaS .programacao_events__fr3KV .programacao_eventCard__I6H_Z .programacao_eventDetails___ATug .programacao_eventDateTime__3zjvb {
+  display: flex;
+  align-items: center;
+  margin-bottom: 10px;
+}
+.programacao_programacao__yzjaS .programacao_events__fr3KV .programacao_eventCard__I6H_Z .programacao_eventDetails___ATug .programacao_eventDateTime__3zjvb .programacao_dateTimeContainer___Wl0t {
+  display: flex;
+  align-items: center;
+  margin-right: 20px;
+}
+.programacao_programacao__yzjaS .programacao_events__fr3KV .programacao_eventCard__I6H_Z .programacao_eventDetails___ATug .programacao_eventDateTime__3zjvb .programacao_dateTimeContainer___Wl0t .programacao_icon__jLBlY {
+  margin-right: 5px;
+  color: #08738a; /* Cor dos ícones */
+}
+.programacao_programacao__yzjaS .programacao_events__fr3KV .programacao_eventCard__I6H_Z .programacao_eventDetails___ATug .programacao_eventDateTime__3zjvb .programacao_dateTimeContainer___Wl0t .programacao_eventDate__hrS_Z,
+.programacao_programacao__yzjaS .programacao_events__fr3KV .programacao_eventCard__I6H_Z .programacao_eventDetails___ATug .programacao_eventDateTime__3zjvb .programacao_dateTimeContainer___Wl0t .programacao_eventTime__Klfzo {
+  margin: 0;
+  font-size: 16px; /* Tamanho da fonte da data e hora */
+}
+.programacao_programacao__yzjaS .programacao_events__fr3KV .programacao_eventCard__I6H_Z .programacao_eventDetails___ATug .programacao_eventPrice__l2gdr {
+  margin-bottom: 10px;
+}
+.programacao_programacao__yzjaS .programacao_events__fr3KV .programacao_eventCard__I6H_Z .programacao_eventDetails___ATug .programacao_reserveButton__Kp0wn {
+  background-color: #08738a;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+.programacao_programacao__yzjaS .programacao_events__fr3KV .programacao_eventCard__I6H_Z .programacao_eventDetails___ATug .programacao_reserveButton__Kp0wn:hover {
+  background-color: #065c67;
+}
+/*!********************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************!*\
+  !*** css ./node_modules/next/dist/build/webpack/loaders/css-loader/src/index.js??ruleSet[1].rules[13].oneOf[9].use[2]!./node_modules/next/dist/build/webpack/loaders/postcss-loader/src/index.js??ruleSet[1].rules[13].oneOf[9].use[3]!./node_modules/next/dist/build/webpack/loaders/resolve-url-loader/index.js??ruleSet[1].rules[13].oneOf[9].use[4]!./node_modules/next/dist/compiled/sass-loader/cjs.js??ruleSet[1].rules[13].oneOf[9].use[5]!./app/components/reservationModal/reservationModal.module.scss ***!
+  \********************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************/
+.reservationModal_modal___JKtZ {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 90%;
+  max-width: 800px;
+  max-height: 90vh;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.reservationModal_reservationTitle__Pycbd {
+  font-size: 17px;
+  font-weight: bold;
+  text-align: center;
+  color: #555;
+}
+
+.reservationModal_reservationDescription__B_gEz {
+  font-size: 15px;
+  color: #555;
+  padding-top: 1rem;
+  text-align: center;
+  padding-left: 3rem;
+  padding-right: 3rem;
+}
+
+.reservationModal_overlay__L6acz {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.75);
+  z-index: 1000;
+}
+
+.reservationModal_modalContent__djoK4 {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow-y: auto;
+}
+
+.reservationModal_header__UKJ6F {
+  display: flex;
+  flex: 1;
+  flex-direction: row;
+}
+@media (max-width: 600px) {
+  .reservationModal_header__UKJ6F {
+    flex-direction: column;
+  }
+}
+
+.reservationModal_gin__wMQXd {
+  margin: 0 auto;
+}
+
+.reservationModal_image__0kOUO {
+  width: 50%;
+  height: auto;
+  object-fit: cover;
+  border-radius: 30px;
+  padding: 1rem;
+}
+@media (max-width: 600px) {
+  .reservationModal_image__0kOUO {
+    width: 100%;
+  }
+}
+
+.reservationModal_rightColumn__YuXLO {
+  width: 50%;
+  padding: 16px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+@media (max-width: 600px) {
+  .reservationModal_rightColumn__YuXLO {
+    width: 100%;
+  }
+}
+
+.reservationModal_logo__VEcJ7 {
+  width: 120px;
+  height: auto;
+  margin-bottom: 8px;
+}
+
+.reservationModal_address__DTmag {
+  font-size: 12px;
+  color: #555;
+  margin-bottom: 12px;
+  text-align: center;
+}
+
+.reservationModal_iconContainer__il3Qk {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+
+.reservationModal_iconItem__iJZ_M {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.reservationModal_iconTitle__aho15 {
+  margin-top: 4px;
+  font-size: 10px;
+  text-align: center;
+}
+
+.reservationModal_body__rKzAU {
+  flex: 2;
+  padding: 1rem;
+  padding-right: 3rem;
+  padding-left: 3rem;
+}
+
+.reservationModal_guests__4Eq6D {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.reservationModal_counterButton__pBDOJ {
+  width: 30px;
+  height: 30px;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.reservationModal_select__8UQFf,
+.reservationModal_dateInput__dgz1i {
+  width: 100%;
+  padding: 8px;
+  margin-top: 8px;
+}
+
+.reservationModal_reserveButton__eU_U9 {
+  width: calc(100% - 32px);
+  margin: 16px;
+  padding: 10px;
+  background-color: #0066cc;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.reservationModal_reserveButton__eU_U9:hover {
+  background-color: #005bb5;
+}
+
+.reservationModal_footer__GHohi {
+  text-align: center;
+  margin-top: -16px;
+}
+
+.reservationModal_disclaimer__rIXEJ {
+  font-size: 10px;
+  color: #777;
+  padding: 0 16px 16px;
+}
+
+.reservationModal_sectionHeader__JcRD9 {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.reservationModal_sectionIcon__GIino {
+  font-size: 24px;
+}
+
+.reservationModal_sectionTitle__qKMJd {
+  flex-grow: 1;
+  text-align: left;
+  font-size: 18px;
+  margin: 0;
+}
+
+.reservationModal_counter__wk8eJ {
+  display: flex;
+  align-items: center;
+}
+
+.reservationModal_counterButton__pBDOJ {
+  background-color: #f44336;
+  color: white;
+  border: none;
+  padding: 5px 10px;
+  font-size: 18px;
+  cursor: pointer;
+  border-radius: 20px;
+}
+
+.reservationModal_counterValue__MFafG {
+  margin: 0 10px;
+  font-size: 18px;
+}
+
+.reservationModal_select__8UQFf {
+  width: 80%;
+  padding: 10px;
+  font-size: 16px;
+  margin: 0px 0px 0px 50px;
+}
+
+.reservationModal_priceContainer__tKqqV {
+  display: flex;
+  align-items: center;
+  flex-direction: column;
+}
+
+.reservationModal_priceInfo__Oo_i3 {
+  margin-left: 90px;
+  color: #757575;
+  font-size: 10px;
+}
+
+.reservationModal_dateInput__dgz1i {
+  width: 21%;
+  padding: 10px;
+  margin-top: 10px;
+  font-size: 16px;
+}
+
+.reservationModal_reserveButton__eU_U9 {
+  background-color: #008cba;
+  color: white;
+  padding: 10px 20px;
+  border: none;
+  cursor: pointer;
+  font-size: 18px;
+  width: 30%;
+  border-radius: 15px;
+}
+
+.reservationModal_disclaimer__rIXEJ {
+  margin-top: -10px;
+  color: #757575;
+  font-size: 10px;
+}
+/*!**************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************!*\
+  !*** css ./node_modules/next/dist/build/webpack/loaders/css-loader/src/index.js??ruleSet[1].rules[13].oneOf[9].use[2]!./node_modules/next/dist/build/webpack/loaders/postcss-loader/src/index.js??ruleSet[1].rules[13].oneOf[9].use[3]!./node_modules/next/dist/build/webpack/loaders/resolve-url-loader/index.js??ruleSet[1].rules[13].oneOf[9].use[4]!./node_modules/next/dist/compiled/sass-loader/cjs.js??ruleSet[1].rules[13].oneOf[9].use[5]!./app/components/profile/profile.module.scss ***!
+  \**************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************/
+.profile_modal__rUF0x {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 90%;
+  max-width: 800px;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.profile_overlay__04N75 {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.75);
+  z-index: 1000;
+}
+
+.profile_modalContent__gg9fv {
+  width: 100%;
+  padding: 2rem;
+  box-sizing: border-box;
+}
+
+.profile_header__zuCo1 {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 2rem;
+}
+
+.profile_profilePicContainer__sCT_D {
+  position: relative;
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  overflow: hidden;
+  background: #f0f0f0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  cursor: pointer;
+}
+
+.profile_profilePic__qhK6G {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  height: 100%;
+  font-size: 16px;
+  color: #888;
+  position: relative;
+}
+
+.profile_profilePicImage__n_QI8 {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+}
+
+.profile_profileForm__vcDhD {
+  width: 100%;
+}
+
+.profile_formRow__mFbHf {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+
+.profile_formRow__mFbHf input {
+  flex: 1;
+  min-width: 45%;
+  padding: 0.5rem;
+  margin-bottom: 1rem;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+
+.profile_formRow__mFbHf input[type=date] {
+  min-width: 30%;
+}
+
+.profile_updateButton__BihgN {
+  background-color: #008cba;
+  color: white;
+  padding: 10px 20px;
+  border: none;
+  cursor: pointer;
+  font-size: 18px;
+  border-radius: 15px;
+  width: 100%;
+  max-width: 200px;
+  align-self: center;
+}
+
+.profile_updateButton__BihgN:hover {
+  background-color: #005bb5;
+}
+/*!***************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************!*\
+  !*** css ./node_modules/next/dist/build/webpack/loaders/css-loader/src/index.js??ruleSet[1].rules[13].oneOf[9].use[2]!./node_modules/next/dist/build/webpack/loaders/postcss-loader/src/index.js??ruleSet[1].rules[13].oneOf[9].use[3]!./node_modules/next/dist/build/webpack/loaders/resolve-url-loader/index.js??ruleSet[1].rules[13].oneOf[9].use[4]!./node_modules/next/dist/compiled/sass-loader/cjs.js??ruleSet[1].rules[13].oneOf[9].use[5]!./app/justino/justino.module.scss ***!
+  \***************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************/
+/* Global Styles */
+.justino_bannerContainer__kg3Hm {
+  position: relative;
+  width: 100%;
+  height: 600px;
+}
+
+.justino_bannerImage__DoREp {
+  object-fit: cover;
+}
+
+.justino_barInfo__ksP99 {
+  padding: 20px;
+  text-align: center;
+}
+
+.justino_barName__q2W7a {
+  font-size: 2rem;
+  font-weight: bold;
+  text-align: center;
+  margin-top: 2rem;
+}
+
+.justino_reserveButton__mg2_v {
+  background-color: #08738a;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+.justino_reserveButton__mg2_v:hover {
+  background-color: #065c67;
+}
+
+.justino_barDetails__Q6_jK {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 1rem;
+}
+
+.justino_icon__AJjtV {
+  margin-right: 10px;
+}
+
+.justino_barDescription__z_DYo {
+  font-size: 1rem;
+  color: #555;
+  padding-top: 3rem;
+  text-align: center;
+  padding-left: 10rem;
+  padding-right: 10rem;
+}
+
+.justino_sections__ofKVD {
+  padding: 20px;
+  text-align: center;
+}
+
+.justino_section__hbYhM {
+  margin-bottom: 40px;
+}
+
+.justino_sectionTitle__leeBs {
+  font-size: 1.8rem;
+  margin-bottom: 20px;
+  text-align: left;
+  padding-left: 10rem;
+}
+
+.justino_images__EM6xu {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.justino_image__9Ru4_ {
+  cursor: pointer;
+  transition: transform 0.3s;
+  width: 400px;
+  height: 250px;
+  object-fit: cover;
+  border-radius: 5px;
+}
+
+.justino_image__9Ru4_:hover {
+  transform: scale(1.05);
+}
+
+.justino_mapContainer__jxrkD {
+  width: 100%;
+  height: 450px;
+  margin: 20px 0;
+  text-align: center;
+}
+
+.justino_flexButtonContainer__pwFM1 {
+  position: absolute;
+  bottom: -32px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: #fff;
+  width: 30%;
+  padding: 1rem;
+  border-radius: 20px;
+}
+
+.justino_flexButtonContainerBar__v_EZl {
+  display: flex;
+  justify-content: space-between;
+  width: 70%;
+}
+
+.justino_button__kyL7z {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background-color: #fff;
+  color: #666;
+  padding: 1px;
+  border: none;
+  border-radius: 20px;
+  cursor: pointer;
+  transition: background-color 0.3s ease, transform 0.3s ease;
+  width: 50%;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  text-align: center;
+}
+
+.justino_button__kyL7z:hover {
+  background-color: #f0f0f0;
+  transform: translateY(-5px);
+}
+
+.justino_button__kyL7z .justino_icon__AJjtV {
+  font-size: 2rem;
+  margin-bottom: 0.5rem;
+}
+
+/* Specific Components */
+/* Modal Image */
+.justino_modalImageContainer__M9KDy {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.justino_modalImage__8cTTI {
+  max-width: 90vw;
+  max-height: 90vh;
+  object-fit: contain;
+}
+
+/* Bar Info Section */
+.justino_barInfo__ksP99 .justino_infoContainer__6iEBa {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+@media (max-width: 768px) {
+  .justino_barInfo__ksP99 .justino_infoContainer__6iEBa {
+    flex-direction: column;
+  }
+}
+.justino_barInfo__ksP99 .justino_leftColumn__IiRH9 {
+  flex-basis: calc(33.33% - 20px);
+  margin-right: 20px;
+}
+@media (max-width: 768px) {
+  .justino_barInfo__ksP99 .justino_leftColumn__IiRH9 {
+    margin-right: 0;
+    margin-bottom: 20px;
+    flex-basis: 100%;
+  }
+}
+.justino_barInfo__ksP99 .justino_middleColumn__6RI1m {
+  flex-basis: 200px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-right: 20px;
+}
+@media (max-width: 768px) {
+  .justino_barInfo__ksP99 .justino_middleColumn__6RI1m {
+    margin-right: 0;
+    margin-bottom: 20px;
+    flex-basis: 100%;
+  }
+}
+.justino_barInfo__ksP99 .justino_rightColumn__ZRN7j {
+  flex-basis: calc(33.33% - 20px);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-top: 50px;
+}
+@media (max-width: 768px) {
+  .justino_barInfo__ksP99 .justino_rightColumn__ZRN7j {
+    flex-direction: column;
+    align-items: center;
+  }
+}
+.justino_barInfo__ksP99 .justino_rightColumn__ZRN7j .justino_iconContainer__el7Bl {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.justino_barInfo__ksP99 .justino_rightColumn__ZRN7j .justino_iconContainer__el7Bl .justino_iconItem__XdcUJ {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+.justino_barInfo__ksP99 .justino_rightColumn__ZRN7j .justino_iconContainer__el7Bl .justino_iconItem__XdcUJ img {
+  width: 40px;
+  height: 40px;
+  object-fit: cover;
+  border-radius: 50%;
+}
+.justino_barInfo__ksP99 .justino_rightColumn__ZRN7j .justino_iconContainer__el7Bl .justino_iconItem__XdcUJ .justino_iconTitle__cUdCi {
+  font-size: 0.8rem;
+  color: #888;
+  margin-top: 5px;
+}
+
+/* Modal Styles */
+.justino_modal__kEPpd {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  right: auto;
+  bottom: auto;
+  transform: translate(-50%, -50%);
+  background: white;
+  padding: 20px;
+  border-radius: 10px;
+  max-width: 90vw;
+  max-height: 90vh;
+  overflow: auto;
+}
+
+.justino_modalOverlay__9Qbg5 {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.75);
+}
