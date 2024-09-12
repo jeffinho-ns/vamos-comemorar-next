@@ -4,11 +4,13 @@ import styles from "./programacao.module.scss";
 import { MdAccessTime } from "react-icons/md";
 import Link from "next/link";
 
+
 import eventImg1 from "@/app/assets/programacao/prog-1.png";
 import eventImg2 from "@/app/assets/programacao/prog-2.png";
 import eventImg3 from "@/app/assets/programacao/prog-3.png";
 import eventImg4 from "@/app/assets/programacao/prog-4.png";
 import eventImg5 from "@/app/assets/programacao/prog-5.png";
+import eventImg6 from "@/app/assets/programacao/prog-13.png";
 
 const Programacao = () => {
   const handleCardClick = (img) => {
@@ -21,10 +23,10 @@ const Programacao = () => {
       <div className={styles.events}>
         <Link
           href="/webapp/reservas"
-          onClick={() => handleCardClick(eventImg1)}
+          onClick={() => handleCardClick(eventImg6)}
         >
           <EventCard
-            img={eventImg1}
+            img={eventImg6}
             title="Festa Encontrin"
             category="Pagode"
             date="15 Jan 2022"

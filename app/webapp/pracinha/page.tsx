@@ -85,7 +85,7 @@ const Justino = () => {
           <div className={styles.barInfo}>
             <div className={styles.infoContainer}>
               <div className={styles.leftColumn}>
-                {/* <h1 className={styles.barName}>High Line</h1> */}
+               <h1 className={styles.barName}>PSJ</h1>
               </div>
               <div className={styles.middleColumn}>
                 <div className={styles.logoContainer}>

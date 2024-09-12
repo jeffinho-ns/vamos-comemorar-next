@@ -6,9 +6,7 @@ import imgBanner from "@/app/assets/banner01.webp";
 import Form from "@/app/components/form/form";
 import logoWhite from "@/app/assets/logo_white.png";
 import Link from "next/link";
-import Input from "../components/input/input";
 import Button from "../components/button/button";
-import Select from "../components/select/select";
 import { MdVisibility, MdVisibilityOff } from "react-icons/md";
 import { useMemo, useState } from "react";
 import "./styles.scss";
@@ -22,7 +20,9 @@ export default function Register() {
   const [confirmEmail, setConfirmEmail] = useState<string>("");
   const [password, setPassword] = useState<string>("");
   const [confirmPassword, setConfirmPassword] = useState<string>("");
-  const [openModal, setOpenModal] = useState<boolean>(false);
+  const [loading, setLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<boolean>(false);
 
   const validInputs = useMemo(() => {
     return (
@@ -36,17 +36,51 @@ export default function Register() {
     );
   }, [cpf, fullName, year, email, confirmEmail, password, confirmPassword]);
 
-  const handleRegister = () => {
-    if (validInputs) {
-      console.log("Registro efetuado com sucesso");
-    } else {
-      console.log("Preencha todos os campos corretamente");
+  const handleRegister = async () => {
+    if (!validInputs) {
+      setError("Preencha todos os campos corretamente");
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+
+    const requestData = {
+      cpf,
+      fullName,
+      year,
+      email,
+      password,
+    };
+
+    try {
+      const response = await fetch("https://api.vamoscomemorar.com.br/auth/register", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(requestData),
+      });
+
+      if (!response.ok) {
+        const responseData = await response.json();
+        setError(responseData.message || "Erro ao registrar. Tente novamente.");
+        setLoading(false);
+        return;
+      }
+
+      setSuccess(true); // Registro realizado com sucesso
+    } catch (error) {
+      setError("Erro ao registrar. Verifique sua conexão.");
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
     <div className="container">
-      {openModal && <div>Aqui vai o modal de troca de senha</div>}
+      {success && <div className="success-message">Registro realizado com sucesso!</div>}
+      {error && <div className="error-message">{error}</div>}
       <Banner id="banner-container" className="banner-container">
         <Image src={imgBanner} alt="Logo banner" style={{ width: "100%" }} />
       </Banner>
@@ -64,7 +98,7 @@ export default function Register() {
           <Form id="form-register" className="form-register">
             <div className="input-container">
               <div className="column">
-                <Input
+                <input
                   placeholder="CPF"
                   type="text"
                   id="cpf"
@@ -72,7 +106,7 @@ export default function Register() {
                   onChange={(e) => setCpf(e.target.value)}
                   value={cpf}
                 />
-                <Input
+                <input
                   placeholder="Nome e sobrenome"
                   type="text"
                   id="full-name"
@@ -80,18 +114,20 @@ export default function Register() {
                   onChange={(e) => setFullName(e.target.value)}
                   value={fullName}
                 />
-                <Select
+                <select
                   value={year}
                   id="year"
                   className="year"
                   onChange={(e) => setYear(e.target.value)}
                 >
                   <option>Selecione o ano</option>
-                
-                </Select>
+                  <option value="2024">2024</option>
+                  <option value="2023">2023</option>
+                  {/* Adicione mais opções conforme necessário */}
+                </select>
               </div>
               <div className="column">
-                <Input
+                <input
                   placeholder="E-mail"
                   type="text"
                   id="email"
@@ -99,7 +135,7 @@ export default function Register() {
                   onChange={(e) => setEmail(e.target.value)}
                   value={email}
                 />
-                <Input
+                <input
                   placeholder="Confirme seu e-mail"
                   type="text"
                   id="confirm-email"
@@ -107,7 +143,7 @@ export default function Register() {
                   onChange={(e) => setConfirmEmail(e.target.value)}
                   value={confirmEmail}
                 />
-                <Input
+                <input
                   placeholder="Senha"
                   type={show ? "text" : "password"}
                   id="password"
@@ -115,7 +151,7 @@ export default function Register() {
                   onChange={(e) => setPassword(e.target.value)}
                   value={password}
                 />
-                <Input
+                <input
                   placeholder="Confirme sua senha"
                   type={show ? "text" : "password"}
                   id="confirm-password"
@@ -128,12 +164,11 @@ export default function Register() {
                 ) : (
                   <MdVisibilityOff onClick={() => setShow(true)} />
                 )}
-                <small>0 / 15</small>
               </div>
             </div>
 
             <div className="terms-container">
-              <Input
+              <input
                 id="use-terms"
                 className="use-terms"
                 type="checkbox"
@@ -150,20 +185,8 @@ export default function Register() {
               </label>
             </div>
 
-            <Link
-              href="#"
-              onClick={() => setOpenModal(true)}
-              className="forgot-password"
-            >
-              ESQUECEU SUA SENHA?
-            </Link>
-
-            <Button
-              type="button"
-              className="btn-register"
-              onClick={handleRegister}
-            >
-              CADASTRAR
+            <Button type="button" className="btn-register" onClick={handleRegister} disabled={loading}>
+              {loading ? "Cadastrando..." : "CADASTRAR"}
             </Button>
             <div className="title">
               <p className="account-text">

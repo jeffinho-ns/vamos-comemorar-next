@@ -60,7 +60,7 @@ export default function App() {
             />
           </svg>
         </Link>
-        <Link href="/account" className="footer-icon">
+        <Link href="/webapp/profile" className="footer-icon">
           <svg
             width="29"
             height="29"

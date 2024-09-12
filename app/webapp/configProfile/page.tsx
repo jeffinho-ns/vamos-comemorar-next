@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { FiEdit3 } from "react-icons/fi";
 import Header from "../components/headerNotificatioin/headerNotification";
 import Footer from "../components/footer/footer";
@@ -10,10 +10,10 @@ import "./profile.module.scss";
 export default function PerfilMobile() {
   // Estado para armazenar as informações do usuário
   const [userInfo, setUserInfo] = useState({
-    nome: "Renan Santos",
+    nome: "Jefferson Lima",
     localizacao: "BR (Brasil - SP)",
-    endereco: "Av. Milton 147",
-    telefone: "(11) 97877-8230",
+    endereco: "Rua Catanduvas do Sul",
+    telefone: "(11) 9 4350-1097",
   });
 
   // Estado para controlar o modo de edição
@@ -24,6 +24,12 @@ export default function PerfilMobile() {
     telefone: false,
   });
 
+  // Refs para os campos de entrada
+  const nomeRef = useRef(null);
+  const localizacaoRef = useRef(null);
+  const enderecoRef = useRef(null);
+  const telefoneRef = useRef(null);
+
   // Função para lidar com a mudança de informações do usuário
   const handleChange = (field, value) => {
     setUserInfo({
@@ -31,6 +37,14 @@ export default function PerfilMobile() {
       [field]: value,
     });
   };
+
+  // Função para focar no campo de input quando o modo de edição é ativado
+  useEffect(() => {
+    if (isEditing.nome) nomeRef.current.focus();
+    if (isEditing.localizacao) localizacaoRef.current.focus();
+    if (isEditing.endereco) enderecoRef.current.focus();
+    if (isEditing.telefone) telefoneRef.current.focus();
+  }, [isEditing]);
 
   // Função para salvar as alterações
   const saveChanges = () => {
@@ -63,6 +77,7 @@ export default function PerfilMobile() {
               <span className="text-lg font-semibold w-1/3">Nome:</span>
               {isEditing.nome ? (
                 <input
+                  ref={nomeRef} // Adiciona a referência ao input
                   type="text"
                   className="text-lg w-2/3"
                   value={userInfo.nome}
@@ -88,6 +103,7 @@ export default function PerfilMobile() {
               <span className="text-lg font-semibold w-1/3">Localização:</span>
               {isEditing.localizacao ? (
                 <input
+                  ref={localizacaoRef} // Adiciona a referência ao input
                   type="text"
                   className="text-lg w-2/3"
                   value={userInfo.localizacao}
@@ -113,6 +129,7 @@ export default function PerfilMobile() {
               <span className="text-lg font-semibold w-1/3">Endereço:</span>
               {isEditing.endereco ? (
                 <input
+                  ref={enderecoRef} // Adiciona a referência ao input
                   type="text"
                   className="text-lg w-2/3"
                   value={userInfo.endereco}
@@ -138,6 +155,7 @@ export default function PerfilMobile() {
               <span className="text-lg font-semibold w-1/3">Telefone:</span>
               {isEditing.telefone ? (
                 <input
+                  ref={telefoneRef} // Adiciona a referência ao input
                   type="text"
                   className="text-lg w-2/3"
                   value={userInfo.telefone}
