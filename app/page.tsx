@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation"; // Para redirecionar o usuário
 import { motion } from "framer-motion";
 import Banner from "./components/banner/banner";
 import Header from "./components/header/header";
@@ -22,6 +23,27 @@ import "react-multi-carousel/lib/styles.css";
 
 export default function Home() {
   const [showSecondCarousel, setShowSecondCarousel] = useState(false);
+  const router = useRouter(); // Instancia para o redirecionamento
+
+  // Função para monitorar o tamanho da tela
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth < 768) {
+        // Redireciona para a página desejada em dispositivos móveis
+        router.push("/webapp"); 
+      }
+    };
+
+    handleResize(); // Verifica na montagem inicial
+
+    // Adiciona o listener para o redimensionamento da janela
+    window.addEventListener("resize", handleResize);
+
+    // Remove o listener ao desmontar o componente
+    return () => {
+      window.removeEventListener("resize", handleResize);
+    };
+  }, [router]);
 
   const responsive = {
     superLargeDesktop: {
@@ -42,15 +64,7 @@ export default function Home() {
     },
   };
 
-  const Card = ({
-    image,
-    title,
-    address,
-    distance,
-    rating,
-    description,
-    link
-  }) => (
+  const Card = ({ image, title, address, distance, rating, description, link }) => (
     <motion.div
       className="relative bg-white rounded-lg shadow-md overflow-hidden mx-4 mt-16 card-container"
       initial={{ opacity: 0, x: -100 }}
