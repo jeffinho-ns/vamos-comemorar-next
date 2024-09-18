@@ -1,13 +1,30 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { FiSettings, FiLogOut, FiLock, FiHelpCircle } from "react-icons/fi";
-import Link from "next/link"; // Import do Next.js Link para navegação
+import Link from "next/link";
 import Header from "../components/headerNotificatioin/headerNotification";
 import Footer from "../components/footer/footer";
+import { redirect } from 'next/navigation';
 import "./profile.module.scss";
 
 export default function PerfilMobile() {
+  const [userName, setUserName] = useState(''); // Estado para armazenar o nome do usuário
+
+  useEffect(() => {
+    const token = localStorage.getItem('authToken');
+    
+    if (!token) {
+      redirect('/login');
+    } else {
+      // Pegar o nome do usuário do localStorage ou de algum contexto
+      const storedUserName = localStorage.getItem('userName'); // Supondo que o nome foi salvo no localStorage
+      if (storedUserName) {
+        setUserName(storedUserName);
+      }
+    }
+  }, []);
+
   return (
     <>
       <Header />
@@ -18,12 +35,13 @@ export default function PerfilMobile() {
             <div className="w-24 h-24 bg-gray-200 rounded-full flex items-center justify-center mb-2">
               <span className="text-gray-500">Adicionar foto</span>
             </div>
-            <h2 className="text-xl font-semibold">Jefferson Lima</h2>
+            <h2 className="text-xl font-semibold">{userName || "Nome do Usuário"}</h2>
             <p className="text-gray-400">ID : 0000001</p>
           </div>
 
           <div className="w-full max-w-sm flex-grow flex flex-col">
             <button className="w-2/3 bg-teal-500 text-white py-5 rounded-full mb-4 flex items-center justify-center mx-auto">
+              {/* Botão de mensagem */}
               <svg width="25" height="24" viewBox="0 0 25 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <path
                   fillRule="evenodd"
@@ -46,6 +64,7 @@ export default function PerfilMobile() {
               </svg>
             </button>
 
+            {/* Links de navegação */}
             <Link href="/minhas-reservas" className="w-full flex items-center py-4 border-b border-gray-200">
               <FiSettings className="text-teal-500 text-xl mr-4" />
               <span className="text-lg">Minhas Reservas</span>

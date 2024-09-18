@@ -49,17 +49,13 @@ export default function Login() {
   const validateToken = async (token: string) => {
     try {
       const response = await fetch('https://api.vamoscomemorar.com.br/validate_token', {
-        method: 'POST',
+        method: 'GET',  // Verifique se o método correto é POST ou GET
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
+          'Authorization': `Bearer ${token}`, // Autenticação via Bearer Token
         },
-        body: JSON.stringify({
-          access: emailCpf,
-          password: password,
-        }),
       });
-
+  
       if (response.ok) {
         return true;
       } else {
@@ -72,46 +68,42 @@ export default function Login() {
       return false;
     }
   };
+  
 
-  const handleLogin = async () => {
-    if (!validInputs) {
-      setError("Por favor, preencha todos os campos.");
-      return;
+const handleLogin = async () => {
+  if (!validInputs) {
+    setError("Por favor, preencha todos os campos.");
+    return;
+  }
+
+  try {
+    const response = await fetch('https://api.vamoscomemorar.com.br/signin', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        access: emailCpf,
+        password: password,
+      }),
+    });
+
+    const data = await response.json();
+
+    if (response.ok && data.token) {
+      localStorage.setItem('authToken', data.token);
+
+      // Tente acessar /site/places diretamente com o token
+      await fetchPlaces(data.token);
+      router.push('/dashboard');
+    } else {
+      setError('Credenciais inválidas');
     }
-
-    try {
-      const response = await fetch('https://api.vamoscomemorar.com.br/signin', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          access: emailCpf,
-          password: password,
-        }),
-      });
-
-      const data = await response.json();
-
-      if (response.ok && data.token) {
-        localStorage.setItem('authToken', data.token);
-
-        // Validando o token antes de redirecionar
-        const isValidToken = await validateToken(data.token);
-
-        if (isValidToken) {
-          // Buscar dados dos locais após validação do token
-          await fetchPlaces(data.token);
-          router.push('/dashboard');
-        }
-      } else {
-        setError('Credenciais inválidas');
-      }
-    } catch (error) {
-      setError('Erro ao tentar fazer login. Tente novamente.');
-      console.error('Erro:', error);
-    }
-  };
+  } catch (error) {
+    setError('Erro ao tentar fazer login. Tente novamente.');
+    console.error('Erro:', error);
+  }
+};
 
   return (
     <div className="container">

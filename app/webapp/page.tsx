@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useEffect } from "react";
 import { motion } from "framer-motion";
 import Image from "next/image";
 import Link from "next/link";
@@ -17,7 +17,19 @@ import img02 from "@/app/webapp/assetsMobile/ohfregues.png";
 import img03 from "@/app/webapp/assetsMobile/pracinha.png";
 import img04 from "@/app/webapp/assetsMobile/highline.png";
 
+import { redirect } from 'next/navigation';
+
 export default function Home() {
+
+  // useEffect(() => {
+  //   const token = localStorage.getItem('authToken');
+    
+  //   // Se não houver token, redireciona para a página de login
+  //   if (!token) {
+  //     redirect('/login');
+  //   }
+  // }, []);
+
   const Card = ({ image, title, address, link }) => (
     <Link href={link}>
       <motion.div
@@ -46,6 +58,8 @@ export default function Home() {
       </motion.div>
     </Link>
   );
+
+
 
   return (
     <>

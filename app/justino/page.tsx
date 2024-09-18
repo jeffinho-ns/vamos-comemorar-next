@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Image from "next/image";
 import { MdLocationOn, MdInfoOutline, MdEvent } from "react-icons/md";
 import Footer from "../components/footer/footer";
@@ -35,19 +35,30 @@ import icon5 from "@/app/assets/icones/mesa.png";
 
 import Modal from 'react-modal';
 
+import { redirect } from 'next/navigation'; // Aqui importa a função de redirecionamento
+
 const Justino = () => {
   const [showDescription, setShowDescription] = useState(true);
   const [modalIsOpen, setModalIsOpen] = useState(false);
   const [expandedImage, setExpandedImage] = useState(null);
 
-  const toggleContent = (content) => {
+  useEffect(() => {
+    const token = localStorage.getItem('authToken');
+    
+    // Se não houver token, redireciona para a página de login
+    if (!token) {
+      redirect('/login');
+    }
+  }, []);
+
+  const toggleContent = (content: string) => {
     setShowDescription(content === "sobre");
   };
 
   const openModal = () => setModalIsOpen(true);
   const closeModal = () => setModalIsOpen(false);
 
-  const openImage = (img) => setExpandedImage(img);
+  const openImage = (img: string) => setExpandedImage(img);
   const closeImage = () => setExpandedImage(null);
 
   return (
