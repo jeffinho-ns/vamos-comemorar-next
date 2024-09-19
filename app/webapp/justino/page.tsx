@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Image from "next/image";
 import { MdLocationOn, MdInfoOutline, MdEvent } from "react-icons/md";
 import Footer from "../components/footer/footer";
@@ -11,6 +11,8 @@ import styles from "./justino.module.scss";
 import Programacao from "../components/programacao/programacao";
 import Profile from "../components/profile/profile";
 import Carousel from "react-multi-carousel";
+
+import { useRouter } from "next/navigation"; // Para o redirecionamento
 
 import newImg1 from "@/app/assets/justino/ambiente-1.jpeg";
 import newImg2 from "@/app/assets/justino/ambiente-2.jpeg";
@@ -55,15 +57,33 @@ const responsive = {
 };
 
 const Justino = () => {
+
+  useEffect(() => {
+    // Armazena a URL da logo no localStorage
+    localStorage.setItem("lastPageLogo", logoNew.src);
+    localStorage.setItem("lastPageBanner", imgBanner.src);
+  }, []);
+
   const [showDescription, setShowDescription] = useState(true);
   const [modalIsOpen, setModalIsOpen] = useState(false);
   const [expandedImage, setExpandedImage] = useState(null);
+  const router = useRouter(); // Hook para redirecionar
 
   const toggleContent = (content) => {
     setShowDescription(content === "sobre");
   };
 
-  const openModal = () => setModalIsOpen(true);
+  const openModal = () => {
+    const token = localStorage.getItem('authToken');
+    
+    // Se não houver token, redireciona para a página de login
+    if (!token) {
+      router.push('/login');
+    } else {
+      setModalIsOpen(true); // Abre o modal se o usuário estiver logado
+    }
+  };
+
   const closeModal = () => setModalIsOpen(false);
 
   const openImage = (img) => setExpandedImage(img);

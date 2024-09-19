@@ -13,7 +13,8 @@ import Carousel from "react-multi-carousel";
 
 import ReservationModal from "../../webapp/components/reservationModal/reservationModal";
 
-import logoNew from "@/app/assets/highline/highlinelogo.png";
+
+import defaultLogo from "@/app/assets/highline/highlinelogo.png";
 
 import Modal from "react-modal";
 
@@ -36,6 +37,15 @@ const responsive = {
 };
 
 const Justino = () => {
+
+  const [logoSrc, setLogoSrc] = useState(defaultLogo.src); // Usa a logo padrão inicialmente
+
+  useEffect(() => {
+    const storedLogo = localStorage.getItem("lastPageLogo");
+    if (storedLogo) {
+      setLogoSrc(storedLogo); // Atualiza a logo com a última logo armazenada
+    }
+  }, []);
   const [showDescription, setShowDescription] = useState(true);
   const [modalIsOpen, setModalIsOpen] = useState(false);
   const [expandedImage, setExpandedImage] = useState(null);
@@ -81,9 +91,9 @@ const Justino = () => {
                 </p>
               </div>
               <div className={styles.middleColumn}>
-                <div className={styles.logoContainer}>
-                  <Image src={logoNew} alt="Logo" width={50} height={50} />
-                </div>
+              <div className={styles.logoContainer}>
+      <Image src={logoSrc} alt="Logo" width={50} height={50} />
+    </div>
               </div>
             </div>
 

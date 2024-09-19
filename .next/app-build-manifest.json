@@ -1,10 +1,10 @@
 {
   "pages": {
-    "/login/page": [
+    "/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/css/app/login/page.css",
-      "static/chunks/app/login/page.js"
+      "static/css/app/page.css",
+      "static/chunks/app/page.js"
     ],
     "/layout": [
       "static/chunks/webpack.js",
@@ -12,11 +12,11 @@
       "static/css/app/layout.css",
       "static/chunks/app/layout.js"
     ],
-    "/page": [
+    "/webapp/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/css/app/page.css",
-      "static/chunks/app/page.js"
+      "static/css/app/webapp/page.css",
+      "static/chunks/app/webapp/page.js"
     ],
     "/ohfregues/page": [
       "static/chunks/webpack.js",
@@ -30,17 +30,59 @@
       "static/css/app/justino/page.css",
       "static/chunks/app/justino/page.js"
     ],
-    "/webapp/page": [
+    "/webapp/highline/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/css/app/webapp/page.css",
-      "static/chunks/app/webapp/page.js"
+      "static/css/app/webapp/highline/page.css",
+      "static/chunks/app/webapp/highline/page.js"
+    ],
+    "/webapp/justino/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/css/app/webapp/justino/page.css",
+      "static/chunks/app/webapp/justino/page.js"
+    ],
+    "/webapp/ohfregues/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/css/app/webapp/ohfregues/page.css",
+      "static/chunks/app/webapp/ohfregues/page.js"
+    ],
+    "/webapp/reservas/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/css/app/webapp/reservas/page.css",
+      "static/chunks/app/webapp/reservas/page.js"
     ],
     "/webapp/profile/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
       "static/css/app/webapp/profile/page.css",
       "static/chunks/app/webapp/profile/page.js"
+    ],
+    "/login/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/css/app/login/page.css",
+      "static/chunks/app/login/page.js"
+    ],
+    "/webapp/minhasReservas/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/css/app/webapp/minhasReservas/page.css",
+      "static/chunks/app/webapp/minhasReservas/page.js"
+    ],
+    "/webapp/pracinha/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/css/app/webapp/pracinha/page.css",
+      "static/chunks/app/webapp/pracinha/page.js"
+    ],
+    "/about/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/css/app/about/page.css",
+      "static/chunks/app/about/page.js"
     ],
     "/_not-found/page": [
       "static/chunks/webpack.js",

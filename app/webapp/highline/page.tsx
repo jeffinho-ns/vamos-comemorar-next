@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Image from "next/image";
 import { MdLocationOn, MdInfoOutline, MdEvent } from "react-icons/md";
 import Footer from "../components/footer/footer";
@@ -55,6 +55,12 @@ const responsive = {
 };
 
 const Justino = () => {
+
+  useEffect(() => {
+    // Armazena a URL da logo no localStorage
+    localStorage.setItem("lastPageLogo", logoNew.src);
+    localStorage.setItem("lastPageBanner", imgBanner.src);
+  }, []);
   const [showDescription, setShowDescription] = useState(true);
   const [modalIsOpen, setModalIsOpen] = useState(false);
   const [expandedImage, setExpandedImage] = useState(null);
