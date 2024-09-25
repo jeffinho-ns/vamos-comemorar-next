@@ -1,0 +1,154 @@
+/*!********************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************!*\
+  !*** css ./node_modules/next/dist/build/webpack/loaders/css-loader/src/index.js??ruleSet[1].rules[13].oneOf[9].use[2]!./node_modules/next/dist/build/webpack/loaders/postcss-loader/src/index.js??ruleSet[1].rules[13].oneOf[9].use[3]!./node_modules/next/dist/build/webpack/loaders/resolve-url-loader/index.js??ruleSet[1].rules[13].oneOf[9].use[4]!./node_modules/next/dist/compiled/sass-loader/cjs.js??ruleSet[1].rules[13].oneOf[9].use[5]!./app/webapp/components/headerNotificatioin/headerNotification.module.scss ***!
+  \********************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************/
+@charset "UTF-8";
+/* headerLike.module.scss */
+.headerNotification_headerLike__56AM3 {
+  background: transparent;
+  padding: 0.5rem; /* Ajuste o padding se necessário */
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  position: fixed; /* Mantenha o header fixo no topo */
+  z-index: 9;
+  width: 100%;
+  top: 0;
+  left: 0;
+}
+/*!***************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************!*\
+  !*** css ./node_modules/next/dist/build/webpack/loaders/css-loader/src/index.js??ruleSet[1].rules[13].oneOf[13].use[2]!./node_modules/next/dist/build/webpack/loaders/postcss-loader/src/index.js??ruleSet[1].rules[13].oneOf[13].use[3]!./node_modules/next/dist/build/webpack/loaders/resolve-url-loader/index.js??ruleSet[1].rules[13].oneOf[13].use[4]!./node_modules/next/dist/compiled/sass-loader/cjs.js??ruleSet[1].rules[13].oneOf[13].use[5]!./app/webapp/components/footer/style.scss ***!
+  \***************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************/
+/* style.scss */
+.mobile-footer {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .mobile-footer {
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    bottom: 0;
+    width: 100%;
+    background: #f2f2f2;
+    padding: 1rem 0;
+    box-shadow: 0 -1px 6px rgba(0, 0, 0, 0.1);
+    border-radius: 20px;
+  }
+  .footer-icons {
+    display: flex;
+    justify-content: space-around;
+    width: 100%;
+  }
+  .footer-icon {
+    text-align: center;
+    color: #767676;
+  }
+  .footer-icon .icon {
+    width: 24px;
+    height: 24px;
+  }
+}
+/*!************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************!*\
+  !*** css ./node_modules/next/dist/build/webpack/loaders/css-loader/src/index.js??ruleSet[1].rules[13].oneOf[9].use[2]!./node_modules/next/dist/build/webpack/loaders/postcss-loader/src/index.js??ruleSet[1].rules[13].oneOf[9].use[3]!./node_modules/next/dist/build/webpack/loaders/resolve-url-loader/index.js??ruleSet[1].rules[13].oneOf[9].use[4]!./node_modules/next/dist/compiled/sass-loader/cjs.js??ruleSet[1].rules[13].oneOf[9].use[5]!./app/webapp/minhasReservas/minhasReservas.module.scss ***!
+  \************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************/
+@charset "UTF-8";
+.minhasReservas_container__KeEKd {
+  padding: 16px;
+  background-color: white;
+  min-height: 80vh;
+  margin-top: 50px;
+}
+
+.minhasReservas_title__i5GGv {
+  font-size: 24px;
+  font-weight: bold;
+  margin-bottom: 16px;
+}
+
+.minhasReservas_reservasList__99TjR {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding-bottom: 2rem;
+}
+
+.minhasReservas_reservaItem__HeUYj {
+  display: flex;
+  align-items: center;
+  padding: 16px;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  background-color: #fff;
+}
+
+.minhasReservas_reservaImage__3Ep3G {
+  width: 60px;
+  height: 60px;
+  border-radius: 8px;
+  object-fit: cover;
+  margin-right: 16px;
+}
+
+.minhasReservas_reservaDetails__ybHXv {
+  display: flex;
+  flex-direction: column;
+}
+
+.minhasReservas_reservaName___GOMI {
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.minhasReservas_reservaDate__k_1od {
+  font-size: 14px;
+  color: #7d7d7d;
+  margin-bottom: 8px;
+}
+
+.minhasReservas_statusAprovada__szZMv {
+  background-color: #4caf50;
+  color: white;
+  padding: 4px 8px;
+  border-radius: 12px;
+}
+
+.minhasReservas_statusAguardando__Dg3R2 {
+  background-color: #ffeb3b;
+  color: black;
+  padding: 4px 8px;
+  border-radius: 12px;
+}
+
+.minhasReservas_novaReservaButton__SHmAk {
+  width: 100%;
+  padding: 16px;
+  background-color: #00796b;
+  color: white;
+  font-size: 16px;
+  border: none;
+  border-radius: 8px;
+  margin-top: 32px;
+  cursor: pointer;
+}
+
+.minhasReservas_button-new__EN2_7 {
+  display: flex;
+  justify-content: center; /* Centraliza o conteúdo horizontalmente */
+  padding: 3rem;
+  margin: 4rem 0; /* Ajuste a margem para que haja espaçamento apenas na parte superior e inferior */
+}
+
+.minhasReservas_novaReservaButton__SHmAk:hover {
+  background-color: #005f56;
+}
+
+.minhasReservas_bannerContainer__X94rp {
+  display: inline-block;
+  margin-right: 20px;
+  vertical-align: top;
+}
+
+.minhasReservas_bannerImage__Y6nDD {
+  object-fit: cover;
+}

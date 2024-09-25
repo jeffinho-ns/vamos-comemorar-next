@@ -172,14 +172,37 @@
 
 .sectionHeader {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  border-bottom: 1px solid #e0e0e0;
+  flex-direction: row;
+  align-items: center; 
+  justify-content: center;
+  margin-top: 20px;
+  margin-bottom: 20px; 
+}
+
+.eventInput {
+  width: 80%; 
+  padding: 10px 15px;
+  font-size: 18px; 
+  font-weight: bold; 
+  text-align: center; 
+  border: 2px solid #ccc;
+  border-radius: 8px; 
+  margin-top: 10px; 
+  background-color: #f9f9f9;
+  color: #333; 
+  transition: border-color 0.3s ease; 
+}
+
+.eventInput:focus {
+  border-color: #0070f3; 
+  outline: none;
 }
 
 .sectionIcon {
   font-size: 24px;
 }
+
+
 
 .sectionTitle {
   flex-grow: 1;

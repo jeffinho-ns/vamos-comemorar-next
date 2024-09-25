@@ -1,0 +1,40 @@
+{
+  "pages": {
+    "/webapp/minhasReservas/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/css/app/webapp/minhasReservas/page.css",
+      "static/chunks/app/webapp/minhasReservas/page.js"
+    ],
+    "/layout": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/css/app/layout.css",
+      "static/chunks/app/layout.js"
+    ],
+    "/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/css/app/page.css",
+      "static/chunks/app/page.js"
+    ],
+    "/webapp/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/css/app/webapp/page.css",
+      "static/chunks/app/webapp/page.js"
+    ],
+    "/webapp/pracinha/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/css/app/webapp/pracinha/page.css",
+      "static/chunks/app/webapp/pracinha/page.js"
+    ],
+    "/webapp/reservas/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/css/app/webapp/reservas/page.css",
+      "static/chunks/app/webapp/reservas/page.js"
+    ]
+  }
+}

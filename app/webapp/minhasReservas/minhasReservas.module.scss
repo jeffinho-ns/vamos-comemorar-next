@@ -1,7 +1,7 @@
 .container {
     padding: 16px;
     background-color: white;
-    min-height: 100vh;
+    min-height: 80vh;
     margin-top: 50px;
   }
   
@@ -15,6 +15,7 @@
     display: flex;
     flex-direction: column;
     gap: 16px;
+    padding-bottom: 2rem;
   }
   
   .reservaItem {
@@ -75,6 +76,14 @@
     margin-top: 32px;
     cursor: pointer;
   }
+  
+  
+  .button-new {
+    display: flex;
+    justify-content: center; /* Centraliza o conteúdo horizontalmente */
+    padding: 3rem;
+    margin: 4rem 0; /* Ajuste a margem para que haja espaçamento apenas na parte superior e inferior */
+}
   
   .novaReservaButton:hover {
     background-color: #005f56;
