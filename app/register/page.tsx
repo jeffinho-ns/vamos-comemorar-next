@@ -6,7 +6,7 @@ import imgBanner from "@/app/assets/banner01.webp";
 import Form from "@/app/components/form/form";
 import logoWhite from "@/app/assets/logo_white.png";
 import Link from "next/link";
-import Button from "../components/button/button";
+import Button from "@/components/button/button";
 import { MdVisibility, MdVisibilityOff } from "react-icons/md";
 import { useMemo, useState } from "react";
 import "./styles.scss";
