@@ -1,9 +1,7 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Image from "next/image";
-import { useRouter } from "next/navigation"; // Para redirecionar
+import { useRouter } from "next/navigation";
 import styles from "./reservationModal.module.scss";
-import prog from "../../../assets/banner01.webp";
-import logoNew from "../../../assets/ohfregues/logoOhfregues.png";
 import gin from "../../../assets/programacao/gin.png";
 
 import icon1 from "../../../assets/icones/area.png";
@@ -19,17 +17,32 @@ const ReservationModal = () => {
   const [eventName, setEventName] = useState("");
   const router = useRouter();
 
+  // Recupera o nome e a data do evento do localStorage ao montar o componente
+  useEffect(() => {
+    const savedEventName = localStorage.getItem("selectedEventTitle");
+    const savedEventDate = localStorage.getItem("selectedEventDate");
+    if (savedEventName) {
+      setEventName(savedEventName);
+    }
+    if (savedEventDate) {
+      setEventDate(savedEventDate);
+    }
+  }, []);
+
   const incrementGuests = () => setGuests(guests + 1);
   const decrementGuests = () => setGuests(guests > 0 ? guests - 1 : 0);
 
   const handleReservation = () => {
     // Armazena os dados da reserva no localStorage
-    localStorage.setItem("reservation", JSON.stringify({
-      guests,
-      table: selectedTable,
-      date: eventDate,
-      eventName,
-    }));
+    localStorage.setItem(
+      "reservation",
+      JSON.stringify({
+        guests,
+        table: selectedTable,
+        date: eventDate,
+        eventName,
+      })
+    );
 
     // Redireciona para a página de reservas
     router.push("/webapp/minhasReservas");
@@ -101,13 +114,8 @@ const ReservationModal = () => {
 
         <div className={styles.section}>
           <div className={styles.sectionHeader}>
-            <h3 className={styles.sectionTitle}>Data / Evento</h3>
-            <input
-              type="date"
-              className={styles.dateInput}
-              value={eventDate}
-              onChange={(e) => setEventDate(e.target.value)}
-            />
+            <h3 className={styles.sectionTitle}>Data do Evento</h3>
+            <p className={styles.eventDateDisplay}>{eventDate || "Data não disponível"}</p>
           </div>
         </div>
 
@@ -117,26 +125,13 @@ const ReservationModal = () => {
             <input
               type="text"
               className={styles.eventInput}
-              value={eventName}
+              value={eventName} // Preenche o campo com o nome recuperado
               onChange={(e) => setEventName(e.target.value)}
               placeholder="Insira o nome do evento"
             />
           </div>
         </div>
       </div>
-
-      <div className={styles.reservationTitle}>
-        Balde de cerveja ou combo de 142 Gin.
-      </div>
-      <div className={styles.reservationDescription}>
-        - Entrada VIP para o aniversariante + acompanhante <br />
-        - A partir de 15 convidados: balde com 12 long necks. <br />
-        - A partir de 30 convidados: 1 COMBO de 142 Gin com água tônica, suco
-        ou refrigerante. <br />
-        <strong>Obs:</strong> as bonificações não são acumulativas.
-      </div>
-
-      <Image src={gin} alt="Gin 142" className={styles.gin} />
 
       <div className={styles.footer}>
         <button onClick={handleReservation} className={styles.reserveButton}>

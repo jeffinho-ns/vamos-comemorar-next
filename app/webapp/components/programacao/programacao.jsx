@@ -4,7 +4,6 @@ import styles from "./programacao.module.scss";
 import { MdAccessTime } from "react-icons/md";
 import Link from "next/link";
 
-
 import eventImg1 from "@/app/assets/programacao/prog-1.png";
 import eventImg2 from "@/app/assets/programacao/prog-2.png";
 import eventImg3 from "@/app/assets/programacao/prog-3.png";
@@ -13,8 +12,10 @@ import eventImg5 from "@/app/assets/programacao/prog-5.png";
 import eventImg6 from "@/app/assets/programacao/prog-13.png";
 
 const Programacao = () => {
-  const handleCardClick = (img) => {
+  const handleCardClick = (img, title, date) => {
     localStorage.setItem("selectedEventImage", img.src);
+    localStorage.setItem("selectedEventTitle", title);
+    localStorage.setItem("selectedEventDate", date); // Armazena a data do evento
   };
 
   return (
@@ -23,7 +24,7 @@ const Programacao = () => {
       <div className={styles.events}>
         <Link
           href="/webapp/reservas"
-          onClick={() => handleCardClick(eventImg6)}
+          onClick={() => handleCardClick(eventImg6, "Festa Encontrin", "15 Jan 2022")}
         >
           <EventCard
             img={eventImg6}
@@ -35,7 +36,7 @@ const Programacao = () => {
         </Link>
         <Link
           href="/webapp/reservas"
-          onClick={() => handleCardClick(eventImg2)}
+          onClick={() => handleCardClick(eventImg2, "Feijoada", "15 Jan 2022")}
         >
           <EventCard
             img={eventImg2}
@@ -47,37 +48,37 @@ const Programacao = () => {
         </Link>
         <Link
           href="/webapp/reservas"
-          onClick={() => handleCardClick(eventImg3)}
+          onClick={() => handleCardClick(eventImg3, "Double GIN", "15 Jan 2024")}
         >
           <EventCard
             img={eventImg3}
             title="Double GIN"
             category="Bebida"
-            date="15 Jan 2022"
+            date="15 Jan 2024"
             time="17h"
           />
         </Link>
         <Link
           href="/webapp/reservas"
-          onClick={() => handleCardClick(eventImg4)}
+          onClick={() => handleCardClick(eventImg4, "Double CHOPP", "15 Jan 2024")}
         >
           <EventCard
             img={eventImg4}
             title="Double CHOPP"
             category="Pagode"
-            date="15 Jan 2022"
+            date="15 Jan 2024"
             time="20h"
           />
         </Link>
         <Link
           href="/webapp/reservas"
-          onClick={() => handleCardClick(eventImg5)}
+          onClick={() => handleCardClick(eventImg5, "Dj KVSH", "15 Jan 2024")}
         >
           <EventCard
             img={eventImg5}
             title="Dj KVSH"
             category="Pagode"
-            date="15 Jan 2022"
+            date="15 Jan 2024"
             time="20h"
           />
         </Link>

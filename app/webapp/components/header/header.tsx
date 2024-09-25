@@ -83,7 +83,7 @@ const Header: React.FC = () => {
 </svg><span className="ml-4">Home</span></Link>
           </li>
           <li className="border-b border-gray-400 my-4 uppercase">
-            <Link href="/quem-somos" className="flex items-center space-x-2"><svg width="25" height="26" viewBox="0 0 25 26" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <Link href="/webapp/minhasReservas" className="flex items-center space-x-2"><svg width="25" height="26" viewBox="0 0 25 26" fill="none" xmlns="http://www.w3.org/2000/svg">
 <path d="M12.3014 11.3469C11.551 11.3469 10.9483 11.9716 10.9483 12.7493C10.9483 13.527 11.551 14.1517 12.3014 14.1517C13.0518 14.1517 13.6546 13.527 13.6546 12.7493C13.6546 11.9716 13.0518 11.3469 12.3014 11.3469ZM12.3014 0C5.51104 0 0 5.71168 0 12.7493C0 19.7869 5.51104 25.4986 12.3014 25.4986C19.0918 25.4986 24.6029 19.7869 24.6029 12.7493C24.6029 5.71168 19.0918 0 12.3014 0ZM14.9954 15.5414L4.92057 20.3989L9.60742 9.9572L19.6823 5.09972L14.9954 15.5414Z" fill="white"/>
 </svg>
 <span className="ml-4">Minhas reservas</span></Link>
