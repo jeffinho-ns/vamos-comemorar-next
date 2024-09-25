@@ -1,8 +1,0 @@
-{
-  "/webapp/reservas/page": "app/webapp/reservas/page.js",
-  "/webapp/page": "app/webapp/page.js",
-  "/webapp/minhasReservas/page": "app/webapp/minhasReservas/page.js",
-  "/webapp/justino/page": "app/webapp/justino/page.js",
-  "/webapp/highline/page": "app/webapp/highline/page.js",
-  "/page": "app/page.js"
-}
