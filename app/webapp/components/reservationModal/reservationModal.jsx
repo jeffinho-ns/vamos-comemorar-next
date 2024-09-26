@@ -121,14 +121,8 @@ const ReservationModal = () => {
 
         <div className={styles.section}>
           <div className={styles.sectionHeader}>
-            <h3 className={styles.sectionTitle}>Nome do Evento</h3>
-            <input
-              type="text"
-              className={styles.eventInput}
-              value={eventName} // Preenche o campo com o nome recuperado
-              onChange={(e) => setEventName(e.target.value)}
-              placeholder="Insira o nome do evento"
-            />
+            <h3 className={styles.eventInput}>{eventName}</h3>
+ 
           </div>
         </div>
       </div>

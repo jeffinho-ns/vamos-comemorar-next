@@ -89,3 +89,9 @@
   .bannerImage {
     object-fit: cover; // Ajusta a imagem para cobrir o contêiner sem distorção
   }
+  .button-new {
+    display: flex;
+    justify-content: center; /* Centraliza o conteúdo horizontalmente */
+    padding: 3rem;
+    margin: 4rem 0; /* Ajuste a margem para que haja espaçamento apenas na parte superior e inferior */
+}

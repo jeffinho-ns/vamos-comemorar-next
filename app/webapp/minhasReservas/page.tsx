@@ -1,37 +1,60 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import Image from "next/image"; // Import necessário para o componente de imagem
+import Image from "next/image";
+import Link from "next/link"; // Importe o Link
 import Header from "../components/headerNotificatioin/headerNotification";
 import Footer from "../components/footer/footer";
-import styles from "./minhasReservas.module.scss"; // Estilos específicos da página
-import defaultBanner from "@/app/assets/highline/capa-highline.jpeg"; // Imagem padrão do banner
+import styles from "./minhasReservas.module.scss";
+import defaultBanner from "@/app/assets/highline/capa-highline.jpeg";
 
 export default function MinhasReservas() {
-  const [bannerSrc, setBannerSrc] = useState(defaultBanner.src); // Banner padrão
+  const [bannerSrc, setBannerSrc] = useState(defaultBanner.src);
   const [reservas, setReservas] = useState([]);
 
   useEffect(() => {
-    // Capturando o último banner armazenado
     const storedBanner = localStorage.getItem("lastPageBanner");
     if (storedBanner) {
       setBannerSrc(storedBanner);
     }
 
-    // Capturando as informações da reserva no localStorage
+    // Recupera as reservas existentes do localStorage
+    const storedReservations = JSON.parse(localStorage.getItem("reservationsList")) || [];
+
     const storedReservation = JSON.parse(localStorage.getItem("reservation"));
 
     if (storedReservation) {
-      // Preenchendo os dados da reserva com o nome do evento, data e status (substitua conforme necessário)
-      const fetchedReservas = [
-        {
-          id: 1,
+      // Verifica se a nova reserva já existe na lista com base no nome e data
+      const alreadyExists = storedReservations.some(
+        (reserva) =>
+          reserva.nome === storedReservation.eventName &&
+          reserva.data === storedReservation.date
+      );
+
+      if (!alreadyExists) {
+        // Cria a nova reserva
+        const newReservation = {
+          id: storedReservations.length + 1, // Incrementa o ID
           nome: storedReservation.eventName || "Nome do Evento",
           data: storedReservation.date || "Data do Evento",
-          status: "Aguardando", // Você pode adicionar lógica para alterar o status conforme necessário
-        },
-      ];
-      setReservas(fetchedReservas);
+          status: "Aguardando",
+        };
+
+        // Adiciona a nova reserva à lista de reservas armazenadas
+        const updatedReservations = [...storedReservations, newReservation];
+
+        // Atualiza o localStorage com a nova lista de reservas
+        localStorage.setItem("reservationsList", JSON.stringify(updatedReservations));
+
+        // Atualiza o estado com a lista atualizada de reservas
+        setReservas(updatedReservations);
+      } else {
+        // Se a reserva já existe, apenas carrega as reservas existentes
+        setReservas(storedReservations);
+      }
+    } else {
+      // Se não houver uma nova reserva, apenas carrega as reservas existentes
+      setReservas(storedReservations);
     }
   }, []);
 
@@ -47,8 +70,8 @@ export default function MinhasReservas() {
                 <Image
                   src={bannerSrc}
                   alt="Banner"
-                  width={150} // Definindo a largura da imagem
-                  height={100} // Definindo a altura da imagem
+                  width={150}
+                  height={100}
                   className={styles.bannerImage}
                 />
               </div>
@@ -68,7 +91,11 @@ export default function MinhasReservas() {
             </div>
           ))}
         </div>
-        <button className={styles.novaReservaButton}>Novas Reservas</button>
+        <div className="button-new">
+          <Link href="/" passHref>
+            <span className={styles.novaReservaButton}>Novas Reservas</span>
+          </Link>
+        </div>
       </div>
       <Footer />
     </>

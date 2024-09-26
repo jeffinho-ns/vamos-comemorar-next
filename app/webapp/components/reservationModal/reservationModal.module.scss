@@ -172,9 +172,30 @@
 
 .sectionHeader {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  border-bottom: 1px solid #e0e0e0;
+  flex-direction: row;
+  align-items: center; /* Centraliza o conteúdo */
+  justify-content: center;
+  margin-top: 20px; /* Espaçamento superior */
+  margin-bottom: 20px; /* Espaçamento inferior */
+}
+
+.eventInput {
+  width: 80%; /* Largura maior para destacar */
+  padding: 10px 15px;
+  font-size: 18px; /* Aumenta o tamanho da fonte para dar destaque */
+  font-weight: bold; /* Deixa o texto em negrito */
+  text-align: center; /* Centraliza o texto dentro do input */
+  border: 2px solid #ccc;
+  border-radius: 8px; /* Deixa o campo com bordas arredondadas */
+  margin-top: 10px; /* Espaçamento superior */
+  background-color: #f9f9f9; /* Cor de fundo clara */
+  color: #333; /* Cor do texto */
+  transition: border-color 0.3s ease; /* Transição suave ao focar */
+}
+
+.eventInput:focus {
+  border-color: #0070f3; /* Cor da borda ao focar */
+  outline: none;
 }
 
 .sectionIcon {
@@ -187,6 +208,7 @@
   font-size: 18px;
   margin: 0;
   color: #909090;
+  
 }
 
 .counter {
