@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import Image from "next/image";
+import Image, { StaticImageData } from "next/image";
 import { MdLocationOn, MdInfoOutline, MdEvent } from "react-icons/md";
 import Footer from "../components/footer/footer";
 import Header from "../components/header/header";
@@ -10,6 +10,7 @@ import "react-multi-carousel/lib/styles.css";
 import Programacao from "../components/programacao/programacao";
 import styles from "./highline.module.scss";
 
+// Imagens
 import newImg1 from "@/app/assets/highline/ambiente-1.jpeg";
 import newImg2 from "@/app/assets/highline/ambiente-2.jpeg";
 import newImg3 from "@/app/assets/highline/ambiente-3.jpeg";
@@ -32,15 +33,17 @@ import icon3 from "@/app/assets/icones/estacionamento.png";
 import icon4 from "@/app/assets/icones/18.png";
 import icon5 from "@/app/assets/icones/mesa.png";
 
+// Interface para os props da seção
+interface SectionProps {
+  title: string;
+  images: StaticImageData[]; // Você pode usar string[] se as imagens forem URLs
+}
+
 const Highline = () => {
   const [showDescription, setShowDescription] = useState(true);
 
-  const toggleContent = (content) => {
-    if (content === "sobre") {
-      setShowDescription(true);
-    } else if (content === "eventos") {
-      setShowDescription(false);
-    }
+  const toggleContent = (content: string) => {
+    setShowDescription(content === "sobre");
   };
 
   return (
@@ -80,7 +83,7 @@ const Highline = () => {
             <h1 className={styles.barName}>High Line Bar</h1>
             <div className={styles.barDetails}>
               <MdLocationOn className={styles.icon} />
-              <span>Rua Girassol, 144 - Vila madalena</span>
+              <span>Rua Girassol, 144 - Vila Madalena</span>
             </div>
           </div>
           <div className={styles.middleColumn}>
@@ -91,23 +94,23 @@ const Highline = () => {
           <div className={styles.rightColumn}>
             <div className={styles.iconContainer}>
               <div className={styles.iconItem}>
-                <Image src={icon1} width={40} height={40} />
+                <Image src={icon1} width={40} height={40} alt="Área aberta" />
                 <p className={styles.iconTitle}>Área aberta</p>
               </div>
               <div className={styles.iconItem}>
-                <Image src={icon2} width={40} height={40} />
+                <Image src={icon2} width={40} height={40} alt="Acessível" />
                 <p className={styles.iconTitle}>Acessível</p>
               </div>
               <div className={styles.iconItem}>
-                <Image src={icon3} width={40} height={40} />
+                <Image src={icon3} width={40} height={40} alt="Estacionamento" />
                 <p className={styles.iconTitle}>Estacionamento</p>
               </div>
               <div className={styles.iconItem}>
-                <Image src={icon4} width={40} height={40} />
+                <Image src={icon4} width={40} height={40} alt="Para maiores de 18" />
                 <p className={styles.iconTitle}>+18</p>
               </div>
               <div className={styles.iconItem}>
-                <Image src={icon5} width={40} height={40} />
+                <Image src={icon5} width={40} height={40} alt="Reserve sua mesa" />
                 <p className={styles.iconTitle}>Mesas</p>
               </div>
             </div>
@@ -120,7 +123,7 @@ const Highline = () => {
         O High Line Bar oferece uma experiência única de interação com o
         público, é um ponto de encontro moderno entre os jovens e adultos, um
         lugar perfeito para happy hour, aniversários ou eventos corporativos. A
-        decoração e estilo segue o modelo dos mais diversos hostels espalhados
+        decoração e estilo seguem o modelo dos mais diversos hostels espalhados
         pelo mundo. São quatro ambientes: calçada, onde passa a sensação de
         estar em uma cidade de interior; piso térreo, que conta com uma
         decoração moderna; rooftop, área externa com uma linda vista que, aos
@@ -159,7 +162,7 @@ const Highline = () => {
           width="100%"
           height="450"
           style={{ border: 0 }}
-          allowFullScreen=""
+          allowFullScreen
           loading="lazy"
         ></iframe>
       </div>
@@ -169,7 +172,7 @@ const Highline = () => {
   );
 };
 
-const Section = ({ title, images }) => (
+const Section: React.FC<SectionProps> = ({ title, images }) => (
   <div className={styles.section}>
     <h2 className={styles.sectionTitle}>{title}</h2>
     <div className={styles.images}>

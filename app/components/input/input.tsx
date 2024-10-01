@@ -1,4 +1,4 @@
-import { IInput } from "@/app/models/IInput";
+import { IInput } from "@/app/types/IInput";
 
 const Input: React.FC<IInput> = ({ 
   type, 

@@ -1,4 +1,4 @@
-import { IFormProps } from "@/app/models/IForm"
+import { IFormProps } from "@/app/types/IForm"
 
 const Form: React.FC<IFormProps> = ({
     id,

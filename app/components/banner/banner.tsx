@@ -1,4 +1,4 @@
-import { IBannerProps } from "@/app/models/IBanner";
+import { IBannerProps } from "@/app/types/IBanner";
 
 const Banner: React.FC<IBannerProps> = ({
     children,
