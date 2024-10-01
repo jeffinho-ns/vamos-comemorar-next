@@ -1,9 +1,16 @@
-// reservationModal.tsx
+
 import React, { useState, useEffect } from "react";
-import Image from "next/image";
+import Image, { StaticImageData } from "next/image";
 import { useRouter } from "next/navigation";
 import Modal from "react-modal";
 import styles from "./reservationModal.module.scss";
+import gin from "../../../assets/programacao/gin.png";
+
+import icon1 from "../../../assets/icones/area.png";
+import icon2 from "../../../assets/icones/acessivel.png";
+import icon3 from "../../../assets/icones/estacionamento.png";
+import icon4 from "../../../assets/icones/18.png";
+import icon5 from "../../../assets/icones/mesa.png";
 
 interface ReservationModalProps {
   isOpen: boolean;
@@ -46,13 +53,87 @@ const ReservationModal: React.FC<ReservationModalProps> = ({ isOpen, onRequestCl
   };
 
   return (
-    <Modal isOpen={isOpen} onRequestClose={onRequestClose} className={styles.modalContent} overlayClassName={styles.overlay}>
+    <div className={`${styles.modalContent} mobile-only`}>
       <div className={styles.header}>
-        {/* Conteúdo do cabeçalho */}
+        <div className={styles.rightColumn}>
+          <div className={styles.iconContainer}>
+            <div className={styles.iconItem}>
+              <Image src={icon1} width={40} height={40} alt="Área aberta" />
+              <p className={styles.iconTitle}>Área aberta</p>
+            </div>
+            <div className={styles.iconItem}>
+              <Image src={icon2} width={40} height={40} alt="Acessível" />
+              <p className={styles.iconTitle}>Acessível</p>
+            </div>
+            <div className={styles.iconItem}>
+              <Image src={icon3} width={40} height={40} alt="Estacionamento" />
+              <p className={styles.iconTitle}>Estacionamento</p>
+            </div>
+            <div className={styles.iconItem}>
+              <Image src={icon4} width={40} height={40} alt="+18" />
+              <p className={styles.iconTitle}>+18</p>
+            </div>
+            <div className={styles.iconItem}>
+              <Image src={icon5} width={40} height={40} alt="Mesas" />
+              <p className={styles.iconTitle}>Mesas</p>
+            </div>
+          </div>
+        </div>
       </div>
+
       <div className={styles.body}>
-        {/* Conteúdo do corpo */}
+        <div className={styles.section}>
+          <div className={styles.sectionHeader}>
+            <h3 className={styles.sectionTitle}>Convidados</h3>
+            <div className={styles.counter}>
+              <button onClick={decrementGuests} className={styles.counterButton}>
+                -
+              </button>
+              <span className={styles.counterValue}>{guests}</span>
+              <button onClick={incrementGuests} className={styles.counterButton}>
+                +
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div className={styles.section}>
+          <div className={styles.sectionHeader}>
+            <h3 className={styles.sectionTitle}>Mesas</h3>
+            <div className={styles.priceContainer}>
+              <select
+                className={styles.select}
+                value={selectedTable}
+                onChange={(e) => setSelectedTable(e.target.value)}
+              >
+                <option value="Selecionar Mesa">Selecionar Mesa</option>
+                <option value="Bistro">Bistro</option>
+                <option value="Salão central">Salão central</option>
+                <option value="Área externa">Área externa</option>
+              </select>
+              <p className={styles.priceInfo}>R$ 800 / consome R$ 600</p>
+            </div>
+          </div>
+        </div>
+
+        <div className={styles.section}>
+          <div className={styles.sectionHeader}>
+            <h3 className={styles.sectionTitle}>Data do Evento</h3>
+            <p className={styles.eventDateDisplay}>{eventDate || "Data não disponível"}</p>
+          </div>
+        </div>
+
+        <div className={styles.section}>
+          <div className={styles.sectionHeader}>
+
+            <h3 className={styles.eventInput}>{eventName}</h3>
+ 
+
+          </div>
+          
+        </div>
       </div>
+
       <div className={styles.footer}>
         <button onClick={handleReservation} className={styles.reserveButton}>
           Solicitar Reserva
@@ -62,7 +143,7 @@ const ReservationModal: React.FC<ReservationModalProps> = ({ isOpen, onRequestCl
           e a exata localização da mesa.
         </p>
       </div>
-    </Modal>
+    </div>
   );
 };
 
