@@ -1,22 +1,20 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
+import { useRouter } from "next/navigation"; // Importe o hook correto
 import { MdArrowBack, MdNotifications } from "react-icons/md";
 import styles from "./headerNotification.module.scss";
 
 const HeaderNotification = () => {
   const [likes, setLikes] = useState(0);
-  const [router, setRouter] = useState(null);
-
+  const router = useRouter(); // Use o hook diretamente
 
   const handleBackClick = () => {
     window.history.back();
   };
 
   const handleNotificationClick = () => {
-    if (router) {
-      router.push("/notifications");
-    }
+    router.push("/notifications"); // Agora `router` terá o método `push`
   };
 
   return (

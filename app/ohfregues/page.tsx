@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import Image from "next/image";
+import { useState, useEffect } from "react";
+import Image, { StaticImageData } from "next/image";
 import { MdLocationOn, MdInfoOutline, MdEvent } from "react-icons/md";
 import Footer from "../components/footer/footer";
 import Header from "../components/header/header";
@@ -35,19 +35,37 @@ import icon5 from "@/app/assets/icones/mesa.png";
 
 import Modal from 'react-modal';
 
+import { redirect } from 'next/navigation'; // Aqui importa a função de redirecionamento
+
+// Define a interface para as propriedades do componente Section
+interface SectionProps {
+  title: string;
+  images: StaticImageData[]; // Ajuste para StaticImageData
+  openImage: (img: StaticImageData) => void; // Ajuste para StaticImageData
+}
+
 const Ohfregues = () => {
   const [showDescription, setShowDescription] = useState(true);
   const [modalIsOpen, setModalIsOpen] = useState(false);
-  const [expandedImage, setExpandedImage] = useState(null);
+  const [expandedImage, setExpandedImage] = useState<StaticImageData | null>(null);
 
-  const toggleContent = (content) => {
+  useEffect(() => {
+    const token = localStorage.getItem('authToken');
+    
+    // Se não houver token, redireciona para a página de login
+    if (!token) {
+      redirect('/login');
+    }
+  }, []);
+
+  const toggleContent = (content: string) => {
     setShowDescription(content === "sobre");
   };
 
   const openModal = () => setModalIsOpen(true);
   const closeModal = () => setModalIsOpen(false);
 
-  const openImage = (img) => setExpandedImage(img);
+  const openImage = (img: StaticImageData) => setExpandedImage(img); // Ajuste para StaticImageData
   const closeImage = () => setExpandedImage(null);
 
   return (
@@ -170,7 +188,7 @@ const Ohfregues = () => {
           width="100%"
           height="450"
           style={{ border: 0 }}
-          allowFullScreen=""
+          allowFullScreen
           loading="lazy"
           title="Google Maps"
         ></iframe>
@@ -201,7 +219,8 @@ const Ohfregues = () => {
   );
 };
 
-const Section = ({ title, images, openImage }) => (
+// Componente Section para mostrar as imagens
+const Section: React.FC<SectionProps> = ({ title, images, openImage }) => (
   <div className={styles.section}>
     <h2 className={styles.sectionTitle}>{title}</h2>
     <div className={styles.images}>

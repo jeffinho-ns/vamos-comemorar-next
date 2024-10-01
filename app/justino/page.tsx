@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import Image from "next/image";
+import Image, { StaticImageData } from "next/image";
 import { MdLocationOn, MdInfoOutline, MdEvent } from "react-icons/md";
 import Footer from "../components/footer/footer";
 import Header from "../components/header/header";
@@ -34,13 +34,19 @@ import icon4 from "@/app/assets/icones/18.png";
 import icon5 from "@/app/assets/icones/mesa.png";
 
 import Modal from 'react-modal';
-
 import { redirect } from 'next/navigation'; // Aqui importa a função de redirecionamento
+
+// Define a interface para as propriedades do componente Section
+interface SectionProps {
+  title: string;
+  images: StaticImageData[]; // Ajuste para StaticImageData
+  openImage: (img: StaticImageData) => void; // Ajuste para StaticImageData
+}
 
 const Justino = () => {
   const [showDescription, setShowDescription] = useState(true);
   const [modalIsOpen, setModalIsOpen] = useState(false);
-  const [expandedImage, setExpandedImage] = useState(null);
+  const [expandedImage, setExpandedImage] = useState<StaticImageData | null>(null);
 
   useEffect(() => {
     const token = localStorage.getItem('authToken');
@@ -58,7 +64,7 @@ const Justino = () => {
   const openModal = () => setModalIsOpen(true);
   const closeModal = () => setModalIsOpen(false);
 
-  const openImage = (img: string) => setExpandedImage(img);
+  const openImage = (img: StaticImageData) => setExpandedImage(img); // Ajuste para StaticImageData
   const closeImage = () => setExpandedImage(null);
 
   return (
@@ -69,7 +75,7 @@ const Justino = () => {
         <Image
           src={imgBanner}
           alt="Banner"
-          layout="fill"
+          fill
           className={styles.bannerImage}
         />
         <div className={styles.flexButtonContainer}>
@@ -109,23 +115,23 @@ const Justino = () => {
           <div className={styles.rightColumn}>
             <div className={styles.iconContainer}>
               <div className={styles.iconItem}>
-                <Image src={icon1} width={40} height={40} />
+                <Image src={icon1} width={40} height={40} alt="Ícone de área aberta" />
                 <p className={styles.iconTitle}>Área aberta</p>
               </div>
               <div className={styles.iconItem}>
-                <Image src={icon2} width={40} height={40} />
+                <Image src={icon2} alt="Ícone acessível" width={40} height={40} />
                 <p className={styles.iconTitle}>Acessível</p>
               </div>
               <div className={styles.iconItem}>
-                <Image src={icon3} width={40} height={40} />
+                <Image src={icon3} alt="Ícone de estacionamento" width={40} height={40} />
                 <p className={styles.iconTitle}>Estacionamento</p>
               </div>
               <div className={styles.iconItem}>
-                <Image src={icon4} width={40} height={40} />
+                <Image src={icon4} alt="Ícone de +18" width={40} height={40} />
                 <p className={styles.iconTitle}>+18</p>
               </div>
               <div className={styles.iconItem}>
-                <Image src={icon5} width={40} height={40} />
+                <Image src={icon5} alt="Ícone de mesas" width={40} height={40} />
                 <p className={styles.iconTitle}>Mesas</p>
               </div>
             </div>
@@ -181,7 +187,7 @@ const Justino = () => {
           width="100%"
           height="450"
           style={{ border: 0 }}
-          allowFullScreen=""
+          allowFullScreen
           loading="lazy"
         ></iframe>
       </div>
@@ -211,7 +217,8 @@ const Justino = () => {
   );
 };
 
-const Section = ({ title, images, openImage }) => (
+// Componente Section para mostrar as imagens
+const Section: React.FC<SectionProps> = ({ title, images, openImage }) => (
   <div className={styles.section}>
     <h2 className={styles.sectionTitle}>{title}</h2>
     <div className={styles.images}>

@@ -25,13 +25,15 @@ const Header: React.FC = () => {
   useEffect(() => {
     const homeContainer = document.getElementById("home-container");
     const barraHeader = document.querySelector(".barra-header");
-
-    if (isNavOpen) {
-      homeContainer.classList.add("reduce-scale");
-      barraHeader.classList.add("reduce-scale");
-    } else {
-      homeContainer.classList.remove("reduce-scale");
-      barraHeader.classList.remove("reduce-scale");
+  
+    if (homeContainer && barraHeader) { // Verifique se ambos os elementos existem
+      if (isNavOpen) {
+        homeContainer.classList.add("reduce-scale");
+        barraHeader.classList.add("reduce-scale");
+      } else {
+        homeContainer.classList.remove("reduce-scale");
+        barraHeader.classList.remove("reduce-scale");
+      }
     }
   }, [isNavOpen]);
 

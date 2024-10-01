@@ -2,7 +2,7 @@
 
 import React, { useEffect } from "react";
 import { motion } from "framer-motion";
-import Image from "next/image";
+import Image, { StaticImageData } from "next/image";
 import Link from "next/link";
 import "../webapp/global.scss";
 import { MdSearch } from "react-icons/md";
@@ -19,18 +19,27 @@ import img04 from "@/app/webapp/assetsMobile/highline.png";
 
 import { redirect } from 'next/navigation';
 
+// Define a interface para os props do Card
+interface CardProps {
+  image: StaticImageData; // Use 'StaticImageData' se estiver usando imagens importadas
+  title: string;
+  address: string;
+  link: string;
+}
+
 export default function Home() {
 
-  // useEffect(() => {
-  //   const token = localStorage.getItem('authToken');
+  useEffect(() => {
+    const token = localStorage.getItem('authToken');
     
-  //   // Se não houver token, redireciona para a página de login
-  //   if (!token) {
-  //     redirect('/login');
-  //   }
-  // }, []);
+    // Se não houver token, redireciona para a página de login
+    if (!token) {
+      redirect('/login');
+    }
+  }, []);
 
-  const Card = ({ image, title, address, link }) => (
+
+  const Card: React.FC<CardProps> = ({ image, title, address, link }) => (
     <Link href={link}>
       <motion.div
         className="relative bg-white rounded-lg shadow-md overflow-hidden card-container"
@@ -58,7 +67,6 @@ export default function Home() {
       </motion.div>
     </Link>
   );
-
 
 
   return (
@@ -108,7 +116,7 @@ export default function Home() {
               address="Vila Madalena - SP"
               link="/webapp/pracinha"
             />
-                        <Card
+            <Card
               image={img04}
               title="High Line"
               address="Vila Madalena - SP"

@@ -1,22 +1,25 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import Image from "next/image";
+import Image, { StaticImageData } from "next/image";
 import { MdLocationOn, MdInfoOutline, MdEvent } from "react-icons/md";
 import Footer from "../components/footer/footer";
 import HeaderLike from "../components/headerLike/headerLike";
 import imgBanner from "../../assets/highline/capa-highline.jpeg";
 import "react-multi-carousel/lib/styles.css";
 import styles from "./reservas.module.scss";
-
 import Carousel from "react-multi-carousel";
-
 import ReservationModal from "../../webapp/components/reservationModal/reservationModal";
-
-
 import defaultLogo from "@/app/assets/highline/highlinelogo.png";
-
 import Modal from "react-modal";
+import { redirect } from 'next/navigation'; // Aqui importa a função de redirecionamento
+
+// Define a interface para as propriedades do componente Section
+interface SectionProps {
+  title: string;
+  images: StaticImageData[]; // Ajuste para StaticImageData
+  openImage: (img: StaticImageData) => void; // Ajuste para StaticImageData
+}
 
 const responsive = {
   desktop: {
@@ -36,36 +39,39 @@ const responsive = {
   },
 };
 
-const Justino = () => {
-
+const Reservas = () => {
   const [logoSrc, setLogoSrc] = useState(defaultLogo.src); // Usa a logo padrão inicialmente
-
   useEffect(() => {
     const storedLogo = localStorage.getItem("lastPageLogo");
     if (storedLogo) {
       setLogoSrc(storedLogo); // Atualiza a logo com a última logo armazenada
     }
   }, []);
+
   const [showDescription, setShowDescription] = useState(true);
   const [modalIsOpen, setModalIsOpen] = useState(false);
-  const [expandedImage, setExpandedImage] = useState(null);
+  
+  // Atualize a tipagem do estado para StaticImageData | null
+  const [expandedImage, setExpandedImage] = useState<StaticImageData | null>(null);
   const [selectedImage, setSelectedImage] = useState(imgBanner);
 
   useEffect(() => {
-    const storedImage = localStorage.getItem("selectedEventImage");
-    if (storedImage) {
-      setSelectedImage(storedImage);
+    const token = localStorage.getItem('authToken');
+    
+    // Se não houver token, redireciona para a página de login
+    if (!token) {
+      redirect('/login');
     }
   }, []);
 
-  const toggleContent = (content) => {
+  const toggleContent = (content: string) => {
     setShowDescription(content === "sobre");
   };
 
   const openModal = () => setModalIsOpen(true);
   const closeModal = () => setModalIsOpen(false);
 
-  const openImage = (img) => setExpandedImage(img);
+  const openImage = (img: StaticImageData) => setExpandedImage(img); // Ajuste para StaticImageData
   const closeImage = () => setExpandedImage(null);
 
   return (
@@ -91,16 +97,16 @@ const Justino = () => {
                 </p>
               </div>
               <div className={styles.middleColumn}>
-              <div className={styles.logoContainer}>
-      <Image src={logoSrc} alt="Logo" width={50} height={50} />
-    </div>
+                <div className={styles.logoContainer}>
+                  <Image src={logoSrc} alt="Logo" width={50} height={50} />
+                </div>
               </div>
             </div>
 
             <ReservationModal
-              isOpen={modalIsOpen}
-              onRequestClose={closeModal}
-            />
+  isOpen={modalIsOpen}
+  onRequestClose={closeModal}
+/>
           </div>
         </div>
       </div>
@@ -127,7 +133,7 @@ const Justino = () => {
   );
 };
 
-const Section = ({ title, images, openImage }) => {
+const Section = ({ title, images, openImage }: SectionProps) => {
   return (
     <div className={styles.section}>
       <h2>{title}</h2>
@@ -155,4 +161,4 @@ const Section = ({ title, images, openImage }) => {
   );
 };
 
-export default Justino;
+export default Reservas;

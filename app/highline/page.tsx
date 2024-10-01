@@ -33,6 +33,8 @@ import icon3 from "@/app/assets/icones/estacionamento.png";
 import icon4 from "@/app/assets/icones/18.png";
 import icon5 from "@/app/assets/icones/mesa.png";
 
+
+
 // Interface para os props da seção
 interface SectionProps {
   title: string;

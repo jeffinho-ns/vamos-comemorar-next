@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import Image from "next/image";
+import Image, { StaticImageData } from "next/image";
 import { MdLocationOn, MdInfoOutline, MdEvent } from "react-icons/md";
 import Footer from "../components/footer/footer";
 import HeaderLike from "../components/headerLike/headerLike";
@@ -36,6 +36,15 @@ import icon5 from "@/app/assets/icones/mesa.png";
 
 import Modal from "react-modal";
 
+import { redirect } from 'next/navigation'; // Aqui importa a função de redirecionamento
+
+// Define a interface para as propriedades do componente Section
+interface SectionProps {
+  title: string;
+  images: StaticImageData[]; // Ajuste para StaticImageData
+  openImage: (img: StaticImageData) => void; // Ajuste para StaticImageData
+}
+
 const responsive = {
   desktop: {
     breakpoint: { max: 3000, min: 1024 },
@@ -54,7 +63,7 @@ const responsive = {
   },
 };
 
-const Justino = () => {
+const Highline = () => {
 
   useEffect(() => {
     // Armazena a URL da logo no localStorage
@@ -63,16 +72,26 @@ const Justino = () => {
   }, []);
   const [showDescription, setShowDescription] = useState(true);
   const [modalIsOpen, setModalIsOpen] = useState(false);
-  const [expandedImage, setExpandedImage] = useState(null);
+  const [expandedImage, setExpandedImage] = useState<StaticImageData | null>(null);
 
-  const toggleContent = (content) => {
+
+  useEffect(() => {
+    const token = localStorage.getItem('authToken');
+    
+    // Se não houver token, redireciona para a página de login
+    if (!token) {
+      redirect('/login');
+    }
+  }, []);
+
+  const toggleContent = (content: string) => {
     setShowDescription(content === "sobre");
   };
 
   const openModal = () => setModalIsOpen(true);
   const closeModal = () => setModalIsOpen(false);
 
-  const openImage = (img) => setExpandedImage(img);
+  const openImage = (img: StaticImageData) => setExpandedImage(img); // Ajuste para StaticImageData
   const closeImage = () => setExpandedImage(null);
 
   return (
@@ -83,7 +102,7 @@ const Justino = () => {
           <Image
             src={imgBanner}
             alt="Banner"
-            layout="fill"
+            fill
             className={styles.bannerImage}
           />
         </div>
@@ -172,7 +191,7 @@ const Justino = () => {
               src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3658.8531229789736!2d-46.70965078450384!3d-23.504566264570394!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x94cef8c55b0f2e7b%3A0x6b9156a1e51233b3!2sLargo%20da%20Matriz%20de%20Nossa%20Senhora%20do%20%C3%93%2C%20145%20-%20Freguesia%20do%20%C3%93%2C%20S%C3%A3o%20Paulo%20-%20SP%2C%2002925-040!5e0!3m2!1sen!2sbr!4v1625157527756!5m2!1sen!2sbr"
               width="100%"
               height="450"
-              allowFullScreen=""
+              allowFullScreen
               loading="lazy"
             ></iframe>
           </div>
@@ -228,12 +247,12 @@ const Justino = () => {
       <Footer />
 
       <Modal
-        isOpen={!!expandedImage}
-        onRequestClose={closeImage}
-        contentLabel="Image Modal"
-        className={styles.modal}
-        overlayClassName={styles.overlay}
-      >
+  isOpen={!!expandedImage} // Deve ser um booleano
+  onRequestClose={closeImage} // Função de fechamento
+  contentLabel="Image Modal" // Um rótulo descritivo
+  className={styles.modal} // Classes CSS podem ser string
+  overlayClassName={styles.overlay} // Overlay CSS também pode ser string
+>
         {expandedImage && (
           <Image
             src={expandedImage}
@@ -248,7 +267,12 @@ const Justino = () => {
   );
 };
 
-const Section = ({ title, images, openImage }) => {
+interface SectionProps {
+  title: string;
+  images: StaticImageData[]; // Certifique-se de que as imagens estão no formato correto
+  openImage: (img: StaticImageData) => void; // Função que recebe uma imagem
+}
+const Section: React.FC<SectionProps> = ({ title, images, openImage }) => {
   return (
     <div className={styles.section}>
       <h2>{title}</h2>
@@ -276,4 +300,4 @@ const Section = ({ title, images, openImage }) => {
   );
 };
 
-export default Justino;
+export default Highline;

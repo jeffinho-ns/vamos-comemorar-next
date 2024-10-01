@@ -25,13 +25,13 @@ export default function PerfilMobile() {
   });
 
   // Refs para os campos de entrada
-  const nomeRef = useRef(null);
-  const localizacaoRef = useRef(null);
-  const enderecoRef = useRef(null);
-  const telefoneRef = useRef(null);
+  const nomeRef = useRef<HTMLInputElement>(null);
+  const localizacaoRef = useRef<HTMLInputElement>(null);
+  const enderecoRef = useRef<HTMLInputElement>(null);
+  const telefoneRef = useRef<HTMLInputElement>(null);
 
   // Função para lidar com a mudança de informações do usuário
-  const handleChange = (field, value) => {
+  const handleChange = (field: string, value: string) => {
     setUserInfo({
       ...userInfo,
       [field]: value,
@@ -40,10 +40,10 @@ export default function PerfilMobile() {
 
   // Função para focar no campo de input quando o modo de edição é ativado
   useEffect(() => {
-    if (isEditing.nome) nomeRef.current.focus();
-    if (isEditing.localizacao) localizacaoRef.current.focus();
-    if (isEditing.endereco) enderecoRef.current.focus();
-    if (isEditing.telefone) telefoneRef.current.focus();
+    if (isEditing.nome) nomeRef.current?.focus();
+    if (isEditing.localizacao) localizacaoRef.current?.focus();
+    if (isEditing.endereco) enderecoRef.current?.focus();
+    if (isEditing.telefone) telefoneRef.current?.focus();
   }, [isEditing]);
 
   // Função para salvar as alterações

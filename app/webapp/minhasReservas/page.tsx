@@ -8,9 +8,17 @@ import Footer from "../components/footer/footer";
 import styles from "./minhasReservas.module.scss";
 import defaultBanner from "@/app/assets/highline/capa-highline.jpeg";
 
+// Define a interface para a reserva
+interface Reserva {
+  id: number;
+  nome: string;
+  data: string;
+  status: string;
+}
+
 export default function MinhasReservas() {
   const [bannerSrc, setBannerSrc] = useState(defaultBanner.src);
-  const [reservas, setReservas] = useState([]);
+  const [reservas, setReservas] = useState<Reserva[]>([]); // Especifica o tipo do estado
 
   useEffect(() => {
     const storedBanner = localStorage.getItem("lastPageBanner");
@@ -19,21 +27,23 @@ export default function MinhasReservas() {
     }
 
     // Recupera as reservas existentes do localStorage
-    const storedReservations = JSON.parse(localStorage.getItem("reservationsList")) || [];
+    const storedReservationsJSON = localStorage.getItem("reservationsList");
+    const storedReservations: Reserva[] = storedReservationsJSON ? JSON.parse(storedReservationsJSON) : [];
 
-    const storedReservation = JSON.parse(localStorage.getItem("reservation"));
+    const storedReservationJSON = localStorage.getItem("reservation");
+    const storedReservation = storedReservationJSON ? JSON.parse(storedReservationJSON) : null;
 
     if (storedReservation) {
       // Verifica se a nova reserva já existe na lista com base no nome e data
       const alreadyExists = storedReservations.some(
-        (reserva) =>
+        (reserva: Reserva) => // Define o tipo de 'reserva'
           reserva.nome === storedReservation.eventName &&
           reserva.data === storedReservation.date
       );
 
       if (!alreadyExists) {
         // Cria a nova reserva
-        const newReservation = {
+        const newReservation: Reserva = { // Define o tipo do objeto nova reserva
           id: storedReservations.length + 1, // Incrementa o ID
           nome: storedReservation.eventName || "Nome do Evento",
           data: storedReservation.date || "Data do Evento",

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation"; // Para redirecionar o usuário
 import { motion } from "framer-motion";
 import Banner from "./components/banner/banner";
 import Header from "./components/header/header";
-import Image from "next/image";
+import Image, { StaticImageData } from "next/image";
 import imgBanner from "@/app/assets/banner01.webp";
 import Form from "./components/form/form";
 import Select from "./components/select/select";
@@ -21,6 +21,17 @@ import { MdLocationPin, MdLocationCity, MdSearch } from "react-icons/md";
 import Link from "next/link";
 import "react-multi-carousel/lib/styles.css";
 
+// Defina uma interface para os props do componente Card
+interface CardProps {
+  image: StaticImageData; // Tipo para imagens estáticas importadas
+  title: string;
+  address: string;
+  distance: string;
+  rating: string;
+  description: string;
+  link: string;
+}
+
 export default function Home() {
   const [showSecondCarousel, setShowSecondCarousel] = useState(false);
   const router = useRouter(); // Instancia para o redirecionamento
@@ -30,7 +41,7 @@ export default function Home() {
     const handleResize = () => {
       if (window.innerWidth < 768) {
         // Redireciona para a página desejada em dispositivos móveis
-        router.push("/webapp"); 
+        router.push("/webapp");
       }
     };
 
@@ -64,7 +75,8 @@ export default function Home() {
     },
   };
 
-  const Card = ({ image, title, address, distance, rating, description, link }) => (
+  // Tipagem do componente Card
+  const Card = ({ image, title, address, distance, rating, description, link }: CardProps) => (
     <motion.div
       className="relative bg-white rounded-lg shadow-md overflow-hidden mx-4 mt-16 card-container"
       initial={{ opacity: 0, x: -100 }}
@@ -198,41 +210,39 @@ export default function Home() {
           <Carousel responsive={responsive} className="grid mt-8">
             <Card
               image={img01}
-              title="Cervejaria da Esquina"
-              address="Rua das Flores, 789"
-              distance="7.4km"
-              rating="4.6 (900)"
-              description="A Cervejaria da Esquina oferece uma variedade de cervejas artesanais em um ambiente acolhedor."
-              link="/cervejaria-da-esquina"
+              title="Seu Justino Tatuapé"
+              address="Rua Azevedo Soares, 940"
+              distance="11.5km"
+              rating="4.9 (2.7K)"
+              description="O Justino é um bar aconchegante, referência de agito, drinks e ótimos petiscos."
+              link="/justino"
             />
             <Card
-              image={img01}
-              title="Pub do João"
-              address="Avenida Paulista, 1010"
-              distance="9.1km"
-              rating="4.9 (1.5K)"
-              description="O Pub do João é conhecido por sua vasta seleção de cervejas importadas e uma atmosfera animada."
-              link="/pub-do-joao"
+              image={img02}
+              title="Oh Fregues"
+              address="Largo da Matriz de Nossa Senhora do Ó, 145"
+              distance="8.2km"
+              rating="4.8 (1.2K)"
+              description="O Oh Fregues é um ponto de encontro clássico, com um ambiente descontraído e drinks exclusivos."
+              link="/ohfregues"
             />
             <Card
-              image={img01}
-              title="Choperia da Vila"
-              address="Rua das Acácias, 111"
-              distance="6.8km"
-              rating="4.5 (2.1K)"
-              description="Na Choperia da Vila, você encontra os melhores chopes da região e uma culinária de dar água na boca."
-              link="/choperia-da-vila"
+              image={img03}
+              title="High Line Bar"
+              address="Rua Girassol, 144 - Vila madalena"
+              distance="5.9km"
+              rating="4.7 (3.5K)"
+              description="Um lugar perfeito para relaxar e curtir boa música ao vivo. High Line bar oferece uma experiência única."
+              link="/highline"
             />
           </Carousel>
         )}
-        <div className="flex justify-center mt-8">
-          <button
-            onClick={() => setShowSecondCarousel(true)}
-            className="bg-blue-500 text-white py-2 px-4 rounded"
-          >
-            Mostrar mais
-          </button>
-        </div>
+        <button
+          onClick={() => setShowSecondCarousel(!showSecondCarousel)}
+          className="mt-6 py-2 px-4 bg-blue-500 text-white rounded-lg"
+        >
+          {showSecondCarousel ? "Ver menos" : "Ver mais"}
+        </button>
       </main>
       <Footer />
     </>
