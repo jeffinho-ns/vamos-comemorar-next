@@ -1,31 +1,22 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import Image, { StaticImageData } from "next/image";
-import { MdLocationOn, MdInfoOutline, MdEvent } from "react-icons/md";
+import Image from "next/image";
 import Footer from "../components/footer/footer";
 import HeaderLike from "../components/headerLike/headerLike";
 import imgBanner from "../../assets/highline/capa-highline.jpeg";
-import "react-multi-carousel/lib/styles.css";
 import styles from "./reservas.module.scss";
 import Carousel from "react-multi-carousel";
 import ReservationModal from "../../webapp/components/reservationModal/reservationModal";
 import defaultLogo from "@/app/assets/highline/highlinelogo.png";
 import Modal from "react-modal";
-import { redirect } from 'next/navigation'; // Aqui importa a função de redirecionamento
-
-// Define a interface para as propriedades do componente Section
-interface SectionProps {
-  title: string;
-  images: StaticImageData[]; // Ajuste para StaticImageData
-  openImage: (img: StaticImageData) => void; // Ajuste para StaticImageData
-}
+import { redirect } from 'next/navigation'; // Importa a função de redirecionamento
 
 const responsive = {
   desktop: {
     breakpoint: { max: 3000, min: 1024 },
     items: 3,
-    slidesToSlide: 3, // Number of slides to scroll on each swipe
+    slidesToSlide: 3,
   },
   tablet: {
     breakpoint: { max: 1024, min: 464 },
@@ -40,29 +31,42 @@ const responsive = {
 };
 
 const Reservas = () => {
-  const [logoSrc, setLogoSrc] = useState(defaultLogo.src); // Usa a logo padrão inicialmente
+  const [logoSrc, setLogoSrc] = useState(defaultLogo.src);
+  const [showDescription, setShowDescription] = useState(true);
+  const [modalIsOpen, setModalIsOpen] = useState(false);
+  const [expandedImage, setExpandedImage] = useState<string | null>(null);
+  const [selectedImage, setSelectedImage] = useState<string>(imgBanner.src); // Inicia com a URL da imagem
+
   useEffect(() => {
+    const token = localStorage.getItem('authToken');
+    if (!token) {
+      redirect('/login');
+    }
+
+    // Recupera a imagem selecionada do localStorage
+    const storedImage = localStorage.getItem("selectedEventImage");
+    if (storedImage) {
+      setSelectedImage(storedImage); // Armazena a URL diretamente como string
+    }
+
+    // Recupera a logo armazenada no localStorage
     const storedLogo = localStorage.getItem("lastPageLogo");
     if (storedLogo) {
       setLogoSrc(storedLogo); // Atualiza a logo com a última logo armazenada
     }
   }, []);
 
-  const [showDescription, setShowDescription] = useState(true);
-  const [modalIsOpen, setModalIsOpen] = useState(false);
-  
-  // Atualize a tipagem do estado para StaticImageData | null
-  const [expandedImage, setExpandedImage] = useState<StaticImageData | null>(null);
-  const [selectedImage, setSelectedImage] = useState(imgBanner);
+  // Função para alterar a logo de acordo com a página
+  const updateLogo = (logo: string) => {
+    setLogoSrc(logo); // Atualiza a logo no estado
+    localStorage.setItem("lastPageLogo", logo); // Armazena a logo no localStorage
+  };
 
-  useEffect(() => {
-    const token = localStorage.getItem('authToken');
-    
-    // Se não houver token, redireciona para a página de login
-    if (!token) {
-      redirect('/login');
-    }
-  }, []);
+  // Função para cada página que quiser alterar a logo
+  const changeLogo = () => {
+    const newLogo = 'caminho/para/nova/logo.png'; // Exemplo: nova logo
+    updateLogo(newLogo); // Atualiza a logo
+  };
 
   const toggleContent = (content: string) => {
     setShowDescription(content === "sobre");
@@ -71,7 +75,7 @@ const Reservas = () => {
   const openModal = () => setModalIsOpen(true);
   const closeModal = () => setModalIsOpen(false);
 
-  const openImage = (img: StaticImageData) => setExpandedImage(img); // Ajuste para StaticImageData
+  const openImage = (img: string) => setExpandedImage(img); // Armazena como string
   const closeImage = () => setExpandedImage(null);
 
   return (
@@ -82,7 +86,7 @@ const Reservas = () => {
           <Image
             src={selectedImage}
             alt="Banner"
-            layout="fill"
+            fill
             className={styles.bannerImage}
           />
         </div>
@@ -104,9 +108,9 @@ const Reservas = () => {
             </div>
 
             <ReservationModal
-  isOpen={modalIsOpen}
-  onRequestClose={closeModal}
-/>
+              isOpen={modalIsOpen}
+              onRequestClose={closeModal}
+            />
           </div>
         </div>
       </div>
@@ -123,7 +127,7 @@ const Reservas = () => {
           <Image
             src={expandedImage}
             alt="Expanded"
-            layout="fill"
+            fill
             objectFit="contain"
             className={styles.expandedImage}
           />
@@ -133,7 +137,13 @@ const Reservas = () => {
   );
 };
 
-const Section = ({ title, images, openImage }: SectionProps) => {
+interface SectionProps {
+  title: string;
+  images: string[]; // Supondo que images é um array de strings
+  openImage: (img: string) => void; // Função que aceita uma string como argumento
+}
+
+const Section: React.FC<SectionProps> = ({ title, images, openImage }) => {
   return (
     <div className={styles.section}>
       <h2>{title}</h2>
@@ -147,7 +157,7 @@ const Section = ({ title, images, openImage }: SectionProps) => {
           <div
             key={index}
             className={styles.imageContainer}
-            onClick={() => openImage(image)}
+            onClick={() => openImage(image)} // Chama a função passando a URL
           >
             <Image
               src={image}
@@ -160,5 +170,6 @@ const Section = ({ title, images, openImage }: SectionProps) => {
     </div>
   );
 };
+
 
 export default Reservas;

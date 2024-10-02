@@ -59,11 +59,11 @@ export default function MinhasReservas() {
         // Atualiza o estado com a lista atualizada de reservas
         setReservas(updatedReservations);
       } else {
-        // Se a reserva já existe, apenas carrega as reservas existentes
+       
         setReservas(storedReservations);
       }
     } else {
-      // Se não houver uma nova reserva, apenas carrega as reservas existentes
+      
       setReservas(storedReservations);
     }
   }, []);

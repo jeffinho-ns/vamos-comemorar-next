@@ -72,12 +72,13 @@ export default function Home() {
   return (
     <>
       <Header />
+      
       <div id="home-container" className="container-mobile">
         <link rel="manifest" href="/manifest.json" />
         <meta name="theme-color" content="#000000" />
         <link rel="apple-touch-icon" href="/icon-192x192.png" />
         <p className="title">Qual evento você procura? </p>
-        <div className="flex justify-center w-full px-4 py-4">
+        <div className="flex justify-center w-full px-12 py-12">
           <Form
             id="form-search"
             className="w-full border-b-0 form-search bg-white px-4 py-2"
@@ -126,6 +127,8 @@ export default function Home() {
         </main>
         <Footer />
       </div>
+      
     </>
+    
   );
 }

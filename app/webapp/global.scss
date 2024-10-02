@@ -128,3 +128,9 @@ header {
 .HAMBURGER-ICON {
   cursor: pointer;
 }
+
+#home-container {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}

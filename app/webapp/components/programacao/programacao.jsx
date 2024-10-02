@@ -13,6 +13,7 @@ import eventImg6 from "@/app/assets/programacao/prog-13.png";
 
 const Programacao = () => {
   const handleCardClick = (img, title, date) => {
+    console.log("Armazenando imagem:", img.src);
     localStorage.setItem("selectedEventImage", img.src);
     localStorage.setItem("selectedEventTitle", title);
     localStorage.setItem("selectedEventDate", date); // Armazena a data do evento
