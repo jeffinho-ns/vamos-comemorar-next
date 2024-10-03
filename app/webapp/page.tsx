@@ -125,7 +125,9 @@ export default function Home() {
             />
           </div>
         </main>
+        <div className="footerContainer">
         <Footer />
+      </div>
       </div>
       
     </>

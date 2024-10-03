@@ -59,6 +59,13 @@
     cursor: pointer;
     font-size: 16px;
   }
+
+  .button-new {
+    display: flex;
+    justify-content: center; 
+    padding: 3rem;
+    margin: 4rem 0; 
+}
   
   .icon {
     font-size: 24px;
@@ -213,4 +220,15 @@
   
   .reservationDetails {
     font-size: 30px;
+  }
+
+
+  #home-container {
+    flex-grow: 1;
+  }
+  
+  .footerContainer {
+    background-color: #f3f4f6;
+    padding: 1rem;
+    text-align: center;
   }

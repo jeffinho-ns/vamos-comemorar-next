@@ -107,7 +107,9 @@ export default function MinhasReservas() {
           </Link>
         </div>
       </div>
-      <Footer />
+      <div className={styles.footerContainer}>
+        <Footer />
+      </div>
     </>
   );
 }

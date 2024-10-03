@@ -1,7 +1,10 @@
-"user client"
+"use client";
+
+
 import Banner from "../components/banner/banner";
 import Footer from "../components/footer/footer";
 import Header from "../components/header/header";
+
 import Image from "next/image";
 
 
@@ -26,9 +29,8 @@ export default function About() {
           className="Image-banner object-cover h-full"
         />
       </Banner>
-      <main>
-        {/* Conteúdo do main */}
-      </main>
+     
+     
       <Footer />
     </div>
   );
