@@ -67,6 +67,11 @@ const Justino = () => {
   const openImage = (img: StaticImageData) => setExpandedImage(img); // Ajuste para StaticImageData
   const closeImage = () => setExpandedImage(null);
 
+  const addUser = (user: any) => {
+    // Lógica para adicionar o usuário
+    console.log("Usuário adicionado:", user);
+  };
+
   return (
     <>
       <Header />
@@ -138,7 +143,11 @@ const Justino = () => {
           </div>
         </div>
         <button onClick={openModal} className={styles.reserveButton}>Fazer reserva</button>
-        <Profile isOpen={modalIsOpen} onRequestClose={closeModal} />
+        <Profile 
+          isOpen={modalIsOpen} 
+          onRequestClose={closeModal} 
+          addUser={addUser} // Passando a função addUser
+        />
       </div>
 
       <p className={styles.barDescription}>

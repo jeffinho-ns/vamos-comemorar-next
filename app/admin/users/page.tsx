@@ -1,85 +1,138 @@
 "use client";
-import Button from "@/app/components/button/button";
 import { MdAdd, MdRefresh } from "react-icons/md";
-import Grid from "@/app/components/grid/grid";
-import Select from "@/app/components/select/select";
-import { filterData, users } from "@/app/repository/filterData";
-import "./styles.sass";
-import { useState } from "react";
-import Input from "@/app/components/input/input";
+import { useEffect, useState } from "react";
+import Profile from "../../components/profile/profile";
 
-interface IButtonProps {
-  type: "button" | "submit" | "reset";
-  className?: string;
-  children: React.ReactNode;
-}
-
-interface IInputProps {
-  type: string;
-  id: string;
-  value: string;
-  className?: string;
-  placeholder?: string;
-  onChange?: (e: React.ChangeEvent<HTMLInputElement>) => void;
+// Atualização da definição do tipo User
+interface User {
+  nome: string;
+  email: string;
+  telefone: string;
+  status: string;
+  createAt: string; // ou Date, se preferir
+  cpf: string; // Incluindo a propriedade cpf
 }
 
 export default function Users() {
-  const [filterBy, setFilterBy] = useState<string>("");
+  const [users, setUsers] = useState<User[]>([]);
+  const [filterBy, setFilterBy] = useState("");
+  const [modalIsOpen, setModalIsOpen] = useState(false);
+
+  const openModal = () => setModalIsOpen(true);
+  const closeModal = () => setModalIsOpen(false);
+
+  useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        const response = await fetch('/api/users/router.ts');
+        if (!response.ok) throw new Error('Erro ao buscar usuários');
+        const data = await response.json();
+        setUsers(data);
+      } catch (error) {
+        console.error('Erro ao buscar usuários:', error);
+      }
+    };
+    fetchUsers();
+  }, []);
+
+  const addUser = async (user: User) => {
+    try {
+      console.log('Adicionando usuário:', user);
+      const response = await fetch('/api/users/router.ts', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(user),
+      });
+      if (!response.ok) throw new Error('Erro ao adicionar usuário');
+      const newUser = await response.json();
+      setUsers((prevUsers) => [...prevUsers, newUser]);
+      closeModal(); // Fecha o modal após o envio
+    } catch (error) {
+      console.error('Erro ao adicionar usuário:', error);
+    }
+  };
+
+  const filteredUsers = users.filter((user) => {
+    return (
+      user.nome.toLowerCase().includes(filterBy.toLowerCase()) ||
+      user.email.toLowerCase().includes(filterBy.toLowerCase()) ||
+      user.cpf.includes(filterBy) // Agora cpf está definido
+    );
+  });
 
   return (
-    <div className="table-container">
-      <div className="btn-table-actions">
-        <Button type="button" className="btn-refresh">
-          <span>
-            <MdRefresh className="refresh-icon" />
-          </span>
-        </Button>
-        <Button type="button" className="btn-add">
-          <span>
-            <MdAdd className="add-icon" />
-          </span>
-        </Button>
+    <div className="w-full p-6 bg-gray-100">
+      <h2 className="text-2xl font-semibold mb-4">Usuários</h2>
+
+      <div className="flex items-center mb-6">
+        <button className="bg-gray-500 hover:bg-gray-600 text-white p-4 rounded-full mr-4">
+          <MdRefresh className="text-xl" />
+        </button>
+        <button onClick={openModal} className="bg-blue-500 hover:bg-blue-600 text-white p-4 rounded-full">
+          <MdAdd className="text-xl" />
+        </button>
+        <Profile isOpen={modalIsOpen} onRequestClose={closeModal} addUser={addUser} />
       </div>
 
-      <div className="search-container">
-        <Input
+      <div className="flex space-x-4 mb-6">
+        <input
           type="text"
-          id="search-input"
           value={filterBy}
-          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFilterBy(e.target.value)}
-          className="search-input"
-          placeholder="Nome, E-mail ou Cpf (Apenas Números)"
+          onChange={(e) => setFilterBy(e.target.value)}
+          className="w-2/3 p-3 rounded-md shadow-sm border-gray-300 focus:ring focus:ring-blue-200"
+          placeholder="Nome, E-mail ou CPF (Apenas Números)"
         />
-        <Select onChange={() => {}} className="search-select">
-          <option value=""></option>
-        </Select>
+        <select className="w-1/3 p-3 rounded-md shadow-sm border-gray-300">
+          <option value="usuarios">Usuários</option>
+        </select>
       </div>
 
-      <Grid>
-        <div>
-          <header className="header-grid">
-            <span>Icone</span>
-            <span>Empresa</span>
-            <span>E-mail</span>
-            <span>Telefone</span>
-            <span>Status</span>
-            <span>Criado em</span>
-          </header>
-          <main className="grid-content">
-            <ul>
-              {users.map((user) => (
-                <li key={user.name}>
-                  <span>{user.name}</span>
-                  <span>{user.email}</span>
-                  <span>{user.telefone}</span>
-                  <span>{user.status}</span>
-                  <span>{user.createAt}</span>
-                </li>
-              ))}
-            </ul>
-          </main>
+      <div className="overflow-x-auto bg-white shadow-lg rounded-lg">
+        <table className="min-w-full text-left table-auto">
+          <thead className="bg-gray-200">
+            <tr>
+              <th className="px-6 py-3 font-semibold">Nome</th>
+              <th className="px-6 py-3 font-semibold">E-mail</th>
+              <th className="px-6 py-3 font-semibold">Telefone</th>
+              <th className="px-6 py-3 font-semibold">Status</th>
+              <th className="px-6 py-3 font-semibold">Criado em</th>
+              <th className="px-6 py-3 font-semibold">Ações</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filteredUsers.map((user, index) => (
+              <tr key={index} className="border-t">
+                <td className="px-6 py-4">{user.nome}</td>
+                <td className="px-6 py-4">{user.email}</td>
+                <td className="px-6 py-4">{user.telefone}</td>
+                <td className="px-6 py-4">{user.status}</td>
+                <td className="px-6 py-4">{user.createAt}</td>
+                <td className="px-6 py-4 flex space-x-2">
+                  <button className="text-blue-500">✏️</button>
+                  <button className="text-red-500">🗑️</button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="flex justify-between items-center mt-6">
+        <div className="text-gray-600">
+          <span>Mostrando 1 a 10 de {filteredUsers.length} usuários</span>
         </div>
-      </Grid>
+        <div className="flex space-x-2">
+          <button className="bg-gray-300 hover:bg-gray-400 text-gray-800 px-3 py-2 rounded-md">◀</button>
+          <button className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-2 rounded-md">1</button>
+          <button className="bg-gray-300 hover:bg-gray-400 text-gray-800 px-3 py-2 rounded-md">▶</button>
+        </div>
+        <select className="p-2 border border-gray-300 rounded-md">
+          <option>10</option>
+          <option>20</option>
+        </select>
+      </div>
     </div>
   );
 }

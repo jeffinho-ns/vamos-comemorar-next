@@ -4,7 +4,7 @@ import React, { useState } from "react";
 import Modal from "react-modal";
 import styles from "./profile.module.scss";
 
-const Profile = ({ isOpen, onRequestClose }) => {
+const Profile = ({ isOpen, onRequestClose, addUser }) => {
   const [profile, setProfile] = useState({
     nome: "",
     email: "",
@@ -18,12 +18,15 @@ const Profile = ({ isOpen, onRequestClose }) => {
     cidade: "",
     estado: "",
     complemento: "",
-    foto: null, 
+    foto: null,
   });
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setProfile({ ...profile, [name]: value });
+    setProfile((prevProfile) => ({
+      ...prevProfile,
+      [name]: value,
+    }));
   };
 
   const handleFotoChange = (e) => {
@@ -31,18 +34,31 @@ const Profile = ({ isOpen, onRequestClose }) => {
     if (file) {
       const reader = new FileReader();
       reader.onloadend = () => {
-        setProfile({ ...profile, foto: reader.result });
+        setProfile((prevProfile) => ({ ...prevProfile, foto: reader.result }));
       };
       reader.readAsDataURL(file);
     }
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log(profile);
-    // Process the form submission
-    // Exemplo de envio para o backend:
-    // enviarDadosParaBackend(profile);
+
+    // Enviar os dados do perfil para a API
+    const response = await fetch('/api/users', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(profile),
+    });
+
+    if (response.ok) {
+      const savedProfile = await response.json();
+      console.log('Usuário adicionado:', savedProfile);
+      onRequestClose(); // Fecha o modal após o envio
+    } else {
+      console.error('Erro ao adicionar usuário:', response.statusText);
+    }
   };
 
   return (
@@ -60,7 +76,7 @@ const Profile = ({ isOpen, onRequestClose }) => {
                 type="file"
                 id="fotoInput"
                 accept="image/*"
-                onChange={(e) => handleFotoChange(e)}
+                onChange={handleFotoChange}
                 style={{ display: 'none' }}
               />
               {profile.foto ? (
@@ -79,6 +95,7 @@ const Profile = ({ isOpen, onRequestClose }) => {
               placeholder="Nome e sobrenome"
               value={profile.nome}
               onChange={handleChange}
+              required
             />
             <input
               type="email"
@@ -86,56 +103,56 @@ const Profile = ({ isOpen, onRequestClose }) => {
               placeholder="E-mail"
               value={profile.email}
               onChange={handleChange}
+              required
             />
-          </div>
-          <div className={styles.formRow}>
             <input
               type="text"
               name="telefone"
               placeholder="Telefone"
               value={profile.telefone}
               onChange={handleChange}
+              required
             />
-            <input
-              type="text"
+            <select
               name="sexo"
-              placeholder="Sexo"
               value={profile.sexo}
               onChange={handleChange}
-            />
+              required
+            >
+              <option value="">Sexo</option>
+              <option value="masculino">Masculino</option>
+              <option value="feminino">Feminino</option>
+            </select>
             <input
               type="date"
               name="nascimento"
-              placeholder="Nascimento"
               value={profile.nascimento}
               onChange={handleChange}
+              required
             />
-          </div>
-          <div className={styles.formRow}>
             <input
               type="text"
               name="cpf"
               placeholder="CPF"
               value={profile.cpf}
               onChange={handleChange}
+              required
             />
-          </div>
-          <div className={styles.formRow}>
             <input
               type="text"
               name="endereco"
-              placeholder="End."
+              placeholder="Endereço"
               value={profile.endereco}
               onChange={handleChange}
+              required
             />
-          </div>
-          <div className={styles.formRow}>
             <input
               type="text"
               name="numero"
               placeholder="Número"
               value={profile.numero}
               onChange={handleChange}
+              required
             />
             <input
               type="text"
@@ -143,6 +160,7 @@ const Profile = ({ isOpen, onRequestClose }) => {
               placeholder="Bairro"
               value={profile.bairro}
               onChange={handleChange}
+              required
             />
             <input
               type="text"
@@ -150,6 +168,7 @@ const Profile = ({ isOpen, onRequestClose }) => {
               placeholder="Cidade"
               value={profile.cidade}
               onChange={handleChange}
+              required
             />
             <input
               type="text"
@@ -157,9 +176,8 @@ const Profile = ({ isOpen, onRequestClose }) => {
               placeholder="Estado"
               value={profile.estado}
               onChange={handleChange}
+              required
             />
-          </div>
-          <div className={styles.formRow}>
             <input
               type="text"
               name="complemento"
@@ -168,11 +186,7 @@ const Profile = ({ isOpen, onRequestClose }) => {
               onChange={handleChange}
             />
           </div>
-          <div className={styles.formRow}>
-            <button type="submit" className={styles.updateButton}>
-              Atualizar
-            </button>
-          </div>
+          <button type="submit" className={styles.submitButton}>Salvar</button>
         </form>
       </div>
     </Modal>
