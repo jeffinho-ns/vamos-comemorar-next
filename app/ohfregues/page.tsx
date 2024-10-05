@@ -48,6 +48,7 @@ const Ohfregues = () => {
   const [showDescription, setShowDescription] = useState(true);
   const [modalIsOpen, setModalIsOpen] = useState(false);
   const [expandedImage, setExpandedImage] = useState<StaticImageData | null>(null);
+  const [user, setUser] = useState<any>(null);
 
   useEffect(() => {
     const token = localStorage.getItem('authToken');
@@ -71,6 +72,7 @@ const Ohfregues = () => {
   const addUser = (user: any) => {
     // Lógica para adicionar o usuário
     console.log("Usuário adicionado:", user);
+    setUser(user); // Atualiza o estado do usuário
   };
 
   return (
@@ -148,6 +150,7 @@ const Ohfregues = () => {
           isOpen={modalIsOpen} 
           onRequestClose={closeModal} 
           addUser={addUser} // Passando a função addUser
+          user={user} // Passando a propriedade user
         />
       </div>
 

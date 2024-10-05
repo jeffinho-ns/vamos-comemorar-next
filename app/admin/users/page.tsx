@@ -1,79 +1,147 @@
 "use client";
-import { MdAdd, MdRefresh } from "react-icons/md";
+import { MdAdd, MdRefresh, MdEdit, MdDelete } from "react-icons/md";
 import { useEffect, useState } from "react";
 import Profile from "../../components/profile/profile";
+import { useRouter } from 'next/navigation';
 
-// Atualização da definição do tipo User
 interface User {
-  nome: string;
+  id: number;
+  name: string;
   email: string;
-  telefone: string;
+  phone: string;
   status: string;
-  createAt: string; // ou Date, se preferir
-  cpf: string; // Incluindo a propriedade cpf
+  created_at: string;
 }
 
 export default function Users() {
-  const [users, setUsers] = useState<User[]>([]);
+  const [data, setData] = useState<User[]>([]);
   const [filterBy, setFilterBy] = useState("");
   const [modalIsOpen, setModalIsOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [userType, setUserType] = useState("usuario");
+  const [page, setPage] = useState(1);
+  const [perPage] = useState(10);
+  const [totalPages, setTotalPages] = useState(1);
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const router = useRouter();
 
   const openModal = () => setModalIsOpen(true);
-  const closeModal = () => setModalIsOpen(false);
+  const closeModal = () => {
+    setModalIsOpen(false);
+    setSelectedUser(null);
+  };
 
-  useEffect(() => {
-    const fetchUsers = async () => {
-      try {
-        const response = await fetch('/api/users/router.ts');
-        if (!response.ok) throw new Error('Erro ao buscar usuários');
-        const data = await response.json();
-        setUsers(data);
-      } catch (error) {
-        console.error('Erro ao buscar usuários:', error);
-      }
-    };
-    fetchUsers();
-  }, []);
+  const fetchData = async () => {
+    setLoading(true);
+    const token = localStorage.getItem('authToken');
+    let url = '';
 
-  const addUser = async (user: User) => {
+    if (userType === 'usuario') {
+      url = `https://api.vamoscomemorar.com.br/users?page=${page}&perPage=${perPage}&type=users&search=`;
+    } else if (userType === 'cliente') {
+      url = `https://api.vamoscomemorar.com.br/users?page=${page}&perPage=${perPage}&type=clients&search=`;
+    }
+
     try {
-      console.log('Adicionando usuário:', user);
-      const response = await fetch('/api/users/router.ts', {
-        method: 'POST',
+      const response = await fetch(url, {
         headers: {
-          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
         },
-        body: JSON.stringify(user),
       });
-      if (!response.ok) throw new Error('Erro ao adicionar usuário');
-      const newUser = await response.json();
-      setUsers((prevUsers) => [...prevUsers, newUser]);
-      closeModal(); // Fecha o modal após o envio
+
+      if (!response.ok) throw new Error('Erro ao buscar dados');
+
+      const data = await response.json();
+
+      if (Array.isArray(data.data)) {
+        setData(data.data);
+        setTotalPages(Math.ceil(data.total / perPage));
+      } else {
+        setError('Dados inválidos.');
+      }
     } catch (error) {
-      console.error('Erro ao adicionar usuário:', error);
+      if (error instanceof Error) {
+        setError(error.message);
+      } else {
+        setError('Erro desconhecido');
+      }
+      console.error('Erro ao buscar empresas:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const filteredUsers = users.filter((user) => {
+  useEffect(() => {
+    fetchData();
+  }, [userType, page]);
+
+  const handlePageChange = (newPage: number) => {
+    if (newPage >= 1 && newPage <= totalPages) {
+      setPage(newPage);
+    }
+  };
+
+  const filteredData = data.filter((item) => {
     return (
-      user.nome.toLowerCase().includes(filterBy.toLowerCase()) ||
-      user.email.toLowerCase().includes(filterBy.toLowerCase()) ||
-      user.cpf.includes(filterBy) // Agora cpf está definido
+      item.name.toLowerCase().includes(filterBy.toLowerCase()) ||
+      item.email.toLowerCase().includes(filterBy.toLowerCase())
     );
   });
 
+  const handleEdit = (user: User) => {
+    setSelectedUser(user);
+    openModal();
+  };
+
+  const handleDelete = async (id: number) => {
+    const confirmDelete = confirm("Tem certeza que deseja excluir este item?");
+    if (confirmDelete) {
+      const token = localStorage.getItem('authToken');
+      try {
+        const response = await fetch(`https://api.vamoscomemorar.com.br/users/${id}`, {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        });
+
+        if (!response.ok) throw new Error('Erro ao excluir usuário');
+
+        fetchData();
+      } catch (error) {
+        if (error instanceof Error) {
+          setError(error.message);
+        } else {
+          setError('Erro desconhecido');
+        }
+        console.error('Erro ao excluir usuário:', error);
+      }
+    }
+  };
+
+  const addUser = (user: User) => {
+    // Lógica para adicionar um novo usuário
+    console.log('Adicionar usuário:', user);
+  };
+
   return (
     <div className="w-full p-6 bg-gray-100">
-      <h2 className="text-2xl font-semibold mb-4">Usuários</h2>
+      <h2 className="text-2xl font-semibold mb-4">Usuários e Clientes</h2>
 
       <div className="flex items-center mb-6">
-        <button className="bg-gray-500 hover:bg-gray-600 text-white p-4 rounded-full mr-4">
+        <button onClick={fetchData} className="bg-gray-500 hover:bg-gray-600 text-white p-4 rounded-full mr-4">
           <MdRefresh className="text-xl" />
         </button>
         <button onClick={openModal} className="bg-blue-500 hover:bg-blue-600 text-white p-4 rounded-full">
           <MdAdd className="text-xl" />
         </button>
-        <Profile isOpen={modalIsOpen} onRequestClose={closeModal} addUser={addUser} />
+        <Profile 
+          isOpen={modalIsOpen} 
+          onRequestClose={closeModal} 
+          user={selectedUser} 
+          addUser={addUser} // Passando a função addUser
+        />
       </div>
 
       <div className="flex space-x-4 mb-6">
@@ -82,12 +150,20 @@ export default function Users() {
           value={filterBy}
           onChange={(e) => setFilterBy(e.target.value)}
           className="w-2/3 p-3 rounded-md shadow-sm border-gray-300 focus:ring focus:ring-blue-200"
-          placeholder="Nome, E-mail ou CPF (Apenas Números)"
+          placeholder="Nome ou E-mail"
         />
-        <select className="w-1/3 p-3 rounded-md shadow-sm border-gray-300">
-          <option value="usuarios">Usuários</option>
+        <select
+          value={userType}
+          onChange={(e) => setUserType(e.target.value)}
+          className="w-1/3 p-3 rounded-md shadow-sm border-gray-300 focus:ring focus:ring-blue-200"
+        >
+          <option value="usuario">Usuário</option>
+          <option value="cliente">Cliente</option>
         </select>
       </div>
+
+      {loading && <p>Carregando dados...</p>}
+      {error && <p className="text-red-500">{error}</p>}
 
       <div className="overflow-x-auto bg-white shadow-lg rounded-lg">
         <table className="min-w-full text-left table-auto">
@@ -102,36 +178,49 @@ export default function Users() {
             </tr>
           </thead>
           <tbody>
-            {filteredUsers.map((user, index) => (
-              <tr key={index} className="border-t">
-                <td className="px-6 py-4">{user.nome}</td>
-                <td className="px-6 py-4">{user.email}</td>
-                <td className="px-6 py-4">{user.telefone}</td>
-                <td className="px-6 py-4">{user.status}</td>
-                <td className="px-6 py-4">{user.createAt}</td>
-                <td className="px-6 py-4 flex space-x-2">
-                  <button className="text-blue-500">✏️</button>
-                  <button className="text-red-500">🗑️</button>
-                </td>
+            {filteredData.length > 0 ? (
+              filteredData.map((item, index) => (
+                <tr key={index} className="border-t">
+                  <td className="px-6 py-4">{item.name}</td>
+                  <td className="px-6 py-4">{item.email}</td>
+                  <td className="px-6 py-4">{item.phone}</td>
+                  <td className="px-6 py-4">{item.status}</td>
+                  <td className="px-6 py-4">{item.created_at}</td>
+                  <td className="px-6 py-4 flex space-x-2">
+                    <button onClick={() => handleEdit(item)} title="Editar">
+                      <MdEdit className="text-blue-500 hover:text-blue-700" />
+                    </button>
+                    <button onClick={() => handleDelete(item.id)} title="Excluir">
+                      <MdDelete className="text-red-500 hover:text-red-700" />
+                    </button>
+                  </td>
+                </tr>
+              ))
+            ) : (
+              <tr>
+                <td colSpan={6} className="px-6 py-4 text-center">Nenhum dado encontrado</td>
               </tr>
-            ))}
+            )}
           </tbody>
         </table>
       </div>
 
       <div className="flex justify-between items-center mt-6">
-        <div className="text-gray-600">
-          <span>Mostrando 1 a 10 de {filteredUsers.length} usuários</span>
-        </div>
-        <div className="flex space-x-2">
-          <button className="bg-gray-300 hover:bg-gray-400 text-gray-800 px-3 py-2 rounded-md">◀</button>
-          <button className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-2 rounded-md">1</button>
-          <button className="bg-gray-300 hover:bg-gray-400 text-gray-800 px-3 py-2 rounded-md">▶</button>
-        </div>
-        <select className="p-2 border border-gray-300 rounded-md">
-          <option>10</option>
-          <option>20</option>
-        </select>
+        <button
+          onClick={() => handlePageChange(page - 1)}
+          disabled={page === 1}
+          className={`px-4 py-2 rounded ${page === 1 ? 'bg-gray-300' : 'bg-blue-500 text-white'}`}
+        >
+          Anterior
+        </button>
+        <p>Página {page} de {totalPages}</p>
+        <button
+          onClick={() => handlePageChange(page + 1)}
+          disabled={page === totalPages}
+          className={`px-4 py-2 rounded ${page === totalPages ? 'bg-gray-300' : 'bg-blue-500 text-white'}`}
+        >
+          Próximo
+        </button>
       </div>
     </div>
   );

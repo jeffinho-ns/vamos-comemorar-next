@@ -95,7 +95,7 @@ const handleLogin = async () => {
 
       // Tente acessar /site/places diretamente com o token
       await fetchPlaces(data.token);
-      router.push('/dashboard');
+      router.push('/admin');
     } else {
       setError('Credenciais inválidas');
     }

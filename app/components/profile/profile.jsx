@@ -1,25 +1,52 @@
-// profile.js
-
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Modal from "react-modal";
 import styles from "./profile.module.scss";
 
-const Profile = ({ isOpen, onRequestClose, addUser }) => {
+const Profile = ({ isOpen, onRequestClose, addUser, user }) => {
   const [profile, setProfile] = useState({
-    nome: "",
+    name: "",
     email: "",
-    telefone: "",
-    sexo: "",
-    nascimento: "",
+    id: "",
+    phone: "",
     cpf: "",
+    status: "Ativado",
+    nascimento: "",
     endereco: "",
     numero: "",
     bairro: "",
     cidade: "",
     estado: "",
     complemento: "",
-    foto: null,
+    foto: "",
   });
+
+  // Preenche o estado com os dados do usuário quando o modal abrir
+  useEffect(() => {
+    if (isOpen && user) {
+      setProfile({
+        ...user,
+        status: user.status === "Ativado" ? "Ativado" : "Desativado", // Ajuste se necessário
+      });
+    } else if (isOpen) {
+      // Se o modal abrir sem um usuário, limpa o formulário
+      setProfile({
+        name: "",
+        email: "",
+        id: "",
+        phone: "",
+        cpf: "",
+        status: "Ativado",
+        nascimento: "",
+        endereco: "",
+        numero: "",
+        bairro: "",
+        cidade: "",
+        estado: "",
+        complemento: "",
+        foto: "",
+      });
+    }
+  }, [isOpen, user]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -43,21 +70,62 @@ const Profile = ({ isOpen, onRequestClose, addUser }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // Enviar os dados do perfil para a API
-    const response = await fetch('/api/users', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(profile),
-    });
+    const data = {
+      name: profile.name,
+      email: profile.email,
+      phone: profile.phone,
+      cpf: profile.cpf,
+      status: profile.status,
+      nascimento: profile.nascimento,
+      endereco: profile.endereco,
+      numero: profile.numero,
+      bairro: profile.bairro,
+      cidade: profile.cidade,
+      estado: profile.estado,
+      complemento: profile.complemento,
+      foto: profile.foto,
+    };
 
-    if (response.ok) {
-      const savedProfile = await response.json();
-      console.log('Usuário adicionado:', savedProfile);
-      onRequestClose(); // Fecha o modal após o envio
-    } else {
-      console.error('Erro ao adicionar usuário:', response.statusText);
+    try {
+      const token = localStorage.getItem('authToken');
+      if (!token) {
+        console.error('Token não encontrado. Faça login novamente.');
+        return;
+      }
+
+      let response;
+      if (user) {
+        // Atualiza o usuário existente
+        response = await fetch(`https://api.vamoscomemorar.com.br/users/${profile.id}`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`,
+          },
+          body: JSON.stringify(data),
+        });
+      } else {
+        // Adiciona um novo usuário
+        response = await fetch(`https://api.vamoscomemorar.com.br/users`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`,
+          },
+          body: JSON.stringify(data),
+        });
+      }
+
+      if (response.ok) {
+        const savedProfile = await response.json();
+        console.log(user ? "Usuário atualizado:" : "Usuário adicionado:", savedProfile);
+        addUser(savedProfile); // Adiciona o usuário ao estado pai, se necessário
+        onRequestClose(); // Fecha o modal após o envio
+      } else {
+        console.error("Erro ao salvar usuário:", response.statusText);
+      }
+    } catch (error) {
+      console.error("Erro ao enviar dados:", error);
     }
   };
 
@@ -77,12 +145,12 @@ const Profile = ({ isOpen, onRequestClose, addUser }) => {
                 id="fotoInput"
                 accept="image/*"
                 onChange={handleFotoChange}
-                style={{ display: 'none' }}
+                style={{ display: "none" }}
               />
               {profile.foto ? (
                 <img src={profile.foto} alt="Foto de perfil" className={styles.profilePicImage} />
               ) : (
-                'Adicionar foto'
+                "Adicionar foto"
               )}
             </label>
           </div>
@@ -91,9 +159,17 @@ const Profile = ({ isOpen, onRequestClose, addUser }) => {
           <div className={styles.formRow}>
             <input
               type="text"
-              name="nome"
+              name="id"
+              placeholder="Seu código"
+              value={profile.id}
+              onChange={handleChange}
+              required={!user} // Torna o campo obrigatório apenas se for adicionar um novo usuário
+            />
+            <input
+              type="text"
+              name="name"
               placeholder="Nome e sobrenome"
-              value={profile.nome}
+              value={profile.name}
               onChange={handleChange}
               required
             />
@@ -107,21 +183,21 @@ const Profile = ({ isOpen, onRequestClose, addUser }) => {
             />
             <input
               type="text"
-              name="telefone"
+              name="phone"
               placeholder="Telefone"
-              value={profile.telefone}
+              value={profile.phone}
               onChange={handleChange}
               required
             />
             <select
-              name="sexo"
-              value={profile.sexo}
+              name="status"
+              value={profile.status}
               onChange={handleChange}
               required
             >
-              <option value="">Sexo</option>
-              <option value="masculino">Masculino</option>
-              <option value="feminino">Feminino</option>
+              <option value="">Status</option>
+              <option value="Ativado">Ativado</option>
+              <option value="Desativado">Desativado</option>
             </select>
             <input
               type="date"

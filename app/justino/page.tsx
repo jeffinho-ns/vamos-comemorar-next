@@ -47,6 +47,7 @@ const Justino = () => {
   const [showDescription, setShowDescription] = useState(true);
   const [modalIsOpen, setModalIsOpen] = useState(false);
   const [expandedImage, setExpandedImage] = useState<StaticImageData | null>(null);
+  const [user, setUser] = useState<any>(null); // Adicionando estado para o usuário
 
   useEffect(() => {
     const token = localStorage.getItem('authToken');
@@ -70,6 +71,7 @@ const Justino = () => {
   const addUser = (user: any) => {
     // Lógica para adicionar o usuário
     console.log("Usuário adicionado:", user);
+    setUser(user); // Atualiza o estado do usuário
   };
 
   return (
@@ -147,6 +149,7 @@ const Justino = () => {
           isOpen={modalIsOpen} 
           onRequestClose={closeModal} 
           addUser={addUser} // Passando a função addUser
+          user={user} // Passando a propriedade user
         />
       </div>
 
@@ -192,52 +195,27 @@ const Justino = () => {
 
       <div className={styles.mapContainer}>
         <iframe
-          src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3658.8531229789736!2d-46.70965078450384!3d-23.504566264570394!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x94cef8c55b0f2e7b%3A0x6b9156a1e51233b3!2sLargo%20da%20Matriz%20de%20Nossa%20Senhora%20do%20%C3%93%2C%20145%20-%20Freguesia%20do%20%C3%93%2C%20S%C3%A3o%20Paulo%20-%20SP%2C%2002925-040!5e0!3m2!1sen!2sbr!4v1625157527756!5m2!1sen!2sbr"
-          width="100%"
+          src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3658.8531229789736!2d-46.70965078450384!3d-23.504566264570394!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x94cef8c55b0f2e7b%3A0x6b9156a1e51233b3!2sLargo%20da%20Matriz%20de%20Nossa%20Senhora%20do%20%C3%93%2C%20145%20-%20Freguesia%20do%20%C3%93%2C%20S%C3%A3o%20Paulo%20-%20SP%2C%2002925-040!5e0!3m2!1spt-BR!2sbr!4v1681723528801!5m2!1spt-BR!2sbr"
+          width="600"
           height="450"
           style={{ border: 0 }}
           allowFullScreen
           loading="lazy"
-        ></iframe>
+        />
       </div>
-
-      {expandedImage && (
-        <Modal
-          isOpen={!!expandedImage}
-          onRequestClose={closeImage}
-          className={styles.modal}
-          overlayClassName={styles.modalOverlay}
-        >
-          <div className={styles.modalImageContainer}>
-            <Image
-              src={expandedImage}
-              alt="Expanded"
-              className={styles.modalImage}
-              layout="intrinsic"
-              width={800}
-              height={600}
-            />
-          </div>
-        </Modal>
-      )}
 
       <Footer />
     </>
   );
 };
 
-// Componente Section para mostrar as imagens
-const Section: React.FC<SectionProps> = ({ title, images, openImage }) => (
+const Section = ({ title, images, openImage }: SectionProps) => (
   <div className={styles.section}>
     <h2 className={styles.sectionTitle}>{title}</h2>
-    <div className={styles.images}>
+    <div className={styles.imagesContainer}>
       {images.map((img, index) => (
-        <div
-          key={index}
-          className={styles.imageContainer}
-          onClick={() => openImage(img)}
-        >
-          <Image src={img} alt={title} className={styles.image} />
+        <div key={index} className={styles.imageWrapper} onClick={() => openImage(img)}>
+          <Image src={img} alt={title} width={200} height={200} className={styles.image} />
         </div>
       ))}
     </div>

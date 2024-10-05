@@ -88,7 +88,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   </li>
                   <li>
                     <MdFactory />
-                    <Link href="/admin/factory">Empresa</Link>
+                    <Link 
+                      href="/admin/enterprise"
+                    onClick={() => setPathname("enterprise")}
+                    >
+                      Empresa
+                    </Link>
                   </li>
                   <li>
                     <MdSpaceBar />
