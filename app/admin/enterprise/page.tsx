@@ -1,7 +1,7 @@
 "use client";
-import { MdAdd, MdRefresh } from "react-icons/md";
+import { MdAdd, MdRefresh, MdEdit, MdDelete } from "react-icons/md";
 import { useEffect, useState } from "react";
-import Profile from "../../components/enterprise/enterprise";
+import Enterprise from "../../components/enterprise/enterprise";
 import { useRouter } from 'next/navigation'; // Importando o router
 
 // Atualização da definição do tipo Company
@@ -21,10 +21,18 @@ export default function Companies() { // Mudando o nome da função para Compani
   const [modalIsOpen, setModalIsOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [selectedCompany, setSelectedCompany] = useState(null);
   const router = useRouter(); // Instância do router
 
-  const openModal = () => setModalIsOpen(true);
-  const closeModal = () => setModalIsOpen(false);
+  const openModal = (company: any = null) => {
+    setSelectedCompany(company); // Define a empresa ou null no estado
+    setModalIsOpen(true); // Abre o modal
+  };
+  
+  const closeModal = () => {
+    setModalIsOpen(false);
+    setSelectedCompany(null); // Reseta a empresa selecionada ao fechar o modal
+  };
 
   // Função para buscar as empresas da API da Vamos Comemorar
   const fetchCompanies = async () => {
@@ -59,6 +67,28 @@ export default function Companies() { // Mudando o nome da função para Compani
       setLoading(false);
     }
   };
+
+  const handleDelete = async (companyId: string) => {
+    const confirmDelete = window.confirm("Tem certeza que deseja excluir esta empresa?");
+    
+    if (confirmDelete) {
+      try {
+        // Chamada para deletar a empresa da API
+        await fetch(`/api/enterprises/${companyId}`, {
+          method: 'DELETE',
+        });
+  
+        // Atualize a lista de empresas removendo a empresa deletada
+        setCompanies(companies.filter((company: any) => company.id !== companyId));
+        
+        alert('Empresa excluída com sucesso!');
+      } catch (error) {
+        console.error('Erro ao excluir a empresa:', error);
+        alert('Ocorreu um erro ao tentar excluir a empresa.');
+      }
+    }
+  };
+  
   
   useEffect(() => {
     fetchCompanies();
@@ -87,10 +117,10 @@ export default function Companies() { // Mudando o nome da função para Compani
         <button onClick={fetchCompanies} className="bg-gray-500 hover:bg-gray-600 text-white p-4 rounded-full mr-4">
           <MdRefresh className="text-xl" />
         </button>
-        <button onClick={openModal} className="bg-blue-500 hover:bg-blue-600 text-white p-4 rounded-full">
-          <MdAdd className="text-xl" />
-        </button>
-        <Profile isOpen={modalIsOpen} onRequestClose={closeModal} addUser={addUser} />
+        <button onClick={() => openModal()} className="bg-blue-500 hover:bg-blue-600 text-white p-4 rounded-full">
+  <MdAdd className="text-xl" />
+</button>
+        <Enterprise isOpen={modalIsOpen} onRequestClose={closeModal} company={selectedCompany} />
       </div>
 
       <div className="flex space-x-4 mb-6">
@@ -127,9 +157,14 @@ export default function Companies() { // Mudando o nome da função para Compani
                   <td className="px-6 py-4">{company.phone}</td>
                   <td className="px-6 py-4">{company.status}</td>
                   <td className="px-6 py-4">{company.created_at}</td>
-                  <td className="px-6 py-4">
-                    {/* Ações da empresa */}
-                  </td>
+                  <td className="px-6 py-4 flex space-x-2">
+  <button onClick={() => openModal(company)} title="Editar">
+    <MdEdit className="text-blue-500 hover:text-blue-700" />
+  </button>
+  <button onClick={() => handleDelete(company.id.toString())} title="Excluir">
+  <MdDelete className="text-red-500 hover:text-red-700" />
+</button>
+</td>
                 </tr>
               ))
             ) : (

@@ -151,6 +151,7 @@ const Ohfregues = () => {
           onRequestClose={closeModal} 
           addUser={addUser} // Passando a função addUser
           user={user} // Passando a propriedade user
+          userType={user?.type}
         />
       </div>
 

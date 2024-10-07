@@ -2,7 +2,9 @@ import React, { useState, useEffect } from "react";
 import Modal from "react-modal";
 import styles from "./profile.module.scss";
 
-const Profile = ({ isOpen, onRequestClose, addUser, user }) => {
+
+
+const Profile = ({ isOpen, onRequestClose, addUser, user, userType }) => {
   const [profile, setProfile] = useState({
     name: "",
     email: "",
@@ -25,7 +27,7 @@ const Profile = ({ isOpen, onRequestClose, addUser, user }) => {
     if (isOpen && user) {
       setProfile({
         ...user,
-        status: user.status === "Ativado" ? "Ativado" : "Desativado", // Ajuste se necessário
+        status: user.status === "Ativado" ? "Ativado" : "Desativado",
       });
     } else if (isOpen) {
       // Se o modal abrir sem um usuário, limpa o formulário
@@ -61,61 +63,74 @@ const Profile = ({ isOpen, onRequestClose, addUser, user }) => {
     if (file) {
       const reader = new FileReader();
       reader.onloadend = () => {
-        setProfile((prevProfile) => ({ ...prevProfile, foto: reader.result }));
+        const img = new Image();
+        img.src = reader.result;
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const max_width = 500; // Define a largura máxima
+          const scaleSize = max_width / img.width;
+          canvas.width = max_width;
+          canvas.height = img.height * scaleSize;
+  
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+  
+          // Converte a imagem de volta para base64
+          const resizedImage = canvas.toDataURL('image/jpeg', 0.8); // Ajuste a qualidade (0.8 é 80%)
+          setProfile((prevProfile) => ({ ...prevProfile, foto: resizedImage }));
+        };
       };
       reader.readAsDataURL(file);
     }
   };
-
+  
+  
   const handleSubmit = async (e) => {
     e.preventDefault();
-
-    const data = {
+  
+    // Cria um novo objeto com apenas os campos que o servidor precisa (nome, email, telefone)
+    const dataToSend = {
       name: profile.name,
       email: profile.email,
       phone: profile.phone,
-      cpf: profile.cpf,
-      status: profile.status,
-      nascimento: profile.nascimento,
-      endereco: profile.endereco,
-      numero: profile.numero,
-      bairro: profile.bairro,
-      cidade: profile.cidade,
-      estado: profile.estado,
-      complemento: profile.complemento,
-      foto: profile.foto,
     };
-
+  
     try {
       const token = localStorage.getItem('authToken');
       if (!token) {
         console.error('Token não encontrado. Faça login novamente.');
         return;
       }
-
+  
+      // Verifica o tipo de usuário (cliente ou usuário) para definir a URL correta
+      let url = `https://api.vamoscomemorar.com.br/users`;
+      if (userType === 'cliente') {
+        url = `https://api.vamoscomemorar.com.br/clients`;
+      }
+  
       let response;
       if (user) {
         // Atualiza o usuário existente
-        response = await fetch(`https://api.vamoscomemorar.com.br/users/${profile.id}`, {
+        response = await fetch(`${url}/${profile.id}`, {
           method: "PUT",
           headers: {
             "Content-Type": "application/json",
             "Authorization": `Bearer ${token}`,
           },
-          body: JSON.stringify(data),
+          body: JSON.stringify(dataToSend),
         });
       } else {
         // Adiciona um novo usuário
-        response = await fetch(`https://api.vamoscomemorar.com.br/users`, {
+        response = await fetch(url, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
             "Authorization": `Bearer ${token}`,
           },
-          body: JSON.stringify(data),
+          body: JSON.stringify(dataToSend),
         });
       }
-
+  
       if (response.ok) {
         const savedProfile = await response.json();
         console.log(user ? "Usuário atualizado:" : "Usuário adicionado:", savedProfile);
@@ -128,6 +143,8 @@ const Profile = ({ isOpen, onRequestClose, addUser, user }) => {
       console.error("Erro ao enviar dados:", error);
     }
   };
+  
+
 
   return (
     <Modal
@@ -207,6 +224,7 @@ const Profile = ({ isOpen, onRequestClose, addUser, user }) => {
               required
             />
             <input
+            
               type="text"
               name="cpf"
               placeholder="CPF"
@@ -222,47 +240,12 @@ const Profile = ({ isOpen, onRequestClose, addUser, user }) => {
               onChange={handleChange}
               required
             />
-            <input
-              type="text"
-              name="numero"
-              placeholder="Número"
-              value={profile.numero}
-              onChange={handleChange}
-              required
-            />
-            <input
-              type="text"
-              name="bairro"
-              placeholder="Bairro"
-              value={profile.bairro}
-              onChange={handleChange}
-              required
-            />
-            <input
-              type="text"
-              name="cidade"
-              placeholder="Cidade"
-              value={profile.cidade}
-              onChange={handleChange}
-              required
-            />
-            <input
-              type="text"
-              name="estado"
-              placeholder="Estado"
-              value={profile.estado}
-              onChange={handleChange}
-              required
-            />
-            <input
-              type="text"
-              name="complemento"
-              placeholder="Complemento"
-              value={profile.complemento}
-              onChange={handleChange}
-            />
+            {/* Continue com os outros campos conforme necessário */}
           </div>
-          <button type="submit" className={styles.submitButton}>Salvar</button>
+
+          <button type="submit" className={styles.submitBtn}>
+            {user ? "Atualizar" : "Adicionar"}
+          </button>
         </form>
       </div>
     </Modal>

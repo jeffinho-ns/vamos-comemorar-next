@@ -1,11 +1,9 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Modal from "react-modal";
-import styles from "./enterprise.module.scss";
 
-const Enterprise = ({ isOpen, onRequestClose, addUser }) => {
+const Enterprise = ({ isOpen, onRequestClose, company}) => {
   const [enterprise, setEnterprise] = useState({
     cnpj: "",
-    id: "",
     nome: "",
     telefone: "",
     site: "",
@@ -18,8 +16,17 @@ const Enterprise = ({ isOpen, onRequestClose, addUser }) => {
     complemento: "",
     cidade: "",
     estado: "",
-    status: "Ativado"
+    status: "Analisando",
   });
+
+  useEffect(() => {
+    if (company) {
+      setEnterprise({
+        ...company,
+        status: "Analisando",
+      });
+    }
+  }, [company]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -32,9 +39,9 @@ const Enterprise = ({ isOpen, onRequestClose, addUser }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    const data = {
-      cnpj: "52.891.095/0001-84",
-      id: enterprise.id,
+    // Cria um novo objeto com os campos necessários
+    const dataToSend = {
+      cnpj: enterprise.cnpj,
       nome: enterprise.nome,
       telefone: enterprise.telefone,
       site: enterprise.site,
@@ -51,28 +58,43 @@ const Enterprise = ({ isOpen, onRequestClose, addUser }) => {
     };
 
     try {
-      const token = localStorage.getItem("authToken");
+      const token = localStorage.getItem('authToken');
       if (!token) {
-        console.error("Token não encontrado. Faça login novamente.");
+        console.error('Token não encontrado. Faça login novamente.');
         return;
       }
 
-      const response = await fetch("https://api.vamoscomemorar.com.br/places", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-          "ID-Empresa": enterprise.idEmpresa,
-        },
-        body: JSON.stringify(data),
-      });
+      let url = `https://api.vamoscomemorar.com.br/companies`;
+      let response;
+
+      if (company && company.id) {
+        // Atualiza a empresa existente
+        response = await fetch(`${url}/${company.id}`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`,
+          },
+          body: JSON.stringify(dataToSend),
+        });
+      } else {
+        // Adiciona uma nova empresa
+        response = await fetch(url, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`,
+          },
+          body: JSON.stringify(dataToSend),
+        });
+      }
 
       if (response.ok) {
         const savedEnterprise = await response.json();
-        console.log("Estabelecimento adicionado:", savedEnterprise);
+        console.log(company ? "Empresa atualizada:" : "Empresa adicionada:", savedEnterprise);
         onRequestClose(); // Fecha o modal após o envio
       } else {
-        console.error("Erro ao adicionar estabelecimento:", response.statusText);
+        console.error("Erro ao salvar empresa:", response.statusText);
       }
     } catch (error) {
       console.error("Erro ao enviar dados:", error);
@@ -83,199 +105,167 @@ const Enterprise = ({ isOpen, onRequestClose, addUser }) => {
     <Modal
       isOpen={isOpen}
       onRequestClose={onRequestClose}
-      className={styles.modal}
-      overlayClassName={styles.overlay}
+      className="bg-white rounded-lg max-w-3xl mx-auto p-6 shadow-lg transition-all duration-300"
+      overlayClassName="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center"
     >
-      <div className={styles.modalContent}>
-        <h2>Dados do Estabelecimento</h2>
-        <form className={styles.enterpriseForm} onSubmit={handleSubmit}>
-          <div className={styles.formRow}>
-            <label>CNPJ:</label>
-            <input
-              type="text"
-              name="cnpj"
-              placeholder="CNPJ"
-              value={enterprise.cnpj}
-              onChange={handleChange}
-              required
-            />
-            <input
-              type="text"
-              name="ID"
-              placeholder="ID"
-              value={enterprise.id}
-              onChange={handleChange}
-              required
-            />
-            <label>Nome:</label>
-            <input
-              type="text"
-              name="nome"
-              placeholder="Nome"
-              value={enterprise.nome}
-              onChange={handleChange}
-              required
-            />
+      <div className="text-center">
+        <h2 className="text-2xl font-bold mb-4 text-gray-800">Dados do Estabelecimento</h2>
+        <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-left text-gray-700">CNPJ:</label>
+              <input
+                type="text"
+                name="cnpj"
+                placeholder="CNPJ"
+                value={enterprise.cnpj}
+                onChange={handleChange}
+                required
+                className="border border-gray-300 p-2 rounded focus:outline-none focus:ring focus:ring-blue-400"
+              />
+            </div>
+            <div>
+              <label className="block text-left text-gray-700">Nome:</label>
+              <input
+                type="text"
+                name="nome"
+                placeholder="Nome"
+                value={enterprise.nome}
+                onChange={handleChange}
+                required
+                className="border border-gray-300 p-2 rounded focus:outline-none focus:ring focus:ring-blue-400"
+              />
+            </div>
+            <div>
+              <label className="block text-left text-gray-700">Telefone:</label>
+              <input
+                type="text"
+                name="telefone"
+                placeholder="Telefone"
+                value={enterprise.telefone}
+                onChange={handleChange}
+                required
+                className="border border-gray-300 p-2 rounded focus:outline-none focus:ring focus:ring-blue-400"
+              />
+            </div>
+            <div>
+              <label className="block text-left text-gray-700">Site:</label>
+              <input
+                type="text"
+                name="site"
+                placeholder="Site"
+                value={enterprise.site}
+                onChange={handleChange}
+                className="border border-gray-300 p-2 rounded focus:outline-none focus:ring focus:ring-blue-400"
+              />
+            </div>
+            <div>
+              <label className="block text-left text-gray-700">E-mail:</label>
+              <input
+                type="email"
+                name="email"
+                placeholder="E-mail"
+                value={enterprise.email}
+                onChange={handleChange}
+                required
+                className="border border-gray-300 p-2 rounded focus:outline-none focus:ring focus:ring-blue-400"
+              />
+            </div>
+            <div>
+              <label className="block text-left text-gray-700">E-mail Financeiro:</label>
+              <input
+                type="email"
+                name="emailFinanceiro"
+                placeholder="E-mail Financeiro"
+                value={enterprise.emailFinanceiro}
+                onChange={handleChange}
+                className="border border-gray-300 p-2 rounded focus:outline-none focus:ring focus:ring-blue-400"
+              />
+            </div>
+            <div>
+              <label className="block text-left text-gray-700">CEP:</label>
+              <input
+                type="text"
+                name="cep"
+                placeholder="CEP"
+                value={enterprise.cep}
+                onChange={handleChange}
+                className="border border-gray-300 p-2 rounded focus:outline-none focus:ring focus:ring-blue-400"
+              />
+            </div>
+            <div>
+              <label className="block text-left text-gray-700">Endereço:</label>
+              <input
+                type="text"
+                name="endereco"
+                placeholder="Endereço"
+                value={enterprise.endereco}
+                onChange={handleChange}
+                className="border border-gray-300 p-2 rounded focus:outline-none focus:ring focus:ring-blue-400"
+              />
+            </div>
+            <div>
+              <label className="block text-left text-gray-700">Número:</label>
+              <input
+                type="text"
+                name="numero"
+                placeholder="Número"
+                value={enterprise.numero}
+                onChange={handleChange}
+                className="border border-gray-300 p-2 rounded focus:outline-none focus:ring focus:ring-blue-400"
+              />
+            </div>
+            <div>
+              <label className="block text-left text-gray-700">Bairro:</label>
+              <input
+                type="text"
+                name="bairro"
+                placeholder="Bairro"
+                value={enterprise.bairro}
+                onChange={handleChange}
+                className="border border-gray-300 p-2 rounded focus:outline-none focus:ring focus:ring-blue-400"
+              />
+            </div>
+            <div>
+              <label className="block text-left text-gray-700">Complemento:</label>
+              <input
+                type="text"
+                name="complemento"
+                placeholder="Complemento"
+                value={enterprise.complemento}
+                onChange={handleChange}
+                className="border border-gray-300 p-2 rounded focus:outline-none focus:ring focus:ring-blue-400"
+              />
+            </div>
+            <div>
+              <label className="block text-left text-gray-700">Cidade:</label>
+              <input
+                type="text"
+                name="cidade"
+                placeholder="Cidade"
+                value={enterprise.cidade}
+                onChange={handleChange}
+                className="border border-gray-300 p-2 rounded focus:outline-none focus:ring focus:ring-blue-400"
+              />
+            </div>
+            <div>
+              <label className="block text-left text-gray-700">Estado:</label>
+              <input
+                type="text"
+                name="estado"
+                placeholder="Estado"
+                value={enterprise.estado}
+                onChange={handleChange}
+                className="border border-gray-300 p-2 rounded focus:outline-none focus:ring focus:ring-blue-400"
+              />
+            </div>
           </div>
-
-          <div className={styles.formRow}>
-            <label>Telefone:</label>
-            <input
-              type="text"
-              name="telefone"
-              placeholder="Telefone"
-              value={enterprise.telefone}
-              onChange={handleChange}
-              required
-            />
-            <label>Site:</label>
-            <input
-              type="text"
-              name="site"
-              placeholder="Site"
-              value={enterprise.site}
-              onChange={handleChange}
-            />
-          </div>
-
-          <div className={styles.formRow}>
-            <label>E-mail:</label>
-            <input
-              type="email"
-              name="email"
-              placeholder="E-mail"
-              value={enterprise.email}
-              onChange={handleChange}
-              required
-            />
-            <label>E-mail Financeiro:</label>
-            <input
-              type="email"
-              name="emailFinanceiro"
-              placeholder="E-mail Financeiro"
-              value={enterprise.emailFinanceiro}
-              onChange={handleChange}
-            />
-          </div>
-
-          <h3>Endereço</h3>
-          <div className={styles.formRow}>
-            <label>CEP:</label>
-            <input
-              type="text"
-              name="cep"
-              placeholder="CEP"
-              value={enterprise.cep}
-              onChange={handleChange}
-              required
-            />
-            <label>Endereço:</label>
-            <input
-              type="text"
-              name="endereco"
-              placeholder="Endereço"
-              value={enterprise.endereco}
-              onChange={handleChange}
-              required
-            />
-          </div>
-
-          <div className={styles.formRow}>
-            <label>Número:</label>
-            <input
-              type="text"
-              name="numero"
-              placeholder="Número"
-              value={enterprise.numero}
-              onChange={handleChange}
-              required
-            />
-            <label>Bairro:</label>
-            <input
-              type="text"
-              name="bairro"
-              placeholder="Bairro"
-              value={enterprise.bairro}
-              onChange={handleChange}
-              required
-            />
-          </div>
-
-          <div className={styles.formRow}>
-            <label>Complemento:</label>
-            <input
-              type="text"
-              name="complemento"
-              placeholder="Complemento"
-              value={enterprise.complemento}
-              onChange={handleChange}
-            />
-            <label>Cidade:</label>
-            <input
-              type="text"
-              name="cidade"
-              placeholder="Cidade"
-              value={enterprise.cidade}
-              onChange={handleChange}
-              required
-            />
-          </div>
-
-          <div className={styles.formRow}>
-            <label>Estado:</label>
-            <input
-              type="text"
-              name="estado"
-              placeholder="Estado"
-              value={enterprise.estado}
-              onChange={handleChange}
-              required
-            />
-          </div>
-
-          <h3>Administrativo</h3>
-          <div className={styles.formRow}>
-            <label>Status:</label>
-            <select
-              name="status"
-              value={enterprise.status}
-              onChange={handleChange}
-              required
-            >
-              <option value="Ativado">Ativado</option>
-              <option value="Desativado">Desativado</option>
-            </select>
-          </div>
-
-          <div className={styles.buttonRow}>
-            <button type="submit" className={styles.saveButton}>
-              Salvar
-            </button>
-            <button
-              type="button"
-              className={styles.clearButton}
-              onClick={() =>
-                setEnterprise({
-                  cnpj: "",
-                  nome: "",
-                  telefone: "",
-                  site: "",
-                  email: "",
-                  emailFinanceiro: "",
-                  cep: "",
-                  endereco: "",
-                  numero: "",
-                  bairro: "",
-                  complemento: "",
-                  cidade: "",
-                  estado: "",
-                  status: "Ativado",
-                })
-              }
-            >
-              Limpar
-            </button>
-          </div>
+          <button
+            type="submit"
+            className="mt-6 bg-blue-600 text-white p-2 rounded hover:bg-blue-700 transition-colors"
+          >
+            {company ? "Atualizar Empresa" : "Adicionar Empresa"}
+          </button>
         </form>
       </div>
     </Modal>

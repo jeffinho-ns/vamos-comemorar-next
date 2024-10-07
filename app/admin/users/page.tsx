@@ -2,6 +2,7 @@
 import { MdAdd, MdRefresh, MdEdit, MdDelete } from "react-icons/md";
 import { useEffect, useState } from "react";
 import Profile from "../../components/profile/profile";
+import AddUser from "../../components/AddUser/AddUser";
 import { useRouter } from 'next/navigation';
 
 interface User {
@@ -11,12 +12,14 @@ interface User {
   phone: string;
   status: string;
   created_at: string;
+  type?: string;
 }
 
 export default function Users() {
   const [data, setData] = useState<User[]>([]);
   const [filterBy, setFilterBy] = useState("");
   const [modalIsOpen, setModalIsOpen] = useState(false);
+  const [editProfileIsOpen, setEditProfileIsOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [userType, setUserType] = useState("usuario");
@@ -26,9 +29,20 @@ export default function Users() {
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const router = useRouter();
 
-  const openModal = () => setModalIsOpen(true);
+  // Função para abrir o modal de adicionar usuário
+  const openAddUserModal = () => {
+    setModalIsOpen(true);
+  };
+
+  // Função para abrir o modal de edição de usuário
+  const openEditProfileModal = (user: User) => {
+    setSelectedUser(user);
+    setEditProfileIsOpen(true);
+  };
+
   const closeModal = () => {
     setModalIsOpen(false);
+    setEditProfileIsOpen(false);
     setSelectedUser(null);
   };
 
@@ -89,11 +103,6 @@ export default function Users() {
     );
   });
 
-  const handleEdit = (user: User) => {
-    setSelectedUser(user);
-    openModal();
-  };
-
   const handleDelete = async (id: number) => {
     const confirmDelete = confirm("Tem certeza que deseja excluir este item?");
     if (confirmDelete) {
@@ -120,9 +129,32 @@ export default function Users() {
     }
   };
 
-  const addUser = (user: User) => {
-    // Lógica para adicionar um novo usuário
-    console.log('Adicionar usuário:', user);
+  // Função para adicionar um usuário
+  const handleAddUser = async (newUser: Omit<User, 'id' | 'created_at' | 'status'>) => {
+    try {
+      const token = localStorage.getItem('authToken');
+      const response = await fetch('https://api.vamoscomemorar.com.br/users', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify(newUser),
+      });
+
+      if (!response.ok) throw new Error('Erro ao adicionar usuário');
+
+      // Atualize a lista de usuários após adicionar
+      fetchData();
+      closeModal(); // Fechar o modal após adicionar
+    } catch (error) {
+      if (error instanceof Error) {
+        setError(error.message);
+      } else {
+        setError('Erro desconhecido');
+      }
+      console.error('Erro ao adicionar usuário:', error);
+    }
   };
 
   return (
@@ -133,14 +165,20 @@ export default function Users() {
         <button onClick={fetchData} className="bg-gray-500 hover:bg-gray-600 text-white p-4 rounded-full mr-4">
           <MdRefresh className="text-xl" />
         </button>
-        <button onClick={openModal} className="bg-blue-500 hover:bg-blue-600 text-white p-4 rounded-full">
+        <button onClick={openAddUserModal} className="bg-blue-500 hover:bg-blue-600 text-white p-4 rounded-full">
           <MdAdd className="text-xl" />
         </button>
-        <Profile 
+        <AddUser 
           isOpen={modalIsOpen} 
           onRequestClose={closeModal} 
+          addUser={handleAddUser} // Passando a função para AddUser
+        />
+        <Profile 
+          isOpen={editProfileIsOpen} 
+          onRequestClose={() => setEditProfileIsOpen(false)} 
+          addUser={handleAddUser} 
           user={selectedUser} 
-          addUser={addUser} // Passando a função addUser
+          userType={selectedUser?.type} 
         />
       </div>
 
@@ -187,7 +225,7 @@ export default function Users() {
                   <td className="px-6 py-4">{item.status}</td>
                   <td className="px-6 py-4">{item.created_at}</td>
                   <td className="px-6 py-4 flex space-x-2">
-                    <button onClick={() => handleEdit(item)} title="Editar">
+                    <button onClick={() => openEditProfileModal(item)} title="Editar">
                       <MdEdit className="text-blue-500 hover:text-blue-700" />
                     </button>
                     <button onClick={() => handleDelete(item.id)} title="Excluir">
@@ -198,28 +236,30 @@ export default function Users() {
               ))
             ) : (
               <tr>
-                <td colSpan={6} className="px-6 py-4 text-center">Nenhum dado encontrado</td>
+                <td colSpan={6} className="text-center py-4">Nenhum usuário encontrado.</td>
               </tr>
             )}
           </tbody>
         </table>
       </div>
 
-      <div className="flex justify-between items-center mt-6">
+      <div className="flex justify-between mt-6">
         <button
           onClick={() => handlePageChange(page - 1)}
           disabled={page === 1}
-          className={`px-4 py-2 rounded ${page === 1 ? 'bg-gray-300' : 'bg-blue-500 text-white'}`}
+          className="p-2 bg-gray-300 rounded-md disabled:opacity-50"
         >
           Anterior
         </button>
-        <p>Página {page} de {totalPages}</p>
+        <span>
+          Página {page} de {totalPages}
+        </span>
         <button
           onClick={() => handlePageChange(page + 1)}
           disabled={page === totalPages}
-          className={`px-4 py-2 rounded ${page === totalPages ? 'bg-gray-300' : 'bg-blue-500 text-white'}`}
+          className="p-2 bg-gray-300 rounded-md disabled:opacity-50"
         >
-          Próximo
+          Próxima
         </button>
       </div>
     </div>
