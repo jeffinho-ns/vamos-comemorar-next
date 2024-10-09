@@ -1,8 +1,34 @@
 import React, { useState, useEffect } from "react";
 import Modal from "react-modal";
 
-const Enterprise = ({ isOpen, onRequestClose, company}) => {
-  const [enterprise, setEnterprise] = useState({
+interface Establishment {
+  id?: number;
+  cnpj: string;
+  nome: string;
+  telefone: string;
+  site?: string;
+  email: string;
+  emailFinanceiro?: string;
+  cep?: string;
+  endereco?: string;
+  numero?: string;
+  bairro?: string;
+  complemento?: string;
+  cidade?: string;
+  estado?: string;
+  status?: string;
+}
+
+
+
+interface EnterpriseProps {
+  isOpen: boolean;
+  onRequestClose: () => void;
+  company: Establishment | null; // A propriedade 'company' pode ser um objeto do tipo 'Establishment' ou null
+}
+
+const Enterprise: React.FC<EnterpriseProps> = ({ isOpen, onRequestClose, company }) => {
+  const initialEnterpriseState: Establishment = {
     cnpj: "",
     nome: "",
     telefone: "",
@@ -17,18 +43,22 @@ const Enterprise = ({ isOpen, onRequestClose, company}) => {
     cidade: "",
     estado: "",
     status: "Analisando",
-  });
+  };
+
+  const [enterprise, setEnterprise] = useState<Establishment>(initialEnterpriseState);
 
   useEffect(() => {
     if (company) {
       setEnterprise({
         ...company,
-        status: "Analisando",
+        status: company.status || "Analisando", // Use o status da company se estiver definido
       });
+    } else {
+      setEnterprise(initialEnterpriseState); // Reinicia o estado se não houver company
     }
   }, [company]);
 
-  const handleChange = (e) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setEnterprise((prevEnterprise) => ({
       ...prevEnterprise,
@@ -36,25 +66,12 @@ const Enterprise = ({ isOpen, onRequestClose, company}) => {
     }));
   };
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     // Cria um novo objeto com os campos necessários
-    const dataToSend = {
-      cnpj: enterprise.cnpj,
-      nome: enterprise.nome,
-      telefone: enterprise.telefone,
-      site: enterprise.site,
-      email: enterprise.email,
-      emailFinanceiro: enterprise.emailFinanceiro,
-      cep: enterprise.cep,
-      endereco: enterprise.endereco,
-      numero: enterprise.numero,
-      bairro: enterprise.bairro,
-      complemento: enterprise.complemento,
-      cidade: enterprise.cidade,
-      estado: enterprise.estado,
-      status: enterprise.status,
+    const dataToSend: Establishment = {
+      ...enterprise,
     };
 
     try {
@@ -100,6 +117,7 @@ const Enterprise = ({ isOpen, onRequestClose, company}) => {
       console.error("Erro ao enviar dados:", error);
     }
   };
+
 
   return (
     <Modal

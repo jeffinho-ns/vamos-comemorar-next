@@ -105,7 +105,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   <h2>Lugares</h2>
                   <li>
                     <MdPlace />
-                    <Link href="/places">Lugares</Link>
+                    <Link href="/admin/commodities">Lugares</Link>
                   </li>
                   <li>
                     <MdTableBar />
@@ -113,16 +113,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   </li>
                   <li>
                     <MdCardGiftcard />
-                    <Link href="/gifts">Brindes</Link>
+                    <Link href="/admin/gifts">Brindes</Link>
                   </li>
                   <li>
                     <MdTimer />
-                    <Link href="/days">Dias de funcionamento</Link>
+                    <Link href="/admin/workdays">Dias de funcionamento</Link>
                   </li>
                   <li>
                     <MdEditCalendar />
 
-                    <Link href="/reservation">Reservas</Link>
+                    <Link href="/admin/reserves">Reservas</Link>
                   </li>
                 </div>
               </ul>

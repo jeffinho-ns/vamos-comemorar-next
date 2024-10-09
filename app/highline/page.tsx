@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Image, { StaticImageData } from "next/image";
 import { MdLocationOn, MdInfoOutline, MdEvent } from "react-icons/md";
 import Footer from "../components/footer/footer";
@@ -9,7 +9,7 @@ import imgBanner from "@/app/assets/highline/capa-highline.jpeg";
 import "react-multi-carousel/lib/styles.css";
 import Programacao from "../components/programacao/programacao";
 import styles from "./highline.module.scss";
-
+import Profile from "../components/profile/profile"; 
 // Imagens
 import newImg1 from "@/app/assets/highline/ambiente-1.jpeg";
 import newImg2 from "@/app/assets/highline/ambiente-2.jpeg";
@@ -33,20 +33,54 @@ import icon3 from "@/app/assets/icones/estacionamento.png";
 import icon4 from "@/app/assets/icones/18.png";
 import icon5 from "@/app/assets/icones/mesa.png";
 
+import Modal from 'react-modal';
 
+import { redirect } from 'next/navigation'; // Aqui importa a função de redirecionamento
 
-// Interface para os props da seção
+// Define a interface para as propriedades do componente Section
 interface SectionProps {
   title: string;
-  images: StaticImageData[]; // Você pode usar string[] se as imagens forem URLs
+  images: StaticImageData[]; // Ajuste para StaticImageData
+  openImage: (img: StaticImageData) => void; // Ajuste para StaticImageData
 }
 
 const Highline = () => {
   const [showDescription, setShowDescription] = useState(true);
+  const [modalIsOpen, setModalIsOpen] = useState(false);
+  const [expandedImage, setExpandedImage] = useState<StaticImageData | null>(null);
+  const [user, setUser] = useState<any>(null);
+
+  useEffect(() => {
+    const token = localStorage.getItem('authToken');
+    
+    // Se não houver token, redireciona para a página de login
+    if (!token) {
+      redirect('/login');
+    }
+  }, []);
 
   const toggleContent = (content: string) => {
     setShowDescription(content === "sobre");
   };
+
+  const openModal = () => {
+    // Armazena a logo e a informação do local no local storage
+    localStorage.setItem('logo', logoNew.src); // Armazenando o caminho da logo
+    localStorage.setItem('localInfo', 'Rua Girassol, 144 - Vila Madalena');
+    console.log(localStorage.getItem("localInfo")); // Armazenando o endereço
+    setModalIsOpen(true);
+  };
+  const closeModal = () => setModalIsOpen(false);
+
+  const openImage = (img: StaticImageData) => setExpandedImage(img); // Ajuste para StaticImageData
+  const closeImage = () => setExpandedImage(null);
+
+  const addUser = (user: any) => {
+    // Lógica para adicionar o usuário
+    console.log("Usuário adicionado:", user);
+    setUser(user); // Atualiza o estado do usuário
+  };
+
 
   return (
     <>
@@ -118,7 +152,14 @@ const Highline = () => {
             </div>
           </div>
         </div>
-        <button className={styles.reserveButton}>Fazer reserva</button>
+        <button onClick={openModal} className={styles.reserveButton}>Fazer reserva</button>
+        <Profile 
+          isOpen={modalIsOpen} 
+          onRequestClose={closeModal} 
+          addUser={addUser} // Passando a função addUser
+          user={user} // Passando a propriedade user
+          userType={user?.type}
+        />
       </div>
 
       <p className={styles.barDescription}>
@@ -139,24 +180,27 @@ const Highline = () => {
         </div>
       )}
 
-      <div className={styles.sections}>
-        {showDescription && (
-          <>
-            <Section
-              title="Ambientes"
-              images={[newImg1, newImg2, newImg3, newImg4]}
-            />
-            <Section
-              title="Gastronomia"
-              images={[gastro1, gastro2, gastro3, gastro4]}
-            />
-            <Section
-              title="Bebidas"
-              images={[bebida1, bebida2, bebida3, bebida4]}
-            />
-          </>
-        )}
-      </div>
+<div className={styles.sections}>
+  {showDescription && (
+    <>
+      <Section
+        title="Ambientes"
+        images={[newImg1, newImg2, newImg3, newImg4]}
+        openImage={openImage} // Passando openImage
+      />
+      <Section
+        title="Gastronomia"
+        images={[gastro1, gastro2, gastro3, gastro4]}
+        openImage={openImage} // Passando openImage
+      />
+      <Section
+        title="Bebidas"
+        images={[bebida1, bebida2, bebida3, bebida4]}
+        openImage={openImage} // Passando openImage
+      />
+    </>
+  )}
+</div>
 
       <div className={styles.mapContainer}>
         <iframe
@@ -174,12 +218,17 @@ const Highline = () => {
   );
 };
 
-const Section: React.FC<SectionProps> = ({ title, images }) => (
+// Componente Section para mostrar as imagens
+const Section: React.FC<SectionProps> = ({ title, images, openImage }) => (
   <div className={styles.section}>
     <h2 className={styles.sectionTitle}>{title}</h2>
     <div className={styles.images}>
       {images.map((img, index) => (
-        <div key={index} className={styles.imageContainer}>
+        <div
+          key={index}
+          className={styles.imageContainer}
+          onClick={() => openImage(img)}
+        >
           <Image src={img} alt={title} className={styles.image} />
         </div>
       ))}

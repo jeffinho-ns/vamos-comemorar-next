@@ -143,6 +143,20 @@
   align-items: center;
 }
 
+.reserveButton {
+  background-color: #08738a;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+
+  &:hover {
+    background-color: #065c67;
+  }
+}
+
 .modalImage {
   max-width: 90vw;
   max-height: 90vh;

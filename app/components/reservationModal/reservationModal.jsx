@@ -1,22 +1,48 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import Modal from "react-modal";
 import Image from "next/image";
 import styles from "./reservationModal.module.scss";
-import prog from "../../assets/banner01.webp";
 import logoNew from "../../assets/ohfregues/logoOhfregues.png";
 import gin from "../../assets/programacao/gin.png";
-
 import icon1 from "../../assets/icones/area.png";
 import icon2 from "../../assets/icones/acessivel.png";
 import icon3 from "../../assets/icones/estacionamento.png";
 import icon4 from "../../assets/icones/18.png";
 import icon5 from "../../assets/icones/mesa.png";
 
-const ReservationModal = ({ isOpen, onRequestClose }) => {
+const ReservationModal = ({ isOpen, onRequestClose, eventData }) => {
   const [guests, setGuests] = useState(0);
-
+  const [logoSrc, setLogoSrc] = useState(logoNew.src); // Define logo padrão
+  const [localInfo, setLocalInfo] = useState('');
   const incrementGuests = () => setGuests(guests + 1);
   const decrementGuests = () => setGuests(guests > 0 ? guests - 1 : 0);
+
+  useEffect(() => {
+    // Recupera a logo armazenada no localStorage
+    const storedLogo = localStorage.getItem("lastPageLogo");
+    const storedLocalInfo = localStorage.getItem("localInfo");
+    setLocalInfo(storedLocalInfo || 'Local não especificado');
+
+    if (storedLogo) {
+      setLogoSrc(storedLogo); // Atualiza a logo com a última logo armazenada
+    }
+
+
+    // Se quiser usar a informação do local, você pode exibi-la onde necessário
+    // Exemplo: setLocalInfo(storedInfo);
+
+  }, []);
+
+  const updateLogo = (logo) => {
+    setLogoSrc(logo); // Atualiza a logo no estado
+    localStorage.setItem("lastPageLogo", logo); // Armazena a logo no localStorage
+  };
+
+  // Função para cada página que quiser alterar a logo
+  const changeLogo = () => {
+    const newLogo = 'caminho/para/nova/logo.png'; // Exemplo: nova logo
+    updateLogo(newLogo); // Atualiza a logo
+  };
 
   return (
     <Modal
@@ -27,11 +53,20 @@ const ReservationModal = ({ isOpen, onRequestClose }) => {
     >
       <div className={styles.modalContent}>
         <div className={styles.header}>
-          <Image src={prog} alt="Reserva" className={styles.image} />
+          {/* Exibir a imagem do evento selecionado */}
+          {eventData.img && (
+            <Image
+              src={eventData.img}
+              alt="Reserva"
+              className={styles.image}
+              width={500} // defina a largura que desejar
+              height={300} // defina a altura que desejar
+            />
+          )}
           <div className={styles.rightColumn}>
-            <Image src={logoNew} alt="Logo" className={styles.logo} />
+            <Image src={logoSrc} alt="Logo" width={200} height={200} />
             <p className={styles.address}>
-              Largo da Matriz Nossa Senhora do Ó, 145
+            {localInfo}
             </p>
             <div className={styles.iconContainer}>
               <div className={styles.iconItem}>
@@ -93,27 +128,28 @@ const ReservationModal = ({ isOpen, onRequestClose }) => {
                   <option value="1">Selecionar Mesa</option>
                   {/* Adicione mais opções conforme necessário */}
                 </select>
-                <p className={styles.priceInfo}>R$ 800 / consome R$ 600</p>
+                {/* Exibir o valor da entrada do evento */}
+                <p className={styles.priceInfo}>{eventData.price}</p>
               </div>
             </div>
           </div>
-
           <div className={styles.section}>
             <div className={styles.sectionHeader}>
               <span className={styles.sectionIcon}>📅</span>
               <h3 className={styles.sectionTitle}>Data / Evento</h3>
-              <input type="date" className={styles.dateInput} />
+              {/* Exibir a data do evento armazenada */}
+              <p className={styles.priceInfo}>{eventData.date}</p>
             </div>
           </div>
-          
         </div>
         <div className={styles.reservationTitle}>Balde de cerveja ou combo de 142 Gin.</div>
-          <div className={styles.reservationDescription}>- Entrada VIP para o aniversariante + acompanhante - A partir de 15 convidados: balde com 12 long necks. - 
-A partir de 30 convidados: 1 COMBO de 142 Gin com água tônica, suco ou refrigerante. 
-Obs: as bonificações não são acumulativas.
-</div>
+        <div className={styles.reservationDescription}>
+          - Entrada VIP para o aniversariante + acompanhante - A partir de 15 convidados: balde com 12 long necks. - 
+          A partir de 30 convidados: 1 COMBO de 142 Gin com água tônica, suco ou refrigerante. 
+          Obs: as bonificações não são acumulativas.
+        </div>
 
-<Image src={gin} alt="Gin 142" className={styles.gin} />
+        <Image src={gin} alt="Gin 142" className={styles.gin} />
 
         <div className={styles.footer}>
           <button onClick={onRequestClose} className={styles.reserveButton}>
