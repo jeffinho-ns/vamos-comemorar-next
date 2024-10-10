@@ -26,7 +26,7 @@ import gastro2 from "@/app/assets/justino/gastronomia-2.jpeg";
 import gastro3 from "@/app/assets/justino/gastronomia-3.jpeg";
 import gastro4 from "@/app/assets/justino/gastronomia-4.jpeg";
 import logoNew from "@/app/assets/justino/justinologo.png";
-
+import logoImage from "@/app/assets/justino/justinologo.png";
 import icon1 from "@/app/assets/icones/area.png";
 import icon2 from "@/app/assets/icones/acessivel.png";
 import icon3 from "@/app/assets/icones/estacionamento.png";
@@ -36,7 +36,6 @@ import icon5 from "@/app/assets/icones/mesa.png";
 import Modal from 'react-modal';
 import { redirect } from 'next/navigation'; // Aqui importa a função de redirecionamento
 
-// Define a interface para as propriedades do componente Section
 interface SectionProps {
   title: string;
   images: StaticImageData[]; // Ajuste para StaticImageData
@@ -47,7 +46,7 @@ const Justino = () => {
   const [showDescription, setShowDescription] = useState(true);
   const [modalIsOpen, setModalIsOpen] = useState(false);
   const [expandedImage, setExpandedImage] = useState<StaticImageData | null>(null);
-  const [user, setUser] = useState<any>(null); // Adicionando estado para o usuário
+  const [user, setUser] = useState<any>(null);
 
   useEffect(() => {
     const token = localStorage.getItem('authToken');
@@ -62,7 +61,13 @@ const Justino = () => {
     setShowDescription(content === "sobre");
   };
 
-  const openModal = () => setModalIsOpen(true);
+  const openModal = () => {
+    // Armazena a logo e a informação do local no local storage
+    localStorage.setItem('logo', logoNew.src); // Armazenando o caminho da logo
+    localStorage.setItem('localInfo', 'Rua Girassol, 144 - Vila Madalena');
+    console.log(localStorage.getItem("localInfo")); // Armazenando o endereço
+    setModalIsOpen(true);
+  };
   const closeModal = () => setModalIsOpen(false);
 
   const openImage = (img: StaticImageData) => setExpandedImage(img); // Ajuste para StaticImageData
@@ -73,6 +78,7 @@ const Justino = () => {
     console.log("Usuário adicionado:", user);
     setUser(user); // Atualiza o estado do usuário
   };
+
 
   return (
     <>
@@ -168,31 +174,31 @@ const Justino = () => {
 
       {!showDescription && (
         <div className={styles.programacao}>
-          <Programacao />
+          <Programacao logo={logoImage} location="Rua Azevedo Soares, 940"/>
         </div>
       )}
 
-      <div className={styles.sections}>
-        {showDescription && (
-          <>
-            <Section
-              title="Ambientes"
-              images={[newImg1, newImg2, newImg3, newImg4]}
-              openImage={openImage}
-            />
-            <Section
-              title="Gastronomia"
-              images={[gastro1, gastro2, gastro3, gastro4]}
-              openImage={openImage}
-            />
-            <Section
-              title="Bebidas"
-              images={[bebida1, bebida2, bebida3, bebida4]}
-              openImage={openImage}
-            />
-          </>
-        )}
-      </div>
+<div className={styles.sections}>
+  {showDescription && (
+    <>
+      <Section
+        title="Ambientes"
+        images={[newImg1, newImg2, newImg3, newImg4]}
+        openImage={openImage} // Passando openImage
+      />
+      <Section
+        title="Gastronomia"
+        images={[gastro1, gastro2, gastro3, gastro4]}
+        openImage={openImage} // Passando openImage
+      />
+      <Section
+        title="Bebidas"
+        images={[bebida1, bebida2, bebida3, bebida4]}
+        openImage={openImage} // Passando openImage
+      />
+    </>
+  )}
+</div>
 
       <div className={styles.mapContainer}>
         <iframe
@@ -210,17 +216,23 @@ const Justino = () => {
   );
 };
 
-const Section = ({ title, images, openImage }: SectionProps) => (
+// Componente Section para mostrar as imagens
+const Section: React.FC<SectionProps> = ({ title, images, openImage }) => (
   <div className={styles.section}>
     <h2 className={styles.sectionTitle}>{title}</h2>
-    <div className={styles.imagesContainer}>
+    <div className={styles.images}>
       {images.map((img, index) => (
-        <div key={index} className={styles.imageWrapper} onClick={() => openImage(img)}>
-          <Image src={img} alt={title} width={200} height={200} className={styles.image} />
+        <div
+          key={index}
+          className={styles.imageContainer}
+          onClick={() => openImage(img)}
+        >
+          <Image src={img} alt={title} className={styles.image} />
         </div>
       ))}
     </div>
   </div>
 );
+
 
 export default Justino;

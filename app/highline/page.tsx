@@ -26,6 +26,7 @@ import gastro2 from "@/app/assets/highline/gastronomia-2.jpeg";
 import gastro3 from "@/app/assets/highline/gastronomia-3.jpeg";
 import gastro4 from "@/app/assets/highline/gastronomia-4.jpeg";
 import logoNew from "@/app/assets/highline/highlinelogo.png";
+import logoImage from "@/app/assets/highline/highlinelogo.png";
 
 import icon1 from "@/app/assets/icones/area.png";
 import icon2 from "@/app/assets/icones/acessivel.png";
@@ -176,7 +177,7 @@ const Highline = () => {
 
       {!showDescription && (
         <div className={styles.programacao}>
-          <Programacao />
+          <Programacao logo={logoImage} location="Rua Girassol, 144 - Vila Madalena"/>
         </div>
       )}
 

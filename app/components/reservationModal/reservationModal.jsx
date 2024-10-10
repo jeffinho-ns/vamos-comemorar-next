@@ -14,34 +14,25 @@ const ReservationModal = ({ isOpen, onRequestClose, eventData }) => {
   const [guests, setGuests] = useState(0);
   const [logoSrc, setLogoSrc] = useState(logoNew.src); // Define logo padrão
   const [localInfo, setLocalInfo] = useState('');
+
   const incrementGuests = () => setGuests(guests + 1);
   const decrementGuests = () => setGuests(guests > 0 ? guests - 1 : 0);
 
   useEffect(() => {
-    // Recupera a logo armazenada no localStorage
+    // Recupera a logo e localização da última página
     const storedLogo = localStorage.getItem("lastPageLogo");
     const storedLocalInfo = localStorage.getItem("localInfo");
+    
     setLocalInfo(storedLocalInfo || 'Local não especificado');
 
     if (storedLogo) {
       setLogoSrc(storedLogo); // Atualiza a logo com a última logo armazenada
     }
-
-
-    // Se quiser usar a informação do local, você pode exibi-la onde necessário
-    // Exemplo: setLocalInfo(storedInfo);
-
   }, []);
 
   const updateLogo = (logo) => {
     setLogoSrc(logo); // Atualiza a logo no estado
     localStorage.setItem("lastPageLogo", logo); // Armazena a logo no localStorage
-  };
-
-  // Função para cada página que quiser alterar a logo
-  const changeLogo = () => {
-    const newLogo = 'caminho/para/nova/logo.png'; // Exemplo: nova logo
-    updateLogo(newLogo); // Atualiza a logo
   };
 
   return (
@@ -64,10 +55,8 @@ const ReservationModal = ({ isOpen, onRequestClose, eventData }) => {
             />
           )}
           <div className={styles.rightColumn}>
-            <Image src={logoSrc} alt="Logo" width={200} height={200} />
-            <p className={styles.address}>
-            {localInfo}
-            </p>
+            <Image src={eventData.logo} alt="Logo" width={200} height={200} />
+            <p className={styles.address}>{eventData.location}</p>
             <div className={styles.iconContainer}>
               <div className={styles.iconItem}>
                 <Image src={icon1} width={40} height={40} alt="Área aberta" />
@@ -142,7 +131,9 @@ const ReservationModal = ({ isOpen, onRequestClose, eventData }) => {
             </div>
           </div>
         </div>
-        <div className={styles.reservationTitle}>Balde de cerveja ou combo de 142 Gin.</div>
+        <div className={styles.reservationTitle}>
+          Balde de cerveja ou combo de 142 Gin.
+        </div>
         <div className={styles.reservationDescription}>
           - Entrada VIP para o aniversariante + acompanhante - A partir de 15 convidados: balde com 12 long necks. - 
           A partir de 30 convidados: 1 COMBO de 142 Gin com água tônica, suco ou refrigerante. 

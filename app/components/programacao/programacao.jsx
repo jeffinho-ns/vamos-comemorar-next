@@ -19,12 +19,13 @@ import eventImg11 from "@/app/assets/programacao/prog-11.png";
 import eventImg12 from "@/app/assets/programacao/prog-12.png";
 import eventImg13 from "../../assets/programacao/prog-13.png";
 
-const Programacao = () => {
+const Programacao = ({ logo, location }) => {
   const [modalIsOpen, setModalIsOpen] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState({});
 
   const openModal = (eventData) => {
-    setSelectedEvent(eventData);
+    // Inclua a logo e a localização nos dados do evento
+    setSelectedEvent({ ...eventData, logo, location });
     setModalIsOpen(true);
   };
 

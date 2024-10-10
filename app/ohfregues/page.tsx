@@ -26,6 +26,7 @@ import gastro2 from "@/app/assets/ohfregues/gastronomia-2.jpg";
 import gastro3 from "@/app/assets/ohfregues/gastronomia-3.jpg";
 import gastro4 from "@/app/assets/ohfregues/gastronomia-4.jpg";
 import logoNew from "@/app/assets/ohfregues/logoOhfregues.png";
+import logoImage from "@/app/assets/ohfregues/logoOhfregues.png";
 
 import icon1 from "@/app/assets/icones/area.png";
 import icon2 from "@/app/assets/icones/acessivel.png";
@@ -169,7 +170,7 @@ const Ohfregues = () => {
 
       {!showDescription && (
         <div className={styles.programacao}>
-          <Programacao />
+          <Programacao logo={logoImage} location="Largo da Matriz de Nossa Senhora do Ó, 145"/>
         </div>
       )}
 
