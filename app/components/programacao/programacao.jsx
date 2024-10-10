@@ -1,6 +1,5 @@
 import React, { useState } from "react";
 import Image from "next/image";
-import styles from "./programacao.module.scss";
 import ReservationModal from "../reservationModal/reservationModal";
 import { MdEvent, MdAccessTime } from "react-icons/md";
 
@@ -24,7 +23,6 @@ const Programacao = ({ logo, location }) => {
   const [selectedEvent, setSelectedEvent] = useState({});
 
   const openModal = (eventData) => {
-    // Inclua a logo e a localização nos dados do evento
     setSelectedEvent({ ...eventData, logo, location });
     setModalIsOpen(true);
   };
@@ -34,10 +32,10 @@ const Programacao = ({ logo, location }) => {
   };
 
   return (
-    <div className={styles.programacao}>
-      <h2 className={styles.sectionTitle}>Programação Oh Freguês</h2>
-      <div className={styles.events}>
-        <EventCard
+    <div className="container mx-auto px-4 py-8 bg-gray-100">
+      <h2 className="text-4xl font-bold text-center mb-12 text-gray-900">Programação do Mês</h2>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+      <EventCard
           img={eventImg13}
           title="ENCONTRIN"
           date="28/07"
@@ -133,6 +131,7 @@ const Programacao = ({ logo, location }) => {
           price="R$50"
           openModal={openModal}
         />
+        {/* Adicione mais EventCards conforme necessário */}
       </div>
 
       {/* Modal para reserva */}
@@ -146,17 +145,24 @@ const Programacao = ({ logo, location }) => {
 };
 
 const EventCard = ({ img, title, date, time, price, openModal }) => (
-  <div className={styles.eventCard} onClick={() => openModal({ img, title, date, price })}>
-    <Image src={img} alt={title} className={styles.eventImage} />
-    <div className={styles.eventInfo}>
-      <h3 className={styles.eventTitle}>{title}</h3>
-      <p className={styles.eventDate}>
-        <MdEvent /> {date}
-      </p>
-      <p className={styles.eventTime}>
-        <MdAccessTime /> {time}
-      </p>
-      <p className={styles.eventPrice}>{price}</p>
+  <div
+    className="relative bg-white rounded-lg shadow-lg overflow-hidden cursor-pointer transition-transform transform hover:scale-105"
+    onClick={() => openModal({ img, title, date, price })}
+  >
+    <div className="relative h-64">
+      <Image src={img} alt={title} className="w-full h-full object-cover" />
+    </div>
+    <div className="absolute bottom-0 left-0 w-full p-4 bg-gradient-to-t from-black to-transparent text-white">
+      <h3 className="text-xl font-semibold mb-2">{title}</h3>
+      <div className="flex items-center text-sm mb-2">
+        <MdEvent className="mr-2" />
+        {date}
+      </div>
+      <div className="flex items-center text-sm">
+        <MdAccessTime className="mr-2" />
+        {time}
+      </div>
+      <p className="mt-2 text-lg font-bold">{price}</p>
     </div>
   </div>
 );
