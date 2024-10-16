@@ -128,6 +128,7 @@ export default function Home() {
             sua comemoração, quanto mais convidados você levar, mais benefícios
             receberá.
           </p>
+          
         </div>
         <Image
           src={imgBanner}

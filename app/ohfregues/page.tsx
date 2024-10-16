@@ -64,7 +64,13 @@ const Ohfregues = () => {
     setShowDescription(content === "sobre");
   };
 
-  const openModal = () => setModalIsOpen(true);
+  const openModal = () => {
+    // Armazena a logo e a informação do local no local storage
+    localStorage.setItem('logo', logoNew.src); // Armazenando o caminho da logo
+    localStorage.setItem('localInfo', 'Rua Girassol, 144 - Vila Madalena');
+    console.log(localStorage.getItem("localInfo")); // Armazenando o endereço
+    setModalIsOpen(true);
+  };
   const closeModal = () => setModalIsOpen(false);
 
   const openImage = (img: StaticImageData) => setExpandedImage(img); // Ajuste para StaticImageData
@@ -84,7 +90,7 @@ const Ohfregues = () => {
         <Image
           src={imgBanner}
           alt="Banner"
-          layout="fill"
+          fill
           className={styles.bannerImage}
         />
         <div className={styles.flexButtonContainer}>

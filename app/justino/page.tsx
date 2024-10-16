@@ -203,13 +203,33 @@ const Justino = () => {
       <div className={styles.mapContainer}>
         <iframe
           src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3658.8531229789736!2d-46.70965078450384!3d-23.504566264570394!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x94cef8c55b0f2e7b%3A0x6b9156a1e51233b3!2sLargo%20da%20Matriz%20de%20Nossa%20Senhora%20do%20%C3%93%2C%20145%20-%20Freguesia%20do%20%C3%93%2C%20S%C3%A3o%20Paulo%20-%20SP%2C%2002925-040!5e0!3m2!1spt-BR!2sbr!4v1681723528801!5m2!1spt-BR!2sbr"
-          width="600"
+          width="100%"
           height="450"
           style={{ border: 0 }}
           allowFullScreen
           loading="lazy"
         />
       </div>
+
+      {expandedImage && (
+        <Modal
+          isOpen={!!expandedImage}
+          onRequestClose={closeImage}
+          className={styles.modal}
+          overlayClassName={styles.modalOverlay}
+        >
+          <div className={styles.modalImageContainer}>
+            <Image
+              src={expandedImage}
+              alt="Expanded"
+              className={styles.modalImage}
+              layout="intrinsic"
+              width={800}
+              height={600}
+            />
+          </div>
+        </Modal>
+      )}
 
       <Footer />
     </>
