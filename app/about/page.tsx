@@ -14,7 +14,7 @@ export default function About() {
   return (
     <div>
       {/* Banner */}
-      <section className="relative">
+      <section className="relative"><div className="texto">QUEM SOMOS</div>
         <Image
           src={Image1} 
           alt="Banner Quem Somos" 

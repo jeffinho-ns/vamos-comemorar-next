@@ -23,6 +23,7 @@ const Programacao = ({ logo, location }) => {
   const [selectedEvent, setSelectedEvent] = useState({});
 
   const openModal = (eventData) => {
+    // Passa logo e localização juntamente com os dados do evento
     setSelectedEvent({ ...eventData, logo, location });
     setModalIsOpen(true);
   };
@@ -35,7 +36,7 @@ const Programacao = ({ logo, location }) => {
     <div className="container mx-auto px-4 py-8 bg-gray-100">
       <h2 className="text-4xl font-bold text-center mb-12 text-gray-900">Programação do Mês</h2>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
-      <EventCard
+        <EventCard
           img={eventImg13}
           title="ENCONTRIN"
           date="28/07"
@@ -83,63 +84,19 @@ const Programacao = ({ logo, location }) => {
           price="R$50"
           openModal={openModal}
         />
-        <EventCard
-          img={eventImg7}
-          title="ANIVERSÁRIO"
-          date="Hoje"
-          time="17h"
-          price="R$50"
-          openModal={openModal}
-        />
-        <EventCard
-          img={eventImg8}
-          title="ANIVERSÁRIO"
-          date="Hoje"
-          time="17h"
-          price="R$50"
-          openModal={openModal}
-        />
-        <EventCard
-          img={eventImg9}
-          title="ANIVERSÁRIO"
-          date="Hoje"
-          time="17h"
-          price="R$50"
-          openModal={openModal}
-        />
-        <EventCard
-          img={eventImg10}
-          title="ANIVERSÁRIO"
-          date="Hoje"
-          time="17h"
-          price="R$50"
-          openModal={openModal}
-        />
-        <EventCard
-          img={eventImg11}
-          title="ANIVERSÁRIO"
-          date="Hoje"
-          time="17h"
-          price="R$50"
-          openModal={openModal}
-        />
-        <EventCard
-          img={eventImg12}
-          title="ANIVERSÁRIO"
-          date="Hoje"
-          time="17h"
-          price="R$50"
-          openModal={openModal}
-        />
         {/* Adicione mais EventCards conforme necessário */}
       </div>
 
-      {/* Modal para reserva */}
-      <ReservationModal
-        isOpen={modalIsOpen}
-        onRequestClose={closeModal}
-        eventData={selectedEvent}
-      />
+      {/* Modal para reserva com dados dinâmicos */}
+      {modalIsOpen && (
+        <ReservationModal 
+          isOpen={modalIsOpen} 
+          onRequestClose={closeModal} 
+          eventData={selectedEvent}  // Envia os dados do evento selecionado
+          logo={selectedEvent.logo}  // Passa a logo do bar
+          location={selectedEvent.location}  // Passa a localização do bar
+        />
+      )}
     </div>
   );
 };
@@ -147,7 +104,7 @@ const Programacao = ({ logo, location }) => {
 const EventCard = ({ img, title, date, time, price, openModal }) => (
   <div
     className="relative bg-white rounded-lg shadow-lg overflow-hidden cursor-pointer transition-transform transform hover:scale-105"
-    onClick={() => openModal({ img, title, date, price })}
+    onClick={() => openModal({ img, title, date, time, price })}
   >
     <div className="relative h-64">
       <Image src={img} alt={title} className="w-full h-full object-cover" />

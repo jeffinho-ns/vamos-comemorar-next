@@ -1,8 +1,7 @@
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import Modal from "react-modal";
 import Image from "next/image";
 import styles from "./reservationModal.module.scss";
-import logoNew from "../../assets/ohfregues/logoOhfregues.png";
 import gin from "../../assets/programacao/gin.png";
 import icon1 from "../../assets/icones/area.png";
 import icon2 from "../../assets/icones/acessivel.png";
@@ -10,30 +9,11 @@ import icon3 from "../../assets/icones/estacionamento.png";
 import icon4 from "../../assets/icones/18.png";
 import icon5 from "../../assets/icones/mesa.png";
 
-const ReservationModal = ({ isOpen, onRequestClose, eventData }) => {
+const ReservationModal = ({ isOpen, onRequestClose, eventData, logo, location }) => {
   const [guests, setGuests] = useState(0);
-  const [logoSrc, setLogoSrc] = useState(logoNew.src); // Define logo padrão
-  const [localInfo, setLocalInfo] = useState('');
 
   const incrementGuests = () => setGuests(guests + 1);
   const decrementGuests = () => setGuests(guests > 0 ? guests - 1 : 0);
-
-  useEffect(() => {
-    // Recupera a logo e localização da última página
-    const storedLogo = localStorage.getItem("lastPageLogo");
-    const storedLocalInfo = localStorage.getItem("localInfo");
-    
-    setLocalInfo(storedLocalInfo || 'Local não especificado');
-
-    if (storedLogo) {
-      setLogoSrc(storedLogo); // Atualiza a logo com a última logo armazenada
-    }
-  }, []);
-
-  const updateLogo = (logo) => {
-    setLogoSrc(logo); // Atualiza a logo no estado
-    localStorage.setItem("lastPageLogo", logo); // Armazena a logo no localStorage
-  };
 
   return (
     <Modal
@@ -55,8 +35,12 @@ const ReservationModal = ({ isOpen, onRequestClose, eventData }) => {
             />
           )}
           <div className={styles.rightColumn}>
-            <Image src={eventData.logo} alt="Logo" width={200} height={200} />
-            <p className={styles.address}>{eventData.location}</p>
+            {/* Exibir a logo e localização passadas como parâmetros */}
+            {logo && (
+              <Image src={logo} alt="Logo" width={200} height={200} />
+            )}
+            <p className={styles.address}>{location || "Local não especificado"}</p>
+
             <div className={styles.iconContainer}>
               <div className={styles.iconItem}>
                 <Image src={icon1} width={40} height={40} alt="Área aberta" />
@@ -67,12 +51,7 @@ const ReservationModal = ({ isOpen, onRequestClose, eventData }) => {
                 <p className={styles.iconTitle}>Acessível</p>
               </div>
               <div className={styles.iconItem}>
-                <Image
-                  src={icon3}
-                  width={40}
-                  height={40}
-                  alt="Estacionamento"
-                />
+                <Image src={icon3} width={40} height={40} alt="Estacionamento" />
                 <p className={styles.iconTitle}>Estacionamento</p>
               </div>
               <div className={styles.iconItem}>
