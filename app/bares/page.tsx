@@ -15,9 +15,11 @@ import Modal from 'react-modal';
 // Importação de todas as imagens necessárias
 import ohfreguesBanner from "@/app/assets/oh-fregues.jpg";
 import highlineBanner from "@/app/assets/highline/capa-highline.jpeg";
+import justinoBanner from "@/app/assets/justino/capa-justino.png";
 
 import ohfreguesLogo from "@/app/assets/ohfregues/logoOhfregues.png";
 import highlineLogo from "@/app/assets/highline/highlinelogo.png";
+import justinoLogo from "@/app/assets/justino/justinologo.png";
 
 import icon1 from "@/app/assets/icones/area.png";
 import icon2 from "@/app/assets/icones/acessivel.png";
@@ -55,6 +57,22 @@ import highlineBebidas2 from "@/app/assets/highline/bebida-2.jpeg";
 import highlineBebidas3 from "@/app/assets/highline/bebida-3.jpeg";
 import highlineBebidas4 from "@/app/assets/highline/bebida-4.jpeg";
 
+import justinoAmbiente1 from "@/app/assets/justino/ambiente-1.jpeg";
+import justinoAmbiente2 from "@/app/assets/justino/ambiente-2.jpeg";
+import justinoAmbiente3 from "@/app/assets/justino/ambiente-3.jpeg";
+import justinoAmbiente4 from "@/app/assets/justino/ambiente-4.jpeg";
+
+import justinoGastronomia1 from "@/app/assets/justino/gastronomia-1.jpeg";
+import justinoGastronomia2 from "@/app/assets/justino/gastronomia-2.jpeg";
+import justinoGastronomia3 from "@/app/assets/justino/gastronomia-3.jpeg";
+import justinoGastronomia4 from "@/app/assets/justino/gastronomia-4.jpeg";
+
+import justinoBebidas1 from "@/app/assets/justino/bebida-1.jpeg";
+import justinoBebidas2 from "@/app/assets/justino/bebida-2.jpeg";
+import justinoBebidas3 from "@/app/assets/justino/bebida-3.jpeg";
+import justinoBebidas4 from "@/app/assets/justino/bebida-4.jpeg"; 
+
+
 
 interface SectionProps {
     title: string;
@@ -82,11 +100,23 @@ const barData = [
     location: "Rua Girassol, 144 - Vila Madalena",
     banner: highlineBanner,
     logo: highlineLogo,
-    ambientes: [highlineAmbiente1, highlineAmbiente2, highlineAmbiente3, ohfreguesAmbiente4],
+    ambientes: [highlineAmbiente1, highlineAmbiente2, highlineAmbiente3, highlineAmbiente4],
     gastronomia: [highlineGastronomia1, highlineGastronomia2, highlineGastronomia3, highlineGastronomia4],
     bebidas: [highlineBebidas1, highlineBebidas2, highlineBebidas3, highlineBebidas4],
     description: "O bar High Line oferece um ambiente sofisticado e moderno...",
   },
+  {
+    id: 3,
+    name: "Seu Justino",
+    location: "Rua Azevedo Soares, 940",
+    banner: justinoBanner,
+    logo: justinoLogo,
+    ambientes: [justinoAmbiente1, justinoAmbiente2, justinoAmbiente3, justinoAmbiente4],
+    gastronomia: [justinoGastronomia1,justinoGastronomia2, justinoGastronomia3, justinoGastronomia4],
+    bebidas: [justinoBebidas1, justinoBebidas2, justinoBebidas3, justinoBebidas4],
+    description: "O Seu Justino oferece um ambiente sofisticado e moderno...",
+  
+  }
 ];
 
 const Bares = () => {
@@ -149,9 +179,9 @@ const Bares = () => {
             ))}
           </div>
         </div>
-      </div>
-      <div className={styles.flexButtonContainer}>
-          <div className={styles.flexButtonContainerBar}>
+      
+      <div className={styles.flexButtonContainers}>
+          <div className={styles.flexButtonContainerBars}>
             <button
               className={styles.button}
               onClick={() => toggleContent("sobre")}
@@ -168,7 +198,7 @@ const Bares = () => {
             </button>
           </div>
         </div>
-
+        </div>
       <div className={styles.barInfo}>
         <div className={styles.infoContainer}>
           <div className={styles.leftColumn}>
