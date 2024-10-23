@@ -1,187 +1,204 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from "react";
-import { FiEdit3 } from "react-icons/fi";
+import React, { useState, useEffect } from "react";
+import Image from "next/image";
+import { FiSave } from "react-icons/fi";
 import Header from "../components/headerNotificatioin/headerNotification";
 import Footer from "../components/footer/footer";
-
-import "./profile.module.scss";
+import { useRouter } from "next/navigation";
 
 export default function PerfilMobile() {
-  // Estado para armazenar as informações do usuário
-  const [userInfo, setUserInfo] = useState({
-    nome: "Jefferson Lima",
-    localizacao: "BR (Brasil - SP)",
-    endereco: "Rua Catanduvas do Sul",
-    telefone: "(11) 9 4350-1097",
-  });
-
-  // Estado para controlar o modo de edição
+  const [user, setUser] = useState(null);
+  const router = useRouter();
   const [isEditing, setIsEditing] = useState({
     nome: false,
-    localizacao: false,
     endereco: false,
     telefone: false,
   });
+  const [userInfo, setUserInfo] = useState({
+    nome: "",
+    localizacao: "BR (Brasil - SP)",
+    endereco: "",
+    telefone: "(11) 9 4350-1097",
+    foto_perfil: "",
+  });
+  const [loading, setLoading] = useState(true);
+  const [message, setMessage] = useState("");
+  const [file, setFile] = useState(null); // Estado para armazenar o arquivo da imagem
 
-  // Refs para os campos de entrada
-  const nomeRef = useRef<HTMLInputElement>(null);
-  const localizacaoRef = useRef<HTMLInputElement>(null);
-  const enderecoRef = useRef<HTMLInputElement>(null);
-  const telefoneRef = useRef<HTMLInputElement>(null);
-
-  // Função para lidar com a mudança de informações do usuário
-  const handleChange = (field: string, value: string) => {
-    setUserInfo({
-      ...userInfo,
-      [field]: value,
-    });
-  };
-
-  // Função para focar no campo de input quando o modo de edição é ativado
   useEffect(() => {
-    if (isEditing.nome) nomeRef.current?.focus();
-    if (isEditing.localizacao) localizacaoRef.current?.focus();
-    if (isEditing.endereco) enderecoRef.current?.focus();
-    if (isEditing.telefone) telefoneRef.current?.focus();
-  }, [isEditing]);
+    const token = localStorage.getItem("authToken");
+  
+    if (!token) {
+      router.push("/login");
+    } else {
+      fetchUserData(token);
+    }
+  }, []);
 
-  // Função para salvar as alterações
-  const saveChanges = () => {
-    setIsEditing({
-      nome: false,
-      localizacao: false,
-      endereco: false,
-      telefone: false,
-    });
-    // Aqui você poderia salvar as informações em uma API ou no localStorage, se necessário.
-    console.log("Informações salvas:", userInfo);
+  const fetchUserData = async (token) => {
+    try {
+      const API_URL = process.env.NEXT_PUBLIC_API_URL_NETWORK || process.env.NEXT_PUBLIC_API_URL_LOCAL;
+      const response = await fetch(`${API_URL}/api/users/me`, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (response.ok) {
+        const userData = await response.json();
+        const baseUrl = `${API_URL}`;
+        const fotoUrl = userData.foto_perfil
+          ? `${baseUrl}${userData.foto_perfil.startsWith("/") ? userData.foto_perfil : `/${userData.foto_perfil}`}`
+          : "";
+        setUserInfo({
+          nome: userData.name,
+          localizacao: "BR (Brasil - SP)",
+          endereco: userData.endereco,
+          telefone: userData.telefone || "(11) 9 4350-1097",
+          foto_perfil: fotoUrl,
+        });
+        setUser(userData);
+      } else {
+        console.error("Erro ao buscar dados do usuário:", response.status, await response.text());
+        router.push("/login");
+      }
+    } catch (error) {
+      router.push("/login");
+    } finally {
+      setLoading(false);
+    }
   };
+
+  const handleEditClick = (field) => {
+    setIsEditing((prev) => ({ ...prev, [field]: true }));
+  };
+
+  const handleInputChange = (field, value) => {
+    setUserInfo((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleFileChange = (e) => {
+    const selectedFile = e.target.files[0];
+    setFile(selectedFile);
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setUserInfo((prev) => ({ ...prev, foto_perfil: reader.result })); // Exibir a imagem selecionada
+    };
+    if (selectedFile) {
+      reader.readAsDataURL(selectedFile);
+    }
+  };
+
+  const handleSaveClick = async (field) => {
+    const token = localStorage.getItem("authToken");
+    const formData = new FormData();
+    formData.append(field, userInfo[field]);
+
+    if (file) {
+      formData.append("foto_perfil", file);
+    }
+
+    try {
+      const API_URL = process.env.NEXT_PUBLIC_API_URL_NETWORK || process.env.NEXT_PUBLIC_API_URL_LOCAL;
+      const response = await fetch(`${API_URL}/api/users/me`, {
+        method: field === "foto_perfil" ? "PUT" : "PATCH", // Use PUT para a foto e PATCH para outros campos
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        body: formData,
+      });
+
+      if (response.ok) {
+        const updatedData = await response.json();
+        setUser(updatedData);
+        setMessage("Dados salvos com sucesso!");
+        setIsEditing((prev) => ({ ...prev, [field]: false })); // Fecha o modo de edição para o campo salvo
+        setFile(null); // Limpar arquivo após salvar
+      } else {
+        const errorData = await response.json();
+        setMessage(`Erro ao salvar os dados: ${errorData.message || response.statusText}`);
+      }
+    } catch (error) {
+      setMessage(`Erro ao fazer a requisição: ${error.message}`);
+    }
+  };
+
+  if (loading) {
+    return <div>Carregando...</div>;
+  }
+
+  if (!user) {
+    return null;
+  }
 
   return (
     <>
       <Header />
-      <div className="profile-container-mobile">
-        <div className="flex flex-col items-center bg-white h-auto py-8 overflow-hidden">
+      <div className="flex flex-col min-h-[100vh]">
+        <div className="flex-grow flex flex-col items-center bg-white py-8">
           <h6 className="text-base font-semibold self-start mt-4 pl-4">Configurações</h6>
+          {message && <div className="text-green-600">{message}</div>}
           <div className="flex flex-col items-center mb-6">
-            <div className="w-24 h-24 bg-gray-200 rounded-full flex items-center justify-center mb-2">
-              <span className="text-gray-500">Adicionar foto</span>
-            </div>
+            <label className="w-24 h-24 bg-gray-200 rounded-full flex items-center justify-center mb-2 cursor-pointer">
+              {userInfo.foto_perfil ? (
+                <Image
+                  src={userInfo.foto_perfil}
+                  alt="Perfil"
+                  width={96}
+                  height={96}
+                  className="rounded-full object-cover"
+                />
+              ) : (
+                <span className="text-gray-500">Adicionar foto</span>
+              )}
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handleFileChange}
+                className="hidden"
+                onClick={(e) => {
+                  e.target.value = null; // Permitir seleção da mesma imagem
+                }}
+                aria-label="Selecionar imagem do perfil"
+              />
+            </label>
+            {file && (
+              <button onClick={() => handleSaveClick("foto_perfil")} aria-label="Salvar imagem do perfil">
+                <FiSave className="text-teal-500 text-xl ml-4" />
+              </button>
+            )}
           </div>
 
           <div className="w-full max-w-sm flex-grow flex flex-col px-4">
-
-            {/* Campo Nome */}
-            <div className="flex items-center py-4 border-b border-gray-200">
-              <span className="text-lg font-semibold w-1/3">Nome:</span>
-              {isEditing.nome ? (
-                <input
-                  ref={nomeRef} // Adiciona a referência ao input
-                  type="text"
-                  className="text-lg w-2/3"
-                  value={userInfo.nome}
-                  onChange={(e) => handleChange("nome", e.target.value)}
-                />
-              ) : (
-                <span className="text-lg flex-grow w-2/3">{userInfo.nome}</span>
-              )}
-              <button
-                onClick={() =>
-                  setIsEditing((prevState) => ({
-                    ...prevState,
-                    nome: !isEditing.nome,
-                  }))
-                }
-              >
-                <FiEdit3 className="text-teal-500 text-xl ml-4" />
-              </button>
-            </div>
-
-            {/* Campo Localização */}
-            <div className="flex items-center py-4 border-b border-gray-200">
-              <span className="text-lg font-semibold w-1/3">Localização:</span>
-              {isEditing.localizacao ? (
-                <input
-                  ref={localizacaoRef} // Adiciona a referência ao input
-                  type="text"
-                  className="text-lg w-2/3"
-                  value={userInfo.localizacao}
-                  onChange={(e) => handleChange("localizacao", e.target.value)}
-                />
-              ) : (
-                <span className="text-lg flex-grow w-2/3">{userInfo.localizacao}</span>
-              )}
-              <button
-                onClick={() =>
-                  setIsEditing((prevState) => ({
-                    ...prevState,
-                    localizacao: !isEditing.localizacao,
-                  }))
-                }
-              >
-                <FiEdit3 className="text-teal-500 text-xl ml-4" />
-              </button>
-            </div>
-
-            {/* Campo Endereço */}
-            <div className="flex items-center py-4 border-b border-gray-200">
-              <span className="text-lg font-semibold w-1/3">Endereço:</span>
-              {isEditing.endereco ? (
-                <input
-                  ref={enderecoRef} // Adiciona a referência ao input
-                  type="text"
-                  className="text-lg w-2/3"
-                  value={userInfo.endereco}
-                  onChange={(e) => handleChange("endereco", e.target.value)}
-                />
-              ) : (
-                <span className="text-lg flex-grow w-2/3">{userInfo.endereco}</span>
-              )}
-              <button
-                onClick={() =>
-                  setIsEditing((prevState) => ({
-                    ...prevState,
-                    endereco: !isEditing.endereco,
-                  }))
-                }
-              >
-                <FiEdit3 className="text-teal-500 text-xl ml-4" />
-              </button>
-            </div>
-
-            {/* Campo Telefone */}
-            <div className="flex items-center py-4 border-b border-gray-200">
-              <span className="text-lg font-semibold w-1/3">Telefone:</span>
-              {isEditing.telefone ? (
-                <input
-                  ref={telefoneRef} // Adiciona a referência ao input
-                  type="text"
-                  className="text-lg w-2/3"
-                  value={userInfo.telefone}
-                  onChange={(e) => handleChange("telefone", e.target.value)}
-                />
-              ) : (
-                <span className="text-lg flex-grow w-2/3">{userInfo.telefone}</span>
-              )}
-              <button
-                onClick={() =>
-                  setIsEditing((prevState) => ({
-                    ...prevState,
-                    telefone: !isEditing.telefone,
-                  }))
-                }
-              >
-                <FiEdit3 className="text-teal-500 text-xl ml-4" />
-              </button>
-            </div>
-
-            <button
-              className="w-full bg-teal-500 text-white py-5 rounded-full mt-8 flex items-center justify-center"
-              onClick={saveChanges}
-            >
-              Salvar alterações
-            </button>
+            {["nome", "endereco", "telefone"].map((field) => (
+              <div className="flex items-center py-4 border-b border-gray-200" key={field}>
+                <span className="text-lg font-semibold w-1/3 capitalize">{field}:</span>
+                {isEditing[field] ? (
+                  <>
+                    <input
+                      type="text"
+                      className="text-lg flex-grow w-2/3 border border-gray-300 rounded-md p-2"
+                      value={userInfo[field]}
+                      onChange={(e) => handleInputChange(field, e.target.value)}
+                      aria-label={`Editar ${field}`}
+                    />
+                    <button onClick={() => handleSaveClick(field)} aria-label={`Salvar ${field}`}>
+                      <FiSave className="text-teal-500 text-xl ml-4" />
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <span className="text-lg flex-grow w-2/3">{userInfo[field]}</span>
+                    <button onClick={() => handleEditClick(field)} aria-label={`Editar ${field}`}>
+                      <FiSave className="text-teal-500 text-xl ml-4" />
+                    </button>
+                  </>
+                )}
+              </div>
+            ))}
           </div>
         </div>
       </div>

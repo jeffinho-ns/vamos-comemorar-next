@@ -10,6 +10,7 @@ import Button from "../components/button/button";
 import { MdVisibility, MdVisibilityOff } from "react-icons/md";
 import { useMemo, useState } from "react";
 import "./styles.scss";
+import { useRouter } from "next/navigation";
 
 export default function Register() {
   const [show, setShow] = useState<boolean>(false);
@@ -23,6 +24,7 @@ export default function Register() {
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<boolean>(false);
+  const router = useRouter();
 
   const validInputs = useMemo(() => {
     return (
@@ -46,15 +48,17 @@ export default function Register() {
     setError(null);
 
     const requestData = {
-      cpf,
-      fullName,
-      year,
+      name: fullName,
       email,
       password,
+      cpf, 
+      year, 
     };
 
     try {
-      const response = await fetch("https://api.vamoscomemorar.com.br/auth/register", {
+      const API_URL = process.env.NEXT_PUBLIC_API_URL_NETWORK || process.env.NEXT_PUBLIC_API_URL_LOCAL;
+
+      const response = await fetch(`${API_URL}/api/users`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -70,6 +74,11 @@ export default function Register() {
       }
 
       setSuccess(true); // Registro realizado com sucesso
+
+      // Exibir mensagem por 3 segundos e redirecionar para a página de login
+      setTimeout(() => {
+        router.push("/login");
+      }, 3000);
     } catch (error) {
       setError("Erro ao registrar. Verifique sua conexão.");
     } finally {
@@ -79,7 +88,7 @@ export default function Register() {
 
   return (
     <div className="container">
-      {success && <div className="success-message">Registro realizado com sucesso!</div>}
+      {success && <div className="success-message">Registro realizado com sucesso! Redirecionando para a página de login...</div>}
       {error && <div className="error-message">{error}</div>}
       <Banner id="banner-container" className="banner-container">
         <Image src={imgBanner} alt="Logo banner" style={{ width: "100%" }} />
@@ -123,7 +132,6 @@ export default function Register() {
                   <option>Selecione o ano</option>
                   <option value="2024">2024</option>
                   <option value="2023">2023</option>
-                  {/* Adicione mais opções conforme necessário */}
                 </select>
               </div>
               <div className="column">
@@ -192,7 +200,7 @@ export default function Register() {
               <p className="account-text">
                 Já possui uma conta?{" "}
                 <Link href="/login" className="account-link">
-                  Criar conta
+                  ENTRAR
                 </Link>
               </p>
             </div>

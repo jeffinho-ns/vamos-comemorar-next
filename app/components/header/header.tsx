@@ -12,6 +12,9 @@ import "./styles.scss";
 const Header: React.FC = () => {
   const [isNavOpen, setIsNavOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [dropdownTimeout, setDropdownTimeout] = useState<NodeJS.Timeout | null>(null);
   const router = useRouter();
 
   useEffect(() => {
@@ -24,6 +27,25 @@ const Header: React.FC = () => {
       window.removeEventListener("scroll", handleScroll);
     };
   }, []);
+
+  useEffect(() => {
+    const token = localStorage.getItem("authToken");
+    setIsLoggedIn(!!token);
+  }, []);
+
+  const handleMouseEnter = () => {
+    if (dropdownTimeout) clearTimeout(dropdownTimeout);
+    setIsDropdownOpen(true);
+  };
+
+  const handleMouseLeave = () => {
+    // Define um tempo para fechar o menu
+    const timeout = setTimeout(() => {
+      setIsDropdownOpen(false);
+    }, 200); // Ajuste o tempo conforme necessário (200 ms aqui)
+    
+    setDropdownTimeout(timeout);
+  };
 
   return (
     <header className={`fixed w-full z-10 transition-all ${isScrolled ? 'bg-blue-800' : 'bg-transparent'}`}>
@@ -39,11 +61,46 @@ const Header: React.FC = () => {
             Seja parceiro
           </Link>
         </div>
-        <div className="hidden md:flex items-center flex-end">
-          <MdPerson
-            className="text-white ml-4 text-3xl cursor-pointer"
-            onClick={() => router.push("/login")}
-          />
+        <div className="hidden md:flex items-center flex-end relative">
+          {isLoggedIn ? (
+            <>
+              <div 
+                className="relative"
+                onMouseEnter={handleMouseEnter} // Abre o menu ao passar o mouse
+                onMouseLeave={handleMouseLeave} // Fecha o menu com um atraso ao sair o mouse
+              >
+                <MdPerson
+                  className="text-white ml-4 text-3xl cursor-pointer"
+                />
+                {isDropdownOpen && ( // Exibe o menu suspenso apenas se isDropdownOpen for true
+                  <div className="absolute right-0 mt-2 w-48 bg-white shadow-lg rounded-md z-10">
+                    <ul className="py-2">
+                      <li className="hover:bg-gray-100">
+                        <Link href="/minhasReservas" className="block px-4 py-2 text-gray-800">
+                          Página do usuário
+                        </Link>
+                      </li>
+                      <li className="hover:bg-gray-100">
+                        <Link href="/admin" className="block px-4 py-2 text-gray-800">
+                          Dashboard
+                        </Link>
+                      </li>
+                      <li className="hover:bg-gray-100">
+                        <Link href="/minhas-reservas" className="block px-4 py-2 text-gray-800">
+                          Minhas reservas
+                        </Link>
+                      </li>
+                    </ul>
+                  </div>
+                )}
+              </div>
+            </>
+          ) : (
+            <div>
+              <Link href="/login" className="text-white ml-4">Entrar</Link>
+              <Link href="/register" className="text-white ml-4">Registrar</Link>
+            </div>
+          )}
           <FaFacebookF className="text-white ml-4 text-3xl" />
           <FaInstagram className="text-white ml-4 text-3xl " />
         </div>

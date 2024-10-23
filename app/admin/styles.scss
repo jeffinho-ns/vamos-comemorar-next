@@ -1,8 +1,8 @@
-@use "../variables";
-@use "../_mixins";
+@use "../variables.scss" as variables;
+@use "../_mixins" as mixins;
 
 .header-admin {
-  @include mixins.header(60px, 2rem 1.5rem);
+  @include mixins.header(60px, 2rem); // Corrigido para 2 argumentos
 }
 
 .navbar-and-brand {
@@ -37,7 +37,7 @@
   align-items: center;
   width: 40px;
   height: 40px;
-  border-radius: 50px;
+  border-radius: 50%;
   background-color: variables.$bg-white;
 }
 
@@ -54,7 +54,7 @@ span {
   from {
     left: -500px;
   }
-
+  
   to {
     left: 0px;
   }
@@ -114,10 +114,9 @@ ul div {
 }
 
 ul div h2 {
-  color: variables.$text-white;
+  color: #b1afdf;
   font-size: 0.8rem;
   padding: 0.8rem;
-  color: #b1afdf;
 }
 
 ul div li {
@@ -143,55 +142,6 @@ ul div li a {
   position: absolute;
   transition: 1s;
   animation: slideInLeft 1s linear;
-}
-
-.aside-navbar {
-  height: 100%;
-}
-
-.aside-navbar ul {
-  padding-left: 0;
-  list-style: none;
-}
-
-.aside-navbar ul li {
-  padding: 0 0.8rem;
-  display: flex;
-  align-items: center;
-  width: 200px;
-  color: variables.$text-white;
-  margin-bottom: 1.5rem;
-}
-
-.aside-navbar ul li .dashboard-link {
-  margin-left: 1rem;
-  font-size: 1rem;
-  padding: 0.6rem 0;
-}
-
-.aside-navbar ul li div {
-  margin-bottom: 1.5rem;
-}
-
-.aside-navbar ul li div h2 {
-  color: variables.$text-white;
-  font-size: 0.8rem;
-  padding: 0.8rem;
-  color: #b1afdf;
-}
-
-.aside-navbar ul li div li {
-  color: variables.$text-white;
-  padding: 0 0.8rem;
-  width: 400px;
-  display: flex;
-  align-items: center;
-}
-
-.aside-navbar ul li div li a {
-  color: variables.$text-white;
-  font-size: 1rem;
-  margin-left: 1rem;
 }
 
 .container-dashboard {
@@ -262,7 +212,7 @@ ul div li a {
 
   aside.hide-menu {
     margin-left: 0;
-    position:inherit;
+    position: inherit;
   }
 
   .grid-2 {
@@ -293,6 +243,6 @@ ul div li a {
 
   .dashboard-item div h2 {
     font-size: 1rem;
-    color: #a1aab2
+    color: #a1aab2;
   }
 }

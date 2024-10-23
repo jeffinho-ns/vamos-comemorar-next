@@ -7,6 +7,14 @@
     padding: 2rem;
   }
 
+  .profile-container-mobile {
+
+display: flex;
+flex-direction: column;
+min-height: 100vh;
+
+  }
+
   button.w-full.bg-teal-500.text-white.py-2.rounded-lg.mb-4.flex.items-center.justify-center {
     height: 100px;
     border-radius: 30px;

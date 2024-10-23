@@ -3,23 +3,18 @@ import { MdAdd, MdRefresh, MdEdit, MdDelete } from "react-icons/md";
 import { useEffect, useState } from "react";
 import Profile from "../../components/profile/profile";
 import AddUser from "../../components/AddUser/AddUser";
-import { useRouter } from 'next/navigation';
+import { User } from '../../types/types';
 
-interface User {
-  id: number;
-  name: string;
-  email: string;
-  phone: string;
-  status: string;
-  created_at: string;
-  type?: string;
-}
+type NewUser = Omit<UserType, 'id' | 'created_at' | 'status'> & {
+  telefone: string; // Telefone é um campo requerido
+};
 
 export default function Users() {
   const [data, setData] = useState<User[]>([]);
   const [filterBy, setFilterBy] = useState("");
   const [modalIsOpen, setModalIsOpen] = useState(false);
   const [editProfileIsOpen, setEditProfileIsOpen] = useState(false);
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [userType, setUserType] = useState("usuario");
@@ -27,35 +22,12 @@ export default function Users() {
   const [perPage] = useState(10);
   const [totalPages, setTotalPages] = useState(1);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
-  const router = useRouter();
 
-  // Função para abrir o modal de adicionar usuário
-  const openAddUserModal = () => {
-    setModalIsOpen(true);
-  };
-
-  // Função para abrir o modal de edição de usuário
-  const openEditProfileModal = (user: User) => {
-    setSelectedUser(user);
-    setEditProfileIsOpen(true);
-  };
-
-  const closeModal = () => {
-    setModalIsOpen(false);
-    setEditProfileIsOpen(false);
-    setSelectedUser(null);
-  };
 
   const fetchData = async () => {
     setLoading(true);
     const token = localStorage.getItem('authToken');
-    let url = '';
-
-    if (userType === 'usuario') {
-      url = `https://api.vamoscomemorar.com.br/users?page=${page}&perPage=${perPage}&type=users&search=`;
-    } else if (userType === 'cliente') {
-      url = `https://api.vamoscomemorar.com.br/users?page=${page}&perPage=${perPage}&type=clients&search=`;
-    }
+    const url = `http://localhost:5000/api/users?page=${page}&perPage=${perPage}&type=${userType}&search=`;
 
     try {
       const response = await fetch(url, {
@@ -67,20 +39,11 @@ export default function Users() {
       if (!response.ok) throw new Error('Erro ao buscar dados');
 
       const data = await response.json();
-
-      if (Array.isArray(data.data)) {
-        setData(data.data);
-        setTotalPages(Math.ceil(data.total / perPage));
-      } else {
-        setError('Dados inválidos.');
-      }
+      setData(data);
+      setTotalPages(Math.ceil(data.length / perPage));
     } catch (error) {
-      if (error instanceof Error) {
-        setError(error.message);
-      } else {
-        setError('Erro desconhecido');
-      }
-      console.error('Erro ao buscar empresas:', error);
+      setError(error instanceof Error ? error.message : 'Erro desconhecido');
+      console.error('Erro ao buscar usuários:', error);
     } finally {
       setLoading(false);
     }
@@ -96,19 +59,16 @@ export default function Users() {
     }
   };
 
-  const filteredData = data.filter((item) => {
-    return (
-      item.name.toLowerCase().includes(filterBy.toLowerCase()) ||
-      item.email.toLowerCase().includes(filterBy.toLowerCase())
-    );
-  });
+  const filteredData = data.filter(item =>
+    item.name.toLowerCase().includes(filterBy.toLowerCase()) ||
+    item.email.toLowerCase().includes(filterBy.toLowerCase())
+  );
 
   const handleDelete = async (id: number) => {
-    const confirmDelete = confirm("Tem certeza que deseja excluir este item?");
-    if (confirmDelete) {
+    if (confirm("Tem certeza que deseja excluir este item?")) {
       const token = localStorage.getItem('authToken');
       try {
-        const response = await fetch(`https://api.vamoscomemorar.com.br/users/${id}`, {
+        const response = await fetch(`http://localhost:5000/api/users/${id}`, {
           method: 'DELETE',
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -116,24 +76,18 @@ export default function Users() {
         });
 
         if (!response.ok) throw new Error('Erro ao excluir usuário');
-
         fetchData();
       } catch (error) {
-        if (error instanceof Error) {
-          setError(error.message);
-        } else {
-          setError('Erro desconhecido');
-        }
+        setError(error instanceof Error ? error.message : 'Erro desconhecido');
         console.error('Erro ao excluir usuário:', error);
       }
     }
   };
 
-  // Função para adicionar um usuário
-  const handleAddUser = async (newUser: Omit<User, 'id' | 'created_at' | 'status'>) => {
+  const handleAddUser = async (newUser: NewUser) => {
     try {
       const token = localStorage.getItem('authToken');
-      const response = await fetch('https://api.vamoscomemorar.com.br/users', {
+      const response = await fetch('http://localhost:5000/api/users', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -143,18 +97,24 @@ export default function Users() {
       });
 
       if (!response.ok) throw new Error('Erro ao adicionar usuário');
-
-      // Atualize a lista de usuários após adicionar
       fetchData();
-      closeModal(); // Fechar o modal após adicionar
+      closeModal(); 
     } catch (error) {
-      if (error instanceof Error) {
-        setError(error.message);
-      } else {
-        setError('Erro desconhecido');
-      }
+      setError(error instanceof Error ? error.message : 'Erro desconhecido');
       console.error('Erro ao adicionar usuário:', error);
     }
+  };
+
+  const openEditProfileModal = (user: User) => {
+    setSelectedUser(user);
+    setEditProfileIsOpen(true);
+  };
+
+  const closeModal = () => {
+    setModalIsOpen(false);
+    setEditProfileIsOpen(false);
+    setIsProfileModalOpen(false);
+    setSelectedUser(null);
   };
 
   return (
@@ -165,20 +125,23 @@ export default function Users() {
         <button onClick={fetchData} className="bg-gray-500 hover:bg-gray-600 text-white p-4 rounded-full mr-4">
           <MdRefresh className="text-xl" />
         </button>
-        <button onClick={openAddUserModal} className="bg-blue-500 hover:bg-blue-600 text-white p-4 rounded-full">
+        <button onClick={() => setModalIsOpen(true)} className="bg-blue-500 hover:bg-blue-600 text-white p-4 rounded-full">
           <MdAdd className="text-xl" />
         </button>
-        <AddUser 
-          isOpen={modalIsOpen} 
-          onRequestClose={closeModal} 
-          addUser={handleAddUser} // Passando a função para AddUser
-        />
-        <Profile 
-          isOpen={editProfileIsOpen} 
-          onRequestClose={() => setEditProfileIsOpen(false)} 
-          addUser={handleAddUser} 
-          user={selectedUser} 
+        <AddUser
+          isOpen={modalIsOpen}
+          onRequestClose={() => setModalIsOpen(false)}
+          addUser={handleAddUser}
+          user={selectedUser} // Isso agora deve estar correto
           userType={selectedUser?.type} 
+          isModal={true}
+        />
+        <Profile
+          isOpen={isProfileModalOpen}
+          onRequestClose={() => setIsProfileModalOpen(false)}
+          addUser={handleAddUser}
+          user={selectedUser}
+          userType={selectedUser?.type || "defaultType"}
         />
       </div>
 
@@ -217,11 +180,11 @@ export default function Users() {
           </thead>
           <tbody>
             {filteredData.length > 0 ? (
-              filteredData.map((item, index) => (
-                <tr key={index} className="border-t">
+              filteredData.map((item) => (
+                <tr key={item.id} className="border-t">
                   <td className="px-6 py-4">{item.name}</td>
                   <td className="px-6 py-4">{item.email}</td>
-                  <td className="px-6 py-4">{item.phone}</td>
+                  <td className="px-6 py-4">{item.telefone}</td>
                   <td className="px-6 py-4">{item.status}</td>
                   <td className="px-6 py-4">{item.created_at}</td>
                   <td className="px-6 py-4 flex space-x-2">
@@ -243,23 +206,21 @@ export default function Users() {
         </table>
       </div>
 
-      <div className="flex justify-between mt-6">
+      <div className="mt-4">
         <button
           onClick={() => handlePageChange(page - 1)}
           disabled={page === 1}
-          className="p-2 bg-gray-300 rounded-md disabled:opacity-50"
+          className="bg-blue-500 hover:bg-blue-600 text-white p-2 rounded mr-2"
         >
           Anterior
         </button>
-        <span>
-          Página {page} de {totalPages}
-        </span>
+        <span>{page} de {totalPages}</span>
         <button
           onClick={() => handlePageChange(page + 1)}
           disabled={page === totalPages}
-          className="p-2 bg-gray-300 rounded-md disabled:opacity-50"
+          className="bg-blue-500 hover:bg-blue-600 text-white p-2 rounded ml-2"
         >
-          Próxima
+          Próximo
         </button>
       </div>
     </div>

@@ -18,92 +18,48 @@ export default function Login() {
   const [password, setPassword] = useState<string>("");
   const [openModal, setOpenModal] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
-  const [places, setPlaces] = useState<any[]>([]);
   const router = useRouter();
 
   const validInputs = useMemo(() => {
     return emailCpf.length > 0 && password.length > 0;
   }, [emailCpf, password]);
 
-  const fetchPlaces = async (token: string) => {
+  const handleLogin = async () => {
+    if (!validInputs) {
+      setError("Por favor, preencha todos os campos.");
+      return;
+    }
+
     try {
-      const response = await fetch('https://api.vamoscomemorar.com.br/site/places?perPage=6&visible=1&status=active', {
-        method: 'GET',
+      const API_URL = process.env.NEXT_PUBLIC_API_URL_NETWORK || process.env.NEXT_PUBLIC_API_URL_LOCAL;
+
+      
+      const response = await fetch(`${API_URL}/api/users/login`, {
+        method: "POST",
         headers: {
-          'Authorization': `Bearer ${token}`,
+          "Content-Type": "application/json",
         },
+        body: JSON.stringify({
+          access: emailCpf, // Pode ser o CPF ou email
+          password: password,
+        }),
       });
 
-      if (response.ok) {
-        const data = await response.json();
-        setPlaces(data);
+      const data = await response.json();
+      console.log(data); // Verificar a resposta da API
+
+      if (response.ok && data.user) {
+        // Armazenar o token se necessário
+        localStorage.setItem("authToken", data.token);
+        router.push("/"); // Redirecionar para a página inicial após login
       } else {
-        setError('Erro ao buscar locais.');
+        setError(data.message || "Credenciais inválidas");
       }
     } catch (error) {
-      console.error('Erro ao buscar locais:', error);
-      setError('Erro ao buscar locais.');
+      setError("Erro ao tentar fazer login. Tente novamente.");
+      console.error("Erro:", error);
     }
   };
-
-  const validateToken = async (token: string) => {
-    try {
-      const response = await fetch('https://api.vamoscomemorar.com.br/validate_token', {
-        method: 'GET',  // Verifique se o método correto é POST ou GET
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`, // Autenticação via Bearer Token
-        },
-      });
-  
-      if (response.ok) {
-        return true;
-      } else {
-        setError('Token inválido.');
-        return false;
-      }
-    } catch (error) {
-      console.error('Erro ao validar token:', error);
-      setError('Erro ao validar token.');
-      return false;
-    }
-  };
-  
-
-const handleLogin = async () => {
-  if (!validInputs) {
-    setError("Por favor, preencha todos os campos.");
-    return;
-  }
-
-  try {
-    const response = await fetch('https://api.vamoscomemorar.com.br/signin', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        access: emailCpf,
-        password: password,
-      }),
-    });
-
-    const data = await response.json();
-
-    if (response.ok && data.token) {
-      localStorage.setItem('authToken', data.token);
-
-      // Tente acessar /site/places diretamente com o token
-      await fetchPlaces(data.token);
-      router.push('/admin');
-    } else {
-      setError('Credenciais inválidas');
-    }
-  } catch (error) {
-    setError('Erro ao tentar fazer login. Tente novamente.');
-    console.error('Erro:', error);
-  }
-};
 
   return (
     <div className="container">

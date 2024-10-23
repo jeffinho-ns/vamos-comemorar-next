@@ -18,7 +18,13 @@ import eventImg11 from "@/app/assets/programacao/prog-11.png";
 import eventImg12 from "@/app/assets/programacao/prog-12.png";
 import eventImg13 from "../../assets/programacao/prog-13.png";
 
-const Programacao = ({ logo, location }) => {
+interface ProgramacaoProps {
+  barId: number; // Adicionando a propriedade barId
+  logo: string; // Adicione o tipo correto para logo
+  location: string; // Adicione o tipo correto para location
+}
+
+const Programacao: React.FC<ProgramacaoProps> = ({ barId, logo, location }) => {
   const [modalIsOpen, setModalIsOpen] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState({});
 
