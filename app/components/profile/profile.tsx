@@ -2,35 +2,28 @@ import React, { useState, useEffect } from "react";
 import Modal from "react-modal";
 import styles from "./profile.module.scss";
 
-
-
-interface User {
-  id: string; // ou o tipo correto
+interface Profile {
+  foto_perfil: string;
   name: string;
   email: string;
   telefone: string;
-  foto_perfil?: string;
-  sexo?: string;
-  data_nascimento?: string;
-  // Adicione outros campos que você utiliza
-}
-
-interface NewUser {
-  name: string;
-  email: string;
-  telefone: string; // Adicione outros campos conforme necessário
-}
-
-interface ProfileProps {
-  isOpen: boolean;
-  onRequestClose: () => void;
-  addUser: (newUser: NewUser) => Promise<void>;
-  user?: User | null; // Agora o tipo User está definido
-  userType?: string; // Aqui você permite que seja string ou undefined
+  sexo: string;
+  data_nascimento: string;
+  cep: string;
+  cpf: string;
+  endereco: string;
+  numero: string;
+  bairro: string;
+  cidade: string;
+  estado: string;
+  complemento: string;
+  password: string;
+  id: string; // Alterado para garantir que seja sempre uma string
+  status: string;
 }
 
 const Profile = ({ isOpen, onRequestClose, addUser, user, userType }: ProfileProps) => {
-  const [profile, setProfile] = useState({
+  const [profile, setProfile] = useState<Profile>({
     foto_perfil: "",
     name: "",
     email: "",
@@ -46,15 +39,33 @@ const Profile = ({ isOpen, onRequestClose, addUser, user, userType }: ProfilePro
     estado: "",
     complemento: "",
     password: "",
-    id: "",
+    id: "", // Garante que sempre tenha um valor
     status: "Ativado",
   });
 
-  const [selectedFile, setSelectedFile] = useState(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null); // Adicionado o tipo File
 
   useEffect(() => {
     if (isOpen) {
-      setProfile(user ? { ...user, status: user.status === "Ativado" ? "Ativado" : "Desativado", password: "" } : {
+      setProfile(user ? {
+        foto_perfil: user.foto_perfil || "", // Garante que sempre tenha um valor
+        name: user.name || "",
+        email: user.email || "",
+        telefone: user.telefone || "",
+        sexo: user.sexo || "",
+        data_nascimento: user.data_nascimento || "",
+        cep: user.cep || "",
+        cpf: user.cpf || "",
+        endereco: user.endereco || "",
+        numero: user.numero || "",
+        bairro: user.bairro || "",
+        cidade: user.cidade || "",
+        estado: user.estado || "",
+        complemento: user.complemento || "",
+        password: "",
+        id: user.id.toString(), // Garantido que seja string
+        status: user.status === "Ativado" ? "Ativado" : "Desativado",
+      } : {
         foto_perfil: "",
         name: "",
         email: "",
@@ -70,18 +81,18 @@ const Profile = ({ isOpen, onRequestClose, addUser, user, userType }: ProfilePro
         estado: "",
         complemento: "",
         password: "",
-        id: "",
+        id: "", // Garante que sempre tenha um valor
         status: "Ativado",
       });
     }
   }, [isOpen, user]);
-
-  const handleChange = (e) => {
+  
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setProfile((prevProfile) => ({ ...prevProfile, [name]: value }));
   };
 
-  const handleFileChange = (e) => {
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0] || null;
     if (file) {
       setSelectedFile(file);
@@ -96,7 +107,7 @@ const Profile = ({ isOpen, onRequestClose, addUser, user, userType }: ProfilePro
     return true;
   };
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!validateForm()) return;
@@ -268,13 +279,18 @@ const Profile = ({ isOpen, onRequestClose, addUser, user, userType }: ProfilePro
           <div className={styles.formRow}>
             <input
               type="text"
+              name="cep"
+              placeholder="00000-000"
+              value={profile.cep}
+              onChange={handleChange}
+            />
+            <input
+              type="text"
               name="endereco"
-              placeholder="End."
+              placeholder="Endereço"
               value={profile.endereco}
               onChange={handleChange}
             />
-          </div>
-          <div className={styles.formRow}>
             <input
               type="text"
               name="numero"
@@ -303,8 +319,6 @@ const Profile = ({ isOpen, onRequestClose, addUser, user, userType }: ProfilePro
               value={profile.estado}
               onChange={handleChange}
             />
-          </div>
-          <div className={styles.formRow}>
             <input
               type="text"
               name="complemento"
@@ -313,27 +327,7 @@ const Profile = ({ isOpen, onRequestClose, addUser, user, userType }: ProfilePro
               onChange={handleChange}
             />
           </div>
-          <div className={styles.formRow}>
-            <input
-              type="text"
-              name="cep"
-              placeholder="CEP"
-              value={profile.cep}
-              onChange={handleChange}
-            />
-          </div>
-          <div className={styles.formRow}>
-            <input
-              type="password"
-              name="password"
-              placeholder="Senha (deixe em branco para manter a atual)"
-              value={profile.password}
-              onChange={handleChange}
-            />
-          </div>
-          <div className={styles.formRow}>
-            <button type="submit">Salvar</button>
-          </div>
+          <button type="submit">Salvar</button>
         </form>
       </div>
     </Modal>
