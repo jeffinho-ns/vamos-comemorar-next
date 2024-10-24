@@ -76,7 +76,7 @@ export default function PerfilMobile() {
               {user.foto_perfil ? ( // Usando a imagem de perfil do usuário
                 <img src={user.foto_perfil.startsWith("http") 
                   ? user.foto_perfil 
-                  : `${API_URL}/${user.foto_perfil}`} alt="Foto de perfil" className="rounded-full w-full h-full object-cover" />
+                  : `${API_URL}/uploads/${user.foto_perfil}`} alt="Foto de perfil" className="rounded-full w-full h-full object-cover" />
               ) : (
                 <span className="text-gray-500">Adicionar foto</span>
               )}

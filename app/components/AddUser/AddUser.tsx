@@ -1,11 +1,13 @@
 import React, { useState } from "react";
 import Modal from "react-modal";
 
-// Defina a interface NewUser
+// Defina a interface NewUser com 'type' obrigatório
 interface NewUser {
   name: string;
   email: string;
-  telefone: string; // Adicione outros campos conforme necessário
+  telefone: string;
+  type: string; // Agora é obrigatório
+  foto_perfil: string;
 }
 
 // Defina a interface User
@@ -37,6 +39,8 @@ const AddUser: React.FC<AddUserProps> = ({
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [telefone, setTelefone] = useState("");
+  const [type, setType] = useState("user"); // Definido um valor padrão
+  const [foto_perfil, setFotoPerfil] = useState(""); // Definido um valor padrão
   const [error, setError] = useState<string | null>(null); // Estado para gerenciar erros
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -44,7 +48,8 @@ const AddUser: React.FC<AddUserProps> = ({
     setError(null); // Limpar erro anterior
 
     try {
-      const newUser: NewUser = { name, email, telefone }; // Verifique se NewUser inclui o telefone
+      // Garantir que 'type' sempre tenha um valor definido
+      const newUser: NewUser = { name, email, telefone, type: type || "user", foto_perfil };
       await addUser(newUser);
       onRequestClose(); // Fechar modal após a adição do usuário
     } catch (err) {
@@ -73,6 +78,18 @@ const AddUser: React.FC<AddUserProps> = ({
           value={telefone}
           onChange={(e) => setTelefone(e.target.value)}
           placeholder="Telefone"
+          required
+        />
+        <input
+          value={type}
+          onChange={(e) => setType(e.target.value)}
+          placeholder="Tipo"
+          required
+        />
+        <input
+          value={foto_perfil}
+          onChange={(e) => setFotoPerfil(e.target.value)}
+          placeholder="Foto de Perfil"
           required
         />
         <button type="submit">Adicionar</button>
