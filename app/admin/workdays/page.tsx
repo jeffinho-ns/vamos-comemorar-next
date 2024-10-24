@@ -1,8 +1,8 @@
 "use client";
-import { MdAdd, MdRefresh, MdEdit, MdDelete, MdTableChart } from "react-icons/md";
-
+import { MdAdd, MdRefresh, MdEdit, MdDelete } from "react-icons/md";
 import { useEffect, useState } from "react";
 import { useRouter } from 'next/navigation';
+import Image from 'next/image'; // Importe o componente Image
 
 interface WorkDay {
   id: number;
@@ -89,13 +89,20 @@ export default function WorkDay() {
               workDays.map((day) => (
                 <tr key={day.id} className="border-t">
                   <td className="px-6 py-4">
-                    {day.online ? <img src={day.online} alt="Status" className="w-6 h-6" /> : '—'}
+                    {day.online ? (
+                      <Image
+                        src={day.online}
+                        alt="Status"
+                        width={24} // Largura da imagem
+                        height={24} // Altura da imagem
+                        className="w-6 h-6"
+                      />
+                    ) : '—'}
                   </td>
                   <td className="px-6 py-4">{new Date(day.date).toLocaleDateString()}</td>
                   <td className="px-6 py-4">{day.place}</td>
                   <td className="px-6 py-4">{day.gifts ? '✔️' : '—'}</td>
                   <td className="px-6 py-4">{day.tables ? '✔️' : '—'}</td>
-
                   <td className="px-6 py-4">{day.type}</td>
                   <td className="px-6 py-4 flex space-x-2">
                     <button title="Editar">

@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import Modal from "react-modal";
 import styles from "./profile.module.scss";
+import Image from "next/image";
 
 const Profile = ({ isOpen, onRequestClose }) => {
   const [profile, setProfile] = useState({
@@ -64,7 +65,7 @@ const Profile = ({ isOpen, onRequestClose }) => {
                 style={{ display: 'none' }}
               />
               {profile.foto ? (
-                <img src={profile.foto} alt="Foto de perfil" className={styles.profilePicImage} />
+                <Image src={profile.foto} alt="Foto de perfil" className={styles.profilePicImage} />
               ) : (
                 'Adicionar foto'
               )}

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import Modal from "react-modal";
 import styles from "./profile.module.scss";
+import Image from "next/image";
 
 interface Profile {
   foto_perfil: string;
@@ -147,10 +148,12 @@ const Profile = ({ isOpen, onRequestClose, addUser, user }: ProfileProps) => {
                 style={{ display: "none" }}
               />
               {profile?.foto_perfil ? (
-                <img
+                <Image
                   src={profile.foto_perfil}
                   alt="Foto de perfil"
                   className="rounded-full w-full h-full object-cover"
+                  width={64}
+                  height={64}
                 />
               ) : (
                 <span className="text-gray-500">Adicionar foto</span>

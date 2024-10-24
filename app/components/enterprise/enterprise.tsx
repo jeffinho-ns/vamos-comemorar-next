@@ -56,7 +56,7 @@ const Enterprise: React.FC<EnterpriseProps> = ({ isOpen, onRequestClose, company
     } else {
       setEnterprise(initialEnterpriseState); // Reinicia o estado se não houver company
     }
-  }, [company]);
+  },  [company, initialEnterpriseState]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;

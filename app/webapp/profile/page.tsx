@@ -1,11 +1,12 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react"; 
 import { useRouter } from "next/navigation";
 import { FiSettings, FiLogOut, FiLock, FiHelpCircle } from "react-icons/fi";
 import Link from "next/link";
 import Header from "../components/headerNotificatioin/headerNotification";
 import Footer from "../components/footer/footer";
+import Image from "next/image";
 import "./profile.module.scss";
 
 export default function PerfilMobile() {
@@ -13,20 +14,10 @@ export default function PerfilMobile() {
   const [loading, setLoading] = useState(true); 
   const router = useRouter();
   const API_URL = process.env.NEXT_PUBLIC_API_URL_NETWORK || process.env.NEXT_PUBLIC_API_URL_LOCAL;
-  useEffect(() => {
-    const token = localStorage.getItem('authToken');
 
-    if (!token) {
-      router.push('/login');
-    } else {
-      fetchUserData(token);
-    }
-  }, []);
-
-  const fetchUserData = async (token) => {
+  // Memoizando a função fetchUserData com useCallback
+  const fetchUserData = useCallback(async (token) => {
     try {
-      
-
       const response = await fetch(`${API_URL}/api/users/me`, {
         method: "GET",
         headers: {
@@ -39,15 +30,26 @@ export default function PerfilMobile() {
         setUser(userData);
       } else {
         console.error("Erro ao buscar dados do usuário:", response.statusText);
-        router.push('/login') // Redireciona em caso de erro
+        router.push('/login'); // Redireciona em caso de erro
       }
     } catch (error) {
       console.error("Erro ao fazer a requisição:", error);
-      router.push('/login') // Redireciona em caso de erro
+      router.push('/login'); // Redireciona em caso de erro
     } finally {
       setLoading(false);
     }
-  };
+  }, [router, API_URL]);
+
+  // useEffect que depende de fetchUserData e router
+  useEffect(() => {
+    const token = localStorage.getItem('authToken');
+
+    if (!token) {
+      router.push('/login');
+    } else {
+      fetchUserData(token);
+    }
+  }, [fetchUserData, router]);
 
   const handleLogout = () => {
     // Limpar o token do localStorage
@@ -68,15 +70,20 @@ export default function PerfilMobile() {
     <>
       <Header />
       <div className="profile-container-mobile">
-      <div className="flex flex-col items-center bg-white min-h-screen py-8 overflow-hidden">
-
+        <div className="flex flex-col items-center bg-white min-h-screen py-8 overflow-hidden">
           <h6 className="text-base font-semibold self-start mt-4 pl-4">Perfil</h6>
           <div className="flex flex-col items-center mb-6">
             <div className="w-24 h-24 bg-gray-200 rounded-full flex items-center justify-center mb-2">
               {user.foto_perfil ? ( // Usando a imagem de perfil do usuário
-                <img src={user.foto_perfil.startsWith("http") 
-                  ? user.foto_perfil 
-                  : `${API_URL}/uploads/${user.foto_perfil}`} alt="Foto de perfil" className="rounded-full w-full h-full object-cover" />
+                <Image
+                  src={user.foto_perfil.startsWith("http") 
+                    ? user.foto_perfil 
+                    : `${API_URL}/uploads/${user.foto_perfil}`}
+                  width="64"
+                  height="64"
+                  alt="Foto de perfil"
+                  className="rounded-full w-full h-full object-cover"
+                />
               ) : (
                 <span className="text-gray-500">Adicionar foto</span>
               )}

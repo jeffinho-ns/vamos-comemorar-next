@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation"; // Para redirecionar o usuário
 import ProfileUser from "../components/profileuser/profileuser";
 import Banner from "../components/banner/banner";
@@ -10,6 +10,7 @@ import imgBanner from "@/app/assets/banner01.webp";
 import Footer from "../components/footer/footer";
 import logoBanner from "@/app/assets/commemoration.png";
 import "react-multi-carousel/lib/styles.css";
+
 
 // Defina uma interface para os props do componente Card
 interface CardProps {
@@ -28,39 +29,39 @@ export default function ProfilePage() {
   const router = useRouter(); // Instância para o redirecionamento
 
   // Função para buscar os dados do usuário logado
-  const fetchUserData = async () => {
+  const fetchUserData = useCallback(async () => {
     const token = localStorage.getItem("authToken");
     if (!token) {
       console.error("Token não encontrado. Faça login novamente.");
-      router.push("/login"); // Redireciona para a página de login se não houver token
+      router.push("/login");
       return;
     }
 
     try {
-        const response = await fetch("http://localhost:5000/api/users/me", {
-            method: "GET",
-            headers: {
-                Authorization: `Bearer ${token}`,
-            },
-        });
+      const response = await fetch("http://localhost:5000/api/users/me", {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
 
-        if (response.ok) {
-            const userData = await response.json();
-            console.log("Dados do usuário:", userData); // Verifique os dados recebidos
-            setUser(userData);
-        } else {
-            console.error("Erro ao buscar dados do usuário:", response.statusText);
-        }
+      if (response.ok) {
+        const userData = await response.json();
+        console.log("Dados do usuário:", userData);
+        setUser(userData);
+      } else {
+        console.error("Erro ao buscar dados do usuário:", response.statusText);
+      }
     } catch (error) {
-        console.error("Erro ao fazer a requisição:", error);
+      console.error("Erro ao fazer a requisição:", error);
     } finally {
-        setLoading(false); // Finaliza o carregamento
+      setLoading(false);
     }
-};
+  }, [router]); // Adicione router como dependência
 
   useEffect(() => {
     fetchUserData();
-  }, []);
+  }, [fetchUserData]);
 
   // Função addUser que será passada como prop para o ProfileUser
   const addUser = (newUser: any) => {

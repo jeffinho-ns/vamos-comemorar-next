@@ -1,7 +1,7 @@
 "use client";
 import { MdAdd, MdRefresh, MdEdit, MdDelete } from "react-icons/md";
 import { useEffect, useState } from "react";
-
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 
 interface Gift {
@@ -139,7 +139,7 @@ export default function Gifts() {
               filteredGifts.map((gift) => (
                 <tr key={gift.id} className="border-t">
                   <td className="px-6 py-4">
-                    {gift.icon ? <img src={gift.icon} alt="Ícone" className="w-8 h-8" /> : 'Sem ícone'}
+                    {gift.icon ? <Image src={gift.icon} alt="Ícone" className="w-8 h-8" /> : 'Sem ícone'}
                   </td>
                   <td className="px-6 py-4">{gift.company_id}</td>
                   <td className="px-6 py-4">{gift.name}</td>

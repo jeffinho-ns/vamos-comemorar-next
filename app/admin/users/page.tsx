@@ -1,11 +1,10 @@
 "use client";
-
-import { MdAdd, MdRefresh, MdEdit, MdDelete } from "react-icons/md";
 import { useEffect, useState } from "react";
+import { MdAdd, MdRefresh, MdEdit, MdDelete } from "react-icons/md";
 import Profile from "../../components/profile/profile";
 import AddUser from "../../components/AddUser/AddUser";
 
-// Tipo para os usuários
+// Tipos para usuários e API
 export type User = {
   id: number;
   name: string;
@@ -17,18 +16,17 @@ export type User = {
   sexo?: string;
   data_nascimento: string;
   cep: string;
-      cpf: string; // Mesma lógica
-      endereco: string; // Mesma lógica
-      numero: string; // Mesma lógica
-      bairro: string; // Mesma lógica
-      cidade: string; // Mesma lógica
-      estado: string; // Mesma lógica
-      complemento: string; // Mesma lógica
-  foto_perfil: string; // Campo opcional para a foto de perfil
+  cpf: string;
+  endereco: string;
+  numero: string;
+  bairro: string;
+  cidade: string;
+  estado: string;
+  complemento: string;
+  foto_perfil?: string;
   password: string;
 };
 
-// Tipo para a API
 export type APIUser = {
   id: number;
   name: string;
@@ -39,24 +37,21 @@ export type APIUser = {
   telefone?: string;
   sexo?: string;
   data_nascimento: string;
-  cpf: string; // Mesma lógica
+  cpf: string;
   cep: string;
-      endereco: string; // Mesma lógica
-      numero: string; // Mesma lógica
-      bairro: string; // Mesma lógica
-      cidade: string; // Mesma lógica
-      estado: string; // Mesma lógica
-      complemento: string; // Mesma lógica
-      password: string;
+  endereco: string;
+  numero: string;
+  bairro: string;
+  cidade: string;
+  estado: string;
+  complemento: string;
+  password: string;
 };
 
 // Tipo para novo usuário
 type NewUser = Omit<APIUser, "id" | "status"> & {
-  name: string;
-  email: string;
-  telefone?: string;
-  type?: string;
-  foto_perfil: string;
+  status: string;
+  password: string;
 };
 
 export default function Users() {
@@ -70,50 +65,47 @@ export default function Users() {
   const [page, setPage] = useState<number>(1);
   const [perPage] = useState<number>(10);
   const [totalPages, setTotalPages] = useState<number>(1);
-  const [selectedUser, setSelectedUser] = useState<Profile | null>(null);
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
 
-  // Defina a URL da API aqui
   const API_URL = process.env.NEXT_PUBLIC_API_URL_NETWORK || process.env.NEXT_PUBLIC_API_URL_LOCAL;
 
-  // Função para buscar dados da API
   const fetchData = async () => {
     setLoading(true);
-    const token = localStorage.getItem('authToken');
+    const token = localStorage.getItem("authToken");
     const url = `${API_URL}/api/users?page=${page}&perPage=${perPage}&type=${userType}&search=${filterBy}`;
 
     try {
       const response = await fetch(url, {
         headers: {
-          'Authorization': `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
         },
       });
 
-      if (!response.ok) throw new Error('Erro ao buscar dados');
+      if (!response.ok) throw new Error("Erro ao buscar dados");
 
-      const responseData: APIUser[] = await response.json(); // Tipando a resposta
+      const responseData: APIUser[] = await response.json();
       const formattedData: User[] = responseData.map((user: APIUser) => ({
         ...user,
         id: Number(user.id),
         created_at: new Date().toISOString(),
-        telefone: user.telefone || '', // Definindo um valor padrão
-        sexo: user.sexo || '', // Definindo um valor padrão
-        data_nascimento: user.data_nascimento || '', // Definindo um valor padrão
-        cep: user.cep || '',
-        cpf: user.cpf || '', // Definindo um valor padrão
-        endereco: user.endereco || '', // Definindo um valor padrão
-        numero: user.numero || '', // Definindo um valor padrão
-        bairro: user.bairro || '', // Definindo um valor padrão
-        cidade: user.cidade || '', // Definindo um valor padrão
-        estado: user.estado || '', // Definindo um valor padrão
-        complemento: user.complemento || '', // Definindo um valor padrão
-        foto_perfil: user.foto_perfil || '', // Ajustando para incluir foto_perfil
+        telefone: user.telefone || "",
+        sexo: user.sexo || "",
+        data_nascimento: user.data_nascimento || "",
+        cep: user.cep || "",
+        cpf: user.cpf || "",
+        endereco: user.endereco || "",
+        numero: user.numero || "",
+        bairro: user.bairro || "",
+        cidade: user.cidade || "",
+        estado: user.estado || "",
+        complemento: user.complemento || "",
+        foto_perfil: user.foto_perfil || "",
       }));
 
       setData(formattedData);
       setTotalPages(Math.ceil(responseData.length / perPage));
     } catch (error) {
-      setError(error instanceof Error ? error.message : 'Erro desconhecido');
-      console.error('Erro ao buscar usuários:', error);
+      setError(error instanceof Error ? error.message : "Erro desconhecido");
     } finally {
       setLoading(false);
     }
@@ -121,7 +113,7 @@ export default function Users() {
 
   useEffect(() => {
     fetchData();
-  }, [userType, page, filterBy]);
+  }, [fetchData, userType, page, filterBy]);
 
   const handlePageChange = (newPage: number) => {
     if (newPage >= 1 && newPage <= totalPages) {
@@ -129,80 +121,47 @@ export default function Users() {
     }
   };
 
-  const filteredData = filterBy
-    ? data.filter(item =>
-        item.name.toLowerCase().includes(filterBy.toLowerCase()) ||
-        item.email.toLowerCase().includes(filterBy.toLowerCase())
-      )
-    : data;
-
   const handleDelete = async (id: number) => {
     if (confirm("Tem certeza que deseja excluir este item?")) {
-      const token = localStorage.getItem('authToken');
+      const token = localStorage.getItem("authToken");
       try {
         const response = await fetch(`${API_URL}/api/users/${id}`, {
-          method: 'DELETE',
+          method: "DELETE",
           headers: {
-            'Authorization': `Bearer ${token}`,
+            Authorization: `Bearer ${token}`,
           },
         });
 
-        if (!response.ok) throw new Error('Erro ao excluir usuário');
+        if (!response.ok) throw new Error("Erro ao excluir usuário");
         fetchData();
       } catch (error) {
-        setError(error instanceof Error ? error.message : 'Erro desconhecido');
-        console.error('Erro ao excluir usuário:', error);
+        setError(error instanceof Error ? error.message : "Erro desconhecido");
       }
     }
   };
 
   const handleUserSelection = (user: User) => {
-    const fullUser: Profile = {
-      id: user.id,
-      name: user.name,
-      email: user.email,
-      telefone: user.telefone ?? '', // Usando string vazia se telefone for undefined
-      sexo: user.sexo || '', // Usando string vazia se sexo for undefined
-      data_nascimento: user.data_nascimento || '',
-      cep: user.cep || '',
-      cpf: user.cpf || '',
-      endereco: user.endereco || '',
-      numero: user.numero || '',
-      bairro: user.bairro || '',
-      cidade: user.cidade || '',
-      estado: user.estado || '',
-      complemento: user.complemento || '',
-      password: user.password || '',
-      foto_perfil: user.foto_perfil || '',
-      status: user.status || '',
-    };
-  
-    setSelectedUser(fullUser);
+    setSelectedUser(user);
     setIsProfileModalOpen(true);
   };
 
   const handleAddUser = async (newUser: NewUser) => {
-    const user = {
-      ...newUser,
-      type: newUser.type ?? 'defaultType',
-    };
+    const token = localStorage.getItem("authToken");
     try {
-      const token = localStorage.getItem('authToken');
       const response = await fetch(`${API_URL}/api/users`, {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify(user),
+        body: JSON.stringify(newUser),
       });
 
-      if (!response.ok) throw new Error('Erro ao adicionar usuário');
+      if (!response.ok) throw new Error("Erro ao adicionar usuário");
       fetchData();
       closeModal();
     } catch (error) {
-      setError(error instanceof Error ? error.message : 'Erro desconhecido');
-      console.error('Erro ao adicionar usuário:', error);
+      setError(error instanceof Error ? error.message : "Erro desconhecido");
     }
   };
 
@@ -211,7 +170,7 @@ export default function Users() {
       ...user,
       id: Number(user.id),
       created_at: new Date().toISOString(),
-      foto_perfil: user.foto_perfil || '',
+      foto_perfil: user.foto_perfil || "",
     };
     setSelectedUser(fullUser);
     setIsProfileModalOpen(true);
@@ -223,14 +182,13 @@ export default function Users() {
     setSelectedUser(null);
   };
 
-  // Função para formatar a data
   const formatDate = (dateString: string) => {
-    if (!dateString) return 'N/A';
+    if (!dateString) return "N/A";
     const date = new Date(dateString);
-    return new Intl.DateTimeFormat('pt-BR', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
+    return new Intl.DateTimeFormat("pt-BR", {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
     }).format(date);
   };
 
@@ -251,14 +209,11 @@ export default function Users() {
           addUser={handleAddUser}
           user={selectedUser}
           userType={selectedUser?.type}
-          isModal={true}
         />
         <Profile
           isOpen={isProfileModalOpen}
           onRequestClose={() => setIsProfileModalOpen(false)}
-          addUser={(user: User | NewUser) => handleAddUser(user as NewUser)} // Fazendo cast
           user={selectedUser}
-          userType={selectedUser?.type || "defaultType"}
         />
       </div>
 
@@ -273,59 +228,58 @@ export default function Users() {
         <select
           value={userType}
           onChange={(e) => setUserType(e.target.value)}
-          className="p-3 rounded-md shadow-sm border-gray-300 focus:ring focus:ring-blue-500"
+          className="p-3 rounded-md border-gray-300 shadow-sm focus:ring focus:ring-blue-500"
         >
           <option value="usuario">Usuário</option>
           <option value="cliente">Cliente</option>
         </select>
       </div>
 
-      {loading ? (
-        <div>Carregando...</div>
-      ) : error ? (
-        <div className="text-red-500">{error}</div>
-      ) : (
-        <table className="min-w-full border-collapse border border-gray-300">
-          <thead>
-            <tr className="bg-gray-200">
-              <th className="border border-gray-300 p-2">ID</th>
-              <th className="border border-gray-300 p-2">Nome</th>
-              <th className="border border-gray-300 p-2">E-mail</th>
-              <th className="border border-gray-300 p-2">Telefone</th>
-              <th className="border border-gray-300 p-2">Criado em</th>
-              <th className="border border-gray-300 p-2">Status</th>
-              <th className="border border-gray-300 p-2">Ações</th>
+      {loading && <p>Carregando...</p>}
+      {error && <p className="text-red-500">{error}</p>}
+      <table className="min-w-full divide-y divide-gray-200">
+        <thead>
+          <tr>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nome</th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Telefone</th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ações</th>
+          </tr>
+        </thead>
+        <tbody className="bg-white divide-y divide-gray-200">
+          {data.map((user) => (
+            <tr key={user.id}>
+              <td className="px-6 py-4 whitespace-nowrap">{user.name}</td>
+              <td className="px-6 py-4 whitespace-nowrap">{user.email}</td>
+              <td className="px-6 py-4 whitespace-nowrap">{user.telefone || "N/A"}</td>
+              <td className="px-6 py-4 whitespace-nowrap">
+                <button onClick={() => handleUserSelection(user)} className="text-blue-600 hover:text-blue-900">
+                  <MdEdit />
+                </button>
+                <button onClick={() => handleDelete(user.id)} className="text-red-600 hover:text-red-900 ml-4">
+                  <MdDelete />
+                </button>
+              </td>
             </tr>
-          </thead>
-          <tbody>
-            {filteredData.map(user => (
-              <tr key={user.id}>
-                <td className="border border-gray-300 p-2">{user.id}</td>
-                <td className="border border-gray-300 p-2">{user.name}</td>
-                <td className="border border-gray-300 p-2">{user.email}</td>
-                <td className="border border-gray-300 p-2">{user.telefone || 'N/A'}</td>
-                <td className="border border-gray-300 p-2">{formatDate(user.created_at || '')}</td>
-                <td className="border border-gray-300 p-2">{user.status}</td>
-                <td className="border border-gray-300 p-2">
-                  <button onClick={() => openEditProfileModal(user)} className="mr-2 text-blue-500">
-                    <MdEdit />
-                  </button>
-                  <button onClick={() => handleDelete(user.id)} className="text-red-500">
-                    <MdDelete />
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
+          ))}
+        </tbody>
+      </table>
 
-      <div className="flex justify-between mt-4">
-        <button onClick={() => handlePageChange(page - 1)} disabled={page === 1} className="p-2 bg-gray-300 rounded">
+      <div className="flex justify-between mt-6">
+        <button
+          disabled={page <= 1}
+          onClick={() => handlePageChange(page - 1)}
+          className="px-4 py-2 bg-gray-300 text-gray-700 rounded-md"
+        >
           Anterior
         </button>
-        <button onClick={() => handlePageChange(page + 1)} disabled={page === totalPages} className="p-2 bg-gray-300 rounded">
-          Próximo
+        <p className="text-gray-600">Página {page} de {totalPages}</p>
+        <button
+          disabled={page >= totalPages}
+          onClick={() => handlePageChange(page + 1)}
+          className="px-4 py-2 bg-gray-300 text-gray-700 rounded-md"
+        >
+          Próxima
         </button>
       </div>
     </div>

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import BusinessModal from "../../components/enterprise/enterprise"; // Renomeado o componente
 import { useRouter } from 'next/navigation'; // Importando o router
 import { Business } from './types'; // Importe o tipo renomeado
+import Image from 'next/image'; // Importando o componente Image
 
 // Interface para Establishment
 interface Establishment {
@@ -30,11 +31,7 @@ const convertBusinessToEstablishment = (business: Business): Establishment => {
     cnpj: business.cnpj || "", // Valor padrão
     nome: business.name || "", // Valor padrão
     telefone: business.telefone || "", // Valor padrão
-   
     email: business.email || "", // Valor padrão
- 
-   
-   
   };
 };
 
@@ -172,7 +169,7 @@ export default function Businesses() {
               filteredBusinesses.map((business) => (
                 <tr key={business.id} className="border-t">
                   <td className="px-6 py-4">
-                    <img src={business.logo} alt={business.name} className="w-12 h-12 object-cover rounded-full" />
+                    <Image src={business.logo} alt={business.name} width={48} height={48} className="object-cover rounded-full" />
                   </td>
                   <td className="px-6 py-4">{business.name}</td> {/* Alterar para 'nome' */}
                   <td className="px-6 py-4">{business.email}</td>

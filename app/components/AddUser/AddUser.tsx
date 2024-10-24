@@ -1,13 +1,19 @@
 import React, { useState } from "react";
 import Modal from "react-modal";
 
-// Defina a interface NewUser com 'type' obrigatório
+// Defina a interface NewUser com 'type' obrigatório e novos campos
 interface NewUser {
   name: string;
   email: string;
   telefone: string;
-  type: string; // Agora é obrigatório
+  type: string;
   foto_perfil: string;
+  data_nascimento: string; // Novo campo
+  cpf: string;             // Novo campo
+  cep: string;             // Novo campo
+  endereco: string;        // Novo campo
+  cidade: string;          // Novo campo
+  estado: string;          // Novo campo
 }
 
 // Defina a interface User
@@ -36,11 +42,17 @@ const AddUser: React.FC<AddUserProps> = ({
   userType, // userType é opcional
   isModal,
 }) => {
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [telefone, setTelefone] = useState("");
-  const [type, setType] = useState("user"); // Definido um valor padrão
-  const [foto_perfil, setFotoPerfil] = useState(""); // Definido um valor padrão
+  const [name, setName] = useState(user?.name || ""); // Preenche o campo com dados existentes, se houver
+  const [email, setEmail] = useState(user?.email || "");
+  const [telefone, setTelefone] = useState(user?.telefone || "");
+  const [type, setType] = useState(user?.type || "user"); // Definido um valor padrão
+  const [foto_perfil, setFotoPerfil] = useState(user?.foto_perfil || ""); // Preenche o campo com dados existentes, se houver
+  const [data_nascimento, setDataNascimento] = useState(""); // Novo campo
+  const [cpf, setCpf] = useState(""); // Novo campo
+  const [cep, setCep] = useState(""); // Novo campo
+  const [endereco, setEndereco] = useState(""); // Novo campo
+  const [cidade, setCidade] = useState(""); // Novo campo
+  const [estado, setEstado] = useState(""); // Novo campo
   const [error, setError] = useState<string | null>(null); // Estado para gerenciar erros
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -49,7 +61,19 @@ const AddUser: React.FC<AddUserProps> = ({
 
     try {
       // Garantir que 'type' sempre tenha um valor definido
-      const newUser: NewUser = { name, email, telefone, type: type || "user", foto_perfil };
+      const newUser: NewUser = {
+        name,
+        email,
+        telefone,
+        type: type || "user",
+        foto_perfil,
+        data_nascimento,
+        cpf,
+        cep,
+        endereco,
+        cidade,
+        estado,
+      };
       await addUser(newUser);
       onRequestClose(); // Fechar modal após a adição do usuário
     } catch (err) {
@@ -90,6 +114,42 @@ const AddUser: React.FC<AddUserProps> = ({
           value={foto_perfil}
           onChange={(e) => setFotoPerfil(e.target.value)}
           placeholder="Foto de Perfil"
+          required
+        />
+        <input
+          value={data_nascimento}
+          onChange={(e) => setDataNascimento(e.target.value)}
+          placeholder="Data de Nascimento"
+          required
+        />
+        <input
+          value={cpf}
+          onChange={(e) => setCpf(e.target.value)}
+          placeholder="CPF"
+          required
+        />
+        <input
+          value={cep}
+          onChange={(e) => setCep(e.target.value)}
+          placeholder="CEP"
+          required
+        />
+        <input
+          value={endereco}
+          onChange={(e) => setEndereco(e.target.value)}
+          placeholder="Endereço"
+          required
+        />
+        <input
+          value={cidade}
+          onChange={(e) => setCidade(e.target.value)}
+          placeholder="Cidade"
+          required
+        />
+        <input
+          value={estado}
+          onChange={(e) => setEstado(e.target.value)}
+          placeholder="Estado"
           required
         />
         <button type="submit">Adicionar</button>

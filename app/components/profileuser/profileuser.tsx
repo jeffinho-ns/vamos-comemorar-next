@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import styles from "./profileuser.module.scss";
+import Image from "next/image";
 
 const ProfileUser = ({ addUser, user }) => {
     const [profile, setProfile] = useState({
@@ -167,7 +168,7 @@ console.log("Token:", token);
               style={{ display: "none" }}
             />
             {profile.foto_perfil ? (
-              <img
+              <Image
                 src={profile.foto_perfil}
                 alt="Foto de perfil"
                 className={styles.profilePicImage}

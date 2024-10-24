@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import Image from "next/image";
 import { FiSave } from "react-icons/fi";
 import Header from "../components/headerNotificatioin/headerNotification";
@@ -23,22 +23,14 @@ export default function PerfilMobile() {
     foto_perfil: "",
   });
   const [loading, setLoading] = useState(true);
+  const [isAuthenticated, setIsAuthenticated] = useState(false); // Controle de autenticação
   const [message, setMessage] = useState("");
   const [file, setFile] = useState(null);
 
-  useEffect(() => {
-    const token = localStorage.getItem("authToken");
-  
-    if (!token) {
-      router.push("/login");
-    } else {
-      fetchUserData(token);
-    }
-  }, []);
-
-  const fetchUserData = async (token) => {
+  // Memoriza a função fetchUserData para evitar recriações
+  const fetchUserData = useCallback(async (token) => {
     try {
-      const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL_LOCAL || process.env.NEXT_PUBLIC_API_URL_NETWORK;
+      const API_URL = process.env.NEXT_PUBLIC_API_URL_NETWORK || process.env.NEXT_PUBLIC_API_URL_LOCAL;
       const response = await fetch(`${API_URL}/api/users/me`, {
         method: "GET",
         headers: {
@@ -61,17 +53,34 @@ export default function PerfilMobile() {
           foto_perfil: fotoUrl,
         });
         setUser(userData);
+        setIsAuthenticated(true); // Usuário autenticado
+      } else if (response.status === 401) {
+        // Token inválido ou expirado, redireciona para login
+        localStorage.removeItem("authToken"); // Remover token inválido
+        router.push("/login");
       } else {
         console.error("Erro ao buscar dados do usuário:", response.status, await response.text());
-        router.push("/login");
       }
     } catch (error) {
       console.error("Erro ao buscar dados do usuário:", error);
-      router.push("/login");
+      localStorage.removeItem("authToken");
+      router.push("/login"); // Em caso de erro, redirecionar para login
     } finally {
       setLoading(false);
     }
-  };
+  }, [router]); // Adiciona router como dependência
+
+  useEffect(() => {
+    const token = localStorage.getItem("authToken");
+
+    if (!token) {
+      // Se o token não existir, redireciona para o login
+      router.push("/login");
+    } else {
+      // Tentar buscar os dados do usuário com o token
+      fetchUserData(token);
+    }
+  }, [fetchUserData, router]); // Adiciona fetchUserData e router como dependências
 
   const handleEditClick = (field) => {
     setIsEditing((prev) => ({ ...prev, [field]: true }));
@@ -93,64 +102,57 @@ export default function PerfilMobile() {
     }
   };
 
-  // Parte do código já apresentada acima...
+  const handleSaveClick = async () => {
+    const token = localStorage.getItem("authToken");
+    const formData = new FormData();
 
-const handleSaveClick = async () => {
-  const token = localStorage.getItem("authToken");
-  const formData = new FormData();
-
-  // Adicione os campos que deseja atualizar somente se eles tiverem sido alterados
-  if (userInfo.nome && userInfo.nome !== user.name) { // Verifica se o nome foi alterado
-    formData.append("nome", userInfo.nome);
-  }
-  if (userInfo.telefone && userInfo.telefone !== user.telefone) { // Verifica se o telefone foi alterado
-    formData.append("telefone", userInfo.telefone);
-  }
-  if (file) { // Verificando se o arquivo foi selecionado
-    formData.append("foto_perfil", file); // Corrigido para usar `file` diretamente
-  }
-
-  // Verifique se há dados para atualizar
-  if (formData.size === 0) {
-    setMessage("Nenhum campo para atualizar.");
-    return; // Retorna se não houver dados para atualizar
-  }
-
-  try {
-    const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL_LOCAL || process.env.NEXT_PUBLIC_API_URL_NETWORK;
-    const response = await fetch(`${API_URL}/api/users/me`, {
-      method: "PATCH",
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-      body: formData,
-    });
-
-    if (response.ok) {
-      const updatedData = await response.json();
-      setUser(updatedData);
-      setMessage("Dados salvos com sucesso!");
-      setFile(null);
-      setIsEditing({ nome: false, endereco: false, telefone: false }); // Fechar edição após salvar
-    } else {
-      const errorData = await response.json();
-      console.error("Erro da API:", errorData);
-      setMessage(`Erro ao salvar os dados: ${errorData.error || response.statusText}`);
+    if (userInfo.nome && userInfo.nome !== user.name) {
+      formData.append("nome", userInfo.nome);
     }
-  } catch (error) {
-    console.error("Erro ao fazer a requisição:", error);
-    setMessage(`Erro ao fazer a requisição: ${error.message}`);
-  }
-};
+    if (userInfo.telefone && userInfo.telefone !== user.telefone) {
+      formData.append("telefone", userInfo.telefone);
+    }
+    if (file) {
+      formData.append("foto_perfil", file);
+    }
 
-// Parte do código já apresentada acima...
+    if (formData.size === 0) {
+      setMessage("Nenhum campo para atualizar.");
+      return;
+    }
 
+    try {
+      const API_URL = process.env.NEXT_PUBLIC_API_URL_NETWORK || process.env.NEXT_PUBLIC_API_URL_LOCAL;
+      const response = await fetch(`${API_URL}/api/users/me`, {
+        method: "PATCH",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        body: formData,
+      });
+
+      if (response.ok) {
+        const updatedData = await response.json();
+        setUser(updatedData);
+        setMessage("Dados salvos com sucesso!");
+        setFile(null);
+        setIsEditing({ nome: false, endereco: false, telefone: false });
+      } else {
+        const errorData = await response.json();
+        console.error("Erro da API:", errorData);
+        setMessage(`Erro ao salvar os dados: ${errorData.error || response.statusText}`);
+      }
+    } catch (error) {
+      console.error("Erro ao fazer a requisição:", error);
+      setMessage(`Erro ao fazer a requisição: ${error.message}`);
+    }
+  };
 
   if (loading) {
     return <div>Carregando...</div>;
   }
 
-  if (!user) {
+  if (!isAuthenticated) {
     return null;
   }
 
@@ -180,7 +182,7 @@ const handleSaveClick = async () => {
                 onChange={handleFileChange}
                 className="hidden"
                 onClick={(e) => {
-                  e.target.value = null; // Permitir seleção da mesma imagem
+                  e.target.value = null;
                 }}
                 aria-label="Selecionar imagem do perfil"
               />

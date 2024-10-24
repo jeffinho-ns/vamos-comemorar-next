@@ -3,6 +3,7 @@ import { MdAdd, MdRefresh, MdEdit, MdDelete } from "react-icons/md";
 import { useEffect, useState } from "react";
 import Enterprise from "../../components/enterprise/enterprise";
 import { useRouter } from 'next/navigation'; // Importando o router
+import { useMemo } from 'react';
 
 // Atualização da definição do tipo Company
 interface Company {
@@ -28,6 +29,16 @@ export default function Companies() { // Mudando o nome da função para Compani
     setSelectedCompany(company); // Define a empresa ou null no estado
     setModalIsOpen(true); // Abre o modal
   };
+
+  const initialEnterpriseState = useMemo(() => ({
+    id: 0,
+    name: '',
+    email: '',
+    phone: '',
+    status: '',
+    created_at: '',
+    logo: ''
+  }), []);
   
   const closeModal = () => {
     setModalIsOpen(false);
@@ -92,7 +103,7 @@ export default function Companies() { // Mudando o nome da função para Compani
   
   useEffect(() => {
     fetchCompanies();
-  }, []);
+  }, [initialEnterpriseState]);
 
   // Função para adicionar um novo usuário
   const addUser = (newUser: any) => {
