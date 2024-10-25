@@ -8,7 +8,7 @@ interface Profile {
   name: string;
   email: string;
   telefone: string;
-  sexo: string;
+  sexo?: string;
   data_nascimento: string;
   cep: string;
   cpf: string;
@@ -21,6 +21,7 @@ interface Profile {
   password: string; // Se necessário, dependendo da lógica de atualização
   id: number;
   status: string;
+  created_at?: string;
 }
 
 interface ProfileProps {
@@ -28,6 +29,7 @@ interface ProfileProps {
   onRequestClose: () => void;
   addUser: (user: Profile) => void;
   user: Profile | null;
+  userType?: string;
 }
 
 const Profile = ({ isOpen, onRequestClose, addUser, user }: ProfileProps) => {

@@ -1,5 +1,5 @@
 import React from "react";
-import Image from "next/image";
+import Image, { StaticImageData } from "next/image";
 import styles from "./programacao.module.scss";
 import { MdAccessTime } from "react-icons/md";
 import Link from "next/link";
@@ -12,7 +12,8 @@ import eventImg5 from "@/app/assets/programacao/prog-5.png";
 import eventImg6 from "@/app/assets/programacao/prog-13.png";
 
 const Programacao = () => {
-  const handleCardClick = (img, title, date) => {
+  // Tipando os parâmetros da função handleCardClick
+  const handleCardClick = (img: StaticImageData, title: string, date: string) => {
     console.log("Armazenando imagem:", img.src);
     localStorage.setItem("selectedEventImage", img.src);
     localStorage.setItem("selectedEventTitle", title);
@@ -88,7 +89,7 @@ const Programacao = () => {
   );
 };
 
-const EventCard = ({ img, title, category, date, time }) => (
+const EventCard = ({ img, title, category, date, time }: { img: StaticImageData; title: string; category: string; date: string; time: string; }) => (
   <div className={styles.eventCard}>
     <div className={styles.dateDotLine}>
       <div className={styles.dotLine}></div>

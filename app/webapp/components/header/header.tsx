@@ -6,7 +6,11 @@ import { useRouter } from "next/navigation";
 import { MdNotifications, MdMenu } from "react-icons/md";
 import "./styles.scss";
 
-const Header: React.FC = () => {
+interface HeaderProps {
+  className?: string; // Adicione esta linha para aceitar className
+}
+
+const Header: React.FC<HeaderProps> = ({ className }) => {
   const [isNavOpen, setIsNavOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   const router = useRouter();
@@ -80,7 +84,7 @@ const Header: React.FC = () => {
         </div>
         <ul className="MENU-LINK-MOBILE-OPEN flex flex-col items-center justify-between">
           <li className=" border-gray-400 my-4 uppercase">
-            <Link href="/about" className="flex items-center space-x-2"><svg width="21" height="23" viewBox="0 0 21 23" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <Link href="/webapp" className="flex items-center space-x-2"><svg width="21" height="23" viewBox="0 0 21 23" fill="none" xmlns="http://www.w3.org/2000/svg">
 <path d="M7.3026 21.5412V18.0326C7.3026 17.1371 8.00414 16.411 8.86951 16.411H12.033C12.4486 16.411 12.8472 16.5818 13.141 16.886C13.4349 17.1901 13.6 17.6026 13.6 18.0326V21.5412C13.5974 21.9135 13.7385 22.2716 13.992 22.5359C14.2454 22.8001 14.5904 22.9487 14.9501 22.9487H17.1083C18.1163 22.9514 19.084 22.5389 19.7977 21.8022C20.5114 21.0655 20.9124 20.0652 20.9124 19.022V9.02672C20.9124 8.18404 20.5515 7.38472 19.9269 6.84408L12.5849 0.775519C11.3078 -0.28851 9.47784 -0.254156 8.23882 0.857113L1.06434 6.84408C0.410258 7.36878 0.0193165 8.17048 0 9.02672V19.0118C0 21.1861 1.70313 22.9487 3.80405 22.9487H5.91303C6.66031 22.9487 7.26762 22.3247 7.27303 21.5514L7.3026 21.5412Z" fill="white"/>
 </svg><span className="ml-4">Home</span></Link>
           </li>

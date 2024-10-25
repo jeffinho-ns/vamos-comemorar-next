@@ -176,10 +176,10 @@ const Highline = () => {
       </p>
 
       {!showDescription && (
-        <div className={styles.programacao}>
-          <Programacao logo={logoImage} location="Rua Girassol, 144 - Vila Madalena"/>
-        </div>
-      )}
+  <div className={styles.programacao}>
+    <Programacao logo={logoImage.src} location="Rua Girassol, 144 - Vila Madalena"/>
+  </div>
+)}
 
 <div className={styles.sections}>
   {showDescription && (

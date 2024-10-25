@@ -1,58 +1,10 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { MdAdd, MdRefresh, MdEdit, MdDelete } from "react-icons/md";
 import Profile from "../../components/profile/profile";
 import AddUser from "../../components/AddUser/AddUser";
+import { User, APIUser, NewUser } from '../../types/types';
 
-// Tipos para usuários e API
-export type User = {
-  id: number;
-  name: string;
-  email: string;
-  telefone?: string;
-  created_at?: string;
-  status: string;
-  type?: string;
-  sexo?: string;
-  data_nascimento: string;
-  cep: string;
-  cpf: string;
-  endereco: string;
-  numero: string;
-  bairro: string;
-  cidade: string;
-  estado: string;
-  complemento: string;
-  foto_perfil?: string;
-  password: string;
-};
-
-export type APIUser = {
-  id: number;
-  name: string;
-  email: string;
-  status: string;
-  foto_perfil?: string;
-  type?: string;
-  telefone?: string;
-  sexo?: string;
-  data_nascimento: string;
-  cpf: string;
-  cep: string;
-  endereco: string;
-  numero: string;
-  bairro: string;
-  cidade: string;
-  estado: string;
-  complemento: string;
-  password: string;
-};
-
-// Tipo para novo usuário
-type NewUser = Omit<APIUser, "id" | "status"> & {
-  status: string;
-  password: string;
-};
 
 export default function Users() {
   const [data, setData] = useState<User[]>([]);
@@ -69,7 +21,7 @@ export default function Users() {
 
   const API_URL = process.env.NEXT_PUBLIC_API_URL_NETWORK || process.env.NEXT_PUBLIC_API_URL_LOCAL;
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setLoading(true);
     const token = localStorage.getItem("authToken");
     const url = `${API_URL}/api/users?page=${page}&perPage=${perPage}&type=${userType}&search=${filterBy}`;
@@ -109,11 +61,11 @@ export default function Users() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [API_URL, page, perPage, userType, filterBy]);
 
   useEffect(() => {
     fetchData();
-  }, [fetchData, userType, page, filterBy]);
+  }, [userType, page, filterBy, fetchData]);
 
   const handlePageChange = (newPage: number) => {
     if (newPage >= 1 && newPage <= totalPages) {
@@ -169,7 +121,7 @@ export default function Users() {
     const fullUser: User = {
       ...user,
       id: Number(user.id),
-      created_at: new Date().toISOString(),
+      created_at: user.created_at || new Date().toISOString(),
       foto_perfil: user.foto_perfil || "",
     };
     setSelectedUser(fullUser);
@@ -209,12 +161,23 @@ export default function Users() {
           addUser={handleAddUser}
           user={selectedUser}
           userType={selectedUser?.type}
+          isModal={true}
         />
-        <Profile
-          isOpen={isProfileModalOpen}
-          onRequestClose={() => setIsProfileModalOpen(false)}
-          user={selectedUser}
-        />
+<Profile
+  isOpen={isProfileModalOpen}
+  onRequestClose={() => setIsProfileModalOpen(false)}
+  addUser={handleAddUser}
+  user={
+    selectedUser
+      ? {
+          ...selectedUser,
+          foto_perfil: selectedUser.foto_perfil || '',
+          telefone: selectedUser.telefone || '',
+          sexo: selectedUser.sexo || '', // Adiciona valor padrão para sexo
+        }
+      : null
+  }
+/>
       </div>
 
       <div className="flex space-x-4 mb-6">
@@ -243,6 +206,7 @@ export default function Users() {
             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nome</th>
             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Telefone</th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Criado em</th>
             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ações</th>
           </tr>
         </thead>
@@ -252,11 +216,12 @@ export default function Users() {
               <td className="px-6 py-4 whitespace-nowrap">{user.name}</td>
               <td className="px-6 py-4 whitespace-nowrap">{user.email}</td>
               <td className="px-6 py-4 whitespace-nowrap">{user.telefone || "N/A"}</td>
+              <td className="px-6 py-4 whitespace-nowrap">{user.created_at ? formatDate(user.created_at) : "Data indisponível"}</td>
               <td className="px-6 py-4 whitespace-nowrap">
-                <button onClick={() => handleUserSelection(user)} className="text-blue-600 hover:text-blue-900">
+                <button onClick={() => openEditProfileModal(user)} className="text-blue-500 hover:text-blue-700 mr-2">
                   <MdEdit />
                 </button>
-                <button onClick={() => handleDelete(user.id)} className="text-red-600 hover:text-red-900 ml-4">
+                <button onClick={() => handleDelete(user.id)} className="text-red-500 hover:text-red-700">
                   <MdDelete />
                 </button>
               </td>
@@ -265,21 +230,15 @@ export default function Users() {
         </tbody>
       </table>
 
-      <div className="flex justify-between mt-6">
-        <button
-          disabled={page <= 1}
-          onClick={() => handlePageChange(page - 1)}
-          className="px-4 py-2 bg-gray-300 text-gray-700 rounded-md"
-        >
-          Anterior
+      <div className="mt-6 flex justify-between">
+        <button onClick={() => handlePageChange(page - 1)} disabled={page === 1} className="text-gray-500">
+          Página anterior
         </button>
-        <p className="text-gray-600">Página {page} de {totalPages}</p>
-        <button
-          disabled={page >= totalPages}
-          onClick={() => handlePageChange(page + 1)}
-          className="px-4 py-2 bg-gray-300 text-gray-700 rounded-md"
-        >
-          Próxima
+        <span>
+          Página {page} de {totalPages}
+        </span>
+        <button onClick={() => handlePageChange(page + 1)} disabled={page === totalPages} className="text-gray-500">
+          Próxima página
         </button>
       </div>
     </div>

@@ -9,14 +9,20 @@ import Footer from "../components/footer/footer";
 import Image from "next/image";
 import "./profile.module.scss";
 
+interface User {
+  id: string; // ou number, dependendo do tipo
+  name: string;
+  foto_perfil?: string; // O ? indica que este campo é opcional
+}
+
 export default function PerfilMobile() {
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true); 
   const router = useRouter();
   const API_URL = process.env.NEXT_PUBLIC_API_URL_NETWORK || process.env.NEXT_PUBLIC_API_URL_LOCAL;
 
   // Memoizando a função fetchUserData com useCallback
-  const fetchUserData = useCallback(async (token) => {
+  const fetchUserData = useCallback(async (token: string) => { // Defina token como string
     try {
       const response = await fetch(`${API_URL}/api/users/me`, {
         method: "GET",

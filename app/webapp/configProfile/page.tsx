@@ -7,8 +7,20 @@ import Header from "../components/headerNotificatioin/headerNotification";
 import Footer from "../components/footer/footer";
 import { useRouter } from "next/navigation";
 
-export default function PerfilMobile() {
-  const [user, setUser] = useState(null);
+type UserField = "nome" | "endereco" | "telefone";
+type ProfileField = 'nome' | 'endereco' | 'telefone';
+
+
+interface User {
+  name: string;
+  telefone: string;
+  endereco?: string; // Adicione outras propriedades conforme necessário
+  foto_perfil?: string; // Se necessário
+}
+
+const PerfilMobile: React.FC = () => {
+  const [file, setFile] = useState<File | null>(null);
+  const [user, setUser] = useState<User | null>(null); // Atualizado para usar a interface User
   const router = useRouter();
   const [isEditing, setIsEditing] = useState({
     nome: false,
@@ -25,10 +37,8 @@ export default function PerfilMobile() {
   const [loading, setLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false); // Controle de autenticação
   const [message, setMessage] = useState("");
-  const [file, setFile] = useState(null);
 
-  // Memoriza a função fetchUserData para evitar recriações
-  const fetchUserData = useCallback(async (token) => {
+  const fetchUserData = useCallback(async (token: string) => {
     try {
       const API_URL = process.env.NEXT_PUBLIC_API_URL_NETWORK || process.env.NEXT_PUBLIC_API_URL_LOCAL;
       const response = await fetch(`${API_URL}/api/users/me`, {
@@ -52,10 +62,9 @@ export default function PerfilMobile() {
           telefone: userData.telefone || "(11) 9 4350-1097",
           foto_perfil: fotoUrl,
         });
-        setUser(userData);
+        setUser(userData); // userData deve estar no formato da interface User
         setIsAuthenticated(true); // Usuário autenticado
       } else if (response.status === 401) {
-        // Token inválido ou expirado, redireciona para login
         localStorage.removeItem("authToken"); // Remover token inválido
         router.push("/login");
       } else {
@@ -68,36 +77,34 @@ export default function PerfilMobile() {
     } finally {
       setLoading(false);
     }
-  }, [router]); // Adiciona router como dependência
+  }, [router]);
 
   useEffect(() => {
     const token = localStorage.getItem("authToken");
 
     if (!token) {
-      // Se o token não existir, redireciona para o login
       router.push("/login");
     } else {
-      // Tentar buscar os dados do usuário com o token
       fetchUserData(token);
     }
-  }, [fetchUserData, router]); // Adiciona fetchUserData e router como dependências
+  }, [fetchUserData, router]);
 
-  const handleEditClick = (field) => {
+  const handleEditClick = (field: UserField) => {
     setIsEditing((prev) => ({ ...prev, [field]: true }));
   };
 
-  const handleInputChange = (field, value) => {
+  const handleInputChange = (field: UserField, value: string) => {
     setUserInfo((prev) => ({ ...prev, [field]: value }));
   };
 
-  const handleFileChange = (e) => {
-    const selectedFile = e.target.files[0];
-    setFile(selectedFile);
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      setUserInfo((prev) => ({ ...prev, foto_perfil: reader.result })); // Usado apenas para mostrar a prévia
-    };
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFile = e.target.files?.[0];
     if (selectedFile) {
+      setFile(selectedFile);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setUserInfo((prev) => ({ ...prev, foto_perfil: reader.result as string }));
+      };
       reader.readAsDataURL(selectedFile);
     }
   };
@@ -105,22 +112,26 @@ export default function PerfilMobile() {
   const handleSaveClick = async () => {
     const token = localStorage.getItem("authToken");
     const formData = new FormData();
-
-    if (userInfo.nome && userInfo.nome !== user.name) {
-      formData.append("nome", userInfo.nome);
+  
+    if (user) {
+      if (userInfo.nome && userInfo.nome !== user.name) {
+        formData.append("nome", userInfo.nome);
+      }
+      if (userInfo.telefone && userInfo.telefone !== user.telefone) {
+        formData.append("telefone", userInfo.telefone);
+      }
     }
-    if (userInfo.telefone && userInfo.telefone !== user.telefone) {
-      formData.append("telefone", userInfo.telefone);
-    }
+  
     if (file) {
       formData.append("foto_perfil", file);
     }
-
-    if (formData.size === 0) {
+  
+    // Alterado para verificar se algum campo foi adicionado ao FormData
+    if (Array.from(formData.entries()).length === 0) {
       setMessage("Nenhum campo para atualizar.");
       return;
     }
-
+  
     try {
       const API_URL = process.env.NEXT_PUBLIC_API_URL_NETWORK || process.env.NEXT_PUBLIC_API_URL_LOCAL;
       const response = await fetch(`${API_URL}/api/users/me`, {
@@ -130,7 +141,7 @@ export default function PerfilMobile() {
         },
         body: formData,
       });
-
+  
       if (response.ok) {
         const updatedData = await response.json();
         setUser(updatedData);
@@ -144,9 +155,11 @@ export default function PerfilMobile() {
       }
     } catch (error) {
       console.error("Erro ao fazer a requisição:", error);
-      setMessage(`Erro ao fazer a requisição: ${error.message}`);
+      const errorMessage = (error as Error).message || "Erro desconhecido"; // Asegure-se de que error é do tipo Error
+      setMessage(`Erro ao fazer a requisição: ${errorMessage}`);
     }
   };
+  
 
   if (loading) {
     return <div>Carregando...</div>;
@@ -177,15 +190,16 @@ export default function PerfilMobile() {
                 <span className="text-gray-500">Adicionar foto</span>
               )}
               <input
-                type="file"
-                accept="image/*"
-                onChange={handleFileChange}
-                className="hidden"
-                onClick={(e) => {
-                  e.target.value = null;
-                }}
-                aria-label="Selecionar imagem do perfil"
-              />
+  type="file"
+  accept="image/*"
+  onChange={handleFileChange}
+  className="hidden"
+  onClick={(e) => {
+    (e.target as HTMLInputElement).value = ""; // Use a asserção de tipo
+  }}
+  aria-label="Selecionar imagem do perfil"
+/>
+
             </label>
             {file && (
               <button onClick={handleSaveClick} aria-label="Salvar imagem do perfil">
@@ -195,36 +209,38 @@ export default function PerfilMobile() {
           </div>
 
           <div className="w-full max-w-sm flex-grow flex flex-col px-4">
-            {["nome", "endereco", "telefone"].map((field) => (
-              <div className="flex items-center py-4 border-b border-gray-200" key={field}>
-                <span className="text-lg font-semibold w-1/3 capitalize">{field}:</span>
-                {isEditing[field] ? (
-                  <>
-                    <input
-                      type="text"
-                      className="text-lg flex-grow w-2/3 border border-gray-300 rounded-md p-2"
-                      value={userInfo[field]}
-                      onChange={(e) => handleInputChange(field, e.target.value)}
-                      aria-label={`Editar ${field}`}
-                    />
-                    <button onClick={handleSaveClick} aria-label={`Salvar ${field}`}>
-                      <FiSave className="text-teal-500 text-xl ml-4" />
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <span className="text-lg flex-grow w-2/3">{userInfo[field]}</span>
-                    <button onClick={() => handleEditClick(field)} aria-label={`Editar ${field}`}>
-                      <FiSave className="text-teal-500 text-xl ml-4" />
-                    </button>
-                  </>
-                )}
-              </div>
-            ))}
-          </div>
+  {(["nome", "endereco", "telefone"] as ProfileField[]).map((field) => (
+    <div className="flex items-center py-4 border-b border-gray-200" key={field}>
+      <span className="text-lg font-semibold w-1/3 capitalize">{field}:</span>
+      {isEditing[field] ? (
+        <>
+          <input
+            type="text"
+            className="text-lg flex-grow w-2/3 border border-gray-300 rounded-md p-2"
+            value={userInfo[field]}
+            onChange={(e) => handleInputChange(field, e.target.value)}
+            aria-label={`Editar ${field}`}
+          />
+          <button onClick={handleSaveClick} aria-label={`Salvar ${field}`}>
+            <FiSave className="text-teal-500 text-xl ml-4" />
+          </button>
+        </>
+      ) : (
+        <>
+          <span className="text-lg flex-grow w-2/3">{userInfo[field]}</span>
+          <button onClick={() => handleEditClick(field)} aria-label={`Editar ${field}`}>
+            <FiSave className="text-teal-500 text-xl" />
+          </button>
+        </>
+      )}
+    </div>
+  ))}
+</div>
         </div>
       </div>
       <Footer />
     </>
   );
-}
+};
+
+export default PerfilMobile;

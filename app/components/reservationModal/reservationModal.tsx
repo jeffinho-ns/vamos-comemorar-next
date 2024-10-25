@@ -8,12 +8,34 @@ import icon2 from "../../assets/icones/acessivel.png";
 import icon3 from "../../assets/icones/estacionamento.png";
 import icon4 from "../../assets/icones/18.png";
 import icon5 from "../../assets/icones/mesa.png";
+import { StaticImageData } from "next/image";  // Importar o tipo aqui
 
-const ReservationModal = ({ isOpen, onRequestClose, eventData, logo, location }) => {
+interface EventData {
+  img?: string;
+  price?: string;
+  date?: string;
+}
+
+interface ReservationModalProps {
+  isOpen: boolean;
+  onRequestClose: () => void;
+  eventData: EventData;
+  logo?: string | StaticImageData;  // Agora está importado corretamente
+  location?: string;
+}
+
+const ReservationModal: React.FC<ReservationModalProps> = ({
+  isOpen,
+  onRequestClose,
+  eventData,
+  logo,
+  location
+}) => {
   const [guests, setGuests] = useState(0);
 
   const incrementGuests = () => setGuests(guests + 1);
   const decrementGuests = () => setGuests(guests > 0 ? guests - 1 : 0);
+
 
   return (
     <Modal

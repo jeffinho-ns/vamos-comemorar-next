@@ -5,8 +5,27 @@ import Modal from "react-modal";
 import styles from "./profile.module.scss";
 import Image from "next/image";
 
-const Profile = ({ isOpen, onRequestClose }) => {
-  const [profile, setProfile] = useState({
+interface ProfileProps {
+  isOpen: boolean;
+  onRequestClose: () => void;
+}
+
+const Profile: React.FC<ProfileProps> = ({ isOpen, onRequestClose }) => {
+  const [profile, setProfile] = useState<{
+    nome: string;
+    email: string;
+    telefone: string;
+    sexo: string;
+    nascimento: string;
+    cpf: string;
+    endereco: string;
+    numero: string;
+    bairro: string;
+    cidade: string;
+    estado: string;
+    complemento: string;
+    foto: string | null; // Pode ser string ou null
+  }>({
     nome: "",
     email: "",
     telefone: "",
@@ -19,31 +38,29 @@ const Profile = ({ isOpen, onRequestClose }) => {
     cidade: "",
     estado: "",
     complemento: "",
-    foto: null, 
+    foto: null,
   });
 
-  const handleChange = (e) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setProfile({ ...profile, [name]: value });
   };
 
-  const handleFotoChange = (e) => {
-    const file = e.target.files[0];
+  const handleFotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
       reader.onloadend = () => {
-        setProfile({ ...profile, foto: reader.result });
+        setProfile({ ...profile, foto: reader.result as string }); // Cast para string
       };
       reader.readAsDataURL(file);
     }
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     console.log(profile);
-    // Process the form submission
-    // Exemplo de envio para o backend:
-    // enviarDadosParaBackend(profile);
+    // Processar o envio do formulário
   };
 
   return (

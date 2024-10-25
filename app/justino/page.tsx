@@ -174,7 +174,7 @@ const Justino = () => {
 
       {!showDescription && (
         <div className={styles.programacao}>
-          <Programacao logo={logoImage} location="Rua Azevedo Soares, 940"/>
+          <Programacao logo={logoImage.src} location="Rua Azevedo Soares, 940"/>
         </div>
       )}
 
