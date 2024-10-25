@@ -1,12 +1,11 @@
 "use client";
 import { MdAdd, MdRefresh, MdEdit, MdDelete } from "react-icons/md";
-import { useEffect, useState } from "react";
-import BusinessModal from "../../components/enterprise/enterprise"; // Renomeado o componente
-import { useRouter } from 'next/navigation'; // Importando o router
-import { Business } from './types'; // Importe o tipo renomeado
-import Image from 'next/image'; // Importando o componente Image
+import { useEffect, useState, useMemo } from "react";
+import PlaceModal from "../../components/places/placeModal";
+import EditPlaceModal from "../../components/editPlace/editPlaceModal";
+import { Business, Place } from './types';
+import Image from 'next/image';
 
-// Interface para Establishment
 interface Establishment {
   id?: number;
   cnpj: string;
@@ -28,10 +27,10 @@ interface Establishment {
 const convertBusinessToEstablishment = (business: Business): Establishment => {
   return {
     id: business.id,
-    cnpj: business.cnpj || "", // Valor padrão
-    nome: business.name || "", // Valor padrão
-    telefone: business.telefone || "", // Valor padrão
-    email: business.email || "", // Valor padrão
+    cnpj: business.cnpj || "",
+    nome: business.name || "",
+    telefone: business.telefone || "",
+    email: business.email || "",
   };
 };
 
@@ -39,27 +38,21 @@ export default function Businesses() {
   const [businesses, setBusinesses] = useState<Business[]>([]);
   const [filterBy, setFilterBy] = useState("");
   const [modalIsOpen, setModalIsOpen] = useState(false);
+  const [editModalIsOpen, setEditModalIsOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedBusiness, setSelectedBusiness] = useState<Business | null>(null); // Renomeado para 'selectedBusiness'
+  const [selectedBusiness, setSelectedBusiness] = useState<Place | null>(null);
+  const [token, setToken] = useState<string | null>(null);
 
-  const openModal = (business: Business | null = null) => {
-    setSelectedBusiness(business); // Define o negócio ou null no estado
-    setModalIsOpen(true); // Abre o modal
-  };
-
-  const closeModal = () => {
-    setModalIsOpen(false);
-    setSelectedBusiness(null); // Reseta o negócio selecionado ao fechar o modal
-  };
-
-  // Função para buscar os negócios da API da Vamos Comemorar
   const fetchBusinesses = async () => {
-    setLoading(true);
-    const token = localStorage.getItem('authToken');
+    if (!token) {
+      console.error("Token não disponível.");
+      return;
+    }
 
+    setLoading(true);
     try {
-      const response = await fetch('https://api.vamoscomemorar.com.br/places?page=1&perPage=10', {
+      const response = await fetch('http://localhost:5000/api/places', {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
@@ -68,19 +61,13 @@ export default function Businesses() {
       if (!response.ok) throw new Error('Erro ao buscar negócios');
 
       const data = await response.json();
-
-      // Verifica se 'data' é um array de negócios
       if (Array.isArray(data.data)) {
-        setBusinesses(data.data); // Ajuste para `data.data` com negócios
+        setBusinesses(data.data);
       } else {
         setError('Dados de negócios inválidos.');
       }
     } catch (error) {
-      if (error instanceof Error) {
-        setError(error.message);
-      } else {
-        setError('Erro desconhecido');
-      }
+      setError(error instanceof Error ? error.message : 'Erro desconhecido');
       console.error('Erro ao buscar negócios:', error);
     } finally {
       setLoading(false);
@@ -89,34 +76,79 @@ export default function Businesses() {
 
   const handleDelete = async (businessId: string) => {
     const confirmDelete = window.confirm("Tem certeza que deseja excluir este negócio?");
-
     if (confirmDelete) {
+      setLoading(true);
       try {
-        // Chamada para deletar o negócio da API
-        await fetch(`/api/businesses/${businessId}`, {
+        await fetch(`http://localhost:5000/api/places/${businessId}`, {
           method: 'DELETE',
         });
-
-        // Atualize a lista de negócios removendo o deletado
-        setBusinesses(businesses.filter((business) => business.id !== Number(businessId)));
-
+        setBusinesses((prev) => prev.filter((business) => business.id !== Number(businessId)));
         alert('Negócio excluído com sucesso!');
       } catch (error) {
         console.error('Erro ao excluir o negócio:', error);
         alert('Ocorreu um erro ao tentar excluir o negócio.');
+      } finally {
+        setLoading(false);
       }
     }
   };
 
+  const addPlace = (newPlace: Place) => {
+    setBusinesses((prev) => {
+      if (selectedBusiness) {
+        return prev.map((b) => (b.id === newPlace.id ? newPlace : b));
+      }
+      return [...prev, newPlace];
+    });
+  };
+
+  const openModal = (business: Place | null = null) => {
+    setSelectedBusiness(business);
+    setModalIsOpen(true);
+  };
+
+  const openEditModal = (business: Place) => {
+    setSelectedBusiness(business);
+    setEditModalIsOpen(true);
+  };
+
+  const closeModal = () => {
+    setModalIsOpen(false);
+    setSelectedBusiness(null);
+  };
+
+  const closeEditModal = () => {
+    setEditModalIsOpen(false);
+    setSelectedBusiness(null);
+  };
+
   useEffect(() => {
-    fetchBusinesses();
+    const storedToken = localStorage.getItem("authToken");
+    setToken(storedToken);
   }, []);
 
-  // Filtrar os negócios conforme o input
+  useEffect(() => {
+    if (token) {
+      fetchBusinesses();
+    }
+  }, [token, fetchBusinesses]);
+
+  const initialEnterpriseState = useMemo(
+    () => ({
+      id: null,
+      cnpj: "",
+      nome: "",
+      telefone: "",
+      email: "",
+    }),
+    []
+  );
+
   const filteredBusinesses = businesses.filter((business) => {
+    const lowerFilter = filterBy.toLowerCase();
     return (
-      business.name.toLowerCase().includes(filterBy.toLowerCase()) || // Altere 'name' para 'nome'
-      business.email.toLowerCase().includes(filterBy.toLowerCase())
+      (business.name && business.name.toLowerCase().includes(lowerFilter)) ||
+      (business.email && business.email.toLowerCase().includes(lowerFilter))
     );
   });
 
@@ -133,10 +165,18 @@ export default function Businesses() {
         </button>
       </div>
 
-      <BusinessModal
+      <PlaceModal
         isOpen={modalIsOpen}
         onRequestClose={closeModal}
-        company={selectedBusiness ? convertBusinessToEstablishment(selectedBusiness) : null} // Conversão aqui
+        addPlace={addPlace}
+        place={selectedBusiness}
+      />
+
+      <EditPlaceModal
+        isOpen={editModalIsOpen}
+        onRequestClose={closeEditModal}
+        currentPlace={selectedBusiness}
+        updatePlace={addPlace}
       />
 
       <div className="flex space-x-4 mb-6">
@@ -171,14 +211,12 @@ export default function Businesses() {
                   <td className="px-6 py-4">
                     <Image src={business.logo} alt={business.name} width={48} height={48} className="object-cover rounded-full" />
                   </td>
-                  <td className="px-6 py-4">{business.name}</td> {/* Alterar para 'nome' */}
+                  <td className="px-6 py-4">{business.name}</td>
                   <td className="px-6 py-4">{business.email}</td>
-                  <td className="px-6 py-4">
-                    {'★'.repeat(business.ranking)}
-                  </td>
+                  <td className="px-6 py-4">{"★".repeat(business.ranking)}</td>
                   <td className="px-6 py-4">{business.status}</td>
                   <td className="px-6 py-4 flex space-x-2">
-                    <button onClick={() => openModal(business)} title="Editar">
+                    <button onClick={() => openEditModal(business)} title="Editar">
                       <MdEdit className="text-blue-500 hover:text-blue-700" />
                     </button>
                     <button onClick={() => handleDelete(business.id.toString())} title="Excluir">
@@ -189,7 +227,7 @@ export default function Businesses() {
               ))
             ) : (
               <tr>
-                <td colSpan={6} className="px-6 py-4 text-center">Nenhum negócio encontrado</td>
+                <td colSpan={6} className="px-6 py-4 text-center">Nenhum negócio encontrado.</td>
               </tr>
             )}
           </tbody>

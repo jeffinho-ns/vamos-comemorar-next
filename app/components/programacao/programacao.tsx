@@ -1,5 +1,4 @@
 import React, { useState } from "react";
-
 import ReservationModal from "../reservationModal/reservationModal";
 import { MdEvent, MdAccessTime } from "react-icons/md";
 import Image, { StaticImageData } from "next/image";
@@ -53,7 +52,7 @@ const Programacao: React.FC<ProgramacaoProps> = ({ barId, logo, location }) => {
       <h2 className="text-4xl font-bold text-center mb-12 text-gray-900">Programação do Mês</h2>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
         <EventCard
-          img={eventImg13.src}  // Use .src para pegar a URL da imagem
+          img={eventImg13.src}
           title="ENCONTRIN"
           date="28/07"
           time="17h"
@@ -61,7 +60,7 @@ const Programacao: React.FC<ProgramacaoProps> = ({ barId, logo, location }) => {
           openModal={openModal}
         />
         <EventCard
-          img={eventImg2.src}  // Use .src para pegar a URL da imagem
+          img={eventImg2.src}
           title="NOITE DAS PATROAS"
           date="27/07"
           time="17h"
@@ -69,7 +68,7 @@ const Programacao: React.FC<ProgramacaoProps> = ({ barId, logo, location }) => {
           openModal={openModal}
         />
         <EventCard
-          img={eventImg3.src}  // Use .src para pegar a URL da imagem
+          img={eventImg3.src}
           title="BAILE DO FREGUÊS"
           date="21/07"
           time="17h"
@@ -77,7 +76,7 @@ const Programacao: React.FC<ProgramacaoProps> = ({ barId, logo, location }) => {
           openModal={openModal}
         />
         <EventCard
-          img={eventImg4.src}  // Use .src para pegar a URL da imagem
+          img={eventImg4.src}
           title="COPA DO MUNDO"
           date="Hoje"
           time="17h"
@@ -89,12 +88,12 @@ const Programacao: React.FC<ProgramacaoProps> = ({ barId, logo, location }) => {
 
       {modalIsOpen && selectedEvent && (
         <ReservationModal 
-  isOpen={modalIsOpen} 
-  onRequestClose={closeModal} 
-  eventData={selectedEvent}  
-  logo={selectedEvent.logo}  
-  location={selectedEvent.location}  
-/>
+          isOpen={modalIsOpen} 
+          onRequestClose={closeModal} 
+          eventData={selectedEvent}  
+          logo={selectedEvent.logo}  
+          location={selectedEvent.location}  
+        />
       )}
     </div>
   );
@@ -114,8 +113,14 @@ const EventCard: React.FC<EventCardProps> = ({ img, title, date, time, price, op
     className="relative bg-white rounded-lg shadow-lg overflow-hidden cursor-pointer transition-transform transform hover:scale-105"
     onClick={() => openModal({ img, title, date, time, price })}
   >
-    <div className="relative h-64">
-      <Image src={img} alt={title} className="w-full h-full object-cover" />
+    <div className="relative h-64 w-full"> {/* Define o contêiner do Image */}
+      <Image
+        src={img}
+        alt={title}
+        layout="fill" // Usa o layout fill para ocupar o contêiner
+        objectFit="cover" // Ajusta para cobrir o contêiner completamente
+        className="rounded-t-lg"
+      />
     </div>
     <div className="absolute bottom-0 left-0 w-full p-4 bg-gradient-to-t from-black to-transparent text-white">
       <h3 className="text-xl font-semibold mb-2">{title}</h3>

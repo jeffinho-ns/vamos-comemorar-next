@@ -88,8 +88,9 @@ const Justino = () => {
         <Image
           src={imgBanner}
           alt="Banner"
-          fill
+          layout="fill"
           className={styles.bannerImage}
+
         />
         <div className={styles.flexButtonContainer}>
           <div className={styles.flexButtonContainerBar}>
