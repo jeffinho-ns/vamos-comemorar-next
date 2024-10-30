@@ -8,24 +8,25 @@ import Footer from "../components/footer/footer";
 import { useRouter } from "next/navigation";
 
 type UserField = "nome" | "endereco" | "telefone";
-type ProfileField = 'nome' | 'endereco' | 'telefone';
-
+type ProfileField = "nome" | "endereco" | "telefone" | "senha";
 
 interface User {
   name: string;
   telefone: string;
-  endereco?: string; // Adicione outras propriedades conforme necessário
-  foto_perfil?: string; // Se necessário
+  endereco?: string;
+  foto_perfil?: string;
 }
 
 const PerfilMobile: React.FC = () => {
   const [file, setFile] = useState<File | null>(null);
-  const [user, setUser] = useState<User | null>(null); // Atualizado para usar a interface User
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null); // Novo estado para a URL da imagem
+  const [user, setUser] = useState<User | null>(null);
   const router = useRouter();
   const [isEditing, setIsEditing] = useState({
     nome: false,
     endereco: false,
     telefone: false,
+    senha: false,
   });
   const [userInfo, setUserInfo] = useState({
     nome: "",
@@ -33,9 +34,10 @@ const PerfilMobile: React.FC = () => {
     endereco: "",
     telefone: "(11) 9 4350-1097",
     foto_perfil: "",
+    senha: "",
   });
   const [loading, setLoading] = useState(true);
-  const [isAuthenticated, setIsAuthenticated] = useState(false); // Controle de autenticação
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [message, setMessage] = useState("");
 
   const fetchUserData = useCallback(async (token: string) => {
@@ -61,11 +63,12 @@ const PerfilMobile: React.FC = () => {
           endereco: userData.endereco,
           telefone: userData.telefone || "(11) 9 4350-1097",
           foto_perfil: fotoUrl,
+          senha: "",
         });
-        setUser(userData); // userData deve estar no formato da interface User
-        setIsAuthenticated(true); // Usuário autenticado
+        setUser(userData);
+        setIsAuthenticated(true);
       } else if (response.status === 401) {
-        localStorage.removeItem("authToken"); // Remover token inválido
+        localStorage.removeItem("authToken");
         router.push("/login");
       } else {
         console.error("Erro ao buscar dados do usuário:", response.status, await response.text());
@@ -73,7 +76,7 @@ const PerfilMobile: React.FC = () => {
     } catch (error) {
       console.error("Erro ao buscar dados do usuário:", error);
       localStorage.removeItem("authToken");
-      router.push("/login"); // Em caso de erro, redirecionar para login
+      router.push("/login");
     } finally {
       setLoading(false);
     }
@@ -81,7 +84,6 @@ const PerfilMobile: React.FC = () => {
 
   useEffect(() => {
     const token = localStorage.getItem("authToken");
-
     if (!token) {
       router.push("/login");
     } else {
@@ -89,11 +91,11 @@ const PerfilMobile: React.FC = () => {
     }
   }, [fetchUserData, router]);
 
-  const handleEditClick = (field: UserField) => {
+  const handleEditClick = (field: UserField | "senha") => {
     setIsEditing((prev) => ({ ...prev, [field]: true }));
   };
 
-  const handleInputChange = (field: UserField, value: string) => {
+  const handleInputChange = (field: UserField | "senha", value: string) => {
     setUserInfo((prev) => ({ ...prev, [field]: value }));
   };
 
@@ -101,65 +103,86 @@ const PerfilMobile: React.FC = () => {
     const selectedFile = e.target.files?.[0];
     if (selectedFile) {
       setFile(selectedFile);
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setUserInfo((prev) => ({ ...prev, foto_perfil: reader.result as string }));
-      };
-      reader.readAsDataURL(selectedFile);
+      setPreviewUrl(URL.createObjectURL(selectedFile)); // Cria a URL para visualização
     }
   };
 
   const handleSaveClick = async () => {
     const token = localStorage.getItem("authToken");
-    const formData = new FormData();
-  
+
+    const dataToUpdate: Record<string, any> = {};
     if (user) {
       if (userInfo.nome && userInfo.nome !== user.name) {
-        formData.append("nome", userInfo.nome);
+        dataToUpdate.name = userInfo.nome;
       }
       if (userInfo.telefone && userInfo.telefone !== user.telefone) {
-        formData.append("telefone", userInfo.telefone);
+        dataToUpdate.telefone = userInfo.telefone;
+      }
+      if (userInfo.senha && userInfo.senha !== "") {
+        dataToUpdate.password = userInfo.senha;
       }
     }
-  
-    if (file) {
-      formData.append("foto_perfil", file);
-    }
-  
-    // Alterado para verificar se algum campo foi adicionado ao FormData
-    if (Array.from(formData.entries()).length === 0) {
+
+    if (Object.keys(dataToUpdate).length === 0 && !file) {
       setMessage("Nenhum campo para atualizar.");
       return;
     }
-  
+
     try {
       const API_URL = process.env.NEXT_PUBLIC_API_URL_NETWORK || process.env.NEXT_PUBLIC_API_URL_LOCAL;
-      const response = await fetch(`${API_URL}/api/users/me`, {
+
+      // Faz o upload da foto de perfil, se houver
+      let fotoUrl: string | null = null;
+      if (file) {
+        const formData = new FormData();
+        formData.append("foto_perfil", file);
+
+        const uploadResponse = await fetch(`${API_URL}/uploads`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+          body: formData,
+        });
+
+        if (uploadResponse.ok) {
+          const responseData = await uploadResponse.json();
+          fotoUrl = responseData.fotoUrl; // Obter a URL da foto retornada pelo servidor
+          dataToUpdate.foto_perfil = fotoUrl; // Adiciona a URL à atualização
+          setUserInfo((prev) => ({ ...prev, foto_perfil: fotoUrl })); // Atualiza o estado com a nova URL
+        } else {
+          const errorData = await uploadResponse.json();
+          setMessage(`Erro ao salvar a imagem: ${errorData.error || uploadResponse.statusText}`);
+          return;
+        }
+      }
+
+      const updateResponse = await fetch(`${API_URL}/api/users/me`, {
         method: "PATCH",
         headers: {
+          "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: formData,
+        body: JSON.stringify(dataToUpdate),
       });
-  
-      if (response.ok) {
-        const updatedData = await response.json();
+
+      if (updateResponse.ok) {
+        const updatedData = await updateResponse.json();
         setUser(updatedData);
         setMessage("Dados salvos com sucesso!");
         setFile(null);
-        setIsEditing({ nome: false, endereco: false, telefone: false });
+        setPreviewUrl(null); // Limpa a URL de visualização após salvar
+        setIsEditing({ nome: false, endereco: false, telefone: false, senha: false });
       } else {
-        const errorData = await response.json();
-        console.error("Erro da API:", errorData);
-        setMessage(`Erro ao salvar os dados: ${errorData.error || response.statusText}`);
+        const errorData = await updateResponse.json();
+        setMessage(`Erro ao salvar os dados: ${errorData.error || updateResponse.statusText}`);
       }
     } catch (error) {
       console.error("Erro ao fazer a requisição:", error);
-      const errorMessage = (error as Error).message || "Erro desconhecido"; // Asegure-se de que error é do tipo Error
+      const errorMessage = (error as Error).message || "Erro desconhecido";
       setMessage(`Erro ao fazer a requisição: ${errorMessage}`);
     }
   };
-  
 
   if (loading) {
     return <div>Carregando...</div>;
@@ -178,7 +201,15 @@ const PerfilMobile: React.FC = () => {
           {message && <div className="text-green-600">{message}</div>}
           <div className="flex flex-col items-center mb-6">
             <label className="w-24 h-24 bg-gray-200 rounded-full flex items-center justify-center mb-2 cursor-pointer">
-              {userInfo.foto_perfil ? (
+              {previewUrl ? ( // Usando a URL de visualização
+                <Image
+                  src={previewUrl}
+                  alt="Perfil"
+                  width={96}
+                  height={96}
+                  className="rounded-full object-cover"
+                />
+              ) : userInfo.foto_perfil ? (
                 <Image
                   src={userInfo.foto_perfil}
                   alt="Perfil"
@@ -190,16 +221,12 @@ const PerfilMobile: React.FC = () => {
                 <span className="text-gray-500">Adicionar foto</span>
               )}
               <input
-  type="file"
-  accept="image/*"
-  onChange={handleFileChange}
-  className="hidden"
-  onClick={(e) => {
-    (e.target as HTMLInputElement).value = ""; // Use a asserção de tipo
-  }}
-  aria-label="Selecionar imagem do perfil"
-/>
-
+                type="file"
+                accept="image/*"
+                onChange={handleFileChange}
+                className="hidden"
+                aria-label="Selecionar imagem do perfil"
+              />
             </label>
             {file && (
               <button onClick={handleSaveClick} aria-label="Salvar imagem do perfil">
@@ -207,38 +234,36 @@ const PerfilMobile: React.FC = () => {
               </button>
             )}
           </div>
-
           <div className="w-full max-w-sm flex-grow flex flex-col px-4">
-  {(["nome", "endereco", "telefone"] as ProfileField[]).map((field) => (
-    <div className="flex items-center py-4 border-b border-gray-200" key={field}>
-      <span className="text-lg font-semibold w-1/3 capitalize">{field}:</span>
-      {isEditing[field] ? (
-        <>
-          <input
-            type="text"
-            className="text-lg flex-grow w-2/3 border border-gray-300 rounded-md p-2"
-            value={userInfo[field]}
-            onChange={(e) => handleInputChange(field, e.target.value)}
-            aria-label={`Editar ${field}`}
-          />
-          <button onClick={handleSaveClick} aria-label={`Salvar ${field}`}>
-            <FiSave className="text-teal-500 text-xl ml-4" />
-          </button>
-        </>
-      ) : (
-        <>
-          <span className="text-lg flex-grow w-2/3">{userInfo[field]}</span>
-          <button onClick={() => handleEditClick(field)} aria-label={`Editar ${field}`}>
-            <FiSave className="text-teal-500 text-xl" />
-          </button>
-        </>
-      )}
-    </div>
-  ))}
-</div>
+            {(["nome", "endereco", "telefone", "senha"] as ProfileField[]).map((field) => (
+              <div className="flex items-center mb-4" key={field}>
+                <span className="text-gray-700 w-1/3">{field}</span>
+                {isEditing[field] ? (
+                  <>
+                    <input
+                      type="text"
+                      value={userInfo[field]}
+                      onChange={(e) => handleInputChange(field, e.target.value)}
+                      className="border border-gray-300 p-1 rounded w-2/3"
+                    />
+                    <button onClick={() => handleSaveClick()} aria-label={`Salvar ${field}`}>
+                      <FiSave className="text-teal-500 text-xl ml-2" />
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <span className="text-lg w-2/3">{userInfo[field]}</span>
+                    <button onClick={() => handleEditClick(field)} aria-label={`Editar ${field}`}>
+                      <FiSave className="text-teal-500 text-xl ml-2" />
+                    </button>
+                  </>
+                )}
+              </div>
+            ))}
+          </div>
         </div>
+        <Footer />
       </div>
-      <Footer />
     </>
   );
 };

@@ -29,29 +29,28 @@ export default function Login() {
       setError("Por favor, preencha todos os campos.");
       return;
     }
-
+  
     try {
       const API_URL = process.env.NEXT_PUBLIC_API_URL_NETWORK || process.env.NEXT_PUBLIC_API_URL_LOCAL;
-
-      
+  
       const response = await fetch(`${API_URL}/api/users/login`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          access: emailCpf, // Pode ser o CPF ou email
+          access: emailCpf,
           password: password,
         }),
       });
-
+  
       const data = await response.json();
       console.log(data); // Verificar a resposta da API
-
-      if (response.ok && data.user) {
-        // Armazenar o token se necessário
+  
+      // Verifique diretamente se o token foi recebido
+      if (response.ok && data.token) {
         localStorage.setItem("authToken", data.token);
-        router.push("/"); // Redirecionar para a página inicial após login
+        router.push("/"); // Redireciona após o login bem-sucedido
       } else {
         setError(data.message || "Credenciais inválidas");
       }
@@ -60,6 +59,7 @@ export default function Login() {
       console.error("Erro:", error);
     }
   };
+
 
   return (
     <div className="container">
