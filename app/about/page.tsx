@@ -18,7 +18,7 @@ export default function About() {
         <Image
           src={Image1} 
           alt="Banner Quem Somos" 
-          layout="responsive" 
+          fill
           width={1920} 
           height={600} 
           className="w-full h-auto" 

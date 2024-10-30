@@ -6,7 +6,6 @@ import Profile from "../../components/profile/profile";
 import AddUser from "../../components/AddUser/AddUser";
 import { User, APIUser, NewUser } from '../../types/types';
 
-
 export default function Users() {
   const [data, setData] = useState<User[]>([]);
   const [filterBy, setFilterBy] = useState<string>("");
@@ -164,21 +163,21 @@ export default function Users() {
           userType={selectedUser?.type}
           isModal={true}
         />
-<Profile
-  isOpen={isProfileModalOpen}
-  onRequestClose={() => setIsProfileModalOpen(false)}
-  addUser={handleAddUser}
-  user={
-    selectedUser
-      ? {
-          ...selectedUser,
-          foto_perfil: selectedUser.foto_perfil || '',
-          telefone: selectedUser.telefone || '',
-          sexo: selectedUser.sexo || '', // Adiciona valor padrão para sexo
-        }
-      : null
-  }
-/>
+        <Profile
+          isOpen={isProfileModalOpen}
+          onRequestClose={() => setIsProfileModalOpen(false)}
+          addUser={handleAddUser}
+          user={
+            selectedUser
+              ? {
+                  ...selectedUser,
+                  foto_perfil: selectedUser.foto_perfil || '',
+                  telefone: selectedUser.telefone || '',
+                  sexo: selectedUser.sexo || '', // Adiciona valor padrão para sexo
+                }
+              : null
+          }
+        />
       </div>
 
       <div className="flex space-x-4 mb-6">

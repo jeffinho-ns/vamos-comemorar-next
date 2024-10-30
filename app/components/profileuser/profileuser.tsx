@@ -182,6 +182,9 @@ const ProfileUser: React.FC<ProfileUserProps> = ({ addUser, user }) => {
                                 src={profile.foto_perfil}
                                 alt="Foto de perfil"
                                 className={styles.profilePicImage}
+                                width={200} 
+                                height={200} 
+                                layout="responsive" 
                             />
                         ) : (
                             "Adicionar foto"

@@ -14,7 +14,7 @@ import "react-multi-carousel/lib/styles.css";
 
 // Defina uma interface para os props do componente Card
 interface CardProps {
-  image: StaticImageData; // Tipo para imagens estáticas importadas
+  image: StaticImageData;
   title: string;
   address: string;
   distance: string;
@@ -104,6 +104,9 @@ export default function ProfilePage() {
           src={imgBanner}
           alt="Imagem do banner"
           className="Image-banner object-cover"
+          width={200} 
+          height={200} 
+          layout="responsive" 
         />
       </Banner>
       <div className="flex justify-center w-screen relative bottom-32 md:bottom-20 px-4">

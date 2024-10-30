@@ -1,10 +1,10 @@
 "use client";
 import { MdAdd, MdRefresh, MdEdit, MdDelete } from "react-icons/md";
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useCallback } from "react";
 import PlaceModal from "../../components/places/placeModal";
 import EditPlaceModal from "../../components/editPlace/editPlaceModal";
 import { Business, Place } from './types';
-import Image from 'next/image';
+import Image, { StaticImageData } from "next/image";
 
 interface Establishment {
   id?: number;
@@ -22,6 +22,8 @@ interface Establishment {
   cidade?: string;
   estado?: string;
   status?: string;
+  image: StaticImageData; 
+  logo: string;
 }
 
 const convertBusinessToEstablishment = (business: Business): Establishment => {
@@ -31,6 +33,7 @@ const convertBusinessToEstablishment = (business: Business): Establishment => {
     nome: business.name || "",
     telefone: business.telefone || "",
     email: business.email || "",
+    logo: business.logo || "",
   };
 };
 
@@ -44,7 +47,7 @@ export default function Businesses() {
   const [selectedBusiness, setSelectedBusiness] = useState<Place | null>(null);
   const [token, setToken] = useState<string | null>(null);
 
-  const fetchBusinesses = async () => {
+  const fetchBusinesses = useCallback(async () => {
     if (!token) {
       console.error("Token não disponível.");
       return;
@@ -59,12 +62,12 @@ export default function Businesses() {
       });
 
       if (!response.ok) throw new Error('Erro ao buscar negócios');
-
+      
       const data = await response.json();
       if (Array.isArray(data.data)) {
         setBusinesses(data.data);
       } else {
-        setError('Dados de negócios inválidos.');
+        throw new Error('Dados de negócios inválidos.');
       }
     } catch (error) {
       setError(error instanceof Error ? error.message : 'Erro desconhecido');
@@ -72,7 +75,7 @@ export default function Businesses() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [token]);
 
   const handleDelete = async (businessId: string) => {
     const confirmDelete = window.confirm("Tem certeza que deseja excluir este negócio?");
@@ -132,17 +135,6 @@ export default function Businesses() {
       fetchBusinesses();
     }
   }, [token, fetchBusinesses]);
-
-  const initialEnterpriseState = useMemo(
-    () => ({
-      id: null,
-      cnpj: "",
-      nome: "",
-      telefone: "",
-      email: "",
-    }),
-    []
-  );
 
   const filteredBusinesses = businesses.filter((business) => {
     const lowerFilter = filterBy.toLowerCase();
@@ -209,7 +201,13 @@ export default function Businesses() {
               filteredBusinesses.map((business) => (
                 <tr key={business.id} className="border-t">
                   <td className="px-6 py-4">
-                    <Image src={business.logo} alt={business.name} width={48} height={48} className="object-cover rounded-full" />
+                    <Image 
+                      src={business.logo.startsWith('http') ? business.logo : `http://localhost:5000/uploads/${business.logo}`} 
+                      alt={business.name} 
+                      width={48} 
+                      height={48} 
+                      className="object-cover rounded-full" 
+                    />
                   </td>
                   <td className="px-6 py-4">{business.name}</td>
                   <td className="px-6 py-4">{business.email}</td>

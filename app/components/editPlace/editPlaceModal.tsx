@@ -9,18 +9,22 @@ interface Place {
   description?: string;
   logo?: string;
   street?: string;
-  number?: number;
-  latitude?: number;
-  longitude?: number;
+  number?: string; // Mudado para string para alinhar com o PlaceModal
+  neighborhood?: string; // Adicionado campo bairro
+  city?: string; // Adicionado campo cidade
+  state?: string; // Adicionado campo estado
+  zipcode?: string; // Adicionado campo CEP
+  latitude?: string; // Mudado para string para alinhar com o PlaceModal
+  longitude?: string; // Mudado para string para alinhar com o PlaceModal
   status?: "active" | "inactive";
   visible?: boolean;
 }
 
 interface EditPlaceModalProps {
-  isOpen: boolean; // Propriedade para controlar se o modal está aberto
+  isOpen: boolean;
   currentPlace: Place | null;
   onRequestClose: () => void;
-  updatePlace: (place: Place) => void; // Função para atualizar o lugar
+  updatePlace: (place: Place) => void;
 }
 
 const EditPlaceModal: React.FC<EditPlaceModalProps> = ({
@@ -35,9 +39,13 @@ const EditPlaceModal: React.FC<EditPlaceModalProps> = ({
   const [description, setDescription] = useState<string>("");
   const [logo, setLogo] = useState<string>("");
   const [street, setStreet] = useState<string>("");
-  const [number, setNumber] = useState<number>(0);
-  const [latitude, setLatitude] = useState<number>(0);
-  const [longitude, setLongitude] = useState<number>(0);
+  const [number, setNumber] = useState<string>(""); // Mudado para string para alinhar com o PlaceModal
+  const [neighborhood, setNeighborhood] = useState<string>(""); // Adicionado campo bairro
+  const [city, setCity] = useState<string>(""); // Adicionado campo cidade
+  const [state, setState] = useState<string>(""); // Adicionado campo estado
+  const [zipcode, setZipcode] = useState<string>(""); // Adicionado campo CEP
+  const [latitude, setLatitude] = useState<string>(""); // Mudado para string para alinhar com o PlaceModal
+  const [longitude, setLongitude] = useState<string>(""); // Mudado para string para alinhar com o PlaceModal
   const [status, setStatus] = useState<"active" | "inactive">("active");
   const [visible, setVisible] = useState<boolean>(true);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -51,13 +59,28 @@ const EditPlaceModal: React.FC<EditPlaceModalProps> = ({
       setDescription(currentPlace.description || "");
       setLogo(currentPlace.logo || "");
       setStreet(currentPlace.street || "");
-      setNumber(currentPlace.number || 0);
-      setLatitude(currentPlace.latitude || 0);
-      setLongitude(currentPlace.longitude || 0);
+      setNumber(currentPlace.number?.toString() || ""); // Convertendo para string
+      setNeighborhood(currentPlace.neighborhood || ""); // Adicionando campo bairro
+      setCity(currentPlace.city || ""); // Adicionando campo cidade
+      setState(currentPlace.state || ""); // Adicionando campo estado
+      setZipcode(currentPlace.zipcode || ""); // Adicionando campo CEP
+      setLatitude(currentPlace.latitude?.toString() || ""); // Convertendo para string
+      setLongitude(currentPlace.longitude?.toString() || ""); // Convertendo para string
       setStatus(currentPlace.status || "active");
       setVisible(currentPlace.visible !== undefined ? currentPlace.visible : true);
     }
   }, [currentPlace]);
+
+  useEffect(() => {
+    // Atualiza a logo quando uma nova imagem é selecionada
+    if (selectedFile) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setLogo(reader.result as string);
+      };
+      reader.readAsDataURL(selectedFile);
+    }
+  }, [selectedFile]);
 
   const validateForm = () => {
     if (!name || !email) {
@@ -94,18 +117,22 @@ const EditPlaceModal: React.FC<EditPlaceModalProps> = ({
         }
 
         const data = await response.json();
-        imageUrl = data.imageUrl; // Supondo que o servidor retorne a URL da imagem
+        imageUrl = data.imageUrl;
       }
 
       const dataToSend: Place = {
-        id: currentPlace?.id, // Incluindo o ID do lugar atual
+        id: currentPlace?.id,
         slug,
         name,
         email,
         description,
         logo: imageUrl,
         street,
-        number,
+        number, // Incluindo número
+        neighborhood, // Incluindo bairro
+        city, // Incluindo cidade
+        state, // Incluindo estado
+        zipcode, // Incluindo CEP
         latitude,
         longitude,
         status,
@@ -114,7 +141,7 @@ const EditPlaceModal: React.FC<EditPlaceModalProps> = ({
 
       const url = `http://localhost:5000/api/places/${currentPlace?.id}`;
       const response = await fetch(url, {
-        method: "PUT", // Sempre usando PUT para atualizar
+        method: "PUT",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
@@ -128,8 +155,8 @@ const EditPlaceModal: React.FC<EditPlaceModalProps> = ({
       }
 
       const updatedPlace = await response.json();
-      updatePlace(updatedPlace); // Chama a função para atualizar o lugar na lista
-      onRequestClose(); // Fecha o modal após a atualização
+      updatePlace(updatedPlace);
+      onRequestClose();
     } catch (error) {
       console.error("Erro ao enviar dados:", error);
       setErrorMessage("Ocorreu um erro ao atualizar o local. Tente novamente.");
@@ -144,124 +171,176 @@ const EditPlaceModal: React.FC<EditPlaceModalProps> = ({
       className="relative bg-white rounded-lg shadow-lg w-full max-w-lg mx-auto p-6"
       overlayClassName="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center"
     >
-      <h2 className="text-xl font-semibold mb-4">Editar Local</h2>
+      <div className="flex flex-col items-center mb-4">
+        {logo && (
+          <img
+          src={`http://localhost:5000/uploads/${logo}`}
+            alt="Logo"
+            className="w-24 h-24 object-cover mb-4 border rounded-full shadow"
+          />
+        )}
+        <h2 className="text-xl font-semibold">Editar Local</h2>
+      </div>
       {errorMessage && <p className="text-red-500 mb-4">{errorMessage}</p>}
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <label className="block">
           Slug:
           <input
             type="text"
             value={slug}
             onChange={(e) => setSlug(e.target.value)}
-            className="mt-1 block w-full border border-gray-300 rounded-md p-2"
+            className="w-full p-2 rounded-md border border-gray-300 mt-1 focus:outline-none focus:ring focus:ring-blue-300"
           />
         </label>
+
         <label className="block">
           Nome:
           <input
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
+            className="w-full p-2 rounded-md border border-gray-300 mt-1 focus:outline-none focus:ring focus:ring-blue-300"
             required
-            className="mt-1 block w-full border border-gray-300 rounded-md p-2"
           />
         </label>
+
         <label className="block">
           E-mail:
           <input
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
+            className="w-full p-2 rounded-md border border-gray-300 mt-1 focus:outline-none focus:ring focus:ring-blue-300"
             required
-            className="mt-1 block w-full border border-gray-300 rounded-md p-2"
           />
         </label>
+
         <label className="block">
           Descrição:
           <textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            className="mt-1 block w-full border border-gray-300 rounded-md p-2"
+            className="w-full p-2 rounded-md border border-gray-300 mt-1 focus:outline-none focus:ring focus:ring-blue-300"
           />
         </label>
+
         <label className="block">
           Logo:
           <input
-            type="text"
-            value={logo}
-            onChange={(e) => setLogo(e.target.value)}
-            className="mt-1 block w-full border border-gray-300 rounded-md p-2"
+            type="file"
+            accept="image/*"
+            onChange={(e) => e.target.files && setSelectedFile(e.target.files[0])}
+            className="w-full p-2 rounded-md border border-gray-300 mt-1 focus:outline-none focus:ring focus:ring-blue-300"
           />
         </label>
+
         <label className="block">
-          Rua:
+          Endereço:
           <input
             type="text"
             value={street}
             onChange={(e) => setStreet(e.target.value)}
-            className="mt-1 block w-full border border-gray-300 rounded-md p-2"
+            className="w-full p-2 rounded-md border border-gray-300 mt-1 focus:outline-none focus:ring focus:ring-blue-300"
           />
         </label>
+
         <label className="block">
           Número:
           <input
-            type="number"
+            type="text"
             value={number}
-            onChange={(e) => setNumber(Number(e.target.value))}
-            className="mt-1 block w-full border border-gray-300 rounded-md p-2"
+            onChange={(e) => setNumber(e.target.value)}
+            className="w-full p-2 rounded-md border border-gray-300 mt-1 focus:outline-none focus:ring focus:ring-blue-300"
           />
         </label>
+
+        <label className="block">
+          Bairro:
+          <input
+            type="text"
+            value={neighborhood}
+            onChange={(e) => setNeighborhood(e.target.value)}
+            className="w-full p-2 rounded-md border border-gray-300 mt-1 focus:outline-none focus:ring focus:ring-blue-300"
+          />
+        </label>
+
+        <label className="block">
+          Cidade:
+          <input
+            type="text"
+            value={city}
+            onChange={(e) => setCity(e.target.value)}
+            className="w-full p-2 rounded-md border border-gray-300 mt-1 focus:outline-none focus:ring focus:ring-blue-300"
+          />
+        </label>
+
+        <label className="block">
+          Estado:
+          <input
+            type="text"
+            value={state}
+            onChange={(e) => setState(e.target.value)}
+            className="w-full p-2 rounded-md border border-gray-300 mt-1 focus:outline-none focus:ring focus:ring-blue-300"
+          />
+        </label>
+
+        <label className="block">
+          CEP:
+          <input
+            type="text"
+            value={zipcode}
+            onChange={(e) => setZipcode(e.target.value)}
+            className="w-full p-2 rounded-md border border-gray-300 mt-1 focus:outline-none focus:ring focus:ring-blue-300"
+          />
+        </label>
+
         <label className="block">
           Latitude:
           <input
-            type="number"
+            type="text"
             value={latitude}
-            onChange={(e) => setLatitude(Number(e.target.value))}
-            className="mt-1 block w-full border border-gray-300 rounded-md p-2"
+            onChange={(e) => setLatitude(e.target.value)}
+            className="w-full p-2 rounded-md border border-gray-300 mt-1 focus:outline-none focus:ring focus:ring-blue-300"
           />
         </label>
+
         <label className="block">
           Longitude:
           <input
-            type="number"
+            type="text"
             value={longitude}
-            onChange={(e) => setLongitude(Number(e.target.value))}
-            className="mt-1 block w-full border border-gray-300 rounded-md p-2"
+            onChange={(e) => setLongitude(e.target.value)}
+            className="w-full p-2 rounded-md border border-gray-300 mt-1 focus:outline-none focus:ring focus:ring-blue-300"
           />
         </label>
-        <label className="block">
-          Status:
+
+        <div className="flex items-center col-span-1">
+          <label className="mr-2">Status:</label>
           <select
             value={status}
             onChange={(e) => setStatus(e.target.value as "active" | "inactive")}
-            className="mt-1 block w-full border border-gray-300 rounded-md p-2"
+            className="p-2 rounded-md border border-gray-300 focus:outline-none focus:ring focus:ring-blue-300"
           >
             <option value="active">Ativo</option>
             <option value="inactive">Inativo</option>
           </select>
-        </label>
-        <label className="block">
-          Visível:
+        </div>
+
+        <div className="flex items-center col-span-1">
+          <label className="mr-2">Visível:</label>
           <input
             type="checkbox"
             checked={visible}
             onChange={(e) => setVisible(e.target.checked)}
-            className="ml-2"
+            className="focus:outline-none focus:ring focus:ring-blue-300"
           />
-        </label>
-        <label className="block">
-          Upload de Imagem:
-          <input
-            type="file"
-            onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
-            className="mt-1 block w-full border border-gray-300 rounded-md p-2"
-          />
-        </label>
+        </div>
+
         <button
           type="submit"
-          className="mt-4 bg-blue-500 text-white font-semibold py-2 px-4 rounded"
+          className="col-span-1 mt-4 p-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition"
         >
-          Salvar
+          Atualizar
         </button>
       </form>
     </Modal>

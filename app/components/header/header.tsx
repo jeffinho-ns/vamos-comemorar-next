@@ -76,7 +76,7 @@ const Header: React.FC = () => {
                   <div className="absolute right-0 mt-2 w-48 bg-white shadow-lg rounded-md z-10">
                     <ul className="py-2">
                       <li className="hover:bg-gray-100">
-                        <Link href="/minhasReservas" className="block px-4 py-2 text-gray-800">
+                        <Link href="/profile" className="block px-4 py-2 text-gray-800">
                           Página do usuário
                         </Link>
                       </li>
