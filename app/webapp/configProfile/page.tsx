@@ -42,7 +42,7 @@ const PerfilMobile: React.FC = () => {
 
   const fetchUserData = useCallback(async (token: string) => {
     try {
-      const API_URL = process.env.NEXT_PUBLIC_API_URL_NETWORK || process.env.NEXT_PUBLIC_API_URL_LOCAL;
+      const API_URL = process.env.NEXT_PUBLIC_API || process.env.NEXT_PUBLIC_API_URL_LOCAL;
       const response = await fetch(`${API_URL}/api/users/me`, {
         method: "GET",
         headers: {
@@ -110,79 +110,61 @@ const PerfilMobile: React.FC = () => {
   const handleSaveClick = async () => {
     const token = localStorage.getItem("authToken");
 
-    const dataToUpdate: Record<string, any> = {};
+    const formData = new FormData();
+
+    // Adiciona os dados ao formData se estiverem modificados
     if (user) {
-      if (userInfo.nome && userInfo.nome !== user.name) {
-        dataToUpdate.name = userInfo.nome;
-      }
-      if (userInfo.telefone && userInfo.telefone !== user.telefone) {
-        dataToUpdate.telefone = userInfo.telefone;
-      }
-      if (userInfo.senha && userInfo.senha !== "") {
-        dataToUpdate.password = userInfo.senha;
-      }
+        if (userInfo.nome && userInfo.nome !== user.name) {
+            formData.append("name", userInfo.nome);
+        }
+        if (userInfo.telefone && userInfo.telefone !== user.telefone) {
+            formData.append("telefone", userInfo.telefone);
+        }
+        if (userInfo.senha && userInfo.senha !== "") {
+            formData.append("password", userInfo.senha);
+        }
     }
 
-    if (Object.keys(dataToUpdate).length === 0 && !file) {
-      setMessage("Nenhum campo para atualizar.");
-      return;
+    // Adiciona a foto ao formData, se houver
+    if (file) {
+        formData.append("foto_perfil", file);
+    }
+
+    // Verifica se há algo para atualizar
+    if (formData.entries().next().done) {
+        setMessage("Nenhum campo para atualizar.");
+        return;
     }
 
     try {
-      const API_URL = process.env.NEXT_PUBLIC_API_URL_NETWORK || process.env.NEXT_PUBLIC_API_URL_LOCAL;
+        const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL_LOCAL;
 
-      // Faz o upload da foto de perfil, se houver
-      let fotoUrl: string | null = null;
-      if (file) {
-        const formData = new FormData();
-        formData.append("foto_perfil", file);
-
-        const uploadResponse = await fetch(`${API_URL}/uploads`, {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-          body: formData,
+        const updateResponse = await fetch(`${API_URL}/api/users/me`, {
+            method: "PUT", // Altera para PUT já que estamos atualizando dados e imagem
+            headers: {
+                Authorization: `Bearer ${token}`,
+            },
+            body: formData,
         });
 
-        if (uploadResponse.ok) {
-          const responseData = await uploadResponse.json();
-          fotoUrl = responseData.fotoUrl; // Obter a URL da foto retornada pelo servidor
-          dataToUpdate.foto_perfil = fotoUrl; // Adiciona a URL à atualização
-          setUserInfo((prev) => ({ ...prev, foto_perfil: fotoUrl })); // Atualiza o estado com a nova URL
+        if (updateResponse.ok) {
+            const updatedData = await updateResponse.json();
+            setUser(updatedData); // Atualiza o estado do usuário com os dados recebidos
+            setMessage("Dados salvos com sucesso!");
+            setFile(null);
+            setPreviewUrl(null); // Limpa a URL de visualização após salvar
+            setIsEditing({ nome: false, endereco: false, telefone: false, senha: false });
         } else {
-          const errorData = await uploadResponse.json();
-          setMessage(`Erro ao salvar a imagem: ${errorData.error || uploadResponse.statusText}`);
-          return;
+            const errorData = await updateResponse.json();
+            setMessage(`Erro ao salvar os dados: ${errorData.error || updateResponse.statusText}`);
         }
-      }
-
-      const updateResponse = await fetch(`${API_URL}/api/users/me`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(dataToUpdate),
-      });
-
-      if (updateResponse.ok) {
-        const updatedData = await updateResponse.json();
-        setUser(updatedData);
-        setMessage("Dados salvos com sucesso!");
-        setFile(null);
-        setPreviewUrl(null); // Limpa a URL de visualização após salvar
-        setIsEditing({ nome: false, endereco: false, telefone: false, senha: false });
-      } else {
-        const errorData = await updateResponse.json();
-        setMessage(`Erro ao salvar os dados: ${errorData.error || updateResponse.statusText}`);
-      }
     } catch (error) {
-      console.error("Erro ao fazer a requisição:", error);
-      const errorMessage = (error as Error).message || "Erro desconhecido";
-      setMessage(`Erro ao fazer a requisição: ${errorMessage}`);
+        console.error("Erro ao fazer a requisição:", error);
+        const errorMessage = (error as Error).message || "Erro desconhecido";
+        setMessage(`Erro ao fazer a requisição: ${errorMessage}`);
     }
-  };
+};
+
 
   if (loading) {
     return <div>Carregando...</div>;

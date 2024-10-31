@@ -18,7 +18,7 @@ interface Profile {
   cidade: string;
   estado: string;
   complemento: string;
-  password: string; // Se necessário, dependendo da lógica de atualização
+  password: string;
   id: number;
   status: string;
   created_at?: string;
@@ -29,7 +29,6 @@ interface ProfileProps {
   onRequestClose: () => void;
   addUser: (user: Profile) => void;
   user: Profile | null;
-  userType?: string;
 }
 
 const Profile = ({ isOpen, onRequestClose, addUser, user }: ProfileProps) => {
@@ -42,7 +41,8 @@ const Profile = ({ isOpen, onRequestClose, addUser, user }: ProfileProps) => {
       setProfile({
         ...user,
         foto_perfil: user.foto_perfil ? `http://localhost:5000/uploads/${user.foto_perfil}` : "",
-        password: "", // Inicie como vazio para permitir a troca
+        status: user.status === "Ativado" ? "Ativado" : "Desativado",
+        password: "",
       });
     }
   }, [isOpen, user]);
@@ -58,38 +58,7 @@ const Profile = ({ isOpen, onRequestClose, addUser, user }: ProfileProps) => {
     const file = e.target.files?.[0] || null;
     if (file) {
       setSelectedFile(file);
-      updateProfilePicture(file);
-    }
-  };
-
-  const updateProfilePicture = async (file: File) => {
-    const token = localStorage.getItem("authToken");
-    if (!token) {
-      setErrorMessage("Token não encontrado. Faça login novamente.");
-      return;
-    }
-
-    const formData = new FormData();
-    formData.append('image', file);
-
-    try {
-      const response = await fetch(`http://localhost:5000/api/users/${profile?.id}/photo`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-        body: formData,
-      });
-
-      if (!response.ok) {
-        throw new Error('Erro ao atualizar a foto de perfil');
-      }
-
-      const data = await response.json();
-      setProfile((prev) => prev ? { ...prev, foto_perfil: `http://localhost:5000/uploads/${data.imageUrl}` } : null);
-    } catch (error) {
-      console.error("Erro ao atualizar a foto de perfil:", error);
-      setErrorMessage("Erro ao atualizar a foto de perfil.");
+      setProfile((prev) => (prev ? { ...prev, foto_perfil: URL.createObjectURL(file) } : null));
     }
   };
 
@@ -112,20 +81,20 @@ const Profile = ({ isOpen, onRequestClose, addUser, user }: ProfileProps) => {
       return;
     }
 
-    const dataToSend = {
-      ...profile,
-      password: profile.password || undefined,
-    };
+    const formData = new FormData();
+    Object.entries(profile).forEach(([key, value]) => {
+      if (value !== undefined && key !== "foto_perfil") formData.append(key, value as string);
+    });
+    if (selectedFile) formData.append("foto_perfil", selectedFile);
 
     try {
       const url = `http://localhost:5000/api/users/${profile.id}`;
       const response = await fetch(url, {
         method: "PUT",
         headers: {
-          "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify(dataToSend),
+        body: formData,
       });
 
       if (!response.ok) {
@@ -169,6 +138,8 @@ const Profile = ({ isOpen, onRequestClose, addUser, user }: ProfileProps) => {
                   width={64}
                   height={64}
                   layout="responsive"
+                  key={profile.foto_perfil} // Força a atualização do Image quando a URL muda
+                  unoptimized
                 />
               ) : (
                 <span className="text-gray-500">Adicionar foto</span>
@@ -178,7 +149,6 @@ const Profile = ({ isOpen, onRequestClose, addUser, user }: ProfileProps) => {
         </div>
         {errorMessage && <div className={styles.error}>{errorMessage}</div>}
         <form className={styles.profileForm} onSubmit={handleSubmit}>
-          {/* Formulário permanece igual para os demais campos */}
           <div className={styles.formRow}>
             <input
               type="text"
