@@ -1,41 +1,48 @@
 "use client";
 import { MdAdd, MdRefresh, MdEdit, MdDelete } from "react-icons/md";
+import AddEvent from "../../components/events/AddEvent";
 import { useEffect, useState } from "react";
 import { useRouter } from 'next/navigation';
-import Image from 'next/image'; // Importe o componente Image
+import Image from 'next/image';
 
-interface WorkDay {
+interface Event {
   id: number;
-  online: string;  // URL ou nome do ícone de status
-  date: string;  // Data do evento
-  place: string;  // Nome do local
-  gifts: boolean;  // Se há brindes
-  tables: boolean;  // Se há mesas
-  type: string;  // Tipo do evento (normal, etc.)
+  casa_do_evento: string;
+  nome_do_evento: string;
+  data_do_evento: string;
+  hora_do_evento: string;
+  local_do_evento: string;
+  categoria: string;
+  mesas: number;
+  brinde: string;
 }
 
-export default function WorkDay() {
-  const [workDays, setWorkDays] = useState<WorkDay[]>([]);
+export default function EventsPage() {
+  const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [modalIsOpen, setModalIsOpen] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(0);
 
-  const fetchWorkDays = async () => {
+  const fetchEvents = async (page: number) => {
     setLoading(true);
     const token = localStorage.getItem('authToken');
 
     try {
-      const response = await fetch('https://api.vamoscomemorar.com.br/working_days?page=1&perPage=10', {
+      const response = await fetch(`http://localhost:5000/api/events?page=${page}&perPage=10`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
       });
-  
-      if (!response.ok) throw new Error('Erro ao buscar dias de funcionamento');
-      
+
+      if (!response.ok) throw new Error('Erro ao buscar eventos');
+
       const data = await response.json();
-  
-      if (Array.isArray(data.data)) {
-        setWorkDays(data.data); 
+
+      if (Array.isArray(data)) {
+        setEvents(data);
+        setTotalPages(1); // Ajuste conforme a lógica de paginação da sua API
       } else {
         setError('Dados inválidos.');
       }
@@ -45,70 +52,95 @@ export default function WorkDay() {
       } else {
         setError('Erro desconhecido');
       }
-      console.error('Erro ao buscar dias de funcionamento:', error);
+      console.error('Erro ao buscar eventos:', error);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchWorkDays();
-  }, []);
+    fetchEvents(currentPage);
+  }, [currentPage]);
+
+  const deleteEvent = async (id: number) => {
+    const token = localStorage.getItem('authToken');
+
+    try {
+      const response = await fetch(`http://localhost:5000/api/events/${id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) throw new Error('Erro ao excluir evento');
+
+      // Remove o evento da lista localmente após a exclusão
+      setEvents(events.filter(event => event.id !== id));
+    } catch (error) {
+      console.error('Erro ao excluir evento:', error);
+      setError('Erro ao excluir evento');
+    }
+  };
+
+  const openModal = () => setModalIsOpen(true);
+  const closeModal = () => setModalIsOpen(false);
+
+  const handlePreviousPage = () => {
+    if (currentPage > 1) setCurrentPage(currentPage - 1);
+  };
+
+  const handleNextPage = () => {
+    if (currentPage < totalPages) setCurrentPage(currentPage + 1);
+  };
 
   return (
     <div className="w-full p-6 bg-gray-100">
-      <h2 className="text-2xl font-semibold mb-4">Dias de Funcionamento</h2>
+      <h2 className="text-2xl font-semibold mb-4">Eventos</h2>
 
       <div className="flex items-center mb-6">
-        <button onClick={fetchWorkDays} className="bg-gray-500 hover:bg-gray-600 text-white p-4 rounded-full mr-4">
+        <button onClick={() => fetchEvents(currentPage)} className="bg-gray-500 hover:bg-gray-600 text-white p-4 rounded-full mr-4">
           <MdRefresh className="text-xl" />
         </button>
-        <button className="bg-blue-500 hover:bg-blue-600 text-white p-4 rounded-full">
+        <button onClick={openModal} className="bg-blue-500 hover:bg-blue-600 text-white p-4 rounded-full">
           <MdAdd className="text-xl" />
         </button>
       </div>
+      
+      <AddEvent
+        isOpen={modalIsOpen}
+        onRequestClose={closeModal}
+      />
 
-      {loading && <p>Carregando dias de funcionamento...</p>}
+      {loading && <p>Carregando eventos...</p>}
       {error && <p className="text-red-500">{error}</p>}
 
       <div className="overflow-x-auto bg-white shadow-lg rounded-lg">
         <table className="min-w-full text-left table-auto">
           <thead className="bg-gray-200">
             <tr>
-              <th className="px-6 py-3 font-semibold">On.</th>
-              <th className="px-6 py-3 font-semibold">Dia</th>
+              <th className="px-6 py-3 font-semibold">Dia do Evento</th>
               <th className="px-6 py-3 font-semibold">Local</th>
-              <th className="px-6 py-3 font-semibold">Brindes</th>
+              <th className="px-6 py-3 font-semibold">Brinde</th>
               <th className="px-6 py-3 font-semibold">Mesas</th>
-              <th className="px-6 py-3 font-semibold">Tipo</th>
+              <th className="px-6 py-3 font-semibold">Categoria</th>
               <th className="px-6 py-3 font-semibold">Ações</th>
             </tr>
           </thead>
           <tbody>
-            {workDays.length > 0 ? (
-              workDays.map((day) => (
-                <tr key={day.id} className="border-t">
-                  <td className="px-6 py-4">
-                    {day.online ? (
-                      <Image
-                        src={day.online}
-                        alt="Status"
-                        width={24} // Largura da imagem
-                        height={24} // Altura da imagem
-                        className="w-6 h-6"
-                      />
-                    ) : '—'}
-                  </td>
-                  <td className="px-6 py-4">{new Date(day.date).toLocaleDateString()}</td>
-                  <td className="px-6 py-4">{day.place}</td>
-                  <td className="px-6 py-4">{day.gifts ? '✔️' : '—'}</td>
-                  <td className="px-6 py-4">{day.tables ? '✔️' : '—'}</td>
-                  <td className="px-6 py-4">{day.type}</td>
+            {events.length > 0 ? (
+              events.map((event) => (
+                <tr key={event.id} className="border-t">
+                  <td className="px-6 py-4">{new Date(event.data_do_evento).toLocaleDateString()}</td>
+                  <td className="px-6 py-4">{event.casa_do_evento}</td>
+                  <td className="px-6 py-4">{event.brinde}</td>
+                  <td className="px-6 py-4">{event.mesas}</td>
+                  <td className="px-6 py-4">{event.categoria}</td>
                   <td className="px-6 py-4 flex space-x-2">
                     <button title="Editar">
                       <MdEdit className="text-blue-500 hover:text-blue-700" />
                     </button>
-                    <button title="Excluir">
+                    <button onClick={() => deleteEvent(event.id)} title="Excluir">
                       <MdDelete className="text-red-500 hover:text-red-700" />
                     </button>
                   </td>
@@ -116,17 +148,16 @@ export default function WorkDay() {
               ))
             ) : (
               <tr>
-                <td colSpan={7} className="px-6 py-4 text-center">Nenhum dia de funcionamento encontrado</td>
+                <td colSpan={6} className="px-6 py-4 text-center">Nenhum evento encontrado</td>
               </tr>
             )}
           </tbody>
         </table>
       </div>
 
-      {/* Paginação - se houver */}
       <div className="mt-6 flex justify-center">
-        <button className="p-2 border rounded-md mr-2">Anterior</button>
-        <button className="p-2 border rounded-md">Próximo</button>
+        <button onClick={handlePreviousPage} className="p-2 border rounded-md mr-2" disabled={currentPage === 1}>Anterior</button>
+        <button onClick={handleNextPage} className="p-2 border rounded-md" disabled={currentPage === totalPages}>Próximo</button>
       </div>
     </div>
   );

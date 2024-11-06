@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react"; 
+import React, { useState, useEffect, useCallback } from "react"; 
 import { useRouter } from "next/navigation";
 import { FiSettings, FiLogOut, FiLock, FiHelpCircle } from "react-icons/fi";
 import Link from "next/link";
@@ -21,7 +21,7 @@ export default function PerfilMobile() {
   const router = useRouter();
   const API_URL = process.env.NEXT_PUBLIC_API_URL_NETWORK || process.env.NEXT_PUBLIC_API_URL_LOCAL;
 
-  const fetchUserData = async (token: string) => {
+  const fetchUserData = useCallback(async (token: string) => {
     setLoading(true);
     try {
       console.log("Token usado:", token); // Log do token usado
@@ -82,17 +82,17 @@ export default function PerfilMobile() {
             <div className="w-24 h-24 bg-gray-200 rounded-full flex items-center justify-center mb-2">
               {user.foto_perfil ? (
                 <Image
-                  src={user.foto_perfil.startsWith("http") 
-                    ? user.foto_perfil 
-                    : `${API_URL}/uploads/${user.foto_perfil}`}
-                  width="64"
-                  height="64"
-                  alt="Foto de perfil"
-                  className="rounded-full w-full h-full object-cover"
-                />
-              ) : (
-                <span className="text-gray-500">Adicionar foto</span>
-              )}
+                src={user.foto_perfil.startsWith("http") 
+                  ? user.foto_perfil 
+                  : `${API_URL}/uploads/${user.foto_perfil}`}
+                width="64"
+                height="64"
+                alt="Foto de perfil"
+                className="rounded-full w-full h-full object-cover"
+              />
+            ) : (
+              <span className="text-gray-500">Adicionar foto</span>
+            )}
             </div>
             <h2 className="text-xl font-semibold">{user.name}</h2>
             <p className="text-gray-400">ID : {user.id}</p>

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import Modal from "react-modal";
+import Image from "next/image";
 import { Place } from "../types";
 
 interface PlaceModalProps {
@@ -27,12 +28,12 @@ export default function PlaceModal({ isOpen, onRequestClose, addPlace, place }: 
   const [status, setStatus] = useState(place?.status || "active");
 
   const commoditiesOptions = [
-    { name: "Pet Friendly", icon: "🐶", description: "Aceita animais de estimação", color: "bg-green-500" },
-    { name: "Área Aberta", icon: "🌳", description: "Possui área externa", color: "bg-blue-500" },
-    { name: "Acessível", icon: "♿", description: "Acessibilidade garantida", color: "bg-yellow-500" },
-    { name: "Estacionamento", icon: "🚗", description: "Possui estacionamento", color: "bg-red-500" },
-    { name: "+18", icon: "🍺", description: "Permitido apenas para maiores de 18 anos", color: "bg-purple-500" },
-    { name: "Mesas", icon: "🪑", description: "Possui mesas para os clientes", color: "bg-orange-500" },
+    { name: "Pet Friendly", icon: "🐶", description: "Aceita animais de estimação" },
+    { name: "Área Aberta", icon: "🌳", description: "Possui área externa" },
+    { name: "Acessível", icon: "♿", description: "Acessibilidade garantida" },
+    { name: "Estacionamento", icon: "🚗", description: "Possui estacionamento" },
+    { name: "+18", icon: "🍺", description: "Permitido apenas para maiores de 18 anos" },
+    { name: "Mesas", icon: "🪑", description: "Possui mesas para os clientes" },
   ];
 
   const [commodities, setCommodities] = useState(commoditiesOptions.map(option => ({ ...option, enabled: false })));
@@ -89,47 +90,49 @@ export default function PlaceModal({ isOpen, onRequestClose, addPlace, place }: 
   };
 
   const handleSubmit = async () => {
-    let logoUploadUrl = logoUrl;
+    const formData = new FormData();
 
-    // Upload logo if present
+    // Adiciona dados textuais
+    formData.append("id", place?.id || "");
+    formData.append("name", name);
+    formData.append("email", email);
+    formData.append("phone", phone);
+    formData.append("address", address);
+    formData.append("number", number);
+    formData.append("neighborhood", neighborhood);
+    formData.append("city", city);
+    formData.append("state", state);
+    formData.append("zipcode", zipcode);
+    formData.append("description", description);
+    formData.append("latitude", latitude);
+    formData.append("longitude", longitude);
+    formData.append("slug", slug);
+    formData.append("status", status);
+
+    // Adiciona logo, se houver
     if (logo) {
-        const uploadedLogoUrl = await uploadFile(logo);
-        if (uploadedLogoUrl) logoUploadUrl = uploadedLogoUrl;
+        formData.append("logo", logo);
     }
 
-    // Upload each photo if present
-    const uploadedPhotoUrls = await Promise.all(
-        photos.map(async (photo) => (photo ? await uploadFile(photo) : null))
-    );
+    // Adiciona as comodidades
+    formData.append("commodities", JSON.stringify(
+        commodities.map((commodity) => ({
+            name: commodity.name,
+            enabled: commodity.enabled,
+        }))
+    ));
 
-    const newPlace: Place = {
-        id: place?.id || null,
-        name,
-        email,
-        phone,
-        address,
-        number,
-        neighborhood,
-        city,
-        state,
-        zipcode,
-        description,
-        latitude,
-        longitude,
-        slug,
-        status,
-        logo: logoUploadUrl || "",
-        commodities: commodities.map(commodity => ({ name: commodity.name, enabled: commodity.enabled })),
-        photos: uploadedPhotoUrls.filter((url): url is string => !!url), // Only include valid URLs
-    };
+    // Adiciona as fotos, se houver
+    photos.forEach((photo, index) => {
+        if (photo) {
+            formData.append(`photos`, photo);
+        }
+    });
 
     try {
-        const response = await fetch("http://localhost:5000/api/places", {  // URL ajustada para a API de locais
-            method: place ? "PUT" : "POST", // Usa POST se for um novo local, PUT se for um existente
-            headers: {
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify(newPlace),
+        const response = await fetch("http://localhost:5000/api/places", {
+            method: place ? "PUT" : "POST",
+            body: formData,
         });
 
         if (response.ok) {
@@ -145,6 +148,7 @@ export default function PlaceModal({ isOpen, onRequestClose, addPlace, place }: 
 };
 
 
+
   const handleCommodityChange = (index: number) => {
     const updatedCommodities = [...commodities];
     updatedCommodities[index].enabled = !updatedCommodities[index].enabled;
@@ -155,7 +159,7 @@ export default function PlaceModal({ isOpen, onRequestClose, addPlace, place }: 
     <div>
       <div className="flex flex-col items-center mb-6">
         {logoUrl && (
-          <img src={logoUrl} alt="Pré-visualização da Logo" className="w-24 h-24 object-cover rounded-full mb-4 shadow-lg" />
+          <Image src={logoUrl} alt="Pré-visualização da Logo" className="w-24 h-24 object-cover rounded-full mb-4 shadow-lg" width={64} height={64} />
         )}
         <label className="cursor-pointer bg-blue-600 text-white px-4 py-2 rounded-md transition duration-300 hover:bg-blue-700">
           Selecione uma Logo
@@ -173,21 +177,20 @@ export default function PlaceModal({ isOpen, onRequestClose, addPlace, place }: 
         <input type="text" placeholder="Cidade" value={city} onChange={(e) => setCity(e.target.value)} className="w-full p-2 rounded-md border-gray-300 shadow-sm focus:outline-none focus:ring focus:ring-blue-500" />
         <input type="text" placeholder="Estado" value={state} onChange={(e) => setState(e.target.value)} className="w-full p-2 rounded-md border-gray-300 shadow-sm focus:outline-none focus:ring focus:ring-blue-500" />
         <input type="text" placeholder="CEP" value={zipcode} onChange={(e) => setZipcode(e.target.value)} className="w-full p-2 rounded-md border-gray-300 shadow-sm focus:outline-none focus:ring focus:ring-blue-500" />
-        <textarea placeholder="Descrição" value={description} onChange={(e) => setDescription(e.target.value)} className="w-full p-2 rounded-md border-gray-300 shadow-sm focus:outline-none focus:ring focus:ring-blue-500" rows={4} />
       </div>
     </div>
   );
 
   const renderStepTwo = () => (
     <div>
-      <h2 className="text-xl font-semibold mb-4">Comodidades</h2>
-      <div className="grid grid-cols-2 gap-4">
+      <h3 className="text-xl font-semibold mb-4">Selecione as Commodities</h3>
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
         {commodities.map((commodity, index) => (
-          <div key={index} className={`p-4 rounded-md ${commodity.enabled ? "bg-green-200" : "bg-gray-200"} transition-all duration-200`} onClick={() => handleCommodityChange(index)}>
-            <span className="text-2xl">{commodity.icon}</span>
-            <h3 className="font-semibold">{commodity.name}</h3>
-            <p>{commodity.description}</p>
-          </div>
+          <label key={index} className={`cursor-pointer flex items-center p-2 border rounded-md ${commodity.enabled ? "bg-blue-500 text-white" : "bg-gray-100"}`}>
+            <input type="checkbox" checked={commodity.enabled} onChange={() => handleCommodityChange(index)} className="hidden" />
+            <span className="mr-2">{commodity.icon}</span>
+            {commodity.name}
+          </label>
         ))}
       </div>
     </div>
@@ -195,34 +198,22 @@ export default function PlaceModal({ isOpen, onRequestClose, addPlace, place }: 
 
   const renderStepThree = () => (
     <div>
-      <h2 className="text-xl font-semibold mb-4">Fotos</h2>
-      <div className="grid grid-cols-2 gap-4">
-        {Array.from({ length: 10 }, (_, index) => (
-          <div key={index} className="relative">
+      <h3 className="text-xl font-semibold mb-4">Adicione Fotos</h3>
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+        {photos.map((_, index) => (
+          <div key={index} className="flex flex-col items-center">
             {previewPhotos[index] && (
-              <img src={previewPhotos[index]} alt={`Foto pré-visualização ${index + 1}`} className="w-full h-40 object-cover rounded-md shadow-md mb-2" />
+              <Image src={previewPhotos[index]} alt="Pré-visualização" className="w-24 h-24 object-cover mb-2 rounded-md shadow-md"  width={64} height={64} />
             )}
-            <label className="block cursor-pointer bg-blue-600 text-white text-center py-2 rounded-md transition duration-300 hover:bg-blue-700">
-              Selecionar Foto {index + 1}
-              <input type="file" accept="image/*" className="hidden" onChange={(e) => handlePhotoChange(index, e)} />
+            <label className="cursor-pointer bg-blue-600 text-white px-4 py-2 rounded-md transition duration-300 hover:bg-blue-700">
+              Foto {index + 1}
+              <input type="file" className="hidden" accept="image/*" onChange={(e) => handlePhotoChange(index, e)} />
             </label>
           </div>
         ))}
       </div>
     </div>
   );
-
-  const handleNext = () => {
-    if (step < 3) {
-      setStep(step + 1);
-    }
-  };
-
-  const handlePrev = () => {
-    if (step > 1) {
-      setStep(step - 1);
-    }
-  };
 
   return (
     <Modal isOpen={isOpen} onRequestClose={onRequestClose} contentLabel="Add Place" ariaHideApp={false}>
@@ -231,11 +222,11 @@ export default function PlaceModal({ isOpen, onRequestClose, addPlace, place }: 
       {step === 2 && renderStepTwo()}
       {step === 3 && renderStepThree()}
       <div className="flex justify-between mt-4">
-        <button onClick={handlePrev} className="bg-gray-300 px-4 py-2 rounded-md" disabled={step === 1}>
+        <button onClick={() => setStep(step - 1)} className="bg-gray-300 px-4 py-2 rounded-md" disabled={step === 1}>
           Voltar
         </button>
         {step < 3 ? (
-          <button onClick={handleNext} className="bg-blue-600 text-white px-4 py-2 rounded-md">
+          <button onClick={() => setStep(step + 1)} className="bg-blue-600 text-white px-4 py-2 rounded-md">
             Próximo
           </button>
         ) : (

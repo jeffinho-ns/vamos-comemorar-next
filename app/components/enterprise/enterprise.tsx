@@ -28,7 +28,7 @@ interface EnterpriseProps {
 }
 
 const Enterprise: React.FC<EnterpriseProps> = ({ isOpen, onRequestClose, company }) => {
-  const initialEnterpriseState: Establishment = {
+  const initialEnterpriseState = useMemo<Establishment>(() => ({
     cnpj: "",
     nome: "",
     telefone: "",
@@ -43,7 +43,7 @@ const Enterprise: React.FC<EnterpriseProps> = ({ isOpen, onRequestClose, company
     cidade: "",
     estado: "",
     status: "Analisando",
-  };
+  }), []);
 
   const [enterprise, setEnterprise] = useState<Establishment>(initialEnterpriseState);
 

@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import Modal from "react-modal";
+import Image from "next/image";
 import { NewUser, User } from "../../types/types";
 
 // Defina as propriedades do componente
@@ -84,7 +85,7 @@ const AddUser: React.FC<AddUserProps> = ({
         {/* Seção da imagem e botão de envio */}
         <div className="flex flex-col items-center mb-6">
           {fotoPreview && (
-            <img
+            <Image
               src={fotoPreview}
               alt="Pré-visualização"
               className="w-24 h-24 rounded-full object-cover border mb-4"

@@ -51,7 +51,7 @@ export default function Companies() { // Mudando o nome da função para Compani
     const token = localStorage.getItem('authToken');
     
     try {
-      const response = await fetch('https://api.vamoscomemorar.com.br/companies', {
+      const response = await fetch('http://localhost:5000/places', {
         headers: {
           'Authorization': `Bearer ${token}`,
         },

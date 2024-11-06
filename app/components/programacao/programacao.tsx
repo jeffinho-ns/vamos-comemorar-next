@@ -1,31 +1,17 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import ReservationModal from "../reservationModal/reservationModal";
 import { MdEvent, MdAccessTime } from "react-icons/md";
-import Image, { StaticImageData } from "next/image";
-
-// Importação das imagens
-import eventImg1 from "@/app/assets/programacao/prog-1.png";
-import eventImg2 from "@/app/assets/programacao/prog-2.png";
-import eventImg3 from "@/app/assets/programacao/prog-3.png";
-import eventImg4 from "@/app/assets/programacao/prog-4.png";
-import eventImg5 from "@/app/assets/programacao/prog-5.png";
-import eventImg6 from "@/app/assets/programacao/prog-6.png";
-import eventImg7 from "@/app/assets/programacao/prog-7.png";
-import eventImg8 from "@/app/assets/programacao/prog-8.png";
-import eventImg9 from "@/app/assets/programacao/prog-9.png";
-import eventImg10 from "@/app/assets/programacao/prog-10.png";
-import eventImg11 from "@/app/assets/programacao/prog-11.png";
-import eventImg12 from "@/app/assets/programacao/prog-12.png";
-import eventImg13 from "../../assets/programacao/prog-13.png";
+import Image from "next/image";
 
 interface EventData {
-  img: string;
-  title: string;
-  date: string;
-  time: string;
-  price: string;
-  logo?: string | StaticImageData;
-  location?: string;
+  id: number;
+  casa_do_evento: string;
+  nome_do_evento: string;
+  data_do_evento: string;
+  hora_do_evento: string;
+  valor_da_entrada: string;
+  imagem_do_evento: string;
+  local_do_evento: string;
 }
 
 interface ProgramacaoProps {
@@ -35,11 +21,26 @@ interface ProgramacaoProps {
 }
 
 const Programacao: React.FC<ProgramacaoProps> = ({ barId, logo, location }) => {
+  const [events, setEvents] = useState<EventData[]>([]);
   const [modalIsOpen, setModalIsOpen] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<EventData | null>(null);
 
+  useEffect(() => {
+    const fetchEvents = async () => {
+      try {
+        const response = await fetch("http://localhost:5000/api/events");
+        const data = await response.json();
+        setEvents(data.slice(0, 9)); // Limita a quantidade de eventos a 9
+      } catch (error) {
+        console.error("Erro ao buscar eventos:", error);
+      }
+    };
+
+    fetchEvents();
+  }, []);
+
   const openModal = (eventData: EventData) => {
-    setSelectedEvent({ ...eventData, logo: logo, location });
+    setSelectedEvent({ ...eventData, logo, location });
     setModalIsOpen(true);
   };
 
@@ -51,39 +52,18 @@ const Programacao: React.FC<ProgramacaoProps> = ({ barId, logo, location }) => {
     <div className="container mx-auto px-4 py-8 bg-gray-100">
       <h2 className="text-4xl font-bold text-center mb-12 text-gray-900">Programação do Mês</h2>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
-        <EventCard
-          img={eventImg13.src}
-          title="ENCONTRIN"
-          date="28/07"
-          time="17h"
-          price="R$50"
-          openModal={openModal}
-        />
-        <EventCard
-          img={eventImg2.src}
-          title="NOITE DAS PATROAS"
-          date="27/07"
-          time="17h"
-          price="R$50"
-          openModal={openModal}
-        />
-        <EventCard
-          img={eventImg3.src}
-          title="BAILE DO FREGUÊS"
-          date="21/07"
-          time="17h"
-          price="R$50"
-          openModal={openModal}
-        />
-        <EventCard
-          img={eventImg4.src}
-          title="COPA DO MUNDO"
-          date="Hoje"
-          time="17h"
-          price="R$50"
-          openModal={openModal}
-        />
-        {/* Adicione mais EventCards conforme necessário */}
+        {events.map((event) => (
+          <EventCard
+            key={event.id}
+            img={`http://localhost:5000/uploads/events/${event.imagem_do_evento}`}
+            title={event.nome_do_evento}
+            date={new Date(event.data_do_evento).toLocaleDateString("pt-BR")}
+            time={event.hora_do_evento}
+            price={`R$${event.valor_da_entrada}`}
+            openModal={openModal}
+            eventData={event}
+          />
+        ))}
       </div>
 
       {modalIsOpen && selectedEvent && (
@@ -106,19 +86,20 @@ interface EventCardProps {
   time: string;
   price: string;
   openModal: (eventData: EventData) => void;
+  eventData: EventData;
 }
 
-const EventCard: React.FC<EventCardProps> = ({ img, title, date, time, price, openModal }) => (
+const EventCard: React.FC<EventCardProps> = ({ img, title, date, time, price, openModal, eventData }) => (
   <div
     className="relative bg-white rounded-lg shadow-lg overflow-hidden cursor-pointer transition-transform transform hover:scale-105"
-    onClick={() => openModal({ img, title, date, time, price })}
+    onClick={() => openModal(eventData)}
   >
-    <div className="relative h-64 w-full"> {/* Define o contêiner do Image */}
+    <div className="relative h-64 w-full">
       <Image
         src={img}
         alt={title}
-        layout="fill" // Usa o layout fill para ocupar o contêiner
-        objectFit="cover" // Ajusta para cobrir o contêiner completamente
+        layout="fill"
+        objectFit="cover"
         className="rounded-t-lg"
       />
     </div>

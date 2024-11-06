@@ -80,21 +80,22 @@ export default function Businesses() {
   const handleDelete = async (businessId: string) => {
     const confirmDelete = window.confirm("Tem certeza que deseja excluir este negócio?");
     if (confirmDelete) {
-      setLoading(true);
-      try {
-        await fetch(`http://localhost:5000/api/places/${businessId}`, {
-          method: 'DELETE',
-        });
-        setBusinesses((prev) => prev.filter((business) => business.id !== Number(businessId)));
-        alert('Negócio excluído com sucesso!');
-      } catch (error) {
-        console.error('Erro ao excluir o negócio:', error);
-        alert('Ocorreu um erro ao tentar excluir o negócio.');
-      } finally {
-        setLoading(false);
-      }
+        setLoading(true);
+        try {
+            await fetch(`http://localhost:5000/api/places/${businessId}`, { // Substitua :id por businessId
+                method: 'DELETE',
+            });
+            setBusinesses((prev) => prev.filter((business) => business.id !== Number(businessId)));
+            alert('Negócio excluído com sucesso!');
+        } catch (error) {
+            console.error('Erro ao excluir o negócio:', error);
+            alert('Ocorreu um erro ao tentar excluir o negócio.');
+        } finally {
+            setLoading(false);
+        }
     }
-  };
+};
+
 
   const addPlace = (newPlace: Place) => {
     setBusinesses((prev) => {
@@ -201,13 +202,14 @@ export default function Businesses() {
               filteredBusinesses.map((business) => (
                 <tr key={business.id} className="border-t">
                   <td className="px-6 py-4">
-                    <Image 
-                      src={business.logo.startsWith('http') ? business.logo : `http://localhost:5000/uploads/${business.logo}`} 
-                      alt={business.name} 
-                      width={48} 
-                      height={48} 
-                      className="object-cover rounded-full" 
-                    />
+                  <Image 
+  src={business.logo.startsWith('http') ? business.logo : `http://localhost:5000/uploads/${business.logo}`} 
+  alt={business.name} 
+  width={48} 
+  height={48} 
+  className="object-cover rounded-full" 
+  unoptimized
+/>
                   </td>
                   <td className="px-6 py-4">{business.name}</td>
                   <td className="px-6 py-4">{business.email}</td>
