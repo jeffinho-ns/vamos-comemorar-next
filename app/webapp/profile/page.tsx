@@ -10,9 +10,9 @@ import Image from "next/image";
 import "./profile.module.scss";
 
 interface User {
-  id: string; // ou number, dependendo do tipo
+  id: string; 
   name: string;
-  foto_perfil?: string; // O ? indica que este campo é opcional
+  foto_perfil?: string; 
 }
 
 export default function PerfilMobile() {
@@ -24,7 +24,7 @@ export default function PerfilMobile() {
   const fetchUserData = useCallback(async (token: string) => {
     setLoading(true);
     try {
-      console.log("Token usado:", token); // Log do token usado
+      console.log("Token usado:", token); 
       const response = await fetch(`${API_URL}/api/users/me`, {
         method: "GET",
         headers: {
@@ -45,18 +45,19 @@ export default function PerfilMobile() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [API_URL, router]);
 
   useEffect(() => {
     const token = localStorage.getItem('authToken');
-    console.log("Token recuperado:", token); // Log do token recuperado
+    console.log("Token recuperado:", token); 
 
     if (!token) {
       router.push('/login');
+      return;  // Impede que a página continue sendo renderizada sem o token
     } else {
       fetchUserData(token);
     }
-  }, [router]);
+  }, [fetchUserData, router]);
 
   const handleLogout = () => {
     localStorage.removeItem('authToken');

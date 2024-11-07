@@ -1,147 +1,185 @@
 "use client";
 
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import Image from "next/image";
 import Link from "next/link";
 import { MdSearch } from "react-icons/md";
 import { FaHeart } from "react-icons/fa";
-
+import { useRouter } from "next/navigation"; 
 import Header from "./components/header/header";
 import Form from "./components/form/form";
 import Footer from "./components/footer/footer";
+import "../webapp/global.scss";
 
-import img01 from "@/app/webapp/assetsMobile/justino.png";
-import img02 from "@/app/webapp/assetsMobile/ohfregues.png";
-import img03 from "@/app/webapp/assetsMobile/pracinha.png";
-import img04 from "@/app/webapp/assetsMobile/highline.png";
+// Importação das imagens das logos
+import Logo1 from "../webapp/assetsMobile/logos/justinologo.png"
+import Logo2 from "../webapp/assetsMobile/logos/logo-pracinha.png"
+import Logo3 from "../webapp/assetsMobile/logos/logoOhfregues.png"
+import Logo4 from "../webapp/assetsMobile/logos/highlinelogo.png"
 
-import { redirect } from 'next/navigation';
+interface Event {
+  id: string;
+  title: string;
+  address: string;
+  image: string;
+  place: {
+    name: string;
+    logo: string;
+  };
+}
 
 export default function Home() {
+  const [events, setEvents] = useState<Event[]>([]);
+  const [isClient, setIsClient] = useState(false); 
+  const API_URL = process.env.NEXT_PUBLIC_API_URL_NETWORK || process.env.NEXT_PUBLIC_API_URL_LOCAL;
+
+  const router = useRouter();  
 
   useEffect(() => {
-    const token = localStorage.getItem('authToken');
-    
-    if (!token) {
-      redirect('/login');
-    }
+    setIsClient(true);
   }, []);
+
+  useEffect(() => {
+    if (!isClient) return;
+
+    const token = localStorage.getItem('authToken');
+    if (!token) {
+      router.push('/login'); 
+      return;
+    }
+
+    fetch(`${API_URL}/api/events`)
+      .then((response) => response.json())
+      .then((data) => {
+        if (Array.isArray(data)) {
+          setEvents(data);  
+        }
+      })
+      .catch((error) => console.error('Erro ao buscar eventos:', error));
+  }, [API_URL, isClient, router]);
+
+  const Card: React.FC<{ event: Event }> = ({ event }) => (
+    <Link href={`/webapp/events/${event.id}`}>
+      <motion.div
+        className="relative bg-white rounded-lg shadow-md overflow-hidden card-container"
+        initial={{ opacity: 0, x: -100 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ duration: 0.5 }}
+      >
+        <div className="relative w-full h-[550px]">
+          <div className="absolute inset-0 bg-black opacity-50 z-10" />
+          <Image
+            src={`${API_URL}/uploads/events/${event.imagem_do_evento}`}
+            alt={event.nome_do_evento}
+            layout="fill"
+            objectFit="cover"
+            className="absolute inset-0 w-full h-full object-cover"
+            unoptimized
+          />
+          <div className="absolute bottom-4 left-4 text-shadow z-20">
+            <h2 className="text-white text-xl font-bold mb-1">{event.casa_do_evento}</h2>
+            <p className="text-white">{event.local_do_evento}</p>
+          </div>
+          <div className="absolute bottom-4 right-4 bg-white rounded-full p-2 z-20">
+            <FaHeart className="text-red-500 text-2xl" />
+          </div>
+        </div>
+        <div className="card-button">Reservar</div>
+      </motion.div>
+    </Link>
+  );
 
   return (
     <>
       <Header />
-      <div id="home-container" className="flex flex-col min-h-screen">
+
+      <div id="home-container" className="container-mobile">
         <meta name="theme-color" content="#000000" />
         <link rel="apple-touch-icon" href="/icon-192x192.png" />
-        
-        <p className="text-center text-2xl font-medium py-10 px-6">Qual evento você procura?</p>
+        <p className="title">Qual evento você procura? </p>
 
-
-        {/* Barra de busca */}
-        <div className="flex justify-center w-full px-12 py-4">
-          <Form
-            id="form-search"
-            className="w-full px-4 py-2"
-          >
-            <div className="flex items-center w-full px-4 py-2">
-              <div className="relative w-full">
-                <MdSearch className="absolute left-4 top-1/2 transform -translate-y-1/2 text-white text-xl" />
+        <div className="flex justify-center w-full px-4 py-6">
+          <Form id="form-search" className="w-full border-b-0 form-search bg-white px-4 py-2">
+            <div className="grid grid-cols-1 gap-4">
+              <div className="flex items-center w-full relative">
+                <MdSearch className="text-blue-600 text-2xl absolute right-2" />
                 <input
                   placeholder="Buscar eventos"
                   type="text"
                   value=""
                   id="data"
-                  className="bg-gray-800 text-white rounded-full pl-12 pr-4 py-3 w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="bg-gray-300 p-2 rounded-lg w-full border-blue-600"
                 />
               </div>
             </div>
           </Form>
         </div>
-        
-        {/* Banner de topo com bordas mais arredondadas */}
-        <div className="flex justify-center items-center w-full h-auto px-4 mb-8">
-          <motion.div
-            className="relative w-full h-[250px] sm:h-[300px] rounded-2xl overflow-hidden"
-            initial={{ opacity: 0, x: -100 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.5 }}
-          >
-            <Image
-              src={img01}
-              alt="Seu Justino"
-              layout="fill"
-              objectFit="cover"
-              className="absolute inset-0 w-full h-full object-cover"
-            />
-          </motion.div>
+
+        {/* Exibindo as logos das casas - Como não temos mais a API, você pode adicionar aqui as logos diretamente */}
+        <div className="flex justify-center gap-6 my-8">
+          <Link href="/webapp/justino">
+            <div className="flex items-center justify-center w-20 h-20 bg-white rounded-full shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-110">
+              <Image
+                src={Logo1}  // Usando as logos importadas
+                alt="Justino"
+                width={50}
+                height={50}
+                className="object-contain rounded-full"
+                unoptimized
+              />
+            </div>
+          </Link>
+          <Link href="/webapp/pracinha">
+            <div className="flex items-center justify-center w-20 h-20 bg-white rounded-full shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-110">
+              <Image
+                src={Logo2}  // Usando as logos importadas
+                alt="Pracinha"
+                width={50}
+                height={50}
+                className="object-contain rounded-full"
+                unoptimized
+              />
+            </div>
+          </Link>
+          <Link href="/webapp/ohfregues">
+            <div className="flex items-center justify-center w-20 h-20 bg-white rounded-full shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-110">
+              <Image
+                src={Logo3}  // Usando as logos importadas
+                alt="Oh Freguês"
+                width={50}
+                height={50}
+                className="object-contain rounded-full"
+                unoptimized
+              />
+            </div>
+          </Link>
+          <Link href="/webapp/highline">
+            <div className="flex items-center justify-center w-20 h-20 bg-white rounded-full shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-110">
+              <Image
+                src={Logo4}  // Usando as logos importadas
+                alt="Highline"
+                width={50}
+                height={50}
+                className="object-contain rounded-full"
+                unoptimized
+              />
+            </div>
+          </Link>
         </div>
 
-        
-        {/* Cards de eventos na parte inferior */}
-        <main className="container mx-auto px-4 pb-8">
-          <div className="flex gap-4 overflow-x-auto pb-4">
-            <Link href="/webapp/justino">
-              <motion.div className="relative bg-white rounded-lg shadow-md overflow-hidden flex-shrink-0 w-[calc(100vw/1.5)] sm:w-[calc(100%/1.5)] h-[550px] sm:h-auto">
-                <div className="relative w-full h-[550px]">
-                  <Image src={img01} alt="Seu Justino" layout="fill" objectFit="cover" className="absolute inset-0 w-full h-full object-cover" />
-                  <div className="absolute bottom-4 left-4 text-shadow">
-                    <h2 className="text-white text-xl font-bold mb-1">Seu Justino</h2>
-                    <p className="text-white">Vila Madalena - SP</p>
-                  </div>
-                  <div className="absolute bottom-4 right-4 bg-white rounded-full p-2">
-                    <FaHeart className="text-red-500 text-2xl" />
-                  </div>
-                </div>
-              </motion.div>
-            </Link>
-            <Link href="/webapp/ohfregues">
-              <motion.div className="relative bg-white rounded-lg shadow-md overflow-hidden flex-shrink-0 w-[calc(100vw/1.5)] sm:w-[calc(100%/1.5)] h-[550px] sm:h-auto">
-                <div className="relative w-full h-[550px]">
-                  <Image src={img02} alt="Oh Fregues" layout="fill" objectFit="cover" className="absolute inset-0 w-full h-full object-cover" />
-                  <div className="absolute bottom-4 left-4 text-shadow">
-                    <h2 className="text-white text-xl font-bold mb-1">Oh Fregues</h2>
-                    <p className="text-white">Largo da Matriz de Nossa Senhora do Ó, 145</p>
-                  </div>
-                  <div className="absolute bottom-4 right-4 bg-white rounded-full p-2">
-                    <FaHeart className="text-red-500 text-2xl" />
-                  </div>
-                </div>
-              </motion.div>
-            </Link>
-            {/* Outros cards continuam como antes */}
-            <Link href="/webapp/pracinha">
-              <motion.div className="relative bg-white rounded-lg shadow-md overflow-hidden flex-shrink-0 w-[calc(100vw/1.5)] sm:w-[calc(100%/1.5)] h-[550px] sm:h-auto">
-                <div className="relative w-full h-[550px]">
-                  <Image src={img03} alt="Pracinha" layout="fill" objectFit="cover" className="absolute inset-0 w-full h-full object-cover" />
-                  <div className="absolute bottom-4 left-4 text-shadow">
-                    <h2 className="text-white text-xl font-bold mb-1">Pracinha</h2>
-                    <p className="text-white">Vila Madalena - SP</p>
-                  </div>
-                  <div className="absolute bottom-4 right-4 bg-white rounded-full p-2">
-                    <FaHeart className="text-red-500 text-2xl" />
-                  </div>
-                </div>
-              </motion.div>
-            </Link>
-            <Link href="/webapp/highline">
-              <motion.div className="relative bg-white rounded-lg shadow-md overflow-hidden flex-shrink-0 w-[calc(100vw/1.5)] sm:w-[calc(100%/1.5)] h-[550px] sm:h-auto">
-                <div className="relative w-full h-[550px]">
-                  <Image src={img04} alt="High Line" layout="fill" objectFit="cover" className="absolute inset-0 w-full h-full object-cover" />
-                  <div className="absolute bottom-4 left-4 text-shadow">
-                    <h2 className="text-white text-xl font-bold mb-1">High Line</h2>
-                    <p className="text-white">Vila Madalena - SP</p>
-                  </div>
-                  <div className="absolute bottom-4 right-4 bg-white rounded-full p-2">
-                    <FaHeart className="text-red-500 text-2xl" />
-                  </div>
-                </div>
-              </motion.div>
-            </Link>
-          </div>
-        </main>
+        {/* Exibindo os eventos */}
+        <div className="cards-container grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 my-8">
+          {events.length > 0 ? (
+            events.map((event) => (
+              <Card key={event.id} event={event} />
+            ))
+          ) : (
+            <p>Carregando eventos...</p>
+          )}
+        </div>
 
-        <div className="mt-auto">
+        <div className="footerContainer">
           <Footer />
         </div>
       </div>

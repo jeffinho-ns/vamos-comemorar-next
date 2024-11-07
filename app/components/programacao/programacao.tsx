@@ -95,13 +95,14 @@ const EventCard: React.FC<EventCardProps> = ({ img, title, date, time, price, op
     onClick={() => openModal(eventData)}
   >
     <div className="relative h-64 w-full">
+      {/* Removendo objectFit e usando CSS para cobrir a imagem */}
       <Image
-        src={img}
-        alt={title}
-        layout="fill"
-        objectFit="cover"
-        className="rounded-t-lg"
-      />
+  src={img}
+  alt={title}
+  layout="fill"
+  className="rounded-t-lg object-cover"
+  unoptimized // Desativa a otimização de imagem
+/>
     </div>
     <div className="absolute bottom-0 left-0 w-full p-4 bg-gradient-to-t from-black to-transparent text-white">
       <h3 className="text-xl font-semibold mb-2">{title}</h3>
@@ -117,5 +118,4 @@ const EventCard: React.FC<EventCardProps> = ({ img, title, date, time, price, op
     </div>
   </div>
 );
-
 export default Programacao;
