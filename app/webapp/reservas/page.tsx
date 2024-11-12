@@ -10,23 +10,22 @@ import defaultLogo from "@/app/assets/highline/highlinelogo.png";
 import Modal from "react-modal";
 
 const Reservas = () => {
-  const [eventData, setEventData] = useState<any>(null); // Estado para armazenar os dados do evento
+  const [eventData, setEventData] = useState<any>(null);
   const [logoSrc, setLogoSrc] = useState(defaultLogo.src);
   const [modalIsOpen, setModalIsOpen] = useState(false);
   const [expandedImage, setExpandedImage] = useState<string | null>(null);
 
-  // Efeito para carregar os dados do evento do localStorage
   useEffect(() => {
     const storedEventData = localStorage.getItem("selectedEvent");
     if (storedEventData) {
-      setEventData(JSON.parse(storedEventData)); // Carrega os dados do evento
+      setEventData(JSON.parse(storedEventData));
     } else {
       console.log("Nenhum evento selecionado.");
     }
 
     const storedLogo = localStorage.getItem("lastPageLogo");
     if (storedLogo) {
-      setLogoSrc(storedLogo); // Atualiza a logo com a última logo armazenada
+      setLogoSrc(storedLogo);
     }
   }, []);
 
@@ -35,7 +34,7 @@ const Reservas = () => {
   const openImage = (img: string) => setExpandedImage(img);
   const closeImage = () => setExpandedImage(null);
 
-  if (!eventData) return <div>Carregando...</div>; // Exibe "Carregando..." enquanto os dados não são carregados
+  if (!eventData) return <div>Carregando...</div>;
 
   return (
     <>
@@ -68,7 +67,9 @@ const Reservas = () => {
               </div>
             </div>
 
-            <ReservationModal isOpen={modalIsOpen} onRequestClose={closeModal} />
+            {/* Passando eventData para ReservationModal */}
+            <button onClick={openModal} className={styles.openModalButton}>Abrir Reserva</button>
+            <ReservationModal isOpen={modalIsOpen} onRequestClose={closeModal} eventData={eventData} />
           </div>
         </div>
       </div>

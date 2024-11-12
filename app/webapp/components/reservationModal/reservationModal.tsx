@@ -1,11 +1,7 @@
-
-import React, { useState, useEffect } from "react";
-import Image, { StaticImageData } from "next/image";
+import React, { useState } from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
-import Modal from "react-modal";
 import styles from "./reservationModal.module.scss";
-import gin from "../../../assets/programacao/gin.png";
-
 import icon1 from "../../../assets/icones/area.png";
 import icon2 from "../../../assets/icones/acessivel.png";
 import icon3 from "../../../assets/icones/estacionamento.png";
@@ -15,25 +11,19 @@ import icon5 from "../../../assets/icones/mesa.png";
 interface ReservationModalProps {
   isOpen: boolean;
   onRequestClose: () => void;
+  eventData: {
+    data_do_evento: string;
+    nome_do_evento: string;
+    valor_entrada: string;
+  } | null;
 }
 
-const ReservationModal: React.FC<ReservationModalProps> = ({ isOpen, onRequestClose }) => {
+const ReservationModal: React.FC<ReservationModalProps> = ({ isOpen, onRequestClose, eventData }) => {
   const [guests, setGuests] = useState(0);
   const [selectedTable, setSelectedTable] = useState("Selecionar Mesa");
-  const [eventDate, setEventDate] = useState("");
-  const [eventName, setEventName] = useState("");
   const router = useRouter();
 
-  useEffect(() => {
-    const savedEventName = localStorage.getItem("selectedEventTitle");
-    const savedEventDate = localStorage.getItem("selectedEventDate");
-    if (savedEventName) {
-      setEventName(savedEventName);
-    }
-    if (savedEventDate) {
-      setEventDate(savedEventDate);
-    }
-  }, []);
+  if (!isOpen || !eventData) return null; // Retorna nulo se o modal estiver fechado ou sem dados
 
   const incrementGuests = () => setGuests(guests + 1);
   const decrementGuests = () => setGuests(guests > 0 ? guests - 1 : 0);
@@ -44,106 +34,51 @@ const ReservationModal: React.FC<ReservationModalProps> = ({ isOpen, onRequestCl
       JSON.stringify({
         guests,
         table: selectedTable,
-        date: eventDate,
-        eventName,
+        date: eventData.data_do_evento,
+        eventName: eventData.nome_do_evento,
       })
     );
-
     router.push("/webapp/minhasReservas");
   };
 
   return (
-    <div className={`${styles.modalContent} mobile-only`}>
+    <Modal
+      isOpen={isOpen}
+      onRequestClose={onRequestClose}
+      contentLabel="Reservation Modal"
+      className={styles.modalContent}
+      overlayClassName={styles.overlay}
+    >
       <div className={styles.header}>
-        <div className={styles.rightColumn}>
-          <div className={styles.iconContainer}>
-            <div className={styles.iconItem}>
-              <Image src={icon1} width={40} height={40} alt="Área aberta" />
-              <p className={styles.iconTitle}>Área aberta</p>
-            </div>
-            <div className={styles.iconItem}>
-              <Image src={icon2} width={40} height={40} alt="Acessível" />
-              <p className={styles.iconTitle}>Acessível</p>
-            </div>
-            <div className={styles.iconItem}>
-              <Image src={icon3} width={40} height={40} alt="Estacionamento" />
-              <p className={styles.iconTitle}>Estacionamento</p>
-            </div>
-            <div className={styles.iconItem}>
-              <Image src={icon4} width={40} height={40} alt="+18" />
-              <p className={styles.iconTitle}>+18</p>
-            </div>
-            <div className={styles.iconItem}>
-              <Image src={icon5} width={40} height={40} alt="Mesas" />
-              <p className={styles.iconTitle}>Mesas</p>
-            </div>
-          </div>
-        </div>
+        <h2>Reserva para {eventData.nome_do_evento}</h2>
       </div>
 
       <div className={styles.body}>
         <div className={styles.section}>
-          <div className={styles.sectionHeader}>
-            <h3 className={styles.sectionTitle}>Convidados</h3>
-            <div className={styles.counter}>
-              <button onClick={decrementGuests} className={styles.counterButton}>
-                -
-              </button>
-              <span className={styles.counterValue}>{guests}</span>
-              <button onClick={incrementGuests} className={styles.counterButton}>
-                +
-              </button>
-            </div>
-          </div>
+          <h3>Data do Evento</h3>
+          <p>{new Date(eventData.data_do_evento).toLocaleDateString()}</p>
         </div>
 
         <div className={styles.section}>
-          <div className={styles.sectionHeader}>
-            <h3 className={styles.sectionTitle}>Mesas</h3>
-            <div className={styles.priceContainer}>
-              <select
-                className={styles.select}
-                value={selectedTable}
-                onChange={(e) => setSelectedTable(e.target.value)}
-              >
-                <option value="Selecionar Mesa">Selecionar Mesa</option>
-                <option value="Bistro">Bistro</option>
-                <option value="Salão central">Salão central</option>
-                <option value="Área externa">Área externa</option>
-              </select>
-              <p className={styles.priceInfo}>R$ 800 / consome R$ 600</p>
-            </div>
-          </div>
+          <h3>Valor da Entrada</h3>
+          <p>{eventData.valor_entrada || "Valor não disponível"}</p>
         </div>
 
         <div className={styles.section}>
-          <div className={styles.sectionHeader}>
-            <h3 className={styles.sectionTitle}>Data do Evento</h3>
-            <p className={styles.eventDateDisplay}>{eventDate || "Data não disponível"}</p>
+          <h3>Convidados</h3>
+          <div className={styles.counter}>
+            <button onClick={decrementGuests}>-</button>
+            <span>{guests}</span>
+            <button onClick={incrementGuests}>+</button>
           </div>
-        </div>
-
-        <div className={styles.section}>
-          <div className={styles.sectionHeader}>
-
-            <h3 className={styles.eventInput}>{eventName}</h3>
- 
-
-          </div>
-          
         </div>
       </div>
 
       <div className={styles.footer}>
-        <button onClick={handleReservation} className={styles.reserveButton}>
-          Solicitar Reserva
-        </button>
-        <p className={styles.disclaimer}>
-          * O estabelecimento não garante que todos os convidados terão assentos
-          e a exata localização da mesa.
-        </p>
+        <button onClick={handleReservation}>Solicitar Reserva</button>
+        <button onClick={onRequestClose}>Fechar</button>
       </div>
-    </div>
+    </Modal>
   );
 };
 
