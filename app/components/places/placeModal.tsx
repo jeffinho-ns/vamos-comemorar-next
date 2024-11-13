@@ -26,6 +26,7 @@ export default function PlaceModal({ isOpen, onRequestClose, addPlace, place }: 
   const [longitude, setLongitude] = useState(place?.longitude || "");
   const [slug, setSlug] = useState(place?.slug || "");
   const [status, setStatus] = useState(place?.status || "active");
+  const API_URL = process.env.NEXT_PUBLIC_API_URL_NETWORK || process.env.NEXT_PUBLIC_API_URL_LOCAL;
 
   const commoditiesOptions = [
     { name: "Pet Friendly", icon: "🐶", description: "Aceita animais de estimação" },
@@ -72,7 +73,7 @@ export default function PlaceModal({ isOpen, onRequestClose, addPlace, place }: 
     formData.append("file", file);
 
     try {
-      const response = await fetch("http://localhost:5000/uploads", {
+      const response = await fetch(`${API_URL}/uploads`, {
         method: "POST",
         body: formData,
       });
@@ -130,7 +131,7 @@ export default function PlaceModal({ isOpen, onRequestClose, addPlace, place }: 
     });
 
     try {
-        const response = await fetch("http://localhost:5000/api/places", {
+        const response = await fetch(`${API_URL}/api/places`, {
             method: place ? "PUT" : "POST",
             body: formData,
         });

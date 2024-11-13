@@ -106,7 +106,7 @@ export default function PerfilMobile() {
               </svg>
             </button>
 
-            <Link href="/minhasReservas" className="w-full flex items-center py-4 border-b border-gray-200">
+            <Link href="/webapp/minhasReservas" className="w-full flex items-center py-4 border-b border-gray-200">
               <FiSettings className="text-teal-500 text-xl mr-4" />
               <span className="text-lg">Minhas Reservas</span>
               <span className="ml-auto text-gray-400">{">"}</span>

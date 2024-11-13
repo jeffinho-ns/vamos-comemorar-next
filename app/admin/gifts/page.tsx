@@ -21,6 +21,7 @@ export default function Gifts() {
   const [error, setError] = useState<string | null>(null);
   const [selectedGift, setSelectedGift] = useState<Gift | null>(null);
   const router = useRouter();
+  const API_URL = process.env.NEXT_PUBLIC_API_URL_NETWORK || process.env.NEXT_PUBLIC_API_URL_LOCAL;
 
   const openModal = (gift: Gift | null = null) => {
     setSelectedGift(gift); 
@@ -38,7 +39,7 @@ export default function Gifts() {
     const token = localStorage.getItem('authToken');
     
     try {
-      const response = await fetch('https://api.vamoscomemorar.com.br/gifts', {
+      const response = await fetch(`${API_URL}/gifts`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
@@ -70,7 +71,7 @@ export default function Gifts() {
     
     if (confirmDelete) {
       try {
-        await fetch(`/api/gifts/${giftId}`, {
+        await fetch(`${API_URL}/api/gifts/${giftId}`, {
           method: 'DELETE',
         });
   

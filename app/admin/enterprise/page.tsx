@@ -24,6 +24,7 @@ export default function Companies() { // Mudando o nome da função para Compani
   const [error, setError] = useState<string | null>(null);
   const [selectedCompany, setSelectedCompany] = useState(null);
   const router = useRouter(); // Instância do router
+  const API_URL = process.env.NEXT_PUBLIC_API_URL_NETWORK || process.env.NEXT_PUBLIC_API_URL_LOCAL;
 
   const openModal = (company: any = null) => {
     setSelectedCompany(company); // Define a empresa ou null no estado
@@ -51,7 +52,7 @@ export default function Companies() { // Mudando o nome da função para Compani
     const token = localStorage.getItem('authToken');
     
     try {
-      const response = await fetch('http://localhost:5000/places', {
+      const response = await fetch(`${API_URL}/places`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },

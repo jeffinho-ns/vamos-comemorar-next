@@ -68,6 +68,7 @@ const EditPlaceModal: React.FC<EditPlaceModalProps> = ({
   const [photos, setPhotos] = useState<File[]>(Array(10).fill(null));
   const [previewPhotos, setPreviewPhotos] = useState<string[]>(Array(10).fill(""));
   const [logoUrl, setLogoUrl] = useState<string | null>(currentPlace?.logo || "");
+  const API_URL = process.env.NEXT_PUBLIC_API_URL_NETWORK || process.env.NEXT_PUBLIC_API_URL_LOCAL;
 
   useEffect(() => {
     if (currentPlace) {
@@ -149,7 +150,7 @@ const EditPlaceModal: React.FC<EditPlaceModalProps> = ({
         const formData = new FormData();
         formData.append("image", selectedFile);
 
-        const response = await fetch("http://localhost:5000/api/uploads", {
+        const response = await fetch(`${API_URL}/api/uploads`, {
           method: "POST",
           body: formData,
         });
@@ -183,7 +184,7 @@ const EditPlaceModal: React.FC<EditPlaceModalProps> = ({
         photos: previewPhotos.filter(photo => photo !== ""), // Filtrar fotos não selecionadas
       };
 
-      const url = `http://localhost:5000/api/places/${currentPlace?.id}`;
+      const url = `${API_URL}/api/places/${currentPlace?.id}`;
       const response = await fetch(url, {
         method: "PUT",
         headers: {
@@ -342,7 +343,7 @@ const EditPlaceModal: React.FC<EditPlaceModalProps> = ({
             onChange={(e) => setSelectedFile(e.target.files ? e.target.files[0] : null)}
             accept="image/*"
           />
-          {logoUrl && <Image src={`http://localhost:5000/uploads/${logoUrl}`} alt="Logo" className="w-20 h-20 mt-2" />}
+          {logoUrl && <Image src={`${API_URL}/uploads/${logoUrl}`} alt="Logo" className="w-20 h-20 mt-2" />}
         </div>
         
         {renderCommoditiesSection()}

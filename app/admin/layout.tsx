@@ -109,7 +109,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   </li>
                   <li>
                     <MdTableBar />
-                    <Link href="/tables">Mesas</Link>
+                    <Link href="admin/tables">Mesas</Link>
                   </li>
                   <li>
                     <MdCardGiftcard />
@@ -122,7 +122,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   <li>
                     <MdEditCalendar />
 
-                    <Link href="/admin/reserves">Reservas</Link>
+                    <Link href="/admin/reservas">Reservas</Link>
                   </li>
                 </div>
               </ul>

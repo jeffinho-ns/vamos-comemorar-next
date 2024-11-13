@@ -35,12 +35,13 @@ const Profile = ({ isOpen, onRequestClose, addUser, user }: ProfileProps) => {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [errorMessage, setErrorMessage] = useState<string>("");
+  const API_URL = process.env.NEXT_PUBLIC_API_URL_NETWORK || process.env.NEXT_PUBLIC_API_URL_LOCAL;
 
   useEffect(() => {
     if (isOpen && user) {
       setProfile({
         ...user,
-        foto_perfil: user.foto_perfil ? `http://localhost:5000/uploads/${user.foto_perfil}` : "",
+        foto_perfil: user.foto_perfil ? `${API_URL}/uploads/${user.foto_perfil}` : "",
         status: user.status === "Ativado" ? "Ativado" : "Desativado",
         password: "",
       });
@@ -88,7 +89,7 @@ const Profile = ({ isOpen, onRequestClose, addUser, user }: ProfileProps) => {
     if (selectedFile) formData.append("foto_perfil", selectedFile);
 
     try {
-      const url = `http://localhost:5000/api/users/${profile.id}`;
+      const url = `${API_URL}/api/users/${profile.id}`;
       const response = await fetch(url, {
         method: "PUT",
         headers: {

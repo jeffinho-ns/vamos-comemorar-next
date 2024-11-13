@@ -48,12 +48,13 @@ const ProfileUser: React.FC<ProfileUserProps> = ({ addUser, user }) => {
     });
 
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
+    const API_URL = process.env.NEXT_PUBLIC_API_URL_NETWORK || process.env.NEXT_PUBLIC_API_URL_LOCAL;
 
     useEffect(() => {
         if (user) {
             setProfile({
                 ...user,
-                foto_perfil: user.foto_perfil ? `http://localhost:5000/uploads/${user.foto_perfil}` : "",
+                foto_perfil: user.foto_perfil ? `${API_URL}/uploads/${user.foto_perfil}` : "",
                 status: user.status === "Ativado" ? "Ativado" : "Desativado",
                 password: "", // Limpa a senha ao abrir
             });
@@ -123,7 +124,7 @@ const ProfileUser: React.FC<ProfileUserProps> = ({ addUser, user }) => {
         }));
 
         try {
-            const uploadResponse = await fetch('http://localhost:5000/api/upload', {
+            const uploadResponse = await fetch(`${API_URL}/api/upload`, {
                 method: 'POST',
                 body: formData,
             });
@@ -134,14 +135,14 @@ const ProfileUser: React.FC<ProfileUserProps> = ({ addUser, user }) => {
                 console.log('Imagem enviada com sucesso:', uploadData.imageUrl);
                 setProfile((prevProfile) => ({
                     ...prevProfile,
-                    foto_perfil: `http://localhost:5000/uploads/${uploadData.imageUrl}`
+                    foto_perfil: `${API_URL}/uploads/${uploadData.imageUrl}`
                 }));
             } else {
                 console.error('Erro ao enviar a imagem:', uploadData.error);
                 return; // Não continua se a imagem não for enviada
             }
 
-            const url = `http://localhost:5000/api/users/${profile.id}`;
+            const url = `${API_URL}/api/users/${profile.id}`;
             const response = await fetch(url, {
                 method: "PUT",
                 headers: {

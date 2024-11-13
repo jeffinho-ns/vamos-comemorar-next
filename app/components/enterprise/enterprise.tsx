@@ -46,6 +46,7 @@ const Enterprise: React.FC<EnterpriseProps> = ({ isOpen, onRequestClose, company
   }), []);
 
   const [enterprise, setEnterprise] = useState<Establishment>(initialEnterpriseState);
+  const API_URL = process.env.NEXT_PUBLIC_API_URL_NETWORK || process.env.NEXT_PUBLIC_API_URL_LOCAL;
 
   useEffect(() => {
     if (company) {
@@ -81,7 +82,7 @@ const Enterprise: React.FC<EnterpriseProps> = ({ isOpen, onRequestClose, company
         return;
       }
 
-      let url = `https://api.vamoscomemorar.com.br/companies`;
+      let url = `${API_URL}/companies`;
       let response;
 
       if (company && company.id) {

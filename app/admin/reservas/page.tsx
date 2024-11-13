@@ -4,27 +4,36 @@ import { useEffect, useState } from "react";
 
 interface Reserve {
   id: number;
-  type: string; // Tipo online
-  date: string; // Data da reserva
-  guests: number; // Número de convidados
-  user: string; // Usuário
-  local: string; // Local
-  table: string; // Mesa
-  status: string; // Status
-  created_at: string; // Criado em
+  name: string;
+  email: string;
+  brinde: string;
+  casa_da_reserva: string;
+  casa_do_evento: string;
+  data_da_reserva: string;
+  data_do_evento: string;
+  foto_perfil: string;
+  hora_do_evento: string;
+  imagem_do_evento: string;
+  local_do_evento: string;
+  mesas: string;
+  nome_do_evento: string;
+  quantidade_pessoas: number;
+  status: string;
+  telefone: string;
 }
 
 export default function Reserves() {
   const [reserves, setReserves] = useState<Reserve[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const API_URL = process.env.NEXT_PUBLIC_API_URL_NETWORK || process.env.NEXT_PUBLIC_API_URL_LOCAL;
 
   const fetchReserves = async () => {
     setLoading(true);
     const token = localStorage.getItem('authToken');
 
     try {
-      const response = await fetch('https://api.vamoscomemorar.com.br/reserves?page=1&perPage=10', {
+      const response = await fetch(`${API_URL}/api/reservas`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
@@ -34,17 +43,13 @@ export default function Reserves() {
       
       const data = await response.json();
   
-      if (Array.isArray(data.data)) {
-        setReserves(data.data); 
+      if (Array.isArray(data)) {
+        setReserves(data); 
       } else {
         setError('Dados inválidos.');
       }
     } catch (error) {
-      if (error instanceof Error) {
-        setError(error.message);
-      } else {
-        setError('Erro desconhecido');
-      }
+      setError(error instanceof Error ? error.message : 'Erro desconhecido');
       console.error('Erro ao buscar reservas:', error);
     } finally {
       setLoading(false);
@@ -52,15 +57,55 @@ export default function Reserves() {
   };
 
   const approveReserve = async (id: number) => {
-    // Lógica para aprovar a reserva
-    console.log(`Aprovar reserva com ID: ${id}`);
-    // Chamada à API para aprovar a reserva pode ser adicionada aqui
-  };
+    const token = localStorage.getItem('authToken');
+    try {
+        const response = await fetch(`${API_URL}/api/reservas/update-status/${id}`, {  // Rota ajustada
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`,
+            },
+            body: JSON.stringify({ status: "Aprovado" }),
+        });
+
+        if (!response.ok) throw new Error("Erro ao aprovar a reserva");
+
+        // Atualiza a lista de reservas após a aprovação
+        setReserves((prevReserves) =>
+            prevReserves.map((reserve) =>
+                reserve.id === id ? { ...reserve, status: "Aprovado" } : reserve
+            )
+        );
+    } catch (error) {
+        console.error("Erro ao aprovar reserva:", error);
+        setError(error instanceof Error ? error.message : 'Erro desconhecido');
+    }
+};
 
   const rejectReserve = async (id: number) => {
-    // Lógica para reprovar a reserva
-    console.log(`Reprovar reserva com ID: ${id}`);
-    // Chamada à API para reprovar a reserva pode ser adicionada aqui
+    const token = localStorage.getItem('authToken');
+    try {
+      const response = await fetch(`${API_URL}/api/reservas/${id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ status: "Reprovado" }),
+      });
+
+      if (!response.ok) throw new Error("Erro ao reprovar a reserva");
+
+      // Atualiza a lista de reservas após a rejeição
+      setReserves((prevReserves) =>
+        prevReserves.map((reserve) =>
+          reserve.id === id ? { ...reserve, status: "Reprovado" } : reserve
+        )
+      );
+    } catch (error) {
+      console.error("Erro ao reprovar reserva:", error);
+      setError(error instanceof Error ? error.message : 'Erro desconhecido');
+    }
   };
 
   useEffect(() => {
@@ -87,10 +132,10 @@ export default function Reserves() {
         <table className="min-w-full text-left table-auto">
           <thead className="bg-gray-200">
             <tr>
-              <th className="px-6 py-3 font-semibold">Tipo</th>
+              <th className="px-6 py-3 font-semibold">Foto</th>
+              <th className="px-6 py-3 font-semibold">Nome</th>
               <th className="px-6 py-3 font-semibold">Data da Reserva</th>
               <th className="px-6 py-3 font-semibold">Convidados</th>
-              <th className="px-6 py-3 font-semibold">Usuário</th>
               <th className="px-6 py-3 font-semibold">Local</th>
               <th className="px-6 py-3 font-semibold">Mesa</th>
               <th className="px-6 py-3 font-semibold">Status</th>
@@ -102,16 +147,22 @@ export default function Reserves() {
             {reserves.length > 0 ? (
               reserves.map((reserve) => (
                 <tr key={reserve.id} className="border-t">
-                  <td className="px-6 py-4">{reserve.type}</td>
-                  <td className="px-6 py-4">{new Date(reserve.date).toLocaleDateString()}</td>
-                  <td className="px-6 py-4">{reserve.guests}</td>
-                  <td className="px-6 py-4">{reserve.user}</td>
-                  <td className="px-6 py-4">{reserve.local}</td>
-                  <td className="px-6 py-4">{reserve.table}</td>
+                  <td className="px-6 py-4">
+                    <img
+                      src={`${API_URL}/uploads/${reserve.foto_perfil}`}
+                      alt={`Foto de ${reserve.name}`}
+                      className="w-12 h-12 rounded-full object-cover"
+                    />
+                  </td>
+                  <td className="px-6 py-4">{reserve.name}</td>
+                  <td className="px-6 py-4">{new Date(reserve.data_da_reserva).toLocaleDateString()}</td>
+                  <td className="px-6 py-4">{reserve.quantidade_pessoas}</td>
+                  <td className="px-6 py-4">{reserve.casa_do_evento}</td>
+                  <td className="px-6 py-4">{reserve.mesas}</td>
                   <td className="px-6 py-4">{reserve.status}</td>
-                  <td className="px-6 py-4">{new Date(reserve.created_at).toLocaleDateString()}</td>
+                  <td className="px-6 py-4">{new Date(reserve.data_do_evento).toLocaleDateString()}</td>
                   <td className="px-6 py-4 flex space-x-2">
-                    {reserve.status === "aguardando" && (
+                    {reserve.status === "Aguardando" && (
                       <>
                         <button title="Aprovar" onClick={() => approveReserve(reserve.id)}>
                           <MdCheck className="text-green-500 hover:text-green-700" />
@@ -133,7 +184,6 @@ export default function Reserves() {
         </table>
       </div>
 
-      {/* Paginação - se houver */}
       <div className="mt-6 flex justify-center">
         <button className="p-2 border rounded-md mr-2">Anterior</button>
         <button className="p-2 border rounded-md">Próximo</button>

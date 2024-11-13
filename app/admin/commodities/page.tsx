@@ -46,6 +46,7 @@ export default function Businesses() {
   const [error, setError] = useState<string | null>(null);
   const [selectedBusiness, setSelectedBusiness] = useState<Place | null>(null);
   const [token, setToken] = useState<string | null>(null);
+  const API_URL = process.env.NEXT_PUBLIC_API_URL_NETWORK || process.env.NEXT_PUBLIC_API_URL_LOCAL;
 
   const fetchBusinesses = useCallback(async () => {
     if (!token) {
@@ -55,7 +56,7 @@ export default function Businesses() {
 
     setLoading(true);
     try {
-      const response = await fetch('http://localhost:5001/api/places', {
+      const response = await fetch(`${API_URL}/api/places`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
@@ -82,7 +83,7 @@ export default function Businesses() {
     if (confirmDelete) {
         setLoading(true);
         try {
-            await fetch(`http://localhost:5001/api/places/${businessId}`, { // Substitua :id por businessId
+            await fetch(`${API_URL}/api/places/${businessId}`, { // Substitua :id por businessId
                 method: 'DELETE',
             });
             setBusinesses((prev) => prev.filter((business) => business.id !== Number(businessId)));
@@ -203,7 +204,7 @@ export default function Businesses() {
                 <tr key={business.id} className="border-t">
                   <td className="px-6 py-4">
                   <Image 
-  src={business.logo.startsWith('http') ? business.logo : `http://localhost:5001/uploads/${business.logo}`} 
+  src={business.logo.startsWith('http') ? business.logo : `${API_URL}/uploads/${business.logo}`} 
   alt={business.name} 
   width={48} 
   height={48} 

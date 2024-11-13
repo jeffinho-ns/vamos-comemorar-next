@@ -1,4 +1,4 @@
-"use client";
+"use client"; // Certifique-se de que esta linha esteja no topo do arquivo
 
 import React, { useState, useEffect } from "react";
 import Image from "next/image";
@@ -7,6 +7,7 @@ import Header from "../components/headerNotificatioin/headerNotification";
 import Footer from "../components/footer/footer";
 import styles from "./minhasReservas.module.scss";
 import defaultBanner from "@/app/assets/highline/capa-highline.jpeg";
+import { useRouter } from "next/navigation"; // Alteração aqui para o useRouter correto
 
 interface Reserva {
   id: number;
@@ -14,11 +15,14 @@ interface Reserva {
   data_do_evento: string;
   imagem_do_evento: string;
   status: string;
+  user_id: number; // Inclua o campo user_id na interface para o filtro
 }
 
 export default function MinhasReservas() {
   const [bannerSrc, setBannerSrc] = useState(defaultBanner.src);
   const [reservas, setReservas] = useState<Reserva[]>([]);
+  const API_URL = process.env.NEXT_PUBLIC_API_URL_NETWORK || process.env.NEXT_PUBLIC_API_URL_LOCAL;
+  const router = useRouter(); // Usando useRouter da 'next/navigation'
 
   useEffect(() => {
     const storedBanner = localStorage.getItem("lastPageBanner");
@@ -28,19 +32,22 @@ export default function MinhasReservas() {
 
     const fetchReservas = async () => {
       try {
-        const response = await fetch("http://localhost:5001/api/reservas");
+        const response = await fetch(`${API_URL}/api/reservas`);
         if (response.ok) {
           const data = await response.json();
 
-          // Mapeia as reservas para incluir a URL completa da imagem
-          const reservasComImagemCompleta = data.map((reserva: Reserva) => ({
-            ...reserva,
-            imagem_do_evento: reserva.imagem_do_evento
-              ? `http://localhost:5001/uploads/events/${reserva.imagem_do_evento}`
-              : bannerSrc, // Usa o banner padrão se a imagem não estiver disponível
-          }));
+          const userId = localStorage.getItem("userId"); // Ajuste conforme a lógica do seu sistema de autenticação
 
-          setReservas(reservasComImagemCompleta);
+          const reservasDoUsuario = data
+            .filter((reserva: Reserva) => reserva.user_id === Number(userId))
+            .map((reserva: Reserva) => ({
+              ...reserva,
+              imagem_do_evento: reserva.imagem_do_evento
+                ? `${API_URL}/uploads/events/${reserva.imagem_do_evento}`
+                : bannerSrc,
+            }));
+
+          setReservas(reservasDoUsuario);
         } else {
           console.error("Erro ao buscar reservas:", response.statusText);
         }
@@ -52,6 +59,12 @@ export default function MinhasReservas() {
     fetchReservas();
   }, []);
 
+  const handleReservaClick = (reserva: Reserva) => {
+    if (reserva.status === "Aprovado") {
+      router.push(`/webapp/confirmation?id=${reserva.id}`); // Certificando-se de que o id é passado na URL
+    }
+  };
+
   return (
     <>
       <Header />
@@ -59,7 +72,12 @@ export default function MinhasReservas() {
         <h2 className={styles.title}>Reservas</h2>
         <div className={styles.reservasList}>
           {reservas.map((reserva) => (
-            <div key={reserva.id} className={styles.reservaItem}>
+            <div
+              key={reserva.id}
+              className={styles.reservaItem}
+              onClick={() => handleReservaClick(reserva)}
+              style={{ cursor: reserva.status === "Aprovado" ? "pointer" : "default" }}
+            >
               <div className={styles.bannerContainer}>
                 <Image
                   src={reserva.imagem_do_evento}
