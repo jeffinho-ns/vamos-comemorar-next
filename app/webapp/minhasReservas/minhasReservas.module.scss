@@ -1,7 +1,7 @@
 .container {
     padding: 16px;
     background-color: white;
-    min-height: 100vh;
+    min-height: 90vh;
     margin-top: 50px;
   }
   
@@ -101,3 +101,16 @@
   padding: 1rem;
   text-align: center;
 }
+
+.statusAprovada {
+  color: green;
+}
+
+.statusCancelado {
+  color: red;
+}
+
+.statusAguardando {
+  color: orange;
+}
+

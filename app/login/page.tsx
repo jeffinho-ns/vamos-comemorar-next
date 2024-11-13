@@ -29,10 +29,11 @@ export default function Login() {
       setError("Por favor, preencha todos os campos.");
       return;
     }
-  
+
     try {
-      const API_URL = process.env.NEXT_PUBLIC_API_URL_NETWORK || process.env.NEXT_PUBLIC_API_URL_LOCAL;
-  
+      const API_URL =
+        process.env.NEXT_PUBLIC_API_URL_NETWORK || process.env.NEXT_PUBLIC_API_URL_LOCAL;
+
       const response = await fetch(`${API_URL}/api/users/login`, {
         method: "POST",
         headers: {
@@ -43,23 +44,28 @@ export default function Login() {
           password: password,
         }),
       });
-  
+
       const data = await response.json();
       console.log(data); // Verificar a resposta da API
-  
-      // Verifique diretamente se o token foi recebido
-      if (response.ok && data.token) {
-        localStorage.setItem("authToken", data.token);
-        router.push("/"); // Redireciona após o login bem-sucedido
+
+      if (response.ok) {
+        // Verifique se a API retorna o token e o userId
+        if (data.token && data.userId) {
+          localStorage.setItem("authToken", data.token); // Armazenando o token
+          localStorage.setItem("userId", data.userId); // Armazenando o userId
+          router.push("/"); // Redireciona após o login bem-sucedido
+        } else {
+          setError("Erro ao obter token ou ID do usuário.");
+        }
       } else {
-        setError(data.message || "Credenciais inválidas");
+        // Se a resposta não for ok, exibe uma mensagem de erro
+        setError(data.message || "Credenciais inválidas.");
       }
     } catch (error) {
       setError("Erro ao tentar fazer login. Tente novamente.");
       console.error("Erro:", error);
     }
   };
-
 
   return (
     <div className="container">

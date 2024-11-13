@@ -1,12 +1,10 @@
-"use client"; // Isso transforma o componente em um Client Component
+"use client";
 
 import { useState, useEffect } from "react";
 import Image from "next/image";
 import Header from "../components/header/header";
-import Footer from "../components/footer/footer"; 
-import Modal from 'react-modal';
-
-Modal.setAppElement('#app');
+import Footer from "../components/footer/footer";
+import Modal from "react-modal";
 
 // Defina o tipo dos dados de reserva
 interface ReservationData {
@@ -14,27 +12,42 @@ interface ReservationData {
   table: string;
   date: string;
   eventName: string;
+  placeId: number;
 }
 
-const Confirmation = () => {
-  // Atualize o tipo de reservationData para incluir null
+const Confirmation = ({ id }: { id: number }) => {
   const [reservationData, setReservationData] = useState<ReservationData | null>(null);
   const [expandedImage, setExpandedImage] = useState<string | null>(null);
-  const logoSrc = "/path/to/logo.png";  // Defina o caminho da logo
+  const [eventImageSrc, setEventImageSrc] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchReservationData = async () => {
+      // Dados de exemplo para a reserva
       const data: ReservationData = {
         guests: 4,
         table: "Mesa 5",
-        date: "25/12/2024",
-        eventName: "Festa de Natal"
+        date: "2024-11-09",
+        eventName: "Festa de Natal",
+        placeId: id, // ID do lugar
       };
       setReservationData(data);
+
+      // Buscar imagem do evento com base no `placeId`
+      try {
+        const eventResponse = await fetch(`http://localhost:5001/api/reservas/${id}`);
+        if (eventResponse.ok) {
+          const eventData = await eventResponse.json();
+          setEventImageSrc(`http://localhost:5001/uploads/events/${eventData.imagem_do_evento}`);
+        } else {
+          console.error("Erro ao buscar imagem do evento:", eventResponse.statusText);
+        }
+      } catch (error) {
+        console.error("Erro ao buscar imagem do evento:", error);
+      }
     };
 
     fetchReservationData();
-  }, []);
+  }, [id]);
 
   const handleCancelReservation = () => {
     alert("Reserva cancelada.");
@@ -46,8 +59,8 @@ const Confirmation = () => {
 
   return (
     <div id="app" className="flex flex-col min-h-screen relative">
-      <Header className="fixed top-0 left-0 w-full z-50" /> {/* Ajuste de estilo */}
-      <div id="home-container" className="flex flex-col flex-grow pt-24"> {/* Ajuste de padding-top */}
+      <Header className="fixed top-0 left-0 w-full z-50" />
+      <div id="home-container" className="flex flex-col flex-grow pt-24">
         <div className="relative z-10">
           <div className="bg-white p-5 text-center rounded-t-2xl -mt-6 z-50 relative">
             <h2 className="text-2xl font-bold">Reservas</h2>
@@ -60,7 +73,17 @@ const Confirmation = () => {
               </div>
               <div className="flex-1 flex justify-center">
                 <div className="flex justify-center">
-                  <Image src={logoSrc} alt="Logo" width={50} height={50} />
+                  {eventImageSrc ? (
+                    <Image
+                      src={eventImageSrc}
+                      alt="Imagem do Evento"
+                      width={50}
+                      height={50}
+                      className="rounded-full border-4 border-teal-500 shadow-lg transform transition duration-300 hover:scale-110"
+                    />
+                  ) : (
+                    <p>Carregando imagem do evento...</p>
+                  )}
                 </div>
               </div>
             </div>
@@ -96,7 +119,7 @@ const Confirmation = () => {
                 </div>
 
                 <div className="flex justify-center">
-                  <button 
+                  <button
                     className="bg-teal-600 text-white font-semibold py-2 px-6 rounded-lg hover:bg-teal-700"
                     onClick={handleCancelReservation}
                   >

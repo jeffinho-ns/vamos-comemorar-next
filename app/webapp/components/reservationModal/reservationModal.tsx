@@ -1,83 +1,88 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import styles from "./reservationModal.module.scss";
-import icon1 from "../../../assets/icones/area.png";
-import icon2 from "../../../assets/icones/acessivel.png";
-import icon3 from "../../../assets/icones/estacionamento.png";
-import icon4 from "../../../assets/icones/18.png";
-import icon5 from "../../../assets/icones/mesa.png";
+import Modal from "react-modal";
 
 interface ReservationModalProps {
   isOpen: boolean;
   onRequestClose: () => void;
-  eventData: {
-    data_do_evento: string;
-    nome_do_evento: string;
-    valor_entrada: string;
-  } | null;
+  eventId: string;
 }
 
-const ReservationModal: React.FC<ReservationModalProps> = ({ isOpen, onRequestClose, eventData }) => {
-  const [guests, setGuests] = useState(0);
-  const [selectedTable, setSelectedTable] = useState("Selecionar Mesa");
+const ReservationModal: React.FC<ReservationModalProps> = ({ isOpen, onRequestClose, eventId }) => {
+  const [reservationData, setReservationData] = useState<any | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const router = useRouter();
+  const API_URL = process.env.NEXT_PUBLIC_API_URL_NETWORK || process.env.NEXT_PUBLIC_API_URL_LOCAL;
 
-  if (!isOpen || !eventData) return null; // Retorna nulo se o modal estiver fechado ou sem dados
+  useEffect(() => {
+    if (isOpen && eventId) { // Verifica se o modal está aberto e se há um eventId
+      fetch(`${API_URL}/api/reservas/${eventId}`)
+        .then((response) => {
+          if (!response.ok) {
+            throw new Error("Falha ao carregar os dados da reserva");
+          }
+          return response.json();
+        })
+        .then((data) => {
+          setReservationData(data);
+          setError(null);
+        })
+        .catch((error) => {
+          console.error("Erro ao buscar dados da reserva:", error);
+          setError("Não foi possível carregar os dados da reserva.");
+        });
+    }
+  }, [isOpen, eventId]); // Recarrega sempre que isOpen ou eventId mudar
 
-  const incrementGuests = () => setGuests(guests + 1);
-  const decrementGuests = () => setGuests(guests > 0 ? guests - 1 : 0);
-
-  const handleReservation = () => {
-    localStorage.setItem(
-      "reservation",
-      JSON.stringify({
-        guests,
-        table: selectedTable,
-        date: eventData.data_do_evento,
-        eventName: eventData.nome_do_evento,
-      })
-    );
-    router.push("/webapp/minhasReservas");
-  };
+  if (!isOpen) return null;
 
   return (
     <Modal
       isOpen={isOpen}
       onRequestClose={onRequestClose}
       contentLabel="Reservation Modal"
-      className={styles.modalContent}
-      overlayClassName={styles.overlay}
+      className="bg-white rounded-lg shadow-lg p-6 max-w-md mx-auto"
+      overlayClassName="fixed inset-0 bg-gray-800 bg-opacity-75 flex items-center justify-center"
     >
-      <div className={styles.header}>
-        <h2>Reserva para {eventData.nome_do_evento}</h2>
-      </div>
-
-      <div className={styles.body}>
-        <div className={styles.section}>
-          <h3>Data do Evento</h3>
-          <p>{new Date(eventData.data_do_evento).toLocaleDateString()}</p>
+      {error ? (
+        <div className="text-red-500 text-center">
+          <p>{error}</p>
         </div>
-
-        <div className={styles.section}>
-          <h3>Valor da Entrada</h3>
-          <p>{eventData.valor_entrada || "Valor não disponível"}</p>
-        </div>
-
-        <div className={styles.section}>
-          <h3>Convidados</h3>
-          <div className={styles.counter}>
-            <button onClick={decrementGuests}>-</button>
-            <span>{guests}</span>
-            <button onClick={incrementGuests}>+</button>
+      ) : reservationData ? (
+        <div>
+          <div className="flex items-center mb-4">
+            <Image
+              src={`${API_URL}/uploads/${reservationData.imagem_do_evento}`}
+              alt="Imagem do evento"
+              width={80}
+              height={80}
+              className="rounded-full"
+            />
+            <div className="ml-4">
+              <h2 className="text-lg font-semibold">{reservationData.casa_do_evento}</h2>
+              <p className="text-gray-500">Status</p>
+              <p className={`font-semibold ${reservationData.status === "Aprovada" ? "text-green-600" : "text-yellow-600"}`}>
+                {reservationData.status || "Aguardando"}
+              </p>
+            </div>
+          </div>
+          <div className="mb-6">
+            <p className="text-gray-500">Data</p>
+            <p className="text-gray-700">{new Date(reservationData.data_do_evento).toLocaleDateString()}</p>
+          </div>
+          <div className="text-center">
+            <button
+              onClick={() => router.push("/novasReservas")}
+              className="bg-teal-600 text-white px-4 py-2 rounded-full hover:bg-teal-700"
+            >
+              Novas Reservas
+            </button>
           </div>
         </div>
-      </div>
-
-      <div className={styles.footer}>
-        <button onClick={handleReservation}>Solicitar Reserva</button>
-        <button onClick={onRequestClose}>Fechar</button>
-      </div>
+      ) : (
+        <p className="text-center text-gray-500">Carregando...</p>
+      )}
     </Modal>
   );
 };

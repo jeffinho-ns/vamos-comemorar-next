@@ -16,12 +16,13 @@ interface EventData {
 
 const Programacao = () => {
   const [events, setEvents] = useState<EventData[]>([]);
+  const API_URL = process.env.NEXT_PUBLIC_API_URL_NETWORK || process.env.NEXT_PUBLIC_API_URL_LOCAL;
 
   // Efeito para buscar os eventos ao carregar a página
   useEffect(() => {
     const fetchEvents = async () => {
       try {
-        const response = await fetch("http://localhost:5000/api/events");
+        const response = await fetch(`${API_URL}/api/events`);
         const data = await response.json();
         setEvents(data.slice(0, 9)); // Limita a quantidade de eventos a 9
       } catch (error) {
@@ -45,7 +46,7 @@ const Programacao = () => {
           <Link key={event.id} href="/webapp/reservas">
             <div onClick={() => handleEventClick(event)}>
               <EventCard
-                img={`http://localhost:5000/uploads/events/${event.imagem_do_evento}`}
+                img={`${API_URL}/uploads/events/${event.imagem_do_evento}`}
                 title={event.nome_do_evento}
                 date={new Date(event.data_do_evento).toLocaleDateString("pt-BR")}
                 time={event.hora_do_evento}

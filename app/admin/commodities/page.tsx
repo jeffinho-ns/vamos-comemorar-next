@@ -55,7 +55,7 @@ export default function Businesses() {
 
     setLoading(true);
     try {
-      const response = await fetch('http://localhost:5000/api/places', {
+      const response = await fetch('http://localhost:5001/api/places', {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
@@ -82,7 +82,7 @@ export default function Businesses() {
     if (confirmDelete) {
         setLoading(true);
         try {
-            await fetch(`http://localhost:5000/api/places/${businessId}`, { // Substitua :id por businessId
+            await fetch(`http://localhost:5001/api/places/${businessId}`, { // Substitua :id por businessId
                 method: 'DELETE',
             });
             setBusinesses((prev) => prev.filter((business) => business.id !== Number(businessId)));
@@ -203,7 +203,7 @@ export default function Businesses() {
                 <tr key={business.id} className="border-t">
                   <td className="px-6 py-4">
                   <Image 
-  src={business.logo.startsWith('http') ? business.logo : `http://localhost:5000/uploads/${business.logo}`} 
+  src={business.logo.startsWith('http') ? business.logo : `http://localhost:5001/uploads/${business.logo}`} 
   alt={business.name} 
   width={48} 
   height={48} 

@@ -2,23 +2,23 @@
 
 import React, { useState, useEffect } from "react";
 import Image from "next/image";
-import Link from "next/link"; // Importe o Link
+import Link from "next/link";
 import Header from "../components/headerNotificatioin/headerNotification";
 import Footer from "../components/footer/footer";
 import styles from "./minhasReservas.module.scss";
 import defaultBanner from "@/app/assets/highline/capa-highline.jpeg";
 
-// Define a interface para a reserva
 interface Reserva {
   id: number;
-  nome: string;
-  data: string;
+  casa_do_evento: string;
+  data_do_evento: string;
+  imagem_do_evento: string;
   status: string;
 }
 
 export default function MinhasReservas() {
   const [bannerSrc, setBannerSrc] = useState(defaultBanner.src);
-  const [reservas, setReservas] = useState<Reserva[]>([]); // Especifica o tipo do estado
+  const [reservas, setReservas] = useState<Reserva[]>([]);
 
   useEffect(() => {
     const storedBanner = localStorage.getItem("lastPageBanner");
@@ -26,46 +26,30 @@ export default function MinhasReservas() {
       setBannerSrc(storedBanner);
     }
 
-    // Recupera as reservas existentes do localStorage
-    const storedReservationsJSON = localStorage.getItem("reservationsList");
-    const storedReservations: Reserva[] = storedReservationsJSON ? JSON.parse(storedReservationsJSON) : [];
+    const fetchReservas = async () => {
+      try {
+        const response = await fetch("http://localhost:5001/api/reservas");
+        if (response.ok) {
+          const data = await response.json();
 
-    const storedReservationJSON = localStorage.getItem("reservation");
-    const storedReservation = storedReservationJSON ? JSON.parse(storedReservationJSON) : null;
+          // Mapeia as reservas para incluir a URL completa da imagem
+          const reservasComImagemCompleta = data.map((reserva: Reserva) => ({
+            ...reserva,
+            imagem_do_evento: reserva.imagem_do_evento
+              ? `http://localhost:5001/uploads/events/${reserva.imagem_do_evento}`
+              : bannerSrc, // Usa o banner padrão se a imagem não estiver disponível
+          }));
 
-    if (storedReservation) {
-      // Verifica se a nova reserva já existe na lista com base no nome e data
-      const alreadyExists = storedReservations.some(
-        (reserva: Reserva) => // Define o tipo de 'reserva'
-          reserva.nome === storedReservation.eventName &&
-          reserva.data === storedReservation.date
-      );
-
-      if (!alreadyExists) {
-        // Cria a nova reserva
-        const newReservation: Reserva = { // Define o tipo do objeto nova reserva
-          id: storedReservations.length + 1, // Incrementa o ID
-          nome: storedReservation.eventName || "Nome do Evento",
-          data: storedReservation.date || "Data do Evento",
-          status: "Aguardando",
-        };
-
-        // Adiciona a nova reserva à lista de reservas armazenadas
-        const updatedReservations = [...storedReservations, newReservation];
-
-        // Atualiza o localStorage com a nova lista de reservas
-        localStorage.setItem("reservationsList", JSON.stringify(updatedReservations));
-
-        // Atualiza o estado com a lista atualizada de reservas
-        setReservas(updatedReservations);
-      } else {
-       
-        setReservas(storedReservations);
+          setReservas(reservasComImagemCompleta);
+        } else {
+          console.error("Erro ao buscar reservas:", response.statusText);
+        }
+      } catch (error) {
+        console.error("Erro ao buscar reservas:", error);
       }
-    } else {
-      
-      setReservas(storedReservations);
-    }
+    };
+
+    fetchReservas();
   }, []);
 
   return (
@@ -78,20 +62,22 @@ export default function MinhasReservas() {
             <div key={reserva.id} className={styles.reservaItem}>
               <div className={styles.bannerContainer}>
                 <Image
-                  src={bannerSrc}
-                  alt="Banner"
+                  src={reserva.imagem_do_evento}
+                  alt="Banner do Evento"
                   width={150}
                   height={100}
                   className={styles.bannerImage}
                 />
               </div>
               <div className={styles.reservaDetails}>
-                <h3 className={styles.reservaName}>{reserva.nome}</h3>
-                <p className={styles.reservaDate}>Data: {reserva.data}</p>
+                <h3 className={styles.reservaName}>{reserva.casa_do_evento}</h3>
+                <p className={styles.reservaDate}>Data: {reserva.data_do_evento}</p>
                 <span
                   className={
-                    reserva.status === "Aprovada"
+                    reserva.status === "Aprovado"
                       ? styles.statusAprovada
+                      : reserva.status === "Cancelado"
+                      ? styles.statusCancelado
                       : styles.statusAguardando
                   }
                 >
@@ -107,6 +93,7 @@ export default function MinhasReservas() {
           </Link>
         </div>
       </div>
+
       <div className={styles.footerContainer}>
         <Footer />
       </div>

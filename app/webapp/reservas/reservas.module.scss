@@ -197,3 +197,74 @@
   height: 100%;
   object-fit: contain;
 }
+
+
+.formTitle {
+  font-size: 24px;
+  color: #2f415f;
+  font-family: Nunito, sans-serif;
+  font-weight: bold;
+}
+
+.formSubtitle {
+  font-size: 14px;
+  color: #9d9d9d;
+  padding: 3rem;
+}
+
+.formGroup {
+  margin-bottom: 50px;
+  display: flex;
+    justify-content: space-between;
+}
+
+.formGroup label {
+  display: block;
+  font-size: 14px;
+  color: #9d9d9d;
+  margin-bottom: 5px;
+}
+
+.formGroup input[type="number"],
+.formGroup input[type="text"] {
+  width: 100%;
+  padding: 10px;
+  font-size: 16px;
+  color: #2f415f;
+  border: 1px solid #e0e0e0;
+  border-radius: 5px;
+  background-color: #f9f9f9;
+  text-align: center;
+}
+
+.openModalButton {
+  background-color: #08738a;
+  color: white;
+  padding: 15px 40px;
+  font-size: 16px;
+  font-weight: bold;
+  border: none;
+  border-radius: 25px;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+.openModalButton:hover {
+  background-color: #065a65;
+}
+#home-container {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.containerMobile {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+.footerContainer {
+  
+  padding: 1rem;
+  text-align: center;
+}

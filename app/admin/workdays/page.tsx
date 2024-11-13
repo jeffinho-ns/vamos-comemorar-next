@@ -30,7 +30,7 @@ export default function EventsPage() {
     const token = localStorage.getItem('authToken');
 
     try {
-      const response = await fetch(`http://localhost:5000/api/events?page=${page}&perPage=10`, {
+      const response = await fetch(`http://localhost:5001/api/events?page=${page}&perPage=10`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
@@ -66,7 +66,7 @@ export default function EventsPage() {
     const token = localStorage.getItem('authToken');
 
     try {
-      const response = await fetch(`http://localhost:5000/api/events/${id}`, {
+      const response = await fetch(`http://localhost:5001/api/events/${id}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`,
