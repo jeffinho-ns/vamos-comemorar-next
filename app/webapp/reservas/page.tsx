@@ -5,7 +5,7 @@ import Image from "next/image";
 import Footer from "../components/footer/footer";
 import HeaderLike from "../components/headerLike/headerLike";
 import styles from "./reservas.module.scss";
-import ReservationModal from "../../webapp/components/reservationModal/reservationModal";
+
 import defaultLogo from "@/app/assets/highline/highlinelogo.png";
 import Modal from "react-modal";
 import { useRouter } from 'next/navigation';
@@ -17,38 +17,29 @@ const Reservas = () => {
   const [expandedImage, setExpandedImage] = useState<string | null>(null);
   const [quantidadePessoas, setQuantidadePessoas] = useState(1);
   const [mesas, setMesas] = useState("1 Mesa / 6 cadeiras");
-  const [userId, setUserId] = useState<number | null>(null); // Novo estado para userId
+  const [userId, setUserId] = useState<number | null>(null);
   const API_URL = process.env.NEXT_PUBLIC_API_URL_NETWORK || process.env.NEXT_PUBLIC_API_URL_LOCAL;
-  const router = useRouter(); // Instancia o router para redirecionamento
+  const router = useRouter();
 
   useEffect(() => {
-    // Recupera o ID do usuário do localStorage
     const storedUserId = localStorage.getItem("userId");
-    console.log("ID armazenado no localStorage:", storedUserId);
-
     if (storedUserId && !isNaN(Number(storedUserId))) {
       setUserId(Number(storedUserId));
-      console.log("User ID carregado:", storedUserId);
     } else {
-      console.log("Usuário não logado ou ID não encontrado no localStorage.");
-      // Redireciona para a página de login
-      router.push('/login'); // Utiliza o router para redirecionar
-      return; // Evita a renderização da página de reservas
+      router.push('/login');
+      return;
     }
 
     const storedEventData = localStorage.getItem("selectedEvent");
     if (storedEventData) {
       setEventData(JSON.parse(storedEventData));
-      console.log("Dados do evento carregados:", JSON.parse(storedEventData));
-    } else {
-      console.log("Nenhum evento selecionado.");
     }
 
     const storedLogo = localStorage.getItem("lastPageLogo");
     if (storedLogo) {
       setLogoSrc(storedLogo);
     }
-  }, [router]); // Adiciona o router como dependência para garantir que o redirecionamento seja feito
+  }, [router]);
 
   const openModal = () => setModalIsOpen(true);
   const closeModal = () => setModalIsOpen(false);
@@ -57,7 +48,6 @@ const Reservas = () => {
 
   const handleSubmitReservation = async () => {
     if (!eventData || !userId) {
-      console.error("Dados ausentes: eventData ou userId");
       alert("Dados do evento ou do usuário estão ausentes.");
       return;
     }
@@ -74,22 +64,24 @@ const Reservas = () => {
     try {
       const response = await fetch(`${API_URL}/api/reservas`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(reservationData),
       });
 
       if (response.ok) {
-        alert("Reserva criada com sucesso!");
-        // Redirecionar ou atualizar a página se necessário
-    } else {
+        openModal(); // Abre o modal após a reserva ser criada
+      } else {
         alert("Erro ao criar a reserva.");
-    }
+      }
     } catch (error) {
       console.error("Erro ao enviar reserva:", error);
       alert("Erro ao criar a reserva.");
     }
+  };
+
+  const handleFinalize = () => {
+    closeModal();
+    router.push("/webapp/minhasReservas"); // Redireciona após finalizar
   };
 
   if (!eventData) return <div>Carregando...</div>;
@@ -124,7 +116,6 @@ const Reservas = () => {
             <p className={styles.formSubtitle}>
               Agora falta pouco para garantir a sua reserva! Basta preencher os campos abaixo.
             </p>
-
             <div className={styles.formGroup}>
               <label>Pessoas</label>
               <select
@@ -138,7 +129,6 @@ const Reservas = () => {
                 ))}
               </select>
             </div>
-
             <div className={styles.formGroup}>
               <label>Mesas</label>
               <select
@@ -152,31 +142,35 @@ const Reservas = () => {
                 ))}
               </select>
             </div>
-
             <div className={styles.formGroup}>
               <label>Data</label>
               <span>{new Date(eventData.data_do_evento).toLocaleDateString()}</span>
             </div>
-
             <div className={styles.formGroup}>
               <label>Evento</label>
               <span>{eventData.nome_do_evento}</span>
             </div>
-
-            <button onClick={handleSubmitReservation} className={styles.submitButton}>
+            <button onClick={handleSubmitReservation} className={styles.openModalButton}>
               Confirmar Reserva
             </button>
-
-            <button onClick={openModal} className={styles.openModalButton}>Abrir Reserva</button>
-            <ReservationModal 
-              isOpen={modalIsOpen} 
-              onRequestClose={closeModal} 
-              eventId={eventData.id}
-            />
           </div>
         </div>
       </div>
       <Footer />
+
+      <Modal
+        isOpen={modalIsOpen}
+        onRequestClose={closeModal}
+        contentLabel="Confirmação de Reserva"
+        className={styles.modalContent}
+        overlayClassName={styles.modalOverlay}
+      >
+        <h2 className={styles.formTitle}>Falta Pouco!</h2>
+        <p>Sua reserva está sendo processada e você terá um retorno nos próximos minutos!</p>
+        <button onClick={handleFinalize} className={styles.openModalButton}>
+          Finalizar
+        </button>
+      </Modal>
 
       <Modal
         isOpen={!!expandedImage}
