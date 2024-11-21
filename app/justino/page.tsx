@@ -25,8 +25,7 @@ import gastro1 from "@/app/assets/justino/gastronomia-1.jpeg";
 import gastro2 from "@/app/assets/justino/gastronomia-2.jpeg";
 import gastro3 from "@/app/assets/justino/gastronomia-3.jpeg";
 import gastro4 from "@/app/assets/justino/gastronomia-4.jpeg";
-import logoNew from "@/app/assets/justino/justinologo.png";
-import logoImage from "@/app/assets/justino/justinologo.png";
+import logoNew from "@/app/assets/justino/justinologo.png";  // Logo da página Justino
 import icon1 from "@/app/assets/icones/area.png";
 import icon2 from "@/app/assets/icones/acessivel.png";
 import icon3 from "@/app/assets/icones/estacionamento.png";
@@ -65,20 +64,18 @@ const Justino = () => {
     // Armazena a logo e a informação do local no local storage
     localStorage.setItem('logo', logoNew.src); // Armazenando o caminho da logo
     localStorage.setItem('localInfo', 'Rua Girassol, 144 - Vila Madalena');
-    console.log(localStorage.getItem("localInfo")); // Armazenando o endereço
     setModalIsOpen(true);
   };
+  
   const closeModal = () => setModalIsOpen(false);
 
   const openImage = (img: StaticImageData) => setExpandedImage(img); // Ajuste para StaticImageData
   const closeImage = () => setExpandedImage(null);
 
   const addUser = (user: any) => {
-    // Lógica para adicionar o usuário
     console.log("Usuário adicionado:", user);
     setUser(user); // Atualiza o estado do usuário
   };
-
 
   return (
     <>
@@ -90,7 +87,6 @@ const Justino = () => {
           alt="Banner"
           layout="fill"
           className={styles.bannerImage}
-
         />
         <div className={styles.flexButtonContainer}>
           <div className={styles.flexButtonContainerBar}>
@@ -175,85 +171,42 @@ const Justino = () => {
 
       {!showDescription && (
         <div className={styles.programacao}>
-          <Programacao logo={logoImage.src} location="Rua Azevedo Soares, 940"/>
+          <Programacao barId={1} />
         </div>
       )}
 
-<div className={styles.sections}>
-  {showDescription && (
-    <>
-      <Section
-        title="Ambientes"
-        images={[newImg1, newImg2, newImg3, newImg4]}
-        openImage={openImage} // Passando openImage
-      />
-      <Section
-        title="Gastronomia"
-        images={[gastro1, gastro2, gastro3, gastro4]}
-        openImage={openImage} // Passando openImage
-      />
-      <Section
-        title="Bebidas"
-        images={[bebida1, bebida2, bebida3, bebida4]}
-        openImage={openImage} // Passando openImage
-      />
-    </>
-  )}
-</div>
+      <div className={styles.sections}>
+        {showDescription && (
+          <>
+            <Section
+              title="Ambientes"
+              images={[newImg1, newImg2, newImg3, newImg4]}
+              openImage={openImage} // Passando openImage
+            />
+            <Section
+              title="Gastronomia"
+              images={[gastro1, gastro2, gastro3, gastro4]}
+              openImage={openImage} // Passando openImage
+            />
+            <Section
+              title="Bebidas"
+              images={[bebida1, bebida2, bebida3, bebida4]}
+              openImage={openImage} // Passando openImage
+            />
+          </>
+        )}
+      </div>
 
       <div className={styles.mapContainer}>
         <iframe
-          src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3658.8531229789736!2d-46.70965078450384!3d-23.504566264570394!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x94cef8c55b0f2e7b%3A0x6b9156a1e51233b3!2sLargo%20da%20Matriz%20de%20Nossa%20Senhora%20do%20%C3%93%2C%20145%20-%20Freguesia%20do%20%C3%93%2C%20S%C3%A3o%20Paulo%20-%20SP%2C%2002925-040!5e0!3m2!1spt-BR!2sbr!4v1681723528801!5m2!1spt-BR!2sbr"
-          width="100%"
-          height="450"
-          style={{ border: 0 }}
-          allowFullScreen
-          loading="lazy"
+          src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3658.8531229789736!2d-46.7096507845037!3d-23.559943022015487!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x94ce592b93f0efcd%3A0x80ae0d6f0b59c08f!2sRua%20Azevedo%20Soares%2C%20940%20-%20Vila%20Madalena%2C%20São%20Paulo%20-%20SP!5e0!3m2!1spt-BR!2sbr!4v1694117413032!5m2!1spt-BR!2sbr"
+          width="100%" height="450" allowFullScreen="" loading="lazy"
         />
       </div>
-
-      {expandedImage && (
-        <Modal
-          isOpen={!!expandedImage}
-          onRequestClose={closeImage}
-          className={styles.modal}
-          overlayClassName={styles.modalOverlay}
-        >
-          <div className={styles.modalImageContainer}>
-            <Image
-              src={expandedImage}
-              alt="Expanded"
-              className={styles.modalImage}
-              layout="intrinsic"
-              width={800}
-              height={600}
-            />
-          </div>
-        </Modal>
-      )}
 
       <Footer />
     </>
   );
 };
-
-// Componente Section para mostrar as imagens
-const Section: React.FC<SectionProps> = ({ title, images, openImage }) => (
-  <div className={styles.section}>
-    <h2 className={styles.sectionTitle}>{title}</h2>
-    <div className={styles.images}>
-      {images.map((img, index) => (
-        <div
-          key={index}
-          className={styles.imageContainer}
-          onClick={() => openImage(img)}
-        >
-          <Image src={img} alt={title} className={styles.image} />
-        </div>
-      ))}
-    </div>
-  </div>
-);
-
 
 export default Justino;

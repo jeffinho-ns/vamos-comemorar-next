@@ -1,156 +1,244 @@
-import React, { useState } from "react";
+import { useState, useEffect } from "react";
 import Modal from "react-modal";
 import Image from "next/image";
-import styles from "./reservationModal.module.scss";
-import gin from "../../assets/programacao/gin.png";
 import icon1 from "../../assets/icones/area.png";
 import icon2 from "../../assets/icones/acessivel.png";
 import icon3 from "../../assets/icones/estacionamento.png";
 import icon4 from "../../assets/icones/18.png";
 import icon5 from "../../assets/icones/mesa.png";
-import { StaticImageData } from "next/image";  // Importar o tipo aqui
-
-interface EventData {
-  img?: string;
-  price?: string;
-  date?: string;
-}
 
 interface ReservationModalProps {
-  isOpen: boolean;
-  onRequestClose: () => void;
-  eventData: EventData;
-  logo?: string | StaticImageData;  // Agora está importado corretamente
-  location?: string;
+  eventData: any;
+  userId: number | null;
+  API_URL: string;
+  onClose: () => void;
 }
 
 const ReservationModal: React.FC<ReservationModalProps> = ({
-  isOpen,
-  onRequestClose,
   eventData,
-  logo,
-  location
+  userId,
+  API_URL,
+  onClose,
 }) => {
-  const [guests, setGuests] = useState(0);
+  const [modalIsOpen, setModalIsOpen] = useState(true);
+  const [quantidadePessoas, setQuantidadePessoas] = useState(1);
+  const [mesas, setMesas] = useState("1 Mesa / 6 cadeiras");
+  const [logoSrc, setLogoSrc] = useState<string | null>(null);
+  const [comboImage, setComboImage] = useState<string | null>(null);
+  const [observacao, setObservacao] = useState<string>("");
+  const logo = localStorage.getItem('logo');
+  useEffect(() => {
+    // Tenta buscar a logo do localStorage, se disponível
+    const storedLogo = localStorage.getItem("lastPageLogo");
+    if (storedLogo) {
+      setLogoSrc(storedLogo);
+    } else {
+      // Se não houver logo no localStorage, tenta buscar via API
+      if (eventData?.casa_do_evento) {
+        // Mapeamento entre casas e IDs
+        const casaToIdMap: Record<string, number> = {
+          "Oh Freguês": 4,
+          "Seu Justino": 1,
+          "Pracinha do Seu Justino": 8,
+          "High Line": 7,
+        };
 
-  const incrementGuests = () => setGuests(guests + 1);
-  const decrementGuests = () => setGuests(guests > 0 ? guests - 1 : 0);
+        const casaId = casaToIdMap[eventData.casa_do_evento];
 
+        if (casaId) {
+          // Busca a logo pelo ID da casa
+          fetch(`${API_URL}/api/places/${casaId}`)
+            .then((res) => res.json())
+            .then((data) => {
+              if (data?.logo) {
+                // Agora estamos acessando a logo da pasta 'uploads/places'
+                setLogoSrc(`${API_URL}/uploads/${data.logo}`);
+              } else {
+                setLogoSrc(null); // Se não houver logo, limpa a imagem
+              }
+            })
+            .catch((error) => {
+              console.error("Erro ao buscar a logo:", error);
+              setLogoSrc(null); // Se houver erro, limpa a imagem
+            });
+        } else {
+          setLogoSrc(null); // Se a casa não estiver mapeada, limpa a imagem
+        }
+      }
+    }
+
+    if (eventData) {
+      setComboImage(eventData.imagem_do_combo);
+      setObservacao(eventData.observacao || "Sem observação.");
+    }
+  }, [eventData, API_URL]);
+
+  const closeModal = () => {
+    setModalIsOpen(false);
+    onClose();
+  };
+
+  const handleSubmitReservation = async () => {
+    if (!eventData || !userId) {
+      alert("Dados do evento ou do usuário estão ausentes.");
+      return;
+    }
+
+    const reservationData = {
+      userId,
+      eventId: eventData.id,
+      quantidade_pessoas: quantidadePessoas,
+      mesas,
+      data_da_reserva: new Date().toISOString().split("T")[0],
+      casa_da_reserva: eventData.casa_do_evento,
+    };
+
+    try {
+      const response = await fetch(`${API_URL}/api/reservas`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(reservationData),
+      });
+
+      if (response.ok) {
+        alert("Reserva confirmada!");
+        closeModal();
+      } else {
+        alert("Erro ao criar a reserva.");
+      }
+    } catch (error) {
+      console.error("Erro ao enviar reserva:", error);
+      alert("Erro ao criar a reserva.");
+    }
+  };
 
   return (
     <Modal
-      isOpen={isOpen}
-      onRequestClose={onRequestClose}
-      className={styles.modal}
-      overlayClassName={styles.overlay}
+      isOpen={modalIsOpen}
+      onRequestClose={closeModal}
+      contentLabel="Confirmação de Reserva"
+      className="bg-white p-6 rounded-lg w-1/2 max-w-2xl mx-auto"
+      overlayClassName="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center"
     >
-      <div className={styles.modalContent}>
-        <div className={styles.header}>
-          {/* Exibir a imagem do evento selecionado */}
-          {eventData.img && (
+      <div className="flex flex-col gap-4">
+        {/* Imagem e logo */}
+        <div className="flex justify-between">
+          <div className="relative w-3/5 h-52">
             <Image
-              src={eventData.img}
-              alt="Reserva"
-              className={styles.image}
-              width={500} // defina a largura que desejar
-              height={300} // defina a altura que desejar
+              src={`${API_URL}/uploads/events/${eventData.imagem_do_evento}`}
+              alt={eventData.nome_do_evento}
+              fill
+              objectFit="cover"
+              className="rounded-lg"
+              unoptimized
             />
+          </div>
+          {logoSrc && (
+            <div className="flex items-center justify-center w-1/3">
+              <img src={logoSrc} alt="Logo" className="max-w-full max-h-24" />
+            </div>
           )}
-          <div className={styles.rightColumn}>
-            {/* Exibir a logo e localização passadas como parâmetros */}
-            {logo && (
-              <Image src={logo} alt="Logo" width={200} height={200} />
+        </div>
+
+        {/* Ícones */}
+        <div className="flex justify-around gap-4">
+          {[icon1, icon2, icon3, icon4, icon5].map((icon, index) => (
+            <div className="flex flex-col items-center text-center" key={index}>
+              <Image src={icon} alt={`Icone ${index + 1}`} width={40} height={40} />
+              <p className="text-xs mt-1">{["Área", "Acessível", "Estacionamento", "18+", "Mesa"][index]}</p>
+            </div>
+          ))}
+        </div>
+
+        {/* Detalhes da Reserva */}
+        <div className="flex flex-col gap-2">
+          <h2 className="text-lg font-bold">{eventData.nome_do_evento}</h2>
+          <div className="flex justify-between">
+            <span>Data:</span>
+            <span>{new Date(eventData.data_do_evento).toLocaleDateString("pt-BR")}</span>
+          </div>
+          <div className="flex justify-between">
+            <span>Hora:</span>
+            <span>{eventData.hora_do_evento}</span>
+          </div>
+          <div className="flex justify-between">
+            <span>Local:</span>
+            <span>{eventData.local_do_evento}</span>
+          </div>
+          <div className="flex justify-between">
+            <span>Casa da Reserva:</span>
+            <span>{eventData.casa_do_evento}</span>
+          </div>
+          <div className="flex justify-between">
+            <span>Valor da Entrada:</span>
+            <span>R$ {Number(eventData.valor_da_entrada).toFixed(2)}</span>
+          </div>
+        </div>
+
+        {/* Quantidade de Pessoas e Mesas */}
+        <div className="flex flex-col gap-4">
+          <label htmlFor="quantidadePessoas" className="text-sm font-medium">
+            Quantidade de Pessoas:
+          </label>
+          <select
+            id="quantidadePessoas"
+            value={quantidadePessoas}
+            onChange={(e) => {
+              const newQuantidadePessoas = Number(e.target.value);
+              setQuantidadePessoas(newQuantidadePessoas);
+              setMesas(`${Math.ceil(newQuantidadePessoas / 6)} Mesa${Math.ceil(newQuantidadePessoas / 6) > 1 ? "s" : ""} / 6 cadeiras`);
+            }}
+            className="border rounded px-2 py-1 w-full"
+          >
+            {[...Array(20)].map((_, i) => (
+              <option key={i + 1} value={i + 1}>
+                {i + 1}
+              </option>
+            ))}
+          </select>
+
+          <label className="text-sm font-medium">Número de Mesas:</label>
+          <input
+            type="text"
+            value={mesas}
+            readOnly
+            className="border rounded px-2 py-1 w-full bg-gray-100"
+          />
+        </div>
+
+        {/* Imagem do Combo e Observação */}
+        {comboImage && (
+          <div className="flex flex-col items-center mt-4">
+            <div className="w-48 h-48 mb-2 rounded-lg overflow-hidden">
+              <Image
+                src={`${API_URL}/uploads/events/${eventData.imagem_do_combo}`}
+                alt="Imagem do Combo"
+                layout="responsive"
+                width={192}
+                height={192}
+                objectFit="cover"
+              />
+            </div>
+            {observacao && (
+              <p className="text-center text-sm font-medium text-gray-700">{observacao}</p>
             )}
-            <p className={styles.address}>{location || "Local não especificado"}</p>
+          </div>
+        )}
 
-            <div className={styles.iconContainer}>
-              <div className={styles.iconItem}>
-                <Image src={icon1} width={40} height={40} alt="Área aberta" />
-                <p className={styles.iconTitle}>Área aberta</p>
-              </div>
-              <div className={styles.iconItem}>
-                <Image src={icon2} width={40} height={40} alt="Acessível" />
-                <p className={styles.iconTitle}>Acessível</p>
-              </div>
-              <div className={styles.iconItem}>
-                <Image src={icon3} width={40} height={40} alt="Estacionamento" />
-                <p className={styles.iconTitle}>Estacionamento</p>
-              </div>
-              <div className={styles.iconItem}>
-                <Image src={icon4} width={40} height={40} alt="+18" />
-                <p className={styles.iconTitle}>+18</p>
-              </div>
-              <div className={styles.iconItem}>
-                <Image src={icon5} width={40} height={40} alt="Mesas" />
-                <p className={styles.iconTitle}>Mesas</p>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div className={styles.body}>
-          <div className={styles.section}>
-            <div className={styles.sectionHeader}>
-              <span className={styles.sectionIcon}>👥</span>
-              <h3 className={styles.sectionTitle}>Convidados</h3>
-              <div className={styles.counter}>
-                <button
-                  onClick={decrementGuests}
-                  className={styles.counterButton}
-                >
-                  -
-                </button>
-                <span className={styles.counterValue}>{guests}</span>
-                <button
-                  onClick={incrementGuests}
-                  className={styles.counterButton}
-                >
-                  +
-                </button>
-              </div>
-            </div>
-          </div>
-          <div className={styles.section}>
-            <div className={styles.sectionHeader}>
-              <span className={styles.sectionIcon}>🪑</span>
-              <h3 className={styles.sectionTitle}>Mesas</h3>
-              <div className={styles.priceContainer}>
-                <select className={styles.select}>
-                  <option value="1">Selecionar Mesa</option>
-                  {/* Adicione mais opções conforme necessário */}
-                </select>
-                {/* Exibir o valor da entrada do evento */}
-                <p className={styles.priceInfo}>{eventData.price}</p>
-              </div>
-            </div>
-          </div>
-          <div className={styles.section}>
-            <div className={styles.sectionHeader}>
-              <span className={styles.sectionIcon}>📅</span>
-              <h3 className={styles.sectionTitle}>Data / Evento</h3>
-              {/* Exibir a data do evento armazenada */}
-              <p className={styles.priceInfo}>{eventData.date}</p>
-            </div>
-          </div>
-        </div>
-        <div className={styles.reservationTitle}>
-          Balde de cerveja ou combo de 142 Gin.
-        </div>
-        <div className={styles.reservationDescription}>
-          - Entrada VIP para o aniversariante + acompanhante - A partir de 15 convidados: balde com 12 long necks. - 
-          A partir de 30 convidados: 1 COMBO de 142 Gin com água tônica, suco ou refrigerante. 
-          Obs: as bonificações não são acumulativas.
-        </div>
-
-        <Image src={gin} alt="Gin 142" className={styles.gin} />
-
-        <div className={styles.footer}>
-          <button onClick={onRequestClose} className={styles.reserveButton}>
-            Solicitar Reserva
+        {/* Botões */}
+        <div className="flex gap-4">
+          <button
+            onClick={handleSubmitReservation}
+            className="flex-1 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+          >
+            Confirmar Reserva
           </button>
-          <p className={styles.disclaimer}>
-            * O estabelecimento não garante que todos os convidados terão
-            assentos e a exata localização da mesa.
-          </p>
+          <button
+            onClick={closeModal}
+            className="flex-1 py-2 bg-gray-400 text-white rounded hover:bg-gray-500"
+          >
+            Fechar
+          </button>
         </div>
       </div>
     </Modal>

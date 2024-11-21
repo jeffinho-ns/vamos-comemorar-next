@@ -176,7 +176,7 @@ const Ohfregues = () => {
 
       {!showDescription && (
         <div className={styles.programacao}>
-          <Programacao logo={logoImage.src} location="Largo da Matriz de Nossa Senhora do Ó, 145"/>
+          <Programacao barId={4} />
         </div>
       )}
 

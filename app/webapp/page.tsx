@@ -59,36 +59,55 @@ export default function Home() {
       .catch((error) => console.error('Erro ao buscar eventos:', error));
   }, [API_URL, isClient, router]);
 
-  const Card: React.FC<{ event: Event }> = ({ event }) => (
-    <Link href={`/webapp/events/${event.id}`}>
-      <motion.div
-        className="relative bg-white rounded-lg shadow-md overflow-hidden card-container"
-        initial={{ opacity: 0, x: -100 }}
-        animate={{ opacity: 1, x: 0 }}
-        transition={{ duration: 0.5 }}
-      >
-        <div className="relative w-full h-[550px]">
-          <div className="absolute inset-0 bg-black opacity-50 z-10" />
-          <Image
-            src={`${API_URL}/uploads/events/${event.imagem_do_evento}`}
-            alt={event.nome_do_evento}
-            layout="fill"
-            objectFit="cover"
-            className="absolute inset-0 w-full h-full object-cover"
-            unoptimized
-          />
-          <div className="absolute bottom-4 left-4 text-shadow z-20">
-            <h2 className="text-white text-xl font-bold mb-1">{event.casa_do_evento}</h2>
-            <p className="text-white">{event.local_do_evento}</p>
+  const Card: React.FC<{ event: Event }> = ({ event }) => {
+    // Função para determinar o caminho da URL baseado na casa_do_evento
+    const getEventPagePath = (place: string) => {
+      switch (place) {
+        case 'Justino':
+          return `/webapp/justino/reservas/`;
+        case 'Pracinha':
+          return `/webapp/pracinha/reservas/`;
+        case 'Oh Freguês':
+          return `/webapp/ohfregues/reservas/`;
+        case 'Highline':
+          return `/webapp/highline/reservas/`;
+        default:
+          return `/webapp/reservas/`;
+      }
+    };
+  
+    return (
+      <Link href={getEventPagePath(event.casa_do_evento)}>
+        <motion.div
+          className="relative bg-white rounded-lg shadow-md overflow-hidden card-container"
+          initial={{ opacity: 0, x: -100 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.5 }}
+        >
+          <div className="relative w-full h-[550px]">
+            <div className="absolute inset-0 bg-black opacity-50 z-10" />
+            <Image
+              src={`${API_URL}/uploads/events/${event.imagem_do_evento}`}
+              alt={event.nome_do_evento}
+              layout="fill"
+              objectFit="cover"
+              className="absolute inset-0 w-full h-full object-cover"
+              unoptimized
+            />
+            <div className="absolute bottom-4 left-4 text-shadow z-20">
+              <h2 className="text-white text-xl font-bold mb-1">{event.casa_do_evento}</h2>
+              <p className="text-white">{event.local_do_evento}</p>
+            </div>
+            <div className="absolute bottom-4 right-4 bg-white rounded-full p-2 z-20">
+              <FaHeart className="text-red-500 text-2xl" />
+            </div>
           </div>
-          <div className="absolute bottom-4 right-4 bg-white rounded-full p-2 z-20">
-            <FaHeart className="text-red-500 text-2xl" />
-          </div>
-        </div>
-        <div className="card-button">Reservar</div>
-      </motion.div>
-    </Link>
-  );
+          <div className="card-button">Reservar</div>
+        </motion.div>
+      </Link>
+    );
+  };
+  
 
   return (
     <>
