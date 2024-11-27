@@ -18,6 +18,8 @@ const Reservas = () => {
   const [quantidadePessoas, setQuantidadePessoas] = useState(1);
   const [mesas, setMesas] = useState("1 Mesa / 6 cadeiras");
   const [userId, setUserId] = useState<number | null>(null);
+  const [comboImage, setComboImage] = useState<string | null>(null);
+  const [observacao, setObservacao] = useState<string>("");
   const API_URL = process.env.NEXT_PUBLIC_API_URL_NETWORK || process.env.NEXT_PUBLIC_API_URL_LOCAL;
   const router = useRouter();
 
@@ -39,7 +41,11 @@ const Reservas = () => {
     if (storedLogo) {
       setLogoSrc(storedLogo);
     }
-  }, [router]);
+    if (eventData) {
+      setComboImage(eventData.imagem_do_combo);
+      setObservacao(eventData.observacao || "Sem observação.");
+    }
+  }, [router, eventData, API_URL]);
 
   const openModal = () => setModalIsOpen(true);
   const closeModal = () => setModalIsOpen(false);
@@ -143,13 +149,34 @@ const Reservas = () => {
               </select>
             </div>
             <div className={styles.formGroup}>
-              <label>Data</label>
-              <span>{new Date(eventData.data_do_evento).toLocaleDateString()}</span>
-            </div>
-            <div className={styles.formGroup}>
-              <label>Evento</label>
-              <span>{eventData.nome_do_evento}</span>
-            </div>
+  <label>Data</label>
+  <span>{new Date(eventData.data_do_evento).toLocaleDateString()}</span>
+</div>
+<div className={styles.formGroup}>
+  <label>Evento</label>
+  <span>{eventData.nome_do_evento}</span>
+</div>
+
+{/* Exibição da imagem do combo e observação */}
+{comboImage && (
+  <div className="flex flex-col items-center mt-4">
+    <div className="w-48 h-48 mb-2 rounded-lg overflow-hidden">
+      <Image
+        src={`${API_URL}/uploads/events/${comboImage}`}
+        alt="Imagem do Combo"
+        width={192}
+        height={192}
+        objectFit="cover"
+      />
+    </div>
+    {observacao && (
+      <p className="text-center text-sm font-medium text-gray-700 mt-2">
+        {observacao}
+      </p>
+    )}
+  </div>
+)}
+
             <button onClick={handleSubmitReservation} className={styles.openModalButton}>
               Confirmar Reserva
             </button>

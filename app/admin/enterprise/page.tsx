@@ -52,7 +52,7 @@ export default function Companies() { // Mudando o nome da função para Compani
     const token = localStorage.getItem('authToken');
     
     try {
-      const response = await fetch(`${API_URL}/places`, {
+      const response = await fetch(`${API_URL}/api/places`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },

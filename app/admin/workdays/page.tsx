@@ -120,6 +120,7 @@ export default function EventsPage() {
           <thead className="bg-gray-200">
             <tr>
               <th className="px-6 py-3 font-semibold">Dia do Evento</th>
+              <th className="px-6 py-3 font-semibold">Nome do Evento</th>
               <th className="px-6 py-3 font-semibold">Local</th>
               <th className="px-6 py-3 font-semibold">Brinde</th>
               <th className="px-6 py-3 font-semibold">Mesas</th>
@@ -132,6 +133,7 @@ export default function EventsPage() {
               events.map((event) => (
                 <tr key={event.id} className="border-t">
                   <td className="px-6 py-4">{new Date(event.data_do_evento).toLocaleDateString()}</td>
+                  <td className="px-6 py-4">{event.nome_do_evento}</td>
                   <td className="px-6 py-4">{event.casa_do_evento}</td>
                   <td className="px-6 py-4">{event.brinde}</td>
                   <td className="px-6 py-4">{event.mesas}</td>

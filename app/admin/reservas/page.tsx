@@ -1,4 +1,5 @@
 "use client";
+
 import { MdAdd, MdRefresh, MdCheck, MdClose } from "react-icons/md";
 import { useEffect, useState } from "react";
 
@@ -30,86 +31,87 @@ export default function Reserves() {
 
   const fetchReserves = async () => {
     setLoading(true);
-    const token = localStorage.getItem('authToken');
+    const token = localStorage.getItem("authToken");
 
     try {
       const response = await fetch(`${API_URL}/api/reservas`, {
         headers: {
-          'Authorization': `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
         },
       });
-  
-      if (!response.ok) throw new Error('Erro ao buscar reservas');
-      
+
+      if (!response.ok) throw new Error("Erro ao buscar reservas");
+
       const data = await response.json();
-  
+
       if (Array.isArray(data)) {
-        setReserves(data); 
+        setReserves(data);
       } else {
-        setError('Dados inválidos.');
+        setError("Dados inválidos.");
       }
     } catch (error) {
-      setError(error instanceof Error ? error.message : 'Erro desconhecido');
-      console.error('Erro ao buscar reservas:', error);
+      setError(error instanceof Error ? error.message : "Erro desconhecido");
+      console.error("Erro ao buscar reservas:", error);
     } finally {
       setLoading(false);
     }
   };
 
   const approveReserve = async (id: number) => {
-    const token = localStorage.getItem('authToken');
     try {
-        const response = await fetch(`${API_URL}/api/reservas/update-status/${id}`, {  // Rota ajustada
+        const response = await fetch(`${API_URL}/api/reservas/update-status/${id}`, {
             method: 'PUT',
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`,
             },
-            body: JSON.stringify({ status: "Aprovado" }),
+            body: JSON.stringify({ status: 'Aprovado' }),
         });
 
-        if (!response.ok) throw new Error("Erro ao aprovar a reserva");
+        if (!response.ok) {
+            throw new Error('Erro ao aprovar a reserva.');
+        }
 
-        // Atualiza a lista de reservas após a aprovação
-        setReserves((prevReserves) =>
-            prevReserves.map((reserve) =>
-                reserve.id === id ? { ...reserve, status: "Aprovado" } : reserve
-            )
-        );
+        console.log('Reserva aprovada com sucesso!');
     } catch (error) {
-        console.error("Erro ao aprovar reserva:", error);
-        setError(error instanceof Error ? error.message : 'Erro desconhecido');
+        console.error('Erro ao aprovar a reserva:', error);
     }
 };
-
   const rejectReserve = async (id: number) => {
-    const token = localStorage.getItem('authToken');
+    const token = localStorage.getItem("authToken");
     try {
-      const response = await fetch(`${API_URL}/api/reservas/${id}`, {
-        method: 'PUT',
+      const response = await fetch(`${API_URL}/api/reservas/${id}/reject`, {
+        method: "PATCH",
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
         },
-        body: JSON.stringify({ status: "Reprovado" }),
       });
 
-      if (!response.ok) throw new Error("Erro ao reprovar a reserva");
+      if (!response.ok) throw new Error("Erro ao reprovar a reserva.");
 
-      // Atualiza a lista de reservas após a rejeição
+      // Atualiza a lista de reservas no estado
       setReserves((prevReserves) =>
         prevReserves.map((reserve) =>
           reserve.id === id ? { ...reserve, status: "Reprovado" } : reserve
         )
       );
     } catch (error) {
-      console.error("Erro ao reprovar reserva:", error);
-      setError(error instanceof Error ? error.message : 'Erro desconhecido');
+      console.error("Erro ao reprovar a reserva:", error);
+      setError(error instanceof Error ? error.message : "Erro desconhecido");
     }
   };
 
   useEffect(() => {
+    // Faz a primeira busca inicial
     fetchReserves();
+
+    // Configura o intervalo para buscar reservas a cada minuto
+    const intervalId = setInterval(() => {
+      fetchReserves();
+    }, 60000); // 60000ms = 1 minuto
+
+    // Limpa o intervalo quando o componente desmonta
+    return () => clearInterval(intervalId);
   }, []);
 
   return (
