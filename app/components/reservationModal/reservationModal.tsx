@@ -7,6 +7,8 @@ import icon3 from "../../assets/icones/estacionamento.png";
 import icon4 from "../../assets/icones/18.png";
 import icon5 from "../../assets/icones/mesa.png";
 
+
+
 interface ReservationModalProps {
   eventData: any;
   userId: number | null;
@@ -26,44 +28,28 @@ const ReservationModal: React.FC<ReservationModalProps> = ({
   const [logoSrc, setLogoSrc] = useState<string | null>(null);
   const [comboImage, setComboImage] = useState<string | null>(null);
   const [observacao, setObservacao] = useState<string>("");
-  const logo = localStorage.getItem('logo');
+
   useEffect(() => {
-    // Tenta buscar a logo do localStorage, se disponível
     const storedLogo = localStorage.getItem("lastPageLogo");
     if (storedLogo) {
       setLogoSrc(storedLogo);
-    } else {
-      // Se não houver logo no localStorage, tenta buscar via API
-      if (eventData?.casa_do_evento) {
-        // Mapeamento entre casas e IDs
-        const casaToIdMap: Record<string, number> = {
-          "Oh Freguês": 4,
-          "Seu Justino": 1,
-          "Pracinha do Seu Justino": 8,
-          "High Line": 7,
-        };
+    } else if (eventData?.casa_do_evento) {
+      const casaToIdMap: Record<string, number> = {
+        "Oh Freguês": 4,
+        "Seu Justino": 1,
+        "Pracinha do Seu Justino": 8,
+        "High Line": 7,
+      };
 
-        const casaId = casaToIdMap[eventData.casa_do_evento];
+      const casaId = casaToIdMap[eventData.casa_do_evento];
 
-        if (casaId) {
-          // Busca a logo pelo ID da casa
-          fetch(`${API_URL}/api/places/${casaId}`)
-            .then((res) => res.json())
-            .then((data) => {
-              if (data?.logo) {
-                // Agora estamos acessando a logo da pasta 'uploads/places'
-                setLogoSrc(`${API_URL}/uploads/${data.logo}`);
-              } else {
-                setLogoSrc(null); // Se não houver logo, limpa a imagem
-              }
-            })
-            .catch((error) => {
-              console.error("Erro ao buscar a logo:", error);
-              setLogoSrc(null); // Se houver erro, limpa a imagem
-            });
-        } else {
-          setLogoSrc(null); // Se a casa não estiver mapeada, limpa a imagem
-        }
+      if (casaId) {
+        fetch(`${API_URL}/api/places/${casaId}`)
+          .then((res) => res.json())
+          .then((data) => {
+            setLogoSrc(data?.logo ? `${API_URL}/uploads/${data.logo}` : null);
+          })
+          .catch(() => setLogoSrc(null));
       }
     }
 
@@ -113,135 +99,136 @@ const ReservationModal: React.FC<ReservationModalProps> = ({
   };
 
   return (
-    <Modal
-      isOpen={modalIsOpen}
-      onRequestClose={closeModal}
-      contentLabel="Confirmação de Reserva"
-      className="bg-white p-6 rounded-lg w-1/2 max-w-2xl mx-auto"
-      overlayClassName="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center"
-    >
-      <div className="flex flex-col gap-4">
-        {/* Imagem e logo */}
-        <div className="flex justify-between">
-          <div className="relative w-3/5 h-52">
-            <Image
-              src={`${API_URL}/uploads/events/${eventData.imagem_do_evento}`}
-              alt={eventData.nome_do_evento}
-              fill
-              objectFit="cover"
-              className="rounded-lg"
-              unoptimized
-            />
-          </div>
-          {logoSrc && (
-            <div className="flex items-center justify-center w-1/3">
-              <img src={logoSrc} alt="Logo" className="max-w-full max-h-24" />
-            </div>
-          )}
-        </div>
-
-        {/* Ícones */}
-        <div className="flex justify-around gap-4">
+<Modal
+  isOpen={modalIsOpen}
+  onRequestClose={closeModal}
+  contentLabel="Confirmação de Reserva"
+  ariaHideApp={false}
+  className="bg-white p-6 rounded-lg w-11/12 max-w-3xl mx-auto max-h-[75vh] overflow-auto"
+  overlayClassName="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center"
+>
+  <div className="flex flex-col gap-4">
+    <div className="flex gap-4">
+      <div className="relative w-2/5 h-36">
+        <Image
+          src={`${API_URL}/uploads/events/${eventData.imagem_do_evento}`}
+          alt={eventData.nome_do_evento}
+          fill
+          objectFit="cover"
+          className="rounded-lg"
+          unoptimized
+        />
+      </div>
+      <div className="flex flex-col justify-between items-center w-3/5 text-center">
+        <h2 className="text-lg font-bold">{eventData.nome_do_evento}</h2>
+        <div className="flex justify-around gap-2 mt-2">
           {[icon1, icon2, icon3, icon4, icon5].map((icon, index) => (
             <div className="flex flex-col items-center text-center" key={index}>
-              <Image src={icon} alt={`Icone ${index + 1}`} width={40} height={40} />
+              <Image src={icon} alt={`Ícone ${index + 1}`} width={32} height={32} />
               <p className="text-xs mt-1">{["Área", "Acessível", "Estacionamento", "18+", "Mesa"][index]}</p>
             </div>
           ))}
         </div>
+      </div>
+    </div>
 
-        {/* Detalhes da Reserva */}
-        <div className="flex flex-col gap-2">
-          <h2 className="text-lg font-bold">{eventData.nome_do_evento}</h2>
-          <div className="flex justify-between">
-            <span>Data:</span>
-            <span>{new Date(eventData.data_do_evento).toLocaleDateString("pt-BR")}</span>
-          </div>
-          <div className="flex justify-between">
-            <span>Hora:</span>
-            <span>{eventData.hora_do_evento}</span>
-          </div>
-          <div className="flex justify-between">
-            <span>Local:</span>
-            <span>{eventData.local_do_evento}</span>
-          </div>
-          <div className="flex justify-between">
-            <span>Casa da Reserva:</span>
-            <span>{eventData.casa_do_evento}</span>
-          </div>
-          <div className="flex justify-between">
-            <span>Valor da Entrada:</span>
-            <span>R$ {Number(eventData.valor_da_entrada).toFixed(2)}</span>
-          </div>
-        </div>
+    <div className="flex flex-col gap-2">
+      <div className="flex justify-between">
+        <span>Data:</span>
+        <span>{new Date(eventData.data_do_evento).toLocaleDateString("pt-BR")}</span>
+      </div>
+      <div className="flex justify-between">
+        <span>Hora:</span>
+        <span>{eventData.hora_do_evento}</span>
+      </div>
+      <div className="flex justify-between">
+        <span>Local:</span>
+        <span>{eventData.local_do_evento}</span>
+      </div>
+      <div className="flex justify-between">
+        <span>Casa da Reserva:</span>
+        <span>{eventData.casa_do_evento}</span>
+      </div>
+      <div className="flex justify-between">
+        <span>Valor da Entrada:</span>
+        <span>R$ {Number(eventData.valor_da_entrada).toFixed(2)}</span>
+      </div>
+    </div>
 
-        {/* Quantidade de Pessoas e Mesas */}
-        <div className="flex flex-col gap-4">
-          <label htmlFor="quantidadePessoas" className="text-sm font-medium">
-            Quantidade de Pessoas:
-          </label>
-          <select
-            id="quantidadePessoas"
-            value={quantidadePessoas}
-            onChange={(e) => {
-              const newQuantidadePessoas = Number(e.target.value);
-              setQuantidadePessoas(newQuantidadePessoas);
-              setMesas(`${Math.ceil(newQuantidadePessoas / 6)} Mesa${Math.ceil(newQuantidadePessoas / 6) > 1 ? "s" : ""} / 6 cadeiras`);
-            }}
-            className="border rounded px-2 py-1 w-full"
-          >
-            {[...Array(20)].map((_, i) => (
-              <option key={i + 1} value={i + 1}>
-                {i + 1}
-              </option>
-            ))}
-          </select>
+    <div className="flex flex-wrap gap-4">
+      <div className="flex-1 min-w-[30%]">
+        <label htmlFor="quantidadePessoas" className="text-sm font-medium">
+          Quantidade de Pessoas:
+        </label>
+        <select
+          id="quantidadePessoas"
+          value={quantidadePessoas}
+          onChange={(e) => {
+            const newQuantidadePessoas = Number(e.target.value);
+            setQuantidadePessoas(newQuantidadePessoas);
+            setMesas(
+              `${Math.ceil(newQuantidadePessoas / 6)} Mesa${
+                Math.ceil(newQuantidadePessoas / 6) > 1 ? "s" : ""
+              } / 6 cadeiras`
+            );
+          }}
+          className="border rounded px-2 py-1 w-full"
+        >
+          {[...Array(20)].map((_, i) => (
+            <option key={i + 1} value={i + 1}>
+              {i + 1}
+            </option>
+          ))}
+        </select>
+      </div>
 
-          <label className="text-sm font-medium">Número de Mesas:</label>
-          <input
-            type="text"
-            value={mesas}
-            readOnly
-            className="border rounded px-2 py-1 w-full bg-gray-100"
+      <div className="flex-1 min-w-[30%]">
+        <label className="text-sm font-medium">Número de Mesas:</label>
+        <input
+          type="text"
+          value={mesas}
+          readOnly
+          className="border rounded px-2 py-1 w-full bg-gray-100"
+        />
+      </div>
+    </div>
+
+    {comboImage && (
+      <div className="flex flex-col items-center mt-4">
+        <div className="w-48 h-48 mb-2 rounded-lg overflow-hidden">
+          <Image
+            src={`${API_URL}/uploads/events/${eventData.imagem_do_combo}`}
+            alt="Imagem do Combo"
+            layout="responsive"
+            width={192}
+            height={192}
+            objectFit="cover"
           />
         </div>
-
-        {/* Imagem do Combo e Observação */}
-        {comboImage && (
-          <div className="flex flex-col items-center mt-4">
-            <div className="w-48 h-48 mb-2 rounded-lg overflow-hidden">
-              <Image
-                src={`${API_URL}/uploads/events/${eventData.imagem_do_combo}`}
-                alt="Imagem do Combo"
-                layout="responsive"
-                width={192}
-                height={192}
-                objectFit="cover"
-              />
-            </div>
-            {observacao && (
-              <p className="text-center text-sm font-medium text-gray-700">{observacao}</p>
-            )}
-          </div>
+        {observacao && (
+          <p className="text-center text-sm font-medium text-gray-700">{observacao}</p>
         )}
-
-        {/* Botões */}
-        <div className="flex gap-4">
-          <button
-            onClick={handleSubmitReservation}
-            className="flex-1 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-          >
-            Confirmar Reserva
-          </button>
-          <button
-            onClick={closeModal}
-            className="flex-1 py-2 bg-gray-400 text-white rounded hover:bg-gray-500"
-          >
-            Fechar
-          </button>
-        </div>
       </div>
-    </Modal>
+    )}
+
+    <div className="flex gap-4">
+      <button
+        onClick={handleSubmitReservation}
+        className="flex-1 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+      >
+        Confirmar Reserva
+      </button>
+      <button
+        onClick={closeModal}
+        className="flex-1 py-2 bg-gray-400 text-white rounded hover:bg-gray-500"
+      >
+        Fechar
+      </button>
+    </div>
+  </div>
+</Modal>
+
+
   );
 };
 
