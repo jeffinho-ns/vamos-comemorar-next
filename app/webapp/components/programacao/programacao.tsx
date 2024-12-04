@@ -16,22 +16,26 @@ interface EventData {
 
 const Programacao = () => {
   const [events, setEvents] = useState<EventData[]>([]);
+  const [loading, setLoading] = useState(true);
   const API_URL = process.env.NEXT_PUBLIC_API_URL_NETWORK || process.env.NEXT_PUBLIC_API_URL_LOCAL;
 
   // Efeito para buscar os eventos ao carregar a página
   useEffect(() => {
     const fetchEvents = async () => {
       try {
+        setLoading(true); // Ativa o estado de carregamento
         const response = await fetch(`${API_URL}/api/events`);
         const data = await response.json();
         setEvents(data.slice(0, 9)); // Limita a quantidade de eventos a 9
       } catch (error) {
         console.error("Erro ao buscar eventos:", error);
+      } finally {
+        setLoading(false); // Desativa o estado de carregamento
       }
     };
 
     fetchEvents();
-  }, []);
+  }, [API_URL]);
 
   // Função para salvar os dados do evento no localStorage ao clicar
   const handleEventClick = (event: EventData) => {
@@ -42,19 +46,33 @@ const Programacao = () => {
     <div className={styles.programacao}>
       <h2 className={styles.sectionTitle}>Programação da semana</h2>
       <div className={styles.events}>
-        {events.map((event) => (
-          <Link key={event.id} href="/webapp/reservas">
-            <div onClick={() => handleEventClick(event)}>
-              <EventCard
-                img={`${API_URL}/uploads/events/${event.imagem_do_evento}`}
-                title={event.nome_do_evento}
-                date={new Date(event.data_do_evento).toLocaleDateString("pt-BR")}
-                time={event.hora_do_evento}
-                price={`R$${event.valor_da_entrada}`}
-              />
+        {loading ? (
+          // Exibe skeleton loaders enquanto os dados estão sendo carregados
+          [...Array(9)].map((_, index) => (
+            <div key={index} className={`${styles.skeletonCard} animate-pulse`}>
+              <div className={`${styles.skeletonImage} bg-gray-300`} />
+              <div className={`${styles.skeletonDetails} bg-gray-300`}>
+                <div className="h-6 w-3/4 bg-gray-400 mb-2 rounded" />
+                <div className="h-4 w-1/2 bg-gray-400 mb-1 rounded" />
+                <div className="h-4 w-1/4 bg-gray-400 rounded" />
+              </div>
             </div>
-          </Link>
-        ))}
+          ))
+        ) : (
+          events.map((event) => (
+            <Link key={event.id} href="/webapp/reservas">
+              <div onClick={() => handleEventClick(event)}>
+                <EventCard
+                  img={`${API_URL}/uploads/events/${event.imagem_do_evento}`}
+                  title={event.nome_do_evento}
+                  date={new Date(event.data_do_evento).toLocaleDateString("pt-BR")}
+                  time={event.hora_do_evento}
+                  price={`R$${event.valor_da_entrada}`}
+                />
+              </div>
+            </Link>
+          ))
+        )}
       </div>
     </div>
   );

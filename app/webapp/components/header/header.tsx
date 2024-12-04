@@ -44,20 +44,20 @@ const Header: React.FC<HeaderProps> = ({ className }) => {
   return (
     <header
       className={`fixed w-full z-10 transition-all ${
-        isScrolled ? "bg-blue-800" : "bg-transparent"
+        isScrolled ? "bg-transparent" : "bg-transparent"
       } mobile-only`}
     >
       <div className="barra-header">
         <div className="px-4 py-2 flex justify-between items-center">
           <div className="flex items-center">
             <MdMenu
-              className="text-gray-600 text-3xl cursor-pointer"
+              className="text-gray-50 text-3xl cursor-pointer"
               onClick={() => setIsNavOpen((prev) => !prev)}
             />
           </div>
           <div className="flex items-center">
             <MdNotifications
-              className="text-gray-600 text-3xl cursor-pointer"
+              className="text-gray-50 text-3xl cursor-pointer"
               onClick={() => router.push("/notifications")}
             />
           </div>

@@ -158,3 +158,8 @@ header {
   height: 200px;
   border-radius: 8px;
 }
+
+.header {
+  
+  z-index: 20 !important; /* Garante que o header fique acima do banner */
+}

@@ -9,6 +9,29 @@
     font-family: Poppins;
   }
 
+  .skeletonCard {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 100%;
+    max-width: 300px;
+    padding: 16px;
+    background-color: #f3f3f3;
+    border-radius: 8px;
+  }
+  
+  .skeletonImage {
+    height: 180px;
+    border-radius: 8px;
+  }
+  
+  .skeletonDetails {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  
+
   .events {
     display: flex;
     flex-direction: column;

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation"; // Para redirecionar o usuário
+import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import Banner from "./components/banner/banner";
 import Header from "./components/header/header";
@@ -21,9 +21,8 @@ import { MdLocationPin, MdLocationCity, MdSearch } from "react-icons/md";
 import Link from "next/link";
 import "react-multi-carousel/lib/styles.css";
 
-// Defina uma interface para os props do componente Card
 interface CardProps {
-  image: StaticImageData; // Tipo para imagens estáticas importadas
+  image: StaticImageData;
   title: string;
   address: string;
   distance: string;
@@ -34,23 +33,20 @@ interface CardProps {
 
 export default function Home() {
   const [showSecondCarousel, setShowSecondCarousel] = useState(false);
-  const router = useRouter(); // Instancia para o redirecionamento
+  const router = useRouter();
 
-  // Função para monitorar o tamanho da tela
   useEffect(() => {
     const handleResize = () => {
       if (window.innerWidth < 768) {
-        // Redireciona para a página desejada em dispositivos móveis
         router.push("/webapp");
+        router.refresh(); // Garante que a página será recarregada
       }
     };
 
-    handleResize(); // Verifica na montagem inicial
+    handleResize();
 
-    // Adiciona o listener para o redimensionamento da janela
     window.addEventListener("resize", handleResize);
 
-    // Remove o listener ao desmontar o componente
     return () => {
       window.removeEventListener("resize", handleResize);
     };
@@ -75,7 +71,6 @@ export default function Home() {
     },
   };
 
-  // Tipagem do componente Card
   const Card = ({ image, title, address, distance, rating, description, link }: CardProps) => (
     <motion.div
       className="relative bg-white rounded-lg shadow-md overflow-hidden mx-4 mt-16 card-container"
@@ -128,7 +123,6 @@ export default function Home() {
             sua comemoração, quanto mais convidados você levar, mais benefícios
             receberá.
           </p>
-          
         </div>
         <Image
           src={imgBanner}
@@ -238,12 +232,6 @@ export default function Home() {
             />
           </Carousel>
         )}
-        <button
-          onClick={() => setShowSecondCarousel(!showSecondCarousel)}
-          className="mt-6 py-2 px-4 bg-blue-500 text-white rounded-lg"
-        >
-          {showSecondCarousel ? "Ver menos" : "Ver mais"}
-        </button>
       </main>
       <Footer />
     </>

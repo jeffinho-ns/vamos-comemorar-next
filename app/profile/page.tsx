@@ -93,21 +93,21 @@ export default function ProfilePage() {
     <>
       <Header />
       <Banner
-        id="banner"
-        className="banner background-gradient relative flex items-center justify-center"
-      >
+  id="banner"
+  className="banner background-gradient relative flex items-center justify-center h-[300px]"
+>
         <div className="overlay background-gradient absolute h-4/5 top-0 right-0 bottom-0 left-0"></div>
         <div className="title-banner absolute flex flex-col items-center md:text-center">
           <Image src={logoBanner} alt="Logo banner" width={150} height={150} />
         </div>
         <Image
-          src={imgBanner}
-          alt="Imagem do banner"
-          className="Image-banner object-cover"
-          width={200} 
-          height={200} 
-          layout="responsive" 
-        />
+  src={imgBanner}
+  alt="Imagem do banner"
+  className="Image-banner object-cover w-full h-[300px]"
+  width={300} 
+  height={300} 
+  layout="responsive" 
+/>
       </Banner>
       <div className="flex justify-center w-screen relative bottom-32 md:bottom-20 px-4">
         {loading ? (
