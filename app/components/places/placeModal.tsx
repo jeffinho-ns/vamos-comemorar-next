@@ -26,7 +26,7 @@ export default function PlaceModal({ isOpen, onRequestClose, addPlace, place }: 
   const [longitude, setLongitude] = useState(place?.longitude || "");
   const [slug, setSlug] = useState(place?.slug || "");
   const [status, setStatus] = useState(place?.status || "active");
-  const API_URL = process.env.NEXT_PUBLIC_API_URL_NETWORK || process.env.NEXT_PUBLIC_API_URL_LOCAL;
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL_LOCAL;
 
   const commoditiesOptions = [
     { name: "Pet Friendly", icon: "🐶", description: "Aceita animais de estimação" },

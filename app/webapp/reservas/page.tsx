@@ -20,7 +20,7 @@ const Reservas = () => {
   const [userId, setUserId] = useState<number | null>(null);
   const [comboImage, setComboImage] = useState<string | null>(null);
   const [observacao, setObservacao] = useState<string>("");
-  const API_URL = process.env.NEXT_PUBLIC_API_URL_NETWORK || process.env.NEXT_PUBLIC_API_URL_LOCAL;
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL_LOCAL;
   const router = useRouter();
 
   useEffect(() => {

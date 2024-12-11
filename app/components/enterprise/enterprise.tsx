@@ -47,7 +47,7 @@ const Enterprise: React.FC<EnterpriseProps> = ({ isOpen, onRequestClose, company
   }), []);
 
   const [enterprise, setEnterprise] = useState<Establishment>(initialEnterpriseState);
-  const API_URL = process.env.NEXT_PUBLIC_API_URL_NETWORK || process.env.NEXT_PUBLIC_API_URL_LOCAL;
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL_LOCAL;
 
   useEffect(() => {
     if (company) {

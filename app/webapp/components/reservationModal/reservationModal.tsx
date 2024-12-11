@@ -13,7 +13,7 @@ const ReservationModal: React.FC<ReservationModalProps> = ({ isOpen, onRequestCl
   const [reservationData, setReservationData] = useState<any | null>(null);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
-  const API_URL = process.env.NEXT_PUBLIC_API_URL_NETWORK || process.env.NEXT_PUBLIC_API_URL_LOCAL;
+  const API_URL = process.env.NEXT_PUBLIC_API_UR || process.env.NEXT_PUBLIC_API_URL_LOCAL;
 
   useEffect(() => {
     if (isOpen && eventId) {

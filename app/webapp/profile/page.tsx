@@ -19,7 +19,7 @@ export default function PerfilMobile() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true); 
   const router = useRouter();
-  const API_URL = process.env.NEXT_PUBLIC_API_URL_NETWORK || process.env.NEXT_PUBLIC_API_URL_LOCAL;
+  const API_URL = process.env.NEXT_PUBLIC_API_URL|| process.env.NEXT_PUBLIC_API_URL_LOCAL;
 
   const fetchUserData = useCallback(async (token: string) => {
     setLoading(true);

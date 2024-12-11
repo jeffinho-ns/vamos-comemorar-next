@@ -76,7 +76,7 @@ const EditPlaceModal: React.FC<EditPlaceModalProps> = ({
   const [photos, setPhotos] = useState<File[]>(Array(10).fill(null));
   const [previewPhotos, setPreviewPhotos] = useState<string[]>(Array(10).fill(""));
   const [logoUrl, setLogoUrl] = useState<string | null>(currentPlace?.logo || "");
-  const API_URL = process.env.NEXT_PUBLIC_API_URL_NETWORK || process.env.NEXT_PUBLIC_API_URL_LOCAL;
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL_LOCAL;
 
   useEffect(() => {
     if (currentPlace) {

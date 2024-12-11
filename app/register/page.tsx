@@ -56,7 +56,7 @@ export default function Register() {
     };
 
     try {
-      const API_URL = process.env.NEXT_PUBLIC_API_URL_NETWORK || process.env.NEXT_PUBLIC_API_URL_LOCAL;
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL_LOCAL;
 
       const response = await fetch(`${API_URL}/api/users`, {
         method: "POST",

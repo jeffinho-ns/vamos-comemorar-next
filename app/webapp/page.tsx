@@ -8,6 +8,7 @@ import Link from "next/link";
 import { MdSearch } from "react-icons/md";
 import { FaHeart } from "react-icons/fa";
 import { useRouter } from "next/navigation";
+import logoWhite from "@/app/assets/logo_blue.png";
 import Header from "./components/header/header";
 import Footer from "./components/footer/footer";
 import "../webapp/global.scss";
@@ -36,7 +37,7 @@ export default function Home() {
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
   const [isClient, setIsClient] = useState(false);
-  const API_URL = process.env.NEXT_PUBLIC_API_URL_NETWORK || process.env.NEXT_PUBLIC_API_URL_LOCAL;
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL_LOCAL;
 
   const router = useRouter();
 
@@ -134,6 +135,11 @@ export default function Home() {
         {/* Conteúdo da página */}
         <div id="home-container" className="container-mobile relative z-1">
           {/* Conteúdo dentro do container */}
+          <div className="flex justify-center mt-8">
+          <Link href="/">
+            <Image src={logoWhite} alt="Logo" className="w-100" />
+          </Link>
+          </div>
           <p className="title text-white text-center mt-4">Qual evento você procura? </p>
 
           {/* Campo de busca */}

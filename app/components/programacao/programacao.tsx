@@ -25,7 +25,7 @@ const Programacao: React.FC<ProgramacaoProps> = ({ barId, logo, location }) => {
   const [events, setEvents] = useState<EventData[]>([]);
   const [modalIsOpen, setModalIsOpen] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<EventData | null>(null);
-  const API_URL = process.env.NEXT_PUBLIC_API_URL_NETWORK || process.env.NEXT_PUBLIC_API_URL_LOCAL || "http://localhost:3000";
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL_LOCAL || "http://localhost:3000";
 
   useEffect(() => {
     const fetchEvents = async () => {

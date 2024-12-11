@@ -19,7 +19,7 @@ export default function Users() {
   const [totalPages, setTotalPages] = useState<number>(1);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
 
-  const API_URL = process.env.NEXT_PUBLIC_API_URL_NETWORK || process.env.NEXT_PUBLIC_API_URL_LOCAL;
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL_LOCAL;
 
   const fetchData = useCallback(async () => {
     setLoading(true);

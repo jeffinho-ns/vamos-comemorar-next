@@ -21,7 +21,7 @@ interface Reserva {
 export default function MinhasReservas() {
   const [bannerSrc, setBannerSrc] = useState(defaultBanner.src);
   const [reservas, setReservas] = useState<Reserva[]>([]);
-  const API_URL = process.env.NEXT_PUBLIC_API_URL_NETWORK || process.env.NEXT_PUBLIC_API_URL_LOCAL;
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL_LOCAL;
   const router = useRouter(); // Usando useRouter da 'next/navigation'
 
   useEffect(() => {

@@ -22,7 +22,7 @@ export default function Gifts() {
   const [selectedGift, setSelectedGift] = useState<Gift | null>(null);
   const router = useRouter();
   const API_URL =
-    process.env.NEXT_PUBLIC_API_URL_NETWORK ||
+    process.env.NEXT_PUBLIC_API_URL ||
     process.env.NEXT_PUBLIC_API_URL_LOCAL;
 
   const openModal = (gift: Gift | null = null) => {

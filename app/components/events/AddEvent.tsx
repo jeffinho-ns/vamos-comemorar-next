@@ -27,7 +27,7 @@ const AddEvent: React.FC<AddEventProps> = ({ isOpen, onRequestClose }) => {
   const [imagemEventoPreview, setImagemEventoPreview] = useState<string | null>(null);
   const [imagemComboPreview, setImagemComboPreview] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const API_URL = process.env.NEXT_PUBLIC_API_URL_NETWORK || process.env.NEXT_PUBLIC_API_URL_LOCAL;
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL_LOCAL;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

@@ -8,7 +8,7 @@ import { Business, Place } from "./types";
 import Image from "next/image";
 
 const API_URL =
-  process.env.NEXT_PUBLIC_API_URL_NETWORK ||
+  process.env.NEXT_PUBLIC_API_URL ||
   process.env.NEXT_PUBLIC_API_URL_LOCAL;
 
 
