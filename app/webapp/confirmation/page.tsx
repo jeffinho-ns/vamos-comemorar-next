@@ -26,7 +26,7 @@ function ReservationDetails() {
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
   const API_URL =
-    process.env.NEXT_PUBLIC_API_UR ||
+    process.env.NEXT_PUBLIC_API_URL ||
     process.env.NEXT_PUBLIC_API_URL_LOCAL;
   const searchParams = useSearchParams();
   const reservaId = searchParams?.get("id");
