@@ -23,12 +23,20 @@ interface Place {
   photos?: string[];
 }
 
+type Commodity = {
+  name: string;
+  enabled: boolean;
+  icon?: string; // Propriedade opcional 'icon'
+  description?: string; // Propriedade opcional 'description'
+};
+
 interface EditPlaceModalProps {
   isOpen: boolean;
   currentPlace: Place | null;
   onRequestClose: () => void;
   updatePlace: (place: Place) => void;
 }
+
 
 const commoditiesOptions = [
   { name: "Pet Friendly", icon: "🐶", description: "Aceita animais de estimação" },
@@ -87,10 +95,20 @@ const EditPlaceModal: React.FC<EditPlaceModalProps> = ({
       setLongitude(currentPlace.longitude?.toString() || "");
       setStatus(currentPlace.status || "active");
       setVisible(currentPlace.visible !== undefined ? currentPlace.visible : true);
-      setCommodities(currentPlace.commodities || commoditiesOptions.map(option => ({ ...option, enabled: false })));
+  
+      // Aqui, adicione os valores de 'icon' e 'description' para commodities
+      setCommodities(
+        currentPlace.commodities?.map((commodity: Commodity) => ({
+          ...commodity,
+          icon: commodity.icon || "", // Agora o TypeScript sabe que 'icon' pode ser uma string ou undefined
+          description: commodity.description ?? "", // Se 'description' for indefinido, usa uma string vazia
+        })) || commoditiesOptions.map(option => ({ ...option, enabled: false }))
+      );
+  
       setPreviewPhotos(currentPlace.photos || Array(10).fill("")); // Preencher com fotos existentes
     }
   }, [currentPlace]);
+  
 
   useEffect(() => {
     if (selectedFile) {

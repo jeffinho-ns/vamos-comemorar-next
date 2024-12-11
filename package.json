@@ -18,7 +18,7 @@
     "react-modal": "^3.16.1",
     "react-multi-carousel": "^2.8.5",
     "react-router-dom": "^6.26.2",
-    "sass": "^1.80.3"
+    "sass": "^1.82.0"
   },
   "devDependencies": {
     "@types/node": "^22.9.0",

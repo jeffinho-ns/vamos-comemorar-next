@@ -61,7 +61,7 @@ const ProfileUser: React.FC<ProfileUserProps> = ({ addUser, user }) => {
         } else {
             resetProfile();
         }
-    }, [user]);
+    }, [user, API_URL]);
 
     const resetProfile = () => {
         setProfile({

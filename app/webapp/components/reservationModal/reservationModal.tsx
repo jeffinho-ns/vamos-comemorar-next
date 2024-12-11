@@ -16,7 +16,7 @@ const ReservationModal: React.FC<ReservationModalProps> = ({ isOpen, onRequestCl
   const API_URL = process.env.NEXT_PUBLIC_API_URL_NETWORK || process.env.NEXT_PUBLIC_API_URL_LOCAL;
 
   useEffect(() => {
-    if (isOpen && eventId) { // Verifica se o modal está aberto e se há um eventId
+    if (isOpen && eventId) {
       fetch(`${API_URL}/api/reservas/${eventId}`)
         .then((response) => {
           if (!response.ok) {
@@ -33,7 +33,8 @@ const ReservationModal: React.FC<ReservationModalProps> = ({ isOpen, onRequestCl
           setError("Não foi possível carregar os dados da reserva.");
         });
     }
-  }, [isOpen, eventId]); // Recarrega sempre que isOpen ou eventId mudar
+  }, [isOpen, eventId, API_URL]); // Adicione API_URL aqui
+  
 
   if (!isOpen) return null;
 

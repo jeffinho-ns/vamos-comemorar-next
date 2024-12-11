@@ -1,7 +1,8 @@
 "use client";
 
 import { MdAdd, MdRefresh, MdCheck, MdClose } from "react-icons/md";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import Image from "next/image";
 
 interface Reserve {
   id: number;
@@ -27,9 +28,12 @@ export default function Reserves() {
   const [reserves, setReserves] = useState<Reserve[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const API_URL = process.env.NEXT_PUBLIC_API_URL_NETWORK || process.env.NEXT_PUBLIC_API_URL_LOCAL;
+  const API_URL =
+    process.env.NEXT_PUBLIC_API_URL_NETWORK ||
+    process.env.NEXT_PUBLIC_API_URL_LOCAL ||
+    "http://localhost:3000";
 
-  const fetchReserves = async () => {
+  const fetchReserves = useCallback(async () => {
     setLoading(true);
     const token = localStorage.getItem("authToken");
 
@@ -55,27 +59,37 @@ export default function Reserves() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [API_URL]);
+
+  useEffect(() => {
+    fetchReserves();
+    const intervalId = setInterval(() => {
+      fetchReserves();
+    }, 60000);
+    return () => clearInterval(intervalId);
+  }, [fetchReserves]);
 
   const approveReserve = async (id: number) => {
     try {
-        const response = await fetch(`${API_URL}/api/reservas/update-status/${id}`, {
-            method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ status: 'Aprovado' }),
-        });
-
-        if (!response.ok) {
-            throw new Error('Erro ao aprovar a reserva.');
+      const response = await fetch(
+        `${API_URL}/api/reservas/update-status/${id}`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ status: "Aprovado" }),
         }
+      );
 
-        console.log('Reserva aprovada com sucesso!');
+      if (!response.ok) throw new Error("Erro ao aprovar a reserva.");
+
+      console.log("Reserva aprovada com sucesso!");
     } catch (error) {
-        console.error('Erro ao aprovar a reserva:', error);
+      console.error("Erro ao aprovar a reserva:", error);
     }
-};
+  };
+
   const rejectReserve = async (id: number) => {
     const token = localStorage.getItem("authToken");
     try {
@@ -89,7 +103,6 @@ export default function Reserves() {
 
       if (!response.ok) throw new Error("Erro ao reprovar a reserva.");
 
-      // Atualiza a lista de reservas no estado
       setReserves((prevReserves) =>
         prevReserves.map((reserve) =>
           reserve.id === id ? { ...reserve, status: "Reprovado" } : reserve
@@ -101,18 +114,6 @@ export default function Reserves() {
     }
   };
 
-  useEffect(() => {
-    // Faz a primeira busca inicial
-    fetchReserves();
-
-    // Configura o intervalo para buscar reservas a cada minuto
-    const intervalId = setInterval(() => {
-      fetchReserves();
-    }, 60000); // 60000ms = 1 minuto
-
-    // Limpa o intervalo quando o componente desmonta
-    return () => clearInterval(intervalId);
-  }, []);
 
   return (
     <div className="w-full p-6 bg-gray-100">
@@ -149,13 +150,15 @@ export default function Reserves() {
             {reserves.length > 0 ? (
               reserves.map((reserve) => (
                 <tr key={reserve.id} className="border-t">
-                  <td className="px-6 py-4">
-                    <img
-                      src={`${API_URL}/uploads/${reserve.foto_perfil}`}
-                      alt={`Foto de ${reserve.name}`}
-                      className="w-12 h-12 rounded-full object-cover"
-                    />
-                  </td>
+<td className="px-6 py-4">
+  <Image
+    src={`${API_URL}/uploads/${reserve.foto_perfil}`}
+    alt={`Foto de ${reserve.name}`}
+    width={48} // Ajuste o tamanho conforme necessário
+    height={48}
+    className="rounded-full object-cover"
+  />
+</td>
                   <td className="px-6 py-4">{reserve.name}</td>
                   <td className="px-6 py-4">{new Date(reserve.data_da_reserva).toLocaleDateString()}</td>
                   <td className="px-6 py-4">{reserve.quantidade_pessoas}</td>

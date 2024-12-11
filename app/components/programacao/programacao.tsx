@@ -16,15 +16,16 @@ interface EventData {
 
 interface ProgramacaoProps {
   barId: number; // Torna o barId obrigatório
+  logo: string; // Adicione a propriedade logo
+  location: string; // Certifique-se de que location está definido
+
 }
 
-const Programacao: React.FC<ProgramacaoProps> = ({ barId }) => {
+const Programacao: React.FC<ProgramacaoProps> = ({ barId, logo, location }) => {
   const [events, setEvents] = useState<EventData[]>([]);
-  const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [modalIsOpen, setModalIsOpen] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<EventData | null>(null);
-  const logo = localStorage.getItem('logo');
-  const API_URL = process.env.NEXT_PUBLIC_API_URL_NETWORK || process.env.NEXT_PUBLIC_API_URL_LOCAL;
+  const API_URL = process.env.NEXT_PUBLIC_API_URL_NETWORK || process.env.NEXT_PUBLIC_API_URL_LOCAL || "http://localhost:3000";
 
   useEffect(() => {
     const fetchEvents = async () => {
@@ -32,22 +33,16 @@ const Programacao: React.FC<ProgramacaoProps> = ({ barId }) => {
         const response = await fetch(`${API_URL}/api/events`);
         const data = await response.json();
         console.log("Dados recebidos da API:", data);
-  
-        // Testar a exibição sem filtro para garantir que os dados estão carregando
+
         setEvents(data.slice(0, 9));
-  
-        data.forEach((event: EventData) => {
-          console.log("Evento:", event);
-          console.log("Casa do evento:", event.casa_do_evento);
-        });
       } catch (error) {
         console.error("Erro ao buscar eventos:", error);
       }
     };
-  
+
     fetchEvents();
   }, [API_URL]);
-  
+
   const openModal = (eventData: EventData) => {
     setSelectedEvent(eventData);
     setModalIsOpen(true);
@@ -59,8 +54,21 @@ const Programacao: React.FC<ProgramacaoProps> = ({ barId }) => {
 
   return (
     <div className="container mx-auto px-4 py-8 bg-gray-100">
-      <h2 className="text-4xl font-bold text-center mb-12 text-gray-900">Programação do Mês</h2>
+      {/* Exibe a logo e o endereço */}
+      <div className="flex justify-between items-center mb-8">
+  <div className="relative h-16 w-16">
+    <Image
+      src={logo}
+      alt="Logo"
+      layout="fill"
+      objectFit="contain" // Ajusta o comportamento da imagem
+      priority // Garante carregamento rápido para imagens importantes
+    />
+  </div>
+  <p className="text-gray-700">{location}</p>
+</div>
 
+      <h2 className="text-4xl font-bold text-center mb-12 text-gray-900">Programação do Mês</h2>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
         {events.map((event) => (
@@ -88,6 +96,7 @@ const Programacao: React.FC<ProgramacaoProps> = ({ barId }) => {
     </div>
   );
 };
+
 
 interface EventCardProps {
   img: string;

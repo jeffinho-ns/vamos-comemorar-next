@@ -42,8 +42,11 @@ import { redirect } from 'next/navigation'; // Aqui importa a função de redire
 interface SectionProps {
   title: string;
   images: StaticImageData[]; // Ajuste para StaticImageData
+  
   openImage: (img: StaticImageData) => void; // Ajuste para StaticImageData
 }
+
+
 
 const Highline = () => {
   const [showDescription, setShowDescription] = useState(true);
@@ -177,7 +180,11 @@ const Highline = () => {
 
       {!showDescription && (
   <div className={styles.programacao}>
-    <Programacao logo={logoImage.src} location="Rua Girassol, 144 - Vila Madalena"/>
+   <Programacao
+  barId={1} // Exemplo de ID da casa
+  logo={logoImage.src} // URL da imagem do logo
+  location="Rua Girassol, 144 - Vila Madalena" // Endereço da casa
+/>
   </div>
 )}
 

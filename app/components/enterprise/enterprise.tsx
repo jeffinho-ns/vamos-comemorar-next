@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useMemo } from "react";
 import Modal from "react-modal";
+import { Establishment } from "../../types/Establishment";
 
-interface Establishment {
+interface Company {
   id?: number;
   cnpj: string;
   nome: string;

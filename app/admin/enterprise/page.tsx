@@ -1,119 +1,133 @@
 "use client";
 import { MdAdd, MdRefresh, MdEdit, MdDelete } from "react-icons/md";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import Enterprise from "../../components/enterprise/enterprise";
-import { useRouter } from 'next/navigation'; // Importando o router
-import { useMemo } from 'react';
+import { useRouter } from "next/navigation";
+import { Establishment } from "../../types/Establishment";
 
-// Atualização da definição do tipo Company
+// Definindo os tipos
 interface Company {
-  id: number;
+  id: string; // Tipo do id: string ou number dependendo de como você trata
   name: string;
   email: string;
   phone: string;
   status: string;
   created_at: string;
-  logo?: string; // Caso queira adicionar logo no futuro
+  logo?: string;
+  cnpj: string;
+  site?: string;
+  emailFinanceiro?: string;
+  cep?: string;
+  endereco?: string;
+  numero?: string;
+  bairro?: string;
+  complemento?: string;
+  cidade?: string;
+  estado?: string;
 }
 
-export default function Companies() { // Mudando o nome da função para Companies
+// Função para mapear Company para Establishment
+const mapCompanyToEstablishment = (company: Company): Establishment => ({
+  id: company.id.toString(), // Convertendo o id para string
+  cnpj: "", // Preencha conforme necessário ou deixe vazio
+  nome: company.name,
+  telefone: company.phone || "",
+  email: company.email,
+  status: company.status,
+  logo: company.logo || "",
+});
+
+export default function Companies() {
   const [companies, setCompanies] = useState<Company[]>([]);
   const [filterBy, setFilterBy] = useState("");
   const [modalIsOpen, setModalIsOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedCompany, setSelectedCompany] = useState(null);
-  const router = useRouter(); // Instância do router
+  const [selectedCompany, setSelectedCompany] = useState<Establishment | null>(null);
+  const router = useRouter();
   const API_URL = process.env.NEXT_PUBLIC_API_URL_NETWORK || process.env.NEXT_PUBLIC_API_URL_LOCAL;
 
-  const openModal = (company: any = null) => {
-    setSelectedCompany(company); // Define a empresa ou null no estado
-    setModalIsOpen(true); // Abre o modal
+  const openModal = (company: Company | null = null) => {
+    if (company) {
+      setSelectedCompany(mapCompanyToEstablishment(company));
+    } else {
+      setSelectedCompany(null);
+    }
+    setModalIsOpen(true);
   };
 
-  const initialEnterpriseState = useMemo(() => ({
-    id: 0,
-    name: '',
-    email: '',
-    phone: '',
-    status: '',
-    created_at: '',
-    logo: ''
-  }), []);
-  
   const closeModal = () => {
     setModalIsOpen(false);
-    setSelectedCompany(null); // Reseta a empresa selecionada ao fechar o modal
+    setSelectedCompany(null);
   };
 
-  // Função para buscar as empresas da API da Vamos Comemorar
-  const fetchCompanies = async () => {
+  const initialEnterpriseState = useMemo(
+    () => ({
+      id: "0", // Garantindo que o id seja uma string
+      cnpj: "",
+      nome: "",
+      telefone: "",
+      email: "",
+      status: "",
+      logo: "",
+    }),
+    []
+  );
+
+  // Memoriza a função fetchCompanies
+  const fetchCompanies = useCallback(async () => {
     setLoading(true);
-    const token = localStorage.getItem('authToken');
-    
+    const token = localStorage.getItem("authToken");
+
     try {
       const response = await fetch(`${API_URL}/api/places`, {
         headers: {
-          'Authorization': `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
         },
       });
-  
-      if (!response.ok) throw new Error('Erro ao buscar empresas');
-      
+
+      if (!response.ok) throw new Error("Erro ao buscar empresas");
+
       const data = await response.json();
-  
-      // Verifica se 'data' é um array de empresas
+
       if (Array.isArray(data.data)) {
-        setCompanies(data.data); // Ajuste para `data.data` com empresas
+        setCompanies(data.data);
       } else {
-        setError('Dados de empresas inválidos.');
+        setError("Dados de empresas inválidos.");
       }
     } catch (error) {
       if (error instanceof Error) {
         setError(error.message);
       } else {
-        setError('Erro desconhecido');
+        setError("Erro desconhecido");
       }
-      console.error('Erro ao buscar empresas:', error);
+      console.error("Erro ao buscar empresas:", error);
     } finally {
       setLoading(false);
     }
-  };
+  }, [API_URL]);
+
+  useEffect(() => {
+    fetchCompanies();
+  }, [fetchCompanies]);
 
   const handleDelete = async (companyId: string) => {
     const confirmDelete = window.confirm("Tem certeza que deseja excluir esta empresa?");
-    
     if (confirmDelete) {
       try {
-        // Chamada para deletar a empresa da API
         await fetch(`/api/enterprises/${companyId}`, {
-          method: 'DELETE',
+          method: "DELETE",
         });
-  
-        // Atualize a lista de empresas removendo a empresa deletada
-        setCompanies(companies.filter((company: any) => company.id !== companyId));
-        
-        alert('Empresa excluída com sucesso!');
+
+        setCompanies(companies.filter((company) => company.id.toString() !== companyId));
+        alert("Empresa excluída com sucesso!");
       } catch (error) {
-        console.error('Erro ao excluir a empresa:', error);
-        alert('Ocorreu um erro ao tentar excluir a empresa.');
+        console.error("Erro ao excluir a empresa:", error);
+        alert("Ocorreu um erro ao tentar excluir a empresa.");
       }
     }
   };
-  
-  
-  useEffect(() => {
-    fetchCompanies();
-  }, [initialEnterpriseState]);
 
-  // Função para adicionar um novo usuário
-  const addUser = (newUser: any) => {
-    // Lógica para adicionar um novo usuário
-    console.log('Novo usuário adicionado:', newUser);
-    // Aqui você pode implementar a lógica para adicionar o novo usuário à lista de empresas, se necessário.
-  };
-
-  // Filtrar as empresas conforme o input
   const filteredCompanies = companies.filter((company) => {
     return (
       company.name.toLowerCase().includes(filterBy.toLowerCase()) ||
@@ -126,12 +140,18 @@ export default function Companies() { // Mudando o nome da função para Compani
       <h2 className="text-2xl font-semibold mb-4">Empresas</h2>
 
       <div className="flex items-center mb-6">
-        <button onClick={fetchCompanies} className="bg-gray-500 hover:bg-gray-600 text-white p-4 rounded-full mr-4">
+        <button
+          onClick={fetchCompanies}
+          className="bg-gray-500 hover:bg-gray-600 text-white p-4 rounded-full mr-4"
+        >
           <MdRefresh className="text-xl" />
         </button>
-        <button onClick={() => openModal()} className="bg-blue-500 hover:bg-blue-600 text-white p-4 rounded-full">
-  <MdAdd className="text-xl" />
-</button>
+        <button
+          onClick={() => openModal()}
+          className="bg-blue-500 hover:bg-blue-600 text-white p-4 rounded-full"
+        >
+          <MdAdd className="text-xl" />
+        </button>
         <Enterprise isOpen={modalIsOpen} onRequestClose={closeModal} company={selectedCompany} />
       </div>
 
@@ -162,26 +182,28 @@ export default function Companies() { // Mudando o nome da função para Compani
           </thead>
           <tbody>
             {filteredCompanies.length > 0 ? (
-              filteredCompanies.map((company, index) => (
-                <tr key={index} className="border-t">
+              filteredCompanies.map((company) => (
+                <tr key={company.id} className="border-t">
                   <td className="px-6 py-4">{company.name}</td>
                   <td className="px-6 py-4">{company.email}</td>
                   <td className="px-6 py-4">{company.phone}</td>
                   <td className="px-6 py-4">{company.status}</td>
                   <td className="px-6 py-4">{company.created_at}</td>
                   <td className="px-6 py-4 flex space-x-2">
-  <button onClick={() => openModal(company)} title="Editar">
-    <MdEdit className="text-blue-500 hover:text-blue-700" />
-  </button>
-  <button onClick={() => handleDelete(company.id.toString())} title="Excluir">
-  <MdDelete className="text-red-500 hover:text-red-700" />
-</button>
-</td>
+                    <button onClick={() => openModal(company)} title="Editar">
+                      <MdEdit className="text-blue-500 hover:text-blue-700" />
+                    </button>
+                    <button onClick={() => handleDelete(company.id.toString())} title="Excluir">
+                      <MdDelete className="text-red-500 hover:text-red-700" />
+                    </button>
+                  </td>
                 </tr>
               ))
             ) : (
               <tr>
-                <td colSpan={6} className="px-6 py-4 text-center">Nenhuma empresa encontrada</td>
+                <td colSpan={6} className="px-6 py-4 text-center">
+                  Nenhuma empresa encontrada
+                </td>
               </tr>
             )}
           </tbody>

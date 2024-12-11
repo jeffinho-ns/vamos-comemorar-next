@@ -1,9 +1,9 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, Suspense } from "react";
 import Header from "../components/headerNotificatioin/headerNotification";
 import Footer from "../components/footer/footer";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import Image from "next/image";
 
 interface Reserva {
@@ -15,23 +15,33 @@ interface Reserva {
   status: string;
   user_id: number;
   quantidade_pessoas: number;
-  qrcode: string | null; // A string base64 do QR code
+  qrcode: string | null;
 }
 
-export default function Confirmation() {
+function ReservationDetails() {
   const [reserva, setReserva] = useState<Reserva | null>(null);
   const [bannerSrc, setBannerSrc] = useState<string | null>(null);
   const [showPopup, setShowPopup] = useState<boolean>(false);
   const [currentQRCode, setCurrentQRCode] = useState<string | null>(null);
-  const API_URL = process.env.NEXT_PUBLIC_API_URL_NETWORK || process.env.NEXT_PUBLIC_API_URL_LOCAL;
-  const router = useRouter();
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+
+  const API_URL =
+    process.env.NEXT_PUBLIC_API_URL_NETWORK ||
+    process.env.NEXT_PUBLIC_API_URL_LOCAL;
   const searchParams = useSearchParams();
-  const reservaId = searchParams.get("id");
+  const reservaId = searchParams?.get("id");
 
   useEffect(() => {
     const storedBanner = localStorage.getItem("lastPageBanner");
+    const userId = localStorage.getItem("userId");
+
     if (storedBanner) {
       setBannerSrc(storedBanner);
+    }
+
+    if (!reservaId || !userId) {
+      setIsLoading(false);
+      return;
     }
 
     const fetchReserva = async () => {
@@ -39,15 +49,12 @@ export default function Confirmation() {
         const response = await fetch(`${API_URL}/api/reservas/${reservaId}`);
         if (response.ok) {
           const data: Reserva = await response.json();
-
-          const userId = localStorage.getItem("userId");
-
           if (data.user_id === Number(userId)) {
             setReserva({
               ...data,
               imagem_do_evento: data.imagem_do_evento
                 ? `${API_URL}/uploads/events/${data.imagem_do_evento}`
-                : bannerSrc,
+                : storedBanner || "",
             });
           } else {
             console.error("Reserva não pertence ao usuário logado.");
@@ -57,13 +64,13 @@ export default function Confirmation() {
         }
       } catch (error) {
         console.error("Erro ao buscar reserva:", error);
+      } finally {
+        setIsLoading(false);
       }
     };
 
-    if (reservaId) {
-      fetchReserva();
-    }
-  }, [reservaId]);
+    fetchReserva();
+  }, [reservaId, API_URL]);
 
   const handleQRCodeClick = (qrcode: string) => {
     setCurrentQRCode(qrcode);
@@ -79,8 +86,14 @@ export default function Confirmation() {
     <>
       <Header />
       <div className="container mx-auto px-4 py-8">
-        <h2 className="text-3xl font-bold mb-6 text-center text-gray-800">Detalhes da Reserva</h2>
-        {reserva ? (
+        <h2 className="text-3xl font-bold mb-6 text-center text-gray-800">
+          Detalhes da Reserva
+        </h2>
+        {isLoading ? (
+          <p className="text-center text-lg text-gray-500">
+            Carregando detalhes da reserva...
+          </p>
+        ) : reserva ? (
           <div className="bg-white shadow-md rounded-lg p-6 mb-6 flex flex-col items-center">
             <div className="mb-6">
               {reserva.imagem_do_evento ? (
@@ -98,21 +111,35 @@ export default function Confirmation() {
               )}
             </div>
             <div className="space-y-4 text-center">
-              <h3 className="text-2xl font-semibold text-gray-800">{reserva.nome_do_evento}</h3>
-              <p className="text-gray-600"><strong>Casa da Reserva:</strong> {reserva.casa_do_evento || "Não especificado"}</p>
-              <p className="text-gray-600"><strong>Data do Evento:</strong> {new Date(reserva.data_do_evento).toLocaleDateString()}</p>
-              <p className="text-gray-600"><strong>Quantidade de Pessoas:</strong> {reserva.quantidade_pessoas || "Não especificado"}</p>
+              <h3 className="text-2xl font-semibold text-gray-800">
+                {reserva.nome_do_evento}
+              </h3>
+              <p className="text-gray-600">
+                <strong>Casa da Reserva:</strong>{" "}
+                {reserva.casa_do_evento || "Não especificado"}
+              </p>
+              <p className="text-gray-600">
+                <strong>Data do Evento:</strong>{" "}
+                {new Date(reserva.data_do_evento).toLocaleDateString()}
+              </p>
+              <p className="text-gray-600">
+                <strong>Quantidade de Pessoas:</strong>{" "}
+                {reserva.quantidade_pessoas || "Não especificado"}
+              </p>
 
               {reserva.qrcode ? (
                 <div className="mt-4 cursor-pointer">
-                  <h4 className="text-lg font-semibold text-gray-800">QR Code da Reserva</h4>
+                  <h4 className="text-lg font-semibold text-gray-800">
+                    QR Code da Reserva
+                  </h4>
                   <div className="mx-auto w-52 h-52 bg-white p-4 shadow-lg rounded-xl transform transition-transform duration-300 hover:scale-105">
-                    <img
+                    <Image
                       src={reserva.qrcode}
                       alt="QR Code da Reserva"
+                      width={200}
+                      height={200}
                       className="mx-auto rounded-md"
-                      style={{ width: 200, height: 200 }}
-                      onClick={() => handleQRCodeClick(reserva.qrcode)}
+                      onClick={() => handleQRCodeClick(reserva.qrcode!)}
                     />
                   </div>
                 </div>
@@ -122,7 +149,9 @@ export default function Confirmation() {
             </div>
           </div>
         ) : (
-          <p className="text-center text-lg text-gray-500">Carregando detalhes da reserva...</p>
+          <p className="text-center text-lg text-gray-500">
+            Não foi possível carregar os detalhes da reserva.
+          </p>
         )}
       </div>
 
@@ -141,18 +170,29 @@ export default function Confirmation() {
             >
               X
             </button>
-            <img
+            <Image
               src={currentQRCode || ""}
               alt="QR Code Ampliado"
+              width={300}
+              height={300}
               className="rounded-lg border border-gray-300 shadow-lg"
-              style={{ width: "300px", height: "300px" }}
             />
-            <p className="text-lg text-gray-700 mt-4">QR Code da sua Reserva</p>
+            <p className="text-lg text-gray-700 mt-4">
+              QR Code da sua Reserva
+            </p>
           </div>
         </div>
       )}
 
       <Footer />
     </>
+  );
+}
+
+export default function Confirmation() {
+  return (
+    <Suspense fallback={<div>Carregando página...</div>}>
+      <ReservationDetails />
+    </Suspense>
   );
 }

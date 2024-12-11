@@ -22,7 +22,10 @@ interface Event {
   id: string;
   title: string;
   address: string;
-  image: string;
+  imagem_do_evento: string;
+  nome_do_evento: string;
+  casa_do_evento: string;
+  local_do_evento: string;
   place: {
     name: string;
     logo: string;

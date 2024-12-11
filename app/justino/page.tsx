@@ -171,7 +171,11 @@ const Justino = () => {
 
       {!showDescription && (
         <div className={styles.programacao}>
-          <Programacao barId={1} />
+          <Programacao
+  barId={1} // Exemplo de ID da casa
+  logo={logoNew.src} // URL da imagem do logo
+  location="Rua Girassol, 144 - Vila Madalena" // Endereço da casa
+/>
         </div>
       )}
 

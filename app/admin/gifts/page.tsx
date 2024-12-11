@@ -1,16 +1,16 @@
 "use client";
 import { MdAdd, MdRefresh, MdEdit, MdDelete } from "react-icons/md";
-import { useEffect, useState } from "react";
-import Image from 'next/image';
-import { useRouter } from 'next/navigation';
+import { useCallback, useEffect, useState } from "react";
+import Image from "next/image";
+import { useRouter } from "next/navigation";
 
 interface Gift {
   id: number;
-  icon: string;  // URL ou nome do ícone
+  icon: string; // URL ou nome do ícone
   company_id: string;
   name: string;
   necessary_guests: number;
-  created_at: string;  // Data de criação
+  created_at: string; // Data de criação
 }
 
 export default function Gifts() {
@@ -21,11 +21,13 @@ export default function Gifts() {
   const [error, setError] = useState<string | null>(null);
   const [selectedGift, setSelectedGift] = useState<Gift | null>(null);
   const router = useRouter();
-  const API_URL = process.env.NEXT_PUBLIC_API_URL_NETWORK || process.env.NEXT_PUBLIC_API_URL_LOCAL;
+  const API_URL =
+    process.env.NEXT_PUBLIC_API_URL_NETWORK ||
+    process.env.NEXT_PUBLIC_API_URL_LOCAL;
 
   const openModal = (gift: Gift | null = null) => {
-    setSelectedGift(gift); 
-    setModalIsOpen(true); 
+    setSelectedGift(gift);
+    setModalIsOpen(true);
   };
 
   const closeModal = () => {
@@ -34,60 +36,62 @@ export default function Gifts() {
   };
 
   // Função para buscar os presentes da API
-  const fetchGifts = async () => {
+  const fetchGifts = useCallback(async () => {
     setLoading(true);
-    const token = localStorage.getItem('authToken');
-    
+    const token = localStorage.getItem("authToken");
+
     try {
       const response = await fetch(`${API_URL}/gifts`, {
         headers: {
-          'Authorization': `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
         },
       });
-  
-      if (!response.ok) throw new Error('Erro ao buscar presentes');
-      
+
+      if (!response.ok) throw new Error("Erro ao buscar presentes");
+
       const data = await response.json();
-  
+
       if (Array.isArray(data.data)) {
-        setGifts(data.data); 
+        setGifts(data.data);
       } else {
-        setError('Dados de presentes inválidos.');
+        setError("Dados de presentes inválidos.");
       }
     } catch (error) {
       if (error instanceof Error) {
         setError(error.message);
       } else {
-        setError('Erro desconhecido');
+        setError("Erro desconhecido");
       }
-      console.error('Erro ao buscar presentes:', error);
+      console.error("Erro ao buscar presentes:", error);
     } finally {
       setLoading(false);
     }
-  };
+  }, [API_URL]);
 
   const handleDelete = async (giftId: number) => {
-    const confirmDelete = window.confirm("Tem certeza que deseja excluir este presente?");
-    
+    const confirmDelete = window.confirm(
+      "Tem certeza que deseja excluir este presente?"
+    );
+
     if (confirmDelete) {
       try {
         await fetch(`${API_URL}/api/gifts/${giftId}`, {
-          method: 'DELETE',
+          method: "DELETE",
         });
-  
+
         setGifts(gifts.filter((gift: Gift) => gift.id !== giftId));
-        
-        alert('Presente excluído com sucesso!');
+
+        alert("Presente excluído com sucesso!");
       } catch (error) {
-        console.error('Erro ao excluir o presente:', error);
-        alert('Ocorreu um erro ao tentar excluir o presente.');
+        console.error("Erro ao excluir o presente:", error);
+        alert("Ocorreu um erro ao tentar excluir o presente.");
       }
     }
   };
 
   useEffect(() => {
     fetchGifts();
-  }, []);
+  }, [fetchGifts]);
 
   const filteredGifts = gifts.filter((gift) => {
     return (
@@ -101,13 +105,18 @@ export default function Gifts() {
       <h2 className="text-2xl font-semibold mb-4">Presentes</h2>
 
       <div className="flex items-center mb-6">
-        <button onClick={fetchGifts} className="bg-gray-500 hover:bg-gray-600 text-white p-4 rounded-full mr-4">
+        <button
+          onClick={fetchGifts}
+          className="bg-gray-500 hover:bg-gray-600 text-white p-4 rounded-full mr-4"
+        >
           <MdRefresh className="text-xl" />
         </button>
-        <button onClick={() => openModal()} className="bg-blue-500 hover:bg-blue-600 text-white p-4 rounded-full">
+        <button
+          onClick={() => openModal()}
+          className="bg-blue-500 hover:bg-blue-600 text-white p-4 rounded-full"
+        >
           <MdAdd className="text-xl" />
         </button>
-       
       </div>
 
       <div className="flex space-x-4 mb-6">
@@ -140,12 +149,22 @@ export default function Gifts() {
               filteredGifts.map((gift) => (
                 <tr key={gift.id} className="border-t">
                   <td className="px-6 py-4">
-                    {gift.icon ? <Image src={gift.icon} alt="Ícone" className="w-8 h-8" /> : 'Sem ícone'}
+                    {gift.icon ? (
+                      <Image
+                        src={gift.icon}
+                        alt="Ícone"
+                        className="w-8 h-8"
+                      />
+                    ) : (
+                      "Sem ícone"
+                    )}
                   </td>
                   <td className="px-6 py-4">{gift.company_id}</td>
                   <td className="px-6 py-4">{gift.name}</td>
                   <td className="px-6 py-4">{gift.necessary_guests}</td>
-                  <td className="px-6 py-4">{new Date(gift.created_at).toLocaleDateString()}</td>
+                  <td className="px-6 py-4">
+                    {new Date(gift.created_at).toLocaleDateString()}
+                  </td>
                   <td className="px-6 py-4 flex space-x-2">
                     <button onClick={() => openModal(gift)} title="Editar">
                       <MdEdit className="text-blue-500 hover:text-blue-700" />
@@ -158,7 +177,9 @@ export default function Gifts() {
               ))
             ) : (
               <tr>
-                <td colSpan={6} className="px-6 py-4 text-center">Nenhum presente encontrado</td>
+                <td colSpan={6} className="px-6 py-4 text-center">
+                  Nenhum presente encontrado
+                </td>
               </tr>
             )}
           </tbody>

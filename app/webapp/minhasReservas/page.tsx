@@ -29,15 +29,15 @@ export default function MinhasReservas() {
     if (storedBanner) {
       setBannerSrc(storedBanner);
     }
-
+  
     const fetchReservas = async () => {
       try {
         const response = await fetch(`${API_URL}/api/reservas`);
         if (response.ok) {
           const data = await response.json();
-
-          const userId = localStorage.getItem("userId"); // Ajuste conforme a lógica do seu sistema de autenticação
-
+  
+          const userId = localStorage.getItem("userId");
+  
           const reservasDoUsuario = data
             .filter((reserva: Reserva) => reserva.user_id === Number(userId))
             .map((reserva: Reserva) => ({
@@ -46,7 +46,7 @@ export default function MinhasReservas() {
                 ? `${API_URL}/uploads/events/${reserva.imagem_do_evento}`
                 : bannerSrc,
             }));
-
+  
           setReservas(reservasDoUsuario);
         } else {
           console.error("Erro ao buscar reservas:", response.statusText);
@@ -55,9 +55,10 @@ export default function MinhasReservas() {
         console.error("Erro ao buscar reservas:", error);
       }
     };
-
+  
     fetchReservas();
-  }, []);
+  }, [API_URL, bannerSrc]); // Adicione as dependências aqui
+  
 
   const handleReservaClick = (reserva: Reserva) => {
     if (reserva.status === "Aprovado") {

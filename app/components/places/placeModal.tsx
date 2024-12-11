@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import Modal from "react-modal";
 import Image from "next/image";
-import { Place } from "../types";
+import { Place } from "../../admin/commodities/types";
 
 interface PlaceModalProps {
   isOpen: boolean;

@@ -40,9 +40,9 @@ const ReservationModal: React.FC<ReservationModalProps> = ({
         "Pracinha do Seu Justino": 8,
         "High Line": 7,
       };
-
+  
       const casaId = casaToIdMap[eventData.casa_do_evento];
-
+  
       if (casaId) {
         fetch(`${API_URL}/api/places/${casaId}`)
           .then((res) => res.json())
@@ -52,12 +52,13 @@ const ReservationModal: React.FC<ReservationModalProps> = ({
           .catch(() => setLogoSrc(null));
       }
     }
-
+  
     if (eventData) {
       setComboImage(eventData.imagem_do_combo);
       setObservacao(eventData.observacao || "Sem observação.");
     }
   }, [eventData, API_URL]);
+  
 
   const closeModal = () => {
     setModalIsOpen(false);

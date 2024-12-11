@@ -28,6 +28,7 @@ interface ProfileProps {
   isOpen: boolean;
   onRequestClose: () => void;
   addUser: (user: Profile) => void;
+  userType?: any;
   user: Profile | null;
 }
 
@@ -46,7 +47,7 @@ const Profile = ({ isOpen, onRequestClose, addUser, user }: ProfileProps) => {
         password: "",
       });
     }
-  }, [isOpen, user]);
+  }, [isOpen, user, API_URL]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;

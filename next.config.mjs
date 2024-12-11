@@ -2,13 +2,14 @@
 
 const nextConfig = {
     images: { 
-        domains: ["imgs.search.brave.com", "localhost", "10.10.1.105", "via.placeholder.com"],  // Adicione "via.placeholder.com"
+        domains: [
+            "vamos-comemorar-api.onrender.com"  // Apenas o domínio da API no Render
+        ],
         remotePatterns: [
             {
-                protocol: 'http',
-                hostname: '10.10.1.105',
-                port: '5001', 
-                pathname: '/uploads/**',
+                protocol: 'https',  // Usando https para o Render
+                hostname: 'vamos-comemorar-api.onrender.com',  // Domínio da API no Render
+                pathname: '/uploads/**',  // Ajuste para o caminho correto onde as imagens são armazenadas
             },
         ],
     },

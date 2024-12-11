@@ -30,7 +30,7 @@ export default function EventsPage() {
     const token = localStorage.getItem('authToken');
 
     try {
-      const response = await fetch(`http://localhost:5001/api/events?page=${page}&perPage=10`, {
+      const response = await fetch(`https://vamos-comemorar-api.onrender.com/api/events?page=${page}&perPage=10`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },

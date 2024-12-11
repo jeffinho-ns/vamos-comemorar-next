@@ -80,23 +80,23 @@ export default function PerfilMobile() {
         <div className="flex flex-col items-center bg-white min-h-screen py-8 overflow-hidden">
           <h6 className="text-base font-semibold self-start mt-4 pl-4">Perfil</h6>
           <div className="flex flex-col items-center mb-6">
-            <div className="w-24 h-24 bg-gray-200 rounded-full flex items-center justify-center mb-2">
-              {user.foto_perfil ? (
+          <div className="w-24 h-24 bg-gray-200 rounded-full flex items-center justify-center mb-2">
+              {user?.foto_perfil ? (
                 <Image
-                src={user.foto_perfil.startsWith("http") 
-                  ? user.foto_perfil 
-                  : `${API_URL}/uploads/${user.foto_perfil}`}
-                width="64"
-                height="64"
-                alt="Foto de perfil"
-                className="rounded-full w-full h-full object-cover"
-              />
-            ) : (
-              <span className="text-gray-500">Adicionar foto</span>
-            )}
+                  src={user.foto_perfil.startsWith("http") 
+                    ? user.foto_perfil 
+                    : `${API_URL}/uploads/${user.foto_perfil}`}
+                  width="64"
+                  height="64"
+                  alt="Foto de perfil"
+                  className="rounded-full w-full h-full object-cover"
+                />
+              ) : (
+                <span className="text-gray-500">Adicionar foto</span>
+              )}
             </div>
-            <h2 className="text-xl font-semibold">{user.name}</h2>
-            <p className="text-gray-400">ID : {user.id}</p>
+            <h2 className="text-xl font-semibold">{user?.name || "Usuário desconhecido"}</h2>
+            <p className="text-gray-400">ID : {user?.id || "N/A"}</p>
           </div>
 
           <div className="w-full max-w-sm flex-grow flex flex-col">

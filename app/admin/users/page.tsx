@@ -24,7 +24,7 @@ export default function Users() {
   const fetchData = useCallback(async () => {
     setLoading(true);
     const token = localStorage.getItem("authToken");
-    const url = `${API_URL}/api/users?page=${page}&perPage=${perPage}&type=${userType}&search=${filterBy}`;
+    const url = `https://vamos-comemorar-api.onrender.com/api/users?page=${page}&perPage=${perPage}&type=${userType}&search=${filterBy}`;
 
     try {
       const response = await fetch(url, {
@@ -61,7 +61,7 @@ export default function Users() {
     } finally {
       setLoading(false);
     }
-  }, [API_URL, page, perPage, userType, filterBy]);
+  }, [page, perPage, userType, filterBy]);
 
   useEffect(() => {
     fetchData();
@@ -77,7 +77,7 @@ export default function Users() {
     if (confirm("Tem certeza que deseja excluir este item?")) {
       const token = localStorage.getItem("authToken");
       try {
-        const response = await fetch(`${API_URL}/api/users/${id}`, {
+        const response = await fetch(`https://vamos-comemorar-api.onrender.com/api/users/${id}`, {
           method: "DELETE",
           headers: {
             Authorization: `Bearer ${token}`,
@@ -100,7 +100,7 @@ export default function Users() {
   const handleAddUser = async (newUser: NewUser) => {
     const token = localStorage.getItem("authToken");
     try {
-      const response = await fetch(`${API_URL}/api/users`, {
+      const response = await fetch(`https://vamos-comemorar-api.onrender.com/api/users`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

@@ -176,7 +176,11 @@ const Ohfregues = () => {
 
       {!showDescription && (
         <div className={styles.programacao}>
-          <Programacao barId={4} />
+         <Programacao
+  barId={4} // Exemplo de ID da casa
+  logo={logoImage.src} // URL da imagem do logo
+  location="Rua Girassol, 144 - Vila Madalena" // Endereço da casa
+/>
         </div>
       )}
 

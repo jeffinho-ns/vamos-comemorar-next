@@ -38,7 +38,7 @@ export default function ProfilePage() {
     }
 
     try {
-      const response = await fetch("http://localhost:5001/api/users/me", {
+      const response = await fetch("https://vamos-comemorar-api.onrender.com/api/users/me", {
         method: "GET",
         headers: {
           Authorization: `Bearer ${token}`,
