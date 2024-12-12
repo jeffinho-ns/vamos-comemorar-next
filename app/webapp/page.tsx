@@ -55,6 +55,8 @@ export default function Home() {
     }
 
     setLoading(true);
+
+    setEvents([]);
     fetch(`${API_URL}/api/events`)
       .then((response) => response.json())
       .then((data) => {
@@ -65,6 +67,13 @@ export default function Home() {
       .catch((error) => console.error("Erro ao buscar eventos:", error))
       .finally(() => setLoading(false));
   }, [API_URL, isClient, router]);
+
+  useEffect(() => {
+    const rootElement = document.getElementById("__next");
+    if (rootElement) {
+      rootElement.classList.remove("desconfigurado"); // Remova classes extras se existirem
+    }
+  }, []);
 
   const Card: React.FC<{ event: Event }> = ({ event }) => {
     const getEventPagePath = (place: string) => {
@@ -86,9 +95,9 @@ export default function Home() {
       <Link href={getEventPagePath(event.casa_do_evento)}>
         <motion.div
           className="relative bg-white rounded-lg shadow-md overflow-hidden card-container"
-          initial={{ opacity: 0, x: -100 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.5 }}
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.5, ease: "easeOut" }}
         >
           <div className="relative w-full h-[550px]">
             <div className="absolute inset-0 bg-black opacity-50 z-10" />
@@ -116,33 +125,29 @@ export default function Home() {
 
   return (
     <>
-      <Header className="z-20"/>
+      <Header className="z-20" />
 
-      {/* Container do Banner */}
       <div className="relative">
-        {/* Banner como background */}
-        <div className="absolute inset-0 w-full h-[280px] z-0 blur-sm">
-          <Image
-            src={imgBanner}
-            alt="Banner"
-            layout="fill"
-            objectFit="cover"
-            className="absolute inset-0 w-full h-full"
-            unoptimized
-          />
-        </div>
-
-        {/* Conteúdo da página */}
         <div id="home-container" className="container-mobile relative z-1">
-          {/* Conteúdo dentro do container */}
-          <div className="flex justify-center mt-8">
-          <Link href="/">
-            <Image src={logoWhite} alt="Logo" className="w-100" />
-          </Link>
+        <div className="flex justify-center mt-8 z-10">
+            <Link href="/">
+              <Image src={logoWhite} alt="Logo" className="w-100" />
+            </Link>
           </div>
-          <p className="title text-white text-center mt-4">Qual evento você procura? </p>
+          <p className="title text-white text-center mt-4 z-10">Qual evento você procura?</p>
+          <div className="absolute inset-0 w-full h-[280px] z-0">
+            <Image
+              src={imgBanner}
+              alt="Banner"
+              layout="fill"
+              objectFit="cover"
+              className="absolute inset-0 w-full h-full"
+              unoptimized
+            />
+          </div>
 
-          {/* Campo de busca */}
+ 
+
           <div className="flex justify-center mt-8">
             <form className="w-11/12 max-w-md">
               <div className="relative">
@@ -157,7 +162,6 @@ export default function Home() {
             </form>
           </div>
 
-          {/* Logos */}
           <div className="flex justify-center gap-6 my-8">
             <Link href="/webapp/justino">
               <div className="flex items-center justify-center w-20 h-20 bg-white rounded-full shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-110">
@@ -181,22 +185,29 @@ export default function Home() {
             </Link>
           </div>
 
-          {/* Lista de eventos */}
           <div className="cards-container grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 my-8">
-            {loading ? (
-              [...Array(6)].map((_, index) => (
-                <div key={index} className="bg-gray-300 h-96 rounded-lg shadow-md animate-pulse"></div>
-              ))
-            ) : (
-              events.map((event) => <Card key={event.id} event={event} />)
-            )}
+            {loading
+              ? [...Array(6)].map((_, index) => (
+                  <div
+                    key={index}
+                    className="border border-blue-300 shadow rounded-lg p-4 w-full h-[550px] mx-auto animate-pulse"
+                  >
+                    <div className="animate-pulse flex flex-col h-full">
+                      <div className="bg-slate-700 h-3/4 w-full rounded-t-lg"></div>
+                      <div className="flex-1 space-y-4 pt-4">
+                        <div className="h-4 bg-slate-700 rounded w-3/4 mx-auto"></div>
+                        <div className="h-4 bg-slate-700 rounded w-1/2 mx-auto"></div>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              : events.map((event) => <Card key={event.id} event={event} />)}
           </div>
+          <Footer />
         </div>
       </div>
 
-      <div className="footerContainer">
-        <Footer />
-      </div>
+      
     </>
   );
 }

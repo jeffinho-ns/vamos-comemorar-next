@@ -172,67 +172,80 @@ export default function Home() {
         </Form>
       </div>
       <main className="container pl-8 pr-5 bg-white pb-8">
-        <Carousel responsive={responsive} className="grid">
-          <Card
-            image={img01}
-            title="Seu Justino Tatuapé"
-            address="Rua Azevedo Soares, 940"
-            distance="11.5km"
-            rating="4.9 (2.7K)"
-            description="O Justino é um bar aconchegante, referência de agito, drinks e ótimos petiscos. A Casa possui área interna, com palco e pista, para receber DJs e shows ao vivo dos mais variados estilos musicais."
-            link="/justino"
-          />
-          <Card
-            image={img02}
-            title="Oh Fregues"
-            address="Largo da Matriz de Nossa Senhora do Ó, 145"
-            distance="8.2km"
-            rating="4.8 (1.2K)"
-            description="O Oh Fregues é um ponto de encontro clássico, com um ambiente descontraído e drinks exclusivos. Venha conferir!"
-            link="/ohfregues"
-          />
-          <Card
-            image={img03}
-            title="High Line Bar"
-            address="Rua Girassol, 144 - Vila madalena"
-            distance="5.9km"
-            rating="4.7 (3.5K)"
-            description="Um lugar perfeito para relaxar e curtir boa música ao vivo. High Line bar oferece uma experiência única."
-            link="/highline"
-          />
-        </Carousel>
-        {showSecondCarousel && (
-          <Carousel responsive={responsive} className="grid mt-8">
-            <Card
-              image={img01}
-              title="Seu Justino Tatuapé"
-              address="Rua Azevedo Soares, 940"
-              distance="11.5km"
-              rating="4.9 (2.7K)"
-              description="O Justino é um bar aconchegante, referência de agito, drinks e ótimos petiscos."
-              link="/justino"
-            />
-            <Card
-              image={img02}
-              title="Oh Fregues"
-              address="Largo da Matriz de Nossa Senhora do Ó, 145"
-              distance="8.2km"
-              rating="4.8 (1.2K)"
-              description="O Oh Fregues é um ponto de encontro clássico, com um ambiente descontraído e drinks exclusivos."
-              link="/ohfregues"
-            />
-            <Card
-              image={img03}
-              title="High Line Bar"
-              address="Rua Girassol, 144 - Vila madalena"
-              distance="5.9km"
-              rating="4.7 (3.5K)"
-              description="Um lugar perfeito para relaxar e curtir boa música ao vivo. High Line bar oferece uma experiência única."
-              link="/highline"
-            />
-          </Carousel>
-        )}
-      </main>
+  <Carousel responsive={responsive} className="grid">
+    <Card
+      image={img01}
+      title="Seu Justino Tatuapé"
+      address="Rua Azevedo Soares, 940"
+      distance="11.5km"
+      rating="4.9 (2.7K)"
+      description="O Justino é um bar aconchegante, referência de agito, drinks e ótimos petiscos. A Casa possui área interna, com palco e pista, para receber DJs e shows ao vivo dos mais variados estilos musicais."
+      link="/justino"
+    />
+    <Card
+      image={img02}
+      title="Oh Fregues"
+      address="Largo da Matriz de Nossa Senhora do Ó, 145"
+      distance="8.2km"
+      rating="4.8 (1.2K)"
+      description="O Oh Fregues é um ponto de encontro clássico, com um ambiente descontraído e drinks exclusivos. Venha conferir!"
+      link="/ohfregues"
+    />
+    <Card
+      image={img03}
+      title="High Line Bar"
+      address="Rua Girassol, 144 - Vila madalena"
+      distance="5.9km"
+      rating="4.7 (3.5K)"
+      description="Um lugar perfeito para relaxar e curtir boa música ao vivo. High Line bar oferece uma experiência única."
+      link="/highline"
+    />
+  </Carousel>
+
+  {!showSecondCarousel && (
+    <div className="flex justify-center mt-4">
+      <button
+        onClick={() => setShowSecondCarousel(true)}
+        className="px-6 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
+      >
+        Ver mais
+      </button>
+    </div>
+  )}
+
+  {showSecondCarousel && (
+    <Carousel responsive={responsive} className="grid mt-8">
+      <Card
+        image={img01}
+        title="Pracinha do Seu Justino"
+        address="Rua Azevedo Soares, 940"
+        distance="11.5km"
+        rating="4.9 (2.7K)"
+        description="O Justino é um bar aconchegante, referência de agito, drinks e ótimos petiscos."
+        link="/justino"
+      />
+      <Card
+        image={img02}
+        title="Mockup Bar"
+        address="Largo da Matriz de Nossa Senhora do Ó, 145"
+        distance="8.2km"
+        rating="4.8 (1.2K)"
+        description="O Oh Fregues é um ponto de encontro clássico, com um ambiente descontraído e drinks exclusivos."
+        link="/ohfregues"
+      />
+      <Card
+        image={img03}
+        title="Mirante"
+        address="Rua Girassol, 144 - Vila madalena"
+        distance="5.9km"
+        rating="4.7 (3.5K)"
+        description="Um lugar perfeito para relaxar e curtir boa música ao vivo. High Line bar oferece uma experiência única."
+        link="/highline"
+      />
+    </Carousel>
+  )}
+</main>
+
       <Footer />
     </>
   );
