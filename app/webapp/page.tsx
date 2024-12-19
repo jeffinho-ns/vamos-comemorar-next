@@ -12,6 +12,7 @@ import logoWhite from "@/app/assets/logo_blue.png";
 import Header from "./components/header/header";
 import Footer from "./components/footer/footer";
 import "../webapp/global.scss";
+import Intro from "./components/intro/intro"; 
 
 // Importação das imagens das logos
 import Logo1 from "../webapp/assetsMobile/logos/justinologo.png";
@@ -37,25 +38,27 @@ export default function Home() {
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
   const [isClient, setIsClient] = useState(false);
+  const [showIntro, setShowIntro] = useState(true); // Estado para gerenciar o Intro
+  const [currentIntroPage, setCurrentIntroPage] = useState(0); // Página atual do Intro
   const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL_LOCAL;
 
   const router = useRouter();
 
   useEffect(() => {
-    setIsClient(true);
-  }, []);
-
-  useEffect(() => {
-    if (!isClient) return;
-
     const token = localStorage.getItem("authToken");
-    if (!token) {
-      router.push("/login");
-      return;
+
+    if (token) {
+      // Se o usuário está logado, não mostrar o Intro e ir direto para os eventos
+      setShowIntro(false);
+      fetchEvents();
+    } else {
+      // Se não está logado, continuar mostrando o Intro
+      setShowIntro(true);
     }
+  }, []); // Chama apenas uma vez, quando o componente for montado
 
+  const fetchEvents = () => {
     setLoading(true);
-
     setEvents([]);
     fetch(`${API_URL}/api/events`)
       .then((response) => response.json())
@@ -66,14 +69,16 @@ export default function Home() {
       })
       .catch((error) => console.error("Erro ao buscar eventos:", error))
       .finally(() => setLoading(false));
-  }, [API_URL, isClient, router]);
+  };
 
-  useEffect(() => {
-    const rootElement = document.getElementById("__next");
-    if (rootElement) {
-      rootElement.classList.remove("desconfigurado"); // Remova classes extras se existirem
+  // Função para avançar no componente Intro
+  const handleNextIntro = () => {
+    if (currentIntroPage < 2) {
+      setCurrentIntroPage((prev) => prev + 1);
+    } else {
+      setShowIntro(false);
     }
-  }, []);
+  };
 
   const Card: React.FC<{ event: Event }> = ({ event }) => {
     const getEventPagePath = (place: string) => {
@@ -124,7 +129,13 @@ export default function Home() {
   };
 
   return (
+    
     <>
+          {loading && (
+        <div className="absolute inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50">
+          <Intro className="w-full h-full" />
+        </div>
+      )}
       <Header className="z-20" />
 
       <div className="relative">

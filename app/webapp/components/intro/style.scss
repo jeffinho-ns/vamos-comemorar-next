@@ -1,0 +1,251 @@
+// Settings
+$size: 4.5rem;
+$speed: 2.25s;
+
+// Container Settings
+$batteryHeight: $size;
+$batteryRadius: $size * 0.02;
+$batteryColor: #425C77;
+$batteryBackground: white;
+$batteryHighlight: rgba($batteryBackground, 0.325);
+
+// Liquid Settings
+$liquidSize: $size / 8;
+$liquidOffset: $liquidSize / -2.25;
+$liquidColor: #71FB85;
+
+// Loading Keyframes
+@keyframes load {
+  0% { top: $size; }
+  50% { top: $size * 0.25; }
+  90% { top: 0; }
+  95% { top: 0; }
+  100% { top: $size; }
+}
+
+// Wave Keyframes
+@keyframes liquid-1 {
+  0% {
+    height: 0;
+    opacity: 0;
+    top: $liquidOffset;
+  }
+  25% {
+    height: $liquidSize * 0.5;
+    top: $liquidOffset * 0.5;
+    opacity: 1;
+  }
+  50% {
+    height: $liquidSize * 1.25;
+    top: $liquidOffset * 1.25;
+  }
+  75% {
+    height: $liquidSize * 0.75;
+    top: $liquidOffset * 0.75;
+  }
+  100% {
+    height: 0;
+    opacity: 0;
+    top: $liquidOffset;
+  }
+}
+
+@keyframes liquid-2 {
+  0% {
+    height: 0;
+    opacity: 0;
+    top: $liquidOffset;
+  }
+  20% {
+    height: $liquidSize * 0.75;
+    top: $liquidOffset * 0.75;
+    opacity: 1;
+  }
+  40% {
+    height: $liquidSize * 1.25;
+    top: $liquidOffset * 1.25;
+  }
+  60% {
+    height: $liquidSize * 0.5;
+    top: $liquidOffset * 0.5;
+  }
+  80% {
+    height: $liquidSize * 1;
+    top: $liquidOffset * 1;
+  }
+  100% {
+    height: 0;
+    opacity: 0;
+    top: $liquidOffset;
+  }
+}
+
+// Logo Animation
+@keyframes logoAnimation {
+  0% { transform: scale(1); opacity: 1; }
+  80% { transform: scale(0.7); opacity: 0.5; }
+  100% { transform: scale(0); opacity: 0; }
+}
+
+// Expand Content Animation
+@keyframes expandContent {
+  0% { opacity: 0; }
+  100% { opacity: 1; }
+}
+
+// Bubble Animation
+@keyframes bubbleAnimation {
+  0% {
+    top: $liquidOffset;
+    opacity: 0;
+    transform: scale(0) rotate(0);
+  }
+  25% {
+    opacity: 1;
+    transform: scale(1) rotate(10deg);
+  }
+  50% {
+    top: $liquidOffset * -1;
+    opacity: 0.5;
+    transform: scale(0.9) rotate(30deg);
+  }
+  75% {
+    top: $liquidOffset * -2;
+    opacity: 1;
+    transform: scale(1.2) rotate(60deg);
+  }
+  100% {
+    opacity: 0;
+    top: $liquidOffset * -3;
+    transform: scale(0) rotate(90deg);
+  }
+}
+
+// Styles for battery, terminal, and highlight
+.battery {
+  display: inline-block;
+  position: relative;
+  width: $size / 2;
+  height: $size;
+  box-shadow: 0 0 0 0.2rem $batteryColor;
+  background: $batteryBackground;
+  border-radius: $batteryRadius;
+
+  // Terminal
+  &:before {
+    content: '';
+    position: absolute;
+    left: $size / 8;
+    right: $size / 8;
+    top: $size * -0.075;
+    height: $size * 0.075;
+    width: $size / 4;
+    background: $batteryColor;
+    border-radius: $batteryRadius * 2;
+  }
+
+  // Highlight
+  &:after {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    border-right: ($size * 0.5) solid transparent;
+    border-bottom: ($size - 0.45) solid $batteryHighlight;
+  }
+}
+
+// Styles for liquid
+.liquid {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0; 
+  bottom: 0; 
+  width: 100%;
+  background: linear-gradient(to bottom, #71FB85 0%, #5be47a 100%);
+  animation: load $speed infinite;
+}
+
+// Bubble Container for multiple bubbles
+.bubbles {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  
+  // Adding random multiple bubbles
+  .bubble {
+    position: absolute;
+    bottom: 0;
+    width: $liquidSize;
+    height: $liquidSize;
+    background: $liquidColor;
+    border-radius: 50%;
+    opacity: 0;
+    animation: bubbleAnimation $speed infinite;
+    
+    &:nth-child(1) { left: 10%; animation: bubble-1 $speed infinite; }
+    &:nth-child(2) { left: 20%; animation: bubble-2 $speed infinite; }
+    &:nth-child(3) { left: 30%; animation: bubble-1 $speed infinite; }
+    &:nth-child(4) { left: 40%; animation: bubble-2 $speed infinite; }
+    &:nth-child(5) { left: 50%; animation: bubble-1 $speed infinite; }
+    &:nth-child(6) { left: 60%; animation: bubble-2 $speed infinite; }
+    &:nth-child(7) { left: 70%; animation: bubble-1 $speed infinite; }
+    &:nth-child(8) { left: 80%; animation: bubble-2 $speed infinite; }
+    &:nth-child(9) { left: 90%; animation: bubble-1 $speed infinite; }
+  }
+}
+
+// Individual bubble animations
+@keyframes bubble-1 {
+  0% { transform: translateY(0) scale(0.5); opacity: 0; }
+  25% { opacity: 1; }
+  100% { transform: translateY(-120px) scale(1); opacity: 0; }
+}
+
+@keyframes bubble-2 {
+  0% { transform: translateY(0) scale(0.5); opacity: 0; }
+  25% { opacity: 1; }
+  100% { transform: translateY(-140px) scale(1); opacity: 0; }
+}
+
+// Logo Animation
+.logo {
+  animation: logoAnimation $speed forwards;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 10;
+}
+
+// Content that fills the page after the animation
+.content {
+  opacity: 0;
+  animation: expandContent 2s forwards;
+  animation-delay: $speed * 2;
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: #fff;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1;
+  padding: 20px;
+}
+
+// Power Animation
+@keyframes power {
+  0% { color: #bcbcbc; }
+  75% { color: #bcbcbc; text-shadow: none; }
+  90% { color: darken($liquidColor, 5%); text-shadow: 0 0 0.8em $liquidColor; }
+  100% { color: #bcbcbc; text-shadow: none; }
+}

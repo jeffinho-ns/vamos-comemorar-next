@@ -164,30 +164,3 @@ header {
   z-index: 20 !important; /* Garante que o header fique acima do banner */
 }
 
-@keyframes fadeInZoom {
-  0% {
-    opacity: 0;
-    transform: scale(0.8);
-  }
-  50% {
-    opacity: 1;
-    transform: scale(1);
-  }
-  100% {
-    opacity: 1;
-    transform: scale(1.2);
-  }
-}
-
-@keyframes fadeOut {
-  0% {
-    opacity: 1;
-  }
-  100% {
-    opacity: 0;
-  }
-}
-
-.animate-intro {
-  animation: fadeInZoom 1.5s ease-in-out forwards, fadeOut 1s ease-in-out 2.5s forwards;
-}
