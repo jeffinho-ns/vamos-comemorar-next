@@ -1,7 +1,7 @@
 "use client";
 
 import imgBanner from "@/app/assets/banner01.webp";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { motion } from "framer-motion";
 import Image from "next/image";
 import Link from "next/link";
@@ -44,20 +44,7 @@ export default function Home() {
 
   const router = useRouter();
 
-  useEffect(() => {
-    const token = localStorage.getItem("authToken");
-
-    if (token) {
-      // Se o usuário está logado, não mostrar o Intro e ir direto para os eventos
-      setShowIntro(false);
-      fetchEvents();
-    } else {
-      // Se não está logado, continuar mostrando o Intro
-      setShowIntro(true);
-    }
-  }, []); // Chama apenas uma vez, quando o componente for montado
-
-  const fetchEvents = () => {
+  const fetchEvents = useCallback(() => {
     setLoading(true);
     setEvents([]);
     fetch(`${API_URL}/api/events`)
@@ -69,7 +56,20 @@ export default function Home() {
       })
       .catch((error) => console.error("Erro ao buscar eventos:", error))
       .finally(() => setLoading(false));
-  };
+  }, [API_URL]); // Dependência de API_URL
+
+  useEffect(() => {
+    const token = localStorage.getItem("authToken");
+
+    if (token) {
+      // Se o usuário está logado, não mostrar o Intro e ir direto para os eventos
+      setShowIntro(false);
+      fetchEvents();
+    } else {
+      // Se não está logado, continuar mostrando o Intro
+      setShowIntro(true);
+    }
+  }, [fetchEvents]); // Agora fetchEvents é uma dependência do useEffect
 
   // Função para avançar no componente Intro
   const handleNextIntro = () => {

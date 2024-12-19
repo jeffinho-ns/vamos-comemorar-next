@@ -7,7 +7,11 @@ import logoWhite from "@/app/assets/logo_white.png";
 import { useRouter } from "next/navigation";
 import "../intro/style.scss";
 
-const Intro = () => {
+interface IntroProps {
+  className?: string; // Define que className é opcional
+}
+
+const Intro: React.FC<IntroProps> = ({ className }) => {
   const [currentPage, setCurrentPage] = useState(1); // Página atual
   const [isLoggedIn, setIsLoggedIn] = useState(false); // Estado de login
   const router = useRouter();
@@ -72,7 +76,7 @@ useEffect(() => {
         Explore Upcoming and Nearby Events
       </h1>
       <p className="text-lg sm:text-xl text-white mb-8 max-w-2xl mx-auto">
-        Discover exciting events happening near you! Find the best activities, shows, and experiences to enjoy with your friends and family.
+      Descubra eventos emocionantes acontecendo perto de você! Encontre as melhores atividades, shows e experiências para aproveitar com seus amigos e familiares.
       </p>
       <div className="flex space-x-6">
         <button
@@ -126,7 +130,7 @@ useEffect(() => {
         To Look Up More Events or Activities Nearby By Map
       </h1>
       <p className="text-lg sm:text-xl text-white mb-8 max-w-2xl mx-auto">
-        Discover new events and activities in your area. Use our interactive map to find what's happening around you, from concerts to outdoor adventures.
+      Descubra novos eventos e atividades na sua área. Use nosso mapa interativo para descobrir o que está acontecendo ao seu redor, de shows a aventuras ao ar livre.
       </p>
       <div className="flex space-x-6">
         <button
