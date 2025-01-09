@@ -5,179 +5,152 @@ import Image from "next/image";
 import imgBanner from "@/app/assets/intro.png";
 import logoWhite from "@/app/assets/logo_white.png";
 import { useRouter } from "next/navigation";
-import "../intro/style.scss";
+import IphoneX1 from "@/app/assets/intro/📱iPhoneX-1.png";
+import IphoneX2 from "@/app/assets/intro/📱iPhoneX-2.png";
+import IphoneX3 from "@/app/assets/intro/📱iPhoneX-3.png";
 
 interface IntroProps {
-  className?: string; // Define que className é opcional
+  className?: string; // Permite passar className como prop
 }
 
 const Intro: React.FC<IntroProps> = ({ className }) => {
-  const [currentPage, setCurrentPage] = useState(1); // Página atual
-  const [isLoggedIn, setIsLoggedIn] = useState(false); // Estado de login
+  const [currentPage, setCurrentPage] = useState(1);
   const router = useRouter();
 
-  // Verificar login e redirecionar se já estiver logado
-// Verificar login e redirecionar se já estiver logado
-useEffect(() => {
-  const user = localStorage.getItem("user");
-
-  if (user) {
-    // Se o usuário já está logado, redireciona para a página principal
-    router.push("/webapp");
-  } else {
-    // Inicia a sequência de introdução se o usuário não estiver logado
-    const logoAnimationTimer = setTimeout(() => setCurrentPage(2), 3000);
-    return () => clearTimeout(logoAnimationTimer);
-  }
-}, [router]);
-
-  // Controlar animação da logo e exibição das páginas
   useEffect(() => {
-    if (!isLoggedIn) {
-      const logoAnimationTimer = setTimeout(() => setCurrentPage(2), 3000);
-      return () => clearTimeout(logoAnimationTimer);
-    }
-  }, [isLoggedIn]);
+    const user = localStorage.getItem("user");
 
-  // Função para trocar de página
+    if (user) {
+      router.push("/webapp");
+    } else {
+      setTimeout(() => setCurrentPage(2), 3000);
+    }
+  }, [router]);
+
   const handleNavigation = (direction: "next" | "skip") => {
     if (direction === "next") {
-      setCurrentPage((prev) => Math.min(prev + 1, 5));
+      setCurrentPage((prev) => Math.min(prev + 1, 4));
     }
     if (direction === "skip" || currentPage === 4) {
       router.push("/login");
     }
   };
 
-  if (isLoggedIn) {
-    return null; // Usuário logado é redirecionado para /webapp
-  }
-
   return (
-    <div className="relative w-full h-screen flex justify-center items-center">
-      {/* Fundo do banner */}
-      <Image src={imgBanner} alt="Banner" fill className="absolute inset-0 object-cover" priority unoptimized />
+    <div className={className}>
+    <div className="relative w-full h-screen flex justify-center items-center bg-black">
+      <Image
+        src={imgBanner}
+        alt="Banner"
+        fill
+        className="absolute inset-0 object-cover"
+        priority
+      />
 
-      {/* Página 1: Animação da logo */}
       {currentPage === 1 && (
         <div className="absolute flex justify-center items-center w-full h-full">
-          <Image src={logoWhite} alt="Logo" className="w-40 sm:w-60 animate-intro" />
+          <Image
+            src={logoWhite}
+            alt="Logo"
+            className="w-40 sm:w-60 animate-intro"
+          />
         </div>
       )}
 
-      {/* Páginas de introdução */}
-      {currentPage > 1 && currentPage <= 4 && (
-        <div className="content text-center text-white px-6">
-          {/* Texto e imagens específicas por página */}
-          {currentPage === 2 && (
-  <div className="absolute flex flex-col justify-center items-center w-full h-full bg-cover bg-center bg-no-repeat text-center px-6 py-12" style={{ backgroundImage: 'url(/path/to/your/background-image.jpg)' }}>
-    <div className="bg-black bg-opacity-50 w-full h-full flex flex-col justify-center items-center">
-      <h1 className="text-4xl sm:text-5xl font-bold text-white mb-4">
-        Explore Upcoming and Nearby Events
-      </h1>
-      <p className="text-lg sm:text-xl text-white mb-8 max-w-2xl mx-auto">
-      Descubra eventos emocionantes acontecendo perto de você! Encontre as melhores atividades, shows e experiências para aproveitar com seus amigos e familiares.
-      </p>
-      <div className="flex space-x-6">
-        <button
-          className="bg-blue-500 text-white px-8 py-4 rounded-full shadow-xl hover:bg-blue-600 transform hover:scale-105 transition duration-300"
-          onClick={() => handleNavigation("next")}
-        >
-          Learn More
-        </button>
-        <button
-          className="bg-transparent border-2 border-white text-white px-8 py-4 rounded-full shadow-xl hover:bg-white hover:text-black transform hover:scale-105 transition duration-300"
-          onClick={() => handleNavigation("skip")}
-        >
-          Skip
-        </button>
-      </div>
-    </div>
-  </div>
-)}
-
-{currentPage === 3 && (
-  <div className="absolute flex flex-col justify-center items-center w-full h-full bg-cover bg-center bg-no-repeat text-center px-6 py-12" style={{ backgroundImage: 'url(/path/to/your/calendar-image.jpg)' }}>
-    <div className="bg-black bg-opacity-50 w-full h-full flex flex-col justify-center items-center">
-      <h1 className="text-4xl sm:text-5xl font-bold text-white mb-4">
-        Web Have Modern Events Calendar Feature
-      </h1>
-      <p className="text-lg sm:text-xl text-white mb-8 max-w-2xl mx-auto">
-        Stay organized and never miss an event again! Our modern event calendar lets you easily track your upcoming activities, and even sync them with your phone.
-      </p>
-      <div className="flex space-x-6">
-        <button
-          className="bg-blue-500 text-white px-8 py-4 rounded-full shadow-xl hover:bg-blue-600 transform hover:scale-105 transition duration-300"
-          onClick={() => handleNavigation("next")}
-        >
-          Explore Calendar
-        </button>
-        <button
-          className="bg-transparent border-2 border-white text-white px-8 py-4 rounded-full shadow-xl hover:bg-white hover:text-black transform hover:scale-105 transition duration-300"
-          onClick={() => handleNavigation("skip")}
-        >
-          Skip
-        </button>
-      </div>
-    </div>
-  </div>
-)}
-
-{currentPage === 4 && (
-  <div className="absolute flex flex-col justify-center items-center w-full h-full bg-cover bg-center bg-no-repeat text-center px-6 py-12" style={{ backgroundImage: 'url(/path/to/your/map-image.jpg)' }}>
-    <div className="bg-black bg-opacity-50 w-full h-full flex flex-col justify-center items-center">
-      <h1 className="text-4xl sm:text-5xl font-bold text-white mb-4">
-        To Look Up More Events or Activities Nearby By Map
-      </h1>
-      <p className="text-lg sm:text-xl text-white mb-8 max-w-2xl mx-auto">
-      Descubra novos eventos e atividades na sua área. Use nosso mapa interativo para descobrir o que está acontecendo ao seu redor, de shows a aventuras ao ar livre.
-      </p>
-      <div className="flex space-x-6">
-        <button
-          className="bg-blue-500 text-white px-8 py-4 rounded-full shadow-xl hover:bg-blue-600 transform hover:scale-105 transition duration-300"
-          onClick={() => handleNavigation("next")}
-        >
-          Start Exploring
-        </button>
-        <button
-          className="bg-transparent border-2 border-white text-white px-8 py-4 rounded-full shadow-xl hover:bg-white hover:text-black transform hover:scale-105 transition duration-300"
-          onClick={() => handleNavigation("skip")}
-        >
-          Skip
-        </button>
-      </div>
-    </div>
-  </div>
-)}
-
-
-          {/* Botões de navegação */}
-          <div className="flex justify-between items-center">
+      {currentPage === 2 && (
+        <div className="relative flex flex-col items-center text-center px-6 py-12 w-full h-full bg-gradient-to-b from-black to-gray-900">
+          <Image
+            src={IphoneX1}
+            alt="iPhoneX-1"
+            className="w-80 mb-6 drop-shadow-lg animate-fade-in-behind"
+          />
+          <h1 className="text-white text-4xl font-bold mb-4">
+            Explore Upcoming and Nearby Events
+          </h1>
+          <p className="text-gray-300 text-lg max-w-xl mx-auto mb-8">
+            Discover exciting events happening near you! Find the best shows,
+            activities, and experiences to enjoy with friends and family.
+          </p>
+          <div className="flex space-x-4">
             <button
-              className="text-sm text-blue-300 underline"
+              className="bg-blue-500 text-white px-8 py-4 rounded-full shadow-lg hover:bg-blue-600 transition"
+              onClick={() => handleNavigation("next")}
+            >
+              Learn More
+            </button>
+            <button
+              className="border-2 border-white text-white px-8 py-4 rounded-full hover:bg-white hover:text-black transition"
               onClick={() => handleNavigation("skip")}
             >
               Skip
             </button>
-            <div className="flex space-x-2">
-              {[2, 3, 4].map((page) => (
-                <span
-                  key={page}
-                  className={`w-2 h-2 rounded-full ${
-                    currentPage === page ? "bg-blue-500" : "bg-gray-400"
-                  }`}
-                ></span>
-              ))}
-            </div>
+          </div>
+        </div>
+      )}
+
+      {currentPage === 3 && (
+        <div className="relative flex flex-col items-center text-center px-6 py-12 w-full h-full bg-gradient-to-b from-gray-800 to-black">
+          <Image
+            src={IphoneX2}
+            alt="iPhoneX-2"
+            className="w-80 mb-6 drop-shadow-lg animate-fade-in-behind"
+          />
+          <h1 className="text-white text-4xl font-bold mb-4">
+            We Have Modern Events Calendar Feature
+          </h1>
+          <p className="text-gray-300 text-lg max-w-xl mx-auto mb-8">
+            Stay organized and never miss an event again! Our modern event
+            calendar lets you track your activities and even sync them with your
+            phone.
+          </p>
+          <div className="flex space-x-4">
             <button
-              className="text-sm text-blue-300 underline"
+              className="bg-blue-500 text-white px-8 py-4 rounded-full shadow-lg hover:bg-blue-600 transition"
               onClick={() => handleNavigation("next")}
             >
-              {currentPage === 4 ? "Start" : "Next"}
+              Explore Calendar
+            </button>
+            <button
+              className="border-2 border-white text-white px-8 py-4 rounded-full hover:bg-white hover:text-black transition"
+              onClick={() => handleNavigation("skip")}
+            >
+              Skip
             </button>
           </div>
         </div>
       )}
+
+      {currentPage === 4 && (
+        <div className="relative flex flex-col items-center text-center px-6 py-12 w-full h-full bg-gradient-to-b from-black to-gray-800">
+          <Image
+            src={IphoneX3}
+            alt="iPhoneX-3"
+            className="w-80 mb-6 drop-shadow-lg animate-fade-in-behind"
+          />
+          <h1 className="text-white text-4xl font-bold mb-4">
+            Discover Events Nearby Using Our Map
+          </h1>
+          <p className="text-gray-300 text-lg max-w-xl mx-auto mb-8">
+            Use our interactive map to find events and activities happening near
+            you, from concerts to outdoor adventures.
+          </p>
+          <div className="flex space-x-4">
+            <button
+              className="bg-blue-500 text-white px-8 py-4 rounded-full shadow-lg hover:bg-blue-600 transition"
+              onClick={() => handleNavigation("next")}
+            >
+              Start Exploring
+            </button>
+            <button
+              className="border-2 border-white text-white px-8 py-4 rounded-full hover:bg-white hover:text-black transition"
+              onClick={() => handleNavigation("skip")}
+            >
+              Skip
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
     </div>
   );
 };
