@@ -65,24 +65,24 @@ const Intro: React.FC<IntroProps> = ({ className }) => {
             className="w-80 mb-6 drop-shadow-lg animate-fade-in-behind"
           />
           <h1 className="text-white text-4xl font-bold mb-4">
-            Explore Upcoming and Nearby Events
+          Explore eventos próximos e próximos
           </h1>
           <p className="text-gray-300 text-lg max-w-xl mx-auto mb-8">
-            Discover exciting events happening near you! Find the best shows,
-            activities, and experiences to enjoy with friends and family.
+          Descubra eventos emocionantes acontecendo perto de você! Encontre os melhores shows,
+          atividades e experiências para aproveitar com amigos e familiares.
           </p>
           <div className="flex space-x-4">
             <button
               className="bg-blue-500 text-white px-8 py-4 rounded-full shadow-lg hover:bg-blue-600 transition"
               onClick={() => handleNavigation("next")}
             >
-              Learn More
+              Saber mais
             </button>
             <button
               className="border-2 border-white text-white px-8 py-4 rounded-full hover:bg-white hover:text-black transition"
               onClick={() => handleNavigation("skip")}
             >
-              Skip
+              Pular
             </button>
           </div>
         </div>
@@ -96,25 +96,25 @@ const Intro: React.FC<IntroProps> = ({ className }) => {
             className="w-80 mb-6 drop-shadow-lg animate-fade-in-behind"
           />
           <h1 className="text-white text-4xl font-bold mb-4">
-            We Have Modern Events Calendar Feature
+          Temos um recurso de calendário de eventos moderno
           </h1>
           <p className="text-gray-300 text-lg max-w-xl mx-auto mb-8">
-            Stay organized and never miss an event again! Our modern event
-            calendar lets you track your activities and even sync them with your
-            phone.
+          Mantenha-se organizado e nunca mais perca um evento! Nosso calendário moderno de
+eventos permite que você acompanhe suas atividades e até mesmo as sincronize com seu
+telefone.
           </p>
           <div className="flex space-x-4">
             <button
               className="bg-blue-500 text-white px-8 py-4 rounded-full shadow-lg hover:bg-blue-600 transition"
               onClick={() => handleNavigation("next")}
             >
-              Explore Calendar
+              Explorar calendário
             </button>
             <button
               className="border-2 border-white text-white px-8 py-4 rounded-full hover:bg-white hover:text-black transition"
               onClick={() => handleNavigation("skip")}
             >
-              Skip
+              Pular
             </button>
           </div>
         </div>
@@ -128,24 +128,23 @@ const Intro: React.FC<IntroProps> = ({ className }) => {
             className="w-80 mb-6 drop-shadow-lg animate-fade-in-behind"
           />
           <h1 className="text-white text-4xl font-bold mb-4">
-            Discover Events Nearby Using Our Map
+          Descubra eventos próximos usando nosso mapa
           </h1>
           <p className="text-gray-300 text-lg max-w-xl mx-auto mb-8">
-            Use our interactive map to find events and activities happening near
-            you, from concerts to outdoor adventures.
+          Use nosso mapa interativo para encontrar eventos e atividades acontecendo perto de você, de shows a aventuras ao ar livre.
           </p>
           <div className="flex space-x-4">
             <button
               className="bg-blue-500 text-white px-8 py-4 rounded-full shadow-lg hover:bg-blue-600 transition"
               onClick={() => handleNavigation("next")}
             >
-              Start Exploring
+              Comece agora
             </button>
             <button
               className="border-2 border-white text-white px-8 py-4 rounded-full hover:bg-white hover:text-black transition"
               onClick={() => handleNavigation("skip")}
             >
-              Skip
+              Pular
             </button>
           </div>
         </div>

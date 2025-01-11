@@ -61,7 +61,7 @@ export default function PerfilMobile() {
 
   const handleLogout = () => {
     localStorage.removeItem('authToken');
-    router.push('/bares');
+    router.push('/webapp');
   };
 
   if (loading) {
