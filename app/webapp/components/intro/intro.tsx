@@ -1,155 +1,122 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useState, useEffect } from "react";
 import Image from "next/image";
 import imgBanner from "@/app/assets/intro.png";
 import logoWhite from "@/app/assets/logo_white.png";
-import { useRouter } from "next/navigation";
 import IphoneX1 from "@/app/assets/intro/📱iPhoneX-1.png";
 import IphoneX2 from "@/app/assets/intro/📱iPhoneX-2.png";
 import IphoneX3 from "@/app/assets/intro/📱iPhoneX-3.png";
+import { useRouter } from "next/navigation";
 
 interface IntroProps {
-  className?: string; // Permite passar className como prop
+  className?: string; // Agora o className é opcional
 }
 
-const Intro: React.FC<IntroProps> = ({ className }) => {
-  const [currentPage, setCurrentPage] = useState(1);
+const Intro = () => {
+  const [showLogo, setShowLogo] = useState(true); // Controle da animação da logo
+  const [currentPage, setCurrentPage] = useState(0); // Controle das páginas
   const router = useRouter();
 
+  // Exibir logo de entrada por 2 segundos
   useEffect(() => {
-    const user = localStorage.getItem("user");
+    const logoTimer = setTimeout(() => setShowLogo(false), 2000); // Duração da animação
+    return () => clearTimeout(logoTimer); // Limpar timeout
+  }, []);
 
-    if (user) {
-      router.push("/webapp");
+  const handleNext = () => {
+    if (currentPage < pages.length - 1) {
+      setCurrentPage((prev) => prev + 1);
     } else {
-      setTimeout(() => setCurrentPage(2), 3000);
-    }
-  }, [router]);
-
-  const handleNavigation = (direction: "next" | "skip") => {
-    if (direction === "next") {
-      setCurrentPage((prev) => Math.min(prev + 1, 4));
-    }
-    if (direction === "skip" || currentPage === 4) {
       router.push("/login");
     }
   };
 
+  const handleSkip = () => {
+    router.push("/login");
+  };
+
+  const pages = [
+    {
+      title: "Explore eventos próximos",
+      description:
+        "Descubra eventos emocionantes perto de você! Encontre os melhores shows e experiências para curtir com amigos e familiares.",
+      image: IphoneX1,
+    },
+    {
+      title: "Recurso de calendário moderno",
+      description:
+        "Mantenha-se organizado e nunca perca um evento! Acompanhe suas atividades e sincronize com seu telefone.",
+      image: IphoneX2,
+    },
+    {
+      title: "Descubra eventos no mapa",
+      description:
+        "Use nosso mapa interativo para encontrar eventos e atividades perto de você.",
+      image: IphoneX3,
+    },
+  ];
+
+  if (showLogo) {
+    return (
+<div className="relative flex items-center justify-center w-full h-screen bg-black overflow-hidden">
+  {/* Banner de fundo */}
+  <Image
+    src={imgBanner}
+    alt="Banner"
+    fill
+    className="absolute inset-0 object-cover w-full h-full"
+    priority
+  />
+  {/* Logo centralizada */}
+  <Image
+    src={logoWhite}
+    alt="Logo"
+    className="z-10 w-[180px] sm:w-[220px] object-contain animate-fadeIn"
+  />
+</div>
+
+    );
+  }
+
   return (
-    <div className={className}>
-    <div className="relative w-full h-screen flex justify-center items-center bg-black">
-      <Image
-        src={imgBanner}
-        alt="Banner"
-        fill
-        className="absolute inset-0 object-cover"
-        priority
-      />
+    <div className="flex flex-col items-center justify-between h-screen bg-black">
+      {/* Imagem principal no topo, ocupando o espaço entre a parte azul e o topo */}
+      <div className="flex justify-center items-start w-full" style={{ height: 'calc(98vh - 200px)' }}>
+        <Image
+          src={pages[currentPage].image}
+          alt={`Page ${currentPage + 1}`}
+          className="w-full h-full object-contain"
+        />
+      </div>
 
-      {currentPage === 1 && (
-        <div className="absolute flex justify-center items-center w-full h-full">
-          <Image
-            src={logoWhite}
-            alt="Logo"
-            className="w-40 sm:w-60 animate-intro"
-          />
-        </div>
-      )}
-
-      {currentPage === 2 && (
-        <div className="relative flex flex-col items-center text-center px-6 py-12 w-full h-full bg-gradient-to-b from-black to-gray-900">
-          <Image
-            src={IphoneX1}
-            alt="iPhoneX-1"
-            className="w-80 mb-6 drop-shadow-lg animate-fade-in-behind"
-          />
-          <h1 className="text-white text-4xl font-bold mb-4">
-          Explore eventos próximos e próximos
-          </h1>
-          <p className="text-gray-300 text-lg max-w-xl mx-auto mb-8">
-          Descubra eventos emocionantes acontecendo perto de você! Encontre os melhores shows,
-          atividades e experiências para aproveitar com amigos e familiares.
-          </p>
-          <div className="flex space-x-4">
-            <button
-              className="bg-blue-500 text-white px-8 py-4 rounded-full shadow-lg hover:bg-blue-600 transition"
-              onClick={() => handleNavigation("next")}
-            >
-              Saber mais
-            </button>
-            <button
-              className="border-2 border-white text-white px-8 py-4 rounded-full hover:bg-white hover:text-black transition"
-              onClick={() => handleNavigation("skip")}
-            >
-              Pular
-            </button>
+      {/* Texto e botões na parte inferior */}
+      <div className="w-full bg-blue-500 rounded-t-3xl py-6 px-4 text-center">
+        <h1 className="text-white text-xl font-bold mb-3">
+          {pages[currentPage].title}
+        </h1>
+        <p className="text-gray-200 text-sm mb-6">
+          {pages[currentPage].description}
+        </p>
+        <div className="flex justify-between items-center px-4">
+          <button className="text-white text-sm" onClick={handleSkip}>
+            Skip
+          </button>
+          <div className="flex items-center space-x-2">
+            {[1, 2, 3].map((dot, index) => (
+              <span
+                key={index}
+                className={`w-2 h-2 rounded-full ${
+                  currentPage === index ? "bg-white" : "bg-gray-400"
+                }`}
+              ></span>
+            ))}
           </div>
+          <button className="text-white text-sm" onClick={handleNext}>
+            Next
+          </button>
         </div>
-      )}
-
-      {currentPage === 3 && (
-        <div className="relative flex flex-col items-center text-center px-6 py-12 w-full h-full bg-gradient-to-b from-gray-800 to-black">
-          <Image
-            src={IphoneX2}
-            alt="iPhoneX-2"
-            className="w-80 mb-6 drop-shadow-lg animate-fade-in-behind"
-          />
-          <h1 className="text-white text-4xl font-bold mb-4">
-          Temos um recurso de calendário de eventos moderno
-          </h1>
-          <p className="text-gray-300 text-lg max-w-xl mx-auto mb-8">
-          Mantenha-se organizado e nunca mais perca um evento! Nosso calendário moderno de
-eventos permite que você acompanhe suas atividades e até mesmo as sincronize com seu
-telefone.
-          </p>
-          <div className="flex space-x-4">
-            <button
-              className="bg-blue-500 text-white px-8 py-4 rounded-full shadow-lg hover:bg-blue-600 transition"
-              onClick={() => handleNavigation("next")}
-            >
-              Explorar calendário
-            </button>
-            <button
-              className="border-2 border-white text-white px-8 py-4 rounded-full hover:bg-white hover:text-black transition"
-              onClick={() => handleNavigation("skip")}
-            >
-              Pular
-            </button>
-          </div>
-        </div>
-      )}
-
-      {currentPage === 4 && (
-        <div className="relative flex flex-col items-center text-center px-6 py-12 w-full h-full bg-gradient-to-b from-black to-gray-800">
-          <Image
-            src={IphoneX3}
-            alt="iPhoneX-3"
-            className="w-80 mb-6 drop-shadow-lg animate-fade-in-behind"
-          />
-          <h1 className="text-white text-4xl font-bold mb-4">
-          Descubra eventos próximos usando nosso mapa
-          </h1>
-          <p className="text-gray-300 text-lg max-w-xl mx-auto mb-8">
-          Use nosso mapa interativo para encontrar eventos e atividades acontecendo perto de você, de shows a aventuras ao ar livre.
-          </p>
-          <div className="flex space-x-4">
-            <button
-              className="bg-blue-500 text-white px-8 py-4 rounded-full shadow-lg hover:bg-blue-600 transition"
-              onClick={() => handleNavigation("next")}
-            >
-              Comece agora
-            </button>
-            <button
-              className="border-2 border-white text-white px-8 py-4 rounded-full hover:bg-white hover:text-black transition"
-              onClick={() => handleNavigation("skip")}
-            >
-              Pular
-            </button>
-          </div>
-        </div>
-      )}
-    </div>
+      </div>
     </div>
   );
 };
