@@ -57,22 +57,15 @@ export default function Home() {
       })
       .catch((error) => console.error("Erro ao buscar eventos:", error))
       .finally(() => setLoading(false));
-  }, [API_URL]); // Dependência de API_URL
+  }, [API_URL]);
 
   useEffect(() => {
-    const token = localStorage.getItem("authToken");
-
-    if (token) {
-      // Se o usuário está logado, não mostrar o Intro e ir direto para os eventos
-      setShowIntro(false);
-      fetchEvents();
-    } else {
-      // Se não está logado, continuar mostrando o Intro
-      setShowIntro(true);
+    // Se showIntro é falso, certifique-se de que o estado não mude
+    if (showIntro) {
+      localStorage.setItem("introShown", "true"); // Marcar como exibido
     }
-  }, [fetchEvents]); // Agora fetchEvents é uma dependência do useEffect
+  }, [showIntro]);
 
-  // Função para avançar no componente Intro
   const handleNextIntro = () => {
     if (currentIntroPage < 2) {
       setCurrentIntroPage((prev) => prev + 1);
@@ -80,6 +73,10 @@ export default function Home() {
       setShowIntro(false);
     }
   };
+
+  useEffect(() => {
+    fetchEvents();
+  }, [fetchEvents]);
 
   const Card: React.FC<{ event: Event }> = ({ event }) => {
     const getEventPagePath = (place: string) => {

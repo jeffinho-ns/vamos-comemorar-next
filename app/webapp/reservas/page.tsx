@@ -5,7 +5,6 @@ import Image from "next/image";
 import Footer from "../components/footer/footer";
 import HeaderLike from "../components/headerLike/headerLike";
 import styles from "./reservas.module.scss";
-
 import defaultLogo from "@/app/assets/highline/highlinelogo.png";
 import Modal from "react-modal";
 import { useRouter } from 'next/navigation';
@@ -27,9 +26,6 @@ const Reservas = () => {
     const storedUserId = localStorage.getItem("userId");
     if (storedUserId && !isNaN(Number(storedUserId))) {
       setUserId(Number(storedUserId));
-    } else {
-      router.push('/login');
-      return;
     }
 
     const storedEventData = localStorage.getItem("selectedEvent");
@@ -45,7 +41,7 @@ const Reservas = () => {
       setComboImage(eventData.imagem_do_combo);
       setObservacao(eventData.observacao || "Sem observação.");
     }
-  }, [router, eventData, API_URL]);
+  }, [eventData, API_URL]);
 
   const openModal = () => setModalIsOpen(true);
   const closeModal = () => setModalIsOpen(false);
@@ -53,8 +49,13 @@ const Reservas = () => {
   const closeImage = () => setExpandedImage(null);
 
   const handleSubmitReservation = async () => {
-    if (!eventData || !userId) {
-      alert("Dados do evento ou do usuário estão ausentes.");
+    if (!userId) {
+      router.push("/login");
+      return;
+    }
+
+    if (!eventData) {
+      alert("Dados do evento estão ausentes.");
       return;
     }
 
@@ -75,7 +76,7 @@ const Reservas = () => {
       });
 
       if (response.ok) {
-        openModal(); // Abre o modal após a reserva ser criada
+        openModal();
       } else {
         alert("Erro ao criar a reserva.");
       }
@@ -87,7 +88,7 @@ const Reservas = () => {
 
   const handleFinalize = () => {
     closeModal();
-    router.push("/webapp/minhasReservas"); // Redireciona após finalizar
+    router.push("/webapp");
   };
 
   if (!eventData) return <div>Carregando...</div>;
@@ -109,10 +110,10 @@ const Reservas = () => {
         </div>
         <div className={styles.content}>
           <div className={styles.barInfo}>
-            <div className={styles.infoContainer}>
-              <div className={styles.leftColumn}>
-                <h1 className={styles.formTitle}>Nova Reserva</h1>
-              </div>
+          <div className={styles.infoContainer}>
+          <div className={styles.leftColumn}>
+            <h1 className={styles.formTitle}>Nova Reserva</h1>
+            </div>
               <div className={styles.middleColumn}>
                 <div className={styles.logoContainer}>
                   <Image src={logoSrc} alt="Logo" width={50} height={50} />
@@ -176,7 +177,6 @@ const Reservas = () => {
     )}
   </div>
 )}
-
             <button onClick={handleSubmitReservation} className={styles.openModalButton}>
               Confirmar Reserva
             </button>
@@ -193,12 +193,11 @@ const Reservas = () => {
         overlayClassName={styles.modalOverlay}
       >
         <h2 className={styles.formTitle}>Falta Pouco!</h2>
-        <p>Sua reserva está sendo processada e você terá um retorno nos próximos minutos!</p>
+        <p>Sua reserva está sendo processada!</p>
         <button onClick={handleFinalize} className={styles.openModalButton}>
           Finalizar
         </button>
       </Modal>
-
       <Modal
         isOpen={!!expandedImage}
         onRequestClose={closeImage}

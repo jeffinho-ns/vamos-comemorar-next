@@ -10,12 +10,12 @@ import IphoneX3 from "@/app/assets/intro/📱iPhoneX-3.png";
 import { useRouter } from "next/navigation";
 
 interface IntroProps {
-  className?: string; // Agora o className é opcional
+  className?: string; 
 }
 
 const Intro = () => {
-  const [showLogo, setShowLogo] = useState(true); // Controle da animação da logo
-  const [currentPage, setCurrentPage] = useState(0); // Controle das páginas
+  const [showLogo, setShowLogo] = useState(true); 
+  const [currentPage, setCurrentPage] = useState(0); 
   const router = useRouter();
 
   // Exibir logo de entrada por 2 segundos
@@ -28,12 +28,12 @@ const Intro = () => {
     if (currentPage < pages.length - 1) {
       setCurrentPage((prev) => prev + 1);
     } else {
-      router.push("/login");
+      router.push("/");
     }
   };
 
   const handleSkip = () => {
-    router.push("/login");
+    router.push("/");
   };
 
   const pages = [
