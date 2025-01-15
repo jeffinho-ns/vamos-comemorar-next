@@ -1,11 +1,11 @@
 "use client";
 
-import imgBanner from "@/app/assets/banner01.webp";
+import imgBanner from "@/app/assets/retangulo.png";
 import React, { useEffect, useState, useCallback } from "react";
 import { motion } from "framer-motion";
 import Image from "next/image";
 import Link from "next/link";
-import { MdSearch } from "react-icons/md";
+import { MdSearch, MdFilterList } from 'react-icons/md'
 import { FaHeart } from "react-icons/fa";
 import { useRouter } from "next/navigation";
 import logoWhite from "@/app/assets/logo_blue.png";
@@ -138,13 +138,13 @@ export default function Home() {
 
       <div className="relative">
         <div id="home-container" className="container-mobile relative z-1">
-        <div className="flex justify-center mt-8 z-10">
+        <div className="flex flex-col items-center mt-8 z-10">
             <Link href="/">
-              <Image src={logoWhite} alt="Logo" className="w-100" />
+              <Image src={logoWhite} alt="Logo" className="w-[120px] h-auto" />
             </Link>
-          </div>
-          <p className="title text-white text-center mt-4 z-10">Qual evento você procura?</p>
-          <div className="absolute inset-0 w-full h-[280px] z-0">
+          <p className="title text-white text-center mt-2 z-10">Qual evento você procura?</p>
+        </div>
+          <div className="absolute inset-0 w-full h-[450px] z-0 mt-[-100px] rounded-[30px] overflow-hidden">
             <Image
               src={imgBanner}
               alt="Banner"
@@ -154,22 +154,30 @@ export default function Home() {
               unoptimized
             />
           </div>
+          <div className="flex justify-center mt-8 z-10">
+  <form className="w-11/12 max-w-md flex items-center">
+    {/* Campo de busca */}
+    <div className="flex items-center flex-grow bg-transparent border-b border-gray-300">
+      <MdSearch className="text-gray-500 text-2xl mr-2" />
+      <input
+        placeholder="Search..."
+        type="text"
+        id="search"
+        className="w-full bg-transparent p-2 focus:outline-none text-gray-700 placeholder-gray-500"
+      />
+    </div>
 
- 
+    {/* Botão de filtro */}
+    <button
+      type="button"
+      className="flex items-center bg-blue-600 text-white px-4 py-2 ml-4 rounded-full"
+    >
+      <MdFilterList className="text-xl mr-2" />
+      Filters
+    </button>
+  </form>
+</div>
 
-          <div className="flex justify-center mt-8">
-            <form className="w-11/12 max-w-md">
-              <div className="relative">
-                <input
-                  placeholder="Buscar eventos"
-                  type="text"
-                  id="search"
-                  className="w-full p-3 rounded-lg bg-white shadow-md border border-gray-300"
-                />
-                <MdSearch className="absolute top-1/2 transform -translate-y-1/2 right-4 text-blue-600 text-2xl" />
-              </div>
-            </form>
-          </div>
 
           <div className="flex justify-center gap-6 my-8">
             <Link href="/webapp/justino">
