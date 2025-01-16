@@ -261,25 +261,23 @@ export default function Home() {
           </div>
 
           <div className="relative flex flex-col items-center mt-8">
-  <Image
-    src={Promo}
-    alt="Promoção"
-    className="w-full max-w-[350px] rounded-lg shadow-md"
-    unoptimized
-  />
-  <div className="absolute top-1/2 left-6 transform -translate-y-1/2">
-    <h3 className="text-xl font-bold text-[#000]">Indique e Ganhe</h3>
-    <p className="text-sm mt-2 text-[#000]">
-      Ganhe até <span className="font-semibold">25% de desconto</span>
- 
-    </p>
-    <button className="mt-4 bg-[#2563eb] text-white px-4 py-2 rounded-full hover:bg-[#1e4db7] transition-all">
-      Convite
-    </button>
-  </div>
-</div>
+            <Image
+              src={Promo}
+              alt="Promoção"
+              className="w-full max-w-[350px] rounded-lg shadow-md"
+              unoptimized
+            />
+            <div className="absolute top-1/2 left-16 transform -translate-y-1/2">
+              <h3 className="text-xl font-bold text-[#000]">Indique e Ganhe</h3>
+              <p className="text-sm mt-2 text-[#000]">
+                Ganhe até <span className="font-semibold">25% de desconto</span>
+              </p>
+              <button className="mt-4 bg-[#2563eb] text-white px-4 py-2 rounded-full hover:bg-[#1e4db7] transition-all">
+                Convite
+              </button>
+            </div>
+          </div>
 
- 
           <Footer />
         </div>
       </div>
