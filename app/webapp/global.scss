@@ -29,8 +29,14 @@
   }
 }
 
+.rounded-\[30px\] {
+  border-radius: 30px;
+  height: 238px;
+  margin-top: -26px;
+}
+
 .card-container .relative {
-  height: 450px; /* Ajustando a altura do card */
+  height: 250px; /* Ajustando a altura do card */
 }
 
 .card-container h2 {
@@ -57,7 +63,7 @@
 }
 
 p.title {
-  padding: 5rem 3rem 0rem 3rem;
+  padding: 2rem;
   font-size: 20px;
   font-weight: 500;
 }
