@@ -10,12 +10,20 @@ import { useRouter } from "next/navigation";
 import Header from "./components/header/header";
 import Footer from "./components/footer/footer";
 import Intro from "./components/intro/intro";
+import Promo from "../assets/indique.png"
 import imgBanner from "@/app/assets/retangulo.png";
 import logoWhite from "@/app/assets/logo_blue.png";
 import Logo1 from "../webapp/assetsMobile/logos/justinologo.png";
 import Logo2 from "../webapp/assetsMobile/logos/logo-pracinha.png";
 import Logo3 from "../webapp/assetsMobile/logos/logoOhfregues.png";
 import Logo4 from "../webapp/assetsMobile/logos/highlinelogo.png";
+
+
+import Avatar1 from "../assets/avatar/001.jpg";
+import Avatar2 from "../assets/avatar/002.jpg";
+import Avatar3 from "../assets/avatar/003.jpeg";
+import Avatar4 from "../assets/avatar/004.jpg";
+
 
 import "../webapp/global.scss";
 
@@ -115,23 +123,33 @@ export default function Home() {
               unoptimized
             />
           </div>
-          <div className="p-4">
+          <div className="p-6">
             <h2 className="text-xl font-bold">{event.casa_do_evento}</h2>
             
             <div className="flex items-center mt-2">
               <div className="flex -space-x-2 overflow-hidden">
-                <img
+                <Image
                   className="inline-block h-8 w-8 rounded-full ring-2 ring-white"
-                  src="/path-to-avatar1.jpg"
+                  src={Avatar1}
                   alt="User 1"
                 />
-                <img
+                <Image
                   className="inline-block h-8 w-8 rounded-full ring-2 ring-white"
-                  src="/path-to-avatar2.jpg"
+                  src={Avatar2}
                   alt="User 2"
                 />
+                                <Image
+                  className="inline-block h-8 w-8 rounded-full ring-2 ring-white"
+                  src={Avatar3}
+                  alt="User 3"
+                />
+                                <Image
+                  className="inline-block h-8 w-8 rounded-full ring-2 ring-white"
+                  src={Avatar4}
+                  alt="User 4"
+                />
               </div>
-              <p className="text-sm text-gray-500 ml-2">+20 Going</p>
+              <p className="text-sm text-gray-500 ml-2">+20 Seguindo</p>
             </div>
             <p className="text-sm text-gray-400 mt-2">{event.local_do_evento}</p>
           </div>
@@ -241,6 +259,27 @@ export default function Home() {
                 ))
               : events.map((event) => <Card key={event.id} event={event} />)}
           </div>
+
+          <div className="relative flex flex-col items-center mt-8">
+  <Image
+    src={Promo}
+    alt="Promoção"
+    className="w-full max-w-[350px] rounded-lg shadow-md"
+    unoptimized
+  />
+  <div className="absolute top-1/2 left-6 transform -translate-y-1/2">
+    <h3 className="text-xl font-bold text-[#000]">Indique e Ganhe</h3>
+    <p className="text-sm mt-2 text-[#000]">
+      Ganhe até <span className="font-semibold">25% de desconto</span>
+ 
+    </p>
+    <button className="mt-4 bg-[#2563eb] text-white px-4 py-2 rounded-full hover:bg-[#1e4db7] transition-all">
+      Convite
+    </button>
+  </div>
+</div>
+
+ 
           <Footer />
         </div>
       </div>
