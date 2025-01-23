@@ -43,7 +43,7 @@ const Header: React.FC<HeaderProps> = ({ className }) => {
 
   return (
     <header
-      className={`fixed w-full z-10 transition-all ${
+      className={`fixed w-full mt-4 z-20 transition-all ${
         isScrolled ? "bg-transparent" : "bg-transparent"
       } mobile-only`}
     >
