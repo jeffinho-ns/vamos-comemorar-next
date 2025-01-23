@@ -27,21 +27,24 @@ const Reservas = () => {
     if (storedUserId && !isNaN(Number(storedUserId))) {
       setUserId(Number(storedUserId));
     }
-
+  
     const storedEventData = localStorage.getItem("selectedEvent");
     if (storedEventData) {
       setEventData(JSON.parse(storedEventData));
     }
-
+  
     const storedLogo = localStorage.getItem("lastPageLogo");
     if (storedLogo) {
       setLogoSrc(storedLogo);
     }
+  }, [API_URL]); // Remova eventData daqui
+  
+  useEffect(() => {
     if (eventData) {
       setComboImage(eventData.imagem_do_combo);
       setObservacao(eventData.observacao || "Sem observação.");
     }
-  }, [eventData, API_URL]);
+  }, [eventData]);
 
   const openModal = () => setModalIsOpen(true);
   const closeModal = () => setModalIsOpen(false);

@@ -28,12 +28,12 @@ const Intro = () => {
     if (currentPage < pages.length - 1) {
       setCurrentPage((prev) => prev + 1);
     } else {
-      router.push("/");
+      router.push("/login");
     }
   };
 
   const handleSkip = () => {
-    router.push("/");
+    router.push("/webapp");
   };
 
   const pages = [
