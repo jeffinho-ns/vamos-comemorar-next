@@ -21,6 +21,7 @@ import { MdLocationPin, MdLocationCity, MdSearch } from "react-icons/md";
 import Link from "next/link";
 import "react-multi-carousel/lib/styles.css";
 
+import places from "@/app/data/places";
 interface CardProps {
   image: StaticImageData;
   title: string;
@@ -29,12 +30,17 @@ interface CardProps {
   rating: string;
   description: string;
   link: string;
+  state: string;
+  date: string;
 }
 
 export default function Home() {
-  const [showSecondCarousel, setShowSecondCarousel] = useState(false);
+  const [filteredPlaces, setFilteredPlaces] = useState<CardProps[]>(places);
+  const [selectedState, setSelectedState] = useState<string>('');
+  const [searchTerm, setSearchTerm] = useState<string>('');
+  const [selectedDate, setSelectedDate] = useState<string>('');
   const router = useRouter();
-
+  
   useEffect(() => {
     const handleResize = () => {
       if (window.innerWidth < 768) {
@@ -69,6 +75,38 @@ export default function Home() {
       breakpoint: { max: 464, min: 0 },
       items: 1,
     },
+  };
+
+  useEffect(() => {
+    let updatedPlaces = places;
+  
+    if (selectedState) {
+      updatedPlaces = updatedPlaces.filter(place => place.state === selectedState);
+    }
+  
+    if (searchTerm) {
+      updatedPlaces = updatedPlaces.filter(place => 
+        place.title.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
+  
+    if (selectedDate) {
+      updatedPlaces = updatedPlaces.filter(place => place.date === selectedDate);
+    }
+  
+    setFilteredPlaces(updatedPlaces);
+  }, [selectedState, searchTerm, selectedDate, places]);
+  
+  const filterByState = (event: any) => {
+    setSelectedState(event);
+  };
+  
+  const filterPlacesByTitle = (event: any) => {
+    setSearchTerm(event);
+  };
+  
+  const filterPlacesByDate = (event: any) => {
+    setSelectedDate(event);
   };
 
   const Card = ({ image, title, address, distance, rating, description, link }: CardProps) => (
@@ -136,26 +174,27 @@ export default function Home() {
           className="md:w-3/5 border-b-0 form-search bg-white px-6 py-4"
         >
           <div className="grid grid-cols-1 md:grid-cols-3">
-            <div className="flex items-center w-full my-2">
+            <div className="flex items-center w-full my-2 ">
               <MdLocationPin className="text-gray-600 text-3xl" />
               <Select
-                value=""
+                value={selectedState}
                 id="estado"
                 className="p-2 w-full state"
-                onChange={() => {}}
+                onChange={filterByState}
               >
                 <option>Selecione o estado</option>
-                <option value="rio de janeiro">Rio de Janeiro</option>
-                <option value="sao paulo">São Paulo</option>
+                <option value="rj">Rio de Janeiro</option>
+                <option value="sp">São Paulo</option>
               </Select>
             </div>
             <div className="flex items-center w-full">
               <MdLocationCity className="text-gray-600 text-3xl" />
               <Input
                 type="date"
-                value=""
+                value={selectedDate}
                 id="data"
                 className="p-2 w-full data"
+                onChange={(event:any) => filterPlacesByDate(event)}
               />
             </div>
             <div className="flex items-center w-full relative">
@@ -163,9 +202,10 @@ export default function Home() {
               <Input
                 placeholder="Buscar por nome"
                 type="text"
-                value=""
+                value={searchTerm}
                 id="data"
                 className="bg-gray-300 p-2 rounded-lg w-full border-blue-600 data"
+                onChange={filterPlacesByTitle}
               />
             </div>
           </div>
@@ -173,77 +213,24 @@ export default function Home() {
       </div>
       <main className="container pl-8 pr-5 bg-white pb-8">
   <Carousel responsive={responsive} className="grid">
-    <Card
-      image={img01}
-      title="Seu Justino Tatuapé"
-      address="Rua Azevedo Soares, 940"
-      distance="11.5km"
-      rating="4.9 (2.7K)"
-      description="O Justino é um bar aconchegante, referência de agito, drinks e ótimos petiscos. A Casa possui área interna, com palco e pista, para receber DJs e shows ao vivo dos mais variados estilos musicais."
-      link="/justino"
-    />
-    <Card
-      image={img02}
-      title="Oh Fregues"
-      address="Largo da Matriz de Nossa Senhora do Ó, 145"
-      distance="8.2km"
-      rating="4.8 (1.2K)"
-      description="O Oh Fregues é um ponto de encontro clássico, com um ambiente descontraído e drinks exclusivos. Venha conferir!"
-      link="/ohfregues"
-    />
-    <Card
-      image={img03}
-      title="High Line Bar"
-      address="Rua Girassol, 144 - Vila madalena"
-      distance="5.9km"
-      rating="4.7 (3.5K)"
-      description="Um lugar perfeito para relaxar e curtir boa música ao vivo. High Line bar oferece uma experiência única."
-      link="/highline"
-    />
+    {filteredPlaces.length > 0 ? filteredPlaces.map((place) => (
+      <Card
+        key={place.title}
+        image={place.image}
+        title={place.title}
+        address={place.address}
+        distance={place.distance}
+        rating={place.rating}
+        description={place.description}
+        link={place.link}
+        state={place.state}
+        date={place.date}
+      />
+    )) : 
+      <div className="border-2 rounded-lg p-4">Mensagem amigável de evento não encontrado</div>
+    
+    }
   </Carousel>
-
-  {!showSecondCarousel && (
-    <div className="flex justify-center mt-4">
-      <button
-        onClick={() => setShowSecondCarousel(true)}
-        className="px-6 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
-      >
-        Ver mais
-      </button>
-    </div>
-  )}
-
-  {showSecondCarousel && (
-    <Carousel responsive={responsive} className="grid mt-8">
-      <Card
-        image={img01}
-        title="Pracinha do Seu Justino"
-        address="Rua Azevedo Soares, 940"
-        distance="11.5km"
-        rating="4.9 (2.7K)"
-        description="O Justino é um bar aconchegante, referência de agito, drinks e ótimos petiscos."
-        link="/justino"
-      />
-      <Card
-        image={img02}
-        title="Mockup Bar"
-        address="Largo da Matriz de Nossa Senhora do Ó, 145"
-        distance="8.2km"
-        rating="4.8 (1.2K)"
-        description="O Oh Fregues é um ponto de encontro clássico, com um ambiente descontraído e drinks exclusivos."
-        link="/ohfregues"
-      />
-      <Card
-        image={img03}
-        title="Mirante"
-        address="Rua Girassol, 144 - Vila madalena"
-        distance="5.9km"
-        rating="4.7 (3.5K)"
-        description="Um lugar perfeito para relaxar e curtir boa música ao vivo. High Line bar oferece uma experiência única."
-        link="/highline"
-      />
-    </Carousel>
-  )}
 </main>
 
       <Footer />

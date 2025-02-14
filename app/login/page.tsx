@@ -18,6 +18,7 @@ export default function Login() {
   const [password, setPassword] = useState<string>("");
   const [openModal, setOpenModal] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [loginLoading, setLoginLoading] = useState<boolean>(false);
   const router = useRouter();
 
   const validInputs = useMemo(() => {
@@ -25,11 +26,13 @@ export default function Login() {
   }, [emailCpf, password]);
 
   const handleLogin = async () => {
+
     if (!validInputs) {
       setError("Por favor, preencha todos os campos.");
       return;
     }
 
+    setLoginLoading(true);
     try {
       const API_URL =
   process.env.NEXT_PUBLIC_API_URL
@@ -64,6 +67,8 @@ export default function Login() {
     } catch (error) {
       setError("Erro ao tentar fazer login. Tente novamente.");
       console.error("Erro:", error);
+    } finally {
+      setLoginLoading(false);
     }
   };
 
@@ -89,30 +94,39 @@ export default function Login() {
                 placeholder="Email / CPF"
                 type="text"
                 id="cpf"
-                className="cpf"
+                className="cpf mx-0"
                 onChange={(e) => setEmailCpf(e.target.value)}
                 value={emailCpf}
               />
-              <input
-                placeholder="Senha"
-                type={show ? "text" : "password"}
-                id="password"
-                className="password"
-                onChange={(e) => setPassword(e.target.value)}
-                value={password}
-              />
-              {show ? (
-                <MdVisibility onClick={() => setShow(false)} />
-              ) : (
-                <MdVisibilityOff onClick={() => setShow(true)} />
-              )}
-              <small>0 / 15</small>
+
+              <label className="relative flex items-center">
+                <input
+                    placeholder="Senha"
+                    type={show ? "text" : "password"}
+                    id="password"
+                    className="password mx-0"
+                    onChange={(e) => setPassword(e.target.value)}
+                    value={password}
+                  />
+                  <button
+                      type="button"
+                      onClick={() => setShow(!show)}
+                      className="absolute right-2 justify-items-end w-12"  
+                    >
+                      {show ? <MdVisibility /> : <MdVisibilityOff />}
+                  </button>
+
+              </label>
+
+   
+
+              <small>{password?.length}/15</small>
               <Link href="#" onClick={() => setOpenModal(true)}>
                 ESQUECEU SUA SENHA?
               </Link>
             </div>
 
-            <Button type="button" className="btn-login" onClick={handleLogin}>
+            <Button type="button" className="btn-login" onClick={handleLogin} disabled={loginLoading}>
               ENTRAR
             </Button>
 
