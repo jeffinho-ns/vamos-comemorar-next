@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "framer-motion": "^11.11.15",
+    "jsqr": "^1.4.0",
     "next": "^15.0.3",
     "next-navigation": "^1.0.6",
     "react": "^18.3.1",
@@ -17,8 +18,10 @@
     "react-input-mask": "^2.0.4",
     "react-modal": "^3.16.1",
     "react-multi-carousel": "^2.8.5",
+    "react-qr-reader": "^3.0.0-beta-1",
     "react-router-dom": "^6.26.2",
     "sass": "^1.82.0",
+    "webrtc-adapter": "^9.0.1",
     "yarn": "^1.22.22"
   },
   "devDependencies": {
