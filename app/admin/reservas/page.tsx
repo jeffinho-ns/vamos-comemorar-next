@@ -28,10 +28,7 @@ export default function Reserves() {
   const [reserves, setReserves] = useState<Reserve[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const API_URL =
-    process.env.NEXT_PUBLIC_API_URL ||
-    process.env.NEXT_PUBLIC_API_URL_LOCAL ||
-    "http://localhost:3000";
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL_LOCAL;
 
   const fetchReserves = useCallback(async () => {
     setLoading(true);

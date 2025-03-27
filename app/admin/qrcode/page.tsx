@@ -7,6 +7,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_U
 export default function QRCodeScanner() {
   const [qrResult, setQrResult] = useState<string | null>(null);
   const [validationMessage, setValidationMessage] = useState<string | null>(null);
+  const [qrImage, setQrImage] = useState<string | null>(null); // Novo estado para armazenar a imagem base64 do QR Code
   const videoRef = useRef<HTMLVideoElement | null>(null); // Referência para o vídeo
   const canvasRef = useRef<HTMLCanvasElement | null>(null); // Referência para o canvas
 
@@ -81,6 +82,7 @@ export default function QRCodeScanner() {
       const data = await response.json();
 
       if (data.success) {
+        setQrImage(data.qrcode_base64); // Exibe a imagem do QR Code gerado
         setValidationMessage(`✅ QR Code válido! Evento: ${data.nome_do_evento}, Data: ${data.data_do_evento}`);
       } else {
         setValidationMessage(`❌ QR Code inválido: ${data.message}`);
@@ -106,6 +108,13 @@ export default function QRCodeScanner() {
         <div className="mt-4 bg-white p-4 rounded-md shadow-md">
           <p className="text-lg font-semibold">QR Code escaneado:</p>
           <p className="text-gray-700">{qrResult}</p>
+        </div>
+      )}
+
+      {qrImage && (
+        <div className="mt-4 bg-white p-4 rounded-md shadow-md">
+          <p className="text-lg font-semibold">QR Code gerado:</p>
+          <img src={`data:image/png;base64,${qrImage}`} alt="QR Code" />
         </div>
       )}
 
