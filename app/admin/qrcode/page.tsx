@@ -7,66 +7,67 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_U
 export default function QRCodeScanner() {
   const [qrResult, setQrResult] = useState<string | null>(null);
   const [validationMessage, setValidationMessage] = useState<string | null>(null);
-  const [qrImage, setQrImage] = useState<string | null>(null); // Novo estado para armazenar a imagem base64 do QR Code
-  const videoRef = useRef<HTMLVideoElement | null>(null); // Referência para o vídeo
-  const canvasRef = useRef<HTMLCanvasElement | null>(null); // Referência para o canvas
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   useEffect(() => {
-    // Função para acessar a câmera
     const startCamera = async () => {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: "environment" }, // Usar a câmera traseira, se disponível
+          video: { facingMode: "environment" },
         });
+
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
-          videoRef.current.setAttribute("playsinline", "true"); // Requerido para iPhones
+          videoRef.current.setAttribute("playsinline", "true");
           videoRef.current.play();
-        }
 
-        requestAnimationFrame(scanQRCode);
+          // Esperar o vídeo carregar antes de começar o scan
+          videoRef.current.onloadedmetadata = () => {
+            requestAnimationFrame(scanQRCode);
+          };
+        }
       } catch (err) {
         console.error("Erro ao acessar a câmera:", err);
         setValidationMessage("❌ Não foi possível acessar a câmera");
       }
     };
 
-    // Função para escanear o QR Code
     const scanQRCode = () => {
-      if (videoRef.current && canvasRef.current) {
-        const video = videoRef.current;
-        const canvas = canvasRef.current;
-        const context = canvas.getContext("2d");
+      if (!videoRef.current || !canvasRef.current) return;
 
-        if (context) {
-          canvas.width = video.videoWidth;
-          canvas.height = video.videoHeight;
-          context.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const video = videoRef.current;
+      const canvas = canvasRef.current;
+      const context = canvas.getContext("2d");
 
-          const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
-          const code = jsQR(imageData.data, canvas.width, canvas.height, {
-            inversionAttempts: "dontInvert",
-          });
+      if (!context || video.videoWidth === 0 || video.videoHeight === 0) {
+        requestAnimationFrame(scanQRCode);
+        return;
+      }
 
-          if (code) {
-            setQrResult(code.data);
-            validateQRCode(code.data);
-          } else {
-            requestAnimationFrame(scanQRCode); // Continuar tentando se não encontrar o QR code
-          }
-        }
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+      const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+      const code = jsQR(imageData.data, canvas.width, canvas.height, {
+        inversionAttempts: "dontInvert",
+      });
+
+      if (code) {
+        setQrResult(code.data);
+        validateQRCode(code.data);
+      } else {
+        requestAnimationFrame(scanQRCode);
       }
     };
 
-    // Iniciar a câmera assim que o componente for montado
     startCamera();
 
-    // Limpar a câmera quando o componente for desmontado
     return () => {
-      if (videoRef.current && videoRef.current.srcObject) {
+      if (videoRef.current?.srcObject) {
         const stream = videoRef.current.srcObject as MediaStream;
-        const tracks = stream.getTracks();
-        tracks.forEach((track) => track.stop());
+        stream.getTracks().forEach((track) => track.stop());
       }
     };
   }, []);
@@ -82,7 +83,6 @@ export default function QRCodeScanner() {
       const data = await response.json();
 
       if (data.success) {
-        setQrImage(data.qrcode_base64); // Exibe a imagem do QR Code gerado
         setValidationMessage(`✅ QR Code válido! Evento: ${data.nome_do_evento}, Data: ${data.data_do_evento}`);
       } else {
         setValidationMessage(`❌ QR Code inválido: ${data.message}`);
@@ -99,8 +99,8 @@ export default function QRCodeScanner() {
 
       <video
         ref={videoRef}
-        style={{ width: "100%", maxWidth: "500px" }}
         className="border-2 border-gray-300"
+        style={{ width: "100%", maxWidth: "500px" }}
       ></video>
       <canvas ref={canvasRef} style={{ display: "none" }}></canvas>
 
@@ -108,13 +108,6 @@ export default function QRCodeScanner() {
         <div className="mt-4 bg-white p-4 rounded-md shadow-md">
           <p className="text-lg font-semibold">QR Code escaneado:</p>
           <p className="text-gray-700">{qrResult}</p>
-        </div>
-      )}
-
-      {qrImage && (
-        <div className="mt-4 bg-white p-4 rounded-md shadow-md">
-          <p className="text-lg font-semibold">QR Code gerado:</p>
-          <img src={`data:image/png;base64,${qrImage}`} alt="QR Code" />
         </div>
       )}
 
