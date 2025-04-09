@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState, useCallback } from "react";
+import "../webapp/global.scss";
 import { motion } from "framer-motion";
 import Image from "next/image";
 import Link from "next/link";
@@ -25,7 +26,7 @@ import Avatar3 from "../assets/avatar/003.jpeg";
 import Avatar4 from "../assets/avatar/004.jpg";
 
 
-import "../webapp/global.scss";
+
 
 interface Event {
   id: string;
@@ -63,6 +64,17 @@ export default function Home() {
       .catch((error) => console.error("Erro ao buscar eventos:", error))
       .finally(() => setLoading(false));
   }, [API_URL]);
+
+  useEffect(() => {
+    const link = document.createElement("link");
+    link.rel = "stylesheet";
+    link.href = "/webapp/global.scss"; 
+    document.head.appendChild(link);
+  
+    return () => {
+      document.head.removeChild(link);
+    };
+  }, []);
 
   useEffect(() => {
     if (showIntro) {

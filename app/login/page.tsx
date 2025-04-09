@@ -1,32 +1,30 @@
 "use client";
 
-import Banner from "@/app/components/banner/banner";
 import Image from "next/image";
-import imgBanner from "@/app/assets/banner01.webp";
-import Form from "@/app/components/form/form";
-import logoWhite from "@/app/assets/logo_white.png";
-import Link from "next/link";
-import Button from "../components/button/button";
-import { MdVisibility, MdVisibilityOff } from "react-icons/md";
-import { useMemo, useState } from "react";
-import "./styles.scss";
+import logoWhite from "../../app/assets/logo_blue.png";
+import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
+import { MdVisibility, MdVisibilityOff } from "react-icons/md";
+import { FcGoogle } from "react-icons/fc";
+import { FaFacebook } from "react-icons/fa";
+import Link from "next/link";
 
 export default function Login() {
-  const [show, setShow] = useState<boolean>(false);
-  const [emailCpf, setEmailCpf] = useState<string>("");
-  const [password, setPassword] = useState<string>("");
-  const [openModal, setOpenModal] = useState<boolean>(false);
+  const [show, setShow] = useState(false);
+  const [emailCpf, setEmailCpf] = useState("");
+  const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [loginLoading, setLoginLoading] = useState<boolean>(false);
+  const [loginLoading, setLoginLoading] = useState(false);
+  const [openModal, setOpenModal] = useState(false);
   const router = useRouter();
 
   const validInputs = useMemo(() => {
     return emailCpf.length > 0 && password.length > 0;
   }, [emailCpf, password]);
 
-  const handleLogin = async () => {
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL_LOCAL;
 
+  const handleLogin = async () => {
     if (!validInputs) {
       setError("Por favor, preencha todos os campos.");
       return;
@@ -34,9 +32,6 @@ export default function Login() {
 
     setLoginLoading(true);
     try {
-      const API_URL =
-  process.env.NEXT_PUBLIC_API_URL
-
       const response = await fetch(`${API_URL}/api/users/login`, {
         method: "POST",
         headers: {
@@ -44,100 +39,129 @@ export default function Login() {
         },
         body: JSON.stringify({
           access: emailCpf,
-          password: password,
+          password,
         }),
       });
 
       const data = await response.json();
-      console.log(data); // Verificar a resposta da API
 
-      if (response.ok) {
-        // Verifique se a API retorna o token e o userId
-        if (data.token && data.userId) {
-          localStorage.setItem("authToken", data.token); // Armazenando o token
-          localStorage.setItem("userId", data.userId); // Armazenando o userId
-          router.push("/"); // Redireciona após o login bem-sucedido
-        } else {
-          setError("Erro ao obter token ou ID do usuário.");
-        }
+      if (response.ok && data.token && data.userId) {
+        localStorage.setItem("authToken", data.token);
+        localStorage.setItem("userId", data.userId);
+        router.push("/");
       } else {
-        // Se a resposta não for ok, exibe uma mensagem de erro
         setError(data.message || "Credenciais inválidas.");
       }
     } catch (error) {
       setError("Erro ao tentar fazer login. Tente novamente.");
-      console.error("Erro:", error);
     } finally {
       setLoginLoading(false);
     }
   };
 
   return (
-    <div className="container">
-      {openModal && <div>Aqui vai o modal de troca de senha</div>}
-      <Banner id="banner-container" className="banner-container">
-        <Image src={imgBanner} alt="Logo banner" style={{ width: "100%" }} />
-      </Banner>
-
-      <div className="login">
-        <div className="form-container">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-gray-900 to-black px-4 py-10">
+      <div className="w-full max-w-md bg-white rounded-2xl shadow-lg p-6 space-y-6">
+        <div className="flex justify-center">
           <Link href="/">
-            <Image
-              src={logoWhite}
-              alt="Logo"
-              style={{ margin: "0 auto", padding: "1rem" }}
-            />
+            <Image src={logoWhite} alt="Logo" className="h-16 w-auto" />
           </Link>
-          <Form id="form-login" className="form-login">
-            <div className="input-container">
-              <input
-                placeholder="Email / CPF"
-                type="text"
-                id="cpf"
-                className="cpf mx-0"
-                onChange={(e) => setEmailCpf(e.target.value)}
-                value={emailCpf}
-              />
+        </div>
 
-              <label className="relative flex items-center">
-                <input
-                    placeholder="Senha"
-                    type={show ? "text" : "password"}
-                    id="password"
-                    className="password mx-0"
-                    onChange={(e) => setPassword(e.target.value)}
-                    value={password}
-                  />
-                  <button
-                      type="button"
-                      onClick={() => setShow(!show)}
-                      className="absolute right-2 justify-items-end w-12"  
-                    >
-                      {show ? <MdVisibility /> : <MdVisibilityOff />}
-                  </button>
+        {openModal && (
+          <div className="bg-gray-100 p-4 rounded-lg text-center">
+            Modal de recuperação de senha
+          </div>
+        )}
 
-              </label>
+        <div className="space-y-4">
+          <input
+            type="text"
+            placeholder="Email / CPF"
+            className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600"
+            value={emailCpf}
+            onChange={(e) => setEmailCpf(e.target.value)}
+          />
 
-   
+          <div className="relative">
+            <input
+              type={show ? "text" : "password"}
+              placeholder="Senha"
+              className="w-full p-3 pr-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+            <button
+              type="button"
+              onClick={() => setShow(!show)}
+              className="absolute top-3 right-3 text-gray-600"
+            >
+              {show ? <MdVisibility size={20} /> : <MdVisibilityOff size={20} />}
+            </button>
+          </div>
 
-              <small>{password?.length}/15</small>
-              <Link href="#" onClick={() => setOpenModal(true)}>
-                ESQUECEU SUA SENHA?
-              </Link>
-            </div>
+          <div className="flex items-center justify-between text-sm">
+  <label className="flex items-center gap-2 cursor-pointer">
+    <div className="relative">
+      <input
+        type="checkbox"
+        className="sr-only peer"
+        id="rememberMe"
+      />
+      <div className="w-10 h-5 bg-gray-300 rounded-full peer-checked:bg-blue-600 transition-colors"></div>
+      <div className="absolute left-1 top-1 w-3 h-3 bg-white rounded-full transition-transform peer-checked:translate-x-5"></div>
+    </div>
+    <span className="text-gray-700 select-none">Lembrar-me</span>
+  </label>
 
-            <Button type="button" className="btn-login" onClick={handleLogin} disabled={loginLoading}>
-              ENTRAR
-            </Button>
+  <button
+    type="button"
+    className="text-blue-600 underline"
+    onClick={() => setOpenModal(true)}
+  >
+    Esqueceu sua senha?
+  </button>
+</div>
 
-            {error && <p className="error-message">{error}</p>}
+          <button
+            className={`w-full py-3 rounded-lg text-white font-bold ${
+              validInputs
+                ? "bg-blue-600 hover:bg-blue-700"
+                : "bg-gray-400 cursor-not-allowed"
+            }`}
+            onClick={handleLogin}
+            disabled={loginLoading || !validInputs}
+          >
+            {loginLoading ? "Entrando..." : "Entrar"}
+          </button>
 
-            <div className="title">
-              <p>
-                Ainda não tem uma conta? <Link href="/register">Cadastrar</Link>
-              </p>
-            </div>
-          </Form>
+          {error && (
+            <p className="text-red-500 text-sm text-center">{error}</p>
+          )}
+        </div>
+
+        <div className="space-y-2">
+          <button
+            className="w-full flex items-center justify-center gap-3 border border-gray-300 rounded-lg p-3 hover:bg-gray-100"
+            onClick={() => alert("Login com Google ainda não implementado")}
+          >
+            <FcGoogle size={22} /> Entrar com Google
+          </button>
+          <button
+            className="w-full flex items-center justify-center gap-3 border border-gray-300 rounded-lg p-3 hover:bg-gray-100"
+            onClick={() => alert("Login com Facebook ainda não implementado")}
+          >
+            <FaFacebook size={22} color="#1877F2" /> Entrar com Facebook
+          </button>
+        </div>
+
+        <div className="text-center text-sm pt-4">
+          <p>
+            Ainda não tem uma conta?{" "}
+            <Link href="/register" className="text-blue-600 underline">
+              Cadastrar
+            </Link>
+          </p>
         </div>
       </div>
     </div>
