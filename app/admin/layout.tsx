@@ -120,6 +120,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     <Link href="/admin/workdays">Dias de funcionamento</Link>
                   </li>
                   <li>
+                    <MdTimer />
+                    <Link href="/admin/events">Eventos</Link>
+                  </li>
+                  <li>
                     <MdEditCalendar />
 
                     <Link href="/admin/reservas">Reservas</Link>
