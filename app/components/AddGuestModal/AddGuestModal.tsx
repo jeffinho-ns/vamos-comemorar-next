@@ -27,16 +27,14 @@ export default function AddGuestModal({
   const [erro, setErro] = useState("");
 
   const handleSubmit = async () => {
-
     const token = localStorage.getItem('authToken'); // <-- Pega o token salvo
     console.log('Token atual:', token);
     if (!token) {
-      setMensagem('Você precisa estar logado para adicionar convidados.');
+      setErro('Você precisa estar logado para adicionar convidados.');
       setLoading(false);
       return;
     }
 
-    
     if (!nome) {
       setErro("O nome é obrigatório.");
       return;

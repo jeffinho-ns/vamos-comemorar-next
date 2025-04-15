@@ -95,7 +95,7 @@ export default function Home() {
     }
   
     setFilteredPlaces(updatedPlaces);
-  }, [selectedState, searchTerm, selectedDate, places]);
+  }, [selectedState, searchTerm, selectedDate]);
   
   const filterByState = (event: any) => {
     setSelectedState(event);

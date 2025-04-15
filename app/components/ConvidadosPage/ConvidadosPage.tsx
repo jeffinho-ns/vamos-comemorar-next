@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { Button } from "../../components/ui/button";
 import { MdAdd } from "react-icons/md";
@@ -20,7 +20,7 @@ export default function ConvidadosPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [userId, setUserId] = useState<number | null>(null);
 
-  const fetchConvidados = async () => {
+  const fetchConvidados = useCallback(async () => {
     try {
       const res = await fetch(`https://vamos-comemorar-api.onrender.com/api/convidados/evento/${id}`);
       const data = await res.json();
@@ -31,7 +31,7 @@ export default function ConvidadosPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [id]);
 
   useEffect(() => {
     if (id) fetchConvidados();
@@ -41,7 +41,7 @@ export default function ConvidadosPage() {
       const parsedUser = JSON.parse(storedUser);
       setUserId(parsedUser.id);
     }
-  }, [id]);
+  }, [id, fetchConvidados]);
 
   return (
     <div className="p-6 min-h-screen bg-[#F7F7F7]">

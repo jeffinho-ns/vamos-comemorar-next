@@ -63,6 +63,7 @@ export default function QRCodeScanner() {
     };
 
     startCamera();
+    const currentVideo = videoRef.current;
 
     return () => {
       if (videoRef.current?.srcObject) {

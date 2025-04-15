@@ -11,14 +11,16 @@ type TabItem = {
 type TabsProps = {
   tabs: TabItem[]
   defaultIndex?: number
+  tabsStyle?: string 
+  contentClassName?: string 
 }
 
-export function Tabs({ tabs, defaultIndex = 0 }: TabsProps) {
+export function Tabs({ tabs, defaultIndex = 0, tabsStyle = '', contentClassName = '' }: TabsProps) {
   const [activeIndex, setActiveIndex] = useState(defaultIndex)
 
   return (
     <div>
-      <div className="flex border-b border-gray-200">
+      <div className={`flex ${tabsStyle}`}>
         {tabs.map((tab, index) => (
           <button
             key={index}
@@ -34,9 +36,10 @@ export function Tabs({ tabs, defaultIndex = 0 }: TabsProps) {
         ))}
       </div>
 
-      <div className="mt-4">
+      <div className={`mt-4 ${contentClassName}`}>
         {tabs[activeIndex].content}
       </div>
     </div>
   )
 }
+

@@ -41,42 +41,41 @@ export default function EventoConvidadosPage() {
 
         <div className="bg-white rounded-md shadow-sm border border-gray-200">
         <Tabs
-  tabsStyle="border-b border-gray-200 px-4 pt-4"
-  contentClassName="px-6 pb-6 pt-4"
-  tabs={[
-    {
-      title: 'Adicionar',
-      content: (
-        <>
-         < AdicionarConvidado />
-          <div className="flex justify-end mb-4">
-         
-            <Button
-              onClick={() => setModalOpen(true)}
-              className="flex items-center gap-2 bg-[#3f7fcf] hover:bg-[#306ac0] text-white px-4 py-2 rounded shadow text-sm"
-            >
-              <MdAdd size={18} /> Adicionar convidados
-            </Button>
-          </div>
-
-          <AddGuestModal
-            isOpen={modalOpen}
-            onClose={() => setModalOpen(false)}
-            onGuestAdded={() => {}}
-            eventId={Number(id)}
-            userId={1}
-          />
-        </>
-      )
-    },
-    {
-      title: 'Importar',
-      content: (
-        <ImportarConvidados eventId={String(id)} />
-      )
-    }
-  ]}
-/>
+          tabsStyle="border-b border-gray-200 px-4 pt-4"
+          contentClassName="px-6 pb-6 pt-4"
+          tabs={[
+            {
+              title: 'Adicionar',
+              content: (
+                <>
+                  <AdicionarConvidado eventId={String(id)} />
+                  <div className="flex justify-end mb-4">
+                    <Button
+                      onClick={() => setModalOpen(true)}
+                      className="flex items-center gap-2 bg-[#3f7fcf] hover:bg-[#306ac0] text-white px-4 py-2 rounded shadow text-sm"
+                    >
+                      <MdAdd size={18} /> Adicionar convidados
+                    </Button>
+                  </div>
+            
+                  <AddGuestModal
+                    isOpen={modalOpen}
+                    onClose={() => setModalOpen(false)}
+                    onGuestAdded={() => {}}
+                    eventId={Number(id)}
+                    userId={1}
+                  />
+                </>
+              )
+            },
+            {
+              title: 'Importar',
+              content: (
+                <ImportarConvidados eventId={String(id)} />
+              )
+            }
+          ]}
+        />
 
         </div>
 

@@ -24,6 +24,7 @@
     "react-router-dom": "^6.26.2",
     "sass": "^1.82.0",
     "webrtc-adapter": "^9.0.1",
+    "xlsx": "^0.18.5",
     "yarn": "^1.22.22"
   },
   "devDependencies": {
