@@ -1,4 +1,4 @@
-"use client";
+'use client';
 
 import { MdAdd, MdRefresh, MdEdit, MdDelete } from "react-icons/md";
 import { useEffect, useState, useCallback } from "react";
@@ -6,13 +6,11 @@ import PlaceModal from "../../components/places/placeModal";
 import EditPlaceModal from "../../components/editPlace/editPlaceModal";
 import { Business, Place } from "./types";
 import Image from "next/image";
+import Cookies from "js-cookie"; // Importar o pacote para lidar com cookies
 
 const API_URL =
   process.env.NEXT_PUBLIC_API_URL ||
   process.env.NEXT_PUBLIC_API_URL_LOCAL;
-
-
-
 
 // Função de conversão
 const convertBusinessToPlace = (business: Business): Place => ({
@@ -33,8 +31,41 @@ export default function Businesses() {
   const [error, setError] = useState<string | null>(null);
   const [selectedBusiness, setSelectedBusiness] = useState<Place | null>(null);
   const [token, setToken] = useState<string | null>(null);
+  const [hasAccess, setHasAccess] = useState<boolean | null>(null);
 
-  // Função para buscar negócios
+  // Verificar acesso (usuários com permissões adequadas)
+  useEffect(() => {
+    // Verificando o valor de role no localStorage e no cookie
+    const roleLocal = localStorage.getItem("role");
+    const roleCookie = Cookies.get("role");
+
+    console.log('Role no localStorage:', roleLocal);
+    console.log('Role no Cookie:', roleCookie);
+
+    // Se algum dos dois tiver um valor, é hora de decidir
+    if (roleLocal || roleCookie) {
+      const role = roleLocal || roleCookie;
+      console.log('Role final para verificação:', role);
+
+      if (role === "Administrador" || role === "Gerente") {
+        setHasAccess(true);
+      } else {
+        setHasAccess(false);
+      }
+    } else {
+      setHasAccess(false); // Se não encontrar em nenhum dos dois, negamos o acesso
+    }
+  }, []);
+
+  // Redirecionar se o usuário não tiver acesso
+  useEffect(() => {
+    if (hasAccess === false) {
+      console.log('Acesso negado! Redirecionando para /acesso-negado');
+      window.location.href = "/acesso-negado"; // Redirecionar se não tiver acesso
+    }
+  }, [hasAccess]);
+
+  // Buscar negócios
   const fetchBusinesses = useCallback(async (): Promise<void> => {
     if (!token) {
       console.error("Token não disponível.");
@@ -90,16 +121,21 @@ export default function Businesses() {
 
   // Buscar token armazenado
   useEffect(() => {
-    const storedToken = localStorage.getItem("authToken");
-    setToken(storedToken);
+    const storedTokenLocal = localStorage.getItem("authToken");
+    const storedTokenCookie = Cookies.get("authToken");
+
+    const token = storedTokenLocal ?? storedTokenCookie ?? null;
+    setToken(token);
+
+    console.log('Token final para a sessão:', token);
   }, []);
 
   // Buscar negócios quando o token estiver disponível
   useEffect(() => {
-    if (token) {
+    if (token && hasAccess) {
       fetchBusinesses();
     }
-  }, [token, fetchBusinesses]);
+  }, [token, hasAccess, fetchBusinesses]);
 
   // Filtrar negócios pelo nome ou e-mail
   const filteredBusinesses = businesses.filter((business) => {
@@ -109,6 +145,11 @@ export default function Businesses() {
       (business.email && business.email.toLowerCase().includes(lowerFilter))
     );
   });
+
+  // Se ainda está verificando o acesso ou carregando os negócios, exibe uma tela de loading
+  if (hasAccess === null || loading) {
+    return <div>Carregando...</div>;
+  }
 
   return (
     <div className="w-full p-6 bg-gray-100">
@@ -151,7 +192,6 @@ export default function Businesses() {
         placeholder="Nome ou E-mail"
       />
 
-      {loading && <p>Carregando negócios...</p>}
       {error && <p className="text-red-500">{error}</p>}
 
       <table className="min-w-full bg-white shadow-lg rounded-lg">

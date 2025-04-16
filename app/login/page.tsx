@@ -46,9 +46,32 @@ export default function Login() {
       const data = await response.json();
 
       if (response.ok && data.token && data.userId) {
+        // Armazena no localStorage
         localStorage.setItem("authToken", data.token);
         localStorage.setItem("userId", data.userId);
-        router.push("/");
+        localStorage.setItem("role", data.role);
+      
+        // Armazena nos cookies para o middleware ter acesso
+        document.cookie = `authToken=${data.token}; path=/`;
+        document.cookie = `role=${data.role}; path=/`;
+      
+        // Redirecionamento inteligente com base no role
+        switch (data.role) {
+          case 'Administrador':
+            router.push('/admin');
+            break;
+          case 'Gerente':
+            router.push('/gerente');
+            break;
+          case 'Promoter':
+            router.push('/promoter');
+            break;
+          case 'Cliente':
+            router.push('/cliente');
+            break;
+          default:
+            router.push('/');
+        }
       } else {
         setError(data.message || "Credenciais inválidas.");
       }
