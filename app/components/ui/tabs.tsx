@@ -1,34 +1,33 @@
-// components/ui/tabs.tsx
 'use client'
 
 import { useState } from 'react'
 
-type TabItem = {
+type Tab = {
   title: string
   content: React.ReactNode
 }
 
 type TabsProps = {
-  tabs: TabItem[]
-  defaultIndex?: number
-  tabsStyle?: string 
-  contentClassName?: string 
+  tabs: Tab[]
+  tabsStyle?: string
+  contentClassName?: string
 }
 
-export function Tabs({ tabs, defaultIndex = 0, tabsStyle = '', contentClassName = '' }: TabsProps) {
-  const [activeIndex, setActiveIndex] = useState(defaultIndex)
+export function Tabs({ tabs, tabsStyle = '', contentClassName = '' }: TabsProps) {
+  const [activeTab, setActiveTab] = useState(0)
 
   return (
     <div>
-      <div className={`flex ${tabsStyle}`}>
+      {/* Abas */}
+      <div className={`flex gap-4 ${tabsStyle}`}>
         {tabs.map((tab, index) => (
           <button
             key={index}
-            onClick={() => setActiveIndex(index)}
-            className={`px-4 py-2 text-sm font-medium border-b-2 transition-all duration-200 ${
-              index === activeIndex
-                ? 'border-blue-600 text-blue-600'
-                : 'border-transparent text-gray-500 hover:text-blue-500'
+            onClick={() => setActiveTab(index)}
+            className={`pb-2 text-sm font-medium border-b-2 transition-colors ${
+              activeTab === index
+                ? 'border-[#3f7fcf] text-[#3f7fcf]'
+                : 'border-transparent text-gray-500 hover:text-[#3f7fcf]'
             }`}
           >
             {tab.title}
@@ -36,10 +35,10 @@ export function Tabs({ tabs, defaultIndex = 0, tabsStyle = '', contentClassName 
         ))}
       </div>
 
-      <div className={`mt-4 ${contentClassName}`}>
-        {tabs[activeIndex].content}
+      {/* Conteúdo */}
+      <div className={`${contentClassName}`}>
+        {tabs[activeTab]?.content}
       </div>
     </div>
   )
 }
-
