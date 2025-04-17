@@ -32,9 +32,9 @@ export function middleware(request: NextRequest) {
   };
 
   // Verifica se a rota está definida nas permissões de rota
-  const allowedRoles = Object.keys(routePermissions).find(route => url.startsWith(route)) 
-    ? routePermissions[url] 
-    : null;
+  const matchedRoute = Object.keys(routePermissions).find(route => url.startsWith(route));
+  const allowedRoles = matchedRoute ? routePermissions[matchedRoute] : null;
+  
 
   // Verifica se o papel do usuário tem permissão para acessar a rota
   if (allowedRoles && !allowedRoles.includes(role)) {

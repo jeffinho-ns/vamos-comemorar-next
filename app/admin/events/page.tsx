@@ -11,6 +11,7 @@ interface Event {
   data_do_evento: string;
   hora_do_evento: string;
   convidados_presentes?: number;
+  total_convidados?: number;
 }
 
 export default function Eventos() {
@@ -19,17 +20,39 @@ export default function Eventos() {
 
   const fetchEvents = async () => {
     const token = localStorage.getItem("authToken");
-
+  
     try {
       const res = await fetch("https://vamos-comemorar-api.onrender.com/api/events", {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
-      setEvents(data);
+  
+      // Para cada evento, buscar os convidados e contar
+      const eventsWithConvidados = await Promise.all(
+        data.map(async (event: Event) => {
+          try {
+            const convidadosRes = await fetch(
+              `https://vamos-comemorar-api.onrender.com/api/convidados/${event.id}`,
+              { headers: { Authorization: `Bearer ${token}` } }
+            );
+            const convidados = await convidadosRes.json();
+            return {
+              ...event,
+              total_convidados: convidados.length,
+            };
+          } catch (err) {
+            console.error("Erro ao buscar convidados para o evento", event.id, err);
+            return { ...event, total_convidados: 0 };
+          }
+        })
+      );
+  
+      setEvents(eventsWithConvidados);
     } catch (err) {
       console.error("Erro ao buscar eventos", err);
     }
   };
+  
 
   useEffect(() => {
     fetchEvents();
@@ -83,7 +106,7 @@ export default function Eventos() {
             </div>
 
             <div className="text-sm text-gray-600 mt-1">
-              Convidados presentes: {event.convidados_presentes || 0}/0
+              Convidados presentes: {event.convidados_presentes || 0}/{event.total_convidados || 0}
             </div>
 
             <div className="mt-2 flex flex-wrap items-center gap-2">

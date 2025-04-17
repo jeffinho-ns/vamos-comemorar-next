@@ -6,13 +6,13 @@ import PlaceModal from "../../components/places/placeModal";
 import EditPlaceModal from "../../components/editPlace/editPlaceModal";
 import { Business, Place } from "./types";
 import Image from "next/image";
-import Cookies from "js-cookie"; // Importar o pacote para lidar com cookies
+import Cookies from "js-cookie";
+import { WithPermission } from "../../components/WithPermission/WithPermission";
 
 const API_URL =
   process.env.NEXT_PUBLIC_API_URL ||
   process.env.NEXT_PUBLIC_API_URL_LOCAL;
 
-// Função de conversão
 const convertBusinessToPlace = (business: Business): Place => ({
   id: business.id,
   cnpj: business.cnpj || "",
@@ -31,41 +31,7 @@ export default function Businesses() {
   const [error, setError] = useState<string | null>(null);
   const [selectedBusiness, setSelectedBusiness] = useState<Place | null>(null);
   const [token, setToken] = useState<string | null>(null);
-  const [hasAccess, setHasAccess] = useState<boolean | null>(null);
 
-  // Verificar acesso (usuários com permissões adequadas)
-  useEffect(() => {
-    // Verificando o valor de role no localStorage e no cookie
-    const roleLocal = localStorage.getItem("role");
-    const roleCookie = Cookies.get("role");
-
-    console.log('Role no localStorage:', roleLocal);
-    console.log('Role no Cookie:', roleCookie);
-
-    // Se algum dos dois tiver um valor, é hora de decidir
-    if (roleLocal || roleCookie) {
-      const role = roleLocal || roleCookie;
-      console.log('Role final para verificação:', role);
-
-      if (role === "Administrador" || role === "Gerente") {
-        setHasAccess(true);
-      } else {
-        setHasAccess(false);
-      }
-    } else {
-      setHasAccess(false); // Se não encontrar em nenhum dos dois, negamos o acesso
-    }
-  }, []);
-
-  // Redirecionar se o usuário não tiver acesso
-  useEffect(() => {
-    if (hasAccess === false) {
-      console.log('Acesso negado! Redirecionando para /acesso-negado');
-      window.location.href = "/acesso-negado"; // Redirecionar se não tiver acesso
-    }
-  }, [hasAccess]);
-
-  // Buscar negócios
   const fetchBusinesses = useCallback(async (): Promise<void> => {
     if (!token) {
       console.error("Token não disponível.");
@@ -96,14 +62,12 @@ export default function Businesses() {
     }
   }, [token]);
 
-  // Função para abrir o modal de edição
   const openEditModal = (business: Business): void => {
     const place = convertBusinessToPlace(business);
     setSelectedBusiness(place);
     setEditModalIsOpen(true);
   };
 
-  // Funções para abrir e fechar modais
   const openModal = (): void => {
     setSelectedBusiness(null);
     setModalIsOpen(true);
@@ -119,25 +83,19 @@ export default function Businesses() {
     setSelectedBusiness(null);
   };
 
-  // Buscar token armazenado
   useEffect(() => {
     const storedTokenLocal = localStorage.getItem("authToken");
     const storedTokenCookie = Cookies.get("authToken");
-
     const token = storedTokenLocal ?? storedTokenCookie ?? null;
     setToken(token);
-
-    console.log('Token final para a sessão:', token);
   }, []);
 
-  // Buscar negócios quando o token estiver disponível
   useEffect(() => {
-    if (token && hasAccess) {
+    if (token) {
       fetchBusinesses();
     }
-  }, [token, hasAccess, fetchBusinesses]);
+  }, [token, fetchBusinesses]);
 
-  // Filtrar negócios pelo nome ou e-mail
   const filteredBusinesses = businesses.filter((business) => {
     const lowerFilter = filterBy.toLowerCase();
     return (
@@ -146,98 +104,93 @@ export default function Businesses() {
     );
   });
 
-  // Se ainda está verificando o acesso ou carregando os negócios, exibe uma tela de loading
-  if (hasAccess === null || loading) {
+  if (loading) {
     return <div>Carregando...</div>;
   }
 
   return (
-    <div className="w-full p-6 bg-gray-100">
-      <h2 className="text-2xl font-semibold mb-4">Negócios</h2>
+    <WithPermission allowedRoles={["Administrador", "Gerente"]}>
+      <div className="w-full p-6 bg-gray-100">
+        <h2 className="text-2xl font-semibold mb-4">Negócios</h2>
 
-      <div className="flex items-center mb-6">
-        <button
-          onClick={fetchBusinesses}
-          className="bg-gray-500 hover:bg-gray-600 text-white p-4 rounded-full mr-4"
-        >
-          <MdRefresh className="text-xl" />
-        </button>
-        <button
-          onClick={openModal}
-          className="bg-blue-500 hover:bg-blue-600 text-white p-4 rounded-full"
-        >
-          <MdAdd className="text-xl" />
-        </button>
-      </div>
+        <div className="flex items-center mb-6">
+          <button
+            onClick={fetchBusinesses}
+            className="bg-gray-500 hover:bg-gray-600 text-white p-4 rounded-full mr-4"
+          >
+            <MdRefresh className="text-xl" />
+          </button>
+          <button
+            onClick={openModal}
+            className="bg-blue-500 hover:bg-blue-600 text-white p-4 rounded-full"
+          >
+            <MdAdd className="text-xl" />
+          </button>
+        </div>
 
-      <PlaceModal
-        isOpen={modalIsOpen}
-        onRequestClose={closeModal}
-        addPlace={() => {}}
-        place={selectedBusiness}
-      />
+        <PlaceModal
+          isOpen={modalIsOpen}
+          onRequestClose={closeModal}
+          addPlace={() => {}}
+          place={selectedBusiness}
+        />
 
-      <EditPlaceModal
-        isOpen={editModalIsOpen}
-        onRequestClose={closeEditModal}
-        currentPlace={selectedBusiness}
-        updatePlace={() => {}}
-      />
+        <EditPlaceModal
+          isOpen={editModalIsOpen}
+          onRequestClose={closeEditModal}
+          currentPlace={selectedBusiness}
+          updatePlace={() => {}}
+        />
 
-      <input
-        type="text"
-        value={filterBy}
-        onChange={(e) => setFilterBy(e.target.value)}
-        className="w-2/3 p-3 mb-6 rounded-md shadow-sm border-gray-300 focus:ring focus:ring-blue-200"
-        placeholder="Nome ou E-mail"
-      />
+        <input
+          type="text"
+          value={filterBy}
+          onChange={(e) => setFilterBy(e.target.value)}
+          className="w-2/3 p-3 mb-6 rounded-md shadow-sm border-gray-300 focus:ring focus:ring-blue-200"
+          placeholder="Nome ou E-mail"
+        />
 
-      {error && <p className="text-red-500">{error}</p>}
+        {error && <p className="text-red-500">{error}</p>}
 
-      <table className="min-w-full bg-white shadow-lg rounded-lg">
-        <thead className="bg-gray-200">
-          <tr>
-            <th className="px-6 py-3">Logo</th>
-            <th className="px-6 py-3">Nome</th>
-            <th className="px-6 py-3">E-mail</th>
-            <th className="px-6 py-3">Ações</th>
-          </tr>
-        </thead>
-        <tbody>
-          {filteredBusinesses.map((business) => (
-            <tr key={business.id} className="border-t">
-              <td className="px-6 py-4">
-                <Image
-                  src={
-                    business.logo?.startsWith("http")
-                      ? business.logo
-                      : `${API_URL}/uploads/${business.logo || "default-logo.png"}`
-                  }
-                  alt={business.name || "Logo"}
-                  width={48}
-                  height={48}
-                />
-              </td>
-              <td className="px-6 py-4">{business.name || "Sem nome"}</td>
-              <td className="px-6 py-4">{business.email || "Sem e-mail"}</td>
-              <td className="px-6 py-4">
-                <button
-                  onClick={() => openEditModal(business)}
-                  title="Editar"
-                >
-                  <MdEdit className="text-blue-500 hover:text-blue-700" />
-                </button>
-                <button
-                  onClick={() => {}}
-                  title="Excluir"
-                >
-                  <MdDelete className="text-red-500 hover:text-red-700" />
-                </button>
-              </td>
+        <table className="min-w-full bg-white shadow-lg rounded-lg">
+          <thead className="bg-gray-200">
+            <tr>
+              <th className="px-6 py-3">Logo</th>
+              <th className="px-6 py-3">Nome</th>
+              <th className="px-6 py-3">E-mail</th>
+              <th className="px-6 py-3">Ações</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+          </thead>
+          <tbody>
+            {filteredBusinesses.map((business) => (
+              <tr key={business.id} className="border-t">
+                <td className="px-6 py-4">
+                  <Image
+                    src={
+                      business.logo?.startsWith("http")
+                        ? business.logo
+                        : `${API_URL}/uploads/${business.logo || "default-logo.png"}`
+                    }
+                    alt={business.name || "Logo"}
+                    width={48}
+                    height={48}
+                  />
+                </td>
+                <td className="px-6 py-4">{business.name || "Sem nome"}</td>
+                <td className="px-6 py-4">{business.email || "Sem e-mail"}</td>
+                <td className="px-6 py-4">
+                  <button onClick={() => openEditModal(business)} title="Editar">
+                    <MdEdit className="text-blue-500 hover:text-blue-700" />
+                  </button>
+                  <button onClick={() => {}} title="Excluir">
+                    <MdDelete className="text-red-500 hover:text-red-700" />
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </WithPermission>
   );
 }

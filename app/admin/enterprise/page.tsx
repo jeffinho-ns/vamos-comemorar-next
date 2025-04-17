@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback, useMemo } from "react";
 import Enterprise from "../../components/enterprise/enterprise";
 import { useRouter } from "next/navigation";
 import { Establishment } from "../../types/Establishment";
+import { WithPermission } from "../../components/WithPermission/WithPermission";
 
 // Definindo os tipos
 interface Company {
@@ -136,6 +137,7 @@ export default function Companies() {
   });
 
   return (
+    <WithPermission allowedRoles={["admin", "gerente", "promoter"]}>
     <div className="w-full p-6 bg-gray-100">
       <h2 className="text-2xl font-semibold mb-4">Empresas</h2>
 
@@ -210,5 +212,6 @@ export default function Companies() {
         </table>
       </div>
     </div>
+    </WithPermission>
   );
 }

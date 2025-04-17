@@ -7,10 +7,10 @@ import { useRouter } from 'next/navigation';
 export default function AcessoNegado() {
   const router = useRouter();
 
-  useEffect(() => {
-    // Redirecionar ou realizar outras ações, caso o usuário não tenha permissão
-    router.push('/login');
-  }, [router]);
+  // useEffect(() => {
+  //   // Redirecionar ou realizar outras ações, caso o usuário não tenha permissão
+  //   router.push('/login');
+  // }, [router]);
 
   return (
     <div>
