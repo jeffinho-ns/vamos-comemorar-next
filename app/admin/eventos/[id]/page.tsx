@@ -8,6 +8,7 @@ import { MdAdd } from 'react-icons/md'
 import AddGuestModal from '../../../components/AddGuestModal/AddGuestModal'
 import ImportarConvidados from '../../../components/convidados/ImportarConvidados'
 import AdicionarConvidado from '../../../components/convidados/AdicionarConvidado'
+import { WithPermission } from "../../../components/WithPermission/WithPermission";
 
 type Convidado = {
   id: number
@@ -60,6 +61,7 @@ export default function EventoConvidadosPage() {
   }, [id, eventId])
 
   return (
+    <WithPermission allowedRoles={["admin", "gerente", "promoter"]}>
     <div className="min-h-screen bg-[#f7f9fc] text-sm">
       <div className="max-w-6xl mx-auto p-6">
         <div className="mb-6">
@@ -161,5 +163,6 @@ export default function EventoConvidadosPage() {
         </div>
       </div>
     </div>
+    </WithPermission>
   )
 }
