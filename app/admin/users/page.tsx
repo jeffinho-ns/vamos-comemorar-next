@@ -19,8 +19,6 @@ export default function Users() {
   const [totalPages, setTotalPages] = useState<number>(1);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
 
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL_LOCAL;
-
   const fetchData = useCallback(async () => {
     setLoading(true);
     const token = localStorage.getItem("authToken");
@@ -92,8 +90,14 @@ export default function Users() {
     }
   };
 
-  const handleUserSelection = (user: User) => {
-    setSelectedUser(user);
+  const openEditProfileModal = (user: APIUser) => {
+    const fullUser: User = {
+      ...user,
+      id: Number(user.id),
+      created_at: user.created_at || new Date().toISOString(),
+      foto_perfil: user.foto_perfil || "",
+    };
+    setSelectedUser(fullUser);
     setIsProfileModalOpen(true);
   };
 
@@ -117,17 +121,6 @@ export default function Users() {
     }
   };
 
-  const openEditProfileModal = (user: APIUser) => {
-    const fullUser: User = {
-      ...user,
-      id: Number(user.id),
-      created_at: user.created_at || new Date().toISOString(),
-      foto_perfil: user.foto_perfil || "",
-    };
-    setSelectedUser(fullUser);
-    setIsProfileModalOpen(true);
-  };
-
   const closeModal = () => {
     setModalIsOpen(false);
     setIsProfileModalOpen(false);
@@ -145,19 +138,17 @@ export default function Users() {
   };
 
   return (
-    <div className="w-full p-6 bg-gray-100">
-      <h2 className="text-2xl font-semibold mb-4">Usuários e Clientes</h2>
-
-      <div className="flex items-center mb-6">
-        <button onClick={fetchData} className="bg-gray-500 hover:bg-gray-600 text-white p-4 rounded-full mr-4">
+    <div className="min-h-screen bg-[#f4f7fb] px-6 py-8">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6 gap-4">
+        <button onClick={fetchData} className="bg-gray-500 hover:bg-gray-600 text-white p-3 rounded-full">
           <MdRefresh className="text-xl" />
         </button>
-        <button onClick={() => setModalIsOpen(true)} className="bg-blue-500 hover:bg-blue-600 text-white p-4 rounded-full">
-          <MdAdd className="text-xl" />
+        <button onClick={() => setModalIsOpen(true)} className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-md">
+          <MdAdd className="inline-block mr-1" /> Novo usuário
         </button>
         <AddUser
           isOpen={modalIsOpen}
-          onRequestClose={() => setModalIsOpen(false)}
+          onRequestClose={closeModal}
           addUser={handleAddUser}
           user={selectedUser}
           userType={selectedUser?.type}
@@ -165,9 +156,9 @@ export default function Users() {
         />
         <Profile
           isOpen={isProfileModalOpen}
-          onRequestClose={() => setIsProfileModalOpen(false)}
+          onRequestClose={closeModal}
           addUser={handleAddUser}
-          user={
+                    user={
             selectedUser
               ? {
                   ...selectedUser,
@@ -180,12 +171,12 @@ export default function Users() {
         />
       </div>
 
-      <div className="flex space-x-4 mb-6">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
         <input
           type="text"
           value={filterBy}
           onChange={(e) => setFilterBy(e.target.value)}
-          className="w-2/3 p-3 rounded-md shadow-sm border-gray-300 focus:ring focus:ring-blue-500"
+          className="flex-1 p-3 rounded-md shadow-sm border-gray-300 focus:ring focus:ring-blue-500"
           placeholder="Buscar por nome ou e-mail"
         />
         <select
@@ -200,44 +191,46 @@ export default function Users() {
 
       {loading && <p>Carregando...</p>}
       {error && <p className="text-red-500">{error}</p>}
-      <table className="min-w-full divide-y divide-gray-200">
-        <thead>
-          <tr>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nome</th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Telefone</th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Criado em</th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ações</th>
-          </tr>
-        </thead>
-        <tbody className="bg-white divide-y divide-gray-200">
-          {data.map((user) => (
-            <tr key={user.id}>
-              <td className="px-6 py-4 whitespace-nowrap">{user.name}</td>
-              <td className="px-6 py-4 whitespace-nowrap">{user.email}</td>
-              <td className="px-6 py-4 whitespace-nowrap">{user.telefone || "N/A"}</td>
-              <td className="px-6 py-4 whitespace-nowrap">{user.created_at ? formatDate(user.created_at) : "Data indisponível"}</td>
-              <td className="px-6 py-4 whitespace-nowrap">
-                <button onClick={() => openEditProfileModal(user)} className="text-blue-500 hover:text-blue-700 mr-2">
+
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+        {data.map((user) => (
+          <div key={user.id} className="bg-white shadow-md rounded-lg p-4 border border-gray-200">
+            <div className="flex items-center justify-between">
+              <div>
+                <h4 className="text-sm font-semibold text-gray-700">{user.name}</h4>
+                <p className="text-xs text-gray-500">{user.email}</p>
+                <p className="text-xs text-gray-500">Telefone: {user.telefone || 'N/A'}</p>
+                <p className="text-xs text-gray-400 mt-1">Criado em: {formatDate(user.created_at || '')}</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <button onClick={() => openEditProfileModal(user)} className="text-blue-500 hover:text-blue-700">
                   <MdEdit />
                 </button>
                 <button onClick={() => handleDelete(user.id)} className="text-red-500 hover:text-red-700">
                   <MdDelete />
                 </button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
 
-      <div className="mt-6 flex justify-between">
-        <button onClick={() => handlePageChange(page - 1)} disabled={page === 1} className="text-gray-500">
+      <div className="mt-6 flex justify-between items-center">
+        <button
+          onClick={() => handlePageChange(page - 1)}
+          disabled={page === 1}
+          className="text-sm text-gray-600 px-3 py-1 border border-gray-300 rounded-md hover:bg-gray-100 disabled:opacity-50"
+        >
           Página anterior
         </button>
-        <span>
+        <span className="text-sm text-gray-700">
           Página {page} de {totalPages}
         </span>
-        <button onClick={() => handlePageChange(page + 1)} disabled={page === totalPages} className="text-gray-500">
+        <button
+          onClick={() => handlePageChange(page + 1)}
+          disabled={page === totalPages}
+          className="text-sm text-gray-600 px-3 py-1 border border-gray-300 rounded-md hover:bg-gray-100 disabled:opacity-50"
+        >
           Próxima página
         </button>
       </div>

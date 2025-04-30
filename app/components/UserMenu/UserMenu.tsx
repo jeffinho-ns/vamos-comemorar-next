@@ -62,7 +62,7 @@ export default function UserMenu() {
 
   const handleNavigation = (aba: string) => {
     setUserMenuOpen(false);
-    router.push(`/admin/ContaUsuarioPage?aba=${aba}`);
+    router.push(`/admin/contausuariopage?aba=${aba}`);
   };
 
   return (
