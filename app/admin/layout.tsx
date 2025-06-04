@@ -25,6 +25,7 @@ import {
 
 const navLinks = [
   { href: "/admin", label: "Dashboard", icon: MdDashboard },
+  { href: "/admin/qrcode", label: "qrcode", icon: MdEditCalendar },
   { href: "/admin/users", label: "Usuários", icon: MdPerson3 },
   { href: "/admin/enterprise", label: "Empresa", icon: MdFactory },
   { href: "/admin/commodities", label: "Commodities", icon: MdSpaceBar },
