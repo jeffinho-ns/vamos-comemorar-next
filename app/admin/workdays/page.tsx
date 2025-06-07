@@ -1,29 +1,24 @@
 "use client";
 import { MdAdd, MdRefresh, MdEdit, MdDelete } from "react-icons/md";
+import { EventData } from '../../types/types';
 import AddEvent from "../../components/events/AddEvent";
+import EditEventModal from "@/app/components/EditEvent/EditEvent";
 import { useEffect, useState } from "react";
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 
-interface Event {
-  id: number;
-  casa_do_evento: string;
-  nome_do_evento: string;
-  data_do_evento: string;
-  hora_do_evento: string;
-  local_do_evento: string;
-  categoria: string;
-  mesas: number;
-  brinde: string;
-}
+
 
 export default function EventsPage() {
-  const [events, setEvents] = useState<Event[]>([]);
+  const [events, setEvents] = useState<EventData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [modalIsOpen, setModalIsOpen] = useState(false);
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [selectedEvent, setSelectedEvent] = useState<EventData | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(0);
+
 
   const fetchEvents = async (page: number) => {
     setLoading(true);
@@ -75,7 +70,6 @@ export default function EventsPage() {
 
       if (!response.ok) throw new Error('Erro ao excluir evento');
 
-      // Remove o evento da lista localmente após a exclusão
       setEvents(events.filter(event => event.id !== id));
     } catch (error) {
       console.error('Erro ao excluir evento:', error);
@@ -85,6 +79,15 @@ export default function EventsPage() {
 
   const openModal = () => setModalIsOpen(true);
   const closeModal = () => setModalIsOpen(false);
+
+const openEditModal = (event: EventData) => {
+  setSelectedEvent(event);
+  setEditModalOpen(true);
+};
+  const closeEditModal = () => {
+    setSelectedEvent(null);
+    setEditModalOpen(false);
+  };
 
   const handlePreviousPage = () => {
     if (currentPage > 1) setCurrentPage(currentPage - 1);
@@ -106,11 +109,12 @@ export default function EventsPage() {
           <MdAdd className="text-xl" />
         </button>
       </div>
-      
+
       <AddEvent
         isOpen={modalIsOpen}
         onRequestClose={closeModal}
       />
+
 
       {loading && <p>Carregando eventos...</p>}
       {error && <p className="text-red-500">{error}</p>}
@@ -128,32 +132,38 @@ export default function EventsPage() {
               <th className="px-6 py-3 font-semibold">Ações</th>
             </tr>
           </thead>
-          <tbody>
-            {events.length > 0 ? (
-              events.map((event) => (
-                <tr key={event.id} className="border-t">
-                  <td className="px-6 py-4">{new Date(event.data_do_evento).toLocaleDateString()}</td>
-                  <td className="px-6 py-4">{event.nome_do_evento}</td>
-                  <td className="px-6 py-4">{event.casa_do_evento}</td>
-                  <td className="px-6 py-4">{event.brinde}</td>
-                  <td className="px-6 py-4">{event.mesas}</td>
-                  <td className="px-6 py-4">{event.categoria}</td>
-                  <td className="px-6 py-4 flex space-x-2">
-                    <button title="Editar">
-                      <MdEdit className="text-blue-500 hover:text-blue-700" />
-                    </button>
-                    <button onClick={() => deleteEvent(event.id)} title="Excluir">
-                      <MdDelete className="text-red-500 hover:text-red-700" />
-                    </button>
-                  </td>
-                </tr>
-              ))
-            ) : (
-              <tr>
-                <td colSpan={6} className="px-6 py-4 text-center">Nenhum evento encontrado</td>
-              </tr>
-            )}
-          </tbody>
+ <tbody>
+  {events.length > 0 ? (
+    events.map((event) => (
+      <tr key={event.id} className="border-t">
+        <td className="px-6 py-4">
+          {/* LÓGICA CORRIGIDA AQUI */}
+          {event.tipo_evento === 'unico'
+            ? (event.data_do_evento ? new Date(event.data_do_evento).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : 'Data não definida')
+            : `Toda ${['Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado'][event.dia_da_semana!]}`
+          }
+        </td>
+        <td className="px-6 py-4">{event.nome_do_evento}</td>
+        <td className="px-6 py-4">{event.casa_do_evento}</td>
+        <td className="px-6 py-4">{event.brinde}</td>
+        <td className="px-6 py-4">{event.mesas}</td>
+        <td className="px-6 py-4">{event.categoria}</td>
+        <td className="px-6 py-4 flex space-x-2">
+          <button title="Editar" onClick={() => openEditModal(event)}>
+            <MdEdit className="text-blue-500 hover:text-blue-700" />
+          </button>
+          <button onClick={() => deleteEvent(event.id)} title="Excluir">
+            <MdDelete className="text-red-500 hover:text-red-700" />
+          </button>
+        </td>
+      </tr>
+    ))
+  ) : (
+    <tr>
+      <td colSpan={7} className="px-6 py-4 text-center">Nenhum evento encontrado</td>
+    </tr>
+  )}
+</tbody>
         </table>
       </div>
 

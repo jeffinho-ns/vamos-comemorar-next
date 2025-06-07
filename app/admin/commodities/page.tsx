@@ -7,7 +7,7 @@ import EditPlaceModal from "../../components/editPlace/editPlaceModal";
 import { Business, Place } from "./types";
 import Image from "next/image";
 import Cookies from "js-cookie";
-import { WithPermission } from "../../components/WithPermission/WithPermission";
+//import { WithPermission } from "../../components/WithPermission/WithPermission";
 
 const API_URL =
   process.env.NEXT_PUBLIC_API_URL ||
@@ -109,7 +109,7 @@ export default function Businesses() {
   }
 
   return (
-    <WithPermission allowedRoles={["Administrador", "Gerente"]}>
+    //<WithPermission allowedRoles={["Gerente"]}>
       <div className="w-full p-6 bg-gray-100">
         <h2 className="text-2xl font-semibold mb-4">Negócios</h2>
 
@@ -191,6 +191,6 @@ export default function Businesses() {
           </tbody>
         </table>
       </div>
-    </WithPermission>
+   // </WithPermission>
   );
 }

@@ -26,6 +26,17 @@ export default function QRCodeScanner() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const animationFrameId = useRef<number | null>(null);
 
+
+       useEffect(() => {
+  const video = videoRef.current;
+  
+  return () => {
+    // use a variável capturada
+    if (video) {
+      video.pause();
+    }
+  };
+}, []);
   // 1. useEffect para verificar a disponibilidade da câmera
   useEffect(() => {
     const checkCameraAvailability = async () => {
@@ -35,6 +46,7 @@ export default function QRCodeScanner() {
         setInitialCheckDone(true);
         return;
       }
+ 
 
       try {
         const devices = await navigator.mediaDevices.enumerateDevices();
@@ -96,20 +108,17 @@ export default function QRCodeScanner() {
     }
   };
   
-  // 2. useEffect para iniciar a câmera e o scanner (condicional)
+
+// 2. useEffect para iniciar a câmera e o scanner (condicional)
   useEffect(() => {
     const startCamera = async () => {
-      if (!deviceHasCamera) { // Checagem extra
-        if(initialCheckDone && !validationMessage?.startsWith("❌ Nenhuma webcam")){ // Se não tiver a msg especifica, define
-            // setValidationMessage("ℹ️ Câmera não disponível ou não permitida.");
-        }
+      if (!deviceHasCamera) {
         return;
       }
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: "environment" }, // Tenta a câmera traseira primeiro
+          video: { facingMode: "environment" },
         });
-
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
           videoRef.current.setAttribute("playsinline", "true");
@@ -119,9 +128,8 @@ export default function QRCodeScanner() {
         }
       } catch (err) {
         console.error("Erro ao acessar a câmera:", err);
-        // Tenta com a câmera frontal como fallback (comum em desktops)
         try {
-            const stream = await navigator.mediaDevices.getUserMedia({ video: true }); // Padrão (geralmente frontal)
+            const stream = await navigator.mediaDevices.getUserMedia({ video: true });
             if (videoRef.current) {
               videoRef.current.srcObject = stream;
               videoRef.current.setAttribute("playsinline", "true");
@@ -132,7 +140,7 @@ export default function QRCodeScanner() {
         } catch (fallbackErr) {
             console.error("Erro ao acessar câmera (fallback):", fallbackErr);
             setValidationMessage("❌ Não foi possível acessar a câmera. Verifique as permissões e se outra aplicação a está usando.");
-            setDeviceHasCamera(false); // Atualiza o estado se falhar em iniciar
+            setDeviceHasCamera(false);
         }
       }
     };
@@ -140,6 +148,9 @@ export default function QRCodeScanner() {
     if (initialCheckDone && deviceHasCamera === true) {
       startCamera();
     }
+    
+    // Captura o valor da ref para usar na limpeza de forma segura.
+    const videoElement = videoRef.current;
 
     // Função de limpeza
     return () => {
@@ -147,10 +158,11 @@ export default function QRCodeScanner() {
         cancelAnimationFrame(animationFrameId.current);
         animationFrameId.current = null;
       }
-      if (videoRef.current?.srcObject) {
-        const stream = videoRef.current.srcObject as MediaStream;
+      // Usa a variável capturada para garantir que estamos acessando a referência correta.
+      if (videoElement?.srcObject) {
+        const stream = videoElement.srcObject as MediaStream;
         stream.getTracks().forEach((track) => track.stop());
-        videoRef.current.srcObject = null;
+        videoElement.srcObject = null;
       }
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps

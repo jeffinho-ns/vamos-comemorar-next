@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import Image from 'next/image';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL_LOCAL;
 
@@ -28,11 +29,13 @@ export default function ProfileTab() {
           <li>Endereço: {user.endereco || "Não informado"}</li>
           <li>Foto de perfil:
             {user.foto_perfil ? (
-              <img
+              <Image
                 src={`${API_URL}/uploads/${user.foto_perfil}`}
-                alt="Foto de perfil"
-                className="w-24 h-24 mt-2 rounded-full object-cover border"
-              />
+    alt="Descrição"
+  width={200}
+  height={200}
+  className="rounded"
+/>
             ) : (
               " Não enviada"
             )}
