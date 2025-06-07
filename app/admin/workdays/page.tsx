@@ -114,7 +114,13 @@ const openEditModal = (event: EventData) => {
         isOpen={modalIsOpen}
         onRequestClose={closeModal}
       />
-
+        {selectedEvent && (
+        <EditEventModal
+          isOpen={editModalOpen}
+          onRequestClose={closeEditModal}
+          event={selectedEvent}
+        />
+      )}
 
       {loading && <p>Carregando eventos...</p>}
       {error && <p className="text-red-500">{error}</p>}
