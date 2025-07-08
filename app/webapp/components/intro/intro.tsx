@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import Image from "next/image";
 import imgBanner from "@/app/assets/intro.png";
-import logoWhite from "@/app/assets/logo_white.png";
+import logoWhite from "@/app/assets/logo-agilizai-h.png";
 import IphoneX1 from "@/app/assets/intro/📱iPhoneX-1.png";
 import IphoneX2 from "@/app/assets/intro/📱iPhoneX-2.png";
 import IphoneX3 from "@/app/assets/intro/📱iPhoneX-3.png";

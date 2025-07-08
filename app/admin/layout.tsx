@@ -17,7 +17,7 @@ import {
   MdEvent,
   MdAssignmentTurnedIn,
 } from "react-icons/md";
-import logBrand from "../assets/logo_white.png";
+import logBrand from "../assets/logo-agilizai-h.png";
 import UserMenu from "../components/UserMenu/UserMenu";
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer

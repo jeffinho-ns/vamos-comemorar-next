@@ -1,5 +1,6 @@
 import React from "react";
-import logoBlue from "@/app/assets/logo_blue.png";
+import logoBlue from "../../assets/logo-agilizai-h.png";
+
 import Image from "next/image";
 import Link from "next/link";
 import "./style.scss";

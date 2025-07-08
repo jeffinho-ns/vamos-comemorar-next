@@ -13,7 +13,7 @@ import Footer from "./components/footer/footer";
 import Intro from "./components/intro/intro";
 import Promo from "../assets/indique.png"
 import imgBanner from "@/app/assets/retangulo.png";
-import logoWhite from "@/app/assets/logo_blue.png";
+import logoWhite from "@/app/assets/logo-agilizai-h.png";
 import Logo1 from "../webapp/assetsMobile/logos/justinologo.png";
 import Logo2 from "../webapp/assetsMobile/logos/logo-pracinha.png";
 import Logo3 from "../webapp/assetsMobile/logos/logoOhfregues.png";

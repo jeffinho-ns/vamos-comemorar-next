@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import logoWhite from "../../app/assets/logo_blue.png";
+import logoWhite from "../../app/assets/logo-agilizai-h.png";
 import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { MdVisibility, MdVisibilityOff } from "react-icons/md";

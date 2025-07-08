@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FaFacebookF, FaInstagram } from "react-icons/fa";
 import { MdPerson } from "react-icons/md";
-import logoWhite from "@/app/assets/logo_white.png";
+import logoWhite from "@/app/assets/logo-agilizai-h.png";
 import "./styles.scss";
 
 const Header: React.FC = () => {
