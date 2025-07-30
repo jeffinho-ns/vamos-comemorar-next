@@ -1,6 +1,6 @@
 'use client'
 
-import { useParams } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation' // Importe useRouter
 import { useEffect, useState } from 'react'
 import { Tabs } from '../../../components/ui/tabs'
 import { Button } from '../../../components/ui/button'
@@ -19,8 +19,8 @@ type Convidado = {
 
 export default function EventoConvidadosPage() {
   const params = useParams()
+  const router = useRouter() // Inicialize o useRouter
   const id = params?.id?.toString() ?? ''
-  const eventId = params?.id
 
   const [eventoNome, setEventoNome] = useState('')
   const [modalOpen, setModalOpen] = useState(false)
@@ -41,7 +41,7 @@ export default function EventoConvidadosPage() {
         setEventoNome(eventoData.nome_do_evento || 'Evento')
 
         // Buscar convidados
-        const resConvidados = await fetch(`https://vamos-comemorar-api.onrender.com/api/convidados/${eventId}`, {
+        const resConvidados = await fetch(`https://vamos-comemorar-api.onrender.com/api/convidados/${id}`, {
           headers: {
             Authorization: `Bearer ${token}`,
           }
@@ -58,7 +58,11 @@ export default function EventoConvidadosPage() {
     if (id) {
       fetchData()
     }
-  }, [id, eventId])
+  }, [id])
+
+  const handleGoToRules = () => {
+    router.push(`/admin/eventos/${id}/roles`) // Navega para a página de regras
+  }
 
   return (
     <WithPermission allowedRoles={["admin", "gerente", "promoter"]}>
@@ -140,7 +144,13 @@ export default function EventoConvidadosPage() {
             <p className="text-gray-700 text-[13px]">
               <strong className="font-semibold">Adicione sua equipe de promoters:</strong> Você pode adicionar promoters para ajudá-lo na divulgação do seu evento. Eles poderão adicionar convidados nas listas que tiverem acesso.
             </p>
-            <a className="text-[#00b0f0] text-sm font-medium mt-2 inline-block cursor-pointer">Adicionar promoters</a>
+            {/* Botão "Gerenciar Regras do Evento" */}
+            <Button
+              onClick={handleGoToRules} // Chama a função de navegação
+              className="text-[#00b0f0] text-sm font-medium mt-2 inline-block cursor-pointer border-none p-0 hover:underline" // Estilo para parecer um link
+            >
+              Gerenciar Regras do Evento
+            </Button>
           </div>
 
           <div className="bg-white border border-gray-200 p-4 rounded shadow-sm">

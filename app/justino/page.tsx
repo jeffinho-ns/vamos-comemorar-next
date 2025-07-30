@@ -77,6 +77,11 @@ const Justino = () => {
     setUser(user); // Atualiza o estado do usuário
   };
 
+    const handleSaveUser = (user: any) => {
+  console.log("Salvando usuário:", user);
+  // sua lógica aqui
+};
+
   return (
     <>
       <Header />
@@ -148,13 +153,14 @@ const Justino = () => {
           </div>
         </div>
         <button onClick={openModal} className={styles.reserveButton}>Fazer reserva</button>
-        <Profile 
-          isOpen={modalIsOpen} 
-          onRequestClose={closeModal} 
-          addUser={addUser} // Passando a função addUser
-          user={user} // Passando a propriedade user
-          userType={user?.type}
-        />
+  <Profile 
+    isOpen={modalIsOpen} 
+    onRequestClose={closeModal} 
+    addUser={addUser}
+    user={user}
+    userType={user?.type}
+    onSaveUser={handleSaveUser}
+  />
       </div>
 
       <p className={styles.barDescription}>

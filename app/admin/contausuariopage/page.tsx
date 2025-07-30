@@ -1,4 +1,5 @@
 "use client";
+
 import { useSearchParams } from "next/navigation";
 import SettingsTab from "../../components/userAccountTabs/SettingsTab";
 import DetailsTab from "../../components/userAccountTabs/DetailsTab";
@@ -6,7 +7,9 @@ import CompanyTab from "../../components/userAccountTabs/CompanyTab";
 import ProfileTab from "../../components/userAccountTabs/ProfileTab";
 import ContactTab from "../../components/userAccountTabs/ContactTab";
 
-export default function ContaUsuarioPage() {
+import React, { Suspense } from "react";
+
+function ContaUsuarioPageClient() {
   const searchParams = useSearchParams();
   const aba = searchParams.get("aba") || "settings";
 
@@ -32,5 +35,13 @@ export default function ContaUsuarioPage() {
       <h1 className="text-2xl font-bold mb-6">Minha Conta</h1>
       {renderTab()}
     </div>
+  );
+}
+
+export default function ContaUsuarioPage() {
+  return (
+    <Suspense fallback={<div>Carregando...</div>}>
+      <ContaUsuarioPageClient />
+    </Suspense>
   );
 }

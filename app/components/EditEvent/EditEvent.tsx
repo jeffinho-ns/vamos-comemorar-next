@@ -43,36 +43,38 @@ const [selectedEvent, setSelectedEvent] = useState<EventData | null>(null);
 
   // --- ATUALIZAR O USEEFFECT ---
   // Efeito para popular o formulário, agora incluindo os novos campos
-  useEffect(() => {
-    if (event) {
-      const formattedDate = event.data_do_evento ? new Date(event.data_do_evento).toISOString().split('T')[0] : "";
+ useEffect(() => {
+  if (event) {
+    const formattedDate = event.data_do_evento
+      ? new Date(event.data_do_evento).toISOString().split("T")[0]
+      : "";
 
-      setCasaDoEvento(event.casa_do_evento || "");
-      setNomeDoEvento(event.nome_do_evento || "");
-      setDataDoEvento(formattedDate);
-      setHoraDoEvento(event.hora_do_evento || "");
-      setLocalDoEvento(event.local_do_evento || "");
-      setCategoria(event.categoria || "");
-      setMesas(event.mesas || "");
-      setValorDaMesa(event.valor_da_mesa || "");
-      setBrinde(event.brinde || "");
-      setNumeroDeConvidados(event.numero_de_convidados || "");
-      setDescricao(event.descricao || "");
-      setValorDaEntrada(event.valor_da_entrada || "");
-      setObservacao(event.observacao || "");
+    setCasaDoEvento(event.casa_do_evento || "");
+    setNomeDoEvento(event.nome_do_evento || "");
+    setDataDoEvento(formattedDate);
+    setHoraDoEvento(event.hora_do_evento || "");
+    setLocalDoEvento(event.local_do_evento || "");
+    setCategoria(event.categoria || "");
 
-      // Popula os novos estados com os dados do evento
-      setTipoEvento(event.tipo_evento || 'unico');
-      setDiaDaSemana(event.dia_da_semana !== null ? String(event.dia_da_semana) : '');
-      
-      setImagemEventoPreview(event.imagem_do_evento_url || null);
-      setImagemComboPreview(event.imagem_do_combo_url || null);
+    // Aqui estão os ajustes de tipo (usando String())
+    setMesas(event.mesas !== null ? String(event.mesas) : "");
+    setValorDaMesa(event.valor_da_mesa !== null ? String(event.valor_da_mesa) : "");
+    setBrinde(event.brinde || "");
+    setNumeroDeConvidados(event.numero_de_convidados !== null ? String(event.numero_de_convidados) : "");
+    setDescricao(event.descricao || "");
+    setValorDaEntrada(event.valor_da_entrada !== null ? String(event.valor_da_entrada) : "");
+    setObservacao(event.observacao || "");
 
-      // Limpa os arquivos de imagem para não reenviá-los sem necessidade
-      setImagemDoEvento(null);
-      setImagemDoCombo(null);
-    }
-  }, [event]);
+    setTipoEvento(event.tipo_evento || "unico");
+    setDiaDaSemana(event.dia_da_semana !== null ? String(event.dia_da_semana) : "");
+
+    setImagemEventoPreview(event.imagem_do_evento_url || null);
+    setImagemComboPreview(event.imagem_do_combo_url || null);
+
+    setImagemDoEvento(null);
+    setImagemDoCombo(null);
+  }
+}, [event]);
 
   // --- ATUALIZAR O HANDLESUBMIT ---
   const handleSubmit = async (e: React.FormEvent) => {

@@ -1,6 +1,6 @@
 "use client";
 import { MdAdd, MdRefresh, MdEdit, MdDelete } from "react-icons/md";
-import { EventData } from '../../types/types';
+import { EventDataApi } from '../../types/types';
 import AddEvent from "../../components/events/AddEvent";
 import EditEventModal from "@/app/components/EditEvent/EditEvent";
 import { useEffect, useState } from "react";
@@ -10,12 +10,12 @@ import Image from 'next/image';
 
 
 export default function EventsPage() {
-  const [events, setEvents] = useState<EventData[]>([]);
+  const [events, setEvents] = useState<EventDataApi[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [modalIsOpen, setModalIsOpen] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
-  const [selectedEvent, setSelectedEvent] = useState<EventData | null>(null);
+  const [selectedEvent, setSelectedEvent] = useState<EventDataApi | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(0);
 
@@ -80,7 +80,7 @@ export default function EventsPage() {
   const openModal = () => setModalIsOpen(true);
   const closeModal = () => setModalIsOpen(false);
 
-const openEditModal = (event: EventData) => {
+const openEditModal = (event: EventDataApi) => {
   setSelectedEvent(event);
   setEditModalOpen(true);
 };
