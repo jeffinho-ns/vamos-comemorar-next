@@ -158,60 +158,66 @@ export default function QRCodeScanner() {
   };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-900 text-white p-4">
-      
-      {brindeAlert && (
-        <div className="fixed top-5 left-1/2 -translate-x-1/2 z-50 bg-yellow-400 text-black p-4 rounded-lg shadow-lg animate-pulse w-11/12 max-w-lg">
-          <h3 className="text-xl font-bold text-center">🎉 ALERTA DE BRINDE! 🎉</h3>
-          <p className="text-center mt-2">{brindeAlert.mensagem}</p>
-          <button onClick={() => setBrindeAlert(null)} className="absolute top-1 right-1 text-black font-bold">✖️</button>
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white p-8">
+      <div className="max-w-2xl mx-auto">
+        <div className="mb-8 text-center">
+          <h1 className="text-4xl font-bold text-white mb-2">Scanner QR Code</h1>
+          <p className="text-gray-400 text-lg">Escanear QR Code do Ingresso</p>
         </div>
-      )}
-
-      <div className="w-full max-w-md">
-        <h1 className="text-3xl font-bold mb-6 text-center">Escanear QR Code do Ingresso</h1>
-        
-        {initialCheckDone && deviceHasCamera && (
-          <div className="bg-gray-800 p-1 rounded-lg shadow-2xl overflow-hidden relative">
-            <video ref={videoRef} className="w-full h-auto" style={{ transform: "scaleX(-1)" }}></video>
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-              <div className="w-3/5 h-3/5 border-4 border-dashed border-blue-400 opacity-75 rounded-lg"></div>
-            </div>
+      
+        {brindeAlert && (
+          <div className="fixed top-5 left-1/2 -translate-x-1/2 z-50 bg-gradient-to-r from-yellow-400 to-yellow-500 text-gray-900 p-6 rounded-2xl shadow-2xl animate-pulse w-11/12 max-w-lg border border-yellow-300">
+            <h3 className="text-xl font-bold text-center">🎉 ALERTA DE BRINDE! 🎉</h3>
+            <p className="text-center mt-2 font-semibold">{brindeAlert.mensagem}</p>
+            <button onClick={() => setBrindeAlert(null)} className="absolute top-2 right-3 text-gray-900 font-bold text-lg hover:text-gray-700 transition-colors">✖️</button>
           </div>
         )}
-        <canvas ref={canvasRef} style={{ display: "none" }}></canvas>
 
-        {validationMessage && !isModalOpen && (
-            <div className={`mt-6 p-4 rounded-lg text-white font-semibold text-lg text-center ${
-                validationMessage.startsWith("✅") ? "bg-green-600" : 
-                validationMessage.startsWith("❌") ? "bg-red-600" : 
-                validationMessage.startsWith("⚠️") ? "bg-orange-500" :
-                "bg-yellow-600"
-            }`}>
-                <p>{validationMessage}</p>
+        <div className="w-full max-w-md mx-auto">
+          {initialCheckDone && deviceHasCamera && (
+            <div className="bg-white/10 backdrop-blur-sm p-2 rounded-2xl shadow-2xl overflow-hidden relative border border-gray-200/20">
+              <video ref={videoRef} className="w-full h-auto rounded-xl" style={{ transform: "scaleX(-1)" }}></video>
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                <div className="w-3/5 h-3/5 border-4 border-dashed border-yellow-400 opacity-75 rounded-xl"></div>
+              </div>
             </div>
+          )}
+          <canvas ref={canvasRef} style={{ display: "none" }}></canvas>
+
+          {validationMessage && !isModalOpen && (
+            <div className={`mt-6 p-6 rounded-2xl text-white font-semibold text-lg text-center shadow-lg border ${
+              validationMessage.startsWith("✅") ? "bg-gradient-to-r from-green-500 to-green-600 border-green-400" : 
+              validationMessage.startsWith("❌") ? "bg-gradient-to-r from-red-500 to-red-600 border-red-400" : 
+              validationMessage.startsWith("⚠️") ? "bg-gradient-to-r from-orange-500 to-orange-600 border-orange-400" :
+              "bg-gradient-to-r from-yellow-500 to-yellow-600 border-yellow-400"
+            }`}>
+              <p>{validationMessage}</p>
+            </div>
+          )}
+        </div>
+       
+        {isModalOpen && apiResponseData && (
+          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+            <div className="bg-white/95 backdrop-blur-sm p-8 rounded-2xl shadow-2xl text-center max-w-sm w-full border border-gray-200/20">
+              <div className="bg-gradient-to-r from-green-500 to-green-600 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6 animate-bounce">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <h2 className="text-2xl font-bold mb-4 text-gray-800">Acesso Liberado!</h2>
+              <p className="text-lg text-gray-600 mb-6">
+                Participante: <span className="font-bold text-gray-800">{apiResponseData.convidado}</span>
+              </p>
+              <button
+                onClick={closeModalAndScanAgain}
+                className="w-full bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-600 hover:to-yellow-700 text-gray-900 font-semibold py-4 rounded-xl text-lg transition-all duration-200 transform hover:scale-105"
+              >
+                OK (Escanear Próximo)
+              </button>
+            </div>
+          </div>
         )}
       </div>
-       
-       {isModalOpen && apiResponseData && (
-        <div className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center p-4 z-50">
-          <div className="bg-gray-800 p-8 rounded-xl shadow-2xl text-center max-w-sm w-full border border-gray-700">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-20 w-20 text-green-400 mx-auto mb-5 animate-bounce" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            <h2 className="text-2xl font-bold mb-3 text-green-300">Acesso Liberado!</h2>
-            <p className="text-lg text-gray-200 mb-4">
-              Participante: <span className="font-bold">{apiResponseData.convidado}</span>
-            </p>
-            <button
-              onClick={closeModalAndScanAgain}
-              className="w-full bg-green-500 hover:bg-green-600 text-white font-semibold py-3 rounded-lg text-lg"
-            >
-              OK (Escanear Próximo)
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

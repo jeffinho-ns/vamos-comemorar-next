@@ -91,30 +91,30 @@ export default function EventoConvidadosPage() {
 
   return (
     <WithPermission allowedRoles={["admin", "gerente", "promoter"]}>
-    <div className="min-h-screen bg-[#f7f9fc] text-sm">
-      <div className="max-w-6xl mx-auto p-6">
-        <div className="mb-6">
-          <h2 className="text-[13px] font-medium text-[#9faab6] uppercase tracking-wide">
-            Eventos / <span className="text-[#3f3f3f]">{eventoNome}</span>
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-base">
+      <div className="max-w-6xl mx-auto p-8">
+        <div className="mb-8">
+          <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-widest">
+            Eventos / <span className="text-gray-200">{eventoNome}</span>
           </h2>
-          <h1 className="text-[20px] font-bold text-[#3f3f3f] mt-1">Gerenciar Convidados</h1>
+          <h1 className="text-3xl font-bold text-white mt-2">Gerenciar Convidados</h1>
         </div>
-        <div className="bg-white rounded-md shadow-sm border border-gray-200">
+        <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-2xl border border-gray-200/20">
           <Tabs
-            tabsStyle="border-b border-gray-200 px-4 pt-4"
-            contentClassName="px-6 pb-6 pt-4"
+            tabsStyle="border-b border-gray-200/30 px-6 pt-6"
+            contentClassName="px-8 pb-8 pt-6"
             tabs={[
               {
                 title: 'Adicionar',
                 content: (
                   <>
                     <AdicionarConvidado eventId={id} />
-                    <div className="flex justify-end mb-4">
+                    <div className="flex justify-end mb-6">
                       <Button
                         onClick={() => setModalOpen(true)}
-                        className="flex items-center gap-2 bg-[#3f7fcf] hover:bg-[#306ac0] text-white px-4 py-2 rounded shadow text-sm"
+                        className="flex items-center gap-3 bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-600 hover:to-yellow-700 text-gray-900 px-6 py-3 rounded-xl shadow-lg text-base font-semibold transition-all duration-200 transform hover:scale-105"
                       >
-                        <MdAdd size={18} /> Adicionar convidados
+                        <MdAdd size={20} /> Adicionar convidados
                       </Button>
                     </div>
                     <AddGuestModal
@@ -137,11 +137,14 @@ export default function EventoConvidadosPage() {
               {
                 title: 'Lista de Convidados',
                 content: (
-                  <div className="space-y-4">
+                  <div className="space-y-6">
                     {Object.keys(gruposConvidados).length === 0 ? (
-                      <p className="text-gray-600">Nenhum convidado encontrado ou agrupado.</p>
+                      <div className="text-center py-12">
+                        <div className="text-gray-400 text-lg mb-2">📋</div>
+                        <p className="text-gray-500 text-lg">Nenhum convidado encontrado ou agrupado.</p>
+                      </div>
                     ) : (
-                      <div className="divide-y divide-gray-200">
+                      <div className="space-y-4">
                         {Object.entries(gruposConvidados).map(([criador, convidadosDoCriador]) => {
                           const totalConvidados = convidadosDoCriador.length;
                           const convidadosCheckin = convidadosDoCriador.filter(c => c.status === "CHECK-IN").length;
@@ -149,54 +152,69 @@ export default function EventoConvidadosPage() {
                           const isOpen = openCreatorGroup === criador;
 
                           return (
-                            <div key={criador} className="py-4">
+                            <div key={criador} className="bg-gray-50/80 rounded-xl border border-gray-200/50 overflow-hidden">
                               <div
-                                className="flex justify-between items-center cursor-pointer p-3 bg-gray-50 hover:bg-gray-100 rounded-md shadow-sm"
+                                className="flex justify-between items-center cursor-pointer p-6 hover:bg-gray-100/80 transition-colors duration-200"
                                 onClick={() => toggleCreatorGroup(criador)}
                               >
-                                <h3 className="font-semibold text-gray-800 text-base flex-grow">
+                                <h3 className="font-bold text-gray-800 text-lg flex-grow">
                                   Criador da Reserva: {criador}
                                 </h3>
-                                <div className="text-xs text-gray-600 flex items-center gap-4 mr-4">
-                                    <span>Total: <strong className="font-bold">{totalConvidados}</strong></span>
-                                    <span>Check-in: <strong className="font-bold text-green-700">{convidadosCheckin}</strong></span>
-                                    <span>Pendentes: <strong className="font-bold text-yellow-700">{convidadosPendentes}</strong></span>
+                                <div className="text-sm text-gray-600 flex items-center gap-6 mr-4">
+                                    <span className="flex items-center gap-2">
+                                      <span className="w-2 h-2 bg-gray-400 rounded-full"></span>
+                                      Total: <strong className="font-bold text-gray-800">{totalConvidados}</strong>
+                                    </span>
+                                    <span className="flex items-center gap-2">
+                                      <span className="w-2 h-2 bg-green-500 rounded-full"></span>
+                                      Check-in: <strong className="font-bold text-green-700">{convidadosCheckin}</strong>
+                                    </span>
+                                    <span className="flex items-center gap-2">
+                                      <span className="w-2 h-2 bg-yellow-500 rounded-full"></span>
+                                      Pendentes: <strong className="font-bold text-yellow-700">{convidadosPendentes}</strong>
+                                    </span>
                                 </div>
-                                {isOpen ? <MdExpandLess size={20} /> : <MdExpandMore size={20} />}
+                                <div className="text-gray-500 hover:text-gray-700 transition-colors">
+                                  {isOpen ? <MdExpandLess size={24} /> : <MdExpandMore size={24} />}
+                                </div>
                               </div>
 
                               {isOpen && (
-                                <ul className="mt-4 border border-gray-100 rounded-md divide-y divide-gray-100 bg-white">
-                                  {convidadosDoCriador.map((convidado) => {
-                                    const chegou = convidado.status === "CHECK-IN";
-                                    const statusLabel = chegou ? "✔️ Está no evento" : "Não chegou ainda";
-                                    const statusClass = chegou
-                                      ? "bg-green-100 text-green-800"
-                                      : "bg-yellow-100 text-yellow-800";
-                                    const dataCheckin = chegou && convidado.data_checkin
-                                      ? new Date(convidado.data_checkin).toLocaleString("pt-BR")
-                                      : "";
-                                    return (
-                                      <li key={convidado.id} className="py-3 px-4 flex flex-col md:flex-row justify-between items-start md:items-center">
-                                        <div className="space-y-1">
-                                          <p className="font-medium text-gray-800">{convidado.nome}</p>
-                                          {convidado.documento && (
-                                            <p className="text-gray-500 text-xs">Documento: {convidado.documento}</p>
-                                          )}
-                                          {convidado.email && (
-                                            <p className="text-gray-500 text-xs">Email: {convidado.email}</p>
-                                          )}
-                                          {dataCheckin && (
-                                            <p className="text-gray-500 text-xs">Check-in: {dataCheckin}</p>
-                                          )}
-                                        </div>
-                                        <span className={`mt-2 md:mt-0 text-xs font-semibold px-3 py-1 rounded-full ${statusClass}`}>
-                                          {statusLabel}
-                                        </span>
-                                      </li>
-                                    );
-                                  })}
-                                </ul>
+                                <div className="border-t border-gray-200/50 bg-white/90">
+                                  <ul className="divide-y divide-gray-100">
+                                    {convidadosDoCriador.map((convidado) => {
+                                      const chegou = convidado.status === "CHECK-IN";
+                                      const statusLabel = chegou ? "✔️ Está no evento" : "⏳ Não chegou ainda";
+                                      const statusClass = chegou
+                                        ? "bg-green-100 text-green-800 border-green-200"
+                                        : "bg-yellow-100 text-yellow-800 border-yellow-200";
+                                      const dataCheckin = chegou && convidado.data_checkin
+                                        ? new Date(convidado.data_checkin).toLocaleString("pt-BR")
+                                        : "";
+                                      return (
+                                        <li key={convidado.id} className="py-4 px-6 flex flex-col md:flex-row justify-between items-start md:items-center hover:bg-gray-50/50 transition-colors">
+                                          <div className="space-y-2">
+                                            <p className="font-semibold text-gray-800 text-base">{convidado.nome}</p>
+                                            <div className="space-y-1">
+                                              {convidado.documento && (
+                                                <p className="text-gray-500 text-sm">📄 Documento: {convidado.documento}</p>
+                                              )}
+                                              {convidado.email && (
+                                                <p className="text-gray-500 text-sm">📧 Email: {convidado.email}</p>
+                                              )}
+                                              {dataCheckin && (
+                                                <p className="text-gray-500 text-sm">🕒 Check-in: {dataCheckin}</p>
+                                              )}
+                                            </div>
+                                          </div>
+                                          <span className={`mt-3 md:mt-0 text-sm font-semibold px-4 py-2 rounded-full border ${statusClass}`}>
+                                            {statusLabel}
+                                          </span>
+                                        </li>
+                                      );
+                                    })}
+                                  </ul>
+                                </div>
                               )}
                             </div>
                           );
@@ -209,35 +227,38 @@ export default function EventoConvidadosPage() {
             ]}
           />
         </div>
-        <div className="grid md:grid-cols-2 gap-4 mt-6">
-          <div className="bg-white border border-gray-200 p-4 rounded shadow-sm">
-            <h3 className="text-[#008fc2] font-semibold text-sm mb-2">Adicionar convidados</h3>
-            <p className="text-gray-700 text-[13px] mb-2">Adicione os nomes dos seus convidados (digite um nome por linha).</p>
-            <p className="text-gray-700 text-[13px] mb-2">Você também pode adicionar o número do documento de cada convidado, se quiser.</p>
-            <p className="text-gray-700 text-[13px]">
+        <div className="grid md:grid-cols-2 gap-6 mt-8">
+          <div className="bg-white/95 backdrop-blur-sm border border-gray-200/30 p-6 rounded-2xl shadow-lg">
+            <h3 className="text-yellow-600 font-bold text-lg mb-3">Adicionar convidados</h3>
+            <p className="text-gray-700 text-sm mb-3">Adicione os nomes dos seus convidados (digite um nome por linha).</p>
+            <p className="text-gray-700 text-sm mb-3">Você também pode adicionar o número do documento de cada convidado, se quiser.</p>
+            <p className="text-gray-700 text-sm mb-4">
               <strong className="font-semibold">Adicione sua equipe de promoters:</strong> Você pode adicionar promoters para ajudá-lo na divulgação do seu evento. Eles poderão adicionar convidados nas listas que tiverem acesso.
             </p>
             <Button
               onClick={handleGoToRules}
-              className="text-[#00b0f0] text-sm font-medium mt-2 inline-block cursor-pointer bg-transparent border-none p-0 hover:underline"
+              className="text-yellow-600 text-sm font-semibold mt-2 inline-block cursor-pointer bg-transparent border-none p-0 hover:text-yellow-700 transition-colors"
             >
               Gerenciar Regras do Evento
             </Button>
           </div>
-          <div className="bg-white border border-gray-200 p-4 rounded shadow-sm">
-            <h3 className="text-[#008fc2] font-semibold text-sm mb-2">Importar convidados</h3>
-            <p className="text-gray-700 text-[13px] mb-2">Selecione o arquivo Excel com os dados dos seus convidados e importe no sistema.</p>
-            <p className="text-gray-700 text-[13px] mb-2">Utilize a nossa planilha modelo, preencha com seus dados e envie para nós.</p>
-            <a className="text-[#00b0f0] text-sm font-medium mt-2 inline-flex items-center gap-1 cursor-pointer">
-              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+          <div className="bg-white/95 backdrop-blur-sm border border-gray-200/30 p-6 rounded-2xl shadow-lg">
+            <h3 className="text-yellow-600 font-bold text-lg mb-3">Importar convidados</h3>
+            <p className="text-gray-700 text-sm mb-3">Selecione o arquivo Excel com os dados dos seus convidados e importe no sistema.</p>
+            <p className="text-gray-700 text-sm mb-4">Utilize a nossa planilha modelo, preencha com seus dados e envie para nós.</p>
+            <a className="text-yellow-600 text-sm font-semibold mt-2 inline-flex items-center gap-2 cursor-pointer hover:text-yellow-700 transition-colors">
+              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
                 <path d="M3 14a1 1 0 0 0 1 1h4v-4h4v4h4a1 1 0 0 0 1-1v-4h-2V7H5v3H3v4z" />
               </svg>
               Baixar planilha modelo
             </a>
           </div>
         </div>
-        <div className="mt-6">
-          <Button className="bg-white border border-gray-300 text-gray-700 hover:bg-gray-100 px-6 py-2 rounded shadow-sm">
+        <div className="mt-8">
+          <Button 
+            onClick={() => router.back()}
+            className="bg-gradient-to-r from-gray-700 to-gray-800 hover:from-gray-800 hover:to-gray-900 text-white px-8 py-3 rounded-xl shadow-lg transition-all duration-200 transform hover:scale-105 font-semibold"
+          >
             &lt; Voltar
           </Button>
         </div>

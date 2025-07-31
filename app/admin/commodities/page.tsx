@@ -105,91 +105,132 @@ export default function Businesses() {
   });
 
   if (loading) {
-    return <div>Carregando...</div>;
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 flex items-center justify-center">
+        <div className="text-white text-xl">Carregando...</div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 flex items-center justify-center">
+        <div className="text-red-400 text-xl">{error}</div>
+      </div>
+    );
   }
 
   return (
     //<WithPermission allowedRoles={["Gerente"]}>
-      <div className="w-full p-6 bg-gray-100">
-        <h2 className="text-2xl font-semibold mb-4">Negócios</h2>
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-base">
+        <div className="max-w-7xl mx-auto p-8">
+          <div className="mb-8">
+            <h1 className="text-4xl font-bold text-white mb-2">Gerenciar Negócios</h1>
+            <p className="text-gray-400 text-lg">Visualize e gerencie todos os negócios do sistema</p>
+          </div>
 
-        <div className="flex items-center mb-6">
-          <button
-            onClick={fetchBusinesses}
-            className="bg-gray-500 hover:bg-gray-600 text-white p-4 rounded-full mr-4"
-          >
-            <MdRefresh className="text-xl" />
-          </button>
-          <button
-            onClick={openModal}
-            className="bg-blue-500 hover:bg-blue-600 text-white p-4 rounded-full"
-          >
-            <MdAdd className="text-xl" />
-          </button>
+          <div className="flex items-center mb-8 gap-4">
+            <button
+              onClick={fetchBusinesses}
+              className="bg-gradient-to-r from-gray-700 to-gray-800 hover:from-gray-800 hover:to-gray-900 text-white p-4 rounded-xl shadow-lg transition-all duration-200 transform hover:scale-105"
+            >
+              <MdRefresh className="text-xl" />
+            </button>
+            <button
+              onClick={openModal}
+              className="bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-600 hover:to-yellow-700 text-gray-900 p-4 rounded-xl shadow-lg transition-all duration-200 transform hover:scale-105"
+            >
+              <MdAdd className="text-xl" />
+            </button>
+          </div>
+
+          <PlaceModal
+            isOpen={modalIsOpen}
+            onRequestClose={closeModal}
+            addPlace={() => {}}
+            place={selectedBusiness}
+          />
+
+          <EditPlaceModal
+            isOpen={editModalIsOpen}
+            onRequestClose={closeEditModal}
+            currentPlace={selectedBusiness}
+            updatePlace={() => {}}
+          />
+
+          <div className="mb-8">
+            <input
+              type="text"
+              value={filterBy}
+              onChange={(e) => setFilterBy(e.target.value)}
+              className="w-full md:w-2/3 p-4 rounded-xl shadow-lg border border-gray-200/30 bg-white/95 backdrop-blur-sm focus:ring-2 focus:ring-yellow-500 focus:border-transparent transition-all duration-200"
+              placeholder="Buscar por nome ou e-mail"
+            />
+          </div>
+
+          <div className="bg-white/95 backdrop-blur-sm shadow-lg rounded-2xl overflow-hidden border border-gray-200/20">
+            <div className="overflow-x-auto">
+              <table className="min-w-full text-left">
+                <thead className="bg-gray-50/80">
+                  <tr>
+                    <th className="px-6 py-4 font-bold text-gray-800">Logo</th>
+                    <th className="px-6 py-4 font-bold text-gray-800">Nome</th>
+                    <th className="px-6 py-4 font-bold text-gray-800">E-mail</th>
+                    <th className="px-6 py-4 font-bold text-gray-800">Ações</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {filteredBusinesses.length > 0 ? (
+                    filteredBusinesses.map((business) => (
+                      <tr key={business.id} className="hover:bg-gray-50/50 transition-colors">
+                        <td className="px-6 py-4">
+                          <div className="w-12 h-12 rounded-lg bg-gray-100 flex items-center justify-center overflow-hidden">
+                            <Image
+                              src={
+                                business.logo?.startsWith("http")
+                                  ? business.logo
+                                  : `${API_URL}/uploads/${business.logo || "default-logo.png"}`
+                              }
+                              alt={business.name || "Logo"}
+                              width={48}
+                              height={48}
+                              className="rounded-lg object-cover"
+                            />
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 font-semibold text-gray-800">{business.name || "Sem nome"}</td>
+                        <td className="px-6 py-4 text-gray-600">{business.email || "Sem e-mail"}</td>
+                        <td className="px-6 py-4 flex space-x-3">
+                          <button 
+                            onClick={() => openEditModal(business)} 
+                            title="Editar"
+                            className="text-blue-600 hover:text-blue-800 p-2 rounded-lg hover:bg-blue-50 transition-all duration-200"
+                          >
+                            <MdEdit size={20} />
+                          </button>
+                          <button 
+                            onClick={() => {}} 
+                            title="Excluir"
+                            className="text-red-600 hover:text-red-800 p-2 rounded-lg hover:bg-red-50 transition-all duration-200"
+                          >
+                            <MdDelete size={20} />
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={4} className="px-6 py-12 text-center">
+                        <div className="text-gray-400 text-lg mb-2">🏢</div>
+                        <p className="text-gray-500 text-lg">Nenhum negócio encontrado</p>
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
-
-        <PlaceModal
-          isOpen={modalIsOpen}
-          onRequestClose={closeModal}
-          addPlace={() => {}}
-          place={selectedBusiness}
-        />
-
-        <EditPlaceModal
-          isOpen={editModalIsOpen}
-          onRequestClose={closeEditModal}
-          currentPlace={selectedBusiness}
-          updatePlace={() => {}}
-        />
-
-        <input
-          type="text"
-          value={filterBy}
-          onChange={(e) => setFilterBy(e.target.value)}
-          className="w-2/3 p-3 mb-6 rounded-md shadow-sm border-gray-300 focus:ring focus:ring-blue-200"
-          placeholder="Nome ou E-mail"
-        />
-
-        {error && <p className="text-red-500">{error}</p>}
-
-        <table className="min-w-full bg-white shadow-lg rounded-lg">
-          <thead className="bg-gray-200">
-            <tr>
-              <th className="px-6 py-3">Logo</th>
-              <th className="px-6 py-3">Nome</th>
-              <th className="px-6 py-3">E-mail</th>
-              <th className="px-6 py-3">Ações</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredBusinesses.map((business) => (
-              <tr key={business.id} className="border-t">
-                <td className="px-6 py-4">
-                  <Image
-                    src={
-                      business.logo?.startsWith("http")
-                        ? business.logo
-                        : `${API_URL}/uploads/${business.logo || "default-logo.png"}`
-                    }
-                    alt={business.name || "Logo"}
-                    width={48}
-                    height={48}
-                  />
-                </td>
-                <td className="px-6 py-4">{business.name || "Sem nome"}</td>
-                <td className="px-6 py-4">{business.email || "Sem e-mail"}</td>
-                <td className="px-6 py-4">
-                  <button onClick={() => openEditModal(business)} title="Editar">
-                    <MdEdit className="text-blue-500 hover:text-blue-700" />
-                  </button>
-                  <button onClick={() => {}} title="Excluir">
-                    <MdDelete className="text-red-500 hover:text-red-700" />
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
       </div>
    // </WithPermission>
   );

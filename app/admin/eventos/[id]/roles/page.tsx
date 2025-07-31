@@ -54,44 +54,62 @@ export default function EventRulesPage() {
     }
   }, [eventId]);
 
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 flex items-center justify-center">
+        <div className="text-white text-xl">Carregando regras...</div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 flex items-center justify-center">
+        <div className="text-red-400 text-xl">{error}</div>
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-[#f7f9fc] text-sm">
-      <div className="max-w-6xl mx-auto p-6">
-        <div className="flex justify-between items-center mb-6"> {/* Adicionado um flex container */}
-          <h1 className="text-[20px] font-bold text-[#3f3f3f]">Gerenciar Regras do Evento #{eventId}</h1>
-          {/* Botão para adicionar novas regras */}
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-base">
+      <div className="max-w-6xl mx-auto p-8">
+        <div className="mb-8">
+          <h1 className="text-4xl font-bold text-white mb-2">Gerenciar Regras do Evento</h1>
+          <p className="text-gray-400 text-lg">Evento #{eventId} - Configure as regras e permissões</p>
+        </div>
+
+        <div className="flex justify-between items-center mb-8">
+          <div></div> {/* Espaçador */}
           <Button
-            className="flex items-center gap-2 bg-[#3f7fcf] hover:bg-[#306ac0] text-white px-4 py-2 rounded shadow text-sm"
+            className="flex items-center gap-3 bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-600 hover:to-yellow-700 text-gray-900 px-6 py-3 rounded-xl shadow-lg transition-all duration-200 transform hover:scale-105 font-semibold"
             onClick={() => {
-              // Você pode adicionar lógica aqui se quiser rolar para o formulário
-              // ou mostrar/esconder o formulário, se ele não estiver sempre visível.
-              // Como o formulário já está visível, este botão serve como um CTA.
               console.log('Botão Adicionar Regra clicado');
             }}
           >
-            <MdAdd size={18} /> Adicionar Nova Regra
+            <MdAdd size={20} /> Adicionar Nova Regra
           </Button>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          <div>
-            {/* O onRuleAdded agora simplesmente chama a função de refetch */}
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200/20 p-6">
+            <h2 className="text-2xl font-bold text-gray-800 mb-6">Adicionar Regra</h2>
             <AddRuleForm eventId={eventId} onRuleAdded={fetchRules} />
           </div>
-          <div className="bg-white p-6 rounded-md shadow-sm border border-gray-200">
-            <h2 className="text-[18px] font-bold text-[#3f3f3f] mb-4">Regras Atuais</h2>
-            {isLoading ? (
-                <p>Carregando regras...</p>
-            ) : error ? (
-                <p className="text-red-500">{error}</p>
-            ) : rules.length === 0 ? (
-              <p className="text-gray-600">Nenhuma regra cadastrada para este evento.</p>
+          
+          <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200/20 p-6">
+            <h2 className="text-2xl font-bold text-gray-800 mb-6">Regras Atuais</h2>
+            {rules.length === 0 ? (
+              <div className="text-center py-12">
+                <div className="text-gray-400 text-lg mb-2">📋</div>
+                <p className="text-gray-500 text-lg">Nenhuma regra cadastrada para este evento.</p>
+              </div>
             ) : (
-              <ul className="space-y-3">
+              <ul className="space-y-4">
                 {rules.map((rule) => (
-                  <li key={rule.id} className="bg-gray-100 p-4 rounded-md">
-                    <p className="font-semibold text-gray-800">{rule.descricao}</p>
-                    <p className="text-sm text-gray-500">
-                      <span className="font-bold">{rule.tipo_regra}:</span> {rule.valor_regra}
+                  <li key={rule.id} className="bg-gray-50/80 p-4 rounded-xl border border-gray-200/50 hover:bg-gray-100/80 transition-colors">
+                    <p className="font-semibold text-gray-800 text-lg mb-2">{rule.descricao}</p>
+                    <p className="text-sm text-gray-600">
+                      <span className="font-bold text-gray-700">{rule.tipo_regra}:</span> {rule.valor_regra}
                     </p>
                   </li>
                 ))}

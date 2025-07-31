@@ -69,122 +69,161 @@ export default function Dashboard() {
   // }, []);
 
 
-  if (loading) return <p>Carregando dados do Dashboard...</p>;
-  if (error) return <p className="text-red-500">{error}</p>;
+  if (loading) return (
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 flex items-center justify-center">
+      <div className="text-white text-xl">Carregando dados do Dashboard...</div>
+    </div>
+  );
+  if (error) return (
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 flex items-center justify-center">
+      <div className="text-red-400 text-xl">{error}</div>
+    </div>
+  );
 
 
   return (
-    <div className="p-6 bg-gray-50 min-h-screen"> {/* Adicionado p-6 e bg-gray-50 para padding e cor de fundo */}
-      <h1 className="text-3xl font-bold text-gray-800 mb-8">Visão Geral do Evento</h1>
-
-      {/* Cartões de Métricas Principais (ajustados para layout Tailwind) */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <div className="bg-white p-6 rounded-lg shadow-md flex items-center justify-between border border-gray-200">
-          <div>
-            <p className="text-gray-500 text-sm">Usuários Totais</p>
-            <p className="text-3xl font-bold text-indigo-700 mt-1">{dashboardData.users}</p>
-          </div>
-          <MdPerson size={48} className="text-indigo-400 opacity-60" />
-        </div>
-        <div className="bg-white p-6 rounded-lg shadow-md flex items-center justify-between border border-gray-200">
-          <div>
-            <p className="text-gray-500 text-sm">Locais / Bares</p>
-            <p className="text-3xl font-bold text-blue-700 mt-1">{dashboardData.places}</p>
-          </div>
-          <MdPlace size={48} className="text-blue-400 opacity-60" />
-        </div>
-        <div className="bg-white p-6 rounded-lg shadow-md flex items-center justify-between border border-gray-200">
-          <div>
-            <p className="text-gray-500 text-sm">Reservas Totais</p>
-            <p className="text-3xl font-bold text-green-700 mt-1">{dashboardData.reservation}</p>
-          </div>
-          <MdShoppingCart size={48} className="text-green-400 opacity-60" />
-        </div>
-        <div className="bg-white p-6 rounded-lg shadow-md flex items-center justify-between border border-gray-200">
-          <div>
-            <p className="text-gray-500 text-sm">Pontos Acumulados</p>
-            <p className="text-3xl font-bold text-yellow-700 mt-1">{dashboardData.points}</p>
-          </div>
-          <MdNumbers size={48} className="text-yellow-400 opacity-60" />
-        </div>
-      </div>
-
-      {/* Cartões de Status de Reservas (separa os totais de reservas) */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-        <div className="bg-white p-6 rounded-lg shadow-md flex items-center justify-between border border-gray-200">
-          <div>
-            <p className="text-gray-500 text-sm">Reservas Aprovadas</p>
-            <p className="text-3xl font-bold text-green-700 mt-1">{dashboardData.totalApprovedReserves}</p>
-          </div>
-          <MdCheckCircle size={48} className="text-green-400 opacity-60" />
-        </div>
-        <div className="bg-white p-6 rounded-lg shadow-md flex items-center justify-between border border-gray-200">
-          <div>
-            <p className="text-gray-500 text-sm">Reservas Reprovadas</p>
-            <p className="text-3xl font-bold text-red-700 mt-1">{dashboardData.totalRejectedReserves}</p>
-          </div>
-          <MdCancel size={48} className="text-red-400 opacity-60" />
-        </div>
-      </div>
-
-      {/* Gráficos e Relatórios */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Gráfico de Barras: Reservas por Mês */}
-        <div className="bg-white p-6 rounded-lg shadow-md border border-gray-200">
-          <h2 className="text-xl font-semibold text-gray-800 mb-4">Reservas por Mês</h2>
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart
-              data={dashboardData.reservesByMonth}
-              margin={{
-                top: 20, right: 30, left: 20, bottom: 5,
-              }}
-            >
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="name" />
-              <YAxis />
-              <Tooltip />
-              <Legend />
-              <Bar dataKey="Aprovadas" fill="#4CAF50" name="Aprovadas" />
-              <Bar dataKey="Reprovadas" fill="#F44336" name="Reprovadas" />
-            </BarChart>
-          </ResponsiveContainer>
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-base">
+      <div className="max-w-7xl mx-auto p-8">
+        <div className="mb-8">
+          <h1 className="text-4xl font-bold text-white mb-2">Visão Geral do Evento</h1>
+          <p className="text-gray-400 text-lg">Dashboard administrativo com métricas e relatórios</p>
         </div>
 
-        {/* Gráfico de Pizza: Distribuição de Status de Reservas */}
-        <div className="bg-white p-6 rounded-lg shadow-md border border-gray-200">
-          <h2 className="text-xl font-semibold text-gray-800 mb-4">Status de Reservas</h2>
-          <ResponsiveContainer width="100%" height={300}>
-            <PieChart>
-              <Pie
-                data={dashboardData.reservesStatusDistribution}
-                cx="50%"
-                cy="50%"
-                outerRadius={100}
-                fill="#8884d8"
-                dataKey="value"
-                label={(props: PieLabelRenderProps) => {
-                  const percent = props.percent || 0;
-                  return `${props.name} (${(percent * 100).toFixed(0)}%)`;
+        {/* Cartões de Métricas Principais */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          <div className="bg-white/95 backdrop-blur-sm p-6 rounded-2xl shadow-lg border border-gray-200/20 flex items-center justify-between hover:transform hover:scale-105 transition-all duration-200">
+            <div>
+              <p className="text-gray-600 text-sm font-medium">Usuários Totais</p>
+              <p className="text-3xl font-bold text-gray-800 mt-2">{dashboardData.users}</p>
+            </div>
+            <div className="bg-gradient-to-br from-indigo-500 to-indigo-600 p-3 rounded-xl">
+              <MdPerson size={32} className="text-white" />
+            </div>
+          </div>
+          <div className="bg-white/95 backdrop-blur-sm p-6 rounded-2xl shadow-lg border border-gray-200/20 flex items-center justify-between hover:transform hover:scale-105 transition-all duration-200">
+            <div>
+              <p className="text-gray-600 text-sm font-medium">Locais / Bares</p>
+              <p className="text-3xl font-bold text-gray-800 mt-2">{dashboardData.places}</p>
+            </div>
+            <div className="bg-gradient-to-br from-blue-500 to-blue-600 p-3 rounded-xl">
+              <MdPlace size={32} className="text-white" />
+            </div>
+          </div>
+          <div className="bg-white/95 backdrop-blur-sm p-6 rounded-2xl shadow-lg border border-gray-200/20 flex items-center justify-between hover:transform hover:scale-105 transition-all duration-200">
+            <div>
+              <p className="text-gray-600 text-sm font-medium">Reservas Totais</p>
+              <p className="text-3xl font-bold text-gray-800 mt-2">{dashboardData.reservation}</p>
+            </div>
+            <div className="bg-gradient-to-br from-green-500 to-green-600 p-3 rounded-xl">
+              <MdShoppingCart size={32} className="text-white" />
+            </div>
+          </div>
+          <div className="bg-white/95 backdrop-blur-sm p-6 rounded-2xl shadow-lg border border-gray-200/20 flex items-center justify-between hover:transform hover:scale-105 transition-all duration-200">
+            <div>
+              <p className="text-gray-600 text-sm font-medium">Pontos Acumulados</p>
+              <p className="text-3xl font-bold text-gray-800 mt-2">{dashboardData.points}</p>
+            </div>
+            <div className="bg-gradient-to-br from-yellow-500 to-yellow-600 p-3 rounded-xl">
+              <MdNumbers size={32} className="text-white" />
+            </div>
+          </div>
+        </div>
+
+        {/* Cartões de Status de Reservas */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+          <div className="bg-white/95 backdrop-blur-sm p-6 rounded-2xl shadow-lg border border-gray-200/20 flex items-center justify-between hover:transform hover:scale-105 transition-all duration-200">
+            <div>
+              <p className="text-gray-600 text-sm font-medium">Reservas Aprovadas</p>
+              <p className="text-3xl font-bold text-green-700 mt-2">{dashboardData.totalApprovedReserves}</p>
+            </div>
+            <div className="bg-gradient-to-br from-green-500 to-green-600 p-3 rounded-xl">
+              <MdCheckCircle size={32} className="text-white" />
+            </div>
+          </div>
+          <div className="bg-white/95 backdrop-blur-sm p-6 rounded-2xl shadow-lg border border-gray-200/20 flex items-center justify-between hover:transform hover:scale-105 transition-all duration-200">
+            <div>
+              <p className="text-gray-600 text-sm font-medium">Reservas Reprovadas</p>
+              <p className="text-3xl font-bold text-red-700 mt-2">{dashboardData.totalRejectedReserves}</p>
+            </div>
+            <div className="bg-gradient-to-br from-red-500 to-red-600 p-3 rounded-xl">
+              <MdCancel size={32} className="text-white" />
+            </div>
+          </div>
+        </div>
+
+        {/* Gráficos e Relatórios */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Gráfico de Barras: Reservas por Mês */}
+          <div className="bg-white/95 backdrop-blur-sm p-6 rounded-2xl shadow-lg border border-gray-200/20">
+            <h2 className="text-xl font-bold text-gray-800 mb-6">Reservas por Mês</h2>
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart
+                data={dashboardData.reservesByMonth}
+                margin={{
+                  top: 20, right: 30, left: 20, bottom: 5,
                 }}
               >
-                {dashboardData.reservesStatusDistribution.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
-                ))}
-              </Pie>
-              <Tooltip />
-              <Legend />
-            </PieChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                <XAxis dataKey="name" stroke="#6b7280" />
+                <YAxis stroke="#6b7280" />
+                <Tooltip 
+                  contentStyle={{
+                    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                    border: '1px solid #e5e7eb',
+                    borderRadius: '12px',
+                    boxShadow: '0 10px 25px rgba(0, 0, 0, 0.1)'
+                  }}
+                />
+                <Legend />
+                <Bar dataKey="Aprovadas" fill="#4CAF50" name="Aprovadas" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="Reprovadas" fill="#F44336" name="Reprovadas" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
 
-      {/* Área para mais relatórios ou tabelas se desejar */}
-      <div className="bg-white p-6 rounded-lg shadow-md border border-gray-200 mt-8">
-        <h2 className="text-xl font-semibold text-gray-800 mb-4">Outros Relatórios (Exemplo)</h2>
-        <p className="text-gray-600">
-          Esta área pode ser usada para exibir tabelas de dados, listas de eventos próximos,
-          ou quaisquer outras informações relevantes para o seu dashboard.
-        </p>
+          {/* Gráfico de Pizza: Distribuição de Status de Reservas */}
+          <div className="bg-white/95 backdrop-blur-sm p-6 rounded-2xl shadow-lg border border-gray-200/20">
+            <h2 className="text-xl font-bold text-gray-800 mb-6">Status de Reservas</h2>
+            <ResponsiveContainer width="100%" height={300}>
+              <PieChart>
+                <Pie
+                  data={dashboardData.reservesStatusDistribution}
+                  cx="50%"
+                  cy="50%"
+                  outerRadius={100}
+                  fill="#8884d8"
+                  dataKey="value"
+                  label={(props: PieLabelRenderProps) => {
+                    const percent = props.percent || 0;
+                    return `${props.name} (${(percent * 100).toFixed(0)}%)`;
+                  }}
+                >
+                  {dashboardData.reservesStatusDistribution.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip 
+                  contentStyle={{
+                    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                    border: '1px solid #e5e7eb',
+                    borderRadius: '12px',
+                    boxShadow: '0 10px 25px rgba(0, 0, 0, 0.1)'
+                  }}
+                />
+                <Legend />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* Área para mais relatórios ou tabelas */}
+        <div className="bg-white/95 backdrop-blur-sm p-6 rounded-2xl shadow-lg border border-gray-200/20 mt-8">
+          <h2 className="text-xl font-bold text-gray-800 mb-4">Outros Relatórios</h2>
+          <p className="text-gray-600">
+            Esta área pode ser usada para exibir tabelas de dados, listas de eventos próximos,
+            ou quaisquer outras informações relevantes para o seu dashboard.
+          </p>
+        </div>
       </div>
     </div>
   );

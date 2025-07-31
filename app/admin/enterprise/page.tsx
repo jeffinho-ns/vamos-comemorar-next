@@ -136,80 +136,113 @@ export default function Companies() {
     );
   });
 
+  if (loading) return (
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 flex items-center justify-center">
+      <div className="text-white text-xl">Carregando empresas...</div>
+    </div>
+  );
+
+  if (error) return (
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 flex items-center justify-center">
+      <div className="text-red-400 text-xl">{error}</div>
+    </div>
+  );
+
   return (
     <WithPermission allowedRoles={["admin", "gerente", "promoter"]}>
-    <div className="w-full p-6 bg-gray-100">
-      <h2 className="text-2xl font-semibold mb-4">Empresas</h2>
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-base">
+      <div className="max-w-7xl mx-auto p-8">
+        <div className="mb-8">
+          <h1 className="text-4xl font-bold text-white mb-2">Gerenciar Empresas</h1>
+          <p className="text-gray-400 text-lg">Visualize e gerencie todas as empresas do sistema</p>
+        </div>
 
-      <div className="flex items-center mb-6">
-        <button
-          onClick={fetchCompanies}
-          className="bg-gray-500 hover:bg-gray-600 text-white p-4 rounded-full mr-4"
-        >
-          <MdRefresh className="text-xl" />
-        </button>
-        <button
-          onClick={() => openModal()}
-          className="bg-blue-500 hover:bg-blue-600 text-white p-4 rounded-full"
-        >
-          <MdAdd className="text-xl" />
-        </button>
-        <Enterprise isOpen={modalIsOpen} onRequestClose={closeModal} company={selectedCompany} />
-      </div>
+        <div className="flex items-center mb-8 gap-4">
+          <button
+            onClick={fetchCompanies}
+            className="bg-gradient-to-r from-gray-700 to-gray-800 hover:from-gray-800 hover:to-gray-900 text-white p-4 rounded-xl shadow-lg transition-all duration-200 transform hover:scale-105"
+          >
+            <MdRefresh className="text-xl" />
+          </button>
+          <button
+            onClick={() => openModal()}
+            className="bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-600 hover:to-yellow-700 text-gray-900 p-4 rounded-xl shadow-lg transition-all duration-200 transform hover:scale-105"
+          >
+            <MdAdd className="text-xl" />
+          </button>
+          <Enterprise isOpen={modalIsOpen} onRequestClose={closeModal} company={selectedCompany} />
+        </div>
 
-      <div className="flex space-x-4 mb-6">
-        <input
-          type="text"
-          value={filterBy}
-          onChange={(e) => setFilterBy(e.target.value)}
-          className="w-2/3 p-3 rounded-md shadow-sm border-gray-300 focus:ring focus:ring-blue-200"
-          placeholder="Nome ou E-mail"
-        />
-      </div>
+        <div className="mb-8">
+          <input
+            type="text"
+            value={filterBy}
+            onChange={(e) => setFilterBy(e.target.value)}
+            className="w-full md:w-2/3 p-4 rounded-xl shadow-lg border border-gray-200/30 bg-white/95 backdrop-blur-sm focus:ring-2 focus:ring-yellow-500 focus:border-transparent transition-all duration-200"
+            placeholder="Buscar por nome ou e-mail"
+          />
+        </div>
 
-      {loading && <p>Carregando empresas...</p>}
-      {error && <p className="text-red-500">{error}</p>}
-
-      <div className="overflow-x-auto bg-white shadow-lg rounded-lg">
-        <table className="min-w-full text-left table-auto">
-          <thead className="bg-gray-200">
-            <tr>
-              <th className="px-6 py-3 font-semibold">Nome</th>
-              <th className="px-6 py-3 font-semibold">E-mail</th>
-              <th className="px-6 py-3 font-semibold">Telefone</th>
-              <th className="px-6 py-3 font-semibold">Status</th>
-              <th className="px-6 py-3 font-semibold">Criado em</th>
-              <th className="px-6 py-3 font-semibold">Ações</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredCompanies.length > 0 ? (
-              filteredCompanies.map((company) => (
-                <tr key={company.id} className="border-t">
-                  <td className="px-6 py-4">{company.name}</td>
-                  <td className="px-6 py-4">{company.email}</td>
-                  <td className="px-6 py-4">{company.phone}</td>
-                  <td className="px-6 py-4">{company.status}</td>
-                  <td className="px-6 py-4">{company.created_at}</td>
-                  <td className="px-6 py-4 flex space-x-2">
-                    <button onClick={() => openModal(company)} title="Editar">
-                      <MdEdit className="text-blue-500 hover:text-blue-700" />
-                    </button>
-                    <button onClick={() => handleDelete(company.id.toString())} title="Excluir">
-                      <MdDelete className="text-red-500 hover:text-red-700" />
-                    </button>
-                  </td>
+        <div className="bg-white/95 backdrop-blur-sm shadow-lg rounded-2xl overflow-hidden border border-gray-200/20">
+          <div className="overflow-x-auto">
+            <table className="min-w-full text-left">
+              <thead className="bg-gray-50/80">
+                <tr>
+                  <th className="px-6 py-4 font-bold text-gray-800">Nome</th>
+                  <th className="px-6 py-4 font-bold text-gray-800">E-mail</th>
+                  <th className="px-6 py-4 font-bold text-gray-800">Telefone</th>
+                  <th className="px-6 py-4 font-bold text-gray-800">Status</th>
+                  <th className="px-6 py-4 font-bold text-gray-800">Criado em</th>
+                  <th className="px-6 py-4 font-bold text-gray-800">Ações</th>
                 </tr>
-              ))
-            ) : (
-              <tr>
-                <td colSpan={6} className="px-6 py-4 text-center">
-                  Nenhuma empresa encontrada
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {filteredCompanies.length > 0 ? (
+                  filteredCompanies.map((company) => (
+                    <tr key={company.id} className="hover:bg-gray-50/50 transition-colors">
+                      <td className="px-6 py-4 font-semibold text-gray-800">{company.name}</td>
+                      <td className="px-6 py-4 text-gray-600">{company.email}</td>
+                      <td className="px-6 py-4 text-gray-600">{company.phone}</td>
+                      <td className="px-6 py-4">
+                        <span className={`inline-block px-3 py-1 text-sm font-semibold rounded-full border ${
+                          company.status === 'ATIVA' 
+                            ? 'bg-green-100 text-green-800 border-green-200' 
+                            : 'bg-red-100 text-red-800 border-red-200'
+                        }`}>
+                          {company.status}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-gray-600">{company.created_at}</td>
+                      <td className="px-6 py-4 flex space-x-3">
+                        <button 
+                          onClick={() => openModal(company)} 
+                          title="Editar"
+                          className="text-blue-600 hover:text-blue-800 p-2 rounded-lg hover:bg-blue-50 transition-all duration-200"
+                        >
+                          <MdEdit size={20} />
+                        </button>
+                        <button 
+                          onClick={() => handleDelete(company.id.toString())} 
+                          title="Excluir"
+                          className="text-red-600 hover:text-red-800 p-2 rounded-lg hover:bg-red-50 transition-all duration-200"
+                        >
+                          <MdDelete size={20} />
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={6} className="px-6 py-12 text-center">
+                      <div className="text-gray-400 text-lg mb-2">🏢</div>
+                      <p className="text-gray-500 text-lg">Nenhuma empresa encontrada</p>
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
       </div>
     </div>
     </WithPermission>

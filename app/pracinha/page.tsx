@@ -5,28 +5,27 @@ import Image, { StaticImageData } from "next/image";
 import { MdLocationOn, MdInfoOutline, MdEvent, MdStar, MdAccessTime, MdPhone } from "react-icons/md";
 import Footer from "../components/footer/footer";
 import Header from "../components/header/header";
-import imgBanner from "@/app/assets/oh-fregues.jpg";
+import imgBanner from "@/app/assets/pracinha/capa-pracinha.jpg";
 import "react-multi-carousel/lib/styles.css";
-import styles from "./ohfregues.module.scss";
 import Programacao from "../components/programacao/programacao";
 import Profile from "../components/profile/profile";
 
-import newImg1 from "@/app/assets/ohfregues/ambiente-1.jpg";
-import newImg2 from "@/app/assets/ohfregues/ambiente-2.jpg";
-import newImg3 from "@/app/assets/ohfregues/ambiente-3.jpg";
-import newImg4 from "@/app/assets/ohfregues/ambiente-4.jpg";
+import newImg1 from "@/app/assets/pracinha/ambiente-1.jpg";
+import newImg2 from "@/app/assets/pracinha/ambiente-2.jpg";
+import newImg3 from "@/app/assets/pracinha/ambiente-3.jpg";
+import newImg4 from "@/app/assets/pracinha/ambiente-4.jpg";
 
-import bebida1 from "@/app/assets/ohfregues/bebidas-1.jpg";
-import bebida2 from "@/app/assets/ohfregues/bebidas-2.jpg";
-import bebida3 from "@/app/assets/ohfregues/bebidas-3.jpg";
-import bebida4 from "@/app/assets/ohfregues/bebidas-4.jpg";
+import bebida1 from "@/app/assets/pracinha/bebida-1.jpg";
+import bebida2 from "@/app/assets/pracinha/bebida-2.jpg";
+import bebida3 from "@/app/assets/pracinha/bebida-3.jpg";
+import bebida4 from "@/app/assets/pracinha/bebida-4.jpg";
 
-import gastro1 from "@/app/assets/ohfregues/gastronomia-1.jpg";
-import gastro2 from "@/app/assets/ohfregues/gastronomia-2.jpg";
-import gastro3 from "@/app/assets/ohfregues/gastronomia-3.jpg";
-import gastro4 from "@/app/assets/ohfregues/gastronomia-4.jpg";
-import logoNew from "@/app/assets/ohfregues/logoOhfregues.png";
-import logoImage from "@/app/assets/ohfregues/logoOhfregues.png";
+import gastro1 from "@/app/assets/pracinha/gastronomia-1.jpg";
+import gastro2 from "@/app/assets/pracinha/gastronomia-2.jpg";
+import gastro3 from "@/app/assets/pracinha/gastronomia-3.jpg";
+import gastro4 from "@/app/assets/pracinha/gastronomia-4.jpg";
+import logoNew from "@/app/assets/pracinha/logo-pracinha.png";
+import logoImage from "@/app/assets/pracinha/logo-pracinha.png";
 
 import icon1 from "@/app/assets/icones/area.png";
 import icon2 from "@/app/assets/icones/acessivel.png";
@@ -43,7 +42,7 @@ interface SectionProps {
   openImage: (img: StaticImageData) => void;
 }
 
-const Ohfregues = () => {
+const Pracinha = () => {
   const [showDescription, setShowDescription] = useState(true);
   const [modalIsOpen, setModalIsOpen] = useState(false);
   const [expandedImage, setExpandedImage] = useState<StaticImageData | null>(null);
@@ -62,7 +61,7 @@ const Ohfregues = () => {
 
   const openModal = () => {
     localStorage.setItem('logo', logoNew.src);
-    localStorage.setItem('localInfo', 'Largo da Matriz de Nossa Senhora do Ó, 145');
+    localStorage.setItem('localInfo', 'Rua das Flores, 123 - Centro');
     setModalIsOpen(true);
   };
   
@@ -88,7 +87,7 @@ const Ohfregues = () => {
       <div className="relative h-[500px] overflow-hidden">
         <Image
           src={imgBanner}
-          alt="Oh Freguês Bar"
+          alt="Pracinha Bar"
           fill
           className="object-cover"
           priority
@@ -130,19 +129,19 @@ const Ohfregues = () => {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-center">
             {/* Left Column - Info */}
             <div className="space-y-4">
-              <h1 className="text-4xl font-bold text-gray-800">Oh Freguês</h1>
+              <h1 className="text-4xl font-bold text-gray-800">Pracinha</h1>
               <div className="flex items-center gap-2 text-gray-600">
                 <MdLocationOn className="text-yellow-500 text-xl" />
-                <span className="text-lg">Largo da Matriz de Nossa Senhora do Ó, 145</span>
+                <span className="text-lg">Rua das Flores, 123 - Centro</span>
               </div>
               <div className="flex items-center gap-4 text-sm text-gray-500">
                 <div className="flex items-center gap-1">
                   <MdStar className="text-yellow-500" />
-                  <span>4.7 (3.2k avaliações)</span>
+                  <span>4.9 (4.1k avaliações)</span>
                 </div>
                 <div className="flex items-center gap-1">
                   <MdAccessTime className="text-blue-500" />
-                  <span>Aberto até 03:00</span>
+                  <span>Aberto até 02:30</span>
                 </div>
               </div>
             </div>
@@ -150,7 +149,7 @@ const Ohfregues = () => {
             {/* Middle Column - Logo */}
             <div className="flex justify-center">
               <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-200/20">
-                <Image src={logoNew} alt="Oh Freguês Logo" width={200} height={200} className="rounded-xl" />
+                <Image src={logoNew} alt="Pracinha Logo" width={200} height={200} className="rounded-xl" />
               </div>
             </div>
 
@@ -191,17 +190,15 @@ const Ohfregues = () => {
       <div className="bg-gradient-to-br from-gray-50 to-gray-100 py-16">
         <div className="container mx-auto px-8">
           <div className="max-w-4xl mx-auto">
-            <h2 className="text-3xl font-bold text-gray-800 mb-6 text-center">Sobre o Oh Freguês</h2>
+            <h2 className="text-3xl font-bold text-gray-800 mb-6 text-center">Sobre a Pracinha</h2>
             <p className="text-gray-700 text-lg leading-relaxed text-center">
-              O bar Oh Freguês oferece uma experiência única de interação com o
-              público, é um ponto de encontro moderno entre os jovens e adultos, um
-              lugar perfeito para happy hour, aniversários ou eventos corporativos. A
-              decoração e estilo segue o modelo dos mais diversos hostels espalhados
-              pelo mundo. São quatro ambientes: calçada, onde passa a sensação de
-              estar em uma cidade de interior; piso térreo, que conta com uma
-              decoração moderna; rooftop, área externa com uma linda vista que, aos
-              fins de semana, conta com uma roda de samba para agitar as tardes; além
-              da balada, para finalizar a noite com um ótimo clima de paquera.
+              A Pracinha é um espaço único que combina a tradição dos bares de rua com a modernidade 
+              dos estabelecimentos contemporâneos. Localizada no coração da cidade, oferece uma 
+              experiência gastronômica excepcional com pratos típicos da culinária brasileira e 
+              internacionais. O ambiente acolhedor e a decoração rústica criam uma atmosfera 
+              perfeita para encontros com amigos, happy hours e celebrações especiais. Com música 
+              ao vivo nos fins de semana e uma carta de bebidas diversificada, a Pracinha é o lugar 
+              ideal para quem busca qualidade, bom atendimento e momentos inesquecíveis.
             </p>
           </div>
         </div>
@@ -213,9 +210,9 @@ const Ohfregues = () => {
           <div className="container mx-auto px-8">
             <h2 className="text-3xl font-bold text-gray-800 mb-8 text-center">Programação de Eventos</h2>
             <Programacao
-              barId={4}
+              barId={5}
               logo={logoImage.src}
-              location="Largo da Matriz de Nossa Senhora do Ó, 145"
+              location="Rua das Flores, 123 - Centro"
             />
           </div>
         </div>
@@ -270,17 +267,17 @@ const Ohfregues = () => {
             <div className="bg-white/10 backdrop-blur-sm p-6 rounded-2xl">
               <MdPhone className="text-3xl text-yellow-400 mx-auto mb-4" />
               <h3 className="text-xl font-semibold mb-2">Telefone</h3>
-              <p className="text-gray-300">(11) 77777-7777</p>
+              <p className="text-gray-300">(11) 66666-6666</p>
             </div>
             <div className="bg-white/10 backdrop-blur-sm p-6 rounded-2xl">
               <MdLocationOn className="text-3xl text-yellow-400 mx-auto mb-4" />
               <h3 className="text-xl font-semibold mb-2">Endereço</h3>
-              <p className="text-gray-300">Largo da Matriz de Nossa Senhora do Ó, 145<br />Freguesia do Ó</p>
+              <p className="text-gray-300">Rua das Flores, 123<br />Centro</p>
             </div>
             <div className="bg-white/10 backdrop-blur-sm p-6 rounded-2xl">
               <MdAccessTime className="text-3xl text-yellow-400 mx-auto mb-4" />
               <h3 className="text-xl font-semibold mb-2">Horário</h3>
-              <p className="text-gray-300">Seg - Dom<br />18h às 03h</p>
+              <p className="text-gray-300">Seg - Dom<br />18h às 02:30</p>
             </div>
           </div>
         </div>
@@ -349,4 +346,4 @@ const Section: React.FC<SectionProps> = ({ title, images, openImage }) => (
   </div>
 );
 
-export default Ohfregues;
+export default Pracinha; 

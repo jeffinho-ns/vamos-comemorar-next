@@ -97,85 +97,141 @@ const openEditModal = (event: EventDataApi) => {
     if (currentPage < totalPages) setCurrentPage(currentPage + 1);
   };
 
+  if (loading) return (
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 flex items-center justify-center">
+      <div className="text-white text-xl">Carregando eventos...</div>
+    </div>
+  );
+
+  if (error) return (
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 flex items-center justify-center">
+      <div className="text-red-400 text-xl">{error}</div>
+    </div>
+  );
+
   return (
-    <div className="w-full p-6 bg-gray-100">
-      <h2 className="text-2xl font-semibold mb-4">Eventos</h2>
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-base">
+      <div className="max-w-7xl mx-auto p-8">
+        <div className="mb-8">
+          <h1 className="text-4xl font-bold text-white mb-2">Gerenciar Eventos</h1>
+          <p className="text-gray-400 text-lg">Visualize e gerencie todos os eventos do sistema</p>
+        </div>
 
-      <div className="flex items-center mb-6">
-        <button onClick={() => fetchEvents(currentPage)} className="bg-gray-500 hover:bg-gray-600 text-white p-4 rounded-full mr-4">
-          <MdRefresh className="text-xl" />
-        </button>
-        <button onClick={openModal} className="bg-blue-500 hover:bg-blue-600 text-white p-4 rounded-full">
-          <MdAdd className="text-xl" />
-        </button>
-      </div>
+        <div className="flex items-center mb-8 gap-4">
+          <button 
+            onClick={() => fetchEvents(currentPage)} 
+            className="bg-gradient-to-r from-gray-700 to-gray-800 hover:from-gray-800 hover:to-gray-900 text-white p-4 rounded-xl shadow-lg transition-all duration-200 transform hover:scale-105"
+          >
+            <MdRefresh className="text-xl" />
+          </button>
+          <button 
+            onClick={openModal} 
+            className="bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-600 hover:to-yellow-700 text-gray-900 p-4 rounded-xl shadow-lg transition-all duration-200 transform hover:scale-105"
+          >
+            <MdAdd className="text-xl" />
+          </button>
+        </div>
 
-      <AddEvent
-        isOpen={modalIsOpen}
-        onRequestClose={closeModal}
-      />
-        {selectedEvent && (
-        <EditEventModal
-          isOpen={editModalOpen}
-          onRequestClose={closeEditModal}
-          event={selectedEvent}
+        <AddEvent
+          isOpen={modalIsOpen}
+          onRequestClose={closeModal}
         />
-      )}
+        {selectedEvent && (
+          <EditEventModal
+            isOpen={editModalOpen}
+            onRequestClose={closeEditModal}
+            event={selectedEvent}
+          />
+        )}
 
-      {loading && <p>Carregando eventos...</p>}
-      {error && <p className="text-red-500">{error}</p>}
+        <div className="bg-white/95 backdrop-blur-sm shadow-lg rounded-2xl overflow-hidden border border-gray-200/20">
+          <div className="overflow-x-auto">
+            <table className="min-w-full text-left">
+              <thead className="bg-gray-50/80">
+                <tr>
+                  <th className="px-6 py-4 font-bold text-gray-800">Dia do Evento</th>
+                  <th className="px-6 py-4 font-bold text-gray-800">Nome do Evento</th>
+                  <th className="px-6 py-4 font-bold text-gray-800">Local</th>
+                  <th className="px-6 py-4 font-bold text-gray-800">Brinde</th>
+                  <th className="px-6 py-4 font-bold text-gray-800">Mesas</th>
+                  <th className="px-6 py-4 font-bold text-gray-800">Categoria</th>
+                  <th className="px-6 py-4 font-bold text-gray-800">Ações</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {events.length > 0 ? (
+                  events.map((event) => (
+                    <tr key={event.id} className="hover:bg-gray-50/50 transition-colors">
+                      <td className="px-6 py-4">
+                        {/* LÓGICA CORRIGIDA AQUI */}
+                        {event.tipo_evento === 'unico'
+                          ? (event.data_do_evento ? new Date(event.data_do_evento).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : 'Data não definida')
+                          : `Toda ${['Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado'][event.dia_da_semana!]}`
+                        }
+                      </td>
+                      <td className="px-6 py-4 font-semibold text-gray-800">{event.nome_do_evento}</td>
+                      <td className="px-6 py-4 text-gray-600">{event.casa_do_evento}</td>
+                      <td className="px-6 py-4">
+                        <span className="inline-block px-3 py-1 text-sm font-semibold bg-yellow-100 text-yellow-800 rounded-full border border-yellow-200">
+                          {event.brinde}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-gray-600">{event.mesas}</td>
+                      <td className="px-6 py-4">
+                        <span className="inline-block px-3 py-1 text-sm font-semibold bg-blue-100 text-blue-800 rounded-full border border-blue-200">
+                          {event.categoria}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 flex space-x-3">
+                        <button 
+                          title="Editar" 
+                          onClick={() => openEditModal(event)}
+                          className="text-blue-600 hover:text-blue-800 p-2 rounded-lg hover:bg-blue-50 transition-all duration-200"
+                        >
+                          <MdEdit size={20} />
+                        </button>
+                        <button 
+                          onClick={() => deleteEvent(event.id)} 
+                          title="Excluir"
+                          className="text-red-600 hover:text-red-800 p-2 rounded-lg hover:bg-red-50 transition-all duration-200"
+                        >
+                          <MdDelete size={20} />
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={7} className="px-6 py-12 text-center">
+                      <div className="text-gray-400 text-lg mb-2">📅</div>
+                      <p className="text-gray-500 text-lg">Nenhum evento encontrado</p>
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
 
-      <div className="overflow-x-auto bg-white shadow-lg rounded-lg">
-        <table className="min-w-full text-left table-auto">
-          <thead className="bg-gray-200">
-            <tr>
-              <th className="px-6 py-3 font-semibold">Dia do Evento</th>
-              <th className="px-6 py-3 font-semibold">Nome do Evento</th>
-              <th className="px-6 py-3 font-semibold">Local</th>
-              <th className="px-6 py-3 font-semibold">Brinde</th>
-              <th className="px-6 py-3 font-semibold">Mesas</th>
-              <th className="px-6 py-3 font-semibold">Categoria</th>
-              <th className="px-6 py-3 font-semibold">Ações</th>
-            </tr>
-          </thead>
- <tbody>
-  {events.length > 0 ? (
-    events.map((event) => (
-      <tr key={event.id} className="border-t">
-        <td className="px-6 py-4">
-          {/* LÓGICA CORRIGIDA AQUI */}
-          {event.tipo_evento === 'unico'
-            ? (event.data_do_evento ? new Date(event.data_do_evento).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : 'Data não definida')
-            : `Toda ${['Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado'][event.dia_da_semana!]}`
-          }
-        </td>
-        <td className="px-6 py-4">{event.nome_do_evento}</td>
-        <td className="px-6 py-4">{event.casa_do_evento}</td>
-        <td className="px-6 py-4">{event.brinde}</td>
-        <td className="px-6 py-4">{event.mesas}</td>
-        <td className="px-6 py-4">{event.categoria}</td>
-        <td className="px-6 py-4 flex space-x-2">
-          <button title="Editar" onClick={() => openEditModal(event)}>
-            <MdEdit className="text-blue-500 hover:text-blue-700" />
+        <div className="mt-8 flex justify-center gap-3">
+          <button 
+            onClick={handlePreviousPage} 
+            className="px-6 py-3 border border-gray-300 rounded-xl text-sm bg-white/95 backdrop-blur-sm hover:bg-gray-50 disabled:opacity-50 transition-all duration-200 font-semibold" 
+            disabled={currentPage === 1}
+          >
+            Anterior
           </button>
-          <button onClick={() => deleteEvent(event.id)} title="Excluir">
-            <MdDelete className="text-red-500 hover:text-red-700" />
+          <span className="text-sm px-6 py-3 rounded-xl bg-white/95 backdrop-blur-sm border border-gray-200 font-semibold text-gray-300">
+            Página {currentPage} de {totalPages}
+          </span>
+          <button 
+            onClick={handleNextPage} 
+            className="px-6 py-3 border border-gray-300 rounded-xl text-sm bg-white/95 backdrop-blur-sm hover:bg-gray-50 disabled:opacity-50 transition-all duration-200 font-semibold" 
+            disabled={currentPage === totalPages}
+          >
+            Próximo
           </button>
-        </td>
-      </tr>
-    ))
-  ) : (
-    <tr>
-      <td colSpan={7} className="px-6 py-4 text-center">Nenhum evento encontrado</td>
-    </tr>
-  )}
-</tbody>
-        </table>
-      </div>
-
-      <div className="mt-6 flex justify-center">
-        <button onClick={handlePreviousPage} className="p-2 border rounded-md mr-2" disabled={currentPage === 1}>Anterior</button>
-        <button onClick={handleNextPage} className="p-2 border rounded-md" disabled={currentPage === totalPages}>Próximo</button>
+        </div>
       </div>
     </div>
   );

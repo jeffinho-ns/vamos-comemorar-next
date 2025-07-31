@@ -188,101 +188,134 @@ export default function Users() {
     }
   };
 
+  if (loading) return (
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 flex items-center justify-center">
+      <div className="text-white text-xl">Carregando usuários...</div>
+    </div>
+  );
+
+  if (error) return (
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 flex items-center justify-center">
+      <div className="text-red-400 text-xl">{error}</div>
+    </div>
+  );
+
   return (
-    <div className="min-h-screen bg-[#f4f7fb] px-6 py-8">
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6 gap-4">
-        <button onClick={fetchData} className="bg-gray-500 hover:bg-gray-600 text-white p-3 rounded-full">
-          <MdRefresh className="text-xl" />
-        </button>
-        <button onClick={() => setModalIsOpen(true)} className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-md">
-          <MdAdd className="inline-block mr-1" /> Novo usuário
-        </button>
-        {/* Modal para ADICIONAR usuário */}
-        <AddUser
-          isOpen={modalIsOpen}
-          onRequestClose={closeModal}
-          addUser={handleAddUser}
-          // Para adicionar, não passamos um usuário existente
-          user={null}
-          userType={userType} // Pode passar o tipo padrão de usuário selecionado no filtro
-          isModal={true}
-        />
-        {/* Modal para EDITAR perfil do usuário */}
-        <Profile
-          isOpen={isProfileModalOpen}
-          onRequestClose={closeModal}
-          onSaveUser={handleUpdateUser} // <-- Usamos a nova função aqui para edição
-          user={selectedUser} // Passa o usuário selecionado para edição
-        />
-      </div>
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-base">
+      <div className="max-w-7xl mx-auto p-8">
+        <div className="mb-8">
+          <h1 className="text-4xl font-bold text-white mb-2">Gerenciar Usuários</h1>
+          <p className="text-gray-400 text-lg">Visualize e gerencie todos os usuários do sistema</p>
+        </div>
 
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
-        <input
-          type="text"
-          value={filterBy}
-          onChange={(e) => setFilterBy(e.target.value)}
-          className="flex-1 p-3 rounded-md shadow-sm border-gray-300 focus:ring focus:ring-blue-500"
-          placeholder="Buscar por nome ou e-mail"
-        />
-        <select
-          value={userType}
-          onChange={(e) => { setPage(1); setUserType(e.target.value); }} // Resetar página ao mudar tipo
-          className="p-3 rounded-md border-gray-300 shadow-sm focus:ring focus:ring-blue-500"
-        >
-          <option value="usuario">Usuário</option>
-          <option value="cliente">Cliente</option>
-          {/* Adicione outras opções se seu backend suportar */}
-        </select>
-      </div>
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-8 gap-4">
+          <div className="flex gap-3">
+            <button 
+              onClick={fetchData} 
+              className="bg-gradient-to-r from-gray-700 to-gray-800 hover:from-gray-800 hover:to-gray-900 text-white p-3 rounded-xl shadow-lg transition-all duration-200 transform hover:scale-105"
+            >
+              <MdRefresh className="text-xl" />
+            </button>
+            <button 
+              onClick={() => setModalIsOpen(true)} 
+              className="bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-600 hover:to-yellow-700 text-gray-900 px-6 py-3 rounded-xl shadow-lg transition-all duration-200 transform hover:scale-105 font-semibold flex items-center gap-2"
+            >
+              <MdAdd size={20} /> Novo usuário
+            </button>
+          </div>
+          {/* Modal para ADICIONAR usuário */}
+          <AddUser
+            isOpen={modalIsOpen}
+            onRequestClose={closeModal}
+            addUser={handleAddUser}
+            // Para adicionar, não passamos um usuário existente
+            user={null}
+            userType={userType} // Pode passar o tipo padrão de usuário selecionado no filtro
+            isModal={true}
+          />
+          {/* Modal para EDITAR perfil do usuário */}
+          <Profile
+            isOpen={isProfileModalOpen}
+            onRequestClose={closeModal}
+            onSaveUser={handleUpdateUser} // <-- Usamos a nova função aqui para edição
+            user={selectedUser} // Passa o usuário selecionado para edição
+          />
+        </div>
 
-      {loading && <p className="text-gray-600">Carregando usuários...</p>}
-      {error && <p className="text-red-500 font-semibold">{error}</p>}
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
+          <input
+            type="text"
+            value={filterBy}
+            onChange={(e) => setFilterBy(e.target.value)}
+            className="flex-1 p-4 rounded-xl shadow-lg border border-gray-200/30 bg-white/95 backdrop-blur-sm focus:ring-2 focus:ring-yellow-500 focus:border-transparent transition-all duration-200"
+            placeholder="Buscar por nome ou e-mail"
+          />
+          <select
+            value={userType}
+            onChange={(e) => { setPage(1); setUserType(e.target.value); }} // Resetar página ao mudar tipo
+            className="p-4 rounded-xl border border-gray-200/30 shadow-lg bg-white/95 backdrop-blur-sm focus:ring-2 focus:ring-yellow-500 focus:border-transparent transition-all duration-200"
+          >
+            <option value="usuario">Usuário</option>
+            <option value="cliente">Cliente</option>
+            {/* Adicione outras opções se seu backend suportar */}
+          </select>
+        </div>
 
-      {!loading && !error && data.length === 0 && (
-        <p className="text-gray-500">Nenhum usuário encontrado com os critérios de busca.</p>
-      )}
+        {!loading && !error && data.length === 0 && (
+          <div className="text-center py-12">
+            <div className="text-gray-400 text-lg mb-2">👥</div>
+            <p className="text-gray-500 text-lg">Nenhum usuário encontrado com os critérios de busca.</p>
+          </div>
+        )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-        {data.map((user) => (
-          <div key={user.id} className="bg-white shadow-md rounded-lg p-4 border border-gray-200">
-            <div className="flex items-center justify-between">
-              <div>
-                <h4 className="text-sm font-semibold text-gray-700">{user.name}</h4>
-                <p className="text-xs text-gray-500">{user.email}</p>
-                <p className="text-xs text-gray-500">Telefone: {user.telefone || 'N/A'}</p>
-                <p className="text-xs text-gray-400 mt-1">Criado em: {formatDate(user.created_at || '')}</p>
-              </div>
-              <div className="flex items-center gap-2">
-                <button onClick={() => openEditProfileModal(user)} className="text-blue-500 hover:text-blue-700 p-1">
-                  <MdEdit size={20} />
-                </button>
-                <button onClick={() => handleDelete(user.id)} className="text-red-500 hover:text-red-700 p-1">
-                  <MdDelete size={20} />
-                </button>
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+          {data.map((user) => (
+            <div key={user.id} className="bg-white/95 backdrop-blur-sm shadow-lg rounded-2xl p-6 border border-gray-200/20 hover:shadow-xl transition-all duration-200 transform hover:scale-105">
+              <div className="flex items-center justify-between">
+                <div className="flex-1">
+                  <h4 className="text-lg font-bold text-gray-800 mb-2">{user.name}</h4>
+                  <p className="text-sm text-gray-600 mb-1">{user.email}</p>
+                  <p className="text-sm text-gray-500 mb-1">📞 {user.telefone || 'N/A'}</p>
+                  <p className="text-xs text-gray-400 mt-3">Criado em: {formatDate(user.created_at || '')}</p>
+                </div>
+                <div className="flex items-center gap-2 ml-4">
+                  <button 
+                    onClick={() => openEditProfileModal(user)} 
+                    className="text-blue-600 hover:text-blue-800 p-2 rounded-lg hover:bg-blue-50 transition-all duration-200"
+                  >
+                    <MdEdit size={20} />
+                  </button>
+                  <button 
+                    onClick={() => handleDelete(user.id)} 
+                    className="text-red-600 hover:text-red-800 p-2 rounded-lg hover:bg-red-50 transition-all duration-200"
+                  >
+                    <MdDelete size={20} />
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
 
-      <div className="mt-6 flex justify-between items-center">
-        <button
-          onClick={() => handlePageChange(page - 1)}
-          disabled={page === 1}
-          className="text-sm text-gray-600 px-3 py-1 border border-gray-300 rounded-md hover:bg-gray-100 disabled:opacity-50 transition-colors"
-        >
-          Página anterior
-        </button>
-        <span className="text-sm text-gray-700">
-          Página {page} de {totalPages}
-        </span>
-        <button
-          onClick={() => handlePageChange(page + 1)}
-          disabled={page === totalPages}
-          className="text-sm text-gray-600 px-3 py-1 border border-gray-300 rounded-md hover:bg-gray-100 disabled:opacity-50 transition-colors"
-        >
-          Próxima página
-        </button>
+        <div className="mt-8 flex justify-between items-center">
+          <button
+            onClick={() => handlePageChange(page - 1)}
+            disabled={page === 1}
+            className="px-6 py-3 border border-gray-300 rounded-xl text-sm bg-white/95 backdrop-blur-sm hover:bg-gray-50 disabled:opacity-50 transition-all duration-200 font-semibold"
+          >
+            Página anterior
+          </button>
+          <span className="text-sm text-gray-300 font-semibold">
+            Página {page} de {totalPages}
+          </span>
+          <button
+            onClick={() => handlePageChange(page + 1)}
+            disabled={page === totalPages}
+            className="px-6 py-3 border border-gray-300 rounded-xl text-sm bg-white/95 backdrop-blur-sm hover:bg-gray-50 disabled:opacity-50 transition-all duration-200 font-semibold"
+          >
+            Próxima página
+          </button>
+        </div>
       </div>
     </div>
   );
