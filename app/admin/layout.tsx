@@ -16,6 +16,7 @@ import {
   MdEditCalendar,
   MdCardGiftcard,
   MdEvent,
+  MdBusiness,
 } from "react-icons/md";
 import logBrand from "../assets/logo-agilizai-h.png"; // Verifique o caminho
 import UserMenu from "../components/UserMenu/UserMenu"; // Verifique o caminho
@@ -26,6 +27,7 @@ const navLinks = [
   { href: "/admin/qrcode", label: "Scanner QR Code", icon: MdQrCodeScanner },
   { href: "/admin/users", label: "Usuários", icon: MdPerson },
   { href: "/admin/events", label: "Eventos", icon: MdEvent },
+  { href: "/admin/painel-eventos", label: "Painel de Eventos", icon: MdBusiness },
   { href: "/admin/reservas", label: "Reservas", icon: MdEditCalendar },
   { href: "/admin/enterprise", label: "Empresa", icon: MdFactory },
   { href: "/admin/places", label: "Locais", icon: MdPlace },

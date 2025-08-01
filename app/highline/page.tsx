@@ -217,6 +217,7 @@ const Highline = () => {
               barId={1}
               logo={logoImage.src}
               location="Rua Girassol, 144 - Vila Madalena"
+              establishmentName="High Line"
             />
           </div>
         </div>

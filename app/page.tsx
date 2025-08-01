@@ -10,7 +10,6 @@ import imgBanner from "@/app/assets/banner01.webp";
 import Form from "./components/form/form";
 import Select from "./components/select/select";
 import Input from "./components/input/input";
-import Carousel from "react-multi-carousel";
 import img01 from "@/app/assets/justino/capa-justino.png";
 import img02 from "@/app/assets/oh-fregues.jpg";
 import img03 from "@/app/assets/highline/capa-highline.jpeg";
@@ -18,7 +17,6 @@ import Footer from "./components/footer/footer";
 import { MdLocationOn, MdRestaurant, MdSearch, MdLocationPin, MdLocationCity, MdStar } from "react-icons/md";
 import logoBanner from "@/app/assets/commemoration.png";
 import Link from "next/link";
-import "react-multi-carousel/lib/styles.css";
 
 import places from "@/app/data/places";
 interface CardProps {
@@ -44,7 +42,6 @@ export default function Home() {
     const handleResize = () => {
       if (window.innerWidth < 768) {
         router.push("/webapp");
-        router.refresh();
       }
     };
 
@@ -55,24 +52,7 @@ export default function Home() {
     };
   }, [router]);
 
-  const responsive = {
-    superLargeDesktop: {
-      breakpoint: { max: 4000, min: 3000 },
-      items: 5,
-    },
-    desktop: {
-      breakpoint: { max: 3000, min: 1024 },
-      items: 3,
-    },
-    tablet: {
-      breakpoint: { max: 1024, min: 464 },
-      items: 2,
-    },
-    mobile: {
-      breakpoint: { max: 464, min: 0 },
-      items: 1,
-    },
-  };
+
 
   useEffect(() => {
     let updatedPlaces = places;
@@ -108,16 +88,16 @@ export default function Home() {
 
   const Card = ({ image, title, address, distance, rating, description, link }: CardProps) => (
     <motion.div
-      className="relative bg-white/95 backdrop-blur-sm rounded-2xl shadow-lg overflow-hidden mx-4 mt-16 card-container border border-gray-200/20 hover:shadow-xl transition-all duration-300 transform hover:scale-105"
+      className="relative bg-white/95 backdrop-blur-sm rounded-2xl shadow-lg overflow-hidden border border-gray-200/20 hover:shadow-xl transition-all duration-300 transform hover:scale-105"
       initial={{ opacity: 0, y: 50 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.6 }}
     >
-      <div className="relative w-full h-48 -mt-16">
+      <div className="relative w-full h-48">
         <Image
           src={image}
           alt={title}
-          className="absolute inset-0 w-full h-full object-cover rounded-t-2xl"
+          className="w-full h-full object-cover rounded-t-2xl"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent rounded-t-2xl"></div>
         <Link href={link}>
@@ -126,7 +106,7 @@ export default function Home() {
           </button>
         </Link>
       </div>
-      <div className="p-6 mt-8">
+      <div className="p-6">
         <h2 className="text-xl font-bold mb-3 text-gray-800">{title}</h2>
         <div className="space-y-2 mb-4">
           <p className="text-gray-600 flex items-center gap-2">
@@ -220,7 +200,7 @@ export default function Home() {
                 value={selectedDate}
                 id="data"
                 className="p-3 w-full rounded-xl border border-gray-200/30 bg-white/80 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
-                onChange={(event:any) => filterPlacesByDate(event)}
+                onChange={filterPlacesByDate}
               />
             </div>
             <div className="flex items-center w-full relative">
@@ -248,7 +228,7 @@ export default function Home() {
           </p>
         </div>
         
-        <Carousel responsive={responsive} className="grid">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {filteredPlaces.length > 0 ? filteredPlaces.map((place) => (
             <Card
               key={place.title}
@@ -271,7 +251,7 @@ export default function Home() {
               </div>
             </div>
           )}
-        </Carousel>
+        </div>
       </main>
 
       <Footer />

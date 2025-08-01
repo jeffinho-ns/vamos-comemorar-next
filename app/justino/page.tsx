@@ -214,6 +214,7 @@ const Justino = () => {
               barId={2}
               logo={logoNew.src}
               location="Rua Azevedo Soares, 940"
+              establishmentName="Seu Justino"
             />
           </div>
         </div>

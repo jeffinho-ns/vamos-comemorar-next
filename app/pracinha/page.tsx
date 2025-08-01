@@ -213,6 +213,7 @@ const Pracinha = () => {
               barId={5}
               logo={logoImage.src}
               location="Rua das Flores, 123 - Centro"
+              establishmentName="Pracinha"
             />
           </div>
         </div>

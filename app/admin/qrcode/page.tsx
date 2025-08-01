@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import jsQR from "jsqr";
 import { io, Socket } from "socket.io-client";
 
@@ -104,7 +104,7 @@ export default function QRCodeScanner() {
     return () => { socketRef.current?.disconnect(); };
   }, []);
 
-  const scanQRCode = () => {
+  const scanQRCode = useCallback(() => {
     if (!videoRef.current || !canvasRef.current || videoRef.current.paused) {
       return;
     }
@@ -124,7 +124,7 @@ export default function QRCodeScanner() {
         animationFrameId.current = requestAnimationFrame(scanQRCode);
       }
     }
-  };
+  }, [qrResult]);
 
   async function validateQRCode(qrCodeValue: string) {
     setValidationMessage("⌛ Validando QR Code...");

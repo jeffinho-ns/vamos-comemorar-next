@@ -6,5 +6,5 @@ export interface ISelectProps {
     value?: string 
     children: any
     placeholder?: string
-    onChange?: (e: string) => void
+    onChange?: (value: string) => void
 }

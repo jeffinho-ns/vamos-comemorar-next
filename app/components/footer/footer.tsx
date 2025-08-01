@@ -53,7 +53,7 @@ export default function App() {
               <Image src={logoBlue} alt="Logo" width={200} className="filter brightness-0 invert" />
             </Link>
             <p className="text-gray-300 leading-relaxed">
-              A missão da Vamos Comemorar é facilitar o agendamento de
+              A missão da Agilizaí App é facilitar o agendamento de
               comemorações em bares e restaurantes. Nossos usuários encontram os
               melhores locais da cidade e já garantem a reserva online.
             </p>
@@ -66,25 +66,25 @@ export default function App() {
             </h6>
             <div className="space-y-3">
               <Link 
-                href="/about" 
+                href="/quem-somos" 
                 className="block text-gray-300 hover:text-yellow-400 transition-colors duration-200"
               >
                 Quem Somos
               </Link>
               <Link 
-                href="#" 
+                href="/nossa-missao" 
                 className="block text-gray-300 hover:text-yellow-400 transition-colors duration-200"
               >
                 Nossa Missão
               </Link>
               <Link 
-                href="#" 
+                href="/faq" 
                 className="block text-gray-300 hover:text-yellow-400 transition-colors duration-200"
               >
                 FAQ
               </Link>
               <Link 
-                href="#" 
+                href="/contato" 
                 className="block text-gray-300 hover:text-yellow-400 transition-colors duration-200"
               >
                 Contato
@@ -99,25 +99,25 @@ export default function App() {
             </h6>
             <div className="space-y-3">
               <Link 
-                href="#" 
+                href="/tutoriais" 
                 className="block text-gray-300 hover:text-yellow-400 transition-colors duration-200"
               >
                 Tutoriais
               </Link>
               <Link 
-                href="#" 
+                href="/como-funciona" 
                 className="block text-gray-300 hover:text-yellow-400 transition-colors duration-200"
               >
                 Como Funciona
               </Link>
               <Link 
-                href="#" 
+                href="/termos-de-uso" 
                 className="block text-gray-300 hover:text-yellow-400 transition-colors duration-200"
               >
                 Termos de Uso
               </Link>
               <Link 
-                href="#" 
+                href="/politica-de-privacidade" 
                 className="block text-gray-300 hover:text-yellow-400 transition-colors duration-200"
               >
                 Política de Privacidade
@@ -146,7 +146,7 @@ export default function App() {
                   <MdEmail className="text-white text-lg" />
                 </div>
                 <p className="text-gray-300">
-                  lista@vamoscomemorar.com.br
+                  contato@agilizai.com.br
                 </p>
               </div>
               
@@ -181,7 +181,7 @@ export default function App() {
             className="font-semibold text-yellow-400 hover:text-yellow-300 transition-colors duration-200"
             href="/"
           >
-            Vamos Comemorar
+            Agilizaí App
           </Link>
         </div>
       </div>

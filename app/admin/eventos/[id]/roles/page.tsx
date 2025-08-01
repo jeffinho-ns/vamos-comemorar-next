@@ -1,6 +1,6 @@
 "use client"; // <-- TORNANDO UM CLIENT COMPONENT
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import AddRuleForm from '../../../../components/form/AddRuleForm'; // Ajuste o caminho se necessário
 import { Button } from '../../../../components/ui/button'; // Importe o componente Button
@@ -23,7 +23,7 @@ export default function EventRulesPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchRules = async () => {
+  const fetchRules = useCallback(async () => {
     setIsLoading(true);
     setError(null);
     const token = localStorage.getItem('authToken');
@@ -46,13 +46,13 @@ export default function EventRulesPage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [eventId]);
 
   useEffect(() => {
     if (eventId) {
       fetchRules();
     }
-  }, [eventId]);
+  }, [eventId, fetchRules]);
 
   if (isLoading) {
     return (

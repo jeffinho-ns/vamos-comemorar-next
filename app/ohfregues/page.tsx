@@ -216,6 +216,7 @@ const Ohfregues = () => {
               barId={4}
               logo={logoImage.src}
               location="Largo da Matriz de Nossa Senhora do Ó, 145"
+              establishmentName="Oh Freguês"
             />
           </div>
         </div>
