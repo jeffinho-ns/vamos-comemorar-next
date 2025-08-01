@@ -3,6 +3,35 @@
 @tailwind components;
 @tailwind utilities;
 
+
+
+@layer components {
+  .btn-action {
+    @apply px-4 py-2 text-white rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2 disabled:opacity-50;
+  }
+  .form-label {
+    @apply block text-sm font-medium text-gray-600 mb-1;
+  }
+  .form-input {
+    @apply mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-yellow-500 focus:ring-yellow-500 sm:text-sm;
+  }
+}
+
+@keyframes slide-in-from-right {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.animate-slide-in {
+  animation: slide-in-from-right 0.3s ease-out forwards;
+}
+
 * {
   margin: 0;
   padding: 0;
