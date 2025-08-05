@@ -22,26 +22,26 @@ interface Establishment {
 
 const establishments: Establishment[] = [
   {
-    id: 1,
+    id: 7,
     name: "High Line",
     logo: "/assets/highline/highlinelogo.png",
     address: "Rua Girassol, 144 - Vila Madalena"
   },
   {
-    id: 2,
+    id: 1,
     name: "Seu Justino",
     logo: "/assets/justino/justinologo.png",
     address: "Rua Azevedo Soares, 940 - Tatuapé"
   },
   {
-    id: 3,
+    id: 4,
     name: "Oh Freguês",
     logo: "/assets/ohfregues/logoOhfregues.png",
     address: "Largo da Matriz de Nossa Senhora do Ó, 145 - Freguesia do Ó"
   },
   {
-    id: 4,
-    name: "Pracinha",
+    id: 8,
+    name: "Pracinha do Seu Justino",
     logo: "/assets/pracinha/logo-pracinha.png",
     address: "Rua das Flores, 123 - Centro"
   }

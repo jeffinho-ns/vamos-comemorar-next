@@ -1,9 +1,13 @@
 import React from "react";
 import Image from "next/image";
 import { MdStar, MdPeople, MdTrendingUp, MdSecurity, MdSupport } from "react-icons/md";
+import Header from "../components/header/header";
+import Footer from "../components/footer/footer";
 
 export default function QuemSomos() {
   return (
+    <>
+      <Header />
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
       {/* Hero Section */}
       <div className="relative h-[400px] bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 flex items-center justify-center">
@@ -134,9 +138,9 @@ export default function QuemSomos() {
             <div className="grid md:grid-cols-2 gap-8">
               <div className="text-center">
                 <div className="w-32 h-32 bg-gradient-to-br from-yellow-400 to-yellow-600 rounded-full mx-auto mb-4 flex items-center justify-center">
-                  <span className="text-4xl text-white font-bold">JD</span>
+                  <span className="text-4xl text-white font-bold">RC</span>
                 </div>
-                <h3 className="text-xl font-bold text-gray-800 mb-2">João Silva</h3>
+                <h3 className="text-xl font-bold text-gray-800 mb-2">Renato Cury</h3>
                 <p className="text-yellow-600 font-semibold mb-2">CEO & Fundador</p>
                 <p className="text-gray-600">
                   Visionário e empreendedor, lidera nossa missão de revolucionar 
@@ -146,9 +150,9 @@ export default function QuemSomos() {
 
               <div className="text-center">
                 <div className="w-32 h-32 bg-gradient-to-br from-blue-400 to-blue-600 rounded-full mx-auto mb-4 flex items-center justify-center">
-                  <span className="text-4xl text-white font-bold">MA</span>
+                  <span className="text-4xl text-white font-bold">JL</span>
                 </div>
-                <h3 className="text-xl font-bold text-gray-800 mb-2">Maria Santos</h3>
+                <h3 className="text-xl font-bold text-gray-800 mb-2">Jefferson Lima</h3>
                 <p className="text-blue-600 font-semibold mb-2">CTO</p>
                 <p className="text-gray-600">
                   Especialista em tecnologia, responsável por desenvolver e 
@@ -158,9 +162,9 @@ export default function QuemSomos() {
 
               <div className="text-center">
                 <div className="w-32 h-32 bg-gradient-to-br from-green-400 to-green-600 rounded-full mx-auto mb-4 flex items-center justify-center">
-                  <span className="text-4xl text-white font-bold">PC</span>
+                  <span className="text-4xl text-white font-bold">LC</span>
                 </div>
-                <h3 className="text-xl font-bold text-gray-800 mb-2">Pedro Costa</h3>
+                <h3 className="text-xl font-bold text-gray-800 mb-2">Leo Cury</h3>
                 <p className="text-green-600 font-semibold mb-2">Head de Marketing</p>
                 <p className="text-gray-600">
                   Estratégia e crescimento, conectando nossa marca aos 
@@ -170,9 +174,9 @@ export default function QuemSomos() {
 
               <div className="text-center">
                 <div className="w-32 h-32 bg-gradient-to-br from-purple-400 to-purple-600 rounded-full mx-auto mb-4 flex items-center justify-center">
-                  <span className="text-4xl text-white font-bold">AL</span>
+                  <span className="text-4xl text-white font-bold">CM</span>
                 </div>
-                <h3 className="text-xl font-bold text-gray-800 mb-2">Ana Lima</h3>
+                <h3 className="text-xl font-bold text-gray-800 mb-2">Caroll Moreira</h3>
                 <p className="text-purple-600 font-semibold mb-2">Head de Suporte</p>
                 <p className="text-gray-600">
                   Garantindo a melhor experiência para nossos usuários 
@@ -184,5 +188,7 @@ export default function QuemSomos() {
         </div>
       </div>
     </div>
+    <Footer />
+    </>
   );
 } 

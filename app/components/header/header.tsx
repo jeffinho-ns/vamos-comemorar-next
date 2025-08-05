@@ -59,13 +59,13 @@ const Header: React.FC = () => {
           </Link>
           <div className="hidden md:flex items-center ml-10 space-x-8">
             <Link 
-              href="/about" 
+              href="/quem-somos" 
               className="text-white/90 hover:text-yellow-400 transition-colors duration-200 font-medium"
             >
               Quem somos
             </Link>
             <Link 
-              href="/quem-somos" 
+              href="/parceiros" 
               className="text-white/90 hover:text-yellow-400 transition-colors duration-200 font-medium"
             >
               Seja parceiro
@@ -213,14 +213,14 @@ const Header: React.FC = () => {
         <div className="md:hidden bg-gradient-to-b from-gray-900/95 to-gray-800/95 backdrop-blur-sm border-t border-gray-700/50">
           <div className="px-8 py-6 space-y-4">
             <Link 
-              href="/about" 
+              href="/quem-somos" 
               className="block text-white/90 hover:text-yellow-400 transition-colors py-2"
               onClick={() => setIsNavOpen(false)}
             >
               Quem somos
             </Link>
             <Link 
-              href="/quem-somos" 
+              href="/parceiros" 
               className="block text-white/90 hover:text-yellow-400 transition-colors py-2"
               onClick={() => setIsNavOpen(false)}
             >

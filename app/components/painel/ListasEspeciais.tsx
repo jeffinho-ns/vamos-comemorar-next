@@ -1,7 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { MdStar, MdPeople, MdEvent, MdAdd, MdEdit, MdDelete } from "react-icons/md";
+import { useState, useEffect, useCallback } from "react";
+import { MdStar, MdPeople, MdEvent, MdAdd, MdEdit, MdDelete, MdCake, MdLocalBar, MdRestaurant, MdCardGiftcard, MdVisibility, MdPhone, MdEmail } from "react-icons/md";
+import { BirthdayService, BirthdayReservation } from "../../services/birthdayService";
+import BirthdayDetailsModal from "./BirthdayDetailsModal";
 
 interface Establishment {
   id: number;
@@ -14,86 +16,81 @@ interface ListasEspeciaisProps {
   establishment: Establishment;
 }
 
-interface SpecialList {
-  id: number;
-  name: string;
-  description: string;
-  totalGuests: number;
-  confirmedGuests: number;
-  type: 'vip' | 'premium' | 'exclusive';
-  date: string;
-  status: 'active' | 'closed';
-}
-
 export default function ListasEspeciais({ establishment }: ListasEspeciaisProps) {
-  const [lists, setLists] = useState<SpecialList[]>([]);
+  const [birthdayReservations, setBirthdayReservations] = useState<BirthdayReservation[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [selectedReservation, setSelectedReservation] = useState<BirthdayReservation | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
+  const fetchBirthdayReservations = useCallback(async () => {
+    console.log("Iniciando busca de reservas para estabelecimento:", establishment.id);
+    setLoading(true);
+    setError(null);
+    try {
+      console.log("Chamando BirthdayService.getBirthdayReservationsByEstablishment...");
+      const reservations = await BirthdayService.getBirthdayReservationsByEstablishment(establishment.id);
+      console.log("Reservas recebidas:", reservations);
+      setBirthdayReservations(reservations);
+    } catch (err) {
+      console.error("Erro ao carregar reservas de aniversário:", err);
+      setError(`Erro ao carregar as reservas de aniversário: ${err instanceof Error ? err.message : 'Erro desconhecido'}`);
+    } finally {
+      setLoading(false);
+    }
+  }, [establishment.id]);
 
   useEffect(() => {
-    const fetchLists = async () => {
-      setLoading(true);
-      try {
-        const mockLists: Record<number, SpecialList[]> = {
-          1: [
-            {
-              id: 1,
-              name: "Lista VIP - High Line",
-              description: "Convidados especiais com acesso exclusivo",
-              totalGuests: 20,
-              confirmedGuests: 15,
-              type: 'vip',
-              date: "2024-02-15",
-              status: 'active'
-            }
-          ],
-          2: [
-            {
-              id: 2,
-              name: "Lista Premium - Seu Justino",
-              description: "Clientes premium com benefícios especiais",
-              totalGuests: 15,
-              confirmedGuests: 12,
-              type: 'premium',
-              date: "2024-02-22",
-              status: 'active'
-            }
-          ],
-          3: [
-            {
-              id: 3,
-              name: "Lista Exclusiva - Oh Freguês",
-              description: "Convidados exclusivos para eventos especiais",
-              totalGuests: 30,
-              confirmedGuests: 25,
-              type: 'exclusive',
-              date: "2024-03-01",
-              status: 'active'
-            }
-          ],
-          4: [
-            {
-              id: 4,
-              name: "Lista VIP - Pracinha",
-              description: "Convidados VIP com tratamento especial",
-              totalGuests: 10,
-              confirmedGuests: 8,
-              type: 'vip',
-              date: "2024-02-24",
-              status: 'active'
-            }
-          ]
-        };
+    fetchBirthdayReservations();
+  }, [fetchBirthdayReservations]);
 
-        setLists(mockLists[establishment.id] || []);
-      } catch (error) {
-        console.error("Erro ao carregar listas especiais:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
+  const handleViewDetails = (reservation: BirthdayReservation) => {
+    setSelectedReservation(reservation);
+    setIsModalOpen(true);
+  };
 
-    fetchLists();
-  }, [establishment.id]);
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setSelectedReservation(null);
+  };
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('pt-BR');
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'confirmado':
+        return 'bg-green-100 text-green-800 border-green-200';
+      case 'pendente':
+        return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+      case 'cancelado':
+        return 'bg-red-100 text-red-800 border-red-200';
+      default:
+        return 'bg-gray-100 text-gray-800 border-gray-200';
+    }
+  };
+
+  const getTotalItems = (reservation: BirthdayReservation) => {
+    let total = 0;
+    
+    // Bebidas especiais
+    if (reservation.bebida_balde_budweiser) total += reservation.bebida_balde_budweiser;
+    if (reservation.bebida_balde_corona) total += reservation.bebida_balde_corona;
+    if (reservation.bebida_balde_heineken) total += reservation.bebida_balde_heineken;
+    if (reservation.bebida_combo_gin_142) total += reservation.bebida_combo_gin_142;
+    if (reservation.bebida_licor_rufus) total += reservation.bebida_licor_rufus;
+    
+    // Itens do bar
+    for (let i = 1; i <= 10; i++) {
+      const bebida = reservation[`item_bar_bebida_${i}` as keyof BirthdayReservation] as number;
+      const comida = reservation[`item_bar_comida_${i}` as keyof BirthdayReservation] as number;
+      if (bebida) total += bebida;
+      if (comida) total += comida;
+    }
+    
+    return total;
+  };
 
   if (loading) {
     return (
@@ -103,98 +100,169 @@ export default function ListasEspeciais({ establishment }: ListasEspeciaisProps)
     );
   }
 
+  if (error) {
+    return (
+      <div className="text-center py-12">
+        <div className="text-red-500 text-6xl mb-4">⚠️</div>
+        <h3 className="text-xl font-semibold text-gray-700 mb-2">Erro ao carregar dados</h3>
+        <p className="text-gray-500 mb-4">{error}</p>
+        <button
+          onClick={fetchBirthdayReservations}
+          className="px-6 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-colors"
+        >
+          Tentar Novamente
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h3 className="text-lg font-semibold text-gray-800">Listas Especiais</h3>
-        <button className="bg-yellow-500 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-yellow-600 transition-colors">
-          <MdAdd />
-          Nova Lista Especial
-        </button>
+        <div>
+          <h3 className="text-lg font-semibold text-gray-800">Aniversariantes - {establishment.name}</h3>
+          <p className="text-gray-600 text-sm">Lista de todos os aniversariantes e suas reservas</p>
+        </div>
+        <div className="flex gap-2">
+          <button 
+            onClick={fetchBirthdayReservations}
+            className="bg-blue-500 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-blue-600 transition-colors"
+          >
+            <MdEvent />
+            Atualizar
+          </button>
+        </div>
       </div>
 
-      <div className="space-y-4">
-        {lists.length === 0 ? (
-          <div className="text-center py-12">
-            <div className="text-gray-400 text-6xl mb-4">⭐</div>
-            <h3 className="text-xl font-semibold text-gray-700 mb-2">Nenhuma lista especial encontrada</h3>
-            <p className="text-gray-500">
-              Não há listas especiais para este estabelecimento.
-            </p>
-          </div>
-        ) : (
-          lists.map((list) => (
-            <div key={list.id} className="bg-white border border-gray-200 rounded-xl p-6 hover:shadow-lg transition-shadow">
-              <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-                <div className="flex-1">
-                  <div className="flex items-start justify-between mb-3">
-                    <div>
-                      <h3 className="text-lg font-semibold text-gray-800 mb-1">
-                        {list.name}
-                      </h3>
-                      <p className="text-gray-600">{list.description}</p>
-                    </div>
-                    <div className={`flex items-center gap-2 px-3 py-1 rounded-full border text-sm font-medium ${
-                      list.type === 'vip' 
-                        ? 'bg-purple-100 text-purple-800 border-purple-200'
-                        : list.type === 'premium'
-                        ? 'bg-yellow-100 text-yellow-800 border-yellow-200'
-                        : 'bg-blue-100 text-blue-800 border-blue-200'
-                    }`}>
-                      <MdStar className="text-yellow-500" />
-                      {list.type === 'vip' ? 'VIP' : list.type === 'premium' ? 'Premium' : 'Exclusiva'}
-                    </div>
+      {birthdayReservations.length === 0 ? (
+        <div className="text-center py-12">
+          <div className="text-gray-400 text-6xl mb-4">🎂</div>
+          <h3 className="text-xl font-semibold text-gray-700 mb-2">Nenhum aniversariante encontrado</h3>
+          <p className="text-gray-500">
+            Não há reservas de aniversário para este estabelecimento.
+          </p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {birthdayReservations.map((reservation) => (
+            <div key={reservation.id} className="bg-white border border-gray-200 rounded-xl p-6 hover:shadow-lg transition-all duration-200 hover:border-yellow-300">
+              {/* Header do Card */}
+              <div className="flex items-start justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 bg-gradient-to-br from-yellow-400 to-yellow-600 rounded-full flex items-center justify-center">
+                    <MdCake className="text-white text-xl" />
                   </div>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="flex items-center gap-2">
-                      <MdPeople className="text-blue-500" />
-                      <span className="text-gray-700">{list.totalGuests} total</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <MdEvent className="text-green-500" />
-                      <span className="text-gray-700">{list.confirmedGuests} confirmados</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <MdStar className="text-yellow-500" />
-                      <span className="text-gray-700">{list.type.toUpperCase()}</span>
-                    </div>
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-800">
+                      {reservation.aniversariante_nome}
+                    </h3>
+                    <p className="text-sm text-gray-500">
+                      {formatDate(reservation.data_aniversario)}
+                    </p>
                   </div>
+                </div>
+                <span className={`px-2 py-1 rounded-full text-xs font-medium border ${getStatusColor(reservation.status)}`}>
+                  {reservation.status}
+                </span>
+              </div>
+
+              {/* Informações Principais */}
+              <div className="space-y-3 mb-4">
+                <div className="flex items-center gap-2 text-gray-600">
+                  <MdPeople className="text-blue-500" />
+                  <span>{reservation.quantidade_convidados} convidados</span>
                 </div>
                 
-                <div className="lg:text-right">
-                  <div className="text-sm text-gray-600 mb-2">
-                    Progresso: {Math.round((list.confirmedGuests / list.totalGuests) * 100)}%
+                {reservation.decoracao_tipo && (
+                  <div className="flex items-center gap-2 text-gray-600">
+                    <MdStar className="text-purple-500" />
+                    <span>{reservation.decoracao_tipo}</span>
                   </div>
-                  <div className="w-32 bg-gray-200 rounded-full h-2">
-                    <div 
-                      className="bg-yellow-500 h-2 rounded-full" 
-                      style={{ width: `${(list.confirmedGuests / list.totalGuests) * 100}%` }}
-                    ></div>
+                )}
+
+                {reservation.painel_personalizado && (
+                  <div className="flex items-center gap-2 text-gray-600">
+                    <MdStar className="text-yellow-500" />
+                    <span>Painel Personalizado</span>
+                  </div>
+                )}
+
+                {getTotalItems(reservation) > 0 && (
+                  <div className="flex items-center gap-2 text-gray-600">
+                    <MdLocalBar className="text-green-500" />
+                    <span>{getTotalItems(reservation)} itens do bar</span>
+                  </div>
+                )}
+
+                {(() => {
+                  try {
+                    const presentes = typeof reservation.lista_presentes === 'string' 
+                      ? JSON.parse(reservation.lista_presentes) 
+                      : reservation.lista_presentes;
+                    
+                    if (Array.isArray(presentes) && presentes.length > 0) {
+                      return (
+                        <div className="flex items-center gap-2 text-gray-600">
+                          <MdCardGiftcard className="text-pink-500" />
+                          <span>{presentes.length} presentes</span>
+                        </div>
+                      );
+                    }
+                    return null;
+                  } catch (error) {
+                    return null;
+                  }
+                })()}
+              </div>
+
+              {/* Contato */}
+              {(reservation.whatsapp || reservation.email) && (
+                <div className="border-t border-gray-100 pt-3 mb-4">
+                  <div className="space-y-1">
+                    {reservation.whatsapp && (
+                      <div className="flex items-center gap-2 text-sm text-gray-600">
+                        <MdPhone className="text-green-500" />
+                        <span>{reservation.whatsapp}</span>
+                      </div>
+                    )}
+                    {reservation.email && (
+                      <div className="flex items-center gap-2 text-sm text-gray-600">
+                        <MdEmail className="text-blue-500" />
+                        <span>{reservation.email}</span>
+                      </div>
+                    )}
                   </div>
                 </div>
+              )}
+
+              {/* Ações */}
+              <div className="flex gap-2">
+                <button
+                  onClick={() => handleViewDetails(reservation)}
+                  className="flex-1 px-4 py-2 bg-yellow-500 text-white rounded-lg text-sm font-medium hover:bg-yellow-600 transition-colors flex items-center justify-center gap-2"
+                >
+                  <MdVisibility />
+                  Ver Detalhes
+                </button>
               </div>
-              
-              <div className="mt-4 pt-4 border-t border-gray-100 flex gap-2">
-                <button className="px-4 py-2 bg-blue-500 text-white rounded-lg text-sm font-medium hover:bg-blue-600 transition-colors">
-                  Ver Convidados
-                </button>
-                <button className="px-4 py-2 bg-green-500 text-white rounded-lg text-sm font-medium hover:bg-green-600 transition-colors">
-                  Adicionar Convidados
-                </button>
-                <button className="px-4 py-2 bg-gray-500 text-white rounded-lg text-sm font-medium hover:bg-gray-600 transition-colors">
-                  <MdEdit className="inline mr-1" />
-                  Editar
-                </button>
-                <button className="px-4 py-2 bg-red-500 text-white rounded-lg text-sm font-medium hover:bg-red-600 transition-colors">
-                  <MdDelete className="inline mr-1" />
-                  Excluir
-                </button>
+
+              {/* Data de Criação */}
+              <div className="mt-3 pt-3 border-t border-gray-100">
+                <p className="text-xs text-gray-500">
+                  Criado em: {formatDate(reservation.created_at)}
+                </p>
               </div>
             </div>
-          ))
-        )}
-      </div>
+          ))}
+        </div>
+      )}
+
+      {/* Modal de Detalhes */}
+      <BirthdayDetailsModal
+        reservation={selectedReservation}
+        isOpen={isModalOpen}
+        onClose={handleCloseModal}
+      />
     </div>
   );
 } 

@@ -15,7 +15,7 @@ import img02 from "@/app/assets/oh-fregues.jpg";
 import img03 from "@/app/assets/highline/capa-highline.jpeg";
 import Footer from "./components/footer/footer";
 import { MdLocationOn, MdRestaurant, MdSearch, MdLocationPin, MdLocationCity, MdStar } from "react-icons/md";
-import logoBanner from "@/app/assets/commemoration.png";
+import logoBanner from "@/app/assets/icone-ag.png";
 import Link from "next/link";
 
 import places from "@/app/data/places";
