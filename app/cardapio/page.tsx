@@ -3,9 +3,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Image from 'next/image';
-import { MdStar, MdLocationOn, MdPhone } from 'react-icons/md';
-import { IoChevronBack, IoChevronForward } from 'react-icons/io5';
-import Link from 'next/link';
+import { MdStar, MdLocationOn } from 'react-icons/md';
+import { IoChevronBack } from 'react-icons/io5';
 
 // Interfaces atualizadas para corresponder à API
 interface Topping {
@@ -20,7 +19,6 @@ interface MenuItem {
   description: string;
   price: number;
   imageUrl: string;
-  category: string;
   categoryId: string | number;
   barId: string | number;
   toppings: Topping[];
@@ -51,20 +49,21 @@ interface Bar {
 }
 
 const API_BASE_URL = 'https://vamos-comemorar-api.onrender.com/api/cardapio';
-const PLACEHOLDER_IMAGE_URL = 'https://placehold.co/400x300';
-const PLACEHOLDER_BAR_URL = 'https://placehold.co/800x400';
+const PLACEHOLDER_IMAGE_URL = 'https://images.unsplash.com/photo-1504674900240-9c9c0c1d0b1a?w=400&h=300&fit=crop';
+const PLACEHOLDER_BAR_URL = 'https://images.unsplash.com/photo-1514933651103-005eec06c04b?w=800&h=400&fit=crop';
 
 // Função auxiliar para construir URL completa da imagem
-const getValidImageUrl = (imageUrl: string): string => {
-  if (!imageUrl || imageUrl.trim() === '') {
-    return PLACEHOLDER_BAR_URL;
+const getValidImageUrl = (imageUrl?: string | null, isBarCover = false): string => {
+  const placeholder = isBarCover ? PLACEHOLDER_BAR_URL : PLACEHOLDER_IMAGE_URL;
+  
+  if (typeof imageUrl !== 'string' || imageUrl.trim() === '') {
+    return placeholder;
   }
   
   if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
     return imageUrl;
   }
   
-  // Se for apenas o nome do arquivo (do banco de dados), construir a URL completa
   return `https://grupoideiaum.com.br/cardapio-agilizaiapp/${imageUrl}`;
 };
 
@@ -73,7 +72,6 @@ export default function CardapioPage() {
   const [selectedCategory, setSelectedCategory] = useState<string>('');
   const [allBars, setAllBars] = useState<Bar[]>([]);
   const [menuCategories, setMenuCategories] = useState<MenuCategory[]>([]);
-  const [isMobile, setIsMobile] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -131,17 +129,6 @@ export default function CardapioPage() {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
-  
-  useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth < 768);
-    };
-    
-    checkMobile();
-    window.addEventListener('resize', checkMobile);
-    
-    return () => window.removeEventListener('resize', checkMobile);
-  }, []);
 
   const handleBarSelect = (bar: Bar) => {
     setSelectedBar(bar);
@@ -163,7 +150,7 @@ export default function CardapioPage() {
     >
       <div className="relative h-48 overflow-hidden">
         <Image
-          src={item.imageUrl || PLACEHOLDER_IMAGE_URL}
+          src={getValidImageUrl(item.imageUrl)}
           alt={item.name}
           fill
           className="object-cover"
@@ -215,7 +202,7 @@ export default function CardapioPage() {
     >
       <div className="relative h-48">
         <Image
-          src={getValidImageUrl(bar.coverImageUrl)}
+          src={getValidImageUrl(bar.coverImageUrl, true)}
           alt={bar.name}
           fill
           sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 25vw"
@@ -311,13 +298,13 @@ export default function CardapioPage() {
               <div className="bar-header bg-white rounded-xl shadow-lg overflow-hidden">
                 <div className="relative h-64 md:h-80">
                   <Image
-                    src={getValidImageUrl(selectedBar.coverImageUrl)}
+                    src={getValidImageUrl(selectedBar.coverImageUrl, true)}
                     alt={selectedBar.name}
                     fill
                     sizes="(max-width: 768px) 100vw, (max-width: 1200px) 80vw, 1200px"
                     className="object-cover"
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
                   <div className="bar-content absolute bottom-6 left-6 right-6">
                     <h1 className="text-white text-3xl md:text-4xl font-bold mb-2">
                       {selectedBar.name}
@@ -329,7 +316,7 @@ export default function CardapioPage() {
                       <div className="flex items-center gap-1">
                         <MdStar className="w-5 h-5 text-yellow-400" />
                         <span className="font-semibold">{selectedBar.rating}</span>
-                        <span>({selectedBar.reviewsCount})</span>
+                        <span>({selectedBar.reviewsCount} avaliações)</span>
                       </div>
                       <div className="flex items-center gap-1">
                         <MdLocationOn className="w-4 h-4" />

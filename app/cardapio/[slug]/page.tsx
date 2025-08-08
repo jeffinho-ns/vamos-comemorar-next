@@ -6,7 +6,6 @@ import { MdStar, MdLocationOn, MdArrowBack } from 'react-icons/md';
 import { IoChevronBack } from 'react-icons/io5';
 import Link from 'next/link';
 import Image from 'next/image';
-import '../styles.scss';
 
 interface Topping {
   id: string | number;
@@ -19,10 +18,9 @@ interface MenuItem {
   name: string;
   description: string;
   price: number;
-  image_url: string;
-  category: string;
-  category_id: string | number;
-  bar_id: string | number;
+  imageUrl: string;
+  categoryId: string | number;
+  barId: string | number;
   toppings: Topping[];
   order: number;
 }
@@ -30,7 +28,7 @@ interface MenuItem {
 interface MenuCategory {
   id: string | number;
   name: string;
-  bar_id: string | number;
+  barId: string | number;
   order: number;
   items: MenuItem[];
 }
@@ -40,11 +38,11 @@ interface Bar {
   name: string;
   slug: string;
   description: string;
-  logo_url: string;
-  cover_image_url: string;
+  logoUrl: string;
+  coverImageUrl: string;
   address: string;
   rating: number;
-  reviews_count: number;
+  reviewsCount: number;
   amenities: string[];
   latitude?: number;
   longitude?: number;
@@ -57,18 +55,21 @@ interface CardapioBarPageProps {
 }
 
 const API_BASE_URL = 'https://vamos-comemorar-api.onrender.com/api/cardapio';
+const PLACEHOLDER_IMAGE_URL = 'https://images.unsplash.com/photo-1504674900240-9c9c0c1d0b1a?w=400&h=300&fit=crop';
+const PLACEHOLDER_BAR_URL = 'https://images.unsplash.com/photo-1514933651103-005eec06c04b?w=800&h=400&fit=crop';
 
 // Função auxiliar para construir URL completa da imagem
-const getValidImageUrl = (imageUrl: string): string => {
-  if (!imageUrl || imageUrl.trim() === '') {
-    return 'https://images.unsplash.com/photo-1514933651103-005eec06c04b?w=800&h=400&fit=crop';
+const getValidImageUrl = (imageUrl?: string | null, isBarCover = false): string => {
+  const placeholder = isBarCover ? PLACEHOLDER_BAR_URL : PLACEHOLDER_IMAGE_URL;
+  
+  if (typeof imageUrl !== 'string' || imageUrl.trim() === '') {
+    return placeholder;
   }
   
   if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
     return imageUrl;
   }
   
-  // Se for apenas o nome do arquivo (do banco de dados), construir a URL completa
   return `https://grupoideiaum.com.br/cardapio-agilizaiapp/${imageUrl}`;
 };
 
@@ -76,7 +77,6 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
   const [selectedBar, setSelectedBar] = useState<Bar | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string>('');
   const [menuCategories, setMenuCategories] = useState<MenuCategory[]>([]);
-  const [isMobile, setIsMobile] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [resolvedParams, setResolvedParams] = useState<{ slug: string } | null>(null);
@@ -90,21 +90,9 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
   }, [params]);
 
   useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth < 768);
-    };
-    
-    checkMobile();
-    window.addEventListener('resize', checkMobile);
-    
-    return () => window.removeEventListener('resize', checkMobile);
-  }, []);
-
-  useEffect(() => {
     const fetchBarData = async () => {
       if (resolvedParams?.slug) {
         try {
-          // Buscar o bar pelo slug
           const barsResponse = await fetch(`${API_BASE_URL}/bars`);
           if (!barsResponse.ok) {
             throw new Error('Erro ao carregar estabelecimentos');
@@ -120,7 +108,6 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
 
           setSelectedBar(bar);
 
-          // Buscar categorias e itens
           const [categoriesResponse, itemsResponse] = await Promise.all([
             fetch(`${API_BASE_URL}/categories`),
             fetch(`${API_BASE_URL}/items`)
@@ -135,14 +122,12 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
             itemsResponse.json()
           ]);
 
-          // Filtrar categorias e itens do bar
-          const barCategories = categories.filter((cat: MenuCategory) => cat.bar_id === bar.id);
-          const barItems = items.filter((item: MenuItem) => item.bar_id === bar.id);
+          const barCategories = categories.filter((cat: MenuCategory) => cat.barId === bar.id);
+          const barItems = items.filter((item: MenuItem) => item.barId === bar.id);
 
-          // Organizar itens por categoria
           const categoriesWithItems = barCategories.map((category: MenuCategory) => ({
             ...category,
-            items: barItems.filter((item: MenuItem) => item.category_id === category.id)
+            items: barItems.filter((item: MenuItem) => item.categoryId === category.id)
           }));
 
           setMenuCategories(categoriesWithItems);
@@ -179,15 +164,11 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
     >
       <div className="relative h-48 overflow-hidden">
         <Image
-          src={getValidImageUrl(item.image_url)}
+          src={getValidImageUrl(item.imageUrl)}
           alt={item.name}
           fill
           sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
           className="object-cover"
-          onError={(e) => {
-            const target = e.target as HTMLImageElement;
-            target.src = 'https://images.unsplash.com/photo-1504674900240-9c9c0c1d0b1a?w=400&h=300&fit=crop';
-          }}
         />
         <div className="absolute top-3 right-3 price-badge bg-white px-2 py-1 rounded-full shadow-md">
           <span className="text-sm font-bold text-green-600">
@@ -284,15 +265,11 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
           <div className="bar-header bg-white rounded-xl shadow-lg overflow-hidden">
             <div className="relative h-64 md:h-80">
               <Image
-                src={getValidImageUrl(selectedBar.cover_image_url)}
+                src={getValidImageUrl(selectedBar.coverImageUrl, true)}
                 alt={selectedBar.name}
                 fill
                 sizes="(max-width: 768px) 100vw, (max-width: 1200px) 80vw, 1200px"
                 className="object-cover"
-                onError={(e) => {
-                  const target = e.target as HTMLImageElement;
-                  target.src = 'https://images.unsplash.com/photo-1514933651103-005eec06c04b?w=800&h=400&fit=crop';
-                }}
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
               <div className="bar-content absolute bottom-6 left-6 right-6">
@@ -306,7 +283,7 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
                   <div className="flex items-center gap-1">
                     <MdStar className="w-5 h-5 text-yellow-400" />
                     <span className="font-semibold">{selectedBar.rating || 0}</span>
-                    <span>({selectedBar.reviews_count || 0})</span>
+                    <span>({selectedBar.reviewsCount || 0})</span>
                   </div>
                   <div className="flex items-center gap-1">
                     <MdLocationOn className="w-4 h-4" />
@@ -395,4 +372,4 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
       `}</style>
     </div>
   );
-} 
+}
