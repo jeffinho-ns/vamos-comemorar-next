@@ -7,6 +7,10 @@ import { IoChevronBack } from 'react-icons/io5';
 import Link from 'next/link';
 import Image from 'next/image';
 
+import ImageSlider from '../../components/ImageSlider/ImageSlider';
+import { scrollToSection } from '../../utils/scrollToSection';
+
+// Interfaces
 interface Topping {
   id: string | number;
   name: string;
@@ -23,6 +27,7 @@ interface MenuItem {
   barId: string | number;
   toppings: Topping[];
   order: number;
+  subCategory?: string;
 }
 
 interface MenuCategory {
@@ -33,37 +38,26 @@ interface MenuCategory {
   items: MenuItem[];
 }
 
-interface Bar {
+interface GroupedCategory {
   id: string | number;
   name: string;
-  slug: string;
-  description: string;
-  logoUrl: string;
-  coverImageUrl: string;
-  address: string;
-  rating: number;
-  reviewsCount: number;
-  amenities: string[];
-  latitude?: number;
-  longitude?: number;
+  subCategories: {
+    name: string;
+    items: MenuItem[];
+  }[];
 }
 
 interface CardapioBarPageProps {
-  params: Promise<{
-    slug: string;
-  }>;
+  params: { slug: string }
 }
 
 const API_BASE_URL = 'https://vamos-comemorar-api.onrender.com/api/cardapio';
 const PLACEHOLDER_IMAGE_URL = 'https://images.unsplash.com/photo-1504674900240-9c9c0c1d0b1a?w=400&h=300&fit=crop';
-const PLACEHOLDER_BAR_URL = 'https://images.unsplash.com/photo-1514933651103-005eec06c04b?w=800&h=400&fit=crop';
+const PLACEHOLDER_LOGO_URL = 'https://via.placeholder.com/150';
 
-// Função auxiliar para construir URL completa da imagem
-const getValidImageUrl = (imageUrl?: string | null, isBarCover = false): string => {
-  const placeholder = isBarCover ? PLACEHOLDER_BAR_URL : PLACEHOLDER_IMAGE_URL;
-  
+const getValidImageUrl = (imageUrl?: string | null): string => {
   if (typeof imageUrl !== 'string' || imageUrl.trim() === '') {
-    return placeholder;
+    return PLACEHOLDER_IMAGE_URL;
   }
   
   if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
@@ -73,32 +67,39 @@ const getValidImageUrl = (imageUrl?: string | null, isBarCover = false): string 
   return `https://grupoideiaum.com.br/cardapio-agilizaiapp/${imageUrl}`;
 };
 
+const groupItemsBySubcategory = (items: MenuItem[]): { name: string; items: MenuItem[] }[] => {
+  const grouped = items.reduce((acc, item) => {
+    // Simula a sub-categoria. Idealmente, a API deveria fornecer esta informação.
+    const subCategoryName = item.name.includes('Vegano') ? 'Vegano' : item.name.includes('Especial') ? 'Especial' : 'Tradicional';
+    if (!acc[subCategoryName]) {
+      acc[subCategoryName] = [];
+    }
+    acc[subCategoryName].push(item);
+    return acc;
+  }, {} as Record<string, MenuItem[]>);
+
+  return Object.keys(grouped).map(name => ({
+    name,
+    items: grouped[name],
+  }));
+};
+
 export default function CardapioBarPage({ params }: CardapioBarPageProps) {
   const [selectedBar, setSelectedBar] = useState<Bar | null>(null);
-  const [selectedCategory, setSelectedCategory] = useState<string>('');
-  const [menuCategories, setMenuCategories] = useState<MenuCategory[]>([]);
+  const [menuCategories, setMenuCategories] = useState<GroupedCategory[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [resolvedParams, setResolvedParams] = useState<{ slug: string } | null>(null);
-
-  useEffect(() => {
-    const resolveParams = async () => {
-      const resolved = await params;
-      setResolvedParams(resolved);
-    };
-    resolveParams();
-  }, [params]);
+  const [selectedCategory, setSelectedCategory] = useState<string>('');
+  const [activeSubcategory, setActiveSubcategory] = useState<string>('');
 
   useEffect(() => {
     const fetchBarData = async () => {
-      if (resolvedParams?.slug) {
+      if (params.slug) {
         try {
           const barsResponse = await fetch(`${API_BASE_URL}/bars`);
-          if (!barsResponse.ok) {
-            throw new Error('Erro ao carregar estabelecimentos');
-          }
+          if (!barsResponse.ok) throw new Error('Erro ao carregar estabelecimentos');
           const bars = await barsResponse.json();
-          const bar = bars.find((b: Bar) => b.slug === resolvedParams?.slug);
+          const bar = bars.find((b: Bar) => b.slug === params.slug);
           
           if (!bar) {
             setError('Estabelecimento não encontrado');
@@ -106,16 +107,21 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
             return;
           }
 
-          setSelectedBar(bar);
+          const barWithImages = {
+            ...bar,
+            coverImages: bar.coverImages && bar.coverImages.length > 0
+              ? bar.coverImages.map(img => getValidImageUrl(img))
+              : [getValidImageUrl(bar.coverImageUrl)]
+          };
+
+          setSelectedBar(barWithImages);
 
           const [categoriesResponse, itemsResponse] = await Promise.all([
             fetch(`${API_BASE_URL}/categories`),
             fetch(`${API_BASE_URL}/items`)
           ]);
 
-          if (!categoriesResponse.ok || !itemsResponse.ok) {
-            throw new Error('Erro ao carregar dados do cardápio');
-          }
+          if (!categoriesResponse.ok || !itemsResponse.ok) throw new Error('Erro ao carregar dados do cardápio');
 
           const [categories, items] = await Promise.all([
             categoriesResponse.json(),
@@ -125,15 +131,15 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
           const barCategories = categories.filter((cat: MenuCategory) => cat.barId === bar.id);
           const barItems = items.filter((item: MenuItem) => item.barId === bar.id);
 
-          const categoriesWithItems = barCategories.map((category: MenuCategory) => ({
+          const groupedCategories = barCategories.map((category: MenuCategory) => ({
             ...category,
-            items: barItems.filter((item: MenuItem) => item.categoryId === category.id)
+            subCategories: groupItemsBySubcategory(barItems.filter((item: MenuItem) => item.categoryId === category.id))
           }));
 
-          setMenuCategories(categoriesWithItems);
+          setMenuCategories(groupedCategories);
           
-          if (categoriesWithItems.length > 0) {
-            setSelectedCategory(categoriesWithItems[0].name);
+          if (groupedCategories.length > 0) {
+            setSelectedCategory(groupedCategories[0].name);
           }
 
         } catch (err) {
@@ -146,7 +152,30 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
     };
 
     fetchBarData();
-  }, [resolvedParams?.slug]);
+  }, [params.slug]);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            const subcategoryName = entry.target.getAttribute('data-subcategory-name');
+            if (subcategoryName) {
+              setActiveSubcategory(subcategoryName);
+            }
+          }
+        });
+      },
+      { threshold: 0.5, rootMargin: '-50% 0px -50% 0px' }
+    );
+
+    const sections = document.querySelectorAll('[data-subcategory-name]');
+    sections.forEach((section) => observer.observe(section));
+
+    return () => {
+      sections.forEach((section) => observer.unobserve(section));
+    };
+  }, [menuCategories, selectedCategory]);
 
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -233,45 +262,28 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
     );
   }
 
+  const currentCategory = menuCategories.find(cat => cat.name === selectedCategory);
+
   return (
     <div className="cardapio-page min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
-      {/* Header */}
-      <div className="header-section bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="flex items-center justify-between">
-            <Link 
-              href="/cardapio"
-              className="flex items-center gap-2 text-blue-600 hover:text-blue-800 transition-colors"
-            >
-              <IoChevronBack className="w-5 h-5" />
-              Voltar ao cardápio
-            </Link>
-            <div className="text-center">
-              <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-2">
-                {selectedBar.name}
-              </h1>
-              <p className="text-gray-600 text-lg">
-                Cardápio Digital
-              </p>
-            </div>
-            <div className="w-20"></div> {/* Spacer para centralizar */}
-          </div>
-        </div>
-      </div>
-
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Header do bar */}
+        
         <div className="mb-6">
           <div className="bar-header bg-white rounded-xl shadow-lg overflow-hidden">
             <div className="relative h-64 md:h-80">
-              <Image
-                src={getValidImageUrl(selectedBar.coverImageUrl, true)}
-                alt={selectedBar.name}
-                fill
-                sizes="(max-width: 768px) 100vw, (max-width: 1200px) 80vw, 1200px"
-                className="object-cover"
-              />
+              <ImageSlider images={selectedBar.coverImages} />
               <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
+              
+              <div className="absolute top-4 left-4 p-2 bg-white rounded-xl shadow-md">
+                <Image
+                  src={getValidImageUrl(selectedBar.logoUrl)}
+                  alt={`${selectedBar.name} logo`}
+                  width={64}
+                  height={64}
+                  className="rounded-lg"
+                />
+              </div>
+
               <div className="bar-content absolute bottom-6 left-6 right-6">
                 <h1 className="text-white text-3xl md:text-4xl font-bold mb-2">
                   {selectedBar.name}
@@ -295,10 +307,10 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
           </div>
         </div>
 
-        {/* Categorias */}
+        {/* Menu de categorias principal */}
         {menuCategories.length > 0 && (
-          <div className="mb-8">
-            <div className="category-tabs flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+          <div className="mb-8 sticky top-0 z-20 bg-gradient-to-br from-gray-50 to-gray-100 pb-2">
+            <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
               {menuCategories.map((category) => (
                 <button
                   key={category.id}
@@ -316,60 +328,61 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
           </div>
         )}
 
-        {/* Itens do menu */}
+        {/* Itens do menu com sub-categorias e menu pegajoso */}
         <AnimatePresence mode="wait">
-          <motion.div
-            key={selectedCategory}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.3 }}
-          >
-            {selectedCategory && (
-              <div>
-                <h2 className="text-2xl font-bold text-gray-900 mb-6">
-                  {selectedCategory}
-                </h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                  {menuCategories
-                    .find(cat => cat.name === selectedCategory)
-                    ?.items?.map((item) => (
-                      <MenuItemCard key={item.id} item={item} />
-                    )) || []}
+          {currentCategory && (
+            <motion.div
+              key={selectedCategory}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.3 }}
+            >
+              <h2 className="text-2xl font-bold text-gray-900 mb-6">
+                {selectedCategory}
+              </h2>
+
+              {/* Sub-menu pegajoso para as sub-categorias */}
+              <div className="sticky top-20 z-10 bg-gradient-to-br from-gray-50 to-gray-100 pb-4 pt-2 -mt-4">
+                <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+                  {currentCategory.subCategories.map((subcat) => (
+                    <button
+                      key={subcat.name}
+                      onClick={() => scrollToSection(subcat.name)}
+                      className={`subcategory-tab px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all duration-200 ${
+                        activeSubcategory === subcat.name
+                          ? 'bg-blue-500 text-white shadow-md'
+                          : 'bg-white text-gray-600 hover:bg-gray-50'
+                      }`}
+                    >
+                      {subcat.name}
+                    </button>
+                  ))}
                 </div>
               </div>
-            )}
-          </motion.div>
+
+              {/* Listagem dos itens agrupados por sub-categoria */}
+              {currentCategory.subCategories.map((subcat) => (
+                <div
+                  key={subcat.name}
+                  id={subcat.name.replace(/\s+/g, '-').toLowerCase()}
+                  data-subcategory-name={subcat.name}
+                  className="mt-8"
+                >
+                  <h3 className="text-xl font-bold text-gray-800 mb-4">
+                    {subcat.name}
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                    {subcat.items.map((item) => (
+                      <MenuItemCard key={item.id} item={item} />
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </motion.div>
+          )}
         </AnimatePresence>
       </div>
-
-      <style jsx>{`
-        .line-clamp-1 {
-          overflow: hidden;
-          display: -webkit-box;
-          -webkit-box-orient: vertical;
-          -webkit-line-clamp: 1;
-        }
-        .line-clamp-2 {
-          overflow: hidden;
-          display: -webkit-box;
-          -webkit-box-orient: vertical;
-          -webkit-line-clamp: 2;
-        }
-        .line-clamp-3 {
-          overflow: hidden;
-          display: -webkit-box;
-          -webkit-box-orient: vertical;
-          -webkit-line-clamp: 3;
-        }
-        .scrollbar-hide {
-          -ms-overflow-style: none;
-          scrollbar-width: none;
-        }
-        .scrollbar-hide::-webkit-scrollbar {
-          display: none;
-        }
-      `}</style>
     </div>
   );
 }

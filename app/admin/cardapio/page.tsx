@@ -29,6 +29,7 @@ interface MenuItemForm {
   barId: string;
   toppings: Topping[];
   order: number;
+  subCategory: string; // Adicionado para a sub-categoria
 }
 
 interface MenuCategoryForm {
@@ -43,6 +44,7 @@ interface BarForm {
   description: string;
   logoUrl: string;
   coverImageUrl: string;
+  coverImages: string[]; // Adicionado para múltiplos uploads
   address: string;
   rating: string;
   reviewsCount: string;
@@ -62,6 +64,7 @@ interface MenuItem {
   barId: string | number;
   toppings: Topping[];
   order: number;
+  subCategory?: string; // Adicionado para a sub-categoria
 }
 
 interface MenuCategory {
@@ -78,6 +81,7 @@ interface Bar {
   description: string;
   logoUrl: string;
   coverImageUrl: string;
+  coverImages: string[]; // Adicionado para múltiplos uploads
   address: string;
   rating: number;
   reviewsCount: number;
@@ -90,31 +94,24 @@ const API_BASE_URL = 'https://vamos-comemorar-api.onrender.com/api/cardapio';
 const API_UPLOAD_URL = 'https://vamos-comemorar-api.onrender.com/api/images/upload';
 const PLACEHOLDER_IMAGE_URL = 'https://placehold.co/400x300';
 
-// Função auxiliar para garantir URL válida
 const getValidImageUrl = (imageUrl: string): string => {
   if (!imageUrl || imageUrl.trim() === '') {
     return PLACEHOLDER_IMAGE_URL;
   }
   
-  // Se for uma URL blob temporária, permitir que seja exibida (para preview)
   if (imageUrl.startsWith('blob:')) {
-    console.log('🖼️ URL blob detectada, permitindo preview temporário');
     return imageUrl;
   }
   
   if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
-    // Se já é uma URL completa, normalizar para remover www. se existir
     if (imageUrl.includes('www.grupoideiaum.com.br')) {
       const normalizedUrl = imageUrl.replace('www.grupoideiaum.com.br', 'grupoideiaum.com.br');
-      console.log('🔄 Normalizando URL:', imageUrl, '→', normalizedUrl);
       return normalizedUrl;
     }
     return imageUrl;
   }
   
-  // Se for apenas o nome do arquivo (do banco de dados), construir a URL completa
-  // O banco salva apenas o nome do arquivo (ex: JY9EIZE3EK.jpg)
-  const cleanFilename = imageUrl.replace(/^\/images\//, ''); // Remove /images/ se existir
+  const cleanFilename = imageUrl.replace(/^\/images\//, '');
   return `https://grupoideiaum.com.br/cardapio-agilizaiapp/${cleanFilename}`;
 };
 
@@ -140,6 +137,7 @@ export default function CardapioAdminPage() {
 
   const [barForm, setBarForm] = useState<BarForm>({
     name: '', slug: '', description: '', logoUrl: '', coverImageUrl: '',
+    coverImages: [], // Inicializa com array vazio
     address: '', rating: '', reviewsCount: '', amenities: [], latitude: '', longitude: ''
   });
 
@@ -148,7 +146,8 @@ export default function CardapioAdminPage() {
   });
 
   const [itemForm, setItemForm] = useState<MenuItemForm>({
-    name: '', description: '', price: '', imageUrl: '', categoryId: '', barId: '', toppings: [], order: 0
+    name: '', description: '', price: '', imageUrl: '', categoryId: '', barId: '', toppings: [], order: 0,
+    subCategory: '' // Inicializa a sub-categoria
   });
 
   const [newTopping, setNewTopping] = useState({ name: '', price: '' });
@@ -173,91 +172,33 @@ export default function CardapioAdminPage() {
         itemsRes.json()
       ]);
 
-      // Debug: Log dos dados brutos do banco
-      console.log('📊 Dados brutos do banco:', {
-        bars: bars.slice(0, 2), // Primeiros 2 bars para debug
-        categories: categories.slice(0, 2),
-        items: items.slice(0, 2)
-      });
-
       const barsData = Array.isArray(bars) ? bars.map(bar => {
         const cleanedBar = {
           ...bar,
-          // Limpar URLs completas para manter apenas o nome do arquivo
           logoUrl: bar.logoUrl?.includes('grupoideiaum.com.br') 
             ? bar.logoUrl.split('/').pop() 
             : bar.logoUrl,
           coverImageUrl: bar.coverImageUrl?.includes('grupoideiaum.com.br') 
             ? bar.coverImageUrl.split('/').pop() 
-            : bar.coverImageUrl
+            : bar.coverImageUrl,
+          coverImages: Array.isArray(bar.coverImages) 
+            ? bar.coverImages.map((url: string) => url.includes('grupoideiaum.com.br') 
+              ? url.split('/').pop() : url)
+            : []
         };
-        
-        // Log da limpeza se necessário
-        if (bar.logoUrl !== cleanedBar.logoUrl) {
-          console.log(`🧹 Logo URL limpa: ${bar.logoUrl} → ${cleanedBar.logoUrl}`);
-        }
-        if (bar.coverImageUrl !== cleanedBar.coverImageUrl) {
-          console.log(`🧹 Cover URL limpa: ${bar.coverImageUrl} → ${cleanedBar.coverImageUrl}`);
-        }
-        
         return cleanedBar;
       }) : [];
+      
       const categoriesData = Array.isArray(categories) ? categories : [];
       const itemsData = Array.isArray(items) ? items.map(item => {
         const cleanedItem = {
           ...item,
-          // Limpar URLs completas para manter apenas o nome do arquivo
           imageUrl: item.imageUrl?.includes('grupoideiaum.com.br') 
             ? item.imageUrl.split('/').pop() 
             : item.imageUrl
         };
-        
-        // Log da limpeza se necessário
-        if (item.imageUrl !== cleanedItem.imageUrl) {
-          console.log(`🧹 Item imageUrl limpa: ${item.imageUrl} → ${cleanedItem.imageUrl}`);
-        }
-        
         return cleanedItem;
       }) : [];
-
-      // Debug: Log dos dados carregados
-      console.log('📊 Dados carregados:', {
-        bars: barsData.length,
-        categories: categoriesData.length,
-        items: itemsData.length
-      });
-
-      // Debug: Log dos primeiros bars para verificar as imagens
-      if (barsData.length > 0) {
-        console.log('🏪 Primeiro bar:', {
-          id: barsData[0].id,
-          name: barsData[0].name,
-          logoUrl: barsData[0].logoUrl,
-          coverImageUrl: barsData[0].coverImageUrl
-        });
-        
-        // Testar URLs construídas
-        if (barsData[0].logoUrl) {
-          const logoUrl = getValidImageUrl(barsData[0].logoUrl);
-          console.log('🔗 Logo URL construída:', logoUrl);
-        }
-        if (barsData[0].coverImageUrl) {
-          const coverUrl = getValidImageUrl(barsData[0].coverImageUrl);
-          console.log('🔗 Cover URL construída:', coverUrl);
-        }
-      }
-
-      // Remover a limpeza de blob URLs para permitir preview temporário
-      // setBarForm(prev => ({
-      //   ...prev,
-      //   logoUrl: prev.logoUrl?.startsWith('blob:') ? '' : prev.logoUrl,
-      //   coverImageUrl: prev.coverImageUrl?.startsWith('blob:') ? '' : prev.coverImageUrl
-      // }));
-
-      // setItemForm(prev => ({
-      //   ...prev,
-      //   imageUrl: prev.imageUrl?.startsWith('blob:') ? '' : prev.imageUrl
-      // }));
 
       setMenuData({
         bars: barsData,
@@ -311,6 +252,7 @@ export default function CardapioAdminPage() {
     setEditingBar(null);
     setBarForm({
       name: '', slug: '', description: '', logoUrl: '', coverImageUrl: '',
+      coverImages: [], // Limpa a lista de imagens
       address: '', rating: '', reviewsCount: '', amenities: [], latitude: '', longitude: ''
     });
   }, []);
@@ -325,7 +267,8 @@ export default function CardapioAdminPage() {
     setShowItemModal(false);
     setEditingItem(null);
     setItemForm({
-      name: '', description: '', price: '', imageUrl: '', categoryId: '', barId: '', toppings: [], order: 0
+      name: '', description: '', price: '', imageUrl: '', categoryId: '', barId: '', toppings: [], order: 0,
+      subCategory: '' // Limpa o campo de sub-categoria
     });
     setNewTopping({ name: '', price: '' });
   }, []);
@@ -337,15 +280,6 @@ export default function CardapioAdminPage() {
         : `${API_BASE_URL}/bars`;
       
       const method = editingBar ? 'PUT' : 'POST';
-      
-      // Debug: Log dos dados sendo enviados
-      console.log('📤 Salvando bar:', {
-        method,
-        url,
-        data: barForm,
-        logoUrl: barForm.logoUrl,
-        coverImageUrl: barForm.coverImageUrl
-      });
       
       const response = await fetch(url, {
         method,
@@ -428,6 +362,7 @@ export default function CardapioAdminPage() {
       description: bar.description,
       logoUrl: bar.logoUrl || '',
       coverImageUrl: bar.coverImageUrl || '',
+      coverImages: bar.coverImages || [], // Adiciona a lista de imagens
       address: bar.address,
       rating: bar.rating?.toString() || '',
       reviewsCount: bar.reviewsCount?.toString() || '',
@@ -458,7 +393,8 @@ export default function CardapioAdminPage() {
       categoryId: item.categoryId?.toString() || '',
       barId: item.barId?.toString() || '',
       toppings: item.toppings || [],
-      order: item.order
+      order: item.order,
+      subCategory: item.subCategory || '' // Adiciona a sub-categoria
     });
     setShowItemModal(true);
   }, []);
@@ -514,19 +450,14 @@ export default function CardapioAdminPage() {
   const handleImageUpload = async (file: File, field: string) => {
     if (!file) return;
 
-    console.log(`📤 Iniciando upload de ${field}:`, file.name);
-    
-    // Criar URL temporária para preview imediato
     const tempUrl = URL.createObjectURL(file);
-    console.log(`🖼️ URL temporária criada: ${tempUrl}`);
 
-    // Atualizar formulário com URL temporária para preview imediato
-    if (field === 'logoUrl' || field === 'coverImageUrl') {
+    if (field === 'coverImages') {
+      setBarForm(prev => ({ ...prev, coverImages: [...prev.coverImages, tempUrl] }));
+    } else if (field === 'logoUrl' || field === 'coverImageUrl') {
       setBarForm(prev => ({ ...prev, [field]: tempUrl }));
-      console.log(`✅ ${field} atualizado com URL temporária para preview`);
     } else {
       setItemForm(prev => ({ ...prev, imageUrl: tempUrl }));
-      console.log(`✅ imageUrl atualizado com URL temporária para preview`);
     }
 
     try {
@@ -543,27 +474,23 @@ export default function CardapioAdminPage() {
       }
 
       const result = await response.json();
-      console.log('📤 Resposta do upload:', result);
 
       if (result.success) {
         const filename = result.filename;
-        console.log(`📁 Arquivo salvo: ${filename}`);
-        
-        // Manter apenas o nome do arquivo no formulário (o backend espera apenas o nome)
-        console.log(`🔗 Nome do arquivo: ${filename}`);
-        if (field === 'logoUrl' || field === 'coverImageUrl') {
+        if (field === 'coverImages') {
+          setBarForm(prev => {
+            const updatedImages = prev.coverImages.map(url => url === tempUrl ? filename : url);
+            return { ...prev, coverImages: updatedImages };
+          });
+        } else if (field === 'logoUrl' || field === 'coverImageUrl') {
           setBarForm(prev => ({ ...prev, [field]: filename }));
-          console.log(`✅ ${field} atualizado com nome do arquivo: ${filename}`);
         } else {
           setItemForm(prev => ({ ...prev, imageUrl: filename }));
-          console.log(`✅ imageUrl atualizado com nome do arquivo: ${filename}`);
         }
         
-        // Revogar URL temporária APÓS um delay para permitir que o React atualize o DOM
         setTimeout(() => {
           URL.revokeObjectURL(tempUrl);
-          console.log(`🗑️ URL temporária revogada: ${tempUrl}`);
-        }, 1000); // Delay de 1 segundo
+        }, 1000);
       } else {
         throw new Error(result.error || 'Erro desconhecido no upload');
       }
@@ -571,9 +498,10 @@ export default function CardapioAdminPage() {
       console.error('❌ Erro no upload:', error);
       alert(`Erro no upload: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
       
-      // Em caso de erro, revogar URL temporária e limpar campo
       URL.revokeObjectURL(tempUrl);
-      if (field === 'logoUrl' || field === 'coverImageUrl') {
+      if (field === 'coverImages') {
+        setBarForm(prev => ({ ...prev, coverImages: prev.coverImages.filter(url => url !== tempUrl) }));
+      } else if (field === 'logoUrl' || field === 'coverImageUrl') {
         setBarForm(prev => ({ ...prev, [field]: '' }));
       } else {
         setItemForm(prev => ({ ...prev, imageUrl: '' }));
@@ -581,18 +509,30 @@ export default function CardapioAdminPage() {
     }
   };
 
+  const handleRemoveCoverImage = (urlToRemove: string) => {
+    setBarForm(prev => ({
+      ...prev,
+      coverImages: prev.coverImages.filter(url => url !== urlToRemove)
+    }));
+  };
+
   const selectImageFile = useCallback((field: string) => {
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = 'image/*';
+    input.multiple = field === 'coverImages'; // Habilita múltiplas seleções
     input.onchange = (e) => {
-      const file = (e.target as HTMLInputElement).files?.[0];
-      if (file) {
-        handleImageUpload(file, field);
+      const files = (e.target as HTMLInputElement).files;
+      if (files) {
+        if (field === 'coverImages') {
+          Array.from(files).forEach(file => handleImageUpload(file, field));
+        } else {
+          handleImageUpload(files[0], field);
+        }
       }
     };
     input.click();
-  }, []);
+  }, [handleImageUpload]);
 
   const Modal = useCallback(({ isOpen, onClose, children, title }: any) => (
     <AnimatePresence mode="wait">
@@ -846,6 +786,7 @@ export default function CardapioAdminPage() {
                           </p>
                           <div className="text-xs text-gray-500">
                             <p>{bar?.name} • {category?.name}</p>
+                            {item.subCategory && <p>Sub-categoria: {item.subCategory}</p>}
                             {item.toppings?.length > 0 && (
                               <p>{item.toppings.length} adicionais</p>
                             )}
@@ -900,7 +841,7 @@ export default function CardapioAdminPage() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Nome do arquivo da logo</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Logo</label>
                 <div className="flex gap-2">
                   <input
                     type="text"
@@ -931,33 +872,37 @@ export default function CardapioAdminPage() {
                 )}
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Nome do arquivo da imagem de capa</label>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={barForm.coverImageUrl}
-                    onChange={(e) => setBarForm(prev => ({ ...prev, coverImageUrl: e.target.value }))}
-                    placeholder="Nome do arquivo (ex: ABC123.jpg)"
-                    className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
+                <label className="block text-sm font-medium text-gray-700 mb-1">Imagens de Capa (Carrossel)</label>
+                <div className="flex gap-2 items-center mb-2">
                   <button
-                    onClick={() => selectImageFile('coverImageUrl')}
-                    className="px-3 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 flex items-center gap-1"
+                    onClick={() => selectImageFile('coverImages')}
+                    className="px-3 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 flex items-center gap-1 w-full justify-center"
                   >
-                    <MdUpload className="w-4 h-4" />
+                    <MdAdd className="w-4 h-4" />
+                    Adicionar Imagem(ns)
                   </button>
                 </div>
-                {barForm.coverImageUrl && barForm.coverImageUrl.trim() !== '' && (
-                  <div className="mt-2">
-                    <Image
-                      src={getValidImageUrl(barForm.coverImageUrl)}
-                      alt="Preview da imagem de capa"
-                      width={200}
-                      height={100}
-                      className="rounded-lg object-cover border"
-                      unoptimized={barForm.coverImageUrl.startsWith('blob:')}
-                      priority={true}
-                    />
+                {barForm.coverImages.length > 0 && (
+                  <div className="grid grid-cols-2 gap-2">
+                    {barForm.coverImages.map((imageUrl, index) => (
+                      <div key={index} className="relative group">
+                        <Image
+                          src={getValidImageUrl(imageUrl)}
+                          alt={`Preview da imagem de capa ${index + 1}`}
+                          width={200}
+                          height={100}
+                          className="rounded-lg object-cover border"
+                          unoptimized={imageUrl.startsWith('blob:')}
+                          priority={true}
+                        />
+                        <button
+                          onClick={() => handleRemoveCoverImage(imageUrl)}
+                          className="absolute top-1 right-1 bg-red-600 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <MdClose className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))}
                   </div>
                 )}
               </div>
@@ -1169,6 +1114,19 @@ export default function CardapioAdminPage() {
               </div>
 
               <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Sub-categoria</label>
+                <input
+                  type="text"
+                  value={itemForm.subCategory}
+                  onChange={(e) => setItemForm(prev => ({ ...prev, subCategory: e.target.value }))}
+                  placeholder="Ex: Tradicionais, Especiais"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Estabelecimento</label>
                 <select
                   value={itemForm.barId}
@@ -1181,23 +1139,23 @@ export default function CardapioAdminPage() {
                   ))}
                 </select>
               </div>
-            </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Categoria</label>
-              <select
-                value={itemForm.categoryId}
-                onChange={(e) => setItemForm(prev => ({ ...prev, categoryId: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                disabled={!itemForm.barId}
-              >
-                <option value="">Selecione uma categoria</option>
-                {menuData.categories
-                  .filter(cat => cat.barId?.toString() === itemForm.barId)
-                  .map((category) => (
-                    <option key={category.id} value={category.id}>{category.name}</option>
-                  ))}
-              </select>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Categoria</label>
+                <select
+                  value={itemForm.categoryId}
+                  onChange={(e) => setItemForm(prev => ({ ...prev, categoryId: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  disabled={!itemForm.barId}
+                >
+                  <option value="">Selecione uma categoria</option>
+                  {menuData.categories
+                    .filter(cat => cat.barId?.toString() === itemForm.barId)
+                    .map((category) => (
+                      <option key={category.id} value={category.id}>{category.name}</option>
+                    ))}
+                </select>
+              </div>
             </div>
 
             <div>
