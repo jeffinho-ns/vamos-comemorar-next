@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { MdList, MdPeople, MdEvent, MdAdd, MdEdit, MdDelete, MdSettings, MdCheck, MdClose, MdAccessTime, MdImportExport, MdExpandMore, MdExpandLess } from "react-icons/md";
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -82,7 +82,7 @@ export default function Listas({ establishment }: ListasProps) {
     fetchData();
   }, [establishment.id]);
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setLoading(true);
     try {
       // Buscar configurações do evento
@@ -113,7 +113,7 @@ export default function Listas({ establishment }: ListasProps) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [establishment.id]);
 
   const handleImportConfig = async (eventId: string) => {
     if (!eventId) return;
@@ -665,7 +665,7 @@ function GuestListModal({
     fetchGuests();
   }, [list.id, eventId]);
 
-  const fetchGuests = async () => {
+  const fetchGuests = useCallback(async () => {
     setLoading(true);
     try {
       const response = await fetch(`/api/events/${eventId}/guests?listId=${list.id}`);
@@ -678,7 +678,7 @@ function GuestListModal({
     } finally {
       setLoading(false);
     }
-  };
+  }, [list.id, eventId]);
 
   const filteredGuests = guests.filter(guest => {
     const matchesSearch = guest.name.toLowerCase().includes(searchTerm.toLowerCase()) ||

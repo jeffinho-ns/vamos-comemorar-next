@@ -98,6 +98,7 @@ export default function Home() {
           src={image}
           alt={title}
           className="w-full h-full object-cover rounded-t-2xl"
+          priority
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent rounded-t-2xl"></div>
         <Link href={link}>
@@ -167,6 +168,7 @@ export default function Home() {
           alt="Imagem do banner"
           className="Image-banner object-cover h-full w-full"
           priority
+          sizes="100vw"
         />
       </Banner>
       

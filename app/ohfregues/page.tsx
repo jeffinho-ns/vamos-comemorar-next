@@ -90,6 +90,7 @@ const Ohfregues = () => {
           src={imgBanner}
           alt="Oh Freguês Bar"
           fill
+          sizes="100vw"
           className="object-cover"
           priority
         />

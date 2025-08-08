@@ -2,7 +2,7 @@
 
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { MdPeople, MdPhone, MdEmail, MdCalendarToday, MdAccessTime, MdClose, MdSchedule, MdCancel } from "react-icons/md";
 import { FaUserPlus, FaEdit, FaTimesCircle, FaPlusCircle, FaGavel, FaSave } from "react-icons/fa";
 
@@ -173,7 +173,7 @@ export default function ReservasCamarote({ establishment }: { establishment: Est
   }, []);
 
   // --- Funções de API e Ações ---
-  const fetchReservas = async () => {
+  const fetchReservas = useCallback(async () => {
     setLoading(true);
     const token = getAuthToken();
     const fixedList = getFixedCamarotesByEstablishmentId(establishment.id);
@@ -224,7 +224,7 @@ export default function ReservasCamarote({ establishment }: { establishment: Est
     } finally {
       setLoading(false);
     }
-  };
+  }, [establishment.id]);
 
   useEffect(() => {
     fetchReservas();

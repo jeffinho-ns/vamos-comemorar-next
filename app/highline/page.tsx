@@ -91,6 +91,7 @@ const Highline = () => {
           src={imgBanner}
           alt="High Line Bar"
           fill
+          sizes="100vw"
           className="object-cover"
           priority
         />

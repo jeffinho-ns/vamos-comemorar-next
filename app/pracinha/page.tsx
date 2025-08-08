@@ -89,6 +89,7 @@ const Pracinha = () => {
           src={imgBanner}
           alt="Pracinha Bar"
           fill
+          sizes="100vw"
           className="object-cover"
           priority
         />

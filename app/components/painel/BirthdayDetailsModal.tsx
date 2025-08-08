@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import React from 'react';
+import Image from 'next/image';
 import { MdClose, MdCake, MdPeople, MdEvent, MdLocalBar, MdRestaurant, MdCardGiftcard, MdContactPhone, MdEmail, MdDescription, MdImage, MdPalette } from "react-icons/md";
 import { BirthdayReservation } from "../../services/birthdayService";
 
@@ -155,9 +156,11 @@ export default function BirthdayDetailsModal({ reservation, isOpen, onClose }: B
               {reservation.painel_estoque_imagem_url && (
                 <div>
                   <p className="font-medium mb-2">Imagem do Painel:</p>
-                  <img 
+                  <Image 
                     src={reservation.painel_estoque_imagem_url} 
                     alt="Painel personalizado"
+                    width={400}
+                    height={128}
                     className="w-full h-32 object-cover rounded-lg"
                   />
                 </div>
