@@ -78,10 +78,6 @@ export default function Listas({ establishment }: ListasProps) {
   const [selectedListForGuests, setSelectedListForGuests] = useState<ProductList | null>(null);
   const [openAccordion, setOpenAccordion] = useState<string | null>('configuracoes');
 
-  useEffect(() => {
-    fetchData();
-  }, [establishment.id]);
-
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
@@ -114,6 +110,10 @@ export default function Listas({ establishment }: ListasProps) {
       setLoading(false);
     }
   }, [establishment.id]);
+
+  useEffect(() => {
+    fetchData();
+  }, [establishment.id, fetchData]);
 
   const handleImportConfig = async (eventId: string) => {
     if (!eventId) return;
@@ -661,10 +661,6 @@ function GuestListModal({
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'confirmed' | 'checked-in'>('all');
 
-  useEffect(() => {
-    fetchGuests();
-  }, [list.id, eventId]);
-
   const fetchGuests = useCallback(async () => {
     setLoading(true);
     try {
@@ -679,6 +675,10 @@ function GuestListModal({
       setLoading(false);
     }
   }, [list.id, eventId]);
+
+  useEffect(() => {
+    fetchGuests();
+  }, [list.id, eventId, fetchGuests]);
 
   const filteredGuests = guests.filter(guest => {
     const matchesSearch = guest.name.toLowerCase().includes(searchTerm.toLowerCase()) ||

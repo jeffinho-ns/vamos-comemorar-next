@@ -38,6 +38,22 @@ interface MenuCategory {
   items: MenuItem[];
 }
 
+interface Bar {
+  id: string | number;
+  name: string;
+  slug: string;
+  description: string;
+  logoUrl: string;
+  coverImageUrl: string;
+  coverImages: string[];
+  address: string;
+  rating: number;
+  reviewsCount: number;
+  amenities: string[];
+  latitude?: number;
+  longitude?: number;
+}
+
 interface GroupedCategory {
   id: string | number;
   name: string;
@@ -48,7 +64,7 @@ interface GroupedCategory {
 }
 
 interface CardapioBarPageProps {
-  params: { slug: string }
+  params: Promise<{ slug: string }>
 }
 
 const API_BASE_URL = 'https://vamos-comemorar-api.onrender.com/api/cardapio';
@@ -94,12 +110,13 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
 
   useEffect(() => {
     const fetchBarData = async () => {
-      if (params.slug) {
+      const { slug } = await params;
+      if (slug) {
         try {
           const barsResponse = await fetch(`${API_BASE_URL}/bars`);
           if (!barsResponse.ok) throw new Error('Erro ao carregar estabelecimentos');
           const bars = await barsResponse.json();
-          const bar = bars.find((b: Bar) => b.slug === params.slug);
+          const bar = bars.find((b: Bar) => b.slug === slug);
           
           if (!bar) {
             setError('Estabelecimento não encontrado');
@@ -110,7 +127,7 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
           const barWithImages = {
             ...bar,
             coverImages: bar.coverImages && bar.coverImages.length > 0
-              ? bar.coverImages.map(img => getValidImageUrl(img))
+              ? bar.coverImages.map((img: string) => getValidImageUrl(img))
               : [getValidImageUrl(bar.coverImageUrl)]
           };
 
@@ -152,7 +169,7 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
     };
 
     fetchBarData();
-  }, [params.slug]);
+  }, [params]);
 
   useEffect(() => {
     const observer = new IntersectionObserver(

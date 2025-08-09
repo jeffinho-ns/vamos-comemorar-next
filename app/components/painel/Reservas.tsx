@@ -228,7 +228,7 @@ export default function ReservasCamarote({ establishment }: { establishment: Est
 
   useEffect(() => {
     fetchReservas();
-  }, [establishment.id]);
+  }, [establishment.id, fetchReservas]);
 
   const handleActionClick = async (camarote: Camarote, action: 'reserve' | 'edit') => {
     setSelectedCamarote(camarote);

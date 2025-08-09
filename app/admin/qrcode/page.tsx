@@ -31,6 +31,49 @@ export default function QRCodeScanner() {
   const animationFrameId = useRef<number | null>(null);
   const socketRef = useRef<Socket | null>(null);
 
+  async function validateQRCode(qrCodeValue: string) {
+    setValidationMessage("⌛ Validando QR Code...");
+    try {
+      const response = await fetch(`${API_URL}/api/checkin`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ qrCodeData: qrCodeValue }),
+      });
+      const data = await response.json();
+      if (response.ok) {
+        setValidationMessage(`✅ Acesso Permitido!`);
+        setApiResponseData(data as CheckinResponse);
+        setIsModalOpen(true);
+      } else {
+        setValidationMessage(`${response.status === 409 ? '⚠️' : '❌'} ${data.message || 'Erro desconhecido'}`);
+      }
+    } catch (error) {
+      setValidationMessage("❌ Erro de comunicação com o servidor.");
+    }
+  }
+
+  const scanQRCode = useCallback(() => {
+    if (!videoRef.current || !canvasRef.current || videoRef.current.paused) {
+      return;
+    }
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    const context = canvas.getContext("2d", { willReadFrequently: true });
+    if (context) {
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      context.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+      const code = jsQR(imageData.data, canvas.width, canvas.height);
+      if (code && code.data && code.data !== qrResult) {
+        setQrResult(code.data);
+        validateQRCode(code.data);
+      } else {
+        animationFrameId.current = requestAnimationFrame(scanQRCode);
+      }
+    }
+  }, [qrResult]);
+
   // ===================================================================
   // SUA LÓGICA DE CÂMERA ORIGINAL (CORRETA E RESTAURADA)
   // ===================================================================
@@ -92,7 +135,7 @@ export default function QRCodeScanner() {
         stream.getTracks().forEach((track) => track.stop());
       }
     };
-  }, [initialCheckDone, deviceHasCamera]);
+  }, [initialCheckDone, deviceHasCamera, scanQRCode]);
 
   // ===================================================================
   // NOSSA NOVA LÓGICA DE SOCKET.IO
@@ -103,49 +146,6 @@ export default function QRCodeScanner() {
     socketRef.current.on("brinde_liberado", (data: BrindeAlert) => setBrindeAlert(data));
     return () => { socketRef.current?.disconnect(); };
   }, []);
-
-  const scanQRCode = useCallback(() => {
-    if (!videoRef.current || !canvasRef.current || videoRef.current.paused) {
-      return;
-    }
-    const video = videoRef.current;
-    const canvas = canvasRef.current;
-    const context = canvas.getContext("2d", { willReadFrequently: true });
-    if (context) {
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      context.drawImage(video, 0, 0, canvas.width, canvas.height);
-      const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
-      const code = jsQR(imageData.data, canvas.width, canvas.height);
-      if (code && code.data && code.data !== qrResult) {
-        setQrResult(code.data);
-        validateQRCode(code.data);
-      } else {
-        animationFrameId.current = requestAnimationFrame(scanQRCode);
-      }
-    }
-  }, [qrResult]);
-
-  async function validateQRCode(qrCodeValue: string) {
-    setValidationMessage("⌛ Validando QR Code...");
-    try {
-      const response = await fetch(`${API_URL}/api/checkin`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ qrCodeData: qrCodeValue }),
-      });
-      const data = await response.json();
-      if (response.ok) {
-        setValidationMessage(`✅ Acesso Permitido!`);
-        setApiResponseData(data as CheckinResponse);
-        setIsModalOpen(true);
-      } else {
-        setValidationMessage(`${response.status === 409 ? '⚠️' : '❌'} ${data.message || 'Erro desconhecido'}`);
-      }
-    } catch (error) {
-      setValidationMessage("❌ Erro de comunicação com o servidor.");
-    }
-  }
 
   const closeModalAndScanAgain = () => {
     setIsModalOpen(false);

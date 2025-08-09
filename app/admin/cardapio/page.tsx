@@ -447,7 +447,7 @@ export default function CardapioAdminPage() {
     }
   }, [fetchData]);
 
-  const handleImageUpload = async (file: File, field: string) => {
+  const handleImageUpload = useCallback(async (file: File, field: string) => {
     if (!file) return;
 
     const tempUrl = URL.createObjectURL(file);
@@ -507,7 +507,7 @@ export default function CardapioAdminPage() {
         setItemForm(prev => ({ ...prev, imageUrl: '' }));
       }
     }
-  };
+  }, []);
 
   const handleRemoveCoverImage = (urlToRemove: string) => {
     setBarForm(prev => ({
