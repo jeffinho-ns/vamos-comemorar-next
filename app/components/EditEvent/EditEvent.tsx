@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { EventData } from "../../types/types";
 import Image from "next/image";
-import Modal from "react-modal";
+import Modal from "../ui/Modal";
 
 
 

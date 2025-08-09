@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import Image from "next/image";
-import Modal from "react-modal";
+import Modal from "../ui/Modal";
 
 interface AddEventProps {
   isOpen: boolean;

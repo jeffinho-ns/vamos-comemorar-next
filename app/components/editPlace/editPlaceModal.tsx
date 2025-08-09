@@ -1,6 +1,6 @@
 import Image from "next/image";
 import React, { useState, useEffect } from "react";
-import Modal from "react-modal";
+import Modal from "../ui/Modal";
 
 interface Place {
   id?: string;

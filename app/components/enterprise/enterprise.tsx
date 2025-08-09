@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
-import Modal from "react-modal";
+import Modal from "../ui/Modal";
 import { Establishment } from "../../types/Establishment";
 
 interface Company {

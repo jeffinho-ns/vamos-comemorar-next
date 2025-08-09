@@ -34,7 +34,7 @@ import icon3 from "@/app/assets/icones/estacionamento.png";
 import icon4 from "@/app/assets/icones/18.png";
 import icon5 from "@/app/assets/icones/mesa.png";
 
-import Modal from "react-modal";
+import Modal from "../../components/ui/Modal";
 
 import { redirect } from 'next/navigation'; // Aqui importa a função de redirecionamento
 

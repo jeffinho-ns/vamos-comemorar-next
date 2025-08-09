@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import Modal from "react-modal";
+import Modal from "../ui/Modal";
 import styles from "./profile.module.scss";
 import Image from "next/image";
 import { User, APIUser } from '../../types/types';
@@ -137,7 +137,7 @@ const Profile = ({ isOpen, onRequestClose, onSaveUser, user, addUser }: ProfileP
   };
 
   return (
-    <Modal
+          <Modal
       isOpen={isOpen}
       onRequestClose={onRequestClose}
       className={styles.modal}
@@ -201,7 +201,7 @@ const Profile = ({ isOpen, onRequestClose, onSaveUser, user, addUser }: ProfileP
           <button type="submit">Salvar Alterações</button>
         </form>
       </div>
-    </Modal>
+          </Modal>
   );
 };
 

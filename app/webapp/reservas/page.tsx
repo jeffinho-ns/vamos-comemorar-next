@@ -6,7 +6,7 @@ import Footer from "../components/footer/footer";
 import HeaderLike from "../components/headerLike/headerLike";
 import styles from "./reservas.module.scss";
 import defaultLogo from "@/app/assets/highline/highlinelogo.png";
-import Modal from "react-modal";
+import Modal from "../../components/ui/Modal";
 import { useRouter } from 'next/navigation';
 
 const Reservas = () => {

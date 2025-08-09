@@ -1,7 +1,7 @@
 // profile.js
 
 import React, { useState } from "react";
-import Modal from "react-modal";
+import Modal from "../../../components/ui/Modal";
 import styles from "./profile.module.scss";
 import Image from "next/image";
 
@@ -64,7 +64,7 @@ const Profile: React.FC<ProfileProps> = ({ isOpen, onRequestClose }) => {
   };
 
   return (
-    <Modal
+          <Modal
       isOpen={isOpen}
       onRequestClose={onRequestClose}
       className={styles.modal}
@@ -193,7 +193,7 @@ const Profile: React.FC<ProfileProps> = ({ isOpen, onRequestClose }) => {
           </div>
         </form>
       </div>
-    </Modal>
+          </Modal>
   );
 };
 

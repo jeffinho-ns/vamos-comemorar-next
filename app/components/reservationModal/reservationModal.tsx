@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import Modal from "react-modal";
+import Modal from "../ui/Modal";
 import Image from "next/image";
 import icon1 from "../../assets/icones/area.png";
 import icon2 from "../../assets/icones/acessivel.png";
