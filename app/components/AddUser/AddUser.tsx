@@ -3,6 +3,10 @@ import Modal from "react-modal";
 import Image from "next/image";
 import { NewUser, User } from "../../types/types";
 
+if (typeof window !== 'undefined') {
+  Modal.setAppElement('#__next');
+}
+
 // Defina as propriedades do componente
 interface AddUserProps {
   isOpen: boolean;
