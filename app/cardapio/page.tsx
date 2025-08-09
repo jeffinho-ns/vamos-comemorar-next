@@ -29,9 +29,13 @@ const getValidImageUrl = (imageUrl?: string | null): string => {
   if (typeof imageUrl !== 'string' || imageUrl.trim() === '') {
     return PLACEHOLDER_BAR_URL;
   }
+  
+  // Verifica se já é uma URL absoluta
   if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
     return imageUrl;
   }
+  
+  // Se for apenas o nome do arquivo, constrói a URL completa
   return `https://grupoideiaum.com.br/cardapio-agilizaiapp/${imageUrl}`;
 };
 
