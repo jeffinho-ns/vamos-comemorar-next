@@ -25,9 +25,10 @@ interface MenuItem {
   imageUrl: string;
   categoryId: string | number;
   barId: string | number;
+  subCategoryId?: string | number; // ID da sub-categoria
+  subCategoryName?: string; // Nome da sub-categoria para exibição
   toppings: Topping[];
   order: number;
-  subCategory?: string;
 }
 
 interface MenuCategory {
@@ -38,6 +39,24 @@ interface MenuCategory {
   items: MenuItem[];
 }
 
+// Interface para dados vindos da API (antes do processamento)
+interface BarFromAPI {
+  id: string | number;
+  name: string;
+  slug: string;
+  description: string;
+  logoUrl: string;
+  coverImageUrl: string;
+  coverImages: string[] | string | null; // Permite string JSON, array ou null
+  address: string;
+  rating: number;
+  reviewsCount: number;
+  amenities: string[];
+  latitude?: number;
+  longitude?: number;
+}
+
+// Interface para dados processados (após conversão)
 interface Bar {
   id: string | number;
   name: string;
@@ -45,7 +64,7 @@ interface Bar {
   description: string;
   logoUrl: string;
   coverImageUrl: string;
-  coverImages: string[];
+  coverImages: string[]; // Sempre array após processamento
   address: string;
   rating: number;
   reviewsCount: number;
@@ -85,8 +104,8 @@ const getValidImageUrl = (imageUrl?: string | null): string => {
 
 const groupItemsBySubcategory = (items: MenuItem[]): { name: string; items: MenuItem[] }[] => {
   const grouped = items.reduce((acc, item) => {
-    // Simula a sub-categoria. Idealmente, a API deveria fornecer esta informação.
-    const subCategoryName = item.name.includes('Vegano') ? 'Vegano' : item.name.includes('Especial') ? 'Especial' : 'Tradicional';
+    // Usa a sub-categoria definida no banco de dados ou 'Tradicional' como fallback
+    const subCategoryName = item.subCategoryName && item.subCategoryName.trim() !== '' ? item.subCategoryName : 'Tradicional';
     if (!acc[subCategoryName]) {
       acc[subCategoryName] = [];
     }
@@ -116,7 +135,7 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
           const barsResponse = await fetch(`${API_BASE_URL}/bars`);
           if (!barsResponse.ok) throw new Error('Erro ao carregar estabelecimentos');
           const bars = await barsResponse.json();
-          const bar = bars.find((b: Bar) => b.slug === slug);
+          const bar = bars.find((b: BarFromAPI) => b.slug === slug);
           
           if (!bar) {
             setError('Estabelecimento não encontrado');
@@ -124,10 +143,29 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
             return;
           }
 
-          const barWithImages = {
+          // Processar coverImages que podem vir como string JSON do banco
+          let coverImages: string[] = [];
+          
+          if (bar.coverImages) {
+            if (typeof bar.coverImages === 'string') {
+              try {
+                // Se for string, tenta fazer parse do JSON
+                const parsed = JSON.parse(bar.coverImages);
+                coverImages = Array.isArray(parsed) ? parsed : [];
+              } catch (e) {
+                // Se falhar o parse, trata como string única
+                coverImages = bar.coverImages.trim() ? [bar.coverImages] : [];
+              }
+            } else if (Array.isArray(bar.coverImages)) {
+              // Se já for array, usa diretamente
+              coverImages = bar.coverImages;
+            }
+          }
+
+          const barWithImages: Bar = {
             ...bar,
-            coverImages: bar.coverImages && bar.coverImages.length > 0
-              ? bar.coverImages.map((img: string) => getValidImageUrl(img))
+            coverImages: coverImages.length > 0
+              ? coverImages.map((img: string) => getValidImageUrl(img))
               : [getValidImageUrl(bar.coverImageUrl)]
           };
 

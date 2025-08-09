@@ -20,6 +20,14 @@ interface Topping {
   price: number;
 }
 
+interface MenuSubCategory {
+  id: string | number;
+  name: string;
+  categoryId: string | number;
+  barId: string | number;
+  order: number;
+}
+
 interface MenuItemForm {
   name: string;
   description: string;
@@ -27,15 +35,16 @@ interface MenuItemForm {
   imageUrl: string;
   categoryId: string;
   barId: string;
+  subCategory: string; // Sub-categoria como string simples
   toppings: Topping[];
   order: number;
-  subCategory: string; // Adicionado para a sub-categoria
 }
 
 interface MenuCategoryForm {
   name: string;
   barId: string;
   order: number;
+  subCategories: { name: string; order: number }[]; // Adicionado para gerenciar sub-categorias
 }
 
 interface BarForm {
@@ -62,9 +71,10 @@ interface MenuItem {
   category: string;
   categoryId: string | number;
   barId: string | number;
+  subCategory?: string; // Sub-categoria como string simples
+  subCategoryName?: string; // Nome da sub-categoria para exibição (mesmo que subCategory)
   toppings: Topping[];
   order: number;
-  subCategory?: string; // Adicionado para a sub-categoria
 }
 
 interface MenuCategory {
@@ -72,6 +82,7 @@ interface MenuCategory {
   name: string;
   barId: string | number;
   order: number;
+  subCategories?: MenuSubCategory[]; // Adicionado para incluir sub-categorias
 }
 
 interface Bar {
@@ -111,8 +122,19 @@ const getValidImageUrl = (imageUrl: string): string => {
     return imageUrl;
   }
   
+  // Verificar se é uma imagem local (upload feito localmente)
+  if (imageUrl.startsWith('upload-')) {
+    return `/images/${imageUrl}`;
+  }
+  
   const cleanFilename = imageUrl.replace(/^\/images\//, '');
-  return `https://grupoideiaum.com.br/cardapio-agilizaiapp/${cleanFilename}`;
+  
+  // Se ainda não começar com upload-, assumir que é do servidor externo
+  if (!cleanFilename.startsWith('upload-')) {
+    return `https://grupoideiaum.com.br/cardapio-agilizaiapp/${cleanFilename}`;
+  }
+  
+  return `/images/${cleanFilename}`;
 };
 
 export default function CardapioAdminPage() {
@@ -126,10 +148,12 @@ export default function CardapioAdminPage() {
   const [menuData, setMenuData] = useState<{
     bars: Bar[];
     categories: MenuCategory[];
+    subCategories: MenuSubCategory[];
     items: MenuItem[];
   }>({
     bars: [],
     categories: [],
+    subCategories: [],
     items: []
   });
   const [loading, setLoading] = useState(true);
@@ -142,12 +166,11 @@ export default function CardapioAdminPage() {
   });
 
   const [categoryForm, setCategoryForm] = useState<MenuCategoryForm>({
-    name: '', barId: '', order: 0
+    name: '', barId: '', order: 0, subCategories: []
   });
 
   const [itemForm, setItemForm] = useState<MenuItemForm>({
-    name: '', description: '', price: '', imageUrl: '', categoryId: '', barId: '', toppings: [], order: 0,
-    subCategory: '' // Inicializa a sub-categoria
+    name: '', description: '', price: '', imageUrl: '', categoryId: '', barId: '', subCategory: '', toppings: [], order: 0
   });
 
   const [newTopping, setNewTopping] = useState({ name: '', price: '' });
@@ -172,6 +195,27 @@ export default function CardapioAdminPage() {
         itemsRes.json()
       ]);
 
+      // Extrai sub-categorias únicas dos itens existentes
+      const subCategories = items.reduce((acc: any[], item: any) => {
+        if (item.subCategoryName && item.subCategoryName.trim() !== '') {
+          const existing = acc.find(sub => 
+            sub.name === item.subCategoryName && 
+            sub.categoryId === item.categoryId && 
+            sub.barId === item.barId
+          );
+          if (!existing) {
+            acc.push({
+              id: `${item.categoryId}-${item.barId}-${item.subCategoryName}`,
+              name: item.subCategoryName,
+              categoryId: item.categoryId,
+              barId: item.barId,
+              order: 0
+            });
+          }
+        }
+        return acc;
+      }, []);
+
       const barsData = Array.isArray(bars) ? bars.map(bar => {
         const cleanedBar = {
           ...bar,
@@ -190,6 +234,7 @@ export default function CardapioAdminPage() {
       }) : [];
       
       const categoriesData = Array.isArray(categories) ? categories : [];
+      const subCategoriesData = Array.isArray(subCategories) ? subCategories : [];
       const itemsData = Array.isArray(items) ? items.map(item => {
         const cleanedItem = {
           ...item,
@@ -203,6 +248,7 @@ export default function CardapioAdminPage() {
       setMenuData({
         bars: barsData,
         categories: categoriesData,
+        subCategories: subCategoriesData,
         items: itemsData
       });
 
@@ -260,97 +306,250 @@ export default function CardapioAdminPage() {
   const handleCloseCategoryModal = useCallback(() => {
     setShowCategoryModal(false);
     setEditingCategory(null);
-    setCategoryForm({ name: '', barId: '', order: 0 });
+    setCategoryForm({ name: '', barId: '', order: 0, subCategories: [] });
   }, []);
 
   const handleCloseItemModal = useCallback(() => {
     setShowItemModal(false);
     setEditingItem(null);
     setItemForm({
-      name: '', description: '', price: '', imageUrl: '', categoryId: '', barId: '', toppings: [], order: 0,
-      subCategory: '' // Limpa o campo de sub-categoria
+      name: '', description: '', price: '', imageUrl: '', categoryId: '', barId: '', subCategory: '', toppings: [], order: 0
     });
     setNewTopping({ name: '', price: '' });
   }, []);
 
   const handleSaveBar = useCallback(async () => {
     try {
+      // Validar campos obrigatórios
+      if (!barForm.name.trim()) {
+        alert('Nome do estabelecimento é obrigatório');
+        return;
+      }
+      
+      if (!barForm.slug.trim()) {
+        alert('Slug do estabelecimento é obrigatório');
+        return;
+      }
+
       const url = editingBar 
         ? `${API_BASE_URL}/bars/${editingBar.id}`
         : `${API_BASE_URL}/bars`;
       
       const method = editingBar ? 'PUT' : 'POST';
       
+      // Preparar dados para envio
+      const barData = {
+        ...barForm,
+        rating: barForm.rating ? parseFloat(barForm.rating) : 0,
+        reviewsCount: barForm.reviewsCount ? parseInt(barForm.reviewsCount) : 0,
+        latitude: barForm.latitude ? parseFloat(barForm.latitude) : null,
+        longitude: barForm.longitude ? parseFloat(barForm.longitude) : null
+      };
+      
+      console.log('🔄 Salvando estabelecimento:', method, url, barData);
+      
       const response = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(barForm),
+        body: JSON.stringify(barData),
       });
 
+      console.log('📡 Resposta do servidor:', response.status, response.statusText);
+
       if (response.ok) {
+        console.log('✅ Estabelecimento salvo com sucesso');
         await fetchData();
         handleCloseBarModal();
+        alert(editingBar ? 'Estabelecimento atualizado com sucesso!' : 'Estabelecimento criado com sucesso!');
       } else {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || `Erro ${response.status}: ${response.statusText}`);
+        const errorText = await response.text();
+        console.error('❌ Erro do servidor:', errorText);
+        
+        let errorData: { error?: string; message?: string } = {};
+        try {
+          errorData = JSON.parse(errorText);
+        } catch (e) {
+          errorData = { error: errorText };
+        }
+        
+        const errorMessage = errorData.error || errorData.message || `Erro ${response.status}: ${response.statusText}`;
+        throw new Error(errorMessage);
       }
     } catch (err) {
-      console.error('Erro ao salvar estabelecimento:', err);
-      alert(`Erro ao salvar estabelecimento: ${err instanceof Error ? err.message : 'Erro desconhecido'}`);
+      console.error('❌ Erro ao salvar estabelecimento:', err);
+      
+      let errorMessage = 'Erro desconhecido';
+      if (err instanceof Error) {
+        if (err.name === 'TypeError' && err.message.includes('fetch')) {
+          errorMessage = 'Erro de conexão. Verifique sua internet e tente novamente.';
+        } else {
+          errorMessage = err.message;
+        }
+      }
+      
+      alert(`Erro ao salvar estabelecimento: ${errorMessage}`);
     }
   }, [editingBar, barForm, fetchData, handleCloseBarModal]);
 
   const handleSaveCategory = useCallback(async () => {
     try {
+      // Validar campos obrigatórios
+      if (!categoryForm.name.trim()) {
+        alert('Nome da categoria é obrigatório');
+        return;
+      }
+      
+      if (!categoryForm.barId) {
+        alert('Estabelecimento é obrigatório');
+        return;
+      }
+
       const url = editingCategory 
         ? `${API_BASE_URL}/categories/${editingCategory.id}`
         : `${API_BASE_URL}/categories`;
       
       const method = editingCategory ? 'PUT' : 'POST';
       
+      // Preparar dados para envio (sem sub-categorias que serão salvas separadamente)
+      const categoryData = {
+        name: categoryForm.name,
+        barId: categoryForm.barId,
+        order: parseInt(categoryForm.order.toString()) || 0
+      };
+      
+      console.log('🔄 Salvando categoria:', method, url, categoryData);
+      
       const response = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(categoryForm),
+        body: JSON.stringify(categoryData),
       });
 
+      console.log('📡 Resposta do servidor:', response.status, response.statusText);
+
       if (response.ok) {
+        const savedCategory = await response.json();
+        const categoryId = editingCategory ? editingCategory.id : savedCategory.id;
+        
+        // Sub-categorias são gerenciadas diretamente nos itens (campo subCategory)
+        if (categoryForm.subCategories.length > 0) {
+          console.log('ℹ️ Sub-categorias serão aplicadas automaticamente aos itens desta categoria');
+        }
+        
+        console.log('✅ Categoria e sub-categorias salvas com sucesso');
         await fetchData();
         handleCloseCategoryModal();
+        alert(editingCategory ? 'Categoria atualizada com sucesso!' : 'Categoria criada com sucesso!');
       } else {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || `Erro ${response.status}: ${response.statusText}`);
+        const errorText = await response.text();
+        console.error('❌ Erro do servidor:', errorText);
+        
+        let errorData: { error?: string; message?: string } = {};
+        try {
+          errorData = JSON.parse(errorText);
+        } catch (e) {
+          errorData = { error: errorText };
+        }
+        
+        const errorMessage = errorData.error || errorData.message || `Erro ${response.status}: ${response.statusText}`;
+        throw new Error(errorMessage);
       }
     } catch (err) {
-      console.error('Erro ao salvar categoria:', err);
-      alert(`Erro ao salvar categoria: ${err instanceof Error ? err.message : 'Erro desconhecido'}`);
+      console.error('❌ Erro ao salvar categoria:', err);
+      
+      let errorMessage = 'Erro desconhecido';
+      if (err instanceof Error) {
+        if (err.name === 'TypeError' && err.message.includes('fetch')) {
+          errorMessage = 'Erro de conexão. Verifique sua internet e tente novamente.';
+        } else {
+          errorMessage = err.message;
+        }
+      }
+      
+      alert(`Erro ao salvar categoria: ${errorMessage}`);
     }
   }, [editingCategory, categoryForm, fetchData, handleCloseCategoryModal]);
 
   const handleSaveItem = useCallback(async () => {
     try {
+      // Validar campos obrigatórios
+      if (!itemForm.name.trim()) {
+        alert('Nome do item é obrigatório');
+        return;
+      }
+      
+      if (!itemForm.price || parseFloat(itemForm.price) <= 0) {
+        alert('Preço deve ser maior que zero');
+        return;
+      }
+      
+      if (!itemForm.categoryId) {
+        alert('Categoria é obrigatória');
+        return;
+      }
+      
+      if (!itemForm.barId) {
+        alert('Estabelecimento é obrigatório');
+        return;
+      }
+
       const url = editingItem 
         ? `${API_BASE_URL}/items/${editingItem.id}`
         : `${API_BASE_URL}/items`;
       
       const method = editingItem ? 'PUT' : 'POST';
       
+      // Preparar dados para envio
+      const itemData = {
+        ...itemForm,
+        price: parseFloat(itemForm.price),
+        order: parseInt(itemForm.order.toString()) || 0
+      };
+      
+      console.log('🔄 Salvando item:', method, url, itemData);
+      
       const response = await fetch(url, {
         method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(itemForm),
+        headers: { 
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(itemData),
       });
 
+      console.log('📡 Resposta do servidor:', response.status, response.statusText);
+
       if (response.ok) {
+        console.log('✅ Item salvo com sucesso');
         await fetchData();
         handleCloseItemModal();
+        alert(editingItem ? 'Item atualizado com sucesso!' : 'Item criado com sucesso!');
       } else {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || `Erro ${response.status}: ${response.statusText}`);
+        const errorText = await response.text();
+        console.error('❌ Erro do servidor:', errorText);
+        
+        let errorData: { error?: string; message?: string } = {};
+        try {
+          errorData = JSON.parse(errorText);
+        } catch (e) {
+          errorData = { error: errorText };
+        }
+        
+        const errorMessage = errorData.error || errorData.message || `Erro ${response.status}: ${response.statusText}`;
+        throw new Error(errorMessage);
       }
     } catch (err) {
-      console.error('Erro ao salvar item:', err);
-      alert(`Erro ao salvar item: ${err instanceof Error ? err.message : 'Erro desconhecido'}`);
+      console.error('❌ Erro ao salvar item:', err);
+      
+      let errorMessage = 'Erro desconhecido';
+      if (err instanceof Error) {
+        if (err.name === 'TypeError' && err.message.includes('fetch')) {
+          errorMessage = 'Erro de conexão. Verifique sua internet e tente novamente.';
+        } else {
+          errorMessage = err.message;
+        }
+      }
+      
+      alert(`Erro ao salvar item: ${errorMessage}`);
     }
   }, [editingItem, itemForm, fetchData, handleCloseItemModal]);
 
@@ -375,13 +574,26 @@ export default function CardapioAdminPage() {
 
   const handleEditCategory = useCallback((category: MenuCategory) => {
     setEditingCategory(category);
+    
+    // Busca sub-categorias únicas dos itens desta categoria
+    const categorySubCategories = menuData.items
+      .filter(item => item.categoryId === category.id && item.subCategoryName && item.subCategoryName.trim() !== '')
+      .reduce((acc: any[], item) => {
+        const existing = acc.find(sub => sub.name === item.subCategoryName);
+        if (!existing) {
+          acc.push({ name: item.subCategoryName, order: 0 });
+        }
+        return acc;
+      }, []);
+    
     setCategoryForm({
       name: category.name,
       barId: category.barId?.toString() || '',
-      order: category.order
+      order: category.order,
+      subCategories: categorySubCategories
     });
     setShowCategoryModal(true);
-  }, []);
+  }, [menuData.items]);
 
   const handleEditItem = useCallback((item: MenuItem) => {
     setEditingItem(item);
@@ -392,9 +604,9 @@ export default function CardapioAdminPage() {
       imageUrl: item.imageUrl,
       categoryId: item.categoryId?.toString() || '',
       barId: item.barId?.toString() || '',
+      subCategory: item.subCategory || item.subCategoryName || '',
       toppings: item.toppings || [],
-      order: item.order,
-      subCategory: item.subCategory || '' // Adiciona a sub-categoria
+      order: item.order
     });
     setShowItemModal(true);
   }, []);
@@ -450,6 +662,17 @@ export default function CardapioAdminPage() {
   const handleImageUpload = useCallback(async (file: File, field: string) => {
     if (!file) return;
 
+    // Validar o arquivo antes de fazer upload
+    if (!file.type.startsWith('image/')) {
+      alert('Apenas imagens são permitidas');
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      alert('Arquivo muito grande. Máximo 5MB.');
+      return;
+    }
+
     const tempUrl = URL.createObjectURL(file);
 
     if (field === 'coverImages') {
@@ -461,6 +684,8 @@ export default function CardapioAdminPage() {
     }
 
     try {
+      console.log('🔄 Iniciando upload da imagem:', file.name);
+      
       const formData = new FormData();
       formData.append('image', file);
 
@@ -469,13 +694,18 @@ export default function CardapioAdminPage() {
         body: formData,
       });
 
+      console.log('📡 Resposta do upload:', response.status, response.statusText);
+
       if (!response.ok) {
-        throw new Error(`Erro no upload: ${response.status}`);
+        const errorData = await response.json().catch(() => ({}));
+        console.error('❌ Erro do servidor:', errorData);
+        throw new Error(errorData.error || `Erro no upload: ${response.status} - ${response.statusText}`);
       }
 
       const result = await response.json();
+      console.log('✅ Resultado do upload:', result);
 
-      if (result.success) {
+      if (result.success && result.filename) {
         const filename = result.filename;
         if (field === 'coverImages') {
           setBarForm(prev => {
@@ -491,12 +721,25 @@ export default function CardapioAdminPage() {
         setTimeout(() => {
           URL.revokeObjectURL(tempUrl);
         }, 1000);
+        
+        console.log('✅ Upload concluído com sucesso');
+        alert('Imagem carregada com sucesso!');
       } else {
-        throw new Error(result.error || 'Erro desconhecido no upload');
+        throw new Error(result.error || 'Resposta inválida do servidor');
       }
     } catch (error) {
       console.error('❌ Erro no upload:', error);
-      alert(`Erro no upload: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
+      
+      let errorMessage = 'Erro desconhecido';
+      if (error instanceof Error) {
+        if (error.name === 'TypeError' && error.message.includes('fetch')) {
+          errorMessage = 'Erro de conexão. Verifique sua internet e tente novamente.';
+        } else {
+          errorMessage = error.message;
+        }
+      }
+      
+      alert(`Erro no upload: ${errorMessage}`);
       
       URL.revokeObjectURL(tempUrl);
       if (field === 'coverImages') {
@@ -786,7 +1029,7 @@ export default function CardapioAdminPage() {
                           </p>
                           <div className="text-xs text-gray-500">
                             <p>{bar?.name} • {category?.name}</p>
-                            {item.subCategory && <p>Sub-categoria: {item.subCategory}</p>}
+                            {(item.subCategory || item.subCategoryName) && <p>Sub-categoria: {item.subCategory || item.subCategoryName}</p>}
                             {item.toppings?.length > 0 && (
                               <p>{item.toppings.length} adicionais</p>
                             )}
@@ -1023,6 +1266,68 @@ export default function CardapioAdminPage() {
               />
             </div>
 
+            {/* Sub-categorias */}
+            <div className="border-t pt-4">
+              <div className="flex items-center justify-between mb-3">
+                <label className="block text-sm font-medium text-gray-700">Sub-categorias</label>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCategoryForm(prev => ({
+                      ...prev,
+                      subCategories: [...prev.subCategories, { name: '', order: prev.subCategories.length }]
+                    }));
+                  }}
+                  className="px-3 py-1 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                >
+                  + Adicionar Sub-categoria
+                </button>
+              </div>
+
+              <div className="space-y-2 max-h-40 overflow-y-auto">
+                {categoryForm.subCategories.map((subCategory, index) => (
+                  <div key={index} className="flex gap-2">
+                    <input
+                      type="text"
+                      value={subCategory.name}
+                      onChange={(e) => {
+                        const newSubCategories = [...categoryForm.subCategories];
+                        newSubCategories[index] = { ...newSubCategories[index], name: e.target.value };
+                        setCategoryForm(prev => ({ ...prev, subCategories: newSubCategories }));
+                      }}
+                      placeholder="Nome da sub-categoria"
+                      className="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                    <input
+                      type="number"
+                      min="0"
+                      value={subCategory.order}
+                      onChange={(e) => {
+                        const newSubCategories = [...categoryForm.subCategories];
+                        newSubCategories[index] = { ...newSubCategories[index], order: parseInt(e.target.value) || 0 };
+                        setCategoryForm(prev => ({ ...prev, subCategories: newSubCategories }));
+                      }}
+                      placeholder="Ordem"
+                      className="w-20 px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const newSubCategories = categoryForm.subCategories.filter((_, i) => i !== index);
+                        setCategoryForm(prev => ({ ...prev, subCategories: newSubCategories }));
+                      }}
+                      className="px-2 py-2 text-red-600 hover:text-red-800"
+                    >
+                      <MdDelete className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+                {categoryForm.subCategories.length === 0 && (
+                  <p className="text-sm text-gray-500 italic">Nenhuma sub-categoria adicionada.</p>
+                )}
+              </div>
+            </div>
+
             <div className="flex justify-end gap-3 pt-4">
               <button
                 onClick={handleCloseCategoryModal}
@@ -1119,9 +1424,10 @@ export default function CardapioAdminPage() {
                   type="text"
                   value={itemForm.subCategory}
                   onChange={(e) => setItemForm(prev => ({ ...prev, subCategory: e.target.value }))}
-                  placeholder="Ex: Tradicionais, Especiais"
+                  placeholder="Ex: Hambúrgueres, Caipirinhas, Porções..."
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
+                <p className="text-xs text-gray-500 mt-1">Digite uma sub-categoria para organizar melhor seus itens</p>
               </div>
             </div>
 
