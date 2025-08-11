@@ -1,3 +1,8 @@
 node_modules
 .next/
 .codegpt
+.npm-cache/
+*.log
+.env.local
+.env.production
+.env.development
