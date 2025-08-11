@@ -32,24 +32,29 @@
 - **Solução**: Removido script inexistente
 - **Resultado**: Evita erros durante o build
 
-### 7. Problema com Sharp no Vercel ⚠️ **NOVO**
+### 7. Problema com Sharp no Vercel ⚠️ **RESOLVIDO**
 - **Problema**: Erro "Could not load the 'sharp' module using the linux-x64 runtime"
-- **Solução**: Instalado Sharp v0.33.0 e configurado para Linux
+- **Solução**: Instalado Sharp v0.33.0 e configurado corretamente
 - **Resultado**: Resolve problemas de otimização de imagens no Vercel
+
+### 8. Script Postinstall Problemático ⚠️ **RESOLVIDO**
+- **Problema**: Script `postinstall: "sharp"` causava erro "command not found"
+- **Solução**: Removido script postinstall problemático
+- **Resultado**: Evita erro durante instalação no Vercel
 
 ## Arquivos Modificados
 
 ### Configurações
-- `package.json` - Dependências limpas e otimizadas + Sharp
+- `package.json` - Dependências limpas e otimizadas + Sharp (sem postinstall)
 - `next.config.mjs` - Configuração Next.js otimizada para Vercel + imagens
 - `tsconfig.json` - TypeScript otimizado para Next.js 15
 - `tailwind.config.ts` - Tailwind CSS otimizado
 - `postcss.config.mjs` - PostCSS simplificado
 - `.eslintrc.json` - Regras ESLint otimizadas
-- `vercel.json` - Configuração específica para Vercel + Sharp
-- `vercel-simple.json` - Configuração alternativa mais simples
-- `.npmrc` - Configurações npm otimizadas
-- `vercel-build.sh` - Script de build personalizado para Vercel
+- `vercel.json` - Configuração principal simplificada
+- `vercel-simple.json` - Configuração alternativa
+- `vercel-minimal.json` - Configuração mínima (recomendada)
+- `.npmrc` - Configurações npm essenciais
 
 ### Código
 - `app/cardapio/[slug]/page.tsx` - Otimizado com useCallback e useMemo
@@ -66,12 +71,6 @@ npm install sharp@^0.33.0
 {
   "dependencies": {
     "sharp": "^0.33.0"
-  },
-  "optionalDependencies": {
-    "sharp": "^0.33.0"
-  },
-  "scripts": {
-    "postinstall": "sharp"
   }
 }
 ```
@@ -81,9 +80,7 @@ npm install sharp@^0.33.0
 {
   "build": {
     "env": {
-      "SHARP_IGNORE_GLOBAL_LIBVIPS": "1",
-      "npm_config_platform": "linux",
-      "npm_config_arch": "x64"
+      "SHARP_IGNORE_GLOBAL_LIBVIPS": "1"
     }
   }
 }
@@ -93,8 +90,61 @@ npm install sharp@^0.33.0
 ```ini
 legacy-peer-deps=true
 prefer-offline=true
-audit=false
-fund=false
+```
+
+## Configurações Vercel Recomendadas
+
+### 1. Configuração Mínima (Recomendada)
+```json
+{
+  "framework": "nextjs",
+  "regions": ["gru1"]
+}
+```
+
+### 2. Configuração Simples
+```json
+{
+  "buildCommand": "npm run build",
+  "outputDirectory": ".next",
+  "framework": "nextjs",
+  "installCommand": "npm install",
+  "devCommand": "npm run dev",
+  "regions": ["gru1"],
+  "env": {
+    "NODE_ENV": "production"
+  },
+  "build": {
+    "env": {
+      "SHARP_IGNORE_GLOBAL_LIBVIPS": "1"
+    }
+  }
+}
+```
+
+### 3. Configuração Completa
+```json
+{
+  "buildCommand": "npm run build",
+  "outputDirectory": ".next",
+  "framework": "nextjs",
+  "installCommand": "npm install",
+  "devCommand": "npm run dev",
+  "regions": ["gru1"],
+  "functions": {
+    "app/cardapio/[slug]/page.tsx": {
+      "maxDuration": 30
+    }
+  },
+  "env": {
+    "NODE_ENV": "production"
+  },
+  "build": {
+    "env": {
+      "SHARP_IGNORE_GLOBAL_LIBVIPS": "1"
+    }
+  }
+}
 ```
 
 ## Otimizações Implementadas
@@ -125,13 +175,14 @@ fund=false
 ✅ **Separação frontend/backend mantida**
 ✅ **Performance otimizada**
 ✅ **Problema do Sharp resolvido**
+✅ **Script postinstall removido**
 
 ## Próximos Passos
 
 1. **Deploy no Vercel**
    - Conectar repositório GitHub
-   - Usar configuração `vercel.json` ou `vercel-simple.json`
-   - Build deve funcionar sem problemas do Sharp
+   - **Usar `vercel-minimal.json` (recomendado)**
+   - Build deve funcionar sem problemas
 
 2. **Monitoramento**
    - Verificar logs de deploy
@@ -169,15 +220,15 @@ vamos-comemorar-next/
 ├── app/                    # Aplicação Next.js
 ├── components/            # Componentes React
 ├── public/               # Assets estáticos
-├── vercel.json           # Configuração Vercel (principal)
+├── vercel-minimal.json   # Configuração Vercel (RECOMENDADA)
+├── vercel.json           # Configuração Vercel (completa)
 ├── vercel-simple.json    # Configuração Vercel (alternativa)
-├── vercel-build.sh       # Script de build personalizado
 ├── next.config.mjs       # Configuração Next.js
 ├── package.json          # Dependências limpas + Sharp
 ├── tsconfig.json         # TypeScript otimizado
 ├── tailwind.config.ts    # Tailwind otimizado
 ├── postcss.config.mjs    # PostCSS simplificado
-├── .npmrc                # Configurações npm
+├── .npmrc                # Configurações npm essenciais
 └── .gitignore            # Arquivos ignorados
 ```
 
@@ -190,5 +241,8 @@ O projeto está completamente otimizado para deploy no Vercel com:
 - Performance otimizada
 - Segurança configurada
 - **Problema do Sharp resolvido**
+- **Script postinstall removido**
 
-O deploy deve funcionar perfeitamente no Vercel sem problemas de build, configuração ou Sharp.
+**Recomendação**: Use `vercel-minimal.json` para o deploy, pois é a configuração mais simples e confiável.
+
+O deploy deve funcionar perfeitamente no Vercel sem problemas de build, configuração, Sharp ou scripts.
