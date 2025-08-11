@@ -25,6 +25,12 @@ const config: Config = {
     },
   },
   plugins: [],
+  future: {
+    hoverOnlyWhenSupported: true,
+  },
+  corePlugins: {
+    preflight: true,
+  },
 };
 
 export default config;

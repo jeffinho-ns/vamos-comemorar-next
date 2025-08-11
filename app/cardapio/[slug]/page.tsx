@@ -1,9 +1,8 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { MdStar, MdLocationOn, MdArrowBack } from 'react-icons/md';
-import { IoChevronBack } from 'react-icons/io5';
 import Link from 'next/link';
 import Image from 'next/image';
 
@@ -25,8 +24,8 @@ interface MenuItem {
   imageUrl: string;
   categoryId: string | number;
   barId: string | number;
-  subCategoryId?: string | number; // ID da sub-categoria
-  subCategoryName?: string; // Nome da sub-categoria para exibição
+  subCategoryId?: string | number;
+  subCategoryName?: string;
   toppings: Topping[];
   order: number;
 }
@@ -39,7 +38,6 @@ interface MenuCategory {
   items: MenuItem[];
 }
 
-// Interface para dados vindos da API (antes do processamento)
 interface BarFromAPI {
   id: string | number;
   name: string;
@@ -47,7 +45,7 @@ interface BarFromAPI {
   description: string;
   logoUrl: string;
   coverImageUrl: string;
-  coverImages: string[] | string | null; // Permite string JSON, array ou null
+  coverImages: string[] | string | null;
   address: string;
   rating: number;
   reviewsCount: number;
@@ -56,7 +54,6 @@ interface BarFromAPI {
   longitude?: number;
 }
 
-// Interface para dados processados (após conversão)
 interface Bar {
   id: string | number;
   name: string;
@@ -64,7 +61,7 @@ interface Bar {
   description: string;
   logoUrl: string;
   coverImageUrl: string;
-  coverImages: string[]; // Sempre array após processamento
+  coverImages: string[];
   address: string;
   rating: number;
   reviewsCount: number;
@@ -95,18 +92,15 @@ const getValidImageUrl = (imageUrl?: string | null): string => {
     return PLACEHOLDER_IMAGE_URL;
   }
   
-  // Verifica se já é uma URL absoluta
   if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
     return imageUrl;
   }
   
-  // Se for apenas o nome do arquivo, constrói a URL completa
   return `https://grupoideiaum.com.br/cardapio-agilizaiapp/${imageUrl}`;
 };
 
 const groupItemsBySubcategory = (items: MenuItem[]): { name: string; items: MenuItem[] }[] => {
   const grouped = items.reduce((acc, item) => {
-    // Usa a sub-categoria definida no banco de dados ou 'Tradicional' como fallback
     const subCategoryName = item.subCategoryName && item.subCategoryName.trim() !== '' ? item.subCategoryName : 'Tradicional';
     if (!acc[subCategoryName]) {
       acc[subCategoryName] = [];
@@ -129,87 +123,84 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
   const [selectedCategory, setSelectedCategory] = useState<string>('');
   const [activeSubcategory, setActiveSubcategory] = useState<string>('');
 
-  useEffect(() => {
-    const fetchBarData = async () => {
+  const fetchBarData = useCallback(async () => {
+    try {
       const { slug } = await params;
-      if (slug) {
-        try {
-          const barsResponse = await fetch(`${API_BASE_URL}/bars`);
-          if (!barsResponse.ok) throw new Error('Erro ao carregar estabelecimentos');
-          const bars = await barsResponse.json();
-          const bar = bars.find((b: BarFromAPI) => b.slug === slug);
-          
-          if (!bar) {
-            setError('Estabelecimento não encontrado');
-            setIsLoading(false);
-            return;
+      if (!slug) return;
+
+      const barsResponse = await fetch(`${API_BASE_URL}/bars`);
+      if (!barsResponse.ok) throw new Error('Erro ao carregar estabelecimentos');
+      
+      const bars = await barsResponse.json();
+      const bar = bars.find((b: BarFromAPI) => b.slug === slug);
+      
+      if (!bar) {
+        setError('Estabelecimento não encontrado');
+        setIsLoading(false);
+        return;
+      }
+
+      let coverImages: string[] = [];
+      
+      if (bar.coverImages) {
+        if (typeof bar.coverImages === 'string') {
+          try {
+            const parsed = JSON.parse(bar.coverImages);
+            coverImages = Array.isArray(parsed) ? parsed : [];
+          } catch (e) {
+            coverImages = bar.coverImages.trim() ? [bar.coverImages] : [];
           }
-
-          // Processar coverImages que podem vir como string JSON do banco
-          let coverImages: string[] = [];
-          
-          if (bar.coverImages) {
-            if (typeof bar.coverImages === 'string') {
-              try {
-                // Se for string, tenta fazer parse do JSON
-                const parsed = JSON.parse(bar.coverImages);
-                coverImages = Array.isArray(parsed) ? parsed : [];
-              } catch (e) {
-                // Se falhar o parse, trata como string única
-                coverImages = bar.coverImages.trim() ? [bar.coverImages] : [];
-              }
-            } else if (Array.isArray(bar.coverImages)) {
-              // Se já for array, usa diretamente
-              coverImages = bar.coverImages;
-            }
-          }
-
-          const barWithImages: Bar = {
-            ...bar,
-            coverImages: coverImages.length > 0
-              ? coverImages.map((img: string) => getValidImageUrl(img))
-              : [getValidImageUrl(bar.coverImageUrl)]
-          };
-
-          setSelectedBar(barWithImages);
-
-          const [categoriesResponse, itemsResponse] = await Promise.all([
-            fetch(`${API_BASE_URL}/categories`),
-            fetch(`${API_BASE_URL}/items`)
-          ]);
-
-          if (!categoriesResponse.ok || !itemsResponse.ok) throw new Error('Erro ao carregar dados do cardápio');
-
-          const [categories, items] = await Promise.all([
-            categoriesResponse.json(),
-            itemsResponse.json()
-          ]);
-
-          const barCategories = categories.filter((cat: MenuCategory) => cat.barId === bar.id);
-          const barItems = items.filter((item: MenuItem) => item.barId === bar.id);
-
-          const groupedCategories = barCategories.map((category: MenuCategory) => ({
-            ...category,
-            subCategories: groupItemsBySubcategory(barItems.filter((item: MenuItem) => item.categoryId === category.id))
-          }));
-
-          setMenuCategories(groupedCategories);
-          
-          if (groupedCategories.length > 0) {
-            setSelectedCategory(groupedCategories[0].name);
-          }
-
-        } catch (err) {
-          console.error('Erro ao carregar dados:', err);
-          setError('Erro ao carregar dados do estabelecimento');
-        } finally {
-          setIsLoading(false);
+        } else if (Array.isArray(bar.coverImages)) {
+          coverImages = bar.coverImages;
         }
       }
-    };
 
-    fetchBarData();
+      const barWithImages: Bar = {
+        ...bar,
+        coverImages: coverImages.length > 0
+          ? coverImages.map((img: string) => getValidImageUrl(img))
+          : [getValidImageUrl(bar.coverImageUrl)]
+      };
+
+      setSelectedBar(barWithImages);
+
+      const [categoriesResponse, itemsResponse] = await Promise.all([
+        fetch(`${API_BASE_URL}/categories`),
+        fetch(`${API_BASE_URL}/items`)
+      ]);
+
+      if (!categoriesResponse.ok || !itemsResponse.ok) throw new Error('Erro ao carregar dados do cardápio');
+
+      const [categories, items] = await Promise.all([
+        categoriesResponse.json(),
+        itemsResponse.json()
+      ]);
+
+      const barCategories = categories.filter((cat: MenuCategory) => cat.barId === bar.id);
+      const barItems = items.filter((item: MenuItem) => item.barId === bar.id);
+
+      const groupedCategories = barCategories.map((category: MenuCategory) => ({
+        ...category,
+        subCategories: groupItemsBySubcategory(barItems.filter((item: MenuItem) => item.categoryId === category.id))
+      }));
+
+      setMenuCategories(groupedCategories);
+      
+      if (groupedCategories.length > 0) {
+        setSelectedCategory(groupedCategories[0].name);
+      }
+
+    } catch (err) {
+      console.error('Erro ao carregar dados:', err);
+      setError('Erro ao carregar dados do estabelecimento');
+    } finally {
+      setIsLoading(false);
+    }
   }, [params]);
+
+  useEffect(() => {
+    fetchBarData();
+  }, [fetchBarData]);
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -234,14 +225,19 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
     };
   }, [menuCategories, selectedCategory]);
 
-  const formatPrice = (price: number) => {
+  const formatPrice = useCallback((price: number) => {
     return new Intl.NumberFormat('pt-BR', {
       style: 'currency',
       currency: 'BRL',
     }).format(price);
-  };
+  }, []);
 
-  const MenuItemCard = ({ item }: { item: MenuItem }) => (
+  const currentCategory = useMemo(() => 
+    menuCategories.find(cat => cat.name === selectedCategory), 
+    [menuCategories, selectedCategory]
+  );
+
+  const MenuItemCard = useCallback(({ item }: { item: MenuItem }) => (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
@@ -288,7 +284,7 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
         )}
       </div>
     </motion.div>
-  );
+  ), [formatPrice]);
 
   if (isLoading) {
     return (
@@ -318,8 +314,6 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
       </div>
     );
   }
-
-  const currentCategory = menuCategories.find(cat => cat.name === selectedCategory);
 
   return (
     <div className="cardapio-page min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
@@ -364,7 +358,6 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
           </div>
         </div>
 
-        {/* Menu de categorias principal */}
         {menuCategories.length > 0 && (
           <div className="mb-8 sticky top-0 z-20 bg-gradient-to-br from-gray-50 to-gray-100 pb-2">
             <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
@@ -385,7 +378,6 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
           </div>
         )}
 
-        {/* Itens do menu com sub-categorias e menu pegajoso */}
         <AnimatePresence mode="wait">
           {currentCategory && (
             <motion.div
@@ -399,7 +391,6 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
                 {selectedCategory}
               </h2>
 
-              {/* Sub-menu pegajoso para as sub-categorias */}
               <div className="sticky top-20 z-10 bg-gradient-to-br from-gray-50 to-gray-100 pb-4 pt-2 -mt-4">
                 <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
                   {currentCategory.subCategories.map((subcat) => (
@@ -418,7 +409,6 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
                 </div>
               </div>
 
-              {/* Listagem dos itens agrupados por sub-categoria */}
               {currentCategory.subCategories.map((subcat) => (
                 <div
                   key={subcat.name}
