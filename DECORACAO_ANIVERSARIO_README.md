@@ -219,3 +219,4 @@ Para dúvidas ou problemas:
 - Confirmar conectividade com a API
 - Validar dados enviados no formato correto
 - Testar em diferentes dispositivos e navegadores
+

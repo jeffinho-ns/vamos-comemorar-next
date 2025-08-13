@@ -1,9 +1,9 @@
 // cardapio/[slug]/page.tsx
 'use client';
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, use } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MdStar, MdLocationOn, MdArrowBack } from 'react-icons/md';
+import { MdStar, MdLocationOn, MdArrowBack, MdClose } from 'react-icons/md';
 import Link from 'next/link';
 import Image from 'next/image';
 
@@ -11,7 +11,7 @@ import ImageSlider from '../../components/ImageSlider/ImageSlider';
 import { scrollToSection } from '../../utils/scrollToSection';
 
 // Importe a imagem do banner
-import bannerRegua from '../../assets/banner-regua.jpg'; // Ajuste o caminho conforme a sua estrutura de pastas
+import bannerRegua from '../../assets/banner-regua.jpg';
 
 // Interfaces
 interface Topping {
@@ -56,6 +56,7 @@ interface BarFromAPI {
   amenities: string[];
   latitude?: number;
   longitude?: number;
+  popupImageUrl?: string;
 }
 
 interface Bar {
@@ -72,6 +73,7 @@ interface Bar {
   amenities: string[];
   latitude?: number;
   longitude?: number;
+  popupImageUrl?: string;
 }
 
 interface GroupedCategory {
@@ -84,7 +86,7 @@ interface GroupedCategory {
 }
 
 interface CardapioBarPageProps {
-  params: { slug: string };
+  params: Promise<{ slug: string }>;
 }
 
 const API_BASE_URL = 'https://vamos-comemorar-api.onrender.com/api/cardapio';
@@ -96,10 +98,19 @@ const getValidImageUrl = (filename?: string | null): string => {
   if (typeof filename !== 'string' || filename.trim() === '') {
     return PLACEHOLDER_IMAGE_URL;
   }
+  
   if (filename.startsWith('http://') || filename.startsWith('https://')) {
     return filename;
   }
-  return `${BASE_IMAGE_URL}${filename}`;
+  
+  const fullUrl = `${BASE_IMAGE_URL}${filename}`;
+  
+  try {
+    new URL(fullUrl);
+    return fullUrl;
+  } catch (e) {
+    return PLACEHOLDER_IMAGE_URL;
+  }
 };
 
 const groupItemsBySubcategory = (items: MenuItem[]): { name: string; items: MenuItem[] }[] => {
@@ -119,17 +130,24 @@ const groupItemsBySubcategory = (items: MenuItem[]): { name: string; items: Menu
 };
 
 export default function CardapioBarPage({ params }: CardapioBarPageProps) {
+  // Use React.use() para extrair o valor de params
+  const resolvedParams = use(params);
+  const { slug } = resolvedParams;
+
   const [selectedBar, setSelectedBar] = useState<Bar | null>(null);
   const [menuCategories, setMenuCategories] = useState<GroupedCategory[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string>('');
   const [activeSubcategory, setActiveSubcategory] = useState<string>('');
+  const [showPopup, setShowPopup] = useState(false);
+
+  const handleClosePopup = () => {
+    setShowPopup(false);
+  };
   
   const fetchBarData = useCallback(async () => {
     try {
-      const resolvedParams = await params;
-      const { slug } = resolvedParams;
       if (!slug) return;
 
       const barsResponse = await fetch(`${API_BASE_URL}/bars`);
@@ -162,7 +180,8 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
         ...bar,
         logoUrl: getValidImageUrl(bar.logoUrl),
         coverImageUrl: getValidImageUrl(bar.coverImageUrl),
-        coverImages: coverImages.length > 0 ? coverImages : [getValidImageUrl(bar.coverImageUrl)]
+        coverImages: coverImages.length > 0 ? coverImages : [getValidImageUrl(bar.coverImageUrl)],
+        popupImageUrl: bar.popupImageUrl
       };
       
       setSelectedBar(barWithImages);
@@ -199,11 +218,24 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
     } finally {
       setIsLoading(false);
     }
-  }, [params]);
+  }, [slug]);
 
   useEffect(() => {
     fetchBarData();
   }, [fetchBarData]);
+
+  useEffect(() => {
+    if (selectedBar && selectedBar.popupImageUrl && selectedBar.popupImageUrl.trim() !== '') {
+      const timer = setTimeout(() => {
+        setShowPopup(true);
+      }, 2000); // Exibe o popup após 2 segundos
+      
+      return () => clearTimeout(timer);
+    }
+    
+    // Retorna uma função vazia quando a condição é falsa
+    return undefined; 
+  }, [selectedBar]);
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -393,7 +425,6 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
               transition={{ duration: 0.3 }}
             >
               
-              {/* O Banner está no fluxo normal do documento, abaixo do header do bar */}
               <div className="w-full relative mb-8 z-10">
                 <Link href="/decoracao-aniversario">
                 <Image
@@ -451,6 +482,74 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
           )}
         </AnimatePresence>
       </div>
+      
+
+
+      {/* O Modal do Popup */}
+      <AnimatePresence>
+        {showPopup && selectedBar?.popupImageUrl && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4"
+            onClick={handleClosePopup}
+          >
+            <motion.div
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.8, opacity: 0 }}
+              className="relative bg-white rounded-lg shadow-2xl p-4 max-w-2xl w-full"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <button
+                onClick={handleClosePopup}
+                className="absolute top-2 right-2 text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <MdClose className="w-6 h-6" />
+              </button>
+              <div className="text-center">
+                <Image
+                  src={getValidImageUrl(selectedBar.popupImageUrl)}
+                  alt="Popup de Propaganda"
+                  width={600}
+                  height={400}
+                  className="w-full h-auto rounded-lg"
+                  priority
+                />
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+      
+      <style jsx>{`
+        .line-clamp-1 {
+          overflow: hidden;
+          display: -webkit-box;
+          -webkit-box-orient: vertical;
+          -webkit-line-clamp: 1;
+        }
+        .line-clamp-2 {
+          overflow: hidden;
+          display: -webkit-box;
+          -webkit-box-orient: vertical;
+          -webkit-line-clamp: 2;
+        }
+        .line-clamp-3 {
+          overflow: hidden;
+          display: -webkit-box;
+          -webkit-box-orient: vertical;
+          -webkit-line-clamp: 3;
+        }
+        .scrollbar-hide {
+          -ms-overflow-style: none;
+          scrollbar-width: none;
+        }
+        .scrollbar-hide::-webkit-scrollbar {
+          display: none;
+        }
+      `}</style>
     </div>
   );
 }

@@ -18,3 +18,4 @@ npm run build
 
 echo "✅ Build concluído com sucesso!"
 
+

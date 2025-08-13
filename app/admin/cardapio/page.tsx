@@ -60,6 +60,7 @@ interface BarForm {
   amenities: string[];
   latitude: string;
   longitude: string;
+  popupImageUrl: string; // ✨ Adicionado
 }
 
 interface MenuItem {
@@ -99,6 +100,7 @@ interface Bar {
   amenities: string[];
   latitude?: number;
   longitude?: number;
+  popupImageUrl?: string; // ✨ Adicionado
 }
 
 const API_BASE_URL = 'https://vamos-comemorar-api.onrender.com/api/cardapio';
@@ -141,8 +143,9 @@ export default function CardapioAdminPage() {
 
   const [barForm, setBarForm] = useState<BarForm>({
     name: '', slug: '', description: '', logoUrl: '', coverImageUrl: '',
-    coverImages: [], // Inicializa com array vazio
-    address: '', rating: '', reviewsCount: '', amenities: [], latitude: '', longitude: ''
+    coverImages: [],
+    address: '', rating: '', reviewsCount: '', amenities: [], latitude: '', longitude: '',
+    popupImageUrl: ''
   });
 
   const [categoryForm, setCategoryForm] = useState<MenuCategoryForm>({
@@ -155,90 +158,92 @@ export default function CardapioAdminPage() {
 
   const [newTopping, setNewTopping] = useState({ name: '', price: '' });
 
-  const fetchData = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const [barsRes, categoriesRes, itemsRes] = await Promise.all([
-        fetch(`${API_BASE_URL}/bars`),
-        fetch(`${API_BASE_URL}/categories`),
-        fetch(`${API_BASE_URL}/items`)
-      ]);
-      
-      if (!barsRes.ok || !categoriesRes.ok || !itemsRes.ok) {
-        throw new Error('Erro ao carregar dados da API');
-      }
-
-      const [bars, categories, items] = await Promise.all([
-        barsRes.json(),
-        categoriesRes.json(),
-        itemsRes.json()
-      ]);
-
-      // Extrai sub-categorias únicas dos itens existentes
-      const subCategories = items.reduce((acc: any[], item: any) => {
-        if (item.subCategoryName && item.subCategoryName.trim() !== '') {
-          const existing = acc.find(sub => 
-            sub.name === item.subCategoryName && 
-            sub.categoryId === item.categoryId && 
-            sub.barId === item.barId
-          );
-          if (!existing) {
-            acc.push({
-              id: `${item.categoryId}-${item.barId}-${item.subCategoryName}`,
-              name: item.subCategoryName,
-              categoryId: item.categoryId,
-              barId: item.barId,
-              order: 0
-            });
-          }
-        }
-        return acc;
-      }, []);
-
-      const barsData = Array.isArray(bars) ? bars.map(bar => {
-        const cleanedBar = {
-          ...bar,
-          logoUrl: bar.logoUrl?.includes(BASE_IMAGE_URL) 
-            ? bar.logoUrl.split('/').pop() 
-            : bar.logoUrl,
-          coverImageUrl: bar.coverImageUrl?.includes(BASE_IMAGE_URL) 
-            ? bar.coverImageUrl.split('/').pop() 
-            : bar.coverImageUrl,
-          coverImages: Array.isArray(bar.coverImages) 
-            ? bar.coverImages.map((url: string) => url.includes(BASE_IMAGE_URL) 
-              ? url.split('/').pop() || '' : url)
-            : []
-        };
-        return cleanedBar;
-      }) : [];
-      
-      const categoriesData = Array.isArray(categories) ? categories : [];
-      const subCategoriesData = Array.isArray(subCategories) ? subCategories : [];
-      const itemsData = Array.isArray(items) ? items.map(item => {
-        const cleanedItem = {
-          ...item,
-          imageUrl: item.imageUrl?.includes(BASE_IMAGE_URL) 
-            ? item.imageUrl.split('/').pop() 
-            : item.imageUrl
-        };
-        return cleanedItem;
-      }) : [];
-
-      setMenuData({
-        bars: barsData,
-        categories: categoriesData,
-        subCategories: subCategoriesData,
-        items: itemsData
-      });
-
-    } catch (err) {
-      console.error("Erro ao carregar dados:", err);
-      setError("Falha ao carregar os dados. Tente novamente mais tarde.");
-    } finally {
-      setLoading(false);
+const fetchData = useCallback(async () => {
+  setLoading(true);
+  setError(null);
+  try {
+    const [barsRes, categoriesRes, itemsRes] = await Promise.all([
+      fetch(`${API_BASE_URL}/bars`),
+      fetch(`${API_BASE_URL}/categories`),
+      fetch(`${API_BASE_URL}/items`)
+    ]);
+    
+    if (!barsRes.ok || !categoriesRes.ok || !itemsRes.ok) {
+      throw new Error('Erro ao carregar dados da API');
     }
-  }, []);
+
+    const [bars, categories, items] = await Promise.all([
+      barsRes.json(),
+      categoriesRes.json(),
+      itemsRes.json()
+    ]);
+
+    const subCategories = items.reduce((acc: any[], item: any) => {
+      if (item.subCategoryName && item.subCategoryName.trim() !== '') {
+        const existing = acc.find(sub => 
+          sub.name === item.subCategoryName && 
+          sub.categoryId === item.categoryId && 
+          sub.barId === item.barId
+        );
+        if (!existing) {
+          acc.push({
+            id: `${item.categoryId}-${item.barId}-${item.subCategoryName}`,
+            name: item.subCategoryName,
+            categoryId: item.categoryId,
+            barId: item.barId,
+            order: 0
+          });
+        }
+      }
+      return acc;
+    }, []);
+
+    const barsData = Array.isArray(bars) ? bars.map(bar => {
+      const cleanedBar = {
+        ...bar,
+        logoUrl: bar.logoUrl?.includes(BASE_IMAGE_URL) 
+          ? bar.logoUrl.split('/').pop() 
+          : bar.logoUrl,
+        coverImageUrl: bar.coverImageUrl?.includes(BASE_IMAGE_URL) 
+          ? bar.coverImageUrl.split('/').pop() 
+          : bar.coverImageUrl,
+        coverImages: Array.isArray(bar.coverImages) 
+          ? bar.coverImages.map((url: string) => url.includes(BASE_IMAGE_URL) 
+            ? url.split('/').pop() || '' : url)
+          : [],
+        popupImageUrl: bar.popupImageUrl?.includes(BASE_IMAGE_URL) 
+          ? bar.popupImageUrl.split('/').pop() // ✨ AQUI está o ajuste
+          : bar.popupImageUrl,
+      };
+      return cleanedBar;
+    }) : [];
+    
+    const categoriesData = Array.isArray(categories) ? categories : [];
+    const subCategoriesData = Array.isArray(subCategories) ? subCategories : [];
+    const itemsData = Array.isArray(items) ? items.map(item => {
+      const cleanedItem = {
+        ...item,
+        imageUrl: item.imageUrl?.includes(BASE_IMAGE_URL) 
+          ? item.imageUrl.split('/').pop() 
+          : item.imageUrl
+      };
+      return cleanedItem;
+    }) : [];
+
+    setMenuData({
+      bars: barsData,
+      categories: categoriesData,
+      subCategories: subCategoriesData,
+      items: itemsData
+    });
+
+  } catch (err) {
+    console.error("Erro ao carregar dados:", err);
+    setError("Falha ao carregar os dados. Tente novamente mais tarde.");
+  } finally {
+    setLoading(false);
+  }
+}, []);
 
   useEffect(() => {
     fetchData();
@@ -278,8 +283,9 @@ export default function CardapioAdminPage() {
     setEditingBar(null);
     setBarForm({
       name: '', slug: '', description: '', logoUrl: '', coverImageUrl: '',
-      coverImages: [], // Limpa a lista de imagens
-      address: '', rating: '', reviewsCount: '', amenities: [], latitude: '', longitude: ''
+      coverImages: [],
+      address: '', rating: '', reviewsCount: '', amenities: [], latitude: '', longitude: '',
+      popupImageUrl: ''
     });
   }, []);
 
@@ -336,7 +342,7 @@ export default function CardapioAdminPage() {
 
       if (response.ok) {
         console.log('✅ Estabelecimento salvo com sucesso');
-        await fetchData();
+        await fetchData(); // Atualiza os dados após o salvamento
         handleCloseBarModal();
         alert(editingBar ? 'Estabelecimento atualizado com sucesso!' : 'Estabelecimento criado com sucesso!');
       } else {
@@ -534,13 +540,14 @@ export default function CardapioAdminPage() {
       description: bar.description,
       logoUrl: bar.logoUrl || '',
       coverImageUrl: bar.coverImageUrl || '',
-      coverImages: bar.coverImages || [], // Adiciona a lista de imagens
+      coverImages: bar.coverImages || [],
       address: bar.address,
       rating: bar.rating?.toString() || '',
       reviewsCount: bar.reviewsCount?.toString() || '',
       amenities: bar.amenities || [],
       latitude: bar.latitude?.toString() || '',
-      longitude: bar.longitude?.toString() || ''
+      longitude: bar.longitude?.toString() || '',
+      popupImageUrl: bar.popupImageUrl || ''
     });
     setShowBarModal(true);
   }, []);
@@ -648,7 +655,7 @@ export default function CardapioAdminPage() {
 
     if (field === 'coverImages') {
       setBarForm(prev => ({ ...prev, coverImages: [...prev.coverImages, tempUrl] }));
-    } else if (field === 'logoUrl' || field === 'coverImageUrl') {
+    } else if (field === 'logoUrl' || field === 'coverImageUrl' || field === 'popupImageUrl') {
       setBarForm(prev => ({ ...prev, [field]: tempUrl }));
     } else {
       setItemForm(prev => ({ ...prev, imageUrl: tempUrl }));
@@ -683,7 +690,7 @@ export default function CardapioAdminPage() {
             const updatedImages = prev.coverImages.map(url => url === tempUrl ? filename : url);
             return { ...prev, coverImages: updatedImages };
           });
-        } else if (field === 'logoUrl' || field === 'coverImageUrl') {
+        } else if (field === 'logoUrl' || field === 'coverImageUrl' || field === 'popupImageUrl') {
           setBarForm(prev => ({ ...prev, [field]: filename }));
         } else {
           setItemForm(prev => ({ ...prev, imageUrl: filename }));
@@ -715,7 +722,7 @@ export default function CardapioAdminPage() {
       URL.revokeObjectURL(tempUrl);
       if (field === 'coverImages') {
         setBarForm(prev => ({ ...prev, coverImages: prev.coverImages.filter(url => url !== tempUrl) }));
-      } else if (field === 'logoUrl' || field === 'coverImageUrl') {
+      } else if (field === 'logoUrl' || field === 'coverImageUrl' || field === 'popupImageUrl') {
         setBarForm(prev => ({ ...prev, [field]: '' }));
       } else {
         setItemForm(prev => ({ ...prev, imageUrl: '' }));
@@ -1122,6 +1129,39 @@ export default function CardapioAdminPage() {
               </div>
             </div>
 
+            {/* ✨ Campo de Upload para a Imagem do Popup */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Imagem do Popup</label>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={barForm.popupImageUrl}
+                  onChange={(e) => setBarForm(prev => ({ ...prev, popupImageUrl: e.target.value }))}
+                  placeholder="Nome do arquivo (ex: popup.jpg)"
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <button
+                  onClick={() => selectImageFile('popupImageUrl')}
+                  className="px-3 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 flex items-center gap-1"
+                >
+                  <MdUpload className="w-4 h-4" />
+                </button>
+              </div>
+              {barForm.popupImageUrl && barForm.popupImageUrl.trim() !== '' && (
+                <div className="mt-2">
+                  <Image
+                    src={getValidImageUrl(barForm.popupImageUrl)}
+                    alt="Preview do popup"
+                    width={200}
+                    height={150}
+                    className="rounded-lg object-contain border"
+                    unoptimized={barForm.popupImageUrl.startsWith('blob:')}
+                    priority={true}
+                  />
+                </div>
+              )}
+            </div>
+            
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Endereço</label>
               <input
