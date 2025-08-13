@@ -103,6 +103,7 @@ interface Bar {
 
 const API_BASE_URL = 'https://vamos-comemorar-api.onrender.com/api/cardapio';
 const API_UPLOAD_URL = 'https://vamos-comemorar-api.onrender.com/api/images/upload';
+
 const PLACEHOLDER_IMAGE_URL = 'https://placehold.co/400x300';
 
 const getValidImageUrl = (imageUrl: string): string => {
@@ -659,6 +660,7 @@ export default function CardapioAdminPage() {
     }
   }, [fetchData]);
 
+  
   const handleImageUpload = useCallback(async (file: File, field: string) => {
     if (!file) return;
 
@@ -689,7 +691,7 @@ export default function CardapioAdminPage() {
       const formData = new FormData();
       formData.append('image', file);
 
-      const response = await fetch('/api/images', {
+      const response = await fetch(API_UPLOAD_URL, {
         method: 'POST',
         body: formData,
       });
