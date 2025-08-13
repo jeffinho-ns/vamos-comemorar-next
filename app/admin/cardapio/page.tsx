@@ -105,37 +105,16 @@ const API_BASE_URL = 'https://vamos-comemorar-api.onrender.com/api/cardapio';
 const API_UPLOAD_URL = 'https://vamos-comemorar-api.onrender.com/api/images/upload';
 
 const PLACEHOLDER_IMAGE_URL = 'https://placehold.co/400x300';
+const BASE_IMAGE_URL = 'https://grupoideiaum.com.br/cardapio-agilizaiapp/';
 
-const getValidImageUrl = (imageUrl: string): string => {
-  if (!imageUrl || imageUrl.trim() === '') {
+const getValidImageUrl = (filename: string): string => {
+  if (!filename || filename.trim() === '' || filename.startsWith('blob:')) {
     return PLACEHOLDER_IMAGE_URL;
   }
-  
-  if (imageUrl.startsWith('blob:')) {
-    return imageUrl;
+  if (filename.startsWith('http://') || filename.startsWith('https://')) {
+    return filename;
   }
-  
-  if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
-    if (imageUrl.includes('www.grupoideiaum.com.br')) {
-      const normalizedUrl = imageUrl.replace('www.grupoideiaum.com.br', 'grupoideiaum.com.br');
-      return normalizedUrl;
-    }
-    return imageUrl;
-  }
-  
-  // Verificar se é uma imagem local (upload feito localmente)
-  if (imageUrl.startsWith('upload-')) {
-    return `/images/${imageUrl}`;
-  }
-  
-  const cleanFilename = imageUrl.replace(/^\/images\//, '');
-  
-  // Se ainda não começar com upload-, assumir que é do servidor externo
-  if (!cleanFilename.startsWith('upload-')) {
-    return `https://grupoideiaum.com.br/cardapio-agilizaiapp/${cleanFilename}`;
-  }
-  
-  return `/images/${cleanFilename}`;
+  return `${BASE_IMAGE_URL}${filename}`;
 };
 
 export default function CardapioAdminPage() {
@@ -220,15 +199,15 @@ export default function CardapioAdminPage() {
       const barsData = Array.isArray(bars) ? bars.map(bar => {
         const cleanedBar = {
           ...bar,
-          logoUrl: bar.logoUrl?.includes('grupoideiaum.com.br') 
+          logoUrl: bar.logoUrl?.includes(BASE_IMAGE_URL) 
             ? bar.logoUrl.split('/').pop() 
             : bar.logoUrl,
-          coverImageUrl: bar.coverImageUrl?.includes('grupoideiaum.com.br') 
+          coverImageUrl: bar.coverImageUrl?.includes(BASE_IMAGE_URL) 
             ? bar.coverImageUrl.split('/').pop() 
             : bar.coverImageUrl,
           coverImages: Array.isArray(bar.coverImages) 
-            ? bar.coverImages.map((url: string) => url.includes('grupoideiaum.com.br') 
-              ? url.split('/').pop() : url)
+            ? bar.coverImages.map((url: string) => url.includes(BASE_IMAGE_URL) 
+              ? url.split('/').pop() || '' : url)
             : []
         };
         return cleanedBar;
@@ -239,7 +218,7 @@ export default function CardapioAdminPage() {
       const itemsData = Array.isArray(items) ? items.map(item => {
         const cleanedItem = {
           ...item,
-          imageUrl: item.imageUrl?.includes('grupoideiaum.com.br') 
+          imageUrl: item.imageUrl?.includes(BASE_IMAGE_URL) 
             ? item.imageUrl.split('/').pop() 
             : item.imageUrl
         };
@@ -321,7 +300,6 @@ export default function CardapioAdminPage() {
 
   const handleSaveBar = useCallback(async () => {
     try {
-      // Validar campos obrigatórios
       if (!barForm.name.trim()) {
         alert('Nome do estabelecimento é obrigatório');
         return;
@@ -338,7 +316,6 @@ export default function CardapioAdminPage() {
       
       const method = editingBar ? 'PUT' : 'POST';
       
-      // Preparar dados para envio
       const barData = {
         ...barForm,
         rating: barForm.rating ? parseFloat(barForm.rating) : 0,
@@ -394,7 +371,6 @@ export default function CardapioAdminPage() {
 
   const handleSaveCategory = useCallback(async () => {
     try {
-      // Validar campos obrigatórios
       if (!categoryForm.name.trim()) {
         alert('Nome da categoria é obrigatório');
         return;
@@ -411,7 +387,6 @@ export default function CardapioAdminPage() {
       
       const method = editingCategory ? 'PUT' : 'POST';
       
-      // Preparar dados para envio (sem sub-categorias que serão salvas separadamente)
       const categoryData = {
         name: categoryForm.name,
         barId: categoryForm.barId,
@@ -432,7 +407,6 @@ export default function CardapioAdminPage() {
         const savedCategory = await response.json();
         const categoryId = editingCategory ? editingCategory.id : savedCategory.id;
         
-        // Sub-categorias são gerenciadas diretamente nos itens (campo subCategory)
         if (categoryForm.subCategories.length > 0) {
           console.log('ℹ️ Sub-categorias serão aplicadas automaticamente aos itens desta categoria');
         }
@@ -473,7 +447,6 @@ export default function CardapioAdminPage() {
 
   const handleSaveItem = useCallback(async () => {
     try {
-      // Validar campos obrigatórios
       if (!itemForm.name.trim()) {
         alert('Nome do item é obrigatório');
         return;
@@ -500,7 +473,6 @@ export default function CardapioAdminPage() {
       
       const method = editingItem ? 'PUT' : 'POST';
       
-      // Preparar dados para envio
       const itemData = {
         ...itemForm,
         price: parseFloat(itemForm.price),
@@ -576,7 +548,6 @@ export default function CardapioAdminPage() {
   const handleEditCategory = useCallback((category: MenuCategory) => {
     setEditingCategory(category);
     
-    // Busca sub-categorias únicas dos itens desta categoria
     const categorySubCategories = menuData.items
       .filter(item => item.categoryId === category.id && item.subCategoryName && item.subCategoryName.trim() !== '')
       .reduce((acc: any[], item) => {
@@ -660,11 +631,9 @@ export default function CardapioAdminPage() {
     }
   }, [fetchData]);
 
-  
   const handleImageUpload = useCallback(async (file: File, field: string) => {
     if (!file) return;
 
-    // Validar o arquivo antes de fazer upload
     if (!file.type.startsWith('image/')) {
       alert('Apenas imagens são permitidas');
       return;

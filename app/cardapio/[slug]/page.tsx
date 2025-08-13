@@ -1,3 +1,4 @@
+// cardapio/[slug]/page.tsx
 'use client';
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
@@ -8,6 +9,9 @@ import Image from 'next/image';
 
 import ImageSlider from '../../components/ImageSlider/ImageSlider';
 import { scrollToSection } from '../../utils/scrollToSection';
+
+// Importe a imagem do banner
+import bannerRegua from '../../assets/banner-regua.jpg'; // Ajuste o caminho conforme a sua estrutura de pastas
 
 // Interfaces
 interface Topping {
@@ -80,23 +84,22 @@ interface GroupedCategory {
 }
 
 interface CardapioBarPageProps {
-  params: Promise<{ slug: string }>
+  params: { slug: string };
 }
 
 const API_BASE_URL = 'https://vamos-comemorar-api.onrender.com/api/cardapio';
+const BASE_IMAGE_URL = 'https://grupoideiaum.com.br/cardapio-agilizaiapp/';
 const PLACEHOLDER_IMAGE_URL = 'https://images.unsplash.com/photo-1504674900240-9c9c0c1d0b1a?w=400&h=300&fit=crop';
 const PLACEHOLDER_LOGO_URL = 'https://via.placeholder.com/150';
 
-const getValidImageUrl = (imageUrl?: string | null): string => {
-  if (typeof imageUrl !== 'string' || imageUrl.trim() === '') {
+const getValidImageUrl = (filename?: string | null): string => {
+  if (typeof filename !== 'string' || filename.trim() === '') {
     return PLACEHOLDER_IMAGE_URL;
   }
-  
-  if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
-    return imageUrl;
+  if (filename.startsWith('http://') || filename.startsWith('https://')) {
+    return filename;
   }
-  
-  return `https://grupoideiaum.com.br/cardapio-agilizaiapp/${imageUrl}`;
+  return `${BASE_IMAGE_URL}${filename}`;
 };
 
 const groupItemsBySubcategory = (items: MenuItem[]): { name: string; items: MenuItem[] }[] => {
@@ -122,10 +125,11 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
   const [error, setError] = useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string>('');
   const [activeSubcategory, setActiveSubcategory] = useState<string>('');
-
+  
   const fetchBarData = useCallback(async () => {
     try {
-      const { slug } = await params;
+      const resolvedParams = await params;
+      const { slug } = resolvedParams;
       if (!slug) return;
 
       const barsResponse = await fetch(`${API_BASE_URL}/bars`);
@@ -139,29 +143,28 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
         setIsLoading(false);
         return;
       }
-
-      let coverImages: string[] = [];
       
-      if (bar.coverImages) {
-        if (typeof bar.coverImages === 'string') {
-          try {
-            const parsed = JSON.parse(bar.coverImages);
-            coverImages = Array.isArray(parsed) ? parsed : [];
-          } catch (e) {
-            coverImages = bar.coverImages.trim() ? [bar.coverImages] : [];
+      let coverImages: string[] = [];
+      if (bar.coverImages && typeof bar.coverImages === 'string') {
+        try {
+          const parsed = JSON.parse(bar.coverImages);
+          if (Array.isArray(parsed)) {
+            coverImages = parsed.map((img: string) => getValidImageUrl(img));
           }
-        } else if (Array.isArray(bar.coverImages)) {
-          coverImages = bar.coverImages;
+        } catch (e) {
+          coverImages = bar.coverImages.trim() ? [getValidImageUrl(bar.coverImages)] : [];
         }
+      } else if (Array.isArray(bar.coverImages)) {
+        coverImages = bar.coverImages.map((img: string) => getValidImageUrl(img));
       }
 
       const barWithImages: Bar = {
         ...bar,
-        coverImages: coverImages.length > 0
-          ? coverImages.map((img: string) => getValidImageUrl(img))
-          : [getValidImageUrl(bar.coverImageUrl)]
+        logoUrl: getValidImageUrl(bar.logoUrl),
+        coverImageUrl: getValidImageUrl(bar.coverImageUrl),
+        coverImages: coverImages.length > 0 ? coverImages : [getValidImageUrl(bar.coverImageUrl)]
       };
-
+      
       setSelectedBar(barWithImages);
 
       const [categoriesResponse, itemsResponse] = await Promise.all([
@@ -314,7 +317,7 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
       </div>
     );
   }
-
+  
   return (
     <div className="cardapio-page min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -359,25 +362,27 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
         </div>
 
         {menuCategories.length > 0 && (
-          <div className="mb-8 sticky top-0 z-20 bg-gradient-to-br from-gray-50 to-gray-100 pb-2">
-            <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
-              {menuCategories.map((category) => (
-                <button
-                  key={category.id}
-                  onClick={() => setSelectedCategory(category.name)}
-                  className={`category-tab px-6 py-3 rounded-full font-medium whitespace-nowrap transition-all duration-200 ${
-                    selectedCategory === category.name
-                      ? 'active bg-blue-600 text-white shadow-lg'
-                      : 'bg-white text-gray-700 hover:bg-gray-50 shadow-md'
-                  }`}
-                >
-                  {category.name}
-                </button>
-              ))}
+          <div className="sticky top-0 z-20 bg-gradient-to-br from-gray-50 to-gray-100">
+            <div className="pb-2">
+              <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+                {menuCategories.map((category) => (
+                  <button
+                    key={category.id}
+                    onClick={() => setSelectedCategory(category.name)}
+                    className={`category-tab px-6 py-3 rounded-full font-medium whitespace-nowrap transition-all duration-200 ${
+                      selectedCategory === category.name
+                        ? 'active bg-blue-600 text-white shadow-lg'
+                        : 'bg-white text-gray-700 hover:bg-gray-50 shadow-md'
+                    }`}
+                  >
+                    {category.name}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
         )}
-
+        
         <AnimatePresence mode="wait">
           {currentCategory && (
             <motion.div
@@ -387,11 +392,25 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
               exit={{ opacity: 0 }}
               transition={{ duration: 0.3 }}
             >
+              
+              {/* O Banner está no fluxo normal do documento, abaixo do header do bar */}
+              <div className="w-full relative mb-8 z-10">
+                <Image
+                    src={bannerRegua}
+                    alt="Banner de promoção"
+                    layout="responsive"
+                    width={1200}
+                    height={150}
+                    className="rounded-xl shadow-lg"
+                    priority={true}
+                />
+              </div>
+
               <h2 className="text-2xl font-bold text-gray-900 mb-6">
                 {selectedCategory}
               </h2>
 
-              <div className="sticky top-20 z-10 bg-gradient-to-br from-gray-50 to-gray-100 pb-4 pt-2 -mt-4">
+              <div className="sticky top-[56px] z-10 bg-gradient-to-br from-gray-50 to-gray-100 pb-4 pt-2 -mt-4">
                 <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
                   {currentCategory.subCategories.map((subcat) => (
                     <button

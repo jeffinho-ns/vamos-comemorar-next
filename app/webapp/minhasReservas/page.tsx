@@ -1,4 +1,4 @@
-"use client"; // Certifique-se de que esta linha esteja no topo do arquivo
+"use client";
 
 import React, { useState, useEffect } from "react";
 import Image from "next/image";

@@ -1,4 +1,4 @@
-// profile.js
+"use client";
 
 import React, { useState } from "react";
 import Modal from "../../../components/ui/Modal";
