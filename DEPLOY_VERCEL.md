@@ -120,3 +120,4 @@ Para problemas de deploy:
 2. Testar build local com `npm run build`
 3. Verificar configurações de arquivos
 4. Consultar documentação do Next.js 15
+

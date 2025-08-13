@@ -147,4 +147,27 @@ export class BirthdayService {
       throw error;
     }
   }
+
+  static async createBirthdayReservation(data: Partial<BirthdayReservation>): Promise<BirthdayReservation> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/birthday-reservations`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`HTTP error! status: ${response.status} - ${errorText}`);
+      }
+      
+      const result = await response.json();
+      return result;
+    } catch (error) {
+      console.error('Erro ao criar reserva de aniversário:', error);
+      throw error;
+    }
+  }
 } 

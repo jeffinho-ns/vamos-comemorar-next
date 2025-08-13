@@ -17,3 +17,4 @@ echo "🔨 Executando build..."
 npm run build
 
 echo "✅ Build concluído com sucesso!"
+

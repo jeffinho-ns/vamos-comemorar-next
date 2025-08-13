@@ -395,6 +395,7 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
               
               {/* O Banner está no fluxo normal do documento, abaixo do header do bar */}
               <div className="w-full relative mb-8 z-10">
+                <Link href="/decoracao-aniversario">
                 <Image
                     src={bannerRegua}
                     alt="Banner de promoção"
@@ -404,6 +405,7 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
                     className="rounded-xl shadow-lg"
                     priority={true}
                 />
+                </Link>
               </div>
 
               <h2 className="text-2xl font-bold text-gray-900 mb-6">
