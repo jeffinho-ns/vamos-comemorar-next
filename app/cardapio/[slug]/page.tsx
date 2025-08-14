@@ -1,4 +1,3 @@
-// cardapio/[slug]/page.tsx
 'use client';
 
 import React, { useState, useEffect, useCallback, useMemo, use } from 'react';
@@ -141,7 +140,16 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
   const [selectedCategory, setSelectedCategory] = useState<string>('');
   const [activeSubcategory, setActiveSubcategory] = useState<string>('');
   const [showPopup, setShowPopup] = useState(false);
+  const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null); // Estado para o item selecionado no modal
 
+  const handleItemClick = (item: MenuItem) => {
+    setSelectedItem(item);
+  };
+
+  const handleCloseModal = () => {
+    setSelectedItem(null);
+  };
+  
   const handleClosePopup = () => {
     setShowPopup(false);
   };
@@ -272,12 +280,13 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
     [menuCategories, selectedCategory]
   );
 
-  const MenuItemCard = useCallback(({ item }: { item: MenuItem }) => (
+  const MenuItemCard = useCallback(({ item, onClick }: { item: MenuItem, onClick: (item: MenuItem) => void }) => (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3 }}
-      className="menu-item-card bg-white rounded-lg shadow-lg overflow-hidden hover:shadow-xl transition-shadow duration-300"
+      className="menu-item-card cursor-pointer bg-white rounded-lg shadow-lg overflow-hidden hover:shadow-xl transition-shadow duration-300"
+      onClick={() => onClick(item)}
     >
       <div className="relative h-48 overflow-hidden">
         <Image
@@ -471,9 +480,9 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
                   <h3 className="text-xl font-bold text-gray-800 mb-4">
                     {subcat.name}
                   </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                  <div className="grid grid-cols-2 gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                     {subcat.items.map((item) => (
-                      <MenuItemCard key={item.id} item={item} />
+                      <MenuItemCard key={item.id} item={item} onClick={handleItemClick} />
                     ))}
                   </div>
                 </div>
@@ -483,8 +492,6 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
         </AnimatePresence>
       </div>
       
-
-
       {/* O Modal do Popup */}
       <AnimatePresence>
         {showPopup && selectedBar?.popupImageUrl && (
@@ -521,6 +528,73 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
             </motion.div>
           </motion.div>
         )}
+      </AnimatePresence>
+
+      {/* Modal de Detalhes do Item */}
+      <AnimatePresence>
+          {selectedItem && (
+              <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black bg-opacity-70"
+                  onClick={handleCloseModal}
+              >
+                  <motion.div
+                      initial={{ scale: 0.9, y: 50, opacity: 0 }}
+                      animate={{ scale: 1, y: 0, opacity: 1 }}
+                      exit={{ scale: 0.9, y: 50, opacity: 0 }}
+                      transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                      className="relative w-full max-w-xl max-h-[90vh] bg-white rounded-xl shadow-2xl p-6 overflow-y-auto"
+                      onClick={(e) => e.stopPropagation()}
+                  >
+                      <button
+                          onClick={handleCloseModal}
+                          className="absolute top-4 right-4 text-gray-500 hover:text-gray-800 transition-colors z-10"
+                      >
+                          <MdClose className="w-8 h-8" />
+                      </button>
+                      
+                      <div className="flex flex-col md:flex-row gap-6">
+                          <div className="flex-shrink-0 w-full md:w-1/2">
+                              <Image
+                                  src={getValidImageUrl(selectedItem.imageUrl)}
+                                  alt={selectedItem.name}
+                                  width={500}
+                                  height={400}
+                                  className="w-full h-auto object-cover rounded-lg shadow-lg"
+                              />
+                          </div>
+                          
+                          <div className="flex-1">
+                              <h2 className="text-3xl font-bold text-gray-900 mb-2">
+                                  {selectedItem.name}
+                              </h2>
+                              <p className="text-2xl font-semibold text-green-600 mb-4">
+                                  {formatPrice(selectedItem.price)}
+                              </p>
+                              <p className="text-gray-700 mb-6 leading-relaxed">
+                                  {selectedItem.description}
+                              </p>
+                              
+                              {selectedItem.toppings && selectedItem.toppings.length > 0 && (
+                                  <div className="mb-6">
+                                      <h4 className="text-lg font-bold text-gray-800 mb-2">Adicionais</h4>
+                                      <ul className="space-y-2">
+                                          {selectedItem.toppings.map((topping) => (
+                                              <li key={topping.id} className="flex items-center justify-between text-gray-700">
+                                                  <span>{topping.name}</span>
+                                                  <span className="font-medium text-gray-600">+{formatPrice(topping.price)}</span>
+                                              </li>
+                                          ))}
+                                      </ul>
+                                  </div>
+                              )}
+                          </div>
+                      </div>
+                  </motion.div>
+              </motion.div>
+          )}
       </AnimatePresence>
       
       <style jsx>{`
