@@ -199,6 +199,7 @@ export default function ReservaAniversarioPage() {
       };
 
       const result = await BirthdayService.createBirthdayReservation(reservationData);
+      
       alert(`Reserva criada com sucesso! ID: ${result.id}`);
       router.push('/decoracao-aniversario');
     } catch (error) {
