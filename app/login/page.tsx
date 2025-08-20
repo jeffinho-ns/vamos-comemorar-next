@@ -4,7 +4,7 @@ import Image from "next/image";
 import logoWhite from "../../app/assets/logo-agilizai-h.png";
 import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { MdVisibility, MdVisibilityOff } from "react-icons/md";
+import { MdVisibility, MdVisibilityOff, MdHelp } from "react-icons/md";
 import { FcGoogle } from "react-icons/fc";
 import { FaFacebook } from "react-icons/fa";
 import Link from "next/link";
@@ -88,6 +88,17 @@ export default function Login() {
         <div className="flex justify-center">
           <Link href="/">
             <Image src={logoWhite} alt="Logo" className="h-16 w-auto" />
+          </Link>
+        </div>
+
+        {/* Documentation Link */}
+        <div className="text-center">
+          <Link 
+            href="/documentacao" 
+            className="inline-flex items-center space-x-2 text-blue-600 hover:text-blue-800 text-sm font-medium transition-colors duration-200"
+          >
+            <MdHelp size={16} />
+            <span>📚 Acessar Documentação</span>
           </Link>
         </div>
 
