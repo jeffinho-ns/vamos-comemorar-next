@@ -135,6 +135,7 @@ export default function CardapioAdminPage() {
   const [showBarModal, setShowBarModal] = useState(false);
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [showItemModal, setShowItemModal] = useState(false);
+  const [showQuickEditModal, setShowQuickEditModal] = useState(false);
   const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
   const [editingBar, setEditingBar] = useState<Bar | null>(null);
   const [editingCategory, setEditingCategory] = useState<MenuCategory | null>(null);
@@ -153,6 +154,19 @@ export default function CardapioAdminPage() {
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedItems, setSelectedItems] = useState<Array<string | number>>([]);
+
+  const [quickEditData, setQuickEditData] = useState<{
+    barId: string | number;
+    categoryId: string | number;
+    subCategories: Array<{
+      id: string | number;
+      name: string;
+      order: number;
+      originalName: string;
+      originalOrder: number;
+      count?: number;
+    }>;
+  } | null>(null);
 
   const [barForm, setBarForm] = useState<BarForm>({
     name: '',
@@ -370,6 +384,565 @@ export default function CardapioAdminPage() {
     });
     setNewTopping({ name: '', price: '' });
   }, []);
+
+  const handleOpenQuickEditModal = async (barId: string | number, categoryId: string | number) => {
+    const category = menuData.categories.find(c => c.id === categoryId);
+    const bar = menuData.bars.find(b => b.id === barId);
+    
+    if (!category || !bar) return;
+
+    try {
+      // Buscar subcategorias da nova API
+      const response = await fetch(`${API_BASE_URL}/subcategories/category/${categoryId}`);
+      
+      if (!response.ok) {
+        console.warn('API endpoint não disponível, usando dados locais');
+        // Fallback: usar dados locais se a API não estiver disponível
+        const itemsInCategory = menuData.items.filter(
+          item => item.categoryId === categoryId && item.barId === barId
+        );
+        
+        const uniqueSubCategories = new Map();
+        itemsInCategory.forEach(item => {
+          if (item.subCategoryName && item.subCategoryName.trim() !== '') {
+            if (!uniqueSubCategories.has(item.subCategoryName)) {
+              uniqueSubCategories.set(item.subCategoryName, {
+                id: item.subCategoryName,
+                name: item.subCategoryName,
+                order: uniqueSubCategories.size,
+                count: 1,
+                barId: item.barId,
+                categoryId: item.categoryId
+              });
+            } else {
+              const existing = uniqueSubCategories.get(item.subCategoryName);
+              existing.count++;
+            }
+          }
+        });
+        
+        const subCategories = Array.from(uniqueSubCategories.values())
+          .sort((a, b) => a.order - b.order)
+          .map(sub => ({
+            ...sub,
+            originalName: sub.name,
+            originalOrder: sub.order
+          }));
+
+        setQuickEditData({
+          barId,
+          categoryId,
+          subCategories
+        });
+        setShowQuickEditModal(true);
+        return;
+      }
+
+      const apiSubCategories = await response.json();
+      
+      // Filtrar apenas subcategorias do bar específico
+      const subCategories = apiSubCategories
+        .filter((sub: any) => sub.barId === barId)
+        .sort((a: any, b: any) => a.order - b.order)
+        .map((sub: any) => ({
+          ...sub,
+          originalName: sub.name,
+          originalOrder: sub.order,
+          count: sub.itemsCount || 0
+        }));
+
+      setQuickEditData({
+        barId,
+        categoryId,
+        subCategories
+      });
+      setShowQuickEditModal(true);
+    } catch (error) {
+      console.error('Erro ao buscar subcategorias:', error);
+      alert('Erro ao carregar subcategorias. Usando dados locais como fallback.');
+      
+      // Fallback: usar dados locais
+      const itemsInCategory = menuData.items.filter(
+        item => item.categoryId === categoryId && item.barId === barId
+      );
+      
+      const uniqueSubCategories = new Map();
+      itemsInCategory.forEach(item => {
+        if (item.subCategoryName && item.subCategoryName.trim() !== '') {
+          if (!uniqueSubCategories.has(item.subCategoryName)) {
+            uniqueSubCategories.set(item.subCategoryName, {
+              id: item.subCategoryName,
+              name: item.subCategoryName,
+              order: uniqueSubCategories.size,
+              count: 1,
+              barId: item.barId,
+              categoryId: item.categoryId
+            });
+          } else {
+            const existing = uniqueSubCategories.get(item.subCategoryName);
+            existing.count++;
+          }
+        }
+      });
+      
+      const subCategories = Array.from(uniqueSubCategories.values())
+        .sort((a, b) => a.order - b.order)
+        .map(sub => ({
+          ...sub,
+          originalName: sub.name,
+          originalOrder: sub.order
+        }));
+
+      setQuickEditData({
+        barId,
+        categoryId,
+        subCategories
+      });
+      setShowQuickEditModal(true);
+    }
+  };
+
+  const handleCloseQuickEditModal = () => {
+    setShowQuickEditModal(false);
+    setQuickEditData(null);
+  };
+
+  const handleSaveQuickEdit = async () => {
+    if (!quickEditData) return;
+
+    // Validar se há subcategorias vazias
+    const emptySubCategories = quickEditData.subCategories.filter(sub => sub.name.trim() === '');
+    if (emptySubCategories.length > 0) {
+      if (!confirm(`Existem ${emptySubCategories.length} subcategoria(s) com nome vazio. Deseja continuar? As subcategorias vazias serão ignoradas.`)) {
+        return;
+      }
+    }
+
+    // Filtrar subcategorias vazias
+    const validSubCategories = quickEditData.subCategories.filter(sub => sub.name.trim() !== '');
+
+    if (validSubCategories.length === 0) {
+      alert('Nenhuma subcategoria válida para salvar. Adicione nomes às subcategorias.');
+      return;
+    }
+
+    try {
+      let updatedItemsCount = 0;
+      let newSubCategoriesCount = 0;
+      let renamedSubCategoriesCount = 0;
+      let useApiEndpoints = false;
+
+      // Verificar se os novos endpoints estão disponíveis
+      try {
+        const testResponse = await fetch(`${API_BASE_URL}/subcategories`, { method: 'GET' });
+        if (testResponse.ok) {
+          useApiEndpoints = true;
+        }
+      } catch (error) {
+        console.warn('Novos endpoints não disponíveis, usando método tradicional');
+      }
+
+      if (useApiEndpoints) {
+        // Usar novos endpoints se disponíveis
+        for (const subCategory of validSubCategories) {
+          if (!subCategory.id.toString().includes('temp-')) {
+            if (subCategory.name !== subCategory.originalName) {
+              try {
+                const response = await fetch(`${API_BASE_URL}/subcategories/${subCategory.id}`, {
+                  method: 'PUT',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    name: subCategory.name
+                  })
+                });
+                
+                if (response.ok) {
+                  renamedSubCategoriesCount++;
+                  const itemsWithThisSubCategory = menuData.items.filter(
+                    item => item.categoryId === quickEditData.categoryId && 
+                           item.barId === quickEditData.barId && 
+                           item.subCategoryName === subCategory.originalName
+                  );
+                  updatedItemsCount += itemsWithThisSubCategory.length;
+                }
+              } catch (error) {
+                console.error(`Erro ao atualizar subcategoria ${subCategory.originalName}:`, error);
+              }
+            }
+          } else {
+            try {
+              const response = await fetch(`${API_BASE_URL}/subcategories`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  name: subCategory.name,
+                  categoryId: quickEditData.categoryId,
+                  barId: quickEditData.barId,
+                  order: subCategory.order
+                })
+              });
+              
+              if (response.ok) {
+                newSubCategoriesCount++;
+              }
+            } catch (error) {
+              console.error(`Erro ao criar subcategoria ${subCategory.name}:`, error);
+            }
+          }
+        }
+      } else {
+        // Fallback: usar endpoints tradicionais de itens
+        const itemsToUpdate = menuData.items.filter(
+          item => item.categoryId === quickEditData.categoryId && item.barId === quickEditData.barId
+        );
+
+        for (const subCategory of validSubCategories) {
+          if (!subCategory.id.toString().includes('temp-')) {
+            const itemsWithThisSubCategory = itemsToUpdate.filter(
+              item => item.subCategoryName === subCategory.originalName
+            );
+
+            for (const item of itemsWithThisSubCategory) {
+              if (subCategory.name !== subCategory.originalName) {
+                try {
+                  const response = await fetch(`${API_BASE_URL}/items/${item.id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      ...item,
+                      subCategory: subCategory.name
+                    })
+                  });
+                  
+                  if (response.ok) {
+                    updatedItemsCount++;
+                  }
+                } catch (error) {
+                  console.error(`Erro ao atualizar item ${item.id}:`, error);
+                }
+              }
+            }
+          } else {
+            newSubCategoriesCount++;
+          }
+        }
+      }
+
+      // Reordenar subcategorias se necessário
+      const hasOrderChanges = validSubCategories.some(sub => sub.order !== sub.originalOrder);
+      if (hasOrderChanges) {
+        if (useApiEndpoints) {
+          try {
+            const subcategoryNames = validSubCategories
+              .sort((a, b) => a.order - b.order)
+              .map(sub => sub.name);
+
+            const response = await fetch(`${API_BASE_URL}/subcategories/reorder/${quickEditData.categoryId}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                subcategoryNames
+              })
+            });
+            
+            if (!response.ok) {
+              console.warn('Erro ao reordenar subcategorias via API');
+            }
+          } catch (error) {
+            console.error('Erro ao reordenar subcategorias via API:', error);
+          }
+        } else {
+          // Fallback: reordenar itens individualmente
+          try {
+            const itemsToUpdate = menuData.items.filter(
+              item => item.categoryId === quickEditData.categoryId && item.barId === quickEditData.barId
+            );
+
+            // Agrupar itens por subcategoria
+            const subcategoryGroups = new Map();
+            validSubCategories.forEach(sub => {
+              if (sub.name.trim() !== '') {
+                subcategoryGroups.set(sub.name, {
+                  order: sub.order,
+                  items: itemsToUpdate.filter(item => item.subCategoryName === sub.name)
+                });
+              }
+            });
+
+            // Atualizar ordem dos itens
+            for (const [subcategoryName, group] of subcategoryGroups) {
+              for (const item of group.items) {
+                try {
+                  const response = await fetch(`${API_BASE_URL}/items/${item.id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      ...item,
+                      order: group.order
+                    })
+                  });
+                  
+                  if (response.ok) {
+                    updatedItemsCount++;
+                  }
+                } catch (error) {
+                  console.error(`Erro ao atualizar ordem do item ${item.id}:`, error);
+                }
+              }
+            }
+          } catch (error) {
+            console.error('Erro ao reordenar subcategorias via fallback:', error);
+          }
+        }
+      }
+
+      // Mostrar resumo das alterações
+      let message = '';
+      if (useApiEndpoints) {
+        if (renamedSubCategoriesCount > 0) {
+          message += `✅ ${renamedSubCategoriesCount} subcategoria(s) renomeada(s)!\n`;
+          message += `📝 ${updatedItemsCount} item(s) atualizado(s) automaticamente!\n\n`;
+        }
+        
+        if (newSubCategoriesCount > 0) {
+          message += `🆕 ${newSubCategoriesCount} nova(s) subcategoria(s) criada(s)!\n\n`;
+          message += `💡 Para usar as novas subcategorias, adicione itens com esses nomes na aba "Itens do Menu".`;
+        }
+      } else {
+        if (updatedItemsCount > 0) {
+          message += `✅ ${updatedItemsCount} item(s) atualizado(s) com sucesso!\n\n`;
+        }
+        
+        if (newSubCategoriesCount > 0) {
+          message += `📝 ${newSubCategoriesCount} nova(s) subcategoria(s) criada(s)!\n\n`;
+          message += `💡 Para usar as novas subcategorias, adicione itens com esses nomes na aba "Itens do Menu".`;
+        }
+      }
+      
+      if (hasOrderChanges) {
+        message += `🔄 Ordem das subcategorias atualizada!\n`;
+      }
+      
+      if (updatedItemsCount === 0 && newSubCategoriesCount === 0 && renamedSubCategoriesCount === 0 && !hasOrderChanges) {
+        message = 'ℹ️ Nenhuma alteração foi necessária.';
+      }
+
+      alert(message);
+      
+      await fetchData();
+      handleCloseQuickEditModal();
+    } catch (err) {
+      console.error('Erro ao salvar edição rápida:', err);
+      alert(`Erro ao salvar alterações: ${err instanceof Error ? err.message : 'Erro desconhecido'}`);
+    }
+  };
+
+  const addSubCategoryToQuickEdit = () => {
+    if (!quickEditData) return;
+    
+    // Mostrar aviso sobre como funciona
+    if (!confirm('Atenção: Para criar uma nova subcategoria, você deve:\n\n1. Adicionar um item com a nova subcategoria\n2. Ou renomear uma subcategoria existente\n\nDeseja continuar adicionando uma subcategoria temporária?')) {
+      return;
+    }
+    
+    setQuickEditData(prev => {
+      if (!prev) return prev;
+      const newOrder = Math.max(...prev.subCategories.map(sub => sub.order), -1) + 1;
+      
+      return {
+        ...prev,
+        subCategories: [
+          ...prev.subCategories,
+          {
+            id: `temp-${Date.now()}`,
+            name: '',
+            order: newOrder,
+            originalName: '',
+            originalOrder: newOrder,
+            count: 0
+          }
+        ]
+      };
+    });
+  };
+
+  const removeSubCategoryFromQuickEdit = async (index: number) => {
+    if (!quickEditData) return;
+    
+    const subCategory = quickEditData.subCategories[index];
+    
+    // Se é uma subcategoria temporária, apenas remover da lista
+    if (subCategory.id.toString().includes('temp-')) {
+      setQuickEditData(prev => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          subCategories: prev.subCategories.filter((_, i) => i !== index)
+        };
+      });
+      return;
+    }
+
+    // Se é uma subcategoria existente, confirmar exclusão
+    if (!confirm(`Tem certeza que deseja excluir a subcategoria '${subCategory.name}'?\n\n⚠️ Esta ação não pode ser desfeita.`)) {
+      return;
+    }
+
+    try {
+      // Verificar se os novos endpoints estão disponíveis
+      const testResponse = await fetch(`${API_BASE_URL}/subcategories`, { method: 'GET' });
+      
+      if (testResponse.ok) {
+        // Usar novo endpoint de exclusão
+        const response = await fetch(`${API_BASE_URL}/subcategories/${subCategory.id}`, {
+          method: 'DELETE'
+        });
+
+        if (response.ok) {
+          setQuickEditData(prev => {
+            if (!prev) return prev;
+            return {
+              ...prev,
+              subCategories: prev.subCategories.filter((_, i) => i !== index)
+            };
+          });
+          
+          alert('Subcategoria excluída com sucesso!');
+        } else {
+          const errorData = await response.json();
+          alert(`Erro ao excluir subcategoria: ${errorData.error}`);
+        }
+      } else {
+        // Fallback: não permitir exclusão sem os novos endpoints
+        alert('⚠️ Funcionalidade de exclusão não disponível no momento. Use a funcionalidade de renomear ou aguarde a atualização do sistema.');
+      }
+    } catch (error) {
+      console.error('Erro ao excluir subcategoria:', error);
+      alert('⚠️ Erro ao conectar com o servidor. A funcionalidade de exclusão não está disponível no momento.');
+    }
+  };
+
+  const updateSubCategoryInQuickEdit = (index: number, field: 'name' | 'order', value: string | number) => {
+    if (!quickEditData) return;
+    
+    setQuickEditData(prev => {
+      if (!prev) return prev;
+      const newSubCategories = [...prev.subCategories];
+      newSubCategories[index] = {
+        ...newSubCategories[index],
+        [field]: field === 'order' ? Number(value) : value
+      };
+      return {
+        ...prev,
+        subCategories: newSubCategories
+      };
+    });
+  };
+
+  const reorderSubCategories = (fromIndex: number, toIndex: number) => {
+    if (!quickEditData) return;
+    
+    setQuickEditData(prev => {
+      if (!prev) return prev;
+      const newSubCategories = [...prev.subCategories];
+      const [movedItem] = newSubCategories.splice(fromIndex, 1);
+      newSubCategories.splice(toIndex, 0, movedItem);
+      
+      // Atualizar ordens
+      newSubCategories.forEach((sub, index) => {
+        sub.order = index;
+      });
+      
+      return {
+        ...prev,
+        subCategories: newSubCategories
+      };
+    });
+  };
+
+  const duplicateSubCategory = (index: number) => {
+    if (!quickEditData) return;
+    
+    // Mostrar aviso sobre como funciona
+    if (!confirm('Atenção: Duplicar uma subcategoria criará uma versão temporária.\n\nPara que ela seja efetiva, você deve:\n\n1. Adicionar itens com a nova subcategoria, ou\n2. Renomear uma subcategoria existente\n\nDeseja continuar?')) {
+      return;
+    }
+    
+    setQuickEditData(prev => {
+      if (!prev) return prev;
+      const originalSub = prev.subCategories[index];
+      const newOrder = Math.max(...prev.subCategories.map(sub => sub.order), -1) + 1;
+      
+      return {
+        ...prev,
+        subCategories: [
+          ...prev.subCategories,
+          {
+            id: `temp-${Date.now()}`,
+            name: `${originalSub.name} (cópia)`,
+            order: newOrder,
+            originalName: '',
+            originalOrder: newOrder,
+            count: 0
+          }
+        ]
+      };
+    });
+  };
+
+  const sortSubCategoriesByName = () => {
+    if (!quickEditData) return;
+    
+    setQuickEditData(prev => {
+      if (!prev) return prev;
+      const sortedSubCategories = [...prev.subCategories]
+        .filter(sub => sub.name.trim() !== '')
+        .sort((a, b) => a.name.localeCompare(b.name))
+        .map((sub, index) => ({ ...sub, order: index }));
+      
+      return {
+        ...prev,
+        subCategories: sortedSubCategories
+      };
+    });
+  };
+
+  const sortSubCategoriesByOrder = () => {
+    if (!quickEditData) return;
+    
+    setQuickEditData(prev => {
+      if (!prev) return prev;
+      const sortedSubCategories = [...prev.subCategories]
+        .filter(sub => sub.name.trim() !== '')
+        .sort((a, b) => a.order - b.order)
+        .map((sub, index) => ({ ...sub, order: index }));
+      
+      return {
+        ...prev,
+        subCategories: sortedSubCategories
+      };
+    });
+  };
+
+  const getChangesSummary = () => {
+    if (!quickEditData) return { added: 0, modified: 0, removed: 0 };
+    
+    let added = 0;
+    let modified = 0;
+    let removed = 0;
+    
+    quickEditData.subCategories.forEach(sub => {
+      if (sub.id.toString().includes('temp-') && sub.name.trim() !== '') {
+        // Nova subcategoria com nome
+        added++;
+      } else if (sub.name !== sub.originalName || sub.order !== sub.originalOrder) {
+        // Subcategoria existente modificada
+        modified++;
+      }
+    });
+    
+    return { added, modified, removed };
+  };
 
   const handleSaveBar = useCallback(async () => {
     try {
@@ -1136,34 +1709,119 @@ export default function CardapioAdminPage() {
                 <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
                   {menuData.categories.map((category) => {
                     const bar = menuData.bars.find((b) => b.id === category.barId);
+                    if (!bar) return null;
+                    
                     return (
                       <div key={category.id} className="rounded-lg bg-white p-6 shadow-md">
                         <div className="mb-4 flex items-start justify-between">
                           <div>
                             <h3 className="text-lg font-semibold text-gray-900">{category.name}</h3>
-                            <p className="text-sm text-gray-500">{bar?.name}</p>
+                            <p className="text-sm text-gray-500">{bar.name}</p>
                           </div>
                           <div className="flex gap-1">
                             {(isAdmin || (isPromoter && canManageBar(Number(category.barId)))) && (
-                              <button
-                                onClick={() => handleEditCategory(category)}
-                                className="text-blue-600 hover:text-blue-800"
-                              >
-                                <MdEdit className="h-4 w-4" />
-                              </button>
-                            )}
-                            {(isAdmin || (isPromoter && canManageBar(Number(category.barId)))) && (
-                              <button
-                                onClick={() => handleDeleteCategory(category.id)}
-                                className="text-red-600 hover:text-red-800"
-                              >
-                                <MdDelete className="h-4 w-4" />
-                              </button>
+                              <>
+                                <button
+                                  onClick={() => handleOpenQuickEditModal(bar.id, category.id)}
+                                  className="text-green-600 hover:text-green-800"
+                                  title="Edição Rápida das Subcategorias"
+                                >
+                                  <MdEdit className="h-4 w-4" />
+                                </button>
+                                <button
+                                  onClick={() => handleEditCategory(category)}
+                                  className="text-blue-600 hover:text-blue-800"
+                                >
+                                  <MdEdit className="h-4 w-4" />
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteCategory(category.id)}
+                                  className="text-red-600 hover:text-red-800"
+                                >
+                                  <MdDelete className="h-4 w-4" />
+                                </button>
+                              </>
                             )}
                           </div>
                         </div>
                         <div className="text-sm text-gray-600">
                           <p>Ordem: {category.order}</p>
+                          <p className="text-blue-600">
+                            {(() => {
+                              const subCategoriesCount = menuData.subCategories.filter(
+                                sub => sub.categoryId === category.id && sub.barId === category.barId
+                              ).length;
+                              const itemsWithSubCategories = menuData.items.filter(
+                                item => item.categoryId === category.id && item.barId === category.barId && item.subCategoryName
+                              ).length;
+                              const uniqueSubCategories = itemsWithSubCategories > 0 ? 
+                                new Set(menuData.items
+                                  .filter(item => item.categoryId === category.id && item.barId === category.barId && item.subCategoryName)
+                                  .map(item => item.subCategoryName)
+                                ).size : 
+                                subCategoriesCount;
+                              return `${uniqueSubCategories} subcategoria(s)`;
+                            })()}
+                          </p>
+                          
+                          {/* Preview das subcategorias */}
+                          {(() => {
+                            const subCategories = menuData.subCategories.filter(
+                              sub => sub.categoryId === category.id && sub.barId === category.barId
+                            ).sort((a, b) => a.order - b.order);
+                            
+                            if (subCategories.length === 0) {
+                              // Tentar extrair das subcategorias dos itens
+                              const itemSubCategories = Array.from(new Set(
+                                menuData.items
+                                  .filter(item => item.categoryId === category.id && item.barId === category.barId && item.subCategoryName)
+                                  .map(item => item.subCategoryName)
+                              )).slice(0, 3); // Mostrar apenas as 3 primeiras
+                              
+                              if (itemSubCategories.length > 0) {
+                                return (
+                                  <div className="mt-2">
+                                    <p className="text-xs text-gray-500 mb-1">Subcategorias detectadas:</p>
+                                    <div className="flex flex-wrap gap-1">
+                                      {itemSubCategories.map((subName, idx) => (
+                                        <span key={idx} className="inline-block rounded-full bg-gray-100 px-2 py-1 text-xs text-gray-600">
+                                          {subName}
+                                        </span>
+                                      ))}
+                                      {itemSubCategories.length >= 3 && (
+                                        <span className="inline-block rounded-full bg-gray-100 px-2 py-1 text-xs text-gray-400">
+                                          +{Array.from(new Set(
+                                            menuData.items
+                                              .filter(item => item.categoryId === category.id && item.barId === category.barId && item.subCategoryName)
+                                              .map(item => item.subCategoryName)
+                                          )).length - 3} mais
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                );
+                              }
+                              return null;
+                            }
+                            
+                            return (
+                              <div className="mt-2">
+                                <p className="text-xs text-gray-500 mb-1">Subcategorias:</p>
+                                <div className="flex flex-wrap gap-1">
+                                  {subCategories.slice(0, 3).map((sub) => (
+                                    <span key={sub.id} className="inline-block rounded-full bg-blue-100 px-2 py-1 text-xs text-blue-600">
+                                      {sub.name}
+                                    </span>
+                                  ))}
+                                  {subCategories.length > 3 && (
+                                    <span className="inline-block rounded-full bg-blue-100 px-2 py-1 text-xs text-blue-400">
+                                      +{subCategories.length - 3} mais
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })()}
                         </div>
                       </div>
                     );
@@ -1622,7 +2280,7 @@ export default function CardapioAdminPage() {
                   <div key={index} className="flex gap-2">
                     <input
                       type="text"
-                      value={subCategory.name}
+                      value={subCategory.name || ''}
                       onChange={(e) => {
                         const newSubCategories = [...categoryForm.subCategories];
                         newSubCategories[index] = { ...newSubCategories[index], name: e.target.value };
@@ -1634,7 +2292,7 @@ export default function CardapioAdminPage() {
                     <input
                       type="number"
                       min="0"
-                      value={subCategory.order}
+                      value={subCategory.order || 0}
                       onChange={(e) => {
                         const newSubCategories = [...categoryForm.subCategories];
                         newSubCategories[index] = { ...newSubCategories[index], order: parseInt(e.target.value) || 0 };
@@ -1879,6 +2537,232 @@ export default function CardapioAdminPage() {
               </button>
             </div>
           </div>
+        </Modal>
+
+        {/* Quick Edit Modal para Subcategorias */}
+        <Modal
+          isOpen={showQuickEditModal}
+          onClose={handleCloseQuickEditModal}
+          title="Edição Rápida das Subcategorias"
+        >
+          {quickEditData && (
+            <div className="space-y-4">
+              <div className="rounded-lg bg-blue-50 p-4">
+                <h3 className="font-medium text-blue-900">
+                  Editando subcategorias da categoria: {menuData.categories.find(c => c.id === quickEditData.categoryId)?.name}
+                </h3>
+                <p className="text-sm text-blue-700">
+                  Bar: {menuData.bars.find(b => b.id === quickEditData.barId)?.name}
+                </p>
+                
+                {/* Estatísticas rápidas */}
+                <div className="mt-3 grid grid-cols-2 gap-4 text-sm">
+                  <div className="rounded bg-white p-2 text-center">
+                    <div className="font-bold text-blue-600">
+                      {quickEditData.subCategories.length}
+                    </div>
+                    <div className="text-blue-700">Subcategorias</div>
+                  </div>
+                  <div className="rounded bg-white p-2 text-center">
+                    <div className="font-bold text-green-600">
+                      {menuData.items.filter(
+                        item => item.categoryId === quickEditData.categoryId && 
+                               item.barId === quickEditData.barId
+                      ).length}
+                    </div>
+                    <div className="text-green-700">Itens na categoria</div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <label className="text-sm font-medium text-gray-700">Subcategorias</label>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={sortSubCategoriesByName}
+                      className="rounded-md bg-purple-600 px-3 py-2 text-sm text-white hover:bg-purple-700"
+                      title="Ordenar por nome"
+                    >
+                      A-Z
+                    </button>
+                    <button
+                      onClick={sortSubCategoriesByOrder}
+                      className="rounded-md bg-purple-600 px-3 py-2 text-sm text-white hover:bg-purple-700"
+                      title="Ordenar por ordem atual"
+                    >
+                      1-9
+                    </button>
+                    <button
+                      onClick={addSubCategoryToQuickEdit}
+                      className="flex items-center gap-1 rounded-md bg-green-600 px-3 py-2 text-sm text-white hover:bg-green-700"
+                    >
+                      <MdAdd className="h-4 w-4" />
+                      Adicionar
+                    </button>
+                  </div>
+                </div>
+
+                <div className="max-h-96 space-y-2 overflow-y-auto">
+                  {quickEditData.subCategories.map((subCategory, index) => (
+                    <div key={index} className={`flex items-center gap-2 rounded-lg border p-3 ${
+                      subCategory.id.toString().includes('temp-') 
+                        ? 'border-orange-200 bg-orange-50' 
+                        : 'border-gray-200'
+                    }`}>
+                      <div className="flex items-center gap-2 text-gray-400">
+                        <span className="text-xs font-medium">#{index + 1}</span>
+                        {subCategory.id.toString().includes('temp-') && (
+                          <span className="text-xs text-orange-600 bg-orange-100 px-2 py-1 rounded">
+                            NOVA
+                          </span>
+                        )}
+                        <button
+                          onClick={() => index > 0 && reorderSubCategories(index, index - 1)}
+                          disabled={index === 0}
+                          className="text-gray-400 hover:text-gray-600 disabled:opacity-50"
+                          title="Mover para cima"
+                        >
+                          ↑
+                        </button>
+                        <button
+                          onClick={() => index < quickEditData.subCategories.length - 1 && reorderSubCategories(index, index + 1)}
+                          disabled={index === quickEditData.subCategories.length - 1}
+                          className="text-gray-400 hover:text-gray-600 disabled:opacity-50"
+                          title="Mover para baixo"
+                        >
+                          ↓
+                        </button>
+                      </div>
+                      
+                      <input
+                        type="text"
+                        value={subCategory.name || ''}
+                        onChange={(e) => updateSubCategoryInQuickEdit(index, 'name', e.target.value)}
+                        placeholder={subCategory.id.toString().includes('temp-') ? "Nome da nova subcategoria" : "Nome da subcategoria"}
+                        className="flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                      
+                      <input
+                        type="number"
+                        min="0"
+                        value={subCategory.order || 0}
+                        onChange={(e) => updateSubCategoryInQuickEdit(index, 'order', parseInt(e.target.value) || 0)}
+                        className="w-20 rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                      
+                      {/* Contador de itens */}
+                      <div className={`text-xs px-2 py-1 rounded ${
+                        subCategory.count && subCategory.count > 0
+                          ? 'text-green-600 bg-green-100'
+                          : 'text-gray-500 bg-gray-100'
+                      }`}>
+                        {subCategory.count || 0} item(s)
+                      </div>
+                      
+                      <button
+                        onClick={() => removeSubCategoryFromQuickEdit(index)}
+                        className="px-2 py-2 text-red-600 hover:text-red-800"
+                        title="Remover subcategoria"
+                      >
+                        <MdDelete className="h-4 w-4" />
+                      </button>
+                      
+                      <button
+                        onClick={() => duplicateSubCategory(index)}
+                        className="px-2 py-2 text-blue-600 hover:text-blue-800"
+                        title="Duplicar subcategoria"
+                      >
+                        <MdAdd className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+
+                {quickEditData.subCategories.length === 0 && (
+                  <p className="italic text-center text-gray-500 text-sm py-4">
+                    Nenhuma subcategoria encontrada. Adicione uma nova subcategoria.
+                  </p>
+                )}
+              </div>
+
+              <div className="rounded-lg bg-yellow-50 p-4">
+                <h4 className="font-medium text-yellow-900 mb-2">⚠️ Como Funciona</h4>
+                <ul className="text-sm text-yellow-800 space-y-1">
+                  <li>• <strong>Renomear subcategorias existentes</strong>: Atualiza automaticamente todos os itens que as utilizam</li>
+                  <li>• <strong>Criar novas subcategorias</strong>: Adicione o nome e depois crie itens com essas subcategorias</li>
+                  <li>• <strong>Ordem</strong>: Determina a sequência de exibição no cardápio</li>
+                  <li>• <strong>Subcategorias vazias</strong>: São ignoradas automaticamente</li>
+                  <li>• <strong>Contador</strong>: Mostra quantos itens usam cada subcategoria</li>
+                </ul>
+              </div>
+
+              {/* Resumo das alterações */}
+              {(() => {
+                const changes = getChangesSummary();
+                if (changes.added === 0 && changes.modified === 0) return null;
+                
+                return (
+                  <div className="rounded-lg bg-green-50 p-4">
+                    <h4 className="font-medium text-green-900 mb-2">📝 Resumo das Alterações</h4>
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                      {changes.added > 0 && (
+                        <div className="text-center">
+                          <div className="font-bold text-green-600">+{changes.added}</div>
+                          <div className="text-green-700">Nova(s) subcategoria(s)</div>
+                        </div>
+                      )}
+                      {changes.modified > 0 && (
+                        <div className="text-center">
+                          <div className="font-bold text-blue-600">~{changes.modified}</div>
+                          <div className="text-blue-700">Modificada(s)</div>
+                        </div>
+                      )}
+                    </div>
+                    {changes.added > 0 && (
+                      <div className="mt-3 text-xs text-green-700 bg-green-100 p-2 rounded">
+                        💡 <strong>Importante:</strong> Para usar as novas subcategorias, você precisará criar itens com esses nomes na aba &quot;Itens do Menu&quot;.
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+
+              <div className="flex justify-end gap-3 pt-4">
+                <button
+                  onClick={handleCloseQuickEditModal}
+                  className="rounded-md bg-gray-100 px-4 py-2 text-gray-700 hover:bg-gray-200"
+                >
+                  Cancelar
+                </button>
+                {(() => {
+                  const changes = getChangesSummary();
+                  const hasChanges = changes.added > 0 || changes.modified > 0;
+                  
+                  return (
+                    <button
+                      onClick={handleSaveQuickEdit}
+                      className={`rounded-md px-4 py-2 text-white hover:opacity-90 ${
+                        hasChanges
+                          ? 'bg-green-600 hover:bg-green-700'
+                          : 'bg-gray-400 cursor-not-allowed'
+                      }`}
+                      disabled={!hasChanges}
+                    >
+                      {hasChanges 
+                        ? (changes.added > 0 && changes.modified > 0 
+                            ? 'Salvar Alterações e Novas Subcategorias'
+                            : changes.added > 0 
+                              ? 'Salvar Novas Subcategorias'
+                              : 'Salvar Alterações')
+                        : 'Nenhuma Alteração'
+                      }
+                    </button>
+                  );
+                })()}
+              </div>
+            </div>
+          )}
         </Modal>
       </div>
 
