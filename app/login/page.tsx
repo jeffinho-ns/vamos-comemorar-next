@@ -57,16 +57,16 @@ export default function Login() {
       
         // Redirecionamento inteligente com base no role
         switch (data.role) {
-          case 'Administrador':
+          case 'admin':
             router.push('/admin');
             break;
-          case 'Gerente':
+          case 'gerente':
             router.push('/gerente');
             break;
-          case 'Promoter':
-            router.push('/promoter');
+          case 'promoter':
+            router.push('/admin'); // Promoters vão para o admin (com restrições)
             break;
-          case 'Cliente':
+          case 'cliente':
             router.push('/cliente');
             break;
           default:

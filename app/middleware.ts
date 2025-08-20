@@ -20,15 +20,22 @@ export function middleware(request: NextRequest) {
 
   // Define as permissões para as rotas específicas
   const routePermissions: Record<string, string[]> = {
-    '/admin/commodities': ['Administrador'],
-    '/admin/enterprise': ['Administrador'],
-    '/admin/eventos': ['Administrador', 'Gerente'],
-    '/admin/events': ['Administrador', 'Gerente', 'Promoter'],
-    '/admin/gifts': ['Administrador', 'Gerente'],
-    '/admin/qrcode': ['Administrador'],
-    '/admin/reservas': ['Administrador', 'Gerente', 'Promoter'],
-    '/admin/users': ['Administrador', 'Gerente'],
-    '/admin/workday': ['Administrador', 'Gerente'],
+    // Rotas que apenas Administradores podem acessar
+    '/admin/commodities': ['admin'],
+    '/admin/enterprise': ['admin'],
+    '/admin/eventos': ['admin'],
+    '/admin/gifts': ['admin'],
+    '/admin/painel-eventos': ['admin'],
+    '/admin/users': ['admin'],
+    '/admin/workdays': ['admin'],
+    '/admin/places': ['admin'],
+    '/admin/tables': ['admin'],
+    
+    // Rotas que Administradores e Promoters podem acessar
+    '/admin/cardapio': ['admin', 'promoter'],
+    '/admin/events': ['admin', 'promoter'], // Promoters podem ver eventos
+    '/admin/reservas': ['admin', 'promoter'], // Promoters podem ver reservas
+    '/admin/qrcode': ['admin', 'promoter'], // Promoters podem usar QR code
   };
 
   // Verifica se a rota está definida nas permissões de rota

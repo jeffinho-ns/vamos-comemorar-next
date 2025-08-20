@@ -12,7 +12,9 @@ import {
   MdLocationOn,
   MdUpload,
   MdSearch,
+  MdSecurity,
 } from 'react-icons/md';
+import { useUserPermissions } from '../../hooks/useUserPermissions';
 
 // Interfaces atualizadas para corresponder à API
 interface Topping {
@@ -128,6 +130,7 @@ const getValidImageUrl = (filename: string): string => {
 };
 
 export default function CardapioAdminPage() {
+  const { isAdmin, isPromoter, promoterBar, canManageBar } = useUserPermissions();
   const [activeTab, setActiveTab] = useState<'bars' | 'categories' | 'items'>('bars');
   const [showBarModal, setShowBarModal] = useState(false);
   const [showCategoryModal, setShowCategoryModal] = useState(false);
@@ -229,7 +232,7 @@ export default function CardapioAdminPage() {
         return acc;
       }, []);
 
-      const barsData = Array.isArray(bars)
+      let barsData = Array.isArray(bars)
         ? bars.map((bar) => {
             const cleanedBar = {
               ...bar,
@@ -252,9 +255,14 @@ export default function CardapioAdminPage() {
           })
         : [];
 
-      const categoriesData = Array.isArray(categories) ? categories : [];
-      const subCategoriesData = Array.isArray(subCategories) ? subCategories : [];
-      const itemsData = Array.isArray(items)
+      // Filtrar bares para promoters (só podem ver o seu bar)
+      if (isPromoter && promoterBar) {
+        barsData = barsData.filter(bar => Number(bar.id) === Number(promoterBar.barId));
+      }
+
+      let categoriesData = Array.isArray(categories) ? categories : [];
+      let subCategoriesData = Array.isArray(subCategories) ? subCategories : [];
+      let itemsData = Array.isArray(items)
         ? items.map((item) => {
             const cleanedItem = {
               ...item,
@@ -265,6 +273,12 @@ export default function CardapioAdminPage() {
             return cleanedItem;
           })
         : [];
+
+      // Filtrar categorias e itens para promoters (só podem ver os do seu bar)
+      if (isPromoter && promoterBar) {
+        categoriesData = categoriesData.filter(category => Number(category.barId) === Number(promoterBar.barId));
+        itemsData = itemsData.filter(item => Number(item.barId) === Number(promoterBar.barId));
+      }
 
       setMenuData({
         bars: barsData,
@@ -279,7 +293,7 @@ export default function CardapioAdminPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [isPromoter, promoterBar]);
 
   useEffect(() => {
     fetchData();
@@ -649,6 +663,39 @@ export default function CardapioAdminPage() {
     setShowItemModal(true);
   }, []);
 
+  // Função para abrir modal de categoria para promoters
+  const handleAddCategoryForPromoter = useCallback(() => {
+    if (promoterBar) {
+      setEditingCategory(null);
+      setCategoryForm({
+        name: '',
+        barId: promoterBar.barId.toString(),
+        order: 0,
+        subCategories: [],
+      });
+      setShowCategoryModal(true);
+    }
+  }, [promoterBar]);
+
+  // Função para abrir modal de item para promoters
+  const handleAddItemForPromoter = useCallback(() => {
+    if (promoterBar) {
+      setEditingItem(null);
+      setItemForm({
+        name: '',
+        description: '',
+        price: '',
+        imageUrl: '',
+        categoryId: '',
+        barId: promoterBar.barId.toString(),
+        subCategory: '',
+        toppings: [],
+        order: 0,
+      });
+      setShowItemModal(true);
+    }
+  }, [promoterBar]);
+
   const handleDeleteBar = useCallback(
     async (barId: string | number) => {
       if (confirm('Tem certeza que deseja excluir este estabelecimento?')) {
@@ -924,6 +971,23 @@ export default function CardapioAdminPage() {
           <p className="text-gray-600">
             Gerencie estabelecimentos, categorias e itens do cardápio
           </p>
+          
+          {/* Indicador para Promoters */}
+          {isPromoter && promoterBar && (
+            <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
+              <div className="flex items-center gap-3">
+                <MdSecurity className="w-6 h-6 text-green-600" />
+                <div>
+                  <p className="text-green-800 font-medium">
+                    Você está gerenciando: <span className="font-bold">{promoterBar.barName}</span>
+                  </p>
+                  <p className="text-green-600 text-sm">
+                    Acesso restrito apenas aos dados deste estabelecimento
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Tabs */}
@@ -962,18 +1026,38 @@ export default function CardapioAdminPage() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
             transition={{ duration: 0.3 }}
+            className="space-y-8"
           >
+            {/* Banner para Promoters */}
+            {isPromoter && promoterBar && (
+              <div className="rounded-lg bg-blue-50 border border-blue-200 p-4">
+                <div className="flex items-center gap-3">
+                  <MdSecurity className="h-6 w-6 text-blue-600" />
+                  <div>
+                    <h3 className="text-lg font-semibold text-blue-900">
+                      Gerenciando: {promoterBar.barName}
+                    </h3>
+                    <p className="text-sm text-blue-700">
+                      Você tem acesso restrito apenas aos dados deste estabelecimento
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {activeTab === 'bars' && (
               <div>
                 <div className="mb-6 flex items-center justify-between">
                   <h2 className="text-2xl font-bold text-gray-900">Estabelecimentos</h2>
-                  <button
-                    onClick={() => setShowBarModal(true)}
-                    className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
-                  >
-                    <MdAdd className="h-5 w-5" />
-                    Adicionar Estabelecimento
-                  </button>
+                  {isAdmin && (
+                    <button
+                      onClick={() => setShowBarModal(true)}
+                      className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
+                    >
+                      <MdAdd className="h-5 w-5" />
+                      Adicionar Estabelecimento
+                    </button>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
@@ -988,18 +1072,22 @@ export default function CardapioAdminPage() {
                           className="object-cover"
                         />
                         <div className="absolute right-2 top-2 flex gap-1">
-                          <button
-                            onClick={() => handleEditBar(bar)}
-                            className="rounded-full bg-blue-600 p-2 text-white hover:bg-blue-700"
-                          >
-                            <MdEdit className="h-4 w-4" />
-                          </button>
-                          <button
-                            onClick={() => handleDeleteBar(bar.id)}
-                            className="rounded-full bg-red-600 p-2 text-white hover:bg-red-700"
-                          >
-                            <MdDelete className="h-4 w-4" />
-                          </button>
+                          {isAdmin && (
+                            <>
+                              <button
+                                onClick={() => handleEditBar(bar)}
+                                className="rounded-full bg-blue-600 p-2 text-white hover:bg-blue-700"
+                              >
+                                <MdEdit className="h-4 w-4" />
+                              </button>
+                              <button
+                                onClick={() => handleDeleteBar(bar.id)}
+                                className="rounded-full bg-red-600 p-2 text-white hover:bg-red-700"
+                              >
+                                <MdDelete className="h-4 w-4" />
+                              </button>
+                            </>
+                          )}
                         </div>
                       </div>
                       <div className="p-4">
@@ -1025,13 +1113,24 @@ export default function CardapioAdminPage() {
               <div>
                 <div className="mb-6 flex items-center justify-between">
                   <h2 className="text-2xl font-bold text-gray-900">Categorias</h2>
-                  <button
-                    onClick={() => setShowCategoryModal(true)}
-                    className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
-                  >
-                    <MdAdd className="h-5 w-5" />
-                    Adicionar Categoria
-                  </button>
+                  {isAdmin && (
+                    <button
+                      onClick={() => setShowCategoryModal(true)}
+                      className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
+                    >
+                      <MdAdd className="h-5 w-5" />
+                      Adicionar Categoria
+                    </button>
+                  )}
+                  {isPromoter && promoterBar && (
+                    <button
+                      onClick={handleAddCategoryForPromoter}
+                      className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
+                    >
+                      <MdAdd className="h-5 w-5" />
+                      Adicionar Categoria para {promoterBar.barName}
+                    </button>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
@@ -1045,18 +1144,22 @@ export default function CardapioAdminPage() {
                             <p className="text-sm text-gray-500">{bar?.name}</p>
                           </div>
                           <div className="flex gap-1">
-                            <button
-                              onClick={() => handleEditCategory(category)}
-                              className="text-blue-600 hover:text-blue-800"
-                            >
-                              <MdEdit className="h-4 w-4" />
-                            </button>
-                            <button
-                              onClick={() => handleDeleteCategory(category.id)}
-                              className="text-red-600 hover:text-red-800"
-                            >
-                              <MdDelete className="h-4 w-4" />
-                            </button>
+                            {(isAdmin || (isPromoter && canManageBar(Number(category.barId)))) && (
+                              <button
+                                onClick={() => handleEditCategory(category)}
+                                className="text-blue-600 hover:text-blue-800"
+                              >
+                                <MdEdit className="h-4 w-4" />
+                              </button>
+                            )}
+                            {(isAdmin || (isPromoter && canManageBar(Number(category.barId)))) && (
+                              <button
+                                onClick={() => handleDeleteCategory(category.id)}
+                                className="text-red-600 hover:text-red-800"
+                              >
+                                <MdDelete className="h-4 w-4" />
+                              </button>
+                            )}
                           </div>
                         </div>
                         <div className="text-sm text-gray-600">
@@ -1093,13 +1196,24 @@ export default function CardapioAdminPage() {
                         Excluir Selecionados ({selectedItems.length})
                       </button>
                     )}
-                    <button
-                      onClick={() => setShowItemModal(true)}
-                      className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
-                    >
-                      <MdAdd className="h-5 w-5" />
-                      Adicionar Item
-                    </button>
+                    {isAdmin && (
+                      <button
+                        onClick={() => setShowItemModal(true)}
+                        className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
+                      >
+                        <MdAdd className="h-5 w-5" />
+                        Adicionar Item
+                      </button>
+                    )}
+                    {isPromoter && promoterBar && (
+                      <button
+                        onClick={handleAddItemForPromoter}
+                        className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
+                      >
+                        <MdAdd className="h-5 w-5" />
+                        Adicionar Item para {promoterBar.barName}
+                      </button>
+                    )}
                   </div>
                 </div>
 
@@ -1164,18 +1278,22 @@ export default function CardapioAdminPage() {
                                   className="object-cover"
                                 />
                                 <div className="absolute right-2 top-2 flex gap-1">
-                                  <button
-                                    onClick={() => handleEditItem(item)}
-                                    className="rounded-full bg-blue-600 p-2 text-white hover:bg-blue-700"
-                                  >
-                                    <MdEdit className="h-4 w-4" />
-                                  </button>
-                                  <button
-                                    onClick={() => handleDeleteItem(item.id)}
-                                    className="rounded-full bg-red-600 p-2 text-white hover:bg-red-700"
-                                  >
-                                    <MdDelete className="h-4 w-4" />
-                                  </button>
+                                  {(isAdmin || (isPromoter && canManageBar(Number(item.barId)))) && (
+                                    <>
+                                      <button
+                                        onClick={() => handleEditItem(item)}
+                                        className="rounded-full bg-blue-600 p-2 text-white hover:bg-blue-700"
+                                      >
+                                        <MdEdit className="h-4 w-4" />
+                                      </button>
+                                      <button
+                                        onClick={() => handleDeleteItem(item.id)}
+                                        className="rounded-full bg-red-600 p-2 text-white hover:bg-red-700"
+                                      >
+                                        <MdDelete className="h-4 w-4" />
+                                      </button>
+                                    </>
+                                  )}
                                 </div>
                                 <div className="absolute bottom-2 left-2 rounded-full bg-white px-2 py-1 shadow-md">
                                   <span className="text-sm font-bold text-green-600">

@@ -17,37 +17,88 @@ import {
   MdCardGiftcard,
   MdEvent,
   MdBusiness,
+  MdRestaurant,
 } from "react-icons/md";
 import logBrand from "../assets/logo-agilizai-h.png"; // Verifique o caminho
 import UserMenu from "../components/UserMenu/UserMenu"; // Verifique o caminho
 
-// A lista de links da sua navegação
-const navLinks = [
-  { href: "/admin", label: "Dashboard", icon: MdDashboard },
-  { href: "/admin/qrcode", label: "Scanner QR Code", icon: MdQrCodeScanner },
-  { href: "/admin/users", label: "Usuários", icon: MdPerson },
-  { href: "/admin/events", label: "Eventos", icon: MdEvent },
-  { href: "/admin/painel-eventos", label: "Painel de Eventos", icon: MdBusiness },
-  { href: "/admin/reservas", label: "Reservas", icon: MdEditCalendar },
-  { href: "/admin/enterprise", label: "Empresa", icon: MdFactory },
-  { href: "/admin/places", label: "Locais", icon: MdPlace },
-  { href: "/admin/tables", label: "Mesas", icon: MdTableBar },
-  { href: "/admin/gifts", label: "Brindes", icon: MdCardGiftcard },
-  { href: "/admin/workdays", label: "Funcionamento", icon: MdTimer },
-  // Adicione outras rotas aqui conforme necessário
-];
-
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [userRole, setUserRole] = useState<string>('');
+  const [isLoading, setIsLoading] = useState(true);
   const pathname = usePathname(); // Hook do Next.js para pegar a rota ativa
 
-  // A lógica de fetchData foi removida daqui.
-  // Cada página (ex: app/admin/page.tsx) será responsável por buscar seus próprios dados.
+  useEffect(() => {
+    // Buscar o role do usuário dos cookies
+    const getRoleFromCookies = () => {
+      const cookies = document.cookie.split(';');
+      const roleCookie = cookies.find(cookie => cookie.trim().startsWith('role='));
+      if (roleCookie) {
+        const role = roleCookie.split('=')[1];
+        setUserRole(role);
+      }
+      setIsLoading(false);
+    };
+
+    getRoleFromCookies();
+  }, []);
+
+  // A lista de links da sua navegação baseada no role
+  const getNavLinks = () => {
+    if (userRole === 'promoter') {
+      // Promoter pode acessar algumas funcionalidades além do cardápio
+      return [
+        { href: "/admin/cardapio", label: "Cardápio", icon: MdRestaurant },
+        { href: "/admin/events", label: "Eventos", icon: MdEvent },
+        { href: "/admin/reservas", label: "Reservas", icon: MdEditCalendar },
+        { href: "/admin/qrcode", label: "Scanner QR Code", icon: MdQrCodeScanner },
+      ];
+    } else if (userRole === 'admin') {
+      // Administrador pode ver tudo
+      return [
+        { href: "/admin", label: "Dashboard", icon: MdDashboard },
+        { href: "/admin/qrcode", label: "Scanner QR Code", icon: MdQrCodeScanner },
+        { href: "/admin/users", label: "Usuários", icon: MdPerson },
+        { href: "/admin/events", label: "Eventos", icon: MdEvent },
+        { href: "/admin/painel-eventos", label: "Painel de Eventos", icon: MdBusiness },
+        { href: "/admin/reservas", label: "Reservas", icon: MdEditCalendar },
+        { href: "/admin/enterprise", label: "Empresa", icon: MdFactory },
+        { href: "/admin/places", label: "Locais", icon: MdPlace },
+        { href: "/admin/tables", label: "Mesas", icon: MdTableBar },
+        { href: "/admin/gifts", label: "Brindes", icon: MdCardGiftcard },
+        { href: "/admin/workdays", label: "Funcionamento", icon: MdTimer },
+        { href: "/admin/cardapio", label: "Cardápio", icon: MdRestaurant },
+        { href: "/admin/commodities", label: "Commodities", icon: MdFactory },
+      ];
+    }
+    
+    // Para outros roles, retorna array vazio
+    return [];
+  };
+
+  const navLinks = getNavLinks();
 
   const getActiveLabel = () => {
     const activeLink = navLinks.find(link => pathname.startsWith(link.href));
+    if (userRole === 'promoter') {
+      return "Cardápio - Promoter";
+    }
     return activeLink ? activeLink.label : "Admin";
   };
+
+  // Se não há links disponíveis para o usuário, redireciona para acesso negado
+  if (!isLoading && navLinks.length === 0) {
+    window.location.href = '/acesso-negado';
+    return null;
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 items-center justify-center">
+        <div className="text-white text-xl">Carregando...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
@@ -61,8 +112,22 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <div className="bg-white/10 p-2 rounded-xl">
             <Image src={logBrand} alt="Logo" width={32} height={32} className="rounded-lg" />
           </div>
-          <span className="text-lg font-bold hidden md:inline text-white">Painel Admin</span>
+          <span className="text-lg font-bold hidden md:inline text-white">
+            {userRole === 'promoter' ? 'Painel Promoter' : 'Painel Admin'}
+          </span>
         </div>
+        
+        {/* Indicador de Role */}
+        <div className="px-6 py-3 border-b border-gray-700/50">
+          <div className="flex items-center gap-2">
+            <div className={`w-3 h-3 rounded-full ${
+              userRole === 'admin' ? 'bg-blue-500' : 
+              userRole === 'promoter' ? 'bg-green-500' : 'bg-gray-500'
+            }`}></div>
+            <span className="text-sm text-gray-300 capitalize">{userRole}</span>
+          </div>
+        </div>
+
         <nav className="mt-6 space-y-2 p-4">
           {navLinks.map(({ href, label, icon: Icon }) => {
             const isActive = pathname === href || (href !== "/admin" && pathname.startsWith(href));
@@ -83,6 +148,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             );
           })}
         </nav>
+
+        {/* Mensagem para Promoters */}
+        {userRole === 'promoter' && (
+          <div className="p-4 mx-4 mt-4 bg-green-900/20 border border-green-700/30 rounded-lg">
+            <p className="text-green-300 text-xs text-center">
+              Você tem acesso ao gerenciamento do cardápio, eventos, reservas e QR code do seu estabelecimento.
+            </p>
+          </div>
+        )}
       </aside>
 
       {/* Main Content */}
