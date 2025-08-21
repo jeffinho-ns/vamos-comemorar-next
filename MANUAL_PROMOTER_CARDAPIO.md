@@ -425,3 +425,4 @@ Use essas funcionalidades para:
 *Manual criado para os Promoters da Vamos Comemorar - Sistema de Gerenciamento de Cardápio*
 *Versão: 1.0 | Data: Dezembro 2024*
 
+

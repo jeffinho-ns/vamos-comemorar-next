@@ -87,3 +87,4 @@ O sistema de edição rápida das subcategorias permite gerenciar rapidamente as
 - **Expansão de cardápio**: Adicionar novas seções rapidamente
 - **Manutenção**: Atualizar estrutura do menu conforme necessário
 
+

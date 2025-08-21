@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useMemo, use } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MdStar, MdLocationOn, MdArrowBack, MdClose } from 'react-icons/md';
+import { MdStar, MdLocationOn, MdArrowBack, MdClose, MdMenu } from 'react-icons/md';
 import { FaFacebook, FaInstagram, FaWhatsapp } from 'react-icons/fa'; // Importado os ícones
 import Link from 'next/link';
 import Image from 'next/image';
@@ -149,6 +149,7 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
   const [activeSubcategory, setActiveSubcategory] = useState<string>('');
   const [showPopup, setShowPopup] = useState(false);
   const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null); // Estado para o item selecionado no modal
+  const [showMobileSidebar, setShowMobileSidebar] = useState(false);
 
   const handleItemClick = (item: MenuItem) => {
     setSelectedItem(item);
@@ -381,7 +382,11 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
               <ImageSlider images={selectedBar.coverImages} />
               <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
               
-              <div className="absolute top-4 left-4 p-2 bg-white rounded-xl shadow-md">
+              {/* Logo clicável para mobile */}
+              <div 
+                className="logo-container absolute top-4 left-4 p-2 bg-white rounded-xl shadow-md cursor-pointer md:cursor-default"
+                onClick={() => window.innerWidth < 768 && setShowMobileSidebar(true)}
+              >
                 <Image
                   src={getValidImageUrl(selectedBar.logoUrl)}
                   alt={`${selectedBar.name} logo`}
@@ -391,7 +396,8 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
                 />
               </div>
 
-              <div className="bar-content absolute bottom-6 left-6 right-6">
+              {/* Informações do bar - visíveis apenas em desktop */}
+              <div className="bar-content absolute bottom-6 left-6 right-6 hidden md:block">
                 <h1 className="text-white text-3xl md:text-4xl font-bold mb-2">
                   {selectedBar.name}
                 </h1>
@@ -524,6 +530,135 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
         </AnimatePresence>
       </div>
       
+      {/* Modal Sidebar Mobile */}
+      <AnimatePresence>
+        {showMobileSidebar && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black bg-opacity-50 z-50 md:hidden"
+            onClick={() => setShowMobileSidebar(false)}
+          >
+            <motion.div
+              initial={{ x: '-100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '-100%' }}
+              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+              className="mobile-sidebar fixed left-0 top-0 h-full w-80 max-w-[85vw] bg-white shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Header do sidebar */}
+              <div className="sidebar-header bg-gradient-to-br from-blue-600 to-purple-700 text-white p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <Image
+                      src={getValidImageUrl(selectedBar.logoUrl)}
+                      alt={`${selectedBar.name} logo`}
+                      width={48}
+                      height={48}
+                      className="rounded-lg"
+                    />
+                    <h2 className="text-xl font-bold">{selectedBar.name}</h2>
+                  </div>
+                  <button
+                    onClick={() => setShowMobileSidebar(false)}
+                    className="text-white/80 hover:text-white transition-colors"
+                  >
+                    <MdClose className="w-6 h-6" />
+                  </button>
+                </div>
+                
+                <p className="text-white/90 text-sm mb-4">
+                  {selectedBar.description}
+                </p>
+              </div>
+
+              {/* Conteúdo do sidebar */}
+              <div className="sidebar-content p-6 space-y-6 overflow-y-auto h-[calc(100%-120px)]">
+                {/* Redes sociais */}
+                {(selectedBar.facebook || selectedBar.instagram || selectedBar.whatsapp) && (
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-800 mb-3">Redes Sociais</h3>
+                    <div className="flex items-center gap-4">
+                      {selectedBar.facebook && (
+                        <a 
+                          href={selectedBar.facebook} 
+                          target="_blank" 
+                          rel="noopener noreferrer" 
+                          className="social-link flex items-center gap-2 text-blue-600 hover:text-blue-800 transition-colors p-3 rounded-lg hover:bg-blue-50"
+                        >
+                          <FaFacebook className="w-5 h-5" />
+                          <span className="text-sm">Facebook</span>
+                        </a>
+                      )}
+                      {selectedBar.instagram && (
+                        <a 
+                          href={selectedBar.instagram} 
+                          target="_blank" 
+                          rel="noopener noreferrer" 
+                          className="social-link flex items-center gap-2 text-pink-600 hover:text-pink-800 transition-colors p-3 rounded-lg hover:bg-pink-50"
+                        >
+                          <FaInstagram className="w-5 h-5" />
+                          <span className="text-sm">Instagram</span>
+                        </a>
+                      )}
+                      {selectedBar.whatsapp && (
+                        <a 
+                          href={selectedBar.whatsapp} 
+                          target="_blank" 
+                          rel="noopener noreferrer" 
+                          className="social-link flex items-center gap-2 text-green-600 hover:text-green-800 transition-colors p-3 rounded-lg hover:bg-green-50"
+                        >
+                          <FaWhatsapp className="w-5 h-5" />
+                          <span className="text-sm">WhatsApp</span>
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Avaliações */}
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-800 mb-3">Avaliações</h3>
+                  <div className="flex items-center gap-2 text-gray-700">
+                    <MdStar className="w-5 h-5 text-yellow-400" />
+                    <span className="font-semibold">{selectedBar.rating || 0}</span>
+                    <span className="text-sm text-gray-600">({selectedBar.reviewsCount || 0} avaliações)</span>
+                  </div>
+                </div>
+
+                {/* Endereço */}
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-800 mb-3">Localização</h3>
+                  <div className="flex items-start gap-2 text-gray-700">
+                    <MdLocationOn className="w-5 h-5 text-red-500 mt-0.5" />
+                    <span className="text-sm">{selectedBar.address}</span>
+                  </div>
+                </div>
+
+                {/* Amenidades */}
+                {selectedBar.amenities && selectedBar.amenities.length > 0 && (
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-800 mb-3">Serviços</h3>
+                    <div className="flex flex-wrap gap-2">
+                      {selectedBar.amenities.map((amenity, index) => (
+                        <span 
+                          key={index}
+                          className="amenity-tag px-3 py-1 bg-gray-100 text-gray-700 text-sm rounded-full"
+                        >
+                          {amenity}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* O Modal do Popup */}
       <AnimatePresence>
         {showPopup && selectedBar?.popupImageUrl && (
@@ -546,7 +681,7 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
                 className="absolute top-2 right-2 text-gray-400 hover:text-gray-600 transition-colors"
               >
                 <MdClose className="w-6 h-6" />
-              </button>
+                </button>
               <div className="text-center">
                 <Image
                   src={getValidImageUrl(selectedBar.popupImageUrl)}
