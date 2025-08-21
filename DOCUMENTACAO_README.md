@@ -272,3 +272,4 @@ const sections = [
 
 *Documentação criada para o Sistema Vamos Comemorar - Versão 1.0*
 *Última atualização: Dezembro 2024*
+

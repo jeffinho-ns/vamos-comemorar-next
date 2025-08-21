@@ -86,3 +86,4 @@ O sistema de edição rápida das subcategorias permite gerenciar rapidamente as
 - **Padronização de nomes**: Corrigir erros de digitação ou inconsistências
 - **Expansão de cardápio**: Adicionar novas seções rapidamente
 - **Manutenção**: Atualizar estrutura do menu conforme necessário
+
