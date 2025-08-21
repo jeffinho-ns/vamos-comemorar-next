@@ -23,6 +23,14 @@ interface Topping {
   price: number;
 }
 
+interface MenuCategory {
+    id: string | number;
+    name: string;
+    barId: string | number;
+    order: number;
+    items?: MenuItem[]; // Adicionado para incluir itens
+}
+
 interface MenuSubCategory {
   id: string | number;
   name: string;
@@ -64,6 +72,9 @@ interface BarForm {
   latitude: string;
   longitude: string;
   popupImageUrl: string; // ✨ Adicionado
+  facebook?: string; // <-- Adicionado
+  instagram?: string; // <-- Adicionado
+  whatsapp?: string; // <-- Adicionado
 }
 
 interface MenuItem {
@@ -79,17 +90,9 @@ interface MenuItem {
   subCategoryName?: string; // Nome da sub-categoria para exibição (mesmo que subCategory)
   toppings: Topping[];
   order: number;
-  
 }
 
-interface MenuCategory {
-  id: string | number;
-  name: string;
-  barId: string | number;
-  order: number;
-  subCategories?: MenuSubCategory[]; // Adicionado para incluir sub-categorias
-}
-
+// **CORREÇÃO**: Interface Bar atualizada para incluir os campos sociais
 interface Bar {
   id: string | number;
   name: string;
@@ -105,6 +108,9 @@ interface Bar {
   latitude?: number;
   longitude?: number;
   popupImageUrl?: string; // ✨ Adicionado
+  facebook?: string;
+  instagram?: string;
+  whatsapp?: string;
 }
 
 declare module 'react' {
@@ -182,6 +188,9 @@ export default function CardapioAdminPage() {
     latitude: '',
     longitude: '',
     popupImageUrl: '',
+    facebook: '',
+    instagram: '',
+    whatsapp: '',
   });
 
   const [categoryForm, setCategoryForm] = useState<MenuCategoryForm>({
@@ -262,7 +271,7 @@ export default function CardapioAdminPage() {
                   )
                 : [],
               popupImageUrl: bar.popupImageUrl?.includes(BASE_IMAGE_URL)
-                ? bar.popupImageUrl.split('/').pop() // ✨ AQUI está o ajuste
+                ? bar.popupImageUrl.split('/').pop()
                 : bar.popupImageUrl,
             };
             return cleanedBar;
@@ -271,7 +280,7 @@ export default function CardapioAdminPage() {
 
       // Filtrar bares para promoters (só podem ver o seu bar)
       if (isPromoter && promoterBar) {
-        barsData = barsData.filter(bar => Number(bar.id) === Number(promoterBar.barId));
+        barsData = barsData.filter((bar) => Number(bar.id) === Number(promoterBar.barId));
       }
 
       let categoriesData = Array.isArray(categories) ? categories : [];
@@ -290,8 +299,10 @@ export default function CardapioAdminPage() {
 
       // Filtrar categorias e itens para promoters (só podem ver os do seu bar)
       if (isPromoter && promoterBar) {
-        categoriesData = categoriesData.filter(category => Number(category.barId) === Number(promoterBar.barId));
-        itemsData = itemsData.filter(item => Number(item.barId) === Number(promoterBar.barId));
+        categoriesData = categoriesData.filter(
+          (category) => Number(category.barId) === Number(promoterBar.barId),
+        );
+        itemsData = itemsData.filter((item) => Number(item.barId) === Number(promoterBar.barId));
       }
 
       setMenuData({
@@ -359,6 +370,9 @@ export default function CardapioAdminPage() {
       latitude: '',
       longitude: '',
       popupImageUrl: '',
+      facebook: '',
+      instagram: '',
+      whatsapp: '',
     });
   }, []);
 
@@ -386,24 +400,24 @@ export default function CardapioAdminPage() {
   }, []);
 
   const handleOpenQuickEditModal = async (barId: string | number, categoryId: string | number) => {
-    const category = menuData.categories.find(c => c.id === categoryId);
-    const bar = menuData.bars.find(b => b.id === barId);
-    
+    const category = menuData.categories.find((c) => c.id === categoryId);
+    const bar = menuData.bars.find((b) => b.id === barId);
+
     if (!category || !bar) return;
 
     try {
       // Buscar subcategorias da nova API
       const response = await fetch(`${API_BASE_URL}/subcategories/category/${categoryId}`);
-      
+
       if (!response.ok) {
         console.warn('API endpoint não disponível, usando dados locais');
         // Fallback: usar dados locais se a API não estiver disponível
         const itemsInCategory = menuData.items.filter(
-          item => item.categoryId === categoryId && item.barId === barId
+          (item) => item.categoryId === categoryId && item.barId === barId,
         );
-        
+
         const uniqueSubCategories = new Map();
-        itemsInCategory.forEach(item => {
+        itemsInCategory.forEach((item) => {
           if (item.subCategoryName && item.subCategoryName.trim() !== '') {
             if (!uniqueSubCategories.has(item.subCategoryName)) {
               uniqueSubCategories.set(item.subCategoryName, {
@@ -412,7 +426,7 @@ export default function CardapioAdminPage() {
                 order: uniqueSubCategories.size,
                 count: 1,
                 barId: item.barId,
-                categoryId: item.categoryId
+                categoryId: item.categoryId,
               });
             } else {
               const existing = uniqueSubCategories.get(item.subCategoryName);
@@ -420,26 +434,26 @@ export default function CardapioAdminPage() {
             }
           }
         });
-        
+
         const subCategories = Array.from(uniqueSubCategories.values())
           .sort((a, b) => a.order - b.order)
-          .map(sub => ({
+          .map((sub) => ({
             ...sub,
             originalName: sub.name,
-            originalOrder: sub.order
+            originalOrder: sub.order,
           }));
 
         setQuickEditData({
           barId,
           categoryId,
-          subCategories
+          subCategories,
         });
         setShowQuickEditModal(true);
         return;
       }
 
       const apiSubCategories = await response.json();
-      
+
       // Filtrar apenas subcategorias do bar específico
       const subCategories = apiSubCategories
         .filter((sub: any) => sub.barId === barId)
@@ -448,26 +462,26 @@ export default function CardapioAdminPage() {
           ...sub,
           originalName: sub.name,
           originalOrder: sub.order,
-          count: sub.itemsCount || 0
+          count: sub.itemsCount || 0,
         }));
 
       setQuickEditData({
         barId,
         categoryId,
-        subCategories
+        subCategories,
       });
       setShowQuickEditModal(true);
     } catch (error) {
       console.error('Erro ao buscar subcategorias:', error);
       alert('Erro ao carregar subcategorias. Usando dados locais como fallback.');
-      
+
       // Fallback: usar dados locais
       const itemsInCategory = menuData.items.filter(
-        item => item.categoryId === categoryId && item.barId === barId
+        (item) => item.categoryId === categoryId && item.barId === barId,
       );
-      
+
       const uniqueSubCategories = new Map();
-      itemsInCategory.forEach(item => {
+      itemsInCategory.forEach((item) => {
         if (item.subCategoryName && item.subCategoryName.trim() !== '') {
           if (!uniqueSubCategories.has(item.subCategoryName)) {
             uniqueSubCategories.set(item.subCategoryName, {
@@ -476,7 +490,7 @@ export default function CardapioAdminPage() {
               order: uniqueSubCategories.size,
               count: 1,
               barId: item.barId,
-              categoryId: item.categoryId
+              categoryId: item.categoryId,
             });
           } else {
             const existing = uniqueSubCategories.get(item.subCategoryName);
@@ -484,19 +498,19 @@ export default function CardapioAdminPage() {
           }
         }
       });
-      
+
       const subCategories = Array.from(uniqueSubCategories.values())
         .sort((a, b) => a.order - b.order)
-        .map(sub => ({
+        .map((sub) => ({
           ...sub,
           originalName: sub.name,
-          originalOrder: sub.order
+          originalOrder: sub.order,
         }));
 
       setQuickEditData({
         barId,
         categoryId,
-        subCategories
+        subCategories,
       });
       setShowQuickEditModal(true);
     }
@@ -511,15 +525,21 @@ export default function CardapioAdminPage() {
     if (!quickEditData) return;
 
     // Validar se há subcategorias vazias
-    const emptySubCategories = quickEditData.subCategories.filter(sub => sub.name.trim() === '');
+    const emptySubCategories = quickEditData.subCategories.filter(
+      (sub) => sub.name.trim() === '',
+    );
     if (emptySubCategories.length > 0) {
-      if (!confirm(`Existem ${emptySubCategories.length} subcategoria(s) com nome vazio. Deseja continuar? As subcategorias vazias serão ignoradas.`)) {
+      if (
+        !confirm(
+          `Existem ${emptySubCategories.length} subcategoria(s) com nome vazio. Deseja continuar? As subcategorias vazias serão ignoradas.`,
+        )
+      ) {
         return;
       }
     }
 
     // Filtrar subcategorias vazias
-    const validSubCategories = quickEditData.subCategories.filter(sub => sub.name.trim() !== '');
+    const validSubCategories = quickEditData.subCategories.filter((sub) => sub.name.trim() !== '');
 
     if (validSubCategories.length === 0) {
       alert('Nenhuma subcategoria válida para salvar. Adicione nomes às subcategorias.');
@@ -552,21 +572,25 @@ export default function CardapioAdminPage() {
                   method: 'PUT',
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({
-                    name: subCategory.name
-                  })
+                    name: subCategory.name,
+                  }),
                 });
-                
+
                 if (response.ok) {
                   renamedSubCategoriesCount++;
                   const itemsWithThisSubCategory = menuData.items.filter(
-                    item => item.categoryId === quickEditData.categoryId && 
-                           item.barId === quickEditData.barId && 
-                           item.subCategoryName === subCategory.originalName
+                    (item) =>
+                      item.categoryId === quickEditData.categoryId &&
+                      item.barId === quickEditData.barId &&
+                      item.subCategoryName === subCategory.originalName,
                   );
                   updatedItemsCount += itemsWithThisSubCategory.length;
                 }
               } catch (error) {
-                console.error(`Erro ao atualizar subcategoria ${subCategory.originalName}:`, error);
+                console.error(
+                  `Erro ao atualizar subcategoria ${subCategory.originalName}:`,
+                  error,
+                );
               }
             }
           } else {
@@ -578,10 +602,10 @@ export default function CardapioAdminPage() {
                   name: subCategory.name,
                   categoryId: quickEditData.categoryId,
                   barId: quickEditData.barId,
-                  order: subCategory.order
-                })
+                  order: subCategory.order,
+                }),
               });
-              
+
               if (response.ok) {
                 newSubCategoriesCount++;
               }
@@ -593,13 +617,13 @@ export default function CardapioAdminPage() {
       } else {
         // Fallback: usar endpoints tradicionais de itens
         const itemsToUpdate = menuData.items.filter(
-          item => item.categoryId === quickEditData.categoryId && item.barId === quickEditData.barId
+          (item) => item.categoryId === quickEditData.categoryId && item.barId === quickEditData.barId,
         );
 
         for (const subCategory of validSubCategories) {
           if (!subCategory.id.toString().includes('temp-')) {
             const itemsWithThisSubCategory = itemsToUpdate.filter(
-              item => item.subCategoryName === subCategory.originalName
+              (item) => item.subCategoryName === subCategory.originalName,
             );
 
             for (const item of itemsWithThisSubCategory) {
@@ -610,10 +634,10 @@ export default function CardapioAdminPage() {
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                       ...item,
-                      subCategory: subCategory.name
-                    })
+                      subCategory: subCategory.name,
+                    }),
                   });
-                  
+
                   if (response.ok) {
                     updatedItemsCount++;
                   }
@@ -629,22 +653,27 @@ export default function CardapioAdminPage() {
       }
 
       // Reordenar subcategorias se necessário
-      const hasOrderChanges = validSubCategories.some(sub => sub.order !== sub.originalOrder);
+      const hasOrderChanges = validSubCategories.some(
+        (sub) => sub.order !== sub.originalOrder,
+      );
       if (hasOrderChanges) {
         if (useApiEndpoints) {
           try {
             const subcategoryNames = validSubCategories
               .sort((a, b) => a.order - b.order)
-              .map(sub => sub.name);
+              .map((sub) => sub.name);
 
-            const response = await fetch(`${API_BASE_URL}/subcategories/reorder/${quickEditData.categoryId}`, {
-              method: 'PUT',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                subcategoryNames
-              })
-            });
-            
+            const response = await fetch(
+              `${API_BASE_URL}/subcategories/reorder/${quickEditData.categoryId}`,
+              {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  subcategoryNames,
+                }),
+              },
+            );
+
             if (!response.ok) {
               console.warn('Erro ao reordenar subcategorias via API');
             }
@@ -655,16 +684,16 @@ export default function CardapioAdminPage() {
           // Fallback: reordenar itens individualmente
           try {
             const itemsToUpdate = menuData.items.filter(
-              item => item.categoryId === quickEditData.categoryId && item.barId === quickEditData.barId
+              (item) => item.categoryId === quickEditData.categoryId && item.barId === quickEditData.barId,
             );
 
             // Agrupar itens por subcategoria
             const subcategoryGroups = new Map();
-            validSubCategories.forEach(sub => {
+            validSubCategories.forEach((sub) => {
               if (sub.name.trim() !== '') {
                 subcategoryGroups.set(sub.name, {
                   order: sub.order,
-                  items: itemsToUpdate.filter(item => item.subCategoryName === sub.name)
+                  items: itemsToUpdate.filter((item) => item.subCategoryName === sub.name),
                 });
               }
             });
@@ -678,10 +707,10 @@ export default function CardapioAdminPage() {
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                       ...item,
-                      order: group.order
-                    })
+                      order: group.order,
+                    }),
                   });
-                  
+
                   if (response.ok) {
                     updatedItemsCount++;
                   }
@@ -703,7 +732,7 @@ export default function CardapioAdminPage() {
           message += `✅ ${renamedSubCategoriesCount} subcategoria(s) renomeada(s)!\n`;
           message += `📝 ${updatedItemsCount} item(s) atualizado(s) automaticamente!\n\n`;
         }
-        
+
         if (newSubCategoriesCount > 0) {
           message += `🆕 ${newSubCategoriesCount} nova(s) subcategoria(s) criada(s)!\n\n`;
           message += `💡 Para usar as novas subcategorias, adicione itens com esses nomes na aba "Itens do Menu".`;
@@ -712,23 +741,23 @@ export default function CardapioAdminPage() {
         if (updatedItemsCount > 0) {
           message += `✅ ${updatedItemsCount} item(s) atualizado(s) com sucesso!\n\n`;
         }
-        
+
         if (newSubCategoriesCount > 0) {
           message += `📝 ${newSubCategoriesCount} nova(s) subcategoria(s) criada(s)!\n\n`;
           message += `💡 Para usar as novas subcategorias, adicione itens com esses nomes na aba "Itens do Menu".`;
         }
       }
-      
+
       if (hasOrderChanges) {
         message += `🔄 Ordem das subcategorias atualizada!\n`;
       }
-      
+
       if (updatedItemsCount === 0 && newSubCategoriesCount === 0 && renamedSubCategoriesCount === 0 && !hasOrderChanges) {
         message = 'ℹ️ Nenhuma alteração foi necessária.';
       }
 
       alert(message);
-      
+
       await fetchData();
       handleCloseQuickEditModal();
     } catch (err) {
@@ -739,16 +768,20 @@ export default function CardapioAdminPage() {
 
   const addSubCategoryToQuickEdit = () => {
     if (!quickEditData) return;
-    
+
     // Mostrar aviso sobre como funciona
-    if (!confirm('Atenção: Para criar uma nova subcategoria, você deve:\n\n1. Adicionar um item com a nova subcategoria\n2. Ou renomear uma subcategoria existente\n\nDeseja continuar adicionando uma subcategoria temporária?')) {
+    if (
+      !confirm(
+        'Atenção: Para criar uma nova subcategoria, você deve:\n\n1. Adicionar um item com a nova subcategoria\n2. Ou renomear uma subcategoria existente\n\nDeseja continuar adicionando uma subcategoria temporária?',
+      )
+    ) {
       return;
     }
-    
-    setQuickEditData(prev => {
+
+    setQuickEditData((prev) => {
       if (!prev) return prev;
-      const newOrder = Math.max(...prev.subCategories.map(sub => sub.order), -1) + 1;
-      
+      const newOrder = Math.max(...prev.subCategories.map((sub) => sub.order), -1) + 1;
+
       return {
         ...prev,
         subCategories: [
@@ -759,54 +792,58 @@ export default function CardapioAdminPage() {
             order: newOrder,
             originalName: '',
             originalOrder: newOrder,
-            count: 0
-          }
-        ]
+            count: 0,
+          },
+        ],
       };
     });
   };
 
   const removeSubCategoryFromQuickEdit = async (index: number) => {
     if (!quickEditData) return;
-    
+
     const subCategory = quickEditData.subCategories[index];
-    
+
     // Se é uma subcategoria temporária, apenas remover da lista
     if (subCategory.id.toString().includes('temp-')) {
-      setQuickEditData(prev => {
+      setQuickEditData((prev) => {
         if (!prev) return prev;
         return {
           ...prev,
-          subCategories: prev.subCategories.filter((_, i) => i !== index)
+          subCategories: prev.subCategories.filter((_, i) => i !== index),
         };
       });
       return;
     }
 
     // Se é uma subcategoria existente, confirmar exclusão
-    if (!confirm(`Tem certeza que deseja excluir a subcategoria '${subCategory.name}'?\n\n⚠️ Esta ação não pode ser desfeita.`)) {
+    if (
+      !confirm(
+        `Tem certeza que deseja excluir a subcategoria '${subCategory.name}'?\n\n⚠️ Esta ação não pode ser desfeita.`,
+      )
+    ) {
       return;
     }
 
     try {
       // Verificar se os novos endpoints estão disponíveis
       const testResponse = await fetch(`${API_BASE_URL}/subcategories`, { method: 'GET' });
-      
+
       if (testResponse.ok) {
         // Usar novo endpoint de exclusão
         const response = await fetch(`${API_BASE_URL}/subcategories/${subCategory.id}`, {
-          method: 'DELETE'
+          method: 'DELETE',
         });
 
         if (response.ok) {
-          setQuickEditData(prev => {
+          setQuickEditData((prev) => {
             if (!prev) return prev;
             return {
               ...prev,
-              subCategories: prev.subCategories.filter((_, i) => i !== index)
+              subCategories: prev.subCategories.filter((_, i) => i !== index),
             };
           });
-          
+
           alert('Subcategoria excluída com sucesso!');
         } else {
           const errorData = await response.json();
@@ -814,65 +851,77 @@ export default function CardapioAdminPage() {
         }
       } else {
         // Fallback: não permitir exclusão sem os novos endpoints
-        alert('⚠️ Funcionalidade de exclusão não disponível no momento. Use a funcionalidade de renomear ou aguarde a atualização do sistema.');
+        alert(
+          '⚠️ Funcionalidade de exclusão não disponível no momento. Use a funcionalidade de renomear ou aguarde a atualização do sistema.',
+        );
       }
     } catch (error) {
       console.error('Erro ao excluir subcategoria:', error);
-      alert('⚠️ Erro ao conectar com o servidor. A funcionalidade de exclusão não está disponível no momento.');
+      alert(
+        '⚠️ Erro ao conectar com o servidor. A funcionalidade de exclusão não está disponível no momento.',
+      );
     }
   };
 
-  const updateSubCategoryInQuickEdit = (index: number, field: 'name' | 'order', value: string | number) => {
+  const updateSubCategoryInQuickEdit = (
+    index: number,
+    field: 'name' | 'order',
+    value: string | number,
+  ) => {
     if (!quickEditData) return;
-    
-    setQuickEditData(prev => {
+
+    setQuickEditData((prev) => {
       if (!prev) return prev;
       const newSubCategories = [...prev.subCategories];
       newSubCategories[index] = {
         ...newSubCategories[index],
-        [field]: field === 'order' ? Number(value) : value
+        [field]: field === 'order' ? Number(value) : value,
       };
       return {
         ...prev,
-        subCategories: newSubCategories
+        subCategories: newSubCategories,
       };
     });
   };
 
   const reorderSubCategories = (fromIndex: number, toIndex: number) => {
     if (!quickEditData) return;
-    
-    setQuickEditData(prev => {
+
+    setQuickEditData((prev) => {
       if (!prev) return prev;
       const newSubCategories = [...prev.subCategories];
       const [movedItem] = newSubCategories.splice(fromIndex, 1);
       newSubCategories.splice(toIndex, 0, movedItem);
-      
+
       // Atualizar ordens
       newSubCategories.forEach((sub, index) => {
         sub.order = index;
       });
-      
+
       return {
         ...prev,
-        subCategories: newSubCategories
+        subCategories: newSubCategories,
       };
     });
   };
 
   const duplicateSubCategory = (index: number) => {
     if (!quickEditData) return;
-    
+
     // Mostrar aviso sobre como funciona
-    if (!confirm('Atenção: Duplicar uma subcategoria criará uma versão temporária.\n\nPara que ela seja efetiva, você deve:\n\n1. Adicionar itens com a nova subcategoria, ou\n2. Renomear uma subcategoria existente\n\nDeseja continuar?')) {
+    if (
+      !confirm(
+        'Atenção: Duplicar uma subcategoria criará uma versão temporária.\n\nPara que ela seja efetiva, você deve:\n\n1. Adicionar itens com a nova subcategoria, ou\n2. Renomear uma subcategoria existente\n\nDeseja continuar?',
+      )
+    ) {
       return;
     }
-    
-    setQuickEditData(prev => {
+
+    setQuickEditData((prev) => {
       if (!prev) return prev;
       const originalSub = prev.subCategories[index];
-      const newOrder = Math.max(...prev.subCategories.map(sub => sub.order), -1) + 1;
-      
+      const newOrder = Math.max(...prev.subCategories.map((sub) => sub.order), -1) + 1;
+
       return {
         ...prev,
         subCategories: [
@@ -883,55 +932,55 @@ export default function CardapioAdminPage() {
             order: newOrder,
             originalName: '',
             originalOrder: newOrder,
-            count: 0
-          }
-        ]
+            count: 0,
+          },
+        ],
       };
     });
   };
 
   const sortSubCategoriesByName = () => {
     if (!quickEditData) return;
-    
-    setQuickEditData(prev => {
+
+    setQuickEditData((prev) => {
       if (!prev) return prev;
       const sortedSubCategories = [...prev.subCategories]
-        .filter(sub => sub.name.trim() !== '')
+        .filter((sub) => sub.name.trim() !== '')
         .sort((a, b) => a.name.localeCompare(b.name))
         .map((sub, index) => ({ ...sub, order: index }));
-      
+
       return {
         ...prev,
-        subCategories: sortedSubCategories
+        subCategories: sortedSubCategories,
       };
     });
   };
 
   const sortSubCategoriesByOrder = () => {
     if (!quickEditData) return;
-    
-    setQuickEditData(prev => {
+
+    setQuickEditData((prev) => {
       if (!prev) return prev;
       const sortedSubCategories = [...prev.subCategories]
-        .filter(sub => sub.name.trim() !== '')
+        .filter((sub) => sub.name.trim() !== '')
         .sort((a, b) => a.order - b.order)
         .map((sub, index) => ({ ...sub, order: index }));
-      
+
       return {
         ...prev,
-        subCategories: sortedSubCategories
+        subCategories: sortedSubCategories,
       };
     });
   };
 
   const getChangesSummary = () => {
     if (!quickEditData) return { added: 0, modified: 0, removed: 0 };
-    
+
     let added = 0;
     let modified = 0;
     let removed = 0;
-    
-    quickEditData.subCategories.forEach(sub => {
+
+    quickEditData.subCategories.forEach((sub) => {
       if (sub.id.toString().includes('temp-') && sub.name.trim() !== '') {
         // Nova subcategoria com nome
         added++;
@@ -940,7 +989,7 @@ export default function CardapioAdminPage() {
         modified++;
       }
     });
-    
+
     return { added, modified, removed };
   };
 
@@ -956,7 +1005,9 @@ export default function CardapioAdminPage() {
         return;
       }
 
-      const url = editingBar ? `${API_BASE_URL}/bars/${editingBar.id}` : `${API_BASE_URL}/bars`;
+      const url = editingBar
+        ? `${API_BASE_URL}/bars/${editingBar.id}`
+        : `${API_BASE_URL}/bars`;
 
       const method = editingBar ? 'PUT' : 'POST';
 
@@ -966,6 +1017,9 @@ export default function CardapioAdminPage() {
         reviewsCount: barForm.reviewsCount ? parseInt(barForm.reviewsCount) : 0,
         latitude: barForm.latitude ? parseFloat(barForm.latitude) : null,
         longitude: barForm.longitude ? parseFloat(barForm.longitude) : null,
+        facebook: barForm.facebook || '',
+        instagram: barForm.instagram || '',
+        whatsapp: barForm.whatsapp || '',
       };
 
       console.log('🔄 Salvando estabelecimento:', method, url, barData);
@@ -1188,6 +1242,10 @@ export default function CardapioAdminPage() {
       latitude: bar.latitude?.toString() || '',
       longitude: bar.longitude?.toString() || '',
       popupImageUrl: bar.popupImageUrl || '',
+      // **CORREÇÃO**: Garante que os campos não sejam undefined
+      facebook: bar.facebook || '', 
+      instagram: bar.instagram || '',
+      whatsapp: bar.whatsapp || '',
     });
     setShowBarModal(true);
   }, []);
@@ -1199,7 +1257,9 @@ export default function CardapioAdminPage() {
       const categorySubCategories = menuData.items
         .filter(
           (item) =>
-            item.categoryId === category.id && item.subCategoryName && item.subCategoryName.trim() !== '',
+            item.categoryId === category.id &&
+            item.subCategoryName &&
+            item.subCategoryName.trim() !== '',
         )
         .reduce((acc: any[], item) => {
           const existing = acc.find((sub) => sub.name === item.subCategoryName);
@@ -1273,7 +1333,9 @@ export default function CardapioAdminPage() {
     async (barId: string | number) => {
       if (confirm('Tem certeza que deseja excluir este estabelecimento?')) {
         try {
-          const response = await fetch(`${API_BASE_URL}/bars/${barId}`, { method: 'DELETE' });
+          const response = await fetch(`${API_BASE_URL}/bars/${barId}`, {
+            method: 'DELETE',
+          });
           if (response.ok) {
             fetchData();
           } else {
@@ -1292,7 +1354,9 @@ export default function CardapioAdminPage() {
     async (categoryId: string | number) => {
       if (confirm('Tem certeza que deseja excluir esta categoria?')) {
         try {
-          const response = await fetch(`${API_BASE_URL}/categories/${categoryId}`, { method: 'DELETE' });
+          const response = await fetch(`${API_BASE_URL}/categories/${categoryId}`, {
+            method: 'DELETE',
+          });
           if (response.ok) {
             fetchData();
           } else {
@@ -1541,20 +1605,16 @@ export default function CardapioAdminPage() {
         {/* Header */}
         <div className="mb-8">
           <h1 className="mb-2 text-3xl font-bold text-gray-900">Gerenciamento do Cardápio</h1>
-          <p className="text-gray-600">
-            Gerencie estabelecimentos, categorias e itens do cardápio
-          </p>
-          
-          {/* Indicador para Promoters */}
+          <p className="text-gray-600">Gerencie estabelecimentos, categorias e itens do cardápio</p>
           {isPromoter && promoterBar && (
-            <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
+            <div className="mt-4 rounded-lg border border-green-200 bg-green-50 p-4">
               <div className="flex items-center gap-3">
-                <MdSecurity className="w-6 h-6 text-green-600" />
+                <MdSecurity className="h-6 w-6 text-green-600" />
                 <div>
-                  <p className="text-green-800 font-medium">
+                  <p className="font-medium text-green-800">
                     Você está gerenciando: <span className="font-bold">{promoterBar.barName}</span>
                   </p>
-                  <p className="text-green-600 text-sm">
+                  <p className="text-sm text-green-600">
                     Acesso restrito apenas aos dados deste estabelecimento
                   </p>
                 </div>
@@ -1603,7 +1663,7 @@ export default function CardapioAdminPage() {
           >
             {/* Banner para Promoters */}
             {isPromoter && promoterBar && (
-              <div className="rounded-lg bg-blue-50 border border-blue-200 p-4">
+              <div className="rounded-lg border border-blue-200 bg-blue-50 p-4">
                 <div className="flex items-center gap-3">
                   <MdSecurity className="h-6 w-6 text-blue-600" />
                   <div>
@@ -1665,7 +1725,9 @@ export default function CardapioAdminPage() {
                       </div>
                       <div className="p-4">
                         <h3 className="mb-2 text-lg font-semibold text-gray-900">{bar.name}</h3>
-                        <p className="mb-3 line-clamp-2 text-sm text-gray-600">{bar.description}</p>
+                        <p className="mb-3 line-clamp-2 text-sm text-gray-600">
+                          {bar.description}
+                        </p>
                         <div className="mb-2 flex items-center gap-2 text-sm text-gray-500">
                           <MdStar className="h-4 w-4 text-yellow-400" />
                           <span>{bar.rating}</span>
@@ -1710,12 +1772,14 @@ export default function CardapioAdminPage() {
                   {menuData.categories.map((category) => {
                     const bar = menuData.bars.find((b) => b.id === category.barId);
                     if (!bar) return null;
-                    
+
                     return (
                       <div key={category.id} className="rounded-lg bg-white p-6 shadow-md">
                         <div className="mb-4 flex items-start justify-between">
                           <div>
-                            <h3 className="text-lg font-semibold text-gray-900">{category.name}</h3>
+                            <h3 className="text-lg font-semibold text-gray-900">
+                              {category.name}
+                            </h3>
                             <p className="text-sm text-gray-500">{bar.name}</p>
                           </div>
                           <div className="flex gap-1">
@@ -1749,52 +1813,88 @@ export default function CardapioAdminPage() {
                           <p className="text-blue-600">
                             {(() => {
                               const subCategoriesCount = menuData.subCategories.filter(
-                                sub => sub.categoryId === category.id && sub.barId === category.barId
+                                (sub) =>
+                                  sub.categoryId === category.id && sub.barId === category.barId,
                               ).length;
                               const itemsWithSubCategories = menuData.items.filter(
-                                item => item.categoryId === category.id && item.barId === category.barId && item.subCategoryName
+                                (item) =>
+                                  item.categoryId === category.id &&
+                                  item.barId === category.barId &&
+                                  item.subCategoryName,
                               ).length;
-                              const uniqueSubCategories = itemsWithSubCategories > 0 ? 
-                                new Set(menuData.items
-                                  .filter(item => item.categoryId === category.id && item.barId === category.barId && item.subCategoryName)
-                                  .map(item => item.subCategoryName)
-                                ).size : 
-                                subCategoriesCount;
+                              const uniqueSubCategories =
+                                itemsWithSubCategories > 0
+                                  ? new Set(
+                                      menuData.items
+                                        .filter(
+                                          (item) =>
+                                            item.categoryId === category.id &&
+                                            item.barId === category.barId &&
+                                            item.subCategoryName,
+                                        )
+                                        .map((item) => item.subCategoryName),
+                                    ).size
+                                  : subCategoriesCount;
                               return `${uniqueSubCategories} subcategoria(s)`;
                             })()}
                           </p>
-                          
+
                           {/* Preview das subcategorias */}
                           {(() => {
-                            const subCategories = menuData.subCategories.filter(
-                              sub => sub.categoryId === category.id && sub.barId === category.barId
-                            ).sort((a, b) => a.order - b.order);
-                            
+                            const subCategories = menuData.subCategories
+                              .filter(
+                                (sub) =>
+                                  sub.categoryId === category.id && sub.barId === category.barId,
+                              )
+                              .sort((a, b) => a.order - b.order);
+
                             if (subCategories.length === 0) {
                               // Tentar extrair das subcategorias dos itens
-                              const itemSubCategories = Array.from(new Set(
-                                menuData.items
-                                  .filter(item => item.categoryId === category.id && item.barId === category.barId && item.subCategoryName)
-                                  .map(item => item.subCategoryName)
-                              )).slice(0, 3); // Mostrar apenas as 3 primeiras
-                              
+                              const itemSubCategories = Array.from(
+                                new Set(
+                                  menuData.items
+                                    .filter(
+                                      (item) =>
+                                        item.categoryId === category.id &&
+                                        item.barId === category.barId &&
+                                        item.subCategoryName,
+                                    )
+                                    .map((item) => item.subCategoryName),
+                                ),
+                              ).slice(0, 3); // Mostrar apenas as 3 primeiras
+
                               if (itemSubCategories.length > 0) {
                                 return (
                                   <div className="mt-2">
-                                    <p className="text-xs text-gray-500 mb-1">Subcategorias detectadas:</p>
+                                    <p className="mb-1 text-xs text-gray-500">
+                                      Subcategorias detectadas:
+                                    </p>
                                     <div className="flex flex-wrap gap-1">
                                       {itemSubCategories.map((subName, idx) => (
-                                        <span key={idx} className="inline-block rounded-full bg-gray-100 px-2 py-1 text-xs text-gray-600">
+                                        <span
+                                          key={idx}
+                                          className="inline-block rounded-full bg-gray-100 px-2 py-1 text-xs text-gray-600"
+                                        >
                                           {subName}
                                         </span>
                                       ))}
                                       {itemSubCategories.length >= 3 && (
                                         <span className="inline-block rounded-full bg-gray-100 px-2 py-1 text-xs text-gray-400">
-                                          +{Array.from(new Set(
-                                            menuData.items
-                                              .filter(item => item.categoryId === category.id && item.barId === category.barId && item.subCategoryName)
-                                              .map(item => item.subCategoryName)
-                                          )).length - 3} mais
+                                          +{
+                                            Array.from(
+                                              new Set(
+                                                menuData.items
+                                                  .filter(
+                                                    (item) =>
+                                                      item.categoryId === category.id &&
+                                                      item.barId === category.barId &&
+                                                      item.subCategoryName,
+                                                  )
+                                                  .map((item) => item.subCategoryName),
+                                              ),
+                                            ).length - 3
+                                          }{' '}
+                                          mais
                                         </span>
                                       )}
                                     </div>
@@ -1803,13 +1903,16 @@ export default function CardapioAdminPage() {
                               }
                               return null;
                             }
-                            
+
                             return (
                               <div className="mt-2">
-                                <p className="text-xs text-gray-500 mb-1">Subcategorias:</p>
+                                <p className="mb-1 text-xs text-gray-500">Subcategorias:</p>
                                 <div className="flex flex-wrap gap-1">
                                   {subCategories.slice(0, 3).map((sub) => (
-                                    <span key={sub.id} className="inline-block rounded-full bg-blue-100 px-2 py-1 text-xs text-blue-600">
+                                    <span
+                                      key={sub.id}
+                                      className="inline-block rounded-full bg-blue-100 px-2 py-1 text-xs text-blue-600"
+                                    >
                                       {sub.name}
                                     </span>
                                   ))}
@@ -1884,36 +1987,46 @@ export default function CardapioAdminPage() {
                         item.description?.toLowerCase().includes(searchTerm.toLowerCase())),
                   );
                   if (itemsForBar.length === 0) return null;
-                  
-                  const isAllSelectedInBar = itemsForBar.every(item => selectedItems.includes(item.id));
-                  const isAnySelectedInBar = itemsForBar.some(item => selectedItems.includes(item.id));
+
+                  const isAllSelectedInBar = itemsForBar.every((item) =>
+                    selectedItems.includes(item.id),
+                  );
+                  const isAnySelectedInBar = itemsForBar.some((item) =>
+                    selectedItems.includes(item.id),
+                  );
 
                   return (
                     <div key={bar.id} className="mb-8">
-                      <div className="flex items-center justify-between mb-4">
-                          <h3 className="text-xl font-bold text-gray-800">{bar.name}</h3>
-                           <div className="flex items-center gap-2">
-                             <input 
-                                type="checkbox" 
-                                className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" 
-                                checked={isAllSelectedInBar}
-                                onChange={() => {
-                                  if (isAllSelectedInBar) {
-                                    setSelectedItems(prev => prev.filter(id => !itemsForBar.map(i => i.id).includes(id)));
-                                  } else {
-                                    setSelectedItems(prev => [...new Set([...prev, ...itemsForBar.map(i => i.id)])]);
-                                  }
-                                }}
-                                indeterminate={!isAllSelectedInBar && isAnySelectedInBar}
-                             />
-                              <span className="text-sm font-medium text-gray-700">
-                                {isAllSelectedInBar ? 'Desmarcar Todos' : 'Selecionar Todos'}
-                              </span>
-                           </div>
+                      <div className="mb-4 flex items-center justify-between">
+                        <h3 className="text-xl font-bold text-gray-800">{bar.name}</h3>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                            checked={isAllSelectedInBar}
+                            onChange={() => {
+                              if (isAllSelectedInBar) {
+                                setSelectedItems((prev) =>
+                                  prev.filter((id) => !itemsForBar.map((i) => i.id).includes(id)),
+                                );
+                              } else {
+                                setSelectedItems((prev) => [
+                                  ...new Set([...prev, ...itemsForBar.map((i) => i.id)]),
+                                ]);
+                              }
+                            }}
+                            indeterminate={!isAllSelectedInBar && isAnySelectedInBar}
+                          />
+                          <span className="text-sm font-medium text-gray-700">
+                            {isAllSelectedInBar ? 'Desmarcar Todos' : 'Selecionar Todos'}
+                          </span>
+                        </div>
                       </div>
                       <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                         {itemsForBar.map((item) => {
-                          const category = menuData.categories.find((c) => c.id === item.categoryId);
+                          const category = menuData.categories.find(
+                            (c) => c.id === item.categoryId,
+                          );
                           return (
                             <div
                               key={item.id}
@@ -1936,7 +2049,8 @@ export default function CardapioAdminPage() {
                                   className="object-cover"
                                 />
                                 <div className="absolute right-2 top-2 flex gap-1">
-                                  {(isAdmin || (isPromoter && canManageBar(Number(item.barId)))) && (
+                                  {(isAdmin ||
+                                    (isPromoter && canManageBar(Number(item.barId)))) && (
                                     <>
                                       <button
                                         onClick={() => handleEditItem(item)}
@@ -2106,7 +2220,9 @@ export default function CardapioAdminPage() {
                 <input
                   type="text"
                   value={barForm.popupImageUrl}
-                  onChange={(e) => setBarForm((prev) => ({ ...prev, popupImageUrl: e.target.value }))}
+                  onChange={(e) =>
+                    setBarForm((prev) => ({ ...prev, popupImageUrl: e.target.value }))
+                  }
                   placeholder="Nome do arquivo (ex: popup.jpg)"
                   className="flex-1 rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
@@ -2141,6 +2257,40 @@ export default function CardapioAdminPage() {
                 className="w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
+            
+            {/* **NOVO**: Campos de links sociais */}
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">Facebook</label>
+                <input
+                  type="text"
+                  value={barForm.facebook}
+                  onChange={(e) => setBarForm((prev) => ({ ...prev, facebook: e.target.value }))}
+                  placeholder="Link do Facebook"
+                  className="w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">Instagram</label>
+                <input
+                  type="text"
+                  value={barForm.instagram}
+                  onChange={(e) => setBarForm((prev) => ({ ...prev, instagram: e.target.value }))}
+                  placeholder="Link do Instagram"
+                  className="w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">WhatsApp</label>
+                <input
+                  type="text"
+                  value={barForm.whatsapp}
+                  onChange={(e) => setBarForm((prev) => ({ ...prev, whatsapp: e.target.value }))}
+                  placeholder="Link do WhatsApp"
+                  className="w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+            </div>
 
             <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
               <div>
@@ -2163,7 +2313,9 @@ export default function CardapioAdminPage() {
                   type="number"
                   min="0"
                   value={barForm.reviewsCount}
-                  onChange={(e) => setBarForm((prev) => ({ ...prev, reviewsCount: e.target.value }))}
+                  onChange={(e) =>
+                    setBarForm((prev) => ({ ...prev, reviewsCount: e.target.value }))
+                  }
                   className="w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
@@ -2266,7 +2418,10 @@ export default function CardapioAdminPage() {
                   onClick={() => {
                     setCategoryForm((prev) => ({
                       ...prev,
-                      subCategories: [...prev.subCategories, { name: '', order: prev.subCategories.length }],
+                      subCategories: [
+                        ...prev.subCategories,
+                        { name: '', order: prev.subCategories.length },
+                      ],
                     }));
                   }}
                   className="rounded-md bg-blue-600 px-3 py-1 text-sm text-white hover:bg-blue-700"
@@ -2275,7 +2430,7 @@ export default function CardapioAdminPage() {
                 </button>
               </div>
 
-              <div className="space-y-2 overflow-y-auto max-h-40">
+              <div className="max-h-40 space-y-2 overflow-y-auto">
                 {categoryForm.subCategories.map((subCategory, index) => (
                   <div key={index} className="flex gap-2">
                     <input
@@ -2283,7 +2438,10 @@ export default function CardapioAdminPage() {
                       value={subCategory.name || ''}
                       onChange={(e) => {
                         const newSubCategories = [...categoryForm.subCategories];
-                        newSubCategories[index] = { ...newSubCategories[index], name: e.target.value };
+                        newSubCategories[index] = {
+                          ...newSubCategories[index],
+                          name: e.target.value,
+                        };
                         setCategoryForm((prev) => ({ ...prev, subCategories: newSubCategories }));
                       }}
                       placeholder="Nome da sub-categoria"
@@ -2295,7 +2453,10 @@ export default function CardapioAdminPage() {
                       value={subCategory.order || 0}
                       onChange={(e) => {
                         const newSubCategories = [...categoryForm.subCategories];
-                        newSubCategories[index] = { ...newSubCategories[index], order: parseInt(e.target.value) || 0 };
+                        newSubCategories[index] = {
+                          ...newSubCategories[index],
+                          order: parseInt(e.target.value) || 0,
+                        };
                         setCategoryForm((prev) => ({ ...prev, subCategories: newSubCategories }));
                       }}
                       placeholder="Ordem"
@@ -2304,7 +2465,9 @@ export default function CardapioAdminPage() {
                     <button
                       type="button"
                       onClick={() => {
-                        const newSubCategories = categoryForm.subCategories.filter((_, i) => i !== index);
+                        const newSubCategories = categoryForm.subCategories.filter(
+                          (_, i) => i !== index,
+                        );
                         setCategoryForm((prev) => ({ ...prev, subCategories: newSubCategories }));
                       }}
                       className="px-2 py-2 text-red-600 hover:text-red-800"
@@ -2314,7 +2477,7 @@ export default function CardapioAdminPage() {
                   </div>
                 ))}
                 {categoryForm.subCategories.length === 0 && (
-                  <p className="italic text-gray-500 text-sm">Nenhuma sub-categoria adicionada.</p>
+                  <p className="text-sm italic text-gray-500">Nenhuma sub-categoria adicionada.</p>
                 )}
               </div>
             </div>
@@ -2345,7 +2508,9 @@ export default function CardapioAdminPage() {
           <div className="space-y-4">
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">Nome do Item</label>
+                <label className="mb-1 block text-sm font-medium text-gray-700">
+                  Nome do Item
+                </label>
                 <input
                   type="text"
                   value={itemForm.name}
@@ -2412,11 +2577,15 @@ export default function CardapioAdminPage() {
               </div>
 
               <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">Sub-categoria</label>
+                <label className="mb-1 block text-sm font-medium text-gray-700">
+                  Sub-categoria
+                </label>
                 <input
                   type="text"
                   value={itemForm.subCategory}
-                  onChange={(e) => setItemForm((prev) => ({ ...prev, subCategory: e.target.value }))}
+                  onChange={(e) =>
+                    setItemForm((prev) => ({ ...prev, subCategory: e.target.value }))
+                  }
                   placeholder="Ex: Hambúrgueres, Caipirinhas, Porções..."
                   className="w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
@@ -2428,7 +2597,9 @@ export default function CardapioAdminPage() {
 
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">Estabelecimento</label>
+                <label className="mb-1 block text-sm font-medium text-gray-700">
+                  Estabelecimento
+                </label>
                 <select
                   value={itemForm.barId}
                   onChange={(e) =>
@@ -2521,21 +2692,21 @@ export default function CardapioAdminPage() {
                 </div>
               </div>
             </div>
+          </div>
 
-            <div className="flex justify-end gap-3 pt-4">
-              <button
-                onClick={handleCloseItemModal}
-                className="rounded-md bg-gray-100 px-4 py-2 text-gray-700 hover:bg-gray-200"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={() => handleSaveItem()}
-                className="rounded-md bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
-              >
-                Salvar
-              </button>
-            </div>
+          <div className="flex justify-end gap-3 pt-4">
+            <button
+              onClick={handleCloseItemModal}
+              className="rounded-md bg-gray-100 px-4 py-2 text-gray-700 hover:bg-gray-200"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={() => handleSaveItem()}
+              className="rounded-md bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
+            >
+              Salvar
+            </button>
           </div>
         </Modal>
 
@@ -2547,14 +2718,15 @@ export default function CardapioAdminPage() {
         >
           {quickEditData && (
             <div className="space-y-4">
-              <div className="rounded-lg bg-blue-50 p-4">
+              <div className="rounded-lg border border-blue-200 bg-blue-50 p-4">
                 <h3 className="font-medium text-blue-900">
-                  Editando subcategorias da categoria: {menuData.categories.find(c => c.id === quickEditData.categoryId)?.name}
+                  Editando subcategorias da categoria:
+                  {menuData.categories.find((c) => c.id === quickEditData.categoryId)?.name}
                 </h3>
                 <p className="text-sm text-blue-700">
-                  Bar: {menuData.bars.find(b => b.id === quickEditData.barId)?.name}
+                  Bar: {menuData.bars.find((b) => b.id === quickEditData.barId)?.name}
                 </p>
-                
+
                 {/* Estatísticas rápidas */}
                 <div className="mt-3 grid grid-cols-2 gap-4 text-sm">
                   <div className="rounded bg-white p-2 text-center">
@@ -2565,10 +2737,13 @@ export default function CardapioAdminPage() {
                   </div>
                   <div className="rounded bg-white p-2 text-center">
                     <div className="font-bold text-green-600">
-                      {menuData.items.filter(
-                        item => item.categoryId === quickEditData.categoryId && 
-                               item.barId === quickEditData.barId
-                      ).length}
+                      {
+                        menuData.items.filter(
+                          (item) =>
+                            item.categoryId === quickEditData.categoryId &&
+                            item.barId === quickEditData.barId,
+                        ).length
+                      }
                     </div>
                     <div className="text-green-700">Itens na categoria</div>
                   </div>
@@ -2605,61 +2780,75 @@ export default function CardapioAdminPage() {
 
                 <div className="max-h-96 space-y-2 overflow-y-auto">
                   {quickEditData.subCategories.map((subCategory, index) => (
-                    <div key={index} className={`flex items-center gap-2 rounded-lg border p-3 ${
-                      subCategory.id.toString().includes('temp-') 
-                        ? 'border-orange-200 bg-orange-50' 
-                        : 'border-gray-200'
-                    }`}>
+                    <div
+                      key={index}
+                      className={`flex items-center gap-2 rounded-lg border p-3 ${
+                        subCategory.id.toString().includes('temp-')
+                          ? 'border-orange-200 bg-orange-50'
+                          : 'border-gray-200'
+                      }`}
+                    >
                       <div className="flex items-center gap-2 text-gray-400">
                         <span className="text-xs font-medium">#{index + 1}</span>
                         {subCategory.id.toString().includes('temp-') && (
-                          <span className="text-xs text-orange-600 bg-orange-100 px-2 py-1 rounded">
+                          <span className="rounded bg-orange-100 px-2 py-1 text-xs text-orange-600">
                             NOVA
                           </span>
                         )}
                         <button
                           onClick={() => index > 0 && reorderSubCategories(index, index - 1)}
                           disabled={index === 0}
-                          className="text-gray-400 hover:text-gray-600 disabled:opacity-50"
+                          className="text-gray-400 disabled:opacity-50 hover:text-gray-600"
                           title="Mover para cima"
                         >
                           ↑
                         </button>
                         <button
-                          onClick={() => index < quickEditData.subCategories.length - 1 && reorderSubCategories(index, index + 1)}
+                          onClick={() =>
+                            index < quickEditData.subCategories.length - 1 &&
+                            reorderSubCategories(index, index + 1)
+                          }
                           disabled={index === quickEditData.subCategories.length - 1}
-                          className="text-gray-400 hover:text-gray-600 disabled:opacity-50"
+                          className="text-gray-400 disabled:opacity-50 hover:text-gray-600"
                           title="Mover para baixo"
                         >
                           ↓
                         </button>
                       </div>
-                      
+
                       <input
                         type="text"
                         value={subCategory.name || ''}
                         onChange={(e) => updateSubCategoryInQuickEdit(index, 'name', e.target.value)}
-                        placeholder={subCategory.id.toString().includes('temp-') ? "Nome da nova subcategoria" : "Nome da subcategoria"}
+                        placeholder={
+                          subCategory.id.toString().includes('temp-')
+                            ? 'Nome da nova subcategoria'
+                            : 'Nome da subcategoria'
+                        }
                         className="flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                       />
-                      
+
                       <input
                         type="number"
                         min="0"
                         value={subCategory.order || 0}
-                        onChange={(e) => updateSubCategoryInQuickEdit(index, 'order', parseInt(e.target.value) || 0)}
+                        onChange={(e) =>
+                          updateSubCategoryInQuickEdit(index, 'order', parseInt(e.target.value) || 0)
+                        }
                         className="w-20 rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                       />
-                      
+
                       {/* Contador de itens */}
-                      <div className={`text-xs px-2 py-1 rounded ${
-                        subCategory.count && subCategory.count > 0
-                          ? 'text-green-600 bg-green-100'
-                          : 'text-gray-500 bg-gray-100'
-                      }`}>
+                      <div
+                        className={`rounded px-2 py-1 text-xs ${
+                          subCategory.count && subCategory.count > 0
+                            ? 'bg-green-100 text-green-600'
+                            : 'bg-gray-100 text-gray-500'
+                        }`}
+                      >
                         {subCategory.count || 0} item(s)
                       </div>
-                      
+
                       <button
                         onClick={() => removeSubCategoryFromQuickEdit(index)}
                         className="px-2 py-2 text-red-600 hover:text-red-800"
@@ -2667,7 +2856,7 @@ export default function CardapioAdminPage() {
                       >
                         <MdDelete className="h-4 w-4" />
                       </button>
-                      
+
                       <button
                         onClick={() => duplicateSubCategory(index)}
                         className="px-2 py-2 text-blue-600 hover:text-blue-800"
@@ -2680,20 +2869,32 @@ export default function CardapioAdminPage() {
                 </div>
 
                 {quickEditData.subCategories.length === 0 && (
-                  <p className="italic text-center text-gray-500 text-sm py-4">
+                  <p className="py-4 text-center text-sm italic text-gray-500">
                     Nenhuma subcategoria encontrada. Adicione uma nova subcategoria.
                   </p>
                 )}
               </div>
 
-              <div className="rounded-lg bg-yellow-50 p-4">
-                <h4 className="font-medium text-yellow-900 mb-2">⚠️ Como Funciona</h4>
-                <ul className="text-sm text-yellow-800 space-y-1">
-                  <li>• <strong>Renomear subcategorias existentes</strong>: Atualiza automaticamente todos os itens que as utilizam</li>
-                  <li>• <strong>Criar novas subcategorias</strong>: Adicione o nome e depois crie itens com essas subcategorias</li>
-                  <li>• <strong>Ordem</strong>: Determina a sequência de exibição no cardápio</li>
-                  <li>• <strong>Subcategorias vazias</strong>: São ignoradas automaticamente</li>
-                  <li>• <strong>Contador</strong>: Mostra quantos itens usam cada subcategoria</li>
+              <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-4">
+                <h4 className="mb-2 font-medium text-yellow-900">⚠️ Como Funciona</h4>
+                <ul className="space-y-1 text-sm text-yellow-800">
+                  <li>
+                    • <strong>Renomear subcategorias existentes</strong>: Atualiza automaticamente
+                    todos os itens que as utilizam
+                  </li>
+                  <li>
+                    • <strong>Criar novas subcategorias</strong>: Adicione o nome e depois crie
+                    itens com essas subcategorias
+                  </li>
+                  <li>
+                    • <strong>Ordem</strong>: Determina a sequência de exibição no cardápio
+                  </li>
+                  <li>
+                    • <strong>Subcategorias vazias</strong>: São ignoradas automaticamente
+                  </li>
+                  <li>
+                    • <strong>Contador</strong>: Mostra quantos itens usam cada subcategoria
+                  </li>
                 </ul>
               </div>
 
@@ -2701,10 +2902,10 @@ export default function CardapioAdminPage() {
               {(() => {
                 const changes = getChangesSummary();
                 if (changes.added === 0 && changes.modified === 0) return null;
-                
+
                 return (
-                  <div className="rounded-lg bg-green-50 p-4">
-                    <h4 className="font-medium text-green-900 mb-2">📝 Resumo das Alterações</h4>
+                  <div className="rounded-lg border border-green-200 bg-green-50 p-4">
+                    <h4 className="mb-2 font-medium text-green-900">📝 Resumo das Alterações</h4>
                     <div className="grid grid-cols-2 gap-4 text-sm">
                       {changes.added > 0 && (
                         <div className="text-center">
@@ -2720,8 +2921,9 @@ export default function CardapioAdminPage() {
                       )}
                     </div>
                     {changes.added > 0 && (
-                      <div className="mt-3 text-xs text-green-700 bg-green-100 p-2 rounded">
-                        💡 <strong>Importante:</strong> Para usar as novas subcategorias, você precisará criar itens com esses nomes na aba &quot;Itens do Menu&quot;.
+                      <div className="mt-3 rounded bg-green-100 p-2 text-xs text-green-700">
+                        💡 <strong>Importante:</strong> Para usar as novas subcategorias, você
+                        precisará criar itens com esses nomes na aba &quot;Itens do Menu&quot;.
                       </div>
                     )}
                   </div>
@@ -2738,25 +2940,24 @@ export default function CardapioAdminPage() {
                 {(() => {
                   const changes = getChangesSummary();
                   const hasChanges = changes.added > 0 || changes.modified > 0;
-                  
+
                   return (
                     <button
                       onClick={handleSaveQuickEdit}
                       className={`rounded-md px-4 py-2 text-white hover:opacity-90 ${
                         hasChanges
                           ? 'bg-green-600 hover:bg-green-700'
-                          : 'bg-gray-400 cursor-not-allowed'
+                          : 'cursor-not-allowed bg-gray-400'
                       }`}
                       disabled={!hasChanges}
                     >
-                      {hasChanges 
-                        ? (changes.added > 0 && changes.modified > 0 
-                            ? 'Salvar Alterações e Novas Subcategorias'
-                            : changes.added > 0 
-                              ? 'Salvar Novas Subcategorias'
-                              : 'Salvar Alterações')
-                        : 'Nenhuma Alteração'
-                      }
+                      {hasChanges
+                        ? changes.added > 0 && changes.modified > 0
+                          ? 'Salvar Alterações e Novas Subcategorias'
+                          : changes.added > 0
+                          ? 'Salvar Novas Subcategorias'
+                          : 'Salvar Alterações'
+                        : 'Nenhuma Alteração'}
                     </button>
                   );
                 })()}

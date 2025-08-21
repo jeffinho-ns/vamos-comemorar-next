@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback, useMemo, use } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { MdStar, MdLocationOn, MdArrowBack, MdClose } from 'react-icons/md';
+import { FaFacebook, FaInstagram, FaWhatsapp } from 'react-icons/fa'; // Importado os ícones
 import Link from 'next/link';
 import Image from 'next/image';
 
@@ -41,6 +42,7 @@ interface MenuCategory {
   items: MenuItem[];
 }
 
+// **CORREÇÃO**: Adicionados os novos campos à interface da API
 interface BarFromAPI {
   id: string | number;
   name: string;
@@ -56,6 +58,9 @@ interface BarFromAPI {
   latitude?: number;
   longitude?: number;
   popupImageUrl?: string;
+  facebook?: string;
+  instagram?: string;
+  whatsapp?: string;
 }
 
 interface Bar {
@@ -73,6 +78,9 @@ interface Bar {
   latitude?: number;
   longitude?: number;
   popupImageUrl?: string;
+  facebook?: string;
+  instagram?: string;
+  whatsapp?: string;
 }
 
 interface GroupedCategory {
@@ -189,7 +197,11 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
         logoUrl: getValidImageUrl(bar.logoUrl),
         coverImageUrl: getValidImageUrl(bar.coverImageUrl),
         coverImages: coverImages.length > 0 ? coverImages : [getValidImageUrl(bar.coverImageUrl)],
-        popupImageUrl: bar.popupImageUrl
+        popupImageUrl: bar.popupImageUrl,
+        // **CORREÇÃO**: Mapeia os novos campos para o estado
+        facebook: bar.facebook || '',
+        instagram: bar.instagram || '',
+        whatsapp: bar.whatsapp || ''
       };
       
       setSelectedBar(barWithImages);
@@ -386,6 +398,26 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
                 <p className="text-white/90 text-lg mb-3">
                   {selectedBar.description}
                 </p>
+                
+                {/* **NOVO**: Ícones das redes sociais */}
+                <div className="flex items-center gap-4 text-white/90 mb-3">
+                  {selectedBar.facebook && (
+                    <a href={selectedBar.facebook} target="_blank" rel="noopener noreferrer" className="text-white hover:text-blue-500 transition-colors">
+                      <FaFacebook className="w-6 h-6" />
+                    </a>
+                  )}
+                  {selectedBar.instagram && (
+                    <a href={selectedBar.instagram} target="_blank" rel="noopener noreferrer" className="text-white hover:text-pink-500 transition-colors">
+                      <FaInstagram className="w-6 h-6" />
+                    </a>
+                  )}
+                  {selectedBar.whatsapp && (
+                    <a href={selectedBar.whatsapp} target="_blank" rel="noopener noreferrer" className="text-white hover:text-green-500 transition-colors">
+                      <FaWhatsapp className="w-6 h-6" />
+                    </a>
+                  )}
+                </div>
+
                 <div className="flex items-center gap-4 text-white/90">
                   <div className="flex items-center gap-1">
                     <MdStar className="w-5 h-5 text-yellow-400" />
