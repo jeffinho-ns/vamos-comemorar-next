@@ -363,11 +363,35 @@
       .logo-container {
         cursor: pointer;
         transition: transform 0.2s ease;
+        position: relative;
         
         &:active {
           transform: scale(0.95);
         }
+        
+        // Indicador de menu
+        .menu-indicator {
+          animation: pulse-glow 2s infinite;
+          
+          .menu-icon {
+            transition: transform 0.2s ease;
+          }
+        }
+        
+        &:hover .menu-indicator .menu-icon {
+          transform: scale(1.1);
+        }
       }
+    }
+  }
+
+  // Animação para o indicador de menu
+  @keyframes pulse-glow {
+    0%, 100% {
+      box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.7);
+    }
+    50% {
+      box-shadow: 0 0 0 8px rgba(59, 130, 246, 0);
     }
   }
 } 

@@ -394,6 +394,13 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
                   height={64}
                   className="rounded-lg"
                 />
+                
+                {/* Indicador de menu para mobile */}
+                <div className="menu-indicator absolute -top-1 -right-1 md:hidden">
+                  <div className="bg-blue-600 text-white rounded-full p-1.5 shadow-lg">
+                    <MdMenu className="menu-icon w-4 h-4" />
+                  </div>
+                </div>
               </div>
 
               {/* Informações do bar - visíveis apenas em desktop */}
