@@ -54,7 +54,7 @@ export default function ProfileTab() {
               {user?.foto_perfil ? (
                 <div className="w-24 h-24 rounded-2xl overflow-hidden border-4 border-gray-200 shadow-lg">
                   <Image
-                    src={`${API_URL}/uploads/${user.foto_perfil}`}
+                    src={`https://grupoideiaum.com.br/cardapio-agilizaiapp/${user.foto_perfil}`}
                     alt="Foto de perfil"
                     width={96}
                     height={96}

@@ -12,6 +12,11 @@ import {
 } from "react-icons/md";
 import { useRouter } from "next/navigation";
 
+// ✨ URL base para as imagens do usuário
+const BASE_IMAGE_URL = "https://grupoideiaum.com.br/cardapio-agilizaiapp/";
+// URL padrão para o caso de não haver foto
+const DEFAULT_AVATAR_URL = "https://via.placeholder.com/150";
+
 export default function UserMenu() {
   const [user, setUser] = useState<any>(null);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
@@ -22,7 +27,10 @@ export default function UserMenu() {
   useEffect(() => {
     const fetchUser = async () => {
       const token = localStorage.getItem("authToken");
-      if (!token || !API_URL) return;
+      if (!token || !API_URL) {
+        setUser(null);
+        return;
+      }
 
       try {
         const res = await fetch(`${API_URL}/api/users/me`, {
@@ -36,9 +44,11 @@ export default function UserMenu() {
           setUser(data);
         } else {
           console.error("Erro ao buscar usuário:", res.status);
+          setUser(null);
         }
       } catch (err) {
         console.error("Erro ao buscar usuário:", err);
+        setUser(null);
       }
     };
 
@@ -65,25 +75,30 @@ export default function UserMenu() {
     router.push(`/admin/contausuariopage?aba=${aba}`);
   };
 
+  if (!user) {
+    return (
+      <div className="w-9 h-9 rounded-full bg-gray-400 animate-pulse"></div>
+    );
+  }
+
+  // ✨ Cria a URL completa da imagem usando a URL base e o nome do arquivo
+  const userProfileImageUrl = user?.foto_perfil
+    ? `${BASE_IMAGE_URL}${user.foto_perfil}`
+    : DEFAULT_AVATAR_URL;
+
   return (
     <div className="relative" ref={menuRef}>
       <button
         className="flex items-center gap-2 px-2 py-1 rounded-full hover:bg-gray-100"
         onClick={() => setUserMenuOpen(!userMenuOpen)}
       >
-        {user?.foto_perfil ? (
-          <Image
-            src={`${API_URL}/uploads/${user.foto_perfil}`}
-            alt="Avatar"
-            width={36}
-            height={36}
-            className="rounded-full object-cover"
-          />
-        ) : (
-          <div className="w-9 h-9 rounded-full bg-yellow-400 text-white flex items-center justify-center font-bold">
-            {user?.name?.charAt(0) || "U"}
-          </div>
-        )}
+        <Image
+          src={userProfileImageUrl}
+          alt="Avatar"
+          width={36}
+          height={36}
+          className="rounded-full object-cover w-9 h-9"
+        />
 
         <div className="hidden sm:flex flex-col items-start text-left">
           <span className="text-sm font-semibold text-gray-800">

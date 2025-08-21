@@ -4,50 +4,51 @@ import styles from "./profile.module.scss";
 import Image from "next/image";
 import { User, APIUser } from '../../types/types';
 
+// ✨ Adicione a URL base para as imagens, como fizemos nos outros componentes
+const BASE_IMAGE_URL = 'https://grupoideiaum.com.br/cardapio-agilizaiapp/';
+const DEFAULT_AVATAR_URL = 'https://via.placeholder.com/150';
+
 interface ProfileProps {
   isOpen: boolean;
   onRequestClose: () => void;
   onSaveUser: (user: User) => void;
   user: User | null;
   addUser?: (user: User) => void;
-   userType?: string;
-  
+  userType?: string;
 }
 
 const Profile = ({ isOpen, onRequestClose, onSaveUser, user, addUser }: ProfileProps) => {
   const [profile, setProfile] = useState<User | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [errorMessage, setErrorMessage] = useState<string>("");
-  const API_URL = process.env.NEXT_PUBLIC_API_URL; // Garantindo que API_URL está disponível
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const API_URL = process.env.NEXT_PUBLIC_API_URL;
+
+  // ✨ Helper para montar a URL da imagem
+  const getProfileImageUrl = (filename?: string | null): string => {
+    if (filename && !filename.startsWith('blob:') && !filename.startsWith('http')) {
+        return `${BASE_IMAGE_URL}${filename}`;
+    }
+    return filename || DEFAULT_AVATAR_URL;
+  };
 
   useEffect(() => {
     if (isOpen && user) {
-      let finalFotoPerfilUrl = "";
-
-      // Prioriza foto_perfil_url se a API já a fornecer completa
-      if (user.foto_perfil_url) {
-        finalFotoPerfilUrl = user.foto_perfil_url;
-      }
-      // Se não, e se tiver foto_perfil (que pode ser só o nome do arquivo), constrói a URL
-      else if (user.foto_perfil && API_URL) {
-        // Assume que 'uploads' é o diretório de imagens no seu backend
-        finalFotoPerfilUrl = `${API_URL}/uploads/${user.foto_perfil}`;
-      }
-
-      setProfile({
-        ...user,
-        foto_perfil: finalFotoPerfilUrl, // Agora contém a URL absoluta para exibição
-        status: user.status === "Ativado" ? "Ativado" : "Desativado",
-        password: "",
-      });
-      setSelectedFile(null); // Limpar arquivo selecionado ao abrir novo user
-      setErrorMessage(""); // Limpar mensagem de erro
+        // ✨ Ao abrir o modal, preenche o estado 'profile' com a URL completa para exibição
+        setProfile({
+            ...user,
+            foto_perfil: getProfileImageUrl(user.foto_perfil),
+            status: user.status === "Ativado" ? "Ativado" : "Desativado",
+            password: "",
+        });
+        setSelectedFile(null);
+        setErrorMessage("");
     } else if (!isOpen) {
-      setProfile(null);
-      setSelectedFile(null);
-      setErrorMessage("");
+        setProfile(null);
+        setSelectedFile(null);
+        setErrorMessage("");
     }
-  }, [isOpen, user, API_URL]); // Adicionar API_URL como dependência
+  }, [isOpen, user, API_URL]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -59,9 +60,10 @@ const Profile = ({ isOpen, onRequestClose, onSaveUser, user, addUser }: ProfileP
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0] || null;
     if (file) {
-      setSelectedFile(file);
-      // Cria uma URL temporária para pré-visualizar a imagem selecionada
-      setProfile((prev) => (prev ? { ...prev, foto_perfil: URL.createObjectURL(file) } : null));
+        setSelectedFile(file);
+        // Cria uma URL temporária para pré-visualizar a imagem
+        const tempUrl = URL.createObjectURL(file);
+        setProfile((prev) => (prev ? { ...prev, foto_perfil: tempUrl } : null));
     }
   };
 
@@ -74,70 +76,134 @@ const Profile = ({ isOpen, onRequestClose, onSaveUser, user, addUser }: ProfileP
     return true;
   };
 
+  // ✨ Função para fazer o upload da imagem separadamente
+  const uploadImage = async (file: File): Promise<string | null> => {
+    const token = localStorage.getItem("authToken");
+    if (!token || !API_URL) return null;
+
+    const formData = new FormData();
+    formData.append('image', file);
+
+    try {
+        const response = await fetch(`${API_URL}/api/images/upload`, {
+            method: 'POST',
+            headers: {
+                Authorization: `Bearer ${token}`,
+            },
+            body: formData,
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            console.error("Erro no upload da imagem:", errorData);
+            setErrorMessage(`Erro no upload da imagem: ${errorData.error || 'Erro desconhecido.'}`);
+            return null;
+        }
+
+        const result = await response.json();
+        return result.filename;
+    } catch (error) {
+        console.error("Erro ao enviar imagem:", error);
+        setErrorMessage("Ocorreu um erro de conexão ao enviar a imagem.");
+        return null;
+    }
+  };
+
+  // ✨ Lógica principal de submissão do formulário
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validateForm() || !profile) return;
+    setIsLoading(true);
 
     const token = localStorage.getItem("authToken");
     if (!token) {
       setErrorMessage("Token não encontrado. Faça login novamente.");
+      setIsLoading(false);
       return;
     }
 
-    const formData = new FormData();
-    Object.entries(profile).forEach(([key, value]) => {
-      // Exclua foto_perfil_url e foto_perfil ao enviar
-      // Pois 'foto_perfil' agora contém a URL temporária ou absoluta para exibição
-      // e o 'foto_perfil_url' é um campo de retorno da API, não de envio.
-      if (value !== undefined && key !== "foto_perfil_url" && key !== "foto_perfil" && key !== "id" && key !== "created_at") {
-        formData.append(key, value as string);
-      }
-    });
-
-    // Apenas adicione o arquivo se um novo foi selecionado
+    let fotoPerfilFilename: string | null = null;
+    // 1. Faz o upload da foto se um novo arquivo foi selecionado
     if (selectedFile) {
-      formData.append("foto_perfil", selectedFile);
+        fotoPerfilFilename = await uploadImage(selectedFile);
+        if (!fotoPerfilFilename) {
+            setIsLoading(false);
+            return;
+        }
     }
-    // Se nenhum novo arquivo foi selecionado, e o usuário já tinha uma foto
-    // e essa foto não era uma URL temporária (blob:), significa que a foto existente deve ser mantida.
-    // O backend precisa saber disso, mas geralmente não é enviando o `foto_perfil` ou `foto_perfil_url` novamente.
-    // Se o seu backend espera um campo para "manter foto antiga", você precisaria adicionar aqui.
-    // Caso contrário, não fazer nada é o correto para "manter foto".
 
+    // 2. Monta o objeto de dados para enviar para a API de usuários
+    const profileData: Record<string, any> = {
+        name: profile.name,
+        email: profile.email,
+        telefone: profile.telefone,
+        sexo: profile.sexo,
+        data_nascimento: profile.data_nascimento,
+        cpf: profile.cpf,
+        cep: profile.cep,
+        endereco: profile.endereco,
+        numero: profile.numero,
+        bairro: profile.bairro,
+        cidade: profile.cidade,
+        estado: profile.estado,
+        complemento: profile.complemento,
+        password: profile.password
+    };
+
+    // 3. Adiciona o nome do arquivo da foto se o upload foi bem-sucedido
+    if (fotoPerfilFilename) {
+        profileData.foto_perfil = fotoPerfilFilename;
+    } else if (profile.foto_perfil && !profile.foto_perfil.startsWith('blob:')) {
+        // Se a foto não foi alterada, mas já existia, garante que o nome do arquivo original seja enviado.
+        // Extrai o nome do arquivo da URL completa.
+        const originalFilename = profile.foto_perfil.split('/').pop();
+        if(originalFilename) {
+          profileData.foto_perfil = originalFilename;
+        }
+    } else {
+        // Se a foto foi removida ou nunca existiu, envia null.
+        profileData.foto_perfil = null;
+    }
+    
+    // 4. Faz a requisição PUT para atualizar o perfil
     try {
-      const url = `${API_URL}/api/users/${profile.id}`;
-      const response = await fetch(url, {
-        method: "PUT",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          // Não defina 'Content-Type': 'application/json' ao usar FormData
-        },
-        body: formData,
-      });
+        const url = `${API_URL}/api/users/${profile.id}`;
+        const response = await fetch(url, {
+            method: "PUT",
+            headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify(profileData),
+        });
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ message: response.statusText }));
-        console.error("Erro ao salvar usuário:", errorData);
-        setErrorMessage(`Erro ao salvar o usuário: ${errorData.message || 'Erro desconhecido.'}`);
-        return;
-      }
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({ message: response.statusText }));
+            console.error("Erro ao salvar usuário:", errorData);
+            setErrorMessage(`Erro ao salvar o usuário: ${errorData.message || 'Erro desconhecido.'}`);
+            setIsLoading(false);
+            return;
+        }
 
-      const savedProfile: APIUser = await response.json(); // API deve retornar o user atualizado
-      onSaveUser({
-        ...profile, // Mantém os dados locais preenchidos (incluindo campos que não voltam na resposta)
-        ...savedProfile, // Sobrescreve com os dados mais recentes da API (incluindo foto_perfil_url)
-        // Garante que foto_perfil para exibição esteja atualizada, preferindo a da API
-        foto_perfil: savedProfile.foto_perfil_url || (savedProfile.foto_perfil && `${API_URL}/uploads/${savedProfile.foto_perfil}`) || profile.foto_perfil
-      });
-      onRequestClose();
+        const savedProfile: APIUser = await response.json();
+        // A API de usuários atualiza o user e retorna os dados atualizados.
+        onSaveUser({
+            ...profile,
+            ...savedProfile,
+            foto_perfil: getProfileImageUrl(savedProfile.foto_perfil),
+        });
+        onRequestClose();
+
     } catch (error) {
-      console.error("Erro ao enviar dados:", error);
-      setErrorMessage("Ocorreu um erro ao atualizar o perfil. Tente novamente.");
+        console.error("Erro ao enviar dados:", error);
+        setErrorMessage("Ocorreu um erro ao atualizar o perfil. Tente novamente.");
+    } finally {
+        setIsLoading(false);
     }
   };
 
   return (
-          <Modal
+    <Modal
       isOpen={isOpen}
       onRequestClose={onRequestClose}
       className={styles.modal}
@@ -155,18 +221,15 @@ const Profile = ({ isOpen, onRequestClose, onSaveUser, user, addUser }: ProfileP
                 onChange={handleFileChange}
                 style={{ display: "none" }}
               />
-              {profile?.foto_perfil ? ( // Aqui, profile.foto_perfil já deve ser a URL absoluta
-                <Image
-                  src={profile.foto_perfil}
-                  alt="Foto de perfil"
-                  className="rounded-full w-full h-full object-cover"
-                  width={64}
-                  height={64}
-                  unoptimized // Use se a URL é externa e você não quer otimização do Next.js
-                />
-              ) : (
-                <span className="text-gray-500">Adicionar foto</span>
-              )}
+              {/* ✨ Usa a URL completa ou o fallback */}
+              <Image
+                src={profile?.foto_perfil || DEFAULT_AVATAR_URL}
+                alt="Foto de perfil"
+                className="rounded-full w-full h-full object-cover"
+                width={64}
+                height={64}
+                unoptimized
+              />
             </label>
           </div>
         </div>
@@ -198,10 +261,12 @@ const Profile = ({ isOpen, onRequestClose, onSaveUser, user, addUser }: ProfileP
           <div className={styles.formRow}>
             <input type="password" name="password" placeholder="Nova Senha" value={profile?.password || ""} onChange={handleChange} />
           </div>
-          <button type="submit">Salvar Alterações</button>
+          <button type="submit" disabled={isLoading}>
+            {isLoading ? 'Salvando...' : 'Salvar Alterações'}
+          </button>
         </form>
       </div>
-          </Modal>
+    </Modal>
   );
 };
 

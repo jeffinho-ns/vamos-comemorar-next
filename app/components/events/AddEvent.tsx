@@ -5,10 +5,10 @@ import Modal from "../ui/Modal";
 interface AddEventProps {
   isOpen: boolean;
   onRequestClose: () => void;
+  onEventAdded: () => void; // Adicionei um prop para notificar o componente pai
 }
 
-const AddEvent: React.FC<AddEventProps> = ({ isOpen, onRequestClose }) => {
-  // Estados existentes
+const AddEvent: React.FC<AddEventProps> = ({ isOpen, onRequestClose, onEventAdded }) => {
   const [casaDoEvento, setCasaDoEvento] = useState("");
   const [nomeDoEvento, setNomeDoEvento] = useState("");
   const [dataDoEvento, setDataDoEvento] = useState("");
@@ -27,47 +27,133 @@ const AddEvent: React.FC<AddEventProps> = ({ isOpen, onRequestClose }) => {
   const [imagemEventoPreview, setImagemEventoPreview] = useState<string | null>(null);
   const [imagemComboPreview, setImagemComboPreview] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  
-  // --- NOVOS ESTADOS ---
+  const [isLoading, setIsLoading] = useState(false);
+
   const [tipoEvento, setTipoEvento] = useState<'unico' | 'semanal'>('unico');
-  const [diaDaSemana, setDiaDaSemana] = useState(''); // 0-6 (Domingo-Sábado)
+  const [diaDaSemana, setDiaDaSemana] = useState('');
 
   const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL_LOCAL;
+
+  const resetForm = () => {
+    setCasaDoEvento("");
+    setNomeDoEvento("");
+    setDataDoEvento("");
+    setHoraDoEvento("");
+    setLocalDoEvento("");
+    setCategoria("");
+    setMesas("");
+    setValorDaMesa("");
+    setBrinde("");
+    setNumeroDeConvidados("");
+    setDescricao("");
+    setValorDaEntrada("");
+    setObservacao("");
+    setImagemDoEvento(null);
+    setImagemDoCombo(null);
+    setImagemEventoPreview(null);
+    setImagemComboPreview(null);
+    setTipoEvento('unico');
+    setDiaDaSemana('');
+    setError(null);
+  };
+
+  const uploadImage = async (file: File): Promise<string | null> => {
+    const token = localStorage.getItem("authToken");
+    if (!token) {
+      setError("Token não encontrado. Faça login novamente.");
+      return null;
+    }
+
+    const formData = new FormData();
+    formData.append('image', file);
+    formData.append('entityType', 'event');
+
+    try {
+      const response = await fetch(`${API_URL}/api/images/upload`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        setError(`Erro no upload da imagem: ${errorData.error || 'Erro desconhecido.'}`);
+        return null;
+      }
+
+      const result = await response.json();
+      return result.filename;
+    } catch (error) {
+      console.error("Erro ao enviar imagem:", error);
+      setError("Ocorreu um erro de conexão ao enviar a imagem.");
+      return null;
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setIsLoading(true);
 
-    // --- LÓGICA DE ENVIO ATUALIZADA ---
-    const formData = new FormData();
-    formData.append("casa_do_evento", casaDoEvento);
-    formData.append("nome_do_evento", nomeDoEvento);
-    formData.append("hora_do_evento", horaDoEvento);
-    formData.append("local_do_evento", localDoEvento);
-    formData.append("categoria", categoria);
-    formData.append("mesas", mesas);
-    formData.append("valor_da_mesa", valorDaMesa);
-    formData.append("brinde", brinde);
-    formData.append("numero_de_convidados", numeroDeConvidados);
-    formData.append("descricao", descricao);
-    formData.append("valor_da_entrada", valorDaEntrada);
-    formData.append("observacao", observacao);
-    
-    // Adiciona os novos campos e os campos condicionais
-    formData.append("tipo_evento", tipoEvento);
-    if (tipoEvento === 'unico') {
-      formData.append("data_do_evento", dataDoEvento);
-    } else {
-      formData.append("dia_da_semana", diaDaSemana);
+    const token = localStorage.getItem("authToken");
+    if (!token) {
+      setError("Token não encontrado. Faça login novamente.");
+      setIsLoading(false);
+      return;
     }
 
-    if (imagemDoEvento) formData.append("imagem_do_evento", imagemDoEvento);
-    if (imagemDoCombo) formData.append("imagem_do_combo", imagemDoCombo);
+    let imagemEventoFilename: string | null = null;
+    let imagemComboFilename: string | null = null;
+
+    // 1. Upload da imagem do evento
+    if (imagemDoEvento) {
+      imagemEventoFilename = await uploadImage(imagemDoEvento);
+      if (!imagemEventoFilename) {
+        setIsLoading(false);
+        return;
+      }
+    }
+
+    // 2. Upload da imagem do combo (se houver)
+    if (imagemDoCombo) {
+      imagemComboFilename = await uploadImage(imagemDoCombo);
+      if (!imagemComboFilename) {
+        setIsLoading(false);
+        return;
+      }
+    }
+
+    // 3. Criação do evento com os nomes dos arquivos
+    const eventData = {
+      casa_do_evento: casaDoEvento,
+      nome_do_evento: nomeDoEvento,
+      hora_do_evento: horaDoEvento,
+      local_do_evento: localDoEvento,
+      categoria: categoria,
+      mesas: mesas,
+      valor_da_mesa: valorDaMesa,
+      brinde: brinde,
+      numero_de_convidados: numeroDeConvidados,
+      descricao: descricao,
+      valor_da_entrada: valorDaEntrada,
+      observacao: observacao,
+      tipo_evento: tipoEvento,
+      data_do_evento: tipoEvento === 'unico' ? dataDoEvento : null,
+      dia_da_semana: tipoEvento === 'semanal' ? diaDaSemana : null,
+      imagem_do_evento: imagemEventoFilename,
+      imagem_do_combo: imagemComboFilename,
+    };
 
     try {
       const response = await fetch(`${API_URL}/api/events`, {
         method: "POST",
-        body: formData,
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`,
+        },
+        body: JSON.stringify(eventData),
       });
 
       if (!response.ok) {
@@ -75,10 +161,15 @@ const AddEvent: React.FC<AddEventProps> = ({ isOpen, onRequestClose }) => {
         throw new Error(errorData.error || "Erro ao criar evento");
       }
 
-      onRequestClose(); // Idealmente, você também deve limpar o formulário aqui
+      alert("Evento criado com sucesso!");
+      resetForm();
+      onRequestClose();
+      onEventAdded(); // Notifica o pai para recarregar a lista
     } catch (err) {
       console.error("Erro ao adicionar evento:", err);
       setError("Ocorreu um erro ao adicionar o evento. Verifique se todos os campos estão corretos.");
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -98,7 +189,6 @@ const AddEvent: React.FC<AddEventProps> = ({ isOpen, onRequestClose }) => {
           <input className="w-full p-2 border rounded" type="text" placeholder="Casa do evento" value={casaDoEvento} onChange={(e) => setCasaDoEvento(e.target.value)} required />
           <input className="w-full p-2 border rounded" type="text" placeholder="Nome do evento" value={nomeDoEvento} onChange={(e) => setNomeDoEvento(e.target.value)} required />
 
-          {/* --- SELETOR DE TIPO DE EVENTO --- */}
           <div className="col-span-2 border rounded p-3">
             <label className="block text-sm font-medium text-gray-700 mb-2">Tipo de Evento</label>
             <div className="flex items-center gap-x-6">
@@ -113,7 +203,6 @@ const AddEvent: React.FC<AddEventProps> = ({ isOpen, onRequestClose }) => {
             </div>
           </div>
           
-          {/* --- CAMPOS CONDICIONAIS --- */}
           {tipoEvento === 'unico' ? (
             <input className="w-full p-2 border rounded" type="date" placeholder="Data do evento" value={dataDoEvento} onChange={(e) => setDataDoEvento(e.target.value)} required />
           ) : (
@@ -141,7 +230,6 @@ const AddEvent: React.FC<AddEventProps> = ({ isOpen, onRequestClose }) => {
           
           <textarea className="w-full p-2 border rounded col-span-2" placeholder="Descrição" value={descricao} onChange={(e) => setDescricao(e.target.value)} required />
 
-          {/* Upload de imagem com pré-visualização */}
           <div className="col-span-2 grid grid-cols-2 gap-4">
             <label className="flex flex-col items-center border-2 border-dashed border-gray-300 p-4 rounded-lg cursor-pointer hover:border-blue-400 transition">
               <span className="text-sm font-semibold text-gray-500">Imagem do evento</span>
@@ -157,7 +245,9 @@ const AddEvent: React.FC<AddEventProps> = ({ isOpen, onRequestClose }) => {
 
           <textarea className="w-full p-2 border rounded col-span-2" placeholder="Observação" value={observacao} onChange={(e) => setObservacao(e.target.value)} />
 
-          <button type="submit" className="col-span-2 bg-blue-500 text-white py-2 rounded hover:bg-blue-600 transition">Adicionar Evento</button>
+          <button type="submit" disabled={isLoading} className="col-span-2 bg-blue-500 text-white py-2 rounded hover:bg-blue-600 transition disabled:bg-gray-400">
+            {isLoading ? 'Adicionando...' : 'Adicionar Evento'}
+          </button>
           {error && <p className="col-span-2 text-red-500 text-sm mt-2">{error}</p>}
         </form>
         <button onClick={onRequestClose} className="mt-4 w-full bg-gray-500 text-white py-2 rounded hover:bg-gray-600 transition">Fechar</button>

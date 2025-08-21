@@ -207,7 +207,7 @@ export default function Reserves() {
                 <div className="flex items-center gap-4 mb-4">
                   {reserve.foto_perfil ? (
                     <Image
-                      src={`${API_URL}/uploads/${reserve.foto_perfil}`}
+                      src={`https://grupoideiaum.com.br/cardapio-agilizaiapp/${reserve.foto_perfil}`}
                       alt={reserve.name || 'Usuário'}
                       width={56}
                       height={56}

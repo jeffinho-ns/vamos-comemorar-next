@@ -132,18 +132,6 @@ const openEditModal = (event: EventDataApi) => {
           </button>
         </div>
 
-        <AddEvent
-          isOpen={modalIsOpen}
-          onRequestClose={closeModal}
-        />
-        {selectedEvent && (
-          <EditEventModal
-            isOpen={editModalOpen}
-            onRequestClose={closeEditModal}
-            event={selectedEvent}
-          />
-        )}
-
         <div className="bg-white/95 backdrop-blur-sm shadow-lg rounded-2xl overflow-hidden border border-gray-200/20">
           <div className="overflow-x-auto">
             <table className="min-w-full text-left">
@@ -233,6 +221,20 @@ const openEditModal = (event: EventDataApi) => {
           </button>
         </div>
       </div>
+      {/* ✨ Movendo os modais para o final do componente para garantir o empilhamento correto */}
+      <AddEvent
+        isOpen={modalIsOpen}
+        onRequestClose={closeModal}
+        onEventAdded={() => fetchEvents(currentPage)}
+      />
+      {selectedEvent && (
+        <EditEventModal
+          isOpen={editModalOpen}
+          onRequestClose={closeEditModal}
+          event={selectedEvent}
+          onEventUpdated={() => fetchEvents(currentPage)}
+        />
+      )}
     </div>
   );
 }

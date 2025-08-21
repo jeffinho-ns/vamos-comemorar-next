@@ -52,7 +52,7 @@ export default function Companies() {
     if (company) {
       setSelectedCompany(mapCompanyToEstablishment(company));
     } else {
-      setSelectedCompany(null);
+      setSelectedCompany(initialEnterpriseState);
     }
     setModalIsOpen(true);
   };
@@ -170,7 +170,6 @@ export default function Companies() {
           >
             <MdAdd className="text-xl" />
           </button>
-          <Enterprise isOpen={modalIsOpen} onRequestClose={closeModal} company={selectedCompany} />
         </div>
 
         <div className="mb-8">
@@ -245,6 +244,7 @@ export default function Companies() {
         </div>
       </div>
     </div>
+    <Enterprise isOpen={modalIsOpen} onRequestClose={closeModal} company={selectedCompany || initialEnterpriseState} />
     </WithPermission>
   );
 }
