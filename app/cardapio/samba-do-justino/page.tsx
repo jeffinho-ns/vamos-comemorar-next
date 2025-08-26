@@ -138,7 +138,7 @@ export default function SambaDoJustinoPage() {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3 }}
-      className="bg-white/95 backdrop-blur-sm rounded-2xl p-4 shadow-lg border border-white/20 hover:shadow-xl transition-all duration-300 menu-item-card"
+      className="bg-white rounded-2xl p-4 shadow-lg border border-gray-100 hover:shadow-xl transition-all duration-300 menu-item-card"
     >
       <div className="flex justify-between items-start mb-2">
         <h3 className="font-bold text-gray-900 text-lg leading-tight">{item.name}</h3>
@@ -212,24 +212,20 @@ export default function SambaDoJustinoPage() {
         </div>
       </div>
 
-      {/* Open Bar Section - Fundo Verde */}
+      {/* Open Bar Section */}
       <div className="px-4 py-6">
         <motion.div
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.5, delay: 0.2 }}
-          className="bg-gradient-to-br from-green-600 to-green-700 rounded-3xl p-6 text-white shadow-2xl open-bar-section relative overflow-hidden"
+          className="bg-gradient-to-br from-green-600 to-green-700 rounded-3xl p-6 text-white shadow-2xl open-bar-section relative"
         >
-          {/* Decorative elements */}
-          <div className="absolute top-0 right-0 w-32 h-32 bg-yellow-400/20 rounded-full blur-3xl"></div>
-          <div className="absolute bottom-0 left-0 w-24 h-24 bg-orange-400/20 rounded-full blur-2xl"></div>
-          
-          <div className="text-center mb-6 relative z-10">
+          <div className="text-center mb-6">
             <h2 className="text-3xl font-bold mb-2 text-yellow-300 samba-vibes">OPEN BAR</h2>
             <p className="text-green-100">Bebidas inclusas no pacote</p>
           </div>
           
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-3 open-bar-items relative z-10">
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3 open-bar-items">
             {openBarItems.map((item, index) => (
               <motion.div
                 key={index}
@@ -245,43 +241,34 @@ export default function SambaDoJustinoPage() {
         </motion.div>
       </div>
 
-      {/* Cardápio Completo - Fundo Azul */}
-      <div className="bg-gradient-to-br from-blue-900 via-blue-800 to-indigo-900 text-white py-8 px-4 relative overflow-hidden cardapio-section">
-        {/* Decorative elements */}
-        <div className="absolute top-0 right-0 w-32 h-32 bg-yellow-400/20 rounded-full blur-3xl"></div>
-        <div className="absolute bottom-0 left-0 w-24 h-24 bg-orange-400/20 rounded-full blur-2xl"></div>
+      {/* Menu Categories */}
+      <div className="px-4 py-6">
+        <h2 className="text-2xl font-bold text-gray-900 mb-6 text-center">Cardápio Completo</h2>
         
-        <div className="max-w-7xl mx-auto relative z-10">
-          <div className="text-center mb-8">
-            <h2 className="text-3xl font-bold mb-2 text-yellow-300">Cardápio Completo</h2>
-            <p className="text-blue-100">Escolha suas bebidas e comidas favoritas</p>
-          </div>
-          
-          {/* Category Tabs */}
-          <div className="grid grid-cols-4 gap-3 mb-6 category-tabs">
-            {menuData.map((category) => (
-              <CategoryTab key={category.id} category={category} />
-            ))}
-          </div>
-
-          {/* Menu Items */}
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={selectedCategory}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              transition={{ duration: 0.3 }}
-              className="space-y-4"
-            >
-              {menuData
-                .find(cat => cat.id === selectedCategory)
-                ?.items.map((item) => (
-                  <MenuItemCard key={item.id} item={item} />
-                ))}
-            </motion.div>
-          </AnimatePresence>
+        {/* Category Tabs */}
+        <div className="grid grid-cols-4 gap-3 mb-6 category-tabs">
+          {menuData.map((category) => (
+            <CategoryTab key={category.id} category={category} />
+          ))}
         </div>
+
+        {/* Menu Items */}
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={selectedCategory}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            transition={{ duration: 0.3 }}
+            className="space-y-4"
+          >
+            {menuData
+              .find(cat => cat.id === selectedCategory)
+              ?.items.map((item) => (
+                <MenuItemCard key={item.id} item={item} />
+              ))}
+          </motion.div>
+        </AnimatePresence>
       </div>
 
       {/* Footer */}
