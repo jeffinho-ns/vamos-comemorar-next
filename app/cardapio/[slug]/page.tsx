@@ -3,14 +3,14 @@
 import React, { useState, useEffect, useCallback, useMemo, use } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { MdStar, MdLocationOn, MdArrowBack, MdClose, MdMenu } from 'react-icons/md';
-import { FaFacebook, FaInstagram, FaWhatsapp } from 'react-icons/fa'; // Importado os ícones
+import { FaFacebook, FaInstagram, FaWhatsapp } from 'react-icons/fa';
 import Link from 'next/link';
 import Image from 'next/image';
+import { useMediaQuery } from 'react-responsive'; // Importação do hook
 
 import ImageSlider from '../../components/ImageSlider/ImageSlider';
 import { scrollToSection } from '../../utils/scrollToSection';
 
-// Importe a imagem do banner
 import bannerRegua from '../../assets/banner-regua.jpg';
 
 // Interfaces
@@ -42,7 +42,6 @@ interface MenuCategory {
   items: MenuItem[];
 }
 
-// **CORREÇÃO**: Adicionados os novos campos à interface da API
 interface BarFromAPI {
   id: string | number;
   name: string;
@@ -137,7 +136,6 @@ const groupItemsBySubcategory = (items: MenuItem[]): { name: string; items: Menu
 };
 
 export default function CardapioBarPage({ params }: CardapioBarPageProps) {
-  // Use React.use() para extrair o valor de params
   const resolvedParams = use(params);
   const { slug } = resolvedParams;
 
@@ -148,8 +146,11 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
   const [selectedCategory, setSelectedCategory] = useState<string>('');
   const [activeSubcategory, setActiveSubcategory] = useState<string>('');
   const [showPopup, setShowPopup] = useState(false);
-  const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null); // Estado para o item selecionado no modal
+  const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null);
   const [showMobileSidebar, setShowMobileSidebar] = useState(false);
+
+  // Hook para verificar se a tela é mobile
+  const isMobile = useMediaQuery({ maxWidth: 767 });
 
   const handleItemClick = (item: MenuItem) => {
     setSelectedItem(item);
@@ -199,7 +200,6 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
         coverImageUrl: getValidImageUrl(bar.coverImageUrl),
         coverImages: coverImages.length > 0 ? coverImages : [getValidImageUrl(bar.coverImageUrl)],
         popupImageUrl: bar.popupImageUrl,
-        // **CORREÇÃO**: Mapeia os novos campos para o estado
         facebook: bar.facebook || '',
         instagram: bar.instagram || '',
         whatsapp: bar.whatsapp || ''
@@ -249,12 +249,11 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
     if (selectedBar && selectedBar.popupImageUrl && selectedBar.popupImageUrl.trim() !== '') {
       const timer = setTimeout(() => {
         setShowPopup(true);
-      }, 2000); // Exibe o popup após 2 segundos
+      }, 2000);
       
       return () => clearTimeout(timer);
     }
     
-    // Retorna uma função vazia quando a condição é falsa
     return undefined; 
   }, [selectedBar]);
 
@@ -382,7 +381,6 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
               <ImageSlider images={selectedBar.coverImages} />
               <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
               
-              {/* Logo clicável para mobile */}
               <div 
                 className="logo-container absolute top-4 left-4 p-2 bg-white rounded-xl shadow-md cursor-pointer md:cursor-default"
                 onClick={() => window.innerWidth < 768 && setShowMobileSidebar(true)}
@@ -395,7 +393,6 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
                   className="rounded-lg"
                 />
                 
-                {/* Indicador de menu para mobile */}
                 <div className="menu-indicator absolute -top-1 -right-1 md:hidden">
                   <div className="bg-blue-600 text-white rounded-full p-1.5 shadow-lg">
                     <MdMenu className="menu-icon w-4 h-4" />
@@ -403,7 +400,6 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
                 </div>
               </div>
 
-              {/* Informações do bar - visíveis apenas em desktop */}
               <div className="bar-content absolute bottom-6 left-6 right-6 hidden md:block">
                 <h1 className="text-white text-3xl md:text-4xl font-bold mb-2">
                   {selectedBar.name}
@@ -412,7 +408,6 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
                   {selectedBar.description}
                 </p>
                 
-                {/* **NOVO**: Ícones das redes sociais */}
                 <div className="flex items-center gap-4 text-white/90 mb-3">
                   {selectedBar.facebook && (
                     <a href={selectedBar.facebook} target="_blank" rel="noopener noreferrer" className="text-white hover:text-blue-500 transition-colors">
@@ -448,13 +443,18 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
         </div>
 
         {menuCategories.length > 0 && (
+          // Menu de categorias fixo (visível em todas as telas)
           <div className="sticky top-0 z-20 bg-gradient-to-br from-gray-50 to-gray-100">
             <div className="pb-2">
               <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
                 {menuCategories.map((category) => (
                   <button
                     key={category.id}
-                    onClick={() => setSelectedCategory(category.name)}
+                    // A função de rolagem aqui vai para o topo da categoria no mobile
+                    onClick={() => {
+                        setSelectedCategory(category.name);
+                        scrollToSection(category.name.replace(/\s+/g, '-').toLowerCase());
+                    }}
                     className={`category-tab px-6 py-3 rounded-full font-medium whitespace-nowrap transition-all duration-200 ${
                       selectedCategory === category.name
                         ? 'active bg-blue-600 text-white shadow-lg'
@@ -469,72 +469,114 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
           </div>
         )}
         
-        <AnimatePresence mode="wait">
-          {currentCategory && (
-            <motion.div
-              key={selectedCategory}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.3 }}
-            >
-              
-              <div className="w-full relative mb-8 z-10">
-                <Link href="/decoracao-aniversario">
-                <Image
-                    src={bannerRegua}
-                    alt="Banner de promoção"
-                    layout="responsive"
-                    width={1200}
-                    height={150}
-                    className="rounded-xl shadow-lg"
-                    priority={true}
-                />
-                </Link>
-              </div>
-
-              <h2 className="text-2xl font-bold text-gray-900 mb-6">
-                {selectedCategory}
-              </h2>
-
-              <div className="sticky top-[56px] z-10 bg-gradient-to-br from-gray-50 to-gray-100 pb-4 pt-2 -mt-4">
-                <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
-                  {currentCategory.subCategories.map((subcat) => (
-                    <button
-                      key={subcat.name}
-                      onClick={() => scrollToSection(subcat.name)}
-                      className={`subcategory-tab px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all duration-200 ${
-                        activeSubcategory === subcat.name
-                          ? 'bg-blue-500 text-white shadow-md'
-                          : 'bg-white text-gray-600 hover:bg-gray-50'
-                      }`}
-                    >
-                      {subcat.name}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {currentCategory.subCategories.map((subcat) => (
-                <div
-                  key={subcat.name}
-                  id={subcat.name.replace(/\s+/g, '-').toLowerCase()}
-                  data-subcategory-name={subcat.name}
-                  className="mt-8"
-                >
-                  <h3 className="text-xl font-bold text-gray-800 mb-4">
-                    {subcat.name}
-                  </h3>
-                  <div className="grid grid-cols-2 gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                    {subcat.items.map((item) => (
-                      <MenuItemCard key={item.id} item={item} onClick={handleItemClick} />
+        {/*
+          Renderização Condicional:
+          No mobile, renderiza todas as categorias de uma vez (rolagem infinita).
+          No desktop, mantém a renderização de uma categoria por vez com AnimatePresence.
+        */}
+        {isMobile ? (
+          <div className="mt-8">
+            {menuCategories.map((category) => (
+              <div
+                key={category.id}
+                id={category.name.replace(/\s+/g, '-').toLowerCase()} // ID para rolagem
+              >
+                <h2 className="text-2xl font-bold text-gray-900 mt-8 mb-6">
+                  {category.name}
+                </h2>
+                
+                {/* Menu de subcategorias fixo (apenas no mobile, para cada categoria) */}
+                <div className="sticky top-[56px] z-10 bg-gradient-to-br from-gray-50 to-gray-100 pb-4 pt-2 -mt-4">
+                  <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+                    {category.subCategories.map((subcat) => (
+                      <button
+                        key={subcat.name}
+                        onClick={() => scrollToSection(subcat.name)}
+                        className={`subcategory-tab px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all duration-200 ${
+                          activeSubcategory === subcat.name
+                            ? 'bg-blue-500 text-white shadow-md'
+                            : 'bg-white text-gray-600 hover:bg-gray-50'
+                        }`}
+                      >
+                        {subcat.name}
+                      </button>
                     ))}
                   </div>
                 </div>
-              ))}
-            </motion.div>
-          )}
-        </AnimatePresence>
+
+                {category.subCategories.map((subcat) => (
+                  <div
+                    key={subcat.name}
+                    id={subcat.name.replace(/\s+/g, '-').toLowerCase()}
+                    data-subcategory-name={subcat.name}
+                    className="mt-8"
+                  >
+                    <h3 className="text-xl font-bold text-gray-800 mb-4">
+                      {subcat.name}
+                    </h3>
+                    <div className="grid grid-cols-2 gap-4">
+                      {subcat.items.map((item) => (
+                        <MenuItemCard key={item.id} item={item} onClick={handleItemClick} />
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+        ) : (
+          <AnimatePresence mode="wait">
+            {currentCategory && (
+              <motion.div
+                key={selectedCategory}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.3 }}
+              >
+                <h2 className="text-2xl font-bold text-gray-900 mb-6">
+                  {selectedCategory}
+                </h2>
+
+                <div className="sticky top-[56px] z-10 bg-gradient-to-br from-gray-50 to-gray-100 pb-4 pt-2 -mt-4">
+                  <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+                    {currentCategory.subCategories.map((subcat) => (
+                      <button
+                        key={subcat.name}
+                        onClick={() => scrollToSection(subcat.name)}
+                        className={`subcategory-tab px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all duration-200 ${
+                          activeSubcategory === subcat.name
+                            ? 'bg-blue-500 text-white shadow-md'
+                            : 'bg-white text-gray-600 hover:bg-gray-50'
+                        }`}
+                      >
+                        {subcat.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {currentCategory.subCategories.map((subcat) => (
+                  <div
+                    key={subcat.name}
+                    id={subcat.name.replace(/\s+/g, '-').toLowerCase()}
+                    data-subcategory-name={subcat.name}
+                    className="mt-8"
+                  >
+                    <h3 className="text-xl font-bold text-gray-800 mb-4">
+                      {subcat.name}
+                    </h3>
+                    <div className="grid grid-cols-2 gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                      {subcat.items.map((item) => (
+                        <MenuItemCard key={item.id} item={item} onClick={handleItemClick} />
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </motion.div>
+            )}
+          </AnimatePresence>
+        )}
       </div>
       
       {/* Modal Sidebar Mobile */}

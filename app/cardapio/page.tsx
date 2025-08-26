@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import Image from 'next/image';
-import { MdStar, MdLocationOn } from 'react-icons/md';
+import { MdStar, MdLocationOn, MdCalendarToday } from 'react-icons/md';
 import Link from 'next/link';
 
 interface Bar {
@@ -147,6 +147,55 @@ export default function CardapioPage() {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Evento Especial - Samba do Justino */}
+        <div className="mb-12">
+          <div className="text-center mb-8">
+            <h2 className="text-3xl font-bold text-gray-900 mb-4">🎉 Evento Especial</h2>
+            <p className="text-gray-600 text-lg">Uma experiência única que você não pode perder!</p>
+          </div>
+          
+          <div className="max-w-4xl mx-auto">
+            <Link href="/cardapio/samba-do-justino" passHref>
+              <motion.div
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                className="relative overflow-hidden rounded-3xl cursor-pointer group"
+              >
+                <div className="bg-gradient-to-br from-blue-900 via-blue-800 to-indigo-900 text-white p-8 relative">
+                  <div className="absolute inset-0 bg-gradient-to-r from-yellow-400/20 to-orange-400/20"></div>
+                  <div className="relative z-10">
+                    <div className="flex items-center justify-center gap-3 mb-4">
+                      <span className="text-4xl">🎵</span>
+                      <h3 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-yellow-400 to-orange-400 bg-clip-text text-transparent">
+                        SAMBA DO JUSTINO
+                      </h3>
+                      <span className="text-4xl">🎵</span>
+                    </div>
+                    <p className="text-xl text-blue-100 mb-4">
+                      Uma noite especial com samba, drinks e muita animação!
+                    </p>
+                    <div className="flex items-center justify-center gap-6 text-blue-100">
+                      <div className="flex items-center gap-2">
+                        <MdCalendarToday className="w-5 h-5" />
+                        <span>30 de Agosto</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <MdLocationOn className="w-5 h-5" />
+                        <span>Mirante</span>
+                      </div>
+                    </div>
+                    <div className="mt-6 text-center">
+                      <span className="inline-block bg-yellow-400 text-blue-900 px-6 py-3 rounded-full font-bold text-lg group-hover:bg-yellow-300 transition-colors duration-300">
+                        Ver Cardápio Especial →
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            </Link>
+          </div>
+        </div>
+
         <div>
           <h2 className="text-2xl font-bold text-gray-900 mb-6 text-center">
             Escolha um estabelecimento
