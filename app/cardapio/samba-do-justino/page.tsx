@@ -119,7 +119,7 @@ const menuData: MenuCategory[] = [
 const openBarItems = [
   'ÁGUA', 'ÁGUA DE COCO', 'REFRIGERANTE', 'RED BULL', 'SPATEN', 
   'CORONA ZERO', 'VODKA ABSOLUT', 'VODKA TUVALU', 'GIN 142', 
-  'GIN BEEFEATER', 'RUFUS LICOR'
+  'GIN BEEFEATER', 'WHISKY JAMESON', 'RUFUS LICOR'
 ];
 
 export default function SambaDoJustinoPage() {
