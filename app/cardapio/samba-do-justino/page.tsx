@@ -4,7 +4,9 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { MdRestaurant, MdLocalBar, MdLocalDrink, MdFastfood, MdLocalCafe, MdStar, MdCalendarToday, MdLocationOn, MdAccessTime, MdMusicNote } from 'react-icons/md';
 import { useGoogleAnalytics } from '../../hooks/useGoogleAnalytics';
-import './styles.scss';
+
+// Não há necessidade de importar um arquivo CSS separado se você usar Tailwind.
+// import './styles.scss';
 
 interface MenuItem {
   id: string;
@@ -118,20 +120,33 @@ const menuData: MenuCategory[] = [
 ];
 
 const openBarItems = [
-  'ÁGUA', 'ÁGUA DE COCO', 'REFRIGERANTE', 'RED BULL', 'SPATEN', 
-  'CORONA ZERO', 'VODKA ABSOLUT', 'VODKA TUVALU', 'GIN 142', 
+  'ÁGUA', 'ÁGUA DE COCO', 'REFRIGERANTE', 'RED BULL', 'SPATEN',
+  'CORONA ZERO', 'VODKA ABSOLUT', 'VODKA TUVALU', 'GIN 142',
   'GIN BEEFEATER', 'WHISKY JAMESON', 'RUFUS LICOR'
 ];
 
 export default function SambaDoJustinoPage() {
   const [selectedCategory, setSelectedCategory] = useState<string>('doses');
-  const [showOpenBar, setShowOpenBar] = useState(false);
   const { trackPageView, trackClick } = useGoogleAnalytics();
 
-  // Rastrear visualização da página
+  const banners = [
+    { src: '/banner-mobile.jpg', href: '/decoracao-aniversario', alt: 'Decoração de Aniversário - Banner Promocional' },
+    { src: '/banner-mobile-2.png', href: 'https://oniphotos.com/', alt: 'Oni Photos - Fotografia Profissional' },
+  ];
+
+  const [currentBannerIndex, setCurrentBannerIndex] = useState(0);
+
   useEffect(() => {
     trackPageView('Samba do Justino - Cardápio', '/cardapio/samba-do-justino');
   }, [trackPageView]);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentBannerIndex(prevIndex => (prevIndex + 1) % banners.length);
+    }, 5000);
+
+    return () => clearInterval(timer);
+  }, [banners.length]);
 
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -174,9 +189,9 @@ export default function SambaDoJustinoPage() {
   );
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 samba-justino-page">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100"> {/* Removido a classe 'samba-justino-page' */}
       {/* Header */}
-      <div className="relative overflow-hidden event-header">
+      <div className="relative overflow-hidden"> {/* Removido 'event-header' */}
         <div className="bg-gradient-to-br from-blue-900 via-blue-800 to-indigo-900 text-white">
           <div className="relative z-10 px-4 py-8">
             <motion.div
@@ -185,7 +200,7 @@ export default function SambaDoJustinoPage() {
               transition={{ duration: 0.6 }}
               className="text-center"
             >
-              <h1 className="text-4xl md:text-5xl font-bold mb-2 event-title relative">
+              <h1 className="text-4xl md:text-5xl font-bold mb-2 relative">
                 SAMBA DO JUSTINO
               </h1>
               <div className="flex items-center justify-center gap-4 text-sm text-blue-100 mb-4">
@@ -203,12 +218,12 @@ export default function SambaDoJustinoPage() {
               </p>
             </motion.div>
           </div>
-          
+
           {/* Decorative elements */}
           <div className="absolute top-0 right-0 w-32 h-32 bg-yellow-400/20 rounded-full blur-3xl"></div>
           <div className="absolute bottom-0 left-0 w-24 h-24 bg-orange-400/20 rounded-full blur-2xl"></div>
-          
-          {/* Floating particles */}
+
+          {/* Floating particles - Se essa classe estiver no seu styles.scss, pode removê-la */}
           <div className="floating-particles">
             <div className="particle"></div>
             <div className="particle"></div>
@@ -225,14 +240,14 @@ export default function SambaDoJustinoPage() {
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.5, delay: 0.2 }}
-          className="bg-gradient-to-br from-green-600 to-green-700 rounded-3xl p-6 text-white shadow-2xl open-bar-section relative"
+          className="bg-gradient-to-br from-green-600 to-green-700 rounded-3xl p-6 text-white shadow-2xl relative"
         >
           <div className="text-center mb-6">
-            <h2 className="text-3xl font-bold mb-2 text-yellow-300 samba-vibes">OPEN BAR</h2>
+            <h2 className="text-3xl font-bold mb-2 text-yellow-300">OPEN BAR</h2>
             <p className="text-green-100">Bebidas inclusas no pacote</p>
           </div>
-          
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-3 open-bar-items">
+
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
             {openBarItems.map((item, index) => (
               <motion.div
                 key={index}
@@ -251,9 +266,9 @@ export default function SambaDoJustinoPage() {
       {/* Menu Categories */}
       <div className="px-4 py-6">
         <h2 className="text-2xl font-bold text-gray-900 mb-6 text-center">Cardápio Completo</h2>
-        
+
         {/* Category Tabs */}
-        <div className="grid grid-cols-4 gap-3 mb-6 category-tabs">
+        <div className="grid grid-cols-4 gap-3 mb-6">
           {menuData.map((category) => (
             <CategoryTab key={category.id} category={category} />
           ))}
@@ -278,44 +293,37 @@ export default function SambaDoJustinoPage() {
         </AnimatePresence>
       </div>
 
-      {/* Banner de Decoração de Aniversário - Responsivo */}
-      <div className="px-4 py-6">
+      {/* Banner Slide */}
+      <div className="px-4 py-6 flex justify-center">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.3 }}
-          className="mt-8 mb-8"
+          className="mt-8 mb-8 w-full max-w-lg"
         >
-          <a 
-            href="/decoracao-aniversario" 
-            className="block"
-            onClick={() => {
-              // Rastrear clique no banner desktop
-              if (window.innerWidth >= 768) {
-                trackClick('banner-regua-desktop', '/cardapio/samba-do-justino', 'banner_click');
-              } else {
-                // Rastrear clique no banner mobile
-                trackClick('banner-mobile', '/cardapio/samba-do-justino', 'banner_click');
-              }
-            }}
-          >
-            <div className="relative overflow-hidden rounded-xl shadow-lg hover:shadow-xl transition-shadow duration-300">
-              {/* Banner Desktop - Visível apenas em telas médias e maiores (md: 768px+) */}
+          <AnimatePresence mode="wait">
+            <motion.a
+              key={banners[currentBannerIndex].src}
+              href={banners[currentBannerIndex].href}
+              target={banners[currentBannerIndex].href.startsWith('http') ? '_blank' : '_self'}
+              rel={banners[currentBannerIndex].href.startsWith('http') ? 'noopener noreferrer' : ''}
+              className="block relative overflow-hidden rounded-xl shadow-lg hover:shadow-xl transition-shadow duration-300"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.5 }}
+              onClick={() => {
+                trackClick(`banner-slide-${currentBannerIndex + 1}`, '/cardapio/samba-do-justino', 'banner_click');
+              }}
+            >
               <img
-                src="/banner-regua.jpg"
-                alt="Decoração de Aniversário - Banner Promocional Desktop"
-                className="hidden md:block w-full h-auto object-cover hover:scale-105 transition-transform duration-300"
+                src={banners[currentBannerIndex].src}
+                alt={banners[currentBannerIndex].alt}
+                className="w-full h-auto object-cover"
               />
-              {/* Banner Mobile - Visível apenas em telas pequenas (até 767px) */}
-              <img
-                src="/banner-mobile.jpg"
-                alt="Decoração de Aniversário - Banner Promocional Mobile"
-                className="block md:hidden w-full h-auto object-cover hover:scale-105 transition-transform duration-300"
-              />
-              {/* Overlay gradiente para ambos os banners */}
               <div className="absolute inset-0 bg-gradient-to-r from-blue-600/20 to-purple-600/20 hover:from-blue-600/30 hover:to-purple-600/30 transition-all duration-300"></div>
-            </div>
-          </a>
+            </motion.a>
+          </AnimatePresence>
         </motion.div>
       </div>
 
