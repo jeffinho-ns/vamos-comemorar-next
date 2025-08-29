@@ -7,11 +7,10 @@ import { FaFacebook, FaInstagram, FaWhatsapp } from 'react-icons/fa';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useMediaQuery } from 'react-responsive'; // Importação do hook
+import { useGoogleAnalytics } from '../../hooks/useGoogleAnalytics';
 
 import ImageSlider from '../../components/ImageSlider/ImageSlider';
 import { scrollToSection } from '../../utils/scrollToSection';
-
-import bannerRegua from '../../assets/banner-regua.jpg';
 
 // Interfaces
 interface Topping {
@@ -138,6 +137,7 @@ const groupItemsBySubcategory = (items: MenuItem[]): { name: string; items: Menu
 export default function CardapioBarPage({ params }: CardapioBarPageProps) {
   const resolvedParams = use(params);
   const { slug } = resolvedParams;
+  const { trackClick } = useGoogleAnalytics();
 
   const [selectedBar, setSelectedBar] = useState<Bar | null>(null);
   const [menuCategories, setMenuCategories] = useState<GroupedCategory[]>([]);
@@ -468,6 +468,48 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
             </div>
           </div>
         )}
+
+        {/* Banner de Decoração de Aniversário - Responsivo */}
+        <div className="mt-8 mb-8">
+          <Link 
+            href="/decoracao-aniversario" 
+            className="block"
+            onClick={() => {
+              // Rastrear clique no banner desktop
+              if (window.innerWidth >= 768) {
+                trackClick('banner-regua-desktop', `/cardapio/${slug}`, 'banner_click');
+              } else {
+                // Rastrear clique no banner mobile
+                trackClick('banner-mobile', `/cardapio/${slug}`, 'banner_click');
+              }
+            }}
+          >
+            <div className="relative overflow-hidden rounded-xl shadow-lg hover:shadow-xl transition-shadow duration-300">
+              {/* Banner Desktop - Visível apenas em telas médias e maiores (md: 768px+) */}
+              <Image
+                src="/banner-regua.jpg"
+                alt="Decoração de Aniversário - Banner Promocional Desktop"
+                width={1200}
+                height={300}
+                className="hidden md:block w-full h-auto object-cover hover:scale-105 transition-transform duration-300"
+                priority
+                sizes="(max-width: 767px) 0vw, 100vw"
+              />
+              {/* Banner Mobile - Visível apenas em telas pequenas (até 767px) */}
+              <Image
+                src="/banner-mobile.jpg"
+                alt="Decoração de Aniversário - Banner Promocional Mobile"
+                width={600}
+                height={400}
+                className="block md:hidden w-full h-auto object-cover hover:scale-105 transition-transform duration-300"
+                priority
+                sizes="(max-width: 767px) 100vw, 0vw"
+              />
+              {/* Overlay gradiente para ambos os banners */}
+              <div className="absolute inset-0 bg-gradient-to-r from-blue-600/20 to-purple-600/20 hover:from-blue-600/30 hover:to-purple-600/30 transition-all duration-300"></div>
+            </div>
+          </Link>
+        </div>
         
         {/*
           Renderização Condicional:

@@ -1,13 +1,20 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { FaBirthdayCake, FaGift, FaGlassCheers, FaUtensils, FaPalette, FaInfoCircle, FaArrowRight } from 'react-icons/fa';
+import { useGoogleAnalytics } from '../hooks/useGoogleAnalytics';
 
 
 export default function DecoracaoAniversarioPage() {
   const [activeTab, setActiveTab] = useState('como-funciona');
+  const { trackPageView } = useGoogleAnalytics();
+
+  // Rastrear visualização da página
+  useEffect(() => {
+    trackPageView('Decoração de Aniversário', '/decoracao-aniversario');
+  }, [trackPageView]);
 
   const decorationOptions = [
     {

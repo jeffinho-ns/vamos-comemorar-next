@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { MdRestaurant, MdLocalBar, MdLocalDrink, MdFastfood, MdLocalCafe, MdStar, MdCalendarToday, MdLocationOn, MdAccessTime, MdMusicNote } from 'react-icons/md';
+import { useGoogleAnalytics } from '../../hooks/useGoogleAnalytics';
 import './styles.scss';
 
 interface MenuItem {
@@ -125,6 +126,12 @@ const openBarItems = [
 export default function SambaDoJustinoPage() {
   const [selectedCategory, setSelectedCategory] = useState<string>('doses');
   const [showOpenBar, setShowOpenBar] = useState(false);
+  const { trackPageView, trackClick } = useGoogleAnalytics();
+
+  // Rastrear visualização da página
+  useEffect(() => {
+    trackPageView('Samba do Justino - Cardápio', '/cardapio/samba-do-justino');
+  }, [trackPageView]);
 
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -269,6 +276,47 @@ export default function SambaDoJustinoPage() {
               ))}
           </motion.div>
         </AnimatePresence>
+      </div>
+
+      {/* Banner de Decoração de Aniversário - Responsivo */}
+      <div className="px-4 py-6">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.3 }}
+          className="mt-8 mb-8"
+        >
+          <a 
+            href="/decoracao-aniversario" 
+            className="block"
+            onClick={() => {
+              // Rastrear clique no banner desktop
+              if (window.innerWidth >= 768) {
+                trackClick('banner-regua-desktop', '/cardapio/samba-do-justino', 'banner_click');
+              } else {
+                // Rastrear clique no banner mobile
+                trackClick('banner-mobile', '/cardapio/samba-do-justino', 'banner_click');
+              }
+            }}
+          >
+            <div className="relative overflow-hidden rounded-xl shadow-lg hover:shadow-xl transition-shadow duration-300">
+              {/* Banner Desktop - Visível apenas em telas médias e maiores (md: 768px+) */}
+              <img
+                src="/banner-regua.jpg"
+                alt="Decoração de Aniversário - Banner Promocional Desktop"
+                className="hidden md:block w-full h-auto object-cover hover:scale-105 transition-transform duration-300"
+              />
+              {/* Banner Mobile - Visível apenas em telas pequenas (até 767px) */}
+              <img
+                src="/banner-mobile.jpg"
+                alt="Decoração de Aniversário - Banner Promocional Mobile"
+                className="block md:hidden w-full h-auto object-cover hover:scale-105 transition-transform duration-300"
+              />
+              {/* Overlay gradiente para ambos os banners */}
+              <div className="absolute inset-0 bg-gradient-to-r from-blue-600/20 to-purple-600/20 hover:from-blue-600/30 hover:to-purple-600/30 transition-all duration-300"></div>
+            </div>
+          </a>
+        </motion.div>
       </div>
 
       {/* Footer */}

@@ -133,3 +133,4 @@ Para adicionar novas categorias, siga o padrão existente no array `menuData`.
 ---
 
 **Desenvolvido com ❤️ para o evento Samba do Justino**
+
