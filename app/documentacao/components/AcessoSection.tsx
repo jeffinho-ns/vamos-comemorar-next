@@ -72,7 +72,7 @@ export default function AcessoSection() {
       step: 3,
       title: 'Digite a Senha',
       description: 'Use a senha padrão fornecida',
-      code: '@123Mudar'
+      code: '********'
     },
     {
       step: 4,
