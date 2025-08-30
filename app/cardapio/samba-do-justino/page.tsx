@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MdRestaurant, MdLocalBar, MdLocalDrink, MdFastfood, MdLocalCafe, MdCalendarToday, MdLocationOn, MdAccessTime, MdMusicNote, MdClose } from 'react-icons/md';
+import { MdRestaurant, MdLocalBar, MdLocalDrink, MdFastfood, MdLocalCafe, MdMusicNote } from 'react-icons/md';
 import { useGoogleAnalytics } from '../../hooks/useGoogleAnalytics';
 
 // Não há necessidade de importar um arquivo CSS separado se você usar Tailwind.
@@ -127,7 +127,9 @@ const openBarItems = [
 
 export default function SambaDoJustinoPage() {
   const [selectedCategory, setSelectedCategory] = useState<string>('doses');
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [openBarExpanded, setOpenBarExpanded] = useState(false);
+  const [touchStart, setTouchStart] = useState<number | null>(null);
+  const [touchEnd, setTouchEnd] = useState<number | null>(null);
   const { trackPageView, trackClick } = useGoogleAnalytics();
 
   const banners = [
@@ -148,6 +150,34 @@ export default function SambaDoJustinoPage() {
 
     return () => clearInterval(timer);
   }, [banners.length]);
+
+
+
+  // Funções para controle de swipe nos banners
+  const onTouchStart = (e: React.TouchEvent) => {
+    setTouchEnd(null);
+    setTouchStart(e.targetTouches[0].clientX);
+  };
+
+  const onTouchMove = (e: React.TouchEvent) => {
+    setTouchEnd(e.targetTouches[0].clientX);
+  };
+
+  const onTouchEnd = () => {
+    if (!touchStart || !touchEnd) return;
+    
+    const distance = touchStart - touchEnd;
+    const isLeftSwipe = distance > 50;
+    const isRightSwipe = distance < -50;
+
+    if (isLeftSwipe) {
+      // Swipe para esquerda - próximo banner
+      setCurrentBannerIndex(prevIndex => (prevIndex + 1) % banners.length);
+    } else if (isRightSwipe) {
+      // Swipe para direita - banner anterior
+      setCurrentBannerIndex(prevIndex => (prevIndex - 1 + banners.length) % banners.length);
+    }
+  };
 
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -192,20 +222,23 @@ export default function SambaDoJustinoPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
       {/* Header com Logo e Banners */}
-      <div className="relative overflow-hidden bg-white shadow-lg">
+      <div className="relative overflow-hidden bg-white shadow-lg mb-2">
         {/* Banners Rotativos com Logo Overlay */}
-        <div className="relative h-80 md:h-96 overflow-hidden">
+        <div className="relative aspect-video overflow-visible">
           <AnimatePresence mode="wait">
             <motion.a
               key={banners[currentBannerIndex].src}
               href={banners[currentBannerIndex].href}
               target={banners[currentBannerIndex].href.startsWith('http') ? '_blank' : '_self'}
               rel={banners[currentBannerIndex].href.startsWith('http') ? 'noopener noreferrer' : ''}
-              className="block w-full h-full relative overflow-hidden"
+              className="block w-full relative overflow-visible"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.5 }}
+              onTouchStart={onTouchStart}
+              onTouchMove={onTouchMove}
+              onTouchEnd={onTouchEnd}
               onClick={() => {
                 trackClick(`banner-header-${currentBannerIndex + 1}`, '/cardapio/samba-do-justino', 'banner_click');
               }}
@@ -213,36 +246,26 @@ export default function SambaDoJustinoPage() {
               <img
                 src={banners[currentBannerIndex].src}
                 alt={banners[currentBannerIndex].alt}
-                className="w-full h-full object-cover"
+                className="w-full h-auto object-contain"
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent"></div>
+              <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent pointer-events-none"></div>
               
               {/* Logo no canto esquerdo */}
-              <div className="absolute top-4 left-4 z-10">
-                <motion.button
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    setSidebarOpen(true);
-                    trackClick('logo-click', '/cardapio/samba-do-justino', 'sidebar_open');
-                  }}
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  className="bg-white/90 backdrop-blur-sm rounded-xl p-2 shadow-lg hover:bg-white transition-all duration-300"
-                >
+              <div className="absolute top-2 left-2 z-20">
+                <div className="bg-white/90 backdrop-blur-sm rounded-lg p-1.5 shadow-md hover:bg-white transition-all duration-300">
                   <img
                     src="/samba-do-justino.png"
                     alt="Samba do Justino Logo"
-                    className="h-10 w-auto object-contain drop-shadow-lg"
+                    className="h-8 w-auto object-contain drop-shadow-lg"
                   />
                   <div className="absolute -top-1 -right-1">
-                    <MdMusicNote className="w-4 h-4 text-yellow-500 animate-bounce drop-shadow-lg" />
+                    <MdMusicNote className="w-3 h-3 text-yellow-500 animate-bounce drop-shadow-lg" />
                   </div>
-                </motion.button>
+                </div>
               </div>
               
               {/* Indicadores de banner */}
-              <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex space-x-2">
+              <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 flex space-x-2 z-20">
                 {banners.map((_, index) => (
                   <div
                     key={index}
@@ -257,149 +280,9 @@ export default function SambaDoJustinoPage() {
         </div>
       </div>
 
-      {/* Sidebar com Informações do Evento */}
-      <AnimatePresence>
-        {sidebarOpen && (
-          <>
-            {/* Overlay */}
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="fixed inset-0 bg-black/50 z-40"
-              onClick={() => setSidebarOpen(false)}
-            />
-            
-            {/* Sidebar */}
-            <motion.div
-              initial={{ x: '-100%' }}
-              animate={{ x: 0 }}
-              exit={{ x: '-100%' }}
-              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-              className="fixed left-0 top-0 h-full w-80 bg-gradient-to-br from-blue-900 via-blue-800 to-indigo-900 text-white z-50 shadow-2xl"
-            >
-              {/* Header do Sidebar */}
-              <div className="flex justify-between items-center p-6 border-b border-white/20">
-                <div className="flex items-center gap-3">
-                  <img
-                    src="/samba-do-justino.png"
-                    alt="Samba do Justino Logo"
-                    className="h-10 w-auto object-contain"
-                  />
-                  <div>
-                    <h2 className="text-xl font-bold">Samba do Justino</h2>
-                    <p className="text-blue-200 text-sm">Cardápio Especial</p>
-                  </div>
-                </div>
-                <button
-                  onClick={() => setSidebarOpen(false)}
-                  className="p-2 hover:bg-white/10 rounded-full transition-colors"
-                >
-                  <MdClose className="w-6 h-6" />
-                </button>
-              </div>
-
-              {/* Conteúdo do Sidebar */}
-              <div className="p-6 space-y-6">
-                {/* Informações do Evento */}
-                <div className="space-y-4">
-                  <h3 className="text-2xl font-bold text-yellow-300 mb-4">
-                    Informações do Evento
-                  </h3>
-                  
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-3 bg-white/10 p-3 rounded-lg">
-                      <MdCalendarToday className="w-5 h-5 text-yellow-300" />
-                      <div>
-                        <p className="font-semibold">Data</p>
-                        <p className="text-blue-200">30 de Agosto</p>
-                      </div>
-                    </div>
-                    
-                    <div className="flex items-center gap-3 bg-white/10 p-3 rounded-lg">
-                      <MdLocationOn className="w-5 h-5 text-yellow-300" />
-                      <div>
-                        <p className="font-semibold">Local</p>
-                        <p className="text-blue-200">Mirante</p>
-                      </div>
-                    </div>
-                    
-                    <div className="flex items-center gap-3 bg-white/10 p-3 rounded-lg">
-                      <MdAccessTime className="w-5 h-5 text-yellow-300" />
-                      <div>
-                        <p className="font-semibold">Horário</p>
-                        <p className="text-blue-200">21h às 02h</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Descrição */}
-                <div className="bg-white/10 p-4 rounded-lg">
-                  <h4 className="font-semibold mb-2 text-yellow-300">Sobre o Evento</h4>
-                  <p className="text-blue-200 leading-relaxed">
-                    Uma noite especial com samba, drinks e muita animação! 
-                    Venha celebrar conosco essa experiência única. 🎵✨
-                  </p>
-                </div>
-
-                {/* Open Bar Preview */}
-                <div className="bg-green-600/20 p-4 rounded-lg border border-green-400/30">
-                  <h4 className="font-semibold mb-2 text-green-300">Open Bar Incluso</h4>
-                  <p className="text-green-200 text-sm">
-                    Bebidas selecionadas inclusas no pacote do evento
-                  </p>
-                </div>
-
-                {/* Patrocinadores */}
-                <div>
-                  <h4 className="font-semibold mb-3 text-yellow-300">Patrocinadores</h4>
-                  <div className="flex flex-wrap gap-2">
-                    {['TUVALU', '142 GIN', 'RUFUS CARAMEL', 'ABSOLUT', 'BEEFEATER'].map((sponsor) => (
-                      <span key={sponsor} className="bg-white/10 px-3 py-1 rounded-full text-sm text-blue-200">
-                        {sponsor}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
-
-      {/* Open Bar Section */}
-      <div className="px-4 py-6">
-        <motion.div
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.5, delay: 0.2 }}
-          className="bg-gradient-to-br from-green-600 to-green-700 rounded-3xl p-6 text-white shadow-2xl relative"
-        >
-          <div className="text-center mb-6">
-            <h2 className="text-3xl font-bold mb-2 text-yellow-300">OPEN BAR</h2>
-            <p className="text-green-100">Bebidas inclusas no pacote</p>
-          </div>
-
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-            {openBarItems.map((item, index) => (
-              <motion.div
-                key={index}
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.3, delay: index * 0.1 }}
-                className="bg-white/20 backdrop-blur-sm rounded-xl p-3 text-center hover:bg-white/30 transition-all duration-300"
-              >
-                <span className="text-sm font-medium">{item}</span>
-              </motion.div>
-            ))}
-          </div>
-        </motion.div>
-      </div>
-
       {/* Menu Categories */}
-      <div className="px-4 py-6">
-        <h2 className="text-2xl font-bold text-gray-900 mb-6 text-center">Cardápio Completo</h2>
+      <div className="px-4 py-4">
+        <h2 className="text-2xl font-bold text-gray-900 mb-4 text-center">Cardápio Completo</h2>
 
         {/* Category Tabs */}
         <div className="grid grid-cols-4 gap-3 mb-6">
@@ -427,8 +310,59 @@ export default function SambaDoJustinoPage() {
         </AnimatePresence>
       </div>
 
+      {/* Open Bar Section - Retrátil */}
+      <div className="px-4 py-4">
+        <motion.button
+          onClick={() => setOpenBarExpanded(!openBarExpanded)}
+          className="w-full bg-gradient-to-br from-green-600 to-green-700 rounded-3xl p-6 text-white shadow-2xl relative hover:from-green-700 hover:to-green-800 transition-all duration-300"
+        >
+          <div className="text-center mb-4">
+            <h2 className="text-3xl font-bold mb-2 text-yellow-300">OPEN BAR</h2>
+            <p className="text-green-100">Bebidas inclusas no pacote</p>
+            <div className="flex items-center justify-center gap-2 mt-2">
+              <span className="text-sm text-green-200">
+                {openBarExpanded ? 'Clique para recolher' : 'Clique para expandir'}
+              </span>
+              <motion.div
+                animate={{ rotate: openBarExpanded ? 180 : 0 }}
+                transition={{ duration: 0.3 }}
+                className="text-yellow-300"
+              >
+                ▼
+              </motion.div>
+            </div>
+          </div>
+
+          <AnimatePresence>
+            {openBarExpanded && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                transition={{ duration: 0.3 }}
+                className="overflow-hidden"
+              >
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3 pt-4 border-t border-white/20">
+                  {openBarItems.map((item, index) => (
+                    <motion.div
+                      key={index}
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ duration: 0.3, delay: index * 0.1 }}
+                      className="bg-white/20 backdrop-blur-sm rounded-xl p-3 text-center hover:bg-white/30 transition-all duration-300"
+                    >
+                      <span className="text-sm font-medium">{item}</span>
+                    </motion.div>
+                  ))}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </motion.button>
+      </div>
+
       {/* Footer */}
-      <div className="bg-gray-900 text-white px-4 py-8 mt-8">
+      <div className="bg-gray-900 text-white px-4 py-6 mt-4">
         <div className="text-center">
           <h3 className="text-xl font-bold mb-4">Patrocinadores</h3>
           <div className="flex flex-wrap justify-center gap-6 text-gray-400">
@@ -439,7 +373,7 @@ export default function SambaDoJustinoPage() {
             <span className="text-sm">BEEFEATER</span>
           </div>
           <p className="text-gray-500 text-sm mt-4">
-            © 2024 Samba do Justino - Todos os direitos reservados
+            © 2025 Samba do Justino - Todos os direitos reservados
           </p>
         </div>
       </div>

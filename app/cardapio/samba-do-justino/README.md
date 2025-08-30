@@ -19,13 +19,17 @@
 
 2. **Banners Rotativos**:
    - Substituíram o header azul
-   - Imagens: 
-     - `/banne-agilizai-mobile.jpg` (link para `/decoracao-aniversario`)
-     - `/banne-oniphotos-mobile.jpg` (link para `https://oniphotos.com/`)
+   - Conteúdo: 
+     - `/banne-agilizai-mobile.jpg` (imagem - link para `/decoracao-aniversario`)
+     - `/banne-oniphotos-mobile.jpg` (imagem - link para `https://oniphotos.com/`)
    - Rotação automática a cada 5 segundos
+   - **Scroll Manual**: Swipe para esquerda/direita no mobile
    - Indicadores visuais na parte inferior
    - Links funcionais mantidos
-   - **Tamanho**: Aumentado para visualização completa (h-80 md:h-96)
+   - **Tamanho**: Imagens em 100% de largura e altura natural (min-h-[24rem] md:min-h-[28rem] lg:min-h-[32rem])
+   - **Renderização**: `object-contain` para mostrar imagem completa sem cortes
+   - **Suporte**: Apenas imagens (vídeo removido por problemas)
+   - **Interatividade**: Touch gestures para navegação manual
 
 ### Sidebar Interativo
 - **Acesso**: Clicando na logo no canto esquerdo dos banners
@@ -52,7 +56,7 @@
 - ✅ Links funcionais dos banners
 - ✅ Tracking do Google Analytics
 - ✅ Cardápio completo com categorias
-- ✅ Seção Open Bar
+- ✅ Seção Open Bar retrátil
 - ✅ Animações e transições
 
 ### Novas Funcionalidades
@@ -60,11 +64,40 @@
 - ✅ Sidebar com informações completas do evento
 - ✅ Overlay para fechar sidebar
 - ✅ Tracking de clique na logo
+- ✅ Open Bar retrátil (expansível/colapsável)
+- ✅ Inversão da ordem: Cardápio primeiro, Open Bar depois
+- ✅ Navegação manual dos banners por swipe no mobile
+- ✅ Controle de touch para navegação entre banners
 
-### Arquivos de Imagem Utilizados
+### Alterações na Ordem das Seções
+1. **Cardápio Completo** (Primeira Seção):
+   - Exibido primeiro na página
+   - Categorias organizadas em abas
+   - Itens com preços e descrições
+   - Animações de transição
+
+2. **Open Bar Retrátil** (Segunda Seção):
+   - Botão expansível/colapsável
+   - Design em gradiente verde
+   - Ícone de seta rotativa (▼/▲)
+   - Animações suaves de expansão
+   - Grid responsivo de bebidas
+   - **Funcionalidade**: Clique para expandir/recolher
+   - **Estado**: Controlado por `openBarExpanded`
+
+### Funcionalidades de Touch nos Banners
+- **Swipe para Esquerda**: Avança para o próximo banner
+- **Swipe para Direita**: Volta para o banner anterior
+- **Sensibilidade**: 50px de distância mínima para ativar
+- **Estados**: `touchStart`, `touchEnd` para controle
+- **Compatibilidade**: Funciona em dispositivos móveis
+- **Rotação Automática**: Mantida a cada 5 segundos
+- **Navegação Manual**: Permite controle do usuário
+
+### Arquivos de Mídia Utilizados
 - `/public/samba-do-justino.png` - Logo principal
-- `/public/banne-agilizai-mobile.jpg` - Banner Agilizai
-- `/public/banne-oniphotos-mobile.jpg` - Banner Oni Photos
+- `/public/banne-agilizai-mobile.jpg` - Banner Agilizai (imagem)
+- `/public/banne-oniphotos-mobile.jpg` - Banner Oni Photos (imagem)
 
 ### Tecnologias Utilizadas
 - Next.js 15
