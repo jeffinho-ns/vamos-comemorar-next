@@ -128,13 +128,11 @@ const openBarItems = [
 export default function SambaDoJustinoPage() {
   const [selectedCategory, setSelectedCategory] = useState<string>('doses');
   const [openBarExpanded, setOpenBarExpanded] = useState(false);
-  const [touchStart, setTouchStart] = useState<number | null>(null);
-  const [touchEnd, setTouchEnd] = useState<number | null>(null);
   const { trackPageView, trackClick } = useGoogleAnalytics();
 
   const banners = [
     { src: '/banne-agilizai-mobile.jpg', href: '/decoracao-aniversario', alt: 'Decoração de Aniversário - Agilizai' },
-    { src: '/banne-oniphotos-mobile.jpg', href: 'https://oniphotos.com/', alt: 'Oni Photos - Fotografia Profissional' },
+    { src: '/banne-oniphotos-mobile.jpg', href: 'https://oniphotos.com/evento_selecionado/1756479190052x293658075261829100', alt: 'Oni Photos - Fotografia Profissional' },
   ];
 
   const [currentBannerIndex, setCurrentBannerIndex] = useState(0);
@@ -145,39 +143,15 @@ export default function SambaDoJustinoPage() {
 
   useEffect(() => {
     const timer = setInterval(() => {
-      setCurrentBannerIndex(prevIndex => (prevIndex + 1) % banners.length);
+      setCurrentBannerIndex(prevIndex => (prevIndex + 1) % 2);
     }, 5000);
 
     return () => clearInterval(timer);
-  }, [banners.length]);
+  }, []);
 
 
 
-  // Funções para controle de swipe nos banners
-  const onTouchStart = (e: React.TouchEvent) => {
-    setTouchEnd(null);
-    setTouchStart(e.targetTouches[0].clientX);
-  };
 
-  const onTouchMove = (e: React.TouchEvent) => {
-    setTouchEnd(e.targetTouches[0].clientX);
-  };
-
-  const onTouchEnd = () => {
-    if (!touchStart || !touchEnd) return;
-    
-    const distance = touchStart - touchEnd;
-    const isLeftSwipe = distance > 50;
-    const isRightSwipe = distance < -50;
-
-    if (isLeftSwipe) {
-      // Swipe para esquerda - próximo banner
-      setCurrentBannerIndex(prevIndex => (prevIndex + 1) % banners.length);
-    } else if (isRightSwipe) {
-      // Swipe para direita - banner anterior
-      setCurrentBannerIndex(prevIndex => (prevIndex - 1 + banners.length) % banners.length);
-    }
-  };
 
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -187,12 +161,7 @@ export default function SambaDoJustinoPage() {
   };
 
   const MenuItemCard = ({ item }: { item: MenuItem }) => (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3 }}
-      className="bg-white rounded-2xl p-4 shadow-lg border border-gray-100 hover:shadow-xl transition-all duration-300 menu-item-card"
-    >
+    <div className="bg-white rounded-2xl p-4 shadow-lg border border-gray-100 hover:shadow-xl transition-all duration-300 menu-item-card">
       <div className="flex justify-between items-start mb-2">
         <h3 className="font-bold text-gray-900 text-lg leading-tight">{item.name}</h3>
         <span className="font-bold text-2xl text-blue-600 price-tag">{formatPrice(item.price)}</span>
@@ -200,15 +169,13 @@ export default function SambaDoJustinoPage() {
       {item.description && (
         <p className="text-gray-600 text-sm">{item.description}</p>
       )}
-    </motion.div>
+    </div>
   );
 
   const CategoryTab = ({ category }: { category: MenuCategory }) => (
-    <motion.button
-      whileHover={{ scale: 1.05 }}
-      whileTap={{ scale: 0.95 }}
+    <button
       onClick={() => setSelectedCategory(category.id)}
-      className={`flex flex-col items-center p-4 rounded-2xl transition-all duration-300 category-tab ${
+      className={`flex flex-col items-center p-4 rounded-2xl transition-all duration-300 category-tab hover:scale-105 active:scale-95 ${
         selectedCategory === category.id
           ? `bg-gradient-to-br ${category.color} text-white shadow-lg active`
           : 'bg-white text-gray-700 hover:bg-gray-50'
@@ -216,7 +183,7 @@ export default function SambaDoJustinoPage() {
     >
       <div className="mb-2">{category.icon}</div>
       <span className="text-xs font-semibold text-center">{category.name}</span>
-    </motion.button>
+    </button>
   );
 
   return (
@@ -225,21 +192,25 @@ export default function SambaDoJustinoPage() {
       <div className="relative overflow-hidden bg-white shadow-lg mb-2">
         {/* Banners Rotativos com Logo Overlay */}
         <div className="relative aspect-video overflow-visible">
-          <AnimatePresence mode="wait">
-            <motion.a
+                      <motion.a
               key={banners[currentBannerIndex].src}
               href={banners[currentBannerIndex].href}
               target={banners[currentBannerIndex].href.startsWith('http') ? '_blank' : '_self'}
               rel={banners[currentBannerIndex].href.startsWith('http') ? 'noopener noreferrer' : ''}
-              className="block w-full relative overflow-visible"
+              className="block w-full relative overflow-visible cursor-pointer"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.5 }}
-              onTouchStart={onTouchStart}
-              onTouchMove={onTouchMove}
-              onTouchEnd={onTouchEnd}
-              onClick={() => {
+              transition={{ duration: 0.2, ease: "easeInOut" }}
+              onClick={(e) => {
+                e.preventDefault();
+                // Delay para garantir que o click seja processado no iOS
+                setTimeout(() => {
+                  if (banners[currentBannerIndex].href.startsWith('http')) {
+                    window.open(banners[currentBannerIndex].href, '_blank', 'noopener,noreferrer');
+                  } else {
+                    window.location.href = banners[currentBannerIndex].href;
+                  }
+                }, 100);
                 trackClick(`banner-header-${currentBannerIndex + 1}`, '/cardapio/samba-do-justino', 'banner_click');
               }}
             >
@@ -264,19 +235,8 @@ export default function SambaDoJustinoPage() {
                 </div>
               </div>
               
-              {/* Indicadores de banner */}
-              <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 flex space-x-2 z-20">
-                {banners.map((_, index) => (
-                  <div
-                    key={index}
-                    className={`w-2 h-2 rounded-full transition-all duration-300 ${
-                      index === currentBannerIndex ? 'bg-white' : 'bg-white/50'
-                    }`}
-                  />
-                ))}
-              </div>
+
             </motion.a>
-          </AnimatePresence>
         </div>
       </div>
 
@@ -292,22 +252,13 @@ export default function SambaDoJustinoPage() {
         </div>
 
         {/* Menu Items */}
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={selectedCategory}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            transition={{ duration: 0.3 }}
-            className="space-y-4"
-          >
-            {menuData
-              .find(cat => cat.id === selectedCategory)
-              ?.items.map((item) => (
-                <MenuItemCard key={item.id} item={item} />
-              ))}
-          </motion.div>
-        </AnimatePresence>
+        <div className="space-y-4">
+          {menuData
+            .find(cat => cat.id === selectedCategory)
+            ?.items.map((item) => (
+              <MenuItemCard key={item.id} item={item} />
+            ))}
+        </div>
       </div>
 
       {/* Open Bar Section - Retrátil */}
