@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MdRestaurant, MdLocalBar, MdLocalDrink, MdFastfood, MdLocalCafe, MdStar, MdCalendarToday, MdLocationOn, MdAccessTime, MdMusicNote } from 'react-icons/md';
+import { MdRestaurant, MdLocalBar, MdLocalDrink, MdFastfood, MdLocalCafe, MdCalendarToday, MdLocationOn, MdAccessTime, MdMusicNote, MdClose } from 'react-icons/md';
 import { useGoogleAnalytics } from '../../hooks/useGoogleAnalytics';
 
 // Não há necessidade de importar um arquivo CSS separado se você usar Tailwind.
@@ -127,11 +127,12 @@ const openBarItems = [
 
 export default function SambaDoJustinoPage() {
   const [selectedCategory, setSelectedCategory] = useState<string>('doses');
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const { trackPageView, trackClick } = useGoogleAnalytics();
 
   const banners = [
-    { src: '/banner-mobile.jpg', href: '/decoracao-aniversario', alt: 'Decoração de Aniversário - Banner Promocional' },
-    { src: '/banner-mobile-2.png', href: 'https://oniphotos.com/', alt: 'Oni Photos - Fotografia Profissional' },
+    { src: '/banne-agilizai-mobile.jpg', href: '/decoracao-aniversario', alt: 'Decoração de Aniversário - Agilizai' },
+    { src: '/banne-oniphotos-mobile.jpg', href: 'https://oniphotos.com/', alt: 'Oni Photos - Fotografia Profissional' },
   ];
 
   const [currentBannerIndex, setCurrentBannerIndex] = useState(0);
@@ -189,50 +190,183 @@ export default function SambaDoJustinoPage() {
   );
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100"> {/* Removido a classe 'samba-justino-page' */}
-      {/* Header */}
-      <div className="relative overflow-hidden"> {/* Removido 'event-header' */}
-        <div className="bg-gradient-to-br from-blue-900 via-blue-800 to-indigo-900 text-white">
-          <div className="relative z-10 px-4 py-8">
-            <motion.div
-              initial={{ opacity: 0, y: -20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6 }}
-              className="text-center"
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+      {/* Header com Logo e Banners */}
+      <div className="relative overflow-hidden bg-white shadow-lg">
+        {/* Banners Rotativos com Logo Overlay */}
+        <div className="relative h-80 md:h-96 overflow-hidden">
+          <AnimatePresence mode="wait">
+            <motion.a
+              key={banners[currentBannerIndex].src}
+              href={banners[currentBannerIndex].href}
+              target={banners[currentBannerIndex].href.startsWith('http') ? '_blank' : '_self'}
+              rel={banners[currentBannerIndex].href.startsWith('http') ? 'noopener noreferrer' : ''}
+              className="block w-full h-full relative overflow-hidden"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.5 }}
+              onClick={() => {
+                trackClick(`banner-header-${currentBannerIndex + 1}`, '/cardapio/samba-do-justino', 'banner_click');
+              }}
             >
-              <h1 className="text-4xl md:text-5xl font-bold mb-2 relative">
-                SAMBA DO JUSTINO
-              </h1>
-              <div className="flex items-center justify-center gap-4 text-sm text-blue-100 mb-4">
-                <div className="flex items-center gap-1">
-                  <MdCalendarToday className="w-4 h-4" />
-                  <span>30 de Agosto</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <MdLocationOn className="w-4 h-4" />
-                  <span>Mirante</span>
-                </div>
+              <img
+                src={banners[currentBannerIndex].src}
+                alt={banners[currentBannerIndex].alt}
+                className="w-full h-full object-cover"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent"></div>
+              
+              {/* Logo no canto esquerdo */}
+              <div className="absolute top-4 left-4 z-10">
+                <motion.button
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setSidebarOpen(true);
+                    trackClick('logo-click', '/cardapio/samba-do-justino', 'sidebar_open');
+                  }}
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  className="bg-white/90 backdrop-blur-sm rounded-xl p-2 shadow-lg hover:bg-white transition-all duration-300"
+                >
+                  <img
+                    src="/samba-do-justino.png"
+                    alt="Samba do Justino Logo"
+                    className="h-10 w-auto object-contain drop-shadow-lg"
+                  />
+                  <div className="absolute -top-1 -right-1">
+                    <MdMusicNote className="w-4 h-4 text-yellow-500 animate-bounce drop-shadow-lg" />
+                  </div>
+                </motion.button>
               </div>
-              <p className="text-blue-100 text-lg max-w-md mx-auto">
-                Uma noite especial com samba, drinks e muita animação! 🎵
-              </p>
-            </motion.div>
-          </div>
-
-          {/* Decorative elements */}
-          <div className="absolute top-0 right-0 w-32 h-32 bg-yellow-400/20 rounded-full blur-3xl"></div>
-          <div className="absolute bottom-0 left-0 w-24 h-24 bg-orange-400/20 rounded-full blur-2xl"></div>
-
-          {/* Floating particles - Se essa classe estiver no seu styles.scss, pode removê-la */}
-          <div className="floating-particles">
-            <div className="particle"></div>
-            <div className="particle"></div>
-            <div className="particle"></div>
-            <div className="particle"></div>
-            <div className="particle"></div>
-          </div>
+              
+              {/* Indicadores de banner */}
+              <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex space-x-2">
+                {banners.map((_, index) => (
+                  <div
+                    key={index}
+                    className={`w-2 h-2 rounded-full transition-all duration-300 ${
+                      index === currentBannerIndex ? 'bg-white' : 'bg-white/50'
+                    }`}
+                  />
+                ))}
+              </div>
+            </motion.a>
+          </AnimatePresence>
         </div>
       </div>
+
+      {/* Sidebar com Informações do Evento */}
+      <AnimatePresence>
+        {sidebarOpen && (
+          <>
+            {/* Overlay */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/50 z-40"
+              onClick={() => setSidebarOpen(false)}
+            />
+            
+            {/* Sidebar */}
+            <motion.div
+              initial={{ x: '-100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '-100%' }}
+              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+              className="fixed left-0 top-0 h-full w-80 bg-gradient-to-br from-blue-900 via-blue-800 to-indigo-900 text-white z-50 shadow-2xl"
+            >
+              {/* Header do Sidebar */}
+              <div className="flex justify-between items-center p-6 border-b border-white/20">
+                <div className="flex items-center gap-3">
+                  <img
+                    src="/samba-do-justino.png"
+                    alt="Samba do Justino Logo"
+                    className="h-10 w-auto object-contain"
+                  />
+                  <div>
+                    <h2 className="text-xl font-bold">Samba do Justino</h2>
+                    <p className="text-blue-200 text-sm">Cardápio Especial</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setSidebarOpen(false)}
+                  className="p-2 hover:bg-white/10 rounded-full transition-colors"
+                >
+                  <MdClose className="w-6 h-6" />
+                </button>
+              </div>
+
+              {/* Conteúdo do Sidebar */}
+              <div className="p-6 space-y-6">
+                {/* Informações do Evento */}
+                <div className="space-y-4">
+                  <h3 className="text-2xl font-bold text-yellow-300 mb-4">
+                    Informações do Evento
+                  </h3>
+                  
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-3 bg-white/10 p-3 rounded-lg">
+                      <MdCalendarToday className="w-5 h-5 text-yellow-300" />
+                      <div>
+                        <p className="font-semibold">Data</p>
+                        <p className="text-blue-200">30 de Agosto</p>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center gap-3 bg-white/10 p-3 rounded-lg">
+                      <MdLocationOn className="w-5 h-5 text-yellow-300" />
+                      <div>
+                        <p className="font-semibold">Local</p>
+                        <p className="text-blue-200">Mirante</p>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center gap-3 bg-white/10 p-3 rounded-lg">
+                      <MdAccessTime className="w-5 h-5 text-yellow-300" />
+                      <div>
+                        <p className="font-semibold">Horário</p>
+                        <p className="text-blue-200">21h às 02h</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Descrição */}
+                <div className="bg-white/10 p-4 rounded-lg">
+                  <h4 className="font-semibold mb-2 text-yellow-300">Sobre o Evento</h4>
+                  <p className="text-blue-200 leading-relaxed">
+                    Uma noite especial com samba, drinks e muita animação! 
+                    Venha celebrar conosco essa experiência única. 🎵✨
+                  </p>
+                </div>
+
+                {/* Open Bar Preview */}
+                <div className="bg-green-600/20 p-4 rounded-lg border border-green-400/30">
+                  <h4 className="font-semibold mb-2 text-green-300">Open Bar Incluso</h4>
+                  <p className="text-green-200 text-sm">
+                    Bebidas selecionadas inclusas no pacote do evento
+                  </p>
+                </div>
+
+                {/* Patrocinadores */}
+                <div>
+                  <h4 className="font-semibold mb-3 text-yellow-300">Patrocinadores</h4>
+                  <div className="flex flex-wrap gap-2">
+                    {['TUVALU', '142 GIN', 'RUFUS CARAMEL', 'ABSOLUT', 'BEEFEATER'].map((sponsor) => (
+                      <span key={sponsor} className="bg-white/10 px-3 py-1 rounded-full text-sm text-blue-200">
+                        {sponsor}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
 
       {/* Open Bar Section */}
       <div className="px-4 py-6">
@@ -291,40 +425,6 @@ export default function SambaDoJustinoPage() {
               ))}
           </motion.div>
         </AnimatePresence>
-      </div>
-
-      {/* Banner Slide */}
-      <div className="px-4 py-6 flex justify-center">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.3 }}
-          className="mt-8 mb-8 w-full max-w-lg"
-        >
-          <AnimatePresence mode="wait">
-            <motion.a
-              key={banners[currentBannerIndex].src}
-              href={banners[currentBannerIndex].href}
-              target={banners[currentBannerIndex].href.startsWith('http') ? '_blank' : '_self'}
-              rel={banners[currentBannerIndex].href.startsWith('http') ? 'noopener noreferrer' : ''}
-              className="block relative overflow-hidden rounded-xl shadow-lg hover:shadow-xl transition-shadow duration-300"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.5 }}
-              onClick={() => {
-                trackClick(`banner-slide-${currentBannerIndex + 1}`, '/cardapio/samba-do-justino', 'banner_click');
-              }}
-            >
-              <img
-                src={banners[currentBannerIndex].src}
-                alt={banners[currentBannerIndex].alt}
-                className="w-full h-auto object-cover"
-              />
-              <div className="absolute inset-0 bg-gradient-to-r from-blue-600/20 to-purple-600/20 hover:from-blue-600/30 hover:to-purple-600/30 transition-all duration-300"></div>
-            </motion.a>
-          </AnimatePresence>
-        </motion.div>
       </div>
 
       {/* Footer */}

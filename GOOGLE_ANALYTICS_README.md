@@ -195,3 +195,4 @@ Para dúvidas sobre implementação ou configuração do Google Analytics, consu
 - [Documentação GA4](https://developers.google.com/analytics/devguides/collection/ga4)
 - [Next.js Script Component](https://nextjs.org/docs/basic-features/script)
 - [Implementação de Eventos](https://developers.google.com/analytics/devguides/collection/ga4/events)
+
