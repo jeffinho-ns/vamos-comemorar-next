@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { MdRestaurant, MdPeople, MdSchedule, MdBarChart, MdSettings, MdAdd, MdEdit, MdDelete, MdSearch, MdFilterList, MdChair, MdPhone, MdClose, MdCheck, MdCall, MdTimer, MdLogin, MdRefresh, MdLocationOn } from "react-icons/md";
+import { useState } from "react";
+import { MdRestaurant, MdPeople, MdSchedule, MdBarChart, MdSettings, MdAdd, MdSearch, MdChair, MdPhone, MdClose, MdCall, MdTimer, MdLocationOn } from "react-icons/md";
 import { motion } from "framer-motion";
 import ReservationCalendar from "../../components/ReservationCalendar";
 import ReservationModal from "../../components/ReservationModal";
@@ -100,7 +100,7 @@ export default function RestaurantReservationsPage() {
   // Estados para Reservas
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
-  const [selectedDateReservations, setSelectedDateReservations] = useState<Reservation[]>([]);
+
   const [viewMode, setViewMode] = useState<'calendar' | 'list'>('calendar');
   const [searchTerm, setSearchTerm] = useState('');
   const [showModal, setShowModal] = useState(false);
@@ -120,10 +120,10 @@ export default function RestaurantReservationsPage() {
   const handleEstablishmentSelect = (establishment: Establishment) => {
     setSelectedEstablishment(establishment);
     // Carregar dados específicos do estabelecimento
-    loadEstablishmentData(establishment.id);
+    loadEstablishmentData();
   };
 
-  const loadEstablishmentData = async (establishmentId: number) => {
+  const loadEstablishmentData = async () => {
     // Simular carregamento de dados
     setTimeout(() => {
       // Dados mock para reservas
@@ -193,7 +193,6 @@ export default function RestaurantReservationsPage() {
   // Handlers para Reservas
   const handleDateSelect = (date: Date, dateReservations: Reservation[]) => {
     setSelectedDate(date);
-    setSelectedDateReservations(dateReservations);
   };
 
   const handleAddReservation = (date: Date) => {

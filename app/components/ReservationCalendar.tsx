@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { MdChevronLeft, MdChevronRight, MdAdd, MdEvent, MdPeople, MdRestaurant } from "react-icons/md";
+import { MdChevronLeft, MdChevronRight, MdAdd, MdEvent, MdRestaurant } from "react-icons/md";
 import ReservationsDayModal from "./ReservationsDayModal";
 import ReservationDetailsModal from "./ReservationDetailsModal";
 
@@ -66,7 +66,7 @@ export default function ReservationCalendar({
     const month = date.getMonth();
     
     const firstDay = new Date(year, month, 1);
-    const lastDay = new Date(year, month + 1, 0);
+
     const startDate = new Date(firstDay);
     startDate.setDate(startDate.getDate() - firstDay.getDay());
     

@@ -18,16 +18,14 @@ interface WaitlistModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSave: (waitlistEntry: any) => void;
-  waitlistEntry?: any;
-  title: string;
+  entry?: any;
 }
 
 export default function WaitlistModal({ 
   isOpen, 
   onClose, 
   onSave, 
-  waitlistEntry, 
-  title 
+  entry
 }: WaitlistModalProps) {
   const [formData, setFormData] = useState({
     client_name: '',
@@ -44,15 +42,15 @@ export default function WaitlistModal({
 
   useEffect(() => {
     if (isOpen) {
-      if (waitlistEntry) {
+      if (entry) {
         setFormData({
-          client_name: waitlistEntry.client_name || '',
-          client_phone: waitlistEntry.client_phone || '',
-          client_email: waitlistEntry.client_email || '',
-          number_of_people: waitlistEntry.number_of_people || 1,
-          preferred_time: waitlistEntry.preferred_time || '',
-          status: waitlistEntry.status || 'AGUARDANDO',
-          notes: waitlistEntry.notes || ''
+          client_name: entry.client_name || '',
+          client_phone: entry.client_phone || '',
+          client_email: entry.client_email || '',
+          number_of_people: entry.number_of_people || 1,
+          preferred_time: entry.preferred_time || '',
+          status: entry.status || 'AGUARDANDO',
+          notes: entry.notes || ''
         });
       } else {
         // Reset form for new waitlist entry
@@ -68,7 +66,7 @@ export default function WaitlistModal({
       }
       setErrors({});
     }
-  }, [isOpen, waitlistEntry]);
+  }, [isOpen, entry]);
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
@@ -122,7 +120,7 @@ export default function WaitlistModal({
           >
             {/* Header */}
             <div className="flex items-center justify-between p-6 border-b border-gray-700">
-              <h2 className="text-xl font-bold">{title}</h2>
+              <h2 className="text-xl font-bold">{entry ? 'Editar Lista de Espera' : 'Nova Lista de Espera'}</h2>
               <button
                 onClick={onClose}
                 className="text-gray-400 hover:text-white transition-colors"

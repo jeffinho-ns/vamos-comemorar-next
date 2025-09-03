@@ -11,8 +11,7 @@ import {
   MdTableBar,
   MdNote,
   MdSave,
-  MdCancel,
-  MdAccessTime
+  MdCancel
 } from 'react-icons/md';
 
 interface RestaurantArea {
@@ -27,15 +26,15 @@ interface WalkInModalProps {
   onClose: () => void;
   onSave: (walkIn: any) => void;
   walkIn?: any;
-  title: string;
+  areas?: RestaurantArea[];
 }
 
 export default function WalkInModal({ 
   isOpen, 
   onClose, 
   onSave, 
-  walkIn, 
-  title 
+  walkIn,
+  areas = []
 }: WalkInModalProps) {
   const [formData, setFormData] = useState({
     client_name: '',
@@ -47,13 +46,11 @@ export default function WalkInModal({
     notes: ''
   });
 
-  const [areas, setAreas] = useState<RestaurantArea[]>([]);
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (isOpen) {
-      fetchAreas();
       if (walkIn) {
         setFormData({
           client_name: walkIn.client_name || '',
@@ -80,15 +77,7 @@ export default function WalkInModal({
     }
   }, [isOpen, walkIn]);
 
-  const fetchAreas = async () => {
-    try {
-      const response = await fetch('/api/restaurant-areas');
-      const data = await response.json();
-      setAreas(data.areas || []);
-    } catch (error) {
-      console.error('Erro ao carregar áreas:', error);
-    }
-  };
+
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
@@ -146,7 +135,7 @@ export default function WalkInModal({
           >
             {/* Header */}
             <div className="flex items-center justify-between p-6 border-b border-gray-700">
-              <h2 className="text-xl font-bold">{title}</h2>
+              <h2 className="text-xl font-bold">{walkIn ? 'Editar Passante' : 'Novo Passante'}</h2>
               <button
                 onClick={onClose}
                 className="text-gray-400 hover:text-white transition-colors"

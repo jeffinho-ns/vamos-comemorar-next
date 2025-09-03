@@ -1,8 +1,7 @@
 "use client";
 
-import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { MdClose, MdPerson, MdPhone, MdEmail, MdAccessTime, MdPeople, MdLocationOn, MdNote } from "react-icons/md";
+import { MdClose, MdPerson, MdPhone, MdEmail, MdPeople, MdLocationOn, MdNote } from "react-icons/md";
 
 interface Reservation {
   id: number;

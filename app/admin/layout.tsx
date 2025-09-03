@@ -51,6 +51,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         { href: "/admin/cardapio", label: "Cardápio", icon: MdRestaurant },
         { href: "/admin/events", label: "Eventos", icon: MdEvent },
         { href: "/admin/reservas", label: "Reservas", icon: MdEditCalendar },
+        { href: "/admin/restaurant-reservations", label: "Sistema de Reservas", icon: MdRestaurant },
         { href: "/admin/qrcode", label: "Scanner QR Code", icon: MdQrCodeScanner },
       ];
     } else if (userRole === 'admin') {
@@ -62,6 +63,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         { href: "/admin/events", label: "Eventos", icon: MdEvent },
         { href: "/admin/painel-eventos", label: "Painel de Eventos", icon: MdBusiness },
         { href: "/admin/reservas", label: "Reservas", icon: MdEditCalendar },
+        { href: "/admin/restaurant-reservations", label: "Sistema de Reservas", icon: MdRestaurant },
         { href: "/admin/enterprise", label: "Empresa", icon: MdFactory },
         { href: "/admin/places", label: "Locais", icon: MdPlace },
         { href: "/admin/tables", label: "Mesas", icon: MdTableBar },
