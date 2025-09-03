@@ -1,4 +1,6 @@
-'use client';
+
+ 
+ 'use client';
 
 import React, { useState, useEffect, useCallback, useMemo, use } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -257,28 +259,128 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
     return undefined; 
   }, [selectedBar]);
 
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            const subcategoryName = entry.target.getAttribute('data-subcategory-name');
-            if (subcategoryName) {
-              setActiveSubcategory(subcategoryName);
-            }
-          }
-        });
-      },
-      { threshold: 0.5, rootMargin: '-50% 0px -50% 0px' }
-    );
+  // Função para detectar categoria ativa baseada na posição do scroll
+  const detectActiveCategory = useCallback(() => {
+    const categorySections = document.querySelectorAll('[data-category-name]');
+    let activeCategory = selectedCategory;
+    let bestScore = -1;
 
-    const sections = document.querySelectorAll('[data-subcategory-name]');
-    sections.forEach((section) => observer.observe(section));
+    categorySections.forEach((section) => {
+      const rect = section.getBoundingClientRect();
+      const categoryName = section.getAttribute('data-category-name');
+      
+      if (categoryName) {
+        // Calcular score baseado na posição da seção
+        let score = 0;
+        
+        // Se a seção está visível
+        if (rect.bottom > 0 && rect.top < window.innerHeight) {
+          // Score baseado na proximidade do topo da viewport
+          if (rect.top <= 0) {
+            // Seção está no topo ou acima - score alto
+            score = Math.max(0, 100 - Math.abs(rect.top));
+          } else {
+            // Seção está abaixo do topo - score menor
+            score = Math.max(0, 50 - rect.top);
+          }
+          
+          // Bonus se a seção está bem visível
+          const visibleHeight = Math.min(rect.bottom, window.innerHeight) - Math.max(rect.top, 0);
+          const totalHeight = rect.height;
+          const visibilityRatio = visibleHeight / totalHeight;
+          score += visibilityRatio * 30;
+        }
+        
+        if (score > bestScore) {
+          bestScore = score;
+          activeCategory = categoryName;
+        }
+      }
+    });
+
+    if (activeCategory !== selectedCategory && bestScore > 10) {
+      console.log('Mudando categoria para:', activeCategory, 'Score:', bestScore);
+      setSelectedCategory(activeCategory);
+    }
+  }, [selectedCategory]);
+
+  // Função para detectar subcategoria ativa
+  const detectActiveSubcategory = useCallback(() => {
+    const subcategorySections = document.querySelectorAll('[data-subcategory-name]');
+    let newActiveSubcategory = '';
+    let bestScore = -1;
+
+    subcategorySections.forEach((section) => {
+      const rect = section.getBoundingClientRect();
+      const subcategoryName = section.getAttribute('data-subcategory-name');
+      
+      if (subcategoryName) {
+        let score = 0;
+        
+        // Se a subcategoria está visível
+        if (rect.bottom > 0 && rect.top < window.innerHeight) {
+          // Score baseado na proximidade do topo da viewport
+          if (rect.top <= 100) {
+            // Subcategoria está próxima do topo - score alto
+            score = Math.max(0, 100 - Math.abs(rect.top - 100));
+          } else {
+            // Subcategoria está mais abaixo - score menor
+            score = Math.max(0, 50 - (rect.top - 100));
+          }
+          
+          // Bonus se a subcategoria está bem visível
+          const visibleHeight = Math.min(rect.bottom, window.innerHeight) - Math.max(rect.top, 0);
+          const totalHeight = rect.height;
+          const visibilityRatio = visibleHeight / totalHeight;
+          score += visibilityRatio * 20;
+        }
+        
+        if (score > bestScore) {
+          bestScore = score;
+          newActiveSubcategory = subcategoryName;
+        }
+      }
+    });
+
+    if (newActiveSubcategory && newActiveSubcategory !== activeSubcategory && bestScore > 5) {
+      console.log('Mudando subcategoria para:', newActiveSubcategory, 'Score:', bestScore);
+      setActiveSubcategory(newActiveSubcategory);
+    }
+  }, [activeSubcategory]);
+
+  // Intersection Observer para detectar categorias e subcategorias ativas
+  useEffect(() => {
+    let scrollTimeout: NodeJS.Timeout;
+
+    const handleScroll = () => {
+      // Limpar timeout anterior
+      if (scrollTimeout) {
+        clearTimeout(scrollTimeout);
+      }
+      
+      // Debounce para melhorar performance
+      scrollTimeout = setTimeout(() => {
+        detectActiveCategory();
+        detectActiveSubcategory();
+      }, 50);
+    };
+
+    // Adicionar listener de scroll
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    
+    // Detectar categoria inicial
+    setTimeout(() => {
+      detectActiveCategory();
+      detectActiveSubcategory();
+    }, 200);
 
     return () => {
-      sections.forEach((section) => observer.unobserve(section));
+      window.removeEventListener('scroll', handleScroll);
+      if (scrollTimeout) {
+        clearTimeout(scrollTimeout);
+      }
     };
-  }, [menuCategories, selectedCategory]);
+  }, [detectActiveCategory, detectActiveSubcategory]);
 
   const formatPrice = useCallback((price: number) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -445,6 +547,12 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
         {menuCategories.length > 0 && (
           // Menu de categorias fixo (visível em todas as telas)
           <div className="sticky top-0 z-20 bg-gradient-to-br from-gray-50 to-gray-100">
+            {/* Indicador de categoria ativa */}
+            <div className="text-center py-2 px-4 bg-blue-50 border-b border-blue-200">
+              <span className="text-sm text-gray-600">
+                Categoria ativa: <span className="font-bold text-blue-600">{selectedCategory}</span>
+              </span>
+            </div>
             <div className="pb-2">
               <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
                 {menuCategories.map((category) => (
@@ -453,7 +561,14 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
                     // A função de rolagem aqui vai para o topo da categoria no mobile
                     onClick={() => {
                         setSelectedCategory(category.name);
-                        scrollToSection(category.name.replace(/\s+/g, '-').toLowerCase());
+                        const element = document.getElementById(category.name.replace(/\s+/g, '-').toLowerCase());
+                        if (element) {
+                          element.scrollIntoView({ 
+                            behavior: 'smooth', 
+                            block: 'start',
+                            inline: 'nearest'
+                          });
+                        }
                     }}
                     className={`category-tab px-6 py-3 rounded-full font-medium whitespace-nowrap transition-all duration-200 ${
                       selectedCategory === category.name
@@ -497,7 +612,7 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
               />
               {/* Banner Mobile - Visível apenas em telas pequenas (até 767px) */}
               <Image
-                src="/banner-mobile.jpg"
+                src="/banne-agilizai-mobile.jpg"
                 alt="Decoração de Aniversário - Banner Promocional Mobile"
                 width={600}
                 height={400}
@@ -522,6 +637,7 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
               <div
                 key={category.id}
                 id={category.name.replace(/\s+/g, '-').toLowerCase()} // ID para rolagem
+                data-category-name={category.name}
               >
                 <h2 className="text-2xl font-bold text-gray-900 mt-8 mb-6">
                   {category.name}
@@ -529,11 +645,28 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
                 
                 {/* Menu de subcategorias fixo (apenas no mobile, para cada categoria) */}
                 <div className="sticky top-[56px] z-10 bg-gradient-to-br from-gray-50 to-gray-100 pb-4 pt-2 -mt-4">
+                  {/* Indicador de subcategoria ativa */}
+                  {activeSubcategory && (
+                    <div className="text-center py-1 px-4 bg-green-50 border-b border-green-200 mb-2">
+                      <span className="text-xs text-gray-600">
+                        Subcategoria: <span className="font-bold text-green-600">{activeSubcategory}</span>
+                      </span>
+                    </div>
+                  )}
                   <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
                     {category.subCategories.map((subcat) => (
                       <button
                         key={subcat.name}
-                        onClick={() => scrollToSection(subcat.name)}
+                        onClick={() => {
+                          const element = document.getElementById(subcat.name.replace(/\s+/g, '-').toLowerCase());
+                          if (element) {
+                            element.scrollIntoView({ 
+                              behavior: 'smooth', 
+                              block: 'start',
+                              inline: 'nearest'
+                            });
+                          }
+                        }}
                         className={`subcategory-tab px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all duration-200 ${
                           activeSubcategory === subcat.name
                             ? 'bg-blue-500 text-white shadow-md'
@@ -581,11 +714,28 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
                 </h2>
 
                 <div className="sticky top-[56px] z-10 bg-gradient-to-br from-gray-50 to-gray-100 pb-4 pt-2 -mt-4">
+                  {/* Indicador de subcategoria ativa */}
+                  {activeSubcategory && (
+                    <div className="text-center py-1 px-4 bg-green-50 border-b border-green-200 mb-2">
+                      <span className="text-xs text-gray-600">
+                        Subcategoria: <span className="font-bold text-green-600">{activeSubcategory}</span>
+                      </span>
+                    </div>
+                  )}
                   <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
                     {currentCategory.subCategories.map((subcat) => (
                       <button
                         key={subcat.name}
-                        onClick={() => scrollToSection(subcat.name)}
+                        onClick={() => {
+                          const element = document.getElementById(subcat.name.replace(/\s+/g, '-').toLowerCase());
+                          if (element) {
+                            element.scrollIntoView({ 
+                              behavior: 'smooth', 
+                              block: 'start',
+                              inline: 'nearest'
+                            });
+                          }
+                        }}
                         className={`subcategory-tab px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all duration-200 ${
                           activeSubcategory === subcat.name
                             ? 'bg-blue-500 text-white shadow-md'
