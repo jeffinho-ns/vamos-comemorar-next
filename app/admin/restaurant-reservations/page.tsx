@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { MdRestaurant, MdPeople, MdSchedule, MdBarChart, MdSettings, MdAdd, MdSearch, MdChair, MdPhone, MdClose, MdCall, MdTimer, MdLocationOn } from "react-icons/md";
 import { motion } from "framer-motion";
 import ReservationCalendar from "../../components/ReservationCalendar";
@@ -64,38 +64,94 @@ interface RestaurantArea {
   capacity_dinner: number;
 }
 
-const establishments: Establishment[] = [
-  {
-    id: 7,
-    name: "High Line",
-    logo: "/images/logo-highline.png",
-    address: "Rua Girassol, 144 - Vila Madalena"
-  },
-  {
-    id: 1,
-    name: "Seu Justino",
-    logo: "/images/logo-justino.png",
-    address: "Rua Azevedo Soares, 940 - Tatuapé"
-  },
-  {
-    id: 4,
-    name: "Oh Freguês",
-    logo: "/images/logo-fregues.png",
-    address: "Largo da Matriz de Nossa Senhora do Ó, 145 - Freguesia do Ó"
-  },
-  {
-    id: 8,
-    name: "Pracinha do Seu Justino",
-    logo: "/images/logo-pracinha.png",
-    address: "Rua das Flores, 123 - Centro"
-  }
-];
+// Removido array estático - agora será carregado da API
 
 type TabType = 'reservations' | 'walk-ins' | 'waitlist' | 'reports' | 'settings';
 
 export default function RestaurantReservationsPage() {
   const [selectedEstablishment, setSelectedEstablishment] = useState<Establishment | null>(null);
+  const [establishments, setEstablishments] = useState<Establishment[]>([]);
   const [activeTab, setActiveTab] = useState<TabType>('reservations');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL_LOCAL;
+
+  const fetchEstablishments = useCallback(async () => {
+    setLoading(true);
+    const token = localStorage.getItem("authToken");
+
+    try {
+      const response = await fetch(`${API_URL}/api/bars`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) throw new Error("Erro ao buscar estabelecimentos");
+
+      const data = await response.json();
+      
+      if (Array.isArray(data)) {
+        const formattedEstablishments: Establishment[] = data.map((bar: any) => ({
+          id: bar.id,
+          name: bar.name,
+          logo: bar.logoUrl || "/images/default-logo.png",
+          address: bar.address || "Endereço não informado"
+        }));
+        setEstablishments(formattedEstablishments);
+      } else {
+        setError("Dados de estabelecimentos inválidos.");
+      }
+    } catch (error) {
+      if (error instanceof Error) {
+        setError(error.message);
+      } else {
+        setError("Erro desconhecido");
+      }
+      console.error("Erro ao buscar estabelecimentos:", error);
+      
+      // Fallback com dados estáticos incluindo Reserva Rooftop
+      setEstablishments([
+        {
+          id: 7,
+          name: "High Line",
+          logo: "/images/logo-highline.png",
+          address: "Rua Girassol, 144 - Vila Madalena"
+        },
+        {
+          id: 1,
+          name: "Seu Justino",
+          logo: "/images/logo-justino.png",
+          address: "Rua Azevedo Soares, 940 - Tatuapé"
+        },
+        {
+          id: 4,
+          name: "Oh Freguês",
+          logo: "/images/logo-fregues.png",
+          address: "Largo da Matriz de Nossa Senhora do Ó, 145 - Freguesia do Ó"
+        },
+        {
+          id: 8,
+          name: "Pracinha do Seu Justino",
+          logo: "/images/logo-pracinha.png",
+          address: "Rua das Flores, 123 - Centro"
+        },
+        {
+          id: 5,
+          name: "Reserva Rooftop",
+          logo: "/images/logo-reserva-rooftop.png",
+          address: "Em frente ao portão 2 - Rua Marc Chagal, Parque - Jardim das Perdizes"
+        }
+      ]);
+    } finally {
+      setLoading(false);
+    }
+  }, [API_URL]);
+
+  useEffect(() => {
+    fetchEstablishments();
+  }, [fetchEstablishments]);
   
   // Estados para Reservas
   const [reservations, setReservations] = useState<Reservation[]>([]);
@@ -124,70 +180,77 @@ export default function RestaurantReservationsPage() {
   };
 
   const loadEstablishmentData = async () => {
-    // Simular carregamento de dados
-    setTimeout(() => {
-      // Dados mock para reservas
-      setReservations([
-        {
-          id: 1,
-          customer_name: "João Silva",
-          reservation_date: "2024-01-15",
-          reservation_time: "19:30",
-          party_size: 4,
-          status: 'confirmed',
-          area_name: "Área Principal",
-          phone: "(11) 99999-9999",
-          email: "joao@email.com"
-        },
-        {
-          id: 2,
-          customer_name: "Maria Santos",
-          reservation_date: "2024-01-15",
-          reservation_time: "20:00",
-          party_size: 2,
-          status: 'pending',
-          area_name: "Área VIP"
-        }
-      ]);
+    if (!selectedEstablishment) return;
+    
+    try {
+      // Carregar áreas da API
+      const areasResponse = await fetch('/api/restaurant-areas');
+      if (areasResponse.ok) {
+        const areasData = await areasResponse.json();
+        setAreas(areasData.areas || []);
+      } else {
+        console.error('Erro ao carregar áreas:', areasResponse.statusText);
+        // Fallback para dados mock se a API falhar
+        setAreas([
+          { id: 1, name: 'Área Coberta', capacity_lunch: 0, capacity_dinner: 300 },
+          { id: 2, name: 'Área Descoberta', capacity_lunch: 0, capacity_dinner: 110 }
+        ]);
+      }
 
-      // Dados mock para walk-ins
-      setWalkIns([
-        {
-          id: 1,
-          client_name: "Pedro Costa",
-          client_phone: "11988888888",
-          number_of_people: 3,
-          arrival_time: "19:45",
-          area_id: 1,
-          table_number: "Mesa 5",
-          status: 'ATIVO',
-          notes: "Cliente preferencial",
-          area: { id: 1, name: "Área Principal" }
-        }
-      ]);
+      // Carregar reservas da API
+      const reservationsResponse = await fetch('/api/restaurant-reservations');
+      if (reservationsResponse.ok) {
+        const reservationsData = await reservationsResponse.json();
+        setReservations(reservationsData.reservations || []);
+      } else {
+        console.error('Erro ao carregar reservas:', reservationsResponse.statusText);
+        // Fallback para dados mock
+        setReservations([
+          {
+            id: 1,
+            customer_name: "João Silva",
+            reservation_date: "2024-01-15",
+            reservation_time: "19:30",
+            party_size: 4,
+            status: 'confirmed',
+            area_name: "Área Principal",
+            phone: "(11) 99999-9999",
+            email: "joao@email.com"
+          }
+        ]);
+      }
 
-      // Dados mock para waitlist
-      setWaitlist([
-        {
-          id: 1,
-          client_name: "Ana Costa",
-          client_phone: "11966666666",
-          client_email: "ana@email.com",
-          number_of_people: 3,
-          preferred_time: "20:00",
-          status: 'AGUARDANDO',
-          position: 1,
-          estimated_wait_time: 15,
-          created_at: '2024-01-15T19:00:00'
-        }
-      ]);
+      // Carregar walk-ins da API
+      const walkInsResponse = await fetch('/api/walk-ins');
+      if (walkInsResponse.ok) {
+        const walkInsData = await walkInsResponse.json();
+        setWalkIns(walkInsData.walkIns || []);
+      } else {
+        console.error('Erro ao carregar walk-ins:', walkInsResponse.statusText);
+        setWalkIns([]);
+      }
 
-      // Dados mock para áreas
+      // Carregar waitlist da API
+      const waitlistResponse = await fetch('/api/waitlist');
+      if (waitlistResponse.ok) {
+        const waitlistData = await waitlistResponse.json();
+        setWaitlist(waitlistData.waitlist || []);
+      } else {
+        console.error('Erro ao carregar waitlist:', waitlistResponse.statusText);
+        setWaitlist([]);
+      }
+
+    } catch (error) {
+      console.error('Erro ao carregar dados do estabelecimento:', error);
+      // Em caso de erro, usar dados mock
       setAreas([
         { id: 1, name: 'Área Coberta', capacity_lunch: 0, capacity_dinner: 300 },
         { id: 2, name: 'Área Descoberta', capacity_lunch: 0, capacity_dinner: 110 }
       ]);
-    }, 500);
+      setReservations([]);
+      setWalkIns([]);
+      setWaitlist([]);
+    }
   };
 
   // Handlers para Reservas
@@ -279,6 +342,34 @@ export default function RestaurantReservationsPage() {
 
   const activeWalkIns = walkIns.filter(walkIn => walkIn.status === 'ATIVO');
   const activeWaitlist = waitlist.filter(entry => entry.status === 'AGUARDANDO');
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-white text-lg">Carregando estabelecimentos...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-red-400 text-lg mb-4">Erro ao carregar estabelecimentos</p>
+          <p className="text-gray-400">{error}</p>
+          <button 
+            onClick={fetchEstablishments}
+            className="mt-4 px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors"
+          >
+            Tentar Novamente
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-base">
@@ -739,14 +830,39 @@ export default function RestaurantReservationsPage() {
               setShowModal(false);
               setEditingReservation(null);
             }}
-            onSave={(reservationData) => {
-              console.log('Salvando reserva:', reservationData);
+            onSave={async (reservationData) => {
+              try {
+                const response = await fetch('/api/restaurant-reservations', {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify({
+                    ...reservationData,
+                    establishment_id: selectedEstablishment?.id
+                  }),
+                });
+
+                if (response.ok) {
+                  const newReservation = await response.json();
+                  setReservations(prev => [...prev, newReservation.reservation]);
+                  console.log('Reserva salva com sucesso:', newReservation);
+                } else {
+                  const errorData = await response.json();
+                  console.error('Erro ao salvar reserva:', errorData);
+                  alert('Erro ao salvar reserva: ' + (errorData.error || 'Erro desconhecido'));
+                }
+              } catch (error) {
+                console.error('Erro ao salvar reserva:', error);
+                alert('Erro ao salvar reserva. Tente novamente.');
+              }
               setShowModal(false);
               setEditingReservation(null);
             }}
             reservation={editingReservation}
             selectedDate={selectedDate}
             establishment={selectedEstablishment}
+            areas={areas}
           />
         )}
 
@@ -757,8 +873,32 @@ export default function RestaurantReservationsPage() {
               setShowWalkInModal(false);
               setEditingWalkIn(null);
             }}
-            onSave={(walkInData) => {
-              console.log('Salvando walk-in:', walkInData);
+            onSave={async (walkInData) => {
+              try {
+                const response = await fetch('/api/walk-ins', {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify({
+                    ...walkInData,
+                    establishment_id: selectedEstablishment?.id
+                  }),
+                });
+
+                if (response.ok) {
+                  const newWalkIn = await response.json();
+                  setWalkIns(prev => [...prev, newWalkIn.walkIn]);
+                  console.log('Walk-in salvo com sucesso:', newWalkIn);
+                } else {
+                  const errorData = await response.json();
+                  console.error('Erro ao salvar walk-in:', errorData);
+                  alert('Erro ao salvar walk-in: ' + (errorData.error || 'Erro desconhecido'));
+                }
+              } catch (error) {
+                console.error('Erro ao salvar walk-in:', error);
+                alert('Erro ao salvar walk-in. Tente novamente.');
+              }
               setShowWalkInModal(false);
               setEditingWalkIn(null);
             }}
@@ -774,8 +914,32 @@ export default function RestaurantReservationsPage() {
               setShowWaitlistModal(false);
               setEditingWaitlistEntry(null);
             }}
-            onSave={(entryData) => {
-              console.log('Salvando entrada na lista:', entryData);
+            onSave={async (entryData) => {
+              try {
+                const response = await fetch('/api/waitlist', {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify({
+                    ...entryData,
+                    establishment_id: selectedEstablishment?.id
+                  }),
+                });
+
+                if (response.ok) {
+                  const newEntry = await response.json();
+                  setWaitlist(prev => [...prev, newEntry.waitlistEntry]);
+                  console.log('Entrada na lista salva com sucesso:', newEntry);
+                } else {
+                  const errorData = await response.json();
+                  console.error('Erro ao salvar entrada na lista:', errorData);
+                  alert('Erro ao salvar entrada na lista: ' + (errorData.error || 'Erro desconhecido'));
+                }
+              } catch (error) {
+                console.error('Erro ao salvar entrada na lista:', error);
+                alert('Erro ao salvar entrada na lista. Tente novamente.');
+              }
               setShowWaitlistModal(false);
               setEditingWaitlistEntry(null);
             }}

@@ -9,9 +9,7 @@ import Image from "next/image";
 import Cookies from "js-cookie";
 //import { WithPermission } from "../../components/WithPermission/WithPermission";
 
-const API_URL =
-  process.env.NEXT_PUBLIC_API_URL ||
-  process.env.NEXT_PUBLIC_API_URL_LOCAL;
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL_LOCAL;
 
 const convertBusinessToPlace = (business: Business): Place => ({
   id: business.id,
@@ -35,27 +33,36 @@ export default function Businesses() {
   const fetchBusinesses = useCallback(async (): Promise<void> => {
     if (!token) {
       console.error("Token não disponível.");
+      setError("Token de autenticação não encontrado. Faça login novamente.");
+      setLoading(false);
       return;
     }
 
     setLoading(true);
+    setError(null);
     try {
-      const response = await fetch(`${API_URL}/api/places`, {
+      const response = await fetch(`${API_URL}/api/bars`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
       });
 
-      if (!response.ok) throw new Error("Erro ao buscar negócios");
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: 'Erro desconhecido' }));
+        throw new Error(errorData.message || `Erro ${response.status}: ${response.statusText}`);
+      }
 
       const data = await response.json();
-      if (Array.isArray(data.data)) {
-        setBusinesses(data.data);
+      console.log("Dados recebidos da API:", data);
+      
+      if (Array.isArray(data)) {
+        setBusinesses(data);
       } else {
-        throw new Error("Dados de negócios inválidos.");
+        throw new Error("Formato de dados inválido recebido da API.");
       }
     } catch (error) {
-      setError(error instanceof Error ? error.message : "Erro desconhecido");
+      const errorMessage = error instanceof Error ? error.message : "Erro desconhecido";
+      setError(errorMessage);
       console.error("Erro ao buscar negócios:", error);
     } finally {
       setLoading(false);

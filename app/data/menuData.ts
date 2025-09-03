@@ -56,6 +56,20 @@ export const bars: Bar[] = [
     amenities: ['Wi-Fi', 'Estacionamento', 'Música ao vivo', 'Terraço'],
     latitude: -23.5568850,
     longitude: -46.6897039
+  },
+  {
+    id: '5',
+    name: 'Reserva Rooftop',
+    slug: 'reserva-rooftop',
+    description: 'No Reserva Rooftop, fusionamos sabores excepcionais com uma trilha sonora envolvente, destacando ingredientes frescos e locais em cada experiência única.',
+    logoUrl: '/images/logo-reserva-rooftop.png',
+    coverImageUrl: '/images/capa-reserva-rooftop.jpg',
+    address: 'Em frente ao portão 2 - Rua Marc Chagal, Parque - Jardim das Perdizes, São Paulo - SP',
+    rating: 4.8,
+    reviewsCount: 1923,
+    amenities: ['Wi-Fi', 'Estacionamento', 'Música ao vivo', 'Rooftop', 'Vista Panorâmica'],
+    latitude: -23.51824870,
+    longitude: -46.67669430
   }
 ];
 

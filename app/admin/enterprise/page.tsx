@@ -81,7 +81,7 @@ export default function Companies() {
     const token = localStorage.getItem("authToken");
 
     try {
-      const response = await fetch(`${API_URL}/api/places`, {
+      const response = await fetch(`${API_URL}/api/bars`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -91,8 +91,8 @@ export default function Companies() {
 
       const data = await response.json();
 
-      if (Array.isArray(data.data)) {
-        setCompanies(data.data);
+      if (Array.isArray(data)) {
+        setCompanies(data);
       } else {
         setError("Dados de empresas inválidos.");
       }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { MdDashboard, MdEvent, MdBookOnline, MdShoppingCart, MdList, MdStar, MdSecurity, MdAssessment, MdSettings } from "react-icons/md";
 
 // Componentes do painel (serão criados em seguida)
@@ -20,32 +20,7 @@ interface Establishment {
   address: string;
 }
 
-const establishments: Establishment[] = [
-  {
-    id: 7,
-    name: "High Line",
-    logo: "/assets/highline/highlinelogo.png",
-    address: "Rua Girassol, 144 - Vila Madalena"
-  },
-  {
-    id: 1,
-    name: "Seu Justino",
-    logo: "/assets/justino/justinologo.png",
-    address: "Rua Azevedo Soares, 940 - Tatuapé"
-  },
-  {
-    id: 4,
-    name: "Oh Freguês",
-    logo: "/assets/ohfregues/logoOhfregues.png",
-    address: "Largo da Matriz de Nossa Senhora do Ó, 145 - Freguesia do Ó"
-  },
-  {
-    id: 8,
-    name: "Pracinha do Seu Justino",
-    logo: "/assets/pracinha/logo-pracinha.png",
-    address: "Rua das Flores, 123 - Centro"
-  }
-];
+// Removido array estático - agora será carregado da API
 
 const menuItems = [
   { id: "resumo", label: "Resumo de Eventos", icon: MdDashboard, component: ResumoEventos },
@@ -61,6 +36,87 @@ const menuItems = [
 export default function PainelEventos() {
   const [selectedEstablishment, setSelectedEstablishment] = useState<Establishment | null>(null);
   const [activeMenu, setActiveMenu] = useState<string>("resumo");
+  const [establishments, setEstablishments] = useState<Establishment[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL_LOCAL;
+
+  const fetchEstablishments = useCallback(async () => {
+    setLoading(true);
+    const token = localStorage.getItem("authToken");
+
+    try {
+      const response = await fetch(`${API_URL}/api/bars`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) throw new Error("Erro ao buscar estabelecimentos");
+
+      const data = await response.json();
+      
+      if (Array.isArray(data)) {
+        const formattedEstablishments: Establishment[] = data.map((bar: any) => ({
+          id: bar.id,
+          name: bar.name,
+          logo: bar.logoUrl || "/assets/default-logo.png",
+          address: bar.address || "Endereço não informado"
+        }));
+        setEstablishments(formattedEstablishments);
+      } else {
+        setError("Dados de estabelecimentos inválidos.");
+      }
+    } catch (error) {
+      if (error instanceof Error) {
+        setError(error.message);
+      } else {
+        setError("Erro desconhecido");
+      }
+      console.error("Erro ao buscar estabelecimentos:", error);
+      
+      // Fallback com dados estáticos incluindo Reserva Rooftop
+      setEstablishments([
+        {
+          id: 7,
+          name: "High Line",
+          logo: "/assets/highline/highlinelogo.png",
+          address: "Rua Girassol, 144 - Vila Madalena"
+        },
+        {
+          id: 1,
+          name: "Seu Justino",
+          logo: "/assets/justino/justinologo.png",
+          address: "Rua Azevedo Soares, 940 - Tatuapé"
+        },
+        {
+          id: 4,
+          name: "Oh Freguês",
+          logo: "/assets/ohfregues/logoOhfregues.png",
+          address: "Largo da Matriz de Nossa Senhora do Ó, 145 - Freguesia do Ó"
+        },
+        {
+          id: 8,
+          name: "Pracinha do Seu Justino",
+          logo: "/assets/pracinha/logo-pracinha.png",
+          address: "Rua das Flores, 123 - Centro"
+        },
+        {
+          id: 5,
+          name: "Reserva Rooftop",
+          logo: "/assets/reserva-rooftop/logo-reserva-rooftop.png",
+          address: "Em frente ao portão 2 - Rua Marc Chagal, Parque - Jardim das Perdizes"
+        }
+      ]);
+    } finally {
+      setLoading(false);
+    }
+  }, [API_URL]);
+
+  useEffect(() => {
+    fetchEstablishments();
+  }, [fetchEstablishments]);
 
   const handleEstablishmentSelect = (establishment: Establishment) => {
     setSelectedEstablishment(establishment);
@@ -72,6 +128,34 @@ export default function PainelEventos() {
   };
 
   const ActiveComponent = menuItems.find(item => item.id === activeMenu)?.component || ResumoEventos;
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-white text-lg">Carregando estabelecimentos...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-red-400 text-lg mb-4">Erro ao carregar estabelecimentos</p>
+          <p className="text-gray-400">{error}</p>
+          <button 
+            onClick={fetchEstablishments}
+            className="mt-4 px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors"
+          >
+            Tentar Novamente
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-base">

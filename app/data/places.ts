@@ -2,6 +2,7 @@ import img01 from "@/app/assets/justino/capa-justino.png";
 import img02 from "@/app/assets/oh-fregues.jpg";
 import img03 from "@/app/assets/highline/capa-highline.jpeg";
 import img04 from "@/app/assets/pracinha/capa-pracinha.jpg";
+import img05 from "@/app/assets/highline/capa-highline.jpeg";
 
 const places = [
     {
@@ -69,6 +70,17 @@ const places = [
         link: "/ohfregues",
         state: "rj",
         date: '2025-02-28'
+    },
+    {
+        image: img05,
+        title: "Reserva Rooftop",
+        address: "Em frente ao portão 2 - Rua Marc Chagal, Parque - Jardim das Perdizes",
+        distance: "4.2km",
+        rating: "4.8 (1.9K)",
+        description: "No Reserva Rooftop, fusionamos sabores excepcionais com uma trilha sonora envolvente, destacando ingredientes frescos e locais em cada experiência única.",
+        link: "/reserva-rooftop",
+        state: "sp",
+        date: '2025-02-29'
     }
   ];
   

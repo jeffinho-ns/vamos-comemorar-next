@@ -38,6 +38,7 @@ interface ReservationModalProps {
   reservation?: any;
   selectedDate?: Date | null;
   establishment?: Establishment | null;
+  areas?: RestaurantArea[];
 }
 
 export default function ReservationModal({ 
@@ -46,7 +47,8 @@ export default function ReservationModal({
   onSave, 
   reservation, 
   selectedDate,
-  establishment
+  establishment,
+  areas = []
 }: ReservationModalProps) {
   const [formData, setFormData] = useState({
     client_name: '',
@@ -62,13 +64,11 @@ export default function ReservationModal({
     notes: ''
   });
 
-  const [areas, setAreas] = useState<RestaurantArea[]>([]);
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (isOpen) {
-      fetchAreas();
       if (reservation) {
         setFormData({
           client_name: reservation.client_name || '',
@@ -102,16 +102,6 @@ export default function ReservationModal({
       setErrors({});
     }
   }, [isOpen, reservation, selectedDate]);
-
-  const fetchAreas = async () => {
-    try {
-      const response = await fetch('/api/restaurant-areas');
-      const data = await response.json();
-      setAreas(data.areas || []);
-    } catch (error) {
-      console.error('Erro ao carregar áreas:', error);
-    }
-  };
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};

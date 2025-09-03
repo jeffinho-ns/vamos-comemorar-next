@@ -101,7 +101,7 @@ export default function Home() {
           priority
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent rounded-t-2xl"></div>
-        <Link href={link}>
+        <Link href={`/reservar?establishment=${encodeURIComponent(title)}`}>
           <button className="absolute bottom-4 right-4 bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-600 hover:to-yellow-700 text-gray-900 px-6 py-3 rounded-xl font-semibold transition-all duration-200 transform hover:scale-105 shadow-lg">
             Reservar
           </button>
@@ -153,7 +153,7 @@ export default function Home() {
             Sua comemoração de um jeito que você nunca imaginou!
           </motion.h1>
           <motion.p 
-            className="text-lg md:text-xl text-gray-200 text-center max-w-3xl leading-relaxed"
+            className="text-lg md:text-xl text-gray-200 text-center max-w-3xl leading-relaxed mb-8"
             initial={{ y: 50, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             transition={{ duration: 0.8, delay: 0.4 }}
@@ -162,6 +162,24 @@ export default function Home() {
             sua comemoração, quanto mais convidados você levar, mais benefícios
             receberá.
           </motion.p>
+          <motion.div
+            initial={{ y: 50, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            transition={{ duration: 0.8, delay: 0.6 }}
+            className="flex flex-col sm:flex-row gap-4 justify-center"
+          >
+            <Link href="/reservar">
+              <button className="px-8 py-4 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white rounded-xl font-semibold text-lg transition-all duration-200 transform hover:scale-105 shadow-lg flex items-center gap-2">
+                <MdRestaurant size={24} />
+                Fazer Reserva
+              </button>
+            </Link>
+            <Link href="#form-search">
+              <button className="px-8 py-4 bg-white/20 hover:bg-white/30 text-white rounded-xl font-semibold text-lg transition-all duration-200 transform hover:scale-105 border border-white/30 backdrop-blur-sm">
+                Explorar Locais
+              </button>
+            </Link>
+          </motion.div>
         </div>
         <Image
           src={imgBanner}
