@@ -3,18 +3,7 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { MdClose, MdPerson, MdPhone, MdEmail, MdPeople, MdLocationOn, MdNote } from "react-icons/md";
 
-interface Reservation {
-  id: number;
-  customer_name: string;
-  reservation_date: string;
-  reservation_time: string;
-  party_size: number;
-  status: 'confirmed' | 'pending' | 'cancelled';
-  area_name: string;
-  phone?: string;
-  email?: string;
-  notes?: string;
-}
+import { Reservation } from '@/app/types/reservation';
 
 interface ReservationsDayModalProps {
   isOpen: boolean;
@@ -114,7 +103,7 @@ export default function ReservationsDayModal({
                             <MdPerson className="text-blue-600 text-sm" />
                           </div>
                           <div>
-                            <h4 className="font-semibold text-gray-800">{reservation.customer_name}</h4>
+                            <h4 className="font-semibold text-gray-800">{reservation.client_name}</h4>
                             <p className="text-sm text-gray-500">{reservation.reservation_time}</p>
                           </div>
                         </div>
@@ -126,7 +115,7 @@ export default function ReservationsDayModal({
                       <div className="space-y-2 text-sm text-gray-600">
                         <div className="flex items-center gap-2">
                           <MdPeople className="text-gray-400" />
-                          <span>{reservation.party_size} pessoa{reservation.party_size !== 1 ? 's' : ''}</span>
+                          <span>{reservation.number_of_people} pessoa{reservation.number_of_people !== 1 ? 's' : ''}</span>
                         </div>
                         
                         <div className="flex items-center gap-2">
@@ -134,17 +123,17 @@ export default function ReservationsDayModal({
                           <span>{reservation.area_name}</span>
                         </div>
 
-                        {reservation.phone && (
+                                                {reservation.client_phone && (
                           <div className="flex items-center gap-2">
                             <MdPhone className="text-gray-400" />
-                            <span>{reservation.phone}</span>
+                            <span>{reservation.client_phone}</span>
                           </div>
                         )}
-
-                        {reservation.email && (
+                        
+                        {reservation.client_email && (
                           <div className="flex items-center gap-2">
                             <MdEmail className="text-gray-400" />
-                            <span className="truncate">{reservation.email}</span>
+                            <span className="truncate">{reservation.client_email}</span>
                           </div>
                         )}
 

@@ -7,9 +7,10 @@ import EditPlaceModal from "../../components/editPlace/editPlaceModal";
 import { Business, Place } from "./types";
 import Image from "next/image";
 import Cookies from "js-cookie";
+import { useEstablishments } from "../../hooks/useEstablishments";
 //import { WithPermission } from "../../components/WithPermission/WithPermission";
 
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL_LOCAL;
+const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL_LOCAL || 'http://localhost:3001';
 
 const convertBusinessToPlace = (business: Business): Place => ({
   id: business.id,
@@ -21,53 +22,23 @@ const convertBusinessToPlace = (business: Business): Place => ({
 });
 
 export default function Businesses() {
-  const [businesses, setBusinesses] = useState<Business[]>([]);
+  const { establishments, loading, error, fetchEstablishments, refetch } = useEstablishments();
   const [filterBy, setFilterBy] = useState<string>("");
   const [modalIsOpen, setModalIsOpen] = useState<boolean>(false);
   const [editModalIsOpen, setEditModalIsOpen] = useState<boolean>(false);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
   const [selectedBusiness, setSelectedBusiness] = useState<Place | null>(null);
   const [token, setToken] = useState<string | null>(null);
 
-  const fetchBusinesses = useCallback(async (): Promise<void> => {
-    if (!token) {
-      console.error("Token não disponível.");
-      setError("Token de autenticação não encontrado. Faça login novamente.");
-      setLoading(false);
-      return;
-    }
-
-    setLoading(true);
-    setError(null);
-    try {
-      const response = await fetch(`${API_URL}/api/bars`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ message: 'Erro desconhecido' }));
-        throw new Error(errorData.message || `Erro ${response.status}: ${response.statusText}`);
-      }
-
-      const data = await response.json();
-      console.log("Dados recebidos da API:", data);
-      
-      if (Array.isArray(data)) {
-        setBusinesses(data);
-      } else {
-        throw new Error("Formato de dados inválido recebido da API.");
-      }
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "Erro desconhecido";
-      setError(errorMessage);
-      console.error("Erro ao buscar negócios:", error);
-    } finally {
-      setLoading(false);
-    }
-  }, [token]);
+  // Converter establishments para o formato Business esperado
+  const businesses: Business[] = establishments.map(est => ({
+    id: est.id,
+    name: est.name,
+    email: est.email || "Não informado",
+    telefone: est.phone || "Não informado",
+    logo: est.logo || "default-logo.png",
+    cnpj: est.cnpj || "",
+    status: (est.status === "active" || est.status === "inactive") ? est.status : "active"
+  }));
 
   const openEditModal = (business: Business): void => {
     const place = convertBusinessToPlace(business);
@@ -99,9 +70,9 @@ export default function Businesses() {
 
   useEffect(() => {
     if (token) {
-      fetchBusinesses();
+      fetchEstablishments();
     }
-  }, [token, fetchBusinesses]);
+  }, [token, fetchEstablishments]);
 
   const filteredBusinesses = businesses.filter((business) => {
     const lowerFilter = filterBy.toLowerCase();
@@ -138,7 +109,7 @@ export default function Businesses() {
 
           <div className="flex items-center mb-8 gap-4">
             <button
-              onClick={fetchBusinesses}
+              onClick={refetch}
               className="bg-gradient-to-r from-gray-700 to-gray-800 hover:from-gray-800 hover:to-gray-900 text-white p-4 rounded-xl shadow-lg transition-all duration-200 transform hover:scale-105"
             >
               <MdRefresh className="text-xl" />

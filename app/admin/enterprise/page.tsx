@@ -46,7 +46,7 @@ export default function Companies() {
   const [error, setError] = useState<string | null>(null);
   const [selectedCompany, setSelectedCompany] = useState<Establishment | null>(null);
   const router = useRouter();
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL_LOCAL;
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL_LOCAL || 'http://localhost:3001';
 
   const openModal = (company: Company | null = null) => {
     if (company) {
@@ -81,7 +81,37 @@ export default function Companies() {
     const token = localStorage.getItem("authToken");
 
     try {
-      const response = await fetch(`${API_URL}/api/bars`, {
+      // Primeiro tenta buscar da tabela bars
+      let response = await fetch(`${API_URL}/api/bars`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      let data;
+      if (response.ok) {
+        data = await response.json();
+        console.log("Dados recebidos da API (bars):", data);
+        
+        if (Array.isArray(data)) {
+          // Mapear dados da tabela bars para o formato esperado
+          const mappedData = data.map(bar => ({
+            id: bar.id.toString(),
+            name: bar.name || "Sem nome",
+            email: bar.email || "Não informado",
+            phone: bar.phone || "Não informado",
+            logo: bar.logoUrl || bar.logo || "default-logo.png",
+            cnpj: bar.cnpj || "",
+            status: bar.status || "ATIVA",
+            created_at: bar.created_at || new Date().toISOString()
+          }));
+          setCompanies(mappedData);
+          return;
+        }
+      }
+
+      // Se não conseguir da tabela bars, tenta da tabela places
+      response = await fetch(`${API_URL}/api/places`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -89,10 +119,35 @@ export default function Companies() {
 
       if (!response.ok) throw new Error("Erro ao buscar empresas");
 
-      const data = await response.json();
+      data = await response.json();
+      console.log("Dados recebidos da API (places):", data);
 
       if (Array.isArray(data)) {
-        setCompanies(data);
+        // Mapear dados da tabela places para o formato esperado
+        const mappedData = data.map(place => ({
+          id: place.id.toString(),
+          name: place.name || "Sem nome",
+          email: place.email || "Não informado",
+          phone: place.phone || "Não informado",
+          logo: place.logo || "default-logo.png",
+          cnpj: place.cnpj || "",
+          status: place.status === 'active' ? 'ATIVA' : 'INATIVA',
+          created_at: place.created_at || new Date().toISOString()
+        }));
+        setCompanies(mappedData);
+      } else if (data.data && Array.isArray(data.data)) {
+        // Se os dados vêm em um objeto com propriedade data
+        const mappedData = data.data.map((place: any) => ({
+          id: place.id.toString(),
+          name: place.name || "Sem nome",
+          email: place.email || "Não informado",
+          phone: place.phone || "Não informado",
+          logo: place.logo || "default-logo.png",
+          cnpj: place.cnpj || "",
+          status: place.status === 'active' ? 'ATIVA' : 'INATIVA',
+          created_at: place.created_at || new Date().toISOString()
+        }));
+        setCompanies(mappedData);
       } else {
         setError("Dados de empresas inválidos.");
       }

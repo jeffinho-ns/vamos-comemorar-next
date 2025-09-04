@@ -531,6 +531,7 @@ export default function Listas({ establishment }: ListasProps) {
                  <option value="Seu Justino - Admin">Seu Justino - Admin</option>
                  <option value="Oh Freguês - Admin">Oh Freguês - Admin</option>
                  <option value="Pracinha do Seu Justino - Admin">Pracinha do Seu Justino - Admin</option>
+                 <option value="Reserva Rooftop - Admin">Reserva Rooftop - Admin</option>
                  <option value="Sistema Automático">Sistema Automático</option>
                  <option value="Caixa - Presencial">Caixa - Presencial</option>
                  <option value="Promoter - Externo">Promoter - Externo</option>
@@ -1101,6 +1102,7 @@ function NameInsertionModal({
                 <option value="Seu Justino - Admin">Seu Justino - Admin</option>
                 <option value="Oh Freguês - Admin">Oh Freguês - Admin</option>
                 <option value="Pracinha do Seu Justino - Admin">Pracinha do Seu Justino - Admin</option>
+                <option value="Reserva Rooftop - Admin">Reserva Rooftop - Admin</option>
                 <option value="Sistema Automático">Sistema Automático</option>
                 <option value="Caixa - Presencial">Caixa - Presencial</option>
                 <option value="Promoter - Externo">Promoter - Externo</option>

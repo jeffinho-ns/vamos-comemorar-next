@@ -17,18 +17,7 @@ import {
   MdCancel
 } from "react-icons/md";
 
-interface Reservation {
-  id: number;
-  customer_name: string;
-  reservation_date: string;
-  reservation_time: string;
-  party_size: number;
-  status: 'confirmed' | 'pending' | 'cancelled';
-  area_name: string;
-  phone?: string;
-  email?: string;
-  notes?: string;
-}
+import { Reservation } from '@/app/types/reservation';
 
 interface ReservationDetailsModalProps {
   isOpen: boolean;
@@ -134,29 +123,29 @@ export default function ReservationDetailsModal({
                     <label className="block text-sm font-medium text-gray-600 mb-1">
                       Nome Completo
                     </label>
-                    <p className="text-gray-800 font-medium">{reservation.customer_name}</p>
+                    <p className="text-gray-800 font-medium">{reservation.client_name}</p>
                   </div>
                   
-                  {reservation.phone && (
+                  {reservation.client_phone && (
                     <div>
                       <label className="block text-sm font-medium text-gray-600 mb-1">
                         Telefone
                       </label>
                       <p className="text-gray-800 flex items-center gap-2">
                         <MdPhone className="text-gray-400" />
-                        {reservation.phone}
+                        {reservation.client_phone}
                       </p>
                     </div>
                   )}
 
-                  {reservation.email && (
+                  {reservation.client_email && (
                     <div className="md:col-span-2">
                       <label className="block text-sm font-medium text-gray-600 mb-1">
                         Email
                       </label>
                       <p className="text-gray-800 flex items-center gap-2">
                         <MdEmail className="text-gray-400" />
-                        {reservation.email}
+                        {reservation.client_email}
                       </p>
                     </div>
                   )}
@@ -196,7 +185,7 @@ export default function ReservationDetailsModal({
                     </label>
                     <p className="text-gray-800 flex items-center gap-2">
                       <MdPeople className="text-gray-400" />
-                      {reservation.party_size} pessoa{reservation.party_size !== 1 ? 's' : ''}
+                      {reservation.number_of_people} pessoa{reservation.number_of_people !== 1 ? 's' : ''}
                     </p>
                   </div>
 

@@ -92,6 +92,12 @@ const fixedCamarotes: { [key: number]: Camarote[] } = {
         { id: 801, nome_camarote: "Pracinha-C1", capacidade_maxima: 10, status: 'disponivel', regras_especificas: "Regra padrão" },
         { id: 802, nome_camarote: "Pracinha-C2", capacidade_maxima: 12, status: 'disponivel', regras_especificas: "Regra padrão" },
     ],
+    5: [ // Reserva Rooftop (ID 5) - 4 camarotes
+        { id: 501, nome_camarote: "Reserva-C1", capacidade_maxima: 12, status: 'disponivel', regras_especificas: "Regra padrão" },
+        { id: 502, nome_camarote: "Reserva-C2", capacidade_maxima: 15, status: 'disponivel', regras_especificas: "Regra padrão" },
+        { id: 503, nome_camarote: "Reserva-C3", capacidade_maxima: 18, status: 'disponivel', regras_especificas: "Regra padrão" },
+        { id: 504, nome_camarote: "Reserva-C4", capacidade_maxima: 20, status: 'disponivel', regras_especificas: "Regra padrão" },
+    ],
 };
 
 const getFixedCamarotesByEstablishmentId = (id: number): Camarote[] => {

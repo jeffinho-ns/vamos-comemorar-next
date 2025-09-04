@@ -31,55 +31,16 @@ interface RestaurantArea {
   capacity_dinner: number;
 }
 
-const establishments: Establishment[] = [
-  {
-    id: 7,
-    name: "High Line",
-    logo: "/images/logo-highline.png",
-    address: "Rua Girassol, 144 - Vila Madalena",
-    phone: "(11) 99999-9999",
-    email: "contato@highline.com.br"
-  },
-  {
-    id: 1,
-    name: "Seu Justino",
-    logo: "/images/logo-justino.png",
-    address: "Rua Azevedo Soares, 940 - Tatuapé",
-    phone: "(11) 99999-8888",
-    email: "contato@seujustino.com.br"
-  },
-  {
-    id: 4,
-    name: "Oh Freguês",
-    logo: "/images/logo-fregues.png",
-    address: "Largo da Matriz de Nossa Senhora do Ó, 145 - Freguesia do Ó",
-    phone: "(11) 99999-7777",
-    email: "contato@ohfregues.com.br"
-  },
-  {
-    id: 8,
-    name: "Pracinha do Seu Justino",
-    logo: "/images/logo-pracinha.png",
-    address: "Rua das Flores, 123 - Centro",
-    phone: "(11) 99999-6666",
-    email: "contato@pracinha.com.br"
-  },
-  {
-    id: 5,
-    name: "Reserva Rooftop",
-    logo: "/images/logo-reserva-rooftop.png",
-    address: "Em frente ao portão 2 - Rua Marc Chagal, Parque - Jardim das Perdizes",
-    phone: "(11) 99999-5555",
-    email: "contato@reservarooftop.com.br"
-  }
-];
+// Dados estáticos removidos - agora carregados da API
 
 export default function ReservationForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const [establishments, setEstablishments] = useState<Establishment[]>([]);
   const [selectedEstablishment, setSelectedEstablishment] = useState<Establishment | null>(null);
   const [areas, setAreas] = useState<RestaurantArea[]>([]);
   const [loading, setLoading] = useState(false);
+  const [establishmentsLoading, setEstablishmentsLoading] = useState(true);
   const [step, setStep] = useState<'establishment' | 'form' | 'confirmation'>('establishment');
   const [reservationData, setReservationData] = useState({
     client_name: '',
@@ -94,8 +55,137 @@ export default function ReservationForm() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [reservationId, setReservationId] = useState<string | null>(null);
 
+  // Carregar estabelecimentos da API
+  useEffect(() => {
+    const fetchEstablishments = async () => {
+      setEstablishmentsLoading(true);
+      try {
+        const response = await fetch('/api/places');
+        if (response.ok) {
+          const data = await response.json();
+          if (Array.isArray(data)) {
+            const formattedEstablishments: Establishment[] = data.map((place: any) => ({
+              id: place.id,
+              name: place.name || "Sem nome",
+              logo: place.logo ? `https://vamos-comemorar-api.onrender.com/uploads/${place.logo}` : "/images/default-logo.png",
+              address: place.street ? `${place.street}, ${place.number || ''}`.trim() : "Endereço não informado",
+              phone: place.phone || "(11) 99999-9999",
+              email: place.email || "contato@estabelecimento.com.br"
+            }));
+            setEstablishments(formattedEstablishments);
+          } else if (data.data && Array.isArray(data.data)) {
+            const formattedEstablishments: Establishment[] = data.data.map((place: any) => ({
+              id: place.id,
+              name: place.name || "Sem nome",
+              logo: place.logo ? `https://vamos-comemorar-api.onrender.com/uploads/${place.logo}` : "/images/default-logo.png",
+              address: place.street ? `${place.street}, ${place.number || ''}`.trim() : "Endereço não informado",
+              phone: place.phone || "(11) 99999-9999",
+              email: place.email || "contato@estabelecimento.com.br"
+            }));
+            setEstablishments(formattedEstablishments);
+          }
+        } else {
+          // Fallback com dados estáticos
+          setEstablishments([
+            {
+              id: 7,
+              name: "High Line",
+              logo: "https://vamos-comemorar-api.onrender.com/uploads/1730836360230.png",
+              address: "Rua Girassol, 144 - Vila Madalena",
+              phone: "(11) 99999-9999",
+              email: "contato@highline.com.br"
+            },
+            {
+              id: 1,
+              name: "Seu Justino",
+              logo: "https://vamos-comemorar-api.onrender.com/uploads/1729923901750.webp",
+              address: "Rua Harmonia, 77 - Vila Madalena",
+              phone: "(11) 99999-8888",
+              email: "contato@seujustino.com.br"
+            },
+            {
+              id: 4,
+              name: "Oh Freguês",
+              logo: "https://vamos-comemorar-api.onrender.com/uploads/1730172121902.png",
+              address: "Largo da Matriz de Nossa Senhora do Ó, 145 - Freguesia do Ó",
+              phone: "(11) 99999-7777",
+              email: "contato@ohfregues.com.br"
+            },
+            {
+              id: 8,
+              name: "Pracinha do Seu Justino",
+              logo: "https://vamos-comemorar-api.onrender.com/uploads/1730836754093.png",
+              address: "Rua Harmonia, 117 - Sumarezinho",
+              phone: "(11) 99999-6666",
+              email: "contato@pracinha.com.br"
+            },
+            {
+              id: 9,
+              name: "Reserva Rooftop",
+              logo: "/images/default-logo.png",
+              address: "Endereço do Reserva Rooftop",
+              phone: "(11) 99999-5555",
+              email: "contato@reservarooftop.com.br"
+            }
+          ]);
+        }
+      } catch (error) {
+        console.error('Erro ao carregar estabelecimentos:', error);
+        // Fallback com dados estáticos em caso de erro
+        setEstablishments([
+          {
+            id: 7,
+            name: "High Line",
+            logo: "https://vamos-comemorar-api.onrender.com/uploads/1730836360230.png",
+            address: "Rua Girassol, 144 - Vila Madalena",
+            phone: "(11) 99999-9999",
+            email: "contato@highline.com.br"
+          },
+          {
+            id: 1,
+            name: "Seu Justino",
+            logo: "https://vamos-comemorar-api.onrender.com/uploads/1729923901750.webp",
+            address: "Rua Harmonia, 77 - Vila Madalena",
+            phone: "(11) 99999-8888",
+            email: "contato@seujustino.com.br"
+          },
+          {
+            id: 4,
+            name: "Oh Freguês",
+            logo: "https://vamos-comemorar-api.onrender.com/uploads/1730172121902.png",
+            address: "Largo da Matriz de Nossa Senhora do Ó, 145 - Freguesia do Ó",
+            phone: "(11) 99999-7777",
+            email: "contato@ohfregues.com.br"
+          },
+          {
+            id: 8,
+            name: "Pracinha do Seu Justino",
+            logo: "https://vamos-comemorar-api.onrender.com/uploads/1730836754093.png",
+            address: "Rua Harmonia, 117 - Sumarezinho",
+            phone: "(11) 99999-6666",
+            email: "contato@pracinha.com.br"
+          },
+          {
+            id: 9,
+            name: "Reserva Rooftop",
+            logo: "/images/default-logo.png",
+            address: "Endereço do Reserva Rooftop",
+            phone: "(11) 99999-5555",
+            email: "contato@reservarooftop.com.br"
+          }
+        ]);
+      } finally {
+        setEstablishmentsLoading(false);
+      }
+    };
+
+    fetchEstablishments();
+  }, []);
+
   // Detectar estabelecimento na URL
   useEffect(() => {
+    if (establishments.length === 0) return;
+    
     const establishmentParam = searchParams.get('establishment');
     if (establishmentParam) {
       const establishment = establishments.find(
@@ -108,7 +198,7 @@ export default function ReservationForm() {
         setStep('form');
       }
     }
-  }, [searchParams]);
+  }, [searchParams, establishments]);
 
   const loadAreas = async (establishmentId: number) => {
     try {
@@ -178,7 +268,7 @@ export default function ReservationForm() {
 
     setLoading(true);
     try {
-      const response = await fetch('/api/restaurant-reservations', {
+      const response = await fetch('http://localhost:3001/api/restaurant-reservations', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -193,10 +283,12 @@ export default function ReservationForm() {
 
       if (response.ok) {
         const result = await response.json();
+        console.log('✅ Reserva criada com sucesso:', result);
         setReservationId(result.reservation?.id || '12345');
         setStep('confirmation');
       } else {
         const errorData = await response.json();
+        console.error('❌ Erro ao fazer reserva:', errorData);
         alert('Erro ao fazer reserva: ' + (errorData.error || 'Erro desconhecido'));
       }
     } catch (error) {
@@ -279,8 +371,17 @@ export default function ReservationForm() {
             <h2 className="text-2xl font-bold text-gray-800 mb-6 text-center">
               Escolha seu Estabelecimento
             </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {establishments.map((establishment) => (
+            
+            {establishmentsLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="text-center">
+                  <div className="w-16 h-16 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                  <p className="text-gray-600">Carregando estabelecimentos...</p>
+                </div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {establishments.map((establishment) => (
                 <motion.button
                   key={establishment.id}
                   onClick={() => handleEstablishmentSelect(establishment)}
@@ -312,8 +413,9 @@ export default function ReservationForm() {
                     </div>
                   )}
                 </motion.button>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </motion.div>
         )}
 

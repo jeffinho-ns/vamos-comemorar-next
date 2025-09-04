@@ -12,18 +12,7 @@ interface Establishment {
   address: string;
 }
 
-interface Reservation {
-  id: number;
-  customer_name: string;
-  reservation_date: string;
-  reservation_time: string;
-  party_size: number;
-  status: 'confirmed' | 'pending' | 'cancelled';
-  area_name: string;
-  phone?: string;
-  email?: string;
-  notes?: string;
-}
+import { Reservation } from '@/app/types/reservation';
 
 interface CalendarDay {
   date: Date;
@@ -97,43 +86,26 @@ export default function ReservationCalendar({
       const year = date.getFullYear();
       const month = date.getMonth() + 1;
       
-      // Simular dados de reservas (substituir por chamada real da API)
-      const mockReservations: Reservation[] = [
-        {
-          id: 1,
-          customer_name: "João Silva",
-          reservation_date: `${year}-${month.toString().padStart(2, '0')}-15`,
-          reservation_time: "19:30",
-          party_size: 4,
-          status: 'confirmed',
-          area_name: "Área Principal",
-          phone: "(11) 99999-9999"
-        },
-        {
-          id: 2,
-          customer_name: "Maria Santos",
-          reservation_date: `${year}-${month.toString().padStart(2, '0')}-15`,
-          reservation_time: "20:00",
-          party_size: 2,
-          status: 'pending',
-          area_name: "Área VIP"
-        },
-        {
-          id: 3,
-          customer_name: "Pedro Costa",
-          reservation_date: `${year}-${month.toString().padStart(2, '0')}-20`,
-          reservation_time: "21:00",
-          party_size: 6,
-          status: 'confirmed',
-          area_name: "Área Principal"
-        }
-      ];
+      // Buscar reservas reais da API
+      const response = await fetch(`http://localhost:3001/api/restaurant-reservations?establishment_id=${establishment.id}`);
+      
+      if (!response.ok) {
+        throw new Error('Erro ao carregar reservas');
+      }
+      
+      const data = await response.json();
+      const reservations: Reservation[] = data.reservations || [];
+      
+      console.log('📅 Reservas carregadas para o calendário:', reservations.length);
 
-      // Atualizar dias do calendário com as reservas
+      // Atualizar dias do calendário com as reservas reais
       const updatedDays = generateCalendarDays(date).map(day => {
         const dayString = day.date.toISOString().split('T')[0];
-        const dayReservations = mockReservations.filter(
-          reservation => reservation.reservation_date === dayString
+        const dayReservations = reservations.filter(
+          reservation => {
+            const reservationDate = new Date(reservation.reservation_date).toISOString().split('T')[0];
+            return reservationDate === dayString;
+          }
         );
         
         return {
@@ -146,11 +118,19 @@ export default function ReservationCalendar({
 
       setCalendarDays(updatedDays);
     } catch (error) {
-      console.error("Erro ao carregar reservas:", error);
+      console.error("❌ Erro ao carregar reservas:", error);
+      // Em caso de erro, usar dados vazios
+      const updatedDays = generateCalendarDays(date).map(day => ({
+        ...day,
+        reservations: [],
+        totalReservations: 0,
+        availableTables: 10
+      }));
+      setCalendarDays(updatedDays);
     } finally {
       setLoading(false);
     }
-  }, [generateCalendarDays]);
+  }, [generateCalendarDays, establishment.id]);
 
   useEffect(() => {
     loadReservationsForMonth(currentDate);
@@ -345,7 +325,7 @@ export default function ReservationCalendar({
                     key={reservation.id}
                     className={`text-xs p-1 rounded ${getStatusColor(reservation.status)}`}
                   >
-                    <div className="font-medium truncate">{reservation.customer_name}</div>
+                    <div className="font-medium truncate">{reservation.client_name}</div>
                     <div className="text-xs opacity-75">{reservation.reservation_time}</div>
                   </div>
                 ))}

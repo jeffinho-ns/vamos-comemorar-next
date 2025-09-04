@@ -7,6 +7,7 @@ import ReservationCalendar from "../../components/ReservationCalendar";
 import ReservationModal from "../../components/ReservationModal";
 import WalkInModal from "../../components/WalkInModal";
 import WaitlistModal from "../../components/WaitlistModal";
+import { Reservation } from "@/app/types/reservation";
 
 interface Establishment {
   id: number;
@@ -15,18 +16,6 @@ interface Establishment {
   address: string;
 }
 
-interface Reservation {
-  id: number;
-  customer_name: string;
-  reservation_date: string;
-  reservation_time: string;
-  party_size: number;
-  status: 'confirmed' | 'pending' | 'cancelled';
-  area_name: string;
-  phone?: string;
-  email?: string;
-  notes?: string;
-}
 
 interface WalkIn {
   id: number;
@@ -75,14 +64,51 @@ export default function RestaurantReservationsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL_LOCAL;
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL_LOCAL || 'http://localhost:3001';
+  const BASE_IMAGE_URL = 'https://grupoideiaum.com.br/cardapio-agilizaiapp/';
+  const PLACEHOLDER_IMAGE_URL = '/images/default-logo.png';
+
+  const getValidImageUrl = (filename: string): string => {
+    if (!filename || filename.trim() === '' || filename.startsWith('blob:')) {
+      return PLACEHOLDER_IMAGE_URL;
+    }
+    if (filename.startsWith('http://') || filename.startsWith('https://')) {
+      return filename;
+    }
+    return `${BASE_IMAGE_URL}${filename}`;
+  };
 
   const fetchEstablishments = useCallback(async () => {
     setLoading(true);
     const token = localStorage.getItem("authToken");
 
     try {
-      const response = await fetch(`${API_URL}/api/bars`, {
+      // Primeiro tenta buscar da tabela bars
+      let response = await fetch(`${API_URL}/api/bars`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      let data;
+      if (response.ok) {
+        data = await response.json();
+        console.log("Dados recebidos da API (bars):", data);
+        
+        if (Array.isArray(data)) {
+          const formattedEstablishments: Establishment[] = data.map((bar: any) => ({
+            id: bar.id,
+            name: bar.name || "Sem nome",
+            logo: getValidImageUrl(bar.logoUrl || bar.logo || ''),
+            address: bar.address || "Endereço não informado"
+          }));
+          setEstablishments(formattedEstablishments);
+          return;
+        }
+      }
+
+      // Se não conseguir da tabela bars, tenta da tabela places
+      response = await fetch(`${API_URL}/api/places`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -90,14 +116,24 @@ export default function RestaurantReservationsPage() {
 
       if (!response.ok) throw new Error("Erro ao buscar estabelecimentos");
 
-      const data = await response.json();
+      data = await response.json();
+      console.log("Dados recebidos da API (places):", data);
       
       if (Array.isArray(data)) {
-        const formattedEstablishments: Establishment[] = data.map((bar: any) => ({
-          id: bar.id,
-          name: bar.name,
-          logo: bar.logoUrl || "/images/default-logo.png",
-          address: bar.address || "Endereço não informado"
+        const formattedEstablishments: Establishment[] = data.map((place: any) => ({
+          id: place.id,
+          name: place.name || "Sem nome",
+          logo: getValidImageUrl(place.logo || ''),
+          address: place.street ? `${place.street}, ${place.number || ''}`.trim() : "Endereço não informado"
+        }));
+        setEstablishments(formattedEstablishments);
+      } else if (data.data && Array.isArray(data.data)) {
+        // Se os dados vêm em um objeto com propriedade data
+        const formattedEstablishments: Establishment[] = data.data.map((place: any) => ({
+          id: place.id,
+          name: place.name || "Sem nome",
+          logo: getValidImageUrl(place.logo || ''),
+          address: place.street ? `${place.street}, ${place.number || ''}`.trim() : "Endereço não informado"
         }));
         setEstablishments(formattedEstablishments);
       } else {
@@ -116,32 +152,32 @@ export default function RestaurantReservationsPage() {
         {
           id: 7,
           name: "High Line",
-          logo: "/images/logo-highline.png",
+          logo: getValidImageUrl("1730836360230.png"),
           address: "Rua Girassol, 144 - Vila Madalena"
         },
         {
           id: 1,
           name: "Seu Justino",
-          logo: "/images/logo-justino.png",
-          address: "Rua Azevedo Soares, 940 - Tatuapé"
+          logo: getValidImageUrl("1729923901750.webp"),
+          address: "Rua Harmonia, 77 - Vila Madalena"
         },
         {
           id: 4,
           name: "Oh Freguês",
-          logo: "/images/logo-fregues.png",
+          logo: getValidImageUrl("1730172121902.png"),
           address: "Largo da Matriz de Nossa Senhora do Ó, 145 - Freguesia do Ó"
         },
         {
           id: 8,
           name: "Pracinha do Seu Justino",
-          logo: "/images/logo-pracinha.png",
-          address: "Rua das Flores, 123 - Centro"
+          logo: getValidImageUrl("1730836754093.png"),
+          address: "Rua Harmonia, 117 - Sumarezinho"
         },
         {
-          id: 5,
+          id: 9,
           name: "Reserva Rooftop",
-          logo: "/images/logo-reserva-rooftop.png",
-          address: "Em frente ao portão 2 - Rua Marc Chagal, Parque - Jardim das Perdizes"
+          logo: getValidImageUrl("rooftop-logo.png"),
+          address: "Endereço do Reserva Rooftop"
         }
       ]);
     } finally {
@@ -173,6 +209,39 @@ export default function RestaurantReservationsPage() {
   const [showWaitlistModal, setShowWaitlistModal] = useState(false);
   const [editingWaitlistEntry, setEditingWaitlistEntry] = useState<WaitlistEntry | null>(null);
 
+  const loadAreas = async () => {
+    if (areas.length > 0) return; // Já carregadas
+    
+    // Dados mock sempre disponíveis
+    const mockAreas = [
+      { id: 1, name: 'Área Coberta', capacity_lunch: 50, capacity_dinner: 40, description: 'Área interna com ar condicionado' },
+      { id: 2, name: 'Área Descoberta', capacity_lunch: 30, capacity_dinner: 25, description: 'Área externa com vista para o jardim' },
+      { id: 3, name: 'Área VIP', capacity_lunch: 20, capacity_dinner: 15, description: 'Área exclusiva com serviço diferenciado' },
+      { id: 4, name: 'Balcão', capacity_lunch: 15, capacity_dinner: 12, description: 'Área do balcão para refeições rápidas' },
+      { id: 5, name: 'Terraço', capacity_lunch: 25, capacity_dinner: 20, description: 'Área no terraço com vista panorâmica' }
+    ];
+    
+    try {
+      const areasResponse = await fetch('/api/restaurant-areas');
+      if (areasResponse.ok) {
+        const areasData = await areasResponse.json();
+        if (areasData.success && areasData.areas && areasData.areas.length > 0) {
+          setAreas(areasData.areas);
+          console.log('✅ Áreas carregadas da API:', areasData.areas.length);
+        } else {
+          console.log('⚠️ API retornou dados vazios, usando dados mock');
+          setAreas(mockAreas);
+        }
+      } else {
+        console.log('⚠️ API retornou erro, usando dados mock');
+        setAreas(mockAreas);
+      }
+    } catch (error) {
+      console.log('⚠️ Erro ao conectar com API, usando dados mock:', error instanceof Error ? error.message : 'Erro desconhecido');
+      setAreas(mockAreas);
+    }
+  };
+
   const handleEstablishmentSelect = (establishment: Establishment) => {
     setSelectedEstablishment(establishment);
     // Carregar dados específicos do estabelecimento
@@ -198,26 +267,15 @@ export default function RestaurantReservationsPage() {
       }
 
       // Carregar reservas da API
-      const reservationsResponse = await fetch('/api/restaurant-reservations');
+      const reservationsResponse = await fetch(`http://localhost:3001/api/restaurant-reservations?establishment_id=${selectedEstablishment.id}`);
       if (reservationsResponse.ok) {
         const reservationsData = await reservationsResponse.json();
+        console.log('✅ Reservas carregadas da API:', reservationsData.reservations?.length || 0);
         setReservations(reservationsData.reservations || []);
       } else {
-        console.error('Erro ao carregar reservas:', reservationsResponse.statusText);
-        // Fallback para dados mock
-        setReservations([
-          {
-            id: 1,
-            customer_name: "João Silva",
-            reservation_date: "2024-01-15",
-            reservation_time: "19:30",
-            party_size: 4,
-            status: 'confirmed',
-            area_name: "Área Principal",
-            phone: "(11) 99999-9999",
-            email: "joao@email.com"
-          }
-        ]);
+        console.error('❌ Erro ao carregar reservas:', reservationsResponse.statusText);
+        // Fallback para dados mock apenas se não conseguir conectar
+        setReservations([]);
       }
 
       // Carregar walk-ins da API
@@ -258,9 +316,13 @@ export default function RestaurantReservationsPage() {
     setSelectedDate(date);
   };
 
-  const handleAddReservation = (date: Date) => {
+  const handleAddReservation = async (date: Date) => {
     setSelectedDate(date);
     setEditingReservation(null);
+    
+    // Carregar áreas se ainda não foram carregadas
+    await loadAreas();
+    
     setShowModal(true);
   };
 
@@ -270,7 +332,7 @@ export default function RestaurantReservationsPage() {
   };
 
   const handleDeleteReservation = (reservation: Reservation) => {
-    if (confirm(`Tem certeza que deseja excluir a reserva de ${reservation.customer_name}?`)) {
+    if (confirm(`Tem certeza que deseja excluir a reserva de ${reservation.client_name}?`)) {
       setReservations(prev => prev.filter(r => r.id !== reservation.id));
     }
   };
@@ -334,9 +396,9 @@ export default function RestaurantReservationsPage() {
   ];
 
   const filteredReservations = reservations.filter(reservation => {
-    const matchesSearch = reservation.customer_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         reservation.phone?.includes(searchTerm) ||
-                         reservation.email?.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = reservation.client_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         reservation.client_phone?.includes(searchTerm) ||
+                         reservation.client_email?.toLowerCase().includes(searchTerm.toLowerCase());
     return matchesSearch;
   });
 
@@ -505,7 +567,11 @@ export default function RestaurantReservationsPage() {
                         />
                       </div>
                       <button
-                        onClick={() => setShowModal(true)}
+                        onClick={async () => {
+                          // Carregar áreas se ainda não foram carregadas
+                          await loadAreas();
+                          setShowModal(true);
+                        }}
                         className="flex items-center gap-2 px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-white rounded-lg transition-colors"
                       >
                         <MdAdd />
@@ -540,7 +606,7 @@ export default function RestaurantReservationsPage() {
                         >
                           <div className="flex items-start justify-between mb-3">
                             <div>
-                              <h4 className="font-semibold text-gray-800">{reservation.customer_name}</h4>
+                              <h4 className="font-semibold text-gray-800">{reservation.client_name}</h4>
                               <p className="text-sm text-gray-500">{reservation.reservation_date} às {reservation.reservation_time}</p>
                             </div>
                             <span className={`px-2 py-1 rounded-full text-xs font-medium ${
@@ -555,16 +621,16 @@ export default function RestaurantReservationsPage() {
                           <div className="space-y-1 text-sm text-gray-600">
                             <div className="flex items-center gap-2">
                               <MdPeople className="text-gray-400" />
-                              <span>{reservation.party_size} pessoas</span>
+                              <span>{reservation.number_of_people} pessoas</span>
                             </div>
                             <div className="flex items-center gap-2">
                               <MdRestaurant className="text-gray-400" />
                               <span>{reservation.area_name}</span>
                             </div>
-                            {reservation.phone && (
+                            {reservation.client_phone && (
                               <div className="flex items-center gap-2">
                                 <MdPhone className="text-gray-400" />
-                                <span>{reservation.phone}</span>
+                                <span>{reservation.client_phone}</span>
                               </div>
                             )}
                           </div>
@@ -832,28 +898,32 @@ export default function RestaurantReservationsPage() {
             }}
             onSave={async (reservationData) => {
               try {
-                const response = await fetch('/api/restaurant-reservations', {
+                const response = await fetch('http://localhost:3001/api/restaurant-reservations', {
                   method: 'POST',
                   headers: {
                     'Content-Type': 'application/json',
                   },
                   body: JSON.stringify({
                     ...reservationData,
-                    establishment_id: selectedEstablishment?.id
+                    establishment_id: selectedEstablishment?.id,
+                    created_by: 1, // ID do usuário admin padrão
+                    status: 'NOVA',
+                    origin: 'ADMIN'
                   }),
                 });
 
                 if (response.ok) {
                   const newReservation = await response.json();
                   setReservations(prev => [...prev, newReservation.reservation]);
-                  console.log('Reserva salva com sucesso:', newReservation);
+                  console.log('✅ Reserva salva com sucesso:', newReservation);
+                  alert('Reserva criada com sucesso!');
                 } else {
                   const errorData = await response.json();
-                  console.error('Erro ao salvar reserva:', errorData);
+                  console.error('❌ Erro ao salvar reserva:', errorData);
                   alert('Erro ao salvar reserva: ' + (errorData.error || 'Erro desconhecido'));
                 }
               } catch (error) {
-                console.error('Erro ao salvar reserva:', error);
+                console.error('❌ Erro ao salvar reserva:', error);
                 alert('Erro ao salvar reserva. Tente novamente.');
               }
               setShowModal(false);

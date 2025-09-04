@@ -112,6 +112,8 @@ export default function Home() {
           return `/webapp/ohfregues/reservas/`;
         case "Highline":
           return `/webapp/highline/reservas/`;
+        case "Reserva Rooftop":
+          return `/webapp/reserva-rooftop/reservas/`;
         default:
           return `/webapp/reservas/`;
       }

@@ -33,7 +33,8 @@ const Programacao: React.FC<ProgramacaoProps> = ({ barId, logo, location, establ
     "High Line": "High Line",
     "Seu Justino": "Seu Justino",
     "Oh Freguês": "Oh Freguês",
-    "Pracinha": "Pracinha do Seu Justino"
+    "Pracinha": "Pracinha do Seu Justino",
+    "Reserva Rooftop": "Reserva Rooftop"
   }), []);
 
   useEffect(() => {

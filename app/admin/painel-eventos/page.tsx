@@ -40,14 +40,43 @@ export default function PainelEventos() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL_LOCAL;
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL_LOCAL || 'http://localhost:3001';
 
   const fetchEstablishments = useCallback(async () => {
     setLoading(true);
     const token = localStorage.getItem("authToken");
+    console.log("API_URL sendo usada:", API_URL);
 
     try {
-      const response = await fetch(`${API_URL}/api/bars`, {
+      // Primeiro tenta buscar da tabela bars
+      let response = await fetch(`${API_URL}/api/bars`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      let data;
+      if (response.ok) {
+        data = await response.json();
+        console.log("Dados recebidos da API (bars):", data);
+        
+        if (Array.isArray(data)) {
+          const formattedEstablishments: Establishment[] = data.map((bar: any) => ({
+            id: bar.id,
+            name: bar.name || "Sem nome",
+            logo: bar.logoUrl || bar.logo || "/assets/default-logo.png",
+            address: bar.address || "Endereço não informado"
+          }));
+
+          console.log("Estabelecimentos formatados (bars):", formattedEstablishments);
+          console.log("Reserva Rooftop presente?", formattedEstablishments.find(e => e.name === 'Reserva Rooftop'));
+          setEstablishments(formattedEstablishments);
+          return;
+        }
+      }
+
+      // Se não conseguir da tabela bars, tenta da tabela places
+      response = await fetch(`${API_URL}/api/places`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -55,15 +84,31 @@ export default function PainelEventos() {
 
       if (!response.ok) throw new Error("Erro ao buscar estabelecimentos");
 
-      const data = await response.json();
+      data = await response.json();
+      console.log("Dados recebidos da API (places):", data);
       
       if (Array.isArray(data)) {
-        const formattedEstablishments: Establishment[] = data.map((bar: any) => ({
-          id: bar.id,
-          name: bar.name,
-          logo: bar.logoUrl || "/assets/default-logo.png",
-          address: bar.address || "Endereço não informado"
+        const formattedEstablishments: Establishment[] = data.map((place: any) => ({
+          id: place.id,
+          name: place.name || "Sem nome",
+          logo: place.logo || "/assets/default-logo.png",
+          address: place.street ? `${place.street}, ${place.number || ''}`.trim() : "Endereço não informado"
         }));
+
+        console.log("Estabelecimentos formatados (places):", formattedEstablishments);
+        console.log("Reserva Rooftop presente?", formattedEstablishments.find(e => e.name === 'Reserva Rooftop'));
+        setEstablishments(formattedEstablishments);
+      } else if (data.data && Array.isArray(data.data)) {
+        // Se os dados vêm em um objeto com propriedade data
+        const formattedEstablishments: Establishment[] = data.data.map((place: any) => ({
+          id: place.id,
+          name: place.name || "Sem nome",
+          logo: place.logo || "/assets/default-logo.png",
+          address: place.street ? `${place.street}, ${place.number || ''}`.trim() : "Endereço não informado"
+        }));
+
+        console.log("Estabelecimentos formatados (places.data):", formattedEstablishments);
+        console.log("Reserva Rooftop presente?", formattedEstablishments.find(e => e.name === 'Reserva Rooftop'));
         setEstablishments(formattedEstablishments);
       } else {
         setError("Dados de estabelecimentos inválidos.");

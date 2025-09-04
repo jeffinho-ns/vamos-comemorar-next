@@ -197,3 +197,4 @@ Para dúvidas sobre implementação ou configuração do Google Analytics, consu
 - [Implementação de Eventos](https://developers.google.com/analytics/devguides/collection/ga4/events)
 
 
+
