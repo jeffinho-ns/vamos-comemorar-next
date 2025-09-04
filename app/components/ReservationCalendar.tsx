@@ -95,7 +95,7 @@ export default function ReservationCalendar({
       console.log('🎂 Reservas de aniversário disponíveis:', birthdayReservations.length);
 
       // Buscar reservas reais da API
-      const response = await fetch(`http://localhost:3001/api/restaurant-reservations?establishment_id=${establishment.id}`);
+      const response = await fetch(`https://vamos-comemorar-api.onrender.com/api/restaurant-reservations?establishment_id=${establishment.id}`);
 
       if (!response.ok) {
         throw new Error('Erro ao carregar reservas');
