@@ -8,6 +8,7 @@ import ReservationModal from "../../components/ReservationModal";
 import WalkInModal from "../../components/WalkInModal";
 import WaitlistModal from "../../components/WaitlistModal";
 import { Reservation } from "@/app/types/reservation";
+import { BirthdayService, BirthdayReservation } from "../../services/birthdayService";
 
 interface Establishment {
   id: number;
@@ -191,6 +192,7 @@ export default function RestaurantReservationsPage() {
   
   // Estados para Reservas
   const [reservations, setReservations] = useState<Reservation[]>([]);
+  const [birthdayReservations, setBirthdayReservations] = useState<BirthdayReservation[]>([]);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
 
   const [viewMode, setViewMode] = useState<'calendar' | 'list'>('calendar');
@@ -298,6 +300,27 @@ export default function RestaurantReservationsPage() {
         setWaitlist([]);
       }
 
+      // Carregar reservas de aniversário
+      try {
+        console.log('🎂 Carregando reservas de aniversário para estabelecimento:', selectedEstablishment.id);
+        const birthdayReservations = await BirthdayService.getBirthdayReservationsByEstablishment(selectedEstablishment.id);
+        console.log('🎂 Reservas de aniversário carregadas:', birthdayReservations.length);
+        console.log('🎂 Dados das reservas:', birthdayReservations);
+        
+        // Verificar se há reservas para setembro de 2025
+        const september2025 = birthdayReservations.filter(b => {
+          const date = new Date(b.data_aniversario);
+          return date.getFullYear() === 2025 && date.getMonth() === 8; // setembro = 8
+        });
+        console.log('🎂 Reservas para setembro 2025:', september2025.length);
+        
+        
+        setBirthdayReservations(birthdayReservations);
+      } catch (error) {
+        console.error('❌ Erro ao carregar reservas de aniversário:', error);
+        setBirthdayReservations([]);
+      }
+
     } catch (error) {
       console.error('Erro ao carregar dados do estabelecimento:', error);
       // Em caso de erro, usar dados mock
@@ -343,6 +366,20 @@ export default function RestaurantReservationsPage() {
         r.id === reservation.id ? { ...r, status: newStatus as any } : r
       )
     );
+  };
+
+  // Função para verificar se há reservas de aniversário em uma data específica
+  const getBirthdayReservationsForDate = (date: Date): BirthdayReservation[] => {
+    const dateString = date.toISOString().split('T')[0];
+    return birthdayReservations.filter(birthday => {
+      const birthdayDate = new Date(birthday.data_aniversario).toISOString().split('T')[0];
+      return birthdayDate === dateString;
+    });
+  };
+
+  // Função para formatar data
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('pt-BR');
   };
 
   // Handlers para Walk-ins
@@ -590,6 +627,7 @@ export default function RestaurantReservationsPage() {
                         onEditReservation={handleEditReservation}
                         onDeleteReservation={handleDeleteReservation}
                         onStatusChange={handleStatusChange}
+                        birthdayReservations={birthdayReservations}
                       />
                     </div>
                   )}
@@ -650,6 +688,73 @@ export default function RestaurantReservationsPage() {
                           </div>
                         </motion.div>
                       ))}
+                    </div>
+                  )}
+
+                  {/* Seção de Reservas de Aniversário */}
+                  {viewMode === 'list' && birthdayReservations.length > 0 && (
+                    <div className="mt-8">
+                      <div className="flex items-center gap-2 mb-4">
+                        <h3 className="text-lg font-semibold text-gray-800">🎂 Reservas de Aniversário</h3>
+                        <span className="px-2 py-1 bg-pink-100 text-pink-800 text-xs font-medium rounded-full">
+                          {birthdayReservations.length}
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {birthdayReservations.map((birthday) => (
+                          <motion.div
+                            key={birthday.id}
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            className="bg-gradient-to-br from-pink-50 to-purple-50 rounded-lg p-4 border border-pink-200 hover:shadow-md transition-shadow"
+                          >
+                            <div className="flex items-start justify-between mb-3">
+                              <div>
+                                <h4 className="font-semibold text-gray-800 flex items-center gap-2">
+                                  🎂 {birthday.aniversariante_nome}
+                                </h4>
+                                <p className="text-sm text-gray-500">{formatDate(birthday.data_aniversario)}</p>
+                              </div>
+                              <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                birthday.status === 'confirmado' ? 'bg-green-100 text-green-800' :
+                                birthday.status === 'pendente' ? 'bg-yellow-100 text-yellow-800' :
+                                'bg-red-100 text-red-800'
+                              }`}>
+                                {birthday.status}
+                              </span>
+                            </div>
+                            <div className="space-y-1 text-sm text-gray-600">
+                              <div className="flex items-center gap-2">
+                                <MdPeople className="text-gray-400" />
+                                <span>{birthday.quantidade_convidados} convidados</span>
+                              </div>
+                              {birthday.decoracao_tipo && (
+                                <div className="flex items-center gap-2">
+                                  <MdRestaurant className="text-gray-400" />
+                                  <span>{birthday.decoracao_tipo}</span>
+                                </div>
+                              )}
+                              {birthday.whatsapp && (
+                                <div className="flex items-center gap-2">
+                                  <MdPhone className="text-gray-400" />
+                                  <span>{birthday.whatsapp}</span>
+                                </div>
+                              )}
+                              {birthday.email && (
+                                <div className="flex items-center gap-2">
+                                  <MdPhone className="text-gray-400" />
+                                  <span>{birthday.email}</span>
+                                </div>
+                              )}
+                            </div>
+                            <div className="mt-3 pt-3 border-t border-pink-200">
+                              <p className="text-xs text-pink-600">
+                                Cliente: {birthday.user_name || 'N/A'}
+                              </p>
+                            </div>
+                          </motion.div>
+                        ))}
+                      </div>
                     </div>
                   )}
                 </div>

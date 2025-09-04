@@ -18,6 +18,19 @@ export default function BirthdayDetailsModal({ reservation, isOpen, onClose }: B
     return new Date(dateString).toLocaleDateString('pt-BR');
   };
 
+  const isValidImageUrl = (url: string): boolean => {
+    if (!url || typeof url !== 'string') return false;
+    
+    // Verifica se é uma URL válida (http/https) ou um caminho que começa com /
+    try {
+      const urlObj = new URL(url);
+      return urlObj.protocol === 'http:' || urlObj.protocol === 'https:';
+    } catch {
+      // Se não for uma URL válida, verifica se é um caminho relativo válido
+      return url.startsWith('/') && (url.includes('.') || url.includes('assets/'));
+    }
+  };
+
   const parseListaPresentes = (listaPresentes: any): any[] => {
     try {
       if (typeof listaPresentes === 'string') {
@@ -153,7 +166,7 @@ export default function BirthdayDetailsModal({ reservation, isOpen, onClose }: B
                 {reservation.painel_tema && <p><span className="font-medium">Tema do Painel:</span> {reservation.painel_tema}</p>}
                 {reservation.painel_frase && <p><span className="font-medium">Frase do Painel:</span> {reservation.painel_frase}</p>}
               </div>
-              {reservation.painel_estoque_imagem_url && (
+              {reservation.painel_estoque_imagem_url && isValidImageUrl(reservation.painel_estoque_imagem_url) && (
                 <div>
                   <p className="font-medium mb-2">Imagem do Painel:</p>
                   <Image 
@@ -163,6 +176,14 @@ export default function BirthdayDetailsModal({ reservation, isOpen, onClose }: B
                     height={128}
                     className="w-full h-32 object-cover rounded-lg"
                   />
+                </div>
+              )}
+              {reservation.painel_estoque_imagem_url && !isValidImageUrl(reservation.painel_estoque_imagem_url) && (
+                <div>
+                  <p className="font-medium mb-2">Referência do Painel:</p>
+                  <div className="bg-gray-100 p-4 rounded-lg border-2 border-dashed border-gray-300">
+                    <p className="text-gray-600 text-sm">{reservation.painel_estoque_imagem_url}</p>
+                  </div>
                 </div>
               )}
             </div>

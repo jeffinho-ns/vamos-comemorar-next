@@ -13,12 +13,14 @@ interface Establishment {
 }
 
 import { Reservation } from '@/app/types/reservation';
+import { BirthdayReservation } from '@/app/services/birthdayService';
 
 interface CalendarDay {
   date: Date;
   isCurrentMonth: boolean;
   isToday: boolean;
   reservations: Reservation[];
+  birthdayReservations: BirthdayReservation[];
   totalReservations: number;
   availableTables: number;
 }
@@ -30,6 +32,7 @@ interface ReservationCalendarProps {
   onEditReservation?: (reservation: Reservation) => void;
   onDeleteReservation?: (reservation: Reservation) => void;
   onStatusChange?: (reservation: Reservation, newStatus: string) => void;
+  birthdayReservations?: BirthdayReservation[];
 }
 
 export default function ReservationCalendar({ 
@@ -38,9 +41,10 @@ export default function ReservationCalendar({
   onAddReservation,
   onEditReservation,
   onDeleteReservation,
-  onStatusChange
+  onStatusChange,
+  birthdayReservations = []
 }: ReservationCalendarProps) {
-  const [currentDate, setCurrentDate] = useState(new Date());
+  const [currentDate, setCurrentDate] = useState(new Date(2025, 8, 1)); // Setembro de 2025
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [calendarDays, setCalendarDays] = useState<CalendarDay[]>([]);
   const [loading, setLoading] = useState(false);
@@ -71,6 +75,7 @@ export default function ReservationCalendar({
         isCurrentMonth: currentDay.getMonth() === month,
         isToday: currentDay.toDateString() === today.toDateString(),
         reservations: [],
+        birthdayReservations: [],
         totalReservations: 0,
         availableTables: 0
       });
@@ -80,19 +85,22 @@ export default function ReservationCalendar({
   }, []);
 
   // Carregar reservas para o mês atual
-  const loadReservationsForMonth = useCallback(async (date: Date) => {
+    const loadReservationsForMonth = useCallback(async (date: Date) => {
     setLoading(true);
     try {
       const year = date.getFullYear();
       const month = date.getMonth() + 1;
-      
+
+      console.log('📅 Carregando dados para:', { year, month });
+      console.log('🎂 Reservas de aniversário disponíveis:', birthdayReservations.length);
+
       // Buscar reservas reais da API
       const response = await fetch(`http://localhost:3001/api/restaurant-reservations?establishment_id=${establishment.id}`);
-      
+
       if (!response.ok) {
         throw new Error('Erro ao carregar reservas');
       }
-      
+
       const data = await response.json();
       const reservations: Reservation[] = data.reservations || [];
       
@@ -108,10 +116,47 @@ export default function ReservationCalendar({
           }
         );
         
+        // Filtrar reservas de aniversário para este dia
+        const dayBirthdayReservations = birthdayReservations.filter(
+          birthday => {
+            const birthdayDate = new Date(birthday.data_aniversario).toISOString().split('T')[0];
+            return birthdayDate === dayString;
+          }
+        );
+
+        // TESTE: Adicionar aniversário hardcoded para o dia 15
+        if (dayString === '2025-09-15') {
+          dayBirthdayReservations.push({
+            id: 999,
+            user_id: 1,
+            aniversariante_nome: 'TESTE HARDCODED',
+            data_aniversario: '2025-09-15T07:00:00.000Z',
+            quantidade_convidados: 10,
+            nomes_convidados: [],
+            id_casa_evento: 1,
+            place_name: 'Teste',
+            user_name: 'Teste',
+            decoracao_tipo: 'Teste',
+            painel_personalizado: false,
+            painel_tema: '',
+            painel_frase: '',
+            painel_estoque_imagem_url: '',
+            status: 'pendente',
+            created_at: '2025-09-04T07:00:00.000Z',
+            updated_at: '2025-09-04T07:00:00.000Z'
+          } as BirthdayReservation);
+        }
+        
+        // Debug: log para dias com aniversários
+        if (dayBirthdayReservations.length > 0) {
+          console.log('🎂 Dia com aniversários:', dayString, dayBirthdayReservations.length, 'aniversários');
+        }
+        
         return {
           ...day,
           reservations: dayReservations,
-          totalReservations: dayReservations.length,
+          birthdayReservations: dayBirthdayReservations,
+          totalReservations: dayReservations.length + dayBirthdayReservations.length,
           availableTables: Math.max(0, 10 - dayReservations.length) // Simular 10 mesas disponíveis
         };
       });
@@ -123,6 +168,7 @@ export default function ReservationCalendar({
       const updatedDays = generateCalendarDays(date).map(day => ({
         ...day,
         reservations: [],
+        birthdayReservations: [],
         totalReservations: 0,
         availableTables: 10
       }));
@@ -130,11 +176,19 @@ export default function ReservationCalendar({
     } finally {
       setLoading(false);
     }
-  }, [generateCalendarDays, establishment.id]);
+  }, [generateCalendarDays, establishment.id, birthdayReservations]);
 
   useEffect(() => {
     loadReservationsForMonth(currentDate);
   }, [currentDate, loadReservationsForMonth]);
+
+  // Recarregar quando as reservas de aniversário mudarem
+  useEffect(() => {
+    if (birthdayReservations.length > 0) {
+      console.log('🎂 Reservas de aniversário mudaram, recarregando calendário...');
+      loadReservationsForMonth(currentDate);
+    }
+  }, [birthdayReservations, currentDate, loadReservationsForMonth]);
 
   const handlePreviousMonth = () => {
     const newDate = new Date(currentDate);
@@ -329,6 +383,15 @@ export default function ReservationCalendar({
                     <div className="text-xs opacity-75">{reservation.reservation_time}</div>
                   </div>
                 ))}
+                
+                {/* Indicadores de Aniversário */}
+                {day.birthdayReservations.length > 0 && (
+                  <div className="mt-1">
+                    <div className="text-xs p-1 rounded bg-pink-200 text-pink-800 font-bold">
+                      🎂 {day.birthdayReservations.length} aniversário(s)
+                    </div>
+                  </div>
+                )}
                 
                 {day.reservations.length > 2 && (
                   <div className="text-xs text-gray-500">
