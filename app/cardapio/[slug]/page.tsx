@@ -417,20 +417,24 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
     [menuCategories, selectedCategory]
   );
 
-  // Componente para renderizar selos
-  const renderItemSeals = useCallback((seals: string[]) => {
+
+  // Componente para renderizar selos no modal - Versão otimizada para mobile
+  const renderModalSeals = useCallback((seals: string[]) => {
     if (!seals || seals.length === 0) return null;
     
     return (
-      <div className="flex flex-wrap gap-1 mb-3">
+      <div className="flex flex-wrap gap-2 mb-6">
         {seals.map((sealId) => {
           const seal = ALL_SEALS[sealId];
           if (!seal) return null;
           return (
             <span
               key={sealId}
-              className="inline-flex items-center rounded-full px-2 py-1 text-xs font-medium text-white shadow-sm"
-              style={{ backgroundColor: seal.color }}
+              className="inline-flex items-center rounded-full px-3 py-1.5 text-sm font-semibold text-white shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105"
+              style={{ 
+                backgroundColor: seal.color,
+                boxShadow: `0 4px 12px ${seal.color}50`
+              }}
             >
               {seal.name}
             </span>
@@ -456,6 +460,8 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
           sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
           className="object-cover"
         />
+        
+        
         <div className="absolute top-3 right-3 price-badge bg-white px-2 py-1 rounded-full shadow-md">
           <span className="text-sm font-bold text-green-600">
             {formatPrice(item.price)}
@@ -463,19 +469,38 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
         </div>
       </div>
       
-      <div className="p-4">
-        <h3 className="text-lg font-semibold text-gray-800 mb-2 line-clamp-2">
+      <div className="p-3 sm:p-4">
+        <h3 className="text-base sm:text-lg font-semibold text-gray-800 mb-2 line-clamp-2">
           {item.name}
         </h3>
-        <p className="text-sm text-gray-600 mb-3 line-clamp-3">
+        <p className="text-xs sm:text-sm text-gray-600 mb-3 line-clamp-2 sm:line-clamp-3">
           {item.description}
         </p>
         
-        {/* Exibir selos */}
-        {renderItemSeals(item.seals || [])}
+        {/* Exibir selos - Layout original melhorado */}
+        {item.seals && item.seals.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 mb-3">
+            {item.seals.map((sealId) => {
+              const seal = ALL_SEALS[sealId];
+              if (!seal) return null;
+              return (
+                <span
+                  key={sealId}
+                  className="seal-badge-mobile inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold text-white shadow-md hover:shadow-lg transition-all duration-200 transform hover:scale-105"
+                  style={{ 
+                    backgroundColor: seal.color,
+                    boxShadow: `0 2px 8px ${seal.color}40`
+                  }}
+                >
+                  {seal.name}
+                </span>
+              );
+            })}
+          </div>
+        )}
         
         {item.toppings && item.toppings.length > 0 && (
-          <div className="mb-3">
+          <div className="mb-2 sm:mb-3">
             <p className="text-xs font-medium text-gray-500 mb-1">Adicionais:</p>
             <div className="flex flex-wrap gap-1">
               {item.toppings.map((topping) => (
@@ -491,7 +516,7 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
         )}
       </div>
     </motion.div>
-  ), [formatPrice, renderItemSeals]);
+  ), [formatPrice]);
 
   if (isLoading) {
     return (
@@ -524,6 +549,56 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
   
   return (
     <div className="cardapio-page min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+      <style jsx>{`
+        .seal-badge-mobile {
+          font-size: 0.7rem;
+          line-height: 1.2;
+          max-width: 100%;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+          transition: all 0.2s ease;
+        }
+        
+        .seal-badge-mobile:hover {
+          transform: scale(1.05);
+        }
+        
+        @media (max-width: 640px) {
+          .seal-badge-mobile {
+            font-size: 0.65rem;
+            padding: 0.3rem 0.6rem;
+            border-radius: 15px;
+            font-weight: 600;
+          }
+        }
+        
+        @media (min-width: 641px) {
+          .seal-badge-mobile {
+            font-size: 0.75rem;
+            padding: 0.4rem 0.8rem;
+            border-radius: 18px;
+          }
+        }
+        
+        .menu-item-card {
+          transition: all 0.3s ease;
+        }
+        
+        .menu-item-card:hover {
+          transform: translateY(-2px);
+        }
+        
+        @media (max-width: 640px) {
+          .menu-item-card {
+            min-height: 280px;
+          }
+        }
+        
+        .price-badge {
+          z-index: 10;
+        }
+      `}</style>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         
         <div className="mb-6">
@@ -738,7 +813,7 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
                     <h3 className="text-xl font-bold text-gray-800 mb-4">
                       {subcat.name}
                     </h3>
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-2 gap-3 sm:gap-4">
                       {subcat.items.map((item) => (
                         <MenuItemCard key={item.id} item={item} onClick={handleItemClick} />
                       ))}
@@ -1024,18 +1099,18 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
                           </div>
                           
                           <div className="flex-1">
-                              <h2 className="text-3xl font-bold text-gray-900 mb-2">
+                              <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">
                                   {selectedItem.name}
                               </h2>
-                              <p className="text-2xl font-semibold text-green-600 mb-4">
+                              <p className="text-xl sm:text-2xl font-semibold text-green-600 mb-4">
                                   {formatPrice(selectedItem.price)}
                               </p>
-                              <p className="text-gray-700 mb-6 leading-relaxed">
+                              <p className="text-sm sm:text-base text-gray-700 mb-6 leading-relaxed">
                                   {selectedItem.description}
                               </p>
                               
-                              {/* Exibir selos no modal */}
-                              {renderItemSeals(selectedItem.seals || [])}
+                              {/* Exibir selos no modal - Melhorado para mobile */}
+                              {renderModalSeals(selectedItem.seals || [])}
                               
                               {selectedItem.toppings && selectedItem.toppings.length > 0 && (
                                   <div className="mb-6">
