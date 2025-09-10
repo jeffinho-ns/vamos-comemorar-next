@@ -1,0 +1,332 @@
+/* Estilos responsivos para o admin */
+
+/* Breakpoints personalizados para notebooks */
+@media (max-width: 1024px) {
+  .admin-container {
+    padding: 1rem;
+  }
+  
+  .admin-grid-4 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .admin-grid-3 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .admin-sidebar {
+    width: 100%;
+    max-width: 280px;
+  }
+}
+
+@media (max-width: 768px) {
+  .admin-container {
+    padding: 0.75rem;
+  }
+  
+  .admin-grid-4 {
+    grid-template-columns: 1fr;
+  }
+  
+  .admin-grid-3 {
+    grid-template-columns: 1fr;
+  }
+  
+  .admin-header {
+    padding: 1rem;
+  }
+  
+  .admin-card {
+    padding: 1rem;
+  }
+  
+  .admin-button-group {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  
+  .admin-button-group button {
+    width: 100%;
+  }
+}
+
+@media (max-width: 640px) {
+  .admin-container {
+    padding: 0.5rem;
+  }
+  
+  .admin-title {
+    font-size: 1.5rem;
+  }
+  
+  .admin-subtitle {
+    font-size: 0.875rem;
+  }
+  
+  .admin-card {
+    padding: 0.75rem;
+  }
+  
+  .admin-table {
+    font-size: 0.875rem;
+  }
+  
+  .admin-table th,
+  .admin-table td {
+    padding: 0.5rem;
+  }
+}
+
+/* Melhorias para tabelas responsivas */
+.admin-table-responsive {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.admin-table-responsive table {
+  min-width: 600px;
+}
+
+/* Melhorias para modais em telas pequenas */
+@media (max-width: 768px) {
+  .admin-modal {
+    margin: 1rem;
+    max-height: calc(100vh - 2rem);
+    overflow-y: auto;
+  }
+  
+  .admin-modal-content {
+    padding: 1rem;
+  }
+}
+
+/* Melhorias para formulários */
+@media (max-width: 768px) {
+  .admin-form-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .admin-form-row {
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+}
+
+/* Melhorias para navegação */
+@media (max-width: 1024px) {
+  .admin-nav-item {
+    padding: 0.75rem 1rem;
+  }
+  
+  .admin-nav-text {
+    font-size: 0.875rem;
+  }
+}
+
+/* Correções para sidebar */
+@media (max-width: 1024px) {
+  .admin-sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 100vh;
+    z-index: 50;
+    transform: translateX(-100%);
+    transition: transform 0.3s ease-in-out;
+  }
+  
+  .admin-sidebar.open {
+    transform: translateX(0);
+  }
+  
+  .admin-main-content {
+    width: 100%;
+    margin-left: 0;
+  }
+}
+
+/* Overlay para mobile */
+.admin-sidebar-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+  z-index: 40;
+  display: none;
+}
+
+@media (max-width: 1024px) {
+  .admin-sidebar-overlay.show {
+    display: block;
+  }
+}
+
+/* Melhorias para cards de métricas */
+@media (max-width: 768px) {
+  .admin-metric-card {
+    padding: 1rem;
+  }
+  
+  .admin-metric-value {
+    font-size: 1.5rem;
+  }
+  
+  .admin-metric-label {
+    font-size: 0.75rem;
+  }
+}
+
+/* Melhorias para listas de itens */
+@media (max-width: 768px) {
+  .admin-item-list {
+    grid-template-columns: 1fr;
+  }
+  
+  .admin-item-card {
+    padding: 0.75rem;
+  }
+  
+  .admin-item-actions {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  
+  .admin-item-actions button {
+    width: 100%;
+  }
+}
+
+/* Melhorias para calendários */
+@media (max-width: 768px) {
+  .admin-calendar {
+    font-size: 0.875rem;
+  }
+  
+  .admin-calendar-header {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  
+  .admin-calendar-nav {
+    justify-content: center;
+  }
+}
+
+/* Melhorias para filtros e controles */
+@media (max-width: 768px) {
+  .admin-filters {
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+  
+  .admin-search {
+    width: 100%;
+  }
+  
+  .admin-controls {
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+}
+
+/* Melhorias para gráficos */
+@media (max-width: 768px) {
+  .admin-chart {
+    height: 250px;
+  }
+  
+  .admin-chart-container {
+    padding: 0.75rem;
+  }
+}
+
+/* Melhorias para notificações e alertas */
+@media (max-width: 768px) {
+  .admin-alert {
+    padding: 0.75rem;
+    margin: 0.5rem;
+  }
+  
+  .admin-notification {
+    padding: 0.5rem;
+  }
+}
+
+/* Melhorias para tooltips */
+@media (max-width: 768px) {
+  .admin-tooltip {
+    font-size: 0.75rem;
+    max-width: 200px;
+  }
+}
+
+/* Melhorias para dropdowns */
+@media (max-width: 768px) {
+  .admin-dropdown {
+    width: 100%;
+  }
+  
+  .admin-dropdown-menu {
+    width: 100%;
+    max-height: 200px;
+    overflow-y: auto;
+  }
+}
+
+/* Melhorias para paginação */
+@media (max-width: 768px) {
+  .admin-pagination {
+    flex-wrap: wrap;
+    gap: 0.25rem;
+  }
+  
+  .admin-pagination button {
+    padding: 0.5rem;
+    font-size: 0.875rem;
+  }
+}
+
+/* Melhorias para loading states */
+@media (max-width: 768px) {
+  .admin-loading {
+    padding: 2rem 1rem;
+  }
+  
+  .admin-spinner {
+    width: 2rem;
+    height: 2rem;
+  }
+}
+
+/* Melhorias para empty states */
+@media (max-width: 768px) {
+  .admin-empty {
+    padding: 2rem 1rem;
+    text-align: center;
+  }
+  
+  .admin-empty-icon {
+    width: 3rem;
+    height: 3rem;
+  }
+}
+
+/* Melhorias para modais de confirmação */
+@media (max-width: 768px) {
+  .admin-confirm-modal {
+    margin: 1rem;
+    max-width: calc(100vw - 2rem);
+  }
+  
+  .admin-confirm-actions {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  
+  .admin-confirm-actions button {
+    width: 100%;
+  }
+}

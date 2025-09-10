@@ -1601,11 +1601,11 @@ export default function CardapioAdminPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-7xl px-4 py-4 sm:px-6 sm:py-6 lg:px-8 lg:py-8 admin-container">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="mb-2 text-3xl font-bold text-gray-900">Gerenciamento do Cardápio</h1>
-          <p className="text-gray-600">Gerencie estabelecimentos, categorias e itens do cardápio</p>
+          <h1 className="mb-2 text-2xl sm:text-3xl font-bold text-gray-900 admin-title">Gerenciamento do Cardápio</h1>
+          <p className="text-sm sm:text-base text-gray-600 admin-subtitle">Gerencie estabelecimentos, categorias e itens do cardápio</p>
           {isPromoter && promoterBar && (
             <div className="mt-4 rounded-lg border border-green-200 bg-green-50 p-4">
               <div className="flex items-center gap-3">
@@ -1626,7 +1626,7 @@ export default function CardapioAdminPage() {
         {/* Tabs */}
         <div className="mb-6">
           <div className="border-b border-gray-200">
-            <nav className="-mb-px flex space-x-8">
+            <nav className="-mb-px flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-8">
               {[
                 { id: 'bars', name: 'Estabelecimentos', count: menuData.bars.length },
                 { id: 'categories', name: 'Categorias', count: menuData.categories.length },
@@ -1635,7 +1635,7 @@ export default function CardapioAdminPage() {
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id as any)}
-                  className={`border-b-2 py-2 px-1 text-sm font-medium ${
+                  className={`border-b-2 py-2 px-1 text-sm font-medium w-full sm:w-auto text-center ${
                     activeTab === tab.id
                       ? 'border-blue-500 text-blue-600'
                       : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
@@ -1680,12 +1680,12 @@ export default function CardapioAdminPage() {
 
             {activeTab === 'bars' && (
               <div>
-                <div className="mb-6 flex items-center justify-between">
-                  <h2 className="text-2xl font-bold text-gray-900">Estabelecimentos</h2>
+                <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                  <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Estabelecimentos</h2>
                   {isAdmin && (
                     <button
                       onClick={() => setShowBarModal(true)}
-                      className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
+                      className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 w-full sm:w-auto justify-center"
                     >
                       <MdAdd className="h-5 w-5" />
                       Adicionar Estabelecimento
@@ -1693,7 +1693,7 @@ export default function CardapioAdminPage() {
                   )}
                 </div>
 
-                <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6 admin-grid-4">
                   {menuData.bars.map((bar) => (
                     <div key={bar.id} className="overflow-hidden rounded-lg bg-white shadow-md">
                       <div className="relative h-48">
@@ -1746,12 +1746,12 @@ export default function CardapioAdminPage() {
 
             {activeTab === 'categories' && (
               <div>
-                <div className="mb-6 flex items-center justify-between">
-                  <h2 className="text-2xl font-bold text-gray-900">Categorias</h2>
+                <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                  <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Categorias</h2>
                   {isAdmin && (
                     <button
                       onClick={() => setShowCategoryModal(true)}
-                      className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
+                      className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 w-full sm:w-auto justify-center"
                     >
                       <MdAdd className="h-5 w-5" />
                       Adicionar Categoria
@@ -1768,7 +1768,7 @@ export default function CardapioAdminPage() {
                   )}
                 </div>
 
-                <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6 admin-grid-4">
                   {menuData.categories.map((category) => {
                     const bar = menuData.bars.find((b) => b.id === category.barId);
                     if (!bar) return null;
@@ -1935,9 +1935,9 @@ export default function CardapioAdminPage() {
 
             {activeTab === 'items' && (
               <div>
-                <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-                  <h2 className="text-2xl font-bold text-gray-900">Itens do Menu</h2>
-                  <div className="flex flex-grow items-center justify-end gap-4">
+                <div className="mb-6 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                  <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Itens do Menu</h2>
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-end gap-4 w-full lg:w-auto">
                     <div className="relative flex-grow">
                       <MdSearch className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
                       <input
@@ -2022,7 +2022,7 @@ export default function CardapioAdminPage() {
                           </span>
                         </div>
                       </div>
-                      <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6 admin-grid-4">
                         {itemsForBar.map((item) => {
                           const category = menuData.categories.find(
                             (c) => c.id === item.categoryId,
@@ -2109,7 +2109,7 @@ export default function CardapioAdminPage() {
           title={editingBar ? 'Editar Estabelecimento' : 'Adicionar Estabelecimento'}
         >
           <div className="space-y-4">
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 admin-form-grid">
               <div>
                 <label className="mb-1 block text-sm font-medium text-gray-700">Nome</label>
                 <input
@@ -2140,7 +2140,7 @@ export default function CardapioAdminPage() {
               />
             </div>
 
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 admin-form-grid">
               <div>
                 <label className="mb-1 block text-sm font-medium text-gray-700">Logo</label>
                 <div className="flex gap-2">
@@ -2186,7 +2186,7 @@ export default function CardapioAdminPage() {
                   </button>
                 </div>
                 {barForm.coverImages.length > 0 && (
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     {barForm.coverImages.map((imageUrl, index) => (
                       <div key={index} className="group relative">
                         <Image
@@ -2259,7 +2259,7 @@ export default function CardapioAdminPage() {
             </div>
             
             {/* **NOVO**: Campos de links sociais */}
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 admin-form-grid">
               <div>
                 <label className="mb-1 block text-sm font-medium text-gray-700">Facebook</label>
                 <input
@@ -2292,7 +2292,7 @@ export default function CardapioAdminPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 admin-form-grid">
               <div>
                 <label className="mb-1 block text-sm font-medium text-gray-700">Avaliação</label>
                 <input
@@ -2506,7 +2506,7 @@ export default function CardapioAdminPage() {
           title={editingItem ? 'Editar Item' : 'Adicionar Item'}
         >
           <div className="space-y-4">
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 admin-form-grid">
               <div>
                 <label className="mb-1 block text-sm font-medium text-gray-700">
                   Nome do Item
@@ -2541,7 +2541,7 @@ export default function CardapioAdminPage() {
               />
             </div>
 
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 admin-form-grid">
               <div>
                 <label className="mb-1 block text-sm font-medium text-gray-700">
                   Nome do arquivo da imagem do item
@@ -2595,7 +2595,7 @@ export default function CardapioAdminPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 admin-form-grid">
               <div>
                 <label className="mb-1 block text-sm font-medium text-gray-700">
                   Estabelecimento
@@ -2728,7 +2728,7 @@ export default function CardapioAdminPage() {
                 </p>
 
                 {/* Estatísticas rápidas */}
-                <div className="mt-3 grid grid-cols-2 gap-4 text-sm">
+                <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                   <div className="rounded bg-white p-2 text-center">
                     <div className="font-bold text-blue-600">
                       {quickEditData.subCategories.length}
@@ -2906,7 +2906,7 @@ export default function CardapioAdminPage() {
                 return (
                   <div className="rounded-lg border border-green-200 bg-green-50 p-4">
                     <h4 className="mb-2 font-medium text-green-900">📝 Resumo das Alterações</h4>
-                    <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                       {changes.added > 0 && (
                         <div className="text-center">
                           <div className="font-bold text-green-600">+{changes.added}</div>

@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from 'next/navigation'; // Hook para pegar a URL atual
+import './responsive.css';
 import {
   MdMenu,
   MdDashboard,
@@ -104,17 +105,25 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   return (
     <div className="flex h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
+      {/* Overlay para mobile */}
+      {sidebarOpen && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+      
       {/* Sidebar */}
       <aside
-        className={`bg-gray-800/95 backdrop-blur-sm text-white w-64 transform ${
-          sidebarOpen ? "translate-x-0" : "-translate-x-full"
-        } md:translate-x-0 transition-transform duration-300 fixed md:relative z-40 border-r border-gray-700/50`}
+        className={`admin-sidebar bg-gray-800/95 backdrop-blur-sm text-white w-64 transform ${
+          sidebarOpen ? "translate-x-0 open" : "-translate-x-full"
+        } lg:translate-x-0 transition-transform duration-300 fixed lg:relative z-50 border-r border-gray-700/50 h-full`}
       >
         <div className="p-6 flex items-center gap-3 border-b border-gray-700/50">
           <div className="bg-white/10 p-2 rounded-xl">
             <Image src={logBrand} alt="Logo" width={32} height={32} className="rounded-lg" />
           </div>
-          <span className="text-lg font-bold hidden md:inline text-white">
+          <span className="text-lg font-bold hidden lg:inline text-white">
             {userRole === 'promoter' ? 'Painel Promoter' : 'Painel Admin'}
           </span>
         </div>
@@ -162,17 +171,17 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       </aside>
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="admin-main-content flex-1 flex flex-col overflow-hidden">
         {/* Header */}
-        <header className="bg-white/95 backdrop-blur-sm flex justify-between items-center px-8 py-4 shadow-lg border-b border-gray-200/20 z-30">
+        <header className="bg-white/95 backdrop-blur-sm flex justify-between items-center px-4 sm:px-6 lg:px-8 py-4 shadow-lg border-b border-gray-200/20 z-40 admin-header">
           <div className="flex items-center gap-4">
             <button 
-              className="md:hidden text-gray-700 hover:text-gray-900 p-2 rounded-lg hover:bg-gray-100 transition-colors" 
+              className="lg:hidden text-gray-700 hover:text-gray-900 p-2 rounded-lg hover:bg-gray-100 transition-colors" 
               onClick={() => setSidebarOpen(!sidebarOpen)}
             >
               <MdMenu size={24} />
             </button>
-            <h1 className="text-xl font-bold text-gray-800">{getActiveLabel()}</h1>
+            <h1 className="text-lg sm:text-xl font-bold text-gray-800 admin-title">{getActiveLabel()}</h1>
           </div>
           <UserMenu />
         </header>

@@ -290,3 +290,5 @@ export default function ReservationDetailsModal({
     </AnimatePresence>
   );
 }
+
+

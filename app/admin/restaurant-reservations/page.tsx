@@ -639,21 +639,21 @@ export default function RestaurantReservationsPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-base">
-      <div className="max-w-7xl mx-auto p-8">
+      <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
         {/* Header da página */}
         <div className="mb-8">
           <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-widest">
             Admin / Sistema de Reservas
           </h2>
-          <h1 className="text-4xl font-bold text-white mt-2">Sistema de Reservas do Restaurante</h1>
-          <p className="text-gray-400 text-lg mt-2">Gerencie reservas, passantes e lista de espera de forma integrada</p>
+          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-white mt-2">Sistema de Reservas do Restaurante</h1>
+          <p className="text-gray-400 text-sm sm:text-base lg:text-lg mt-2">Gerencie reservas, passantes e lista de espera de forma integrada</p>
         </div>
 
         {/* Seleção de Estabelecimento */}
         {!selectedEstablishment ? (
           <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-2xl border border-gray-200/20 p-6 mb-8">
             <h2 className="text-2xl font-bold text-gray-800 mb-6">Selecione o Estabelecimento</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 admin-grid-4">
               {establishments.map((establishment) => (
                 <button
                   key={establishment.id}
@@ -730,8 +730,8 @@ export default function RestaurantReservationsPage() {
               {activeTab === 'reservations' && (
                 <div>
                   {/* Controles da Aba Reservas */}
-                  <div className="flex items-center justify-between mb-6">
-                    <div className="flex items-center gap-4">
+                  <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-6">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
                       <div className="flex bg-gray-100 rounded-lg p-1">
                         <button
                           onClick={() => setViewMode('calendar')}
@@ -793,15 +793,15 @@ export default function RestaurantReservationsPage() {
                         </div>
                       )}
                     </div>
-                    <div className="flex items-center gap-4">
-                      <div className="relative">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 w-full lg:w-auto">
+                      <div className="relative w-full sm:w-auto">
                         <MdSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
                         <input
                           type="text"
                           placeholder="Buscar reservas..."
                           value={searchTerm}
                           onChange={(e) => setSearchTerm(e.target.value)}
-                          className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+                          className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent w-full"
                         />
                       </div>
                       <button
@@ -810,7 +810,7 @@ export default function RestaurantReservationsPage() {
                           await loadAreas();
                           setShowModal(true);
                         }}
-                        className="flex items-center gap-2 px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-white rounded-lg transition-colors"
+                        className="flex items-center gap-2 px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-white rounded-lg transition-colors w-full sm:w-auto justify-center"
                       >
                         <MdAdd />
                         Nova Reserva
@@ -867,7 +867,7 @@ export default function RestaurantReservationsPage() {
 
                   {/* Lista de Reservas */}
                   {viewMode === 'list' && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                       {filteredReservations.map((reservation) => (
                         <motion.div
                           key={reservation.id}
@@ -909,7 +909,7 @@ export default function RestaurantReservationsPage() {
                               </div>
                             )}
                           </div>
-                          <div className="flex gap-2 mt-3">
+                          <div className="flex flex-col sm:flex-row gap-2 mt-3">
                             {reservation.status === 'confirmed' && (
                               <button
                                 onClick={() => handleCheckIn(reservation)}
@@ -953,7 +953,7 @@ export default function RestaurantReservationsPage() {
                           {birthdayReservations.length}
                         </span>
                       </div>
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                         {birthdayReservations.map((birthday) => (
                           <motion.div
                             key={birthday.id}
@@ -1029,7 +1029,7 @@ export default function RestaurantReservationsPage() {
                     </button>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                     {activeWalkIns.map((walkIn) => (
                       <motion.div
                         key={walkIn.id}
@@ -1070,7 +1070,7 @@ export default function RestaurantReservationsPage() {
                             </div>
                           )}
                         </div>
-                        <div className="flex gap-2 mt-3">
+                        <div className="flex flex-col sm:flex-row gap-2 mt-3">
                           <button
                             onClick={() => handleEditWalkIn(walkIn)}
                             className="flex-1 px-3 py-1 bg-blue-500 hover:bg-blue-600 text-white text-sm rounded transition-colors"
@@ -1114,7 +1114,7 @@ export default function RestaurantReservationsPage() {
                         animate={{ opacity: 1, y: 0 }}
                         className="bg-gray-50 rounded-lg p-4 border border-gray-200 hover:shadow-md transition-shadow"
                       >
-                        <div className="flex items-center justify-between">
+                        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
                           <div className="flex items-center gap-4">
                             <div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center">
                               <span className="text-orange-600 font-bold text-sm">{entry.position}</span>
@@ -1132,7 +1132,7 @@ export default function RestaurantReservationsPage() {
                               </p>
                             </div>
                           </div>
-                          <div className="flex items-center gap-2">
+                          <div className="flex flex-wrap items-center gap-2">
                             <span className="text-sm text-gray-600">
                               <MdTimer className="inline mr-1" />
                               {calculateWaitTime(entry.created_at)}min
