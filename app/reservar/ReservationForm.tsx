@@ -15,6 +15,9 @@ import {
 } from 'react-icons/md';
 import { useRouter, useSearchParams } from 'next/navigation';
 
+// Configuração da API
+const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL_LOCAL || 'https://vamos-comemorar-api.onrender.com';
+
 interface Establishment {
   id: number;
   name: string;
@@ -60,7 +63,7 @@ export default function ReservationForm() {
     const fetchEstablishments = async () => {
       setEstablishmentsLoading(true);
       try {
-        const response = await fetch('/api/places');
+        const response = await fetch(`${API_URL}/api/places`);
         if (response.ok) {
           const data = await response.json();
           if (Array.isArray(data)) {
@@ -202,7 +205,7 @@ export default function ReservationForm() {
 
   const loadAreas = async (establishmentId: number) => {
     try {
-      const response = await fetch('/api/restaurant-areas');
+      const response = await fetch(`${API_URL}/api/restaurant-areas`);
       if (response.ok) {
         const data = await response.json();
         setAreas(data.areas || []);
@@ -268,7 +271,7 @@ export default function ReservationForm() {
 
     setLoading(true);
     try {
-      const response = await fetch('http://localhost:3001/api/restaurant-reservations', {
+      const response = await fetch(`${API_URL}/api/restaurant-reservations`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

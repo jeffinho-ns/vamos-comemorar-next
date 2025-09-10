@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { MdRestaurant, MdPeople, MdSchedule, MdBarChart, MdSettings, MdAdd, MdSearch, MdChair, MdPhone, MdClose, MdCall, MdTimer, MdLocationOn } from "react-icons/md";
 import { motion } from "framer-motion";
 import ReservationCalendar from "../../components/ReservationCalendar";
+import WeeklyCalendar from "../../components/WeeklyCalendar";
 import ReservationModal from "../../components/ReservationModal";
 import WalkInModal from "../../components/WalkInModal";
 import WaitlistModal from "../../components/WaitlistModal";
@@ -65,7 +66,7 @@ export default function RestaurantReservationsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL_LOCAL || 'http://localhost:3001';
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL_LOCAL || 'https://vamos-comemorar-api.onrender.com';
   const BASE_IMAGE_URL = 'https://grupoideiaum.com.br/cardapio-agilizaiapp/';
   const PLACEHOLDER_IMAGE_URL = '/images/default-logo.png';
 
@@ -84,32 +85,8 @@ export default function RestaurantReservationsPage() {
     const token = localStorage.getItem("authToken");
 
     try {
-      // Primeiro tenta buscar da tabela bars
-      let response = await fetch(`${API_URL}/api/bars`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      let data;
-      if (response.ok) {
-        data = await response.json();
-        console.log("Dados recebidos da API (bars):", data);
-        
-        if (Array.isArray(data)) {
-          const formattedEstablishments: Establishment[] = data.map((bar: any) => ({
-            id: bar.id,
-            name: bar.name || "Sem nome",
-            logo: getValidImageUrl(bar.logoUrl || bar.logo || ''),
-            address: bar.address || "Endereço não informado"
-          }));
-          setEstablishments(formattedEstablishments);
-          return;
-        }
-      }
-
-      // Se não conseguir da tabela bars, tenta da tabela places
-      response = await fetch(`${API_URL}/api/places`, {
+      // Usar sempre a tabela places para manter consistência com o cliente
+      const response = await fetch(`${API_URL}/api/places`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -117,7 +94,7 @@ export default function RestaurantReservationsPage() {
 
       if (!response.ok) throw new Error("Erro ao buscar estabelecimentos");
 
-      data = await response.json();
+      const data = await response.json();
       console.log("Dados recebidos da API (places):", data);
       
       if (Array.isArray(data)) {
@@ -189,13 +166,26 @@ export default function RestaurantReservationsPage() {
   useEffect(() => {
     fetchEstablishments();
   }, [fetchEstablishments]);
+
+  // Atualizar dados em tempo real
+  useEffect(() => {
+    if (selectedEstablishment) {
+      const interval = setInterval(() => {
+        loadEstablishmentData();
+      }, 30000); // Atualizar a cada 30 segundos
+
+      return () => clearInterval(interval);
+    }
+    return undefined;
+  }, [selectedEstablishment]);
   
   // Estados para Reservas
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [birthdayReservations, setBirthdayReservations] = useState<BirthdayReservation[]>([]);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [selectedTime, setSelectedTime] = useState<string | null>(null);
 
-  const [viewMode, setViewMode] = useState<'calendar' | 'list'>('calendar');
+  const [viewMode, setViewMode] = useState<'calendar' | 'list' | 'weekly'>('calendar');
   const [searchTerm, setSearchTerm] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [editingReservation, setEditingReservation] = useState<Reservation | null>(null);
@@ -224,7 +214,7 @@ export default function RestaurantReservationsPage() {
     ];
     
     try {
-      const areasResponse = await fetch('/api/restaurant-areas');
+      const areasResponse = await fetch(`${API_URL}/api/restaurant-areas`);
       if (areasResponse.ok) {
         const areasData = await areasResponse.json();
         if (areasData.success && areasData.areas && areasData.areas.length > 0) {
@@ -255,7 +245,7 @@ export default function RestaurantReservationsPage() {
     
     try {
       // Carregar áreas da API
-      const areasResponse = await fetch('/api/restaurant-areas');
+      const areasResponse = await fetch(`${API_URL}/api/restaurant-areas`);
       if (areasResponse.ok) {
         const areasData = await areasResponse.json();
         setAreas(areasData.areas || []);
@@ -269,7 +259,7 @@ export default function RestaurantReservationsPage() {
       }
 
       // Carregar reservas da API
-      const reservationsResponse = await fetch(`http://localhost:3001/api/restaurant-reservations?establishment_id=${selectedEstablishment.id}`);
+      const reservationsResponse = await fetch(`${API_URL}/api/restaurant-reservations?establishment_id=${selectedEstablishment.id}`);
       if (reservationsResponse.ok) {
         const reservationsData = await reservationsResponse.json();
         console.log('✅ Reservas carregadas da API:', reservationsData.reservations?.length || 0);
@@ -281,7 +271,7 @@ export default function RestaurantReservationsPage() {
       }
 
       // Carregar walk-ins da API
-      const walkInsResponse = await fetch('/api/walk-ins');
+      const walkInsResponse = await fetch(`${API_URL}/api/walk-ins`);
       if (walkInsResponse.ok) {
         const walkInsData = await walkInsResponse.json();
         setWalkIns(walkInsData.walkIns || []);
@@ -291,7 +281,7 @@ export default function RestaurantReservationsPage() {
       }
 
       // Carregar waitlist da API
-      const waitlistResponse = await fetch('/api/waitlist');
+      const waitlistResponse = await fetch(`${API_URL}/api/waitlist`);
       if (waitlistResponse.ok) {
         const waitlistData = await waitlistResponse.json();
         setWaitlist(waitlistData.waitlist || []);
@@ -346,7 +336,57 @@ export default function RestaurantReservationsPage() {
     // Carregar áreas se ainda não foram carregadas
     await loadAreas();
     
+    // Verificar capacidade e fila de espera antes de permitir nova reserva
+    const canMakeReservation = await checkCapacityAndWaitlist(date);
+    
+    if (!canMakeReservation) {
+      // Se não pode fazer reserva, redirecionar para lista de espera
+      handleAddWaitlistEntry();
+      return;
+    }
+    
     setShowModal(true);
+  };
+
+  // Função para verificar capacidade e fila de espera
+  const checkCapacityAndWaitlist = async (date: Date, newReservationPeople?: number): Promise<boolean> => {
+    try {
+      // Calcular capacidade total do restaurante
+      const totalCapacity = areas.reduce((sum, area) => sum + area.capacity_dinner, 0);
+      
+      // Filtrar reservas ativas para a data selecionada
+      const dateString = date.toISOString().split('T')[0];
+      const activeReservations = reservations.filter(reservation => {
+        const reservationDate = new Date(reservation.reservation_date).toISOString().split('T')[0];
+        return reservationDate === dateString && 
+               (reservation.status === 'confirmed' || reservation.status === 'checked-in');
+      });
+      
+      // Somar pessoas das reservas ativas
+      const totalPeopleReserved = activeReservations.reduce((sum, reservation) => 
+        sum + reservation.number_of_people, 0
+      );
+      
+      // Adicionar pessoas da nova reserva se fornecida
+      const totalWithNewReservation = totalPeopleReserved + (newReservationPeople || 0);
+      
+      // Verificar se há pessoas na lista de espera
+      const hasWaitlistEntries = waitlist.some(entry => entry.status === 'AGUARDANDO');
+      
+      // Se há fila de espera ou capacidade seria excedida, não permitir nova reserva
+      if (hasWaitlistEntries || totalWithNewReservation > totalCapacity) {
+        const message = hasWaitlistEntries 
+          ? 'Há clientes na lista de espera! Por favor, utilize a lista de espera.'
+          : `Capacidade insuficiente! Restam ${totalCapacity - totalPeopleReserved} lugares disponíveis.`;
+        alert(message);
+        return false;
+      }
+      
+      return true;
+    } catch (error) {
+      console.error('Erro ao verificar capacidade:', error);
+      return true; // Em caso de erro, permitir reserva
+    }
   };
 
   const handleEditReservation = (reservation: Reservation) => {
@@ -368,6 +408,73 @@ export default function RestaurantReservationsPage() {
     );
   };
 
+  // Função para fazer check-in de uma reserva
+  const handleCheckIn = async (reservation: Reservation) => {
+    try {
+      const response = await fetch(`${API_URL}/api/restaurant-reservations/${reservation.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          status: 'checked-in',
+          check_in_time: new Date().toISOString()
+        }),
+      });
+
+      if (response.ok) {
+        setReservations(prev => 
+          prev.map(r => 
+            r.id === reservation.id ? { ...r, status: 'checked-in' as any } : r
+          )
+        );
+        alert(`Check-in realizado para ${reservation.client_name}!`);
+      } else {
+        const errorData = await response.json();
+        console.error('Erro ao fazer check-in:', errorData);
+        alert('Erro ao fazer check-in: ' + (errorData.error || 'Erro desconhecido'));
+      }
+    } catch (error) {
+      console.error('Erro ao fazer check-in:', error);
+      alert('Erro ao fazer check-in. Tente novamente.');
+    }
+  };
+
+  // Função para fazer check-out de uma reserva
+  const handleCheckOut = async (reservation: Reservation) => {
+    try {
+      const response = await fetch(`${API_URL}/api/restaurant-reservations/${reservation.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          status: 'completed',
+          check_out_time: new Date().toISOString()
+        }),
+      });
+
+      if (response.ok) {
+        setReservations(prev => 
+          prev.map(r => 
+            r.id === reservation.id ? { ...r, status: 'completed' as any } : r
+          )
+        );
+        alert(`Check-out realizado para ${reservation.client_name}!`);
+        
+        // Após check-out, verificar lista de espera
+        await releaseTableAndCheckWaitlist();
+      } else {
+        const errorData = await response.json();
+        console.error('Erro ao fazer check-out:', errorData);
+        alert('Erro ao fazer check-out: ' + (errorData.error || 'Erro desconhecido'));
+      }
+    } catch (error) {
+      console.error('Erro ao fazer check-out:', error);
+      alert('Erro ao fazer check-out. Tente novamente.');
+    }
+  };
+
   // Função para verificar se há reservas de aniversário em uma data específica
   const getBirthdayReservationsForDate = (date: Date): BirthdayReservation[] => {
     const dateString = date.toISOString().split('T')[0];
@@ -380,6 +487,14 @@ export default function RestaurantReservationsPage() {
   // Função para formatar data
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('pt-BR');
+  };
+
+  // Função para calcular tempo de espera estimado
+  const calculateWaitTime = (createdAt: string): number => {
+    const now = new Date();
+    const entryTime = new Date(createdAt);
+    const diffInMinutes = Math.floor((now.getTime() - entryTime.getTime()) / (1000 * 60));
+    return Math.max(0, diffInMinutes);
   };
 
   // Handlers para Walk-ins
@@ -422,6 +537,49 @@ export default function RestaurantReservationsPage() {
         w.id === entry.id ? { ...w, status: 'CHAMADO' as any } : w
       )
     );
+  };
+
+  // Função para liberar mesa e verificar lista de espera
+  const releaseTableAndCheckWaitlist = async () => {
+    try {
+      // Buscar entradas na lista de espera com status AGUARDANDO
+      const waitingEntries = waitlist.filter(entry => entry.status === 'AGUARDANDO');
+      
+      if (waitingEntries.length > 0) {
+        // Encontrar a entrada mais antiga (menor position)
+        const oldestEntry = waitingEntries.reduce((oldest, current) => 
+          current.position < oldest.position ? current : oldest
+        );
+        
+        // Atualizar status para CHAMADO
+        const response = await fetch(`${API_URL}/api/waitlist/${oldestEntry.id}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            status: 'CHAMADO'
+          }),
+        });
+
+        if (response.ok) {
+          setWaitlist(prev => 
+            prev.map(w => 
+              w.id === oldestEntry.id ? { ...w, status: 'CHAMADO' as any } : w
+            )
+          );
+          
+          // Exibir notificação para o admin
+          alert(`Mesa disponível! Chamar cliente da fila: ${oldestEntry.client_name} (${oldestEntry.number_of_people} pessoas)`);
+        } else {
+          console.error('Erro ao atualizar status da lista de espera');
+        }
+      } else {
+        console.log('Lista de espera vazia - mesa disponível para novas reservas');
+      }
+    } catch (error) {
+      console.error('Erro ao verificar lista de espera:', error);
+    }
   };
 
   const tabs = [
@@ -581,6 +739,16 @@ export default function RestaurantReservationsPage() {
                           Calendário
                         </button>
                         <button
+                          onClick={() => setViewMode('weekly')}
+                          className={`px-4 py-2 rounded-md transition-colors ${
+                            viewMode === 'weekly'
+                              ? 'bg-white text-gray-800 shadow-sm'
+                              : 'text-gray-600 hover:text-gray-800'
+                          }`}
+                        >
+                          Semanal
+                        </button>
+                        <button
                           onClick={() => setViewMode('list')}
                           className={`px-4 py-2 rounded-md transition-colors ${
                             viewMode === 'list'
@@ -591,6 +759,34 @@ export default function RestaurantReservationsPage() {
                           Lista
                         </button>
                       </div>
+                      
+                      {/* Indicador de Ocupação */}
+                      {selectedDate && (
+                        <div className="bg-blue-50 rounded-lg p-3 border border-blue-200">
+                          <div className="flex items-center gap-2">
+                            <MdBarChart className="text-blue-600" size={20} />
+                            <div className="text-sm">
+                              <span className="text-blue-800 font-medium">Ocupação:</span>
+                              <span className="text-blue-600 ml-1">
+                                {(() => {
+                                  const totalCapacity = areas.reduce((sum, area) => sum + area.capacity_dinner, 0);
+                                  const dateString = selectedDate.toISOString().split('T')[0];
+                                  const activeReservations = reservations.filter(reservation => {
+                                    const reservationDate = new Date(reservation.reservation_date).toISOString().split('T')[0];
+                                    return reservationDate === dateString && 
+                                           (reservation.status === 'confirmed' || reservation.status === 'checked-in');
+                                  });
+                                  const totalPeopleReserved = activeReservations.reduce((sum, reservation) => 
+                                    sum + reservation.number_of_people, 0
+                                  );
+                                  const occupancyPercentage = totalCapacity > 0 ? Math.round((totalPeopleReserved / totalCapacity) * 100) : 0;
+                                  return `${totalPeopleReserved}/${totalCapacity} (${occupancyPercentage}%)`;
+                                })()}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </div>
                     <div className="flex items-center gap-4">
                       <div className="relative">
@@ -632,6 +828,38 @@ export default function RestaurantReservationsPage() {
                     </div>
                   )}
 
+                  {/* Visualização Semanal */}
+                  {viewMode === 'weekly' && (
+                    <div className="mb-8">
+                      <WeeklyCalendar
+                        reservations={reservations}
+                        onAddReservation={async (date, time) => {
+                          setSelectedDate(date);
+                          setSelectedTime(time);
+                          setEditingReservation(null);
+                          
+                          // Carregar áreas se ainda não foram carregadas
+                          await loadAreas();
+                          
+                          // Verificar capacidade e fila de espera antes de permitir nova reserva
+                          const canMakeReservation = await checkCapacityAndWaitlist(date);
+                          
+                          if (!canMakeReservation) {
+                            // Se não pode fazer reserva, redirecionar para lista de espera
+                            handleAddWaitlistEntry();
+                            return;
+                          }
+                          
+                          // Armazenar o horário selecionado para usar no modal
+                          setShowModal(true);
+                        }}
+                        onEditReservation={handleEditReservation}
+                        onDeleteReservation={handleDeleteReservation}
+                        onStatusChange={handleStatusChange}
+                      />
+                    </div>
+                  )}
+
                   {/* Lista de Reservas */}
                   {viewMode === 'list' && (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -649,10 +877,14 @@ export default function RestaurantReservationsPage() {
                             </div>
                             <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                               reservation.status === 'confirmed' ? 'bg-green-100 text-green-800' :
+                              reservation.status === 'checked-in' ? 'bg-blue-100 text-blue-800' :
+                              reservation.status === 'completed' ? 'bg-gray-100 text-gray-800' :
                               reservation.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
                               'bg-red-100 text-red-800'
                             }`}>
                               {reservation.status === 'confirmed' ? 'Confirmada' :
+                               reservation.status === 'checked-in' ? 'Check-in' :
+                               reservation.status === 'completed' ? 'Finalizada' :
                                reservation.status === 'pending' ? 'Pendente' : 'Cancelada'}
                             </span>
                           </div>
@@ -673,6 +905,22 @@ export default function RestaurantReservationsPage() {
                             )}
                           </div>
                           <div className="flex gap-2 mt-3">
+                            {reservation.status === 'confirmed' && (
+                              <button
+                                onClick={() => handleCheckIn(reservation)}
+                                className="flex-1 px-3 py-1 bg-green-500 hover:bg-green-600 text-white text-sm rounded transition-colors"
+                              >
+                                Check-in
+                              </button>
+                            )}
+                            {reservation.status === 'checked-in' && (
+                              <button
+                                onClick={() => handleCheckOut(reservation)}
+                                className="flex-1 px-3 py-1 bg-orange-500 hover:bg-orange-600 text-white text-sm rounded transition-colors"
+                              >
+                                Check-out
+                              </button>
+                            )}
                             <button
                               onClick={() => handleEditReservation(reservation)}
                               className="flex-1 px-3 py-1 bg-blue-500 hover:bg-blue-600 text-white text-sm rounded transition-colors"
@@ -871,12 +1119,18 @@ export default function RestaurantReservationsPage() {
                               <p className="text-sm text-gray-500">
                                 {entry.number_of_people} pessoas • Preferência: {entry.preferred_time || 'Qualquer horário'}
                               </p>
+                              <p className="text-xs text-gray-400">
+                                Entrou na fila: {new Date(entry.created_at).toLocaleTimeString('pt-BR', { 
+                                  hour: '2-digit', 
+                                  minute: '2-digit' 
+                                })}
+                              </p>
                             </div>
                           </div>
                           <div className="flex items-center gap-2">
                             <span className="text-sm text-gray-600">
                               <MdTimer className="inline mr-1" />
-                              ~{entry.estimated_wait_time}min
+                              {calculateWaitTime(entry.created_at)}min
                             </span>
                             <button
                               onClick={() => handleCallCustomer(entry)}
@@ -1000,10 +1254,11 @@ export default function RestaurantReservationsPage() {
             onClose={() => {
               setShowModal(false);
               setEditingReservation(null);
+              setSelectedTime(null);
             }}
             onSave={async (reservationData) => {
               try {
-                const response = await fetch('http://localhost:3001/api/restaurant-reservations', {
+                const response = await fetch(`${API_URL}/api/restaurant-reservations`, {
                   method: 'POST',
                   headers: {
                     'Content-Type': 'application/json',
@@ -1036,6 +1291,7 @@ export default function RestaurantReservationsPage() {
             }}
             reservation={editingReservation}
             selectedDate={selectedDate}
+            selectedTime={selectedTime}
             establishment={selectedEstablishment}
             areas={areas}
           />
@@ -1050,7 +1306,7 @@ export default function RestaurantReservationsPage() {
             }}
             onSave={async (walkInData) => {
               try {
-                const response = await fetch('/api/walk-ins', {
+                const response = await fetch(`${API_URL}/api/walk-ins`, {
                   method: 'POST',
                   headers: {
                     'Content-Type': 'application/json',
@@ -1091,7 +1347,7 @@ export default function RestaurantReservationsPage() {
             }}
             onSave={async (entryData) => {
               try {
-                const response = await fetch('/api/waitlist', {
+                const response = await fetch(`${API_URL}/api/waitlist`, {
                   method: 'POST',
                   headers: {
                     'Content-Type': 'application/json',

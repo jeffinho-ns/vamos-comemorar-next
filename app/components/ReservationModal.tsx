@@ -37,6 +37,7 @@ interface ReservationModalProps {
   onSave: (reservation: any) => void;
   reservation?: any;
   selectedDate?: Date | null;
+  selectedTime?: string | null;
   establishment?: Establishment | null;
   areas?: RestaurantArea[];
 }
@@ -47,6 +48,7 @@ export default function ReservationModal({
   onSave, 
   reservation, 
   selectedDate,
+  selectedTime,
   establishment,
   areas = []
 }: ReservationModalProps) {
@@ -90,7 +92,7 @@ export default function ReservationModal({
           client_phone: '',
           client_email: '',
           reservation_date: selectedDate ? selectedDate.toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
-          reservation_time: '',
+          reservation_time: selectedTime || '',
           number_of_people: 1,
           area_id: '',
           table_number: '',
@@ -101,7 +103,7 @@ export default function ReservationModal({
       }
       setErrors({});
     }
-  }, [isOpen, reservation, selectedDate]);
+  }, [isOpen, reservation, selectedDate, selectedTime]);
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};

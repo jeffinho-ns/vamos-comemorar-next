@@ -6,7 +6,7 @@ export interface Reservation {
   reservation_date: string;
   reservation_time: string;
   number_of_people: number;
-  status: 'confirmed' | 'pending' | 'cancelled';
+  status: 'confirmed' | 'pending' | 'cancelled' | 'checked-in' | 'completed';
   area_name: string;
   notes?: string;
   establishment_id?: number;
@@ -35,3 +35,4 @@ export interface ReservationFormData {
   establishment_id?: number;
   created_by?: number;
 }
+

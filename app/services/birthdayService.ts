@@ -1,6 +1,6 @@
 // app/services/birthdayService.ts
 
-const API_BASE_URL = 'http://localhost:3001/api';
+const API_BASE_URL = 'https://vamos-comemorar-api.onrender.com/api';
 
 export interface BirthdayReservation {
   id: number;
