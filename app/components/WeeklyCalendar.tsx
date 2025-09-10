@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { MdChevronLeft, MdChevronRight, MdAdd, MdEdit, MdDelete, MdPeople, MdPhone, MdRestaurant, MdTimer } from "react-icons/md";
+import { MdChevronLeft, MdChevronRight, MdAdd, MdEdit, MdDelete, MdPeople, MdPhone, MdRestaurant, MdTimer, MdSchedule, MdBarChart, MdVisibility, MdVisibilityOff } from "react-icons/md";
 import { motion } from "framer-motion";
 
 interface Reservation {
@@ -15,6 +15,8 @@ interface Reservation {
   area_name: string;
   status: 'confirmed' | 'pending' | 'cancelled' | 'checked-in' | 'completed';
   notes?: string;
+  table_number?: string;
+  establishment_id?: number;
 }
 
 interface WeeklyCalendarProps {
@@ -28,13 +30,17 @@ interface WeeklyCalendarProps {
 interface TimeSlot {
   time: string;
   reservations: Reservation[];
+  totalPeople: number;
 }
 
 interface DayData {
   date: Date;
   dayName: string;
-  dayNumber: number;
+  dayNumber: string;
+  monthName: string;
   timeSlots: TimeSlot[];
+  totalReservations: number;
+  totalPeople: number;
 }
 
 const TIME_SLOTS = [
@@ -46,6 +52,11 @@ const DAYS_OF_WEEK = [
   "Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"
 ];
 
+const MONTHS = [
+  "Jan", "Fev", "Mar", "Abr", "Mai", "Jun",
+  "Jul", "Ago", "Set", "Out", "Nov", "Dez"
+];
+
 export default function WeeklyCalendar({
   reservations,
   onAddReservation,
@@ -54,6 +65,8 @@ export default function WeeklyCalendar({
   onStatusChange
 }: WeeklyCalendarProps) {
   const [currentWeek, setCurrentWeek] = useState(new Date());
+  const [viewMode, setViewMode] = useState<'grid' | 'detailed'>('grid');
+  const [showEmptySlots, setShowEmptySlots] = useState(true);
 
   // Calcular início da semana (domingo)
   const getWeekStart = (date: Date) => {
@@ -94,10 +107,92 @@ export default function WeeklyCalendar({
     setCurrentWeek(new Date());
   };
 
+
+  // Ir para semana de 10 de setembro de 2025
+  const goToSeptember10Week = () => {
+    const september10Date = new Date('2025-09-10');
+    setCurrentWeek(september10Date);
+    console.log('🎯 Navegando para semana de 10 de setembro de 2025');
+  };
+
+  // Função auxiliar para normalizar datas
+  const normalizeDate = (dateString: string): string => {
+    try {
+      if (!dateString) return '';
+      
+      // Se a data já está no formato YYYY-MM-DD, retorna como está
+      if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
+        return dateString;
+      }
+      
+      // Caso contrário, converte para o formato correto
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) {
+        console.error('Data inválida:', dateString);
+        return '';
+      }
+      
+      // Usar UTC para evitar problemas de timezone
+      const year = date.getUTCFullYear();
+      const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+      const day = String(date.getUTCDate()).padStart(2, '0');
+      
+      const normalizedDate = `${year}-${month}-${day}`;
+      
+      return normalizedDate;
+    } catch (error) {
+      console.error('Erro ao normalizar data:', dateString, error);
+      return '';
+    }
+  };
+
+  // Função auxiliar para normalizar horários
+  const normalizeTime = (timeString: string): string => {
+    try {
+      if (!timeString) return '';
+      
+      // Se o horário já está no formato HH:MM, retorna como está
+      if (/^\d{2}:\d{2}$/.test(timeString)) {
+        return timeString;
+      }
+      
+      // Se está no formato HH:MM:SS, remove os segundos
+      if (/^\d{2}:\d{2}:\d{2}$/.test(timeString)) {
+        const normalizedTime = timeString.substring(0, 5);
+        return normalizedTime;
+      }
+      
+      // Se está no formato H:MM, adiciona zero à esquerda
+      if (/^\d{1}:\d{2}$/.test(timeString)) {
+        const normalizedTime = '0' + timeString;
+        return normalizedTime;
+      }
+      
+      // Caso contrário, tenta converter
+      const time = new Date(`2000-01-01T${timeString}`);
+      if (isNaN(time.getTime())) {
+        console.error('Horário inválido:', timeString);
+        return '';
+      }
+      
+      const normalizedTime = time.toTimeString().substring(0, 5);
+      return normalizedTime;
+    } catch (error) {
+      console.error('Erro ao normalizar horário:', timeString, error);
+      return '';
+    }
+  };
+
   // Processar dados da semana
   const weekData = useMemo(() => {
     const weekStart = getWeekStart(currentWeek);
     const weekEnd = getWeekEnd(currentWeek);
+    
+    console.log('📅 Processando semana:', {
+      weekStart: weekStart.toISOString().split('T')[0],
+      weekEnd: weekEnd.toISOString().split('T')[0],
+      totalReservations: reservations.length
+    });
     
     
     const days: DayData[] = [];
@@ -107,39 +202,48 @@ export default function WeeklyCalendar({
       date.setDate(weekStart.getDate() + i);
       
       const dayName = DAYS_OF_WEEK[i];
-      const dayNumber = date.getDate();
+      const dayNumber = date.getDate().toString().padStart(2, '0');
+      const monthName = MONTHS[date.getMonth()];
       
-      // Filtrar reservas para este dia (usando o mesmo método do calendário mensal)
+      // Filtrar reservas para este dia
       const dayString = date.toISOString().split('T')[0];
+      
       const dayReservations = reservations.filter(reservation => {
-        // Processar data da reserva (pode vir em formato ISO com timezone)
-        let reservationDateStr;
         try {
-          const reservationDate = new Date(reservation.reservation_date);
-          // Usar toISOString() para garantir formato consistente
-          reservationDateStr = reservationDate.toISOString().split('T')[0];
+          const normalizedReservationDate = normalizeDate(reservation.reservation_date);
+          return normalizedReservationDate === dayString;
         } catch (error) {
           console.error('Erro ao processar data da reserva:', reservation.reservation_date, error);
           return false;
         }
-        
-        const isMatch = reservationDateStr === dayString;
-        return isMatch;
       });
       
       // Agrupar reservas por horário
-      const timeSlots: TimeSlot[] = TIME_SLOTS.map(time => ({
-        time,
-        reservations: dayReservations.filter(reservation => 
-          reservation.reservation_time === time
-        )
-      }));
+      const timeSlots: TimeSlot[] = TIME_SLOTS.map(time => {
+        const slotReservations = dayReservations.filter(reservation => {
+          const normalizedReservationTime = normalizeTime(reservation.reservation_time);
+          return normalizedReservationTime === time;
+        });
+        const totalPeople = slotReservations.reduce((sum, res) => sum + res.number_of_people, 0);
+        
+        return {
+          time,
+          reservations: slotReservations,
+          totalPeople
+        };
+      });
+      
+      const totalReservations = dayReservations.length;
+      const totalPeople = dayReservations.reduce((sum, res) => sum + res.number_of_people, 0);
       
       days.push({
         date,
         dayName,
         dayNumber,
-        timeSlots
+        monthName,
+        timeSlots,
+        totalReservations,
+        totalPeople
       });
     }
     
@@ -195,10 +299,35 @@ export default function WeeklyCalendar({
     return date < today;
   };
 
+
+  // Calcular estatísticas da semana
+  const weekStats = useMemo(() => {
+    const totalReservations = weekData.reduce((sum, day) => sum + day.totalReservations, 0);
+    const totalPeople = weekData.reduce((sum, day) => sum + day.totalPeople, 0);
+    const averagePerDay = weekData.length > 0 ? Math.round(totalReservations / weekData.length) : 0;
+    
+    return {
+      totalReservations,
+      totalPeople,
+      averagePerDay
+    };
+  }, [weekData]);
+
   return (
     <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+      {/* Debug Info - Apenas em desenvolvimento */}
+      {process.env.NODE_ENV === 'development' && (
+        <div className="bg-blue-50 p-3 border-b border-blue-200">
+          <div className="text-sm text-blue-700">
+            <p><strong>Total de reservas carregadas:</strong> {reservations.length}</p>
+            <p><strong>Reservas da semana atual:</strong> {weekStats.totalReservations}</p>
+            <p><strong>Semana exibida:</strong> {weekData[0]?.dayNumber} {weekData[0]?.monthName} - {weekData[6]?.dayNumber} {weekData[6]?.monthName} {weekData[6]?.date.getFullYear()}</p>
+          </div>
+        </div>
+      )}
+
       {/* Header da semana */}
-      <div className="bg-gray-50 px-6 py-4 border-b border-gray-200">
+      <div className="bg-gradient-to-r from-gray-50 to-gray-100 px-6 py-4 border-b border-gray-200">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <button
@@ -214,179 +343,393 @@ export default function WeeklyCalendar({
               Hoje
             </button>
             <button
+              onClick={goToSeptember10Week}
+              className="px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg transition-colors text-sm font-medium"
+            >
+              10 Set
+            </button>
+            <button
               onClick={goToNextWeek}
               className="p-2 hover:bg-gray-200 rounded-lg transition-colors"
             >
               <MdChevronRight size={20} className="text-gray-600" />
             </button>
           </div>
+          
           <div className="text-center">
             <h3 className="text-lg font-semibold text-gray-800">
-              {weekData[0]?.date.toLocaleDateString('pt-BR', { 
-                day: '2-digit', 
-                month: '2-digit' 
-              })} - {weekData[6]?.date.toLocaleDateString('pt-BR', { 
-                day: '2-digit', 
-                month: '2-digit',
-                year: 'numeric'
-              })}
+              {weekData[0]?.dayNumber} {weekData[0]?.monthName} - {weekData[6]?.dayNumber} {weekData[6]?.monthName} {weekData[6]?.date.getFullYear()}
             </h3>
-            <p className="text-sm text-gray-600 mt-1">
-              Total de reservas: {weekData.reduce((sum, day) => 
-                sum + day.timeSlots.reduce((daySum, slot) => daySum + slot.reservations.length, 0), 0
-              )}
-            </p>
+            <div className="flex items-center gap-4 mt-2 text-sm text-gray-600">
+              <div className="flex items-center gap-1">
+                <MdRestaurant size={16} />
+                <span>{weekStats.totalReservations} reservas</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <MdPeople size={16} />
+                <span>{weekStats.totalPeople} pessoas</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <MdBarChart size={16} />
+                <span>Média: {weekStats.averagePerDay}/dia</span>
+              </div>
+            </div>
           </div>
-          <div className="w-24"></div> {/* Espaçador para centralizar o título */}
+          
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setViewMode(viewMode === 'grid' ? 'detailed' : 'grid')}
+              className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors text-sm ${
+                viewMode === 'grid' 
+                  ? 'bg-blue-500 text-white' 
+                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+              }`}
+            >
+              <MdSchedule size={16} />
+              {viewMode === 'grid' ? 'Grade' : 'Detalhado'}
+            </button>
+            <button
+              onClick={() => setShowEmptySlots(!showEmptySlots)}
+              className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors text-sm ${
+                showEmptySlots 
+                  ? 'bg-green-500 text-white' 
+                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+              }`}
+            >
+              {showEmptySlots ? <MdVisibility size={16} /> : <MdVisibilityOff size={16} />}
+              {showEmptySlots ? 'Ocultar Vazios' : 'Mostrar Vazios'}
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* Grid da semana */}
-      <div className="overflow-x-auto">
-        <div className="min-w-[800px]">
-          {/* Cabeçalho dos dias */}
-          <div className="grid grid-cols-8 border-b border-gray-200">
-            <div className="p-3 bg-gray-50 border-r border-gray-200">
-              <div className="text-sm font-medium text-gray-600">Horário</div>
-            </div>
-            {weekData.map((day, index) => (
-              <div
-                key={index}
-                className={`p-3 text-center border-r border-gray-200 ${
-                  isToday(day.date) 
-                    ? 'bg-blue-50' 
-                    : isPastDate(day.date)
-                    ? 'bg-gray-50'
-                    : 'bg-white'
-                }`}
-              >
-                <div className={`text-sm font-medium ${
-                  isToday(day.date) 
-                    ? 'text-blue-800' 
-                    : isPastDate(day.date)
-                    ? 'text-gray-500'
-                    : 'text-gray-800'
-                }`}>
-                  {day.dayName}
-                </div>
-                <div className={`text-lg font-bold ${
-                  isToday(day.date) 
-                    ? 'text-blue-900' 
-                    : isPastDate(day.date)
-                    ? 'text-gray-400'
-                    : 'text-gray-900'
-                }`}>
-                  {day.dayNumber}
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* Slots de horário */}
-          {TIME_SLOTS.map((time, timeIndex) => (
-            <div key={time} className="grid grid-cols-8 border-b border-gray-100">
-              {/* Coluna de horário */}
+      {/* Visualização em Grade */}
+      {viewMode === 'grid' && (
+        <div className="overflow-x-auto">
+          <div className="min-w-[1000px]">
+            {/* Cabeçalho dos dias */}
+            <div className="grid grid-cols-8 border-b border-gray-200">
               <div className="p-3 bg-gray-50 border-r border-gray-200">
-                <div className="text-sm font-medium text-gray-600">{time}</div>
+                <div className="text-sm font-medium text-gray-600">Horário</div>
               </div>
-              
-              {/* Colunas dos dias */}
-              {weekData.map((day, dayIndex) => (
+              {weekData.map((day, index) => (
                 <div
-                  key={dayIndex}
-                  className={`relative p-2 border-r border-gray-100 min-h-[120px] ${
+                  key={index}
+                  className={`p-3 text-center border-r border-gray-200 ${
                     isToday(day.date) 
-                      ? 'bg-blue-50/30' 
+                      ? 'bg-blue-50' 
                       : isPastDate(day.date)
                       ? 'bg-gray-50'
-                      : 'bg-white hover:bg-gray-50'
+                      : 'bg-white'
                   }`}
                 >
-                  {/* Indicador de reservas */}
-                  {day.timeSlots[timeIndex]?.reservations.length > 0 && (
-                    <div className="absolute top-1 right-1 bg-blue-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold">
-                      {day.timeSlots[timeIndex].reservations.length}
-                    </div>
-                  )}
-                  
-                  {/* Botão para adicionar reserva */}
-                  {!isPastDate(day.date) && day.timeSlots[timeIndex]?.reservations.length === 0 && (
-                    <button
-                      onClick={() => onAddReservation(day.date, time)}
-                      className="w-full h-full flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors group"
-                    >
-                      <MdAdd size={16} className="opacity-0 group-hover:opacity-100 transition-opacity" />
-                    </button>
-                  )}
-                  
-                  {/* Reservas para este horário */}
-                  <div className="space-y-1">
-                    {day.timeSlots[timeIndex]?.reservations.map((reservation) => (
-                      <motion.div
-                        key={reservation.id}
-                        initial={{ opacity: 0, scale: 0.9 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        className="p-2 rounded-lg border text-xs cursor-pointer hover:shadow-sm transition-shadow bg-white"
-                        onClick={() => onEditReservation(reservation)}
-                      >
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="font-medium text-gray-800 truncate">
-                            {reservation.client_name}
-                          </span>
-                          <span className={`px-1.5 py-0.5 rounded text-xs font-medium border ${getStatusColor(reservation.status)}`}>
-                            {getStatusText(reservation.status)}
-                          </span>
-                        </div>
-                        
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-1 text-gray-600">
-                            <MdPeople size={12} />
-                            <span>{reservation.number_of_people}p</span>
-                          </div>
-                          
-                          <div className="flex items-center gap-1 text-gray-600">
-                            <MdRestaurant size={12} />
-                            <span className="truncate">{reservation.area_name}</span>
-                          </div>
-                          
-                          {reservation.client_phone && (
-                            <div className="flex items-center gap-1 text-gray-600">
-                              <MdPhone size={12} />
-                              <span className="truncate">{reservation.client_phone}</span>
-                            </div>
-                          )}
-                        </div>
-                        
-                        {/* Botões de ação */}
-                        <div className="flex gap-1 mt-2">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onEditReservation(reservation);
-                            }}
-                            className="flex-1 px-2 py-1 bg-blue-500 hover:bg-blue-600 text-white text-xs rounded transition-colors"
-                          >
-                            <MdEdit size={12} />
-                          </button>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onDeleteReservation(reservation);
-                            }}
-                            className="flex-1 px-2 py-1 bg-red-500 hover:bg-red-600 text-white text-xs rounded transition-colors"
-                          >
-                            <MdDelete size={12} />
-                          </button>
-                        </div>
-                      </motion.div>
-                    ))}
+                  <div className={`text-sm font-medium ${
+                    isToday(day.date) 
+                      ? 'text-blue-800' 
+                      : isPastDate(day.date)
+                      ? 'text-gray-500'
+                      : 'text-gray-800'
+                  }`}>
+                    {day.dayName}
+                  </div>
+                  <div className={`text-lg font-bold ${
+                    isToday(day.date) 
+                      ? 'text-blue-900' 
+                      : isPastDate(day.date)
+                      ? 'text-gray-400'
+                      : 'text-gray-900'
+                  }`}>
+                    {day.dayNumber}
+                  </div>
+                  <div className={`text-xs ${
+                    isToday(day.date) 
+                      ? 'text-blue-600' 
+                      : isPastDate(day.date)
+                      ? 'text-gray-400'
+                      : 'text-gray-500'
+                  }`}>
+                    {day.totalReservations} res.
                   </div>
                 </div>
               ))}
             </div>
-          ))}
+
+            {/* Slots de horário */}
+            {TIME_SLOTS.map((time, timeIndex) => {
+              const hasReservations = weekData.some(day => day.timeSlots[timeIndex]?.reservations.length > 0);
+              
+              if (!showEmptySlots && !hasReservations) return null;
+              
+              return (
+                <div key={time} className="grid grid-cols-8 border-b border-gray-100">
+                  {/* Coluna de horário */}
+                  <div className="p-3 bg-gray-50 border-r border-gray-200">
+                    <div className="text-sm font-medium text-gray-600">{time}</div>
+                  </div>
+                  
+                  {/* Colunas dos dias */}
+                  {weekData.map((day, dayIndex) => (
+                    <div
+                      key={dayIndex}
+                      className={`relative p-2 border-r border-gray-100 min-h-[120px] ${
+                        isToday(day.date) 
+                          ? 'bg-blue-50/30' 
+                          : isPastDate(day.date)
+                          ? 'bg-gray-50'
+                          : 'bg-white hover:bg-gray-50'
+                      }`}
+                    >
+                      {/* Indicador de reservas */}
+                      {day.timeSlots[timeIndex]?.reservations.length > 0 && (
+                        <div className="absolute top-1 right-1 bg-blue-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold">
+                          {day.timeSlots[timeIndex].reservations.length}
+                        </div>
+                      )}
+                      
+                      {/* Botão para adicionar reserva */}
+                      {!isPastDate(day.date) && day.timeSlots[timeIndex]?.reservations.length === 0 && (
+                        <button
+                          onClick={() => onAddReservation(day.date, time)}
+                          className="w-full h-full flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors group"
+                        >
+                          <MdAdd size={16} className="opacity-0 group-hover:opacity-100 transition-opacity" />
+                        </button>
+                      )}
+                      
+                      {/* Reservas para este horário */}
+                      <div className="space-y-1">
+                        {day.timeSlots[timeIndex]?.reservations.map((reservation) => (
+                          <motion.div
+                            key={reservation.id}
+                            initial={{ opacity: 0, scale: 0.9 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            className="p-2 rounded-lg border-2 text-xs cursor-pointer hover:shadow-lg transition-all duration-200 bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200 hover:border-blue-400"
+                            onClick={() => onEditReservation(reservation)}
+                          >
+                            {/* Cabeçalho da reserva */}
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="font-bold text-gray-800 truncate text-xs">
+                                {reservation.client_name}
+                              </span>
+                              <span className={`px-2 py-1 rounded-full text-xs font-bold ${getStatusColor(reservation.status)}`}>
+                                {getStatusText(reservation.status)}
+                              </span>
+                            </div>
+                            
+                            {/* Informações da reserva */}
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-1 text-gray-600">
+                                <MdPeople size={12} className="text-blue-500" />
+                                <span className="font-medium">{reservation.number_of_people}p</span>
+                              </div>
+                              
+                              <div className="flex items-center gap-1 text-gray-600">
+                                <MdRestaurant size={12} className="text-green-500" />
+                                <span className="truncate font-medium">{reservation.area_name}</span>
+                              </div>
+                              
+                              {reservation.table_number && (
+                                <div className="flex items-center gap-1 text-gray-600">
+                                  <MdRestaurant size={12} className="text-orange-500" />
+                                  <span className="truncate font-medium">Mesa {reservation.table_number}</span>
+                                </div>
+                              )}
+                              
+                              {reservation.client_phone && (
+                                <div className="flex items-center gap-1 text-gray-600">
+                                  <MdPhone size={12} className="text-purple-500" />
+                                  <span className="truncate font-medium">{reservation.client_phone}</span>
+                                </div>
+                              )}
+                            </div>
+                            
+                            {/* Botões de ação */}
+                            <div className="flex gap-1 mt-2">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onEditReservation(reservation);
+                                }}
+                                className="flex-1 px-2 py-1 bg-blue-500 hover:bg-blue-600 text-white text-xs rounded-lg transition-colors font-medium"
+                              >
+                                <MdEdit size={12} />
+                              </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onDeleteReservation(reservation);
+                                }}
+                                className="flex-1 px-2 py-1 bg-red-500 hover:bg-red-600 text-white text-xs rounded-lg transition-colors font-medium"
+                              >
+                                <MdDelete size={12} />
+                              </button>
+                            </div>
+                          </motion.div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              );
+            })}
+          </div>
         </div>
-      </div>
+      )}
+
+      {/* Visualização Detalhada */}
+      {viewMode === 'detailed' && (
+        <div className="p-6">
+          <div className="space-y-6">
+            {weekData.map((day, dayIndex) => (
+              <div key={dayIndex} className="bg-gray-50 rounded-lg p-4">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${
+                      isToday(day.date) 
+                        ? 'bg-blue-500 text-white' 
+                        : isPastDate(day.date)
+                        ? 'bg-gray-400 text-white'
+                        : 'bg-gray-200 text-gray-700'
+                    }`}>
+                      <div className="text-center">
+                        <div className="text-sm font-bold">{day.dayNumber}</div>
+                        <div className="text-xs">{day.monthName}</div>
+                      </div>
+                    </div>
+                    <div>
+                      <h3 className={`text-lg font-semibold ${
+                        isToday(day.date) 
+                          ? 'text-blue-800' 
+                          : isPastDate(day.date)
+                          ? 'text-gray-500'
+                          : 'text-gray-800'
+                      }`}>
+                        {day.dayName}
+                      </h3>
+                      <p className="text-sm text-gray-600">
+                        {day.totalReservations} reservas • {day.totalPeople} pessoas
+                      </p>
+                    </div>
+                  </div>
+                  
+                  {!isPastDate(day.date) && (
+                    <button
+                      onClick={() => onAddReservation(day.date, '19:00')}
+                      className="flex items-center gap-2 px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg transition-colors text-sm"
+                    >
+                      <MdAdd size={16} />
+                      Nova Reserva
+                    </button>
+                  )}
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {day.timeSlots
+                    .filter(slot => showEmptySlots || slot.reservations.length > 0)
+                    .map((slot, slotIndex) => (
+                    <div key={slotIndex} className="bg-white rounded-lg border border-gray-200 p-4">
+                      <div className="flex items-center justify-between mb-3">
+                        <h4 className="font-semibold text-gray-800">{slot.time}</h4>
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm text-gray-600">
+                            {slot.reservations.length} res.
+                          </span>
+                          <span className="text-sm text-gray-600">
+                            {slot.totalPeople} p.
+                          </span>
+                        </div>
+                      </div>
+                      
+                      {slot.reservations.length === 0 ? (
+                        <div className="text-center py-4 text-gray-400">
+                          <MdRestaurant size={24} className="mx-auto mb-2" />
+                          <p className="text-sm">Nenhuma reserva</p>
+                          {!isPastDate(day.date) && (
+                            <button
+                              onClick={() => onAddReservation(day.date, slot.time)}
+                              className="mt-2 text-blue-500 hover:text-blue-600 text-sm"
+                            >
+                              Adicionar reserva
+                            </button>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          {slot.reservations.map((reservation) => (
+                            <motion.div
+                              key={reservation.id}
+                              initial={{ opacity: 0, y: 10 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              className="p-3 bg-gray-50 rounded-lg border border-gray-100 hover:shadow-sm transition-shadow cursor-pointer"
+                              onClick={() => onEditReservation(reservation)}
+                            >
+                              <div className="flex items-center justify-between mb-2">
+                                <span className="font-medium text-gray-800">
+                                  {reservation.client_name}
+                                </span>
+                                <span className={`px-2 py-1 rounded text-xs font-medium border ${getStatusColor(reservation.status)}`}>
+                                  {getStatusText(reservation.status)}
+                                </span>
+                              </div>
+                              
+                              <div className="space-y-1 text-sm text-gray-600">
+                                <div className="flex items-center gap-2">
+                                  <MdPeople size={14} />
+                                  <span>{reservation.number_of_people} pessoas</span>
+                                </div>
+                                
+                                <div className="flex items-center gap-2">
+                                  <MdRestaurant size={14} />
+                                  <span>{reservation.area_name}</span>
+                                </div>
+                                
+                                {reservation.table_number && (
+                                  <div className="flex items-center gap-2">
+                                    <MdRestaurant size={14} />
+                                    <span>Mesa {reservation.table_number}</span>
+                                  </div>
+                                )}
+                                
+                                {reservation.client_phone && (
+                                  <div className="flex items-center gap-2">
+                                    <MdPhone size={14} />
+                                    <span>{reservation.client_phone}</span>
+                                  </div>
+                                )}
+                              </div>
+                              
+                              <div className="flex gap-1 mt-2">
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    onEditReservation(reservation);
+                                  }}
+                                  className="flex-1 px-2 py-1 bg-blue-500 hover:bg-blue-600 text-white text-xs rounded transition-colors"
+                                >
+                                  Editar
+                                </button>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    onDeleteReservation(reservation);
+                                  }}
+                                  className="flex-1 px-2 py-1 bg-red-500 hover:bg-red-600 text-white text-xs rounded transition-colors"
+                                >
+                                  Excluir
+                                </button>
+                              </div>
+                            </motion.div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

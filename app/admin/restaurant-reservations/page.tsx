@@ -67,18 +67,6 @@ export default function RestaurantReservationsPage() {
   const [error, setError] = useState<string | null>(null);
 
   const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL_LOCAL || 'https://vamos-comemorar-api.onrender.com';
-  const BASE_IMAGE_URL = 'https://grupoideiaum.com.br/cardapio-agilizaiapp/';
-  const PLACEHOLDER_IMAGE_URL = '/images/default-logo.png';
-
-  const getValidImageUrl = (filename: string): string => {
-    if (!filename || filename.trim() === '' || filename.startsWith('blob:')) {
-      return PLACEHOLDER_IMAGE_URL;
-    }
-    if (filename.startsWith('http://') || filename.startsWith('https://')) {
-      return filename;
-    }
-    return `${BASE_IMAGE_URL}${filename}`;
-  };
 
   const fetchEstablishments = useCallback(async () => {
     setLoading(true);
@@ -101,7 +89,7 @@ export default function RestaurantReservationsPage() {
         const formattedEstablishments: Establishment[] = data.map((place: any) => ({
           id: place.id,
           name: place.name || "Sem nome",
-          logo: getValidImageUrl(place.logo || ''),
+          logo: place.logo || '',
           address: place.street ? `${place.street}, ${place.number || ''}`.trim() : "Endereço não informado"
         }));
         setEstablishments(formattedEstablishments);
@@ -110,7 +98,7 @@ export default function RestaurantReservationsPage() {
         const formattedEstablishments: Establishment[] = data.data.map((place: any) => ({
           id: place.id,
           name: place.name || "Sem nome",
-          logo: getValidImageUrl(place.logo || ''),
+          logo: place.logo || '',
           address: place.street ? `${place.street}, ${place.number || ''}`.trim() : "Endereço não informado"
         }));
         setEstablishments(formattedEstablishments);
@@ -130,31 +118,31 @@ export default function RestaurantReservationsPage() {
         {
           id: 7,
           name: "High Line",
-          logo: getValidImageUrl("1730836360230.png"),
+          logo: "",
           address: "Rua Girassol, 144 - Vila Madalena"
         },
         {
           id: 1,
           name: "Seu Justino",
-          logo: getValidImageUrl("1729923901750.webp"),
+          logo: "",
           address: "Rua Harmonia, 77 - Vila Madalena"
         },
         {
           id: 4,
           name: "Oh Freguês",
-          logo: getValidImageUrl("1730172121902.png"),
+          logo: "",
           address: "Largo da Matriz de Nossa Senhora do Ó, 145 - Freguesia do Ó"
         },
         {
           id: 8,
           name: "Pracinha do Seu Justino",
-          logo: getValidImageUrl("1730836754093.png"),
+          logo: "",
           address: "Rua Harmonia, 117 - Sumarezinho"
         },
         {
           id: 9,
           name: "Reserva Rooftop",
-          logo: getValidImageUrl("rooftop-logo.png"),
+          logo: "",
           address: "Endereço do Reserva Rooftop"
         }
       ]);
@@ -259,14 +247,35 @@ export default function RestaurantReservationsPage() {
       }
 
       // Carregar reservas da API
+      console.log('🔍 Buscando reservas para estabelecimento:', selectedEstablishment.id);
+      console.log('🔍 URL da API:', `${API_URL}/api/restaurant-reservations?establishment_id=${selectedEstablishment.id}`);
+      
       const reservationsResponse = await fetch(`${API_URL}/api/restaurant-reservations?establishment_id=${selectedEstablishment.id}`);
+      
+      console.log('📡 Status da resposta:', reservationsResponse.status);
+      console.log('📡 Headers da resposta:', Object.fromEntries(reservationsResponse.headers.entries()));
+      
       if (reservationsResponse.ok) {
         const reservationsData = await reservationsResponse.json();
+        console.log('✅ Dados completos da API:', reservationsData);
         console.log('✅ Reservas carregadas da API:', reservationsData.reservations?.length || 0);
+        
+        if (reservationsData.reservations && reservationsData.reservations.length > 0) {
+          console.log('📋 Dados das reservas:', reservationsData.reservations.map((r: any) => ({
+            id: r.id,
+            client_name: r.client_name,
+            reservation_date: r.reservation_date,
+            reservation_time: r.reservation_time,
+            establishment_id: r.establishment_id
+          })));
+        } else {
+          console.log('⚠️ Nenhuma reserva encontrada na resposta da API');
+        }
+        
         setReservations(reservationsData.reservations || []);
       } else {
-        console.error('❌ Erro ao carregar reservas:', reservationsResponse.statusText);
-        // Fallback para dados mock apenas se não conseguir conectar
+        const errorText = await reservationsResponse.text();
+        console.error('❌ Erro ao carregar reservas:', reservationsResponse.status, errorText);
         setReservations([]);
       }
 
@@ -652,12 +661,10 @@ export default function RestaurantReservationsPage() {
                   className="p-4 rounded-xl border-2 transition-all duration-200 hover:shadow-lg border-gray-200 bg-white hover:border-gray-300"
                 >
                   <div className="text-center">
-                    <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
-                      <img
-                        src={establishment.logo}
-                        alt={establishment.name}
-                        className="w-12 h-12 object-contain"
-                      />
+                    <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center relative">
+                      <span className="text-2xl font-bold text-gray-600">
+                        {establishment.name.charAt(0)}
+                      </span>
                     </div>
                     <h3 className="text-lg font-semibold text-gray-800 mb-2">
                       {establishment.name}
@@ -677,11 +684,9 @@ export default function RestaurantReservationsPage() {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
                   <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center">
-                    <img
-                      src={selectedEstablishment.logo}
-                      alt={selectedEstablishment.name}
-                      className="w-8 h-8 object-contain"
-                    />
+                    <span className="text-xl font-bold text-gray-600">
+                      {selectedEstablishment.name.charAt(0)}
+                    </span>
                   </div>
                   <div>
                     <h2 className="text-2xl font-bold text-gray-800">
