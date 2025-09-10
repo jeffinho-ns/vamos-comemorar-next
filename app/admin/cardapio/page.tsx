@@ -39,6 +39,17 @@ interface MenuSubCategory {
   order: number;
 }
 
+// Tipos para selos
+type FoodSeal = 'especial-do-dia' | 'vegetariano' | 'saudavel-leve' | 'prato-da-casa' | 'artesanal';
+type DrinkSeal = 'assinatura-bartender' | 'edicao-limitada' | 'processo-artesanal' | 'sem-alcool' | 'refrescante' | 'citrico' | 'doce' | 'picante';
+
+interface Seal {
+  id: string;
+  name: string;
+  color: string;
+  type: 'food' | 'drink';
+}
+
 interface MenuItemForm {
   name: string;
   description: string;
@@ -49,6 +60,7 @@ interface MenuItemForm {
   subCategory: string; // Sub-categoria como string simples
   toppings: Topping[];
   order: number;
+  seals: string[]; // IDs dos selos selecionados
 }
 
 interface MenuCategoryForm {
@@ -90,6 +102,7 @@ interface MenuItem {
   subCategoryName?: string; // Nome da sub-categoria para exibição (mesmo que subCategory)
   toppings: Topping[];
   order: number;
+  seals?: string[]; // IDs dos selos selecionados
 }
 
 // **CORREÇÃO**: Interface Bar atualizada para incluir os campos sociais
@@ -124,6 +137,28 @@ const API_UPLOAD_URL = 'https://vamos-comemorar-api.onrender.com/api/images/uplo
 
 const PLACEHOLDER_IMAGE_URL = 'https://placehold.co/400x300';
 const BASE_IMAGE_URL = 'https://grupoideiaum.com.br/cardapio-agilizaiapp/';
+
+// Constantes dos selos
+const FOOD_SEALS: Seal[] = [
+  { id: 'especial-do-dia', name: 'Especial do Dia', color: '#FF6B35', type: 'food' },
+  { id: 'vegetariano', name: 'Vegetariano', color: '#4CAF50', type: 'food' },
+  { id: 'saudavel-leve', name: 'Saudável/Leve', color: '#8BC34A', type: 'food' },
+  { id: 'prato-da-casa', name: 'Prato da Casa', color: '#FF9800', type: 'food' },
+  { id: 'artesanal', name: 'Artesanal', color: '#795548', type: 'food' },
+];
+
+const DRINK_SEALS: Seal[] = [
+  { id: 'assinatura-bartender', name: 'Assinatura do Bartender', color: '#9C27B0', type: 'drink' },
+  { id: 'edicao-limitada', name: 'Edição Limitada', color: '#E91E63', type: 'drink' },
+  { id: 'processo-artesanal', name: 'Processo Artesanal', color: '#673AB7', type: 'drink' },
+  { id: 'sem-alcool', name: 'Sem Álcool', color: '#00BCD4', type: 'drink' },
+  { id: 'refrescante', name: 'Refrescante', color: '#00E5FF', type: 'drink' },
+  { id: 'citrico', name: 'Cítrico', color: '#FFEB3B', type: 'drink' },
+  { id: 'doce', name: 'Doce', color: '#FFC107', type: 'drink' },
+  { id: 'picante', name: 'Picante', color: '#F44336', type: 'drink' },
+];
+
+const ALL_SEALS = [...FOOD_SEALS, ...DRINK_SEALS];
 
 const getValidImageUrl = (filename: string): string => {
   if (!filename || filename.trim() === '' || filename.startsWith('blob:')) {
@@ -210,6 +245,7 @@ export default function CardapioAdminPage() {
     subCategory: '',
     toppings: [],
     order: 0,
+    seals: [],
   });
 
   const [newTopping, setNewTopping] = useState({ name: '', price: '' });
@@ -353,6 +389,43 @@ export default function CardapioAdminPage() {
     }));
   }, []);
 
+  // Funções para gerenciar selos
+  const handleToggleSeal = useCallback((sealId: string) => {
+    setItemForm((prev: MenuItemForm) => ({
+      ...prev,
+      seals: prev.seals.includes(sealId)
+        ? prev.seals.filter((id) => id !== sealId)
+        : [...prev.seals, sealId],
+    }));
+  }, []);
+
+  const getSealById = useCallback((sealId: string) => {
+    return ALL_SEALS.find((seal) => seal.id === sealId);
+  }, []);
+
+  // Componente para renderizar selos de um item
+  const renderItemSeals = useCallback((seals: string[]) => {
+    if (!seals || seals.length === 0) return null;
+    
+    return (
+      <div className="flex flex-wrap gap-1 mt-2">
+        {seals.map((sealId) => {
+          const seal = getSealById(sealId);
+          if (!seal) return null;
+          return (
+            <span
+              key={sealId}
+              className="inline-flex items-center rounded-full px-2 py-1 text-xs font-medium text-white shadow-sm"
+              style={{ backgroundColor: seal.color }}
+            >
+              {seal.name}
+            </span>
+          );
+        })}
+      </div>
+    );
+  }, [getSealById]);
+
   const handleCloseBarModal = useCallback(() => {
     setShowBarModal(false);
     setEditingBar(null);
@@ -395,6 +468,7 @@ export default function CardapioAdminPage() {
       subCategory: '',
       toppings: [],
       order: 0,
+      seals: [],
     });
     setNewTopping({ name: '', price: '' });
   }, []);
@@ -1292,6 +1366,7 @@ export default function CardapioAdminPage() {
       subCategory: item.subCategory || item.subCategoryName || '',
       toppings: item.toppings || [],
       order: item.order,
+      seals: item.seals || [],
     });
     setShowItemModal(true);
   }, []);
@@ -1324,6 +1399,7 @@ export default function CardapioAdminPage() {
         subCategory: '',
         toppings: [],
         order: 0,
+        seals: [],
       });
       setShowItemModal(true);
     }
@@ -2080,6 +2156,7 @@ export default function CardapioAdminPage() {
                                 <p className="mb-2 line-clamp-2 text-sm text-gray-600">
                                   {item.description}
                                 </p>
+                                {renderItemSeals(item.seals || [])}
                                 <div className="text-xs text-gray-500">
                                   <p>Categoria: {category?.name}</p>
                                   {(item.subCategory || item.subCategoryName) && (
@@ -2690,6 +2767,84 @@ export default function CardapioAdminPage() {
                     <MdAdd className="h-4 w-4" />
                   </button>
                 </div>
+              </div>
+            </div>
+
+            {/* Seção de Selos */}
+            <div>
+              <label className="mb-2 block text-sm font-medium text-gray-700">Selos</label>
+              <div className="space-y-4">
+                {/* Selos de Comida */}
+                <div>
+                  <h4 className="mb-2 text-sm font-medium text-gray-600">Comida</h4>
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                    {FOOD_SEALS.map((seal) => (
+                      <label
+                        key={seal.id}
+                        className="flex cursor-pointer items-center space-x-2 rounded-md border p-2 hover:bg-gray-50"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={itemForm.seals.includes(seal.id)}
+                          onChange={() => handleToggleSeal(seal.id)}
+                          className="h-4 w-4 text-blue-600 focus:ring-blue-500"
+                        />
+                        <div
+                          className="h-3 w-3 rounded-full"
+                          style={{ backgroundColor: seal.color }}
+                        />
+                        <span className="text-sm text-gray-700">{seal.name}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Selos de Bebida */}
+                <div>
+                  <h4 className="mb-2 text-sm font-medium text-gray-600">Bebida</h4>
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                    {DRINK_SEALS.map((seal) => (
+                      <label
+                        key={seal.id}
+                        className="flex cursor-pointer items-center space-x-2 rounded-md border p-2 hover:bg-gray-50"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={itemForm.seals.includes(seal.id)}
+                          onChange={() => handleToggleSeal(seal.id)}
+                          className="h-4 w-4 text-blue-600 focus:ring-blue-500"
+                        />
+                        <div
+                          className="h-3 w-3 rounded-full"
+                          style={{ backgroundColor: seal.color }}
+                        />
+                        <span className="text-sm text-gray-700">{seal.name}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Preview dos selos selecionados */}
+                {itemForm.seals.length > 0 && (
+                  <div>
+                    <h4 className="mb-2 text-sm font-medium text-gray-600">Preview dos Selos Selecionados</h4>
+                    <div className="flex flex-wrap gap-2">
+                      {itemForm.seals.map((sealId) => {
+                        const seal = getSealById(sealId);
+                        if (!seal) return null;
+                        return (
+                          <span
+                            key={sealId}
+                            className="inline-flex items-center rounded-full px-3 py-1 text-xs font-medium text-white"
+                            style={{ backgroundColor: seal.color }}
+                          >
+                            {seal.name}
+                          </span>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
