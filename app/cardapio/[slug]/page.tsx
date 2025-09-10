@@ -14,6 +14,28 @@ import { useGoogleAnalytics } from '../../hooks/useGoogleAnalytics';
 import ImageSlider from '../../components/ImageSlider/ImageSlider';
 import { scrollToSection } from '../../utils/scrollToSection';
 
+// Constantes dos selos
+const FOOD_SEALS: { [key: string]: { name: string; color: string } } = {
+  'especial-do-dia': { name: 'Especial do Dia', color: '#FF6B35' },
+  'vegetariano': { name: 'Vegetariano', color: '#4CAF50' },
+  'saudavel-leve': { name: 'Saudável/Leve', color: '#8BC34A' },
+  'prato-da-casa': { name: 'Prato da Casa', color: '#FF9800' },
+  'artesanal': { name: 'Artesanal', color: '#795548' },
+};
+
+const DRINK_SEALS: { [key: string]: { name: string; color: string } } = {
+  'assinatura-bartender': { name: 'Assinatura do Bartender', color: '#9C27B0' },
+  'edicao-limitada': { name: 'Edição Limitada', color: '#E91E63' },
+  'processo-artesanal': { name: 'Processo Artesanal', color: '#673AB7' },
+  'sem-alcool': { name: 'Sem Álcool', color: '#00BCD4' },
+  'refrescante': { name: 'Refrescante', color: '#00E5FF' },
+  'citrico': { name: 'Cítrico', color: '#FFEB3B' },
+  'doce': { name: 'Doce', color: '#FFC107' },
+  'picante': { name: 'Picante', color: '#F44336' },
+};
+
+const ALL_SEALS = { ...FOOD_SEALS, ...DRINK_SEALS };
+
 // Interfaces
 interface Topping {
   id: string | number;
@@ -33,6 +55,7 @@ interface MenuItem {
   subCategoryName?: string;
   toppings: Topping[];
   order: number;
+  seals?: string[];
 }
 
 interface MenuCategory {
@@ -394,6 +417,29 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
     [menuCategories, selectedCategory]
   );
 
+  // Componente para renderizar selos
+  const renderItemSeals = useCallback((seals: string[]) => {
+    if (!seals || seals.length === 0) return null;
+    
+    return (
+      <div className="flex flex-wrap gap-1 mb-3">
+        {seals.map((sealId) => {
+          const seal = ALL_SEALS[sealId];
+          if (!seal) return null;
+          return (
+            <span
+              key={sealId}
+              className="inline-flex items-center rounded-full px-2 py-1 text-xs font-medium text-white shadow-sm"
+              style={{ backgroundColor: seal.color }}
+            >
+              {seal.name}
+            </span>
+          );
+        })}
+      </div>
+    );
+  }, []);
+
   const MenuItemCard = useCallback(({ item, onClick }: { item: MenuItem, onClick: (item: MenuItem) => void }) => (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -425,6 +471,9 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
           {item.description}
         </p>
         
+        {/* Exibir selos */}
+        {renderItemSeals(item.seals || [])}
+        
         {item.toppings && item.toppings.length > 0 && (
           <div className="mb-3">
             <p className="text-xs font-medium text-gray-500 mb-1">Adicionais:</p>
@@ -442,7 +491,7 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
         )}
       </div>
     </motion.div>
-  ), [formatPrice]);
+  ), [formatPrice, renderItemSeals]);
 
   if (isLoading) {
     return (
@@ -984,6 +1033,9 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
                               <p className="text-gray-700 mb-6 leading-relaxed">
                                   {selectedItem.description}
                               </p>
+                              
+                              {/* Exibir selos no modal */}
+                              {renderItemSeals(selectedItem.seals || [])}
                               
                               {selectedItem.toppings && selectedItem.toppings.length > 0 && (
                                   <div className="mb-6">
