@@ -2,7 +2,7 @@
 
 ## 🎯 **Visão Geral**
 
-Este projeto implementa um **sistema de documentação online completo** para os Promoters do sistema Vamos Comemorar, substituindo a necessidade de documentos Word ou PDF.
+Este projeto implementa um **sistema de documentação online completo** para os Promoters do sistema Agilizaiapp, substituindo a necessidade de documentos Word ou PDF.
 
 ## 🚀 **Como Acessar**
 
@@ -270,7 +270,7 @@ const sections = [
 
 ---
 
-*Documentação criada para o Sistema Vamos Comemorar - Versão 1.0*
+*Documentação criada para o Sistema Agilizaiapp - Versão 1.0*
 *Última atualização: Dezembro 2024*
 
 

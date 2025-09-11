@@ -19,6 +19,7 @@ import Link from 'next/link';
 import IntroducaoSection from './components/IntroducaoSection';
 import AcessoSection from './components/AcessoSection';
 import CardapioSection from './components/CardapioSection';
+import ApresentacaoSection from './components/ApresentacaoSection';
 
 export default function DocumentacaoPage() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -73,6 +74,13 @@ export default function DocumentacaoPage() {
       icon: MdHelp,
       description: 'Como otimizar seu uso do sistema',
       color: 'from-teal-500 to-teal-600'
+    },
+    {
+      id: 'apresentacao',
+      title: '🎯 Apresentação Executiva',
+      icon: MdHome,
+      description: 'Visão geral focada na usabilidade e experiência do usuário',
+      color: 'from-indigo-500 to-indigo-600'
     },
     {
       id: 'suporte',
@@ -272,6 +280,7 @@ export default function DocumentacaoPage() {
             <IntroducaoSection />
             <AcessoSection />
             <CardapioSection />
+            <ApresentacaoSection />
 
             {/* Placeholder for remaining sections */}
             <div className="bg-white rounded-xl shadow-lg p-8 mb-8 border border-gray-200">

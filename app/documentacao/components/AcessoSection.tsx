@@ -110,7 +110,7 @@ export default function AcessoSection() {
           <div className="grid md:grid-cols-2 gap-8">
             <div>
               <p className="text-gray-700 mb-4">
-                O sistema <strong>Vamos Comemorar</strong> implementa um sistema de segurança robusto 
+                O sistema <strong>Agilizaiapp</strong> implementa um sistema de segurança robusto 
                 baseado em <strong>roles e permissões</strong>. Como Promoter, você tem acesso controlado 
                 apenas às funcionalidades necessárias para gerenciar seu estabelecimento.
               </p>

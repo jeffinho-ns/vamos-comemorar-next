@@ -1,7 +1,7 @@
 # 📄 Resumo das Páginas Criadas - Agilizaí App
 
 ## 🎯 Visão Geral
-Criamos todas as páginas solicitadas no footer com design moderno e consistente, seguindo o mesmo padrão visual do sistema. Também atualizamos o nome do projeto de "Vamos Comemorar" para "Agilizaí App" em todo o sistema.
+Criamos todas as páginas solicitadas no footer com design moderno e consistente, seguindo o mesmo padrão visual do sistema. Também atualizamos o nome do projeto de "Agilizaiapp" para "Agilizaí App" em todo o sistema.
 
 ## 🔄 Mudança de Nome do Projeto
 

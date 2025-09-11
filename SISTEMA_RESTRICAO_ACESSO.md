@@ -2,7 +2,7 @@
 
 ## Visão Geral
 
-Este documento descreve o sistema de restrição de acesso implementado no projeto Vamos Comemorar, que controla quais usuários podem acessar diferentes áreas do sistema administrativo baseado em seus roles (Administrador, Promoter, Cliente).
+Este documento descreve o sistema de restrição de acesso implementado no projeto Agilizaiapp, que controla quais usuários podem acessar diferentes áreas do sistema administrativo baseado em seus roles (Administrador, Promoter, Cliente).
 
 ## Estrutura de Permissões
 

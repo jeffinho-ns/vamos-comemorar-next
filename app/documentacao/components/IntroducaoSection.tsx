@@ -72,7 +72,7 @@ export default function IntroducaoSection() {
         {/* Header */}
         <div className="text-center mb-12">
           <h2 className="text-3xl font-bold text-gray-900 mb-4">
-            🎯 Bem-vindo ao Sistema Vamos Comemorar
+            🎯 Bem-vindo ao Sistema Agilizaiapp
           </h2>
           <p className="text-xl text-gray-600 max-w-3xl mx-auto">
             Como <strong>Promoter</strong>, você tem acesso a funcionalidades específicas para gerenciar 
@@ -89,7 +89,7 @@ export default function IntroducaoSection() {
           <div className="grid md:grid-cols-2 gap-6">
             <div>
               <p className="text-gray-700 mb-4">
-                O <strong>Vamos Comemorar</strong> é uma plataforma completa para gerenciamento de 
+                O <strong>Agilizaiapp</strong> é uma plataforma completa para gerenciamento de 
                 estabelecimentos gastronômicos, eventos e reservas. Como Promoter, você tem acesso 
                 controlado às funcionalidades específicas do seu estabelecimento.
               </p>
@@ -154,7 +154,7 @@ export default function IntroducaoSection() {
             </p>
             <div className="inline-flex items-center space-x-2 bg-blue-100 text-blue-800 px-4 py-2 rounded-full">
               <MdSecurity size={20} />
-              <span className="font-medium">Senha padrão: @123Mudar</span>
+              <span className="font-medium">Senha padrão: ********</span>
             </div>
           </div>
           

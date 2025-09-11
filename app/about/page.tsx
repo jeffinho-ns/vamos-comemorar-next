@@ -35,10 +35,10 @@ export default function About() {
                 Para muito além
               </h1>
               <p className="text-lg text-gray-700 mb-6">
-                de facilitar sua reserva, a <span className="text-orange-600 font-bold">Vamos Comemorar</span> ainda oferece os melhores locais da cidade para que sua celebração seja inesquecível, tudo de forma rápida e prática!
+                de facilitar sua reserva, a <span className="text-orange-600 font-bold">Agilizaiapp</span> ainda oferece os melhores locais da cidade para que sua celebração seja inesquecível, tudo de forma rápida e prática!
               </p>
               <p className="text-lg text-gray-700 mb-10">
-                Bem-vindo à Vamos Comemorar! Fique à vontade, a casa (e a comemoração) é sua!
+                Bem-vindo à Agilizaiapp! Fique à vontade, a casa (e a comemoração) é sua!
               </p>
             </div>
 
@@ -62,7 +62,7 @@ export default function About() {
             <h2 className="text-3xl font-bold mb-8">benefícios para o estabelecimento</h2>
             <ul className="space-y-6 text-lg">
               <li>Serviços de captação de clientes com o objetivo de promover o local e aumentar o número de clientes.</li>
-              <li>Suporte 24 horas da Vamos Comemorar para o cliente final, facilitando o serviço de concierge do próprio bar.</li>
+              <li>Suporte 24 horas da Agilizaiapp para o cliente final, facilitando o serviço de concierge do próprio bar.</li>
               <li>Diminuição de custos com marketing e ativações.</li>
               <li>Qualidade no atendimento ao cliente final.</li>
             </ul>
@@ -74,9 +74,9 @@ export default function About() {
       {/* Requisitos para Parcerias */}
       <section className="bg-blue-900 py-16 text-white">
         <div className="container mx-auto text-center">
-          <h2 className="text-3xl font-bold mb-8">O que eu preciso para meu bar estar na <span className="text-orange-500">Vamos Comemorar?</span></h2>
+          <h2 className="text-3xl font-bold mb-8">O que eu preciso para meu bar estar na <span className="text-orange-500">Agilizaiapp?</span></h2>
           <p className="text-lg mb-8">
-            Entrar em contato pelo nosso email <a href="mailto:contato@vamoscomemorar.com.br" className="text-orange-400 underline">contato@vamoscomemorar.com.br</a>, onde vamos pedir os dados e fazer o cadastro do bar e de um responsável para acessar o sistema.
+            Entrar em contato pelo nosso email <a href="mailto:contato@vamoscomemorar.com.br" className="text-orange-400 underline">contato@agilizaiapp.com.br</a>, onde vamos pedir os dados e fazer o cadastro do bar e de um responsável para acessar o sistema.
           </p>
           <p className="text-lg mb-8">
             Após o bar estar cadastrado o bar tem a opção de atualizar semanalmente a agenda inserindo atrações e promoções.
