@@ -20,6 +20,28 @@
   }
 }
 
+@media (max-width: 1024px) {
+  .admin-sidebar {
+    width: 16rem; /* 256px */
+  }
+  .admin-main-content {
+    padding: 1rem;
+  }
+  .admin-header {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+}
+@media (max-width: 768px) {
+  .admin-sidebar {
+    width: 100vw;
+    left: 0;
+  }
+  .admin-main-content {
+    padding: 0.5rem;
+  }
+}
+
 @media (max-width: 768px) {
   .admin-container {
     padding: 0.75rem;

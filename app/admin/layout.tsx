@@ -97,14 +97,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   if (isLoading) {
     return (
-      <div className="flex h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 items-center justify-center">
+      <div className="flex min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 items-center justify-center">
         <div className="text-white text-xl">Carregando...</div>
       </div>
     );
   }
 
   return (
-    <div className="flex h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
+    <div className="flex min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
       {/* Overlay para mobile */}
       {sidebarOpen && (
         <div 
@@ -114,10 +114,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       )}
       
       {/* Sidebar */}
-      <aside
-        className={`admin-sidebar bg-gray-800/95 backdrop-blur-sm text-white w-64 transform ${
-          sidebarOpen ? "translate-x-0 open" : "-translate-x-full"
-        } lg:translate-x-0 transition-transform duration-300 fixed lg:relative z-50 border-r border-gray-700/50 h-full`}
+<aside
+  className={`admin-sidebar bg-gray-800/95 backdrop-blur-sm text-white w-60 sm:w-64 md:w-72 transform ${
+    sidebarOpen ? "translate-x-0 open" : "-translate-x-full"
+  } lg:translate-x-0 transition-transform duration-300 fixed lg:relative z-50 border-r border-gray-700/50 h-full`}
       >
         <div className="p-6 flex items-center gap-3 border-b border-gray-700/50">
           <div className="bg-white/10 p-2 rounded-xl">
@@ -187,7 +187,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </header>
 
         {/* O conteúdo da página ativa é renderizado aqui */}
-        <main className="flex-1 overflow-auto">
+        <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
             {children}
         </main>
       </div>
