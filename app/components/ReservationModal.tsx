@@ -17,6 +17,9 @@ import {
   MdCancel
 } from 'react-icons/md';
 
+// Configuração da API
+const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL_LOCAL || 'https://vamos-comemorar-api.onrender.com';
+
 interface RestaurantArea {
   id: number;
   name: string;
@@ -52,6 +55,17 @@ export default function ReservationModal({
   establishment,
   areas = []
 }: ReservationModalProps) {
+  interface RestaurantTable {
+    id: number;
+    area_id: number;
+    table_number: string;
+    capacity: number;
+    table_type?: string;
+    description?: string;
+    is_active?: number;
+    is_reserved?: boolean;
+  }
+
   const [formData, setFormData] = useState({
     client_name: '',
     client_phone: '',
@@ -68,6 +82,23 @@ export default function ReservationModal({
 
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [tables, setTables] = useState<RestaurantTable[]>([]);
+  const [selectedSubareaKey, setSelectedSubareaKey] = useState<string>('');
+
+  // Subáreas do Highline (mapeiam para area_id base 2 ou 5)
+  const highlineSubareas = [
+    { key: 'deck-frente', area_id: 2, label: 'Área Deck - Frente', tableNumbers: ['05','06','07','08'] },
+    { key: 'deck-esquerdo', area_id: 2, label: 'Área Deck - Esquerdo', tableNumbers: ['01','02','03','04'] },
+    { key: 'deck-direito', area_id: 2, label: 'Área Deck - Direito', tableNumbers: ['09','10','11','12'] },
+    { key: 'bar', area_id: 2, label: 'Área Bar', tableNumbers: ['15','16','17'] },
+    { key: 'roof-direito', area_id: 5, label: 'Área Rooftop - Direito', tableNumbers: ['50','51','52','53','54','55'] },
+    { key: 'roof-bistro', area_id: 5, label: 'Área Rooftop - Bistrô', tableNumbers: ['70','71','72','73'] },
+    { key: 'roof-centro', area_id: 5, label: 'Área Rooftop - Centro', tableNumbers: ['44','45','46','47'] },
+    { key: 'roof-esquerdo', area_id: 5, label: 'Área Rooftop - Esquerdo', tableNumbers: ['60','61','62','63','64','65'] },
+    { key: 'roof-vista', area_id: 5, label: 'Área Rooftop - Vista', tableNumbers: ['40','41','42'] },
+  ];
+
+  const isHighline = establishment && ((establishment.name || '').toLowerCase().includes('high'));
 
   useEffect(() => {
     if (isOpen) {
@@ -105,6 +136,36 @@ export default function ReservationModal({
     }
   }, [isOpen, reservation, selectedDate, selectedTime]);
 
+  // Carregar mesas disponíveis quando área e data forem definidos
+  useEffect(() => {
+    const loadTables = async () => {
+      if (!formData.area_id || !formData.reservation_date) {
+        setTables([]);
+        return;
+      }
+      try {
+        const res = await fetch(`${API_URL}/api/restaurant-tables/${formData.area_id}/availability?date=${formData.reservation_date}`);
+        if (res.ok) {
+          const data = await res.json();
+          let fetched: RestaurantTable[] = Array.isArray(data.tables) ? data.tables : [];
+          if (isHighline && selectedSubareaKey) {
+            const sub = highlineSubareas.find(s => s.key === selectedSubareaKey);
+            if (sub) {
+              fetched = fetched.filter(t => sub.tableNumbers.includes(String(t.table_number)));
+            }
+          }
+          setTables(fetched);
+        } else {
+          setTables([]);
+        }
+      } catch (e) {
+        console.error('Erro ao carregar mesas (admin):', e);
+        setTables([]);
+      }
+    };
+    loadTables();
+  }, [formData.area_id, formData.reservation_date, selectedSubareaKey]);
+
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
 
@@ -126,6 +187,13 @@ export default function ReservationModal({
 
     if (formData.number_of_people < 1) {
       newErrors.number_of_people = 'Número de pessoas deve ser maior que 0';
+    }
+
+    // Exigir mesa quando houver opções compatíveis
+    const hasOptions = tables && tables.length > 0;
+    const hasCompatible = tables.some(t => !t.is_reserved && t.capacity >= formData.number_of_people);
+    if (hasOptions && hasCompatible && !formData.table_number) {
+      newErrors.table_number = 'Selecione uma mesa disponível';
     }
 
     setErrors(newErrors);
@@ -300,18 +368,33 @@ export default function ReservationModal({
                     Área *
                   </label>
                   <select
-                    value={formData.area_id}
-                    onChange={(e) => handleInputChange('area_id', e.target.value)}
+                    value={isHighline ? selectedSubareaKey : formData.area_id}
+                    onChange={(e) => {
+                      if (isHighline) {
+                        const key = e.target.value;
+                        setSelectedSubareaKey(key);
+                        const sub = highlineSubareas.find(s => s.key === key);
+                        handleInputChange('area_id', sub ? String(sub.area_id) : '');
+                        handleInputChange('table_number', '');
+                      } else {
+                        handleInputChange('area_id', e.target.value);
+                        handleInputChange('table_number', '');
+                      }
+                    }}
                     className={`w-full px-3 py-2 bg-gray-700 border rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-orange-500 ${
                       errors.area_id ? 'border-red-500' : 'border-gray-600'
                     }`}
                   >
                     <option value="">Selecione uma área</option>
-                    {areas.map((area) => (
-                      <option key={area.id} value={area.id}>
-                        {area.name}
-                      </option>
-                    ))}
+                    {isHighline
+                      ? highlineSubareas.map(s => (
+                          <option key={s.key} value={s.key}>{s.label}</option>
+                        ))
+                      : areas.map((area) => (
+                          <option key={area.id} value={area.id}>
+                            {area.name}
+                          </option>
+                        ))}
                   </select>
                   {errors.area_id && (
                     <p className="text-red-500 text-sm mt-1">{errors.area_id}</p>
@@ -323,13 +406,35 @@ export default function ReservationModal({
                     <MdTableBar className="inline mr-2" />
                     Mesa
                   </label>
-                  <input
-                    type="text"
-                    value={formData.table_number}
-                    onChange={(e) => handleInputChange('table_number', e.target.value)}
-                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-500"
-                    placeholder="Ex: Mesa 5, Balcão 2"
-                  />
+                  {tables.length > 0 ? (
+                    <select
+                      value={formData.table_number}
+                      onChange={(e) => handleInputChange('table_number', e.target.value)}
+                      className={`w-full px-3 py-2 bg-gray-700 border rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-orange-500 ${
+                        errors.table_number ? 'border-red-500' : 'border-gray-600'
+                      }`}
+                    >
+                      <option value="">Selecione uma mesa</option>
+                      {tables
+                        .filter(t => !t.is_reserved && t.capacity >= formData.number_of_people)
+                        .map(t => (
+                          <option key={t.id} value={t.table_number}>
+                            Mesa {t.table_number} • {t.capacity} lugares{t.table_type ? ` • ${t.table_type}` : ''}
+                          </option>
+                        ))}
+                    </select>
+                  ) : (
+                    <input
+                      type="text"
+                      value={formData.table_number}
+                      onChange={(e) => handleInputChange('table_number', e.target.value)}
+                      className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-500"
+                      placeholder="Ex: Mesa 5"
+                    />
+                  )}
+                  {errors.table_number && (
+                    <p className="text-red-500 text-sm mt-1">{errors.table_number}</p>
+                  )}
                 </div>
               </div>
 

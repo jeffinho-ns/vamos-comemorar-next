@@ -53,6 +53,45 @@ export default function ReservationCalendar({
   const [selectedReservation, setSelectedReservation] = useState<Reservation | null>(null);
   const [selectedDayReservations, setSelectedDayReservations] = useState<Reservation[]>([]);
 
+  // Total de mesas por estabelecimento (Highline = 36)
+  const getTotalTablesForEstablishment = () => {
+    const name = (establishment?.name || '').toLowerCase();
+    if (name.includes('high line') || name.includes('highline')) return 36;
+    return 10;
+  };
+
+  function ReservationBadge({ reservation }: { reservation: any }) {
+    const n = String(reservation.table_number || '');
+    let cap: number | undefined;
+    if (['50','51','52','53','54','55','70','71','72','73'].includes(n)) cap = 2;
+    else if (['15','16','17'].includes(n)) cap = 3;
+    else if (['44','45','46','47','09','10','11','12'].includes(n)) cap = 6;
+    else if (['40','41','42','01','02','03','04'].includes(n)) cap = 8;
+    else if (['60','61','62','63','64','65'].includes(n)) cap = 10;
+
+    const cls = cap === 2
+      ? 'bg-blue-100 text-blue-800 border-blue-200'
+      : cap === 3
+      ? 'bg-purple-100 text-purple-800 border-purple-200'
+      : cap === 6
+      ? 'bg-orange-100 text-orange-800 border-orange-200'
+      : cap === 8
+      ? 'bg-teal-100 text-teal-800 border-teal-200'
+      : cap === 10
+      ? 'bg-red-100 text-red-800 border-red-200'
+      : 'bg-gray-900/10 text-gray-900 border-gray-900/20';
+
+    return (
+      <div className="flex items-center gap-1 text-[10px] opacity-80">
+        <span>{reservation.reservation_time}</span>
+        {reservation.table_number && (
+          <span className={`px-1 py-0.5 rounded border ${cls}`}>
+            Mesa {reservation.table_number}{cap ? ` • ${cap}p` : ''}
+          </span>
+        )}
+      </div>
+    );
+  }
   // Gerar dias do calendário
   const generateCalendarDays = useCallback((date: Date): CalendarDay[] => {
     const year = date.getFullYear();
@@ -107,6 +146,7 @@ export default function ReservationCalendar({
       console.log('📅 Reservas carregadas para o calendário:', reservations.length);
 
       // Atualizar dias do calendário com as reservas reais
+      const totalTables = getTotalTablesForEstablishment();
       const updatedDays = generateCalendarDays(date).map(day => {
         const dayString = day.date.toISOString().split('T')[0];
         const dayReservations = reservations.filter(
@@ -152,12 +192,13 @@ export default function ReservationCalendar({
           console.log('🎂 Dia com aniversários:', dayString, dayBirthdayReservations.length, 'aniversários');
         }
         
+        const availableTables = Math.max(0, totalTables - dayReservations.length);
         return {
           ...day,
           reservations: dayReservations,
           birthdayReservations: dayBirthdayReservations,
           totalReservations: dayReservations.length + dayBirthdayReservations.length,
-          availableTables: Math.max(0, 10 - dayReservations.length) // Simular 10 mesas disponíveis
+          availableTables
         };
       });
 
@@ -165,12 +206,13 @@ export default function ReservationCalendar({
     } catch (error) {
       console.error("❌ Erro ao carregar reservas:", error);
       // Em caso de erro, usar dados vazios
+      const totalTables = getTotalTablesForEstablishment();
       const updatedDays = generateCalendarDays(date).map(day => ({
         ...day,
         reservations: [],
         birthdayReservations: [],
         totalReservations: 0,
-        availableTables: 10
+        availableTables: totalTables
       }));
       setCalendarDays(updatedDays);
     } finally {
@@ -380,7 +422,7 @@ export default function ReservationCalendar({
                     className={`text-xs p-1 rounded ${getStatusColor(reservation.status)}`}
                   >
                     <div className="font-medium truncate">{reservation.client_name}</div>
-                    <div className="text-xs opacity-75">{reservation.reservation_time}</div>
+                    <ReservationBadge reservation={reservation} />
                   </div>
                 ))}
                 

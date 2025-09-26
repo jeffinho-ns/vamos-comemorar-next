@@ -104,7 +104,14 @@ export default function ReservationsDayModal({
                           </div>
                           <div>
                             <h4 className="font-semibold text-gray-800">{reservation.client_name}</h4>
-                            <p className="text-sm text-gray-500">{reservation.reservation_time}</p>
+                            <div className="flex items-center gap-2 text-sm text-gray-500">
+                              <span>{reservation.reservation_time}</span>
+                              {reservation.table_number && (
+                                <span className="px-2 py-0.5 rounded bg-gray-100 border border-gray-200 text-gray-700 text-xs">
+                                  Mesa {reservation.table_number}
+                                </span>
+                              )}
+                            </div>
                           </div>
                         </div>
                         <span className={`px-2 py-1 rounded-full text-xs font-medium border ${getStatusColor(reservation.status)}`}>

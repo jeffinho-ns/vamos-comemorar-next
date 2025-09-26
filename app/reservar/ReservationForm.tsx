@@ -34,6 +34,17 @@ interface RestaurantArea {
   capacity_dinner: number;
 }
 
+interface RestaurantTable {
+  id: number;
+  area_id: number;
+  table_number: string;
+  capacity: number;
+  table_type?: string;
+  description?: string;
+  is_active?: number;
+  is_reserved?: boolean;
+}
+
 // Dados estáticos removidos - agora carregados da API
 
 export default function ReservationForm() {
@@ -42,6 +53,8 @@ export default function ReservationForm() {
   const [establishments, setEstablishments] = useState<Establishment[]>([]);
   const [selectedEstablishment, setSelectedEstablishment] = useState<Establishment | null>(null);
   const [areas, setAreas] = useState<RestaurantArea[]>([]);
+  const [tables, setTables] = useState<RestaurantTable[]>([]);
+  const [selectedSubareaKey, setSelectedSubareaKey] = useState<string>('');
   const [loading, setLoading] = useState(false);
   const [establishmentsLoading, setEstablishmentsLoading] = useState(true);
   const [step, setStep] = useState<'establishment' | 'form' | 'confirmation'>('establishment');
@@ -53,6 +66,7 @@ export default function ReservationForm() {
     reservation_time: '',
     number_of_people: 2,
     area_id: '',
+    table_number: '',
     notes: ''
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -225,6 +239,56 @@ export default function ReservationForm() {
     }
   };
 
+  // Subáreas específicas do Highline (mapeadas para area_id base 2 ou 5)
+  const highlineSubareas = [
+    { key: 'deck-frente', area_id: 2, label: 'Área Deck - Frente', tableNumbers: ['05','06','07','08'] },
+    { key: 'deck-esquerdo', area_id: 2, label: 'Área Deck - Esquerdo', tableNumbers: ['01','02','03','04'] },
+    { key: 'deck-direito', area_id: 2, label: 'Área Deck - Direito', tableNumbers: ['09','10','11','12'] },
+    { key: 'bar', area_id: 2, label: 'Área Bar', tableNumbers: ['15','16','17'] },
+    { key: 'roof-direito', area_id: 5, label: 'Área Rooftop - Direito', tableNumbers: ['50','51','52','53','54','55'] },
+    { key: 'roof-bistro', area_id: 5, label: 'Área Rooftop - Bistrô', tableNumbers: ['70','71','72','73'] },
+    { key: 'roof-centro', area_id: 5, label: 'Área Rooftop - Centro', tableNumbers: ['44','45','46','47'] },
+    { key: 'roof-esquerdo', area_id: 5, label: 'Área Rooftop - Esquerdo', tableNumbers: ['60','61','62','63','64','65'] },
+    { key: 'roof-vista', area_id: 5, label: 'Área Rooftop - Vista', tableNumbers: ['40','41','42'] },
+  ];
+
+  const isHighline = selectedEstablishment && (
+    (selectedEstablishment.name || '').toLowerCase().includes('high')
+  );
+
+  // Carrega mesas disponíveis quando área e data forem selecionadas
+  useEffect(() => {
+    const loadTables = async () => {
+      const areaId = reservationData.area_id;
+      const date = reservationData.reservation_date;
+      if (!areaId || !date) {
+        setTables([]);
+        return;
+      }
+      try {
+        const response = await fetch(`${API_URL}/api/restaurant-tables/${areaId}/availability?date=${date}`);
+        if (response.ok) {
+          const data = await response.json();
+          let fetched: RestaurantTable[] = Array.isArray(data.tables) ? data.tables : [];
+          // Se for Highline e houver subárea selecionada, filtra pelas mesas da subárea
+          if (isHighline && selectedSubareaKey) {
+            const sub = highlineSubareas.find(s => s.key === selectedSubareaKey);
+            if (sub) {
+              fetched = fetched.filter(t => sub.tableNumbers.includes(String(t.table_number)));
+            }
+          }
+          setTables(fetched);
+        } else {
+          setTables([]);
+        }
+      } catch (e) {
+        console.error('Erro ao carregar mesas:', e);
+        setTables([]);
+      }
+    };
+    loadTables();
+  }, [reservationData.area_id, reservationData.reservation_date, selectedSubareaKey]);
+
   const handleEstablishmentSelect = (establishment: Establishment) => {
     setSelectedEstablishment(establishment);
     loadAreas(establishment.id);
@@ -258,6 +322,13 @@ export default function ReservationForm() {
       newErrors.number_of_people = 'Número de pessoas deve ser maior que 0';
     }
 
+    // Se existem mesas para a área e data, solicitar seleção de mesa
+    const hasTableOptions = tables && tables.length > 0;
+    const hasAvailableTable = tables.some(t => !t.is_reserved && t.capacity >= reservationData.number_of_people);
+    if (hasTableOptions && hasAvailableTable && !(reservationData as any).table_number) {
+      newErrors.table_number = 'Selecione uma mesa disponível';
+    }
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -279,6 +350,7 @@ export default function ReservationForm() {
         body: JSON.stringify({
           ...reservationData,
           establishment_id: selectedEstablishment?.id,
+          table_number: (reservationData as any).table_number || null,
           status: 'NOVA',
           origin: 'SITE'
         }),
@@ -564,23 +636,78 @@ export default function ReservationForm() {
                   Área Preferida *
                 </label>
                 <select
-                  value={reservationData.area_id}
-                  onChange={(e) => handleInputChange('area_id', e.target.value)}
+                  value={isHighline ? selectedSubareaKey : reservationData.area_id}
+                  onChange={(e) => {
+                    if (isHighline) {
+                      const key = e.target.value;
+                      setSelectedSubareaKey(key);
+                      const sub = highlineSubareas.find(s => s.key === key);
+                      handleInputChange('area_id', sub ? String(sub.area_id) : '');
+                      // limpar mesa ao trocar subárea
+                      handleInputChange('table_number', '');
+                    } else {
+                      handleInputChange('area_id', e.target.value);
+                      handleInputChange('table_number', '');
+                    }
+                  }}
                   className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent ${
                     errors.area_id ? 'border-red-500' : 'border-gray-300'
                   }`}
                 >
                   <option value="">Selecione uma área</option>
-                  {areas.map((area) => (
-                    <option key={area.id} value={area.id}>
-                      {area.name}
-                    </option>
-                  ))}
+                  {isHighline
+                    ? highlineSubareas.map((s) => (
+                        <option key={s.key} value={s.key}>{s.label}</option>
+                      ))
+                    : areas.map((area) => (
+                        <option key={area.id} value={area.id}>{area.name}</option>
+                      ))}
                 </select>
                 {errors.area_id && (
                   <p className="text-red-500 text-sm mt-1">{errors.area_id}</p>
                 )}
+                {/* Listagem de mesas da subárea (somente Highline) */}
+                {isHighline && selectedSubareaKey && tables.length > 0 && (
+                  <div className="mt-3 grid grid-cols-2 md:grid-cols-3 gap-2 text-sm">
+                    {tables.map(t => (
+                      <div key={t.id} className={`px-2 py-1 rounded border ${t.is_reserved ? 'bg-gray-100 text-gray-400 border-gray-200' : 'bg-green-50 text-green-700 border-green-200'}`}>
+                        Mesa {t.table_number} • {t.capacity}p {t.is_reserved ? '(reservada)' : ''}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
+
+              {/* Table Selection (aparece quando há mesas para a área/data) */}
+              {tables.length > 0 && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Mesa (opções disponíveis para a data)
+                  </label>
+                  <select
+                    value={(reservationData as any).table_number || ''}
+                    onChange={(e) => handleInputChange('table_number', e.target.value)}
+                    className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent ${
+                      errors.table_number ? 'border-red-500' : 'border-gray-300'
+                    }`}
+                  >
+                    <option value="">Selecione uma mesa</option>
+                    {tables
+                      .filter(t => !t.is_reserved && t.capacity >= reservationData.number_of_people)
+                      .map(t => (
+                        <option key={t.id} value={t.table_number}>
+                          Mesa {t.table_number} • {t.capacity} lugares{t.table_type ? ` • ${t.table_type}` : ''}
+                        </option>
+                      ))}
+                  </select>
+                  {errors.table_number && (
+                    <p className="text-red-500 text-sm mt-1">{errors.table_number}</p>
+                  )}
+                  {tables.some(t => t.is_reserved) && (
+                    <p className="text-xs text-gray-500 mt-1">Mesas já reservadas não aparecem na lista.</p>
+                  )}
+                </div>
+              )}
 
               {/* Notes */}
               <div>
@@ -680,16 +807,17 @@ export default function ReservationForm() {
                 onClick={() => {
                   setStep('establishment');
                   setSelectedEstablishment(null);
-                  setReservationData({
-                    client_name: '',
-                    client_phone: '',
-                    client_email: '',
-                    reservation_date: '',
-                    reservation_time: '',
-                    number_of_people: 2,
-                    area_id: '',
-                    notes: ''
-                  });
+  setReservationData({
+  client_name: '',
+  client_phone: '',
+  client_email: '',
+  reservation_date: '',
+  reservation_time: '',
+  number_of_people: 0,
+  area_id: '',
+  table_number: '', // Adicione esta linha
+  notes: '',
+});
                 }}
                 className="px-6 py-3 bg-gray-500 hover:bg-gray-600 text-white rounded-lg transition-colors"
               >
