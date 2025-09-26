@@ -62,6 +62,7 @@ export default function ReservationForm() {
     client_name: '',
     client_phone: '',
     client_email: '',
+    client_birthdate: '',
     reservation_date: '',
     reservation_time: '',
     number_of_people: 2,
@@ -571,6 +572,18 @@ export default function ReservationForm() {
                 </div>
 
                 <div>
+  <label className="block text-sm font-medium text-gray-700 mb-2">
+    Data de Nascimento
+  </label>
+  <input
+    type="date"
+    value={reservationData.client_birthdate}
+    onChange={(e) => handleInputChange('client_birthdate', e.target.value)}
+    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+  />
+</div>
+
+                <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Número de Pessoas *
                   </label>
@@ -748,91 +761,93 @@ export default function ReservationForm() {
         )}
 
         {/* Step 3: Confirmation */}
-        {step === 'confirmation' && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-2xl border border-gray-200/20 p-8 text-center"
-          >
-            <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
-              <MdCheck size={40} className="text-green-600" />
-            </div>
-            
-            <h2 className="text-3xl font-bold text-gray-800 mb-4">
-              Reserva Confirmada!
-            </h2>
-            
-            <p className="text-gray-600 mb-6">
-              Sua reserva foi realizada com sucesso. Você receberá uma confirmação por telefone ou email.
-            </p>
+         {step === 'confirmation' && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-2xl border border-gray-200/20 p-8 text-center"
+          >
+            <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
+              <MdCheck size={40} className="text-green-600" />
+            </div>
+            
+            <h2 className="text-3xl font-bold text-gray-800 mb-4">
+              Reserva Confirmada!
+            </h2>
+            
+            <p className="text-gray-600 mb-6">
+              Sua reserva foi realizada com sucesso. Você receberá uma confirmação por telefone ou email.
+            </p>
 
-            <div className="bg-gray-50 rounded-lg p-6 mb-6 text-left">
-              <h3 className="font-semibold text-gray-800 mb-4">Detalhes da Reserva:</h3>
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Estabelecimento:</span>
-                  <span className="font-medium">{selectedEstablishment?.name}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Data:</span>
-                  <span className="font-medium">
-                    {new Date(reservationData.reservation_date).toLocaleDateString('pt-BR')}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Horário:</span>
-                  <span className="font-medium">{reservationData.reservation_time}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Pessoas:</span>
-                  <span className="font-medium">{reservationData.number_of_people}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Área:</span>
-                  <span className="font-medium">
-                    {areas.find(a => a.id.toString() === reservationData.area_id)?.name}
-                  </span>
-                </div>
-                {reservationId && (
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Código:</span>
-                    <span className="font-medium font-mono">{reservationId}</span>
-                  </div>
-                )}
-              </div>
-            </div>
+            <div className="bg-gray-50 rounded-lg p-6 mb-6 text-left">
+              <h3 className="font-semibold text-gray-800 mb-4">Detalhes da Reserva:</h3>
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Estabelecimento:</span>
+                  <span className="font-medium">{selectedEstablishment?.name}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Data:</span>
+                  <span className="font-medium">
+                    {new Date(reservationData.reservation_date).toLocaleDateString('pt-BR')}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Horário:</span>
+                  <span className="font-medium">{reservationData.reservation_time}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Pessoas:</span>
+                  <span className="font-medium">{reservationData.number_of_people}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Área:</span>
+                  <span className="font-medium">
+                    {areas.find(a => a.id.toString() === reservationData.area_id)?.name}
+                  </span>
+                </div>
+                {reservationId && (
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Código:</span>
+                    <span className="font-medium font-mono">{reservationId}</span>
+                  </div>
+                )}
+              </div>
+            </div>
 
-            <div className="flex gap-4 justify-center">
-              <button
-                onClick={() => {
-                  setStep('establishment');
-                  setSelectedEstablishment(null);
-  setReservationData({
-  client_name: '',
-  client_phone: '',
-  client_email: '',
-  reservation_date: '',
-  reservation_time: '',
-  number_of_people: 0,
-  area_id: '',
-  table_number: '', // Adicione esta linha
-  notes: '',
-});
-                }}
-                className="px-6 py-3 bg-gray-500 hover:bg-gray-600 text-white rounded-lg transition-colors"
-              >
-                Nova Reserva
-              </button>
-              <button
-                onClick={() => router.push('/')}
-                className="px-6 py-3 bg-orange-500 hover:bg-orange-600 text-white rounded-lg transition-colors"
-              >
-                Voltar ao Início
-              </button>
-            </div>
-          </motion.div>
-        )}
-      </div>
-    </div>
-  );
+            <div className="flex gap-4 justify-center">
+              <button
+                onClick={() => {
+                  setStep('establishment');
+                  setSelectedEstablishment(null);
+                  // CORREÇÃO: Resetar o estado para a forma inicial completa
+                  setReservationData({
+                    client_name: '',
+                    client_phone: '',
+                    client_email: '',
+                    client_birthdate: '', // ✅ Corrigido
+                    reservation_date: '',
+                    reservation_time: '',
+                    number_of_people: 2,
+                    area_id: '',
+                    table_number: '',
+                    notes: '',
+                  });
+                }}
+                className="px-6 py-3 bg-gray-500 hover:bg-gray-600 text-white rounded-lg transition-colors"
+              >
+                Nova Reserva
+              </button>
+              <button
+                onClick={() => router.push('/')}
+                className="px-6 py-3 bg-orange-500 hover:bg-orange-600 text-white rounded-lg transition-colors"
+              >
+                Voltar ao Início
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </div>
+    </div>
+  );
 }

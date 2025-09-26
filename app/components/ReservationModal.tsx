@@ -70,6 +70,7 @@ export default function ReservationModal({
     client_name: '',
     client_phone: '',
     client_email: '',
+    data_nascimento_cliente: '', // <-- CAMPO ADICIONADO
     reservation_date: '',
     reservation_time: '',
     number_of_people: 1,
@@ -107,6 +108,7 @@ export default function ReservationModal({
           client_name: reservation.client_name || '',
           client_phone: reservation.client_phone || '',
           client_email: reservation.client_email || '',
+          data_nascimento_cliente: reservation.data_nascimento_cliente || '', // <-- CAMPO ADICIONADO
           reservation_date: reservation.reservation_date || '',
           reservation_time: reservation.reservation_time || '',
           number_of_people: reservation.number_of_people || 1,
@@ -122,6 +124,7 @@ export default function ReservationModal({
           client_name: '',
           client_phone: '',
           client_email: '',
+          data_nascimento_cliente: '', // <-- CAMPO ADICIONADO
           reservation_date: selectedDate ? selectedDate.toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
           reservation_time: selectedTime || '',
           number_of_people: 1,
@@ -164,7 +167,7 @@ export default function ReservationModal({
       }
     };
     loadTables();
-  }, [formData.area_id, formData.reservation_date, selectedSubareaKey]);
+  }, [formData.area_id, formData.reservation_date, selectedSubareaKey, isHighline]);
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
@@ -301,6 +304,20 @@ export default function ReservationModal({
                     onChange={(e) => handleInputChange('client_email', e.target.value)}
                     className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-500"
                     placeholder="cliente@email.com"
+                  />
+                </div>
+                
+                {/* NOVO CAMPO DE DATA DE NASCIMENTO */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    <MdCalendarToday className="inline mr-2" />
+                    Data de Nascimento
+                  </label>
+                  <input
+                    type="date"
+                    value={formData.data_nascimento_cliente}
+                    onChange={(e) => handleInputChange('data_nascimento_cliente', e.target.value)}
+                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-500"
                   />
                 </div>
 
