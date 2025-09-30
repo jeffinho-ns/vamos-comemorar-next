@@ -335,7 +335,7 @@ export default function ReservationForm() {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!validateForm()) {
@@ -343,19 +343,47 @@ export default function ReservationForm() {
     }
 
     setLoading(true);
+
+    // 1. Prepara o payload para envio, começando com os dados do formulário
+    const payload: any = {
+      ...reservationData,
+      
+      // 2. Renomeia o campo da data de nascimento para corresponder ao back-end
+      data_nascimento_cliente: reservationData.client_birthdate || null,
+      
+      // 3. Adiciona/formata os outros campos necessários
+      establishment_id: selectedEstablishment?.id,
+      status: 'NOVA',
+      origin: 'SITE',
+      number_of_people: Number(reservationData.number_of_people),
+      area_id: Number(reservationData.area_id),
+    };
+
+    // 4. CORREÇÃO CRÍTICA: Garante que o horário esteja no formato HH:mm:ss que o banco de dados espera
+    if (payload.reservation_time && payload.reservation_time.split(':').length === 2) {
+      payload.reservation_time = `${payload.reservation_time}:00`;
+    }
+
+    // 5. Remove a chave original do front-end para não ser enviada em duplicidade
+    delete payload.client_birthdate;
+
+    // Garante que o número da mesa seja uma string ou seja removido
+    if (!payload.table_number) {
+      delete payload.table_number;
+    } else {
+      payload.table_number = String(payload.table_number);
+    }
+
+    // Etapa de depuração: exibe o payload final no console antes de enviar
+    console.log('📦 Payload final sendo enviado para a API:', JSON.stringify(payload, null, 2));
+
     try {
       const response = await fetch(`${API_URL}/api/restaurant-reservations`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          ...reservationData,
-          establishment_id: selectedEstablishment?.id,
-          table_number: (reservationData as any).table_number || null,
-          status: 'NOVA',
-          origin: 'SITE'
-        }),
+        body: JSON.stringify(payload),
       });
 
       if (response.ok) {
@@ -364,17 +392,23 @@ export default function ReservationForm() {
         setReservationId(result.reservation?.id || '12345');
         setStep('confirmation');
       } else {
-        const errorData = await response.json();
-        console.error('❌ Erro ao fazer reserva:', errorData);
-        alert('Erro ao fazer reserva: ' + (errorData.error || 'Erro desconhecido'));
+        const errorText = await response.text();
+        console.error('❌ Erro bruto do servidor:', errorText);
+        try {
+          const errorData = JSON.parse(errorText);
+          alert('Erro ao fazer reserva: ' + (errorData.error || JSON.stringify(errorData)));
+        } catch (parseError) {
+          alert('Ocorreu um erro inesperado no servidor. Detalhes: ' + errorText);
+        }
       }
     } catch (error) {
-      console.error('Erro ao fazer reserva:', error);
-      alert('Erro ao fazer reserva. Tente novamente.');
+      console.error('Erro de rede ou na requisição:', error);
+      alert('Erro ao fazer reserva. Verifique sua conexão e tente novamente.');
     } finally {
       setLoading(false);
     }
   };
+
 
   const handleInputChange = (field: string, value: any) => {
     setReservationData(prev => ({ ...prev, [field]: value }));
@@ -582,7 +616,7 @@ export default function ReservationForm() {
     onChange={(e) => handleInputChange('client_birthdate', e.target.value)}
     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
   />
-</div>
+        </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -625,16 +659,19 @@ export default function ReservationForm() {
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Data da Reserva *
                   </label>
-                  <input
-                    type="date"
-                    min={getMinDate()}
-                    max={getMaxDate()}
-                    value={reservationData.reservation_date}
-                    onChange={(e) => handleInputChange('reservation_date', e.target.value)}
-                    className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent ${
-                      errors.reservation_date ? 'border-red-500' : 'border-gray-300'
-                    }`}
-                  />
+<input
+  type="date"
+  min={getMinDate()}
+  max={getMaxDate()}
+  value={reservationData.reservation_date}
+  onChange={(e) => {
+    handleInputChange('reservation_date', e.target.value);
+    handleInputChange('table_number', ''); // Adicione esta linha
+  }}
+  className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent ${
+    errors.reservation_date ? 'border-red-500' : 'border-gray-300'
+  }`}
+/>
                   {errors.reservation_date && (
                     <p className="text-red-500 text-sm mt-1">{errors.reservation_date}</p>
                   )}
