@@ -323,10 +323,11 @@ export default function ReservationForm() {
       newErrors.number_of_people = 'Número de pessoas deve ser maior que 0';
     }
 
-    // Se existem mesas para a área e data, solicitar seleção de mesa
+    // Se existem mesas para a área e data, solicitar seleção de mesa (exceto para reservas grandes)
+    const isLargeReservation = reservationData.number_of_people >= 16;
     const hasTableOptions = tables && tables.length > 0;
     const hasAvailableTable = tables.some(t => !t.is_reserved && t.capacity >= reservationData.number_of_people);
-    if (hasTableOptions && hasAvailableTable && !(reservationData as any).table_number) {
+    if (!isLargeReservation && hasTableOptions && hasAvailableTable && !(reservationData as any).table_number) {
       newErrors.table_number = 'Selecione uma mesa disponível';
     }
 
@@ -594,12 +595,26 @@ export default function ReservationForm() {
                       errors.number_of_people ? 'border-red-500' : 'border-gray-300'
                     }`}
                   >
-                    {[1,2,3,4,5,6,7,8,9,10].map(num => (
+                    {[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,25,30,35,40].map(num => (
                       <option key={num} value={num}>{num} {num === 1 ? 'pessoa' : 'pessoas'}</option>
                     ))}
                   </select>
                   {errors.number_of_people && (
                     <p className="text-red-500 text-sm mt-1">{errors.number_of_people}</p>
+                  )}
+                  
+                  {/* Indicador de reserva grande */}
+                  {reservationData.number_of_people >= 16 && (
+                    <div className="mt-3 p-3 bg-orange-50 border border-orange-200 rounded-lg">
+                      <div className="flex items-center gap-2 text-orange-800">
+                        <MdPeople className="text-orange-600" />
+                        <span className="text-sm font-medium">Reserva Grande</span>
+                      </div>
+                      <p className="text-xs text-orange-700 mt-1">
+                        Para grupos acima de 15 pessoas, você pode escolher apenas a área. 
+                        O admin selecionará as mesas específicas.
+                      </p>
+                    </div>
                   )}
                 </div>
               </div>
@@ -691,8 +706,8 @@ export default function ReservationForm() {
                 )}
               </div>
 
-              {/* Table Selection (aparece quando há mesas para a área/data) */}
-              {tables.length > 0 && (
+              {/* Table Selection (aparece quando há mesas para a área/data e não é reserva grande) */}
+              {tables.length > 0 && reservationData.number_of_people < 16 && (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Mesa (opções disponíveis para a data)

@@ -192,10 +192,11 @@ export default function ReservationModal({
       newErrors.number_of_people = 'Número de pessoas deve ser maior que 0';
     }
 
-    // Exigir mesa quando houver opções compatíveis
+    // Exigir mesa quando houver opções compatíveis (exceto para reservas grandes)
+    const isLargeReservation = formData.number_of_people >= 16;
     const hasOptions = tables && tables.length > 0;
     const hasCompatible = tables.some(t => !t.is_reserved && t.capacity >= formData.number_of_people);
-    if (hasOptions && hasCompatible && !formData.table_number) {
+    if (!isLargeReservation && hasOptions && hasCompatible && !formData.table_number) {
       newErrors.table_number = 'Selecione uma mesa disponível';
     }
 
@@ -338,6 +339,20 @@ export default function ReservationModal({
                   {errors.number_of_people && (
                     <p className="text-red-500 text-sm mt-1">{errors.number_of_people}</p>
                   )}
+                  
+                  {/* Opção para reservas grandes */}
+                  {formData.number_of_people >= 16 && (
+                    <div className="mt-3 p-3 bg-orange-100 border border-orange-300 rounded-lg">
+                      <div className="flex items-center gap-2 text-orange-800">
+                        <MdPeople className="text-orange-600" />
+                        <span className="text-sm font-medium">Reserva Grande</span>
+                      </div>
+                      <p className="text-xs text-orange-700 mt-1">
+                        Para grupos acima de 15 pessoas, você pode escolher apenas a área. 
+                        O admin selecionará as mesas específicas.
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -418,41 +433,44 @@ export default function ReservationModal({
                   )}
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
-                    <MdTableBar className="inline mr-2" />
-                    Mesa
-                  </label>
-                  {tables.length > 0 ? (
-                    <select
-                      value={formData.table_number}
-                      onChange={(e) => handleInputChange('table_number', e.target.value)}
-                      className={`w-full px-3 py-2 bg-gray-700 border rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-orange-500 ${
-                        errors.table_number ? 'border-red-500' : 'border-gray-600'
-                      }`}
-                    >
-                      <option value="">Selecione uma mesa</option>
-                      {tables
-                        .filter(t => !t.is_reserved && t.capacity >= formData.number_of_people)
-                        .map(t => (
-                          <option key={t.id} value={t.table_number}>
-                            Mesa {t.table_number} • {t.capacity} lugares{t.table_type ? ` • ${t.table_type}` : ''}
-                          </option>
-                        ))}
-                    </select>
-                  ) : (
-                    <input
-                      type="text"
-                      value={formData.table_number}
-                      onChange={(e) => handleInputChange('table_number', e.target.value)}
-                      className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-500"
-                      placeholder="Ex: Mesa 5"
-                    />
-                  )}
-                  {errors.table_number && (
-                    <p className="text-red-500 text-sm mt-1">{errors.table_number}</p>
-                  )}
-                </div>
+                {/* Campo de mesa - oculto para reservas grandes */}
+                {formData.number_of_people < 16 && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                      <MdTableBar className="inline mr-2" />
+                      Mesa
+                    </label>
+                    {tables.length > 0 ? (
+                      <select
+                        value={formData.table_number}
+                        onChange={(e) => handleInputChange('table_number', e.target.value)}
+                        className={`w-full px-3 py-2 bg-gray-700 border rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-orange-500 ${
+                          errors.table_number ? 'border-red-500' : 'border-gray-600'
+                        }`}
+                      >
+                        <option value="">Selecione uma mesa</option>
+                        {tables
+                          .filter(t => !t.is_reserved && t.capacity >= formData.number_of_people)
+                          .map(t => (
+                            <option key={t.id} value={t.table_number}>
+                              Mesa {t.table_number} • {t.capacity} lugares{t.table_type ? ` • ${t.table_type}` : ''}
+                            </option>
+                          ))}
+                      </select>
+                    ) : (
+                      <input
+                        type="text"
+                        value={formData.table_number}
+                        onChange={(e) => handleInputChange('table_number', e.target.value)}
+                        className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-500"
+                        placeholder="Ex: Mesa 5"
+                      />
+                    )}
+                    {errors.table_number && (
+                      <p className="text-red-500 text-sm mt-1">{errors.table_number}</p>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Status and Origin */}

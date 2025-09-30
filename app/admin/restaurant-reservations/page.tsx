@@ -48,6 +48,7 @@ interface WaitlistEntry {
   created_at: string;
 }
 
+
 interface RestaurantArea {
   id: number;
   name: string;
@@ -177,6 +178,7 @@ export default function RestaurantReservationsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [editingReservation, setEditingReservation] = useState<Reservation | null>(null);
+
   
   // Estados para Walk-ins
   const [walkIns, setWalkIns] = useState<WalkIn[]>([]);
@@ -299,6 +301,7 @@ export default function RestaurantReservationsPage() {
         setWaitlist([]);
       }
 
+
       // Carregar reservas de aniversário
       try {
         console.log('🎂 Carregando reservas de aniversário para estabelecimento:', selectedEstablishment.id);
@@ -416,6 +419,7 @@ export default function RestaurantReservationsPage() {
       )
     );
   };
+
 
   // Função para fazer check-in de uma reserva
   const handleCheckIn = async (reservation: Reservation) => {
@@ -726,6 +730,7 @@ export default function RestaurantReservationsPage() {
 
             {/* Conteúdo das Abas */}
             <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-2xl border border-gray-200/20 p-6">
+
               {/* Aba de Reservas */}
               {activeTab === 'reservations' && (
                 <div>
@@ -1382,6 +1387,7 @@ export default function RestaurantReservationsPage() {
             entry={editingWaitlistEntry}
           />
         )}
+
       </div>
     </div>
   );

@@ -105,3 +105,4 @@ O componente está totalmente integrado com a API existente:
 
 ## Conclusão
 O calendário semanal melhorado oferece um controle completo e eficiente das reservas do restaurante, permitindo uma gestão mais profissional e organizada dos recursos disponíveis.
+
