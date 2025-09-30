@@ -1,11 +1,15 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { FaBirthdayCake, FaPalette, FaGift, FaGlassCheers, FaUtensils, FaInfoCircle, FaExclamationTriangle, FaCheck, FaCalendarAlt, FaUser, FaIdCard, FaPhone, FaEnvelope, FaStore, FaUsers, FaImage, FaPalette as FaPaletteIcon, FaTextHeight, FaPlus, FaMinus, FaArrowLeft } from 'react-icons/fa';
+import {
+  FaBirthdayCake, FaPalette, FaGift, FaGlassCheers, FaUtensils, FaInfoCircle, FaExclamationTriangle,
+  FaCheck, FaUser, FaImage, FaPlus, FaMinus, FaArrowLeft, FaArrowRight
+} from 'react-icons/fa';
 import { BirthdayService } from '../services/birthdayService';
 
+// (Suas interfaces DecorationOption, BeverageOption, etc. permanecem as mesmas aqui)
 interface DecorationOption {
   name: string;
   price: number;
@@ -39,6 +43,10 @@ export default function ReservaAniversarioPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [activeSection, setActiveSection] = useState('dados');
 
+  // --- NOVO: Array para definir a ordem das seções ---
+  const sections = ['dados', 'decoracao', 'painel', 'bebidas', 'comidas', 'presentes'];
+  const currentSectionIndex = sections.indexOf(activeSection);
+
   // Form data
   const [formData, setFormData] = useState({
     aniversarianteNome: '',
@@ -60,7 +68,7 @@ export default function ReservaAniversarioPage() {
   const [selectedFoods, setSelectedFoods] = useState<Record<string, number>>({});
   const [selectedGifts, setSelectedGifts] = useState<GiftOption[]>([]);
 
-  // Data options
+  // (Suas opções de decoração, painel, bebidas, etc. permanecem as mesmas)
   const decorationOptions: DecorationOption[] = [
     { name: 'Decoração Pequena 1', price: 200.0, image: '/agilizai/kit-1.jpg', description: 'Decoração pequena estilo 1.' },
     { name: 'Decoração Pequena 2', price: 220.0, image: '/agilizai/kit-2.jpg', description: 'Decoração pequena estilo 2.' },
@@ -128,7 +136,20 @@ export default function ReservaAniversarioPage() {
 
   const barOptions = ['Seu Justino', 'Oh Fregues', 'HighLine', 'Pracinha do Seu Justino'];
 
-  // Validation
+  // --- NOVAS FUNÇÕES de navegação ---
+  const handleNext = () => {
+    if (currentSectionIndex < sections.length - 1) {
+      setActiveSection(sections[currentSectionIndex + 1]);
+    }
+  };
+
+  const handlePrevious = () => {
+    if (currentSectionIndex > 0) {
+      setActiveSection(sections[currentSectionIndex - 1]);
+    }
+  };
+
+  // (Funções isPersonalizedPanelAllowed, calculateTotal e handleSubmit permanecem as mesmas)
   const isPersonalizedPanelAllowed = () => {
     if (selectedPainelOption === 'personalizado' && formData.dataAniversario) {
       const selectedDate = new Date(formData.dataAniversario);
@@ -139,7 +160,6 @@ export default function ReservaAniversarioPage() {
     return true;
   };
 
-  // Calculate total
   const calculateTotal = () => {
     let total = 0;
     if (selectedDecoration) {
@@ -156,7 +176,6 @@ export default function ReservaAniversarioPage() {
     return total;
   };
 
-  // Handle form submission
   const handleSubmit = async () => {
     if (!selectedDecoration || !formData.barSelecionado || !formData.dataAniversario) {
       alert('Por favor, preencha todos os campos obrigatórios');
@@ -165,14 +184,12 @@ export default function ReservaAniversarioPage() {
 
     setIsLoading(true);
     try {
-      // Mapear bebidas selecionadas
       const bebidasMap: Record<string, number> = {};
       for (let i = 1; i <= 10; i++) {
         const key = `Item-bar-Bebida - ${i}`;
         bebidasMap[`item_bar_bebida_${i}`] = selectedBeverages[key] || 0;
       }
 
-      // Mapear comidas selecionadas
       const comidasMap: Record<string, number> = {};
       for (let i = 1; i <= 10; i++) {
         const key = `Item-bar-Comida - ${i}`;
@@ -209,8 +226,8 @@ export default function ReservaAniversarioPage() {
     }
   };
 
-  // Info widgets
-  const InfoWidget = ({ text, title, message }: { text: string; title: string; message: string }) => (
+  // Widgets
+  const InfoWidget = ({ text }: { text: string; title: string; message: string }) => (
     <div className="bg-orange-500 bg-opacity-10 border border-orange-500 border-opacity-30 rounded-lg p-3 mb-4">
       <div className="flex items-start space-x-3">
         <FaInfoCircle className="text-orange-500 text-xl mt-1 flex-shrink-0" />
@@ -222,7 +239,7 @@ export default function ReservaAniversarioPage() {
     </div>
   );
 
-  const WarningWidget = ({ text, title, message }: { text: string; title: string; message: string }) => (
+  const WarningWidget = ({ text }: { text: string; title: string; message: string }) => (
     <div className="bg-red-500 bg-opacity-10 border border-red-500 border-opacity-30 rounded-lg p-3 mb-4">
       <div className="flex items-start space-x-3">
         <FaExclamationTriangle className="text-red-500 text-xl mt-1 flex-shrink-0" />
@@ -288,11 +305,13 @@ export default function ReservaAniversarioPage() {
 
       {/* Content */}
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Renderiza as seções com base no activeSection */}
+        {/* O conteúdo de cada seção ('dados', 'decoracao', etc.) permanece o mesmo */}
+        
         {/* Dados Pessoais */}
         {activeSection === 'dados' && (
           <div className="space-y-6">
             <h2 className="text-3xl font-bold text-white mb-6">Dados do Aniversariante</h2>
-            
             <div className="grid md:grid-cols-2 gap-6">
               <div>
                 <label className="block text-white font-medium mb-2">Nome do aniversariante *</label>
@@ -304,7 +323,6 @@ export default function ReservaAniversarioPage() {
                   placeholder="Digite o nome completo"
                 />
               </div>
-
               <div>
                 <label className="block text-white font-medium mb-2">Documento</label>
                 <input
@@ -315,7 +333,6 @@ export default function ReservaAniversarioPage() {
                   placeholder="CPF ou RG"
                 />
               </div>
-
               <div>
                 <label className="block text-white font-medium mb-2">WhatsApp</label>
                 <input
@@ -326,7 +343,6 @@ export default function ReservaAniversarioPage() {
                   placeholder="(11) 99999-9999"
                 />
               </div>
-
               <div>
                 <label className="block text-white font-medium mb-2">E-mail</label>
                 <input
@@ -337,7 +353,6 @@ export default function ReservaAniversarioPage() {
                   placeholder="seu@email.com"
                 />
               </div>
-
               <div>
                 <label className="block text-white font-medium mb-2">Data do aniversário *</label>
                 <input
@@ -347,7 +362,6 @@ export default function ReservaAniversarioPage() {
                   className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-white focus:border-orange-500 focus:outline-none"
                 />
               </div>
-
               <div>
                 <label className="block text-white font-medium mb-2">Bar *</label>
                 <select
@@ -362,7 +376,6 @@ export default function ReservaAniversarioPage() {
                 </select>
               </div>
             </div>
-
             <div>
               <label className="block text-white font-medium mb-2">Quantidade de convidados</label>
               <div className="flex items-center space-x-4">
@@ -381,8 +394,10 @@ export default function ReservaAniversarioPage() {
           </div>
         )}
 
-        {/* Decoração */}
-        {activeSection === 'decoracao' && (
+        {/* ... Coloque aqui as outras seções (Decoração, Painel, Bebidas, Comidas, Presentes) ... */}
+        {/* Elas não precisam de alteração */}
+         {/* Decoração */}
+         {activeSection === 'decoracao' && (
           <div className="space-y-6">
             <h2 className="text-3xl font-bold text-white mb-6">Escolha sua Decoração ✨</h2>
             
@@ -672,15 +687,15 @@ export default function ReservaAniversarioPage() {
                         : 'border-slate-700 hover:border-orange-400'
                     }`}
                   >
-                                      <div className="h-32 relative overflow-hidden rounded-lg mb-4">
-                    <Image
-                      src={gift.image}
-                      alt={gift.name}
-                      fill
-                      className="object-cover transition-transform hover:scale-105"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent"></div>
-                  </div>
+                    <div className="h-32 relative overflow-hidden rounded-lg mb-4">
+                      <Image
+                        src={gift.image}
+                        alt={gift.name}
+                        fill
+                        className="object-cover transition-transform hover:scale-105"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent"></div>
+                    </div>
                     <h3 className="text-lg font-bold text-white mb-2">{gift.name}</h3>
                     <p className="text-2xl font-bold text-orange-500 mb-2">R$ {gift.price.toFixed(2)}</p>
                     {isSelected && (
@@ -695,7 +710,7 @@ export default function ReservaAniversarioPage() {
           </div>
         )}
 
-        {/* Total Value Section */}
+        {/* --- SEÇÃO DE VALOR TOTAL E BOTÕES MODIFICADA --- */}
         <div className="mt-12 bg-orange-500 bg-opacity-10 border border-orange-500 rounded-xl p-6">
           <h3 className="text-2xl font-bold text-white text-center mb-4">💰 VALOR TOTAL DA RESERVA</h3>
           <p className="text-4xl font-bold text-orange-500 text-center mb-4">
@@ -706,23 +721,35 @@ export default function ReservaAniversarioPage() {
           </p>
         </div>
 
-        {/* Navigation Buttons */}
         <div className="flex justify-between mt-8">
           <button
-            onClick={() => router.push('/decoracao-aniversario')}
-            className="flex items-center px-6 py-3 bg-slate-700 hover:bg-slate-600 text-white font-medium rounded-lg transition-colors"
+            onClick={handlePrevious}
+            disabled={currentSectionIndex === 0}
+            className="flex items-center px-6 py-3 bg-slate-700 hover:bg-slate-600 text-white font-medium rounded-lg transition-colors disabled:bg-slate-800 disabled:text-slate-500 disabled:cursor-not-allowed"
           >
             <FaArrowLeft className="mr-2" />
-            Voltar
+            Anterior
           </button>
 
-          <button
-            onClick={handleSubmit}
-            disabled={isLoading || !selectedDecoration || !formData.barSelecionado || !formData.dataAniversario}
-            className="px-8 py-3 bg-orange-500 hover:bg-orange-600 disabled:bg-slate-600 text-white font-bold rounded-lg transition-colors disabled:cursor-not-allowed"
-          >
-            {isLoading ? 'Processando...' : 'CONFIRMAR RESERVA'}
-          </button>
+          {currentSectionIndex === sections.length - 1 ? (
+            // Na última etapa, mostra o botão de confirmar
+            <button
+              onClick={handleSubmit}
+              disabled={isLoading || !selectedDecoration || !formData.barSelecionado || !formData.dataAniversario}
+              className="px-8 py-3 bg-orange-500 hover:bg-orange-600 disabled:bg-slate-600 text-white font-bold rounded-lg transition-colors disabled:cursor-not-allowed"
+            >
+              {isLoading ? 'Processando...' : 'CONFIRMAR RESERVA'}
+            </button>
+          ) : (
+            // Nas outras etapas, mostra o botão de próximo
+            <button
+              onClick={handleNext}
+              className="flex items-center px-8 py-3 bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-lg transition-colors"
+            >
+              Próximo
+              <FaArrowRight className="ml-2" />
+            </button>
+          )}
         </div>
       </div>
     </div>
