@@ -193,7 +193,7 @@ export default function ReservationModal({
     }
 
     // Exigir mesa quando houver opções compatíveis (exceto para reservas grandes)
-    const isLargeReservation = formData.number_of_people >= 16;
+    const isLargeReservation = formData.number_of_people >= 11;
     const hasOptions = tables && tables.length > 0;
     const hasCompatible = tables.some(t => !t.is_reserved && t.capacity >= formData.number_of_people);
     if (!isLargeReservation && hasOptions && hasCompatible && !formData.table_number) {
@@ -341,14 +341,14 @@ export default function ReservationModal({
                   )}
                   
                   {/* Opção para reservas grandes */}
-                  {formData.number_of_people >= 16 && (
+                  {formData.number_of_people >= 11 && (
                     <div className="mt-3 p-3 bg-orange-100 border border-orange-300 rounded-lg">
                       <div className="flex items-center gap-2 text-orange-800">
                         <MdPeople className="text-orange-600" />
                         <span className="text-sm font-medium">Reserva Grande</span>
                       </div>
                       <p className="text-xs text-orange-700 mt-1">
-                        Para grupos acima de 15 pessoas, você pode escolher apenas a área. 
+                        Para grupos acima de 10 pessoas, você pode escolher apenas a área. 
                         O admin selecionará as mesas específicas.
                       </p>
                     </div>
@@ -434,7 +434,7 @@ export default function ReservationModal({
                 </div>
 
                 {/* Campo de mesa - oculto para reservas grandes */}
-                {formData.number_of_people < 16 && (
+                {formData.number_of_people < 11 && (
                   <div>
                     <label className="block text-sm font-medium text-gray-300 mb-2">
                       <MdTableBar className="inline mr-2" />

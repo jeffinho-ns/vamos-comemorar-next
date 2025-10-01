@@ -324,7 +324,7 @@ export default function ReservationForm() {
     }
 
     // Se existem mesas para a área e data, solicitar seleção de mesa (exceto para reservas grandes)
-    const isLargeReservation = reservationData.number_of_people >= 16;
+    const isLargeReservation = reservationData.number_of_people >= 11;
     const hasTableOptions = tables && tables.length > 0;
     const hasAvailableTable = tables.some(t => !t.is_reserved && t.capacity >= reservationData.number_of_people);
     if (!isLargeReservation && hasTableOptions && hasAvailableTable && !(reservationData as any).table_number) {
@@ -622,30 +622,28 @@ const handleSubmit = async (e: React.FormEvent) => {
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Número de Pessoas *
                   </label>
-                  <select
+                  <input
+                    type="number"
+                    min={1}
                     value={reservationData.number_of_people}
-                    onChange={(e) => handleInputChange('number_of_people', parseInt(e.target.value))}
+                    onChange={(e) => handleInputChange('number_of_people', parseInt(e.target.value || '0'))}
                     className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent ${
                       errors.number_of_people ? 'border-red-500' : 'border-gray-300'
                     }`}
-                  >
-                    {[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,25,30,35,40].map(num => (
-                      <option key={num} value={num}>{num} {num === 1 ? 'pessoa' : 'pessoas'}</option>
-                    ))}
-                  </select>
+                  />
                   {errors.number_of_people && (
                     <p className="text-red-500 text-sm mt-1">{errors.number_of_people}</p>
                   )}
                   
                   {/* Indicador de reserva grande */}
-                  {reservationData.number_of_people >= 16 && (
+                  {reservationData.number_of_people >= 11 && (
                     <div className="mt-3 p-3 bg-orange-50 border border-orange-200 rounded-lg">
                       <div className="flex items-center gap-2 text-orange-800">
                         <MdPeople className="text-orange-600" />
                         <span className="text-sm font-medium">Reserva Grande</span>
                       </div>
                       <p className="text-xs text-orange-700 mt-1">
-                        Para grupos acima de 15 pessoas, você pode escolher apenas a área. 
+                        Para grupos acima de 10 pessoas, você pode escolher apenas a área. 
                         O admin selecionará as mesas específicas.
                       </p>
                     </div>
@@ -744,7 +742,7 @@ const handleSubmit = async (e: React.FormEvent) => {
               </div>
 
               {/* Table Selection (aparece quando há mesas para a área/data e não é reserva grande) */}
-              {tables.length > 0 && reservationData.number_of_people < 16 && (
+              {tables.length > 0 && reservationData.number_of_people < 11 && (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Mesa (opções disponíveis para a data)

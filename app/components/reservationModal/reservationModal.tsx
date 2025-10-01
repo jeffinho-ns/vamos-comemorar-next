@@ -162,11 +162,13 @@ const ReservationModal: React.FC<ReservationModalProps> = ({
         <label htmlFor="quantidadePessoas" className="text-sm font-medium">
           Quantidade de Pessoas:
         </label>
-        <select
+        <input
           id="quantidadePessoas"
+          type="number"
+          min={1}
           value={quantidadePessoas}
           onChange={(e) => {
-            const newQuantidadePessoas = Number(e.target.value);
+            const newQuantidadePessoas = Number(e.target.value || 0);
             setQuantidadePessoas(newQuantidadePessoas);
             setMesas(
               `${Math.ceil(newQuantidadePessoas / 6)} Mesa${
@@ -175,13 +177,7 @@ const ReservationModal: React.FC<ReservationModalProps> = ({
             );
           }}
           className="border rounded px-2 py-1 w-full"
-        >
-          {[...Array(20)].map((_, i) => (
-            <option key={i + 1} value={i + 1}>
-              {i + 1}
-            </option>
-          ))}
-        </select>
+        />
       </div>
 
       <div className="flex-1 min-w-[30%]">

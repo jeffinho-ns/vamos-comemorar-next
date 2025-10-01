@@ -128,16 +128,12 @@ const Reservas = () => {
             </p>
             <div className={styles.formGroup}>
               <label>Pessoas</label>
-              <select
+              <input
+                type="number"
+                min={1}
                 value={quantidadePessoas}
-                onChange={(e) => setQuantidadePessoas(Number(e.target.value))}
-              >
-                {Array.from({ length: 30 }, (_, i) => i + 1).map((num) => (
-                  <option key={num} value={num}>
-                    {num} Pessoa{num > 1 ? "s" : ""}
-                  </option>
-                ))}
-              </select>
+                onChange={(e) => setQuantidadePessoas(Number(e.target.value || 0))}
+              />
             </div>
             <div className={styles.formGroup}>
               <label>Mesas</label>
