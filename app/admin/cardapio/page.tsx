@@ -160,6 +160,25 @@ const DRINK_SEALS: Seal[] = [
 
 const ALL_SEALS = [...FOOD_SEALS, ...DRINK_SEALS];
 
+// Vinhos - opções especiais (serializadas em seals como vinho:*)
+const WINE_COUNTRIES: { id: string; label: string; emoji: string }[] = [
+  { id: 'vinho:pais:brasil', label: 'Brasil', emoji: '🇧🇷' },
+  { id: 'vinho:pais:franca', label: 'França', emoji: '🇫🇷' },
+  { id: 'vinho:pais:argentina', label: 'Argentina', emoji: '🇦🇷' },
+  { id: 'vinho:pais:portugal', label: 'Portugal', emoji: '🇵🇹' },
+  { id: 'vinho:pais:chile', label: 'Chile', emoji: '🇨🇱' },
+  { id: 'vinho:pais:italia', label: 'Itália', emoji: '🇮🇹' },
+  { id: 'vinho:pais:espanha', label: 'Espanha', emoji: '🇪🇸' },
+];
+
+const WINE_TYPES: { id: string; label: string; color: string }[] = [
+  { id: 'vinho:tipo:champagne', label: 'Champagne', color: '#A7D3F2' },
+  { id: 'vinho:tipo:espumante', label: 'Espumante', color: '#B8E1FF' },
+  { id: 'vinho:tipo:branco', label: 'Branco', color: '#F3FAD7' },
+  { id: 'vinho:tipo:rose', label: 'Rosé', color: '#FFD1DC' },
+  { id: 'vinho:tipo:tinto', label: 'Tinto', color: '#B71C1C' },
+];
+
 const getValidImageUrl = (filename: string): string => {
   if (!filename || filename.trim() === '' || filename.startsWith('blob:')) {
     return PLACEHOLDER_IMAGE_URL;
@@ -410,6 +429,46 @@ export default function CardapioAdminPage() {
     return (
       <div className="flex flex-wrap gap-1 mt-2">
         {seals.map((sealId) => {
+          // Renderização especial para vinhos
+          if (sealId.startsWith('vinho:pais:')) {
+            const country = WINE_COUNTRIES.find(c => c.id === sealId);
+            if (!country) return null;
+            return (
+              <span key={sealId} className="inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-medium border" style={{ borderColor: '#8883' }}>
+                <span>{country.emoji}</span>
+                <span>País: {country.label}</span>
+              </span>
+            );
+          }
+          if (sealId.startsWith('vinho:tipo:')) {
+            const type = WINE_TYPES.find(t => t.id === sealId);
+            if (!type) return null;
+            return (
+              <span key={sealId} className="inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-medium border" style={{ backgroundColor: `${type.color}44`, borderColor: `${type.color}77`, color: '#333' }}>
+                <span style={{ width: 10, height: 10, borderRadius: 2, backgroundColor: type.color }} />
+                <span>Tipo: {type.label}</span>
+              </span>
+            );
+          }
+          if (sealId.startsWith('vinho:safra:')) {
+            const safra = sealId.split(':')[2] || '';
+            return (
+              <span key={sealId} className="inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-medium border border-gray-300 text-gray-700">
+                <span>🍇</span>
+                <span>Safra: {safra}</span>
+              </span>
+            );
+          }
+          if (sealId.startsWith('vinho:local:')) {
+            const local = decodeURIComponent(sealId.split(':')[2] || '');
+            return (
+              <span key={sealId} className="inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-medium border border-gray-300 text-gray-700">
+                <span>📍</span>
+                <span>Local: {local}</span>
+              </span>
+            );
+          }
+
           const seal = getSealById(sealId);
           if (!seal) return null;
           return (
@@ -2091,7 +2150,11 @@ export default function CardapioAdminPage() {
                                 ]);
                               }
                             }}
-                            indeterminate={!isAllSelectedInBar && isAnySelectedInBar}
+                            ref={(el) => {
+                              if (el) {
+                                el.indeterminate = !isAllSelectedInBar && isAnySelectedInBar;
+                              }
+                            }}
                           />
                           <span className="text-sm font-medium text-gray-700">
                             {isAllSelectedInBar ? 'Desmarcar Todos' : 'Selecionar Todos'}
@@ -2821,6 +2884,92 @@ export default function CardapioAdminPage() {
                         <span className="text-sm text-gray-700">{seal.name}</span>
                       </label>
                     ))}
+                  </div>
+                </div>
+
+                {/* Vinhos - País */}
+                <div>
+                  <h4 className="mb-2 text-sm font-medium text-gray-600">Vinho - País</h4>
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                    {WINE_COUNTRIES.map((c) => (
+                      <label key={c.id} className="flex items-center gap-2 rounded border p-2">
+                        <input
+                          type="checkbox"
+                          checked={itemForm.seals.includes(c.id)}
+                          onChange={() => handleToggleSeal(c.id)}
+                          className="h-4 w-4 text-blue-600 focus:ring-blue-500"
+                        />
+                        <span className="text-lg">{c.emoji}</span>
+                        <span>{c.label}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Vinhos - Tipo */}
+                <div>
+                  <h4 className="mb-2 text-sm font-medium text-gray-600">Vinho - Tipo</h4>
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                    {WINE_TYPES.map((t) => (
+                      <label key={t.id} className="flex items-center gap-2 rounded border p-2">
+                        <input
+                          type="checkbox"
+                          checked={itemForm.seals.includes(t.id)}
+                          onChange={() => handleToggleSeal(t.id)}
+                          className="h-4 w-4 text-blue-600 focus:ring-blue-500"
+                        />
+                        <span className="inline-block w-3 h-3 rounded" style={{ backgroundColor: t.color }} />
+                        <span>{t.label}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Vinhos - Safra */}
+                <div>
+                  <h4 className="mb-2 text-sm font-medium text-gray-600">Vinho - Safra</h4>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      placeholder="Ex: 2018"
+                      onChange={(e) => {
+                        const id = `vinho:safra:${e.target.value.trim()}`;
+                        // Atualiza selos substituindo qualquer safra anterior
+                        setItemForm((prev) => ({
+                          ...prev,
+                          seals: [
+                            ...prev.seals.filter((s) => !s.startsWith('vinho:safra:')),
+                            ...(e.target.value.trim() ? [id] : []),
+                          ],
+                        }));
+                      }}
+                      className="w-40 rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                    <span className="text-gray-500 text-sm">Use apenas números do ano</span>
+                  </div>
+                </div>
+
+                {/* Vinhos - Local */}
+                <div>
+                  <h4 className="mb-2 text-sm font-medium text-gray-600">Vinho - Local</h4>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      placeholder="Ex: Vale dos Vinhedos - RS"
+                      onChange={(e) => {
+                        const val = encodeURIComponent(e.target.value.trim());
+                        const id = `vinho:local:${val}`;
+                        setItemForm((prev) => ({
+                          ...prev,
+                          seals: [
+                            ...prev.seals.filter((s) => !s.startsWith('vinho:local:')),
+                            ...(e.target.value.trim() ? [id] : []),
+                          ],
+                        }));
+                      }}
+                      className="w-80 rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                    <span className="text-gray-500 text-sm">Cidade/Região/Denominação</span>
                   </div>
                 </div>
 
