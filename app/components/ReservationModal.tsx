@@ -105,6 +105,49 @@ export default function ReservationModal({
 
   const isHighline = establishment && ((establishment.name || '').toLowerCase().includes('high'));
 
+  const getMaxBirthdate = () => {
+    const d = new Date();
+    d.setFullYear(d.getFullYear() - 18);
+    return d.toISOString().split('T')[0];
+  };
+
+  // Janelas de horário para o Highline (Sexta e Sábado)
+  const getHighlineTimeWindows = (dateStr: string, subareaKey?: string) => {
+    if (!dateStr) return [] as Array<{ start: string; end: string; label: string }>;
+    const date = new Date(dateStr + 'T00:00:00');
+    const weekday = date.getDay(); // 0=Dom, 5=Sex, 6=Sáb
+    const windows: Array<{ start: string; end: string; label: string }> = [];
+    const isRooftop = subareaKey ? subareaKey.startsWith('roof') : false;
+    const isDeckOrBar = subareaKey ? (subareaKey.startsWith('deck') || subareaKey === 'bar') : false;
+
+    if (weekday === 5) {
+      windows.push({ start: '18:00', end: '21:00', label: 'Sexta-feira: 18:00–21:00' });
+    } else if (weekday === 6) {
+      if (isRooftop) {
+        windows.push({ start: '14:00', end: '17:00', label: 'Sábado Rooftop: 14:00–17:00' });
+      } else if (isDeckOrBar) {
+        windows.push({ start: '14:00', end: '20:00', label: 'Sábado Deck: 14:00–20:00' });
+      } else {
+        windows.push({ start: '14:00', end: '17:00', label: 'Sábado Rooftop: 14:00–17:00' });
+        windows.push({ start: '14:00', end: '20:00', label: 'Sábado Deck: 14:00–20:00' });
+      }
+    }
+    return windows;
+  };
+
+  const isTimeWithinWindows = (timeStr: string, windows: Array<{ start: string; end: string }>) => {
+    if (!timeStr || windows.length === 0) return false;
+    const [h, m] = timeStr.split(':').map(Number);
+    const value = h * 60 + (isNaN(m) ? 0 : m);
+    return windows.some(w => {
+      const [sh, sm] = w.start.split(':').map(Number);
+      const [eh, em] = w.end.split(':').map(Number);
+      const startMin = sh * 60 + (isNaN(sm) ? 0 : sm);
+      const endMin = eh * 60 + (isNaN(em) ? 0 : em);
+      return value >= startMin && value <= endMin;
+    });
+  };
+
   // 3. USEEFFECT ATUALIZADO PARA CONTROLAR O PADRÃO DOS CHECKBOXES
   useEffect(() => {
     if (isOpen) {
@@ -180,6 +223,19 @@ export default function ReservationModal({
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
+    // 18+
+    if (!formData.data_nascimento_cliente) {
+      newErrors.data_nascimento_cliente = 'Data de nascimento é obrigatória';
+    } else {
+      const bd = new Date(formData.data_nascimento_cliente + 'T00:00:00');
+      const today = new Date();
+      const eighteen = new Date(today);
+      eighteen.setFullYear(today.getFullYear() - 18);
+      if (bd > eighteen) {
+        newErrors.data_nascimento_cliente = 'Somente maiores de 18 anos podem reservar.';
+      }
+    }
+
 
     if (!formData.client_name.trim()) {
       newErrors.client_name = 'Nome do cliente é obrigatório';
@@ -330,8 +386,12 @@ export default function ReservationModal({
                     type="date"
                     value={formData.data_nascimento_cliente}
                     onChange={(e) => handleInputChange('data_nascimento_cliente', e.target.value)}
+                    max={getMaxBirthdate()}
                     className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-500"
                   />
+                  {errors.data_nascimento_cliente && (
+                    <p className="text-red-500 text-sm mt-1">{errors.data_nascimento_cliente}</p>
+                  )}
                 </div>
 
                 {/* Number of People */}
@@ -404,6 +464,30 @@ export default function ReservationModal({
                   />
                   {errors.reservation_time && (
                     <p className="text-red-500 text-sm mt-1">{errors.reservation_time}</p>
+                  )}
+                  {isHighline && formData.reservation_date && (
+                    <div className="mt-2 text-xs text-gray-300">
+                      {(() => {
+                        const windows = getHighlineTimeWindows(formData.reservation_date, selectedSubareaKey);
+                        if (windows.length === 0) {
+                          return (
+                            <div className="p-2 bg-red-900/20 border border-red-600/40 rounded">
+                              Reservas fechadas para este dia no Highline. Disponível apenas Sexta e Sábado.
+                            </div>
+                          );
+                        }
+                        return (
+                          <div className="p-2 bg-amber-900/20 border border-amber-600/40 rounded">
+                            <div className="font-medium text-amber-300">Horários disponíveis:</div>
+                            <ul className="list-disc pl-5">
+                              {windows.map((w, i) => (
+                                <li key={i}>{w.label}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        );
+                      })()}
+                    </div>
                   )}
                 </div>
 

@@ -82,24 +82,50 @@ export default function ReservationForm() {
         if (response.ok) {
           const data = await response.json();
           if (Array.isArray(data)) {
-            const formattedEstablishments: Establishment[] = data.map((place: any) => ({
-              id: place.id,
-              name: place.name || "Sem nome",
-              logo: place.logo ? `https://vamos-comemorar-api.onrender.com/uploads/${place.logo}` : "/images/default-logo.png",
-              address: place.street ? `${place.street}, ${place.number || ''}`.trim() : "Endereço não informado",
-              phone: place.phone || "(11) 99999-9999",
-              email: place.email || "contato@estabelecimento.com.br"
-            }));
+            const formattedEstablishments: Establishment[] = data.map((place: any) => {
+              const name = place.name || "Sem nome";
+              const lower = (name || '').toLowerCase();
+              const isHighlineName = lower.includes('high');
+              const isReservaRooftop = lower.includes('reserva rooftop') || lower.includes('rooftop');
+              const isSeuJustino = lower.includes('seu justino');
+              const isPracinha = lower.includes('pracinha');
+              let fallbackPhone = "(11) 99999-9999";
+              if (isHighlineName) fallbackPhone = "(11) 3032-2934";
+              else if (isReservaRooftop) fallbackPhone = "(11) 4280-3345";
+              else if (isSeuJustino) fallbackPhone = "(11) 5200-3650";
+              else if (isPracinha) fallbackPhone = "(11) 2305-0938";
+              return {
+                id: place.id,
+                name,
+                logo: place.logo ? `https://vamos-comemorar-api.onrender.com/uploads/${place.logo}` : "/images/default-logo.png",
+                address: place.street ? `${place.street}, ${place.number || ''}`.trim() : "Endereço não informado",
+                phone: place.phone || fallbackPhone,
+                email: place.email || "contato@estabelecimento.com.br"
+              };
+            });
             setEstablishments(formattedEstablishments);
           } else if (data.data && Array.isArray(data.data)) {
-            const formattedEstablishments: Establishment[] = data.data.map((place: any) => ({
-              id: place.id,
-              name: place.name || "Sem nome",
-              logo: place.logo ? `https://vamos-comemorar-api.onrender.com/uploads/${place.logo}` : "/images/default-logo.png",
-              address: place.street ? `${place.street}, ${place.number || ''}`.trim() : "Endereço não informado",
-              phone: place.phone || "(11) 99999-9999",
-              email: place.email || "contato@estabelecimento.com.br"
-            }));
+            const formattedEstablishments: Establishment[] = data.data.map((place: any) => {
+              const name = place.name || "Sem nome";
+              const lower = (name || '').toLowerCase();
+              const isHighlineName = lower.includes('high');
+              const isReservaRooftop = lower.includes('reserva rooftop') || lower.includes('rooftop');
+              const isSeuJustino = lower.includes('seu justino');
+              const isPracinha = lower.includes('pracinha');
+              let fallbackPhone = "(11) 99999-9999";
+              if (isHighlineName) fallbackPhone = "(11) 3032-2934";
+              else if (isReservaRooftop) fallbackPhone = "(11) 4280-3345";
+              else if (isSeuJustino) fallbackPhone = "(11) 5200-3650";
+              else if (isPracinha) fallbackPhone = "(11) 2305-0938";
+              return {
+                id: place.id,
+                name,
+                logo: place.logo ? `https://vamos-comemorar-api.onrender.com/uploads/${place.logo}` : "/images/default-logo.png",
+                address: place.street ? `${place.street}, ${place.number || ''}`.trim() : "Endereço não informado",
+                phone: place.phone || fallbackPhone,
+                email: place.email || "contato@estabelecimento.com.br"
+              };
+            });
             setEstablishments(formattedEstablishments);
           }
         } else {
@@ -110,8 +136,8 @@ export default function ReservationForm() {
               name: "High Line",
               logo: "https://vamos-comemorar-api.onrender.com/uploads/1730836360230.png",
               address: "Rua Girassol, 144 - Vila Madalena",
-              phone: "(11) 99999-9999",
-              email: "contato@highline.com.br"
+              phone: "(11) 3032-2934",
+              email: "reservas@highlinebar.com.br"
             },
             {
               id: 1,
@@ -156,8 +182,8 @@ export default function ReservationForm() {
             name: "High Line",
             logo: "https://vamos-comemorar-api.onrender.com/uploads/1730836360230.png",
             address: "Rua Girassol, 144 - Vila Madalena",
-            phone: "(11) 99999-9999",
-            email: "contato@highline.com.br"
+            phone: "(11) 3032-2934",
+            email: "reservas@highlinebar.com.br"
           },
           {
             id: 1,
@@ -257,6 +283,46 @@ export default function ReservationForm() {
     (selectedEstablishment.name || '').toLowerCase().includes('high')
   );
 
+  // Janelas de horário para o Highline (Sexta e Sábado)
+  const getHighlineTimeWindows = (dateStr: string, subareaKey?: string) => {
+    if (!dateStr) return [] as Array<{ start: string; end: string; label: string }>;
+    const date = new Date(dateStr + 'T00:00:00');
+    const weekday = date.getDay(); // 0=Dom, 5=Sex, 6=Sáb
+    const windows: Array<{ start: string; end: string; label: string }> = [];
+    const isRooftop = subareaKey ? subareaKey.startsWith('roof') : false;
+    const isDeckOrBar = subareaKey ? (subareaKey.startsWith('deck') || subareaKey === 'bar') : false;
+
+    if (weekday === 5) {
+      // Sexta-feira (qualquer área)
+      windows.push({ start: '18:00', end: '21:00', label: 'Sexta-feira: 18:00–21:00' });
+    } else if (weekday === 6) {
+      // Sábado: rooftop 14–17, deck/bar 14–20
+      if (isRooftop) {
+        windows.push({ start: '14:00', end: '17:00', label: 'Sábado Rooftop: 14:00–17:00' });
+      } else if (isDeckOrBar) {
+        windows.push({ start: '14:00', end: '20:00', label: 'Sábado Deck: 14:00–20:00' });
+      } else {
+        // Sem subárea definida ainda: mostrar ambas como informação
+        windows.push({ start: '14:00', end: '17:00', label: 'Sábado Rooftop: 14:00–17:00' });
+        windows.push({ start: '14:00', end: '20:00', label: 'Sábado Deck: 14:00–20:00' });
+      }
+    }
+    return windows;
+  };
+
+  const isTimeWithinWindows = (timeStr: string, windows: Array<{ start: string; end: string }>) => {
+    if (!timeStr || windows.length === 0) return false;
+    const [h, m] = timeStr.split(':').map(Number);
+    const value = h * 60 + (isNaN(m) ? 0 : m);
+    return windows.some(w => {
+      const [sh, sm] = w.start.split(':').map(Number);
+      const [eh, em] = w.end.split(':').map(Number);
+      const startMin = sh * 60 + (isNaN(sm) ? 0 : sm);
+      const endMin = eh * 60 + (isNaN(em) ? 0 : em);
+      return value >= startMin && value <= endMin;
+    });
+  };
+
   // Carrega mesas disponíveis quando área e data forem selecionadas
   useEffect(() => {
     const loadTables = async () => {
@@ -307,12 +373,36 @@ export default function ReservationForm() {
       newErrors.client_phone = 'Telefone é obrigatório';
     }
 
+    // Validação 18+
+    if (!reservationData.client_birthdate) {
+      newErrors.client_birthdate = 'Data de nascimento é obrigatória';
+    } else {
+      const bd = new Date(reservationData.client_birthdate + 'T00:00:00');
+      const today = new Date();
+      const eighteen = new Date(today);
+      eighteen.setFullYear(today.getFullYear() - 18);
+      if (bd > eighteen) {
+        newErrors.client_birthdate = 'Para reservar, é obrigatório ser maior de 18 anos.';
+      }
+    }
+
     if (!reservationData.reservation_date) {
       newErrors.reservation_date = 'Data é obrigatória';
     }
 
     if (!reservationData.reservation_time) {
       newErrors.reservation_time = 'Horário é obrigatório';
+    }
+
+    // Regra de horário de funcionamento do Highline
+    if (isHighline) {
+      const windows = getHighlineTimeWindows(reservationData.reservation_date, selectedSubareaKey);
+      const hasWindows = windows.length > 0;
+      if (!hasWindows) {
+        newErrors.reservation_time = 'Reservas fechadas para o dia selecionado no Highline.';
+      } else if (reservationData.reservation_time && !isTimeWithinWindows(reservationData.reservation_time, windows)) {
+        newErrors.reservation_time = 'Horário fora do funcionamento. Consulte os horários disponíveis abaixo.';
+      }
     }
 
     if (!reservationData.area_id) {
@@ -426,6 +516,11 @@ const handleSubmit = async (e: React.FormEvent) => {
     const maxDate = new Date();
     maxDate.setDate(maxDate.getDate() + 30); // 30 dias no futuro
     return maxDate.toISOString().split('T')[0];
+  };
+  const getMaxBirthdate = () => {
+    const d = new Date();
+    d.setFullYear(d.getFullYear() - 18);
+    return d.toISOString().split('T')[0];
   };
 
   return (
@@ -614,8 +709,15 @@ const handleSubmit = async (e: React.FormEvent) => {
     type="date"
     value={reservationData.client_birthdate}
     onChange={(e) => handleInputChange('client_birthdate', e.target.value)}
+    max={getMaxBirthdate()}
     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
   />
+  {errors.client_birthdate && (
+    <p className="text-red-500 text-sm mt-1">{errors.client_birthdate}</p>
+  )}
+  {!errors.client_birthdate && (
+    <p className="text-gray-500 text-xs mt-1">Para reservar, é obrigatório ser maior de 18 anos.</p>
+  )}
         </div>
 
                 <div>
@@ -679,17 +781,58 @@ const handleSubmit = async (e: React.FormEvent) => {
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Horário *
                   </label>
-                  <input
-                    type="time"
-                    value={reservationData.reservation_time}
-                    onChange={(e) => handleInputChange('reservation_time', e.target.value)}
-                    className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent ${
-                      errors.reservation_time ? 'border-red-500' : 'border-gray-300'
-                    }`}
-                  />
+                {(() => {
+                  // Calcula min/max quando há exatamente uma janela aplicável
+                  let minAttr: string | undefined;
+                  let maxAttr: string | undefined;
+                  let helperWindows: Array<{ start: string; end: string; label: string }> = [];
+                  if (isHighline && reservationData.reservation_date) {
+                    helperWindows = getHighlineTimeWindows(reservationData.reservation_date, selectedSubareaKey);
+                    if (helperWindows.length === 1) {
+                      minAttr = helperWindows[0].start;
+                      maxAttr = helperWindows[0].end;
+                    }
+                  }
+                  return (
+                    <input
+                      type="time"
+                      min={minAttr}
+                      max={maxAttr}
+                      value={reservationData.reservation_time}
+                      onChange={(e) => handleInputChange('reservation_time', e.target.value)}
+                      className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent ${
+                        errors.reservation_time ? 'border-red-500' : 'border-gray-300'
+                      }`}
+                    />
+                  );
+                })()}
                   {errors.reservation_time && (
                     <p className="text-red-500 text-sm mt-1">{errors.reservation_time}</p>
                   )}
+                {isHighline && reservationData.reservation_date && (
+                  <div className="mt-2 text-xs text-gray-600">
+                    {(() => {
+                      const windows = getHighlineTimeWindows(reservationData.reservation_date, selectedSubareaKey);
+                      if (windows.length === 0) {
+                        return (
+                          <div className="p-2 bg-red-50 border border-red-200 rounded">
+                            Reservas fechadas para este dia no Highline. Disponível apenas Sexta e Sábado.
+                          </div>
+                        );
+                      }
+                      return (
+                        <div className="p-2 bg-amber-50 border border-amber-200 rounded">
+                          <div className="font-medium text-amber-800">Horários disponíveis:</div>
+                          <ul className="list-disc pl-5 text-amber-800">
+                            {windows.map((w, i) => (
+                              <li key={i}>{w.label}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      );
+                    })()}
+                  </div>
+                )}
                 </div>
               </div>
 
@@ -811,93 +954,93 @@ const handleSubmit = async (e: React.FormEvent) => {
         )}
 
         {/* Step 3: Confirmation */}
-         {step === 'confirmation' && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-2xl border border-gray-200/20 p-8 text-center"
-          >
-            <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
-              <MdCheck size={40} className="text-green-600" />
-            </div>
-            
-            <h2 className="text-3xl font-bold text-gray-800 mb-4">
-              Reserva Confirmada!
-            </h2>
-            
-            <p className="text-gray-600 mb-6">
-              Sua reserva foi realizada com sucesso. Você receberá uma confirmação por telefone ou email.
-            </p>
+        {step === 'confirmation' && (
+  <motion.div
+    initial={{ opacity: 0, y: 20 }}
+    animate={{ opacity: 1, y: 0 }}
+    className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-2xl border border-gray-200/20 p-8 text-center"
+  >
+    <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
+      <MdCheck size={40} className="text-green-600" />
+    </div>
 
-            <div className="bg-gray-50 rounded-lg p-6 mb-6 text-left">
-              <h3 className="font-semibold text-gray-800 mb-4">Detalhes da Reserva:</h3>
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Estabelecimento:</span>
-                  <span className="font-medium">{selectedEstablishment?.name}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Data:</span>
-                  <span className="font-medium">
-                    {new Date(reservationData.reservation_date).toLocaleDateString('pt-BR')}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Horário:</span>
-                  <span className="font-medium">{reservationData.reservation_time}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Pessoas:</span>
-                  <span className="font-medium">{reservationData.number_of_people}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Área:</span>
-                  <span className="font-medium">
-                    {areas.find(a => a.id.toString() === reservationData.area_id)?.name}
-                  </span>
-                </div>
-                {reservationId && (
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Código:</span>
-                    <span className="font-medium font-mono">{reservationId}</span>
-                  </div>
-                )}
-              </div>
-            </div>
+    <h2 className="text-3xl font-bold text-gray-800 mb-4">
+      Reserva Confirmada!
+    </h2>
 
-            <div className="flex gap-4 justify-center">
-              <button
-                onClick={() => {
-                  setStep('establishment');
-                  setSelectedEstablishment(null);
-                  // CORREÇÃO: Resetar o estado para a forma inicial completa
-                  setReservationData({
-                    client_name: '',
-                    client_phone: '',
-                    client_email: '',
-                    client_birthdate: '', // ✅ Corrigido
-                    reservation_date: '',
-                    reservation_time: '',
-                    number_of_people: 2,
-                    area_id: '',
-                    table_number: '',
-                    notes: '',
-                  });
-                }}
-                className="px-6 py-3 bg-gray-500 hover:bg-gray-600 text-white rounded-lg transition-colors"
-              >
-                Nova Reserva
-              </button>
-              <button
-                onClick={() => router.push('/')}
-                className="px-6 py-3 bg-orange-500 hover:bg-orange-600 text-white rounded-lg transition-colors"
-              >
-                Voltar ao Início
-              </button>
-            </div>
-          </motion.div>
-        )}
-      </div>
-    </div>
-  );
+    <p className="text-gray-600 mb-6">
+      Sua reserva foi realizada com sucesso. Você receberá uma confirmação por telefone ou email.
+    </p>
+
+    <div className="bg-gray-50 rounded-lg p-6 mb-6 text-left">
+      <h3 className="font-semibold text-gray-800 mb-4">Detalhes da Reserva:</h3>
+      <div className="space-y-2 text-sm">
+        <div className="flex justify-between">
+          <span className="text-gray-600">Estabelecimento:</span>
+          <span className="font-medium">{selectedEstablishment?.name}</span>
+        </div>
+        <div className="flex justify-between">
+          <span className="text-gray-600">Data:</span>
+          <span className="font-medium">
+            {new Date(reservationData.reservation_date).toLocaleDateString('pt-BR')}
+          </span>
+        </div>
+        <div className="flex justify-between">
+          <span className="text-gray-600">Horário:</span>
+          <span className="font-medium">{reservationData.reservation_time}</span>
+        </div>
+        <div className="flex justify-between">
+          <span className="text-gray-600">Pessoas:</span>
+          <span className="font-medium">{reservationData.number_of_people}</span>
+        </div>
+        <div className="flex justify-between">
+          <span className="text-gray-600">Área:</span>
+          <span className="font-medium">
+            {areas.find(a => a.id.toString() === reservationData.area_id)?.name}
+          </span>
+        </div>
+        {reservationId && (
+          <div className="flex justify-between">
+            <span className="text-gray-600">Código:</span>
+            <span className="font-medium font-mono">{reservationId}</span>
+          </div>
+        )}
+      </div>
+    </div>
+
+    <div className="flex gap-4 justify-center">
+      <button
+        onClick={() => {
+          setStep('establishment');
+          setSelectedEstablishment(null);
+          // Resetar o estado para a forma inicial completa
+          setReservationData({
+            client_name: '',
+            client_phone: '',
+            client_email: '',
+            client_birthdate: '', // ✅ Corrigido
+            reservation_date: '',
+            reservation_time: '',
+            number_of_people: 2,
+            area_id: '',
+            table_number: '',
+            notes: '',
+          });
+        }}
+        className="px-6 py-3 bg-gray-500 hover:bg-gray-600 text-white rounded-lg transition-colors"
+      >
+        Nova Reserva
+      </button>
+      <button
+        onClick={() => router.push('/')}
+        className="px-6 py-3 bg-orange-500 hover:bg-orange-600 text-white rounded-lg transition-colors"
+      >
+        Voltar ao Início
+      </button>
+    </div>
+  </motion.div>
+)}
+</div>
+</div>
+);
 }
