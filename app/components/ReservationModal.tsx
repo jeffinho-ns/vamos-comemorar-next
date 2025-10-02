@@ -16,6 +16,7 @@ import {
   MdSave,
   MdCancel
 } from 'react-icons/md';
+import { FaWhatsapp } from 'react-icons/fa'; // <-- 1. IMPORTAÇÃO ADICIONADA
 
 // Configuração da API
 const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL_LOCAL || 'https://vamos-comemorar-api.onrender.com';
@@ -70,7 +71,7 @@ export default function ReservationModal({
     client_name: '',
     client_phone: '',
     client_email: '',
-    data_nascimento_cliente: '', // <-- CAMPO ADICIONADO
+    data_nascimento_cliente: '',
     reservation_date: '',
     reservation_time: '',
     number_of_people: 1,
@@ -86,7 +87,10 @@ export default function ReservationModal({
   const [tables, setTables] = useState<RestaurantTable[]>([]);
   const [selectedSubareaKey, setSelectedSubareaKey] = useState<string>('');
 
-  // Subáreas do Highline (mapeiam para area_id base 2 ou 5)
+  // 2. ESTADOS PARA OS CONTROLES DE NOTIFICAÇÃO ADICIONADOS
+  const [sendEmailConfirmation, setSendEmailConfirmation] = useState(true);
+  const [sendWhatsAppConfirmation, setSendWhatsAppConfirmation] = useState(true);
+
   const highlineSubareas = [
     { key: 'deck-frente', area_id: 2, label: 'Área Deck - Frente', tableNumbers: ['05','06','07','08'] },
     { key: 'deck-esquerdo', area_id: 2, label: 'Área Deck - Esquerdo', tableNumbers: ['01','02','03','04'] },
@@ -101,14 +105,15 @@ export default function ReservationModal({
 
   const isHighline = establishment && ((establishment.name || '').toLowerCase().includes('high'));
 
+  // 3. USEEFFECT ATUALIZADO PARA CONTROLAR O PADRÃO DOS CHECKBOXES
   useEffect(() => {
     if (isOpen) {
-      if (reservation) {
+      if (reservation) { // Modo de Edição
         setFormData({
           client_name: reservation.client_name || '',
           client_phone: reservation.client_phone || '',
           client_email: reservation.client_email || '',
-          data_nascimento_cliente: reservation.data_nascimento_cliente || '', // <-- CAMPO ADICIONADO
+          data_nascimento_cliente: reservation.data_nascimento_cliente || '',
           reservation_date: reservation.reservation_date || '',
           reservation_time: reservation.reservation_time || '',
           number_of_people: reservation.number_of_people || 1,
@@ -118,13 +123,15 @@ export default function ReservationModal({
           origin: reservation.origin || 'PESSOAL',
           notes: reservation.notes || ''
         });
-      } else {
-        // Reset form for new reservation
+        // Desliga as notificações por padrão ao editar
+        setSendEmailConfirmation(false);
+        setSendWhatsAppConfirmation(false);
+      } else { // Modo de Criação
         setFormData({
           client_name: '',
           client_phone: '',
           client_email: '',
-          data_nascimento_cliente: '', // <-- CAMPO ADICIONADO
+          data_nascimento_cliente: '',
           reservation_date: selectedDate ? selectedDate.toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
           reservation_time: selectedTime || '',
           number_of_people: 1,
@@ -134,12 +141,14 @@ export default function ReservationModal({
           origin: 'PESSOAL',
           notes: ''
         });
+        // Liga as notificações por padrão ao criar
+        setSendEmailConfirmation(true);
+        setSendWhatsAppConfirmation(true);
       }
       setErrors({});
     }
   }, [isOpen, reservation, selectedDate, selectedTime]);
 
-  // Carregar mesas disponíveis quando área e data forem definidos
   useEffect(() => {
     const loadTables = async () => {
       if (!formData.area_id || !formData.reservation_date) {
@@ -175,24 +184,18 @@ export default function ReservationModal({
     if (!formData.client_name.trim()) {
       newErrors.client_name = 'Nome do cliente é obrigatório';
     }
-
     if (!formData.reservation_date) {
       newErrors.reservation_date = 'Data da reserva é obrigatória';
     }
-
     if (!formData.reservation_time) {
       newErrors.reservation_time = 'Horário da reserva é obrigatório';
     }
-
     if (!formData.area_id) {
       newErrors.area_id = 'Área é obrigatória';
     }
-
     if (formData.number_of_people < 1) {
       newErrors.number_of_people = 'Número de pessoas deve ser maior que 0';
     }
-
-    // Exigir mesa quando houver opções compatíveis (exceto para reservas grandes)
     const isLargeReservation = formData.number_of_people >= 11;
     const hasOptions = tables && tables.length > 0;
     const hasCompatible = tables.some(t => !t.is_reserved && t.capacity >= formData.number_of_people);
@@ -204,6 +207,7 @@ export default function ReservationModal({
     return Object.keys(newErrors).length === 0;
   };
 
+  // 4. HANDLESUBMIT ATUALIZADO PARA ENVIAR O PAYLOAD COMPLETO
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -212,8 +216,16 @@ export default function ReservationModal({
     }
 
     setLoading(true);
+
+    const payload = {
+      ...formData,
+      establishment_id: establishment?.id,
+      send_email: sendEmailConfirmation,
+      send_whatsapp: sendWhatsAppConfirmation,
+    };
+
     try {
-      await onSave(formData);
+      await onSave(payload);
       onClose();
     } catch (error) {
       console.error('Erro ao salvar reserva:', error);
@@ -239,7 +251,6 @@ export default function ReservationModal({
             exit={{ opacity: 0, scale: 0.95 }}
             className="bg-gray-800 rounded-lg w-full max-w-2xl max-h-[90vh] overflow-y-auto"
           >
-            {/* Header */}
             <div className="flex items-center justify-between p-6 border-b border-gray-700">
               <div>
                 <h2 className="text-xl font-bold">
@@ -257,10 +268,9 @@ export default function ReservationModal({
               </button>
             </div>
 
-            {/* Form */}
             <form onSubmit={handleSubmit} className="p-6 space-y-6">
-              {/* Client Information */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Client Name */}
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-2">
                     <MdPerson className="inline mr-2" />
@@ -280,6 +290,7 @@ export default function ReservationModal({
                   )}
                 </div>
 
+                {/* Client Phone */}
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-2">
                     <MdPhone className="inline mr-2" />
@@ -294,6 +305,7 @@ export default function ReservationModal({
                   />
                 </div>
 
+                {/* Client Email */}
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-2">
                     <MdEmail className="inline mr-2" />
@@ -308,7 +320,7 @@ export default function ReservationModal({
                   />
                 </div>
                 
-                {/* NOVO CAMPO DE DATA DE NASCIMENTO */}
+                {/* Client Birthdate */}
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-2">
                     <MdCalendarToday className="inline mr-2" />
@@ -322,6 +334,7 @@ export default function ReservationModal({
                   />
                 </div>
 
+                {/* Number of People */}
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-2">
                     <MdPeople className="inline mr-2" />
@@ -340,7 +353,6 @@ export default function ReservationModal({
                     <p className="text-red-500 text-sm mt-1">{errors.number_of_people}</p>
                   )}
                   
-                  {/* Opção para reservas grandes */}
                   {formData.number_of_people >= 11 && (
                     <div className="mt-3 p-3 bg-orange-100 border border-orange-300 rounded-lg">
                       <div className="flex items-center gap-2 text-orange-800">
@@ -356,8 +368,8 @@ export default function ReservationModal({
                 </div>
               </div>
 
-              {/* Reservation Details */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Reservation Date */}
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-2">
                     <MdCalendarToday className="inline mr-2" />
@@ -376,6 +388,7 @@ export default function ReservationModal({
                   )}
                 </div>
 
+                {/* Reservation Time */}
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-2">
                     <MdAccessTime className="inline mr-2" />
@@ -394,6 +407,7 @@ export default function ReservationModal({
                   )}
                 </div>
 
+                {/* Restaurant Area */}
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-2">
                     <MdLocationOn className="inline mr-2" />
@@ -433,7 +447,7 @@ export default function ReservationModal({
                   )}
                 </div>
 
-                {/* Campo de mesa - oculto para reservas grandes */}
+                {/* Restaurant Table */}
                 {formData.number_of_people < 11 && (
                   <div>
                     <label className="block text-sm font-medium text-gray-300 mb-2">
@@ -473,8 +487,8 @@ export default function ReservationModal({
                 )}
               </div>
 
-              {/* Status and Origin */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Status */}
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-2">
                     Status
@@ -492,6 +506,7 @@ export default function ReservationModal({
                   </select>
                 </div>
 
+                {/* Origin */}
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-2">
                     Origem
@@ -509,7 +524,7 @@ export default function ReservationModal({
                   </select>
                 </div>
               </div>
-
+              
               {/* Notes */}
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">
@@ -525,7 +540,37 @@ export default function ReservationModal({
                 />
               </div>
 
-              {/* Actions */}
+              {/* 5. CHECKBOXES DE NOTIFICAÇÃO ADICIONADOS AO FORMULÁRIO */}
+              <div className="pt-4 border-t border-gray-700">
+                <label className="block text-sm font-medium text-gray-300 mb-3">
+                  Notificar Cliente sobre a Reserva?
+                </label>
+                <div className="flex items-center space-x-6">
+                  <label htmlFor="sendEmail" className="flex items-center gap-2 cursor-pointer text-gray-300">
+                    <input
+                      id="sendEmail"
+                      type="checkbox"
+                      checked={sendEmailConfirmation}
+                      onChange={(e) => setSendEmailConfirmation(e.target.checked)}
+                      className="w-5 h-5 bg-gray-600 border-gray-500 rounded text-orange-500 focus:ring-orange-600"
+                    />
+                    <MdEmail className="inline" size={20} />
+                    <span>Enviar Email</span>
+                  </label>
+                  <label htmlFor="sendWhatsApp" className="flex items-center gap-2 cursor-pointer text-gray-300">
+                    <input
+                      id="sendWhatsApp"
+                      type="checkbox"
+                      checked={sendWhatsAppConfirmation}
+                      onChange={(e) => setSendWhatsAppConfirmation(e.target.checked)}
+                      className="w-5 h-5 bg-gray-600 border-gray-500 rounded text-orange-500 focus:ring-orange-600"
+                    />
+                    <FaWhatsapp className="inline" size={20} />
+                    <span>Enviar WhatsApp</span>
+                  </label>
+                </div>
+              </div>
+
               <div className="flex justify-end gap-4 pt-6 border-t border-gray-700">
                 <button
                   type="button"
