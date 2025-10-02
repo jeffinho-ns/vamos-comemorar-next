@@ -418,6 +418,68 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
   );
 
 
+  // Vinhos - listas auxiliares para renderização
+  const WINE_COUNTRIES = [
+    { id: 'vinho:pais:brasil', label: 'Brasil', emoji: '🇧🇷' },
+    { id: 'vinho:pais:franca', label: 'França', emoji: '🇫🇷' },
+    { id: 'vinho:pais:argentina', label: 'Argentina', emoji: '🇦🇷' },
+    { id: 'vinho:pais:portugal', label: 'Portugal', emoji: '🇵🇹' },
+    { id: 'vinho:pais:chile', label: 'Chile', emoji: '🇨🇱' },
+    { id: 'vinho:pais:italia', label: 'Itália', emoji: '🇮🇹' },
+    { id: 'vinho:pais:espanha', label: 'Espanha', emoji: '🇪🇸' },
+  ];
+  const WINE_TYPES = [
+    { id: 'vinho:tipo:champagne', label: 'Champagne', color: '#A7D3F2' },
+    { id: 'vinho:tipo:espumante', label: 'Espumante', color: '#B8E1FF' },
+    { id: 'vinho:tipo:branco', label: 'Branco', color: '#F3FAD7' },
+    { id: 'vinho:tipo:rose', label: 'Rosé', color: '#FFD1DC' },
+    { id: 'vinho:tipo:tinto', label: 'Tinto', color: '#B71C1C' },
+  ];
+
+  const renderWineSeal = (sealId: string, size: 'card' | 'modal') => {
+    if (sealId.startsWith('vinho:pais:')) {
+      const c = WINE_COUNTRIES.find(x => x.id === sealId);
+      if (!c) return null;
+      return (
+        <span key={sealId} className={`${size === 'modal' ? 'px-3 py-1.5 text-sm' : 'px-2.5 py-1 text-xs'} inline-flex items-center rounded-full font-semibold bg-white text-gray-800 border border-gray-300 shadow-sm`}>
+          <span className="mr-1">{c.emoji}</span>
+          País: {c.label}
+        </span>
+      );
+    }
+    if (sealId.startsWith('vinho:tipo:')) {
+      const t = WINE_TYPES.find(x => x.id === sealId);
+      if (!t) return null;
+      return (
+        <span key={sealId} className={`${size === 'modal' ? 'px-3 py-1.5 text-sm' : 'px-2.5 py-1 text-xs'} inline-flex items-center rounded-full font-semibold text-gray-900`} style={{ backgroundColor: `${t.color}44`, boxShadow: `0 2px 8px ${t.color}40` }}>
+          <span className="inline-block w-2.5 h-2.5 mr-2 rounded" style={{ backgroundColor: t.color }} />
+          Tipo: {t.label}
+        </span>
+      );
+    }
+    if (sealId.startsWith('vinho:safra:')) {
+      const safra = sealId.split(':')[2] || '';
+      if (!safra) return null;
+      return (
+        <span key={sealId} className={`${size === 'modal' ? 'px-3 py-1.5 text-sm' : 'px-2.5 py-1 text-xs'} inline-flex items-center rounded-full font-semibold bg-white text-gray-800 border border-gray-300 shadow-sm`}>
+          <span className="mr-1">🍇</span>
+          Safra: {safra}
+        </span>
+      );
+    }
+    if (sealId.startsWith('vinho:local:')) {
+      const local = decodeURIComponent(sealId.split(':')[2] || '');
+      if (!local) return null;
+      return (
+        <span key={sealId} className={`${size === 'modal' ? 'px-3 py-1.5 text-sm' : 'px-2.5 py-1 text-xs'} inline-flex items-center rounded-full font-semibold bg-white text-gray-800 border border-gray-300 shadow-sm`}>
+          <span className="mr-1">📍</span>
+          Local: {local}
+        </span>
+      );
+    }
+    return null;
+  };
+
   // Componente para renderizar selos no modal - Versão otimizada para mobile
   const renderModalSeals = useCallback((seals: string[]) => {
     if (!seals || seals.length === 0) return null;
@@ -425,6 +487,8 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
     return (
       <div className="flex flex-wrap gap-2 mb-6">
         {seals.map((sealId) => {
+          const wine = renderWineSeal(sealId, 'modal');
+          if (wine) return wine;
           const seal = ALL_SEALS[sealId];
           if (!seal) return null;
           return (
@@ -481,6 +545,8 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
         {item.seals && item.seals.length > 0 && (
           <div className="flex flex-wrap gap-1.5 mb-3">
             {item.seals.map((sealId) => {
+              const wine = renderWineSeal(sealId, 'card');
+              if (wine) return wine;
               const seal = ALL_SEALS[sealId];
               if (!seal) return null;
               return (

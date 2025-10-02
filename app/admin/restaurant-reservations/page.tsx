@@ -412,12 +412,31 @@ export default function RestaurantReservationsPage() {
     }
   };
 
-  const handleStatusChange = (reservation: Reservation, newStatus: string) => {
-    setReservations(prev => 
-      prev.map(r => 
-        r.id === reservation.id ? { ...r, status: newStatus as any } : r
-      )
-    );
+  const handleStatusChange = async (reservation: Reservation, newStatus: string) => {
+    try {
+      const response = await fetch(`${API_URL}/api/restaurant-reservations/${reservation.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ status: newStatus })
+      });
+
+      if (response.ok) {
+        setReservations(prev => 
+          prev.map(r => 
+            r.id === reservation.id ? { ...r, status: newStatus as any } : r
+          )
+        );
+      } else {
+        const errorData = await response.json();
+        console.error('Erro ao atualizar status da reserva:', errorData);
+        alert('Erro ao atualizar status da reserva: ' + (errorData.error || 'Erro desconhecido'));
+      }
+    } catch (error) {
+      console.error('Erro ao atualizar status da reserva:', error);
+      alert('Erro ao atualizar status da reserva. Tente novamente.');
+    }
   };
 
 

@@ -38,6 +38,24 @@ export default function ReservationDetailsModal({
 }: ReservationDetailsModalProps) {
   if (!reservation) return null;
 
+  // Mapeia mesas do Highline para subáreas específicas
+  const getHighlineSubareaLabel = (tableNumber?: string | number) => {
+    if (!tableNumber) return null;
+    const n = String(tableNumber);
+    if (['05','06','07','08'].includes(n)) return 'Área Deck - Frente';
+    if (['01','02','03','04'].includes(n)) return 'Área Deck - Esquerdo';
+    if (['09','10','11','12'].includes(n)) return 'Área Deck - Direito';
+    if (['15','16','17'].includes(n)) return 'Área Bar';
+    if (['50','51','52','53','54','55'].includes(n)) return 'Área Rooftop - Direito';
+    if (['70','71','72','73'].includes(n)) return 'Área Rooftop - Bistrô';
+    if (['44','45','46','47'].includes(n)) return 'Área Rooftop - Centro';
+    if (['60','61','62','63','64','65'].includes(n)) return 'Área Rooftop - Esquerdo';
+    if (['40','41','42'].includes(n)) return 'Área Rooftop - Vista';
+    return null;
+  };
+
+  const derivedAreaName = getHighlineSubareaLabel((reservation as any).table_number) || reservation.area_name;
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'confirmed': return 'bg-green-100 text-green-800 border-green-200';
@@ -195,9 +213,20 @@ export default function ReservationDetailsModal({
                     </label>
                     <p className="text-gray-800 flex items-center gap-2">
                       <MdLocationOn className="text-gray-400" />
-                      {reservation.area_name}
+                      {derivedAreaName}
                     </p>
                   </div>
+
+                  {reservation.table_number && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-600 mb-1">
+                        Mesa
+                      </label>
+                      <p className="text-gray-800 flex items-center gap-2">
+                        <span>Mesa {reservation.table_number}</span>
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -290,6 +319,7 @@ export default function ReservationDetailsModal({
     </AnimatePresence>
   );
 }
+
 
 
 
