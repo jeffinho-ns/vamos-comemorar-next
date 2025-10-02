@@ -41,7 +41,7 @@ export default function Home() {
   useEffect(() => {
     const handleResize = () => {
       if (window.innerWidth < 768) {
-        router.push("/webapp");
+        router.push("/");
       }
     };
 
