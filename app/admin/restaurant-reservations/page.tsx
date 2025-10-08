@@ -174,7 +174,8 @@ export default function RestaurantReservationsPage() {
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
 
-  const [viewMode, setViewMode] = useState<'calendar' | 'list' | 'weekly'>('calendar');
+  const [viewMode, setViewMode] = useState<'calendar' | 'list' | 'weekly' | 'sheet'>('calendar');
+  const [sheetFilters, setSheetFilters] = useState<{ date?: string; search?: string; name?: string; phone?: string; event?: string; table?: string; status?: string }>({});
   const [searchTerm, setSearchTerm] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [editingReservation, setEditingReservation] = useState<Reservation | null>(null);
@@ -787,6 +788,16 @@ export default function RestaurantReservationsPage() {
                         >
                           Lista
                         </button>
+                        <button
+                          onClick={() => setViewMode('sheet')}
+                          className={`px-4 py-2 rounded-md transition-colors ${
+                            viewMode === 'sheet'
+                              ? 'bg-white text-gray-800 shadow-sm'
+                              : 'text-gray-600 hover:text-gray-800'
+                          }`}
+                        >
+                          Planilha
+                        </button>
                       </div>
                       
                       {/* Indicador de Ocupação */}
@@ -965,6 +976,243 @@ export default function RestaurantReservationsPage() {
                           </div>
                         </motion.div>
                       ))}
+                    </div>
+                  )}
+
+                  {/* Planilha (estilo Excel) */}
+                  {viewMode === 'sheet' && (
+                    <div className="space-y-8">
+                      {/* Filtros superiores (globais) */}
+                      <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
+                        <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
+                          <div>
+                            <label className="block text-sm text-gray-600 mb-1">Data</label>
+                            <input
+                              type="date"
+                              value={sheetFilters.date || ''}
+                              onChange={(e) => setSheetFilters(prev => ({ ...prev, date: e.target.value }))}
+                              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+                            />
+                          </div>
+                          <div className="flex-1">
+                            <label className="block text-sm text-gray-600 mb-1">Buscar</label>
+                            <input
+                              type="text"
+                              placeholder="Nome, telefone, evento..."
+                              value={sheetFilters.search || ''}
+                              onChange={(e) => setSheetFilters(prev => ({ ...prev, search: e.target.value }))}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+                            />
+                          </div>
+                        </div>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => setSheetFilters({})}
+                            className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg"
+                          >
+                            Limpar Filtros
+                          </button>
+                          <button
+                            onClick={async () => {
+                              await loadAreas();
+                              setShowModal(true);
+                            }}
+                            className="px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-white rounded-lg"
+                          >
+                            <MdAdd className="inline mr-1" /> Nova Reserva
+                          </button>
+                        </div>
+                      </div>
+
+                      {(() => {
+                        // Funções auxiliares
+                        const formatTime = (t?: string) => (t ? t.slice(0,5) : '');
+                        const matchesFilters = (r: Reservation) => {
+                          if (sheetFilters.date) {
+                            const d = new Date(r.reservation_date).toISOString().split('T')[0];
+                            if (d !== sheetFilters.date) return false;
+                          }
+                          if (sheetFilters.search) {
+                            const q = sheetFilters.search.toLowerCase();
+                            const hay = `${r.client_name || ''} ${r.client_phone || ''} ${(r as any).event_name || ''}`.toLowerCase();
+                            if (!hay.includes(q)) return false;
+                          }
+                          if (sheetFilters.name && !(`${r.client_name || ''}`.toLowerCase().includes(sheetFilters.name.toLowerCase()))) return false;
+                          if (sheetFilters.phone && !(`${r.client_phone || ''}`.toLowerCase().includes(sheetFilters.phone.toLowerCase()))) return false;
+                          if (sheetFilters.event && !(`${(r as any).event_name || ''}`.toLowerCase().includes(sheetFilters.event.toLowerCase()))) return false;
+                          if (sheetFilters.table && !(`${(r as any).table_number || ''}`.toString().toLowerCase().includes(sheetFilters.table.toLowerCase()))) return false;
+                          if (sheetFilters.status && !(r.status || '').toLowerCase().includes(sheetFilters.status.toLowerCase())) return false;
+                          return true;
+                        };
+
+                        const areaSections: Array<{ key: string; title: string; tableWhitelist?: string[] }> = [
+                          { key: 'deck', title: 'Deck', tableWhitelist: ['01','02','03','04','05','06','07','08','09','10','11','12'] },
+                          { key: 'bar', title: 'Bar Central', tableWhitelist: ['11','12','13','14'] },
+                          { key: 'balada', title: 'Balada' },
+                          { key: 'rooftop', title: 'Rooftop', tableWhitelist: ['40','41','42','44','45','46','47','60','61','62','63','64','65','50','51','52','53','54','55','56','70','71','72','73'] },
+                        ];
+
+                        const getAreaKeyFromReservation = (r: Reservation): string => {
+                          const tableNum = String((r as any).table_number || '').padStart(2,'0');
+                          const areaName = (r as any).area_name?.toLowerCase() || '';
+                          if (['40','41','42','44','45','46','47','60','61','62','63','64','65','50','51','52','53','54','55','56','70','71','72','73'].includes(tableNum) || areaName.includes('roof')) return 'rooftop';
+                          if (['01','02','03','04','05','06','07','08','09','10','11','12'].includes(tableNum) || areaName.includes('deck')) return 'deck';
+                          if (['11','12','13','14'].includes(tableNum) || areaName.includes('bar')) return 'bar';
+                          if (areaName.includes('balada')) return 'balada';
+                          return 'deck';
+                        };
+
+                        const displayTableLabel = (tableNum?: string | number, areaKey?: string) => {
+                          const n = String(tableNum || '').padStart(2,'0');
+                          if (areaKey === 'deck') {
+                            if (['01','02','03','04'].includes(n)) return `Lounge ${parseInt(n,10)}`;
+                            if (['05','06','07','08'].includes(n)) return `Lounge ${parseInt(n,10)}`;
+                            if (['09','10','11','12'].includes(n)) return `Mesa ${n}`;
+                          }
+                          if (areaKey === 'bar') {
+                            if (['11','12','13','14'].includes(n)) return `Bistrô ESPERA ${n}`;
+                          }
+                          if (areaKey === 'rooftop') {
+                            if (['40','41','42'].includes(n)) return `Lounge ${n}`;
+                            if (['44','45','46','47'].includes(n)) return `Lounge Central ${n}`;
+                            if (['60','61','62','63','64','65'].includes(n)) return `Bangalô ${n}`;
+                            if (['50','51','52','53','54','55','56'].includes(n)) return `Mesa ${n}`;
+                            if (['70','71','72','73'].includes(n)) return `Bistrô ${n}`;
+                          }
+                          return tableNum ? `Mesa ${n}` : '';
+                        };
+
+                        const openEdit = (res?: Reservation) => {
+                          setEditingReservation(res || null);
+                          setShowModal(true);
+                        };
+
+                        const SectionTable = ({ sectionKey, title, whitelist }: { sectionKey: string; title: string; whitelist?: string[] }) => {
+                          const rows = filteredReservations
+                            .filter(r => matchesFilters(r))
+                            .filter(r => getAreaKeyFromReservation(r) === sectionKey)
+                            .sort((a,b) => a.reservation_time.localeCompare(b.reservation_time));
+
+                          return (
+                            <div>
+                              <h3 className="text-lg font-semibold text-gray-800 mb-3">{title}</h3>
+                              <div className="overflow-x-auto border border-gray-300 rounded-lg">
+                                <table className="min-w-full table-fixed border-collapse">
+                                  <thead className="bg-gray-50 sticky top-0 z-10">
+                                    <tr className="text-[11px] uppercase text-gray-600">
+                                      <th className="w-10 border border-gray-300 px-2 py-1 text-left">#</th>
+                                      <th className="border border-gray-300 px-2 py-1 text-left">Data de Entrada</th>
+                                      <th className="border border-gray-300 px-2 py-1 text-left">Evento</th>
+                                      <th className="border border-gray-300 px-2 py-1 text-left">Nome</th>
+                                      <th className="border border-gray-300 px-2 py-1 text-left">Mesas</th>
+                                      <th className="border border-gray-300 px-2 py-1 text-left">Telefone</th>
+                                      <th className="border border-gray-300 px-2 py-1 text-left">Observação</th>
+                                      <th className="border border-gray-300 px-2 py-1 text-left">Limite por mesa</th>
+                                      <th className="border border-gray-300 px-2 py-1 text-left">Nº pessoas</th>
+                                      <th className="border border-gray-300 px-2 py-1 text-left">Presença</th>
+                                    </tr>
+                                    <tr className="bg-white text-[12px]">
+                                      <th className="w-10 border border-gray-300 px-2 py-1 text-gray-400 font-normal">&nbsp;</th>
+                                      <th className="border border-gray-300 px-2 py-1 text-gray-600">
+                                        <input type="date" value={sheetFilters.date || ''} onChange={(e)=>setSheetFilters(p=>({...p, date:e.target.value}))} className="w-full text-xs border-gray-200 rounded" />
+                                      </th>
+                                      <th className="border border-gray-300 px-2 py-1">
+                                        <input placeholder="Filtrar evento" value={sheetFilters.event || ''} onChange={(e)=>setSheetFilters(p=>({...p, event:e.target.value}))} className="w-full text-xs border-gray-200 rounded px-1 py-0.5" />
+                                      </th>
+                                      <th className="border border-gray-300 px-2 py-1">
+                                        <input placeholder="Filtrar nome" value={sheetFilters.name || ''} onChange={(e)=>setSheetFilters(p=>({...p, name:e.target.value}))} className="w-full text-xs border-gray-200 rounded px-1 py-0.5" />
+                                      </th>
+                                      <th className="border border-gray-300 px-2 py-1">
+                                        <input placeholder="Filtrar mesa" value={sheetFilters.table || ''} onChange={(e)=>setSheetFilters(p=>({...p, table:e.target.value}))} className="w-full text-xs border-gray-200 rounded px-1 py-0.5" />
+                                      </th>
+                                      <th className="border border-gray-300 px-2 py-1">
+                                        <input placeholder="Filtrar telefone" value={sheetFilters.phone || ''} onChange={(e)=>setSheetFilters(p=>({...p, phone:e.target.value}))} className="w-full text-xs border-gray-200 rounded px-1 py-0.5" />
+                                      </th>
+                                      <th className="border border-gray-300 px-2 py-1">
+                                        <input placeholder="Filtrar observação" value={sheetFilters.search || ''} onChange={(e)=>setSheetFilters(p=>({...p, search:e.target.value}))} className="w-full text-xs border-gray-200 rounded px-1 py-0.5" />
+                                      </th>
+                                      <th className="border border-gray-300 px-2 py-1 text-gray-400 font-normal">&nbsp;</th>
+                                      <th className="border border-gray-300 px-2 py-1 text-gray-400 font-normal">&nbsp;</th>
+                                      <th className="border border-gray-300 px-2 py-1">
+                                        <input placeholder="status" value={sheetFilters.status || ''} onChange={(e)=>setSheetFilters(p=>({...p, status:e.target.value}))} className="w-full text-xs border-gray-200 rounded px-1 py-0.5" />
+                                      </th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {rows.map((r, idx) => (
+                                      <tr key={r.id} className="hover:bg-yellow-50">
+                                        <td className="border border-gray-300 px-2 py-1 text-[12px] text-gray-500">{idx + 1}</td>
+                                        <td className="border border-gray-300 px-2 py-1 text-sm text-gray-700 whitespace-nowrap">
+                                          {new Date(r.reservation_date).toLocaleDateString('pt-BR')} {formatTime(r.reservation_time)}
+                                          <button onClick={() => openEdit(r)} className="ml-2 px-2 py-0.5 text-xs bg-yellow-100 text-yellow-700 rounded">+</button>
+                                        </td>
+                                        <td className="border border-gray-300 px-2 py-1 text-sm text-gray-700">
+                                          {(r as any).event_name || '-'}
+                                          <button onClick={() => openEdit(r)} className="ml-2 px-2 py-0.5 text-xs bg-yellow-100 text-yellow-700 rounded">+</button>
+                                        </td>
+                                        <td className="border border-gray-300 px-2 py-1 text-sm text-gray-700">
+                                          {r.client_name}
+                                          <button onClick={() => openEdit(r)} className="ml-2 px-2 py-0.5 text-xs bg-yellow-100 text-yellow-700 rounded">+</button>
+                                        </td>
+                                        <td className="border border-gray-300 px-2 py-1 text-sm text-gray-700">
+                                          {displayTableLabel((r as any).table_number, sectionKey)}
+                                          <button onClick={() => openEdit(r)} className="ml-2 px-2 py-0.5 text-xs bg-yellow-100 text-yellow-700 rounded">+</button>
+                                        </td>
+                                        <td className="border border-gray-300 px-2 py-1 text-sm text-gray-700 whitespace-nowrap">
+                                          {r.client_phone || '-'}
+                                          <button onClick={() => openEdit(r)} className="ml-2 px-2 py-0.5 text-xs bg-yellow-100 text-yellow-700 rounded">+</button>
+                                        </td>
+                                        <td className="border border-gray-300 px-2 py-1 text-sm text-gray-700">
+                                          {r.notes || '-'}
+                                          <button onClick={() => openEdit(r)} className="ml-2 px-2 py-0.5 text-xs bg-yellow-100 text-yellow-700 rounded">+</button>
+                                        </td>
+                                        <td className="border border-gray-300 px-2 py-1 text-sm text-gray-700 text-center">
+                                          {/* Limite por mesa: inferir pela capacidade da mesa se disponível no backend; placeholder '-' */}
+                                          -
+                                          <button onClick={() => openEdit(r)} className="ml-2 px-2 py-0.5 text-xs bg-yellow-100 text-yellow-700 rounded">+</button>
+                                        </td>
+                                        <td className="border border-gray-300 px-2 py-1 text-sm text-gray-700 text-center">
+                                          {r.number_of_people}
+                                          <button onClick={() => openEdit(r)} className="ml-2 px-2 py-0.5 text-xs bg-yellow-100 text-yellow-700 rounded">+</button>
+                                        </td>
+                                        <td className="border border-gray-300 px-2 py-1 text-sm whitespace-nowrap">
+                                          <button
+                                            onClick={() => handleStatusChange(r, r.status === 'confirmed' ? 'pending' : 'confirmed')}
+                                            className={`px-2 py-1 rounded text-xs font-medium ${r.status === 'confirmed' ? 'bg-green-100 text-green-800 border border-green-200' : 'bg-gray-100 text-gray-700 border border-gray-200'}`}
+                                          >
+                                            {r.status === 'confirmed' ? 'Confirmado' : 'Pendente'}
+                                          </button>
+                                        </td>
+                                      </tr>
+                                    ))}
+                                    {rows.length === 0 && (
+                                      <tr>
+                                        <td colSpan={10} className="px-3 py-6 text-sm text-gray-500 text-center border border-gray-300">Sem reservas para os filtros selecionados.</td>
+                                      </tr>
+                                    )}
+                                  </tbody>
+                                </table>
+                              </div>
+                              {/* Ajuda de mesas por seção */}
+                              {whitelist && whitelist.length > 0 && (
+                                <p className="text-xs text-gray-500 mt-2">
+                                  Mesas: {sectionKey === 'deck' && 'Lounge 1–8, Mesa 09–12'}
+                                  {sectionKey === 'bar' && ' Bistrô ESPERA 11–14'}
+                                  {sectionKey === 'rooftop' && ' Lounge 40–42, Lounge Central 44–47, Bangalô 60–65, Mesa 50–56, Bistrô 70–73'}
+                                </p>
+                              )}
+                            </div>
+                          );
+                        };
+
+                        return (
+                          <div className="space-y-10">
+                            {areaSections.map(s => (
+                              <SectionTable key={s.key} sectionKey={s.key} title={s.title} whitelist={s.tableWhitelist} />
+                            ))}
+                          </div>
+                        );
+                      })()}
                     </div>
                   )}
 

@@ -44,7 +44,7 @@ export default function ReservationCalendar({
   onStatusChange,
   birthdayReservations = []
 }: ReservationCalendarProps) {
-  const [currentDate, setCurrentDate] = useState(new Date(2025, 8, 1)); // Setembro de 2025
+  const [currentDate, setCurrentDate] = useState(new Date());// Setembro de 2025
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [calendarDays, setCalendarDays] = useState<CalendarDay[]>([]);
   const [loading, setLoading] = useState(false);

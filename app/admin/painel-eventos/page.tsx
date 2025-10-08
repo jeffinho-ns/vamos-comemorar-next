@@ -48,35 +48,8 @@ export default function PainelEventos() {
     console.log("API_URL sendo usada:", API_URL);
 
     try {
-      // Primeiro tenta buscar da tabela bars
-      let response = await fetch(`${API_URL}/api/bars`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      let data;
-      if (response.ok) {
-        data = await response.json();
-        console.log("Dados recebidos da API (bars):", data);
-        
-        if (Array.isArray(data)) {
-          const formattedEstablishments: Establishment[] = data.map((bar: any) => ({
-            id: bar.id,
-            name: bar.name || "Sem nome",
-            logo: bar.logoUrl || bar.logo || "/assets/default-logo.png",
-            address: bar.address || "Endereço não informado"
-          }));
-
-          console.log("Estabelecimentos formatados (bars):", formattedEstablishments);
-          console.log("Reserva Rooftop presente?", formattedEstablishments.find(e => e.name === 'Reserva Rooftop'));
-          setEstablishments(formattedEstablishments);
-          return;
-        }
-      }
-
-      // Se não conseguir da tabela bars, tenta da tabela places
-      response = await fetch(`${API_URL}/api/places`, {
+      // Força uso de places (IDs corretos para integração com camarotes)
+      const response = await fetch(`${API_URL}/api/places`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -84,31 +57,27 @@ export default function PainelEventos() {
 
       if (!response.ok) throw new Error("Erro ao buscar estabelecimentos");
 
-      data = await response.json();
+      const data = await response.json();
       console.log("Dados recebidos da API (places):", data);
       
       if (Array.isArray(data)) {
         const formattedEstablishments: Establishment[] = data.map((place: any) => ({
           id: place.id,
           name: place.name || "Sem nome",
-          logo: place.logo || "/assets/default-logo.png",
+          logo: place.logo ? `${API_URL}/uploads/${place.logo}` : "/assets/default-logo.png",
           address: place.street ? `${place.street}, ${place.number || ''}`.trim() : "Endereço não informado"
         }));
 
         console.log("Estabelecimentos formatados (places):", formattedEstablishments);
-        console.log("Reserva Rooftop presente?", formattedEstablishments.find(e => e.name === 'Reserva Rooftop'));
+        console.log("High Line presente?", formattedEstablishments.find(e => (e.name || '').toLowerCase().includes('high')));
         setEstablishments(formattedEstablishments);
       } else if (data.data && Array.isArray(data.data)) {
-        // Se os dados vêm em um objeto com propriedade data
         const formattedEstablishments: Establishment[] = data.data.map((place: any) => ({
           id: place.id,
           name: place.name || "Sem nome",
-          logo: place.logo || "/assets/default-logo.png",
+          logo: place.logo ? `${API_URL}/uploads/${place.logo}` : "/assets/default-logo.png",
           address: place.street ? `${place.street}, ${place.number || ''}`.trim() : "Endereço não informado"
         }));
-
-        console.log("Estabelecimentos formatados (places.data):", formattedEstablishments);
-        console.log("Reserva Rooftop presente?", formattedEstablishments.find(e => e.name === 'Reserva Rooftop'));
         setEstablishments(formattedEstablishments);
       } else {
         setError("Dados de estabelecimentos inválidos.");
@@ -121,38 +90,13 @@ export default function PainelEventos() {
       }
       console.error("Erro ao buscar estabelecimentos:", error);
       
-      // Fallback com dados estáticos incluindo Reserva Rooftop
+      // Fallback com IDs de places corretos
       setEstablishments([
-        {
-          id: 7,
-          name: "High Line",
-          logo: "/assets/highline/highlinelogo.png",
-          address: "Rua Girassol, 144 - Vila Madalena"
-        },
-        {
-          id: 1,
-          name: "Seu Justino",
-          logo: "/assets/justino/justinologo.png",
-          address: "Rua Azevedo Soares, 940 - Tatuapé"
-        },
-        {
-          id: 4,
-          name: "Oh Freguês",
-          logo: "/assets/ohfregues/logoOhfregues.png",
-          address: "Largo da Matriz de Nossa Senhora do Ó, 145 - Freguesia do Ó"
-        },
-        {
-          id: 8,
-          name: "Pracinha do Seu Justino",
-          logo: "/assets/pracinha/logo-pracinha.png",
-          address: "Rua das Flores, 123 - Centro"
-        },
-        {
-          id: 5,
-          name: "Reserva Rooftop",
-          logo: "/assets/reserva-rooftop/logo-reserva-rooftop.png",
-          address: "Em frente ao portão 2 - Rua Marc Chagal, Parque - Jardim das Perdizes"
-        }
+        { id: 7, name: "High Line", logo: "/assets/highline/highlinelogo.png", address: "Rua Girassol, 144 - Vila Madalena" },
+        { id: 1, name: "Seu Justino", logo: "/assets/justino/justinologo.png", address: "Rua Azevedo Soares, 940 - Tatuapé" },
+        { id: 4, name: "Oh Freguês", logo: "/assets/ohfregues/logoOhfregues.png", address: "Largo da Matriz de Nossa Senhora do Ó, 145 - Freguesia do Ó" },
+        { id: 8, name: "Pracinha do Seu Justino", logo: "/assets/pracinha/logo-pracinha.png", address: "Rua das Flores, 123 - Centro" },
+        { id: 5, name: "Reserva Rooftop", logo: "/assets/reserva-rooftop/logo-reserva-rooftop.png", address: "Em frente ao portão 2 - Rua Marc Chagal, Parque - Jardim das Perdizes" }
       ]);
     } finally {
       setLoading(false);

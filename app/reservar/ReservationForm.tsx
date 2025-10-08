@@ -701,24 +701,24 @@ const handleSubmit = async (e: React.FormEvent) => {
                   />
                 </div>
 
-                <div>
-  <label className="block text-sm font-medium text-gray-700 mb-2">
-    Data de Nascimento
-  </label>
-  <input
-    type="date"
-    value={reservationData.client_birthdate}
-    onChange={(e) => handleInputChange('client_birthdate', e.target.value)}
-    max={getMaxBirthdate()}
-    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-  />
-  {errors.client_birthdate && (
-    <p className="text-red-500 text-sm mt-1">{errors.client_birthdate}</p>
-  )}
-  {!errors.client_birthdate && (
-    <p className="text-gray-500 text-xs mt-1">Para reservar, é obrigatório ser maior de 18 anos.</p>
-  )}
-        </div>
+                  <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Data de Nascimento
+                        </label>
+                            <input
+                              type="date"
+                              value={reservationData.client_birthdate}
+                              onChange={(e) => handleInputChange('client_birthdate', e.target.value)}
+                              max={getMaxBirthdate()}
+                              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                            />
+                          {errors.client_birthdate && (
+                            <p className="text-red-500 text-sm mt-1">{errors.client_birthdate}</p>
+                          )}
+                          {!errors.client_birthdate && (
+                            <p className="text-gray-500 text-xs mt-1">Para reservar, é obrigatório ser maior de 18 anos.</p>
+                          )}
+                  </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -759,19 +759,19 @@ const handleSubmit = async (e: React.FormEvent) => {
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Data da Reserva *
                   </label>
-<input
-  type="date"
-  min={getMinDate()}
-  max={getMaxDate()}
-  value={reservationData.reservation_date}
-  onChange={(e) => {
-    handleInputChange('reservation_date', e.target.value);
-    handleInputChange('table_number', ''); // Adicione esta linha
-  }}
-  className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent ${
-    errors.reservation_date ? 'border-red-500' : 'border-gray-300'
-  }`}
-/>
+                    <input
+                      type="date"
+                      min={getMinDate()}
+                      max={getMaxDate()}
+                      value={reservationData.reservation_date}
+                      onChange={(e) => {
+                        handleInputChange('reservation_date', e.target.value);
+                        handleInputChange('table_number', ''); // Adicione esta linha
+                      }}
+                      className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent ${
+                        errors.reservation_date ? 'border-red-500' : 'border-gray-300'
+                      }`}
+                    />
                   {errors.reservation_date && (
                     <p className="text-red-500 text-sm mt-1">{errors.reservation_date}</p>
                   )}

@@ -28,6 +28,7 @@ interface Camarote {
   valor_camarote?: number;
   valor_consumacao?: number;
   valor_pago?: number;
+  valor_sinal?: number;
   status_reserva?: 'pre-reservado' | 'reservado' | 'confirmado' | 'aguardando-aprovacao' | 'aguardando-cancelamento' | 'disponivel' | 'bloqueado';
   data_reserva?: string; // Data da reserva
   data_expiracao?: string; // Data de expiração da reserva
@@ -382,32 +383,31 @@ export default function ReservasCamarote({ establishment }: { establishment: Est
     }
 
     // Limpar e formatar dados antes de enviar
-    const cleanPayload = {
-        id_camarote: selectedCamarote.id,
-        id_evento: null, // Campo obrigatório, mas pode ser null para reservas sem evento
-        lista_convidados: guests,
-        status_reserva: 'reservado', // Sempre marca como reservado ao salvar
-        // Campos obrigatórios com valores padrão se não estiverem preenchidos
-        nome_cliente: reservationData.nome_cliente || '',
-        telefone: reservationData.telefone || '',
-        cpf_cnpj: reservationData.cpf_cnpj || '',
-        email: reservationData.email || '',
-        data_nascimento: reservationData.data_nascimento || null,
-        data_reserva: reservationData.data_reserva || new Date().toISOString().split('T')[0], // Data da reserva
-        maximo_pessoas: parseInt(reservationData.maximo_pessoas?.toString() || selectedCamarote.capacidade_maxima.toString()),
-        entradas_unisex_free: parseInt(reservationData.entradas_unisex_free?.toString() || '0'),
-        entradas_masculino_free: parseInt(reservationData.entradas_masculino_free?.toString() || '0'),
-        entradas_feminino_free: parseInt(reservationData.entradas_feminino_free?.toString() || '0'),
-        valor_camarote: parseFloat(reservationData.valor_camarote?.toString() || '0'),
-        valor_consumacao: parseFloat(reservationData.valor_consumacao?.toString() || '0'),
-        valor_pago: parseFloat(reservationData.valor_pago?.toString() || '0'),
-        valor_sinal: parseFloat(reservationData.valor_sinal?.toString() || '0'),
-        prazo_sinal_dias: parseInt(reservationData.prazo_sinal_dias?.toString() || '0'),
-        solicitado_por: reservationData.solicitado_por || '',
-        observacao: reservationData.observacao || '',
-        tag: reservationData.tag || '',
-        hora_reserva: reservationData.hora_reserva || null,
-    };
+   const cleanPayload = {
+    id_camarote: selectedCamarote.id,
+    id_evento: null,
+    lista_convidados: guests,
+    status_reserva: 'reservado',
+    nome_cliente: reservationData.nome_cliente || '',
+    telefone: reservationData.telefone || '',
+    cpf_cnpj: reservationData.cpf_cnpj || '',
+    email: reservationData.email || '',
+    data_nascimento: reservationData.data_nascimento || null,
+    data_reserva: reservationData.data_reserva || new Date().toISOString().split('T')[0],
+    maximo_pessoas: reservationData.maximo_pessoas || selectedCamarote.capacidade_maxima,
+    entradas_unisex_free: reservationData.entradas_unisex_free || 0,
+    entradas_masculino_free: reservationData.entradas_masculino_free || 0,
+    entradas_feminino_free: reservationData.entradas_feminino_free || 0,
+    valor_camarote: reservationData.valor_camarote || 0,
+    valor_consumacao: reservationData.valor_consumacao || 0,
+    valor_pago: reservationData.valor_pago || 0,
+    valor_sinal: reservationData.valor_sinal || 0,
+    prazo_sinal_dias: reservationData.prazo_sinal_dias || 0,
+    solicitado_por: reservationData.solicitado_por || '',
+    observacao: reservationData.observacao || '',
+    tag: reservationData.tag || '',
+    hora_reserva: reservationData.hora_reserva || null,
+};
 
     const payload = cleanPayload;
     
@@ -560,9 +560,9 @@ export default function ReservasCamarote({ establishment }: { establishment: Est
                   <div className="space-y-2 text-sm text-gray-600">
                     <p className="flex items-center gap-2"><MdPeople className="text-gray-400" /> {camarote.nome_cliente}</p>
                     <p className="flex items-center gap-2">Valor Pago: R$ {formatCurrency(camarote.valor_pago)}</p>
-                    <p className="flex items-center gap-2 font-semibold text-green-600">
-                      Valor Total: R$ {formatCurrency(parseFloat(camarote.valor_sinal || 0) + parseFloat(camarote.valor_pago || 0))}
-                    </p>
+<p className="flex items-center gap-2 font-semibold text-green-600">
+  Valor Total: R$ {formatCurrency((camarote.valor_sinal || 0) + (camarote.valor_pago || 0))}
+</p>
                     {camarote.data_reserva && (
                       <p className="flex items-center gap-2"><MdCalendarToday className="text-gray-400" /> 
                         Reservado em: {formatDate(camarote.data_reserva)}
@@ -732,7 +732,7 @@ export default function ReservasCamarote({ establishment }: { establishment: Est
                         <div>
                             <label className="form-label text-green-600 font-semibold">Valor Total (R$)</label>
                             <div className="form-input bg-green-50 border-green-200 text-green-700 font-bold text-lg">
-                                R$ {(parseFloat(reservationData.valor_sinal || 0) + parseFloat(reservationData.valor_pago || 0)).toFixed(2)}
+                               R$ {((reservationData.valor_sinal || 0) + (reservationData.valor_pago || 0)).toFixed(2)}
                             </div>
                         </div>
                     </div>
