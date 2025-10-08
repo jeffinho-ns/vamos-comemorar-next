@@ -521,7 +521,7 @@ export default function ReservasCamarote({ establishment }: { establishment: Est
       if (type === 'checkbox') {
         finalValue = (e.target as HTMLInputElement).checked;
       } else if (['number', 'range'].includes(type) || e.target.dataset.type === 'number') {
-        finalValue = value === '' ? '' : parseFloat(value);
+        finalValue = value === '' ? 0 : parseFloat(value);
       }
       
       setReservationData(prev => ({ ...prev, [name]: finalValue }));
@@ -732,7 +732,7 @@ export default function ReservasCamarote({ establishment }: { establishment: Est
                         <div>
                             <label className="form-label text-green-600 font-semibold">Valor Total (R$)</label>
                             <div className="form-input bg-green-50 border-green-200 text-green-700 font-bold text-lg">
-                               R$ {((reservationData.valor_sinal || 0) + (reservationData.valor_pago || 0)).toFixed(2)}
+                              R$ {(Number(reservationData.valor_sinal || 0) + Number(reservationData.valor_pago || 0)).toFixed(2)}
                             </div>
                         </div>
                     </div>
