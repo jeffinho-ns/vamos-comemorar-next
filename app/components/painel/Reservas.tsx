@@ -193,12 +193,20 @@ export default function ReservasCamarote({ establishment }: { establishment: Est
 
     try {
       console.log('🔍 Buscando camarotes do estabelecimento:', establishment.id);
+      console.log('🔍 URL da API:', `${API_BASE_URL}/api/reservas/camarotes/${establishment.id}`);
+      console.log('🔍 Token:', token ? 'Token presente' : 'Token ausente');
+      
       const response = await fetch(`${API_BASE_URL}/api/reservas/camarotes/${establishment.id}`, {
         headers: { 'Authorization': `Bearer ${token}` },
       });
 
+      console.log('📡 Status da resposta:', response.status);
+      console.log('📡 Headers da resposta:', Object.fromEntries(response.headers.entries()));
+
       if (!response.ok) {
-        console.error('❌ Falha ao carregar camarotes da API, usando lista fixa.');
+        const errorText = await response.text();
+        console.error('❌ Falha ao carregar camarotes da API:', response.status, errorText);
+        console.log('🔄 Usando lista fixa como fallback');
         setCamarotes(fixedList);
         return;
       }

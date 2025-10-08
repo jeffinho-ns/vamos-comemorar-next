@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Teste de Autenticação</title>
+</head>
+<body>
+    <h1>Teste de Autenticação - API Camarotes</h1>
+    
+    <div>
+        <h2>Login</h2>
+        <input type="email" id="email" placeholder="Email" value="admin@teste.com">
+        <input type="password" id="password" placeholder="Senha" value="123456">
+        <button onclick="fazerLogin()">Fazer Login</button>
+    </div>
+    
+    <div>
+        <h2>Testar API</h2>
+        <button onclick="testarAPI()">Testar API Camarotes</button>
+    </div>
+    
+    <div id="resultado"></div>
+
+    <script>
+        const API_BASE_URL = 'https://vamos-comemorar-api.onrender.com';
+        
+        async function fazerLogin() {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            
+            try {
+                console.log('🔐 Fazendo login...');
+                const response = await fetch(`${API_BASE_URL}/api/users/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ email, password })
+                });
+                
+                console.log('Status do login:', response.status);
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    console.log('✅ Login realizado:', data);
+                    
+                    if (data.token) {
+                        localStorage.setItem('authToken', data.token);
+                        document.getElementById('resultado').innerHTML = 
+                            '<p style="color: green;">✅ Login realizado com sucesso! Token salvo.</p>';
+                    }
+                } else {
+                    const error = await response.text();
+                    console.error('❌ Erro no login:', error);
+                    document.getElementById('resultado').innerHTML = 
+                        `<p style="color: red;">❌ Erro no login: ${error}</p>`;
+                }
+            } catch (error) {
+                console.error('❌ Erro na requisição:', error);
+                document.getElementById('resultado').innerHTML = 
+                    `<p style="color: red;">❌ Erro na requisição: ${error.message}</p>`;
+            }
+        }
+        
+        async function testarAPI() {
+            const token = localStorage.getItem('authToken');
+            
+            if (!token) {
+                document.getElementById('resultado').innerHTML = 
+                    '<p style="color: red;">❌ Token não encontrado. Faça login primeiro.</p>';
+                return;
+            }
+            
+            try {
+                console.log('🔍 Testando API camarotes...');
+                const response = await fetch(`${API_BASE_URL}/api/reservas/camarotes/7`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                console.log('Status da API:', response.status);
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    console.log('✅ Dados recebidos:', data);
+                    
+                    let html = '<h3>✅ Dados dos Camarotes:</h3>';
+                    data.forEach((camarote, index) => {
+                        html += `
+                            <div style="border: 1px solid #ccc; margin: 10px; padding: 10px;">
+                                <h4>${camarote.nome_camarote} (ID: ${camarote.id})</h4>
+                                <p>Status: ${camarote.status}</p>
+                                <p>Capacidade: ${camarote.capacidade_maxima} pessoas</p>
+                        `;
+                        
+                        if (camarote.reserva_camarote_id) {
+                            html += `
+                                <p><strong>RESERVADO:</strong></p>
+                                <p>Cliente: ${camarote.nome_cliente}</p>
+                                <p>Valor Pago: R$ ${camarote.valor_pago || 0}</p>
+                                <p>Valor Sinal: R$ ${camarote.valor_sinal || 0}</p>
+                                <p>Valor Total: R$ ${(parseFloat(camarote.valor_sinal || 0) + parseFloat(camarote.valor_pago || 0)).toFixed(2)}</p>
+                                <p>Data Reserva: ${camarote.data_reserva || 'N/A'}</p>
+                                <p>Data Expiração: ${camarote.data_expiracao || 'N/A'}</p>
+                            `;
+                        } else {
+                            html += '<p><strong>DISPONÍVEL</strong></p>';
+                        }
+                        
+                        html += '</div>';
+                    });
+                    
+                    document.getElementById('resultado').innerHTML = html;
+                } else {
+                    const error = await response.text();
+                    console.error('❌ Erro na API:', error);
+                    document.getElementById('resultado').innerHTML = 
+                        `<p style="color: red;">❌ Erro na API: ${error}</p>`;
+                }
+            } catch (error) {
+                console.error('❌ Erro na requisição:', error);
+                document.getElementById('resultado').innerHTML = 
+                    `<p style="color: red;">❌ Erro na requisição: ${error.message}</p>`;
+            }
+        }
+        
+        // Verificar se já tem token
+        window.onload = function() {
+            const token = localStorage.getItem('authToken');
+            if (token) {
+                document.getElementById('resultado').innerHTML = 
+                    '<p style="color: blue;">ℹ️ Token encontrado. Você pode testar a API.</p>';
+            }
+        };
+    </script>
+</body>
+</html>
