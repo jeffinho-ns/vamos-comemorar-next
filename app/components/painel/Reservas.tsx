@@ -418,9 +418,11 @@ export default function ReservasCamarote({ establishment }: { establishment: Est
     const method = showSidebar === 'edit' ? 'PUT' : 'POST';
 
     try {
-      console.log('Enviando payload:', payload);
-      console.log('URL:', url);
-      console.log('Method:', method);
+      console.log('🔧 === INÍCIO DA ATUALIZAÇÃO ===');
+      console.log('📤 Payload sendo enviado:', JSON.stringify(payload, null, 2));
+      console.log('🔗 URL:', url);
+      console.log('📡 Method:', method);
+      console.log('🔑 Token:', token ? 'Token presente' : 'Token ausente');
       
       const response = await fetch(url, {
         method,
@@ -428,21 +430,27 @@ export default function ReservasCamarote({ establishment }: { establishment: Est
         body: JSON.stringify(payload),
       });
       
-      console.log('Response status:', response.status);
-      console.log('Response headers:', Object.fromEntries(response.headers.entries()));
+      console.log('📡 Status da resposta:', response.status);
+      console.log('📡 Headers da resposta:', Object.fromEntries(response.headers.entries()));
       
       if (!response.ok) {
           const errorData = await response.text();
-          console.error('Error response:', errorData);
+          console.error('❌ Erro na resposta:', response.status, errorData);
           throw new Error(errorData || `Falha na operação de reserva. Status: ${response.status}`);
       }
       
       const result = await response.json();
-      console.log('Success response:', result);
+      console.log('✅ Resposta de sucesso:', result);
       
       alert(`Reserva ${showSidebar === 'edit' ? 'atualizada' : 'criada'} com sucesso!`);
+      console.log('🔄 Fechando sidebar e recarregando dados...');
       setShowSidebar(null);
-      fetchReservas();
+      
+      // Aguardar um pouco antes de recarregar para garantir que a atualização foi processada
+      setTimeout(() => {
+        console.log('🔄 Recarregando dados após atualização...');
+        fetchReservas();
+      }, 1000);
     } catch (error) {
       console.error(`Erro ao ${method === 'POST' ? 'criar' : 'atualizar'} reserva:`, error);
       
