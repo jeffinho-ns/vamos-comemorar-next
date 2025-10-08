@@ -385,6 +385,7 @@ export default function ReservasCamarote({ establishment }: { establishment: Est
         cpf_cnpj: reservationData.cpf_cnpj || '',
         email: reservationData.email || '',
         data_nascimento: reservationData.data_nascimento || null,
+        data_reserva: reservationData.data_reserva || new Date().toISOString().split('T')[0], // Data da reserva
         maximo_pessoas: parseInt(reservationData.maximo_pessoas?.toString() || selectedCamarote.capacidade_maxima.toString()),
         entradas_unisex_free: parseInt(reservationData.entradas_unisex_free?.toString() || '0'),
         entradas_masculino_free: parseInt(reservationData.entradas_masculino_free?.toString() || '0'),
@@ -543,6 +544,9 @@ export default function ReservasCamarote({ establishment }: { establishment: Est
                   <div className="space-y-2 text-sm text-gray-600">
                     <p className="flex items-center gap-2"><MdPeople className="text-gray-400" /> {camarote.nome_cliente}</p>
                     <p className="flex items-center gap-2">Valor Pago: R$ {formatCurrency(camarote.valor_pago)}</p>
+                    <p className="flex items-center gap-2 font-semibold text-green-600">
+                      Valor Total: R$ {formatCurrency(parseFloat(camarote.valor_sinal || 0) + parseFloat(camarote.valor_pago || 0))}
+                    </p>
                     {camarote.data_reserva && (
                       <p className="flex items-center gap-2"><MdCalendarToday className="text-gray-400" /> 
                         Reservado em: {formatDate(camarote.data_reserva)}
@@ -700,8 +704,20 @@ export default function ReservasCamarote({ establishment }: { establishment: Est
                             <input type="number" data-type="number" step="0.01" name="valor_sinal" value={reservationData.valor_sinal || 0} onChange={handleFormChange} className="form-input" />
                         </div>
                         <div>
+                            <label className="form-label">Valor Pago (R$)</label>
+                            <input type="number" data-type="number" step="0.01" name="valor_pago" value={reservationData.valor_pago || 0} onChange={handleFormChange} className="form-input" />
+                        </div>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
                             <label className="form-label">Prazo Pagto. Sinal (dias)</label>
                             <input type="number" data-type="number" name="prazo_sinal_dias" value={reservationData.prazo_sinal_dias || 0} onChange={handleFormChange} className="form-input" />
+                        </div>
+                        <div>
+                            <label className="form-label text-green-600 font-semibold">Valor Total (R$)</label>
+                            <div className="form-input bg-green-50 border-green-200 text-green-700 font-bold text-lg">
+                                R$ {(parseFloat(reservationData.valor_sinal || 0) + parseFloat(reservationData.valor_pago || 0)).toFixed(2)}
+                            </div>
                         </div>
                     </div>
                      {/* Outros Campos */}
