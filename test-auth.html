@@ -34,7 +34,7 @@
                     headers: {
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({ email, password })
+                    body: JSON.stringify({ access: email, password })
                 });
                 
                 console.log('Status do login:', response.status);
