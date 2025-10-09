@@ -312,6 +312,9 @@ export default function ReservasCamarote({ establishment }: { establishment: Est
         newDataExpiracao = '';
       }
 
+      console.log(`🔧 Cancelando reserva ID: ${selectedCamarote.reserva_camarote_id}`);
+      console.log(`🔧 Novo status: ${newStatus}`);
+
       const response = await fetch(`${API_BASE_URL}/api/reservas/camarote/${selectedCamarote.reserva_camarote_id}`, {
         method: 'PUT',
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
@@ -322,15 +325,24 @@ export default function ReservasCamarote({ establishment }: { establishment: Est
       });
 
       if (!response.ok) {
-        throw new Error('Falha ao atualizar reserva.');
+        const errorText = await response.text();
+        console.error('Erro na API:', response.status, errorText);
+        throw new Error(`Falha ao ${action === 'postpone' ? 'adiar' : 'cancelar'} reserva. Status: ${response.status}`);
       }
+
+      const result = await response.json();
+      console.log('Resposta da API:', result);
 
       alert(`Reserva ${action === 'postpone' ? 'adiada' : 'cancelada'} com sucesso!`);
       setShowActionModal(false);
-      fetchReservas();
+      
+      // Recarregar dados da API imediatamente para garantir sincronização
+      console.log('🔄 Recarregando dados após cancelamento...');
+      await fetchReservas();
+      
     } catch (error) {
       console.error(`Erro ao ${action === 'postpone' ? 'adiar' : 'cancelar'} reserva:`, error);
-      alert(`Erro ao ${action === 'postpone' ? 'adiar' : 'cancelar'} reserva.`);
+      alert(`Erro ao ${action === 'postpone' ? 'adiar' : 'cancelar'} reserva: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
     }
   };
   
@@ -559,10 +571,15 @@ export default function ReservasCamarote({ establishment }: { establishment: Est
                 {camarote.reserva_camarote_id && (
                   <div className="space-y-2 text-sm text-gray-600">
                     <p className="flex items-center gap-2"><MdPeople className="text-gray-400" /> {camarote.nome_cliente}</p>
-                    <p className="flex items-center gap-2">Valor Pago: R$ {formatCurrency(camarote.valor_pago)}</p>
-<p className="flex items-center gap-2 font-semibold text-green-600">
-  Valor Total: R$ {formatCurrency((camarote.valor_sinal || 0) + (camarote.valor_pago || 0))}
-</p>
+                    <p className="flex items-center gap-2 font-semibold text-green-600">
+                      Valor Total: R$ {formatCurrency((camarote.valor_sinal || 0) + (camarote.valor_pago || 0))}
+                    </p>
+                    {/* Debug temporário */}
+                    {camarote.nome_camarote === 'C32' && (
+                      <p className="text-xs text-red-500">
+                        Debug C32: sinal={camarote.valor_sinal}, pago={camarote.valor_pago}
+                      </p>
+                    )}
                     {camarote.data_reserva && (
                       <p className="flex items-center gap-2"><MdCalendarToday className="text-gray-400" /> 
                         Reservado em: {formatDate(camarote.data_reserva)}
