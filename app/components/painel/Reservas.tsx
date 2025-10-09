@@ -568,33 +568,42 @@ export default function ReservasCamarote({ establishment }: { establishment: Est
                 </div>
                 <p className="text-sm text-gray-500 mb-4">Capacidade Máxima: {camarote.capacidade_maxima} pessoas</p>
 
-                {camarote.reserva_camarote_id && (
-                  <div className="space-y-2 text-sm text-gray-600">
-                    <p className="flex items-center gap-2"><MdPeople className="text-gray-400" /> {camarote.nome_cliente}</p>
-                    <p className="flex items-center gap-2 font-semibold text-green-600">
-                      Valor Total: R$ {formatCurrency((camarote.valor_sinal || 0) + (camarote.valor_pago || 0))}
-                    </p>
-                    {/* Debug temporário */}
-                    {camarote.nome_camarote === 'C32' && (
-                      <p className="text-xs text-red-500">
-                        Debug C32: sinal={camarote.valor_sinal}, pago={camarote.valor_pago}
-                      </p>
-                    )}
-                    {camarote.data_reserva && (
-                      <p className="flex items-center gap-2"><MdCalendarToday className="text-gray-400" /> 
-                        Reservado em: {formatDate(camarote.data_reserva)}
-                      </p>
-                    )}
-                    {camarote.data_expiracao && (
-                      <p className="flex items-center gap-2"><MdAccessTime className="text-gray-400" /> 
-                        Expira em: {formatDate(camarote.data_expiracao)}
-                        {isReservationExpired(camarote.data_expiracao) && (
-                          <span className="text-red-500 font-medium"> (EXPIRADO)</span>
-                        )}
-                      </p>
-                    )}
-                  </div>
-                )}
+{camarote.reserva_camarote_id && (
+<div className="space-y-2 text-sm text-gray-600">
+<p className="flex items-center gap-2"><MdPeople className="text-gray-400" /> {camarote.nome_cliente}</p>
+
+{/* Detalhes dos valores - Ajuda a visualizar o que está vindo */}
+<div className="grid grid-cols-2 gap-2 text-xs">
+<p className="text-gray-500">
+Sinal: <span className="font-semibold text-gray-700">R$ {formatCurrency(camarote.valor_sinal)}</span>
+</p>
+<p className="text-gray-500">
+Pago: <span className="font-semibold text-gray-700">R$ {formatCurrency(camarote.valor_pago)}</span>
+</p>
+</div>
+
+{/* Valor Total - O cálculo mais robusto */}
+<p className="flex items-center gap-2 font-bold text-green-600">
+Valor Total: R$ {formatCurrency(
+(Number(camarote.valor_sinal) || 0) + (Number(camarote.valor_pago) || 0)
+)}
+</p>
+
+{camarote.data_reserva && (
+<p className="flex items-center gap-2"><MdCalendarToday className="text-gray-400" /> 
+Reservado em: {formatDate(camarote.data_reserva)}
+</p>
+)}
+{camarote.data_expiracao && (
+<p className="flex items-center gap-2"><MdAccessTime className="text-gray-400" /> 
+Expira em: {formatDate(camarote.data_expiracao)}
+{isReservationExpired(camarote.data_expiracao) && (
+<span className="text-red-500 font-medium"> (EXPIRADO)</span>
+)}
+ </p>
+)}
+ </div>
+)}
               </div>
 
               <div className="mt-6 flex flex-wrap gap-2">
