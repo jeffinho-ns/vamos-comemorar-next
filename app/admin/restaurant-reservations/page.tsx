@@ -208,6 +208,7 @@ export default function RestaurantReservationsPage() {
   const [guestForm, setGuestForm] = useState<{ listId?: number; name: string; whatsapp: string; editingGuestId?: number | null }>({ name: '', whatsapp: '', editingGuestId: null });
   const [showCreateListModal, setShowCreateListModal] = useState(false);
   const [createListForm, setCreateListForm] = useState<{ client_name: string; reservation_date: string; event_type: string }>({ client_name: '', reservation_date: '', event_type: '' });
+  const [selectedMonth, setSelectedMonth] = useState<string>(new Date().toISOString().slice(0, 7)); // YYYY-MM
 
   const loadAreas = async () => {
     if (areas.length > 0) return; // Já carregadas
@@ -242,6 +243,24 @@ export default function RestaurantReservationsPage() {
     }
   };
 
+  const loadGuestLists = async () => {
+    try {
+      const token = localStorage.getItem('authToken');
+      const glRes = await fetch(`${API_URL}/api/admin/guest-lists?month=${selectedMonth}`, { 
+        headers: { Authorization: `Bearer ${token}` } 
+      });
+      if (glRes.ok) {
+        const glData = await glRes.json();
+        setGuestLists(glData.guestLists || []);
+      } else {
+        setGuestLists([]);
+      }
+    } catch (e) {
+      console.error('Erro ao carregar guest lists:', e);
+      setGuestLists([]);
+    }
+  };
+
   const handleEstablishmentSelect = (establishment: Establishment) => {
     setSelectedEstablishment(establishment);
     // Carregar dados específicos do estabelecimento
@@ -264,6 +283,37 @@ export default function RestaurantReservationsPage() {
           { id: 1, name: 'Área Coberta', capacity_lunch: 0, capacity_dinner: 300 },
           { id: 2, name: 'Área Descoberta', capacity_lunch: 0, capacity_dinner: 110 }
         ]);
+      }
+
+      try {
+        console.log('🔍 Buscando TODOS os tipos de reservas para o estabelecimento:', selectedEstablishment.id);
+  
+        // Promise para buscar reservas normais
+        const normalReservationsPromise = fetch(`${API_URL}/api/restaurant-reservations?establishment_id=${selectedEstablishment.id}`)
+          .then(res => res.ok ? res.json() : { reservations: [] });
+  
+        // Promise para buscar reservas grandes (com lista)
+        const largeReservationsPromise = fetch(`${API_URL}/api/large-reservations?establishment_id=${selectedEstablishment.id}`)
+          .then(res => res.ok ? res.json() : { reservations: [] });
+  
+        // Aguarda as duas buscas terminarem
+        const [normalData, largeData] = await Promise.all([
+          normalReservationsPromise,
+          largeReservationsPromise
+        ]);
+  
+        const allReservations = [
+          ...(normalData.reservations || []),
+          ...(largeData.reservations || [])
+        ];
+  
+        console.log(`✅ Total de reservas carregadas: ${allReservations.length} (Normais: ${normalData.reservations?.length || 0}, Grandes: ${largeData.reservations?.length || 0})`);
+  
+        setReservations(allReservations);
+  
+      } catch (e) {
+        console.error('❌ Erro ao carregar um ou mais tipos de reservas:', e);
+        setReservations([]);
       }
 
       // Carregar reservas da API
@@ -314,24 +364,13 @@ export default function RestaurantReservationsPage() {
       if (waitlistResponse.ok) {
         const waitlistData = await waitlistResponse.json();
         setWaitlist(waitlistData.waitlist || []);
-      // Carregar guest lists (admin)
-      try {
-        const token = localStorage.getItem('authToken');
-        const glRes = await fetch(`${API_URL}/api/admin/guest-lists`, { headers: { Authorization: `Bearer ${token}` } });
-        if (glRes.ok) {
-          const glData = await glRes.json();
-          setGuestLists(glData.guestLists || []);
-        } else {
-          setGuestLists([]);
-        }
-      } catch (e) {
-        console.error('Erro ao carregar guest lists:', e);
-        setGuestLists([]);
-      }
       } else {
         console.error('Erro ao carregar waitlist:', waitlistResponse.statusText);
         setWaitlist([]);
       }
+
+      // Carregar guest lists (admin)
+      await loadGuestLists();
 
 
       // Carregar reservas de aniversário
@@ -1320,15 +1359,32 @@ export default function RestaurantReservationsPage() {
               {/* Aba de Lista de Convidados */}
               {activeTab === 'guest-lists' && (
                 <div>
-                  <div className="flex items-center justify-between mb-6">
+                  <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
                     <h3 className="text-xl font-semibold text-gray-800">Lista de Convidados</h3>
-                    <button
-                      onClick={() => setShowCreateListModal(true)}
-                      className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
-                    >
-                      <MdAdd />
-                      Criar Lista
-                    </button>
+                    
+                    <div className="flex flex-col sm:flex-row gap-3">
+                      {/* Filtro de mês */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Mês</label>
+                        <input
+                          type="month"
+                          value={selectedMonth}
+                          onChange={(e) => {
+                            setSelectedMonth(e.target.value);
+                            loadGuestLists();
+                          }}
+                          className="px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                        />
+                      </div>
+                      
+                      <button
+                        onClick={() => setShowCreateListModal(true)}
+                        className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors self-end"
+                      >
+                        <MdAdd />
+                        Criar Lista
+                      </button>
+                    </div>
                   </div>
 
                   <div className="space-y-3">
@@ -1463,7 +1519,11 @@ export default function RestaurantReservationsPage() {
                       </div>
                     ))}
                     {guestLists.length === 0 && (
-                      <div className="text-sm text-gray-600">Nenhuma lista de convidados encontrada para as próximas datas.</div>
+                      <div className="text-center py-8">
+                        <div className="text-sm text-gray-600">
+                          Nenhuma lista de convidados encontrada para {new Date(selectedMonth + '-01').toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}.
+                        </div>
+                      </div>
                     )}
                   </div>
                 </div>
@@ -1865,11 +1925,7 @@ export default function RestaurantReservationsPage() {
                     setShowCreateListModal(false);
                     setCreateListForm({ client_name: '', reservation_date: '', event_type: '' });
                     // Recarregar lista
-                    const glRes = await fetch(`${API_URL}/api/admin/guest-lists`, { headers: { Authorization: `Bearer ${token}` } });
-                    if (glRes.ok) {
-                      const glData = await glRes.json();
-                      setGuestLists(glData.guestLists || []);
-                    }
+                    await loadGuestLists();
                   } else {
                     const errorData = await res.json();
                     alert('Erro: ' + (errorData.error || 'Erro desconhecido'));

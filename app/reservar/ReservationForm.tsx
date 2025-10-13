@@ -422,96 +422,98 @@ export default function ReservationForm() {
   };
 
 const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  e.preventDefault();
+  if (!validateForm()) {
+    return;
+  }
+
+  setLoading(true);
+
+  // 1. Unifica a preparação do payload para TODAS as reservas
+  const payload: any = {
+    ...reservationData,
+    establishment_id: selectedEstablishment?.id,
     
-    if (!validateForm()) {
-      return;
-    }
+    // Converte os campos para número, como o backend provavelmente espera
+    number_of_people: Number(reservationData.number_of_people),
+    area_id: Number(reservationData.area_id),
+    
+    // Campos de status padrão
+    status: 'NOVA',
+    origin: 'SITE',
 
-    setLoading(true);
-
-    // 1. Prepara o payload para envio, começando com os dados do formulário
-    const payload: any = {
-      ...reservationData,
-      
-      // 2. Renomeia o campo da data de nascimento para corresponder ao back-end
-      data_nascimento_cliente: reservationData.client_birthdate || null,
-      
-      // 3. Adiciona/formata os outros campos necessários
-      establishment_id: selectedEstablishment?.id,
-      status: 'NOVA',
-      origin: 'SITE',
-      number_of_people: Number(reservationData.number_of_people),
-      area_id: Number(reservationData.area_id),
-    };
-
-    // 4. CORREÇÃO CRÍTICA: Garante que o horário esteja no formato HH:mm:ss que o banco de dados espera
-    if (payload.reservation_time && payload.reservation_time.split(':').length === 2) {
-      payload.reservation_time = `${payload.reservation_time}:00`;
-    }
-
-    // 5. Remove a chave original do front-end para não ser enviada em duplicidade
-    delete payload.client_birthdate;
-
-    // Garante que o número da mesa seja uma string ou seja removido
-    if (!payload.table_number) {
-      delete payload.table_number;
-    } else {
-      payload.table_number = String(payload.table_number);
-    }
-
-    // Etapa de depuração: exibe o payload final no console antes de enviar
-    console.log('📦 Payload final sendo enviado para a API:', JSON.stringify(payload, null, 2));
-
-    try {
-      // Decidir endpoint conforme o tamanho do grupo
-      const isLarge = Number(payload.number_of_people) >= 11;
-      // Se sábado e reserva grande, enviar event_type selecionado
-      if (isLarge && reservationData.reservation_date) {
-        const d = new Date(reservationData.reservation_date + 'T00:00:00');
-        const weekday = d.getDay();
-        if (weekday === 6) {
-          payload.event_type = eventType || null;
-        }
-      }
-
-      const endpoint = isLarge ? `${API_URL}/api/large-reservations` : `${API_URL}/api/restaurant-reservations`;
-
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload),
-      });
-
-      if (response.ok) {
-        const result = await response.json();
-        console.log('✅ Reserva criada com sucesso:', result);
-        setReservationId(result.reservation?.id || '12345');
-        if (result.guest_list_link) {
-          setGuestListLink(result.guest_list_link);
-        } else {
-          setGuestListLink(null);
-        }
-        setStep('confirmation');
-      } else {
-        const errorText = await response.text();
-        console.error('❌ Erro bruto do servidor:', errorText);
-        try {
-          const errorData = JSON.parse(errorText);
-          alert('Erro ao fazer reserva: ' + (errorData.error || JSON.stringify(errorData)));
-        } catch (parseError) {
-          alert('Ocorreu um erro inesperado no servidor. Detalhes: ' + errorText);
-        }
-      }
-    } catch (error) {
-      console.error('Erro de rede ou na requisição:', error);
-      alert('Erro ao fazer reserva. Verifique sua conexão e tente novamente.');
-    } finally {
-      setLoading(false);
-    }
+    // Renomeia o campo de data de nascimento para o padrão do backend
+    data_nascimento_cliente: reservationData.client_birthdate || null,
   };
+  
+  // 2. CORREÇÃO CRÍTICA: Garante que o horário esteja no formato HH:mm:ss
+  if (payload.reservation_time && payload.reservation_time.split(':').length === 2) {
+    payload.reservation_time = `${payload.reservation_time}:00`;
+  }
+
+  // 3. Remove chaves que só existem no frontend para evitar dados sujos
+  delete payload.client_birthdate;
+  if (!payload.table_number) {
+    delete payload.table_number;
+  }
+
+  // 4. Lógica para reservas grandes (acima de 10 pessoas)
+  const isLargeGroup = payload.number_of_people >= 11;
+  if (isLargeGroup) {
+    const reservationDate = new Date(`${reservationData.reservation_date}T00:00:00`);
+    const dayOfWeek = reservationDate.getDay(); // Domingo = 0, Sexta = 5, Sábado = 6
+
+    // Adiciona o tipo de evento apenas se for Sábado e um tipo foi selecionado
+    if (dayOfWeek === 6 && eventType) {
+      payload.event_type = eventType;
+    }
+    // Para sextas-feiras, apenas a existência da lista já é implícita
+  }
+
+  // Log para depuração: verifique o que está sendo enviado
+  console.log('📦 Payload final sendo enviado para a API:', JSON.stringify(payload, null, 2));
+
+  try {
+    // 5. Determina o endpoint correto
+    const endpoint = isLargeGroup
+      ? `${API_URL}/api/large-reservations`
+      : `${API_URL}/api/restaurant-reservations`;
+
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (response.ok) {
+      const result = await response.json();
+      console.log('✅ Reserva criada com sucesso:', result);
+      
+      // Armazena o ID e o link da lista de convidados (se houver)
+      setReservationId(result.reservation?.id || result.id || 'N/A');
+      setGuestListLink(result.guest_list_link || null);
+      
+      setStep('confirmation');
+    } else {
+      // Tratamento de erro melhorado
+      const errorText = await response.text();
+      console.error('❌ Erro bruto do servidor:', errorText);
+      try {
+        const errorData = JSON.parse(errorText);
+        alert(`Erro ao fazer reserva: ${errorData.message || errorData.error || JSON.stringify(errorData)}`);
+      } catch {
+        alert(`Ocorreu um erro inesperado no servidor. Detalhes: ${errorText}`);
+      }
+    }
+  } catch (error) {
+    console.error('Erro de rede ou na requisição:', error);
+    alert('Erro ao fazer reserva. Verifique sua conexão e tente novamente.');
+  } finally {
+    setLoading(false);
+  }
+};
 
 
   const handleInputChange = (field: string, value: any) => {
