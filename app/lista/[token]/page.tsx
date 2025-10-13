@@ -15,6 +15,9 @@ export default function GuestListPublicPage() {
   const [ownerName, setOwnerName] = useState<string>("");
   const [reservationDate, setReservationDate] = useState<string>("");
   const [guests, setGuests] = useState<Guest[]>([]);
+  const [guestForm, setGuestForm] = useState<{ name: string; whatsapp: string }>({ name: '', whatsapp: '' });
+  const [addingGuest, setAddingGuest] = useState(false);
+  const [successMessage, setSuccessMessage] = useState<string>("");
 
   useEffect(() => {
     const token = params?.token;
@@ -47,6 +50,41 @@ export default function GuestListPublicPage() {
 
   const shareUrl = typeof window !== 'undefined' ? window.location.href : '';
 
+  const handleAddGuest = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!guestForm.name.trim()) return;
+    
+    setAddingGuest(true);
+    try {
+      const token = params?.token;
+      const res = await fetch(`${API_URL}/api/guest-list/${token}/guests`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(guestForm)
+      });
+      
+      if (res.ok) {
+        const data = await res.json();
+        setSuccessMessage(data.message);
+        setGuestForm({ name: '', whatsapp: '' });
+        // Recarregar a lista
+        const loadRes = await fetch(`${API_URL}/api/guest-list/${token}`);
+        if (loadRes.ok) {
+          const loadData = await loadRes.json();
+          setGuests(loadData.guestList.guests || []);
+        }
+        setTimeout(() => setSuccessMessage(''), 3000);
+      } else {
+        const errorData = await res.json();
+        setError(errorData.error || 'Erro ao adicionar à lista');
+      }
+    } catch (e) {
+      setError('Erro ao adicionar à lista');
+    } finally {
+      setAddingGuest(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center text-gray-600">Carregando...</div>
@@ -74,6 +112,42 @@ export default function GuestListPublicPage() {
         {reservationDate && (
           <p className="text-gray-600 mb-6 text-sm">Data do evento: {new Date(reservationDate).toLocaleDateString('pt-BR')}</p>
         )}
+
+        {/* Formulário para convidados se cadastrarem */}
+        <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+          <h3 className="text-lg font-semibold text-blue-900 mb-3">Adicionar-se à Lista</h3>
+          {successMessage && (
+            <div className="mb-3 p-3 bg-green-100 border border-green-200 rounded text-green-800 text-sm">
+              ✅ {successMessage}
+            </div>
+          )}
+          <form onSubmit={handleAddGuest} className="space-y-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <input
+                type="text"
+                placeholder="Seu nome completo"
+                value={guestForm.name}
+                onChange={(e) => setGuestForm(prev => ({ ...prev, name: e.target.value }))}
+                className="w-full px-3 py-2 border border-blue-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                required
+              />
+              <input
+                type="tel"
+                placeholder="WhatsApp (opcional)"
+                value={guestForm.whatsapp}
+                onChange={(e) => setGuestForm(prev => ({ ...prev, whatsapp: e.target.value }))}
+                className="w-full px-3 py-2 border border-blue-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={addingGuest || !guestForm.name.trim()}
+              className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white rounded font-medium transition-colors"
+            >
+              {addingGuest ? 'Adicionando...' : 'Adicionar-me à Lista'}
+            </button>
+          </form>
+        </div>
 
         <div className="overflow-x-auto border rounded-lg">
           <table className="min-w-full divide-y divide-gray-200">

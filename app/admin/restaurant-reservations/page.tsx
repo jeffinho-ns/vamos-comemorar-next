@@ -199,12 +199,15 @@ export default function RestaurantReservationsPage() {
     reservation_date: string;
     event_type: string | null;
     is_valid: 0 | 1;
+    created_by_name: string;
   };
   type GuestItem = { id: number; name: string; whatsapp?: string };
   const [guestLists, setGuestLists] = useState<GuestListItem[]>([]);
   const [expandedGuestListId, setExpandedGuestListId] = useState<number | null>(null);
   const [guestsByList, setGuestsByList] = useState<Record<number, GuestItem[]>>({});
   const [guestForm, setGuestForm] = useState<{ listId?: number; name: string; whatsapp: string; editingGuestId?: number | null }>({ name: '', whatsapp: '', editingGuestId: null });
+  const [showCreateListModal, setShowCreateListModal] = useState(false);
+  const [createListForm, setCreateListForm] = useState<{ client_name: string; reservation_date: string; event_type: string }>({ client_name: '', reservation_date: '', event_type: '' });
 
   const loadAreas = async () => {
     if (areas.length > 0) return; // Já carregadas
@@ -1319,6 +1322,13 @@ export default function RestaurantReservationsPage() {
                 <div>
                   <div className="flex items-center justify-between mb-6">
                     <h3 className="text-xl font-semibold text-gray-800">Lista de Convidados</h3>
+                    <button
+                      onClick={() => setShowCreateListModal(true)}
+                      className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
+                    >
+                      <MdAdd />
+                      Criar Lista
+                    </button>
                   </div>
 
                   <div className="space-y-3">
@@ -1342,7 +1352,12 @@ export default function RestaurantReservationsPage() {
                         >
                           <div>
                             <div className="font-semibold text-gray-800">{gl.owner_name}</div>
-                            <div className="text-sm text-gray-600">{new Date(gl.reservation_date).toLocaleDateString('pt-BR')} {gl.event_type ? `• ${gl.event_type}` : ''}</div>
+                            <div className="text-sm text-gray-600">
+                              {new Date(gl.reservation_date).toLocaleDateString('pt-BR')} {gl.event_type ? `• ${gl.event_type}` : ''}
+                            </div>
+                            <div className="text-xs text-gray-500">
+                              Criado por: {gl.created_by_name}
+                            </div>
                           </div>
                           <span className={`text-xs px-2 py-1 rounded ${gl.is_valid ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>{gl.is_valid ? 'Ativo' : 'Expirado'}</span>
                         </button>
@@ -1821,6 +1836,107 @@ export default function RestaurantReservationsPage() {
             }}
             entry={editingWaitlistEntry}
           />
+        )}
+
+        {/* Modal para criar lista de convidados */}
+        {showCreateListModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
+              <h3 className="text-lg font-semibold text-gray-800 mb-4">Criar Lista de Convidados</h3>
+              
+              <form onSubmit={async (e) => {
+                e.preventDefault();
+                if (!createListForm.client_name || !createListForm.reservation_date) return;
+                
+                try {
+                  const token = localStorage.getItem('authToken');
+                  const res = await fetch(`${API_URL}/api/admin/guest-lists/create`, {
+                    method: 'POST',
+                    headers: { 
+                      'Content-Type': 'application/json', 
+                      Authorization: `Bearer ${token}` 
+                    },
+                    body: JSON.stringify(createListForm)
+                  });
+                  
+                  if (res.ok) {
+                    const data = await res.json();
+                    alert(`Lista criada com sucesso!\n\nLink: ${data.guestList.guest_list_link}`);
+                    setShowCreateListModal(false);
+                    setCreateListForm({ client_name: '', reservation_date: '', event_type: '' });
+                    // Recarregar lista
+                    const glRes = await fetch(`${API_URL}/api/admin/guest-lists`, { headers: { Authorization: `Bearer ${token}` } });
+                    if (glRes.ok) {
+                      const glData = await glRes.json();
+                      setGuestLists(glData.guestLists || []);
+                    }
+                  } else {
+                    const errorData = await res.json();
+                    alert('Erro: ' + (errorData.error || 'Erro desconhecido'));
+                  }
+                } catch (e) {
+                  alert('Erro ao criar lista');
+                }
+              }} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Nome do Cliente</label>
+                  <input
+                    type="text"
+                    value={createListForm.client_name}
+                    onChange={(e) => setCreateListForm(prev => ({ ...prev, client_name: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    placeholder="Nome completo do cliente"
+                    required
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Data do Evento</label>
+                  <input
+                    type="date"
+                    value={createListForm.reservation_date}
+                    onChange={(e) => setCreateListForm(prev => ({ ...prev, reservation_date: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    min={new Date().toISOString().split('T')[0]}
+                    required
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Tipo de Evento (opcional)</label>
+                  <select
+                    value={createListForm.event_type}
+                    onChange={(e) => setCreateListForm(prev => ({ ...prev, event_type: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  >
+                    <option value="">Selecionar tipo</option>
+                    <option value="aniversario">Aniversário</option>
+                    <option value="despedida">Despedida</option>
+                    <option value="lista_sexta">Lista Sexta</option>
+                  </select>
+                </div>
+                
+                <div className="flex gap-3 pt-4">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowCreateListModal(false);
+                      setCreateListForm({ client_name: '', reservation_date: '', event_type: '' });
+                    }}
+                    className="flex-1 px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded transition-colors"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    className="flex-1 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded transition-colors"
+                  >
+                    Criar Lista
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
         )}
 
       </div>

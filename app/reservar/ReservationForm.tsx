@@ -935,8 +935,8 @@ const handleSubmit = async (e: React.FormEvent) => {
                 {isHighline && selectedSubareaKey && tables.length > 0 && (
                   <div className="mt-3 grid grid-cols-2 md:grid-cols-3 gap-2 text-sm">
                     {tables.map(t => (
-                      <div key={t.id} className={`px-2 py-1 rounded border ${t.is_reserved ? 'bg-gray-100 text-gray-400 border-gray-200' : 'bg-green-50 text-green-700 border-green-200'}`}>
-                        Mesa {t.table_number} • {t.capacity}p {t.is_reserved ? '(reservada)' : ''}
+                      <div key={t.id} className="px-2 py-1 rounded border bg-blue-50 text-blue-700 border-blue-200">
+                        Mesa {t.table_number} • {t.capacity}p
                       </div>
                     ))}
                   </div>
