@@ -69,7 +69,12 @@ export default function ReservationCalendar({
     else if (['40','41','42','01','02','03','04'].includes(n)) cap = 8;
     else if (['60','61','62','63','64','65'].includes(n)) cap = 10;
 
-    const cls = cap === 2
+    // Para reservas grandes, usar cor diferenciada
+    const isLargeReservation = reservation.number_of_people > 15 || reservation.origin === 'CLIENTE' && reservation.number_of_people >= 16;
+    
+    const cls = isLargeReservation
+      ? 'bg-yellow-100 text-yellow-800 border-yellow-200' // Cor especial para reservas grandes
+      : cap === 2
       ? 'bg-blue-100 text-blue-800 border-blue-200'
       : cap === 3
       ? 'bg-purple-100 text-purple-800 border-purple-200'
@@ -84,11 +89,15 @@ export default function ReservationCalendar({
     return (
       <div className="flex items-center gap-1 text-[10px] opacity-80">
         <span>{reservation.reservation_time}</span>
-        {reservation.table_number && (
+        {reservation.table_number ? (
           <span className={`px-1 py-0.5 rounded border ${cls}`}>
             Mesa {reservation.table_number}{cap ? ` • ${cap}p` : ''}
           </span>
-        )}
+        ) : isLargeReservation ? (
+          <span className={`px-1 py-0.5 rounded border ${cls}`}>
+            Grande • {reservation.number_of_people}p
+          </span>
+        ) : null}
       </div>
     );
   }
@@ -133,17 +142,26 @@ export default function ReservationCalendar({
       console.log('📅 Carregando dados para:', { year, month });
       console.log('🎂 Reservas de aniversário disponíveis:', birthdayReservations.length);
 
-      // Buscar reservas reais da API
-      const response = await fetch(`https://vamos-comemorar-api.onrender.com/api/restaurant-reservations?establishment_id=${establishment.id}`);
+      // Buscar reservas reais da API (normais e grandes)
+      const [normalResponse, largeResponse] = await Promise.all([
+        fetch(`https://vamos-comemorar-api.onrender.com/api/restaurant-reservations?establishment_id=${establishment.id}`),
+        fetch(`https://vamos-comemorar-api.onrender.com/api/large-reservations?establishment_id=${establishment.id}`)
+      ]);
 
-      if (!response.ok) {
+      if (!normalResponse.ok || !largeResponse.ok) {
         throw new Error('Erro ao carregar reservas');
       }
 
-      const data = await response.json();
-      const reservations: Reservation[] = data.reservations || [];
+      const normalData = await normalResponse.json();
+      const largeData = await largeResponse.json();
       
-      console.log('📅 Reservas carregadas para o calendário:', reservations.length);
+      // Combinar reservas normais e grandes
+      const reservations: Reservation[] = [
+        ...(normalData.reservations || []),
+        ...(largeData.reservations || [])
+      ];
+      
+      console.log('📅 Reservas carregadas para o calendário:', reservations.length, '(Normais:', normalData.reservations?.length || 0, 'Grandes:', largeData.reservations?.length || 0, ')');
 
       // Atualizar dias do calendário com as reservas reais
       const totalTables = getTotalTablesForEstablishment();

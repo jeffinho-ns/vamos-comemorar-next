@@ -244,22 +244,38 @@ export default function RestaurantReservationsPage() {
     }
   };
 
-  const loadGuestLists = async () => {
+const loadGuestLists = async () => {
+    // ### INÍCIO DA CORREÇÃO ###
+    // Se nenhum estabelecimento estiver selecionado, não faz nada.
+    if (!selectedEstablishment) {
+      setGuestLists([]);
+      return;
+    }
+
     try {
       const token = localStorage.getItem('authToken');
-      const glRes = await fetch(`${API_URL}/api/admin/guest-lists?month=${selectedMonth}`, { 
+      // Adiciona o establishment_id na chamada da API
+      const url = `${API_URL}/api/admin/guest-lists?month=${selectedMonth}&establishment_id=${selectedEstablishment.id}`;
+      
+      console.log('🔍 Buscando listas de convidados para:', url); // Log para depuração
+
+      const glRes = await fetch(url, { 
         headers: { Authorization: `Bearer ${token}` } 
       });
+
       if (glRes.ok) {
         const glData = await glRes.json();
+        console.log(`✅ ${glData.guestLists?.length || 0} listas de convidados encontradas.`);
         setGuestLists(glData.guestLists || []);
       } else {
+        console.error('❌ Erro ao carregar guest lists, status:', glRes.status);
         setGuestLists([]);
       }
     } catch (e) {
-      console.error('Erro ao carregar guest lists:', e);
+      console.error('❌ Erro de rede ao carregar guest lists:', e);
       setGuestLists([]);
     }
+    // ### FIM DA CORREÇÃO ###
   };
 
   const handleEstablishmentSelect = (establishment: Establishment) => {
@@ -268,36 +284,41 @@ export default function RestaurantReservationsPage() {
     loadEstablishmentData();
   };
 
-  const loadEstablishmentData = async () => {
+ const loadEstablishmentData = async () => {
     if (!selectedEstablishment) return;
     
+    // ### INÍCIO DA CORREÇÃO ###
+    // Pega o token de autenticação no início da função
+    const token = localStorage.getItem("authToken");
+
+    // Cria um objeto de cabeçalhos para ser reutilizado em todas as chamadas
+    const authHeaders = {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+    };
+    // ### FIM DA CORREÇÃO ###
+
     try {
-      // Carregar áreas da API
-      const areasResponse = await fetch(`${API_URL}/api/restaurant-areas`);
+      // 1. Carregar Áreas (com autenticação)
+      const areasResponse = await fetch(`${API_URL}/api/restaurant-areas`, { headers: authHeaders });
       if (areasResponse.ok) {
         const areasData = await areasResponse.json();
         setAreas(areasData.areas || []);
       } else {
         console.error('Erro ao carregar áreas:', areasResponse.statusText);
-        // Fallback para dados mock se a API falhar
-        setAreas([
-          { id: 1, name: 'Área Coberta', capacity_lunch: 0, capacity_dinner: 300 },
-          { id: 2, name: 'Área Descoberta', capacity_lunch: 0, capacity_dinner: 110 }
-        ]);
+        setAreas([]); // Fallback
       }
 
+      // 2. Carregar TODOS os tipos de reservas (com autenticação)
       try {
         console.log('🔍 Buscando TODOS os tipos de reservas para o estabelecimento:', selectedEstablishment.id);
   
-        // Promise para buscar reservas normais
-        const normalReservationsPromise = fetch(`${API_URL}/api/restaurant-reservations?establishment_id=${selectedEstablishment.id}`)
+        const normalReservationsPromise = fetch(`${API_URL}/api/restaurant-reservations?establishment_id=${selectedEstablishment.id}`, { headers: authHeaders })
           .then(res => res.ok ? res.json() : { reservations: [] });
   
-        // Promise para buscar reservas grandes (com lista)
-        const largeReservationsPromise = fetch(`${API_URL}/api/large-reservations?establishment_id=${selectedEstablishment.id}`)
+        const largeReservationsPromise = fetch(`${API_URL}/api/large-reservations?establishment_id=${selectedEstablishment.id}`, { headers: authHeaders })
           .then(res => res.ok ? res.json() : { reservations: [] });
   
-        // Aguarda as duas buscas terminarem
         const [normalData, largeData] = await Promise.all([
           normalReservationsPromise,
           largeReservationsPromise
@@ -309,7 +330,6 @@ export default function RestaurantReservationsPage() {
         ];
   
         console.log(`✅ Total de reservas carregadas: ${allReservations.length} (Normais: ${normalData.reservations?.length || 0}, Grandes: ${largeData.reservations?.length || 0})`);
-  
         setReservations(allReservations);
   
       } catch (e) {
@@ -317,41 +337,8 @@ export default function RestaurantReservationsPage() {
         setReservations([]);
       }
 
-      // Carregar reservas da API
-      console.log('🔍 Buscando reservas para estabelecimento:', selectedEstablishment.id);
-      console.log('🔍 URL da API:', `${API_URL}/api/restaurant-reservations?establishment_id=${selectedEstablishment.id}`);
-      
-      const reservationsResponse = await fetch(`${API_URL}/api/restaurant-reservations?establishment_id=${selectedEstablishment.id}`);
-      
-      console.log('📡 Status da resposta:', reservationsResponse.status);
-      console.log('📡 Headers da resposta:', Object.fromEntries(reservationsResponse.headers.entries()));
-      
-      if (reservationsResponse.ok) {
-        const reservationsData = await reservationsResponse.json();
-        console.log('✅ Dados completos da API:', reservationsData);
-        console.log('✅ Reservas carregadas da API:', reservationsData.reservations?.length || 0);
-        
-        if (reservationsData.reservations && reservationsData.reservations.length > 0) {
-          console.log('📋 Dados das reservas:', reservationsData.reservations.map((r: any) => ({
-            id: r.id,
-            client_name: r.client_name,
-            reservation_date: r.reservation_date,
-            reservation_time: r.reservation_time,
-            establishment_id: r.establishment_id
-          })));
-        } else {
-          console.log('⚠️ Nenhuma reserva encontrada na resposta da API');
-        }
-        
-        setReservations(reservationsData.reservations || []);
-      } else {
-        const errorText = await reservationsResponse.text();
-        console.error('❌ Erro ao carregar reservas:', reservationsResponse.status, errorText);
-        setReservations([]);
-      }
-
-      // Carregar walk-ins da API
-      const walkInsResponse = await fetch(`${API_URL}/api/walk-ins`);
+      // 3. Carregar Walk-ins (com autenticação)
+      const walkInsResponse = await fetch(`${API_URL}/api/walk-ins`, { headers: authHeaders });
       if (walkInsResponse.ok) {
         const walkInsData = await walkInsResponse.json();
         setWalkIns(walkInsData.walkIns || []);
@@ -360,8 +347,8 @@ export default function RestaurantReservationsPage() {
         setWalkIns([]);
       }
 
-      // Carregar waitlist da API
-      const waitlistResponse = await fetch(`${API_URL}/api/waitlist`);
+      // 4. Carregar Waitlist (com autenticação)
+      const waitlistResponse = await fetch(`${API_URL}/api/waitlist`, { headers: authHeaders });
       if (waitlistResponse.ok) {
         const waitlistData = await waitlistResponse.json();
         setWaitlist(waitlistData.waitlist || []);
@@ -370,38 +357,22 @@ export default function RestaurantReservationsPage() {
         setWaitlist([]);
       }
 
-      // Carregar guest lists (admin)
+      // 5. Carregar Guest Lists (a função interna já usa o token)
       await loadGuestLists();
 
-
-      // Carregar reservas de aniversário
+      // 6. Carregar Reservas de Aniversário
       try {
-        console.log('🎂 Carregando reservas de aniversário para estabelecimento:', selectedEstablishment.id);
-        const birthdayReservations = await BirthdayService.getBirthdayReservationsByEstablishment(selectedEstablishment.id);
-        console.log('🎂 Reservas de aniversário carregadas:', birthdayReservations.length);
-        console.log('🎂 Dados das reservas:', birthdayReservations);
-        
-        // Verificar se há reservas para setembro de 2025
-        const september2025 = birthdayReservations.filter(b => {
-          const date = new Date(b.data_aniversario);
-          return date.getFullYear() === 2025 && date.getMonth() === 8; // setembro = 8
-        });
-        console.log('🎂 Reservas para setembro 2025:', september2025.length);
-        
-        
-        setBirthdayReservations(birthdayReservations);
+        console.log('🎂 Carregando reservas de aniversário para o estabelecimento:', selectedEstablishment.id);
+        // Assumindo que BirthdayService internamente já lida com o token. Se não, a chamada precisa ser ajustada também.
+        const birthdayData = await BirthdayService.getBirthdayReservationsByEstablishment(selectedEstablishment.id);
+        setBirthdayReservations(birthdayData);
       } catch (error) {
         console.error('❌ Erro ao carregar reservas de aniversário:', error);
         setBirthdayReservations([]);
       }
 
     } catch (error) {
-      console.error('Erro ao carregar dados do estabelecimento:', error);
-      // Em caso de erro, usar dados mock
-      setAreas([
-        { id: 1, name: 'Área Coberta', capacity_lunch: 0, capacity_dinner: 300 },
-        { id: 2, name: 'Área Descoberta', capacity_lunch: 0, capacity_dinner: 110 }
-      ]);
+      console.error('Erro geral ao carregar dados do estabelecimento:', error);
       setReservations([]);
       setWalkIns([]);
       setWaitlist([]);
