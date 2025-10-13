@@ -200,6 +200,7 @@ export default function RestaurantReservationsPage() {
     event_type: string | null;
     is_valid: 0 | 1;
     created_by_name: string;
+    shareable_link_token: string;
   };
   type GuestItem = { id: number; name: string; whatsapp?: string };
   const [guestLists, setGuestLists] = useState<GuestListItem[]>([]);
@@ -1357,177 +1358,207 @@ export default function RestaurantReservationsPage() {
               )}
 
               {/* Aba de Lista de Convidados */}
-              {activeTab === 'guest-lists' && (
-                <div>
-                  <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
-                    <h3 className="text-xl font-semibold text-gray-800">Lista de Convidados</h3>
-                    
-                    <div className="flex flex-col sm:flex-row gap-3">
-                      {/* Filtro de mês */}
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Mês</label>
-                        <input
-                          type="month"
-                          value={selectedMonth}
-                          onChange={(e) => {
-                            setSelectedMonth(e.target.value);
-                            loadGuestLists();
-                          }}
-                          className="px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                        />
+      {activeTab === 'guest-lists' && (
+        <div>
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+            <h3 className="text-xl font-semibold text-gray-800">Lista de Convidados</h3>
+            
+            <div className="flex flex-col sm:flex-row gap-3">
+              {/* Filtro de mês */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Mês</label>
+                <input
+                  type="month"
+                  value={selectedMonth}
+                  onChange={(e) => {
+                    setSelectedMonth(e.target.value);
+                    loadGuestLists(); // Recarrega as listas ao mudar o mês
+                  }}
+                  className="px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                />
+              </div>
+              
+              <button
+                onClick={() => setShowCreateListModal(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors self-end"
+              >
+                <MdAdd />
+                Criar Lista
+              </button>
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            {guestLists.map((gl) => {
+              // Monta a URL completa do link compartilhável
+              const listUrl = `https://agilizaiapp.com.br/lista/${gl.shareable_link_token}`;
+
+              return (
+                <div key={gl.guest_list_id} className="border rounded-lg">
+                  <button
+                    onClick={async () => {
+                      setExpandedGuestListId(expandedGuestListId === gl.guest_list_id ? null : gl.guest_list_id);
+                      if (!guestsByList[gl.guest_list_id]) {
+                        try {
+                          const token = localStorage.getItem('authToken');
+                          const res = await fetch(`${API_URL}/api/admin/guest-lists/${gl.guest_list_id}/guests`, { headers: { Authorization: `Bearer ${token}` } });
+                          if (res.ok) {
+                            const data = await res.json();
+                            setGuestsByList(prev => ({ ...prev, [gl.guest_list_id]: data.guests || [] }));
+                          }
+                        } catch (e) { console.error(e); }
+                      }
+                    }}
+                    className="w-full text-left px-4 py-3 bg-gray-50 hover:bg-gray-100 flex items-center justify-between"
+                  >
+                    <div>
+                      <div className="font-semibold text-gray-800">{gl.owner_name}</div>
+                      <div className="text-sm text-gray-600">
+                        {new Date(gl.reservation_date).toLocaleDateString('pt-BR')} {gl.event_type ? `• ${gl.event_type}` : ''}
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        Criado por: {gl.created_by_name}
                       </div>
                       
-                      <button
-                        onClick={() => setShowCreateListModal(true)}
-                        className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors self-end"
-                      >
-                        <MdAdd />
-                        Criar Lista
-                      </button>
-                    </div>
-                  </div>
+                      {/* INÍCIO DA ALTERAÇÃO: Exibição do Link */}
+                      <div className="mt-2 flex items-center gap-2">
+                        <a 
+                          href={listUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()} // Evita que o clique no link expanda/recolha o item
+                          className="text-xs text-blue-600 hover:text-blue-800 hover:underline"
+                        >
+                          Acessar Link da Lista
+                        </a>
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation(); // Evita que o clique no botão expanda/recolha
+                            navigator.clipboard.writeText(listUrl);
+                            alert('Link copiado para a área de transferência!');
+                          }}
+                          className="text-xs text-gray-500 hover:text-gray-800"
+                        >
+                          (Copiar)
+                        </button>
+                      </div>
+                      {/* FIM DA ALTERAÇÃO */}
 
-                  <div className="space-y-3">
-                    {guestLists.map((gl) => (
-                      <div key={gl.guest_list_id} className="border rounded-lg">
+                    </div>
+                    <span className={`text-xs px-2 py-1 rounded ${gl.is_valid ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>{gl.is_valid ? 'Ativo' : 'Expirado'}</span>
+                  </button>
+
+                  {expandedGuestListId === gl.guest_list_id && (
+                    <div className="p-4 space-y-3">
+                      {/* Form adicionar/editar */}
+                      <div className="flex flex-col md:flex-row gap-2">
+                        <input
+                          placeholder="Nome"
+                          value={guestForm.listId === gl.guest_list_id ? guestForm.name : ''}
+                          onChange={(e) => setGuestForm(prev => ({ ...prev, listId: gl.guest_list_id, name: e.target.value }))}
+                          className="flex-1 px-3 py-2 border rounded"
+                        />
+                        <input
+                          placeholder="WhatsApp (opcional)"
+                          value={guestForm.listId === gl.guest_list_id ? guestForm.whatsapp : ''}
+                          onChange={(e) => setGuestForm(prev => ({ ...prev, listId: gl.guest_list_id, whatsapp: e.target.value }))}
+                          className="flex-1 px-3 py-2 border rounded"
+                        />
                         <button
                           onClick={async () => {
-                            setExpandedGuestListId(expandedGuestListId === gl.guest_list_id ? null : gl.guest_list_id);
-                            if (!guestsByList[gl.guest_list_id]) {
-                              try {
-                                const token = localStorage.getItem('authToken');
-                                const res = await fetch(`${API_URL}/api/admin/guest-lists/${gl.guest_list_id}/guests`, { headers: { Authorization: `Bearer ${token}` } });
-                                if (res.ok) {
-                                  const data = await res.json();
-                                  setGuestsByList(prev => ({ ...prev, [gl.guest_list_id]: data.guests || [] }));
-                                }
-                              } catch (e) { console.error(e); }
+                            const token = localStorage.getItem('authToken');
+                            if (guestForm.editingGuestId) {
+                              const res = await fetch(`${API_URL}/api/admin/guests/${guestForm.editingGuestId}`, {
+                                method: 'PUT', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                                body: JSON.stringify({ name: guestForm.name, whatsapp: guestForm.whatsapp })
+                              });
+                              if (res.ok) {
+                                setGuestsByList(prev => ({
+                                  ...prev,
+                                  [gl.guest_list_id]: (prev[gl.guest_list_id] || []).map(g => g.id === guestForm.editingGuestId ? { ...g, name: guestForm.name, whatsapp: guestForm.whatsapp } : g)
+                                }));
+                                setGuestForm({ listId: gl.guest_list_id, name: '', whatsapp: '', editingGuestId: null });
+                              }
+                            } else {
+                              const res = await fetch(`${API_URL}/api/admin/guest-lists/${gl.guest_list_id}/guests`, {
+                                method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                                body: JSON.stringify({ name: guestForm.name, whatsapp: guestForm.whatsapp })
+                              });
+                              if (res.ok) {
+                                const data = await res.json();
+                                setGuestsByList(prev => ({
+                                  ...prev,
+                                  [gl.guest_list_id]: [ ...(prev[gl.guest_list_id] || []), data.guest ]
+                                }));
+                                setGuestForm({ listId: gl.guest_list_id, name: '', whatsapp: '', editingGuestId: null });
+                              }
                             }
                           }}
-                          className="w-full text-left px-4 py-3 bg-gray-50 hover:bg-gray-100 flex items-center justify-between"
-                        >
-                          <div>
-                            <div className="font-semibold text-gray-800">{gl.owner_name}</div>
-                            <div className="text-sm text-gray-600">
-                              {new Date(gl.reservation_date).toLocaleDateString('pt-BR')} {gl.event_type ? `• ${gl.event_type}` : ''}
-                            </div>
-                            <div className="text-xs text-gray-500">
-                              Criado por: {gl.created_by_name}
-                            </div>
-                          </div>
-                          <span className={`text-xs px-2 py-1 rounded ${gl.is_valid ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>{gl.is_valid ? 'Ativo' : 'Expirado'}</span>
-                        </button>
-
-                        {expandedGuestListId === gl.guest_list_id && (
-                          <div className="p-4 space-y-3">
-                            {/* Form adicionar/editar */}
-                            <div className="flex flex-col md:flex-row gap-2">
-                              <input
-                                placeholder="Nome"
-                                value={guestForm.listId === gl.guest_list_id ? guestForm.name : ''}
-                                onChange={(e) => setGuestForm(prev => ({ ...prev, listId: gl.guest_list_id, name: e.target.value }))}
-                                className="flex-1 px-3 py-2 border rounded"
-                              />
-                              <input
-                                placeholder="WhatsApp (opcional)"
-                                value={guestForm.listId === gl.guest_list_id ? guestForm.whatsapp : ''}
-                                onChange={(e) => setGuestForm(prev => ({ ...prev, listId: gl.guest_list_id, whatsapp: e.target.value }))}
-                                className="flex-1 px-3 py-2 border rounded"
-                              />
-                              <button
-                                onClick={async () => {
-                                  const token = localStorage.getItem('authToken');
-                                  if (guestForm.editingGuestId) {
-                                    const res = await fetch(`${API_URL}/api/admin/guests/${guestForm.editingGuestId}`, {
-                                      method: 'PUT', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-                                      body: JSON.stringify({ name: guestForm.name, whatsapp: guestForm.whatsapp })
-                                    });
-                                    if (res.ok) {
-                                      setGuestsByList(prev => ({
-                                        ...prev,
-                                        [gl.guest_list_id]: (prev[gl.guest_list_id] || []).map(g => g.id === guestForm.editingGuestId ? { ...g, name: guestForm.name, whatsapp: guestForm.whatsapp } : g)
-                                      }));
-                                      setGuestForm({ listId: gl.guest_list_id, name: '', whatsapp: '', editingGuestId: null });
-                                    }
-                                  } else {
-                                    const res = await fetch(`${API_URL}/api/admin/guest-lists/${gl.guest_list_id}/guests`, {
-                                      method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-                                      body: JSON.stringify({ name: guestForm.name, whatsapp: guestForm.whatsapp })
-                                    });
-                                    if (res.ok) {
-                                      const data = await res.json();
-                                      setGuestsByList(prev => ({
-                                        ...prev,
-                                        [gl.guest_list_id]: [ ...(prev[gl.guest_list_id] || []), data.guest ]
-                                      }));
-                                      setGuestForm({ listId: gl.guest_list_id, name: '', whatsapp: '', editingGuestId: null });
-                                    }
-                                  }
-                                }}
-                                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded"
-                              >{guestForm.listId === gl.guest_list_id && guestForm.editingGuestId ? 'Salvar' : 'Adicionar'}</button>
-                            </div>
-
-                            {/* Lista de convidados */}
-                            <div className="border rounded">
-                              <table className="min-w-full divide-y divide-gray-200">
-                                <thead className="bg-gray-50">
-                                  <tr>
-                                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nome</th>
-                                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">WhatsApp</th>
-                                    <th className="px-4 py-2"></th>
-                                  </tr>
-                                </thead>
-                                <tbody className="bg-white divide-y divide-gray-200">
-                                  {(guestsByList[gl.guest_list_id] || []).map((g) => (
-                                    <tr key={g.id}>
-                                      <td className="px-4 py-2 text-sm text-gray-800">{g.name}</td>
-                                      <td className="px-4 py-2 text-sm text-gray-600">{g.whatsapp || '-'}</td>
-                                      <td className="px-4 py-2 text-right">
-                                        <div className="flex gap-2 justify-end">
-                                          <button
-                                            onClick={() => setGuestForm({ listId: gl.guest_list_id, name: g.name, whatsapp: g.whatsapp || '', editingGuestId: g.id })}
-                                            className="px-3 py-1 text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 rounded"
-                                          >Editar</button>
-                                          <button
-                                            onClick={async () => {
-                                              const token = localStorage.getItem('authToken');
-                                              const res = await fetch(`${API_URL}/api/admin/guests/${g.id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
-                                              if (res.ok) {
-                                                setGuestsByList(prev => ({
-                                                  ...prev,
-                                                  [gl.guest_list_id]: (prev[gl.guest_list_id] || []).filter(x => x.id !== g.id)
-                                                }));
-                                              }
-                                            }}
-                                            className="px-3 py-1 text-xs bg-red-100 hover:bg-red-200 text-red-700 rounded"
-                                          >Excluir</button>
-                                        </div>
-                                      </td>
-                                    </tr>
-                                  ))}
-                                  {(!guestsByList[gl.guest_list_id] || guestsByList[gl.guest_list_id].length === 0) && (
-                                    <tr>
-                                      <td className="px-4 py-4 text-sm text-gray-500" colSpan={3}>Sem convidados cadastrados.</td>
-                                    </tr>
-                                  )}
-                                </tbody>
-                              </table>
-                            </div>
-                          </div>
-                        )}
+                          className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded"
+                        >{guestForm.listId === gl.guest_list_id && guestForm.editingGuestId ? 'Salvar' : 'Adicionar'}</button>
                       </div>
-                    ))}
-                    {guestLists.length === 0 && (
-                      <div className="text-center py-8">
-                        <div className="text-sm text-gray-600">
-                          Nenhuma lista de convidados encontrada para {new Date(selectedMonth + '-01').toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}.
-                        </div>
+
+                      {/* Lista de convidados */}
+                      <div className="border rounded">
+                        <table className="min-w-full divide-y divide-gray-200">
+                          <thead className="bg-gray-50">
+                            <tr>
+                              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nome</th>
+                              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">WhatsApp</th>
+                              <th className="px-4 py-2"></th>
+                            </tr>
+                          </thead>
+                          <tbody className="bg-white divide-y divide-gray-200">
+                            {(guestsByList[gl.guest_list_id] || []).map((g) => (
+                              <tr key={g.id}>
+                                <td className="px-4 py-2 text-sm text-gray-800">{g.name}</td>
+                                <td className="px-4 py-2 text-sm text-gray-600">{g.whatsapp || '-'}</td>
+                                <td className="px-4 py-2 text-right">
+                                  <div className="flex gap-2 justify-end">
+                                    <button
+                                      onClick={() => setGuestForm({ listId: gl.guest_list_id, name: g.name, whatsapp: g.whatsapp || '', editingGuestId: g.id })}
+                                      className="px-3 py-1 text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 rounded"
+                                    >Editar</button>
+                                    <button
+                                      onClick={async () => {
+                                        const token = localStorage.getItem('authToken');
+                                        const res = await fetch(`${API_URL}/api/admin/guests/${g.id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
+                                        if (res.ok) {
+                                          setGuestsByList(prev => ({
+                                            ...prev,
+                                            [gl.guest_list_id]: (prev[gl.guest_list_id] || []).filter(x => x.id !== g.id)
+                                          }));
+                                        }
+                                      }}
+                                      className="px-3 py-1 text-xs bg-red-100 hover:bg-red-200 text-red-700 rounded"
+                                    >Excluir</button>
+                                  </div>
+                                </td>
+                              </tr>
+                            ))}
+                            {(!guestsByList[gl.guest_list_id] || guestsByList[gl.guest_list_id].length === 0) && (
+                              <tr>
+                                <td className="px-4 py-4 text-sm text-gray-500" colSpan={3}>Sem convidados cadastrados.</td>
+                              </tr>
+                            )}
+                          </tbody>
+                        </table>
                       </div>
-                    )}
-                  </div>
+                    </div>
+                  )}
                 </div>
-              )}
+              )
+            })}
+            {guestLists.length === 0 && (
+              <div className="text-center py-8">
+                <div className="text-sm text-gray-600">
+                  Nenhuma lista de convidados encontrada para {new Date(selectedMonth + '-01').toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}.
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
               {/* Aba de Walk-ins */}
               {activeTab === 'walk-ins' && (
                 <div>
