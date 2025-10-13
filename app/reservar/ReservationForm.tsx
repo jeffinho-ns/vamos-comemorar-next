@@ -70,6 +70,8 @@ export default function ReservationForm() {
     table_number: '',
     notes: ''
   });
+  const [eventType, setEventType] = useState<'aniversario' | 'despedida' | ''>('');
+  const [guestListLink, setGuestListLink] = useState<string | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [reservationId, setReservationId] = useState<string | null>(null);
 
@@ -413,13 +415,7 @@ export default function ReservationForm() {
       newErrors.number_of_people = 'Número de pessoas deve ser maior que 0';
     }
 
-    // Se existem mesas para a área e data, solicitar seleção de mesa (exceto para reservas grandes)
-    const isLargeReservation = reservationData.number_of_people >= 11;
-    const hasTableOptions = tables && tables.length > 0;
-    const hasAvailableTable = tables.some(t => !t.is_reserved && t.capacity >= reservationData.number_of_people);
-    if (!isLargeReservation && hasTableOptions && hasAvailableTable && !(reservationData as any).table_number) {
-      newErrors.table_number = 'Selecione uma mesa disponível';
-    }
+    // Removido: cliente não escolhe mesa; admin define a mesa
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -468,7 +464,20 @@ const handleSubmit = async (e: React.FormEvent) => {
     console.log('📦 Payload final sendo enviado para a API:', JSON.stringify(payload, null, 2));
 
     try {
-      const response = await fetch(`${API_URL}/api/restaurant-reservations`, {
+      // Decidir endpoint conforme o tamanho do grupo
+      const isLarge = Number(payload.number_of_people) >= 11;
+      // Se sábado e reserva grande, enviar event_type selecionado
+      if (isLarge && reservationData.reservation_date) {
+        const d = new Date(reservationData.reservation_date + 'T00:00:00');
+        const weekday = d.getDay();
+        if (weekday === 6) {
+          payload.event_type = eventType || null;
+        }
+      }
+
+      const endpoint = isLarge ? `${API_URL}/api/large-reservations` : `${API_URL}/api/restaurant-reservations`;
+
+      const response = await fetch(endpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -480,6 +489,11 @@ const handleSubmit = async (e: React.FormEvent) => {
         const result = await response.json();
         console.log('✅ Reserva criada com sucesso:', result);
         setReservationId(result.reservation?.id || '12345');
+        if (result.guest_list_link) {
+          setGuestListLink(result.guest_list_link);
+        } else {
+          setGuestListLink(null);
+        }
         setStep('confirmation');
       } else {
         const errorText = await response.text();
@@ -836,6 +850,51 @@ const handleSubmit = async (e: React.FormEvent) => {
                 </div>
               </div>
 
+              {/* Lógica condicional sexta/sábado para reservas grandes */}
+              {reservationData.number_of_people >= 11 && reservationData.reservation_date && (
+                (() => {
+                  const d = new Date(reservationData.reservation_date + 'T00:00:00');
+                  const weekday = d.getDay(); // 5=sexta, 6=sábado
+                  if (weekday === 5) {
+                    return (
+                      <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-lg">
+                        <div className="text-emerald-800 text-sm">
+                          Sexta-feira: opção de criar lista de convidados disponível. O link será exibido após confirmar.
+                        </div>
+                      </div>
+                    );
+                  }
+                  if (weekday === 6) {
+                    return (
+                      <div className="p-4 bg-indigo-50 border border-indigo-200 rounded-lg">
+                        <label className="block text-sm font-medium text-indigo-900 mb-2">Tipo de evento (sábado)</label>
+                        <div className="flex items-center gap-6 text-sm text-indigo-900">
+                          <label className="inline-flex items-center gap-2">
+                            <input
+                              type="radio"
+                              name="event_type"
+                              checked={eventType === 'aniversario'}
+                              onChange={() => setEventType('aniversario')}
+                            />
+                            Aniversário
+                          </label>
+                          <label className="inline-flex items-center gap-2">
+                            <input
+                              type="radio"
+                              name="event_type"
+                              checked={eventType === 'despedida'}
+                              onChange={() => setEventType('despedida')}
+                            />
+                            Despedida
+                          </label>
+                        </div>
+                      </div>
+                    );
+                  }
+                  return null;
+                })()
+              )}
+
               {/* Area Selection */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -884,36 +943,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                 )}
               </div>
 
-              {/* Table Selection (aparece quando há mesas para a área/data e não é reserva grande) */}
-              {tables.length > 0 && reservationData.number_of_people < 11 && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Mesa (opções disponíveis para a data)
-                  </label>
-                  <select
-                    value={(reservationData as any).table_number || ''}
-                    onChange={(e) => handleInputChange('table_number', e.target.value)}
-                    className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent ${
-                      errors.table_number ? 'border-red-500' : 'border-gray-300'
-                    }`}
-                  >
-                    <option value="">Selecione uma mesa</option>
-                    {tables
-                      .filter(t => !t.is_reserved && t.capacity >= reservationData.number_of_people)
-                      .map(t => (
-                        <option key={t.id} value={t.table_number}>
-                          Mesa {t.table_number} • {t.capacity} lugares{t.table_type ? ` • ${t.table_type}` : ''}
-                        </option>
-                      ))}
-                  </select>
-                  {errors.table_number && (
-                    <p className="text-red-500 text-sm mt-1">{errors.table_number}</p>
-                  )}
-                  {tables.some(t => t.is_reserved) && (
-                    <p className="text-xs text-gray-500 mt-1">Mesas já reservadas não aparecem na lista.</p>
-                  )}
-                </div>
-              )}
+              {/* Removido: seleção de mesa pelo cliente */}
 
               {/* Notes */}
               <div>
@@ -1008,6 +1038,25 @@ const handleSubmit = async (e: React.FormEvent) => {
       </div>
     </div>
 
+    {guestListLink && (
+      <div className="mb-6 p-4 bg-emerald-50 border border-emerald-200 rounded-lg text-left">
+        <div className="text-emerald-900 font-semibold mb-2">Lista de Convidados</div>
+        <p className="text-emerald-800 text-sm mb-3">Seu link foi gerado. Compartilhe com seus convidados.</p>
+        <div className="flex flex-col md:flex-row md:items-center gap-3">
+          <input readOnly value={guestListLink} className="flex-1 px-3 py-2 border rounded" />
+          <button
+            onClick={() => navigator.clipboard.writeText(guestListLink)}
+            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded"
+          >Copiar Link</button>
+          <a
+            href={`https://wa.me/?text=${encodeURIComponent('Você está na minha lista de convidados: ' + guestListLink)}`}
+            target="_blank"
+            className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded text-center"
+          >Compartilhar no WhatsApp</a>
+        </div>
+      </div>
+    )}
+
     <div className="flex gap-4 justify-center">
       <button
         onClick={() => {
@@ -1041,6 +1090,7 @@ const handleSubmit = async (e: React.FormEvent) => {
   </motion.div>
 )}
 </div>
+
 </div>
 );
 }
