@@ -418,7 +418,26 @@ const loadGuestLists = async () => {
       // Filtrar reservas ativas para a data selecionada
       const dateString = date.toISOString().split('T')[0];
       const activeReservations = reservations.filter(reservation => {
-        const reservationDate = reservation.reservation_date ? new Date(reservation.reservation_date + 'T12:00:00').toISOString().split('T')[0] : '';
+        const reservationDate = (() => {
+          if (!reservation.reservation_date) return '';
+          try {
+            const dateStr = String(reservation.reservation_date).trim();
+            if (!dateStr || dateStr === 'null' || dateStr === 'undefined') return '';
+            
+            let date;
+            if (dateStr.includes('T')) {
+              date = new Date(dateStr);
+            } else {
+              date = new Date(dateStr + 'T12:00:00');
+            }
+            
+            if (isNaN(date.getTime())) return '';
+            return date.toISOString().split('T')[0];
+          } catch (error) {
+            console.error('Error converting reservation date:', reservation.reservation_date, error);
+            return '';
+          }
+        })();
         return reservationDate === dateString && 
                (reservation.status === 'confirmed' || reservation.status === 'checked-in');
       });
@@ -583,6 +602,7 @@ const loadGuestLists = async () => {
     try {
       return timeString.slice(0, 5);
     } catch (error) {
+      console.error('Error formatting time:', timeString, error);
       return '';
     }
   };
@@ -878,7 +898,26 @@ const loadGuestLists = async () => {
                                   const totalCapacity = areas.reduce((sum, area) => sum + area.capacity_dinner, 0);
                                   const dateString = selectedDate.toISOString().split('T')[0];
                                   const activeReservations = reservations.filter(reservation => {
-                                    const reservationDate = reservation.reservation_date ? new Date(reservation.reservation_date + 'T12:00:00').toISOString().split('T')[0] : '';
+                                    const reservationDate = (() => {
+          if (!reservation.reservation_date) return '';
+          try {
+            const dateStr = String(reservation.reservation_date).trim();
+            if (!dateStr || dateStr === 'null' || dateStr === 'undefined') return '';
+            
+            let date;
+            if (dateStr.includes('T')) {
+              date = new Date(dateStr);
+            } else {
+              date = new Date(dateStr + 'T12:00:00');
+            }
+            
+            if (isNaN(date.getTime())) return '';
+            return date.toISOString().split('T')[0];
+          } catch (error) {
+            console.error('Error converting reservation date:', reservation.reservation_date, error);
+            return '';
+          }
+        })();
                                     return reservationDate === dateString && 
                                            (reservation.status === 'confirmed' || reservation.status === 'checked-in');
                                   });
@@ -1103,7 +1142,25 @@ const loadGuestLists = async () => {
                         };
                         const matchesFilters = (r: Reservation) => {
                           if (sheetFilters.date) {
-                            const d = r.reservation_date ? new Date(r.reservation_date + 'T12:00:00').toISOString().split('T')[0] : '';
+                            let d = '';
+                            if (r.reservation_date) {
+                              try {
+                                const dateStr = String(r.reservation_date).trim();
+                                if (dateStr && dateStr !== 'null' && dateStr !== 'undefined') {
+                                  let date;
+                                  if (dateStr.includes('T')) {
+                                    date = new Date(dateStr);
+                                  } else {
+                                    date = new Date(dateStr + 'T12:00:00');
+                                  }
+                                  if (!isNaN(date.getTime())) {
+                                    d = date.toISOString().split('T')[0];
+                                  }
+                                }
+                              } catch (error) {
+                                console.error('Error in filter date conversion:', r.reservation_date, error);
+                              }
+                            }
                             if (d !== sheetFilters.date) return false;
                           }
                           if (sheetFilters.search) {
@@ -1217,7 +1274,7 @@ const loadGuestLists = async () => {
                                       <tr key={r.id} className="hover:bg-yellow-50">
                                         <td className="border border-gray-300 px-2 py-1 text-[12px] text-gray-500">{idx + 1}</td>
                                         <td className="border border-gray-300 px-2 py-1 text-sm text-gray-700 whitespace-nowrap">
-                                          {r.reservation_date ? new Date(r.reservation_date + 'T12:00:00').toLocaleDateString('pt-BR') : 'Data não informada'} {formatTime(r.reservation_time)}
+                                          {formatDate(r.reservation_date)} {formatTime(r.reservation_time)}
                                           <button onClick={() => openEdit(r)} className="ml-2 px-2 py-0.5 text-xs bg-yellow-100 text-yellow-700 rounded">+</button>
                                         </td>
                                         <td className="border border-gray-300 px-2 py-1 text-sm text-gray-700">
