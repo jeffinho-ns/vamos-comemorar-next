@@ -546,44 +546,44 @@ const handleSubmit = async (e: React.FormEvent) => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
-      <div className="max-w-4xl mx-auto p-6">
+      <div className="max-w-4xl mx-auto p-3 sm:p-4 md:p-6">
         {/* Header */}
-        <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-white mb-4">
+        <div className="text-center mb-6 sm:mb-8">
+          <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white mb-3 sm:mb-4">
             Faça sua Reserva
           </h1>
-          <p className="text-gray-300 text-lg">
+          <p className="text-gray-300 text-sm sm:text-base md:text-lg px-2">
             Escolha seu estabelecimento preferido e garante sua mesa
           </p>
         </div>
 
         {/* Progress Steps */}
-        <div className="flex justify-center mb-8">
-          <div className="flex items-center space-x-4">
-            <div className={`flex items-center justify-center w-10 h-10 rounded-full ${
+        <div className="flex justify-center mb-6 sm:mb-8">
+          <div className="flex items-center space-x-2 sm:space-x-4">
+            <div className={`flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 rounded-full ${
               step === 'establishment' ? 'bg-orange-500 text-white' : 
               step === 'form' || step === 'confirmation' ? 'bg-green-500 text-white' : 
               'bg-gray-600 text-gray-300'
             }`}>
-              <MdRestaurant size={20} />
+              <MdRestaurant size={16} className="sm:w-5 sm:h-5" />
             </div>
-            <div className={`w-16 h-1 ${
+            <div className={`w-8 sm:w-16 h-1 ${
               step === 'form' || step === 'confirmation' ? 'bg-green-500' : 'bg-gray-600'
             }`}></div>
-            <div className={`flex items-center justify-center w-10 h-10 rounded-full ${
+            <div className={`flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 rounded-full ${
               step === 'form' ? 'bg-orange-500 text-white' : 
               step === 'confirmation' ? 'bg-green-500 text-white' : 
               'bg-gray-600 text-gray-300'
             }`}>
-              <MdCalendarToday size={20} />
+              <MdCalendarToday size={16} className="sm:w-5 sm:h-5" />
             </div>
-            <div className={`w-16 h-1 ${
+            <div className={`w-8 sm:w-16 h-1 ${
               step === 'confirmation' ? 'bg-green-500' : 'bg-gray-600'
             }`}></div>
-            <div className={`flex items-center justify-center w-10 h-10 rounded-full ${
+            <div className={`flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 rounded-full ${
               step === 'confirmation' ? 'bg-orange-500 text-white' : 'bg-gray-600 text-gray-300'
             }`}>
-              <MdCheck size={20} />
+              <MdCheck size={16} className="sm:w-5 sm:h-5" />
             </div>
           </div>
         </div>
@@ -593,50 +593,50 @@ const handleSubmit = async (e: React.FormEvent) => {
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-2xl border border-gray-200/20 p-8"
+            className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-2xl border border-gray-200/20 p-4 sm:p-6 md:p-8"
           >
-            <h2 className="text-2xl font-bold text-gray-800 mb-6 text-center">
+            <h2 className="text-xl sm:text-2xl font-bold text-gray-800 mb-4 sm:mb-6 text-center">
               Escolha seu Estabelecimento
             </h2>
             
             {establishmentsLoading ? (
-              <div className="flex items-center justify-center py-12">
+              <div className="flex items-center justify-center py-8 sm:py-12">
                 <div className="text-center">
-                  <div className="w-16 h-16 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-                  <p className="text-gray-600">Carregando estabelecimentos...</p>
+                  <div className="w-12 h-12 sm:w-16 sm:h-16 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto mb-3 sm:mb-4"></div>
+                  <p className="text-gray-600 text-sm sm:text-base">Carregando estabelecimentos...</p>
                 </div>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                 {establishments.map((establishment) => (
                 <motion.button
                   key={establishment.id}
                   onClick={() => handleEstablishmentSelect(establishment)}
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
-                  className="p-6 rounded-xl border-2 border-gray-200 bg-white hover:border-orange-300 hover:shadow-lg transition-all duration-200 text-left"
+                  className="p-4 sm:p-6 rounded-xl border-2 border-gray-200 bg-white hover:border-orange-300 hover:shadow-lg transition-all duration-200 text-left"
                 >
-                  <div className="flex items-center gap-4 mb-4">
-                    <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center">
+                  <div className="flex items-center gap-3 sm:gap-4 mb-3 sm:mb-4">
+                    <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gray-100 rounded-full flex items-center justify-center flex-shrink-0">
                       <img
                         src={establishment.logo}
                         alt={establishment.name}
-                        className="w-12 h-12 object-contain"
+                        className="w-8 h-8 sm:w-12 sm:h-12 object-contain"
                       />
                     </div>
-                    <div>
-                      <h3 className="text-xl font-semibold text-gray-800">
+                    <div className="min-w-0 flex-1">
+                      <h3 className="text-lg sm:text-xl font-semibold text-gray-800 truncate">
                         {establishment.name}
                       </h3>
-                      <p className="text-gray-600 text-sm">
+                      <p className="text-gray-600 text-xs sm:text-sm line-clamp-2">
                         {establishment.address}
                       </p>
                     </div>
                   </div>
                   {establishment.phone && (
                     <div className="flex items-center gap-2 text-gray-600">
-                      <MdPhone size={16} />
-                      <span className="text-sm">{establishment.phone}</span>
+                      <MdPhone size={14} className="sm:w-4 sm:h-4 flex-shrink-0" />
+                      <span className="text-xs sm:text-sm truncate">{establishment.phone}</span>
                     </div>
                   )}
                 </motion.button>
@@ -651,28 +651,28 @@ const handleSubmit = async (e: React.FormEvent) => {
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-2xl border border-gray-200/20 p-8"
+            className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-2xl border border-gray-200/20 p-4 sm:p-6 md:p-8"
           >
-            <div className="flex items-center gap-4 mb-6">
+            <div className="flex items-center gap-3 sm:gap-4 mb-4 sm:mb-6">
               <button
                 onClick={() => setStep('establishment')}
-                className="text-gray-400 hover:text-gray-600 transition-colors"
+                className="text-gray-400 hover:text-gray-600 transition-colors flex-shrink-0"
               >
-                <MdArrowBack size={24} />
+                <MdArrowBack size={20} className="sm:w-6 sm:h-6" />
               </button>
-              <div>
-                <h2 className="text-2xl font-bold text-gray-800">
+              <div className="min-w-0 flex-1">
+                <h2 className="text-xl sm:text-2xl font-bold text-gray-800 truncate">
                   Dados da Reserva
                 </h2>
-                <p className="text-gray-600">
+                <p className="text-gray-600 text-sm sm:text-base truncate">
                   {selectedEstablishment.name}
                 </p>
               </div>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-6">
+            <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
               {/* Personal Information */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Nome Completo *
@@ -681,7 +681,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                     type="text"
                     value={reservationData.client_name}
                     onChange={(e) => handleInputChange('client_name', e.target.value)}
-                    className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent ${
+                    className={`w-full px-3 sm:px-4 py-2 sm:py-3 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent text-sm sm:text-base ${
                       errors.client_name ? 'border-red-500' : 'border-gray-300'
                     }`}
                     placeholder="Seu nome completo"
@@ -699,7 +699,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                     type="tel"
                     value={reservationData.client_phone}
                     onChange={(e) => handleInputChange('client_phone', e.target.value)}
-                    className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent ${
+                    className={`w-full px-3 sm:px-4 py-2 sm:py-3 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent text-sm sm:text-base ${
                       errors.client_phone ? 'border-red-500' : 'border-gray-300'
                     }`}
                     placeholder="(11) 99999-9999"
@@ -717,7 +717,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                     type="email"
                     value={reservationData.client_email}
                     onChange={(e) => handleInputChange('client_email', e.target.value)}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                    className="w-full px-3 sm:px-4 py-2 sm:py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent text-sm sm:text-base"
                     placeholder="seu@email.com"
                   />
                 </div>
@@ -731,7 +731,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                               value={reservationData.client_birthdate}
                               onChange={(e) => handleInputChange('client_birthdate', e.target.value)}
                               max={getMaxBirthdate()}
-                              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                              className="w-full px-3 sm:px-4 py-2 sm:py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent text-sm sm:text-base"
                             />
                           {errors.client_birthdate && (
                             <p className="text-red-500 text-sm mt-1">{errors.client_birthdate}</p>
@@ -759,7 +759,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                     min={1}
                     value={reservationData.number_of_people}
                     onChange={(e) => handleInputChange('number_of_people', parseInt(e.target.value || '0'))}
-                    className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent ${
+                    className={`w-full px-3 sm:px-4 py-2 sm:py-3 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent text-sm sm:text-base ${
                       errors.number_of_people ? 'border-red-500' : 'border-gray-300'
                     }`}
                   />
@@ -798,7 +798,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                         handleInputChange('reservation_date', e.target.value);
                         handleInputChange('table_number', ''); // Adicione esta linha
                       }}
-                      className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent ${
+                      className={`w-full px-3 sm:px-4 py-2 sm:py-3 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent text-sm sm:text-base ${
                         errors.reservation_date ? 'border-red-500' : 'border-gray-300'
                       }`}
                     />
@@ -830,7 +830,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                       max={maxAttr}
                       value={reservationData.reservation_time}
                       onChange={(e) => handleInputChange('reservation_time', e.target.value)}
-                      className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent ${
+                      className={`w-full px-3 sm:px-4 py-2 sm:py-3 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent text-sm sm:text-base ${
                         errors.reservation_time ? 'border-red-500' : 'border-gray-300'
                       }`}
                     />
@@ -940,7 +940,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                       handleInputChange('table_number', '');
                     }
                   }}
-                  className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent ${
+                  className={`w-full px-3 sm:px-4 py-2 sm:py-3 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent text-sm sm:text-base ${
                     errors.area_id ? 'border-red-500' : 'border-gray-300'
                   }`}
                 >
@@ -979,27 +979,27 @@ const handleSubmit = async (e: React.FormEvent) => {
                   value={reservationData.notes}
                   onChange={(e) => handleInputChange('notes', e.target.value)}
                   rows={3}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                  className="w-full px-3 sm:px-4 py-2 sm:py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent text-sm sm:text-base"
                   placeholder="Alguma observação especial? (ex: aniversário, mesa próxima à janela, etc.)"
                 />
               </div>
 
               {/* Submit Button */}
-              <div className="flex justify-end">
+              <div className="flex justify-center sm:justify-end">
                 <button
                   type="submit"
                   disabled={loading}
-                  className="px-8 py-3 bg-orange-500 hover:bg-orange-600 disabled:bg-gray-400 text-white rounded-lg font-semibold transition-colors flex items-center gap-2"
+                  className="w-full sm:w-auto px-6 sm:px-8 py-3 bg-orange-500 hover:bg-orange-600 disabled:bg-gray-400 text-white rounded-lg font-semibold transition-colors flex items-center justify-center gap-2 text-sm sm:text-base"
                 >
                   {loading ? (
                     <>
-                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                      Processando...
+                      <div className="w-4 h-4 sm:w-5 sm:h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      <span>Processando...</span>
                     </>
                   ) : (
                     <>
-                      <MdCheck size={20} />
-                      Confirmar Reserva
+                      <MdCheck size={18} className="sm:w-5 sm:h-5" />
+                      <span>Confirmar Reserva</span>
                     </>
                   )}
                 </button>
@@ -1013,23 +1013,23 @@ const handleSubmit = async (e: React.FormEvent) => {
   <motion.div
     initial={{ opacity: 0, y: 20 }}
     animate={{ opacity: 1, y: 0 }}
-    className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-2xl border border-gray-200/20 p-8 text-center"
+    className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-2xl border border-gray-200/20 p-4 sm:p-6 md:p-8 text-center"
   >
-    <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
-      <MdCheck size={40} className="text-green-600" />
+    <div className="w-16 h-16 sm:w-20 sm:h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4 sm:mb-6">
+      <MdCheck size={32} className="sm:w-10 sm:h-10 text-green-600" />
     </div>
 
-    <h2 className="text-3xl font-bold text-gray-800 mb-4">
+    <h2 className="text-2xl sm:text-3xl font-bold text-gray-800 mb-3 sm:mb-4">
       Reserva Confirmada!
     </h2>
 
-    <p className="text-gray-600 mb-6">
+    <p className="text-gray-600 mb-4 sm:mb-6 text-sm sm:text-base px-2">
       Sua reserva foi realizada com sucesso. Você receberá uma confirmação por telefone ou email.
     </p>
 
-    <div className="bg-gray-50 rounded-lg p-6 mb-6 text-left">
-      <h3 className="font-semibold text-gray-800 mb-4">Detalhes da Reserva:</h3>
-      <div className="space-y-2 text-sm">
+    <div className="bg-gray-50 rounded-lg p-4 sm:p-6 mb-4 sm:mb-6 text-left">
+      <h3 className="font-semibold text-gray-800 mb-3 sm:mb-4 text-sm sm:text-base">Detalhes da Reserva:</h3>
+      <div className="space-y-2 text-xs sm:text-sm">
         <div className="flex justify-between">
           <span className="text-gray-600">Estabelecimento:</span>
           <span className="font-medium">{selectedEstablishment?.name}</span>
@@ -1147,7 +1147,7 @@ const handleSubmit = async (e: React.FormEvent) => {
       </div>
     )}
 
-    <div className="flex gap-4 justify-center">
+    <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center">
       <button
         onClick={() => {
           setStep('establishment');
@@ -1166,13 +1166,13 @@ const handleSubmit = async (e: React.FormEvent) => {
             notes: '',
           });
         }}
-        className="px-6 py-3 bg-gray-500 hover:bg-gray-600 text-white rounded-lg transition-colors"
+        className="w-full sm:w-auto px-4 sm:px-6 py-2 sm:py-3 bg-gray-500 hover:bg-gray-600 text-white rounded-lg transition-colors text-sm sm:text-base"
       >
         Nova Reserva
       </button>
       <button
         onClick={() => router.push('/')}
-        className="px-6 py-3 bg-orange-500 hover:bg-orange-600 text-white rounded-lg transition-colors"
+        className="w-full sm:w-auto px-4 sm:px-6 py-2 sm:py-3 bg-orange-500 hover:bg-orange-600 text-white rounded-lg transition-colors text-sm sm:text-base"
       >
         Voltar ao Início
       </button>
