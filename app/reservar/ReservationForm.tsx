@@ -1038,7 +1038,7 @@ const handleSubmit = async (e: React.FormEvent) => {
         <div className="flex justify-between">
           <span className="text-gray-600">Data:</span>
           <span className="font-medium">
-            {formatDateBR(reservationData.reservation_date)}
+            {reservationData.reservation_date ? formatDateBR(reservationData.reservation_date) : 'Data não informada'}
           </span>
         </div>
         <div className="flex justify-between">

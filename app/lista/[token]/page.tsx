@@ -110,7 +110,7 @@ export default function GuestListPublicPage() {
           Você está na lista de convidados de {ownerName}
         </h1>
         {reservationDate && (
-          <p className="text-gray-600 mb-6 text-sm">Data do evento: {new Date(reservationDate + 'T12:00:00').toLocaleDateString('pt-BR')}</p>
+          <p className="text-gray-600 mb-6 text-sm">Data do evento: {reservationDate ? new Date(reservationDate + 'T12:00:00').toLocaleDateString('pt-BR') : 'Data não informada'}</p>
         )}
 
         {/* Formulário para convidados se cadastrarem */}

@@ -10,11 +10,23 @@
  * @returns Data formatada no padrão brasileiro (DD/MM/YYYY)
  */
 export function formatDateBR(dateString: string): string {
-  if (!dateString) return '';
+  if (!dateString || dateString.trim() === '') return '';
   
-  // Adiciona T12:00:00 para evitar conversão de fuso horário
-  const date = new Date(dateString + 'T12:00:00');
-  return date.toLocaleDateString('pt-BR');
+  try {
+    // Adiciona T12:00:00 para evitar conversão de fuso horário
+    const date = new Date(dateString + 'T12:00:00');
+    
+    // Verifica se a data é válida
+    if (isNaN(date.getTime())) {
+      console.warn('Data inválida recebida:', dateString);
+      return '';
+    }
+    
+    return date.toLocaleDateString('pt-BR');
+  } catch (error) {
+    console.error('Erro ao formatar data:', dateString, error);
+    return '';
+  }
 }
 
 /**
@@ -28,7 +40,9 @@ export function formatDateTimeBR(dateString: string, timeString?: string): strin
   
   const formattedDate = formatDateBR(dateString);
   
-  if (timeString) {
+  if (!formattedDate) return '';
+  
+  if (timeString && timeString.trim() !== '') {
     // Remove os segundos se existirem para exibição mais limpa
     const time = timeString.split(':').slice(0, 2).join(':');
     return `${formattedDate} às ${time}`;
@@ -43,10 +57,14 @@ export function formatDateTimeBR(dateString: string, timeString?: string): strin
  * @returns true se a data for válida
  */
 export function isValidDate(dateString: string): boolean {
-  if (!dateString) return false;
+  if (!dateString || dateString.trim() === '') return false;
   
-  const date = new Date(dateString + 'T12:00:00');
-  return !isNaN(date.getTime());
+  try {
+    const date = new Date(dateString + 'T12:00:00');
+    return !isNaN(date.getTime());
+  } catch (error) {
+    return false;
+  }
 }
 
 /**
@@ -55,10 +73,15 @@ export function isValidDate(dateString: string): boolean {
  * @returns Número do dia da semana (0=domingo, 1=segunda, etc.)
  */
 export function getDayOfWeek(dateString: string): number {
-  if (!dateString) return -1;
+  if (!dateString || dateString.trim() === '') return -1;
   
-  const date = new Date(dateString + 'T12:00:00');
-  return date.getDay();
+  try {
+    const date = new Date(dateString + 'T12:00:00');
+    if (isNaN(date.getTime())) return -1;
+    return date.getDay();
+  } catch (error) {
+    return -1;
+  }
 }
 
 /**
@@ -68,6 +91,8 @@ export function getDayOfWeek(dateString: string): number {
  */
 export function getDayOfWeekName(dateString: string): string {
   const dayOfWeek = getDayOfWeek(dateString);
+  if (dayOfWeek === -1) return '';
+  
   const days = ['Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado'];
   return days[dayOfWeek] || '';
 }
