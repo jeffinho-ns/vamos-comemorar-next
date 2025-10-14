@@ -74,6 +74,7 @@ export default function ReservationForm() {
   const [guestListLink, setGuestListLink] = useState<string | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [reservationId, setReservationId] = useState<string | null>(null);
+  const [showAgeModal, setShowAgeModal] = useState(false);
 
   // Carregar estabelecimentos da API
   useEffect(() => {
@@ -444,6 +445,10 @@ const handleSubmit = async (e: React.FormEvent) => {
 
     // Renomeia o campo de data de nascimento para o padrão do backend
     data_nascimento_cliente: reservationData.client_birthdate || null,
+    
+    // Flags para envio de notificações (sempre true para reservas do site)
+    send_email: true,
+    send_whatsapp: true,
   };
   
   // 2. CORREÇÃO CRÍTICA: Garante que o horário esteja no formato HH:mm:ss
@@ -732,7 +737,16 @@ const handleSubmit = async (e: React.FormEvent) => {
                             <p className="text-red-500 text-sm mt-1">{errors.client_birthdate}</p>
                           )}
                           {!errors.client_birthdate && (
-                            <p className="text-gray-500 text-xs mt-1">Para reservar, é obrigatório ser maior de 18 anos.</p>
+                            <div className="flex items-center gap-2 mt-1">
+                              <p className="text-gray-500 text-xs">Para reservar, é obrigatório ser maior de 18 anos.</p>
+                              <button
+                                type="button"
+                                onClick={() => setShowAgeModal(true)}
+                                className="text-orange-600 hover:text-orange-800 text-xs underline font-medium"
+                              >
+                                Saiba mais
+                              </button>
+                            </div>
                           )}
                   </div>
 
@@ -755,12 +769,12 @@ const handleSubmit = async (e: React.FormEvent) => {
                   
                   {/* Indicador de reserva grande */}
                   {reservationData.number_of_people >= 11 && (
-                    <div className="mt-3 p-3 bg-orange-50 border border-orange-200 rounded-lg">
-                      <div className="flex items-center gap-2 text-orange-800">
-                        <MdPeople className="text-orange-600" />
-                        <span className="text-sm font-medium">Reserva Grande</span>
+                    <div className="mt-3 p-4 bg-gradient-to-r from-orange-100 to-red-100 border-2 border-orange-400 rounded-lg shadow-lg">
+                      <div className="flex items-center gap-2 text-orange-900">
+                        <MdPeople className="text-orange-600 text-lg" />
+                        <span className="text-sm font-bold">⚠️ RESERVA GRANDE</span>
                       </div>
-                      <p className="text-xs text-orange-700 mt-1">
+                      <p className="text-sm text-orange-800 mt-2 font-medium">
                         Para grupos acima de 10 pessoas, você pode escolher apenas a área. 
                         O admin selecionará as mesas específicas.
                       </p>
@@ -831,17 +845,26 @@ const handleSubmit = async (e: React.FormEvent) => {
                       const windows = getHighlineTimeWindows(reservationData.reservation_date, selectedSubareaKey);
                       if (windows.length === 0) {
                         return (
-                          <div className="p-2 bg-red-50 border border-red-200 rounded">
-                            Reservas fechadas para este dia no Highline. Disponível apenas Sexta e Sábado.
+                          <div className="p-4 bg-gradient-to-r from-red-100 to-pink-100 border-2 border-red-400 rounded-lg shadow-lg">
+                            <div className="flex items-center gap-2 mb-2">
+                              <MdAccessTime className="text-red-600 text-lg" />
+                              <span className="font-bold text-red-900">❌ RESERVAS FECHADAS</span>
+                            </div>
+                            <p className="text-sm text-red-800 font-medium">
+                              Reservas fechadas para este dia no Highline. Disponível apenas Sexta e Sábado.
+                            </p>
                           </div>
                         );
                       }
                       return (
-                        <div className="p-2 bg-amber-50 border border-amber-200 rounded">
-                          <div className="font-medium text-amber-800">Horários disponíveis:</div>
-                          <ul className="list-disc pl-5 text-amber-800">
+                        <div className="p-4 bg-gradient-to-r from-amber-100 to-yellow-100 border-2 border-amber-400 rounded-lg shadow-lg">
+                          <div className="flex items-center gap-2 mb-2">
+                            <MdAccessTime className="text-amber-600 text-lg" />
+                            <span className="font-bold text-amber-900">🕐 HORÁRIOS DISPONÍVEIS:</span>
+                          </div>
+                          <ul className="list-disc pl-5 text-amber-800 font-medium">
                             {windows.map((w, i) => (
-                              <li key={i}>{w.label}</li>
+                              <li key={i} className="text-sm">{w.label}</li>
                             ))}
                           </ul>
                         </div>
@@ -1028,7 +1051,10 @@ const handleSubmit = async (e: React.FormEvent) => {
         <div className="flex justify-between">
           <span className="text-gray-600">Área:</span>
           <span className="font-medium">
-            {areas.find(a => a.id.toString() === reservationData.area_id)?.name}
+            {isHighline 
+              ? highlineSubareas.find(s => s.area_id.toString() === reservationData.area_id)?.label
+              : areas.find(a => a.id.toString() === reservationData.area_id)?.name
+            }
           </span>
         </div>
         {reservationId && (
@@ -1037,6 +1063,68 @@ const handleSubmit = async (e: React.FormEvent) => {
             <span className="font-medium font-mono">{reservationId}</span>
           </div>
         )}
+      </div>
+    </div>
+
+    {/* Alertas Importantes na Confirmação */}
+    <div className="space-y-4 mb-6">
+      {/* Alerta de Idade */}
+      <div className="bg-gradient-to-r from-red-50 to-orange-50 border-2 border-red-200 rounded-lg p-4">
+        <div className="flex items-center gap-2 mb-2">
+          <span className="text-lg">🚫</span>
+          <span className="font-bold text-red-900">RESTRIÇÃO DE IDADE</span>
+        </div>
+        <p className="text-sm text-red-800 font-medium">
+          Não aceitamos menores de 18 anos. Documento de identidade obrigatório.
+        </p>
+      </div>
+
+      {/* Alerta de Horários (se for Highline) */}
+      {isHighline && reservationData.reservation_date && (
+        (() => {
+          const windows = getHighlineTimeWindows(reservationData.reservation_date, selectedSubareaKey);
+          if (windows.length > 0) {
+            return (
+              <div className="bg-gradient-to-r from-amber-50 to-yellow-50 border-2 border-amber-300 rounded-lg p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-lg">🕐</span>
+                  <span className="font-bold text-amber-900">HORÁRIOS DE FUNCIONAMENTO</span>
+                </div>
+                <ul className="text-sm text-amber-800 font-medium">
+                  {windows.map((w, i) => (
+                    <li key={i}>• {w.label}</li>
+                  ))}
+                </ul>
+              </div>
+            );
+          }
+          return null;
+        })()
+      )}
+
+      {/* Alerta de Reserva Grande */}
+      {reservationData.number_of_people >= 11 && (
+        <div className="bg-gradient-to-r from-orange-100 to-red-100 border-2 border-orange-400 rounded-lg p-4">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-lg">⚠️</span>
+            <span className="font-bold text-orange-900">RESERVA GRANDE</span>
+          </div>
+          <p className="text-sm text-orange-800 font-medium">
+            Para grupos acima de 10 pessoas, você pode escolher apenas a área. 
+            O admin selecionará as mesas específicas.
+          </p>
+        </div>
+      )}
+
+      {/* Informações de Contato */}
+      <div className="bg-gradient-to-r from-green-50 to-blue-50 border-2 border-green-300 rounded-lg p-4">
+        <div className="flex items-center gap-2 mb-2">
+          <span className="text-lg">📞</span>
+          <span className="font-bold text-green-900">INFORMAÇÕES DE CONTATO</span>
+        </div>
+        <p className="text-sm text-green-800 font-medium">
+          Para mais informações, entre em contato pelo WhatsApp (11) 3032-2937 Highline
+        </p>
       </div>
     </div>
 
@@ -1090,9 +1178,39 @@ const handleSubmit = async (e: React.FormEvent) => {
       </button>
     </div>
   </motion.div>
-)}
-</div>
+        )}
 
-</div>
-);
+        {/* Modal de Restrição de Idade */}
+        {showAgeModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
+              <div className="text-center">
+                <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <span className="text-2xl">🚫</span>
+                </div>
+                <h3 className="text-xl font-bold text-gray-800 mb-4">
+                  Restrição de Idade
+                </h3>
+                <div className="bg-gradient-to-r from-red-50 to-orange-50 border-2 border-red-200 rounded-lg p-4 mb-6">
+                  <p className="text-gray-700 font-medium">
+                    <strong>Não aceitamos menores de 18 anos</strong> em nossos estabelecimentos.
+                  </p>
+                  <p className="text-gray-600 text-sm mt-2">
+                    Esta é uma política de segurança e responsabilidade social. 
+                    Todos os clientes devem apresentar documento de identidade válido.
+                  </p>
+                </div>
+                <button
+                  onClick={() => setShowAgeModal(false)}
+                  className="px-6 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg font-medium transition-colors"
+                >
+                  Entendi
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
 }
