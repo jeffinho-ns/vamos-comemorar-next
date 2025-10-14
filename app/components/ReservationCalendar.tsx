@@ -27,6 +27,7 @@ interface CalendarDay {
 
 interface ReservationCalendarProps {
   establishment: Establishment;
+  reservations: Reservation[];
   onDateSelect: (date: Date, reservations: Reservation[]) => void;
   onAddReservation: (date: Date) => void;
   onEditReservation?: (reservation: Reservation) => void;
@@ -36,7 +37,8 @@ interface ReservationCalendarProps {
 }
 
 export default function ReservationCalendar({ 
-  establishment, 
+  establishment,
+  reservations,
   onDateSelect, 
   onAddReservation,
   onEditReservation,
@@ -132,38 +134,18 @@ export default function ReservationCalendar({
     return days;
   }, []);
 
-  // Carregar reservas para o mês atual
-    const loadReservationsForMonth = useCallback(async (date: Date) => {
+  // Processar reservas para o mês atual
+  const loadReservationsForMonth = useCallback((date: Date) => {
     setLoading(true);
     try {
       const year = date.getFullYear();
       const month = date.getMonth() + 1;
 
-      console.log('📅 Carregando dados para:', { year, month });
+      console.log('📅 Processando dados para:', { year, month });
+      console.log('📅 Total de reservas recebidas:', reservations.length);
       console.log('🎂 Reservas de aniversário disponíveis:', birthdayReservations.length);
 
-      // Buscar reservas reais da API (normais e grandes)
-      const [normalResponse, largeResponse] = await Promise.all([
-        fetch(`https://vamos-comemorar-api.onrender.com/api/restaurant-reservations?establishment_id=${establishment.id}`),
-        fetch(`https://vamos-comemorar-api.onrender.com/api/large-reservations?establishment_id=${establishment.id}`)
-      ]);
-
-      if (!normalResponse.ok || !largeResponse.ok) {
-        throw new Error('Erro ao carregar reservas');
-      }
-
-      const normalData = await normalResponse.json();
-      const largeData = await largeResponse.json();
-      
-      // Combinar reservas normais e grandes
-      const reservations: Reservation[] = [
-        ...(normalData.reservations || []),
-        ...(largeData.reservations || [])
-      ];
-      
-      console.log('📅 Reservas carregadas para o calendário:', reservations.length, '(Normais:', normalData.reservations?.length || 0, 'Grandes:', largeData.reservations?.length || 0, ')');
-
-      // Atualizar dias do calendário com as reservas reais
+      // Atualizar dias do calendário com as reservas
       const totalTables = getTotalTablesForEstablishment();
       const updatedDays = generateCalendarDays(date).map(day => {
         const dayString = day.date.toISOString().split('T')[0];
@@ -222,7 +204,7 @@ export default function ReservationCalendar({
 
       setCalendarDays(updatedDays);
     } catch (error) {
-      console.error("❌ Erro ao carregar reservas:", error);
+      console.error("❌ Erro ao processar reservas:", error);
       // Em caso de erro, usar dados vazios
       const totalTables = getTotalTablesForEstablishment();
       const updatedDays = generateCalendarDays(date).map(day => ({
@@ -236,19 +218,11 @@ export default function ReservationCalendar({
     } finally {
       setLoading(false);
     }
-  }, [generateCalendarDays, establishment.id, birthdayReservations]);
+  }, [generateCalendarDays, reservations, birthdayReservations]);
 
   useEffect(() => {
     loadReservationsForMonth(currentDate);
   }, [currentDate, loadReservationsForMonth]);
-
-  // Recarregar quando as reservas de aniversário mudarem
-  useEffect(() => {
-    if (birthdayReservations.length > 0) {
-      console.log('🎂 Reservas de aniversário mudaram, recarregando calendário...');
-      loadReservationsForMonth(currentDate);
-    }
-  }, [birthdayReservations, currentDate, loadReservationsForMonth]);
 
   const handlePreviousMonth = () => {
     const newDate = new Date(currentDate);

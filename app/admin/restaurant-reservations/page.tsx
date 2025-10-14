@@ -156,6 +156,13 @@ export default function RestaurantReservationsPage() {
     fetchEstablishments();
   }, [fetchEstablishments]);
 
+  // Carregar dados imediatamente quando um estabelecimento é selecionado
+  useEffect(() => {
+    if (selectedEstablishment) {
+      loadEstablishmentData();
+    }
+  }, [selectedEstablishment]);
+
   // Atualizar dados em tempo real
   useEffect(() => {
     if (selectedEstablishment) {
@@ -280,11 +287,10 @@ const loadGuestLists = async () => {
 
   const handleEstablishmentSelect = (establishment: Establishment) => {
     setSelectedEstablishment(establishment);
-    // Carregar dados específicos do estabelecimento
-    loadEstablishmentData();
+    // Os dados serão carregados automaticamente pelo useEffect
   };
 
- const loadEstablishmentData = async () => {
+  const loadEstablishmentData = useCallback(async () => {
     if (!selectedEstablishment) return;
     
     // ### INÍCIO DA CORREÇÃO ###
@@ -377,7 +383,7 @@ const loadGuestLists = async () => {
       setWalkIns([]);
       setWaitlist([]);
     }
-  };
+  }, [selectedEstablishment, API_URL]);
 
   // Handlers para Reservas
   const handleDateSelect = (date: Date, dateReservations: Reservation[]) => {
@@ -901,6 +907,7 @@ const loadGuestLists = async () => {
                     <div className="mb-8">
                       <ReservationCalendar
                         establishment={selectedEstablishment}
+                        reservations={reservations}
                         onDateSelect={handleDateSelect}
                         onAddReservation={handleAddReservation}
                         onEditReservation={handleEditReservation}

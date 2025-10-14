@@ -119,3 +119,4 @@ interface TimeSlot {
 - **Detalhada**: Grid responsivo (1-3 colunas)
 - **Cards**: Tamanho adaptativo baseado no conteúdo
 
+
