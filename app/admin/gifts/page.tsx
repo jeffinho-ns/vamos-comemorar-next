@@ -187,7 +187,7 @@ export default function Gifts() {
                         </span>
                       </td>
                       <td className="px-6 py-4 text-gray-600">
-                        {new Date(gift.created_at).toLocaleDateString()}
+                        {gift.created_at ? new Date(gift.created_at + 'T12:00:00').toLocaleDateString('pt-BR') : 'Data não informada'}
                       </td>
                       <td className="px-6 py-4 flex space-x-3">
                         <button 

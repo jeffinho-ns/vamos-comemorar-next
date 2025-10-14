@@ -418,7 +418,7 @@ const loadGuestLists = async () => {
       // Filtrar reservas ativas para a data selecionada
       const dateString = date.toISOString().split('T')[0];
       const activeReservations = reservations.filter(reservation => {
-        const reservationDate = new Date(reservation.reservation_date).toISOString().split('T')[0];
+        const reservationDate = reservation.reservation_date ? new Date(reservation.reservation_date + 'T12:00:00').toISOString().split('T')[0] : '';
         return reservationDate === dateString && 
                (reservation.status === 'confirmed' || reservation.status === 'checked-in');
       });
@@ -567,7 +567,24 @@ const loadGuestLists = async () => {
 
   // Função para formatar data
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('pt-BR');
+    if (!dateString || dateString.trim() === '') return 'Data não informada';
+    try {
+      const date = new Date(dateString + 'T12:00:00');
+      if (isNaN(date.getTime())) return 'Data inválida';
+      return date.toLocaleDateString('pt-BR');
+    } catch (error) {
+      return 'Data inválida';
+    }
+  };
+
+  // Função para formatar hora
+  const formatTime = (timeString?: string) => {
+    if (!timeString || timeString.trim() === '') return '';
+    try {
+      return timeString.slice(0, 5);
+    } catch (error) {
+      return '';
+    }
   };
 
   // Função para calcular tempo de espera estimado
@@ -861,7 +878,7 @@ const loadGuestLists = async () => {
                                   const totalCapacity = areas.reduce((sum, area) => sum + area.capacity_dinner, 0);
                                   const dateString = selectedDate.toISOString().split('T')[0];
                                   const activeReservations = reservations.filter(reservation => {
-                                    const reservationDate = new Date(reservation.reservation_date).toISOString().split('T')[0];
+                                    const reservationDate = reservation.reservation_date ? new Date(reservation.reservation_date + 'T12:00:00').toISOString().split('T')[0] : '';
                                     return reservationDate === dateString && 
                                            (reservation.status === 'confirmed' || reservation.status === 'checked-in');
                                   });
@@ -1076,10 +1093,17 @@ const loadGuestLists = async () => {
 
                       {(() => {
                         // Funções auxiliares
-                        const formatTime = (t?: string) => (t ? t.slice(0,5) : '');
+                        const formatTime = (t?: string) => {
+                          if (!t || t.trim() === '') return '';
+                          try {
+                            return t.slice(0, 5);
+                          } catch (error) {
+                            return '';
+                          }
+                        };
                         const matchesFilters = (r: Reservation) => {
                           if (sheetFilters.date) {
-                            const d = new Date(r.reservation_date).toISOString().split('T')[0];
+                            const d = r.reservation_date ? new Date(r.reservation_date + 'T12:00:00').toISOString().split('T')[0] : '';
                             if (d !== sheetFilters.date) return false;
                           }
                           if (sheetFilters.search) {
@@ -1373,7 +1397,7 @@ const loadGuestLists = async () => {
 
               return (
                 <div key={gl.guest_list_id} className="border rounded-lg">
-                  <button
+                  <div
                     onClick={async () => {
                       setExpandedGuestListId(expandedGuestListId === gl.guest_list_id ? null : gl.guest_list_id);
                       if (!guestsByList[gl.guest_list_id]) {
@@ -1387,7 +1411,7 @@ const loadGuestLists = async () => {
                         } catch (e) { console.error(e); }
                       }
                     }}
-                    className="w-full text-left px-4 py-3 bg-gray-50 hover:bg-gray-100 flex items-center justify-between"
+                    className="w-full text-left px-4 py-3 bg-gray-50 hover:bg-gray-100 flex items-center justify-between cursor-pointer"
                   >
                     <div>
                       <div className="font-semibold text-gray-800">{gl.owner_name}</div>
@@ -1424,7 +1448,7 @@ const loadGuestLists = async () => {
 
                     </div>
                     <span className={`text-xs px-2 py-1 rounded ${gl.is_valid ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>{gl.is_valid ? 'Ativo' : 'Expirado'}</span>
-                  </button>
+                  </div>
 
                   {expandedGuestListId === gl.guest_list_id && (
                     <div className="p-4 space-y-3">

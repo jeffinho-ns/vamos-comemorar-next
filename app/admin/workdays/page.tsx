@@ -153,7 +153,7 @@ const openEditModal = (event: EventDataApi) => {
                       <td className="px-6 py-4">
                         {/* LÓGICA CORRIGIDA AQUI */}
                         {event.tipo_evento === 'unico'
-                          ? (event.data_do_evento ? new Date(event.data_do_evento).toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : 'Data não definida')
+                          ? (event.data_do_evento ? new Date(event.data_do_evento + 'T12:00:00').toLocaleDateString('pt-BR') : 'Data não definida')
                           : `Toda ${['Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado'][event.dia_da_semana!]}`
                         }
                       </td>

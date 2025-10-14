@@ -94,7 +94,7 @@ export default function Eventos() {
               <div className="flex flex-col md:flex-row md:justify-between items-start md:items-center mb-4">
                 <div className="text-base text-gray-700 mb-3 md:mb-0">
                   <span className="font-bold text-lg text-gray-800">
-                    {new Date(event.data_do_evento).toLocaleDateString("pt-BR", {
+                    {new Date(event.data_do_evento + 'T12:00:00').toLocaleDateString("pt-BR", {
                       day: "2-digit",
                       month: "2-digit",
                     })}

@@ -231,7 +231,7 @@ export default function Reserves() {
                   </p>
                   <p>
                     <span className="font-semibold text-gray-700">Data:</span>{" "}
-                    {reserve.data_do_evento ? new Date(reserve.data_do_evento).toLocaleDateString() : 'N/A'} às{" "}
+                    {reserve.data_do_evento ? new Date(reserve.data_do_evento + 'T12:00:00').toLocaleDateString('pt-BR') : 'N/A'} às{" "}
                     {reserve.hora_do_evento || 'N/A'}
                   </p>
                   <p>
