@@ -14,6 +14,7 @@ import {
   MdArrowBack
 } from 'react-icons/md';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { formatDateBR } from '@/lib/dateUtils';
 
 // Configuração da API
 const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL_LOCAL || 'https://vamos-comemorar-api.onrender.com';
@@ -1037,7 +1038,7 @@ const handleSubmit = async (e: React.FormEvent) => {
         <div className="flex justify-between">
           <span className="text-gray-600">Data:</span>
           <span className="font-medium">
-            {new Date(reservationData.reservation_date).toLocaleDateString('pt-BR')}
+            {formatDateBR(reservationData.reservation_date)}
           </span>
         </div>
         <div className="flex justify-between">

@@ -1193,7 +1193,7 @@ const loadGuestLists = async () => {
                                       <tr key={r.id} className="hover:bg-yellow-50">
                                         <td className="border border-gray-300 px-2 py-1 text-[12px] text-gray-500">{idx + 1}</td>
                                         <td className="border border-gray-300 px-2 py-1 text-sm text-gray-700 whitespace-nowrap">
-                                          {new Date(r.reservation_date).toLocaleDateString('pt-BR')} {formatTime(r.reservation_time)}
+                                          {new Date(r.reservation_date + 'T12:00:00').toLocaleDateString('pt-BR')} {formatTime(r.reservation_time)}
                                           <button onClick={() => openEdit(r)} className="ml-2 px-2 py-0.5 text-xs bg-yellow-100 text-yellow-700 rounded">+</button>
                                         </td>
                                         <td className="border border-gray-300 px-2 py-1 text-sm text-gray-700">
@@ -1392,7 +1392,7 @@ const loadGuestLists = async () => {
                     <div>
                       <div className="font-semibold text-gray-800">{gl.owner_name}</div>
                       <div className="text-sm text-gray-600">
-                        {new Date(gl.reservation_date).toLocaleDateString('pt-BR')} {gl.event_type ? `• ${gl.event_type}` : ''}
+                        {new Date(gl.reservation_date + 'T12:00:00').toLocaleDateString('pt-BR')} {gl.event_type ? `• ${gl.event_type}` : ''}
                       </div>
                       <div className="text-xs text-gray-500">
                         Criado por: {gl.created_by_name}
