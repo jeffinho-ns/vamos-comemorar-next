@@ -235,8 +235,159 @@ export default function AcessoSection() {
           </div>
         </div>
 
+        {/* Novos Usuários Promoters */}
+        <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-xl shadow-lg p-8 mb-12 border border-indigo-200">
+          <h3 className="text-2xl font-bold text-gray-900 mb-6 flex items-center justify-center">
+            <MdSecurity className="text-indigo-600 mr-3" size={28} />
+            👥 Usuários Promoters - Informações de Acesso
+          </h3>
+          
+          <div className="bg-white rounded-lg p-6 mb-6 border border-indigo-200">
+            <p className="text-gray-700 mb-4">
+              <strong>Data de criação:</strong> 15 de outubro de 2025
+            </p>
+            <p className="text-gray-700 mb-4">
+              Foram criadas três contas de usuário com a função de <span className="font-semibold text-indigo-700">Promoter</span> para gerenciamento de reservas e listas de convidados:
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-6 mb-6">
+            {/* Usuário 1 */}
+            <div className="bg-white rounded-lg p-6 border-2 border-indigo-200 hover:border-indigo-400 transition-colors">
+              <div className="flex items-center justify-center w-12 h-12 bg-indigo-100 rounded-full mx-auto mb-4">
+                <span className="text-2xl font-bold text-indigo-600">1</span>
+              </div>
+              <h4 className="font-bold text-gray-900 text-center mb-3">Regiane Brunno</h4>
+              <div className="space-y-2 text-sm">
+                <div className="bg-gray-50 rounded p-2">
+                  <p className="text-gray-600 text-xs mb-1">Email:</p>
+                  <p className="font-mono text-gray-900 break-all">regianebrunno@gmail.com</p>
+                </div>
+                <div className="bg-gray-50 rounded p-2">
+                  <p className="text-gray-600 text-xs mb-1">ID:</p>
+                  <p className="font-mono text-gray-900">71</p>
+                </div>
+                <div className="bg-indigo-50 rounded p-2">
+                  <p className="text-gray-600 text-xs mb-1">Função:</p>
+                  <p className="font-semibold text-indigo-700">Promoter</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Usuário 2 */}
+            <div className="bg-white rounded-lg p-6 border-2 border-indigo-200 hover:border-indigo-400 transition-colors">
+              <div className="flex items-center justify-center w-12 h-12 bg-indigo-100 rounded-full mx-auto mb-4">
+                <span className="text-2xl font-bold text-indigo-600">2</span>
+              </div>
+              <h4 className="font-bold text-gray-900 text-center mb-3">Franciely Mendes</h4>
+              <div className="space-y-2 text-sm">
+                <div className="bg-gray-50 rounded p-2">
+                  <p className="text-gray-600 text-xs mb-1">Email:</p>
+                  <p className="font-mono text-gray-900 break-all">franciely.mendes@ideiaum.com.br</p>
+                </div>
+                <div className="bg-gray-50 rounded p-2">
+                  <p className="text-gray-600 text-xs mb-1">ID:</p>
+                  <p className="font-mono text-gray-900">72</p>
+                </div>
+                <div className="bg-indigo-50 rounded p-2">
+                  <p className="text-gray-600 text-xs mb-1">Função:</p>
+                  <p className="font-semibold text-indigo-700">Promoter</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Usuário 3 */}
+            <div className="bg-white rounded-lg p-6 border-2 border-indigo-200 hover:border-indigo-400 transition-colors">
+              <div className="flex items-center justify-center w-12 h-12 bg-indigo-100 rounded-full mx-auto mb-4">
+                <span className="text-2xl font-bold text-indigo-600">3</span>
+              </div>
+              <h4 className="font-bold text-gray-900 text-center mb-3">Coordenadora Reservas</h4>
+              <div className="space-y-2 text-sm">
+                <div className="bg-gray-50 rounded p-2">
+                  <p className="text-gray-600 text-xs mb-1">Email:</p>
+                  <p className="font-mono text-gray-900 break-all">coordenadora.reservas@ideiaum.com.br</p>
+                </div>
+                <div className="bg-gray-50 rounded p-2">
+                  <p className="text-gray-600 text-xs mb-1">ID:</p>
+                  <p className="font-mono text-gray-900">73</p>
+                </div>
+                <div className="bg-indigo-50 rounded p-2">
+                  <p className="text-gray-600 text-xs mb-1">Função:</p>
+                  <p className="font-semibold text-indigo-700">Promoter</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Credenciais */}
+          <div className="bg-yellow-50 border-2 border-yellow-300 rounded-lg p-6 mb-6">
+            <div className="flex items-start gap-3">
+              <MdWarning className="text-yellow-600 flex-shrink-0 mt-1" size={24} />
+              <div>
+                <h4 className="font-bold text-yellow-900 mb-2">🔐 Senha Padrão</h4>
+                <div className="bg-white rounded p-3 mb-3">
+                  <p className="text-gray-700 text-sm mb-1">Senha para todos os usuários:</p>
+                  <p className="font-mono text-lg font-bold text-yellow-900">Promoter@2024</p>
+                </div>
+                <p className="text-yellow-800 text-sm">
+                  <strong>⚠️ IMPORTANTE:</strong> Recomenda-se que cada usuário altere sua senha no primeiro acesso ao sistema para garantir a segurança.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Responsabilidades */}
+          <div className="bg-white rounded-lg p-6 border border-indigo-200">
+            <h4 className="font-bold text-gray-900 mb-4 text-center">📋 Responsabilidades dos Promoters</h4>
+            <div className="grid md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <h5 className="font-semibold text-indigo-700 mb-2">Gerenciamento de Reservas</h5>
+                <ul className="space-y-1 text-gray-700 text-sm">
+                  <li className="flex items-start gap-2">
+                    <MdCheckCircle className="text-green-600 flex-shrink-0 mt-0.5" size={16} />
+                    <span>Criar e gerenciar reservas de mesas</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <MdCheckCircle className="text-green-600 flex-shrink-0 mt-0.5" size={16} />
+                    <span>Confirmar e atualizar status das reservas</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <MdCheckCircle className="text-green-600 flex-shrink-0 mt-0.5" size={16} />
+                    <span>Gerenciar cancelamentos</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <MdCheckCircle className="text-green-600 flex-shrink-0 mt-0.5" size={16} />
+                    <span>Atribuir mesas e áreas</span>
+                  </li>
+                </ul>
+              </div>
+              <div className="space-y-2">
+                <h5 className="font-semibold text-indigo-700 mb-2">Lista de Convidados</h5>
+                <ul className="space-y-1 text-gray-700 text-sm">
+                  <li className="flex items-start gap-2">
+                    <MdCheckCircle className="text-green-600 flex-shrink-0 mt-0.5" size={16} />
+                    <span>Criar e gerenciar listas de convidados</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <MdCheckCircle className="text-green-600 flex-shrink-0 mt-0.5" size={16} />
+                    <span>Adicionar e remover convidados</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <MdCheckCircle className="text-green-600 flex-shrink-0 mt-0.5" size={16} />
+                    <span>Fazer check-in de convidados</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <MdCheckCircle className="text-green-600 flex-shrink-0 mt-0.5" size={16} />
+                    <span>Acompanhar presença em eventos</span>
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+
         {/* Security Tips */}
-        <div className="bg-white rounded-xl shadow-lg p-8 border border-gray-200">
+        <div className="bg-white rounded-xl shadow-lg p-8 mb-12 border border-gray-200">
           <h3 className="text-2xl font-bold text-gray-900 mb-6 flex items-center">
             <MdWarning className="text-yellow-600 mr-3" size={28} />
             Dicas de Segurança
@@ -266,7 +417,7 @@ export default function AcessoSection() {
         </div>
 
         {/* Troubleshooting */}
-        <div className="bg-gradient-to-r from-yellow-50 to-orange-50 rounded-xl p-8 border border-yellow-200">
+        <div className="bg-gradient-to-r from-yellow-50 to-orange-50 rounded-xl p-8 mb-12 border border-yellow-200">
           <h3 className="text-2xl font-bold text-gray-900 mb-6 text-center">
             🚨 Problemas de Acesso
           </h3>

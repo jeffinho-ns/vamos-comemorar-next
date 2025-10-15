@@ -20,6 +20,7 @@ import IntroducaoSection from './components/IntroducaoSection';
 import AcessoSection from './components/AcessoSection';
 import CardapioSection from './components/CardapioSection';
 import ApresentacaoSection from './components/ApresentacaoSection';
+import ReservasSection from './components/ReservasSection';
 
 export default function DocumentacaoPage() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -280,6 +281,7 @@ export default function DocumentacaoPage() {
             <IntroducaoSection />
             <AcessoSection />
             <CardapioSection />
+            <ReservasSection />
             <ApresentacaoSection />
 
             {/* Placeholder for remaining sections */}
@@ -290,14 +292,14 @@ export default function DocumentacaoPage() {
                   As próximas seções estão sendo desenvolvidas e estarão disponíveis em breve!
                 </p>
                 <div className="grid md:grid-cols-2 gap-4 text-left">
-                  <div>
-                    <h4 className="font-semibold text-gray-800 mb-2">Próximas seções:</h4>
-                    <ul className="space-y-1 text-gray-600 text-sm">
-                      <li>• 🎉 Eventos</li>
-                      <li>• 📅 Reservas</li>
-                      <li>• 📱 Scanner QR Code</li>
-                    </ul>
-                  </div>
+                <div>
+                  <h4 className="font-semibold text-gray-800 mb-2">Próximas seções:</h4>
+                  <ul className="space-y-1 text-gray-600 text-sm">
+                    <li>• 🎉 Eventos</li>
+                    <li>• 📱 Scanner QR Code</li>
+                    <li>• 👥 Lista de Convidados</li>
+                  </ul>
+                </div>
                   <div>
                     <h4 className="font-semibold text-gray-800 mb-2">Funcionalidades:</h4>
                     <ul className="space-y-1 text-gray-600 text-sm">
