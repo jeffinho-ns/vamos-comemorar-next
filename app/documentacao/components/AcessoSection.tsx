@@ -327,7 +327,7 @@ export default function AcessoSection() {
                 <h4 className="font-bold text-yellow-900 mb-2">🔐 Senha Padrão</h4>
                 <div className="bg-white rounded p-3 mb-3">
                   <p className="text-gray-700 text-sm mb-1">Senha para todos os usuários:</p>
-                  <p className="font-mono text-lg font-bold text-yellow-900">Promoter@2024</p>
+                  <p className="font-mono text-lg font-bold text-yellow-900">*********</p>
                 </div>
                 <p className="text-yellow-800 text-sm">
                   <strong>⚠️ IMPORTANTE:</strong> Recomenda-se que cada usuário altere sua senha no primeiro acesso ao sistema para garantir a segurança.
