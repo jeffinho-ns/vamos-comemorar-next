@@ -90,6 +90,9 @@ export default function ReservationModal({
   // 2. ESTADOS PARA OS CONTROLES DE NOTIFICAÇÃO ADICIONADOS
   const [sendEmailConfirmation, setSendEmailConfirmation] = useState(true);
   const [sendWhatsAppConfirmation, setSendWhatsAppConfirmation] = useState(true);
+  
+  // NOVO: Estado para tipo de evento (para reservas grandes)
+  const [eventType, setEventType] = useState<'aniversario' | 'despedida' | ''>('');
 
   const highlineSubareas = [
     { key: 'deck-frente', area_id: 2, label: 'Área Deck - Frente', tableNumbers: ['05','06','07','08'] },
@@ -280,6 +283,11 @@ export default function ReservationModal({
       send_whatsapp: sendWhatsAppConfirmation,
     };
 
+    // Adicionar event_type se for reserva grande
+    if (formData.number_of_people >= 11 && eventType) {
+      payload.event_type = eventType;
+    }
+
     try {
       await onSave(payload);
       onClose();
@@ -417,12 +425,28 @@ export default function ReservationModal({
                     <div className="mt-3 p-3 bg-orange-100 border border-orange-300 rounded-lg">
                       <div className="flex items-center gap-2 text-orange-800">
                         <MdPeople className="text-orange-600" />
-                        <span className="text-sm font-medium">Reserva Grande</span>
+                        <span className="text-sm font-medium">Reserva Grande - Lista de Convidados</span>
                       </div>
-                      <p className="text-xs text-orange-700 mt-1">
-                        Para grupos acima de 10 pessoas, você pode escolher apenas a área. 
-                        O admin selecionará as mesas específicas.
+                      <p className="text-xs text-orange-700 mt-1 mb-3">
+                        Para grupos acima de 10 pessoas, uma lista de convidados será gerada automaticamente.
+                        O cliente poderá compartilhar um link para que os amigos se cadastrem.
                       </p>
+                      
+                      {/* Seletor de tipo de evento */}
+                      <div className="mt-2">
+                        <label className="block text-xs font-medium text-orange-800 mb-1">
+                          Tipo de Evento (Opcional)
+                        </label>
+                        <select
+                          value={eventType}
+                          onChange={(e) => setEventType(e.target.value as 'aniversario' | 'despedida' | '')}
+                          className="w-full px-2 py-1 text-sm bg-white border border-orange-300 rounded text-orange-900 focus:outline-none focus:ring-2 focus:ring-orange-500"
+                        >
+                          <option value="">Selecione (opcional)</option>
+                          <option value="aniversario">Aniversário</option>
+                          <option value="despedida">Despedida</option>
+                        </select>
+                      </div>
                     </div>
                   )}
                 </div>

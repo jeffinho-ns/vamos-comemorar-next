@@ -14,7 +14,8 @@ import {
   MdEdit,
   MdDelete,
   MdCheckCircle,
-  MdCancel
+  MdCancel,
+  MdPlaylistAdd
 } from "react-icons/md";
 
 import { Reservation } from '@/app/types/reservation';
@@ -26,6 +27,7 @@ interface ReservationDetailsModalProps {
   onEdit?: (reservation: Reservation) => void;
   onDelete?: (reservation: Reservation) => void;
   onStatusChange?: (reservation: Reservation, newStatus: string) => void;
+  onAddGuestList?: (reservation: Reservation) => void;
 }
 
 export default function ReservationDetailsModal({
@@ -34,7 +36,8 @@ export default function ReservationDetailsModal({
   reservation,
   onEdit,
   onDelete,
-  onStatusChange
+  onStatusChange,
+  onAddGuestList
 }: ReservationDetailsModalProps) {
   if (!reservation) return null;
 
@@ -284,7 +287,7 @@ export default function ReservationDetailsModal({
 
             {/* Footer */}
             <div className="flex justify-between p-6 border-t border-gray-200">
-              <div className="flex gap-2">
+              <div className="flex gap-2 flex-wrap">
                 {onEdit && (
                   <button
                     onClick={() => onEdit(reservation)}
@@ -292,6 +295,17 @@ export default function ReservationDetailsModal({
                   >
                     <MdEdit />
                     Editar
+                  </button>
+                )}
+                
+                {onAddGuestList && (
+                  <button
+                    onClick={() => onAddGuestList(reservation)}
+                    className="flex items-center gap-2 px-4 py-2 bg-purple-500 hover:bg-purple-600 text-white rounded-lg transition-colors"
+                    title="Adicionar lista de convidados a esta reserva"
+                  >
+                    <MdPlaylistAdd />
+                    Lista de Convidados
                   </button>
                 )}
                 

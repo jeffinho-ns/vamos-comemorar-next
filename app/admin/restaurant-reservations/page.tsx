@@ -8,6 +8,7 @@ import WeeklyCalendar from "../../components/WeeklyCalendar";
 import ReservationModal from "../../components/ReservationModal";
 import WalkInModal from "../../components/WalkInModal";
 import WaitlistModal from "../../components/WaitlistModal";
+import AddGuestListToReservationModal from "../../components/AddGuestListToReservationModal";
 import { Reservation } from "@/app/types/reservation";
 import { BirthdayService, BirthdayReservation } from "../../services/birthdayService";
 
@@ -187,6 +188,9 @@ export default function RestaurantReservationsPage() {
   const [showModal, setShowModal] = useState(false);
   const [editingReservation, setEditingReservation] = useState<Reservation | null>(null);
 
+  // Estados para Modal de Lista de Convidados
+  const [showAddGuestListModal, setShowAddGuestListModal] = useState(false);
+  const [selectedReservationForGuestList, setSelectedReservationForGuestList] = useState<Reservation | null>(null);
   
   // Estados para Walk-ins
   const [walkIns, setWalkIns] = useState<WalkIn[]>([]);
@@ -969,6 +973,10 @@ const loadGuestLists = async () => {
                         onEditReservation={handleEditReservation}
                         onDeleteReservation={handleDeleteReservation}
                         onStatusChange={handleStatusChange}
+                        onAddGuestList={(reservation) => {
+                          setSelectedReservationForGuestList(reservation);
+                          setShowAddGuestListModal(true);
+                        }}
                         birthdayReservations={birthdayReservations}
                       />
                     </div>
@@ -1886,7 +1894,25 @@ const loadGuestLists = async () => {
                   const newReservation = await response.json();
                   setReservations(prev => [...prev, newReservation.reservation]);
                   console.log('✅ Reserva salva com sucesso:', newReservation);
-                  alert('Reserva criada com sucesso!');
+                  
+                  // Se foi gerada uma lista de convidados, mostrar o link
+                  if (newReservation.guest_list_link) {
+                    const copyToClipboard = () => {
+                      navigator.clipboard.writeText(newReservation.guest_list_link);
+                    };
+                    
+                    if (window.confirm(
+                      `✅ Reserva criada com sucesso!\n\n` +
+                      `🎉 Lista de convidados gerada!\n\n` +
+                      `Link: ${newReservation.guest_list_link}\n\n` +
+                      `Clique em OK para copiar o link para a área de transferência.`
+                    )) {
+                      copyToClipboard();
+                      alert('Link copiado! Você pode enviar este link para o cliente.');
+                    }
+                  } else {
+                    alert('Reserva criada com sucesso!');
+                  }
                 } else {
                   const errorData = await response.json();
                   console.error('❌ Erro ao salvar reserva:', errorData);
@@ -2083,6 +2109,22 @@ const loadGuestLists = async () => {
               </form>
             </div>
           </div>
+        )}
+
+        {/* Modal para Adicionar Lista de Convidados a uma Reserva */}
+        {showAddGuestListModal && selectedReservationForGuestList && (
+          <AddGuestListToReservationModal
+            isOpen={showAddGuestListModal}
+            onClose={() => {
+              setShowAddGuestListModal(false);
+              setSelectedReservationForGuestList(null);
+            }}
+            reservationId={selectedReservationForGuestList.id}
+            clientName={selectedReservationForGuestList.client_name}
+            onSuccess={() => {
+              console.log('✅ Lista de convidados adicionada com sucesso!');
+            }}
+          />
         )}
 
       </div>

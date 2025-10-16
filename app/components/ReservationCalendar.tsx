@@ -33,6 +33,7 @@ interface ReservationCalendarProps {
   onEditReservation?: (reservation: Reservation) => void;
   onDeleteReservation?: (reservation: Reservation) => void;
   onStatusChange?: (reservation: Reservation, newStatus: string) => void;
+  onAddGuestList?: (reservation: Reservation) => void;
   birthdayReservations?: BirthdayReservation[];
 }
 
@@ -44,6 +45,7 @@ export default function ReservationCalendar({
   onEditReservation,
   onDeleteReservation,
   onStatusChange,
+  onAddGuestList,
   birthdayReservations = []
 }: ReservationCalendarProps) {
   const [currentDate, setCurrentDate] = useState(new Date());// Setembro de 2025
@@ -457,15 +459,16 @@ export default function ReservationCalendar({
        />
      )}
 
-     {/* Modal de Detalhes da Reserva */}
-     <ReservationDetailsModal
-       isOpen={showDetailsModal}
-       onClose={handleCloseDetailsModal}
-       reservation={selectedReservation}
-       onEdit={onEditReservation ? handleEditReservation : undefined}
-       onDelete={onDeleteReservation ? handleDeleteReservation : undefined}
-       onStatusChange={onStatusChange ? handleStatusChange : undefined}
-     />
+    {/* Modal de Detalhes da Reserva */}
+    <ReservationDetailsModal
+      isOpen={showDetailsModal}
+      onClose={handleCloseDetailsModal}
+      reservation={selectedReservation}
+      onEdit={onEditReservation ? handleEditReservation : undefined}
+      onDelete={onDeleteReservation ? handleDeleteReservation : undefined}
+      onStatusChange={onStatusChange ? handleStatusChange : undefined}
+      onAddGuestList={onAddGuestList}
+    />
    </>
    );
  }
