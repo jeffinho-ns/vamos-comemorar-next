@@ -27,6 +27,7 @@ const Programacao: React.FC<ProgramacaoProps> = ({ barId, logo, location, establ
   const [selectedEvent, setSelectedEvent] = useState<EventData | null>(null);
   const [loading, setLoading] = useState(true);
   const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL_LOCAL || "http://localhost:3000";
+  const BASE_IMAGE_URL = 'https://grupoideiaum.com.br/cardapio-agilizaiapp/';
 
   // Mapeamento de estabelecimentos para nomes na API
   const establishmentNameMap = useCallback((): Record<string, string> => ({
@@ -108,7 +109,7 @@ const Programacao: React.FC<ProgramacaoProps> = ({ barId, logo, location, establ
           {events.map((event) => (
             <EventCard
               key={event.id}
-              img={`${API_URL}/uploads/events/${event.imagem_do_evento}`}
+              img={`${BASE_IMAGE_URL}${event.imagem_do_evento}`}
               title={event.nome_do_evento}
               date={new Date(event.data_do_evento).toLocaleDateString("pt-BR")}
               time={event.hora_do_evento}

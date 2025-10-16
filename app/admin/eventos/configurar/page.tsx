@@ -378,7 +378,7 @@ export default function ConfigurarEventosPage() {
           <h3 className="text-lg font-semibold text-blue-900 mb-3">ℹ️ Como funciona?</h3>
           <div className="space-y-2 text-sm text-blue-800">
             <p>
-              <strong>1.</strong> Habilite eventos para usar o sistema de listas clicando no botão "Desabilitado"
+              <strong>1.</strong> Habilite eventos para usar o sistema de listas clicando no botão &quot;Desabilitado&quot;
             </p>
             <p>
               <strong>2.</strong> Eventos habilitados aparecerão no dashboard e poderão ter listas de promoters

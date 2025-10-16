@@ -49,6 +49,7 @@ export default function Home() {
   const [showIntro, setShowIntro] = useState(true);
   const [currentIntroPage, setCurrentIntroPage] = useState(0);
   const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL_LOCAL;
+  const BASE_IMAGE_URL = 'https://grupoideiaum.com.br/cardapio-agilizaiapp/';
   const router = useRouter();
 
   const fetchEvents = useCallback(() => {
@@ -129,7 +130,7 @@ export default function Home() {
         >
           <div className="relative w-full h-[250px]">
             <Image
-              src={`${API_URL}/uploads/events/${event.imagem_do_evento}`}
+              src={`${BASE_IMAGE_URL}${event.imagem_do_evento}`}
               alt={event.nome_do_evento}
               layout="fill"
               objectFit="cover"

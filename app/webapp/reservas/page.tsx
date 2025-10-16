@@ -20,6 +20,7 @@ const Reservas = () => {
   const [comboImage, setComboImage] = useState<string | null>(null);
   const [observacao, setObservacao] = useState<string>("");
   const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL_LOCAL;
+  const BASE_IMAGE_URL = 'https://grupoideiaum.com.br/cardapio-agilizaiapp/';
   const router = useRouter();
 
   useEffect(() => {
@@ -103,7 +104,7 @@ const Reservas = () => {
         <div className={styles.bannerContainer}>
           {eventData.imagem_do_evento && (
             <Image
-              src={`${API_URL}/uploads/events/${eventData.imagem_do_evento}`}
+              src={`${BASE_IMAGE_URL}${eventData.imagem_do_evento}`}
               alt="Banner"
               fill
               className={styles.bannerImage}
@@ -162,7 +163,7 @@ const Reservas = () => {
   <div className="flex flex-col items-center mt-4">
     <div className="w-48 h-48 mb-2 rounded-lg overflow-hidden">
       <Image
-        src={`${API_URL}/uploads/events/${comboImage}`}
+        src={`${BASE_IMAGE_URL}${comboImage}`}
         alt="Imagem do Combo"
         width={192}
         height={192}

@@ -28,6 +28,7 @@ function ReservationDetails() {
   const API_URL =
     process.env.NEXT_PUBLIC_API_URL ||
     process.env.NEXT_PUBLIC_API_URL_LOCAL;
+  const BASE_IMAGE_URL = 'https://grupoideiaum.com.br/cardapio-agilizaiapp/';
   const searchParams = useSearchParams();
   const reservaId = searchParams?.get("id");
 
@@ -53,7 +54,7 @@ function ReservationDetails() {
             setReserva({
               ...data,
               imagem_do_evento: data.imagem_do_evento
-                ? `${API_URL}/uploads/events/${data.imagem_do_evento}`
+                ? `${BASE_IMAGE_URL}${data.imagem_do_evento}`
                 : storedBanner || "",
             });
           } else {

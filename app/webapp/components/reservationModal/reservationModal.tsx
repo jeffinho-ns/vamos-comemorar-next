@@ -14,6 +14,7 @@ const ReservationModal: React.FC<ReservationModalProps> = ({ isOpen, onRequestCl
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
   const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL_LOCAL;
+  const BASE_IMAGE_URL = 'https://grupoideiaum.com.br/cardapio-agilizaiapp/';
 
   useEffect(() => {
     if (isOpen && eventId) {
@@ -54,7 +55,7 @@ const ReservationModal: React.FC<ReservationModalProps> = ({ isOpen, onRequestCl
         <div>
           <div className="flex items-center mb-4">
             <Image
-              src={`${API_URL}/uploads/${reservationData.imagem_do_evento}`}
+              src={`${BASE_IMAGE_URL}${reservationData.imagem_do_evento}`}
               alt="Imagem do evento"
               width={80}
               height={80}

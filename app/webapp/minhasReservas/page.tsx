@@ -22,6 +22,7 @@ export default function MinhasReservas() {
   const [bannerSrc, setBannerSrc] = useState(defaultBanner.src);
   const [reservas, setReservas] = useState<Reserva[]>([]);
   const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL_LOCAL;
+  const BASE_IMAGE_URL = 'https://grupoideiaum.com.br/cardapio-agilizaiapp/';
   const router = useRouter(); // Usando useRouter da 'next/navigation'
 
   useEffect(() => {
@@ -43,7 +44,7 @@ export default function MinhasReservas() {
             .map((reserva: Reserva) => ({
               ...reserva,
               imagem_do_evento: reserva.imagem_do_evento
-                ? `${API_URL}/uploads/events/${reserva.imagem_do_evento}`
+                ? `${BASE_IMAGE_URL}${reserva.imagem_do_evento}`
                 : bannerSrc,
             }));
   

@@ -28,6 +28,7 @@ const ReservationModal: React.FC<ReservationModalProps> = ({
   const [logoSrc, setLogoSrc] = useState<string | null>(null);
   const [comboImage, setComboImage] = useState<string | null>(null);
   const [observacao, setObservacao] = useState<string>("");
+  const BASE_IMAGE_URL = 'https://grupoideiaum.com.br/cardapio-agilizaiapp/';
 
   useEffect(() => {
     const storedLogo = localStorage.getItem("lastPageLogo");
@@ -113,7 +114,7 @@ const ReservationModal: React.FC<ReservationModalProps> = ({
     <div className="flex gap-4">
       <div className="relative w-2/5 h-36">
         <Image
-          src={`${API_URL}/uploads/events/${eventData.imagem_do_evento}`}
+          src={`${BASE_IMAGE_URL}${eventData.imagem_do_evento}`}
           alt={eventData.nome_do_evento}
           fill
           objectFit="cover"
@@ -195,7 +196,7 @@ const ReservationModal: React.FC<ReservationModalProps> = ({
       <div className="flex flex-col items-center mt-4">
         <div className="w-48 h-48 mb-2 rounded-lg overflow-hidden">
           <Image
-            src={`${API_URL}/uploads/events/${eventData.imagem_do_combo}`}
+            src={`${BASE_IMAGE_URL}${eventData.imagem_do_combo}`}
             alt="Imagem do Combo"
             layout="responsive"
             width={192}

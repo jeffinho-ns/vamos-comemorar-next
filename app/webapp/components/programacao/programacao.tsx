@@ -18,6 +18,7 @@ const Programacao = () => {
   const [events, setEvents] = useState<EventData[]>([]);
   const [loading, setLoading] = useState(true);
   const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL_LOCAL;
+  const BASE_IMAGE_URL = 'https://grupoideiaum.com.br/cardapio-agilizaiapp/';
 
   // Efeito para buscar os eventos ao carregar a página
   useEffect(() => {
@@ -63,7 +64,7 @@ const Programacao = () => {
             <Link key={event.id} href="/webapp/reservas">
               <div onClick={() => handleEventClick(event)}>
                 <EventCard
-                  img={`${API_URL}/uploads/events/${event.imagem_do_evento}`}
+                  img={`${BASE_IMAGE_URL}${event.imagem_do_evento}`}
                   title={event.nome_do_evento}
                   date={new Date(event.data_do_evento).toLocaleDateString("pt-BR")}
                   time={event.hora_do_evento}
