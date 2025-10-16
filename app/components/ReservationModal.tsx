@@ -276,7 +276,7 @@ export default function ReservationModal({
 
     setLoading(true);
 
-    const payload = {
+    const payload: any = {
       ...formData,
       establishment_id: establishment?.id,
       send_email: sendEmailConfirmation,

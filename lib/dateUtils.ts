@@ -18,13 +18,11 @@ export function formatDateBR(dateString: string): string {
     
     // Verifica se a data é válida
     if (isNaN(date.getTime())) {
-      console.warn('Data inválida recebida:', dateString);
       return '';
     }
     
     return date.toLocaleDateString('pt-BR');
   } catch (error) {
-    console.error('Erro ao formatar data:', dateString, error);
     return '';
   }
 }
