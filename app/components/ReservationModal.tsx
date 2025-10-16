@@ -572,7 +572,14 @@ export default function ReservationModal({
                     >
                       <option value="">Selecione uma mesa (opcional)</option>
                       {tables
-                        .filter(t => !t.is_reserved && t.capacity >= formData.number_of_people)
+                        .filter(t => {
+                          // Para reservas grandes (11+), mostra todas as mesas não reservadas
+                          // Para reservas normais, filtra por capacidade
+                          if (formData.number_of_people >= 11) {
+                            return !t.is_reserved;
+                          }
+                          return !t.is_reserved && t.capacity >= formData.number_of_people;
+                        })
                         .map(t => (
                           <option key={t.id} value={t.table_number}>
                             Mesa {t.table_number} • {t.capacity} lugares{t.table_type ? ` • ${t.table_type}` : ''}

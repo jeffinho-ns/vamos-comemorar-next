@@ -1920,6 +1920,9 @@ const loadGuestLists = async () => {
                       copyToClipboard();
                       alert('Link copiado! Você pode enviar este link para o cliente.');
                     }
+                    
+                    // Recarregar lista de convidados
+                    await loadGuestLists();
                   } else {
                     alert('Reserva criada com sucesso!');
                   }
@@ -2131,8 +2134,10 @@ const loadGuestLists = async () => {
             }}
             reservationId={selectedReservationForGuestList.id}
             clientName={selectedReservationForGuestList.client_name}
-            onSuccess={() => {
+            onSuccess={async () => {
               console.log('✅ Lista de convidados adicionada com sucesso!');
+              // Recarregar lista de convidados
+              await loadGuestLists();
             }}
           />
         )}
