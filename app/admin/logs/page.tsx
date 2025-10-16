@@ -69,10 +69,10 @@ export default function ActionLogsPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
-  // Filtros
+  // Filtros - Por padrão, mostra apenas logs de admin e promoter
   const [filters, setFilters] = useState({
     userId: '',
-    userRole: '',
+    userRole: 'admin,promoter', // Filtra por admin e promoter por padrão
     actionType: '',
     resourceType: '',
     establishmentId: '',
@@ -289,7 +289,7 @@ export default function ActionLogsPage() {
   const clearFilters = () => {
     setFilters({
       userId: '',
-      userRole: '',
+      userRole: 'admin,promoter', // Volta ao padrão de mostrar admin e promoter
       actionType: '',
       resourceType: '',
       establishmentId: '',
@@ -361,9 +361,16 @@ export default function ActionLogsPage() {
                 <MdHistory className="text-orange-500" size={40} />
                 Logs de Ações
               </h1>
-              <p className="text-gray-400 mt-2">
-                Rastreamento completo de todas as ações dos usuários no sistema
-              </p>
+              <div className="flex items-center gap-2 mt-2">
+                <p className="text-gray-400">
+                  Rastreamento completo de todas as ações dos usuários no sistema
+                </p>
+                {filters.userRole === 'admin,promoter' && (
+                  <span className="px-3 py-1 bg-orange-500/20 text-orange-400 text-xs rounded-full border border-orange-500/30">
+                    📊 Mostrando apenas Admin e Promoter
+                  </span>
+                )}
+              </div>
             </div>
             
             <button
@@ -509,8 +516,9 @@ export default function ActionLogsPage() {
                       className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-orange-500"
                     >
                       <option value="">Todas as funções</option>
-                      <option value="admin">Admin</option>
-                      <option value="promoter">Promoter</option>
+                      <option value="admin,promoter">Admin e Promoter (Padrão)</option>
+                      <option value="admin">Apenas Admin</option>
+                      <option value="promoter">Apenas Promoter</option>
                       <option value="gerente">Gerente</option>
                       <option value="cliente">Cliente</option>
                     </select>
