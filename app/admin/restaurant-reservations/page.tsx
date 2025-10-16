@@ -209,6 +209,7 @@ export default function RestaurantReservationsPage() {
     owner_name: string;
     reservation_date: string;
     event_type: string | null;
+    reservation_type: 'large' | 'restaurant';
     is_valid: 0 | 1;
     created_by_name: string;
     shareable_link_token: string;
@@ -1479,7 +1480,16 @@ const loadGuestLists = async () => {
                     className="w-full text-left px-4 py-3 bg-gray-50 hover:bg-gray-100 flex items-center justify-between cursor-pointer"
                   >
                     <div>
-                      <div className="font-semibold text-gray-800">{gl.owner_name}</div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-gray-800">{gl.owner_name}</span>
+                        <span className={`text-xs px-2 py-0.5 rounded-full ${
+                          gl.reservation_type === 'large' 
+                            ? 'bg-orange-100 text-orange-700' 
+                            : 'bg-blue-100 text-blue-700'
+                        }`}>
+                          {gl.reservation_type === 'large' ? 'Reserva Grande' : 'Reserva Normal'}
+                        </span>
+                      </div>
                       <div className="text-sm text-gray-600">
                         {gl.reservation_date ? new Date(gl.reservation_date + 'T12:00:00').toLocaleDateString('pt-BR') : 'Data não informada'} {gl.event_type ? `• ${gl.event_type}` : ''}
                       </div>
