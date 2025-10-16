@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { MdRestaurant, MdPeople, MdSchedule, MdBarChart, MdSettings, MdAdd, MdSearch, MdChair, MdPhone, MdClose, MdCall, MdTimer, MdLocationOn } from "react-icons/md";
 import { motion } from "framer-motion";
 import ReservationCalendar from "../../components/ReservationCalendar";
@@ -222,13 +222,68 @@ export default function RestaurantReservationsPage() {
   const [showCreateListModal, setShowCreateListModal] = useState(false);
   const [createListForm, setCreateListForm] = useState<{ client_name: string; reservation_date: string; event_type: string }>({ client_name: '', reservation_date: '', event_type: '' });
   const [selectedMonth, setSelectedMonth] = useState<string>(new Date().toISOString().slice(0, 7)); // YYYY-MM
+  
+  // Ref para rastrear o último mês carregado e evitar loops
+  const lastLoadedMonthRef = useRef<string>('');
+  const lastLoadedEstablishmentRef = useRef<number | null>(null);
+
+  // DECLARAÇÃO DA FUNÇÃO loadGuestLists (movida para cima dos useEffects)
+  const loadGuestLists = useCallback(async () => {
+    // Se nenhum estabelecimento estiver selecionado, não faz nada.
+    if (!selectedEstablishment) {
+      setGuestLists([]);
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('authToken');
+      // Adiciona o establishment_id na chamada da API
+      const url = `${API_URL}/api/admin/guest-lists?month=${selectedMonth}&establishment_id=${selectedEstablishment.id}`;
+      
+      console.log('🔍 [loadGuestLists] Buscando listas para mês:', selectedMonth, '| Estabelecimento:', selectedEstablishment.name);
+      console.log('🔍 URL completa:', url);
+
+      const glRes = await fetch(url, { 
+        headers: { Authorization: `Bearer ${token}` } 
+      });
+
+      if (glRes.ok) {
+        const glData = await glRes.json();
+        console.log(`✅ [loadGuestLists] ${glData.guestLists?.length || 0} listas encontradas para ${selectedMonth}`);
+        setGuestLists(glData.guestLists || []);
+      } else {
+        console.error('❌ Erro ao carregar guest lists, status:', glRes.status);
+        setGuestLists([]);
+      }
+    } catch (e) {
+      console.error('❌ Erro de rede ao carregar guest lists:', e);
+      setGuestLists([]);
+    }
+  }, [selectedEstablishment, selectedMonth, API_URL]);
 
   // Recarregar guest lists quando mudar o mês selecionado ou estabelecimento
   useEffect(() => {
-    if (selectedEstablishment) {
+    const shouldLoad = selectedEstablishment && selectedMonth && 
+      (lastLoadedMonthRef.current !== selectedMonth || 
+       lastLoadedEstablishmentRef.current !== selectedEstablishment.id);
+    
+    if (shouldLoad) {
+      console.log('🔄 [useEffect] Carregando listas - Mês:', selectedMonth, '| Estabelecimento:', selectedEstablishment?.name);
+      lastLoadedMonthRef.current = selectedMonth;
+      lastLoadedEstablishmentRef.current = selectedEstablishment.id;
       loadGuestLists();
     }
-  }, [selectedMonth, selectedEstablishment]);
+  }, [selectedMonth, selectedEstablishment, loadGuestLists]);
+
+  // Carregar guest lists quando entrar na aba
+  useEffect(() => {
+    console.log('🔄 [useEffect activeTab] Aba mudou para:', activeTab);
+    if (activeTab === 'guest-lists' && selectedEstablishment) {
+      // Força recarregar quando entra na aba
+      lastLoadedMonthRef.current = '';
+      loadGuestLists();
+    }
+  }, [activeTab, selectedEstablishment, loadGuestLists]);
 
   const loadAreas = async () => {
     if (areas.length > 0) return; // Já carregadas
@@ -261,40 +316,6 @@ export default function RestaurantReservationsPage() {
       console.log('⚠️ Erro ao conectar com API, usando dados mock:', error instanceof Error ? error.message : 'Erro desconhecido');
       setAreas(mockAreas);
     }
-  };
-
-const loadGuestLists = async () => {
-    // ### INÍCIO DA CORREÇÃO ###
-    // Se nenhum estabelecimento estiver selecionado, não faz nada.
-    if (!selectedEstablishment) {
-      setGuestLists([]);
-      return;
-    }
-
-    try {
-      const token = localStorage.getItem('authToken');
-      // Adiciona o establishment_id na chamada da API
-      const url = `${API_URL}/api/admin/guest-lists?month=${selectedMonth}&establishment_id=${selectedEstablishment.id}`;
-      
-      console.log('🔍 Buscando listas de convidados para:', url); // Log para depuração
-
-      const glRes = await fetch(url, { 
-        headers: { Authorization: `Bearer ${token}` } 
-      });
-
-      if (glRes.ok) {
-        const glData = await glRes.json();
-        console.log(`✅ ${glData.guestLists?.length || 0} listas de convidados encontradas.`);
-        setGuestLists(glData.guestLists || []);
-      } else {
-        console.error('❌ Erro ao carregar guest lists, status:', glRes.status);
-        setGuestLists([]);
-      }
-    } catch (e) {
-      console.error('❌ Erro de rede ao carregar guest lists:', e);
-      setGuestLists([]);
-    }
-    // ### FIM DA CORREÇÃO ###
   };
 
   const handleEstablishmentSelect = (establishment: Establishment) => {
@@ -375,8 +396,8 @@ const loadGuestLists = async () => {
         setWaitlist([]);
       }
 
-      // 5. Carregar Guest Lists (a função interna já usa o token)
-      await loadGuestLists();
+      // 5. Guest Lists são carregadas separadamente pelo useEffect que monitora selectedMonth
+      // Removido daqui para evitar conflitos com o filtro de mês
 
       // 6. Carregar Reservas de Aniversário
       try {
