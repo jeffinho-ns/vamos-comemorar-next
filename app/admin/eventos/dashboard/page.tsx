@@ -14,7 +14,8 @@ import {
   MdDashboard,
   MdAssignmentInd,
   MdBusiness,
-  MdSettings
+  MdSettings,
+  MdCalendarToday
 } from 'react-icons/md';
 
 interface Establishment {
@@ -28,18 +29,25 @@ interface EventoSemanal {
   horario_funcionamento: string;
   dia_da_semana: number;
   tipo_evento: string;
+  establishment_name?: string;
+  id_place?: number;
+}
+
+interface EventoUnico {
+  evento_id: number;
+  nome: string;
+  data_evento: string;
+  horario_funcionamento: string;
+  descricao: string;
+  tipo_evento: string;
+  dia_da_semana: number | null;
+  establishment_name?: string;
+  id_place?: number;
 }
 
 interface DashboardData {
-  proximoEvento: {
-    evento_id: number;
-    nome: string;
-    data_evento: string;
-    horario_funcionamento: string;
-    descricao: string;
-    tipo_evento: string;
-    dia_da_semana: number | null;
-  } | null;
+  proximoEvento: EventoUnico | null;
+  todosEventosUnicos: EventoUnico[];
   eventosSemanais: EventoSemanal[];
   totalConvidados: number;
   totalCheckins: number;
@@ -66,12 +74,13 @@ export default function EventosDashboard() {
 
   useEffect(() => {
     fetchEstablishments();
+    // Carregar dados do dashboard na inicialização (sem filtro de estabelecimento)
+    fetchDashboardData();
   }, []);
 
   useEffect(() => {
-    if (selectedEstablishment) {
-      fetchDashboardData();
-    }
+    // Recarrega quando muda o estabelecimento selecionado
+    fetchDashboardData();
   }, [selectedEstablishment]);
 
   const fetchEstablishments = async () => {
@@ -99,10 +108,10 @@ export default function EventosDashboard() {
 
       setEstablishments(formatted);
       
-      // Seleciona o primeiro por padrão
-      if (formatted.length > 0 && !selectedEstablishment) {
-        setSelectedEstablishment(formatted[0]);
-      }
+      // NÃO seleciona nenhum por padrão - mostra todos os estabelecimentos
+      // if (formatted.length > 0 && !selectedEstablishment) {
+      //   setSelectedEstablishment(formatted[0]);
+      // }
     } catch (error) {
       console.error('❌ Erro ao carregar estabelecimentos:', error);
       setError('Erro ao carregar estabelecimentos');
@@ -324,10 +333,22 @@ export default function EventosDashboard() {
       <div className="max-w-7xl mx-auto p-6">
         {/* Seletor de Estabelecimento */}
         <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-          <label className="block text-sm font-medium text-gray-700 mb-3">
-            <MdBusiness className="inline mr-2" size={20} />
-            Selecione o Estabelecimento
-          </label>
+          <div className="flex items-center justify-between mb-3">
+            <label className="block text-sm font-medium text-gray-700">
+              <MdBusiness className="inline mr-2" size={20} />
+              Filtrar por Estabelecimento
+            </label>
+            {selectedEstablishment && (
+              <span className="px-3 py-1 bg-green-100 text-green-700 text-xs rounded-full">
+                Filtrado: {selectedEstablishment.name}
+              </span>
+            )}
+            {!selectedEstablishment && (
+              <span className="px-3 py-1 bg-blue-100 text-blue-700 text-xs rounded-full">
+                📊 Mostrando Todos os Estabelecimentos
+              </span>
+            )}
+          </div>
           <select
             value={selectedEstablishment?.id || ''}
             onChange={(e) => {
@@ -336,7 +357,7 @@ export default function EventosDashboard() {
             }}
             className="w-full md:w-96 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-base"
           >
-            <option value="">Todos os estabelecimentos</option>
+            <option value="">🏢 Todos os estabelecimentos</option>
             {establishments.map((est) => (
               <option key={est.id} value={est.id}>
                 {est.name}
@@ -368,7 +389,7 @@ export default function EventosDashboard() {
         )}
 
         {/* Warning: No Events */}
-        {!loading && !error && dashboardData && !dashboardData.proximoEvento && dashboardData.eventosSemanais.length === 0 && (
+        {!loading && !error && dashboardData && (!dashboardData.todosEventosUnicos || dashboardData.todosEventosUnicos.length === 0) && dashboardData.eventosSemanais.length === 0 && (
           <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6 mb-6">
             <div className="flex items-start gap-4">
               <MdEvent size={48} className="text-yellow-600 flex-shrink-0" />
@@ -405,7 +426,7 @@ export default function EventosDashboard() {
         )}
 
         {/* Stats Cards */}
-        {!loading && !error && dashboardData && (dashboardData.proximoEvento || dashboardData.eventosSemanais.length > 0) && (
+        {!loading && !error && dashboardData && ((dashboardData.todosEventosUnicos && dashboardData.todosEventosUnicos.length > 0) || dashboardData.eventosSemanais.length > 0) && (
           <>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
               {/* Card: Próximo Evento */}
@@ -580,17 +601,64 @@ export default function EventosDashboard() {
               </motion.div>
             )}
 
+            {/* Todos os Eventos Únicos Futuros */}
+            {dashboardData?.todosEventosUnicos && dashboardData.todosEventosUnicos.length > 0 && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.6 }}
+                className="bg-white rounded-lg shadow-md p-6 mb-8"
+              >
+                <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                  <MdCalendarToday size={24} />
+                  Eventos Únicos Futuros {selectedEstablishment ? `- ${selectedEstablishment.name}` : ''}
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {dashboardData.todosEventosUnicos.map((evento, index) => (
+                    <div
+                      key={evento.evento_id}
+                      className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg p-4 border border-purple-200"
+                    >
+                      <h4 className="font-semibold text-purple-900 mb-2">{evento.nome}</h4>
+                      {!selectedEstablishment && evento.establishment_name && (
+                        <p className="text-xs text-purple-700 mb-2">
+                          📍 {evento.establishment_name}
+                        </p>
+                      )}
+                      <div className="space-y-1 text-sm text-purple-800">
+                        <p className="font-medium">
+                          📅 {formatDate(evento.data_evento)}
+                        </p>
+                        <p>🕐 {evento.horario_funcionamento}</p>
+                      </div>
+                      {evento.descricao && (
+                        <p className="text-xs text-purple-700 mt-2 line-clamp-2">
+                          {evento.descricao}
+                        </p>
+                      )}
+                      <button
+                        onClick={() => router.push(`/admin/eventos/listas?evento_id=${evento.evento_id}`)}
+                        className="mt-3 w-full px-4 py-2 bg-purple-500 hover:bg-purple-600 text-white rounded-lg text-sm transition-colors"
+                      >
+                        Ver Listas
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </motion.div>
+            )}
+
             {/* Eventos Semanais Ativos */}
             {dashboardData?.eventosSemanais && dashboardData.eventosSemanais.length > 0 && (
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.6 }}
+                transition={{ delay: 0.7 }}
                 className="bg-white rounded-lg shadow-md p-6"
               >
                 <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
                   <MdEvent size={24} />
-                  Eventos Semanais Recorrentes
+                  Eventos Semanais Recorrentes {selectedEstablishment ? `- ${selectedEstablishment.name}` : ''}
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {dashboardData.eventosSemanais.map((evento, index) => (
@@ -599,6 +667,11 @@ export default function EventosDashboard() {
                       className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-4 border border-blue-200"
                     >
                       <h4 className="font-semibold text-blue-900 mb-2">{evento.nome}</h4>
+                      {!selectedEstablishment && evento.establishment_name && (
+                        <p className="text-xs text-blue-700 mb-2">
+                          📍 {evento.establishment_name}
+                        </p>
+                      )}
                       <div className="space-y-1 text-sm text-blue-800">
                         <p className="font-medium">
                           📅 Toda {getDiaSemanaTexto(evento.dia_da_semana)}
