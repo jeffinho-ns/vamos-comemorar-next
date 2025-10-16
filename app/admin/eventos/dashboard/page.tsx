@@ -367,25 +367,38 @@ export default function EventosDashboard() {
           </div>
         )}
 
-        {/* Warning: No Events Enabled */}
+        {/* Warning: No Events */}
         {!loading && !error && dashboardData && !dashboardData.proximoEvento && dashboardData.eventosSemanais.length === 0 && (
           <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6 mb-6">
             <div className="flex items-start gap-4">
               <MdEvent size={48} className="text-yellow-600 flex-shrink-0" />
               <div>
                 <h3 className="text-lg font-semibold text-yellow-900 mb-2">
-                  Nenhum evento habilitado para listas
+                  {selectedEstablishment ? `Nenhum evento encontrado para ${selectedEstablishment.name}` : 'Nenhum evento cadastrado'}
                 </h3>
                 <p className="text-yellow-800 mb-4">
-                  Você precisa habilitar eventos existentes para usar o sistema de listas e promoters.
+                  {selectedEstablishment 
+                    ? 'Não há eventos únicos futuros nem eventos semanais para este estabelecimento.'
+                    : 'Você precisa cadastrar eventos no sistema.'
+                  }
                 </p>
-                <button
-                  onClick={() => router.push('/admin/eventos/configurar')}
-                  className="px-6 py-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg transition-colors flex items-center gap-2"
-                >
-                  <MdSettings size={20} />
-                  Configurar Eventos
-                </button>
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => router.push('/admin/eventos/configurar')}
+                    className="px-6 py-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg transition-colors flex items-center gap-2"
+                  >
+                    <MdSettings size={20} />
+                    Ver Todos os Eventos
+                  </button>
+                  {selectedEstablishment && (
+                    <button
+                      onClick={() => setSelectedEstablishment(null)}
+                      className="px-6 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded-lg transition-colors"
+                    >
+                      Limpar Filtro
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
           </div>
