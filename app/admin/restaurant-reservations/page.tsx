@@ -507,9 +507,35 @@ export default function RestaurantReservationsPage() {
     setShowModal(true);
   };
 
-  const handleDeleteReservation = (reservation: Reservation) => {
-    if (confirm(`Tem certeza que deseja excluir a reserva de ${reservation.client_name}?`)) {
-      setReservations(prev => prev.filter(r => r.id !== reservation.id));
+  const handleDeleteReservation = async (reservation: Reservation) => {
+    if (confirm(`Tem certeza que deseja cancelar e excluir completamente a reserva de ${reservation.client_name}? Isso liberará a mesa e o dia da reserva.`)) {
+      try {
+        const token = localStorage.getItem('authToken');
+        const response = await fetch(`${API_URL}/api/restaurant-reservations/${reservation.id}`, {
+          method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+        });
+
+        if (response.ok) {
+          // Remover do estado local
+          setReservations(prev => prev.filter(r => r.id !== reservation.id));
+          alert(`Reserva de ${reservation.client_name} cancelada e excluída com sucesso!`);
+          console.log('✅ Reserva excluída com sucesso:', reservation.id);
+          
+          // Recarregar dados para garantir sincronização
+          await loadEstablishmentData();
+        } else {
+          const errorData = await response.json();
+          console.error('❌ Erro ao excluir reserva:', errorData);
+          alert('Erro ao excluir reserva: ' + (errorData.error || 'Erro desconhecido'));
+        }
+      } catch (error) {
+        console.error('❌ Erro ao excluir reserva:', error);
+        alert('Erro ao excluir reserva. Tente novamente.');
+      }
     }
   };
 
@@ -1373,11 +1399,73 @@ export default function RestaurantReservationsPage() {
                           );
                         };
 
+                        // Calcular resumo do dia
+                        const allFilteredRows = filteredReservations.filter(r => matchesFilters(r));
+                        const totalReservations = allFilteredRows.length;
+                        const totalPeople = allFilteredRows.reduce((sum, r) => sum + (r.number_of_people || 0), 0);
+
                         return (
-                          <div className="space-y-10">
-                            {areaSections.map(s => (
-                              <SectionTable key={s.key} sectionKey={s.key} title={s.title} whitelist={s.tableWhitelist} />
-                            ))}
+                          <div className="space-y-6">
+                            {/* Resumo do Dia */}
+                            {sheetFilters.date && (
+                              <div className="bg-gradient-to-r from-yellow-50 to-orange-50 border-2 border-yellow-300 rounded-lg p-6 shadow-md">
+                                <h3 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
+                                  📊 Resumo do Dia - {new Date(sheetFilters.date + 'T12:00:00').toLocaleDateString('pt-BR', { 
+                                    weekday: 'long', 
+                                    year: 'numeric', 
+                                    month: 'long', 
+                                    day: 'numeric' 
+                                  })}
+                                </h3>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                  <div className="bg-white rounded-lg p-4 shadow-sm border border-yellow-200">
+                                    <div className="flex items-center justify-between">
+                                      <div>
+                                        <p className="text-sm text-gray-600 font-medium">Total de Reservas</p>
+                                        <p className="text-4xl font-bold text-yellow-600 mt-2">{totalReservations}</p>
+                                      </div>
+                                      <div className="bg-yellow-100 p-3 rounded-full">
+                                        <MdRestaurant className="text-yellow-600 text-3xl" />
+                                      </div>
+                                    </div>
+                                  </div>
+                                  <div className="bg-white rounded-lg p-4 shadow-sm border border-orange-200">
+                                    <div className="flex items-center justify-between">
+                                      <div>
+                                        <p className="text-sm text-gray-600 font-medium">Total de Pessoas</p>
+                                        <p className="text-4xl font-bold text-orange-600 mt-2">{totalPeople}</p>
+                                      </div>
+                                      <div className="bg-orange-100 p-3 rounded-full">
+                                        <MdPeople className="text-orange-600 text-3xl" />
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                                {totalReservations > 0 && (
+                                  <div className="mt-4 pt-4 border-t border-yellow-200">
+                                    <p className="text-sm text-gray-600">
+                                      <span className="font-semibold">Média de pessoas por reserva:</span> {(totalPeople / totalReservations).toFixed(1)}
+                                    </p>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                            
+                            {/* Resumo Geral (quando não há filtro de data) */}
+                            {!sheetFilters.date && totalReservations > 0 && (
+                              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 shadow-sm">
+                                <p className="text-sm text-blue-800">
+                                  <span className="font-semibold">💡 Dica:</span> Selecione uma data acima para ver o resumo detalhado do dia.
+                                  <span className="ml-2">Atualmente mostrando {totalReservations} reserva(s) com {totalPeople} pessoa(s) no total.</span>
+                                </p>
+                              </div>
+                            )}
+
+                            <div className="space-y-10">
+                              {areaSections.map(s => (
+                                <SectionTable key={s.key} sectionKey={s.key} title={s.title} whitelist={s.tableWhitelist} />
+                              ))}
+                            </div>
                           </div>
                         );
                       })()}
@@ -1956,8 +2044,15 @@ export default function RestaurantReservationsPage() {
             }}
             onSave={async (reservationData) => {
               try {
-                const response = await fetch(`${API_URL}/api/restaurant-reservations`, {
-                  method: 'POST',
+                // Verificar se está editando uma reserva existente ou criando uma nova
+                const isEditing = editingReservation?.id;
+                const url = isEditing 
+                  ? `${API_URL}/api/restaurant-reservations/${editingReservation.id}`
+                  : `${API_URL}/api/restaurant-reservations`;
+                const method = isEditing ? 'PUT' : 'POST';
+
+                const response = await fetch(url, {
+                  method: method,
                   headers: {
                     'Content-Type': 'application/json',
                   },
@@ -1965,36 +2060,49 @@ export default function RestaurantReservationsPage() {
                     ...reservationData,
                     establishment_id: selectedEstablishment?.id,
                     created_by: 1, // ID do usuário admin padrão
-                    status: 'NOVA',
+                    status: isEditing ? reservationData.status || editingReservation.status : 'NOVA',
                     origin: 'ADMIN'
                   }),
                 });
 
                 if (response.ok) {
-                  const newReservation = await response.json();
-                  setReservations(prev => [...prev, newReservation.reservation]);
-                  console.log('✅ Reserva salva com sucesso:', newReservation);
+                  const result = await response.json();
                   
-                  // Se foi gerada uma lista de convidados, mostrar o link
-                  if (newReservation.guest_list_link) {
-                    const copyToClipboard = () => {
-                      navigator.clipboard.writeText(newReservation.guest_list_link);
-                    };
-                    
-                    if (window.confirm(
-                      `✅ Reserva criada com sucesso!\n\n` +
-                      `🎉 Lista de convidados gerada!\n\n` +
-                      `Link: ${newReservation.guest_list_link}\n\n` +
-                      `Clique em OK para copiar o link para a área de transferência.`
-                    )) {
-                      copyToClipboard();
-                      alert('Link copiado! Você pode enviar este link para o cliente.');
-                    }
-                    
-                    // Recarregar lista de convidados
-                    await loadGuestLists();
+                  if (isEditing) {
+                    // Atualizar reserva existente
+                    setReservations(prev => 
+                      prev.map(r => 
+                        r.id === editingReservation.id ? result.reservation : r
+                      )
+                    );
+                    alert('Reserva atualizada com sucesso!');
+                    console.log('✅ Reserva atualizada com sucesso:', result);
                   } else {
-                    alert('Reserva criada com sucesso!');
+                    // Adicionar nova reserva
+                    setReservations(prev => [...prev, result.reservation]);
+                    console.log('✅ Reserva salva com sucesso:', result);
+                    
+                    // Se foi gerada uma lista de convidados, mostrar o link
+                    if (result.guest_list_link) {
+                      const copyToClipboard = () => {
+                        navigator.clipboard.writeText(result.guest_list_link);
+                      };
+                      
+                      if (window.confirm(
+                        `✅ Reserva criada com sucesso!\n\n` +
+                        `🎉 Lista de convidados gerada!\n\n` +
+                        `Link: ${result.guest_list_link}\n\n` +
+                        `Clique em OK para copiar o link para a área de transferência.`
+                      )) {
+                        copyToClipboard();
+                        alert('Link copiado! Você pode enviar este link para o cliente.');
+                      }
+                      
+                      // Recarregar lista de convidados
+                      await loadGuestLists();
+                    } else {
+                      alert('Reserva criada com sucesso!');
+                    }
                   }
                 } else {
                   const errorData = await response.json();
