@@ -158,3 +158,4 @@ import { BASE_IMAGE_URL } from '@/config/constants';
 **Desenvolvedor:** AI Assistant
 **Status:** ✅ Concluído
 
+

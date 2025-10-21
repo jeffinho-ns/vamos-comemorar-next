@@ -164,3 +164,4 @@ Os componentes já estavam implementados corretamente:
 - O endpoint `/api/images/upload` já registra as imagens no banco `cardapio_images`
 - URLs antigas não funcionarão mais após o deploy dessas mudanças
 
+

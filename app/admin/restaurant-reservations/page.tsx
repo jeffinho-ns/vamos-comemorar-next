@@ -222,6 +222,7 @@ export default function RestaurantReservationsPage() {
   const [showCreateListModal, setShowCreateListModal] = useState(false);
   const [createListForm, setCreateListForm] = useState<{ client_name: string; reservation_date: string; event_type: string }>({ client_name: '', reservation_date: '', event_type: '' });
   const [selectedMonth, setSelectedMonth] = useState<string>(new Date().toISOString().slice(0, 7)); // YYYY-MM
+  const [selectedDay, setSelectedDay] = useState<string>(''); // YYYY-MM-DD para filtrar por dia
   
   // Ref para rastrear o último mês carregado e evitar loops
   const lastLoadedMonthRef = useRef<string>('');
@@ -1556,10 +1557,42 @@ export default function RestaurantReservationsPage() {
                   value={selectedMonth}
                   onChange={(e) => {
                     setSelectedMonth(e.target.value);
+                    setSelectedDay(''); // Limpa o filtro de dia ao mudar o mês
                   }}
                   className="px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-transparent"
                 />
               </div>
+              
+              {/* Filtro de dia */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Dia</label>
+                <input
+                  type="date"
+                  value={selectedDay}
+                  onChange={(e) => {
+                    setSelectedDay(e.target.value);
+                    // Se selecionar um dia, atualiza o mês para corresponder
+                    if (e.target.value) {
+                      const monthFromDay = e.target.value.slice(0, 7);
+                      if (monthFromDay !== selectedMonth) {
+                        setSelectedMonth(monthFromDay);
+                      }
+                    }
+                  }}
+                  className="px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                />
+              </div>
+              
+              {/* Botão para limpar filtro de dia */}
+              {selectedDay && (
+                <button
+                  onClick={() => setSelectedDay('')}
+                  className="flex items-center gap-2 px-3 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg transition-colors self-end text-sm"
+                  title="Limpar filtro de dia"
+                >
+                  Limpar Dia
+                </button>
+              )}
               
               <button
                 onClick={() => setShowCreateListModal(true)}
@@ -1572,7 +1605,20 @@ export default function RestaurantReservationsPage() {
           </div>
 
           <div className="space-y-3">
-            {guestLists.map((gl) => {
+            {guestLists
+              .filter((gl) => {
+                // Se não houver filtro de dia, mostra todas as listas do mês
+                if (!selectedDay) return true;
+                
+                // Se houver filtro de dia, compara a data da reserva
+                if (gl.reservation_date) {
+                  // Extrai apenas a parte da data (YYYY-MM-DD) sem criar objeto Date
+                  const reservationDate = gl.reservation_date.split('T')[0].split(' ')[0];
+                  return reservationDate === selectedDay;
+                }
+                return false;
+              })
+              .map((gl) => {
               // Monta a URL completa do link compartilhável
               const listUrl = `https://agilizaiapp.com.br/lista/${gl.shareable_link_token}`;
 
@@ -1784,10 +1830,20 @@ export default function RestaurantReservationsPage() {
                 </div>
               )
             })}
-            {guestLists.length === 0 && (
+            {guestLists.filter((gl) => {
+              if (!selectedDay) return true;
+              if (gl.reservation_date) {
+                const reservationDate = gl.reservation_date.split('T')[0].split(' ')[0];
+                return reservationDate === selectedDay;
+              }
+              return false;
+            }).length === 0 && (
               <div className="text-center py-8">
                 <div className="text-sm text-gray-600">
-                  Nenhuma lista de convidados encontrada para {new Date(selectedMonth + '-01').toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}.
+                  {selectedDay 
+                    ? `Nenhuma lista de convidados encontrada para ${new Date(selectedDay).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}.`
+                    : `Nenhuma lista de convidados encontrada para ${new Date(selectedMonth + '-01').toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}.`
+                  }
                 </div>
               </div>
             )}
