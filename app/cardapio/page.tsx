@@ -13,6 +13,7 @@ interface Bar {
   description: string;
   logoUrl: string;
   coverImageUrl: string;
+  coverImages?: string[];
   address: string;
   rating: number;
   reviewsCount: number;
@@ -25,18 +26,32 @@ const API_BASE_URL = 'https://vamos-comemorar-api.onrender.com/api/cardapio';
 const PLACEHOLDER_BAR_URL = 'https://images.unsplash.com/photo-1514933651103-005eec06c04b?w=800&h=400&fit=crop';
 
 // Função auxiliar para construir URL completa da imagem
-const getValidImageUrl = (imageUrl?: string | null): string => {
-  if (typeof imageUrl !== 'string' || imageUrl.trim() === '') {
-    return PLACEHOLDER_BAR_URL;
+const getValidImageUrl = (imageUrl?: string | null, coverImages?: string[]): string => {
+  // Primeiro, tenta usar a imagem principal
+  if (typeof imageUrl === 'string' && imageUrl.trim() !== '') {
+    // Verifica se já é uma URL absoluta
+    if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
+      return imageUrl;
+    }
+    
+    // Se for apenas o nome do arquivo, constrói a URL completa
+    return `https://grupoideiaum.com.br/cardapio-agilizaiapp/${imageUrl}`;
   }
   
-  // Verifica se já é uma URL absoluta
-  if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
-    return imageUrl;
+  // Se não tiver imagem principal, tenta usar a primeira imagem do array coverImages
+  if (Array.isArray(coverImages) && coverImages.length > 0 && coverImages[0]) {
+    const firstImage = coverImages[0];
+    // Verifica se já é uma URL absoluta
+    if (firstImage.startsWith('http://') || firstImage.startsWith('https://')) {
+      return firstImage;
+    }
+    
+    // Se for apenas o nome do arquivo, constrói a URL completa
+    return `https://grupoideiaum.com.br/cardapio-agilizaiapp/${firstImage}`;
   }
   
-  // Se for apenas o nome do arquivo, constrói a URL completa
-  return `https://grupoideiaum.com.br/cardapio-agilizaiapp/${imageUrl}`;
+  // Se não tiver nenhuma imagem, usa placeholder
+  return PLACEHOLDER_BAR_URL;
 };
 
 export default function CardapioPage() {
@@ -79,7 +94,7 @@ export default function CardapioPage() {
       >
         <div className="relative h-48">
           <Image
-            src={getValidImageUrl(bar.coverImageUrl)}
+            src={getValidImageUrl(bar.coverImageUrl, bar.coverImages)}
             alt={bar.name}
             fill
             sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 25vw"
