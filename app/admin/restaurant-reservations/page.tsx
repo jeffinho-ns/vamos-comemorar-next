@@ -214,7 +214,7 @@ export default function RestaurantReservationsPage() {
     created_by_name: string;
     shareable_link_token: string;
   };
-  type GuestItem = { id: number; name: string; whatsapp?: string };
+  type GuestItem = { id: number; name: string; whatsapp?: string; checked_in?: boolean; checkin_time?: string };
   const [guestLists, setGuestLists] = useState<GuestListItem[]>([]);
   const [expandedGuestListId, setExpandedGuestListId] = useState<number | null>(null);
   const [guestsByList, setGuestsByList] = useState<Record<number, GuestItem[]>>({});
@@ -223,6 +223,9 @@ export default function RestaurantReservationsPage() {
   const [createListForm, setCreateListForm] = useState<{ client_name: string; reservation_date: string; event_type: string }>({ client_name: '', reservation_date: '', event_type: '' });
   const [selectedMonth, setSelectedMonth] = useState<string>(new Date().toISOString().slice(0, 7)); // YYYY-MM
   const [selectedDay, setSelectedDay] = useState<string>(''); // YYYY-MM-DD para filtrar por dia
+  
+  // Estados para check-in
+  const [checkInStatus, setCheckInStatus] = useState<Record<number, { ownerCheckedIn: boolean; guestsCheckedIn: number; totalGuests: number }>>({});
   
   // Ref para rastrear o último mês carregado e evitar loops
   const lastLoadedMonthRef = useRef<string>('');
@@ -706,6 +709,66 @@ export default function RestaurantReservationsPage() {
   const handleDeleteWaitlistEntry = (entry: WaitlistEntry) => {
     if (confirm(`Tem certeza que deseja excluir ${entry.client_name} da lista de espera?`)) {
       setWaitlist(prev => prev.filter(w => w.id !== entry.id));
+    }
+  };
+
+  // Funções para check-in
+  const handleOwnerCheckIn = async (guestListId: number, ownerName: string) => {
+    try {
+      const token = localStorage.getItem('authToken');
+      const response = await fetch(`${API_URL}/api/admin/guest-lists/${guestListId}/checkin-owner`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ owner_name: ownerName })
+      });
+
+      if (response.ok) {
+        setCheckInStatus(prev => ({
+          ...prev,
+          [guestListId]: {
+            ...prev[guestListId],
+            ownerCheckedIn: true
+          }
+        }));
+        alert(`✅ Check-in do dono da lista (${ownerName}) confirmado!`);
+      } else {
+        alert('❌ Erro ao fazer check-in do dono da lista');
+      }
+    } catch (error) {
+      console.error('Erro no check-in do dono:', error);
+      alert('❌ Erro ao fazer check-in do dono da lista');
+    }
+  };
+
+  const handleGuestCheckIn = async (guestListId: number, guestId: number, guestName: string) => {
+    try {
+      const token = localStorage.getItem('authToken');
+      const response = await fetch(`${API_URL}/api/admin/guests/${guestId}/checkin`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (response.ok) {
+        setCheckInStatus(prev => ({
+          ...prev,
+          [guestListId]: {
+            ...prev[guestListId],
+            guestsCheckedIn: (prev[guestListId]?.guestsCheckedIn || 0) + 1
+          }
+        }));
+        alert(`✅ Check-in de ${guestName} confirmado!`);
+      } else {
+        alert('❌ Erro ao fazer check-in do convidado');
+      }
+    } catch (error) {
+      console.error('Erro no check-in do convidado:', error);
+      alert('❌ Erro ao fazer check-in do convidado');
     }
   };
 
@@ -1630,10 +1693,30 @@ export default function RestaurantReservationsPage() {
                       if (!guestsByList[gl.guest_list_id]) {
                         try {
                           const token = localStorage.getItem('authToken');
-                          const res = await fetch(`${API_URL}/api/admin/guest-lists/${gl.guest_list_id}/guests`, { headers: { Authorization: `Bearer ${token}` } });
-                          if (res.ok) {
-                            const data = await res.json();
-                            setGuestsByList(prev => ({ ...prev, [gl.guest_list_id]: data.guests || [] }));
+                          
+                          // Carregar convidados
+                          const guestsRes = await fetch(`${API_URL}/api/admin/guest-lists/${gl.guest_list_id}/guests`, { 
+                            headers: { Authorization: `Bearer ${token}` } 
+                          });
+                          if (guestsRes.ok) {
+                            const guestsData = await guestsRes.json();
+                            setGuestsByList(prev => ({ ...prev, [gl.guest_list_id]: guestsData.guests || [] }));
+                          }
+
+                          // Carregar status de check-in
+                          const checkinRes = await fetch(`${API_URL}/api/admin/guest-lists/${gl.guest_list_id}/checkin-status`, { 
+                            headers: { Authorization: `Bearer ${token}` } 
+                          });
+                          if (checkinRes.ok) {
+                            const checkinData = await checkinRes.json();
+                            setCheckInStatus(prev => ({
+                              ...prev,
+                              [gl.guest_list_id]: {
+                                ownerCheckedIn: checkinData.checkin_status.owner_checked_in,
+                                guestsCheckedIn: checkinData.checkin_status.guests_checked_in,
+                                totalGuests: checkinData.checkin_status.total_guests
+                              }
+                            }));
                           }
                         } catch (e) { console.error(e); }
                       }
@@ -1656,6 +1739,23 @@ export default function RestaurantReservationsPage() {
                       </div>
                       <div className="text-xs text-gray-500">
                         Criado por: {gl.created_by_name}
+                      </div>
+                      
+                      {/* Check-in do dono da lista */}
+                      <div className="mt-2 flex items-center gap-2">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleOwnerCheckIn(gl.guest_list_id, gl.owner_name);
+                          }}
+                          className={`px-3 py-1 text-xs rounded-full transition-colors ${
+                            checkInStatus[gl.guest_list_id]?.ownerCheckedIn
+                              ? 'bg-green-100 text-green-700 border border-green-300'
+                              : 'bg-blue-100 text-blue-700 hover:bg-blue-200 border border-blue-300'
+                          }`}
+                        >
+                          {checkInStatus[gl.guest_list_id]?.ownerCheckedIn ? '✅ Dono Presente' : '📋 Check-in Dono'}
+                        </button>
                       </div>
                       
                       {/* INÍCIO DA ALTERAÇÃO: Exibição do Link */}
@@ -1772,11 +1872,31 @@ export default function RestaurantReservationsPage() {
 
                       {/* Lista de convidados */}
                       <div className="border rounded">
+                        {/* Resumo de presença */}
+                        <div className="bg-gray-50 rounded-lg p-3 mb-3">
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="text-gray-600">Resumo de Presença:</span>
+                            <div className="flex gap-4">
+                              <span className={`px-2 py-1 rounded-full text-xs ${
+                                checkInStatus[gl.guest_list_id]?.ownerCheckedIn
+                                  ? 'bg-green-100 text-green-700'
+                                  : 'bg-gray-100 text-gray-600'
+                              }`}>
+                                Dono: {checkInStatus[gl.guest_list_id]?.ownerCheckedIn ? '✅ Presente' : '⏳ Aguardando'}
+                              </span>
+                              <span className="px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-700">
+                                Convidados: {checkInStatus[gl.guest_list_id]?.guestsCheckedIn || 0} / {(guestsByList[gl.guest_list_id] || []).length}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+
                         <table className="min-w-full divide-y divide-gray-200">
                           <thead className="bg-gray-50">
                             <tr>
                               <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nome</th>
                               <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">WhatsApp</th>
+                              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                               <th className="px-4 py-2"></th>
                             </tr>
                           </thead>
@@ -1785,8 +1905,30 @@ export default function RestaurantReservationsPage() {
                               <tr key={g.id}>
                                 <td className="px-4 py-2 text-sm text-gray-800">{g.name}</td>
                                 <td className="px-4 py-2 text-sm text-gray-600">{g.whatsapp || '-'}</td>
+                                <td className="px-4 py-2 text-sm">
+                                  <span className={`px-2 py-1 rounded-full text-xs ${
+                                    g.checked_in
+                                      ? 'bg-green-100 text-green-700'
+                                      : 'bg-gray-100 text-gray-600'
+                                  }`}>
+                                    {g.checked_in ? '✅ Presente' : '⏳ Aguardando'}
+                                  </span>
+                                </td>
                                 <td className="px-4 py-2 text-right">
                                   <div className="flex gap-2 justify-end">
+                                    {!g.checked_in && (
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.preventDefault();
+                                          e.stopPropagation();
+                                          handleGuestCheckIn(gl.guest_list_id, g.id, g.name);
+                                        }}
+                                        className="px-3 py-1 text-xs bg-green-100 hover:bg-green-200 text-green-700 rounded border border-green-300"
+                                      >
+                                        📋 Check-in
+                                      </button>
+                                    )}
                                     <button
                                       type="button"
                                       onClick={(e) => {
@@ -1847,6 +1989,75 @@ export default function RestaurantReservationsPage() {
                 </div>
               </div>
             )}
+
+            {/* Relatório de Presença por Dia */}
+            <div className="mt-8 bg-white rounded-lg border border-gray-200 p-6">
+              <h4 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                📊 Relatório de Presença
+              </h4>
+              
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {/* Resumo Geral */}
+                <div className="bg-blue-50 rounded-lg p-4">
+                  <h5 className="font-medium text-blue-800 mb-2">Total de Listas</h5>
+                  <div className="text-2xl font-bold text-blue-900">
+                    {guestLists.filter((gl) => {
+                      if (!selectedDay) return true;
+                      if (gl.reservation_date) {
+                        const reservationDate = gl.reservation_date.split('T')[0].split(' ')[0];
+                        return reservationDate === selectedDay;
+                      }
+                      return false;
+                    }).length}
+                  </div>
+                  <p className="text-sm text-blue-600 mt-1">
+                    {selectedDay ? 'para o dia selecionado' : 'no mês atual'}
+                  </p>
+                </div>
+
+                {/* Donos Presentes */}
+                <div className="bg-green-50 rounded-lg p-4">
+                  <h5 className="font-medium text-green-800 mb-2">Donos Presentes</h5>
+                  <div className="text-2xl font-bold text-green-900">
+                    {Object.values(checkInStatus).filter(status => status.ownerCheckedIn).length}
+                  </div>
+                  <p className="text-sm text-green-600 mt-1">
+                    {Object.values(checkInStatus).length > 0 
+                      ? `${Math.round((Object.values(checkInStatus).filter(status => status.ownerCheckedIn).length / Object.values(checkInStatus).length) * 100)}% de presença`
+                      : 'Nenhuma lista carregada'
+                    }
+                  </p>
+                </div>
+
+                {/* Convidados Presentes */}
+                <div className="bg-purple-50 rounded-lg p-4">
+                  <h5 className="font-medium text-purple-800 mb-2">Convidados Presentes</h5>
+                  <div className="text-2xl font-bold text-purple-900">
+                    {Object.values(checkInStatus).reduce((total, status) => total + (status.guestsCheckedIn || 0), 0)}
+                  </div>
+                  <p className="text-sm text-purple-600 mt-1">
+                    de {Object.values(checkInStatus).reduce((total, status) => total + (status.totalGuests || 0), 0)} convidados
+                  </p>
+                </div>
+              </div>
+
+              {/* Estimativa de Lucro */}
+              <div className="mt-6 bg-yellow-50 rounded-lg p-4 border border-yellow-200">
+                <h5 className="font-medium text-yellow-800 mb-2">💰 Estimativa de Movimentação</h5>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm text-yellow-700">
+                      <strong>Pessoas no estabelecimento:</strong> {Object.values(checkInStatus).reduce((total, status) => total + (status.ownerCheckedIn ? 1 : 0) + (status.guestsCheckedIn || 0), 0)}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-yellow-700">
+                      <strong>Listas com presença confirmada:</strong> {Object.values(checkInStatus).filter(status => status.ownerCheckedIn || (status.guestsCheckedIn || 0) > 0).length}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       )}
