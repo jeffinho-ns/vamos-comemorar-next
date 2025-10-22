@@ -716,7 +716,21 @@ export default function RestaurantReservationsPage() {
   const handleOwnerCheckIn = async (guestListId: number, ownerName: string) => {
     try {
       const token = localStorage.getItem('authToken');
-      const response = await fetch(`${API_URL}/api/admin/guest-lists/${guestListId}/checkin-owner`, {
+      
+      // Primeiro, buscar o reservation_id da guest list
+      const guestListRes = await fetch(`${API_URL}/api/admin/guest-lists/${guestListId}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      
+      if (!guestListRes.ok) {
+        alert('❌ Erro ao buscar dados da lista');
+        return;
+      }
+      
+      const guestListData = await guestListRes.json();
+      const reservationId = guestListData.guest_list.reservation_id;
+      
+      const response = await fetch(`${API_URL}/api/restaurant-reservations/${reservationId}/checkin-owner`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -735,7 +749,8 @@ export default function RestaurantReservationsPage() {
         }));
         alert(`✅ Check-in do dono da lista (${ownerName}) confirmado!`);
       } else {
-        alert('❌ Erro ao fazer check-in do dono da lista');
+        const errorData = await response.json();
+        alert('❌ Erro ao fazer check-in do dono da lista: ' + (errorData.error || 'Erro desconhecido'));
       }
     } catch (error) {
       console.error('Erro no check-in do dono:', error);
