@@ -213,6 +213,8 @@ export default function RestaurantReservationsPage() {
     is_valid: 0 | 1;
     created_by_name: string;
     shareable_link_token: string;
+    owner_checked_in?: boolean;
+    owner_checkin_time?: string;
   };
   type GuestItem = { id: number; name: string; whatsapp?: string; checked_in?: boolean; checkin_time?: string };
   const [guestLists, setGuestLists] = useState<GuestListItem[]>([]);
@@ -717,20 +719,15 @@ export default function RestaurantReservationsPage() {
     try {
       const token = localStorage.getItem('authToken');
       
-      // Primeiro, buscar o reservation_id da guest list
-      const guestListRes = await fetch(`${API_URL}/api/admin/guest-lists/${guestListId}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      
-      if (!guestListRes.ok) {
-        alert('❌ Erro ao buscar dados da lista');
+      // Buscar o reservation_id da guest list diretamente dos dados já carregados
+      const guestList = guestLists.find(gl => gl.guest_list_id === guestListId);
+      if (!guestList) {
+        alert('❌ Erro: Lista não encontrada');
         return;
       }
-      
-      const guestListData = await guestListRes.json();
-      const reservationId = guestListData.guest_list.reservation_id;
-      
-      const response = await fetch(`${API_URL}/api/restaurant-reservations/${reservationId}/checkin-owner`, {
+
+      // Usar o reservation_id da guest list (assumindo que existe)
+      const response = await fetch(`${API_URL}/api/restaurant-reservations/${guestListId}/checkin-owner`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -770,6 +767,17 @@ export default function RestaurantReservationsPage() {
       });
 
       if (response.ok) {
+        // Atualizar o estado local imediatamente
+        setGuestsByList(prev => ({
+          ...prev,
+          [guestListId]: (prev[guestListId] || []).map(guest => 
+            guest.id === guestId 
+              ? { ...guest, checked_in: true, checkin_time: new Date().toISOString() }
+              : guest
+          )
+        }));
+
+        // Atualizar contador de check-ins
         setCheckInStatus(prev => ({
           ...prev,
           [guestListId]: {
@@ -777,9 +785,11 @@ export default function RestaurantReservationsPage() {
             guestsCheckedIn: (prev[guestListId]?.guestsCheckedIn || 0) + 1
           }
         }));
+
         alert(`✅ Check-in de ${guestName} confirmado!`);
       } else {
-        alert('❌ Erro ao fazer check-in do convidado');
+        const errorData = await response.json();
+        alert('❌ Erro ao fazer check-in do convidado: ' + (errorData.error || 'Erro desconhecido'));
       }
     } catch (error) {
       console.error('Erro no check-in do convidado:', error);
@@ -1709,19 +1719,22 @@ export default function RestaurantReservationsPage() {
                         try {
                           const token = localStorage.getItem('authToken');
                           
-                          // Carregar convidados
+                          // Carregar convidados com status de check-in
                           const guestsRes = await fetch(`${API_URL}/api/admin/guest-lists/${gl.guest_list_id}/guests`, { 
                             headers: { Authorization: `Bearer ${token}` } 
                           });
+                          
+                          let guestsData: { guests: GuestItem[] } | null = null;
                           if (guestsRes.ok) {
-                            const guestsData = await guestsRes.json();
-                            setGuestsByList(prev => ({ ...prev, [gl.guest_list_id]: guestsData.guests || [] }));
+                            guestsData = await guestsRes.json();
+                            setGuestsByList(prev => ({ ...prev, [gl.guest_list_id]: guestsData?.guests || [] }));
                           }
 
                           // Carregar status de check-in
                           const checkinRes = await fetch(`${API_URL}/api/admin/guest-lists/${gl.guest_list_id}/checkin-status`, { 
                             headers: { Authorization: `Bearer ${token}` } 
                           });
+                          
                           if (checkinRes.ok) {
                             const checkinData = await checkinRes.json();
                             setCheckInStatus(prev => ({
@@ -1730,6 +1743,17 @@ export default function RestaurantReservationsPage() {
                                 ownerCheckedIn: checkinData.checkin_status.owner_checked_in,
                                 guestsCheckedIn: checkinData.checkin_status.guests_checked_in,
                                 totalGuests: checkinData.checkin_status.total_guests
+                              }
+                            }));
+                          } else {
+                            // Fallback: usar dados da lista principal
+                            const guestsCheckedIn = guestsData ? guestsData.guests.filter((g: GuestItem) => g.checked_in).length : 0;
+                            setCheckInStatus(prev => ({
+                              ...prev,
+                              [gl.guest_list_id]: {
+                                ownerCheckedIn: gl.owner_checked_in || false,
+                                guestsCheckedIn: guestsCheckedIn,
+                                totalGuests: guestsData ? guestsData.guests.length : 0
                               }
                             }));
                           }
@@ -1763,7 +1787,7 @@ export default function RestaurantReservationsPage() {
                             e.stopPropagation();
                             handleOwnerCheckIn(gl.guest_list_id, gl.owner_name);
                           }}
-                          className={`px-3 py-1 text-xs rounded-full transition-colors ${
+                          className={`px-3 py-1 text-xs rounded-full transition-colors font-medium ${
                             checkInStatus[gl.guest_list_id]?.ownerCheckedIn
                               ? 'bg-green-100 text-green-700 border border-green-300'
                               : 'bg-blue-100 text-blue-700 hover:bg-blue-200 border border-blue-300'
@@ -1921,10 +1945,10 @@ export default function RestaurantReservationsPage() {
                                 <td className="px-4 py-2 text-sm text-gray-800">{g.name}</td>
                                 <td className="px-4 py-2 text-sm text-gray-600">{g.whatsapp || '-'}</td>
                                 <td className="px-4 py-2 text-sm">
-                                  <span className={`px-2 py-1 rounded-full text-xs ${
+                                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                                     g.checked_in
-                                      ? 'bg-green-100 text-green-700'
-                                      : 'bg-gray-100 text-gray-600'
+                                      ? 'bg-green-100 text-green-700 border border-green-300'
+                                      : 'bg-gray-100 text-gray-600 border border-gray-300'
                                   }`}>
                                     {g.checked_in ? '✅ Presente' : '⏳ Aguardando'}
                                   </span>
