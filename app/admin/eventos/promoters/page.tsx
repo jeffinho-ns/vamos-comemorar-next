@@ -134,7 +134,11 @@ export default function PromotersPage() {
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [showConditionsModal, setShowConditionsModal] = useState(false);
   const [showPermissionsModal, setShowPermissionsModal] = useState(false);
+  const [showConvidadosModal, setShowConvidadosModal] = useState(false);
+  const [showQrCodeModal, setShowQrCodeModal] = useState(false);
   const [selectedPromoter, setSelectedPromoter] = useState<Promoter | null>(null);
+  const [convidadosData, setConvidadosData] = useState<any[]>([]);
+  const [convidadosLoading, setConvidadosLoading] = useState(false);
   const [formData, setFormData] = useState<PromoterFormData>({
     nome: '',
     apelido: '',
@@ -210,7 +214,21 @@ export default function PromotersPage() {
 
       if (response.ok) {
         const data = await response.json();
-        setEstablishments(data.places || []);
+        console.log('📋 Dados recebidos da API places:', data);
+        
+        // A API places retorna { data: [...] }
+        const establishmentsData = data.data || [];
+        
+        // Formatar os dados para o formato esperado
+        const formattedEstablishments = establishmentsData.map((place: any) => ({
+          id: place.id,
+          name: place.name || 'Sem nome'
+        }));
+        
+        console.log('📋 Estabelecimentos formatados:', formattedEstablishments);
+        setEstablishments(formattedEstablishments);
+      } else {
+        console.error('❌ Erro na resposta da API:', response.status, response.statusText);
       }
     } catch (error) {
       console.error('❌ Erro ao carregar estabelecimentos:', error);
@@ -433,6 +451,40 @@ export default function PromotersPage() {
   const openDetailsModal = (promoter: Promoter) => {
     setSelectedPromoter(promoter);
     setShowDetailsModal(true);
+  };
+
+  const openConvidadosModal = async (promoter: Promoter) => {
+    setSelectedPromoter(promoter);
+    setConvidadosLoading(true);
+    setShowConvidadosModal(true);
+    
+    try {
+      const token = localStorage.getItem('authToken');
+      const response = await fetch(`${API_URL}/api/v1/promoters/${promoter.promoter_id}/convidados`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setConvidadosData(data.convidados || []);
+      } else {
+        console.error('❌ Erro ao carregar convidados:', response.statusText);
+        setConvidadosData([]);
+      }
+    } catch (error) {
+      console.error('❌ Erro ao carregar convidados:', error);
+      setConvidadosData([]);
+    } finally {
+      setConvidadosLoading(false);
+    }
+  };
+
+  const openQrCodeModal = (promoter: Promoter) => {
+    setSelectedPromoter(promoter);
+    setShowQrCodeModal(true);
   };
 
   if (loading) {
@@ -784,16 +836,16 @@ export default function PromotersPage() {
               <div className="mt-4 pt-4 border-t border-gray-200 flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <button
-                    onClick={() => openDetailsModal(promoter)}
+                    onClick={() => openConvidadosModal(promoter)}
                     className="p-2 text-gray-600 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
-                    title="Ver detalhes"
+                    title="Ver convidados"
                   >
                     <MdVisibility size={18} />
                   </button>
                   <button
                     onClick={() => openEditModal(promoter)}
                     className="p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                    title="Editar"
+                    title="Editar promoter"
                   >
                     <MdEdit size={18} />
                   </button>
@@ -803,21 +855,14 @@ export default function PromotersPage() {
                       setShowConditionsModal(true);
                     }}
                     className="p-2 text-gray-600 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"
-                    title="Condições"
+                    title="Condições e limites"
                   >
                     <MdSettings size={18} />
                   </button>
                 </div>
                 <div className="flex items-center gap-2">
-                  {promoter.link_convite && (
-                    <button
-                      className="p-2 text-gray-600 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
-                      title="Link de convite"
-                    >
-                      <MdLink size={18} />
-                    </button>
-                  )}
                   <button
+                    onClick={() => openQrCodeModal(promoter)}
                     className="p-2 text-gray-600 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
                     title="QR Code"
                   >
@@ -1171,7 +1216,7 @@ export default function PromotersPage() {
         )}
       </AnimatePresence>
 
-      {/* Edit Modal - Similar structure to Create Modal */}
+      {/* Edit Modal */}
       <AnimatePresence>
         {showEditModal && selectedPromoter && (
           <motion.div
@@ -1188,7 +1233,14 @@ export default function PromotersPage() {
             >
               <div className="p-6 border-b border-gray-200">
                 <div className="flex items-center justify-between">
-                  <h2 className="text-2xl font-bold text-gray-900">Editar Promoter</h2>
+                  <div>
+                    <h2 className="text-2xl font-bold text-gray-900">
+                      Editar Promoter: {selectedPromoter.nome}
+                    </h2>
+                    <p className="text-gray-600 mt-1">
+                      Atualize as informações do promoter
+                    </p>
+                  </div>
                   <button
                     onClick={() => setShowEditModal(false)}
                     className="text-gray-400 hover:text-gray-600"
@@ -1199,33 +1251,330 @@ export default function PromotersPage() {
               </div>
 
               <div className="p-6">
-                {/* Same form structure as Create Modal */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Informações Básicas */}
                   <div className="space-y-4">
                     <h3 className="text-lg font-semibold text-gray-900">Informações Básicas</h3>
-                    {/* Form fields same as create modal */}
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Nome *
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.nome}
+                        onChange={(e) => setFormData({ ...formData, nome: e.target.value })}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                        placeholder="Nome completo"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Apelido
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.apelido}
+                        onChange={(e) => setFormData({ ...formData, apelido: e.target.value })}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                        placeholder="Nome artístico ou apelido"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Email *
+                      </label>
+                      <input
+                        type="email"
+                        value={formData.email}
+                        onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                        placeholder="email@exemplo.com"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Telefone
+                      </label>
+                      <input
+                        type="tel"
+                        value={formData.telefone}
+                        onChange={(e) => setFormData({ ...formData, telefone: e.target.value })}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                        placeholder="(11) 99999-9999"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        WhatsApp
+                      </label>
+                      <input
+                        type="tel"
+                        value={formData.whatsapp}
+                        onChange={(e) => setFormData({ ...formData, whatsapp: e.target.value })}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                        placeholder="(11) 99999-9999"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Código Identificador
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.codigo_identificador}
+                        onChange={(e) => setFormData({ ...formData, codigo_identificador: e.target.value })}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                        placeholder="PROMO123"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Categoria
+                      </label>
+                      <select
+                        value={formData.tipo_categoria}
+                        onChange={(e) => setFormData({ ...formData, tipo_categoria: e.target.value as any })}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                      >
+                        <option value="Standard">Standard</option>
+                        <option value="C">Categoria C</option>
+                        <option value="B">Categoria B</option>
+                        <option value="A">Categoria A</option>
+                        <option value="VIP">VIP</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Comissão (%)
+                      </label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        max="100"
+                        value={formData.comissao_percentual}
+                        onChange={(e) => setFormData({ ...formData, comissao_percentual: parseFloat(e.target.value) || 0 })}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                        placeholder="0.00"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Estabelecimento
+                      </label>
+                      <select
+                        value={formData.establishment_id}
+                        onChange={(e) => setFormData({ ...formData, establishment_id: parseInt(e.target.value) || 0 })}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                      >
+                        <option value={0}>Selecione um estabelecimento</option>
+                        {establishments.map((est) => (
+                          <option key={est.id} value={est.id}>
+                            {est.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
                   </div>
+
+                  {/* Condições */}
                   <div className="space-y-4">
                     <h3 className="text-lg font-semibold text-gray-900">Condições e Limites</h3>
-                    {/* Form fields same as create modal */}
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Máx. Convidados por Evento
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={formData.max_convidados_por_evento}
+                        onChange={(e) => setFormData({ ...formData, max_convidados_por_evento: parseInt(e.target.value) || 0 })}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Máx. Convidados por Data
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={formData.max_convidados_por_data}
+                        onChange={(e) => setFormData({ ...formData, max_convidados_por_data: parseInt(e.target.value) || 0 })}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Quota de Mesas
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={formData.quota_mesas}
+                        onChange={(e) => setFormData({ ...formData, quota_mesas: parseInt(e.target.value) || 0 })}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Quota de Entradas
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={formData.quota_entradas}
+                        onChange={(e) => setFormData({ ...formData, quota_entradas: parseInt(e.target.value) || 0 })}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Entradas Gratuitas
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={formData.entradas_gratuitas}
+                        onChange={(e) => setFormData({ ...formData, entradas_gratuitas: parseInt(e.target.value) || 0 })}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Desconto Especial (%)
+                      </label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        max="100"
+                        value={formData.desconto_especial_percentual}
+                        onChange={(e) => setFormData({ ...formData, desconto_especial_percentual: parseFloat(e.target.value) || 0 })}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Valor Mínimo de Consumo
+                      </label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={formData.valor_minimo_consumo}
+                        onChange={(e) => setFormData({ ...formData, valor_minimo_consumo: parseFloat(e.target.value) || 0 })}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                      />
+                    </div>
+
+                    <div className="space-y-3">
+                      <div className="flex items-center">
+                        <input
+                          type="checkbox"
+                          id="pode_reservar_mesas_vip"
+                          checked={formData.pode_reservar_mesas_vip}
+                          onChange={(e) => setFormData({ ...formData, pode_reservar_mesas_vip: e.target.checked })}
+                          className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
+                        />
+                        <label htmlFor="pode_reservar_mesas_vip" className="ml-2 text-sm text-gray-700">
+                          Pode reservar mesas VIP
+                        </label>
+                      </div>
+
+                      <div className="flex items-center">
+                        <input
+                          type="checkbox"
+                          id="pode_selecionar_areas"
+                          checked={formData.pode_selecionar_areas}
+                          onChange={(e) => setFormData({ ...formData, pode_selecionar_areas: e.target.checked })}
+                          className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
+                        />
+                        <label htmlFor="pode_selecionar_areas" className="ml-2 text-sm text-gray-700">
+                          Pode selecionar áreas específicas
+                        </label>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Observações
+                      </label>
+                      <textarea
+                        value={formData.observacoes}
+                        onChange={(e) => setFormData({ ...formData, observacoes: e.target.value })}
+                        rows={3}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                        placeholder="Observações sobre o promoter..."
+                      />
+                    </div>
                   </div>
                 </div>
               </div>
 
-              <div className="p-6 border-t border-gray-200 flex items-center justify-end gap-4">
+              <div className="p-6 border-t border-gray-200 flex items-center justify-between">
                 <button
-                  onClick={() => setShowEditModal(false)}
-                  className="px-6 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                  onClick={async () => {
+                    if (confirm('Tem certeza que deseja excluir este promoter? Esta ação não pode ser desfeita.')) {
+                      try {
+                        const token = localStorage.getItem('authToken');
+                        const response = await fetch(`${API_URL}/api/v1/promoters/${selectedPromoter.promoter_id}`, {
+                          method: 'DELETE',
+                          headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'Content-Type': 'application/json',
+                          },
+                        });
+
+                        if (response.ok) {
+                          setShowEditModal(false);
+                          fetchPromoters();
+                          alert('Promoter excluído com sucesso!');
+                        } else {
+                          alert('Erro ao excluir promoter');
+                        }
+                      } catch (error) {
+                        console.error('❌ Erro ao excluir promoter:', error);
+                        alert('Erro ao excluir promoter');
+                      }
+                    }
+                  }}
+                  className="px-6 py-2 text-red-700 bg-red-100 rounded-lg hover:bg-red-200 transition-colors flex items-center gap-2"
                 >
-                  Cancelar
+                  <MdDelete size={18} />
+                  Excluir Promoter
                 </button>
-                <button
-                  onClick={handleEditPromoter}
-                  className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
-                >
-                  <MdSave size={18} />
-                  Salvar Alterações
-                </button>
+                
+                <div className="flex items-center gap-4">
+                  <button
+                    onClick={() => setShowEditModal(false)}
+                    className="px-6 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={handleEditPromoter}
+                    className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+                  >
+                    Salvar Alterações
+                  </button>
+                </div>
               </div>
             </motion.div>
           </motion.div>
@@ -1271,6 +1620,559 @@ export default function PromotersPage() {
                     {/* Display performance metrics */}
                   </div>
                 </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Modal de Condições */}
+      <AnimatePresence>
+        {showConditionsModal && selectedPromoter && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto"
+            >
+              <div className="p-6 border-b border-gray-200">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-2xl font-bold text-gray-900">
+                      Condições e Limites: {selectedPromoter.nome}
+                    </h2>
+                    <p className="text-gray-600 mt-1">
+                      Configure as condições específicas e limites do promoter
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setShowConditionsModal(false)}
+                    className="text-gray-400 hover:text-gray-600"
+                  >
+                    <MdClose size={24} />
+                  </button>
+                </div>
+              </div>
+
+              <div className="p-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Limites de Convidados */}
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                      <MdPeople size={20} />
+                      Limites de Convidados
+                    </h3>
+                    
+                    <div className="bg-blue-50 p-4 rounded-lg">
+                      <div className="flex items-center gap-2 mb-3">
+                        <MdInfo size={18} className="text-blue-600" />
+                        <span className="font-medium text-blue-800">Limites Atuais</span>
+                      </div>
+                      <div className="space-y-2 text-sm">
+                        <div className="flex justify-between">
+                          <span>Por Evento:</span>
+                          <span className="font-medium">{selectedPromoter.max_convidados_por_evento || 0}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Por Data:</span>
+                          <span className="font-medium">{selectedPromoter.max_convidados_por_data || 0}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Máx. Convidados por Evento
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={formData.max_convidados_por_evento}
+                        onChange={(e) => setFormData({ ...formData, max_convidados_por_evento: parseInt(e.target.value) || 0 })}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                        placeholder="Ex: 50"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Máx. Convidados por Data
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={formData.max_convidados_por_data}
+                        onChange={(e) => setFormData({ ...formData, max_convidados_por_data: parseInt(e.target.value) || 0 })}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                        placeholder="Ex: 100"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Quotas e Reservas */}
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                      <MdTableChart size={20} />
+                      Quotas e Reservas
+                    </h3>
+                    
+                    <div className="bg-green-50 p-4 rounded-lg">
+                      <div className="flex items-center gap-2 mb-3">
+                        <MdInfo size={18} className="text-green-600" />
+                        <span className="font-medium text-green-800">Quotas Atuais</span>
+                      </div>
+                      <div className="space-y-2 text-sm">
+                        <div className="flex justify-between">
+                          <span>Mesas:</span>
+                          <span className="font-medium">{selectedPromoter.quota_mesas || 0}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Entradas:</span>
+                          <span className="font-medium">{selectedPromoter.quota_entradas || 0}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Gratuitas:</span>
+                          <span className="font-medium">{selectedPromoter.entradas_gratuitas || 0}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Quota de Mesas
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={formData.quota_mesas}
+                        onChange={(e) => setFormData({ ...formData, quota_mesas: parseInt(e.target.value) || 0 })}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                        placeholder="Ex: 5"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Quota de Entradas
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={formData.quota_entradas}
+                        onChange={(e) => setFormData({ ...formData, quota_entradas: parseInt(e.target.value) || 0 })}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                        placeholder="Ex: 20"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Entradas Gratuitas
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={formData.entradas_gratuitas}
+                        onChange={(e) => setFormData({ ...formData, entradas_gratuitas: parseInt(e.target.value) || 0 })}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                        placeholder="Ex: 5"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Descontos e Valores */}
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                      <MdLocalOffer size={20} />
+                      Descontos e Valores
+                    </h3>
+                    
+                    <div className="bg-purple-50 p-4 rounded-lg">
+                      <div className="flex items-center gap-2 mb-3">
+                        <MdInfo size={18} className="text-purple-600" />
+                        <span className="font-medium text-purple-800">Valores Atuais</span>
+                      </div>
+                      <div className="space-y-2 text-sm">
+                        <div className="flex justify-between">
+                          <span>Desconto:</span>
+                          <span className="font-medium">{selectedPromoter.desconto_especial_percentual || 0}%</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Consumo Mín:</span>
+                          <span className="font-medium">R$ {selectedPromoter.valor_minimo_consumo || 0}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Desconto Especial (%)
+                      </label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        max="100"
+                        value={formData.desconto_especial_percentual}
+                        onChange={(e) => setFormData({ ...formData, desconto_especial_percentual: parseFloat(e.target.value) || 0 })}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                        placeholder="Ex: 10.00"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Valor Mínimo de Consumo
+                      </label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={formData.valor_minimo_consumo}
+                        onChange={(e) => setFormData({ ...formData, valor_minimo_consumo: parseFloat(e.target.value) || 0 })}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                        placeholder="Ex: 50.00"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Permissões Especiais */}
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                      <MdSecurity size={20} />
+                      Permissões Especiais
+                    </h3>
+                    
+                    <div className="bg-yellow-50 p-4 rounded-lg">
+                      <div className="flex items-center gap-2 mb-3">
+                        <MdInfo size={18} className="text-yellow-600" />
+                        <span className="font-medium text-yellow-800">Permissões Atuais</span>
+                      </div>
+                      <div className="space-y-2 text-sm">
+                        <div className="flex justify-between">
+                          <span>Mesas VIP:</span>
+                          <span className={`font-medium ${selectedPromoter.pode_reservar_mesas_vip ? 'text-green-600' : 'text-red-600'}`}>
+                            {selectedPromoter.pode_reservar_mesas_vip ? 'Sim' : 'Não'}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Áreas Específicas:</span>
+                          <span className={`font-medium ${selectedPromoter.pode_selecionar_areas ? 'text-green-600' : 'text-red-600'}`}>
+                            {selectedPromoter.pode_selecionar_areas ? 'Sim' : 'Não'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-3">
+                      <div className="flex items-center">
+                        <input
+                          type="checkbox"
+                          id="pode_reservar_mesas_vip_condicoes"
+                          checked={formData.pode_reservar_mesas_vip}
+                          onChange={(e) => setFormData({ ...formData, pode_reservar_mesas_vip: e.target.checked })}
+                          className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
+                        />
+                        <label htmlFor="pode_reservar_mesas_vip_condicoes" className="ml-2 text-sm text-gray-700">
+                          Pode reservar mesas VIP
+                        </label>
+                      </div>
+
+                      <div className="flex items-center">
+                        <input
+                          type="checkbox"
+                          id="pode_selecionar_areas_condicoes"
+                          checked={formData.pode_selecionar_areas}
+                          onChange={(e) => setFormData({ ...formData, pode_selecionar_areas: e.target.checked })}
+                          className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
+                        />
+                        <label htmlFor="pode_selecionar_areas_condicoes" className="ml-2 text-sm text-gray-700">
+                          Pode selecionar áreas específicas
+                        </label>
+                      </div>
+                    </div>
+
+                    {/* Brinde */}
+                    <div className="mt-6 p-4 bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg border border-purple-200">
+                      <h4 className="font-semibold text-purple-800 mb-3 flex items-center gap-2">
+                        <MdCardGiftcard size={18} />
+                        Brinde Especial
+                      </h4>
+                      <div className="space-y-3">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Descrição do Brinde
+                          </label>
+                          <textarea
+                            rows={3}
+                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                            placeholder="Ex: Garrafa de champagne, entrada VIP, desconto especial..."
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Valor do Brinde (R$)
+                          </label>
+                          <input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                            placeholder="Ex: 50.00"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-6 border-t border-gray-200 flex items-center justify-end gap-4">
+                <button
+                  onClick={() => setShowConditionsModal(false)}
+                  className="px-6 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={async () => {
+                    try {
+                      const token = localStorage.getItem('authToken');
+                      const response = await fetch(`${API_URL}/api/v1/promoters/${selectedPromoter.promoter_id}/condicoes`, {
+                        method: 'PUT',
+                        headers: {
+                          'Authorization': `Bearer ${token}`,
+                          'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                          max_convidados_por_evento: formData.max_convidados_por_evento,
+                          max_convidados_por_data: formData.max_convidados_por_data,
+                          quota_mesas: formData.quota_mesas,
+                          quota_entradas: formData.quota_entradas,
+                          entradas_gratuitas: formData.entradas_gratuitas,
+                          desconto_especial_percentual: formData.desconto_especial_percentual,
+                          valor_minimo_consumo: formData.valor_minimo_consumo,
+                          pode_reservar_mesas_vip: formData.pode_reservar_mesas_vip,
+                          pode_selecionar_areas: formData.pode_selecionar_areas,
+                        }),
+                      });
+
+                      if (response.ok) {
+                        setShowConditionsModal(false);
+                        fetchPromoters();
+                        alert('Condições atualizadas com sucesso!');
+                      } else {
+                        alert('Erro ao atualizar condições');
+                      }
+                    } catch (error) {
+                      console.error('❌ Erro ao atualizar condições:', error);
+                      alert('Erro ao atualizar condições');
+                    }
+                  }}
+                  className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2"
+                >
+                  <MdSave size={18} />
+                  Salvar Condições
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Modal de Convidados */}
+      <AnimatePresence>
+        {showConvidadosModal && selectedPromoter && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-white rounded-lg shadow-xl max-w-6xl w-full max-h-[90vh] overflow-y-auto"
+            >
+              <div className="p-6 border-b border-gray-200">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-2xl font-bold text-gray-900">
+                      Convidados de {selectedPromoter.nome}
+                    </h2>
+                    <p className="text-gray-600 mt-1">
+                      Lista de convidados organizados por evento e data
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={() => {
+                        if (selectedPromoter.link_convite) {
+                          navigator.clipboard.writeText(selectedPromoter.link_convite);
+                          alert('Link copiado para a área de transferência!');
+                        }
+                      }}
+                      className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors flex items-center gap-2"
+                    >
+                      <MdLink size={18} />
+                      Copiar Link
+                    </button>
+                    <button
+                      onClick={() => setShowConvidadosModal(false)}
+                      className="text-gray-400 hover:text-gray-600"
+                    >
+                      <MdClose size={24} />
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-6">
+                {convidadosLoading ? (
+                  <div className="flex items-center justify-center py-12">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-500"></div>
+                    <span className="ml-3 text-gray-600">Carregando convidados...</span>
+                  </div>
+                ) : convidadosData.length > 0 ? (
+                  <div className="space-y-6">
+                    {/* Agrupar por evento */}
+                    {Object.entries(
+                      convidadosData.reduce((acc: any, convidado: any) => {
+                        const eventoKey = `${convidado.evento_nome} - ${convidado.data_evento}`;
+                        if (!acc[eventoKey]) {
+                          acc[eventoKey] = [];
+                        }
+                        acc[eventoKey].push(convidado);
+                        return acc;
+                      }, {})
+                    ).map(([eventoKey, convidados]: [string, any]) => (
+                      <div key={eventoKey} className="border border-gray-200 rounded-lg">
+                        <div className="bg-gray-50 px-4 py-3 border-b border-gray-200">
+                          <h3 className="font-semibold text-gray-900">{eventoKey}</h3>
+                          <p className="text-sm text-gray-600">
+                            {convidados.length} convidado(s)
+                          </p>
+                        </div>
+                        <div className="overflow-x-auto">
+                          <table className="w-full">
+                            <thead className="bg-gray-50">
+                              <tr>
+                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                  Nome
+                                </th>
+                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                  Telefone
+                                </th>
+                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                  Status
+                                </th>
+                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                  Check-in
+                                </th>
+                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                  Mesa
+                                </th>
+                              </tr>
+                            </thead>
+                            <tbody className="bg-white divide-y divide-gray-200">
+                              {convidados.map((convidado: any, index: number) => (
+                                <tr key={index}>
+                                  <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                    {convidado.nome}
+                                  </td>
+                                  <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
+                                    {convidado.telefone}
+                                  </td>
+                                  <td className="px-4 py-4 whitespace-nowrap">
+                                    <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                                      convidado.status === 'confirmado' 
+                                        ? 'bg-green-100 text-green-800'
+                                        : convidado.status === 'pendente'
+                                        ? 'bg-yellow-100 text-yellow-800'
+                                        : 'bg-gray-100 text-gray-800'
+                                    }`}>
+                                      {convidado.status}
+                                    </span>
+                                  </td>
+                                  <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
+                                    {convidado.checkin_realizado ? (
+                                      <span className="text-green-600 font-medium">✓ Feito</span>
+                                    ) : (
+                                      <span className="text-gray-400">-</span>
+                                    )}
+                                  </td>
+                                  <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
+                                    {convidado.mesa || '-'}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-12">
+                    <MdPerson size={64} className="mx-auto text-gray-300 mb-4" />
+                    <h3 className="text-xl font-semibold text-gray-600 mb-2">
+                      Nenhum convidado encontrado
+                    </h3>
+                    <p className="text-gray-500">
+                      Este promoter ainda não possui convidados cadastrados
+                    </p>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Modal QR Code */}
+      <AnimatePresence>
+        {showQrCodeModal && selectedPromoter && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-white rounded-lg shadow-xl max-w-md w-full"
+            >
+              <div className="p-6 border-b border-gray-200">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-xl font-bold text-gray-900">QR Code</h2>
+                  <button
+                    onClick={() => setShowQrCodeModal(false)}
+                    className="text-gray-400 hover:text-gray-600"
+                  >
+                    <MdClose size={24} />
+                  </button>
+                </div>
+              </div>
+
+              <div className="p-6 text-center">
+                <div className="bg-gray-100 p-8 rounded-lg mb-4">
+                  <MdQrCode size={120} className="mx-auto text-gray-400" />
+                </div>
+                <p className="text-gray-600 mb-4">
+                  QR Code para {selectedPromoter.nome}
+                </p>
+                <p className="text-sm text-gray-500">
+                  Funcionalidade em desenvolvimento
+                </p>
               </div>
             </motion.div>
           </motion.div>
