@@ -255,7 +255,7 @@ export default function ReservationModal({
     if (formData.number_of_people < 1) {
       newErrors.number_of_people = 'Número de pessoas deve ser maior que 0';
     }
-    const isLargeReservation = formData.number_of_people >= 11;
+    const isLargeReservation = formData.number_of_people >= 4;
     const hasOptions = tables && tables.length > 0;
     const hasCompatible = tables.some(t => !t.is_reserved && t.capacity >= formData.number_of_people);
     if (!isLargeReservation && hasOptions && hasCompatible && !formData.table_number) {
@@ -283,9 +283,26 @@ export default function ReservationModal({
       send_whatsapp: sendWhatsAppConfirmation,
     };
 
-    // Adicionar event_type se for reserva grande
-    if (formData.number_of_people >= 11 && eventType) {
-      payload.event_type = eventType;
+    // Adicionar event_type automaticamente baseado nos critérios
+    if (formData.number_of_people >= 4) {
+      const reservationDate = new Date(`${formData.reservation_date}T00:00:00`);
+      const dayOfWeek = reservationDate.getDay(); // Domingo = 0, Sexta = 5, Sábado = 6
+      const isWeekend = dayOfWeek === 5 || dayOfWeek === 6; // Sexta ou Sábado
+      const isHighLine = establishment?.id === 1;
+      
+      if (isWeekend && isHighLine) {
+        // Aniversário no HighLine (sexta/sábado)
+        payload.event_type = 'aniversario';
+      } else if (dayOfWeek === 5) {
+        // Sexta-feira para reservas grandes
+        payload.event_type = 'lista_sexta';
+      } else if (eventType) {
+        // Usar tipo selecionado pelo usuário
+        payload.event_type = eventType;
+      } else {
+        // Reserva grande em outros dias
+        payload.event_type = 'despedida';
+      }
     }
 
     try {
@@ -421,11 +438,23 @@ export default function ReservationModal({
                     <p className="text-red-500 text-sm mt-1">{errors.number_of_people}</p>
                   )}
                   
-                  {formData.number_of_people >= 11 && (
+                  {formData.number_of_people >= 4 && (
                     <div className="mt-3 p-3 bg-orange-100 border border-orange-300 rounded-lg">
                       <div className="flex items-center gap-2 text-orange-800">
                         <MdPeople className="text-orange-600" />
-                        <span className="text-sm font-medium">Reserva Grande - Lista de Convidados</span>
+                        <span className="text-sm font-medium">
+                          {(() => {
+                            if (formData.reservation_date && establishment?.id === 1) {
+                              const reservationDate = new Date(`${formData.reservation_date}T00:00:00`);
+                              const dayOfWeek = reservationDate.getDay();
+                              const isWeekend = dayOfWeek === 5 || dayOfWeek === 6;
+                              if (isWeekend) {
+                                return "🎂 Aniversário Detectado - Lista de Convidados";
+                              }
+                            }
+                            return "Reserva Grande - Lista de Convidados";
+                          })()}
+                        </span>
                       </div>
                       <p className="text-xs text-orange-700 mt-1 mb-3">
                         ✅ Uma lista de convidados será gerada automaticamente para compartilhamento.<br/>
@@ -560,7 +589,7 @@ export default function ReservationModal({
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-2">
                     <MdTableBar className="inline mr-2" />
-                    Mesa {formData.number_of_people >= 11 && <span className="text-orange-400">(Opcional para Reserva Grande)</span>}
+                    Mesa {formData.number_of_people >= 4 && <span className="text-orange-400">(Opcional para Reserva Grande)</span>}
                   </label>
                   {tables.length > 0 ? (
                     <select
@@ -573,9 +602,9 @@ export default function ReservationModal({
                       <option value="">Selecione uma mesa (opcional)</option>
                       {tables
                         .filter(t => {
-                          // Para reservas grandes (11+), mostra todas as mesas não reservadas
+                          // Para reservas grandes (4+), mostra todas as mesas não reservadas
                           // Para reservas normais, filtra por capacidade
-                          if (formData.number_of_people >= 11) {
+                          if (formData.number_of_people >= 4) {
                             return !t.is_reserved;
                           }
                           return !t.is_reserved && t.capacity >= formData.number_of_people;
@@ -599,7 +628,7 @@ export default function ReservationModal({
                     <p className="text-red-500 text-sm mt-1">{errors.table_number}</p>
                   )}
                   
-                  {formData.number_of_people >= 11 && (
+                  {formData.number_of_people >= 4 && (
                     <p className="text-xs text-gray-400 mt-1">
                       💡 Para reservas grandes, você pode selecionar uma mesa principal ou deixar em branco
                     </p>

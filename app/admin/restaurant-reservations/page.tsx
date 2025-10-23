@@ -19,27 +19,35 @@ interface Establishment {
   address: string;
 }
 
-// 🎂 FUNÇÃO PARA DETECTAR E CRIAR LISTA DE CONVIDADOS PARA ANIVERSÁRIOS (ADMIN)
+// 🎂 FUNÇÃO PARA DETECTAR E CRIAR LISTA DE CONVIDADOS PARA ANIVERSÁRIOS E RESERVAS GRANDES (ADMIN)
 const detectAndCreateBirthdayGuestList = async (reservationId: number, reservationData: any): Promise<boolean> => {
   try {
-    // NOVA REGRA: Qualquer reserva de aniversário pode criar lista de convidados
+    // NOVA REGRA: Reservas de aniversário OU reservas grandes criam lista automaticamente
     // Critérios para reserva de aniversário:
     // 1. Nos dois dias de funcionamento (sexta ou sábado)
     // 2. Estabelecimento HighLine (ID 1)
     // 3. Qualquer quantidade de pessoas (para garantir benefícios)
     
+    // Critérios para reserva grande:
+    // 1. Acima de 3 pessoas (4+)
+    // 2. Qualquer estabelecimento
+    // 3. Qualquer dia da semana
+    
     const reservationDate = new Date(`${reservationData.reservation_date}T00:00:00`);
     const dayOfWeek = reservationDate.getDay(); // Domingo = 0, Sexta = 5, Sábado = 6
     const isWeekend = dayOfWeek === 5 || dayOfWeek === 6; // Sexta ou Sábado
     const isHighLine = reservationData.establishment_id === 1;
+    const isLargeGroup = reservationData.number_of_people >= 4;
     
-    if (isWeekend && isHighLine) {
-      console.log('🎂 [ADMIN] Detectada reserva de aniversário! Criando lista de convidados para benefícios...');
+    // Criar lista para aniversário (HighLine + fim de semana) OU reserva grande (4+ pessoas)
+    if ((isWeekend && isHighLine) || isLargeGroup) {
+      const eventType = isWeekend && isHighLine ? 'aniversario' : 'despedida';
+      console.log(`🎂 [ADMIN] Detectada ${eventType}! Criando lista de convidados automaticamente...`);
       
       const guestListData = {
         owner_name: reservationData.client_name,
         reservation_date: reservationData.reservation_date,
-        event_type: 'aniversario',
+        event_type: eventType,
         reservation_type: 'restaurant',
         establishment_id: reservationData.establishment_id,
         quantidade_convidados: reservationData.number_of_people
@@ -56,17 +64,17 @@ const detectAndCreateBirthdayGuestList = async (reservationId: number, reservati
 
       if (response.ok) {
         const result = await response.json();
-        console.log('✅ [ADMIN] Lista de convidados criada automaticamente para aniversário:', result);
+        console.log(`✅ [ADMIN] Lista de convidados criada automaticamente para ${eventType}:`, result);
         return true;
       } else {
-        console.warn('⚠️ [ADMIN] Falha ao criar lista de convidados para aniversário');
+        console.warn(`⚠️ [ADMIN] Falha ao criar lista de convidados para ${eventType}`);
         return false;
       }
     }
     
     return false;
   } catch (error) {
-    console.error('❌ [ADMIN] Erro ao criar lista de convidados para aniversário:', error);
+    console.error('❌ [ADMIN] Erro ao criar lista de convidados:', error);
     return false;
   }
 };
@@ -2451,8 +2459,8 @@ export default function RestaurantReservationsPage() {
                       
                       const message = isBirthdayReservation 
                         ? `✅ Reserva criada com sucesso!\n\n` +
-                          `🎂 ANIVERSÁRIO DETECTADO!\n` +
-                          `Lista de convidados criada automaticamente para benefícios de aniversário.\n\n` +
+                          `🎂 RESERVA ESPECIAL DETECTADA!\n` +
+                          `Lista de convidados criada automaticamente (aniversário ou grupo grande).\n\n` +
                           `Link: ${result.guest_list_link || 'Link será gerado'}\n\n` +
                           `Clique em OK para copiar o link para a área de transferência.`
                         : `✅ Reserva criada com sucesso!\n\n` +

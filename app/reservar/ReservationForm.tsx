@@ -46,27 +46,35 @@ interface RestaurantTable {
   is_reserved?: boolean;
 }
 
-// 🎂 FUNÇÃO PARA DETECTAR E CRIAR LISTA DE CONVIDADOS PARA ANIVERSÁRIOS
+// 🎂 FUNÇÃO PARA DETECTAR E CRIAR LISTA DE CONVIDADOS PARA ANIVERSÁRIOS E RESERVAS GRANDES
 const detectAndCreateBirthdayGuestList = async (reservationId: number, payload: any): Promise<boolean> => {
   try {
-    // NOVA REGRA: Qualquer reserva de aniversário pode criar lista de convidados
+    // NOVA REGRA: Reservas de aniversário OU reservas grandes criam lista automaticamente
     // Critérios para reserva de aniversário:
     // 1. Nos dois dias de funcionamento (sexta ou sábado)
     // 2. Estabelecimento HighLine (ID 1)
     // 3. Qualquer quantidade de pessoas (para garantir benefícios)
     
+    // Critérios para reserva grande:
+    // 1. Acima de 3 pessoas (4+)
+    // 2. Qualquer estabelecimento
+    // 3. Qualquer dia da semana
+    
     const reservationDate = new Date(`${payload.reservation_date}T00:00:00`);
     const dayOfWeek = reservationDate.getDay(); // Domingo = 0, Sexta = 5, Sábado = 6
     const isWeekend = dayOfWeek === 5 || dayOfWeek === 6; // Sexta ou Sábado
     const isHighLine = payload.establishment_id === 1;
+    const isLargeGroup = payload.number_of_people >= 4;
     
-    if (isWeekend && isHighLine) {
-      console.log('🎂 Detectada reserva de aniversário! Criando lista de convidados para benefícios...');
+    // Criar lista para aniversário (HighLine + fim de semana) OU reserva grande (4+ pessoas)
+    if ((isWeekend && isHighLine) || isLargeGroup) {
+      const eventType = isWeekend && isHighLine ? 'aniversario' : 'despedida';
+      console.log(`🎂 Detectada ${eventType}! Criando lista de convidados automaticamente...`);
       
       const guestListData = {
         owner_name: payload.client_name,
         reservation_date: payload.reservation_date,
-        event_type: 'aniversario',
+        event_type: eventType,
         reservation_type: 'restaurant',
         establishment_id: payload.establishment_id,
         quantidade_convidados: payload.number_of_people
@@ -82,17 +90,17 @@ const detectAndCreateBirthdayGuestList = async (reservationId: number, payload: 
 
       if (response.ok) {
         const result = await response.json();
-        console.log('✅ Lista de convidados criada automaticamente para aniversário:', result);
+        console.log(`✅ Lista de convidados criada automaticamente para ${eventType}:`, result);
         return true;
       } else {
-        console.warn('⚠️ Falha ao criar lista de convidados para aniversário');
+        console.warn(`⚠️ Falha ao criar lista de convidados para ${eventType}`);
         return false;
       }
     }
     
     return false;
   } catch (error) {
-    console.error('❌ Erro ao criar lista de convidados para aniversário:', error);
+    console.error('❌ Erro ao criar lista de convidados:', error);
     return false;
   }
 };
@@ -515,17 +523,28 @@ const handleSubmit = async (e: React.FormEvent) => {
     delete payload.table_number;
   }
 
-  // 4. Lógica para reservas grandes (acima de 10 pessoas)
-  const isLargeGroup = payload.number_of_people >= 11;
+  // 4. Lógica para reservas grandes (acima de 3 pessoas)
+  const isLargeGroup = payload.number_of_people >= 4;
   if (isLargeGroup) {
     const reservationDate = new Date(`${reservationData.reservation_date}T00:00:00`);
     const dayOfWeek = reservationDate.getDay(); // Domingo = 0, Sexta = 5, Sábado = 6
+    const isWeekend = dayOfWeek === 5 || dayOfWeek === 6; // Sexta ou Sábado
+    const isHighLine = payload.establishment_id === 1;
 
-    // Adiciona o tipo de evento apenas se for Sábado e um tipo foi selecionado
-    if (dayOfWeek === 6 && eventType) {
+    // Detectar automaticamente o tipo de evento
+    if (isWeekend && isHighLine) {
+      // Aniversário no HighLine (sexta/sábado)
+      payload.event_type = 'aniversario';
+    } else if (dayOfWeek === 5) {
+      // Sexta-feira para reservas grandes
+      payload.event_type = 'lista_sexta';
+    } else if (dayOfWeek === 6 && eventType) {
+      // Sábado com tipo selecionado pelo usuário
       payload.event_type = eventType;
+    } else {
+      // Reserva grande em outros dias
+      payload.event_type = 'despedida';
     }
-    // Para sextas-feiras, apenas a existência da lista já é implícita
   }
 
   // Log para depuração: verifique o que está sendo enviado
@@ -826,7 +845,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                   )}
                   
                   {/* Indicador de reserva grande */}
-                  {reservationData.number_of_people >= 11 && (
+                  {reservationData.number_of_people >= 4 && (
                     <div className="mt-3 p-4 bg-gradient-to-r from-orange-100 to-red-100 border-2 border-orange-400 rounded-lg shadow-lg">
                       <div className="flex items-center gap-2 text-orange-900">
                         <MdPeople className="text-orange-600 text-lg" />
@@ -934,7 +953,7 @@ const handleSubmit = async (e: React.FormEvent) => {
               </div>
 
               {/* Lógica condicional sexta/sábado para reservas grandes */}
-              {reservationData.number_of_people >= 11 && reservationData.reservation_date && (
+              {reservationData.number_of_people >= 4 && reservationData.reservation_date && (
                 (() => {
                   const d = new Date(reservationData.reservation_date + 'T00:00:00');
                   const weekday = d.getDay(); // 5=sexta, 6=sábado
@@ -1085,16 +1104,16 @@ const handleSubmit = async (e: React.FormEvent) => {
       Sua reserva foi realizada com sucesso. Você receberá uma confirmação por telefone ou email.
     </p>
 
-    {/* 🎂 MENSAGEM ESPECIAL PARA ANIVERSÁRIOS */}
+    {/* 🎂 MENSAGEM ESPECIAL PARA ANIVERSÁRIOS E RESERVAS GRANDES */}
     {birthdayGuestListCreated && (
       <div className="mb-6 p-4 bg-gradient-to-r from-pink-50 to-purple-50 border border-pink-200 rounded-lg">
         <div className="flex items-center justify-center mb-2">
           <span className="text-2xl mr-2">🎂</span>
-          <h3 className="text-pink-800 font-bold text-lg">Aniversário Detectado!</h3>
+          <h3 className="text-pink-800 font-bold text-lg">Lista de Convidados Criada!</h3>
         </div>
         <p className="text-pink-700 text-sm mb-3">
-          Como você reservou uma mesa no HighLine nos dias de funcionamento, 
-          criamos automaticamente uma lista de convidados para você ter direito aos benefícios de aniversário!
+          Como você fez uma reserva especial (aniversário no HighLine ou grupo grande), 
+          criamos automaticamente uma lista de convidados para você ter direito aos benefícios!
         </p>
         <div className="bg-white/70 rounded-lg p-3 text-xs text-pink-600">
           <strong>Benefícios incluídos:</strong> Desconto especial, decoração da mesa, 
@@ -1179,7 +1198,7 @@ const handleSubmit = async (e: React.FormEvent) => {
       )}
 
       {/* Alerta de Reserva Grande */}
-      {reservationData.number_of_people >= 11 && (
+      {reservationData.number_of_people >= 4 && (
         <div className="bg-gradient-to-r from-orange-100 to-red-100 border-2 border-orange-400 rounded-lg p-4">
           <div className="flex items-center gap-2 mb-2">
             <span className="text-lg">⚠️</span>
