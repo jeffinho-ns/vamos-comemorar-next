@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import {
@@ -29,8 +29,8 @@ interface EventoSemanal {
   evento_id: number;
   nome: string;
   horario_funcionamento: string;
-  dia_da_semana: number;
-  tipo_evento: string;
+  dia_da_semana?: number;
+  tipo_evento: 'semanal';
   establishment_name?: string;
   id_place?: number;
 }
@@ -41,8 +41,8 @@ interface EventoUnico {
   data_evento: string;
   horario_funcionamento: string;
   descricao: string;
-  tipo_evento: string;
-  dia_da_semana: number | null;
+  tipo_evento: 'unico';
+  dia_da_semana?: number;
   establishment_name?: string;
   id_place?: number;
   nome_do_evento?: string;
@@ -209,7 +209,8 @@ export default function EventosDashboard() {
     });
   };
 
-  const getDiaSemanaTexto = (dia: number) => {
+  const getDiaSemanaTexto = (dia: number | undefined) => {
+    if (dia === undefined) return '';
     const dias = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
     return dias[dia] || '';
   };
@@ -636,7 +637,7 @@ export default function EventosDashboard() {
                   Eventos Únicos Futuros {selectedEstablishment ? `- ${selectedEstablishment.name}` : ''}
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {dashboardData.todosEventosUnicos.map((evento, index) => (
+                  {dashboardData.todosEventosUnicos.map((evento) => (
                     <div
                       key={evento.evento_id}
                       className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg p-4 border border-purple-200"
@@ -692,7 +693,7 @@ export default function EventosDashboard() {
                   Eventos Semanais Recorrentes {selectedEstablishment ? `- ${selectedEstablishment.name}` : ''}
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {dashboardData.eventosSemanais.map((evento, index) => (
+                  {dashboardData.eventosSemanais.map((evento) => (
                     <div
                       key={evento.evento_id}
                       className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-4 border border-blue-200"

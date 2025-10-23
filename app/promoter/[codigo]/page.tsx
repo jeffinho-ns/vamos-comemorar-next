@@ -604,7 +604,7 @@ export default function PromoterPublicPage() {
       {/* Footer */}
       <div className="max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
         <div className="text-center text-purple-200 text-sm">
-          <p>Powered by Vamos Comemorar</p>
+          <p>Powered by Agilizaiapp</p>
         </div>
       </div>
     </div>

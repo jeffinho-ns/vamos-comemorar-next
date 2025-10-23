@@ -7,19 +7,13 @@ import {
   MdEvent,
   MdAdd,
   MdClose,
-  MdSave,
   MdSearch,
-  MdFilterList,
   MdCalendarToday,
   MdLocationOn,
   MdPeople,
   MdCheckCircle,
-  MdCancel,
-  MdEdit,
   MdDelete,
-  MdInfo,
-  MdWarning,
-  MdRefresh
+  MdInfo
 } from 'react-icons/md';
 
 interface Promoter {
@@ -39,11 +33,14 @@ interface Promoter {
 interface Evento {
   id?: number;
   evento_id?: number;
-  nome_do_evento: string;
+  nome?: string;
+  nome_do_evento?: string;
   tipo_evento: 'unico' | 'semanal';
   data_do_evento?: string;
+  data_evento?: string;
   dia_da_semana?: number;
-  hora_do_evento: string;
+  hora_do_evento?: string;
+  horario_funcionamento?: string;
   local_do_evento?: string;
   establishment_name?: string;
 }
@@ -109,9 +106,7 @@ export default function PromoterEventosModal({ evento, isOpen, onClose, onSave }
         }
       }
     } catch (error) {
-      console.error('❌ Erro ao carregar promoters:', error);
-    } finally {
-      setLoading(false);
+      // Silently handle error
     }
   };
 
@@ -134,7 +129,7 @@ export default function PromoterEventosModal({ evento, isOpen, onClose, onSave }
         }
       }
     } catch (error) {
-      console.error('❌ Erro ao carregar promoters do evento:', error);
+      // Silently handle error
     }
   };
 
@@ -145,13 +140,6 @@ export default function PromoterEventosModal({ evento, isOpen, onClose, onSave }
   };
 
   const handleAddPromoter = async () => {
-    console.log('🔍 Validando dados antes do envio:', {
-      selectedPromoter: selectedPromoter,
-      selectedData: selectedData,
-      funcao: funcao,
-      evento: evento
-    });
-
     if (!selectedPromoter) {
       alert('Selecione um promoter');
       return;
@@ -173,20 +161,12 @@ export default function PromoterEventosModal({ evento, isOpen, onClose, onSave }
       const eventoId = evento.id || evento.evento_id;
       
       const requestData = {
-        promoter_id: parseInt(selectedPromoter.promoter_id),
-        evento_id: parseInt(eventoId),
+        promoter_id: selectedPromoter.promoter_id,
+        evento_id: eventoId,
         data_evento: selectedData,
         funcao,
         observacoes: observacoes || null
       };
-      
-      console.log('📤 Enviando dados:', requestData);
-      console.log('📤 Tipos dos dados:', {
-        promoter_id: typeof requestData.promoter_id,
-        evento_id: typeof requestData.evento_id,
-        data_evento: typeof requestData.data_evento,
-        funcao: typeof requestData.funcao
-      });
       
       const response = await fetch(`${API_URL}/api/promoter-eventos`, {
         method: 'POST',
@@ -197,11 +177,8 @@ export default function PromoterEventosModal({ evento, isOpen, onClose, onSave }
         body: JSON.stringify(requestData),
       });
 
-      console.log('📥 Resposta recebida:', response.status, response.statusText);
-
       if (response.ok) {
         const data = await response.json();
-        console.log('✅ Dados salvos:', data);
         if (data.success) {
           await fetchPromotersEvento();
           setShowAddModal(false);
@@ -211,11 +188,9 @@ export default function PromoterEventosModal({ evento, isOpen, onClose, onSave }
         }
       } else {
         const errorData = await response.json().catch(() => ({}));
-        console.error('❌ Erro na resposta:', errorData);
         alert(`Erro ao adicionar promoter: ${errorData.error || 'Erro desconhecido'}`);
       }
     } catch (error) {
-      console.error('❌ Erro ao adicionar promoter:', error);
       alert('Erro de conexão. Verifique sua internet e tente novamente.');
     }
   };
@@ -241,7 +216,7 @@ export default function PromoterEventosModal({ evento, isOpen, onClose, onSave }
         onSave();
       }
     } catch (error) {
-      console.error('❌ Erro ao remover promoter:', error);
+      alert('Erro ao remover promoter. Tente novamente.');
     }
   };
 
@@ -295,7 +270,7 @@ export default function PromoterEventosModal({ evento, isOpen, onClose, onSave }
                   Promoters do Evento
                 </h2>
                 <p className="text-purple-100 mt-2">
-                  {evento.nome_do_evento} • {evento.tipo_evento === 'unico' ? 'Evento Único' : 'Evento Semanal'}
+                  {evento.nome_do_evento || evento.nome} • {evento.tipo_evento === 'unico' ? 'Evento Único' : 'Evento Semanal'}
                 </p>
               </div>
               <button
@@ -327,7 +302,7 @@ export default function PromoterEventosModal({ evento, isOpen, onClose, onSave }
                   <MdLocationOn className="text-purple-600 text-xl" />
                   <div>
                     <p className="text-sm text-gray-600">Local</p>
-                    <p className="font-semibold">{evento.establishment_name || evento.local_do_evento}</p>
+                    <p className="font-semibold">{evento.establishment_name || evento.local_do_evento || 'Local não informado'}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">

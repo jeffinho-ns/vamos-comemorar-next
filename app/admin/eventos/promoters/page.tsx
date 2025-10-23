@@ -8,39 +8,29 @@ import {
   MdEmail,
   MdPhone,
   MdCheckCircle,
-  MdList,
   MdSearch,
   MdFilterList,
   MdArrowBack,
   MdAdd,
   MdEdit,
   MdSettings,
-  MdTrendingUp,
   MdWarning,
   MdQrCode,
   MdLink,
   MdAttachMoney,
   MdPeople,
-  MdEvent,
   MdBarChart,
-  MdNotifications,
   MdClose,
   MdSave,
   MdCancel,
   MdVisibility,
-  MdVisibilityOff,
   MdStar,
   MdStarBorder,
   MdBusiness,
   MdWhatsapp,
-  MdPhotoCamera,
   MdCategory,
   MdCode,
-  MdSchedule,
-  MdLocationOn,
   MdSecurity,
-  MdCheckBox,
-  MdCheckBoxOutlineBlank,
   MdInfo,
   MdRefresh,
   MdDelete,
@@ -137,7 +127,6 @@ export default function PromotersPage() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [showConditionsModal, setShowConditionsModal] = useState(false);
-  const [showPermissionsModal, setShowPermissionsModal] = useState(false);
   const [showConvidadosModal, setShowConvidadosModal] = useState(false);
   const [showQrCodeModal, setShowQrCodeModal] = useState(false);
   const [selectedPromoter, setSelectedPromoter] = useState<Promoter | null>(null);
