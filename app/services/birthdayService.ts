@@ -102,9 +102,60 @@ export class BirthdayService {
       }
       
       const result = await response.json();
+      
+      // 🎂 NOVA FUNCIONALIDADE: Criar lista de convidados automaticamente para aniversários
+      if (result && result.id) {
+        try {
+          await this.createGuestListForBirthday(result.id, data);
+          console.log('✅ Lista de convidados criada automaticamente para o aniversário');
+        } catch (guestListError) {
+          console.warn('⚠️ Reserva criada, mas falha ao criar lista de convidados:', guestListError);
+          // Não falha a reserva se a lista não for criada
+        }
+      }
+      
       return result;
     } catch (error) {
       console.error('Erro ao criar reserva de aniversário:', error);
+      throw error;
+    }
+  }
+
+  // 🎂 NOVO MÉTODO: Criar lista de convidados para reserva de aniversário
+  static async createGuestListForBirthday(birthdayReservationId: number, birthdayData: Partial<BirthdayReservation>): Promise<any> {
+    try {
+      const guestListData = {
+        owner_name: birthdayData.aniversariante_nome || 'Aniversariante',
+        reservation_date: birthdayData.data_aniversario,
+        event_type: 'aniversario',
+        reservation_type: 'birthday',
+        // Campos específicos para aniversário
+        birthday_reservation_id: birthdayReservationId,
+        establishment_id: birthdayData.id_casa_evento,
+        quantidade_convidados: birthdayData.quantidade_convidados || 3
+      };
+
+      const response = await fetch(`${API_BASE_URL}/birthday-reservations/${birthdayReservationId}/create-guest-list`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: JSON.stringify(guestListData),
+        mode: 'cors',
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Erro ao criar lista de convidados:', errorText);
+        throw new Error(`HTTP error! status: ${response.status} - ${errorText}`);
+      }
+      
+      const result = await response.json();
+      console.log('🎉 Lista de convidados criada:', result);
+      return result;
+    } catch (error) {
+      console.error('Erro ao criar lista de convidados para aniversário:', error);
       throw error;
     }
   }

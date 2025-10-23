@@ -46,6 +46,57 @@ interface RestaurantTable {
   is_reserved?: boolean;
 }
 
+// 🎂 FUNÇÃO PARA DETECTAR E CRIAR LISTA DE CONVIDADOS PARA ANIVERSÁRIOS
+const detectAndCreateBirthdayGuestList = async (reservationId: number, payload: any): Promise<boolean> => {
+  try {
+    // Critérios para reserva de aniversário:
+    // 1. Exatamente 3 pessoas
+    // 2. Nos dois dias de funcionamento (sexta ou sábado)
+    // 3. Estabelecimento HighLine (ID 1)
+    
+    const reservationDate = new Date(`${payload.reservation_date}T00:00:00`);
+    const dayOfWeek = reservationDate.getDay(); // Domingo = 0, Sexta = 5, Sábado = 6
+    const isWeekend = dayOfWeek === 5 || dayOfWeek === 6; // Sexta ou Sábado
+    const isThreePeople = payload.number_of_people === 3;
+    const isHighLine = payload.establishment_id === 1;
+    
+    if (isThreePeople && isWeekend && isHighLine) {
+      console.log('🎂 Detectada reserva de aniversário! Criando lista de convidados...');
+      
+      const guestListData = {
+        owner_name: payload.client_name,
+        reservation_date: payload.reservation_date,
+        event_type: 'aniversario',
+        reservation_type: 'restaurant',
+        establishment_id: payload.establishment_id,
+        quantidade_convidados: 3
+      };
+
+      const response = await fetch(`${API_URL}/api/restaurant-reservations/${reservationId}/add-guest-list`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(guestListData),
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        console.log('✅ Lista de convidados criada automaticamente para aniversário:', result);
+        return true;
+      } else {
+        console.warn('⚠️ Falha ao criar lista de convidados para aniversário');
+        return false;
+      }
+    }
+    
+    return false;
+  } catch (error) {
+    console.error('❌ Erro ao criar lista de convidados para aniversário:', error);
+    return false;
+  }
+};
+
 // Dados estáticos removidos - agora carregados da API
 
 export default function ReservationForm() {
@@ -73,6 +124,7 @@ export default function ReservationForm() {
   });
   const [eventType, setEventType] = useState<'aniversario' | 'despedida' | ''>('');
   const [guestListLink, setGuestListLink] = useState<string | null>(null);
+  const [birthdayGuestListCreated, setBirthdayGuestListCreated] = useState<boolean>(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [reservationId, setReservationId] = useState<string | null>(null);
   const [showAgeModal, setShowAgeModal] = useState(false);
@@ -497,8 +549,13 @@ const handleSubmit = async (e: React.FormEvent) => {
       const result = await response.json();
       console.log('✅ Reserva criada com sucesso:', result);
       
+      // 🎂 NOVA FUNCIONALIDADE: Detectar reserva de aniversário e criar lista automaticamente
+      const reservationId = result.reservation?.id || result.id;
+      const isBirthdayReservation = await detectAndCreateBirthdayGuestList(reservationId, payload);
+      setBirthdayGuestListCreated(isBirthdayReservation);
+      
       // Armazena o ID e o link da lista de convidados (se houver)
-      setReservationId(result.reservation?.id || result.id || 'N/A');
+      setReservationId(reservationId || 'N/A');
       setGuestListLink(result.guest_list_link || null);
       
       setStep('confirmation');
@@ -1027,6 +1084,24 @@ const handleSubmit = async (e: React.FormEvent) => {
     <p className="text-gray-600 mb-4 sm:mb-6 text-sm sm:text-base px-2">
       Sua reserva foi realizada com sucesso. Você receberá uma confirmação por telefone ou email.
     </p>
+
+    {/* 🎂 MENSAGEM ESPECIAL PARA ANIVERSÁRIOS */}
+    {birthdayGuestListCreated && (
+      <div className="mb-6 p-4 bg-gradient-to-r from-pink-50 to-purple-50 border border-pink-200 rounded-lg">
+        <div className="flex items-center justify-center mb-2">
+          <span className="text-2xl mr-2">🎂</span>
+          <h3 className="text-pink-800 font-bold text-lg">Aniversário Detectado!</h3>
+        </div>
+        <p className="text-pink-700 text-sm mb-3">
+          Como você reservou uma mesa para 3 pessoas no HighLine nos dias de funcionamento, 
+          criamos automaticamente uma lista de convidados para você ter direito aos benefícios!
+        </p>
+        <div className="bg-white/70 rounded-lg p-3 text-xs text-pink-600">
+          <strong>Benefícios incluídos:</strong> Desconto especial, decoração da mesa, 
+          parabéns personalizado e muito mais!
+        </div>
+      </div>
+    )}
 
     <div className="bg-gray-50 rounded-lg p-4 sm:p-6 mb-4 sm:mb-6 text-left">
       <h3 className="font-semibold text-gray-800 mb-3 sm:mb-4 text-sm sm:text-base">Detalhes da Reserva:</h3>
