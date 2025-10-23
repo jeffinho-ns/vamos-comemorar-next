@@ -15,8 +15,10 @@ import {
   MdAssignmentInd,
   MdBusiness,
   MdSettings,
-  MdCalendarToday
+  MdCalendarToday,
+  MdPersonAdd
 } from 'react-icons/md';
+import PromoterEventosModal from '../../../components/PromoterEventosModal';
 
 interface Establishment {
   id: number;
@@ -43,6 +45,9 @@ interface EventoUnico {
   dia_da_semana: number | null;
   establishment_name?: string;
   id_place?: number;
+  nome_do_evento?: string;
+  hora_do_evento?: string;
+  local_do_evento?: string;
 }
 
 interface DashboardData {
@@ -69,6 +74,8 @@ export default function EventosDashboard() {
   const [selectedEstablishment, setSelectedEstablishment] = useState<Establishment | null>(null);
   const [establishments, setEstablishments] = useState<Establishment[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [showPromoterModal, setShowPromoterModal] = useState(false);
+  const [selectedEvento, setSelectedEvento] = useState<EventoUnico | EventoSemanal | null>(null);
 
   const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://vamos-comemorar-api.onrender.com';
 
@@ -231,6 +238,21 @@ export default function EventosDashboard() {
       default:
         return 'bg-gray-500';
     }
+  };
+
+  const handleOpenPromoterModal = (evento: EventoUnico | EventoSemanal) => {
+    setSelectedEvento(evento);
+    setShowPromoterModal(true);
+  };
+
+  const handleClosePromoterModal = () => {
+    setShowPromoterModal(false);
+    setSelectedEvento(null);
+  };
+
+  const handlePromoterModalSave = () => {
+    // Recarregar dados após salvar
+    fetchDashboardData();
   };
 
   if (loading && !establishments.length) {
@@ -636,12 +658,21 @@ export default function EventosDashboard() {
                           {evento.descricao}
                         </p>
                       )}
-                      <button
-                        onClick={() => router.push(`/admin/eventos/listas?evento_id=${evento.evento_id}`)}
-                        className="mt-3 w-full px-4 py-2 bg-purple-500 hover:bg-purple-600 text-white rounded-lg text-sm transition-colors"
-                      >
-                        Ver Listas
-                      </button>
+                      <div className="flex gap-2 mt-3">
+                        <button
+                          onClick={() => router.push(`/admin/eventos/listas?evento_id=${evento.evento_id}`)}
+                          className="flex-1 px-3 py-2 bg-purple-500 hover:bg-purple-600 text-white rounded-lg text-sm transition-colors"
+                        >
+                          Ver Listas
+                        </button>
+                        <button
+                          onClick={() => handleOpenPromoterModal(evento)}
+                          className="px-3 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg text-sm transition-colors flex items-center gap-1"
+                          title="Gerenciar Promoters"
+                        >
+                          <MdPersonAdd size={16} />
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -678,12 +709,21 @@ export default function EventosDashboard() {
                         </p>
                         <p>🕐 {evento.horario_funcionamento}</p>
                       </div>
-                      <button
-                        onClick={() => router.push(`/admin/eventos/listas?evento_id=${evento.evento_id}`)}
-                        className="mt-3 w-full px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-sm transition-colors"
-                      >
-                        Ver Listas
-                      </button>
+                      <div className="flex gap-2 mt-3">
+                        <button
+                          onClick={() => router.push(`/admin/eventos/listas?evento_id=${evento.evento_id}`)}
+                          className="flex-1 px-3 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-sm transition-colors"
+                        >
+                          Ver Listas
+                        </button>
+                        <button
+                          onClick={() => handleOpenPromoterModal(evento)}
+                          className="px-3 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg text-sm transition-colors flex items-center gap-1"
+                          title="Gerenciar Promoters"
+                        >
+                          <MdPersonAdd size={16} />
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -692,6 +732,16 @@ export default function EventosDashboard() {
           </>
         )}
       </div>
+
+      {/* Modal de Promoters */}
+      {selectedEvento && (
+        <PromoterEventosModal
+          evento={selectedEvento}
+          isOpen={showPromoterModal}
+          onClose={handleClosePromoterModal}
+          onSave={handlePromoterModalSave}
+        />
+      )}
     </div>
   );
 }

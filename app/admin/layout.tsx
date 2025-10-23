@@ -50,7 +50,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       // Promoter pode acessar algumas funcionalidades além do cardápio
       return [
         { href: "/admin/cardapio", label: "Cardápio", icon: MdRestaurant },
-        { href: "/admin/events", label: "Eventos", icon: MdEvent },
+        { href: "/admin/eventos", label: "Eventos", icon: MdEvent },
         { href: "/admin/reservas", label: "Reservas", icon: MdEditCalendar },
         { href: "/admin/restaurant-reservations", label: "Sistema de Reservas", icon: MdRestaurant },
         { href: "/admin/qrcode", label: "Scanner QR Code", icon: MdQrCodeScanner },
@@ -61,7 +61,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         { href: "/admin", label: "Dashboard", icon: MdDashboard },
         { href: "/admin/qrcode", label: "Scanner QR Code", icon: MdQrCodeScanner },
         { href: "/admin/users", label: "Usuários", icon: MdPerson },
-        { href: "/admin/events", label: "Eventos", icon: MdEvent },
+        { href: "/admin/eventos", label: "Eventos", icon: MdEvent },
         { href: "/admin/painel-eventos", label: "Painel de Eventos", icon: MdBusiness },
         { href: "/admin/reservas", label: "Reservas", icon: MdEditCalendar },
         { href: "/admin/restaurant-reservations", label: "Sistema de Reservas", icon: MdRestaurant },

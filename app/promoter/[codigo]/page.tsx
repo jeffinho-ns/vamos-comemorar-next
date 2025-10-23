@@ -29,7 +29,6 @@ interface Promoter {
   instagram?: string;
   observacoes?: string;
   establishment_name?: string;
-  establishment_tipo?: string;
   stats: {
     total_convidados: number;
     total_confirmados: number;
@@ -37,12 +36,20 @@ interface Promoter {
 }
 
 interface Evento {
-  id: number;
-  nome: string;
-  data: string;
-  hora: string;
-  local_nome: string;
-  local_endereco: string;
+  relacionamento_id: number;
+  evento_id: number;
+  data_evento: string;
+  status: string;
+  funcao: string;
+  nome_do_evento: string;
+  tipo_evento: string;
+  dia_da_semana?: number;
+  hora_do_evento: string;
+  local_do_evento?: string;
+  categoria?: string;
+  descricao?: string;
+  establishment_name?: string;
+  establishment_id?: number;
 }
 
 interface Convidado {
@@ -100,9 +107,18 @@ export default function PromoterPublicPage() {
 
   const loadEventos = async () => {
     try {
-      const response = await fetch(`${API_URL}/api/promoter/${params.codigo}/eventos`);
-      if (response.ok) {
-        const data = await response.json();
+      // Buscar promoter_id primeiro
+      const promoterResponse = await fetch(`${API_URL}/api/promoter/${params.codigo}`);
+      if (!promoterResponse.ok) return;
+      
+      const promoterData = await promoterResponse.json();
+      const promoterId = promoterData.promoter.id;
+      
+      // Buscar eventos do promoter usando a nova API
+      const eventosResponse = await fetch(`${API_URL}/api/promoter-eventos/promoter/${promoterId}?status=ativo`);
+      
+      if (eventosResponse.ok) {
+        const data = await eventosResponse.json();
         setEventos(data.eventos || []);
       }
     } catch (err) {
@@ -413,12 +429,15 @@ export default function PromoterPublicPage() {
                       >
                         <option value="">Selecione um evento</option>
                         {eventos.map((evento) => (
-                          <option key={evento.id} value={evento.id}>
-                            {evento.nome} - {new Date(evento.data + 'T00:00:00').toLocaleDateString('pt-BR')}
+                          <option key={evento.evento_id} value={evento.evento_id}>
+                            {evento.nome_do_evento} - {new Date(evento.data_evento + 'T00:00:00').toLocaleDateString('pt-BR')} às {evento.hora_do_evento}
                           </option>
                         ))}
                       </select>
                     </div>
+                    <p className="mt-1 text-xs text-gray-500">
+                      Escolha o evento específico para o qual deseja se inscrever
+                    </p>
                   </div>
                 )}
 
@@ -467,13 +486,65 @@ export default function PromoterPublicPage() {
             </motion.div>
           </div>
 
-          {/* Sidebar - Lista de Convidados */}
-          <div className="lg:col-span-1">
+          {/* Sidebar - Eventos e Convidados */}
+          <div className="lg:col-span-1 space-y-6">
+            {/* Eventos Disponíveis */}
+            {eventos.length > 0 && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.3 }}
+                className="bg-white rounded-3xl shadow-2xl p-6"
+              >
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="bg-gradient-to-r from-blue-600 to-purple-600 p-2 rounded-lg">
+                    <MdEvent className="text-white text-xl" />
+                  </div>
+                  <h3 className="text-xl font-bold text-gray-900">
+                    Eventos Disponíveis
+                  </h3>
+                </div>
+
+                <div className="space-y-3">
+                  {eventos.slice(0, 5).map((evento, index) => (
+                    <motion.div
+                      key={evento.evento_id}
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: index * 0.1 }}
+                      className="p-3 bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl border border-blue-200"
+                    >
+                      <h4 className="font-semibold text-gray-900 text-sm mb-1">
+                        {evento.nome_do_evento}
+                      </h4>
+                      <div className="text-xs text-gray-600 space-y-1">
+                        <p>📅 {new Date(evento.data_evento + 'T00:00:00').toLocaleDateString('pt-BR')}</p>
+                        <p>🕐 {evento.hora_do_evento}</p>
+                        {evento.establishment_name && (
+                          <p>📍 {evento.establishment_name}</p>
+                        )}
+                        {evento.tipo_evento === 'semanal' && (
+                          <p className="text-blue-600 font-medium">🔄 Evento Semanal</p>
+                        )}
+                      </div>
+                    </motion.div>
+                  ))}
+                  
+                  {eventos.length > 5 && (
+                    <p className="text-center text-xs text-gray-500 pt-2">
+                      +{eventos.length - 5} eventos
+                    </p>
+                  )}
+                </div>
+              </motion.div>
+            )}
+
+            {/* Lista de Convidados */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.3 }}
-              className="bg-white rounded-3xl shadow-2xl p-6 sticky top-6"
+              transition={{ delay: 0.4 }}
+              className="bg-white rounded-3xl shadow-2xl p-6"
             >
               <div className="flex items-center gap-3 mb-6">
                 <div className="bg-gradient-to-r from-purple-600 to-pink-600 p-2 rounded-lg">
