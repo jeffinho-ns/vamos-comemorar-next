@@ -33,7 +33,6 @@ import {
   MdStarBorder,
   MdBusiness,
   MdWhatsapp,
-  MdInstagram,
   MdPhotoCamera,
   MdCategory,
   MdCode,
@@ -43,7 +42,12 @@ import {
   MdCheckBox,
   MdCheckBoxOutlineBlank,
   MdInfo,
-  MdRefresh
+  MdRefresh,
+  MdDelete,
+  MdTableChart,
+  MdLocalOffer,
+  MdCardGiftcard,
+  MdCamera
 } from 'react-icons/md';
 
 interface Promoter {
@@ -734,7 +738,7 @@ export default function PromotersPage() {
                   <div>
                     <h3 className="text-lg font-bold text-gray-900">{promoter.nome}</h3>
                     {promoter.apelido && (
-                      <p className="text-sm text-gray-600">"{promoter.apelido}"</p>
+                      <p className="text-sm text-gray-600">&quot;{promoter.apelido}&quot;</p>
                     )}
                   </div>
                 </div>
@@ -785,7 +789,7 @@ export default function PromotersPage() {
                 )}
                 {promoter.instagram && (
                   <div className="flex items-center gap-2">
-                    <MdInstagram size={16} />
+                    <MdCamera size={16} />
                     <span>@{promoter.instagram}</span>
                   </div>
                 )}
@@ -2181,6 +2185,7 @@ export default function PromotersPage() {
     </div>
   );
 }
+
 
 
 
