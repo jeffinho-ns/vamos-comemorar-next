@@ -49,19 +49,19 @@ interface RestaurantTable {
 // 🎂 FUNÇÃO PARA DETECTAR E CRIAR LISTA DE CONVIDADOS PARA ANIVERSÁRIOS
 const detectAndCreateBirthdayGuestList = async (reservationId: number, payload: any): Promise<boolean> => {
   try {
+    // NOVA REGRA: Qualquer reserva de aniversário pode criar lista de convidados
     // Critérios para reserva de aniversário:
-    // 1. Exatamente 3 pessoas
-    // 2. Nos dois dias de funcionamento (sexta ou sábado)
-    // 3. Estabelecimento HighLine (ID 1)
+    // 1. Nos dois dias de funcionamento (sexta ou sábado)
+    // 2. Estabelecimento HighLine (ID 1)
+    // 3. Qualquer quantidade de pessoas (para garantir benefícios)
     
     const reservationDate = new Date(`${payload.reservation_date}T00:00:00`);
     const dayOfWeek = reservationDate.getDay(); // Domingo = 0, Sexta = 5, Sábado = 6
     const isWeekend = dayOfWeek === 5 || dayOfWeek === 6; // Sexta ou Sábado
-    const isThreePeople = payload.number_of_people === 3;
     const isHighLine = payload.establishment_id === 1;
     
-    if (isThreePeople && isWeekend && isHighLine) {
-      console.log('🎂 Detectada reserva de aniversário! Criando lista de convidados...');
+    if (isWeekend && isHighLine) {
+      console.log('🎂 Detectada reserva de aniversário! Criando lista de convidados para benefícios...');
       
       const guestListData = {
         owner_name: payload.client_name,
@@ -69,7 +69,7 @@ const detectAndCreateBirthdayGuestList = async (reservationId: number, payload: 
         event_type: 'aniversario',
         reservation_type: 'restaurant',
         establishment_id: payload.establishment_id,
-        quantidade_convidados: 3
+        quantidade_convidados: payload.number_of_people
       };
 
       const response = await fetch(`${API_URL}/api/restaurant-reservations/${reservationId}/add-guest-list`, {
@@ -1093,8 +1093,8 @@ const handleSubmit = async (e: React.FormEvent) => {
           <h3 className="text-pink-800 font-bold text-lg">Aniversário Detectado!</h3>
         </div>
         <p className="text-pink-700 text-sm mb-3">
-          Como você reservou uma mesa para 3 pessoas no HighLine nos dias de funcionamento, 
-          criamos automaticamente uma lista de convidados para você ter direito aos benefícios!
+          Como você reservou uma mesa no HighLine nos dias de funcionamento, 
+          criamos automaticamente uma lista de convidados para você ter direito aos benefícios de aniversário!
         </p>
         <div className="bg-white/70 rounded-lg p-3 text-xs text-pink-600">
           <strong>Benefícios incluídos:</strong> Desconto especial, decoração da mesa, 

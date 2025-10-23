@@ -19,6 +19,57 @@ interface Establishment {
   address: string;
 }
 
+// 🎂 FUNÇÃO PARA DETECTAR E CRIAR LISTA DE CONVIDADOS PARA ANIVERSÁRIOS (ADMIN)
+const detectAndCreateBirthdayGuestList = async (reservationId: number, reservationData: any): Promise<boolean> => {
+  try {
+    // NOVA REGRA: Qualquer reserva de aniversário pode criar lista de convidados
+    // Critérios para reserva de aniversário:
+    // 1. Nos dois dias de funcionamento (sexta ou sábado)
+    // 2. Estabelecimento HighLine (ID 1)
+    // 3. Qualquer quantidade de pessoas (para garantir benefícios)
+    
+    const reservationDate = new Date(`${reservationData.reservation_date}T00:00:00`);
+    const dayOfWeek = reservationDate.getDay(); // Domingo = 0, Sexta = 5, Sábado = 6
+    const isWeekend = dayOfWeek === 5 || dayOfWeek === 6; // Sexta ou Sábado
+    const isHighLine = reservationData.establishment_id === 1;
+    
+    if (isWeekend && isHighLine) {
+      console.log('🎂 [ADMIN] Detectada reserva de aniversário! Criando lista de convidados para benefícios...');
+      
+      const guestListData = {
+        owner_name: reservationData.client_name,
+        reservation_date: reservationData.reservation_date,
+        event_type: 'aniversario',
+        reservation_type: 'restaurant',
+        establishment_id: reservationData.establishment_id,
+        quantidade_convidados: reservationData.number_of_people
+      };
+
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://vamos-comemorar-api.onrender.com';
+      const response = await fetch(`${API_URL}/api/restaurant-reservations/${reservationId}/add-guest-list`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(guestListData),
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        console.log('✅ [ADMIN] Lista de convidados criada automaticamente para aniversário:', result);
+        return true;
+      } else {
+        console.warn('⚠️ [ADMIN] Falha ao criar lista de convidados para aniversário');
+        return false;
+      }
+    }
+    
+    return false;
+  } catch (error) {
+    console.error('❌ [ADMIN] Erro ao criar lista de convidados para aniversário:', error);
+    return false;
+  }
+};
 
 interface WalkIn {
   id: number;
@@ -2388,20 +2439,34 @@ export default function RestaurantReservationsPage() {
                     setReservations(prev => [...prev, result.reservation]);
                     console.log('✅ Reserva salva com sucesso:', result);
                     
+                    // 🎂 NOVA FUNCIONALIDADE: Detectar reserva de aniversário e criar lista automaticamente
+                    const reservationId = result.reservation?.id || result.id;
+                    const isBirthdayReservation = await detectAndCreateBirthdayGuestList(reservationId, reservationData);
+                    
                     // Se foi gerada uma lista de convidados, mostrar o link
-                    if (result.guest_list_link) {
+                    if (result.guest_list_link || isBirthdayReservation) {
                       const copyToClipboard = () => {
                         navigator.clipboard.writeText(result.guest_list_link);
                       };
                       
-                      if (window.confirm(
-                        `✅ Reserva criada com sucesso!\n\n` +
-                        `🎉 Lista de convidados gerada!\n\n` +
-                        `Link: ${result.guest_list_link}\n\n` +
-                        `Clique em OK para copiar o link para a área de transferência.`
-                      )) {
-                        copyToClipboard();
-                        alert('Link copiado! Você pode enviar este link para o cliente.');
+                      const message = isBirthdayReservation 
+                        ? `✅ Reserva criada com sucesso!\n\n` +
+                          `🎂 ANIVERSÁRIO DETECTADO!\n` +
+                          `Lista de convidados criada automaticamente para benefícios de aniversário.\n\n` +
+                          `Link: ${result.guest_list_link || 'Link será gerado'}\n\n` +
+                          `Clique em OK para copiar o link para a área de transferência.`
+                        : `✅ Reserva criada com sucesso!\n\n` +
+                          `🎉 Lista de convidados gerada!\n\n` +
+                          `Link: ${result.guest_list_link}\n\n` +
+                          `Clique em OK para copiar o link para a área de transferência.`;
+                      
+                      if (window.confirm(message)) {
+                        if (result.guest_list_link) {
+                          copyToClipboard();
+                          alert('Link copiado! Você pode enviar este link para o cliente.');
+                        } else if (isBirthdayReservation) {
+                          alert('🎂 Lista de aniversário criada! O link será gerado automaticamente.');
+                        }
                       }
                       
                       // Recarregar lista de convidados
