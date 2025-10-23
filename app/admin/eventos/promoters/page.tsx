@@ -143,6 +143,9 @@ export default function PromotersPage() {
   const [selectedPromoter, setSelectedPromoter] = useState<Promoter | null>(null);
   const [convidadosData, setConvidadosData] = useState<any[]>([]);
   const [convidadosLoading, setConvidadosLoading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [submitSuccess, setSubmitSuccess] = useState<string | null>(null);
   const [formData, setFormData] = useState<PromoterFormData>({
     nome: '',
     apelido: '',
@@ -347,8 +350,21 @@ export default function PromotersPage() {
   };
 
   const handleCreatePromoter = async () => {
+    // Validar campos obrigatórios
+    if (!formData.nome || !formData.email) {
+      setSubmitError('Nome e email são obrigatórios');
+      return;
+    }
+
+    setIsSubmitting(true);
+    setSubmitError(null);
+    setSubmitSuccess(null);
+
     try {
       const token = localStorage.getItem('authToken');
+      
+      console.log('📤 Enviando dados do promoter:', formData);
+      
       const response = await fetch(`${API_URL}/api/v1/promoters`, {
         method: 'POST',
         headers: {
@@ -358,16 +374,33 @@ export default function PromotersPage() {
         body: JSON.stringify(formData),
       });
 
-      if (response.ok) {
-        const data = await response.json();
-        if (data.success) {
+      const data = await response.json();
+      console.log('📥 Resposta da API:', data);
+
+      if (response.ok && data.success) {
+        setSubmitSuccess(
+          `Promoter criado com sucesso! Link: ${data.link_convite || 'Gerado'}`
+        );
+        
+        // Copiar link para clipboard automaticamente
+        if (data.link_convite) {
+          navigator.clipboard.writeText(data.link_convite);
+        }
+        
+        setTimeout(() => {
           setShowCreateModal(false);
           resetForm();
           fetchPromoters();
-        }
+          setSubmitSuccess(null);
+        }, 3000);
+      } else {
+        setSubmitError(data.error || 'Erro ao criar promoter. Tente novamente.');
       }
     } catch (error) {
       console.error('❌ Erro ao criar promoter:', error);
+      setSubmitError('Erro de conexão. Verifique sua internet e tente novamente.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -421,6 +454,9 @@ export default function PromotersPage() {
       pode_selecionar_areas: false
     });
     setSelectedPromoter(null);
+    setSubmitError(null);
+    setSubmitSuccess(null);
+    setIsSubmitting(false);
   };
 
   const openEditModal = (promoter: Promoter) => {
@@ -836,6 +872,41 @@ export default function PromotersPage() {
                 </div>
               )}
 
+              {/* Link de Convite */}
+              {promoter.link_convite && (
+                <div className="mt-4 p-3 bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs text-purple-700 font-medium mb-1">Link da Lista VIP</p>
+                      <p className="text-xs text-purple-600 truncate font-mono">
+                        {promoter.link_convite}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => {
+                          navigator.clipboard.writeText(promoter.link_convite || '');
+                          alert('Link copiado!');
+                        }}
+                        className="p-2 text-purple-600 hover:bg-purple-100 rounded-lg transition-colors"
+                        title="Copiar link"
+                      >
+                        <MdLink size={16} />
+                      </button>
+                      <a
+                        href={promoter.link_convite}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="p-2 text-purple-600 hover:bg-purple-100 rounded-lg transition-colors"
+                        title="Abrir página"
+                      >
+                        <MdVisibility size={16} />
+                      </a>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Actions */}
               <div className="mt-4 pt-4 border-t border-gray-200 flex items-center justify-between">
                 <div className="flex items-center gap-2">
@@ -1200,20 +1271,56 @@ export default function PromotersPage() {
                 </div>
               </div>
 
-              <div className="p-6 border-t border-gray-200 flex items-center justify-end gap-4">
-                <button
-                  onClick={() => setShowCreateModal(false)}
-                  className="px-6 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
-                >
-                  Cancelar
-                </button>
-                <button
-                  onClick={handleCreatePromoter}
-                  className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors flex items-center gap-2"
-                >
-                  <MdSave size={18} />
-                  Criar Promoter
-                </button>
+              <div className="p-6 border-t border-gray-200">
+                {/* Mensagens de Erro e Sucesso */}
+                {submitError && (
+                  <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg flex items-center gap-3">
+                    <MdWarning className="text-red-600" size={24} />
+                    <div>
+                      <p className="text-red-800 font-medium">Erro ao criar promoter</p>
+                      <p className="text-red-600 text-sm">{submitError}</p>
+                    </div>
+                  </div>
+                )}
+                
+                {submitSuccess && (
+                  <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg flex items-center gap-3">
+                    <MdCheckCircle className="text-green-600" size={24} />
+                    <div>
+                      <p className="text-green-800 font-medium">{submitSuccess}</p>
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex items-center justify-end gap-4">
+                  <button
+                    onClick={() => {
+                      setShowCreateModal(false);
+                      resetForm();
+                    }}
+                    disabled={isSubmitting}
+                    className="px-6 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={handleCreatePromoter}
+                    disabled={isSubmitting}
+                    className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isSubmitting ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                        Criando...
+                      </>
+                    ) : (
+                      <>
+                        <MdSave size={18} />
+                        Criar Promoter
+                      </>
+                    )}
+                  </button>
+                </div>
               </div>
             </motion.div>
           </motion.div>
