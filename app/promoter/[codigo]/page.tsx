@@ -518,7 +518,18 @@ export default function PromoterPublicPage() {
                         {evento.nome_do_evento}
                       </h4>
                       <div className="text-xs text-gray-600 space-y-1">
-                        <p>📅 {new Date(evento.data_evento + 'T00:00:00').toLocaleDateString('pt-BR')}</p>
+                        <p>📅 {(() => {
+                          try {
+                            // Adiciona T12:00:00 para evitar problemas de timezone
+                            const dateWithTime = evento.data_evento.includes('T') || evento.data_evento.includes(' ')
+                              ? evento.data_evento
+                              : evento.data_evento + 'T12:00:00';
+                            return new Date(dateWithTime).toLocaleDateString('pt-BR');
+                          } catch (error) {
+                            console.error('Erro ao formatar data:', evento.data_evento, error);
+                            return 'Data inválida';
+                          }
+                        })()}</p>
                         <p>🕐 {evento.hora_do_evento}</p>
                         {evento.establishment_name && (
                           <p>📍 {evento.establishment_name}</p>

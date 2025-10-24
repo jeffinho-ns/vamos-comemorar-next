@@ -177,24 +177,40 @@ export default function DetalhesListaPage() {
     }
   };
 
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('pt-BR', { 
-      day: '2-digit', 
-      month: '2-digit', 
-      year: 'numeric' 
-    });
+  const formatDate = (dateString: string | null) => {
+    if (!dateString) return '';
+    try {
+      // Adiciona T12:00:00 para evitar problemas de timezone
+      const dateWithTime = dateString.includes('T') || dateString.includes(' ') 
+        ? dateString 
+        : dateString + 'T12:00:00';
+      const date = new Date(dateWithTime);
+      return date.toLocaleDateString('pt-BR', { 
+        day: '2-digit', 
+        month: '2-digit', 
+        year: 'numeric' 
+      });
+    } catch (error) {
+      console.error('Erro ao formatar data:', dateString, error);
+      return 'Data inválida';
+    }
   };
 
-  const formatDateTime = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleString('pt-BR', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
+  const formatDateTime = (dateString: string | null) => {
+    if (!dateString) return '';
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleString('pt-BR', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    } catch (error) {
+      console.error('Erro ao formatar data/hora:', dateString, error);
+      return 'Data inválida';
+    }
   };
 
   if (loading) {

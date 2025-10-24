@@ -97,9 +97,18 @@ export default function Home() {
   }, [fetchEvents]);
 
   const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    const options: Intl.DateTimeFormatOptions = { month: 'short', day: '2-digit' };
-    return date.toLocaleDateString('pt-BR', options);
+    try {
+      // Adiciona T12:00:00 para evitar problemas de timezone
+      const dateWithTime = dateString.includes('T') || dateString.includes(' ')
+        ? dateString
+        : dateString + 'T12:00:00';
+      const date = new Date(dateWithTime);
+      const options: Intl.DateTimeFormatOptions = { month: 'short', day: '2-digit' };
+      return date.toLocaleDateString('pt-BR', options);
+    } catch (error) {
+      console.error('Erro ao formatar data:', dateString, error);
+      return 'Data inválida';
+    }
   };
 
   const Card: React.FC<{ event: Event }> = ({ event }) => {

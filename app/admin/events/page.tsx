@@ -94,10 +94,22 @@ export default function Eventos() {
               <div className="flex flex-col md:flex-row md:justify-between items-start md:items-center mb-4">
                 <div className="text-base text-gray-700 mb-3 md:mb-0">
                   <span className="font-bold text-lg text-gray-800">
-                    {new Date(event.data_do_evento + 'T12:00:00').toLocaleDateString("pt-BR", {
-                      day: "2-digit",
-                      month: "2-digit",
-                    })}
+                    {(() => {
+                      try {
+                        // Adiciona T12:00:00 para evitar problemas de timezone
+                        const dateWithTime = event.data_do_evento.includes('T') || event.data_do_evento.includes(' ')
+                          ? event.data_do_evento
+                          : event.data_do_evento + 'T12:00:00';
+                        const date = new Date(dateWithTime);
+                        return date.toLocaleDateString("pt-BR", {
+                          day: "2-digit",
+                          month: "2-digit",
+                        });
+                      } catch (error) {
+                        console.error('Erro ao formatar data:', event.data_do_evento, error);
+                        return 'Data inválida';
+                      }
+                    })()}
                     {" às "}
                     {event.hora_do_evento}
                   </span>{" "}

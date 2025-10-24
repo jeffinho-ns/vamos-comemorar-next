@@ -151,9 +151,20 @@ const openEditModal = (event: EventDataApi) => {
                   events.map((event) => (
                     <tr key={event.id} className="hover:bg-gray-50/50 transition-colors">
                       <td className="px-6 py-4">
-                        {/* LÓGICA CORRIGIDA AQUI */}
+                        {/* LÓGICA CORRIGIDA PARA TIMEZONE */}
                         {event.tipo_evento === 'unico'
-                          ? (event.data_do_evento ? new Date(event.data_do_evento + 'T12:00:00').toLocaleDateString('pt-BR') : 'Data não definida')
+                          ? (() => {
+                              if (!event.data_do_evento) return 'Data não definida';
+                              try {
+                                const dateWithTime = event.data_do_evento.includes('T') || event.data_do_evento.includes(' ')
+                                  ? event.data_do_evento
+                                  : event.data_do_evento + 'T12:00:00';
+                                return new Date(dateWithTime).toLocaleDateString('pt-BR');
+                              } catch (error) {
+                                console.error('Erro ao formatar data:', event.data_do_evento, error);
+                                return 'Data inválida';
+                              }
+                            })()
                           : `Toda ${['Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado'][event.dia_da_semana!]}`
                         }
                       </td>
