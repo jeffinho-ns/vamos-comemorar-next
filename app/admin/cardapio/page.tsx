@@ -103,6 +103,7 @@ interface MenuItem {
   toppings: Topping[];
   order: number;
   seals?: string[]; // IDs dos selos selecionados
+  visible?: number | boolean; // Indica se o item está visível (1 ou true = visível, 0 ou false = oculto)
 }
 
 // **CORREÇÃO**: Interface Bar atualizada para incluir os campos sociais
