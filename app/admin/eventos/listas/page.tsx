@@ -130,6 +130,7 @@ export default function ListasPage() {
       const data = await response.json();
       if (data.success) {
         console.log('📋 Listas carregadas:', data.listas);
+        console.log('📋 Evento:', data.evento);
         setListas(data.listas);
       }
     } catch (error) {
@@ -418,6 +419,12 @@ export default function ListasPage() {
                 <div className="mt-4 pt-4 border-t border-yellow-200">
                   <p className="text-sm text-yellow-700">
                     <strong>Evento ID:</strong> {selectedEventoId} - Use este ID para verificar no banco de dados
+                  </p>
+                  <p className="text-sm text-yellow-700 mt-2">
+                    <strong>Evento:</strong> {selectedEvento?.nome || 'Nome não disponível'}
+                  </p>
+                  <p className="text-sm text-yellow-700">
+                    <strong>Tipo:</strong> {selectedEvento?.tipo_evento === 'semanal' ? 'Semanal' : 'Único'}
                   </p>
                 </div>
               </div>
