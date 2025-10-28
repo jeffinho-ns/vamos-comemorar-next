@@ -11,6 +11,7 @@ import {
   MdPerson,
   MdFactory,
   MdQrCodeScanner,
+  MdCheckCircle,
   MdTableBar,
   MdPlace,
   MdTimer,
@@ -54,12 +55,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         { href: "/admin/reservas", label: "Reservas", icon: MdEditCalendar },
         { href: "/admin/restaurant-reservations", label: "Sistema de Reservas", icon: MdRestaurant },
         { href: "/admin/qrcode", label: "Scanner QR Code", icon: MdQrCodeScanner },
+        { href: "/admin/checkins", label: "Check-ins", icon: MdCheckCircle },
       ];
     } else if (userRole === 'admin') {
       // Administrador pode ver tudo
       return [
         { href: "/admin", label: "Dashboard", icon: MdDashboard },
         { href: "/admin/qrcode", label: "Scanner QR Code", icon: MdQrCodeScanner },
+        { href: "/admin/checkins", label: "Check-ins", icon: MdCheckCircle },
         { href: "/admin/users", label: "Usuários", icon: MdPerson },
         { href: "/admin/eventos", label: "Eventos", icon: MdEvent },
         { href: "/admin/painel-eventos", label: "Painel de Eventos", icon: MdBusiness },
