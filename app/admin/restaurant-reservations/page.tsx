@@ -19,65 +19,6 @@ interface Establishment {
   address: string;
 }
 
-// 🎂 FUNÇÃO PARA DETECTAR E CRIAR LISTA DE CONVIDADOS PARA ANIVERSÁRIOS E RESERVAS GRANDES (ADMIN)
-const detectAndCreateBirthdayGuestList = async (reservationId: number, reservationData: any): Promise<boolean> => {
-  try {
-    // NOVA REGRA: Reservas de aniversário OU reservas grandes criam lista automaticamente
-    // Critérios para reserva de aniversário:
-    // 1. Nos dois dias de funcionamento (sexta ou sábado)
-    // 2. Estabelecimento HighLine (ID 1)
-    // 3. Qualquer quantidade de pessoas (para garantir benefícios)
-    
-    // Critérios para reserva grande:
-    // 1. Acima de 3 pessoas (4+)
-    // 2. Qualquer estabelecimento
-    // 3. Qualquer dia da semana
-    
-    const reservationDate = new Date(`${reservationData.reservation_date}T00:00:00`);
-    const dayOfWeek = reservationDate.getDay(); // Domingo = 0, Sexta = 5, Sábado = 6
-    const isWeekend = dayOfWeek === 5 || dayOfWeek === 6; // Sexta ou Sábado
-    const isHighLine = reservationData.establishment_id === 1;
-    const isLargeGroup = reservationData.number_of_people >= 4;
-    
-    // Criar lista para aniversário (HighLine + fim de semana) OU reserva grande (4+ pessoas)
-    if ((isWeekend && isHighLine) || isLargeGroup) {
-      const eventType = isWeekend && isHighLine ? 'aniversario' : 'despedida';
-      console.log(`🎂 [ADMIN] Detectada ${eventType}! Criando lista de convidados automaticamente...`);
-      
-      const guestListData = {
-        owner_name: reservationData.client_name,
-        reservation_date: reservationData.reservation_date,
-        event_type: eventType,
-        reservation_type: 'restaurant',
-        establishment_id: reservationData.establishment_id,
-        quantidade_convidados: reservationData.number_of_people
-      };
-
-      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://vamos-comemorar-api.onrender.com';
-      const response = await fetch(`${API_URL}/api/restaurant-reservations/${reservationId}/add-guest-list`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(guestListData),
-      });
-
-      if (response.ok) {
-        const result = await response.json();
-        console.log(`✅ [ADMIN] Lista de convidados criada automaticamente para ${eventType}:`, result);
-        return true;
-      } else {
-        console.warn(`⚠️ [ADMIN] Falha ao criar lista de convidados para ${eventType}`);
-        return false;
-      }
-    }
-    
-    return false;
-  } catch (error) {
-    console.error('❌ [ADMIN] Erro ao criar lista de convidados:', error);
-    return false;
-  }
-};
 
 interface WalkIn {
   id: number;
@@ -287,9 +228,6 @@ export default function RestaurantReservationsPage() {
   
   // Estados para check-in
   const [checkInStatus, setCheckInStatus] = useState<Record<number, { ownerCheckedIn: boolean; guestsCheckedIn: number; totalGuests: number }>>({});
-  
-  // Estados para busca de convidados
-  const [guestSearchTerms, setGuestSearchTerms] = useState<Record<number, string>>({});
   
   // Ref para rastrear o último mês carregado e evitar loops
   const lastLoadedMonthRef = useRef<string>('');
@@ -1992,38 +1930,6 @@ export default function RestaurantReservationsPage() {
                           </div>
                         </div>
 
-                        {/* Campo de busca de convidados */}
-                        <div className="px-4 py-3 bg-white border-b">
-                          <div className="relative">
-                            <MdSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
-                            <input
-                              type="text"
-                              placeholder="Buscar convidado por nome ou telefone..."
-                              value={guestSearchTerms[gl.guest_list_id] || ''}
-                              onChange={(e) => {
-                                setGuestSearchTerms(prev => ({
-                                  ...prev,
-                                  [gl.guest_list_id]: e.target.value
-                                }));
-                              }}
-                              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm"
-                            />
-                            {guestSearchTerms[gl.guest_list_id] && (
-                              <button
-                                onClick={() => {
-                                  setGuestSearchTerms(prev => ({
-                                    ...prev,
-                                    [gl.guest_list_id]: ''
-                                  }));
-                                }}
-                                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                              >
-                                <MdClose size={20} />
-                              </button>
-                            )}
-                          </div>
-                        </div>
-
                         <table className="min-w-full divide-y divide-gray-200">
                           <thead className="bg-gray-50">
                             <tr>
@@ -2034,17 +1940,7 @@ export default function RestaurantReservationsPage() {
                             </tr>
                           </thead>
                           <tbody className="bg-white divide-y divide-gray-200">
-                            {(guestsByList[gl.guest_list_id] || [])
-                              .filter((g) => {
-                                const searchTerm = (guestSearchTerms[gl.guest_list_id] || '').toLowerCase().trim();
-                                if (!searchTerm) return true;
-                                
-                                const nameMatch = g.name.toLowerCase().includes(searchTerm);
-                                const phoneMatch = g.whatsapp?.toLowerCase().includes(searchTerm);
-                                
-                                return nameMatch || phoneMatch;
-                              })
-                              .map((g) => (
+                            {(guestsByList[gl.guest_list_id] || []).map((g) => (
                               <tr key={g.id}>
                                 <td className="px-4 py-2 text-sm text-gray-800">{g.name}</td>
                                 <td className="px-4 py-2 text-sm text-gray-600">{g.whatsapp || '-'}</td>
@@ -2492,34 +2388,20 @@ export default function RestaurantReservationsPage() {
                     setReservations(prev => [...prev, result.reservation]);
                     console.log('✅ Reserva salva com sucesso:', result);
                     
-                    // 🎂 NOVA FUNCIONALIDADE: Detectar reserva de aniversário e criar lista automaticamente
-                    const reservationId = result.reservation?.id || result.id;
-                    const isBirthdayReservation = await detectAndCreateBirthdayGuestList(reservationId, reservationData);
-                    
                     // Se foi gerada uma lista de convidados, mostrar o link
-                    if (result.guest_list_link || isBirthdayReservation) {
+                    if (result.guest_list_link) {
                       const copyToClipboard = () => {
                         navigator.clipboard.writeText(result.guest_list_link);
                       };
                       
-                      const message = isBirthdayReservation 
-                        ? `✅ Reserva criada com sucesso!\n\n` +
-                          `🎂 RESERVA ESPECIAL DETECTADA!\n` +
-                          `Lista de convidados criada automaticamente (aniversário ou grupo grande).\n\n` +
-                          `Link: ${result.guest_list_link || 'Link será gerado'}\n\n` +
-                          `Clique em OK para copiar o link para a área de transferência.`
-                        : `✅ Reserva criada com sucesso!\n\n` +
-                          `🎉 Lista de convidados gerada!\n\n` +
-                          `Link: ${result.guest_list_link}\n\n` +
-                          `Clique em OK para copiar o link para a área de transferência.`;
-                      
-                      if (window.confirm(message)) {
-                        if (result.guest_list_link) {
-                          copyToClipboard();
-                          alert('Link copiado! Você pode enviar este link para o cliente.');
-                        } else if (isBirthdayReservation) {
-                          alert('🎂 Lista de aniversário criada! O link será gerado automaticamente.');
-                        }
+                      if (window.confirm(
+                        `✅ Reserva criada com sucesso!\n\n` +
+                        `🎉 Lista de convidados gerada!\n\n` +
+                        `Link: ${result.guest_list_link}\n\n` +
+                        `Clique em OK para copiar o link para a área de transferência.`
+                      )) {
+                        copyToClipboard();
+                        alert('Link copiado! Você pode enviar este link para o cliente.');
                       }
                       
                       // Recarregar lista de convidados
