@@ -288,6 +288,9 @@ export default function RestaurantReservationsPage() {
   // Estados para check-in
   const [checkInStatus, setCheckInStatus] = useState<Record<number, { ownerCheckedIn: boolean; guestsCheckedIn: number; totalGuests: number }>>({});
   
+  // Estados para busca de convidados
+  const [guestSearchTerms, setGuestSearchTerms] = useState<Record<number, string>>({});
+  
   // Ref para rastrear o último mês carregado e evitar loops
   const lastLoadedMonthRef = useRef<string>('');
   const lastLoadedEstablishmentRef = useRef<number | null>(null);
@@ -1989,6 +1992,38 @@ export default function RestaurantReservationsPage() {
                           </div>
                         </div>
 
+                        {/* Campo de busca de convidados */}
+                        <div className="px-4 py-3 bg-white border-b">
+                          <div className="relative">
+                            <MdSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+                            <input
+                              type="text"
+                              placeholder="Buscar convidado por nome ou telefone..."
+                              value={guestSearchTerms[gl.guest_list_id] || ''}
+                              onChange={(e) => {
+                                setGuestSearchTerms(prev => ({
+                                  ...prev,
+                                  [gl.guest_list_id]: e.target.value
+                                }));
+                              }}
+                              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm"
+                            />
+                            {guestSearchTerms[gl.guest_list_id] && (
+                              <button
+                                onClick={() => {
+                                  setGuestSearchTerms(prev => ({
+                                    ...prev,
+                                    [gl.guest_list_id]: ''
+                                  }));
+                                }}
+                                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                              >
+                                <MdClose size={20} />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+
                         <table className="min-w-full divide-y divide-gray-200">
                           <thead className="bg-gray-50">
                             <tr>
@@ -1999,7 +2034,17 @@ export default function RestaurantReservationsPage() {
                             </tr>
                           </thead>
                           <tbody className="bg-white divide-y divide-gray-200">
-                            {(guestsByList[gl.guest_list_id] || []).map((g) => (
+                            {(guestsByList[gl.guest_list_id] || [])
+                              .filter((g) => {
+                                const searchTerm = (guestSearchTerms[gl.guest_list_id] || '').toLowerCase().trim();
+                                if (!searchTerm) return true;
+                                
+                                const nameMatch = g.name.toLowerCase().includes(searchTerm);
+                                const phoneMatch = g.whatsapp?.toLowerCase().includes(searchTerm);
+                                
+                                return nameMatch || phoneMatch;
+                              })
+                              .map((g) => (
                               <tr key={g.id}>
                                 <td className="px-4 py-2 text-sm text-gray-800">{g.name}</td>
                                 <td className="px-4 py-2 text-sm text-gray-600">{g.whatsapp || '-'}</td>

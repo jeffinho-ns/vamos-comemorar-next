@@ -195,3 +195,5 @@ E também:
 
 Se seguiu todos os passos e a lista de teste apareceu, então o sistema está funcionando. O problema original era que não havia listas criadas para aquele evento específico.
 
+
+

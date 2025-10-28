@@ -188,3 +188,5 @@ Execute o script de migração e as listas aparecerão imediatamente!
 **Evento analisado:** ID 27 (Xeque Mate)  
 **Promoter analisado:** ID 20 (Jefferson Lima)
 
+
+

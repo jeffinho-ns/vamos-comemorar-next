@@ -348,3 +348,5 @@ DELETE /api/cardapio/items/:id
 **Próximo Passo:** Adicionar UI no frontend conforme código acima  
 **Tempo Estimado:** ~30 minutos
 
+
+

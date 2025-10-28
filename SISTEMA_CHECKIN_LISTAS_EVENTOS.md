@@ -195,3 +195,5 @@ O sistema de check-in para listas de eventos está completo e funcional, proporc
 **Versão**: 1.0.0
 **Status**: ✅ Completo e Testado
 
+
+

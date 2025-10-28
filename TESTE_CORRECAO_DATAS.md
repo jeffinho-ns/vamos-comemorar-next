@@ -219,3 +219,5 @@ Se alguma página ainda mostrar **23/10** ou **"Invalid Date"**, me avise indica
 **Evento de referência:** ID 27 (Xeque Mate - High Line)  
 **Data correta:** 24/10/2025 às 17:00
 
+
+

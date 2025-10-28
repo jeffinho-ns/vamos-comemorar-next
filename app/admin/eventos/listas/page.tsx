@@ -129,8 +129,8 @@ export default function ListasPage() {
 
       const data = await response.json();
       if (data.success) {
-        console.log('📋 Listas carregadas:', data.listas);
-        console.log('📋 Evento:', data.evento);
+        console.log('📋 Listas carregadas:', data.listas.length, 'lista(s)');
+        console.log('📋 Evento:', data.evento?.nome);
         setListas(data.listas);
       }
     } catch (error) {

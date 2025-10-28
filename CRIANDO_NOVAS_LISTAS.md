@@ -209,3 +209,5 @@ Depois acesse `/admin/eventos/listas?evento_id=27` e veja as 2 listas! 🎉
 
 O sistema está funcionando perfeitamente. Era só uma questão de migrar os dados antigos.
 
+
+

@@ -282,3 +282,5 @@ WHERE usado_para_listas = TRUE;
 **Data de Criação:** Outubro 2025  
 **Status:** ✅ Ativo e Atualizado
 
+
+
