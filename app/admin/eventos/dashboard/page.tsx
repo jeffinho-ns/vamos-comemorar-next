@@ -621,12 +621,19 @@ export default function EventosDashboard() {
                       </p>
                     </div>
                   )}
-                  <div className="pt-4">
+                  <div className="pt-4 flex gap-3">
                     <button
                       onClick={() => router.push(`/admin/eventos/listas?evento_id=${dashboardData.proximoEvento?.evento_id}`)}
                       className="px-6 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg transition-colors"
                     >
                       Ver Listas do Evento
+                    </button>
+                    <button
+                      onClick={() => router.push(`/admin/eventos/${dashboardData.proximoEvento?.evento_id}/check-ins`)}
+                      className="px-6 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors flex items-center gap-2"
+                    >
+                      <MdCheckCircle size={20} />
+                      Check-ins
                     </button>
                   </div>
                 </div>
@@ -674,6 +681,13 @@ export default function EventosDashboard() {
                           className="flex-1 px-3 py-2 bg-purple-500 hover:bg-purple-600 text-white rounded-lg text-sm transition-colors"
                         >
                           Ver Listas
+                        </button>
+                        <button
+                          onClick={() => router.push(`/admin/eventos/${evento.evento_id}/check-ins`)}
+                          className="px-3 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg text-sm transition-colors flex items-center gap-1"
+                          title="Check-ins do Evento"
+                        >
+                          <MdCheckCircle size={16} />
                         </button>
                         <button
                           onClick={() => handleOpenPromoterModal(evento)}
@@ -725,6 +739,13 @@ export default function EventosDashboard() {
                           className="flex-1 px-3 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-sm transition-colors"
                         >
                           Ver Listas
+                        </button>
+                        <button
+                          onClick={() => router.push(`/admin/eventos/${evento.evento_id}/check-ins`)}
+                          className="px-3 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg text-sm transition-colors flex items-center gap-1"
+                          title="Check-ins do Evento"
+                        >
+                          <MdCheckCircle size={16} />
                         </button>
                         <button
                           onClick={() => handleOpenPromoterModal(evento)}
