@@ -101,10 +101,71 @@ interface Camarote {
   convidados_checkin: number;
 }
 
+interface ReservaRestaurante {
+  id: number;
+  tipo: string;
+  responsavel: string;
+  origem: string;
+  reservation_date: string;
+  reservation_time: string;
+  number_of_people: number;
+  checked_in: boolean;
+  checkin_time?: string;
+  total_convidados: number;
+  convidados_checkin: number;
+}
+
+interface ConvidadoReservaRestaurante {
+  id: number;
+  tipo: string;
+  nome: string;
+  telefone?: string;
+  data_nascimento?: string;
+  status_checkin: number | boolean;
+  data_checkin?: string;
+  responsavel: string;
+  origem: string;
+  reserva_id: number;
+}
+
+interface GuestListRestaurante {
+  guest_list_id: number;
+  reservation_type: string;
+  event_type?: string;
+  shareable_link_token: string;
+  expires_at: string;
+  owner_checked_in: number;
+  owner_checkin_time?: string;
+  is_valid: number;
+  owner_name: string;
+  reservation_id: number;
+  reservation_date: string;
+  reservation_time: string;
+  number_of_people: number;
+  origin: string;
+  reservation_checked_in: number;
+  reservation_checkin_time?: string;
+  created_by_name: string;
+  total_guests: number;
+  guests_checked_in: number;
+}
+
+interface GuestItem {
+  id: number;
+  name: string;
+  whatsapp?: string;
+  checked_in: number | boolean;
+  checkin_time?: string;
+  created_at?: string;
+}
+
 interface Estatisticas {
   totalReservasMesa: number;
   totalConvidadosReservas: number;
   checkinConvidadosReservas: number;
+  totalReservasRestaurante: number;
+  totalConvidadosReservasRestaurante: number;
+  checkinConvidadosReservasRestaurante: number;
   totalPromoters: number;
   totalConvidadosPromoters: number;
   checkinConvidadosPromoters: number;
@@ -128,6 +189,12 @@ export default function EventoCheckInsPage() {
   const [evento, setEvento] = useState<EventoInfo | null>(null);
   const [reservasMesa, setReservasMesa] = useState<ReservaMesa[]>([]);
   const [convidadosReservas, setConvidadosReservas] = useState<ConvidadoReserva[]>([]);
+  const [reservasRestaurante, setReservasRestaurante] = useState<ReservaRestaurante[]>([]);
+  const [convidadosReservasRestaurante, setConvidadosReservasRestaurante] = useState<ConvidadoReservaRestaurante[]>([]);
+  const [guestListsRestaurante, setGuestListsRestaurante] = useState<GuestListRestaurante[]>([]);
+  const [expandedGuestListId, setExpandedGuestListId] = useState<number | null>(null);
+  const [guestsByList, setGuestsByList] = useState<Record<number, GuestItem[]>>({});
+  const [checkInStatus, setCheckInStatus] = useState<Record<number, { ownerCheckedIn: boolean; guestsCheckedIn: number; totalGuests: number }>>({});
   const [promoters, setPromoters] = useState<Promoter[]>([]);
   const [convidadosPromoters, setConvidadosPromoters] = useState<ConvidadoPromoter[]>([]);
   const [camarotes, setCamarotes] = useState<Camarote[]>([]);
@@ -135,6 +202,9 @@ export default function EventoCheckInsPage() {
     totalReservasMesa: 0,
     totalConvidadosReservas: 0,
     checkinConvidadosReservas: 0,
+    totalReservasRestaurante: 0,
+    totalConvidadosReservasRestaurante: 0,
+    checkinConvidadosReservasRestaurante: 0,
     totalPromoters: 0,
     totalConvidadosPromoters: 0,
     checkinConvidadosPromoters: 0,
@@ -162,6 +232,9 @@ export default function EventoCheckInsPage() {
         setEvento(data.evento);
         setReservasMesa(data.dados.reservasMesa || []);
         setConvidadosReservas(data.dados.convidadosReservas || []);
+        setReservasRestaurante(data.dados.reservasRestaurante || []);
+        setConvidadosReservasRestaurante(data.dados.convidadosReservasRestaurante || []);
+        setGuestListsRestaurante(data.dados.guestListsRestaurante || []);
         setPromoters(data.dados.promoters || []);
         setConvidadosPromoters(data.dados.convidadosPromoters || []);
         setCamarotes(data.dados.camarotes || []);
@@ -258,6 +331,115 @@ export default function EventoCheckInsPage() {
     }
   };
 
+  const handleReservaRestauranteCheckIn = async (reserva: ReservaRestaurante) => {
+    try {
+      const token = localStorage.getItem('authToken');
+      const response = await fetch(`${API_URL}/api/restaurant-reservations/${reserva.id}/checkin`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        }
+      });
+
+      if (response.ok) {
+        alert(`✅ Check-in de ${reserva.responsavel} confirmado!`);
+        loadCheckInData();
+      } else {
+        alert('❌ Erro ao fazer check-in');
+      }
+    } catch (error) {
+      console.error('Erro:', error);
+      alert('❌ Erro ao fazer check-in');
+    }
+  };
+
+  const handleConvidadoReservaRestauranteCheckIn = async (convidado: ConvidadoReservaRestaurante) => {
+    try {
+      const token = localStorage.getItem('authToken');
+      const response = await fetch(`${API_URL}/api/admin/guest-lists/guests/${convidado.id}/checkin`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ checked_in: true })
+      });
+
+      if (response.ok) {
+        alert(`✅ Check-in de ${convidado.nome} confirmado!`);
+        loadCheckInData();
+      } else {
+        alert('❌ Erro ao fazer check-in');
+      }
+    } catch (error) {
+      console.error('Erro:', error);
+      alert('❌ Erro ao fazer check-in');
+    }
+  };
+
+  // Funções para guest lists (replicando Sistema de Reservas)
+  const handleOwnerCheckIn = async (guestListId: number, ownerName: string) => {
+    try {
+      const token = localStorage.getItem('authToken');
+      const response = await fetch(`${API_URL}/api/admin/guest-lists/${guestListId}/owner-checkin`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+
+      if (response.ok) {
+        setCheckInStatus(prev => ({
+          ...prev,
+          [guestListId]: { ...prev[guestListId], ownerCheckedIn: true }
+        }));
+        alert(`✅ Check-in de ${ownerName} confirmado!`);
+        loadCheckInData();
+      } else {
+        alert('❌ Erro ao fazer check-in do dono');
+      }
+    } catch (error) {
+      console.error('Erro:', error);
+      alert('❌ Erro ao fazer check-in do dono');
+    }
+  };
+
+  const handleGuestCheckIn = async (guestListId: number, guestId: number, guestName: string) => {
+    try {
+      const token = localStorage.getItem('authToken');
+      const response = await fetch(`${API_URL}/api/admin/guest-lists/guests/${guestId}/checkin`, {
+        method: 'PUT',
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ checked_in: true })
+      });
+
+      if (response.ok) {
+        setGuestsByList(prev => ({
+          ...prev,
+          [guestListId]: (prev[guestListId] || []).map(g => 
+            g.id === guestId ? { ...g, checked_in: true } : g
+          )
+        }));
+        setCheckInStatus(prev => ({
+          ...prev,
+          [guestListId]: {
+            ...prev[guestListId],
+            guestsCheckedIn: (prev[guestListId]?.guestsCheckedIn || 0) + 1
+          }
+        }));
+        alert(`✅ Check-in de ${guestName} confirmado!`);
+        loadCheckInData();
+      } else {
+        alert('❌ Erro ao fazer check-in');
+      }
+    } catch (error) {
+      console.error('Erro:', error);
+      alert('❌ Erro ao fazer check-in');
+    }
+  };
+
   // Filtrar por busca
   const filterBySearch = (text: string) => {
     if (!searchTerm.trim()) return true;
@@ -284,6 +466,19 @@ export default function EventoCheckInsPage() {
     filterBySearch(c.origem)
   );
 
+  const filteredReservasRestaurante = reservasRestaurante.filter(r => 
+    filterBySearch(r.responsavel) || 
+    filterBySearch(r.origem)
+  );
+
+  const filteredConvidadosReservasRestaurante = convidadosReservasRestaurante.filter(c => 
+    filterBySearch(c.nome) || 
+    filterBySearch(c.telefone || '') || 
+    filterBySearch(c.responsavel) ||
+    filterBySearch(c.origem) ||
+    filterBySearch(c.data_nascimento || '')
+  );
+
   const filteredPromoters = promoters.filter(p => 
     filterBySearch(p.nome) || 
     filterBySearch(p.email || '') ||
@@ -291,7 +486,7 @@ export default function EventoCheckInsPage() {
   );
 
   return (
-    <WithPermission allowedRoles={["admin", "gerente", "hostess"]}>
+    <WithPermission allowedRoles={["admin", "gerente", "hostess", "promoter"]}>
       <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
         {/* Header */}
         <div className="bg-gradient-to-r from-green-600 to-green-700 text-white p-6 shadow-lg">
@@ -514,6 +709,197 @@ export default function EventoCheckInsPage() {
                         Nenhum convidado de reserva encontrado
                       </div>
                     )}
+                  </div>
+                </section>
+              )}
+
+              {/* Guest Lists de Reservas de Restaurante (Sistema de Reservas) */}
+              {(selectedTab === 'todos' || selectedTab === 'reservas') && guestListsRestaurante.length > 0 && (
+                <section className="bg-white/10 backdrop-blur-sm rounded-lg shadow-sm p-6 border border-white/20">
+                  <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+                    <MdRestaurant size={24} className="text-green-400" />
+                    Lista de Convidados - Reservas de Restaurante ({guestListsRestaurante.length})
+                  </h2>
+                  
+                  <div className="space-y-3">
+                    {guestListsRestaurante
+                      .filter(gl => filterBySearch(gl.owner_name) || filterBySearch(gl.origin))
+                      .map((gl) => {
+                        const listUrl = `https://agilizaiapp.com.br/lista/${gl.shareable_link_token}`;
+                        
+                        return (
+                          <div key={gl.guest_list_id} className="border rounded-lg border-white/20 bg-white/5">
+                            <div
+                              onClick={async () => {
+                                setExpandedGuestListId(expandedGuestListId === gl.guest_list_id ? null : gl.guest_list_id);
+                                if (!guestsByList[gl.guest_list_id]) {
+                                  try {
+                                    const token = localStorage.getItem('authToken');
+                                    
+                                    // Carregar convidados
+                                    const guestsRes = await fetch(`${API_URL}/api/admin/guest-lists/${gl.guest_list_id}/guests`, { 
+                                      headers: { Authorization: `Bearer ${token}` } 
+                                    });
+                                    
+                                    let guestsData: { guests: GuestItem[] } | null = null;
+                                    if (guestsRes.ok) {
+                                      guestsData = await guestsRes.json();
+                                      setGuestsByList(prev => ({ ...prev, [gl.guest_list_id]: guestsData?.guests || [] }));
+                                    }
+
+                                    // Carregar status de check-in
+                                    const checkinRes = await fetch(`${API_URL}/api/admin/guest-lists/${gl.guest_list_id}/checkin-status`, { 
+                                      headers: { Authorization: `Bearer ${token}` } 
+                                    });
+                                    
+                                    if (checkinRes.ok) {
+                                      const checkinData = await checkinRes.json();
+                                      setCheckInStatus(prev => ({
+                                        ...prev,
+                                        [gl.guest_list_id]: {
+                                          ownerCheckedIn: checkinData.checkin_status.owner_checked_in,
+                                          guestsCheckedIn: checkinData.checkin_status.guests_checked_in,
+                                          totalGuests: checkinData.checkin_status.total_guests
+                                        }
+                                      }));
+                                    } else {
+                                      const guestsCheckedIn = guestsData ? guestsData.guests.filter(g => g.checked_in).length : 0;
+                                      setCheckInStatus(prev => ({
+                                        ...prev,
+                                        [gl.guest_list_id]: {
+                                          ownerCheckedIn: gl.owner_checked_in === 1,
+                                          guestsCheckedIn: guestsCheckedIn,
+                                          totalGuests: guestsData ? guestsData.guests.length : 0
+                                        }
+                                      }));
+                                    }
+                                  } catch (e) { console.error(e); }
+                                }
+                              }}
+                              className="w-full text-left px-4 py-3 bg-white/5 hover:bg-white/10 flex items-center justify-between cursor-pointer"
+                            >
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2">
+                                  <span className="font-semibold text-white">{gl.owner_name}</span>
+                                  <span className={`text-xs px-2 py-0.5 rounded-full ${
+                                    gl.reservation_type === 'large' 
+                                      ? 'bg-orange-100 text-orange-700' 
+                                      : 'bg-blue-100 text-blue-700'
+                                  }`}>
+                                    Reserva Normal
+                                  </span>
+                                </div>
+                                <div className="text-sm text-gray-300 mt-1">
+                                  {gl.reservation_date ? new Date(gl.reservation_date + 'T12:00:00').toLocaleDateString('pt-BR') : 'Data não informada'} 
+                                  {gl.event_type ? ` • ${gl.event_type}` : ''} • {gl.reservation_time}
+                                </div>
+                                <div className="text-xs text-gray-400 mt-1">
+                                  Criado por: {gl.created_by_name}
+                                </div>
+                                
+                                {/* Check-in do dono */}
+                                <div className="mt-2 flex items-center gap-2">
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleOwnerCheckIn(gl.guest_list_id, gl.owner_name);
+                                    }}
+                                    className={`px-3 py-1 text-xs rounded-full transition-colors font-medium ${
+                                      checkInStatus[gl.guest_list_id]?.ownerCheckedIn || gl.owner_checked_in === 1
+                                        ? 'bg-green-100 text-green-700 border border-green-300'
+                                        : 'bg-blue-100 text-blue-700 hover:bg-blue-200 border border-blue-300'
+                                    }`}
+                                  >
+                                    {checkInStatus[gl.guest_list_id]?.ownerCheckedIn || gl.owner_checked_in === 1 ? '✅ Dono Presente' : '📋 Check-in Dono'}
+                                  </button>
+                                </div>
+                              </div>
+                              <span className={`text-xs px-2 py-1 rounded ${gl.is_valid === 1 ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>
+                                {gl.is_valid === 1 ? 'Ativo' : 'Expirado'}
+                              </span>
+                            </div>
+
+                            {expandedGuestListId === gl.guest_list_id && (
+                              <div className="p-4 space-y-3 bg-white/5">
+                                {/* Resumo de presença */}
+                                <div className="bg-white/10 rounded-lg p-3">
+                                  <div className="flex items-center justify-between text-sm">
+                                    <span className="text-gray-300">Resumo de Presença:</span>
+                                    <div className="flex gap-4">
+                                      <span className={`px-2 py-1 rounded-full text-xs ${
+                                        checkInStatus[gl.guest_list_id]?.ownerCheckedIn || gl.owner_checked_in === 1
+                                          ? 'bg-green-100 text-green-700'
+                                          : 'bg-gray-100 text-gray-600'
+                                      }`}>
+                                        Dono: {(checkInStatus[gl.guest_list_id]?.ownerCheckedIn || gl.owner_checked_in === 1) ? '✅ Presente' : '⏳ Aguardando'}
+                                      </span>
+                                      <span className="px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-700">
+                                        Convidados: {checkInStatus[gl.guest_list_id]?.guestsCheckedIn || 0} / {(guestsByList[gl.guest_list_id] || []).length || gl.total_guests}
+                                      </span>
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {/* Lista de convidados */}
+                                <div className="border rounded border-white/20 bg-white/5">
+                                  <table className="min-w-full divide-y divide-white/20">
+                                    <thead className="bg-white/10">
+                                      <tr>
+                                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Nome</th>
+                                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">WhatsApp</th>
+                                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Status</th>
+                                        <th className="px-4 py-2 text-right text-xs font-medium text-gray-300 uppercase tracking-wider">Ação</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody className="bg-white/5 divide-y divide-white/10">
+                                      {(guestsByList[gl.guest_list_id] || []).map((g) => {
+                                        const isCheckedIn = g.checked_in === 1 || g.checked_in === true;
+                                        return (
+                                          <tr key={g.id} className="hover:bg-white/10">
+                                            <td className="px-4 py-2 text-sm text-white">{g.name}</td>
+                                            <td className="px-4 py-2 text-sm text-gray-300">{g.whatsapp || '-'}</td>
+                                            <td className="px-4 py-2 text-sm">
+                                              <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                                isCheckedIn
+                                                  ? 'bg-green-100 text-green-700 border border-green-300'
+                                                  : 'bg-gray-100 text-gray-600 border border-gray-300'
+                                              }`}>
+                                                {isCheckedIn ? '✅ Presente' : '⏳ Aguardando'}
+                                              </span>
+                                            </td>
+                                            <td className="px-4 py-2 text-right">
+                                              {!isCheckedIn && (
+                                                <button
+                                                  type="button"
+                                                  onClick={(e) => {
+                                                    e.preventDefault();
+                                                    e.stopPropagation();
+                                                    handleGuestCheckIn(gl.guest_list_id, g.id, g.name);
+                                                  }}
+                                                  className="px-3 py-1 text-xs bg-green-600 hover:bg-green-700 text-white rounded border border-green-300"
+                                                >
+                                                  📋 Check-in
+                                                </button>
+                                              )}
+                                            </td>
+                                          </tr>
+                                        );
+                                      })}
+                                      {(!guestsByList[gl.guest_list_id] || guestsByList[gl.guest_list_id].length === 0) && (
+                                        <tr>
+                                          <td className="px-4 py-4 text-sm text-gray-400 text-center" colSpan={4}>
+                                            Nenhum convidado cadastrado nesta lista.
+                                          </td>
+                                        </tr>
+                                      )}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
                   </div>
                 </section>
               )}
