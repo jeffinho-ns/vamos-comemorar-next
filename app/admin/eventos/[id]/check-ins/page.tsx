@@ -383,13 +383,12 @@ export default function EventoCheckInsPage() {
   const handleConvidadoReservaRestauranteCheckIn = async (convidado: ConvidadoReservaRestaurante) => {
     try {
       const token = localStorage.getItem('authToken');
-      const response = await fetch(`${API_URL}/api/admin/guest-lists/guests/${convidado.id}/checkin`, {
-        method: 'PUT',
+      const response = await fetch(`${API_URL}/api/admin/guests/${convidado.id}/checkin`, {
+        method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ checked_in: true })
+        }
       });
 
       if (response.ok) {
@@ -432,13 +431,12 @@ export default function EventoCheckInsPage() {
   const handleGuestCheckIn = async (guestListId: number, guestId: number, guestName: string) => {
     try {
       const token = localStorage.getItem('authToken');
-      const response = await fetch(`${API_URL}/api/admin/guest-lists/guests/${guestId}/checkin`, {
-        method: 'PUT',
+      const response = await fetch(`${API_URL}/api/admin/guests/${guestId}/checkin`, {
+        method: 'POST',
         headers: { 
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ checked_in: true })
+        }
       });
 
       if (response.ok) {
