@@ -33,6 +33,7 @@ interface EventoLista {
   tipo_evento: 'unico' | 'semanal';
   establishment_id: number;
   establishment_name: string;
+  horario_funcionamento?: string | null;
 }
 
 export default function CheckInsGeralPage() {
@@ -44,49 +45,109 @@ export default function CheckInsGeralPage() {
   const [eventos, setEventos] = useState<EventoLista[]>([]);
   const [estabelecimentoSelecionado, setEstabelecimentoSelecionado] = useState<number | null>(null);
 
-  // Buscar eventos e montar lista de estabelecimentos
-  const carregarEventos = useCallback(async () => {
+  // Normalizador de nomes para deduplicação (remove acentos, espaços extras e corrige typos conhecidos)
+  const normalize = (name: string): string => {
+    if (!name) return '';
+    const fixed = name.replace(/Jutino/gi, 'Justino');
+    return fixed
+      .normalize('NFD')
+      .replace(/\p{Diacritic}/gu, '')
+      .toLowerCase()
+      .replace(/\s+/g, ' ')
+      .trim();
+  };
+
+  // Carrega eventos e estabelece a lista de estabelecimentos com prioridade do id dos eventos
+  const carregarTudo = useCallback(async () => {
     setLoading(true);
     try {
       const token = localStorage.getItem('authToken');
-      const res = await fetch(`${API_URL}/api/v1/eventos`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (!res.ok) throw new Error('Falha ao buscar eventos');
-      const data = await res.json();
-      const listaEventos: EventoLista[] = (data.eventos || []).map((e: any) => ({
+      const headers = { Authorization: `Bearer ${token}` } as any;
+
+      // Busca eventos primeiro
+      const evRes = await fetch(`${API_URL}/api/v1/eventos`, { headers });
+      if (!evRes.ok) throw new Error('Falha ao buscar eventos');
+      const evData = await evRes.json();
+      const listaEventos: EventoLista[] = (evData.eventos || []).map((e: any) => ({
         evento_id: e.evento_id,
         nome: e.nome,
         data_evento: e.data_evento || null,
         dia_da_semana: e.dia_da_semana ?? null,
         tipo_evento: e.tipo_evento,
         establishment_id: e.establishment_id,
-        establishment_name: e.establishment_name || e.casa_do_evento || 'Estabelecimento'
+        establishment_name: e.establishment_name || e.casa_do_evento || 'Estabelecimento',
+        horario_funcionamento: e.horario_funcionamento || e.hora_do_evento || null
       }));
       setEventos(listaEventos);
-      const uniq = new Map<number, string>();
+
+      // Monta mapa nome->id (dos eventos) para garantir que seleção use o id correto
+      const eventoNomeToId = new Map<string, number>();
       for (const ev of listaEventos) {
-        if (!uniq.has(ev.establishment_id)) uniq.set(ev.establishment_id, ev.establishment_name);
+        const key = normalize(ev.establishment_name);
+        if (!eventoNomeToId.has(key)) eventoNomeToId.set(key, ev.establishment_id);
       }
-      setEstabelecimentos(Array.from(uniq.entries()).map(([id, nome]) => ({ id, nome })));
+
+      // Busca estabelecimentos de ambas as fontes
+      const [barsRes, placesRes] = await Promise.all([
+        fetch(`${API_URL}/api/bars`, { headers }),
+        fetch(`${API_URL}/api/places`, { headers })
+      ]);
+
+      let bars: any[] = [];
+      if (barsRes.ok) {
+        const barsData = await barsRes.json();
+        if (Array.isArray(barsData)) bars = barsData;
+      }
+
+      let places: any[] = [];
+      if (placesRes.ok) {
+        const placesData = await placesRes.json();
+        if (Array.isArray(placesData)) places = placesData;
+        else if (placesData?.data && Array.isArray(placesData.data)) places = placesData.data;
+      }
+
+      const merged = new Map<string, { id: number; nome: string }>();
+      const addItem = (id: number, nome: string) => {
+        const key = normalize(nome);
+        if (!key) return;
+        const eventId = eventoNomeToId.get(key);
+        const finalId = eventId ?? id;
+        if (!merged.has(key)) merged.set(key, { id: Number(finalId), nome: nome.replace(/Jutino/gi, 'Justino') });
+      };
+
+      bars.forEach(b => addItem(Number(b.id), b.name));
+      places.forEach(p => addItem(Number(p.id), p.name));
+
+      // Ordena
+      const lista = Array.from(merged.values()).sort((a, b) => a.nome.localeCompare(b.nome));
+      setEstabelecimentos(lista);
     } catch (err) {
-      console.error('Erro ao carregar eventos:', err);
+      console.error('Erro ao carregar dados:', err);
     } finally {
       setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    carregarEventos();
-  }, [carregarEventos]);
+    carregarTudo();
+  }, [carregarTudo]);
 
-  const eventosDoEstabelecimento = eventos.filter(e => estabelecimentoSelecionado ? e.establishment_id === estabelecimentoSelecionado : false);
+  // Seleção robusta: por id OU por nome normalizado (cobre casos com id_place incorreto/NULL)
+  const selectedEstablishmentName = estabelecimentoSelecionado
+    ? (estabelecimentos.find(est => est.id === estabelecimentoSelecionado)?.nome || '')
+    : '';
+  const eventosDoEstabelecimento = eventos.filter(e => {
+    if (!estabelecimentoSelecionado) return false;
+    const idMatch = e.establishment_id === estabelecimentoSelecionado;
+    const nameMatch = normalize(e.establishment_name) === normalize(selectedEstablishmentName);
+    return idMatch || nameMatch;
+  });
 
   const gruposPorDia = (() => {
     const grupos: { [chave: string]: EventoLista[] } = {};
     for (const ev of eventosDoEstabelecimento) {
       const chave = ev.tipo_evento === 'unico'
-        ? new Date(ev.data_evento as string).toLocaleDateString('pt-BR')
+        ? new Date(`${ev.data_evento as string}T12:00:00`).toLocaleDateString('pt-BR')
         : `Semanal - ${['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'][Number(ev.dia_da_semana ?? 0)]}`;
       if (!grupos[chave]) grupos[chave] = [];
       grupos[chave].push(ev);
@@ -95,7 +156,7 @@ export default function CheckInsGeralPage() {
     Object.keys(grupos).forEach(k => {
       grupos[k].sort((a, b) => {
         if (a.tipo_evento === 'unico' && b.tipo_evento === 'unico') {
-          return new Date(a.data_evento as string).getTime() - new Date(b.data_evento as string).getTime();
+          return new Date(`${a.data_evento as string}T12:00:00`).getTime() - new Date(`${b.data_evento as string}T12:00:00`).getTime();
         }
         return (Number(a.dia_da_semana ?? 0)) - (Number(b.dia_da_semana ?? 0));
       });
@@ -145,7 +206,7 @@ export default function CheckInsGeralPage() {
                 </select>
               </div>
               <button
-                onClick={carregarEventos}
+                onClick={carregarTudo}
                 disabled={loading}
                 className="flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-50 font-semibold"
               >
@@ -191,7 +252,9 @@ export default function CheckInsGeralPage() {
                         <div className="flex items-center justify-between">
                           <div className="text-white font-medium">{ev.nome}</div>
                           <div className="text-sm text-gray-400">
-                            {ev.tipo_evento === 'unico' ? new Date(ev.data_evento as string).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : 'Evento semanal'}
+                            {ev.tipo_evento === 'unico' 
+                              ? `${new Date(`${ev.data_evento as string}T12:00:00`).toLocaleDateString('pt-BR')} ${ev.horario_funcionamento ? `• ${ev.horario_funcionamento}` : ''}`
+                              : 'Evento semanal'}
                           </div>
                         </div>
                       </button>
