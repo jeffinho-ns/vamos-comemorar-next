@@ -14,7 +14,8 @@ import {
   MdTableBar,
   MdNote,
   MdSave,
-  MdCancel
+  MdCancel,
+  MdEvent
 } from 'react-icons/md';
 import { FaWhatsapp } from 'react-icons/fa'; // <-- 1. IMPORTAÇÃO ADICIONADA
 
@@ -93,6 +94,10 @@ export default function ReservationModal({
   
   // NOVO: Estado para tipo de evento (para reservas grandes)
   const [eventType, setEventType] = useState<'aniversario' | 'despedida' | ''>('');
+  
+  // Estados para vinculação de evento
+  const [eventosDisponiveis, setEventosDisponiveis] = useState<any[]>([]);
+  const [eventoSelecionado, setEventoSelecionado] = useState<string>('');
 
   const highlineSubareas = [
     { key: 'deck-frente', area_id: 2, label: 'Área Deck - Frente', tableNumbers: ['05','06','07','08'] },
@@ -224,6 +229,33 @@ export default function ReservationModal({
     loadTables();
   }, [formData.area_id, formData.reservation_date, selectedSubareaKey, isHighline]);
 
+  // Buscar eventos disponíveis para a data selecionada
+  useEffect(() => {
+    const loadEventos = async () => {
+      if (!establishment?.id || !formData.reservation_date) {
+        setEventosDisponiveis([]);
+        return;
+      }
+      try {
+        const token = localStorage.getItem('authToken');
+        const res = await fetch(
+          `${API_URL}/api/v1/eventos?establishment_id=${establishment.id}&data_evento=${formData.reservation_date}&tipo_evento=unico`,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        if (res.ok) {
+          const data = await res.json();
+          setEventosDisponiveis(data.eventos || []);
+        } else {
+          setEventosDisponiveis([]);
+        }
+      } catch (e) {
+        console.error('Erro ao carregar eventos:', e);
+        setEventosDisponiveis([]);
+      }
+    };
+    loadEventos();
+  }, [establishment?.id, formData.reservation_date]);
+
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
     // 18+
@@ -281,6 +313,7 @@ export default function ReservationModal({
       establishment_id: establishment?.id,
       send_email: sendEmailConfirmation,
       send_whatsapp: sendWhatsAppConfirmation,
+      evento_id: eventoSelecionado || undefined, // Adicionar vinculação de evento
     };
 
     // Adicionar event_type automaticamente baseado nos critérios
@@ -673,6 +706,31 @@ export default function ReservationModal({
                   </select>
                 </div>
               </div>
+              
+              {/* Vincular a Evento */}
+              {eventosDisponiveis.length > 0 && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    <MdEvent className="inline mr-2" />
+                    Vincular a Evento
+                  </label>
+                  <select
+                    value={eventoSelecionado}
+                    onChange={(e) => setEventoSelecionado(e.target.value)}
+                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  >
+                    <option value="">Não vincular a nenhum evento</option>
+                    {eventosDisponiveis.map((evento) => (
+                      <option key={evento.evento_id} value={evento.evento_id}>
+                        {evento.nome} - {new Date(evento.data_evento + 'T12:00:00').toLocaleDateString('pt-BR')}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-xs text-gray-400 mt-1">
+                    💡 Vincule esta reserva a um evento do estabelecimento na mesma data
+                  </p>
+                </div>
+              )}
               
               {/* Notes */}
               <div>

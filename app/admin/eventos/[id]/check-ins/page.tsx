@@ -195,7 +195,6 @@ export default function EventoCheckInsPage() {
   const [reservasRestaurante, setReservasRestaurante] = useState<ReservaRestaurante[]>([]);
   const [convidadosReservasRestaurante, setConvidadosReservasRestaurante] = useState<ConvidadoReservaRestaurante[]>([]);
   const [guestListsRestaurante, setGuestListsRestaurante] = useState<GuestListRestaurante[]>([]);
-  const [allowedReservationIds, setAllowedReservationIds] = useState<number[]>([]);
   const [establishmentFilterId, setEstablishmentFilterId] = useState<number | null>(null);
   const [expandedGuestListId, setExpandedGuestListId] = useState<number | null>(null);
   const [guestsByList, setGuestsByList] = useState<Record<number, GuestItem[]>>({});
@@ -240,316 +239,32 @@ export default function EventoCheckInsPage() {
         setConvidadosReservas(data.dados.convidadosReservas || []);
         setReservasRestaurante(data.dados.reservasRestaurante || []);
         setConvidadosReservasRestaurante(data.dados.convidadosReservasRestaurante || []);
-        // Fonte de verdade: Sistema de Reservas do Restaurante por establishment_id + data
-        if (data.evento?.data_evento) {
-          try {
-            const token2 = localStorage.getItem('authToken');
-            let estIdToUse = data.evento.establishment_id;
-            if (!estIdToUse) {
-              const evNameNorm = normalizeName(data.evento.establishment_name || '');
-              try {
-                const placesRes = await fetch(`${API_URL}/api/places`, { headers: { Authorization: `Bearer ${token2}` } });
-                if (placesRes.ok) {
-                  const placesData = await placesRes.json();
-                  const places = Array.isArray(placesData) ? placesData : (placesData.data || []);
-                  const foundPlace = places.find((p: any) => normalizeName(p.name) === evNameNorm);
-                  if (foundPlace) estIdToUse = foundPlace.id;
-                }
-              } catch {}
-              if (!estIdToUse) {
-                try {
-                  const barsRes = await fetch(`${API_URL}/api/bars`, { headers: { Authorization: `Bearer ${token2}` } });
-                  if (barsRes.ok) {
-                    const barsData = await barsRes.json();
-                    const bars = Array.isArray(barsData) ? barsData : [];
-                    const foundBar = bars.find((b: any) => normalizeName(b.name) === evNameNorm);
-                    if (foundBar) estIdToUse = foundBar.id;
-                  }
-                } catch {}
-              }
-            }
-            if (estIdToUse) {
-              setEstablishmentFilterId(Number(estIdToUse));
-              const rrUrl = `${API_URL}/api/restaurant-reservations?establishment_id=${estIdToUse}&date=${data.evento.data_evento}`;
-              const rrRes = await fetch(rrUrl, { headers: { Authorization: `Bearer ${token2}` } });
-              let reservations: any[] = [];
-              if (rrRes.ok) {
-                const rrData = await rrRes.json();
-                reservations = rrData.reservations || rrData || [];
-                const allowedIds = reservations.map((r: any) => Number(r.id));
-                setAllowedReservationIds(allowedIds);
-              } else {
-                setAllowedReservationIds([]);
-              }
-              // Tentar obter guest-lists diretamente por data+establishment
-              let listsMapped: any[] = [];
-              try {
-                const url = `${API_URL}/api/admin/guest-lists?date=${data.evento.data_evento}&establishment_id=${estIdToUse}`;
-                const glRes = await fetch(url, { headers: { Authorization: `Bearer ${token2}` } });
-                if (glRes.ok) {
-                  const glData = await glRes.json();
-                  const mapped = (glData.guestLists || []).map((gl: any) => ({
-                    guest_list_id: gl.guest_list_id || gl.id,
-                    reservation_type: gl.reservation_type,
-                    event_type: gl.event_type,
-                    shareable_link_token: gl.shareable_link_token,
-                    expires_at: gl.expires_at,
-                    owner_checked_in: gl.owner_checked_in ? 1 : 0,
-                    owner_checkin_time: gl.owner_checkin_time,
-                    is_valid: gl.is_valid ? 1 : 0,
-                    owner_name: gl.owner_name || gl.client_name,
-                  reservation_id: gl.reservation_id,
-                    reservation_date: gl.reservation_date,
-                    reservation_time: gl.reservation_time,
-                    number_of_people: gl.number_of_people,
-                  origin: gl.origin,
-                    reservation_checked_in: gl.reservation_checked_in ? 1 : 0,
-                    reservation_checkin_time: gl.reservation_checkin_time,
-                    created_by_name: gl.created_by_name || 'Sistema',
-                    total_guests: gl.total_guests || 0,
-                  guests_checked_in: gl.guests_checked_in || 0,
-                  establishment_id: gl.establishment_id || undefined,
-                  establishment_name: gl.establishment_name || undefined,
-                  }));
-                  listsMapped = mapped;
-                }
-              } catch {}
-              // Se não veio nada por admin/guest-lists, montar por reserva individual
-              if (listsMapped.length === 0 && reservations.length > 0) {
-                const lists: any[] = [];
-                for (const r of reservations) {
-                  try {
-                    const glOneRes = await fetch(`${API_URL}/api/restaurant-reservations/${r.id}/guest-list`, { headers: { Authorization: `Bearer ${token2}` } });
-                    if (glOneRes.ok) {
-                      const glOne = await glOneRes.json();
-                      const gl = glOne.guest_list || {};
-                      if (gl && gl.id) {
-                        lists.push({
-                          guest_list_id: gl.id,
-                          reservation_type: 'restaurant',
-                          event_type: gl.event_type,
-                          shareable_link_token: gl.shareable_link_token,
-                          expires_at: gl.expires_at,
-                          owner_checked_in: r.checked_in ? 1 : 0,
-                          owner_checkin_time: r.checkin_time,
-                          is_valid: gl.expires_at ? (new Date(gl.expires_at).getTime() >= Date.now() ? 1 : 0) : 1,
-                          owner_name: r.client_name,
-                          reservation_id: r.id,
-                          reservation_date: r.reservation_date,
-                          reservation_time: r.reservation_time,
-                          number_of_people: r.number_of_people,
-                          origin: r.origin,
-                          reservation_checked_in: r.checked_in ? 1 : 0,
-                          reservation_checkin_time: r.checkin_time,
-                          created_by_name: r.created_by_name || 'Sistema',
-                          total_guests: gl.total_guests || 0,
-                          guests_checked_in: 0,
-                        });
-                      }
-                    }
-                  } catch {}
-                }
-                listsMapped = lists;
-              }
-              setGuestListsRestaurante(listsMapped);
-            } else {
-              // Sem establishment resolvido, usa consolidado do backend
-              setGuestListsRestaurante(data.dados.guestListsRestaurante || []);
-            }
-          } catch (e) {
-            console.error('Erro carregando dados do Sistema de Reservas:', e);
-            setGuestListsRestaurante(data.dados.guestListsRestaurante || []);
-          }
-        } else {
-          setGuestListsRestaurante(data.dados.guestListsRestaurante || []);
+        
+        // Debug: verificar dados recebidos do backend
+        console.log('🔍 Debug - Dados recebidos do backend:', {
+          establishment_id: data.evento?.establishment_id,
+          establishment_name: data.evento?.establishment_name,
+          data_evento: data.evento?.data_evento,
+          guestListsRestaurante_count: (data.dados.guestListsRestaurante || []).length,
+          reservasRestaurante_count: (data.dados.reservasRestaurante || []).length,
+          convidadosReservasRestaurante_count: (data.dados.convidadosReservasRestaurante || []).length
+        });
+        
+        // O backend agora vincula automaticamente reservas ao evento e retorna os dados corretos
+        // Não precisamos mais buscar via API admin/guest-lists
+        setGuestListsRestaurante(data.dados.guestListsRestaurante || []);
+        
+        // Armazenar o establishment_id para uso posterior se necessário
+        if (data.evento?.establishment_id) {
+          setEstablishmentFilterId(Number(data.evento.establishment_id));
         }
+        
+        console.log('📋 Total de guest lists para exibir:', (data.dados.guestListsRestaurante || []).length);
+        
         setPromoters(data.dados.promoters || []);
         setConvidadosPromoters(data.dados.convidadosPromoters || []);
         setCamarotes(data.dados.camarotes || []);
         setEstatisticas(data.estatisticas);
-
-        // Fallback: se não vier guestListsRestaurante, buscar via admin/guest-lists por data e estabelecimento
-        if ((data.dados.guestListsRestaurante || []).length === 0 && data.evento?.data_evento) {
-          try {
-            const token2 = localStorage.getItem('authToken');
-            let estIdToUse = data.evento.establishment_id;
-            // Se não houver estId ou retornar vazio, tenta resolver pelo nome do estabelecimento via /api/places
-            if (!estIdToUse) {
-              try {
-                const evNameNorm = normalizeName(data.evento.establishment_name || '');
-                const placesRes = await fetch(`${API_URL}/api/places`, { headers: { Authorization: `Bearer ${token2}` } });
-                if (placesRes.ok) {
-                  const placesData = await placesRes.json();
-                  const places = Array.isArray(placesData) ? placesData : (placesData.data || []);
-                  const foundPlace = places.find((p: any) => normalizeName(p.name) === evNameNorm);
-                  if (foundPlace) estIdToUse = foundPlace.id;
-                }
-                if (!estIdToUse) {
-                  const barsRes = await fetch(`${API_URL}/api/bars`, { headers: { Authorization: `Bearer ${token2}` } });
-                  if (barsRes.ok) {
-                    const barsData = await barsRes.json();
-                    const bars = Array.isArray(barsData) ? barsData : [];
-                    const foundBar = bars.find((b: any) => normalizeName(b.name) === evNameNorm);
-                    if (foundBar) estIdToUse = foundBar.id;
-                  }
-                }
-              } catch {}
-            }
-
-            const url = estIdToUse
-              ? `${API_URL}/api/admin/guest-lists?date=${data.evento.data_evento}&establishment_id=${estIdToUse}`
-              : `${API_URL}/api/admin/guest-lists?date=${data.evento.data_evento}`;
-            const glRes = await fetch(url, { headers: { Authorization: `Bearer ${token2}` } });
-            if (glRes.ok) {
-              const glData = await glRes.json();
-              const mapped = (glData.guestLists || []).map((gl: any) => ({
-                guest_list_id: gl.guest_list_id || gl.id,
-                reservation_type: gl.reservation_type,
-                event_type: gl.event_type,
-                shareable_link_token: gl.shareable_link_token,
-                expires_at: gl.expires_at,
-                owner_checked_in: gl.owner_checked_in ? 1 : 0,
-                owner_checkin_time: gl.owner_checkin_time,
-                is_valid: gl.is_valid ? 1 : 0,
-                owner_name: gl.owner_name || gl.client_name,
-                reservation_id: gl.reservation_id,
-                reservation_date: gl.reservation_date,
-                reservation_time: gl.reservation_time,
-                number_of_people: gl.number_of_people,
-                origin: gl.origin,
-                reservation_checked_in: gl.reservation_checked_in ? 1 : 0,
-                reservation_checkin_time: gl.reservation_checkin_time,
-                created_by_name: gl.created_by_name || 'Sistema',
-                total_guests: gl.total_guests || 0,
-                guests_checked_in: gl.guests_checked_in || 0,
-              }));
-              // Se tivermos o establishment, filtra as listas pelas reservas do próprio estabelecimento no dia
-              let filteredMapped = mapped;
-              if (estIdToUse) {
-                try {
-                  const rrUrlForFilter = `${API_URL}/api/restaurant-reservations?establishment_id=${estIdToUse}&date=${data.evento.data_evento}`;
-                  const rrResForFilter = await fetch(rrUrlForFilter, { headers: { Authorization: `Bearer ${token2}` } });
-                  if (rrResForFilter.ok) {
-                    const rrDataFilter = await rrResForFilter.json();
-                    const reservationsFilter: any[] = rrDataFilter.reservations || rrDataFilter || [];
-                    const allowedIds = new Set(reservationsFilter.map((r: any) => Number(r.id)));
-                    filteredMapped = mapped.filter((gl: any) => allowedIds.has(Number(gl.reservation_id)));
-                  }
-                } catch {}
-              }
-              setGuestListsRestaurante(filteredMapped);
-              // Se ainda vazio por data, tenta por mês e filtra pela data exata
-              if (mapped.length === 0 && data.evento.data_evento) {
-                const month = data.evento.data_evento.slice(0,7); // YYYY-MM
-                const urlMonth = `${API_URL}/api/admin/guest-lists?month=${month}&establishment_id=${data.evento.establishment_id}`;
-                const glResMonth = await fetch(urlMonth, { headers: { Authorization: `Bearer ${token2}` } });
-                if (glResMonth.ok) {
-                  const glMonthData = await glResMonth.json();
-                  const onlySameDate = (glMonthData.guestLists || []).filter((gl: any) => {
-                    const d = (gl.reservation_date || '').split('T')[0].split(' ')[0];
-                    return d === data.evento.data_evento;
-                  }).map((gl: any) => ({
-                    guest_list_id: gl.guest_list_id || gl.id,
-                    reservation_type: gl.reservation_type,
-                    event_type: gl.event_type,
-                    shareable_link_token: gl.shareable_link_token,
-                    expires_at: gl.expires_at,
-                    owner_checked_in: gl.owner_checked_in ? 1 : 0,
-                    owner_checkin_time: gl.owner_checkin_time,
-                    is_valid: gl.is_valid ? 1 : 0,
-                    owner_name: gl.owner_name || gl.client_name,
-                    reservation_id: gl.reservation_id,
-                    reservation_date: gl.reservation_date,
-                    reservation_time: gl.reservation_time,
-                    number_of_people: gl.number_of_people,
-                    origin: gl.origin,
-                    reservation_checked_in: gl.reservation_checked_in ? 1 : 0,
-                    reservation_checkin_time: gl.reservation_checkin_time,
-                    created_by_name: gl.created_by_name || 'Sistema',
-                    total_guests: gl.total_guests || 0,
-                    guests_checked_in: gl.guests_checked_in || 0,
-                  }));
-                  if (onlySameDate.length > 0) {
-                    let filtered = onlySameDate;
-                    if (estIdToUse) {
-                      try {
-                  setEstablishmentFilterId(Number(estIdToUse));
-                  const rrUrlForFilter2 = `${API_URL}/api/restaurant-reservations?establishment_id=${estIdToUse}&date=${data.evento.data_evento}`;
-                        const rrResForFilter2 = await fetch(rrUrlForFilter2, { headers: { Authorization: `Bearer ${token2}` } });
-                        if (rrResForFilter2.ok) {
-                          const rrDataFilter2 = await rrResForFilter2.json();
-                          const reservationsFilter2: any[] = rrDataFilter2.reservations || rrDataFilter2 || [];
-                          const allowedIds2 = reservationsFilter2.map((r: any) => Number(r.id));
-                          setAllowedReservationIds(allowedIds2);
-                          const allowedSet2 = new Set(allowedIds2);
-                          filtered = onlySameDate.filter((gl: any) => allowedSet2.has(Number(gl.reservation_id)));
-                        }
-                      } catch {}
-                    }
-                    setGuestListsRestaurante(filtered);
-                  }
-                }
-              }
-
-              // Fallback 3: buscar reservas de restaurante do dia e montar guest list por reserva
-              if ((mapped.length === 0) && data.evento.data_evento) {
-                try {
-                  if (estIdToUse) setEstablishmentFilterId(Number(estIdToUse));
-                  const rrUrl = estIdToUse
-                    ? `${API_URL}/api/restaurant-reservations?establishment_id=${estIdToUse}&date=${data.evento.data_evento}`
-                    : `${API_URL}/api/restaurant-reservations?date=${data.evento.data_evento}`;
-                  const rrRes = await fetch(rrUrl, { headers: { Authorization: `Bearer ${token2}` } });
-                  if (rrRes.ok) {
-                    const rrData = await rrRes.json();
-                    const reservations: any[] = rrData.reservations || rrData || [];
-                    const lists: any[] = [];
-                    // Para cada reserva, tenta buscar sua guest list específica
-                    for (const r of reservations) {
-                      try {
-                        const glOneRes = await fetch(`${API_URL}/api/restaurant-reservations/${r.id}/guest-list`, { headers: { Authorization: `Bearer ${token2}` } });
-                        if (glOneRes.ok) {
-                          const glOne = await glOneRes.json();
-                          const gl = glOne.guest_list || {};
-                          lists.push({
-                            guest_list_id: gl.id,
-                            reservation_type: 'restaurant',
-                            event_type: gl.event_type,
-                            shareable_link_token: gl.shareable_link_token,
-                            expires_at: gl.expires_at,
-                            owner_checked_in: r.checked_in ? 1 : 0,
-                            owner_checkin_time: r.checkin_time,
-                            is_valid: gl.expires_at ? (new Date(gl.expires_at).getTime() >= Date.now() ? 1 : 0) : 1,
-                            owner_name: r.client_name,
-                            reservation_id: r.id,
-                            reservation_date: r.reservation_date,
-                            reservation_time: r.reservation_time,
-                            number_of_people: r.number_of_people,
-                            origin: r.origin,
-                            reservation_checked_in: r.checked_in ? 1 : 0,
-                            reservation_checkin_time: r.checkin_time,
-                            created_by_name: r.created_by_name || 'Sistema',
-                            total_guests: gl.total_guests || 0,
-                            guests_checked_in: 0,
-                          });
-                        }
-                      } catch (e) {
-                        // ignora erro da reserva individual
-                      }
-                    }
-                    if (lists.length > 0) {
-                      setAllowedReservationIds(lists.map((l:any)=> Number(l.reservation_id)));
-                      setGuestListsRestaurante(lists);
-                    }
-                  }
-                } catch (e) {
-                  console.error('Fallback reservas do restaurante falhou:', e);
-                }
-              }
-            }
-          } catch (e) {
-            console.error('Fallback guest-lists falhou:', e);
-          }
-        }
       } else {
         console.error('Erro ao carregar dados:', response.statusText);
       }
@@ -1101,14 +816,8 @@ export default function EventoCheckInsPage() {
                   
                   <div className="space-y-3">
                     {guestListsRestaurante
-                      .filter(gl => {
-                      // Preferir filtro por IDs de reservas do estabelecimento/data
-                      if (allowedReservationIds.length > 0) {
-                          return allowedReservationIds.includes(Number(gl.reservation_id));
-                        }
-                      // Quando não há IDs permitidos (mas as listas já foram buscadas por establishment_id + date), mostramos todas
-                      return true;
-                      })
+                      // Os dados já vêm filtrados do backend por establishment_id e data_evento
+                      // Apenas aplicar filtro de busca textual
                       .filter(gl => filterBySearch(gl.owner_name) || filterBySearch(gl.origin))
                       .map((gl) => {
                         const listUrl = `https://agilizaiapp.com.br/lista/${gl.shareable_link_token}`;
