@@ -84,6 +84,14 @@ interface BarFromAPI {
   facebook?: string;
   instagram?: string;
   whatsapp?: string;
+  // 🎨 Campos de personalização de cores
+  menu_category_bg_color?: string;
+  menu_category_text_color?: string;
+  menu_subcategory_bg_color?: string;
+  menu_subcategory_text_color?: string;
+  mobile_sidebar_bg_color?: string;
+  mobile_sidebar_text_color?: string;
+  custom_seals?: Array<{ id: string; name: string; color: string; type: 'food' | 'drink' }>;
 }
 
 interface Bar {
@@ -104,6 +112,14 @@ interface Bar {
   facebook?: string;
   instagram?: string;
   whatsapp?: string;
+  // 🎨 Campos de personalização de cores
+  menu_category_bg_color?: string;
+  menu_category_text_color?: string;
+  menu_subcategory_bg_color?: string;
+  menu_subcategory_text_color?: string;
+  mobile_sidebar_bg_color?: string;
+  mobile_sidebar_text_color?: string;
+  custom_seals?: Array<{ id: string; name: string; color: string; type: 'food' | 'drink' }>;
 }
 
 interface GroupedCategory {
@@ -760,10 +776,18 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
                           });
                         }
                     }}
+                    style={{
+                      backgroundColor: selectedCategory === category.name 
+                        ? (selectedBar.menu_category_bg_color || '#3b82f6')
+                        : '#ffffff',
+                      color: selectedCategory === category.name
+                        ? (selectedBar.menu_category_text_color || '#ffffff')
+                        : '#374151'
+                    }}
                     className={`category-tab px-6 py-3 rounded-full font-medium whitespace-nowrap transition-all duration-200 ${
                       selectedCategory === category.name
-                        ? 'active bg-blue-600 text-white shadow-lg'
-                        : 'bg-white text-gray-700 hover:bg-gray-50 shadow-md'
+                        ? 'active shadow-lg'
+                        : 'hover:bg-gray-50 shadow-md'
                     }`}
                   >
                     {category.name}
@@ -857,10 +881,18 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
                             });
                           }
                         }}
+                        style={{
+                          backgroundColor: activeSubcategory === subcat.name 
+                            ? (selectedBar.menu_subcategory_bg_color || '#3b82f6')
+                            : '#ffffff',
+                          color: activeSubcategory === subcat.name
+                            ? (selectedBar.menu_subcategory_text_color || '#ffffff')
+                            : '#374151'
+                        }}
                         className={`subcategory-tab px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all duration-200 ${
                           activeSubcategory === subcat.name
-                            ? 'bg-blue-500 text-white shadow-md'
-                            : 'bg-white text-gray-600 hover:bg-gray-50'
+                            ? 'shadow-md'
+                            : 'hover:bg-gray-50'
                         }`}
                       >
                         {subcat.name}
@@ -980,7 +1012,13 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
               onClick={(e) => e.stopPropagation()}
             >
               {/* Header do sidebar */}
-              <div className="sidebar-header bg-gradient-to-br from-blue-600 to-purple-700 text-white p-6">
+              <div 
+                className="sidebar-header p-6"
+                style={{
+                  backgroundColor: selectedBar.mobile_sidebar_bg_color || '#667eea',
+                  color: selectedBar.mobile_sidebar_text_color || '#ffffff'
+                }}
+              >
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-3">
                     <Image
@@ -994,13 +1032,13 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
                   </div>
                   <button
                     onClick={() => setShowMobileSidebar(false)}
-                    className="text-white/80 hover:text-white transition-colors"
+                    className="transition-colors opacity-80 hover:opacity-100"
                   >
                     <MdClose className="w-6 h-6" />
                   </button>
                 </div>
                 
-                <p className="text-white/90 text-sm mb-4">
+                <p className="text-sm mb-4" style={{ opacity: 0.9 }}>
                   {selectedBar.description}
                 </p>
               </div>

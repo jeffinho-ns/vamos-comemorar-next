@@ -87,6 +87,14 @@ interface BarForm {
   facebook?: string; // <-- Adicionado
   instagram?: string; // <-- Adicionado
   whatsapp?: string; // <-- Adicionado
+  // 🎨 Campos de personalização de cores
+  menu_category_bg_color?: string;
+  menu_category_text_color?: string;
+  menu_subcategory_bg_color?: string;
+  menu_subcategory_text_color?: string;
+  mobile_sidebar_bg_color?: string;
+  mobile_sidebar_text_color?: string;
+  custom_seals?: Array<{ id: string; name: string; color: string; type: 'food' | 'drink' }>;
 }
 
 interface MenuItem {
@@ -125,6 +133,14 @@ interface Bar {
   facebook?: string;
   instagram?: string;
   whatsapp?: string;
+  // 🎨 Campos de personalização de cores
+  menu_category_bg_color?: string;
+  menu_category_text_color?: string;
+  menu_subcategory_bg_color?: string;
+  menu_subcategory_text_color?: string;
+  mobile_sidebar_bg_color?: string;
+  mobile_sidebar_text_color?: string;
+  custom_seals?: Array<{ id: string; name: string; color: string; type: 'food' | 'drink' }>;
 }
 
 declare module 'react' {
@@ -246,6 +262,13 @@ export default function CardapioAdminPage() {
     facebook: '',
     instagram: '',
     whatsapp: '',
+    menu_category_bg_color: '',
+    menu_category_text_color: '',
+    menu_subcategory_bg_color: '',
+    menu_subcategory_text_color: '',
+    mobile_sidebar_bg_color: '',
+    mobile_sidebar_text_color: '',
+    custom_seals: [],
   });
 
   const [categoryForm, setCategoryForm] = useState<MenuCategoryForm>({
@@ -1380,6 +1403,14 @@ export default function CardapioAdminPage() {
       facebook: bar.facebook || '', 
       instagram: bar.instagram || '',
       whatsapp: bar.whatsapp || '',
+      // 🎨 Cores personalizadas
+      menu_category_bg_color: bar.menu_category_bg_color || '',
+      menu_category_text_color: bar.menu_category_text_color || '',
+      menu_subcategory_bg_color: bar.menu_subcategory_bg_color || '',
+      menu_subcategory_text_color: bar.menu_subcategory_text_color || '',
+      mobile_sidebar_bg_color: bar.mobile_sidebar_bg_color || '',
+      mobile_sidebar_text_color: bar.mobile_sidebar_text_color || '',
+      custom_seals: bar.custom_seals || [],
     });
     setShowBarModal(true);
   }, []);
@@ -2481,6 +2512,152 @@ export default function CardapioAdminPage() {
                 onChange={(e) => setBarForm((prev) => ({ ...prev, longitude: e.target.value }))}
                 className="w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
+            </div>
+
+            {/* 🎨 Seção de Personalização de Cores */}
+            <div className="border-t pt-6 mt-6">
+              <h3 className="text-lg font-bold text-gray-900 mb-4">🎨 Personalização de Cores do Menu</h3>
+              
+              {/* Cores das Categorias */}
+              <div className="mb-4">
+                <h4 className="text-sm font-semibold text-gray-700 mb-3">📂 Categorias</h4>
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div>
+                    <label className="mb-1 block text-sm font-medium text-gray-700">
+                      Cor de Fundo das Categorias
+                    </label>
+                    <div className="flex gap-2 items-center">
+                      <input
+                        type="color"
+                        value={barForm.menu_category_bg_color || '#3b82f6'}
+                        onChange={(e) => setBarForm((prev) => ({ ...prev, menu_category_bg_color: e.target.value }))}
+                        className="h-10 w-20 rounded border border-gray-300 cursor-pointer"
+                      />
+                      <input
+                        type="text"
+                        value={barForm.menu_category_bg_color || '#3b82f6'}
+                        onChange={(e) => setBarForm((prev) => ({ ...prev, menu_category_bg_color: e.target.value }))}
+                        placeholder="#3b82f6"
+                        className="flex-1 rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-sm font-medium text-gray-700">
+                      Cor do Texto das Categorias
+                    </label>
+                    <div className="flex gap-2 items-center">
+                      <input
+                        type="color"
+                        value={barForm.menu_category_text_color || '#ffffff'}
+                        onChange={(e) => setBarForm((prev) => ({ ...prev, menu_category_text_color: e.target.value }))}
+                        className="h-10 w-20 rounded border border-gray-300 cursor-pointer"
+                      />
+                      <input
+                        type="text"
+                        value={barForm.menu_category_text_color || '#ffffff'}
+                        onChange={(e) => setBarForm((prev) => ({ ...prev, menu_category_text_color: e.target.value }))}
+                        placeholder="#ffffff"
+                        className="flex-1 rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Cores das Subcategorias */}
+              <div className="mb-4">
+                <h4 className="text-sm font-semibold text-gray-700 mb-3">📋 Subcategorias</h4>
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div>
+                    <label className="mb-1 block text-sm font-medium text-gray-700">
+                      Cor de Fundo das Subcategorias
+                    </label>
+                    <div className="flex gap-2 items-center">
+                      <input
+                        type="color"
+                        value={barForm.menu_subcategory_bg_color || '#f3f4f6'}
+                        onChange={(e) => setBarForm((prev) => ({ ...prev, menu_subcategory_bg_color: e.target.value }))}
+                        className="h-10 w-20 rounded border border-gray-300 cursor-pointer"
+                      />
+                      <input
+                        type="text"
+                        value={barForm.menu_subcategory_bg_color || '#f3f4f6'}
+                        onChange={(e) => setBarForm((prev) => ({ ...prev, menu_subcategory_bg_color: e.target.value }))}
+                        placeholder="#f3f4f6"
+                        className="flex-1 rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-sm font-medium text-gray-700">
+                      Cor do Texto das Subcategorias
+                    </label>
+                    <div className="flex gap-2 items-center">
+                      <input
+                        type="color"
+                        value={barForm.menu_subcategory_text_color || '#374151'}
+                        onChange={(e) => setBarForm((prev) => ({ ...prev, menu_subcategory_text_color: e.target.value }))}
+                        className="h-10 w-20 rounded border border-gray-300 cursor-pointer"
+                      />
+                      <input
+                        type="text"
+                        value={barForm.menu_subcategory_text_color || '#374151'}
+                        onChange={(e) => setBarForm((prev) => ({ ...prev, menu_subcategory_text_color: e.target.value }))}
+                        placeholder="#374151"
+                        className="flex-1 rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Cores do Sidebar Mobile */}
+              <div className="mb-4">
+                <h4 className="text-sm font-semibold text-gray-700 mb-3">📱 Sidebar Mobile (Menu Lateral)</h4>
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div>
+                    <label className="mb-1 block text-sm font-medium text-gray-700">
+                      Cor de Fundo do Sidebar
+                    </label>
+                    <div className="flex gap-2 items-center">
+                      <input
+                        type="color"
+                        value={barForm.mobile_sidebar_bg_color || '#667eea'}
+                        onChange={(e) => setBarForm((prev) => ({ ...prev, mobile_sidebar_bg_color: e.target.value }))}
+                        className="h-10 w-20 rounded border border-gray-300 cursor-pointer"
+                      />
+                      <input
+                        type="text"
+                        value={barForm.mobile_sidebar_bg_color || '#667eea'}
+                        onChange={(e) => setBarForm((prev) => ({ ...prev, mobile_sidebar_bg_color: e.target.value }))}
+                        placeholder="#667eea"
+                        className="flex-1 rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-sm font-medium text-gray-700">
+                      Cor do Texto do Sidebar
+                    </label>
+                    <div className="flex gap-2 items-center">
+                      <input
+                        type="color"
+                        value={barForm.mobile_sidebar_text_color || '#ffffff'}
+                        onChange={(e) => setBarForm((prev) => ({ ...prev, mobile_sidebar_text_color: e.target.value }))}
+                        className="h-10 w-20 rounded border border-gray-300 cursor-pointer"
+                      />
+                      <input
+                        type="text"
+                        value={barForm.mobile_sidebar_text_color || '#ffffff'}
+                        onChange={(e) => setBarForm((prev) => ({ ...prev, mobile_sidebar_text_color: e.target.value }))}
+                        placeholder="#ffffff"
+                        className="flex-1 rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
 
             <div className="flex justify-end gap-3 pt-4">
