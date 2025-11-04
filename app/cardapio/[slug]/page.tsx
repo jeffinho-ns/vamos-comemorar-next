@@ -36,6 +36,31 @@ const DRINK_SEALS: { [key: string]: { name: string; color: string } } = {
 
 const ALL_SEALS = { ...FOOD_SEALS, ...DRINK_SEALS };
 
+// Função para obter selo por ID, incluindo customizados do bar
+const getSealById = (sealId: string, bar?: BarFromAPI) => {
+  // Primeiro tenta nos selos padrão
+  if (ALL_SEALS[sealId]) {
+    // Se o bar tem custom_seals e esse selo está customizado, usa o customizado
+    if (bar?.custom_seals) {
+      const customSeal = bar.custom_seals.find((s) => s.id === sealId);
+      if (customSeal) {
+        return { name: customSeal.name, color: customSeal.color };
+      }
+    }
+    return ALL_SEALS[sealId];
+  }
+  
+  // Se não encontrou nos padrão, tenta nos customizados
+  if (bar?.custom_seals) {
+    const customSeal = bar.custom_seals.find((s) => s.id === sealId);
+    if (customSeal) {
+      return { name: customSeal.name, color: customSeal.color };
+    }
+  }
+  
+  return null;
+};
+
 // Interfaces
 interface Topping {
   id: string | number;
@@ -243,7 +268,8 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
         popupImageUrl: bar.popupImageUrl,
         facebook: bar.facebook || '',
         instagram: bar.instagram || '',
-        whatsapp: bar.whatsapp || ''
+        whatsapp: bar.whatsapp || '',
+        custom_seals: bar.custom_seals || []
       };
       
       setSelectedBar(barWithImages);
@@ -505,7 +531,7 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
         {seals.map((sealId) => {
           const wine = renderWineSeal(sealId, 'modal');
           if (wine) return wine;
-          const seal = ALL_SEALS[sealId];
+          const seal = getSealById(sealId, selectedBar as BarFromAPI);
           if (!seal) return null;
           return (
             <span
@@ -522,7 +548,7 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
         })}
       </div>
     );
-  }, []);
+  }, [selectedBar]);
 
   const MenuItemCard = useCallback(({ item, onClick }: { item: MenuItem, onClick: (item: MenuItem) => void }) => (
     <motion.div
@@ -563,7 +589,7 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
             {item.seals.map((sealId) => {
               const wine = renderWineSeal(sealId, 'card');
               if (wine) return wine;
-              const seal = ALL_SEALS[sealId];
+              const seal = getSealById(sealId, selectedBar as BarFromAPI);
               if (!seal) return null;
               return (
                 <span
@@ -598,7 +624,7 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
         )}
       </div>
     </motion.div>
-  ), [formatPrice]);
+  ), [formatPrice, selectedBar]);
 
   if (isLoading) {
     return (

@@ -432,7 +432,62 @@ export default function CardapioAdminPage() {
     }));
   }, []);
 
-  // Funções para gerenciar selos
+  // Funções para gerenciar selos customizados
+  const handleAddCustomSeal = useCallback((type: 'food' | 'drink') => {
+    const newSeal: Seal = {
+      id: `custom-${Date.now()}`,
+      name: 'Novo Selo',
+      color: '#3b82f6',
+      type,
+    };
+    setBarForm((prev) => ({
+      ...prev,
+      custom_seals: [...(prev.custom_seals || []), newSeal],
+    }));
+  }, []);
+
+  const handleUpdateCustomSeal = useCallback((sealId: string, field: 'name' | 'color', value: string) => {
+    setBarForm((prev) => ({
+      ...prev,
+      custom_seals: (prev.custom_seals || []).map((seal) =>
+        seal.id === sealId ? { ...seal, [field]: value } : seal
+      ),
+    }));
+  }, []);
+
+  const handleRemoveCustomSeal = useCallback((sealId: string) => {
+    if (!confirm('Tem certeza que deseja remover este selo customizado?')) {
+      return;
+    }
+    setBarForm((prev) => ({
+      ...prev,
+      custom_seals: (prev.custom_seals || []).filter((seal) => seal.id !== sealId),
+    }));
+  }, []);
+
+  const handleUpdateDefaultSealColor = useCallback((sealId: string, newColor: string) => {
+    // Verifica se já existe um selo customizado com esse ID
+    const existingCustom = (barForm.custom_seals || []).find((s) => s.id === sealId);
+    
+    if (existingCustom) {
+      // Atualiza o existente
+      handleUpdateCustomSeal(sealId, 'color', newColor);
+    } else {
+      // Cria um novo selo customizado baseado no padrão
+      const defaultSeal = ALL_SEALS.find((s) => s.id === sealId);
+      if (defaultSeal) {
+        const customSeal: Seal = {
+          ...defaultSeal,
+          color: newColor,
+        };
+        setBarForm((prev) => ({
+          ...prev,
+          custom_seals: [...(prev.custom_seals || []), customSeal],
+        }));
+      }
+    }
+  }, [barForm.custom_seals, handleUpdateCustomSeal]);
+
   const handleToggleSeal = useCallback((sealId: string) => {
     setItemForm((prev: MenuItemForm) => ({
       ...prev,
@@ -443,8 +498,27 @@ export default function CardapioAdminPage() {
   }, []);
 
   const getSealById = useCallback((sealId: string) => {
-    return ALL_SEALS.find((seal) => seal.id === sealId);
-  }, []);
+    // Primeiro tenta buscar nos selos padrão
+    const defaultSeal = ALL_SEALS.find((seal) => seal.id === sealId);
+    if (defaultSeal) return defaultSeal;
+    
+    // Se não encontrou, busca nos selos customizados do bar atual
+    if (editingBar && editingBar.custom_seals) {
+      const customSeal = editingBar.custom_seals.find((seal) => seal.id === sealId);
+      if (customSeal) return customSeal;
+    }
+    
+    // Se não encontrou, tenta buscar nos selos customizados do bar do item (se estiver editando item)
+    if (itemForm.barId) {
+      const currentBar = menuData.bars.find((bar) => bar.id.toString() === itemForm.barId.toString());
+      if (currentBar && currentBar.custom_seals) {
+        const customSeal = currentBar.custom_seals.find((seal) => seal.id === sealId);
+        if (customSeal) return customSeal;
+      }
+    }
+    
+    return null;
+  }, [editingBar, itemForm.barId, menuData.bars]);
 
   // Componente para renderizar selos de um item
   const renderItemSeals = useCallback((seals: string[]) => {
@@ -2660,6 +2734,190 @@ export default function CardapioAdminPage() {
               </div>
             </div>
 
+            {/* 🏷️ Seção de Gerenciamento de Selos */}
+            <div className="border-t pt-6 mt-6">
+              <h3 className="text-lg font-bold text-gray-900 mb-4">🏷️ Gerenciamento de Selos</h3>
+              <p className="text-sm text-gray-600 mb-4">
+                Personalize as cores dos selos padrão e crie novos selos customizados para seu estabelecimento.
+              </p>
+
+              {/* Selos de Comida */}
+              <div className="mb-6">
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="text-sm font-semibold text-gray-700">🍽️ Selos de Comida</h4>
+                  <button
+                    onClick={() => handleAddCustomSeal('food')}
+                    className="flex items-center gap-1 rounded-md bg-green-600 px-3 py-1.5 text-sm text-white hover:bg-green-700"
+                  >
+                    <MdAdd className="h-4 w-4" />
+                    Novo Selo
+                  </button>
+                </div>
+                <div className="space-y-3">
+                  {FOOD_SEALS.map((seal) => {
+                    const customSeal = (barForm.custom_seals || []).find((s) => s.id === seal.id);
+                    const displaySeal = customSeal || seal;
+                    return (
+                      <div key={seal.id} className="flex items-center gap-3 rounded-md border border-gray-200 p-3">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <div
+                              className="h-4 w-4 rounded-full border border-gray-300"
+                              style={{ backgroundColor: displaySeal.color }}
+                            />
+                            <span className="text-sm font-medium text-gray-700">{seal.name}</span>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="color"
+                            value={displaySeal.color}
+                            onChange={(e) => handleUpdateDefaultSealColor(seal.id, e.target.value)}
+                            className="h-8 w-16 rounded border border-gray-300 cursor-pointer"
+                            title="Alterar cor"
+                          />
+                          <input
+                            type="text"
+                            value={displaySeal.color}
+                            onChange={(e) => handleUpdateDefaultSealColor(seal.id, e.target.value)}
+                            className="w-20 rounded-md border border-gray-300 px-2 py-1 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            placeholder="#hex"
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {/* Selos customizados de comida */}
+                  {(barForm.custom_seals || [])
+                    .filter((s) => s.type === 'food' && !FOOD_SEALS.find((ds) => ds.id === s.id))
+                    .map((seal) => (
+                      <div key={seal.id} className="flex items-center gap-3 rounded-md border border-blue-200 bg-blue-50 p-3">
+                        <div className="flex-1">
+                          <input
+                            type="text"
+                            value={seal.name}
+                            onChange={(e) => handleUpdateCustomSeal(seal.id, 'name', e.target.value)}
+                            className="w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            placeholder="Nome do selo"
+                          />
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="color"
+                            value={seal.color}
+                            onChange={(e) => handleUpdateCustomSeal(seal.id, 'color', e.target.value)}
+                            className="h-8 w-16 rounded border border-gray-300 cursor-pointer"
+                            title="Alterar cor"
+                          />
+                          <input
+                            type="text"
+                            value={seal.color}
+                            onChange={(e) => handleUpdateCustomSeal(seal.id, 'color', e.target.value)}
+                            className="w-20 rounded-md border border-gray-300 px-2 py-1 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            placeholder="#hex"
+                          />
+                          <button
+                            onClick={() => handleRemoveCustomSeal(seal.id)}
+                            className="rounded-md bg-red-600 p-1.5 text-white hover:bg-red-700"
+                            title="Remover selo"
+                          >
+                            <MdDelete className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              </div>
+
+              {/* Selos de Bebida */}
+              <div className="mb-6">
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="text-sm font-semibold text-gray-700">🥤 Selos de Bebida</h4>
+                  <button
+                    onClick={() => handleAddCustomSeal('drink')}
+                    className="flex items-center gap-1 rounded-md bg-green-600 px-3 py-1.5 text-sm text-white hover:bg-green-700"
+                  >
+                    <MdAdd className="h-4 w-4" />
+                    Novo Selo
+                  </button>
+                </div>
+                <div className="space-y-3">
+                  {DRINK_SEALS.map((seal) => {
+                    const customSeal = (barForm.custom_seals || []).find((s) => s.id === seal.id);
+                    const displaySeal = customSeal || seal;
+                    return (
+                      <div key={seal.id} className="flex items-center gap-3 rounded-md border border-gray-200 p-3">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <div
+                              className="h-4 w-4 rounded-full border border-gray-300"
+                              style={{ backgroundColor: displaySeal.color }}
+                            />
+                            <span className="text-sm font-medium text-gray-700">{seal.name}</span>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="color"
+                            value={displaySeal.color}
+                            onChange={(e) => handleUpdateDefaultSealColor(seal.id, e.target.value)}
+                            className="h-8 w-16 rounded border border-gray-300 cursor-pointer"
+                            title="Alterar cor"
+                          />
+                          <input
+                            type="text"
+                            value={displaySeal.color}
+                            onChange={(e) => handleUpdateDefaultSealColor(seal.id, e.target.value)}
+                            className="w-20 rounded-md border border-gray-300 px-2 py-1 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            placeholder="#hex"
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {/* Selos customizados de bebida */}
+                  {(barForm.custom_seals || [])
+                    .filter((s) => s.type === 'drink' && !DRINK_SEALS.find((ds) => ds.id === s.id))
+                    .map((seal) => (
+                      <div key={seal.id} className="flex items-center gap-3 rounded-md border border-blue-200 bg-blue-50 p-3">
+                        <div className="flex-1">
+                          <input
+                            type="text"
+                            value={seal.name}
+                            onChange={(e) => handleUpdateCustomSeal(seal.id, 'name', e.target.value)}
+                            className="w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            placeholder="Nome do selo"
+                          />
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="color"
+                            value={seal.color}
+                            onChange={(e) => handleUpdateCustomSeal(seal.id, 'color', e.target.value)}
+                            className="h-8 w-16 rounded border border-gray-300 cursor-pointer"
+                            title="Alterar cor"
+                          />
+                          <input
+                            type="text"
+                            value={seal.color}
+                            onChange={(e) => handleUpdateCustomSeal(seal.id, 'color', e.target.value)}
+                            className="w-20 rounded-md border border-gray-300 px-2 py-1 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            placeholder="#hex"
+                          />
+                          <button
+                            onClick={() => handleRemoveCustomSeal(seal.id)}
+                            className="rounded-md bg-red-600 p-1.5 text-white hover:bg-red-700"
+                            title="Remover selo"
+                          >
+                            <MdDelete className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              </div>
+            </div>
+
             <div className="flex justify-end gap-3 pt-4">
               <button
                 onClick={handleCloseBarModal}
@@ -3019,24 +3277,42 @@ export default function CardapioAdminPage() {
                 <div>
                   <h4 className="mb-2 text-sm font-medium text-gray-600">Comida</h4>
                   <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-                    {FOOD_SEALS.map((seal) => (
-                      <label
-                        key={seal.id}
-                        className="flex cursor-pointer items-center space-x-2 rounded-md border p-2 hover:bg-gray-50"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={itemForm.seals.includes(seal.id)}
-                          onChange={() => handleToggleSeal(seal.id)}
-                          className="h-4 w-4 text-blue-600 focus:ring-blue-500"
-                        />
-                        <div
-                          className="h-3 w-3 rounded-full"
-                          style={{ backgroundColor: seal.color }}
-                        />
-                        <span className="text-sm text-gray-700">{seal.name}</span>
-                      </label>
-                    ))}
+                    {(() => {
+                      // Busca o bar atual para pegar os selos customizados
+                      const currentBar = menuData.bars.find((bar) => bar.id.toString() === itemForm.barId.toString());
+                      const customSeals = currentBar?.custom_seals || [];
+                      
+                      // Combina selos padrão e customizados
+                      const allFoodSeals = [
+                        ...FOOD_SEALS.map((seal) => {
+                          const customSeal = customSeals.find((s) => s.id === seal.id);
+                          return customSeal || seal;
+                        }),
+                        ...customSeals.filter((s) => s.type === 'food' && !FOOD_SEALS.find((ds) => ds.id === s.id)),
+                      ];
+                      
+                      return allFoodSeals.map((seal) => {
+                        const sealInfo = getSealById(seal.id) || seal;
+                        return (
+                          <label
+                            key={seal.id}
+                            className="flex cursor-pointer items-center space-x-2 rounded-md border p-2 hover:bg-gray-50"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={itemForm.seals.includes(seal.id)}
+                              onChange={() => handleToggleSeal(seal.id)}
+                              className="h-4 w-4 text-blue-600 focus:ring-blue-500"
+                            />
+                            <div
+                              className="h-3 w-3 rounded-full"
+                              style={{ backgroundColor: sealInfo.color }}
+                            />
+                            <span className="text-sm text-gray-700">{sealInfo.name}</span>
+                          </label>
+                        );
+                      });
+                    })()}
                   </div>
                 </div>
 
@@ -3044,24 +3320,42 @@ export default function CardapioAdminPage() {
                 <div>
                   <h4 className="mb-2 text-sm font-medium text-gray-600">Bebida</h4>
                   <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-                    {DRINK_SEALS.map((seal) => (
-                      <label
-                        key={seal.id}
-                        className="flex cursor-pointer items-center space-x-2 rounded-md border p-2 hover:bg-gray-50"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={itemForm.seals.includes(seal.id)}
-                          onChange={() => handleToggleSeal(seal.id)}
-                          className="h-4 w-4 text-blue-600 focus:ring-blue-500"
-                        />
-                        <div
-                          className="h-3 w-3 rounded-full"
-                          style={{ backgroundColor: seal.color }}
-                        />
-                        <span className="text-sm text-gray-700">{seal.name}</span>
-                      </label>
-                    ))}
+                    {(() => {
+                      // Busca o bar atual para pegar os selos customizados
+                      const currentBar = menuData.bars.find((bar) => bar.id.toString() === itemForm.barId.toString());
+                      const customSeals = currentBar?.custom_seals || [];
+                      
+                      // Combina selos padrão e customizados
+                      const allDrinkSeals = [
+                        ...DRINK_SEALS.map((seal) => {
+                          const customSeal = customSeals.find((s) => s.id === seal.id);
+                          return customSeal || seal;
+                        }),
+                        ...customSeals.filter((s) => s.type === 'drink' && !DRINK_SEALS.find((ds) => ds.id === s.id)),
+                      ];
+                      
+                      return allDrinkSeals.map((seal) => {
+                        const sealInfo = getSealById(seal.id) || seal;
+                        return (
+                          <label
+                            key={seal.id}
+                            className="flex cursor-pointer items-center space-x-2 rounded-md border p-2 hover:bg-gray-50"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={itemForm.seals.includes(seal.id)}
+                              onChange={() => handleToggleSeal(seal.id)}
+                              className="h-4 w-4 text-blue-600 focus:ring-blue-500"
+                            />
+                            <div
+                              className="h-3 w-3 rounded-full"
+                              style={{ backgroundColor: sealInfo.color }}
+                            />
+                            <span className="text-sm text-gray-700">{sealInfo.name}</span>
+                          </label>
+                        );
+                      });
+                    })()}
                   </div>
                 </div>
 
