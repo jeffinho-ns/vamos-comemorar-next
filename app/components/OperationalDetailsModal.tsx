@@ -1,10 +1,25 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MdClose, MdSave } from 'react-icons/md';
+import Image from 'next/image';
+import { MdClose, MdSave, MdUpload } from 'react-icons/md';
 import { OperationalDetail, OperationalDetailFormData } from '@/app/types/operationalDetail';
 import { Establishment } from '@/app/hooks/useEstablishments';
+
+const API_UPLOAD_URL = 'https://vamos-comemorar-api.onrender.com/api/images/upload';
+const BASE_IMAGE_URL = 'https://grupoideiaum.com.br/cardapio-agilizaiapp/';
+const PLACEHOLDER_IMAGE_URL = 'https://placehold.co/400x300';
+
+const getValidImageUrl = (filename: string): string => {
+  if (!filename || filename.trim() === '' || filename.startsWith('blob:')) {
+    return PLACEHOLDER_IMAGE_URL;
+  }
+  if (filename.startsWith('http://') || filename.startsWith('https://')) {
+    return filename;
+  }
+  return `${BASE_IMAGE_URL}${filename}`;
+};
 
 interface OperationalDetailsModalProps {
   isOpen: boolean;
@@ -147,6 +162,85 @@ export default function OperationalDetailsModal({
     }
   };
 
+  const handleImageUpload = useCallback(
+    async (file: File) => {
+      if (!file) return;
+
+      // Criar URL temporária para preview
+      const tempUrl = URL.createObjectURL(file);
+      setFormData((prev) => ({ ...prev, visual_reference_url: tempUrl }));
+
+      try {
+        console.log('🔄 Iniciando upload da imagem:', file.name);
+
+        const formData = new FormData();
+        formData.append('image', file);
+
+        const response = await fetch(API_UPLOAD_URL, {
+          method: 'POST',
+          body: formData,
+        });
+
+        console.log('📡 Resposta do upload:', response.status, response.statusText);
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          console.error('❌ Erro do servidor:', errorData);
+          throw new Error(
+            errorData.error || `Erro no upload: ${response.status} - ${response.statusText}`,
+          );
+        }
+
+        const result = await response.json();
+        console.log('✅ Resultado do upload:', result);
+
+        if (result.success && result.filename) {
+          const filename = result.filename;
+          setFormData((prev) => ({ ...prev, visual_reference_url: filename }));
+
+          setTimeout(() => {
+            URL.revokeObjectURL(tempUrl);
+          }, 1000);
+
+          console.log('✅ Upload concluído com sucesso');
+          alert('Imagem carregada com sucesso!');
+        } else {
+          throw new Error(result.error || 'Resposta inválida do servidor');
+        }
+      } catch (error) {
+        console.error('❌ Erro no upload:', error);
+
+        let errorMessage = 'Erro desconhecido';
+        if (error instanceof Error) {
+          if (error.name === 'TypeError' && error.message.includes('fetch')) {
+            errorMessage = 'Erro de conexão. Verifique sua internet e tente novamente.';
+          } else {
+            errorMessage = error.message;
+          }
+        }
+
+        alert(`Erro no upload: ${errorMessage}`);
+
+        URL.revokeObjectURL(tempUrl);
+        setFormData((prev) => ({ ...prev, visual_reference_url: '' }));
+      }
+    },
+    [],
+  );
+
+  const selectImageFile = useCallback(() => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.onchange = (e) => {
+      const files = (e.target as HTMLInputElement).files;
+      if (files && files[0]) {
+        handleImageUpload(files[0]);
+      }
+    };
+    input.click();
+  }, [handleImageUpload]);
+
   if (!isOpen) return null;
 
   return (
@@ -286,18 +380,41 @@ export default function OperationalDetailsModal({
               />
             </div>
 
-            {/* URL da Imagem */}
+            {/* Imagem de Divulgação */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                URL da Imagem de Divulgação
+                Imagem de Divulgação
               </label>
-              <input
-                type="url"
-                value={formData.visual_reference_url}
-                onChange={(e) => handleInputChange('visual_reference_url', e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500"
-                placeholder="https://exemplo.com/imagem.jpg"
-              />
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={formData.visual_reference_url}
+                  onChange={(e) => handleInputChange('visual_reference_url', e.target.value)}
+                  placeholder="Nome do arquivo (ex: imagem.jpg) ou URL"
+                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500"
+                />
+                <button
+                  type="button"
+                  onClick={selectImageFile}
+                  className="flex items-center gap-1 rounded-md bg-green-600 px-3 py-2 text-white hover:bg-green-700 transition-colors"
+                >
+                  <MdUpload className="h-4 w-4" />
+                  Upload
+                </button>
+              </div>
+              {formData.visual_reference_url && formData.visual_reference_url.trim() !== '' && (
+                <div className="mt-2">
+                  <Image
+                    src={getValidImageUrl(formData.visual_reference_url)}
+                    alt="Preview da imagem de divulgação"
+                    width={300}
+                    height={200}
+                    className="rounded-lg border object-cover"
+                    unoptimized={formData.visual_reference_url.startsWith('blob:')}
+                    priority={true}
+                  />
+                </div>
+              )}
             </div>
 
             {/* Notas Administrativas */}
