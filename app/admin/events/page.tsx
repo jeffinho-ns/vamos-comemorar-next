@@ -3,7 +3,18 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { MdAdd, MdCalendarViewMonth, MdList, MdCalendarToday, MdLocationOn, MdAccessTime, MdPeople, MdEvent } from "react-icons/md";
+import { MdAdd, MdCalendarViewMonth, MdList, MdCalendarToday, MdLocationOn, MdAccessTime, MdPeople, MdEvent, MdTableBar, MdStar, MdPerson, MdMusicNote, MdAttachMoney, MdInfo, MdCheckCircle } from "react-icons/md";
+
+interface Promoter {
+  promoter_id: number;
+  promoter_nome: string;
+  promoter_apelido?: string;
+  promoter_email?: string;
+  promoter_telefone?: string;
+  promoter_whatsapp?: string;
+  funcao: 'PRINCIPAL' | 'AUXILIAR';
+  status: string;
+}
 
 interface Event {
   id: number;
@@ -14,13 +25,20 @@ interface Event {
   local_do_evento?: string;
   categoria?: string;
   descricao?: string;
+  brinde?: string;
+  observacao?: string;
   valor_da_entrada?: number | string;
+  mesas?: number | string;
+  valor_da_mesa?: number | string;
+  numero_de_convidados?: number;
   imagem_do_evento?: string;
   imagem_do_evento_url?: string;
   convidados_presentes?: number;
   total_convidados?: number;
   total_convidados_checkin?: number;
   total_convidados_cadastrados?: number;
+  tipo_evento?: 'unico' | 'semanal';
+  promoters?: Promoter[];
 }
 
 type ViewMode = 'list' | 'calendar';
@@ -42,27 +60,45 @@ export default function Eventos() {
       });
       const data = await res.json();
   
-      // Para cada evento, buscar os convidados e contar
-      const eventsWithConvidados = await Promise.all(
+      // Para cada evento, buscar os convidados, promoters e outras informações
+      const eventsWithDetails = await Promise.all(
         data.map(async (event: Event) => {
           try {
+            // Buscar convidados
             const convidadosRes = await fetch(
               `https://vamos-comemorar-api.onrender.com/api/convidados/${event.id}`,
               { headers: { Authorization: `Bearer ${token}` } }
             );
             const convidados = await convidadosRes.json();
+            
+            // Buscar promoters/DJs do evento
+            let promoters: Promoter[] = [];
+            try {
+              const promotersRes = await fetch(
+                `https://vamos-comemorar-api.onrender.com/api/promoter-eventos/${event.id}`,
+                { headers: { Authorization: `Bearer ${token}` } }
+              );
+              if (promotersRes.ok) {
+                const promotersData = await promotersRes.json();
+                promoters = promotersData.promoters || promotersData || [];
+              }
+            } catch (err) {
+              console.error("Erro ao buscar promoters para o evento", event.id, err);
+            }
+            
             return {
               ...event,
               total_convidados: convidados.length,
+              promoters: promoters,
             };
           } catch (err) {
-            console.error("Erro ao buscar convidados para o evento", event.id, err);
-            return { ...event, total_convidados: 0 };
+            console.error("Erro ao buscar dados para o evento", event.id, err);
+            return { ...event, total_convidados: 0, promoters: [] };
           }
         })
       );
   
-      setEvents(eventsWithConvidados);
+      setEvents(eventsWithDetails);
     } catch (err) {
       console.error("Erro ao buscar eventos", err);
     }
@@ -269,25 +305,98 @@ export default function Eventos() {
                   </div>
                 </div>
 
-                <div className="text-sm text-gray-600 mb-4 p-3 bg-gray-50/80 rounded-xl">
-                  <span className="font-semibold text-gray-700">Convidados presentes:</span> {event.convidados_presentes || 0}/{event.total_convidados || 0}
+                {/* Operational Details */}
+                <div className="mb-4 space-y-2">
+                  {/* Mesas */}
+                  {event.mesas && (
+                    <div className="flex items-center gap-2 text-sm text-gray-700 bg-blue-50 p-2 rounded-lg">
+                      <MdTableBar className="text-blue-600" size={16} />
+                      <span><strong>{event.mesas}</strong> mesas</span>
+                      {event.valor_da_mesa && (() => {
+                        const valorMesa = typeof event.valor_da_mesa === 'number' 
+                          ? event.valor_da_mesa 
+                          : parseFloat(String(event.valor_da_mesa));
+                        if (!isNaN(valorMesa)) {
+                          return <span className="text-gray-600">• R$ {valorMesa.toFixed(2)}/mesa</span>;
+                        }
+                        return null;
+                      })()}
+                    </div>
+                  )}
+
+                  {/* Promoters/DJs */}
+                  {event.promoters && event.promoters.length > 0 && (
+                    <div className="flex items-center gap-2 text-sm text-gray-700 bg-purple-50 p-2 rounded-lg">
+                      <MdMusicNote className="text-purple-600" size={16} />
+                      <span><strong>Promoters/DJs:</strong> </span>
+                      <div className="flex flex-wrap gap-1">
+                        {event.promoters.slice(0, 4).map((promoter, idx) => (
+                          <span
+                            key={idx}
+                            className={`text-xs px-2 py-0.5 rounded-full ${
+                              promoter.funcao === 'PRINCIPAL'
+                                ? 'bg-purple-600 text-white font-semibold'
+                                : 'bg-purple-200 text-purple-800'
+                            }`}
+                          >
+                            {promoter.promoter_apelido || promoter.promoter_nome}
+                            {promoter.funcao === 'PRINCIPAL' && ' ⭐'}
+                          </span>
+                        ))}
+                        {event.promoters.length > 4 && (
+                          <span className="text-xs px-2 py-0.5 rounded-full bg-purple-100 text-purple-700">
+                            +{event.promoters.length - 4}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Brinde */}
+                  {event.brinde && (
+                    <div className="flex items-start gap-2 text-sm text-gray-700 bg-green-50 p-2 rounded-lg">
+                      <MdStar className="text-green-600 mt-0.5" size={16} />
+                      <div>
+                        <span className="font-semibold text-green-800">Brinde: </span>
+                        <span>{event.brinde}</span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Convidados */}
+                  <div className="flex items-center gap-2 text-sm text-gray-700 bg-gray-50 p-2 rounded-lg">
+                    <MdPeople className="text-gray-500" size={16} />
+                    <span>
+                      <span className="font-semibold">Convidados:</span> {event.total_convidados_checkin || event.convidados_presentes || 0}/{event.total_convidados_cadastrados || event.total_convidados || 0}
+                    </span>
+                  </div>
                 </div>
 
                 <div className="mb-4 flex flex-wrap items-center gap-2">
-                  <span className="bg-gradient-to-r from-green-500 to-green-600 text-white text-sm font-semibold px-3 py-2 rounded-xl">
-                    Somente Listas
-                  </span>
+                  {event.tipo_evento && (
+                    <span className={`text-white text-sm font-semibold px-3 py-2 rounded-xl ${
+                      event.tipo_evento === 'semanal' 
+                        ? 'bg-gradient-to-r from-purple-500 to-purple-600' 
+                        : 'bg-gradient-to-r from-green-500 to-green-600'
+                    }`}>
+                      {event.tipo_evento === 'semanal' ? 'Evento Semanal' : 'Evento Único'}
+                    </span>
+                  )}
                 </div>
 
                 <div className="flex flex-wrap gap-3">
                   <Link href={`/admin/eventos/${event.id}`}>
-                    <button className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white text-sm px-6 py-3 rounded-xl font-semibold transition-all duration-200 transform hover:scale-105">
-                      Adicionar convidados
+                    <button className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white text-sm px-6 py-3 rounded-xl font-semibold transition-all duration-200 transform hover:scale-105 flex items-center gap-2">
+                      <MdCheckCircle size={16} />
+                      Gerenciar Evento
                     </button>
                   </Link>
-                  <button className="bg-gradient-to-r from-gray-700 to-gray-800 hover:from-gray-800 hover:to-gray-900 text-white text-sm px-6 py-3 rounded-xl font-semibold transition-all duration-200 transform hover:scale-105">
-                    Ver relatórios
-                  </button>
+                  <Link href={`/admin/eventos/${event.id}/check-ins`}>
+                    <button className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white text-sm px-6 py-3 rounded-xl font-semibold transition-all duration-200 transform hover:scale-105 flex items-center gap-2">
+                      <MdPeople size={16} />
+                      Check-ins
+                    </button>
+                  </Link>
                 </div>
               </div>
             ))}
@@ -370,9 +479,12 @@ export default function Eventos() {
                             </div>
 
                             {/* Date and Time */}
-                            <div className="flex items-center gap-2 text-gray-700">
+                            <div className="flex items-center gap-2 text-gray-700 bg-gray-50 rounded-lg p-2">
                               <MdAccessTime className="text-gray-500" size={18} />
-                              <span className="font-semibold">{event.hora_do_evento}</span>
+                              <div>
+                                <span className="text-xs text-gray-600">Horário:</span>
+                                <span className="font-semibold block">{event.hora_do_evento}</span>
+                              </div>
                             </div>
 
                             {/* Location */}
@@ -385,44 +497,135 @@ export default function Eventos() {
 
                             {/* Description */}
                             {event.descricao && (
-                              <p className="text-gray-600 text-sm line-clamp-2">
-                                {event.descricao}
-                              </p>
+                              <div className="bg-gray-50 rounded-lg p-2">
+                                <p className="text-gray-600 text-sm line-clamp-3">
+                                  {event.descricao}
+                                </p>
+                              </div>
                             )}
 
-                            {/* Guests Info */}
-                            <div className="flex items-center gap-2 text-gray-700 bg-gray-50 rounded-lg p-3">
-                              <MdPeople className="text-gray-500" size={18} />
-                              <span className="text-sm font-semibold">
-                                {event.total_convidados_checkin || event.convidados_presentes || 0} / {event.total_convidados_cadastrados || event.total_convidados || 0} convidados
-                              </span>
-                            </div>
+                            {/* Observações */}
+                            {event.observacao && (
+                              <div className="bg-amber-50 border border-amber-200 rounded-lg p-2">
+                                <div className="flex items-start gap-2">
+                                  <MdInfo className="text-amber-600 mt-0.5" size={18} />
+                                  <div className="flex-1">
+                                    <span className="text-xs font-semibold text-amber-800">Observações:</span>
+                                    <p className="text-sm text-gray-700 mt-1">{event.observacao}</p>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
 
-                            {/* Price */}
-                            {event.valor_da_entrada && (() => {
-                              const valor = typeof event.valor_da_entrada === 'number' 
-                                ? event.valor_da_entrada 
-                                : parseFloat(String(event.valor_da_entrada));
-                              if (isNaN(valor)) return null;
-                              return (
-                                <div className="bg-gradient-to-r from-yellow-500/10 to-yellow-600/10 rounded-lg p-3 border border-yellow-500/20">
-                                  <span className="text-yellow-700 font-bold text-lg">
-                                    R$ {valor.toFixed(2)}
+                            {/* Operational Info */}
+                            <div className="space-y-2">
+                              {/* Mesas */}
+                              {event.mesas && (
+                                <div className="flex items-center gap-2 text-gray-700 bg-blue-50 rounded-lg p-2">
+                                  <MdTableBar className="text-blue-600" size={18} />
+                                  <span className="text-sm">
+                                    <span className="font-semibold">{event.mesas}</span> mesas
+                                    {event.valor_da_mesa && (() => {
+                                      const valorMesa = typeof event.valor_da_mesa === 'number' 
+                                        ? event.valor_da_mesa 
+                                        : parseFloat(String(event.valor_da_mesa));
+                                      if (!isNaN(valorMesa)) {
+                                        return <span className="text-gray-600"> • R$ {valorMesa.toFixed(2)}/mesa</span>;
+                                      }
+                                      return null;
+                                    })()}
                                   </span>
                                 </div>
-                              );
-                            })()}
+                              )}
+
+                              {/* Promoters/DJs */}
+                              {event.promoters && event.promoters.length > 0 && (
+                                <div className="bg-purple-50 rounded-lg p-2">
+                                  <div className="flex items-center gap-2 mb-2">
+                                    <MdMusicNote className="text-purple-600" size={18} />
+                                    <span className="text-sm font-semibold text-gray-800">
+                                      Promoters/DJs ({event.promoters.length})
+                                    </span>
+                                  </div>
+                                  <div className="flex flex-wrap gap-1">
+                                    {event.promoters.slice(0, 3).map((promoter, idx) => (
+                                      <span
+                                        key={idx}
+                                        className={`text-xs px-2 py-1 rounded-full ${
+                                          promoter.funcao === 'PRINCIPAL'
+                                            ? 'bg-purple-600 text-white font-semibold'
+                                            : 'bg-purple-200 text-purple-800'
+                                        }`}
+                                        title={promoter.promoter_whatsapp || promoter.promoter_telefone || promoter.promoter_email}
+                                      >
+                                        {promoter.promoter_apelido || promoter.promoter_nome}
+                                        {promoter.funcao === 'PRINCIPAL' && ' ⭐'}
+                                      </span>
+                                    ))}
+                                    {event.promoters.length > 3 && (
+                                      <span className="text-xs px-2 py-1 rounded-full bg-purple-100 text-purple-700">
+                                        +{event.promoters.length - 3}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Brinde */}
+                              {event.brinde && (
+                                <div className="flex items-start gap-2 text-gray-700 bg-green-50 rounded-lg p-2">
+                                  <MdStar className="text-green-600 mt-0.5" size={18} />
+                                  <div className="flex-1">
+                                    <span className="text-xs font-semibold text-green-800">Brinde:</span>
+                                    <p className="text-sm text-gray-700">{event.brinde}</p>
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Guests Info */}
+                              <div className="flex items-center gap-2 text-gray-700 bg-gray-50 rounded-lg p-2">
+                                <MdPeople className="text-gray-500" size={18} />
+                                <span className="text-sm font-semibold">
+                                  {event.total_convidados_checkin || event.convidados_presentes || 0} / {event.total_convidados_cadastrados || event.total_convidados || 0} convidados
+                                </span>
+                              </div>
+
+                              {/* Price */}
+                              {event.valor_da_entrada && (() => {
+                                const valor = typeof event.valor_da_entrada === 'number' 
+                                  ? event.valor_da_entrada 
+                                  : parseFloat(String(event.valor_da_entrada));
+                                if (isNaN(valor)) return null;
+                                return (
+                                  <div className="bg-gradient-to-r from-yellow-500/10 to-yellow-600/10 rounded-lg p-2 border border-yellow-500/20">
+                                    <div className="flex items-center gap-2">
+                                      <MdAttachMoney className="text-yellow-600" size={18} />
+                                      <div>
+                                        <span className="text-xs text-gray-600">Entrada:</span>
+                                        <span className="text-yellow-700 font-bold text-lg block">
+                                          R$ {valor.toFixed(2)}
+                                        </span>
+                                      </div>
+                                    </div>
+                                  </div>
+                                );
+                              })()}
+                            </div>
 
                             {/* Actions */}
                             <div className="flex flex-wrap gap-2 pt-2">
                               <Link href={`/admin/eventos/${event.id}`} className="flex-1">
-                                <button className="w-full bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white text-sm px-4 py-2 rounded-xl font-semibold transition-all duration-200">
+                                <button className="w-full bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white text-sm px-4 py-2 rounded-xl font-semibold transition-all duration-200 flex items-center justify-center gap-2">
+                                  <MdCheckCircle size={16} />
                                   Gerenciar
                                 </button>
                               </Link>
-                              <button className="flex-1 bg-gradient-to-r from-gray-700 to-gray-800 hover:from-gray-800 hover:to-gray-900 text-white text-sm px-4 py-2 rounded-xl font-semibold transition-all duration-200">
-                                Relatórios
-                              </button>
+                              <Link href={`/admin/eventos/${event.id}/check-ins`} className="flex-1">
+                                <button className="w-full bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white text-sm px-4 py-2 rounded-xl font-semibold transition-all duration-200 flex items-center justify-center gap-2">
+                                  <MdPeople size={16} />
+                                  Check-ins
+                                </button>
+                              </Link>
                             </div>
                           </div>
                         </div>
