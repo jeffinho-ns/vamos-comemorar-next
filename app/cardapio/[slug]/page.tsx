@@ -787,9 +787,16 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
           // Menu de categorias fixo (visível em todas as telas)
           <div className="sticky top-0 z-20 bg-gradient-to-br from-gray-50 to-gray-100">
             {/* Indicador de categoria ativa */}
-            <div className="text-center py-2 px-4 bg-blue-50 border-b border-blue-200">
+            <div className={`text-center py-2 px-4 ${selectedBar?.slug === 'reserva-rooftop' ? 'bg-green-50 border-b border-green-200' : 'bg-blue-50 border-b border-blue-200'}`}>
               <span className="text-sm text-gray-600">
-                Categoria ativa: <span className="font-bold text-blue-600">{selectedCategory}</span>
+                Categoria ativa: <span 
+                  className="font-bold" 
+                  style={{ 
+                    color: selectedBar?.slug === 'reserva-rooftop' ? '#0c190c' : undefined 
+                  }}
+                >
+                  {selectedCategory}
+                </span>
               </span>
             </div>
             <div className="pb-2">
