@@ -629,8 +629,9 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
           </div>
         )}
       </div>
-    </motion.div>
-  ), [formatPrice, selectedBar]);
+      </motion.div>
+    );
+  }, [formatPrice, selectedBar]);
 
   if (isLoading) {
     return (
