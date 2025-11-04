@@ -20,6 +20,7 @@ import {
   MdEvent,
   MdBusiness,
   MdRestaurant,
+  MdInfo,
 } from "react-icons/md";
 import logBrand from "../assets/logo-agilizai-h.png"; // Verifique o caminho
 import UserMenu from "../components/UserMenu/UserMenu"; // Verifique o caminho
@@ -52,6 +53,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       return [
         { href: "/admin/cardapio", label: "Cardápio", icon: MdRestaurant },
         { href: "/admin/eventos", label: "Eventos", icon: MdEvent },
+        { href: "/admin/detalhes-operacionais", label: "Detalhes Operacionais do Evento", icon: MdInfo },
         { href: "/admin/reservas", label: "Reservas", icon: MdEditCalendar },
         { href: "/admin/restaurant-reservations", label: "Sistema de Reservas", icon: MdRestaurant },
         { href: "/admin/qrcode", label: "Scanner QR Code", icon: MdQrCodeScanner },
@@ -66,6 +68,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         { href: "/admin/users", label: "Usuários", icon: MdPerson },
         { href: "/admin/eventos", label: "Eventos", icon: MdEvent },
         { href: "/admin/painel-eventos", label: "Painel de Eventos", icon: MdBusiness },
+        { href: "/admin/detalhes-operacionais", label: "Detalhes Operacionais do Evento", icon: MdInfo },
         { href: "/admin/reservas", label: "Reservas", icon: MdEditCalendar },
         { href: "/admin/restaurant-reservations", label: "Sistema de Reservas", icon: MdRestaurant },
         { href: "/admin/enterprise", label: "Empresa", icon: MdFactory },
