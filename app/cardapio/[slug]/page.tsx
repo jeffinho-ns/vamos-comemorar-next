@@ -550,30 +550,36 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
     );
   }, [selectedBar]);
 
-  const MenuItemCard = useCallback(({ item, onClick }: { item: MenuItem, onClick: (item: MenuItem) => void }) => (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3 }}
-      className="menu-item-card cursor-pointer bg-white rounded-lg shadow-lg overflow-hidden hover:shadow-xl transition-shadow duration-300"
-      onClick={() => onClick(item)}
-    >
-      <div className="relative h-48 overflow-hidden">
-        <Image
-          src={getValidImageUrl(item.imageUrl)}
-          alt={item.name}
-          fill
-          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-          className="object-cover"
-        />
-        
-        
-        <div className="absolute top-3 right-3 price-badge bg-white px-2 py-1 rounded-full shadow-md">
-          <span className="text-sm font-bold text-green-600">
-            {formatPrice(item.price)}
-          </span>
+  const MenuItemCard = useCallback(({ item, onClick }: { item: MenuItem, onClick: (item: MenuItem) => void }) => {
+    // Verificar se é Reserva Rooftop para ocultar preço
+    const isReservaRooftop = selectedBar?.slug === 'reserva-rooftop';
+    
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3 }}
+        className="menu-item-card cursor-pointer bg-white rounded-lg shadow-lg overflow-hidden hover:shadow-xl transition-shadow duration-300"
+        onClick={() => onClick(item)}
+      >
+        <div className="relative h-48 overflow-hidden">
+          <Image
+            src={getValidImageUrl(item.imageUrl)}
+            alt={item.name}
+            fill
+            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+            className="object-cover"
+          />
+          
+          {/* Ocultar preço apenas para Reserva Rooftop */}
+          {!isReservaRooftop && (
+            <div className="absolute top-3 right-3 price-badge bg-white px-2 py-1 rounded-full shadow-md">
+              <span className="text-sm font-bold text-green-600">
+                {formatPrice(item.price)}
+              </span>
+            </div>
+          )}
         </div>
-      </div>
       
       <div className="p-3 sm:p-4">
         <h3 className="text-base sm:text-lg font-semibold text-gray-800 mb-2 line-clamp-2">
@@ -616,7 +622,7 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
                   key={topping.id}
                   className="topping-tag text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded-full"
                 >
-                  {topping.name} +{formatPrice(topping.price)}
+                  {topping.name}{!isReservaRooftop && ` +${formatPrice(topping.price)}`}
                 </span>
               ))}
             </div>
