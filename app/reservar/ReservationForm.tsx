@@ -11,7 +11,8 @@ import {
   MdEmail, 
   MdLocationOn,
   MdCheck,
-  MdArrowBack
+  MdArrowBack,
+  MdEvent
 } from 'react-icons/md';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { formatDateBR } from '@/lib/dateUtils';
@@ -136,6 +137,8 @@ export default function ReservationForm() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [reservationId, setReservationId] = useState<string | null>(null);
   const [showAgeModal, setShowAgeModal] = useState(false);
+  const [operationalDetails, setOperationalDetails] = useState<any>(null);
+  const [loadingDetails, setLoadingDetails] = useState(false);
 
   // Carregar estabelecimentos da API
   useEffect(() => {
@@ -419,6 +422,42 @@ export default function ReservationForm() {
     };
     loadTables();
   }, [reservationData.area_id, reservationData.reservation_date, selectedSubareaKey]);
+
+  // Buscar detalhes operacionais quando a data for selecionada
+  useEffect(() => {
+    const fetchOperationalDetails = async () => {
+      if (!reservationData.reservation_date) {
+        setOperationalDetails(null);
+        return;
+      }
+
+      setLoadingDetails(true);
+      try {
+        // Formatar data para YYYY-MM-DD
+        const dateFormatted = reservationData.reservation_date;
+        const response = await fetch(`/api/operational-details/date/${dateFormatted}`);
+        
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success && data.data) {
+            setOperationalDetails(data.data);
+          } else {
+            setOperationalDetails(null);
+          }
+        } else {
+          // Se não encontrar, simplesmente não exibe o card (não é erro crítico)
+          setOperationalDetails(null);
+        }
+      } catch (error) {
+        console.error('Erro ao buscar detalhes operacionais:', error);
+        setOperationalDetails(null);
+      } finally {
+        setLoadingDetails(false);
+      }
+    };
+
+    fetchOperationalDetails();
+  }, [reservationData.reservation_date]);
 
   const handleEstablishmentSelect = (establishment: Establishment) => {
     setSelectedEstablishment(establishment);
@@ -951,6 +990,59 @@ const handleSubmit = async (e: React.FormEvent) => {
                 )}
                 </div>
               </div>
+
+              {/* Card de Detalhes Operacionais */}
+              {operationalDetails && (
+                <div className="bg-gradient-to-r from-purple-50 to-pink-50 border-2 border-purple-300 rounded-xl p-4 sm:p-6 shadow-lg">
+                  <div className="flex items-center gap-2 mb-4">
+                    <MdEvent className="text-purple-600 text-xl" />
+                    <h3 className="text-lg font-bold text-purple-900">
+                      Evento Especial - {new Date(operationalDetails.event_date + 'T12:00:00').toLocaleDateString('pt-BR', {
+                        day: '2-digit',
+                        month: 'long',
+                        year: 'numeric'
+                      })}
+                    </h3>
+                  </div>
+
+                  {operationalDetails.visual_reference_url && (
+                    <div className="mb-4">
+                      <img
+                        src={operationalDetails.visual_reference_url}
+                        alt="Arte do evento"
+                        className="w-full rounded-lg shadow-md max-h-64 object-cover"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).style.display = 'none';
+                        }}
+                      />
+                    </div>
+                  )}
+
+                  {operationalDetails.artistic_attraction && (
+                    <div className="mb-4">
+                      <p className="text-sm font-semibold text-purple-800 mb-1">🎭 Atrativos Artísticos:</p>
+                      <p className="text-sm text-purple-900 whitespace-pre-line">{operationalDetails.artistic_attraction}</p>
+                      {operationalDetails.show_schedule && (
+                        <p className="text-xs text-purple-700 mt-1 whitespace-pre-line">{operationalDetails.show_schedule}</p>
+                      )}
+                    </div>
+                  )}
+
+                  {operationalDetails.ticket_prices && (
+                    <div className="mb-4">
+                      <p className="text-sm font-semibold text-purple-800 mb-1">💰 Preços:</p>
+                      <p className="text-sm text-purple-900 whitespace-pre-line">{operationalDetails.ticket_prices}</p>
+                    </div>
+                  )}
+
+                  {operationalDetails.promotions && (
+                    <div className="mb-4">
+                      <p className="text-sm font-semibold text-purple-800 mb-1">🎁 Promoções e Brindes:</p>
+                      <p className="text-sm text-purple-900 whitespace-pre-line">{operationalDetails.promotions}</p>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Lógica condicional sexta/sábado para reservas grandes */}
               {reservationData.number_of_people >= 4 && reservationData.reservation_date && (
