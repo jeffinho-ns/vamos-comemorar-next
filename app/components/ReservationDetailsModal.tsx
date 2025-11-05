@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   MdClose, 
@@ -15,10 +16,12 @@ import {
   MdDelete,
   MdCheckCircle,
   MdCancel,
-  MdPlaylistAdd
+  MdPlaylistAdd,
+  MdEvent
 } from "react-icons/md";
 
 import { Reservation } from '@/app/types/reservation';
+import LinkReservationToEventModal from './LinkReservationToEventModal';
 
 interface ReservationDetailsModalProps {
   isOpen: boolean;
@@ -39,6 +42,8 @@ export default function ReservationDetailsModal({
   onStatusChange,
   onAddGuestList
 }: ReservationDetailsModalProps) {
+  const [showLinkEventModal, setShowLinkEventModal] = useState(false);
+
   if (!reservation) return null;
 
   // Mapeia mesas do Highline para subáreas específicas
@@ -309,6 +314,17 @@ export default function ReservationDetailsModal({
                   </button>
                 )}
                 
+                {reservation.establishment_id && (
+                  <button
+                    onClick={() => setShowLinkEventModal(true)}
+                    className="flex items-center gap-2 px-4 py-2 bg-indigo-500 hover:bg-indigo-600 text-white rounded-lg transition-colors"
+                    title="Vincular esta reserva a um evento e copiar a lista de convidados"
+                  >
+                    <MdEvent />
+                    Vincular a Evento
+                  </button>
+                )}
+                
                 {onDelete && (
                   <button
                     onClick={() => onDelete(reservation)}
@@ -329,6 +345,23 @@ export default function ReservationDetailsModal({
             </div>
           </motion.div>
         </div>
+      )}
+
+      {/* Modal de Vincular a Evento */}
+      {reservation && reservation.establishment_id && (
+        <LinkReservationToEventModal
+          isOpen={showLinkEventModal}
+          onClose={() => setShowLinkEventModal(false)}
+          reservationId={reservation.id}
+          establishmentId={reservation.establishment_id}
+          onSuccess={() => {
+            // Recarregar dados se necessário
+            if (onStatusChange) {
+              // Forçar reload da página ou atualizar dados
+              window.location.reload();
+            }
+          }}
+        />
       )}
     </AnimatePresence>
   );
