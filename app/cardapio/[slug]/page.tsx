@@ -203,7 +203,7 @@ const groupItemsBySubcategory = (items: MenuItem[]): { name: string; items: Menu
 export default function CardapioBarPage({ params }: CardapioBarPageProps) {
   const resolvedParams = use(params);
   const { slug } = resolvedParams;
-  const { trackClick } = useGoogleAnalytics();
+  const { trackClick, trackMenuItemClick, trackMenuItemView, trackCategoryView, trackMenuPageView } = useGoogleAnalytics();
 
   const [selectedBar, setSelectedBar] = useState<Bar | null>(null);
   const [menuCategories, setMenuCategories] = useState<GroupedCategory[]>([]);
@@ -220,6 +220,27 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
 
   const handleItemClick = (item: MenuItem) => {
     setSelectedItem(item);
+    
+    // Rastrear clique no item do cardápio
+    if (selectedBar) {
+      const pageLocation = typeof window !== 'undefined' ? window.location.href : `/cardapio/${slug}`;
+      const category = menuCategories.find(cat => 
+        cat.subCategories.some(sub => 
+          sub.items.some(i => i.id === item.id)
+        )
+      );
+      const categoryName = category?.name || 'Sem categoria';
+      
+      trackMenuItemClick(
+        item.name,
+        item.id,
+        selectedBar.name,
+        slug,
+        categoryName,
+        item.price,
+        pageLocation
+      );
+    }
   };
 
   const handleCloseModal = () => {
@@ -300,6 +321,10 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
         setSelectedCategory(groupedCategories[0].name);
       }
 
+      // Rastrear visualização da página do cardápio
+      const pageLocation = typeof window !== 'undefined' ? window.location.href : `/cardapio/${slug}`;
+      trackMenuPageView(barWithImages.name, slug, pageLocation);
+
     } catch (err) {
       console.error('Erro ao carregar dados:', err);
       setError('Erro ao carregar dados do estabelecimento');
@@ -311,6 +336,20 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
   useEffect(() => {
     fetchBarData();
   }, [fetchBarData]);
+
+  // Rastrear mudanças de categoria e subcategoria
+  useEffect(() => {
+    if (selectedCategory && selectedBar) {
+      const pageLocation = typeof window !== 'undefined' ? window.location.href : `/cardapio/${slug}`;
+      trackCategoryView(
+        selectedCategory,
+        activeSubcategory || null,
+        selectedBar.name,
+        slug,
+        pageLocation
+      );
+    }
+  }, [selectedCategory, activeSubcategory, selectedBar, slug]);
 
   useEffect(() => {
     if (selectedBar && selectedBar.popupImageUrl && selectedBar.popupImageUrl.trim() !== '') {
@@ -550,12 +589,81 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
     );
   }, [selectedBar]);
 
-  const MenuItemCard = useCallback(({ item, onClick }: { item: MenuItem, onClick: (item: MenuItem) => void }) => {
-    // Verificar se é Reserva Rooftop para ocultar preço
+  // Componente para rastrear visualização de item
+  const MenuItemCardWithTracking = React.memo(({ 
+    item, 
+    onClick, 
+    selectedBar, 
+    menuCategories, 
+    slug,
+    formatPrice,
+    trackMenuItemView,
+    getValidImageUrl,
+    renderWineSeal,
+    getSealById
+  }: { 
+    item: MenuItem; 
+    onClick: (item: MenuItem) => void;
+    selectedBar: Bar | null;
+    menuCategories: GroupedCategory[];
+    slug: string;
+    formatPrice: (price: number) => string;
+    trackMenuItemView: (itemName: string, itemId: string | number, establishmentName: string, establishmentSlug: string, category: string, price: number, pageLocation: string) => void;
+    getValidImageUrl: (filename?: string | null) => string;
+    renderWineSeal: (sealId: string, type: 'card' | 'modal') => JSX.Element | null;
+    getSealById: (sealId: string, bar?: BarFromAPI) => { name: string; color: string } | null;
+  }) => {
     const isReservaRooftop = selectedBar?.slug === 'reserva-rooftop';
+    const itemRef = React.useRef<HTMLDivElement>(null);
+    const hasTrackedView = React.useRef(false);
+    
+    // Rastrear visualização quando o item aparece na tela
+    React.useEffect(() => {
+      if (!itemRef.current || hasTrackedView.current || !selectedBar) return;
+      
+      const observer = new IntersectionObserver(
+        (entries) => {
+          entries.forEach((entry) => {
+            if (entry.isIntersecting && !hasTrackedView.current) {
+              hasTrackedView.current = true;
+              
+              const category = menuCategories.find(cat => 
+                cat.subCategories.some(sub => 
+                  sub.items.some(i => i.id === item.id)
+                )
+              );
+              const categoryName = category?.name || 'Sem categoria';
+              const pageLocation = typeof window !== 'undefined' ? window.location.href : `/cardapio/${slug}`;
+              
+              trackMenuItemView(
+                item.name,
+                item.id,
+                selectedBar.name,
+                slug,
+                categoryName,
+                item.price,
+                pageLocation
+              );
+              
+              observer.unobserve(entry.target);
+            }
+          });
+        },
+        { threshold: 0.5 }
+      );
+      
+      observer.observe(itemRef.current);
+      
+      return () => {
+        if (itemRef.current) {
+          observer.unobserve(itemRef.current);
+        }
+      };
+    }, [item, selectedBar, slug, menuCategories, trackMenuItemView]);
     
     return (
       <motion.div
+        ref={itemRef}
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3 }}
@@ -631,7 +739,24 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
       </div>
       </motion.div>
     );
-  }, [formatPrice, selectedBar]);
+  });
+
+  const MenuItemCard = useCallback(({ item, onClick }: { item: MenuItem, onClick: (item: MenuItem) => void }) => {
+    return (
+      <MenuItemCardWithTracking
+        item={item}
+        onClick={onClick}
+        selectedBar={selectedBar}
+        menuCategories={menuCategories}
+        slug={slug}
+        formatPrice={formatPrice}
+        trackMenuItemView={trackMenuItemView}
+        getValidImageUrl={getValidImageUrl}
+        renderWineSeal={renderWineSeal}
+        getSealById={getSealById}
+      />
+    );
+  }, [formatPrice, selectedBar, menuCategories, slug, trackMenuItemView, getValidImageUrl, renderWineSeal, getSealById]);
 
   if (isLoading) {
     return (
@@ -807,6 +932,19 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
                     // A função de rolagem aqui vai para o topo da categoria no mobile
                     onClick={() => {
                         setSelectedCategory(category.name);
+                        
+                        // Rastrear visualização de categoria
+                        if (selectedBar) {
+                          const pageLocation = typeof window !== 'undefined' ? window.location.href : `/cardapio/${slug}`;
+                          trackCategoryView(
+                            category.name,
+                            null,
+                            selectedBar.name,
+                            slug,
+                            pageLocation
+                          );
+                        }
+                        
                         const element = document.getElementById(category.name.replace(/\s+/g, '-').toLowerCase());
                         if (element) {
                           element.scrollIntoView({ 
