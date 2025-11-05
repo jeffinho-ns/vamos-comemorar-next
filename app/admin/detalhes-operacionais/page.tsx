@@ -17,6 +17,7 @@ import {
 import { useEstablishments } from '@/app/hooks/useEstablishments';
 import { OperationalDetail } from '@/app/types/operationalDetail';
 import OperationalDetailsModal from '@/app/components/OperationalDetailsModal';
+import EventsModal from '@/app/components/EventsModal';
 
 export default function DetalhesOperacionaisPage() {
   const { establishments, loading: establishmentsLoading, fetchEstablishments } = useEstablishments();
@@ -24,6 +25,7 @@ export default function DetalhesOperacionaisPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
+  const [showEventsModal, setShowEventsModal] = useState(false);
   const [editingDetail, setEditingDetail] = useState<OperationalDetail | null>(null);
   const [selectedEstablishment, setSelectedEstablishment] = useState<number | null>(null);
   const [filterDate, setFilterDate] = useState<string>('');
@@ -250,6 +252,12 @@ export default function DetalhesOperacionaisPage() {
                 <MdRefresh className="text-xl" />
               </button>
               <button
+                onClick={() => setShowEventsModal(true)}
+                className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white px-6 py-3 rounded-xl shadow-lg transition-all duration-200 transform hover:scale-105 font-semibold flex items-center gap-2"
+              >
+                <MdEvent size={20} /> Ver Eventos
+              </button>
+              <button
                 onClick={handleAdd}
                 className="bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-600 hover:to-yellow-700 text-gray-900 px-6 py-3 rounded-xl shadow-lg transition-all duration-200 transform hover:scale-105 font-semibold flex items-center gap-2"
               >
@@ -412,7 +420,14 @@ export default function DetalhesOperacionaisPage() {
         detail={editingDetail}
         establishments={establishments}
       />
+
+      {/* Events Modal */}
+      <EventsModal
+        isOpen={showEventsModal}
+        onClose={() => setShowEventsModal(false)}
+      />
     </div>
   );
 }
+
 
