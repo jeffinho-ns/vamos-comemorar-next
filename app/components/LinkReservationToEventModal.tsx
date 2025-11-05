@@ -63,14 +63,19 @@ export default function LinkReservationToEventModal({
       let url = `${API_URL}/api/v1/eventos?establishment_id=${establishmentId}`;
       
       if (reservationDate) {
+        // Normalizar data da reserva (garantir formato YYYY-MM-DD)
+        const normalizedReservationDate = reservationDate.split('T')[0].split(' ')[0];
+        
         // Buscar eventos da data da reserva e próximos (até 30 dias)
-        const reservationDateObj = new Date(reservationDate);
+        // Usar data normalizada para evitar problemas de timezone
+        const reservationDateObj = new Date(normalizedReservationDate + 'T12:00:00');
         const endDate = new Date(reservationDateObj);
         endDate.setDate(endDate.getDate() + 30);
         const endDateStr = endDate.toISOString().split('T')[0];
         
-        url += `&data_inicio=${reservationDate}&data_fim=${endDateStr}`;
-        console.log('🔍 Buscando eventos para a data da reserva:', reservationDate, 'até', endDateStr);
+        url += `&data_inicio=${normalizedReservationDate}&data_fim=${endDateStr}`;
+        console.log('🔍 Buscando eventos para a data da reserva:', normalizedReservationDate, 'até', endDateStr);
+        console.log('📅 Data da reserva normalizada:', normalizedReservationDate);
       } else {
         // Buscar eventos futuros (a partir de hoje)
         url += `&data_inicio=${today}`;
@@ -93,9 +98,26 @@ export default function LinkReservationToEventModal({
         
         if (!data.eventos || data.eventos.length === 0) {
           console.warn('⚠️ Nenhum evento retornado da API');
+          console.log('📊 Parâmetros da busca:', {
+            establishment_id: establishmentId,
+            reservation_date: reservationDate,
+            url: url
+          });
           setEvents([]);
           return;
         }
+        
+        console.log('📋 Todos os eventos recebidos da API (antes do filtro):', data.eventos.map((e: Event) => ({
+          id: e.evento_id,
+          nome: e.nome,
+          data: e.data_evento,
+          tipo: e.tipo_evento,
+          estabelecimento: e.establishment_name,
+          establishment_id: e.establishment_id
+        })));
+        
+        // Normalizar data da reserva para comparação
+        const normalizedReservationDate = reservationDate ? reservationDate.split('T')[0].split(' ')[0] : null;
         
         // Filtrar e ordenar eventos
         const filteredEvents = (data.eventos || []).filter((event: Event) => {
@@ -109,50 +131,64 @@ export default function LinkReservationToEventModal({
             return false;
           }
           
-          // Verificar se a data é da reserva ou futura
-          try {
-            const eventDate = new Date(event.data_evento + 'T00:00:00');
-            const compareDate = reservationDate 
-              ? new Date(reservationDate + 'T00:00:00')
-              : new Date();
-            compareDate.setHours(0, 0, 0, 0);
-            eventDate.setHours(0, 0, 0, 0);
-            
+          // Normalizar data do evento (garantir formato YYYY-MM-DD)
+          const normalizedEventDate = event.data_evento.split('T')[0].split(' ')[0];
+          
+          // Comparar datas usando apenas strings YYYY-MM-DD (evita problemas de timezone)
+          if (normalizedReservationDate) {
             // Se temos data da reserva, mostrar eventos da data ou futuros
-            // Caso contrário, mostrar apenas eventos futuros
-            return eventDate >= compareDate;
-          } catch (error) {
-            console.error('Erro ao processar data do evento:', error);
-            return false;
+            const isSameOrFuture = normalizedEventDate >= normalizedReservationDate;
+            console.log(`🔍 Comparando evento "${event.nome}": ${normalizedEventDate} >= ${normalizedReservationDate} = ${isSameOrFuture}`);
+            return isSameOrFuture;
+          } else {
+            // Caso contrário, mostrar apenas eventos futuros (incluindo hoje)
+            const today = new Date().toISOString().split('T')[0];
+            return normalizedEventDate >= today;
           }
         });
         
+        // Normalizar data da reserva para comparação
+        const normalizedReservationDateForSort = reservationDate ? reservationDate.split('T')[0].split(' ')[0] : null;
+        
         // Ordenar eventos: primeiro da data da reserva, depois por data crescente
         filteredEvents.sort((a: Event, b: Event) => {
+          // Normalizar datas dos eventos
+          const aDate = a.data_evento ? a.data_evento.split('T')[0].split(' ')[0] : '';
+          const bDate = b.data_evento ? b.data_evento.split('T')[0].split(' ')[0] : '';
+          
           // Se temos data da reserva, priorizar eventos daquela data
-          if (reservationDate) {
-            if (a.data_evento === reservationDate && b.data_evento !== reservationDate) return -1;
-            if (a.data_evento !== reservationDate && b.data_evento === reservationDate) return 1;
+          if (normalizedReservationDateForSort) {
+            if (aDate === normalizedReservationDateForSort && bDate !== normalizedReservationDateForSort) return -1;
+            if (aDate !== normalizedReservationDateForSort && bDate === normalizedReservationDateForSort) return 1;
           }
           
           // Ordenar por data (mais próximos primeiro)
           if (a.tipo_evento === 'semanal' && b.tipo_evento !== 'semanal') return -1;
           if (a.tipo_evento !== 'semanal' && b.tipo_evento === 'semanal') return 1;
           
-          if (a.data_evento && b.data_evento) {
-            return new Date(a.data_evento).getTime() - new Date(b.data_evento).getTime();
+          // Comparar usando strings normalizadas (evita problemas de timezone)
+          if (aDate && bDate) {
+            return aDate.localeCompare(bDate);
           }
           
           return 0;
         });
         
         console.log('✅ Eventos filtrados e ordenados:', filteredEvents.length);
-        console.log('📅 Eventos:', filteredEvents.map((e: Event) => ({
+        console.log('📅 Eventos encontrados:', filteredEvents.map((e: Event) => ({
           id: e.evento_id,
           nome: e.nome,
           data: e.data_evento,
-          tipo: e.tipo_evento
+          data_normalizada: e.data_evento ? e.data_evento.split('T')[0].split(' ')[0] : null,
+          tipo: e.tipo_evento,
+          estabelecimento: e.establishment_name
         })));
+        console.log('📊 Comparação:', {
+          data_reserva_original: reservationDate,
+          data_reserva_normalizada: normalizedReservationDate,
+          total_eventos_api: data.eventos?.length || 0,
+          eventos_filtrados: filteredEvents.length
+        });
         
         setEvents(filteredEvents);
       } else {
@@ -207,13 +243,22 @@ export default function LinkReservationToEventModal({
 
   const formatDate = (dateString: string) => {
     if (!dateString) return 'Evento semanal';
-    const date = new Date(dateString);
-    return date.toLocaleDateString('pt-BR', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
+    try {
+      // Adiciona T12:00:00 para evitar problemas de timezone
+      const dateWithTime = dateString.includes('T') || dateString.includes(' ')
+        ? dateString
+        : dateString + 'T12:00:00';
+      const date = new Date(dateWithTime);
+      return date.toLocaleDateString('pt-BR', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      });
+    } catch (error) {
+      console.error('Erro ao formatar data:', dateString, error);
+      return dateString;
+    }
   };
 
   const filteredEvents = events.filter(event => 
@@ -239,7 +284,15 @@ export default function LinkReservationToEventModal({
                   Vincular Reserva a um Evento
                 </h2>
                 <p className="text-gray-600 mt-1">
-                  Selecione um evento {reservationDate ? `para ${new Date(reservationDate).toLocaleDateString('pt-BR')} ou próximos` : 'futuro'} para vincular esta reserva e copiar automaticamente a lista de convidados
+                  Selecione um evento {reservationDate ? (() => {
+                    try {
+                      const normalizedDate = reservationDate.split('T')[0].split(' ')[0];
+                      const dateObj = new Date(normalizedDate + 'T12:00:00');
+                      return `para ${dateObj.toLocaleDateString('pt-BR')} ou próximos`;
+                    } catch {
+                      return 'futuro';
+                    }
+                  })() : 'futuro'} para vincular esta reserva e copiar automaticamente a lista de convidados
                 </p>
               </div>
               <button
@@ -286,7 +339,15 @@ export default function LinkReservationToEventModal({
                           </p>
                           {reservationDate && (
                             <p>
-                              Data da reserva: <strong>{new Date(reservationDate).toLocaleDateString('pt-BR')}</strong>
+                              Data da reserva: <strong>{(() => {
+                                try {
+                                  const normalizedDate = reservationDate.split('T')[0].split(' ')[0];
+                                  const dateObj = new Date(normalizedDate + 'T12:00:00');
+                                  return dateObj.toLocaleDateString('pt-BR');
+                                } catch {
+                                  return reservationDate;
+                                }
+                              })()}</strong>
                             </p>
                           )}
                           <p className="text-xs text-gray-400 mt-2">
@@ -298,7 +359,10 @@ export default function LinkReservationToEventModal({
                   ) : (
                     <div className="space-y-3">
                       {filteredEvents.map((event) => {
-                        const isReservationDate = reservationDate && event.data_evento === reservationDate;
+                        // Normalizar datas para comparação (ignorar timezone)
+                        const normalizedReservationDate = reservationDate ? reservationDate.split('T')[0].split(' ')[0] : null;
+                        const normalizedEventDate = event.data_evento ? event.data_evento.split('T')[0].split(' ')[0] : null;
+                        const isReservationDate = normalizedReservationDate && normalizedEventDate && normalizedEventDate === normalizedReservationDate;
                         return (
                         <div
                           key={event.evento_id}
