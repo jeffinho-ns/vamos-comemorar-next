@@ -18,6 +18,7 @@ interface Event {
   data_evento: string;
   horario_funcionamento?: string;
   establishment_name: string;
+  establishment_id?: number;
   tipo_evento: 'unico' | 'semanal';
 }
 
