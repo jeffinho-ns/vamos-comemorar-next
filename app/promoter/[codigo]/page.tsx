@@ -119,7 +119,43 @@ export default function PromoterPublicPage() {
       
       if (eventosResponse.ok) {
         const data = await eventosResponse.json();
-        setEventos(data.eventos || []);
+        const todosEventos = data.eventos || [];
+        
+        // Filtrar apenas eventos futuros (que ainda não passaram)
+        const eventosFuturos = todosEventos.filter((evento: Evento) => {
+          // Se for evento semanal, sempre mostrar
+          if (evento.tipo_evento === 'semanal') {
+            return true;
+          }
+          
+          // Se não tem data_evento, mostrar
+          if (!evento.data_evento) {
+            return true;
+          }
+          
+          try {
+            // Verificar se o evento já passou
+            const eventDate = evento.data_evento.includes('T') || evento.data_evento.includes(' ')
+              ? evento.data_evento
+              : evento.data_evento + 'T23:59:59';
+            
+            const eventDateObj = new Date(eventDate);
+            const now = new Date();
+            
+            // Comparar apenas a data, ignorando horas
+            const eventDateOnly = new Date(eventDateObj.getFullYear(), eventDateObj.getMonth(), eventDateObj.getDate());
+            const nowDateOnly = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+            
+            // Mostrar apenas eventos futuros (incluindo hoje)
+            return eventDateOnly >= nowDateOnly;
+          } catch (error) {
+            console.error('Erro ao verificar data do evento:', error);
+            // Em caso de erro, mostrar o evento
+            return true;
+          }
+        });
+        
+        setEventos(eventosFuturos);
       }
     } catch (err) {
       console.error('Erro ao carregar eventos:', err);
