@@ -57,33 +57,12 @@ export default function LinkReservationToEventModal({
     setLoading(true);
     try {
       const token = localStorage.getItem('authToken');
-      const today = new Date().toISOString().split('T')[0];
       
-      // Se temos data da reserva, buscar eventos daquela data e próximos
-      // Caso contrário, buscar todos os eventos futuros
-      let url = `${API_URL}/api/v1/eventos?establishment_id=${establishmentId}`;
+      // Buscar TODOS os eventos do estabelecimento (sem filtro de data na API)
+      // Vamos filtrar no frontend para garantir que eventos semanais apareçam
+      let url = `${API_URL}/api/v1/eventos?establishment_id=${establishmentId}&limit=200`;
       
-      if (reservationDate) {
-        // Normalizar data da reserva (garantir formato YYYY-MM-DD)
-        const normalizedReservationDate = reservationDate.split('T')[0].split(' ')[0];
-        
-        // Buscar eventos da data da reserva e próximos (até 30 dias)
-        // Usar data normalizada para evitar problemas de timezone
-        const reservationDateObj = new Date(normalizedReservationDate + 'T12:00:00');
-        const endDate = new Date(reservationDateObj);
-        endDate.setDate(endDate.getDate() + 30);
-        const endDateStr = endDate.toISOString().split('T')[0];
-        
-        url += `&data_inicio=${normalizedReservationDate}&data_fim=${endDateStr}`;
-        console.log('🔍 Buscando eventos para a data da reserva:', normalizedReservationDate, 'até', endDateStr);
-        console.log('📅 Data da reserva normalizada:', normalizedReservationDate);
-      } else {
-        // Buscar eventos futuros (a partir de hoje)
-        url += `&data_inicio=${today}`;
-      }
-      
-      url += `&limit=100`;
-      
+      console.log('📡 Buscando eventos do estabelecimento:', establishmentId);
       console.log('📡 URL da API:', url);
       
       const response = await fetch(url, {
@@ -108,27 +87,50 @@ export default function LinkReservationToEventModal({
           return;
         }
         
-        console.log('📋 Todos os eventos recebidos da API (antes do filtro):', data.eventos.map((e: Event) => ({
+        console.log('📋 Todos os eventos recebidos da API (antes do filtro):', data.eventos?.length || 0);
+        console.log('📋 Detalhes dos eventos:', data.eventos?.map((e: Event) => ({
           id: e.evento_id,
           nome: e.nome,
           data: e.data_evento,
+          data_normalizada: e.data_evento ? e.data_evento.split('T')[0].split(' ')[0] : null,
           tipo: e.tipo_evento,
           estabelecimento: e.establishment_name,
           establishment_id: e.establishment_id
-        })));
+        })) || []);
+        
+        if (!data.eventos || data.eventos.length === 0) {
+          console.warn('⚠️ Nenhum evento retornado da API');
+          console.log('📊 Verificando se há problemas:', {
+            establishment_id: establishmentId,
+            reservation_date: reservationDate,
+            url: url,
+            response_status: 'ok'
+          });
+          setEvents([]);
+          return;
+        }
         
         // Normalizar data da reserva para comparação
         const normalizedReservationDate = reservationDate ? reservationDate.split('T')[0].split(' ')[0] : null;
+        const today = new Date().toISOString().split('T')[0];
+        
+        console.log('📅 Datas para comparação:', {
+          data_reserva_original: reservationDate,
+          data_reserva_normalizada: normalizedReservationDate,
+          hoje: today
+        });
         
         // Filtrar e ordenar eventos
         const filteredEvents = (data.eventos || []).filter((event: Event) => {
           // Eventos semanais sempre aparecem
           if (event.tipo_evento === 'semanal') {
+            console.log(`✅ Evento semanal incluído: "${event.nome}"`);
             return true;
           }
           
           // Se não tem data, não mostrar
           if (!event.data_evento) {
+            console.log(`❌ Evento sem data excluído: "${event.nome}"`);
             return false;
           }
           
@@ -139,12 +141,13 @@ export default function LinkReservationToEventModal({
           if (normalizedReservationDate) {
             // Se temos data da reserva, mostrar eventos da data ou futuros
             const isSameOrFuture = normalizedEventDate >= normalizedReservationDate;
-            console.log(`🔍 Comparando evento "${event.nome}": ${normalizedEventDate} >= ${normalizedReservationDate} = ${isSameOrFuture}`);
+            console.log(`🔍 Evento "${event.nome}": ${normalizedEventDate} >= ${normalizedReservationDate} = ${isSameOrFuture}`);
             return isSameOrFuture;
           } else {
             // Caso contrário, mostrar apenas eventos futuros (incluindo hoje)
-            const today = new Date().toISOString().split('T')[0];
-            return normalizedEventDate >= today;
+            const isFuture = normalizedEventDate >= today;
+            console.log(`🔍 Evento "${event.nome}": ${normalizedEventDate} >= ${today} = ${isFuture}`);
+            return isFuture;
           }
         });
         
@@ -182,14 +185,30 @@ export default function LinkReservationToEventModal({
           data: e.data_evento,
           data_normalizada: e.data_evento ? e.data_evento.split('T')[0].split(' ')[0] : null,
           tipo: e.tipo_evento,
-          estabelecimento: e.establishment_name
+          estabelecimento: e.establishment_name,
+          establishment_id: e.establishment_id
         })));
-        console.log('📊 Comparação:', {
+        console.log('📊 Resumo da busca:', {
+          establishment_id_buscado: establishmentId,
           data_reserva_original: reservationDate,
           data_reserva_normalizada: normalizedReservationDate,
           total_eventos_api: data.eventos?.length || 0,
-          eventos_filtrados: filteredEvents.length
+          eventos_filtrados: filteredEvents.length,
+          eventos_semanais: filteredEvents.filter((e: Event) => e.tipo_evento === 'semanal').length,
+          eventos_unicos: filteredEvents.filter((e: Event) => e.tipo_evento === 'unico').length
         });
+        
+        // Se não encontrou eventos, mostrar mensagem mais detalhada
+        if (filteredEvents.length === 0 && data.eventos && data.eventos.length > 0) {
+          console.warn('⚠️ Eventos foram retornados da API mas nenhum passou pelo filtro!');
+          console.log('📋 Eventos que foram filtrados:', data.eventos.map((e: Event) => ({
+            nome: e.nome,
+            data: e.data_evento,
+            tipo: e.tipo_evento,
+            establishment_id: e.establishment_id,
+            estabelecimento: e.establishment_name
+          })));
+        }
         
         setEvents(filteredEvents);
       } else {
