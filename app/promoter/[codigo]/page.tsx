@@ -70,6 +70,12 @@ export default function PromoterPublicPage() {
   const [showSuccess, setShowSuccess] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
   
+  // Calcular estatísticas baseadas apenas em convidados de eventos futuros
+  const stats = {
+    total_convidados: convidados.length,
+    total_confirmados: convidados.filter(c => c.status === 'confirmado').length
+  };
+  
   const [formData, setFormData] = useState({
     nome: '',
     whatsapp: '',
@@ -357,12 +363,12 @@ export default function PromoterPublicPage() {
             {/* Estatísticas */}
             <div className="flex items-center justify-center gap-8 mt-8">
               <div className="text-center">
-                <div className="text-3xl font-bold text-white">{promoter.stats.total_convidados}</div>
+                <div className="text-3xl font-bold text-white">{stats.total_convidados}</div>
                 <div className="text-sm text-purple-200">Convidados</div>
               </div>
               <div className="h-12 w-px bg-purple-400"></div>
               <div className="text-center">
-                <div className="text-3xl font-bold text-white">{promoter.stats.total_confirmados}</div>
+                <div className="text-3xl font-bold text-white">{stats.total_confirmados}</div>
                 <div className="text-sm text-purple-200">Confirmados</div>
               </div>
             </div>
