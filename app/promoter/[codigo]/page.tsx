@@ -131,7 +131,37 @@ export default function PromoterPublicPage() {
       const response = await fetch(`${API_URL}/api/promoter/${params.codigo}/convidados`);
       if (response.ok) {
         const data = await response.json();
-        setConvidados(data.convidados || []);
+        // Filtrar convidados: ocultar os de eventos que já passaram
+        const convidadosFiltrados = (data.convidados || []).filter((convidado: Convidado) => {
+          // Se não tem evento_data, mostrar normalmente
+          if (!convidado.evento_data) {
+            return true;
+          }
+          
+          try {
+            // Verificar se o evento já passou
+            const eventDate = convidado.evento_data.includes('T') || convidado.evento_data.includes(' ')
+              ? convidado.evento_data
+              : convidado.evento_data + 'T23:59:59';
+            
+            const eventDateObj = new Date(eventDate);
+            const now = new Date();
+            
+            // Se o evento já passou (antes de hoje), ocultar o convidado
+            // Comparar apenas a data, ignorando horas
+            const eventDateOnly = new Date(eventDateObj.getFullYear(), eventDateObj.getMonth(), eventDateObj.getDate());
+            const nowDateOnly = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+            
+            // Se evento passou, não mostrar (false = filtrar)
+            return eventDateOnly >= nowDateOnly;
+          } catch (error) {
+            console.error('Erro ao verificar data do evento:', error);
+            // Em caso de erro, mostrar o convidado
+            return true;
+          }
+        });
+        
+        setConvidados(convidadosFiltrados);
       }
     } catch (err) {
       console.error('Erro ao carregar convidados:', err);
