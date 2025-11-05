@@ -354,6 +354,7 @@ export default function ReservationDetailsModal({
           onClose={() => setShowLinkEventModal(false)}
           reservationId={reservation.id}
           establishmentId={reservation.establishment_id}
+          reservationDate={reservation.reservation_date}
           onSuccess={() => {
             // Recarregar dados se necessário
             if (onStatusChange) {

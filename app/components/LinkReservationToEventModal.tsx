@@ -26,6 +26,7 @@ interface LinkReservationToEventModalProps {
   onClose: () => void;
   reservationId: number;
   establishmentId: number;
+  reservationDate?: string; // Data da reserva no formato YYYY-MM-DD
   onSuccess?: () => void;
 }
 
@@ -36,6 +37,7 @@ export default function LinkReservationToEventModal({
   onClose,
   reservationId,
   establishmentId,
+  reservationDate,
   onSuccess
 }: LinkReservationToEventModalProps) {
   const [events, setEvents] = useState<Event[]>([]);
@@ -48,7 +50,7 @@ export default function LinkReservationToEventModal({
     if (isOpen && establishmentId) {
       loadEvents();
     }
-  }, [isOpen, establishmentId]);
+  }, [isOpen, establishmentId, reservationDate]);
 
   const loadEvents = async () => {
     setLoading(true);
@@ -56,23 +58,47 @@ export default function LinkReservationToEventModal({
       const token = localStorage.getItem('authToken');
       const today = new Date().toISOString().split('T')[0];
       
-      // Buscar eventos sem filtro de data_inicio para incluir eventos semanais
-      // Vamos filtrar no frontend para garantir que eventos semanais apareçam
-      const response = await fetch(
-        `${API_URL}/api/v1/eventos?establishment_id=${establishmentId}&limit=100`,
-        {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
+      // Se temos data da reserva, buscar eventos daquela data e próximos
+      // Caso contrário, buscar todos os eventos futuros
+      let url = `${API_URL}/api/v1/eventos?establishment_id=${establishmentId}`;
+      
+      if (reservationDate) {
+        // Buscar eventos da data da reserva e próximos (até 30 dias)
+        const reservationDateObj = new Date(reservationDate);
+        const endDate = new Date(reservationDateObj);
+        endDate.setDate(endDate.getDate() + 30);
+        const endDateStr = endDate.toISOString().split('T')[0];
+        
+        url += `&data_inicio=${reservationDate}&data_fim=${endDateStr}`;
+        console.log('🔍 Buscando eventos para a data da reserva:', reservationDate, 'até', endDateStr);
+      } else {
+        // Buscar eventos futuros (a partir de hoje)
+        url += `&data_inicio=${today}`;
+      }
+      
+      url += `&limit=100`;
+      
+      console.log('📡 URL da API:', url);
+      
+      const response = await fetch(url, {
+        headers: {
+          'Authorization': `Bearer ${token}`
         }
-      );
+      });
 
       if (response.ok) {
         const data = await response.json();
-        console.log('📋 Eventos recebidos da API:', data);
+        console.log('📋 Resposta da API:', data);
+        console.log('📋 Total de eventos recebidos:', data.eventos?.length || 0);
         
-        // Filtrar apenas eventos futuros ou semanais
-        const futureEvents = (data.eventos || []).filter((event: Event) => {
+        if (!data.eventos || data.eventos.length === 0) {
+          console.warn('⚠️ Nenhum evento retornado da API');
+          setEvents([]);
+          return;
+        }
+        
+        // Filtrar e ordenar eventos
+        const filteredEvents = (data.eventos || []).filter((event: Event) => {
           // Eventos semanais sempre aparecem
           if (event.tipo_evento === 'semanal') {
             return true;
@@ -83,25 +109,56 @@ export default function LinkReservationToEventModal({
             return false;
           }
           
-          // Verificar se a data é futura (incluindo hoje)
+          // Verificar se a data é da reserva ou futura
           try {
-            const eventDate = new Date(event.data_evento);
-            const todayDate = new Date();
-            todayDate.setHours(0, 0, 0, 0);
+            const eventDate = new Date(event.data_evento + 'T00:00:00');
+            const compareDate = reservationDate 
+              ? new Date(reservationDate + 'T00:00:00')
+              : new Date();
+            compareDate.setHours(0, 0, 0, 0);
             eventDate.setHours(0, 0, 0, 0);
-            return eventDate >= todayDate;
+            
+            // Se temos data da reserva, mostrar eventos da data ou futuros
+            // Caso contrário, mostrar apenas eventos futuros
+            return eventDate >= compareDate;
           } catch (error) {
             console.error('Erro ao processar data do evento:', error);
             return false;
           }
         });
         
-        console.log('✅ Eventos futuros filtrados:', futureEvents.length);
-        setEvents(futureEvents);
+        // Ordenar eventos: primeiro da data da reserva, depois por data crescente
+        filteredEvents.sort((a: Event, b: Event) => {
+          // Se temos data da reserva, priorizar eventos daquela data
+          if (reservationDate) {
+            if (a.data_evento === reservationDate && b.data_evento !== reservationDate) return -1;
+            if (a.data_evento !== reservationDate && b.data_evento === reservationDate) return 1;
+          }
+          
+          // Ordenar por data (mais próximos primeiro)
+          if (a.tipo_evento === 'semanal' && b.tipo_evento !== 'semanal') return -1;
+          if (a.tipo_evento !== 'semanal' && b.tipo_evento === 'semanal') return 1;
+          
+          if (a.data_evento && b.data_evento) {
+            return new Date(a.data_evento).getTime() - new Date(b.data_evento).getTime();
+          }
+          
+          return 0;
+        });
+        
+        console.log('✅ Eventos filtrados e ordenados:', filteredEvents.length);
+        console.log('📅 Eventos:', filteredEvents.map((e: Event) => ({
+          id: e.evento_id,
+          nome: e.nome,
+          data: e.data_evento,
+          tipo: e.tipo_evento
+        })));
+        
+        setEvents(filteredEvents);
       } else {
         const errorText = await response.text();
         console.error('❌ Erro ao carregar eventos:', response.status, errorText);
-        alert('Erro ao carregar eventos. Verifique o console para mais detalhes.');
+        alert(`Erro ao carregar eventos (${response.status}). Verifique o console para mais detalhes.`);
       }
     } catch (error) {
       console.error('❌ Erro ao carregar eventos:', error);
@@ -182,7 +239,7 @@ export default function LinkReservationToEventModal({
                   Vincular Reserva a um Evento
                 </h2>
                 <p className="text-gray-600 mt-1">
-                  Selecione um evento futuro para vincular esta reserva e copiar automaticamente a lista de convidados
+                  Selecione um evento {reservationDate ? `para ${new Date(reservationDate).toLocaleDateString('pt-BR')} ou próximos` : 'futuro'} para vincular esta reserva e copiar automaticamente a lista de convidados
                 </p>
               </div>
               <button
@@ -223,20 +280,34 @@ export default function LinkReservationToEventModal({
                         {searchTerm ? 'Nenhum evento encontrado com esse termo' : 'Nenhum evento futuro disponível para este estabelecimento'}
                       </p>
                       {!loading && !searchTerm && (
-                        <p className="text-sm text-gray-500">
-                          Verifique se existem eventos cadastrados para este estabelecimento (ID: {establishmentId})
-                        </p>
+                        <div className="text-sm text-gray-500 space-y-1">
+                          <p>
+                            Verifique se existem eventos cadastrados para este estabelecimento (ID: {establishmentId})
+                          </p>
+                          {reservationDate && (
+                            <p>
+                              Data da reserva: <strong>{new Date(reservationDate).toLocaleDateString('pt-BR')}</strong>
+                            </p>
+                          )}
+                          <p className="text-xs text-gray-400 mt-2">
+                            Dica: Verifique o console do navegador (F12) para ver os logs de debug
+                          </p>
+                        </div>
                       )}
                     </div>
                   ) : (
                     <div className="space-y-3">
-                      {filteredEvents.map((event) => (
+                      {filteredEvents.map((event) => {
+                        const isReservationDate = reservationDate && event.data_evento === reservationDate;
+                        return (
                         <div
                           key={event.evento_id}
                           onClick={() => setSelectedEventId(event.evento_id)}
                           className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${
                             selectedEventId === event.evento_id
                               ? 'border-blue-500 bg-blue-50'
+                              : isReservationDate
+                              ? 'border-green-500 bg-green-50'
                               : 'border-gray-200 hover:border-blue-300 hover:bg-gray-50'
                           }`}
                         >
@@ -244,6 +315,11 @@ export default function LinkReservationToEventModal({
                             <div className="flex-1">
                               <div className="flex items-center gap-2 mb-2">
                                 <h3 className="font-semibold text-gray-800 text-lg">{event.nome}</h3>
+                                {isReservationDate && (
+                                  <span className="px-2 py-1 bg-green-600 text-white text-xs font-medium rounded">
+                                    Data da Reserva
+                                  </span>
+                                )}
                                 {selectedEventId === event.evento_id && (
                                   <MdCheckCircle className="text-blue-600" size={20} />
                                 )}
@@ -276,7 +352,8 @@ export default function LinkReservationToEventModal({
                             </div>
                           </div>
                         </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
                 </>
