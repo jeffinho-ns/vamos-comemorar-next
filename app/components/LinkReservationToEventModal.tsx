@@ -54,8 +54,12 @@ export default function LinkReservationToEventModal({
     setLoading(true);
     try {
       const token = localStorage.getItem('authToken');
+      const today = new Date().toISOString().split('T')[0];
+      
+      // Buscar eventos sem filtro de data_inicio para incluir eventos semanais
+      // Vamos filtrar no frontend para garantir que eventos semanais apareçam
       const response = await fetch(
-        `${API_URL}/api/v1/eventos?establishment_id=${establishmentId}&data_inicio=${new Date().toISOString().split('T')[0]}&limit=50`,
+        `${API_URL}/api/v1/eventos?establishment_id=${establishmentId}&limit=100`,
         {
           headers: {
             'Authorization': `Bearer ${token}`
@@ -65,21 +69,43 @@ export default function LinkReservationToEventModal({
 
       if (response.ok) {
         const data = await response.json();
+        console.log('📋 Eventos recebidos da API:', data);
+        
         // Filtrar apenas eventos futuros ou semanais
         const futureEvents = (data.eventos || []).filter((event: Event) => {
-          if (event.tipo_evento === 'semanal') return true;
-          if (!event.data_evento) return false;
-          const eventDate = new Date(event.data_evento);
-          const today = new Date();
-          today.setHours(0, 0, 0, 0);
-          return eventDate >= today;
+          // Eventos semanais sempre aparecem
+          if (event.tipo_evento === 'semanal') {
+            return true;
+          }
+          
+          // Se não tem data, não mostrar
+          if (!event.data_evento) {
+            return false;
+          }
+          
+          // Verificar se a data é futura (incluindo hoje)
+          try {
+            const eventDate = new Date(event.data_evento);
+            const todayDate = new Date();
+            todayDate.setHours(0, 0, 0, 0);
+            eventDate.setHours(0, 0, 0, 0);
+            return eventDate >= todayDate;
+          } catch (error) {
+            console.error('Erro ao processar data do evento:', error);
+            return false;
+          }
         });
+        
+        console.log('✅ Eventos futuros filtrados:', futureEvents.length);
         setEvents(futureEvents);
       } else {
-        console.error('Erro ao carregar eventos');
+        const errorText = await response.text();
+        console.error('❌ Erro ao carregar eventos:', response.status, errorText);
+        alert('Erro ao carregar eventos. Verifique o console para mais detalhes.');
       }
     } catch (error) {
-      console.error('Erro ao carregar eventos:', error);
+      console.error('❌ Erro ao carregar eventos:', error);
+      alert('Erro ao carregar eventos. Verifique sua conexão.');
     } finally {
       setLoading(false);
     }
@@ -193,9 +219,14 @@ export default function LinkReservationToEventModal({
                   {filteredEvents.length === 0 ? (
                     <div className="text-center py-12">
                       <MdEvent className="mx-auto text-gray-400 mb-4" size={48} />
-                      <p className="text-gray-600">
+                      <p className="text-gray-600 mb-2">
                         {searchTerm ? 'Nenhum evento encontrado com esse termo' : 'Nenhum evento futuro disponível para este estabelecimento'}
                       </p>
+                      {!loading && !searchTerm && (
+                        <p className="text-sm text-gray-500">
+                          Verifique se existem eventos cadastrados para este estabelecimento (ID: {establishmentId})
+                        </p>
+                      )}
                     </div>
                   ) : (
                     <div className="space-y-3">
