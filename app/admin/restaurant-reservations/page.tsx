@@ -1728,6 +1728,11 @@ export default function RestaurantReservationsPage() {
                           if (guestsRes.ok) {
                             guestsData = await guestsRes.json();
                             setGuestsByList(prev => ({ ...prev, [gl.guest_list_id]: guestsData?.guests || [] }));
+                          } else {
+                            const errorText = await guestsRes.text();
+                            console.error(`❌ Erro ao carregar convidados (${guestsRes.status}):`, errorText);
+                            // Definir como array vazio para evitar tentativas infinitas
+                            setGuestsByList(prev => ({ ...prev, [gl.guest_list_id]: [] }));
                           }
 
                           // Carregar status de check-in

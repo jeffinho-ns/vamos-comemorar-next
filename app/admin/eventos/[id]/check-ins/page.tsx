@@ -302,7 +302,13 @@ export default function EventoCheckInsPage() {
         
         // O backend agora vincula automaticamente reservas ao evento e retorna os dados corretos
         // Não precisamos mais buscar via API admin/guest-lists
-        setGuestListsRestaurante(data.dados.guestListsRestaurante || []);
+        const guestLists = data.dados.guestListsRestaurante || [];
+        setGuestListsRestaurante(guestLists);
+        console.log('📋 Guest Lists carregadas:', guestLists.map((gl: GuestListRestaurante) => ({
+          id: gl.guest_list_id,
+          owner: gl.owner_name,
+          total_guests: gl.total_guests
+        })));
         
         // Armazenar o establishment_id para uso posterior se necessário
         if (data.evento?.establishment_id) {
@@ -1100,54 +1106,77 @@ export default function EventoCheckInsPage() {
                                 const willExpand = expandedGuestListId !== gl.guest_list_id;
                                 setExpandedGuestListId(willExpand ? gl.guest_list_id : null);
                                 
-                                // Se está expandindo e ainda não carregou os convidados, carregar
-                                if (willExpand && !guestsByList[gl.guest_list_id]) {
-                                  try {
-                                    const token = localStorage.getItem('authToken');
-                                    console.log(`🔄 Carregando convidados para guest list ${gl.guest_list_id}...`);
-                                    
-                                    // Carregar convidados
-                                    const guestsRes = await fetch(`${API_URL}/api/admin/guest-lists/${gl.guest_list_id}/guests`, { 
-                                      headers: { Authorization: `Bearer ${token}` } 
-                                    });
-                                    
-                                    let guestsData: { guests: GuestItem[] } | null = null;
-                                    if (guestsRes.ok) {
-                                      guestsData = await guestsRes.json();
-                                      console.log(`✅ Convidados carregados:`, guestsData);
-                                      setGuestsByList(prev => ({ ...prev, [gl.guest_list_id]: guestsData?.guests || [] }));
-                                    } else {
-                                      console.error(`❌ Erro ao carregar convidados:`, await guestsRes.text());
-                                    }
+                                // Se está expandindo, sempre verificar e carregar se necessário
+                                if (willExpand) {
+                                  // Verificar se já tem dados carregados
+                                  const hasGuests = guestsByList[gl.guest_list_id] && guestsByList[gl.guest_list_id].length > 0;
+                                  
+                                  // Se não tem dados ou array vazio, carregar
+                                  if (!hasGuests) {
+                                    try {
+                                      const token = localStorage.getItem('authToken');
+                                      console.log(`🔄 Carregando convidados para guest list ${gl.guest_list_id}...`);
+                                      
+                                      // Carregar convidados
+                                      const guestsRes = await fetch(`${API_URL}/api/admin/guest-lists/${gl.guest_list_id}/guests`, { 
+                                        headers: { Authorization: `Bearer ${token}` } 
+                                      });
+                                      
+                                      let guestsData: { guests: GuestItem[] } | null = null;
+                                      if (guestsRes.ok) {
+                                        guestsData = await guestsRes.json();
+                                        console.log(`✅ Convidados carregados para ${gl.owner_name}:`, {
+                                          total: guestsData?.guests?.length || 0,
+                                          dados: guestsData
+                                        });
+                                        
+                                        if (guestsData && guestsData.guests) {
+                                          setGuestsByList(prev => ({ ...prev, [gl.guest_list_id]: guestsData!.guests || [] }));
+                                        } else {
+                                          console.warn(`⚠️ Resposta vazia ou sem guests para ${gl.guest_list_id}`);
+                                          setGuestsByList(prev => ({ ...prev, [gl.guest_list_id]: [] }));
+                                        }
+                                      } else {
+                                        const errorText = await guestsRes.text();
+                                        console.error(`❌ Erro ao carregar convidados (${guestsRes.status}):`, errorText);
+                                        // Ainda assim, definir como array vazio para evitar tentativas infinitas
+                                        setGuestsByList(prev => ({ ...prev, [gl.guest_list_id]: [] }));
+                                      }
 
-                                    // Carregar status de check-in
-                                    const checkinRes = await fetch(`${API_URL}/api/admin/guest-lists/${gl.guest_list_id}/checkin-status`, { 
-                                      headers: { Authorization: `Bearer ${token}` } 
-                                    });
-                                    
-                                    if (checkinRes.ok) {
-                                      const checkinData = await checkinRes.json();
-                                      setCheckInStatus(prev => ({
-                                        ...prev,
-                                        [gl.guest_list_id]: {
-                                          ownerCheckedIn: checkinData.checkin_status.owner_checked_in,
-                                          guestsCheckedIn: checkinData.checkin_status.guests_checked_in,
-                                          totalGuests: checkinData.checkin_status.total_guests
-                                        }
-                                      }));
-                                    } else {
-                                      const guestsCheckedIn = guestsData ? guestsData.guests.filter(g => g.checked_in).length : 0;
-                                      setCheckInStatus(prev => ({
-                                        ...prev,
-                                        [gl.guest_list_id]: {
-                                          ownerCheckedIn: gl.owner_checked_in === 1,
-                                          guestsCheckedIn: guestsCheckedIn,
-                                          totalGuests: guestsData ? guestsData.guests.length : 0
-                                        }
-                                      }));
+                                      // Carregar status de check-in
+                                      const checkinRes = await fetch(`${API_URL}/api/admin/guest-lists/${gl.guest_list_id}/checkin-status`, { 
+                                        headers: { Authorization: `Bearer ${token}` } 
+                                      });
+                                      
+                                      if (checkinRes.ok) {
+                                        const checkinData = await checkinRes.json();
+                                        setCheckInStatus(prev => ({
+                                          ...prev,
+                                          [gl.guest_list_id]: {
+                                            ownerCheckedIn: checkinData.checkin_status.owner_checked_in,
+                                            guestsCheckedIn: checkinData.checkin_status.guests_checked_in,
+                                            totalGuests: checkinData.checkin_status.total_guests
+                                          }
+                                        }));
+                                      } else {
+                                        // Calcular do guestsData se disponível
+                                        const guestsCheckedIn = guestsData ? guestsData.guests.filter((g: GuestItem) => g.checked_in === 1 || g.checked_in === true).length : 0;
+                                        setCheckInStatus(prev => ({
+                                          ...prev,
+                                          [gl.guest_list_id]: {
+                                            ownerCheckedIn: gl.owner_checked_in === 1,
+                                            guestsCheckedIn: guestsCheckedIn,
+                                            totalGuests: guestsData ? guestsData.guests.length : 0
+                                          }
+                                        }));
+                                      }
+                                    } catch (e) { 
+                                      console.error('❌ Erro ao carregar dados da guest list:', e);
+                                      // Definir como array vazio em caso de erro para evitar loops
+                                      setGuestsByList(prev => ({ ...prev, [gl.guest_list_id]: [] }));
                                     }
-                                  } catch (e) { 
-                                    console.error('❌ Erro ao carregar dados da guest list:', e); 
+                                  } else {
+                                    console.log(`✅ Convidados já carregados para ${gl.owner_name}: ${guestsByList[gl.guest_list_id].length} convidados`);
                                   }
                                 }
                               }}
@@ -1263,7 +1292,14 @@ export default function EventoCheckInsPage() {
                                           return (
                                             <tr>
                                               <td className="px-4 py-4 text-sm text-gray-400 text-center" colSpan={4}>
-                                                {guests.length === 0 ? 'Nenhum convidado cadastrado nesta lista.' : 'Carregando convidados...'}
+                                                {guests.length === 0 ? (
+                                                  <div>
+                                                    <div>Nenhum convidado cadastrado nesta lista.</div>
+                                                    <div className="text-xs mt-1 text-gray-500">
+                                                      Total esperado: {gl.total_guests || 0} convidados
+                                                    </div>
+                                                  </div>
+                                                ) : 'Carregando convidados...'}
                                               </td>
                                             </tr>
                                           );
