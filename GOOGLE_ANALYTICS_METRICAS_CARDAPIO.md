@@ -360,3 +360,4 @@ Para dúvidas sobre métricas ou configuração de relatórios:
 - Consulte a [Documentação do GA4](https://support.google.com/analytics/answer/10089681)
 - Verifique os eventos em tempo real: GA4 > Relatórios > Tempo real
 
+
