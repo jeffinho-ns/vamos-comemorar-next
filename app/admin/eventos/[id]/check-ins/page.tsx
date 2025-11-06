@@ -1,7 +1,7 @@
 "use client";
 import React from 'react';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -22,6 +22,8 @@ import {
   MdVpnKey,
   MdEmail,
   MdDescription,
+  MdViewList,
+  MdViewModule,
 } from 'react-icons/md';
 import { WithPermission } from '../../../../components/WithPermission/WithPermission';
 
@@ -187,6 +189,8 @@ export default function EventoCheckInsPage() {
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedTab, setSelectedTab] = useState<'todos' | 'reservas' | 'promoters' | 'camarotes'>('todos');
+  const [promoterGuestsViewMode, setPromoterGuestsViewMode] = useState<'grid' | 'list'>('grid');
+  const [promoterGuestsSearch, setPromoterGuestsSearch] = useState('');
   
   // Dados
   const [evento, setEvento] = useState<EventoInfo | null>(null);
@@ -203,6 +207,26 @@ export default function EventoCheckInsPage() {
   const [promoters, setPromoters] = useState<Promoter[]>([]);
   const [convidadosPromoters, setConvidadosPromoters] = useState<ConvidadoPromoter[]>([]);
   const [camarotes, setCamarotes] = useState<Camarote[]>([]);
+  
+  // Função helper para validar se um item é realmente um convidado de promoter
+  const isValidPromoterGuest = (c: any): c is ConvidadoPromoter => {
+    return (
+      c &&
+      typeof c === 'object' &&
+      c.tipo === 'convidado_promoter' &&
+      c.status_checkin !== undefined &&
+      c.status_checkin !== null &&
+      ['Pendente', 'Check-in', 'No-Show'].includes(c.status_checkin) &&
+      c.promoter_id !== undefined &&
+      c.promoter_id !== null &&
+      typeof c.promoter_id === 'number' &&
+      c.tipo_lista !== undefined &&
+      c.tipo_lista !== null &&
+      (c.status === undefined || c.status === null) &&
+      (!c.email || c.email === null || c.email === '') &&
+      (!c.documento || c.documento === null || c.documento === '')
+    );
+  };
   const [estatisticas, setEstatisticas] = useState<Estatisticas>({
     totalReservasMesa: 0,
     totalConvidadosReservas: 0,
@@ -262,9 +286,72 @@ export default function EventoCheckInsPage() {
         console.log('📋 Total de guest lists para exibir:', (data.dados.guestListsRestaurante || []).length);
         
         setPromoters(data.dados.promoters || []);
-        setConvidadosPromoters(data.dados.convidadosPromoters || []);
+        
+        // Debug: verificar dados brutos recebidos do backend
+        console.log('🔍 Debug - Dados brutos do backend:', {
+          convidadosPromoters_raw: data.dados.convidadosPromoters?.length || 0,
+          convidadosReservas_raw: data.dados.convidadosReservas?.length || 0,
+          tipos_convidadosPromoters: [...new Set(data.dados.convidadosPromoters?.map((c: any) => c.tipo) || [])],
+          tipos_convidadosReservas: [...new Set(data.dados.convidadosReservas?.map((c: any) => c.tipo) || [])],
+        });
+        
+        // VALIDAÇÃO RIGOROSA: Garantir que apenas convidados de promoters sejam exibidos
+        // Limpar array primeiro
+        setConvidadosPromoters([]);
+        
+        // Filtrar e validar apenas convidados de promoters
+        const convidadosPromotersFiltrados = (data.dados.convidadosPromoters || [])
+          .filter((c: any) => {
+            if (!isValidPromoterGuest(c)) {
+              console.warn('⚠️ Item REJEITADO da lista de promoters (não é um convidado de promoter válido):', {
+                id: c?.id,
+                nome: c?.nome,
+                tipo: c?.tipo,
+                status_checkin: c?.status_checkin,
+                status: c?.status,
+                promoter_id: c?.promoter_id,
+                email: c?.email,
+                documento: c?.documento
+              });
+              return false;
+            }
+            return true;
+          })
+          .map((c: any) => ({
+            ...c,
+            // Garantir que todos os campos obrigatórios estão presentes
+            tipo: 'convidado_promoter' as const,
+            status_checkin: c.status_checkin as 'Pendente' | 'Check-in' | 'No-Show',
+            promoter_id: Number(c.promoter_id),
+            tipo_lista: c.tipo_lista || ''
+          }));
+        
+        console.log('✅ Convidados de Promoters FINAL após filtro:', {
+          total: convidadosPromotersFiltrados.length,
+          validados: convidadosPromotersFiltrados.length,
+          primeiros: convidadosPromotersFiltrados.slice(0, 3).map((c: any) => ({
+            id: c.id,
+            nome: c.nome,
+            tipo: c.tipo,
+            promoter_id: c.promoter_id
+          }))
+        });
+        
+        setConvidadosPromoters(convidadosPromotersFiltrados);
         setCamarotes(data.dados.camarotes || []);
         setEstatisticas(data.estatisticas);
+        
+        // Debug: verificar dados filtrados
+        console.log('✅ Debug - Convidados de Promoters Filtrados:', {
+          total: convidadosPromotersFiltrados.length,
+          tipos: [...new Set(convidadosPromotersFiltrados.map((c: any) => c.tipo))],
+          primeiros: convidadosPromotersFiltrados.slice(0, 3).map((c: any) => ({
+            id: c.id,
+            nome: c.nome,
+            tipo: c.tipo,
+            responsavel: c.responsavel
+          }))
+        });
       } else {
         console.error('Erro ao carregar dados:', response.statusText);
       }
@@ -491,12 +578,58 @@ export default function EventoCheckInsPage() {
     filterBySearch(c.origem)
   );
 
-  const filteredConvidadosPromoters = convidadosPromoters.filter(c => 
-    filterBySearch(c.nome) || 
-    filterBySearch(c.telefone || '') || 
-    filterBySearch(c.responsavel) ||
-    filterBySearch(c.origem)
-  );
+  // Filtrar convidados de promoters
+  // VALIDAÇÃO RIGOROSA: Garantir que apenas convidados de promoters sejam exibidos
+  // Usar apenas os dados que já foram validados ao carregar
+  const filteredConvidadosPromoters = useMemo(() => {
+    // Primeiro, validar que são realmente convidados de promoters
+    const validados = convidadosPromoters.filter(c => isValidPromoterGuest(c));
+    
+    // Depois, aplicar filtro de busca
+    const searchText = promoterGuestsSearch.trim();
+    if (!searchText) {
+      return validados;
+    }
+    
+    const searchLower = searchText.toLowerCase();
+    const filtrados = validados.filter(c => {
+      const nome = (c.nome || '').toLowerCase();
+      const telefone = (c.telefone || '').toLowerCase();
+      const responsavel = (c.responsavel || '').toLowerCase();
+      const origem = (c.origem || '').toLowerCase();
+      
+      // Buscar principalmente pelo nome, mas também nos outros campos
+      const encontrado = nome.includes(searchLower) || 
+                        telefone.includes(searchLower) || 
+                        responsavel.includes(searchLower) ||
+                        origem.includes(searchLower);
+      
+      // Debug temporário
+      if (process.env.NODE_ENV === 'development' && encontrado) {
+        console.log('✅ Match encontrado:', {
+          nome: c.nome,
+          busca: searchText,
+          matchNome: nome.includes(searchLower),
+          matchTelefone: telefone.includes(searchLower),
+          matchResponsavel: responsavel.includes(searchLower),
+          matchOrigem: origem.includes(searchLower)
+        });
+      }
+      
+      return encontrado;
+    });
+    
+    if (process.env.NODE_ENV === 'development') {
+      console.log('🔍 Filtro aplicado:', {
+        busca: searchText,
+        totalAntes: validados.length,
+        totalDepois: filtrados.length,
+        primeirosNomes: filtrados.slice(0, 3).map(c => c.nome)
+      });
+    }
+    
+    return filtrados;
+  }, [convidadosPromoters, promoterGuestsSearch]);
 
   const filteredCamarotes = camarotes.filter(c => 
     filterBySearch(c.responsavel) || 
@@ -1074,79 +1207,223 @@ export default function EventoCheckInsPage() {
 
                   {/* Convidados dos Promoters */}
                   <section className="bg-white/10 backdrop-blur-sm rounded-lg shadow-sm p-6 border border-white/20">
-                    <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-                      <MdEvent size={24} className="text-purple-400" />
-                      Convidados de Promoters ({filteredConvidadosPromoters.length})
-                    </h2>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {filteredConvidadosPromoters.map(convidado => (
-                        <motion.div
-                          key={convidado.id}
-                          initial={{ opacity: 0, y: 20 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          className={`border rounded-lg p-4 ${
-                            convidado.status_checkin === 'Check-in'
-                              ? 'bg-green-900/30 border-green-500/50'
-                              : convidado.status_checkin === 'No-Show'
-                              ? 'bg-red-900/30 border-red-500/50'
-                              : 'bg-white/5 border-white/20 hover:border-purple-400/50'
+                    {(() => {
+                      // Debug: verificar dados antes de renderizar
+                      if (process.env.NODE_ENV === 'development') {
+                        console.log('🎯 Renderizando Convidados de Promoters:', {
+                          total: filteredConvidadosPromoters.length,
+                          tipos: [...new Set(filteredConvidadosPromoters.map(c => c.tipo))],
+                          primeirosNomes: filteredConvidadosPromoters.slice(0, 5).map(c => c.nome)
+                        });
+                      }
+                      return null;
+                    })()}
+                    <div className="flex items-center justify-between mb-4">
+                      <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                        <MdEvent size={24} className="text-purple-400" />
+                        Convidados de Promoters ({filteredConvidadosPromoters.length})
+                      </h2>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => setPromoterGuestsViewMode('grid')}
+                          className={`p-2 rounded-lg transition-colors ${
+                            promoterGuestsViewMode === 'grid'
+                              ? 'bg-purple-600 text-white'
+                              : 'bg-white/10 text-gray-300 hover:bg-white/20'
                           }`}
+                          title="Visualização em grade"
                         >
-                          <div className="flex items-start justify-between mb-3">
-                            <div className="flex-1">
-                              <div className="flex items-center gap-2">
-                                <h3 className="font-bold text-lg text-white">{convidado.nome}</h3>
-                                {convidado.is_vip && (
-                                  <MdStar size={20} className="text-yellow-400" title="VIP" />
-                                )}
-                              </div>
-                              <div className="text-sm text-gray-300 space-y-1 mt-1">
-                                <div className="text-xs text-gray-400">Lista: {convidado.origem}</div>
-                                <div>Promoter: {convidado.responsavel}</div>
-                                {convidado.telefone && (
-                                  <div className="flex items-center gap-1">
-                                    <MdPhone size={14} />
-                                    {convidado.telefone}
-                                  </div>
-                                )}
-                                {convidado.observacoes && (
-                                  <div className="flex items-center gap-1">
-                                    <MdDescription size={14} />
-                                    <span className="text-xs">{convidado.observacoes}</span>
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                            {convidado.status_checkin === 'Check-in' && (
-                              <MdCheckCircle size={32} className="text-green-400" />
-                            )}
-                          </div>
+                          <MdViewModule size={24} />
+                        </button>
+                        <button
+                          onClick={() => setPromoterGuestsViewMode('list')}
+                          className={`p-2 rounded-lg transition-colors ${
+                            promoterGuestsViewMode === 'list'
+                              ? 'bg-purple-600 text-white'
+                              : 'bg-white/10 text-gray-300 hover:bg-white/20'
+                          }`}
+                          title="Visualização em lista"
+                        >
+                          <MdViewList size={24} />
+                        </button>
+                      </div>
+                    </div>
 
-                          {convidado.status_checkin === 'Pendente' ? (
-                            <button
-                              onClick={() => handleConvidadoPromoterCheckIn(convidado)}
-                              className="w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3 rounded-lg transition-colors flex items-center justify-center gap-2"
-                            >
-                              <MdCheckCircle size={20} />
-                              Fazer Check-in
-                            </button>
-                          ) : convidado.status_checkin === 'Check-in' ? (
-                            <div className="text-center text-sm text-green-400 font-medium">
-                              ✅ Check-in feito às {convidado.data_checkin ? new Date(convidado.data_checkin).toLocaleTimeString('pt-BR') : ''}
-                            </div>
-                          ) : (
-                            <div className="text-center text-sm text-red-400 font-medium">
-                              ❌ No-Show
-                            </div>
-                          )}
-                        </motion.div>
-                      ))}
-                      {filteredConvidadosPromoters.length === 0 && (
-                        <div className="col-span-full text-center py-8 text-gray-400">
-                          Nenhum convidado de promoter encontrado
+                    {/* Campo de busca específico para convidados de promoters */}
+                    <div className="mb-4">
+                      <div className="relative">
+                        <MdSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
+                        <input
+                          type="text"
+                          placeholder="Buscar convidado por nome..."
+                          value={promoterGuestsSearch}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            setPromoterGuestsSearch(value);
+                            // Debug temporário
+                            if (process.env.NODE_ENV === 'development') {
+                              console.log('🔍 Busca alterada:', value, 'Total de convidados:', convidadosPromoters.length);
+                            }
+                          }}
+                          className="w-full pl-10 pr-10 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                        />
+                        {promoterGuestsSearch && (
+                          <button
+                            onClick={() => {
+                              setPromoterGuestsSearch('');
+                              if (process.env.NODE_ENV === 'development') {
+                                console.log('🔍 Busca limpa');
+                              }
+                            }}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
+                          >
+                            <MdClose size={20} />
+                          </button>
+                        )}
+                      </div>
+                      {promoterGuestsSearch && (
+                        <div className="mt-2 text-sm text-gray-400">
+                          Buscando: "{promoterGuestsSearch}" - {filteredConvidadosPromoters.length} resultado(s) encontrado(s)
                         </div>
                       )}
                     </div>
+
+                    {/* Visualização em Grade */}
+                    {promoterGuestsViewMode === 'grid' && (
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {filteredConvidadosPromoters.map(convidado => (
+                          <motion.div
+                            key={convidado.id}
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            className={`border rounded-lg p-4 ${
+                              convidado.status_checkin === 'Check-in'
+                                ? 'bg-green-900/30 border-green-500/50'
+                                : convidado.status_checkin === 'No-Show'
+                                ? 'bg-red-900/30 border-red-500/50'
+                                : 'bg-white/5 border-white/20 hover:border-purple-400/50'
+                            }`}
+                          >
+                            <div className="flex items-start justify-between mb-3">
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2">
+                                  <h3 className="font-bold text-lg text-white">{convidado.nome}</h3>
+                                  {convidado.is_vip && (
+                                    <MdStar size={20} className="text-yellow-400" title="VIP" />
+                                  )}
+                                </div>
+                                <div className="text-sm text-gray-300 space-y-1 mt-1">
+                                  <div className="text-xs text-gray-400">Lista: {convidado.origem}</div>
+                                  <div>Promoter: {convidado.responsavel}</div>
+                                  {convidado.telefone && (
+                                    <div className="flex items-center gap-1">
+                                      <MdPhone size={14} />
+                                      {convidado.telefone}
+                                    </div>
+                                  )}
+                                  {convidado.observacoes && (
+                                    <div className="flex items-center gap-1">
+                                      <MdDescription size={14} />
+                                      <span className="text-xs">{convidado.observacoes}</span>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                              {convidado.status_checkin === 'Check-in' && (
+                                <MdCheckCircle size={32} className="text-green-400" />
+                              )}
+                            </div>
+
+                            {convidado.status_checkin === 'Pendente' ? (
+                              <button
+                                onClick={() => handleConvidadoPromoterCheckIn(convidado)}
+                                className="w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3 rounded-lg transition-colors flex items-center justify-center gap-2"
+                              >
+                                <MdCheckCircle size={20} />
+                                Fazer Check-in
+                              </button>
+                            ) : convidado.status_checkin === 'Check-in' ? (
+                              <div className="text-center text-sm text-green-400 font-medium">
+                                ✅ Check-in feito às {convidado.data_checkin ? new Date(convidado.data_checkin).toLocaleTimeString('pt-BR') : ''}
+                              </div>
+                            ) : (
+                              <div className="text-center text-sm text-red-400 font-medium">
+                                ❌ No-Show
+                              </div>
+                            )}
+                          </motion.div>
+                        ))}
+                        {filteredConvidadosPromoters.length === 0 && (
+                          <div className="col-span-full text-center py-8 text-gray-400">
+                            Nenhum convidado de promoter encontrado
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Visualização em Lista - Apenas nomes */}
+                    {promoterGuestsViewMode === 'list' && (
+                      <div className="space-y-2">
+                        {filteredConvidadosPromoters.map(convidado => (
+                          <motion.div
+                            key={convidado.id}
+                            initial={{ opacity: 0, x: -20 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            className={`border rounded-lg p-4 flex items-center justify-between ${
+                              convidado.status_checkin === 'Check-in'
+                                ? 'bg-green-900/30 border-green-500/50'
+                                : convidado.status_checkin === 'No-Show'
+                                ? 'bg-red-900/30 border-red-500/50'
+                                : 'bg-white/5 border-white/20 hover:border-purple-400/50'
+                            }`}
+                          >
+                            <div className="flex items-center gap-3 flex-1">
+                              <div className="flex items-center gap-2">
+                                {convidado.status_checkin === 'Check-in' && (
+                                  <MdCheckCircle size={24} className="text-green-400" />
+                                )}
+                                {convidado.status_checkin === 'No-Show' && (
+                                  <MdClose size={24} className="text-red-400" />
+                                )}
+                                {convidado.status_checkin === 'Pendente' && (
+                                  <MdPending size={24} className="text-gray-400" />
+                                )}
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <h3 className="font-semibold text-lg text-white">{convidado.nome}</h3>
+                                {convidado.is_vip && (
+                                  <MdStar size={18} className="text-yellow-400" title="VIP" />
+                                )}
+                              </div>
+                            </div>
+                            {convidado.status_checkin === 'Pendente' && (
+                              <button
+                                onClick={() => handleConvidadoPromoterCheckIn(convidado)}
+                                className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded-lg transition-colors flex items-center gap-2"
+                              >
+                                <MdCheckCircle size={18} />
+                                Check-in
+                              </button>
+                            )}
+                            {convidado.status_checkin === 'Check-in' && (
+                              <div className="text-sm text-green-400 font-medium">
+                                ✅ {convidado.data_checkin ? new Date(convidado.data_checkin).toLocaleTimeString('pt-BR') : 'Presente'}
+                              </div>
+                            )}
+                            {convidado.status_checkin === 'No-Show' && (
+                              <div className="text-sm text-red-400 font-medium">
+                                ❌ No-Show
+                              </div>
+                            )}
+                          </motion.div>
+                        ))}
+                        {filteredConvidadosPromoters.length === 0 && (
+                          <div className="text-center py-8 text-gray-400">
+                            Nenhum convidado de promoter encontrado
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </section>
                 </>
               )}
