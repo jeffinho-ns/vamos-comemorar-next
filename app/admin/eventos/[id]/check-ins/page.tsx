@@ -1076,21 +1076,30 @@ export default function EventoCheckInsPage() {
                   </h2>
                   
                   <div className="space-y-3">
-                    {guestListsRestaurante
-                      // Os dados já vêm filtrados do backend por establishment_id e data_evento
-                      // Apenas aplicar filtro de busca textual
-                      .filter(gl => filterBySearch(gl.owner_name) || filterBySearch(gl.origin))
-                      .map((gl) => {
+                    {guestListsRestaurante.length === 0 ? (
+                      <div className="text-center py-8 text-gray-400">
+                        Nenhuma lista de convidados encontrada para este evento.
+                      </div>
+                    ) : (
+                      guestListsRestaurante
+                        // Os dados já vêm filtrados do backend por establishment_id e data_evento
+                        // Apenas aplicar filtro de busca textual
+                        .filter(gl => filterBySearch(gl.owner_name) || filterBySearch(gl.origin))
+                        .map((gl) => {
                         const listUrl = `https://agilizaiapp.com.br/lista/${gl.shareable_link_token}`;
                         
                         return (
                           <div key={gl.guest_list_id} className="border rounded-lg border-white/20 bg-white/5">
                             <div
                               onClick={async () => {
-                                setExpandedGuestListId(expandedGuestListId === gl.guest_list_id ? null : gl.guest_list_id);
-                                if (!guestsByList[gl.guest_list_id]) {
+                                const willExpand = expandedGuestListId !== gl.guest_list_id;
+                                setExpandedGuestListId(willExpand ? gl.guest_list_id : null);
+                                
+                                // Se está expandindo e ainda não carregou os convidados, carregar
+                                if (willExpand && !guestsByList[gl.guest_list_id]) {
                                   try {
                                     const token = localStorage.getItem('authToken');
+                                    console.log(`🔄 Carregando convidados para guest list ${gl.guest_list_id}...`);
                                     
                                     // Carregar convidados
                                     const guestsRes = await fetch(`${API_URL}/api/admin/guest-lists/${gl.guest_list_id}/guests`, { 
@@ -1100,7 +1109,10 @@ export default function EventoCheckInsPage() {
                                     let guestsData: { guests: GuestItem[] } | null = null;
                                     if (guestsRes.ok) {
                                       guestsData = await guestsRes.json();
+                                      console.log(`✅ Convidados carregados:`, guestsData);
                                       setGuestsByList(prev => ({ ...prev, [gl.guest_list_id]: guestsData?.guests || [] }));
+                                    } else {
+                                      console.error(`❌ Erro ao carregar convidados:`, await guestsRes.text());
                                     }
 
                                     // Carregar status de check-in
@@ -1129,7 +1141,9 @@ export default function EventoCheckInsPage() {
                                         }
                                       }));
                                     }
-                                  } catch (e) { console.error(e); }
+                                  } catch (e) { 
+                                    console.error('❌ Erro ao carregar dados da guest list:', e); 
+                                  }
                                 }
                               }}
                               className="w-full text-left px-4 py-3 bg-white/5 hover:bg-white/10 flex items-center justify-between cursor-pointer"
@@ -1303,13 +1317,8 @@ export default function EventoCheckInsPage() {
                             )}
                           </div>
                         );
-                    })
-                  }
-                  {guestListsRestaurante.length === 0 && (
-                    <div className="text-sm text-gray-400 px-4 py-6 border rounded-lg border-white/10 bg-white/5">
-                      Nenhuma lista de convidados encontrada para este estabelecimento e data.
-                    </div>
-                  )}
+                      })
+                    )}
                   </div>
                 </section>
               )}
