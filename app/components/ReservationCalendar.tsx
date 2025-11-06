@@ -57,10 +57,11 @@ export default function ReservationCalendar({
   const [selectedReservation, setSelectedReservation] = useState<Reservation | null>(null);
   const [selectedDayReservations, setSelectedDayReservations] = useState<Reservation[]>([]);
 
-  // Total de mesas por estabelecimento (Highline = 36)
+  // Total de mesas por estabelecimento (Highline = 36, Seu Justino = 29)
   const getTotalTablesForEstablishment = () => {
     const name = (establishment?.name || '').toLowerCase();
     if (name.includes('high line') || name.includes('highline')) return 36;
+    if (name.includes('seu justino') && !name.includes('pracinha')) return 29;
     return 10;
   };
 

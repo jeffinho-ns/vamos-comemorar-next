@@ -111,7 +111,23 @@ export default function ReservationModal({
     { key: 'roof-vista', area_id: 5, label: 'Área Rooftop - Vista', tableNumbers: ['40','41','42'] },
   ];
 
+  // Subáreas específicas do Seu Justino (mapeadas para area_id base 1 ou 2)
+  const seuJustinoSubareas = [
+    { key: 'lounge-bar', area_id: 1, label: 'Lounge Bar', tableNumbers: ['200','202'] },
+    { key: 'lounge-palco', area_id: 1, label: 'Lounge Palco', tableNumbers: ['204','206'] },
+    { key: 'lounge-aquario-tv', area_id: 1, label: 'Lounge Aquário TV', tableNumbers: ['208'] },
+    { key: 'lounge-aquario-spaten', area_id: 1, label: 'Lounge Aquário Spaten', tableNumbers: ['210'] },
+    { key: 'quintal-lateral-esquerdo', area_id: 2, label: 'Quintal Lateral Esquerdo', tableNumbers: ['20','22','24','26','28','29'] },
+    { key: 'quintal-central-esquerdo', area_id: 2, label: 'Quintal Central Esquerdo', tableNumbers: ['30','32','34','36','38','39'] },
+    { key: 'quintal-central-direito', area_id: 2, label: 'Quintal Central Direito', tableNumbers: ['40','42','44','46','48'] },
+    { key: 'quintal-lateral-direito', area_id: 2, label: 'Quintal Lateral Direito', tableNumbers: ['50','52','54','56','58','60','62','64'] },
+  ];
+
   const isHighline = establishment && ((establishment.name || '').toLowerCase().includes('high'));
+  const isSeuJustino = establishment && (
+    (establishment.name || '').toLowerCase().includes('seu justino') && 
+    !(establishment.name || '').toLowerCase().includes('pracinha')
+  );
 
   const getMaxBirthdate = () => {
     const d = new Date();
@@ -217,6 +233,13 @@ export default function ReservationModal({
               fetched = fetched.filter(t => sub.tableNumbers.includes(String(t.table_number)));
             }
           }
+          // Se for Seu Justino e houver subárea selecionada, filtra pelas mesas da subárea
+          if (isSeuJustino && selectedSubareaKey) {
+            const sub = seuJustinoSubareas.find(s => s.key === selectedSubareaKey);
+            if (sub) {
+              fetched = fetched.filter(t => sub.tableNumbers.includes(String(t.table_number)));
+            }
+          }
           setTables(fetched);
         } else {
           setTables([]);
@@ -227,7 +250,7 @@ export default function ReservationModal({
       }
     };
     loadTables();
-  }, [formData.area_id, formData.reservation_date, selectedSubareaKey, isHighline]);
+  }, [formData.area_id, formData.reservation_date, selectedSubareaKey, isHighline, isSeuJustino]);
 
   // Buscar eventos disponíveis para a data selecionada
   useEffect(() => {
@@ -585,12 +608,14 @@ export default function ReservationModal({
                     Área *
                   </label>
                   <select
-                    value={isHighline ? selectedSubareaKey : formData.area_id}
+                    value={(isHighline || isSeuJustino) ? selectedSubareaKey : formData.area_id}
                     onChange={(e) => {
-                      if (isHighline) {
+                      if (isHighline || isSeuJustino) {
                         const key = e.target.value;
                         setSelectedSubareaKey(key);
-                        const sub = highlineSubareas.find(s => s.key === key);
+                        const sub = isHighline 
+                          ? highlineSubareas.find(s => s.key === key)
+                          : seuJustinoSubareas.find(s => s.key === key);
                         handleInputChange('area_id', sub ? String(sub.area_id) : '');
                         handleInputChange('table_number', '');
                       } else {
@@ -605,6 +630,10 @@ export default function ReservationModal({
                     <option value="">Selecione uma área</option>
                     {isHighline
                       ? highlineSubareas.map(s => (
+                          <option key={s.key} value={s.key}>{s.label}</option>
+                        ))
+                      : isSeuJustino
+                      ? seuJustinoSubareas.map(s => (
                           <option key={s.key} value={s.key}>{s.label}</option>
                         ))
                       : areas.map((area) => (

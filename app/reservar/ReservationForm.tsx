@@ -346,8 +346,25 @@ export default function ReservationForm() {
     { key: 'roof-vista', area_id: 5, label: 'Área Rooftop - Vista', tableNumbers: ['40','41','42'] },
   ];
 
+  // Subáreas específicas do Seu Justino (mapeadas para area_id base 1 ou 2)
+  const seuJustinoSubareas = [
+    { key: 'lounge-bar', area_id: 1, label: 'Lounge Bar', tableNumbers: ['200','202'] },
+    { key: 'lounge-palco', area_id: 1, label: 'Lounge Palco', tableNumbers: ['204','206'] },
+    { key: 'lounge-aquario-tv', area_id: 1, label: 'Lounge Aquário TV', tableNumbers: ['208'] },
+    { key: 'lounge-aquario-spaten', area_id: 1, label: 'Lounge Aquário Spaten', tableNumbers: ['210'] },
+    { key: 'quintal-lateral-esquerdo', area_id: 2, label: 'Quintal Lateral Esquerdo', tableNumbers: ['20','22','24','26','28','29'] },
+    { key: 'quintal-central-esquerdo', area_id: 2, label: 'Quintal Central Esquerdo', tableNumbers: ['30','32','34','36','38','39'] },
+    { key: 'quintal-central-direito', area_id: 2, label: 'Quintal Central Direito', tableNumbers: ['40','42','44','46','48'] },
+    { key: 'quintal-lateral-direito', area_id: 2, label: 'Quintal Lateral Direito', tableNumbers: ['50','52','54','56','58','60','62','64'] },
+  ];
+
   const isHighline = selectedEstablishment && (
     (selectedEstablishment.name || '').toLowerCase().includes('high')
+  );
+
+  const isSeuJustino = selectedEstablishment && (
+    (selectedEstablishment.name || '').toLowerCase().includes('seu justino') && 
+    !(selectedEstablishment.name || '').toLowerCase().includes('pracinha')
   );
 
   // Janelas de horário para o Highline (Sexta e Sábado)
@@ -411,6 +428,13 @@ export default function ReservationForm() {
               fetched = fetched.filter(t => sub.tableNumbers.includes(String(t.table_number)));
             }
           }
+          // Se for Seu Justino e houver subárea selecionada, filtra pelas mesas da subárea
+          if (isSeuJustino && selectedSubareaKey) {
+            const sub = seuJustinoSubareas.find(s => s.key === selectedSubareaKey);
+            if (sub) {
+              fetched = fetched.filter(t => sub.tableNumbers.includes(String(t.table_number)));
+            }
+          }
           setTables(fetched);
         } else {
           setTables([]);
@@ -421,7 +445,7 @@ export default function ReservationForm() {
       }
     };
     loadTables();
-  }, [reservationData.area_id, reservationData.reservation_date, selectedSubareaKey]);
+  }, [reservationData.area_id, reservationData.reservation_date, selectedSubareaKey, isHighline, isSeuJustino]);
 
   // Buscar detalhes operacionais quando a data for selecionada
   useEffect(() => {
@@ -1095,12 +1119,14 @@ const handleSubmit = async (e: React.FormEvent) => {
                   Área Preferida *
                 </label>
                 <select
-                  value={isHighline ? selectedSubareaKey : reservationData.area_id}
+                  value={(isHighline || isSeuJustino) ? selectedSubareaKey : reservationData.area_id}
                   onChange={(e) => {
-                    if (isHighline) {
+                    if (isHighline || isSeuJustino) {
                       const key = e.target.value;
                       setSelectedSubareaKey(key);
-                      const sub = highlineSubareas.find(s => s.key === key);
+                      const sub = isHighline 
+                        ? highlineSubareas.find(s => s.key === key)
+                        : seuJustinoSubareas.find(s => s.key === key);
                       handleInputChange('area_id', sub ? String(sub.area_id) : '');
                       // limpar mesa ao trocar subárea
                       handleInputChange('table_number', '');
@@ -1118,6 +1144,10 @@ const handleSubmit = async (e: React.FormEvent) => {
                     ? highlineSubareas.map((s) => (
                         <option key={s.key} value={s.key}>{s.label}</option>
                       ))
+                    : isSeuJustino
+                    ? seuJustinoSubareas.map((s) => (
+                        <option key={s.key} value={s.key}>{s.label}</option>
+                      ))
                     : areas.map((area) => (
                         <option key={area.id} value={area.id}>{area.name}</option>
                       ))}
@@ -1125,8 +1155,8 @@ const handleSubmit = async (e: React.FormEvent) => {
                 {errors.area_id && (
                   <p className="text-red-500 text-sm mt-1">{errors.area_id}</p>
                 )}
-                {/* Listagem de mesas da subárea (somente Highline) */}
-                {isHighline && selectedSubareaKey && tables.length > 0 && (
+                {/* Listagem de mesas da subárea (Highline e Seu Justino) */}
+                {(isHighline || isSeuJustino) && selectedSubareaKey && tables.length > 0 && (
                   <div className="mt-3 grid grid-cols-2 md:grid-cols-3 gap-2 text-sm">
                     {tables.map(t => (
                       <div key={t.id} className="px-2 py-1 rounded border bg-blue-50 text-blue-700 border-blue-200">
@@ -1240,6 +1270,8 @@ const handleSubmit = async (e: React.FormEvent) => {
           <span className="font-medium">
             {isHighline 
               ? highlineSubareas.find(s => s.area_id.toString() === reservationData.area_id)?.label
+              : isSeuJustino
+              ? seuJustinoSubareas.find(s => s.area_id.toString() === reservationData.area_id)?.label
               : areas.find(a => a.id.toString() === reservationData.area_id)?.name
             }
           </span>
