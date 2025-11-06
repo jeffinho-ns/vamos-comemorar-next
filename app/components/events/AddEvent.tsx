@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import Image from "next/image";
 import Modal from "../ui/Modal";
 
@@ -8,7 +8,13 @@ interface AddEventProps {
   onEventAdded: () => void; // Adicionei um prop para notificar o componente pai
 }
 
+interface Establishment {
+  id: number;
+  name: string;
+}
+
 const AddEvent: React.FC<AddEventProps> = ({ isOpen, onRequestClose, onEventAdded }) => {
+  const [idPlace, setIdPlace] = useState<number | null>(null);
   const [casaDoEvento, setCasaDoEvento] = useState("");
   const [nomeDoEvento, setNomeDoEvento] = useState("");
   const [dataDoEvento, setDataDoEvento] = useState("");
@@ -28,13 +34,61 @@ const AddEvent: React.FC<AddEventProps> = ({ isOpen, onRequestClose, onEventAdde
   const [imagemComboPreview, setImagemComboPreview] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [establishments, setEstablishments] = useState<Establishment[]>([]);
+  const [loadingEstablishments, setLoadingEstablishments] = useState(false);
 
   const [tipoEvento, setTipoEvento] = useState<'unico' | 'semanal'>('unico');
   const [diaDaSemana, setDiaDaSemana] = useState('');
 
   const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL_LOCAL;
 
+  const fetchEstablishments = useCallback(async () => {
+    setLoadingEstablishments(true);
+    const token = localStorage.getItem("authToken");
+    
+    if (!token) {
+      setError("Token não encontrado. Faça login novamente.");
+      setLoadingEstablishments(false);
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_URL}/api/places`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Erro ao buscar estabelecimentos');
+      }
+
+      const data = await response.json();
+      const placesList = Array.isArray(data) ? data : (data.data || []);
+      
+      const formattedEstablishments: Establishment[] = placesList.map((place: any) => ({
+        id: place.id,
+        name: place.name || "Sem nome",
+      }));
+
+      setEstablishments(formattedEstablishments);
+    } catch (error) {
+      console.error("Erro ao carregar estabelecimentos:", error);
+      setError("Erro ao carregar lista de estabelecimentos.");
+    } finally {
+      setLoadingEstablishments(false);
+    }
+  }, [API_URL]);
+
+  // Carregar estabelecimentos quando o modal abrir
+  useEffect(() => {
+    if (isOpen) {
+      fetchEstablishments();
+    }
+  }, [isOpen, fetchEstablishments]);
+
   const resetForm = () => {
+    setIdPlace(null);
     setCasaDoEvento("");
     setNomeDoEvento("");
     setDataDoEvento("");
@@ -55,6 +109,14 @@ const AddEvent: React.FC<AddEventProps> = ({ isOpen, onRequestClose, onEventAdde
     setTipoEvento('unico');
     setDiaDaSemana('');
     setError(null);
+  };
+
+  const handleEstablishmentChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const selectedId = parseInt(e.target.value);
+    const selectedEstablishment = establishments.find(est => est.id === selectedId);
+    
+    setIdPlace(selectedId);
+    setCasaDoEvento(selectedEstablishment?.name || "");
   };
 
   const uploadImage = async (file: File): Promise<string | null> => {
@@ -125,6 +187,13 @@ const AddEvent: React.FC<AddEventProps> = ({ isOpen, onRequestClose, onEventAdde
       }
     }
 
+    // Validação: verificar se um estabelecimento foi selecionado
+    if (!idPlace) {
+      setError("Por favor, selecione um estabelecimento.");
+      setIsLoading(false);
+      return;
+    }
+
     // 3. Criação do evento com os nomes dos arquivos
     const eventData = {
       casa_do_evento: casaDoEvento,
@@ -144,6 +213,7 @@ const AddEvent: React.FC<AddEventProps> = ({ isOpen, onRequestClose, onEventAdde
       dia_da_semana: tipoEvento === 'semanal' ? diaDaSemana : null,
       imagem_do_evento: imagemEventoFilename,
       imagem_do_combo: imagemComboFilename,
+      id_place: idPlace, // Enviando o ID do estabelecimento
     };
 
     try {
@@ -186,7 +256,24 @@ const AddEvent: React.FC<AddEventProps> = ({ isOpen, onRequestClose, onEventAdde
       <div className="bg-white rounded-lg shadow-lg w-full max-w-4xl p-6 max-h-[90vh] overflow-y-auto">
         <h2 className="text-2xl font-bold mb-4">Adicionar Evento</h2>
         <form onSubmit={handleSubmit} className="grid grid-cols-2 gap-4">
-          <input className="w-full p-2 border rounded" type="text" placeholder="Casa do evento" value={casaDoEvento} onChange={(e) => setCasaDoEvento(e.target.value)} required />
+          <div>
+            <select 
+              className="w-full p-2 border rounded" 
+              value={idPlace || ""} 
+              onChange={handleEstablishmentChange} 
+              required
+              disabled={loadingEstablishments}
+            >
+              <option value="" disabled>
+                {loadingEstablishments ? "Carregando estabelecimentos..." : "Selecione o estabelecimento"}
+              </option>
+              {establishments.map((establishment) => (
+                <option key={establishment.id} value={establishment.id}>
+                  {establishment.name}
+                </option>
+              ))}
+            </select>
+          </div>
           <input className="w-full p-2 border rounded" type="text" placeholder="Nome do evento" value={nomeDoEvento} onChange={(e) => setNomeDoEvento(e.target.value)} required />
 
           <div className="col-span-2 border rounded p-3">
