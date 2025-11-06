@@ -28,18 +28,21 @@ const EntradaStatusModal: React.FC<EntradaStatusModalProps> = ({
     const minutos = horaAtual.getMinutes();
     const horaDecimal = hora + minutos / 60;
     
-    // Até 22:00 - Apenas VIP
+    // SEMPRE mostrar todas as opções, mas com valores diferentes baseados no horário
+    // Admin pode escolher qualquer opção a qualquer momento
+    
+    // Até 22:00 - VIP é grátis, mas admin pode escolher outras opções
     if (horaDecimal < 22) {
       return {
         mostraVIP: true,
-        mostraSeco: false,
-        mostraConsuma: false,
-        valorSeco: 0,
-        valorConsuma: 0
+        mostraSeco: true, // Admin pode escolher
+        mostraConsuma: true, // Admin pode escolher
+        valorSeco: 40, // Valor padrão antes das 22h
+        valorConsuma: 120 // Valor padrão antes das 22h
       };
     }
     
-    // Entre 22:00 e 00:30 (0.5)
+    // Entre 22:00 e 00:30
     // Se for antes da meia-noite (22:00 até 23:59) ou depois da meia-noite até 00:30
     const horaMeiaNoite = (horaDecimal >= 22 && horaDecimal < 24) || (hora === 0 && minutos <= 30);
     if (horaMeiaNoite) {
@@ -53,7 +56,7 @@ const EntradaStatusModal: React.FC<EntradaStatusModalProps> = ({
     }
     
     // Após 00:30 até 03:00
-    if (horaDecimal >= 0.5 && horaDecimal < 3) {
+    if ((horaDecimal >= 0.5 && horaDecimal < 3) || (hora >= 0 && hora < 3 && minutos > 30)) {
       return {
         mostraVIP: true, // Admin pode forçar VIP até 03:00
         mostraSeco: true,
@@ -63,13 +66,13 @@ const EntradaStatusModal: React.FC<EntradaStatusModalProps> = ({
       };
     }
     
-    // Após 03:00 - Apenas VIP (fora do horário normal)
+    // Após 03:00 - Ainda mostrar todas as opções, mas admin pode escolher
     return {
       mostraVIP: true,
-      mostraSeco: false,
-      mostraConsuma: false,
-      valorSeco: 0,
-      valorConsuma: 0
+      mostraSeco: true,
+      mostraConsuma: true,
+      valorSeco: 50,
+      valorConsuma: 150
     };
   }, [horaAtual]);
 

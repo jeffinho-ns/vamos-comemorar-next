@@ -686,13 +686,18 @@ export default function EventoCheckInsPage() {
       .trim();
   };
 
-  // Filtrar dados
-  const filteredConvidadosReservas = convidadosReservas.filter(c => 
-    filterBySearch(c.nome) || 
-    filterBySearch(c.email || '') || 
-    filterBySearch(c.responsavel) ||
-    filterBySearch(c.origem)
-  );
+  // Filtrar dados - Mostrar todos se não houver busca
+  const filteredConvidadosReservas = useMemo(() => {
+    if (!searchTerm.trim()) {
+      return convidadosReservas;
+    }
+    return convidadosReservas.filter(c => 
+      filterBySearch(c.nome) || 
+      filterBySearch(c.email || '') || 
+      filterBySearch(c.responsavel) ||
+      filterBySearch(c.origem)
+    );
+  }, [convidadosReservas, searchTerm]);
 
   // Filtrar convidados de promoters
   // VALIDAÇÃO RIGOROSA: Garantir que apenas convidados de promoters sejam exibidos
