@@ -1062,7 +1062,12 @@ export default function EventoCheckInsPage() {
                                   : 'bg-purple-100 text-purple-700'
                               }`}>
                                 {convidado.entrada_tipo}
-                                {convidado.entrada_valor && ` - R$ ${convidado.entrada_valor.toFixed(2)}`}
+                                {convidado.entrada_valor && (() => {
+                                  const valor = typeof convidado.entrada_valor === 'number' 
+                                    ? convidado.entrada_valor 
+                                    : parseFloat(String(convidado.entrada_valor));
+                                  return !isNaN(valor) ? ` - R$ ${valor.toFixed(2)}` : '';
+                                })()}
                               </div>
                             )}
                           </div>
@@ -1328,7 +1333,12 @@ export default function EventoCheckInsPage() {
                                                       : 'bg-purple-100 text-purple-700'
                                                   }`}>
                                                     {g.entrada_tipo}
-                                                    {g.entrada_valor && ` - R$ ${g.entrada_valor.toFixed(2)}`}
+                                                    {g.entrada_valor && (() => {
+                                                      const valor = typeof g.entrada_valor === 'number' 
+                                                        ? g.entrada_valor 
+                                                        : parseFloat(String(g.entrada_valor));
+                                                      return !isNaN(valor) ? ` - R$ ${valor.toFixed(2)}` : '';
+                                                    })()}
                                                   </div>
                                                 )}
                                               </td>
@@ -1564,7 +1574,12 @@ export default function EventoCheckInsPage() {
                                       : 'bg-purple-100 text-purple-700'
                                   }`}>
                                     {convidado.entrada_tipo}
-                                    {convidado.entrada_valor && ` - R$ ${convidado.entrada_valor.toFixed(2)}`}
+                                    {convidado.entrada_valor && (() => {
+                                      const valor = typeof convidado.entrada_valor === 'number' 
+                                        ? convidado.entrada_valor 
+                                        : parseFloat(String(convidado.entrada_valor));
+                                      return !isNaN(valor) ? ` - R$ ${valor.toFixed(2)}` : '';
+                                    })()}
                                   </div>
                                 )}
                               </div>
@@ -1641,7 +1656,12 @@ export default function EventoCheckInsPage() {
                                       : 'bg-purple-100 text-purple-700'
                                   }`}>
                                     {convidado.entrada_tipo}
-                                    {convidado.entrada_valor && ` R$ ${convidado.entrada_valor.toFixed(2)}`}
+                                    {convidado.entrada_valor && (() => {
+                                      const valor = typeof convidado.entrada_valor === 'number' 
+                                        ? convidado.entrada_valor 
+                                        : parseFloat(String(convidado.entrada_valor));
+                                      return !isNaN(valor) ? ` R$ ${valor.toFixed(2)}` : '';
+                                    })()}
                                   </div>
                                 )}
                               </div>
