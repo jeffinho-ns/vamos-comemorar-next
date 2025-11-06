@@ -225,6 +225,7 @@ export default function RestaurantReservationsPage() {
   const [createListForm, setCreateListForm] = useState<{ client_name: string; reservation_date: string; event_type: string }>({ client_name: '', reservation_date: '', event_type: '' });
   const [selectedMonth, setSelectedMonth] = useState<string>(new Date().toISOString().slice(0, 7)); // YYYY-MM
   const [selectedDay, setSelectedDay] = useState<string>(''); // YYYY-MM-DD para filtrar por dia
+  const [ownerSearchTerm, setOwnerSearchTerm] = useState<string>(''); // Termo de busca pelo nome do dono
   
   // Estados para check-in
   const [checkInStatus, setCheckInStatus] = useState<Record<number, { ownerCheckedIn: boolean; guestsCheckedIn: number; totalGuests: number }>>({});
@@ -1682,6 +1683,30 @@ export default function RestaurantReservationsPage() {
                 </button>
               )}
               
+              {/* Campo de busca pelo nome do dono */}
+              <div className="relative">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Buscar por dono</label>
+                <div className="relative">
+                  <MdSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+                  <input
+                    type="text"
+                    placeholder="Nome do dono da lista"
+                    value={ownerSearchTerm}
+                    onChange={(e) => setOwnerSearchTerm(e.target.value)}
+                    className="pl-10 pr-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-transparent w-full sm:w-64"
+                  />
+                  {ownerSearchTerm && (
+                    <button
+                      onClick={() => setOwnerSearchTerm('')}
+                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                      title="Limpar busca"
+                    >
+                      <MdClose size={18} />
+                    </button>
+                  )}
+                </div>
+              </div>
+              
               <button
                 onClick={() => setShowCreateListModal(true)}
                 className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors self-end"
@@ -1695,16 +1720,25 @@ export default function RestaurantReservationsPage() {
           <div className="space-y-3">
             {guestLists
               .filter((gl) => {
-                // Se não houver filtro de dia, mostra todas as listas do mês
-                if (!selectedDay) return true;
-                
-                // Se houver filtro de dia, compara a data da reserva
-                if (gl.reservation_date) {
-                  // Extrai apenas a parte da data (YYYY-MM-DD) sem criar objeto Date
-                  const reservationDate = gl.reservation_date.split('T')[0].split(' ')[0];
-                  return reservationDate === selectedDay;
+                // Filtro por dia
+                if (selectedDay) {
+                  if (gl.reservation_date) {
+                    // Extrai apenas a parte da data (YYYY-MM-DD) sem criar objeto Date
+                    const reservationDate = gl.reservation_date.split('T')[0].split(' ')[0];
+                    if (reservationDate !== selectedDay) return false;
+                  } else {
+                    return false;
+                  }
                 }
-                return false;
+                
+                // Filtro por nome do dono
+                if (ownerSearchTerm.trim()) {
+                  const searchLower = ownerSearchTerm.toLowerCase().trim();
+                  const ownerNameLower = (gl.owner_name || '').toLowerCase();
+                  if (!ownerNameLower.includes(searchLower)) return false;
+                }
+                
+                return true;
               })
               .map((gl) => {
               // Monta a URL completa do link compartilhável
@@ -2017,16 +2051,30 @@ export default function RestaurantReservationsPage() {
               )
             })}
             {guestLists.filter((gl) => {
-              if (!selectedDay) return true;
-              if (gl.reservation_date) {
-                const reservationDate = gl.reservation_date.split('T')[0].split(' ')[0];
-                return reservationDate === selectedDay;
+              // Filtro por dia
+              if (selectedDay) {
+                if (gl.reservation_date) {
+                  const reservationDate = gl.reservation_date.split('T')[0].split(' ')[0];
+                  if (reservationDate !== selectedDay) return false;
+                } else {
+                  return false;
+                }
               }
-              return false;
+              
+              // Filtro por nome do dono
+              if (ownerSearchTerm.trim()) {
+                const searchLower = ownerSearchTerm.toLowerCase().trim();
+                const ownerNameLower = (gl.owner_name || '').toLowerCase();
+                if (!ownerNameLower.includes(searchLower)) return false;
+              }
+              
+              return true;
             }).length === 0 && (
               <div className="text-center py-8">
                 <div className="text-sm text-gray-600">
-                  {selectedDay 
+                  {ownerSearchTerm.trim()
+                    ? `Nenhuma lista de convidados encontrada para "${ownerSearchTerm}".`
+                    : selectedDay 
                     ? `Nenhuma lista de convidados encontrada para ${new Date(selectedDay).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}.`
                     : `Nenhuma lista de convidados encontrada para ${new Date(selectedMonth + '-01').toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}.`
                   }
@@ -2046,16 +2094,32 @@ export default function RestaurantReservationsPage() {
                   <h5 className="font-medium text-blue-800 mb-2">Total de Listas</h5>
                   <div className="text-2xl font-bold text-blue-900">
                     {guestLists.filter((gl) => {
-                      if (!selectedDay) return true;
-                      if (gl.reservation_date) {
-                        const reservationDate = gl.reservation_date.split('T')[0].split(' ')[0];
-                        return reservationDate === selectedDay;
+                      // Filtro por dia
+                      if (selectedDay) {
+                        if (gl.reservation_date) {
+                          const reservationDate = gl.reservation_date.split('T')[0].split(' ')[0];
+                          if (reservationDate !== selectedDay) return false;
+                        } else {
+                          return false;
+                        }
                       }
-                      return false;
+                      
+                      // Filtro por nome do dono
+                      if (ownerSearchTerm.trim()) {
+                        const searchLower = ownerSearchTerm.toLowerCase().trim();
+                        const ownerNameLower = (gl.owner_name || '').toLowerCase();
+                        if (!ownerNameLower.includes(searchLower)) return false;
+                      }
+                      
+                      return true;
                     }).length}
                   </div>
                   <p className="text-sm text-blue-600 mt-1">
-                    {selectedDay ? 'para o dia selecionado' : 'no mês atual'}
+                    {ownerSearchTerm.trim() 
+                      ? 'com filtro aplicado' 
+                      : selectedDay 
+                      ? 'para o dia selecionado' 
+                      : 'no mês atual'}
                   </p>
                 </div>
 
