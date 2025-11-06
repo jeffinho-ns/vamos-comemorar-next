@@ -411,12 +411,20 @@ export default function EventoCheckInsPage() {
     const porPromoter: Record<number, { nome: string; total: number }> = {};
     const porTipo = { vip: 0, seco: 0, consuma: 0 };
 
+    // Helper para converter entrada_valor para número
+    const toNumber = (value: any): number => {
+      if (typeof value === 'number') return value;
+      const parsed = parseFloat(String(value));
+      return isNaN(parsed) ? 0 : parsed;
+    };
+
     // Calcular de convidados de reservas
     convidadosReservas.forEach(c => {
       if (c.status === 'CHECK-IN' && c.entrada_valor) {
-        totalGeral += c.entrada_valor;
-        if (c.entrada_tipo === 'SECO') porTipo.seco += c.entrada_valor;
-        else if (c.entrada_tipo === 'CONSUMA') porTipo.consuma += c.entrada_valor;
+        const valor = toNumber(c.entrada_valor);
+        totalGeral += valor;
+        if (c.entrada_tipo === 'SECO') porTipo.seco += valor;
+        else if (c.entrada_tipo === 'CONSUMA') porTipo.consuma += valor;
         else if (c.entrada_tipo === 'VIP') porTipo.vip += 0;
       }
     });
@@ -424,9 +432,10 @@ export default function EventoCheckInsPage() {
     // Calcular de convidados de promoters
     convidadosPromoters.forEach(c => {
       if (c.status_checkin === 'Check-in' && c.entrada_valor) {
-        totalGeral += c.entrada_valor;
-        if (c.entrada_tipo === 'SECO') porTipo.seco += c.entrada_valor;
-        else if (c.entrada_tipo === 'CONSUMA') porTipo.consuma += c.entrada_valor;
+        const valor = toNumber(c.entrada_valor);
+        totalGeral += valor;
+        if (c.entrada_tipo === 'SECO') porTipo.seco += valor;
+        else if (c.entrada_tipo === 'CONSUMA') porTipo.consuma += valor;
         else if (c.entrada_tipo === 'VIP') porTipo.vip += 0;
 
         // Acumular por promoter
@@ -436,7 +445,7 @@ export default function EventoCheckInsPage() {
             if (!porPromoter[c.promoter_id]) {
               porPromoter[c.promoter_id] = { nome: promoter.nome, total: 0 };
             }
-            porPromoter[c.promoter_id].total += c.entrada_valor || 0;
+            porPromoter[c.promoter_id].total += valor;
           }
         }
       }
@@ -445,9 +454,10 @@ export default function EventoCheckInsPage() {
     // Calcular de guests (guest lists de restaurante)
     Object.values(guestsByList).flat().forEach(g => {
       if ((g.checked_in === 1 || g.checked_in === true) && g.entrada_valor) {
-        totalGeral += g.entrada_valor;
-        if (g.entrada_tipo === 'SECO') porTipo.seco += g.entrada_valor;
-        else if (g.entrada_tipo === 'CONSUMA') porTipo.consuma += g.entrada_valor;
+        const valor = toNumber(g.entrada_valor);
+        totalGeral += valor;
+        if (g.entrada_tipo === 'SECO') porTipo.seco += valor;
+        else if (g.entrada_tipo === 'CONSUMA') porTipo.consuma += valor;
         else if (g.entrada_tipo === 'VIP') porTipo.vip += 0;
       }
     });
@@ -1763,19 +1773,34 @@ export default function EventoCheckInsPage() {
                 <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4 border border-white/20">
                   <div className="text-sm text-white/80 mb-1">Total Arrecadado</div>
                   <div className="text-3xl font-bold text-white">
-                    R$ {arrecadacao.totalGeral.toFixed(2)}
+                    R$ {(() => {
+                      const valor = typeof arrecadacao.totalGeral === 'number' 
+                        ? arrecadacao.totalGeral 
+                        : parseFloat(String(arrecadacao.totalGeral)) || 0;
+                      return valor.toFixed(2);
+                    })()}
                   </div>
                 </div>
                 <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4 border border-white/20">
                   <div className="text-sm text-white/80 mb-1">Entradas SECO</div>
                   <div className="text-2xl font-bold text-white">
-                    R$ {arrecadacao.porTipo.seco.toFixed(2)}
+                    R$ {(() => {
+                      const valor = typeof arrecadacao.porTipo.seco === 'number' 
+                        ? arrecadacao.porTipo.seco 
+                        : parseFloat(String(arrecadacao.porTipo.seco)) || 0;
+                      return valor.toFixed(2);
+                    })()}
                   </div>
                 </div>
                 <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4 border border-white/20">
                   <div className="text-sm text-white/80 mb-1">Entradas CONSUMA</div>
                   <div className="text-2xl font-bold text-white">
-                    R$ {arrecadacao.porTipo.consuma.toFixed(2)}
+                    R$ {(() => {
+                      const valor = typeof arrecadacao.porTipo.consuma === 'number' 
+                        ? arrecadacao.porTipo.consuma 
+                        : parseFloat(String(arrecadacao.porTipo.consuma)) || 0;
+                      return valor.toFixed(2);
+                    })()}
                   </div>
                 </div>
               </div>
@@ -1785,12 +1810,17 @@ export default function EventoCheckInsPage() {
                 <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4 border border-white/20">
                   <h3 className="text-lg font-semibold text-white mb-3">Arrecadação por Promoter</h3>
                   <div className="space-y-2">
-                    {Object.entries(arrecadacao.porPromoter).map(([promoterId, data]) => (
-                      <div key={promoterId} className="flex items-center justify-between bg-white/5 rounded-lg p-3">
-                        <span className="text-white font-medium">{data.nome}</span>
-                        <span className="text-green-200 font-bold text-lg">R$ {data.total.toFixed(2)}</span>
-                      </div>
-                    ))}
+                    {Object.entries(arrecadacao.porPromoter).map(([promoterId, data]) => {
+                      const valor = typeof data.total === 'number' 
+                        ? data.total 
+                        : parseFloat(String(data.total)) || 0;
+                      return (
+                        <div key={promoterId} className="flex items-center justify-between bg-white/5 rounded-lg p-3">
+                          <span className="text-white font-medium">{data.nome}</span>
+                          <span className="text-green-200 font-bold text-lg">R$ {valor.toFixed(2)}</span>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               )}
