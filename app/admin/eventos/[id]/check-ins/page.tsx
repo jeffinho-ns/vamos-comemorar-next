@@ -1219,55 +1219,83 @@ export default function EventoCheckInsPage() {
                                       </tr>
                                     </thead>
                                     <tbody className="bg-white/5 divide-y divide-white/10">
-                                      {(guestsByList[gl.guest_list_id] || [])
-                                        .filter((g) => {
+                                      {(() => {
+                                        const guests = guestsByList[gl.guest_list_id] || [];
+                                        const filteredGuests = guests.filter((g) => {
                                           const q = (guestSearch[gl.guest_list_id] || '').toLowerCase();
                                           if (!q) return true;
                                           return (
                                             g.name.toLowerCase().includes(q) ||
                                             (g.whatsapp || '').toLowerCase().includes(q)
                                           );
-                                        })
-                                        .map((g) => {
-                                        const isCheckedIn = g.checked_in === 1 || g.checked_in === true;
-                                        return (
-                                          <tr key={g.id} className="hover:bg-white/10">
-                                            <td className="px-4 py-2 text-sm text-white">{g.name}</td>
-                                            <td className="px-4 py-2 text-sm text-gray-300">{g.whatsapp || '-'}</td>
-                                            <td className="px-4 py-2 text-sm">
-                                              <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                                                isCheckedIn
-                                                  ? 'bg-green-100 text-green-700 border border-green-300'
-                                                  : 'bg-gray-100 text-gray-600 border border-gray-300'
-                                              }`}>
-                                                {isCheckedIn ? '✅ Presente' : '⏳ Aguardando'}
-                                              </span>
-                                            </td>
-                                            <td className="px-4 py-2 text-right">
-                                              {!isCheckedIn && (
-                                                <button
-                                                  type="button"
-                                                  onClick={(e) => {
-                                                    e.preventDefault();
-                                                    e.stopPropagation();
-                                                    handleGuestCheckIn(gl.guest_list_id, g.id, g.name);
-                                                  }}
-                                                  className="px-3 py-1 text-xs bg-green-600 hover:bg-green-700 text-white rounded border border-green-300"
-                                                >
-                                                  📋 Check-in
-                                                </button>
-                                              )}
-                                            </td>
-                                          </tr>
-                                        );
-                                      })}
-                                      {(!guestsByList[gl.guest_list_id] || guestsByList[gl.guest_list_id].length === 0) && (
-                                        <tr>
-                                          <td className="px-4 py-4 text-sm text-gray-400 text-center" colSpan={4}>
-                                            Nenhum convidado cadastrado nesta lista.
-                                          </td>
-                                        </tr>
-                                      )}
+                                        });
+                                        
+                                        if (filteredGuests.length === 0 && guests.length > 0) {
+                                          return (
+                                            <tr>
+                                              <td className="px-4 py-4 text-sm text-gray-400 text-center" colSpan={4}>
+                                                Nenhum convidado encontrado com a busca.
+                                              </td>
+                                            </tr>
+                                          );
+                                        }
+                                        
+                                        if (filteredGuests.length === 0) {
+                                          return (
+                                            <tr>
+                                              <td className="px-4 py-4 text-sm text-gray-400 text-center" colSpan={4}>
+                                                {guests.length === 0 ? 'Nenhum convidado cadastrado nesta lista.' : 'Carregando convidados...'}
+                                              </td>
+                                            </tr>
+                                          );
+                                        }
+                                        
+                                        return filteredGuests.map((g) => {
+                                          const isCheckedIn = g.checked_in === 1 || g.checked_in === true;
+                                          return (
+                                            <tr key={g.id} className="hover:bg-white/10">
+                                              <td className="px-4 py-2 text-sm text-white">{g.name}</td>
+                                              <td className="px-4 py-2 text-sm text-gray-300">{g.whatsapp || '-'}</td>
+                                              <td className="px-4 py-2 text-sm">
+                                                <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                                  isCheckedIn
+                                                    ? 'bg-green-100 text-green-700 border border-green-300'
+                                                    : 'bg-gray-100 text-gray-600 border border-gray-300'
+                                                }`}>
+                                                  {isCheckedIn ? '✅ Presente' : '⏳ Aguardando'}
+                                                </span>
+                                                {isCheckedIn && g.entrada_tipo && (
+                                                  <div className={`mt-1 text-xs px-2 py-0.5 rounded-full inline-block ${
+                                                    g.entrada_tipo === 'VIP'
+                                                      ? 'bg-green-100 text-green-700'
+                                                      : g.entrada_tipo === 'SECO'
+                                                      ? 'bg-blue-100 text-blue-700'
+                                                      : 'bg-purple-100 text-purple-700'
+                                                  }`}>
+                                                    {g.entrada_tipo}
+                                                    {g.entrada_valor && ` - R$ ${g.entrada_valor.toFixed(2)}`}
+                                                  </div>
+                                                )}
+                                              </td>
+                                              <td className="px-4 py-2 text-right">
+                                                {!isCheckedIn && (
+                                                  <button
+                                                    type="button"
+                                                    onClick={(e) => {
+                                                      e.preventDefault();
+                                                      e.stopPropagation();
+                                                      handleGuestCheckIn(gl.guest_list_id, g.id, g.name);
+                                                    }}
+                                                    className="px-3 py-1 text-xs bg-green-600 hover:bg-green-700 text-white rounded border border-green-300"
+                                                  >
+                                                    📋 Check-in
+                                                  </button>
+                                                )}
+                                              </td>
+                                            </tr>
+                                          );
+                                        });
+                                      })()}
                                     </tbody>
                                   </table>
                                 </div>

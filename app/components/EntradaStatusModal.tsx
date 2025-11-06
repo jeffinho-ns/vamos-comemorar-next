@@ -83,6 +83,9 @@ const EntradaStatusModal: React.FC<EntradaStatusModalProps> = ({
         // Se houver opções pagas, deixar sem seleção inicial para o admin escolher
         setSelectedTipo(null);
       }
+    } else {
+      // Resetar quando o modal fechar
+      setSelectedTipo(null);
     }
   }, [isOpen, opcoes]);
 
