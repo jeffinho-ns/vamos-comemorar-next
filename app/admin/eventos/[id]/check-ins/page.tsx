@@ -24,8 +24,10 @@ import {
   MdDescription,
   MdViewList,
   MdViewModule,
+  MdAttachMoney,
 } from 'react-icons/md';
 import { WithPermission } from '../../../../components/WithPermission/WithPermission';
+import EntradaStatusModal, { EntradaTipo } from '../../../../components/EntradaStatusModal';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.agilizaiapp.com.br';
 
@@ -61,6 +63,8 @@ interface ConvidadoReserva {
   data_checkin?: string;
   origem: string;
   responsavel: string;
+  entrada_tipo?: EntradaTipo;
+  entrada_valor?: number;
 }
 
 interface ConvidadoPromoter {
@@ -76,6 +80,8 @@ interface ConvidadoPromoter {
   tipo_lista: string;
   responsavel: string;
   promoter_id: number;
+  entrada_tipo?: EntradaTipo;
+  entrada_valor?: number;
 }
 
 interface Promoter {
@@ -162,6 +168,8 @@ interface GuestItem {
   checked_in: number | boolean;
   checkin_time?: string;
   created_at?: string;
+  entrada_tipo?: EntradaTipo;
+  entrada_valor?: number;
 }
 
 interface Estatisticas {
@@ -191,6 +199,24 @@ export default function EventoCheckInsPage() {
   const [selectedTab, setSelectedTab] = useState<'todos' | 'reservas' | 'promoters' | 'camarotes'>('todos');
   const [promoterGuestsViewMode, setPromoterGuestsViewMode] = useState<'grid' | 'list'>('grid');
   const [promoterGuestsSearch, setPromoterGuestsSearch] = useState('');
+  
+  // Estados para modal de status de entrada
+  const [entradaModalOpen, setEntradaModalOpen] = useState(false);
+  const [convidadoParaCheckIn, setConvidadoParaCheckIn] = useState<{
+    tipo: 'reserva' | 'promoter' | 'guest_list';
+    id: number;
+    nome: string;
+    guestListId?: number; // Para guest lists
+  } | null>(null);
+  const [arrecadacao, setArrecadacao] = useState<{
+    totalGeral: number;
+    porPromoter: Record<number, { nome: string; total: number }>;
+    porTipo: { vip: number; seco: number; consuma: number };
+  }>({
+    totalGeral: 0,
+    porPromoter: {},
+    porTipo: { vip: 0, seco: 0, consuma: 0 }
+  });
   
   // Dados
   const [evento, setEvento] = useState<EventoInfo | null>(null);
@@ -341,6 +367,8 @@ export default function EventoCheckInsPage() {
         setCamarotes(data.dados.camarotes || []);
         setEstatisticas(data.estatisticas);
         
+        // A arrecadação será calculada automaticamente pelo useEffect quando os estados mudarem
+        
         // Debug: verificar dados filtrados
         console.log('✅ Debug - Convidados de Promoters Filtrados:', {
           total: convidadosPromotersFiltrados.length,
@@ -366,54 +394,167 @@ export default function EventoCheckInsPage() {
     loadCheckInData();
   }, [loadCheckInData]);
 
-  // Funções de check-in
-  const handleConvidadoReservaCheckIn = async (convidado: ConvidadoReserva) => {
+  // Função para calcular arrecadação
+  const calcularArrecadacao = useCallback((
+    convidadosReservas: ConvidadoReserva[],
+    convidadosPromoters: ConvidadoPromoter[],
+    promotersList: Promoter[],
+    guestsByList: Record<number, GuestItem[]>
+  ) => {
+    let totalGeral = 0;
+    const porPromoter: Record<number, { nome: string; total: number }> = {};
+    const porTipo = { vip: 0, seco: 0, consuma: 0 };
+
+    // Calcular de convidados de reservas
+    convidadosReservas.forEach(c => {
+      if (c.status === 'CHECK-IN' && c.entrada_valor) {
+        totalGeral += c.entrada_valor;
+        if (c.entrada_tipo === 'SECO') porTipo.seco += c.entrada_valor;
+        else if (c.entrada_tipo === 'CONSUMA') porTipo.consuma += c.entrada_valor;
+        else if (c.entrada_tipo === 'VIP') porTipo.vip += 0;
+      }
+    });
+
+    // Calcular de convidados de promoters
+    convidadosPromoters.forEach(c => {
+      if (c.status_checkin === 'Check-in' && c.entrada_valor) {
+        totalGeral += c.entrada_valor;
+        if (c.entrada_tipo === 'SECO') porTipo.seco += c.entrada_valor;
+        else if (c.entrada_tipo === 'CONSUMA') porTipo.consuma += c.entrada_valor;
+        else if (c.entrada_tipo === 'VIP') porTipo.vip += 0;
+
+        // Acumular por promoter
+        if (c.promoter_id) {
+          const promoter = promotersList.find(p => p.id === c.promoter_id);
+          if (promoter) {
+            if (!porPromoter[c.promoter_id]) {
+              porPromoter[c.promoter_id] = { nome: promoter.nome, total: 0 };
+            }
+            porPromoter[c.promoter_id].total += c.entrada_valor || 0;
+          }
+        }
+      }
+    });
+
+    // Calcular de guests (guest lists de restaurante)
+    Object.values(guestsByList).flat().forEach(g => {
+      if ((g.checked_in === 1 || g.checked_in === true) && g.entrada_valor) {
+        totalGeral += g.entrada_valor;
+        if (g.entrada_tipo === 'SECO') porTipo.seco += g.entrada_valor;
+        else if (g.entrada_tipo === 'CONSUMA') porTipo.consuma += g.entrada_valor;
+        else if (g.entrada_tipo === 'VIP') porTipo.vip += 0;
+      }
+    });
+
+    setArrecadacao({ totalGeral, porPromoter, porTipo });
+  }, []);
+
+  // Recalcular arrecadação quando os dados mudarem
+  useEffect(() => {
+    if (convidadosReservas.length > 0 || convidadosPromoters.length > 0 || Object.keys(guestsByList).length > 0) {
+      calcularArrecadacao(
+        convidadosReservas,
+        convidadosPromoters,
+        promoters,
+        guestsByList
+      );
+    }
+  }, [convidadosReservas, convidadosPromoters, promoters, guestsByList, calcularArrecadacao]);
+
+  // Funções de check-in - Abre modal primeiro
+  const handleConvidadoReservaCheckIn = (convidado: ConvidadoReserva) => {
+    setConvidadoParaCheckIn({
+      tipo: 'reserva',
+      id: convidado.id,
+      nome: convidado.nome
+    });
+    setEntradaModalOpen(true);
+  };
+
+  const handleConvidadoPromoterCheckIn = (convidado: ConvidadoPromoter) => {
+    setConvidadoParaCheckIn({
+      tipo: 'promoter',
+      id: convidado.id,
+      nome: convidado.nome
+    });
+    setEntradaModalOpen(true);
+  };
+
+  // Função que realmente faz o check-in após seleção do status
+  const handleConfirmarCheckIn = async (tipo: EntradaTipo, valor: number) => {
+    if (!convidadoParaCheckIn) return;
+
     try {
       const token = localStorage.getItem('authToken');
-      
-      // Usar a API de check-in de convidados existente
-      const response = await fetch(`${API_URL}/api/checkin`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ 
-          convidadoId: convidado.id,
-          eventId: eventoId 
-        })
-      });
+      let response;
+
+      if (convidadoParaCheckIn.tipo === 'reserva') {
+        // Check-in de convidado de reserva
+        response = await fetch(`${API_URL}/api/checkin`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ 
+            convidadoId: convidadoParaCheckIn.id,
+            eventId: eventoId,
+            entrada_tipo: tipo,
+            entrada_valor: valor
+          })
+        });
+      } else if (convidadoParaCheckIn.tipo === 'guest_list') {
+        // Check-in de convidado de guest list (reservas de restaurante)
+        response = await fetch(`${API_URL}/api/admin/guests/${convidadoParaCheckIn.id}/checkin`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ 
+            entrada_tipo: tipo,
+            entrada_valor: valor
+          })
+        });
+      } else {
+        // Check-in de convidado de promoter
+        response = await fetch(`${API_URL}/api/v1/eventos/checkin/${convidadoParaCheckIn.id}`, {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ 
+            status_checkin: 'Check-in',
+            entrada_tipo: tipo,
+            entrada_valor: valor
+          })
+        });
+      }
 
       if (response.ok) {
-        alert(`✅ Check-in de ${convidado.nome} confirmado!`);
+        const tipoTexto = tipo === 'VIP' ? 'VIP (grátis)' : tipo === 'SECO' ? `SECO (R$ ${valor.toFixed(2)})` : `CONSUMA (R$ ${valor.toFixed(2)})`;
+        alert(`✅ Check-in de ${convidadoParaCheckIn.nome} confirmado!\nStatus: ${tipoTexto}`);
+        setEntradaModalOpen(false);
+        
+        // Se for guest list, atualizar o estado local também
+        if (convidadoParaCheckIn.tipo === 'guest_list' && convidadoParaCheckIn.guestListId) {
+          const responseData = await response.json();
+          setGuestsByList(prev => ({
+            ...prev,
+            [convidadoParaCheckIn.guestListId!]: (prev[convidadoParaCheckIn.guestListId!] || []).map(g => 
+              g.id === convidadoParaCheckIn.id 
+                ? { ...g, checked_in: true, checkin_time: new Date().toISOString(), entrada_tipo: tipo, entrada_valor: valor }
+                : g
+            )
+          }));
+        }
+        
+        setConvidadoParaCheckIn(null);
         loadCheckInData();
       } else {
         const errorData = await response.json();
-        alert(`❌ ${errorData.message || 'Erro ao fazer check-in'}`);
-      }
-    } catch (error) {
-      console.error('Erro:', error);
-      alert('❌ Erro ao fazer check-in');
-    }
-  };
-
-  const handleConvidadoPromoterCheckIn = async (convidado: ConvidadoPromoter) => {
-    try {
-      const token = localStorage.getItem('authToken');
-      const response = await fetch(`${API_URL}/api/v1/eventos/checkin/${convidado.id}`, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ status_checkin: 'Check-in' })
-      });
-
-      if (response.ok) {
-        alert(`✅ Check-in de ${convidado.nome} confirmado!`);
-        loadCheckInData();
-      } else {
-        alert('❌ Erro ao fazer check-in');
+        alert(`❌ ${errorData.message || errorData.error || 'Erro ao fazer check-in'}`);
       }
     } catch (error) {
       console.error('Erro:', error);
@@ -515,40 +656,15 @@ export default function EventoCheckInsPage() {
     }
   };
 
-  const handleGuestCheckIn = async (guestListId: number, guestId: number, guestName: string) => {
-    try {
-      const token = localStorage.getItem('authToken');
-      const response = await fetch(`${API_URL}/api/admin/guests/${guestId}/checkin`, {
-        method: 'POST',
-        headers: { 
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (response.ok) {
-        setGuestsByList(prev => ({
-          ...prev,
-          [guestListId]: (prev[guestListId] || []).map(g => 
-            g.id === guestId ? { ...g, checked_in: true } : g
-          )
-        }));
-        setCheckInStatus(prev => ({
-          ...prev,
-          [guestListId]: {
-            ...prev[guestListId],
-            guestsCheckedIn: (prev[guestListId]?.guestsCheckedIn || 0) + 1
-          }
-        }));
-        alert(`✅ Check-in de ${guestName} confirmado!`);
-        loadCheckInData();
-      } else {
-        alert('❌ Erro ao fazer check-in');
-      }
-    } catch (error) {
-      console.error('Erro:', error);
-      alert('❌ Erro ao fazer check-in');
-    }
+  const handleGuestCheckIn = (guestListId: number, guestId: number, guestName: string) => {
+    // Abre o modal ao invés de fazer check-in direto
+    setConvidadoParaCheckIn({
+      tipo: 'guest_list',
+      id: guestId,
+      nome: guestName,
+      guestListId: guestListId
+    });
+    setEntradaModalOpen(true);
   };
 
   // Filtrar por busca
@@ -922,8 +1038,22 @@ export default function EventoCheckInsPage() {
                             Fazer Check-in
                           </button>
                         ) : (
-                          <div className="text-center text-sm text-green-400 font-medium">
-                            ✅ Check-in feito às {convidado.data_checkin ? new Date(convidado.data_checkin).toLocaleTimeString('pt-BR') : ''}
+                          <div className="text-center space-y-1">
+                            <div className="text-sm text-green-400 font-medium">
+                              ✅ Check-in feito às {convidado.data_checkin ? new Date(convidado.data_checkin).toLocaleTimeString('pt-BR') : ''}
+                            </div>
+                            {convidado.entrada_tipo && (
+                              <div className={`text-xs px-2 py-1 rounded-full inline-block font-semibold ${
+                                convidado.entrada_tipo === 'VIP' 
+                                  ? 'bg-green-100 text-green-700' 
+                                  : convidado.entrada_tipo === 'SECO'
+                                  ? 'bg-blue-100 text-blue-700'
+                                  : 'bg-purple-100 text-purple-700'
+                              }`}>
+                                {convidado.entrada_tipo}
+                                {convidado.entrada_valor && ` - R$ ${convidado.entrada_valor.toFixed(2)}`}
+                              </div>
+                            )}
                           </div>
                         )}
                       </motion.div>
@@ -1343,8 +1473,22 @@ export default function EventoCheckInsPage() {
                                 Fazer Check-in
                               </button>
                             ) : convidado.status_checkin === 'Check-in' ? (
-                              <div className="text-center text-sm text-green-400 font-medium">
-                                ✅ Check-in feito às {convidado.data_checkin ? new Date(convidado.data_checkin).toLocaleTimeString('pt-BR') : ''}
+                              <div className="text-center space-y-1">
+                                <div className="text-sm text-green-400 font-medium">
+                                  ✅ Check-in feito às {convidado.data_checkin ? new Date(convidado.data_checkin).toLocaleTimeString('pt-BR') : ''}
+                                </div>
+                                {convidado.entrada_tipo && (
+                                  <div className={`text-xs px-2 py-1 rounded-full inline-block font-semibold ${
+                                    convidado.entrada_tipo === 'VIP' 
+                                      ? 'bg-green-100 text-green-700' 
+                                      : convidado.entrada_tipo === 'SECO'
+                                      ? 'bg-blue-100 text-blue-700'
+                                      : 'bg-purple-100 text-purple-700'
+                                  }`}>
+                                    {convidado.entrada_tipo}
+                                    {convidado.entrada_valor && ` - R$ ${convidado.entrada_valor.toFixed(2)}`}
+                                  </div>
+                                )}
                               </div>
                             ) : (
                               <div className="text-center text-sm text-red-400 font-medium">
@@ -1406,8 +1550,22 @@ export default function EventoCheckInsPage() {
                               </button>
                             )}
                             {convidado.status_checkin === 'Check-in' && (
-                              <div className="text-sm text-green-400 font-medium">
-                                ✅ {convidado.data_checkin ? new Date(convidado.data_checkin).toLocaleTimeString('pt-BR') : 'Presente'}
+                              <div className="flex flex-col items-end gap-1">
+                                <div className="text-sm text-green-400 font-medium">
+                                  ✅ {convidado.data_checkin ? new Date(convidado.data_checkin).toLocaleTimeString('pt-BR') : 'Presente'}
+                                </div>
+                                {convidado.entrada_tipo && (
+                                  <div className={`text-xs px-2 py-1 rounded-full font-semibold ${
+                                    convidado.entrada_tipo === 'VIP' 
+                                      ? 'bg-green-100 text-green-700' 
+                                      : convidado.entrada_tipo === 'SECO'
+                                      ? 'bg-blue-100 text-blue-700'
+                                      : 'bg-purple-100 text-purple-700'
+                                  }`}>
+                                    {convidado.entrada_tipo}
+                                    {convidado.entrada_valor && ` R$ ${convidado.entrada_valor.toFixed(2)}`}
+                                  </div>
+                                )}
                               </div>
                             )}
                             {convidado.status_checkin === 'No-Show' && (
@@ -1494,7 +1652,67 @@ export default function EventoCheckInsPage() {
               )}
             </div>
           )}
+
+          {/* Seção de Contabilização */}
+          {!loading && (
+            <section className="mt-8 bg-gradient-to-r from-green-600 to-green-700 rounded-lg shadow-lg p-6 border border-green-500/50">
+              <h2 className="text-2xl font-bold text-white mb-6 flex items-center gap-2">
+                <MdAttachMoney size={28} />
+                Contabilização de Entradas
+              </h2>
+              
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4 border border-white/20">
+                  <div className="text-sm text-white/80 mb-1">Total Arrecadado</div>
+                  <div className="text-3xl font-bold text-white">
+                    R$ {arrecadacao.totalGeral.toFixed(2)}
+                  </div>
+                </div>
+                <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4 border border-white/20">
+                  <div className="text-sm text-white/80 mb-1">Entradas SECO</div>
+                  <div className="text-2xl font-bold text-white">
+                    R$ {arrecadacao.porTipo.seco.toFixed(2)}
+                  </div>
+                </div>
+                <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4 border border-white/20">
+                  <div className="text-sm text-white/80 mb-1">Entradas CONSUMA</div>
+                  <div className="text-2xl font-bold text-white">
+                    R$ {arrecadacao.porTipo.consuma.toFixed(2)}
+                  </div>
+                </div>
+              </div>
+
+              {/* Arrecadação por Promoter */}
+              {Object.keys(arrecadacao.porPromoter).length > 0 && (
+                <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4 border border-white/20">
+                  <h3 className="text-lg font-semibold text-white mb-3">Arrecadação por Promoter</h3>
+                  <div className="space-y-2">
+                    {Object.entries(arrecadacao.porPromoter).map(([promoterId, data]) => (
+                      <div key={promoterId} className="flex items-center justify-between bg-white/5 rounded-lg p-3">
+                        <span className="text-white font-medium">{data.nome}</span>
+                        <span className="text-green-200 font-bold text-lg">R$ {data.total.toFixed(2)}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </section>
+          )}
         </div>
+
+        {/* Modal de Status de Entrada */}
+        {convidadoParaCheckIn && (
+          <EntradaStatusModal
+            isOpen={entradaModalOpen}
+            onClose={() => {
+              setEntradaModalOpen(false);
+              setConvidadoParaCheckIn(null);
+            }}
+            onConfirm={handleConfirmarCheckIn}
+            nomeConvidado={convidadoParaCheckIn.nome}
+            horaAtual={new Date()}
+          />
+        )}
       </div>
   );
 }
