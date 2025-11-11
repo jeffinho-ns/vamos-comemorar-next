@@ -62,6 +62,8 @@ const getSealById = (sealId: string, bar?: BarFromAPI) => {
 };
 
 // Interfaces
+type MenuDisplayStyle = 'normal' | 'clean';
+
 interface Topping {
   id: string | number;
   name: string;
@@ -117,6 +119,7 @@ interface BarFromAPI {
   mobile_sidebar_bg_color?: string;
   mobile_sidebar_text_color?: string;
   custom_seals?: Array<{ id: string; name: string; color: string; type: 'food' | 'drink' }>;
+  menu_display_style?: MenuDisplayStyle;
 }
 
 interface Bar {
@@ -145,6 +148,7 @@ interface Bar {
   mobile_sidebar_bg_color?: string;
   mobile_sidebar_text_color?: string;
   custom_seals?: Array<{ id: string; name: string; color: string; type: 'food' | 'drink' }>;
+  menu_display_style: MenuDisplayStyle;
 }
 
 interface GroupedCategory {
@@ -290,7 +294,8 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
         facebook: bar.facebook || '',
         instagram: bar.instagram || '',
         whatsapp: bar.whatsapp || '',
-        custom_seals: bar.custom_seals || []
+        custom_seals: bar.custom_seals || [],
+        menu_display_style: bar.menu_display_style === 'clean' ? 'clean' : 'normal',
       };
       
       setSelectedBar(barWithImages);
@@ -614,6 +619,9 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
     getSealById: (sealId: string, bar?: BarFromAPI) => { name: string; color: string } | null;
   }) => {
     const isReservaRooftop = selectedBar?.slug === 'reserva-rooftop';
+    const isCleanStyle =
+      selectedBar?.menu_display_style === 'clean' ||
+      (isReservaRooftop && selectedBar?.menu_display_style !== 'normal');
     const itemRef = React.useRef<HTMLDivElement>(null);
     const hasTrackedView = React.useRef(false);
     
@@ -667,10 +675,16 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3 }}
-        className="menu-item-card cursor-pointer bg-white rounded-lg shadow-lg overflow-hidden hover:shadow-xl transition-shadow duration-300"
+        className={`menu-item-card cursor-pointer overflow-hidden transition-all duration-300 ${
+          isCleanStyle
+            ? 'rounded-3xl border border-[#d6cbb8] bg-[#fbf8f1]/95 shadow-[0_35px_90px_rgba(15,23,42,0.12)] hover:shadow-[0_45px_110px_rgba(15,23,42,0.18)]'
+            : 'bg-white rounded-lg shadow-lg hover:shadow-xl'
+        }`}
         onClick={() => onClick(item)}
       >
-        <div className="relative h-48 overflow-hidden">
+        <div
+          className={`relative overflow-hidden ${isCleanStyle ? 'h-60' : 'h-48'}`}
+        >
           <Image
             src={getValidImageUrl(item.imageUrl)}
             alt={item.name}
@@ -681,25 +695,39 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
           
           {/* Ocultar preço apenas para Reserva Rooftop */}
           {!isReservaRooftop && (
-            <div className="absolute top-3 right-3 price-badge bg-white px-2 py-1 rounded-full shadow-md">
-              <span className="text-sm font-bold text-green-600">
+            <div
+              className={`price-badge absolute ${isCleanStyle ? 'bottom-4 right-4 rounded-full border border-white/80 bg-white/90 px-4 py-2 shadow-lg backdrop-blur' : 'top-3 right-3 bg-white px-2 py-1 rounded-full shadow-md'}`}
+            >
+              <span className={`font-semibold ${isCleanStyle ? 'text-base text-gray-900 tracking-tight' : 'text-sm text-green-600'}`}>
                 {formatPrice(item.price)}
               </span>
             </div>
           )}
         </div>
       
-      <div className="p-3 sm:p-4">
-        <h3 className="text-base sm:text-lg font-semibold text-gray-800 mb-2 line-clamp-2">
+      <div className={`p-3 sm:p-4 ${isCleanStyle ? 'sm:p-6' : ''}`}>
+        <h3
+          className={`mb-2 line-clamp-2 ${
+            isCleanStyle
+              ? 'text-2xl font-semibold tracking-tight text-gray-900'
+              : 'text-base sm:text-lg font-semibold text-gray-800'
+          }`}
+        >
           {item.name}
         </h3>
-        <p className="text-xs sm:text-sm text-gray-600 mb-3 line-clamp-2 sm:line-clamp-3">
+        <p
+          className={`mb-3 line-clamp-2 sm:line-clamp-3 ${
+            isCleanStyle
+              ? 'text-sm text-gray-500 leading-relaxed'
+              : 'text-xs sm:text-sm text-gray-600'
+          }`}
+        >
           {item.description}
         </p>
         
         {/* Exibir selos - Layout original melhorado */}
         {item.seals && item.seals.length > 0 && (
-          <div className="flex flex-wrap gap-1.5 mb-3">
+          <div className={`flex flex-wrap gap-1.5 mb-3 ${isCleanStyle ? 'gap-2' : ''}`}>
             {item.seals.map((sealId) => {
               const wine = renderWineSeal(sealId, 'card');
               if (wine) return wine;
@@ -708,7 +736,9 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
               return (
                 <span
                   key={sealId}
-                  className="seal-badge-mobile inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold text-white shadow-md hover:shadow-lg transition-all duration-200 transform hover:scale-105"
+                  className={`seal-badge-mobile inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold text-white shadow-md hover:shadow-lg transition-all duration-200 transform hover:scale-105 ${
+                    isCleanStyle ? 'uppercase tracking-[0.12em] text-[0.65rem]' : ''
+                  }`}
                   style={{ 
                     backgroundColor: seal.color,
                     boxShadow: `0 2px 8px ${seal.color}40`
@@ -723,12 +753,18 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
         
         {item.toppings && item.toppings.length > 0 && (
           <div className="mb-2 sm:mb-3">
-            <p className="text-xs font-medium text-gray-500 mb-1">Adicionais:</p>
-            <div className="flex flex-wrap gap-1">
+            <p className={`text-xs font-medium ${isCleanStyle ? 'text-gray-400 uppercase tracking-[0.18em]' : 'text-gray-500' } mb-1`}>
+              Adicionais:
+            </p>
+            <div className={`flex flex-wrap gap-1 ${isCleanStyle ? 'gap-1.5' : ''}`}>
               {item.toppings.map((topping) => (
                 <span
                   key={topping.id}
-                  className="topping-tag text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded-full"
+                  className={`topping-tag text-xs rounded-full ${
+                    isCleanStyle
+                      ? 'bg-white/80 px-3 py-1 text-gray-600 shadow-inner'
+                      : 'bg-gray-100 text-gray-700 px-2 py-1'
+                  }`}
                 >
                   {topping.name}{!isReservaRooftop && ` +${formatPrice(topping.price)}`}
                 </span>
@@ -787,8 +823,25 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
     );
   }
   
+  const isCleanStyle =
+    selectedBar.menu_display_style === 'clean' ||
+    (selectedBar.slug === 'reserva-rooftop' && selectedBar.menu_display_style !== 'normal');
+  const isReservaRooftop = selectedBar.slug === 'reserva-rooftop';
+  const categorySelectedBg =
+    selectedBar.menu_category_bg_color ||
+    (isCleanStyle ? '#1f1b16' : '#3b82f6');
+  const categorySelectedText =
+    selectedBar.menu_category_text_color ||
+    (isCleanStyle ? '#f5ede1' : '#ffffff');
+  const categoryUnselectedBg = isCleanStyle ? '#f6efe3' : '#ffffff';
+  const categoryUnselectedText = isCleanStyle ? '#403a31' : '#374151';
+
   return (
-    <div className="cardapio-page min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+    <div
+      className={`cardapio-page min-h-screen ${
+        isCleanStyle ? 'bg-[#f6f4ee]' : 'bg-gradient-to-br from-gray-50 to-gray-100'
+      }`}
+    >
       <style jsx>{`
         .seal-badge-mobile {
           font-size: 0.7rem;
@@ -842,13 +895,29 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         
         <div className="mb-6">
-          <div className="bar-header bg-white rounded-xl shadow-lg overflow-hidden">
-            <div className="relative h-64 md:h-80">
+          <div
+            className={`bar-header overflow-hidden ${
+              isCleanStyle
+                ? 'rounded-[32px] border border-[#eadfca] bg-[#fbf8f1] shadow-[0_35px_90px_rgba(17,24,39,0.08)]'
+                : 'bg-white rounded-xl shadow-lg'
+            }`}
+          >
+            <div className={`relative ${isCleanStyle ? 'h-72 md:h-[22rem]' : 'h-64 md:h-80'}`}>
               <ImageSlider images={selectedBar.coverImages} />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
+              <div
+                className={`absolute inset-0 ${
+                  isCleanStyle
+                    ? 'bg-gradient-to-t from-black/60 via-black/15 to-transparent md:from-black/40'
+                    : 'bg-gradient-to-t from-black/70 via-black/20 to-transparent'
+                }`}
+              />
               
               <div 
-                className="logo-container absolute top-4 left-4 p-2 bg-white rounded-xl shadow-md cursor-pointer md:cursor-default"
+                className={`logo-container absolute top-4 left-4 cursor-pointer md:cursor-default ${
+                  isCleanStyle
+                    ? 'rounded-2xl border border-white/70 bg-white/80 p-3 shadow-lg backdrop-blur-sm transition-all duration-200 hover:shadow-xl'
+                    : 'p-2 bg-white rounded-xl shadow-md'
+                }`}
                 onClick={() => window.innerWidth < 768 && setShowMobileSidebar(true)}
               >
                 <Image
@@ -867,10 +936,22 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
               </div>
 
               <div className="bar-content absolute bottom-6 left-6 right-6 hidden md:block">
-                <h1 className="text-white text-3xl md:text-4xl font-bold mb-2">
+                <h1
+                  className={`mb-2 ${
+                    isCleanStyle
+                      ? 'text-4xl font-semibold text-white drop-shadow-[0_12px_32px_rgba(0,0,0,0.45)]'
+                      : 'text-white text-3xl md:text-4xl font-bold'
+                  }`}
+                >
                   {selectedBar.name}
                 </h1>
-                <p className="text-white/90 text-lg mb-3">
+                <p
+                  className={`mb-3 ${
+                    isCleanStyle
+                      ? 'text-white/90 text-lg leading-relaxed max-w-3xl'
+                      : 'text-white/90 text-lg'
+                  }`}
+                >
                   {selectedBar.description}
                 </p>
                 
@@ -910,14 +991,33 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
 
         {menuCategories.length > 0 && (
           // Menu de categorias fixo (visível em todas as telas)
-          <div className="sticky top-0 z-20 bg-gradient-to-br from-gray-50 to-gray-100">
+          <div
+            className={`sticky top-0 z-20 ${
+              isCleanStyle
+                ? 'bg-[#f6f4ee]/95 backdrop-blur-sm'
+                : 'bg-gradient-to-br from-gray-50 to-gray-100'
+            }`}
+          >
             {/* Indicador de categoria ativa */}
-            <div className={`text-center py-2 px-4 ${selectedBar?.slug === 'reserva-rooftop' ? 'bg-green-50 border-b border-green-200' : 'bg-blue-50 border-b border-blue-200'}`}>
-              <span className="text-sm text-gray-600">
-                Categoria ativa: <span 
-                  className="font-bold" 
-                  style={{ 
-                    color: selectedBar?.slug === 'reserva-rooftop' ? '#0c190c' : undefined 
+            <div
+              className={`text-center py-2 px-4 ${
+                isCleanStyle
+                  ? 'bg-[#efe6d8] border-b border-[#e1d6c0]'
+                  : isReservaRooftop
+                    ? 'bg-green-50 border-b border-green-200'
+                    : 'bg-blue-50 border-b border-blue-200'
+              }`}
+            >
+              <span className={`text-sm ${isCleanStyle ? 'text-[#6b5f4f]' : 'text-gray-600'}`}>
+                Categoria ativa:{' '}
+                <span
+                  className="font-bold"
+                  style={{
+                    color: isCleanStyle
+                      ? '#2f2a23'
+                      : isReservaRooftop
+                        ? '#0c190c'
+                        : undefined,
                   }}
                 >
                   {selectedCategory}
@@ -955,18 +1055,22 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
                         }
                     }}
                     style={{
-                      backgroundColor: selectedCategory === category.name 
-                        ? (selectedBar.menu_category_bg_color || '#3b82f6')
-                        : '#ffffff',
-                      color: selectedCategory === category.name
-                        ? (selectedBar.menu_category_text_color || '#ffffff')
-                        : '#374151'
+                      backgroundColor:
+                        selectedCategory === category.name
+                          ? categorySelectedBg
+                          : categoryUnselectedBg,
+                      color:
+                        selectedCategory === category.name
+                          ? categorySelectedText
+                          : categoryUnselectedText,
                     }}
                     className={`category-tab px-6 py-3 rounded-full font-medium whitespace-nowrap transition-all duration-200 ${
                       selectedCategory === category.name
                         ? 'active shadow-lg'
-                        : 'hover:bg-gray-50 shadow-md'
-                    }`}
+                        : isCleanStyle
+                          ? 'shadow-sm hover:shadow-md'
+                          : 'hover:bg-gray-50 shadow-md'
+                    } ${isCleanStyle ? 'border border-[#e7dbc4]/70 backdrop-blur' : ''}`}
                   >
                     {category.name}
                   </button>

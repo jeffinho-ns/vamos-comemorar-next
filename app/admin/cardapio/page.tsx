@@ -16,6 +16,8 @@ import {
 } from 'react-icons/md';
 import { useUserPermissions } from '../../hooks/useUserPermissions';
 
+type MenuDisplayStyle = 'normal' | 'clean';
+
 // Interfaces atualizadas para corresponder à API
 interface Topping {
   id: string | number;
@@ -95,6 +97,7 @@ interface BarForm {
   mobile_sidebar_bg_color?: string;
   mobile_sidebar_text_color?: string;
   custom_seals?: Array<{ id: string; name: string; color: string; type: 'food' | 'drink' }>;
+  menu_display_style: MenuDisplayStyle;
 }
 
 interface MenuItem {
@@ -141,6 +144,7 @@ interface Bar {
   mobile_sidebar_bg_color?: string;
   mobile_sidebar_text_color?: string;
   custom_seals?: Array<{ id: string; name: string; color: string; type: 'food' | 'drink' }>;
+  menu_display_style?: MenuDisplayStyle;
 }
 
 declare module 'react' {
@@ -269,6 +273,7 @@ export default function CardapioAdminPage() {
     mobile_sidebar_bg_color: '',
     mobile_sidebar_text_color: '',
     custom_seals: [],
+    menu_display_style: 'normal',
   });
 
   const [categoryForm, setCategoryForm] = useState<MenuCategoryForm>({
@@ -352,6 +357,12 @@ export default function CardapioAdminPage() {
               popupImageUrl: bar.popupImageUrl?.includes(BASE_IMAGE_URL)
                 ? bar.popupImageUrl.split('/').pop()
                 : bar.popupImageUrl,
+              menu_display_style:
+                bar.menu_display_style === 'clean'
+                  ? 'clean'
+                  : bar.slug === 'reserva-rooftop' && bar.menu_display_style !== 'normal'
+                    ? 'clean'
+                    : 'normal',
             };
             return cleanedBar;
           })
@@ -603,6 +614,7 @@ export default function CardapioAdminPage() {
       facebook: '',
       instagram: '',
       whatsapp: '',
+      menu_display_style: 'normal',
     });
   }, []);
 
@@ -1485,6 +1497,12 @@ export default function CardapioAdminPage() {
       mobile_sidebar_bg_color: bar.mobile_sidebar_bg_color || '',
       mobile_sidebar_text_color: bar.mobile_sidebar_text_color || '',
       custom_seals: bar.custom_seals || [],
+      menu_display_style:
+        bar.menu_display_style === 'clean'
+          ? 'clean'
+          : bar.slug === 'reserva-rooftop' && bar.menu_display_style !== 'normal'
+            ? 'clean'
+            : 'normal',
     });
     setShowBarModal(true);
   }, []);
@@ -2375,6 +2393,55 @@ export default function CardapioAdminPage() {
                 />
               </div>
             </div>
+
+          {((editingBar?.slug || barForm.slug || '').toLowerCase() === 'reserva-rooftop') && (
+            <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+              <div className="mb-3">
+                <p className="text-sm font-semibold text-gray-800">Estilo do cardápio</p>
+                <p className="text-xs text-gray-500">
+                  Escolha entre o visual minimalista premium (Clean) ou mantenha a versão atual (Normal).
+                </p>
+              </div>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setBarForm((prev) => ({
+                      ...prev,
+                      menu_display_style: 'clean',
+                    }))
+                  }
+                  className={`rounded-xl border px-4 py-3 text-left transition-all duration-200 ${
+                    barForm.menu_display_style === 'clean'
+                      ? 'border-gray-900 bg-gray-900 text-white shadow-xl'
+                      : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300 hover:shadow-md'
+                  }`}
+                >
+                  <p className="text-sm font-semibold">Cardápio Clean</p>
+                  <p className="text-xs opacity-80">
+                    Layout minimalista, foco em tipografia e destaque no item.
+                  </p>
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setBarForm((prev) => ({
+                      ...prev,
+                      menu_display_style: 'normal',
+                    }))
+                  }
+                  className={`rounded-xl border px-4 py-3 text-left transition-all duration-200 ${
+                    barForm.menu_display_style === 'normal'
+                      ? 'border-gray-900 bg-white text-gray-900 shadow-lg'
+                      : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300 hover:shadow-md'
+                  }`}
+                >
+                  <p className="text-sm font-semibold">Cardápio Normal</p>
+                  <p className="text-xs opacity-70">Mantém o visual atual do cardápio.</p>
+                </button>
+              </div>
+            </div>
+          )}
 
             <div>
               <label className="mb-1 block text-sm font-medium text-gray-700">Descrição</label>

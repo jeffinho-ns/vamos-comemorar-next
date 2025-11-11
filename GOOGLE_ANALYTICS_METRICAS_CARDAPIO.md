@@ -361,3 +361,5 @@ Para dúvidas sobre métricas ou configuração de relatórios:
 - Verifique os eventos em tempo real: GA4 > Relatórios > Tempo real
 
 
+
+
