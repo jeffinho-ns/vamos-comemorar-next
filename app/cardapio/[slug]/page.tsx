@@ -1,8 +1,8 @@
 
  
- 'use client';
+'use client';
 
-import React, { useState, useEffect, useCallback, useMemo, use } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef, use } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { MdStar, MdLocationOn, MdArrowBack, MdClose, MdMenu } from 'react-icons/md';
 import { FaFacebook, FaInstagram, FaWhatsapp } from 'react-icons/fa';
@@ -204,6 +204,21 @@ const groupItemsBySubcategory = (items: MenuItem[]): { name: string; items: Menu
   }));
 };
 
+const normalizeToDomId = (value: string) => {
+  if (!value) return 'secao';
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-zA-Z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .toLowerCase() || 'secao';
+};
+
+const getCategoryDomId = (categoryName: string) => `category-${normalizeToDomId(categoryName)}`;
+
+const getSubcategoryDomId = (categoryName: string, subcategoryName: string) =>
+  `subcategory-${normalizeToDomId(categoryName)}-${normalizeToDomId(subcategoryName)}`;
+
 export default function CardapioBarPage({ params }: CardapioBarPageProps) {
   const resolvedParams = use(params);
   const { slug } = resolvedParams;
@@ -218,9 +233,20 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
   const [showPopup, setShowPopup] = useState(false);
   const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null);
   const [showMobileSidebar, setShowMobileSidebar] = useState(false);
+  const [headerHeight, setHeaderHeight] = useState<number>(0);
+  const [categoryBarHeight, setCategoryBarHeight] = useState<number>(0);
+  const categoryBarRef = useRef<HTMLDivElement | null>(null);
 
   // Hook para verificar se a tela é mobile
   const isMobile = useMediaQuery({ maxWidth: 767 });
+
+  const isCleanStyle = useMemo(() => {
+    if (!selectedBar) return false;
+    return (
+      selectedBar.menu_display_style === 'clean' ||
+      (selectedBar.slug === 'reserva-rooftop' && selectedBar.menu_display_style !== 'normal')
+    );
+  }, [selectedBar]);
 
   const handleItemClick = (item: MenuItem) => {
     setSelectedItem(item);
@@ -341,6 +367,50 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
   useEffect(() => {
     fetchBarData();
   }, [fetchBarData]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const headerElement = document.querySelector('header');
+    if (!headerElement) return;
+
+    const updateHeaderHeight = () => {
+      setHeaderHeight(headerElement.getBoundingClientRect().height);
+    };
+
+    updateHeaderHeight();
+    window.addEventListener('resize', updateHeaderHeight);
+
+    return () => {
+      window.removeEventListener('resize', updateHeaderHeight);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!categoryBarRef.current) return;
+
+    const updateCategoryBarHeight = () => {
+      if (!categoryBarRef.current) return;
+      setCategoryBarHeight(categoryBarRef.current.getBoundingClientRect().height);
+    };
+
+    updateCategoryBarHeight();
+
+    let resizeObserver: ResizeObserver | null = null;
+
+    if (typeof ResizeObserver !== 'undefined') {
+      resizeObserver = new ResizeObserver(() => updateCategoryBarHeight());
+      resizeObserver.observe(categoryBarRef.current);
+    }
+
+    window.addEventListener('resize', updateCategoryBarHeight);
+
+    return () => {
+      window.removeEventListener('resize', updateCategoryBarHeight);
+      if (resizeObserver && categoryBarRef.current) {
+        resizeObserver.unobserve(categoryBarRef.current);
+      }
+    };
+  }, [menuCategories.length, isMobile, isCleanStyle]);
 
   // Rastrear mudanças de categoria e subcategoria
   useEffect(() => {
@@ -502,6 +572,30 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
     menuCategories.find(cat => cat.name === selectedCategory), 
     [menuCategories, selectedCategory]
   );
+
+  const stickyCategoryOffset = useMemo(
+    () => Math.max(headerHeight, 0),
+    [headerHeight]
+  );
+
+  const stickySubcategoryOffset = useMemo(
+    () => stickyCategoryOffset + Math.max(categoryBarHeight, 0),
+    [stickyCategoryOffset, categoryBarHeight]
+  );
+
+  const scrollToIdWithOffset = useCallback((targetId: string, offset: number) => {
+    if (typeof window === 'undefined') return;
+    const element = document.getElementById(targetId);
+    if (!element) return;
+
+    const elementPosition = element.getBoundingClientRect().top + window.scrollY;
+    const targetPosition = Math.max(elementPosition - offset, 0);
+
+    window.scrollTo({
+      top: targetPosition,
+      behavior: 'smooth'
+    });
+  }, []);
 
 
   // Vinhos - listas auxiliares para renderização
@@ -833,9 +927,6 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
     );
   }
   
-  const isCleanStyle =
-    selectedBar.menu_display_style === 'clean' ||
-    (selectedBar.slug === 'reserva-rooftop' && selectedBar.menu_display_style !== 'normal');
   const isReservaRooftop = selectedBar.slug === 'reserva-rooftop';
   const categorySelectedBg =
     selectedBar.menu_category_bg_color ||
@@ -1006,13 +1097,13 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
         {menuCategories.length > 0 && (
           // Menu de categorias fixo (visível em todas as telas)
           <div
-            className={`sticky ${
-              isCleanStyle ? 'top-[68px]' : 'top-0'
-            } z-20 ${
+            ref={categoryBarRef}
+            className={`sticky z-40 ${
               isCleanStyle
                 ? 'bg-[#f6f4ee]/95 backdrop-blur-sm'
                 : 'bg-gradient-to-br from-gray-50 to-gray-100'
             }`}
+            style={{ top: `${stickyCategoryOffset}px` }}
           >
             {/* Indicador de categoria ativa */}
             <div
@@ -1067,14 +1158,10 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
                           );
                         }
                         
-                        const element = document.getElementById(category.name.replace(/\s+/g, '-').toLowerCase());
-                        if (element) {
-                          element.scrollIntoView({ 
-                            behavior: 'smooth', 
-                            block: 'start',
-                            inline: 'nearest'
-                          });
-                        }
+                        scrollToIdWithOffset(
+                          getCategoryDomId(category.name),
+                          stickyCategoryOffset + Math.max(categoryBarHeight, 0) + 12
+                        );
                     }}
                     style={{
                       backgroundColor:
@@ -1158,7 +1245,7 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
             {menuCategories.map((category) => (
               <div
                 key={category.id}
-                id={category.name.replace(/\s+/g, '-').toLowerCase()} // ID para rolagem
+                id={getCategoryDomId(category.name)} // ID para rolagem
                 data-category-name={category.name}
               >
                 <h2 className="text-2xl font-bold text-gray-900 mt-8 mb-6">
@@ -1167,9 +1254,8 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
                 
                 {/* Menu de subcategorias fixo (apenas no mobile, para cada categoria) */}
                 <div
-                  className={`sticky ${
-                    isCleanStyle ? 'top-[90px]' : 'top-[56px]'
-                  } z-10 bg-gradient-to-br from-gray-50 to-gray-100 pb-4 pt-2 -mt-4`}
+                  className="sticky z-30 bg-gradient-to-br from-gray-50 to-gray-100 pb-4 pt-2 -mt-4"
+                  style={{ top: `${stickySubcategoryOffset}px` }}
                 >
                   {/* Indicador de subcategoria ativa */}
                   {activeSubcategory && (
@@ -1184,14 +1270,10 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
                       <button
                         key={subcat.name}
                         onClick={() => {
-                          const element = document.getElementById(subcat.name.replace(/\s+/g, '-').toLowerCase());
-                          if (element) {
-                            element.scrollIntoView({ 
-                              behavior: 'smooth', 
-                              block: 'start',
-                              inline: 'nearest'
-                            });
-                          }
+                          scrollToIdWithOffset(
+                            getSubcategoryDomId(category.name, subcat.name),
+                            stickySubcategoryOffset + 12
+                          );
                         }}
                         style={{
                           backgroundColor: activeSubcategory === subcat.name 
@@ -1220,7 +1302,7 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
                 {category.subCategories.map((subcat) => (
                   <div
                     key={subcat.name}
-                    id={subcat.name.replace(/\s+/g, '-').toLowerCase()}
+                    id={getSubcategoryDomId(category.name, subcat.name)}
                     data-subcategory-name={subcat.name}
                     className="mt-8"
                   >
@@ -1244,88 +1326,75 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
             ))}
           </div>
         ) : (
-          <AnimatePresence mode="wait">
-            {currentCategory && (
-              <motion.div
-                key={selectedCategory}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.3 }}
-              >
-                <h2 className="text-2xl font-bold text-gray-900 mb-6">
-                  {selectedCategory}
-                </h2>
+          currentCategory && (
+            <div>
+              <h2 className="text-2xl font-bold text-gray-900 mb-6">
+                {selectedCategory}
+              </h2>
 
+              <div
+                className="sticky z-30 bg-gradient-to-br from-gray-50 to-gray-100 pb-4 pt-2 -mt-4"
+                style={{ top: `${stickySubcategoryOffset}px` }}
+              >
+                {/* Indicador de subcategoria ativa */}
+                {activeSubcategory && (
+                  <div className="text-center py-1 px-4 bg-green-50 border-b border-green-200 mb-2">
+                    <span className="text-xs text-gray-600">
+                      Subcategoria: <span className="font-bold text-green-600">{activeSubcategory}</span>
+                    </span>
+                  </div>
+                )}
+                <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+                  {currentCategory.subCategories.map((subcat) => (
+                    <button
+                      key={subcat.name}
+                      onClick={() => {
+                        scrollToIdWithOffset(
+                          getSubcategoryDomId(currentCategory.name, subcat.name),
+                          stickySubcategoryOffset + 12
+                        );
+                      }}
+                      className={`subcategory-tab rounded-full font-medium whitespace-nowrap transition-all duration-200 ${
+                        isCleanStyle
+                          ? 'px-3 py-2 text-[0.7rem] uppercase tracking-[0.14em]'
+                          : 'px-4 py-2 text-sm'
+                      } ${
+                        activeSubcategory === subcat.name
+                          ? 'bg-blue-500 text-white shadow-md'
+                          : 'bg-white text-gray-600 hover:bg-gray-50'
+                      }`}
+                    >
+                      {subcat.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {currentCategory.subCategories.map((subcat) => (
                 <div
-                  className={`sticky ${
-                    isCleanStyle ? 'top-[90px]' : 'top-[56px]'
-                  } z-10 bg-gradient-to-br from-gray-50 to-gray-100 pb-4 pt-2 -mt-4`}
+                  key={subcat.name}
+                  id={getSubcategoryDomId(currentCategory.name, subcat.name)}
+                  data-subcategory-name={subcat.name}
+                  className="mt-8"
                 >
-                  {/* Indicador de subcategoria ativa */}
-                  {activeSubcategory && (
-                    <div className="text-center py-1 px-4 bg-green-50 border-b border-green-200 mb-2">
-                      <span className="text-xs text-gray-600">
-                        Subcategoria: <span className="font-bold text-green-600">{activeSubcategory}</span>
-                      </span>
-                    </div>
-                  )}
-                  <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
-                    {currentCategory.subCategories.map((subcat) => (
-                      <button
-                        key={subcat.name}
-                        onClick={() => {
-                          const element = document.getElementById(subcat.name.replace(/\s+/g, '-').toLowerCase());
-                          if (element) {
-                            element.scrollIntoView({ 
-                              behavior: 'smooth', 
-                              block: 'start',
-                              inline: 'nearest'
-                            });
-                          }
-                        }}
-                        className={`subcategory-tab rounded-full font-medium whitespace-nowrap transition-all duration-200 ${
-                          isCleanStyle
-                            ? 'px-3 py-2 text-[0.7rem] uppercase tracking-[0.14em]'
-                            : 'px-4 py-2 text-sm'
-                        } ${
-                          activeSubcategory === subcat.name
-                            ? 'bg-blue-500 text-white shadow-md'
-                            : 'bg-white text-gray-600 hover:bg-gray-50'
-                        }`}
-                      >
-                        {subcat.name}
-                      </button>
+                  <h3 className="text-xl font-bold text-gray-800 mb-4">
+                    {subcat.name}
+                  </h3>
+                  <div
+                    className={`grid gap-4 ${
+                      isCleanStyle
+                        ? 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6'
+                        : 'grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'
+                    }`}
+                  >
+                    {subcat.items.map((item) => (
+                      <MenuItemCard key={item.id} item={item} onClick={handleItemClick} />
                     ))}
                   </div>
                 </div>
-
-                {currentCategory.subCategories.map((subcat) => (
-                  <div
-                    key={subcat.name}
-                    id={subcat.name.replace(/\s+/g, '-').toLowerCase()}
-                    data-subcategory-name={subcat.name}
-                    className="mt-8"
-                  >
-                    <h3 className="text-xl font-bold text-gray-800 mb-4">
-                      {subcat.name}
-                    </h3>
-                    <div
-                      className={`grid gap-4 ${
-                        isCleanStyle
-                          ? 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6'
-                          : 'grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'
-                      }`}
-                    >
-                      {subcat.items.map((item) => (
-                        <MenuItemCard key={item.id} item={item} onClick={handleItemClick} />
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </motion.div>
-            )}
-          </AnimatePresence>
+              ))}
+            </div>
+          )
         )}
       </div>
       
