@@ -122,6 +122,8 @@ interface ReservaRestaurante {
   checkin_time?: string;
   total_convidados: number;
   convidados_checkin: number;
+  table_number?: string | number;
+  area_name?: string;
 }
 
 interface ConvidadoReservaRestaurante {
@@ -159,6 +161,8 @@ interface GuestListRestaurante {
   guests_checked_in: number;
   establishment_id?: number;
   establishment_name?: string;
+  table_number?: string | number;
+  area_name?: string;
 }
 
 interface GuestItem {
@@ -1244,8 +1248,11 @@ export default function EventoCheckInsPage() {
                                   {gl.reservation_date ? new Date(gl.reservation_date + 'T12:00:00').toLocaleDateString('pt-BR') : 'Data não informada'} 
                                   {gl.event_type ? ` • ${gl.event_type}` : ''} • {gl.reservation_time}
                                 </div>
+
                                 <div className="text-xs text-gray-400 mt-1">
-                                  Criado por: {gl.created_by_name}
+                                  Mesa reservada: {gl.table_number
+                                    ? `Mesa ${gl.table_number}${gl.area_name ? ` • ${gl.area_name}` : ''}`
+                                    : gl.area_name || '—'}
                                 </div>
                                 
                                 {/* Check-in do dono */}
