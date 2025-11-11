@@ -684,7 +684,7 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
       >
         <div
           className={`relative overflow-hidden ${
-            isCleanStyle ? 'h-40 sm:h-44 md:h-48' : 'h-48'
+            isCleanStyle ? 'h-32 sm:h-36 md:h-40 lg:h-44' : 'h-48'
           } ${isCleanStyle ? 'border-b border-[#e7d9c3]' : ''}`}
         >
           <Image
@@ -713,18 +713,18 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
       
       <div className={`p-3 sm:p-4 ${isCleanStyle ? 'sm:p-6' : ''}`}>
         <h3
-          className={`mb-2 line-clamp-2 ${
+          className={`mb-1 line-clamp-2 ${
             isCleanStyle
-              ? 'font-serif text-xl font-semibold tracking-[0.08em] text-[#2b241a]'
+              ? 'font-serif text-[1rem] font-semibold tracking-[0.12em] text-[#2b241a]'
               : 'text-base sm:text-lg font-semibold text-gray-800'
           }`}
         >
           {item.name}
         </h3>
         <p
-          className={`mb-3 line-clamp-2 sm:line-clamp-3 ${
+          className={`mb-3 ${isCleanStyle ? 'line-clamp-4' : 'line-clamp-3'} ${
             isCleanStyle
-              ? 'text-[0.85rem] text-[#7a6d5b] leading-relaxed'
+              ? 'text-[0.72rem] text-[#7a6d5b] leading-relaxed'
               : 'text-xs sm:text-sm text-gray-600'
           }`}
         >
