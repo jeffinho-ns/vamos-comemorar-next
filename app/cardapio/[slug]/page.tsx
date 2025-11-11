@@ -904,7 +904,7 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
       `}</style>
       <div
         className={`max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 ${
-          isCleanStyle ? 'font-serif text-[#342b22]' : ''
+          isCleanStyle ? 'text-[#342b22]' : ''
         }`}
       >
         
@@ -1006,7 +1006,9 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
         {menuCategories.length > 0 && (
           // Menu de categorias fixo (visível em todas as telas)
           <div
-            className={`sticky top-0 z-20 ${
+            className={`sticky ${
+              isCleanStyle ? 'top-[68px]' : 'top-0'
+            } z-20 ${
               isCleanStyle
                 ? 'bg-[#f6f4ee]/95 backdrop-blur-sm'
                 : 'bg-gradient-to-br from-gray-50 to-gray-100'
@@ -1023,10 +1025,10 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
               }`}
             >
               <span
-                className={`text-sm ${
+                className={`${
                   isCleanStyle
-                    ? 'text-[#7b6a55] tracking-[0.26em] uppercase font-medium'
-                    : 'text-gray-600'
+                    ? 'text-[0.7rem] text-[#7b6a55] tracking-[0.14em] uppercase font-semibold'
+                    : 'text-sm text-gray-600'
                 }`}
               >
                 {isCleanStyle ? 'Categoria atual' : 'Categoria ativa:'}{!isCleanStyle && ' '}
@@ -1084,13 +1086,17 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
                           ? categorySelectedText
                           : categoryUnselectedText,
                     }}
-                    className={`category-tab px-6 py-3 rounded-full font-medium whitespace-nowrap transition-all duration-200 ${
+                    className={`category-tab rounded-full font-medium whitespace-nowrap transition-all duration-200 ${
+                      isCleanStyle
+                        ? 'px-4 py-2 text-[0.7rem] uppercase tracking-[0.16em]'
+                        : 'px-6 py-3'
+                    } ${
                       selectedCategory === category.name
                         ? 'active shadow-lg'
                         : isCleanStyle
                           ? 'shadow-sm hover:shadow-md'
                           : 'hover:bg-gray-50 shadow-md'
-                    } ${isCleanStyle ? 'border border-[#e7dbc4]/70 backdrop-blur' : ''}`}
+                    } ${isCleanStyle ? 'border border-[#e7dbc4]/70 backdrop-blur-sm' : ''}`}
                   >
                     {category.name}
                   </button>
@@ -1160,7 +1166,11 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
                 </h2>
                 
                 {/* Menu de subcategorias fixo (apenas no mobile, para cada categoria) */}
-                <div className="sticky top-[56px] z-10 bg-gradient-to-br from-gray-50 to-gray-100 pb-4 pt-2 -mt-4">
+                <div
+                  className={`sticky ${
+                    isCleanStyle ? 'top-[90px]' : 'top-[56px]'
+                  } z-10 bg-gradient-to-br from-gray-50 to-gray-100 pb-4 pt-2 -mt-4`}
+                >
                   {/* Indicador de subcategoria ativa */}
                   {activeSubcategory && (
                     <div className="text-center py-1 px-4 bg-green-50 border-b border-green-200 mb-2">
@@ -1191,7 +1201,11 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
                             ? (selectedBar.menu_subcategory_text_color || '#ffffff')
                             : '#374151'
                         }}
-                        className={`subcategory-tab px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all duration-200 ${
+                        className={`subcategory-tab rounded-full font-medium whitespace-nowrap transition-all duration-200 ${
+                          isCleanStyle
+                            ? 'px-3 py-2 text-[0.7rem] uppercase tracking-[0.14em]'
+                            : 'px-4 py-2 text-sm'
+                        } ${
                           activeSubcategory === subcat.name
                             ? 'shadow-md'
                             : 'hover:bg-gray-50'
@@ -1243,7 +1257,11 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
                   {selectedCategory}
                 </h2>
 
-                <div className="sticky top-[56px] z-10 bg-gradient-to-br from-gray-50 to-gray-100 pb-4 pt-2 -mt-4">
+                <div
+                  className={`sticky ${
+                    isCleanStyle ? 'top-[90px]' : 'top-[56px]'
+                  } z-10 bg-gradient-to-br from-gray-50 to-gray-100 pb-4 pt-2 -mt-4`}
+                >
                   {/* Indicador de subcategoria ativa */}
                   {activeSubcategory && (
                     <div className="text-center py-1 px-4 bg-green-50 border-b border-green-200 mb-2">
@@ -1266,7 +1284,11 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
                             });
                           }
                         }}
-                        className={`subcategory-tab px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all duration-200 ${
+                        className={`subcategory-tab rounded-full font-medium whitespace-nowrap transition-all duration-200 ${
+                          isCleanStyle
+                            ? 'px-3 py-2 text-[0.7rem] uppercase tracking-[0.14em]'
+                            : 'px-4 py-2 text-sm'
+                        } ${
                           activeSubcategory === subcat.name
                             ? 'bg-blue-500 text-white shadow-md'
                             : 'bg-white text-gray-600 hover:bg-gray-50'
