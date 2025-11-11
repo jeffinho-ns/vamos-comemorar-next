@@ -677,20 +677,22 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
         transition={{ duration: 0.3 }}
         className={`menu-item-card cursor-pointer overflow-hidden transition-all duration-300 ${
           isCleanStyle
-            ? 'rounded-3xl border border-[#d6cbb8] bg-[#fbf8f1]/95 shadow-[0_35px_90px_rgba(15,23,42,0.12)] hover:shadow-[0_45px_110px_rgba(15,23,42,0.18)]'
+            ? 'rounded-[28px] border border-[#d7c4a2] bg-[#f9f5ed]/95 shadow-[0_18px_38px_rgba(25,18,10,0.18)] hover:shadow-[0_28px_60px_rgba(25,18,10,0.28)]'
             : 'bg-white rounded-lg shadow-lg hover:shadow-xl'
-        }`}
+        } ${isCleanStyle ? 'backdrop-blur-[2px]' : ''}`}
         onClick={() => onClick(item)}
       >
         <div
-          className={`relative overflow-hidden ${isCleanStyle ? 'h-60' : 'h-48'}`}
+          className={`relative overflow-hidden ${
+            isCleanStyle ? 'h-40 sm:h-44 md:h-48' : 'h-48'
+          } ${isCleanStyle ? 'border-b border-[#e7d9c3]' : ''}`}
         >
           <Image
             src={getValidImageUrl(item.imageUrl)}
             alt={item.name}
             fill
             sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-            className="object-cover"
+            className={`object-cover ${isCleanStyle ? 'scale-[1.02]' : ''}`}
           />
           
           {/* Ocultar preço apenas para Reserva Rooftop */}
@@ -698,7 +700,11 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
             <div
               className={`price-badge absolute ${isCleanStyle ? 'bottom-4 right-4 rounded-full border border-white/80 bg-white/90 px-4 py-2 shadow-lg backdrop-blur' : 'top-3 right-3 bg-white px-2 py-1 rounded-full shadow-md'}`}
             >
-              <span className={`font-semibold ${isCleanStyle ? 'text-base text-gray-900 tracking-tight' : 'text-sm text-green-600'}`}>
+              <span
+                className={`font-semibold ${
+                  isCleanStyle ? 'text-sm uppercase tracking-[0.22em] text-gray-900' : 'text-sm text-green-600'
+                }`}
+              >
                 {formatPrice(item.price)}
               </span>
             </div>
@@ -709,7 +715,7 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
         <h3
           className={`mb-2 line-clamp-2 ${
             isCleanStyle
-              ? 'text-2xl font-semibold tracking-tight text-gray-900'
+              ? 'font-serif text-xl font-semibold tracking-[0.08em] text-[#2b241a]'
               : 'text-base sm:text-lg font-semibold text-gray-800'
           }`}
         >
@@ -718,7 +724,7 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
         <p
           className={`mb-3 line-clamp-2 sm:line-clamp-3 ${
             isCleanStyle
-              ? 'text-sm text-gray-500 leading-relaxed'
+              ? 'text-[0.85rem] text-[#7a6d5b] leading-relaxed'
               : 'text-xs sm:text-sm text-gray-600'
           }`}
         >
@@ -737,7 +743,7 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
                 <span
                   key={sealId}
                   className={`seal-badge-mobile inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold text-white shadow-md hover:shadow-lg transition-all duration-200 transform hover:scale-105 ${
-                    isCleanStyle ? 'uppercase tracking-[0.12em] text-[0.65rem]' : ''
+                    isCleanStyle ? 'uppercase tracking-[0.18em] text-[0.6rem] bg-[#3b3225]/80 shadow-none hover:shadow-sm' : ''
                   }`}
                   style={{ 
                     backgroundColor: seal.color,
@@ -753,7 +759,11 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
         
         {item.toppings && item.toppings.length > 0 && (
           <div className="mb-2 sm:mb-3">
-            <p className={`text-xs font-medium ${isCleanStyle ? 'text-gray-400 uppercase tracking-[0.18em]' : 'text-gray-500' } mb-1`}>
+            <p
+              className={`text-xs font-medium ${
+                isCleanStyle ? 'text-[#b5a283] uppercase tracking-[0.28em] font-semibold' : 'text-gray-500'
+              } mb-1`}
+            >
               Adicionais:
             </p>
             <div className={`flex flex-wrap gap-1 ${isCleanStyle ? 'gap-1.5' : ''}`}>
@@ -762,7 +772,7 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
                   key={topping.id}
                   className={`topping-tag text-xs rounded-full ${
                     isCleanStyle
-                      ? 'bg-white/80 px-3 py-1 text-gray-600 shadow-inner'
+                      ? 'bg-white/80 px-3 py-1 text-[#514534] shadow-[inset_0_1px_3px_rgba(0,0,0,0.08)]'
                       : 'bg-gray-100 text-gray-700 px-2 py-1'
                   }`}
                 >
@@ -839,7 +849,7 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
   return (
     <div
       className={`cardapio-page min-h-screen ${
-        isCleanStyle ? 'bg-[#f6f4ee]' : 'bg-gradient-to-br from-gray-50 to-gray-100'
+        isCleanStyle ? 'bg-[#f3eee4]' : 'bg-gradient-to-br from-gray-50 to-gray-100'
       }`}
     >
       <style jsx>{`
@@ -892,7 +902,11 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
           z-index: 10;
         }
       `}</style>
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div
+        className={`max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 ${
+          isCleanStyle ? 'font-serif text-[#342b22]' : ''
+        }`}
+      >
         
         <div className="mb-6">
           <div
@@ -937,9 +951,9 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
 
               <div className="bar-content absolute bottom-6 left-6 right-6 hidden md:block">
                 <h1
-                  className={`mb-2 ${
+                  className={`mb-3 ${
                     isCleanStyle
-                      ? 'text-4xl font-semibold text-white drop-shadow-[0_12px_32px_rgba(0,0,0,0.45)]'
+                      ? 'text-[2.6rem] tracking-[0.32em] uppercase text-white drop-shadow-[0_14px_38px_rgba(0,0,0,0.55)]'
                       : 'text-white text-3xl md:text-4xl font-bold'
                   }`}
                 >
@@ -948,7 +962,7 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
                 <p
                   className={`mb-3 ${
                     isCleanStyle
-                      ? 'text-white/90 text-lg leading-relaxed max-w-3xl'
+                      ? 'text-white/80 text-base leading-relaxed max-w-2xl tracking-[0.08em]'
                       : 'text-white/90 text-lg'
                   }`}
                 >
@@ -1008,13 +1022,19 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
                     : 'bg-blue-50 border-b border-blue-200'
               }`}
             >
-              <span className={`text-sm ${isCleanStyle ? 'text-[#6b5f4f]' : 'text-gray-600'}`}>
-                Categoria ativa:{' '}
+              <span
+                className={`text-sm ${
+                  isCleanStyle
+                    ? 'text-[#7b6a55] tracking-[0.26em] uppercase font-medium'
+                    : 'text-gray-600'
+                }`}
+              >
+                {isCleanStyle ? 'Categoria atual' : 'Categoria ativa:'}{!isCleanStyle && ' '}
                 <span
                   className="font-bold"
                   style={{
                     color: isCleanStyle
-                      ? '#2f2a23'
+                      ? '#221d17'
                       : isReservaRooftop
                         ? '#0c190c'
                         : undefined,
