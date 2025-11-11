@@ -718,6 +718,7 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
       (isReservaRooftop && selectedBar?.menu_display_style !== 'normal');
     const itemRef = React.useRef<HTMLDivElement>(null);
     const hasTrackedView = React.useRef(false);
+    const hasAnimated = React.useRef(false);
     
     // Rastrear visualização quando o item aparece na tela
     React.useEffect(() => {
@@ -766,9 +767,14 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
     return (
       <motion.div
         ref={itemRef}
-        initial={{ opacity: 0, y: 20 }}
+        initial={hasAnimated.current ? false : { opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3 }}
+        onAnimationComplete={() => {
+          if (!hasAnimated.current) {
+            hasAnimated.current = true;
+          }
+        }}
         className={`menu-item-card cursor-pointer overflow-hidden transition-all duration-300 ${
           isCleanStyle
             ? 'rounded-[28px] border border-[#d7c4a2] bg-[#f9f5ed]/95 shadow-[0_18px_38px_rgba(25,18,10,0.18)] hover:shadow-[0_28px_60px_rgba(25,18,10,0.28)]'

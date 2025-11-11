@@ -792,6 +792,38 @@ export default function EventoCheckInsPage() {
     filterBySearch(p.telefone || '')
   );
 
+  const reservasMetrics = useMemo(() => {
+    const totalConvidadosReservas = convidadosReservas.length;
+    const checkinConvidadosReservas = convidadosReservas.filter((c) => c.status === 'CHECK-IN').length;
+
+    const totalConvidadosRestaurante =
+      convidadosReservasRestaurante.length > 0
+        ? convidadosReservasRestaurante.length
+        : guestListsRestaurante.reduce((acc, gl) => acc + (gl.total_guests || 0), 0);
+
+    const checkinConvidadosRestaurante =
+      convidadosReservasRestaurante.length > 0
+        ? convidadosReservasRestaurante.filter(
+            (c) => c.status_checkin === 1 || c.status_checkin === true
+          ).length
+        : guestListsRestaurante.reduce((acc, gl) => acc + (gl.guests_checked_in || 0), 0);
+
+    return {
+      total: totalConvidadosReservas + totalConvidadosRestaurante,
+      checkins: checkinConvidadosReservas + checkinConvidadosRestaurante
+    };
+  }, [convidadosReservas, convidadosReservasRestaurante, guestListsRestaurante]);
+
+  const promoterMetrics = useMemo(() => {
+    const total = convidadosPromoters.length;
+    const checkins = convidadosPromoters.filter((c) => c.status_checkin === 'Check-in').length;
+
+    return {
+      total,
+      checkins
+    };
+  }, [convidadosPromoters]);
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
         {/* Header */}
@@ -890,7 +922,7 @@ export default function EventoCheckInsPage() {
                     : 'bg-white/10 text-gray-300 hover:bg-white/20'
                 }`}
               >
-                Reservas ({estatisticas.totalConvidadosReservas})
+                Reservas ({reservasMetrics.total})
               </button>
               <button
                 onClick={() => setSelectedTab('promoters')}
@@ -900,7 +932,7 @@ export default function EventoCheckInsPage() {
                     : 'bg-white/10 text-gray-300 hover:bg-white/20'
                 }`}
               >
-                Promoters ({estatisticas.totalConvidadosPromoters})
+                Promoters ({promoterMetrics.total})
               </button>
               <button
                 onClick={() => setSelectedTab('camarotes')}
@@ -934,13 +966,13 @@ export default function EventoCheckInsPage() {
             <div className="bg-white/10 backdrop-blur-sm rounded-lg shadow p-4 border border-blue-500/50">
               <div className="text-sm text-gray-300 mb-1">Reservas</div>
               <div className="text-2xl font-bold text-white">
-                {estatisticas.checkinConvidadosReservas}/{estatisticas.totalConvidadosReservas}
+                {reservasMetrics.checkins}/{reservasMetrics.total}
               </div>
             </div>
             <div className="bg-white/10 backdrop-blur-sm rounded-lg shadow p-4 border border-purple-500/50">
               <div className="text-sm text-gray-300 mb-1">Promoters</div>
               <div className="text-2xl font-bold text-white">
-                {estatisticas.checkinConvidadosPromoters}/{estatisticas.totalConvidadosPromoters}
+                {promoterMetrics.checkins}/{promoterMetrics.total}
               </div>
             </div>
             <div className="bg-white/10 backdrop-blur-sm rounded-lg shadow p-4 border border-orange-500/50">
