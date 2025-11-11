@@ -1251,7 +1251,7 @@ export default function EventoCheckInsPage() {
 
                                 <div className="text-xs text-gray-400 mt-1">
                                   Mesa reservada: {gl.table_number
-                                    ? `Mesa ${gl.table_number}${gl.area_name ? ` • ${gl.area_name}` : ''}`
+                                    ? `Mesa ${gl.table_number}`
                                     : gl.area_name || '—'}
                                 </div>
                                 
