@@ -1213,7 +1213,13 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
                     <h3 className="text-xl font-bold text-gray-800 mb-4">
                       {subcat.name}
                     </h3>
-                    <div className="grid grid-cols-2 gap-3 sm:gap-4">
+                    <div
+                      className={`grid gap-3 sm:gap-4 ${
+                        isCleanStyle
+                          ? 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6'
+                          : 'grid-cols-2 md:grid-cols-3 xl:grid-cols-4'
+                      }`}
+                    >
                       {subcat.items.map((item) => (
                         <MenuItemCard key={item.id} item={item} onClick={handleItemClick} />
                       ))}
@@ -1282,7 +1288,13 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
                     <h3 className="text-xl font-bold text-gray-800 mb-4">
                       {subcat.name}
                     </h3>
-                    <div className="grid grid-cols-2 gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                    <div
+                      className={`grid gap-4 ${
+                        isCleanStyle
+                          ? 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6'
+                          : 'grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'
+                      }`}
+                    >
                       {subcat.items.map((item) => (
                         <MenuItemCard key={item.id} item={item} onClick={handleItemClick} />
                       ))}
