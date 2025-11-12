@@ -248,7 +248,7 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
     );
   }, [selectedBar]);
 
-  const handleItemClick = (item: MenuItem) => {
+  const handleItemClick = useCallback((item: MenuItem) => {
     setSelectedItem(item);
     
     // Rastrear clique no item do cardápio
@@ -271,7 +271,7 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
         pageLocation
       );
     }
-  };
+  }, [setSelectedItem, selectedBar, menuCategories, slug, trackMenuItemClick]);
 
   const handleCloseModal = () => {
     setSelectedItem(null);
@@ -438,128 +438,6 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
     return undefined; 
   }, [selectedBar]);
 
-  // Função para detectar categoria ativa baseada na posição do scroll
-  const detectActiveCategory = useCallback(() => {
-    const categorySections = document.querySelectorAll('[data-category-name]');
-    let activeCategory = selectedCategory;
-    let bestScore = -1;
-
-    categorySections.forEach((section) => {
-      const rect = section.getBoundingClientRect();
-      const categoryName = section.getAttribute('data-category-name');
-      
-      if (categoryName) {
-        // Calcular score baseado na posição da seção
-        let score = 0;
-        
-        // Se a seção está visível
-        if (rect.bottom > 0 && rect.top < window.innerHeight) {
-          // Score baseado na proximidade do topo da viewport
-          if (rect.top <= 0) {
-            // Seção está no topo ou acima - score alto
-            score = Math.max(0, 100 - Math.abs(rect.top));
-          } else {
-            // Seção está abaixo do topo - score menor
-            score = Math.max(0, 50 - rect.top);
-          }
-          
-          // Bonus se a seção está bem visível
-          const visibleHeight = Math.min(rect.bottom, window.innerHeight) - Math.max(rect.top, 0);
-          const totalHeight = rect.height;
-          const visibilityRatio = visibleHeight / totalHeight;
-          score += visibilityRatio * 30;
-        }
-        
-        if (score > bestScore) {
-          bestScore = score;
-          activeCategory = categoryName;
-        }
-      }
-    });
-
-    if (activeCategory !== selectedCategory && bestScore > 10) {
-      console.log('Mudando categoria para:', activeCategory, 'Score:', bestScore);
-      setSelectedCategory(activeCategory);
-    }
-  }, [selectedCategory]);
-
-  // Função para detectar subcategoria ativa
-  const detectActiveSubcategory = useCallback(() => {
-    const subcategorySections = document.querySelectorAll('[data-subcategory-name]');
-    let newActiveSubcategory = '';
-    let bestScore = -1;
-
-    subcategorySections.forEach((section) => {
-      const rect = section.getBoundingClientRect();
-      const subcategoryName = section.getAttribute('data-subcategory-name');
-      
-      if (subcategoryName) {
-        let score = 0;
-        
-        // Se a subcategoria está visível
-        if (rect.bottom > 0 && rect.top < window.innerHeight) {
-          // Score baseado na proximidade do topo da viewport
-          if (rect.top <= 100) {
-            // Subcategoria está próxima do topo - score alto
-            score = Math.max(0, 100 - Math.abs(rect.top - 100));
-          } else {
-            // Subcategoria está mais abaixo - score menor
-            score = Math.max(0, 50 - (rect.top - 100));
-          }
-          
-          // Bonus se a subcategoria está bem visível
-          const visibleHeight = Math.min(rect.bottom, window.innerHeight) - Math.max(rect.top, 0);
-          const totalHeight = rect.height;
-          const visibilityRatio = visibleHeight / totalHeight;
-          score += visibilityRatio * 20;
-        }
-        
-        if (score > bestScore) {
-          bestScore = score;
-          newActiveSubcategory = subcategoryName;
-        }
-      }
-    });
-
-    if (newActiveSubcategory && newActiveSubcategory !== activeSubcategory && bestScore > 5) {
-      console.log('Mudando subcategoria para:', newActiveSubcategory, 'Score:', bestScore);
-      setActiveSubcategory(newActiveSubcategory);
-    }
-  }, [activeSubcategory]);
-
-  // Intersection Observer para detectar categorias e subcategorias ativas
-  useEffect(() => {
-    let scrollTimeout: NodeJS.Timeout;
-
-    const handleScroll = () => {
-      // Limpar timeout anterior
-      if (scrollTimeout) {
-        clearTimeout(scrollTimeout);
-      }
-      
-      // Debounce para melhorar performance
-      scrollTimeout = setTimeout(() => {
-        detectActiveCategory();
-        detectActiveSubcategory();
-      }, 50);
-    };
-
-    // Adicionar listener de scroll
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    
-    // Detectar categoria inicial
-    setTimeout(() => {
-      detectActiveCategory();
-      detectActiveSubcategory();
-    }, 200);
-
-    return () => {
-      window.removeEventListener('scroll', handleScroll);
-      if (scrollTimeout) {
-        clearTimeout(scrollTimeout);
-      }
-    };
-  }, [detectActiveCategory, detectActiveSubcategory]);
 
   const formatPrice = useCallback((price: number) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -794,95 +672,79 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
             sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
             className={`object-cover ${isCleanStyle ? 'scale-[1.02]' : ''}`}
           />
-          
-          {/* Ocultar preço apenas para Reserva Rooftop */}
-          {!isReservaRooftop && (
-            <div
-              className={`price-badge absolute ${isCleanStyle ? 'bottom-4 right-4 rounded-full border border-white/80 bg-white/90 px-4 py-2 shadow-lg backdrop-blur' : 'top-3 right-3 bg-white px-2 py-1 rounded-full shadow-md'}`}
+        </div>
+      
+        <div className={`flex flex-col gap-4 h-full p-3 sm:p-4 ${isCleanStyle ? 'sm:p-6' : ''}`}>
+          <div className="space-y-2">
+            <h3
+              className={`mb-1 line-clamp-2 ${
+                isCleanStyle
+                  ? 'font-serif text-[1rem] font-semibold tracking-[0.12em] text-[#2b241a]'
+                  : 'text-base sm:text-lg font-semibold text-gray-800'
+              }`}
             >
-              <span
-                className={`font-semibold ${
-                  isCleanStyle ? 'text-sm uppercase tracking-[0.22em] text-gray-900' : 'text-sm text-green-600'
+              {item.name}
+            </h3>
+            {!isReservaRooftop && (
+              <p
+                className={`mb-2 font-semibold ${
+                  isCleanStyle
+                    ? 'text-[0.8rem] tracking-[0.14em] uppercase text-[#4a3c2d]'
+                    : 'text-sm sm:text-base text-gray-700'
                 }`}
               >
                 {formatPrice(item.price)}
-              </span>
-            </div>
-          )}
-        </div>
-      
-      <div className={`p-3 sm:p-4 ${isCleanStyle ? 'sm:p-6' : ''}`}>
-        <h3
-          className={`mb-1 line-clamp-2 ${
-            isCleanStyle
-              ? 'font-serif text-[1rem] font-semibold tracking-[0.12em] text-[#2b241a]'
-              : 'text-base sm:text-lg font-semibold text-gray-800'
-          }`}
-        >
-          {item.name}
-        </h3>
-        <p
-          className={`mb-3 ${isCleanStyle ? 'line-clamp-4' : 'line-clamp-3'} ${
-            isCleanStyle
-              ? 'text-[0.72rem] text-[#7a6d5b] leading-relaxed'
-              : 'text-xs sm:text-sm text-gray-600'
-          }`}
-        >
-          {item.description}
-        </p>
-        
-        {/* Exibir selos - Layout original melhorado */}
-        {item.seals && item.seals.length > 0 && (
-          <div className={`flex flex-wrap gap-1.5 mb-3 ${isCleanStyle ? 'gap-2' : ''}`}>
-            {item.seals.map((sealId) => {
-              const wine = renderWineSeal(sealId, 'card');
-              if (wine) return wine;
-              const seal = getSealById(sealId, selectedBar as BarFromAPI);
-              if (!seal) return null;
-              return (
-                <span
-                  key={sealId}
-                  className={`seal-badge-mobile inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold text-white shadow-md hover:shadow-lg transition-all duration-200 transform hover:scale-105 ${
-                    isCleanStyle ? 'uppercase tracking-[0.18em] text-[0.6rem] bg-[#3b3225]/80 shadow-none hover:shadow-sm' : ''
-                  }`}
-                  style={{ 
-                    backgroundColor: seal.color,
-                    boxShadow: `0 2px 8px ${seal.color}40`
-                  }}
-                >
-                  {seal.name}
-                </span>
-              );
-            })}
-          </div>
-        )}
-        
-        {item.toppings && item.toppings.length > 0 && (
-          <div className="mb-2 sm:mb-3">
+              </p>
+            )}
             <p
-              className={`text-xs font-medium ${
-                isCleanStyle ? 'text-[#b5a283] uppercase tracking-[0.28em] font-semibold' : 'text-gray-500'
-              } mb-1`}
+              className={`${isCleanStyle ? 'text-[0.72rem]' : 'text-xs sm:text-sm'} ${
+                isCleanStyle ? 'text-[#7a6d5b] leading-relaxed' : 'text-gray-600'
+              }`}
             >
-              Adicionais:
+              {item.description.length > 120 ? `${item.description.slice(0, 117)}...` : item.description}
             </p>
-            <div className={`flex flex-wrap gap-1 ${isCleanStyle ? 'gap-1.5' : ''}`}>
-              {item.toppings.map((topping) => (
-                <span
-                  key={topping.id}
-                  className={`topping-tag text-xs rounded-full ${
-                    isCleanStyle
-                      ? 'bg-white/80 px-3 py-1 text-[#514534] shadow-[inset_0_1px_3px_rgba(0,0,0,0.08)]'
-                      : 'bg-gray-100 text-gray-700 px-2 py-1'
-                  }`}
-                >
-                  {topping.name}{!isReservaRooftop && ` +${formatPrice(topping.price)}`}
-                </span>
-              ))}
+            {item.seals && item.seals.length > 0 && (
+              <div className={`flex flex-wrap gap-1.5 ${isCleanStyle ? 'gap-2' : ''}`}>
+                {item.seals.slice(0, 2).map((sealId) => {
+                  const wine = renderWineSeal(sealId, 'card');
+                  if (wine) return wine;
+                  const seal = getSealById(sealId, selectedBar as BarFromAPI);
+                  if (!seal) return null;
+                  return (
+                    <span
+                      key={sealId}
+                      className={`inline-flex items-center rounded-full px-2.5 py-1 text-[0.65rem] font-semibold text-white shadow-sm ${
+                        isCleanStyle ? 'uppercase tracking-[0.14em] text-[0.58rem] bg-[#3b3225]/80' : ''
+                      }`}
+                      style={{
+                        backgroundColor: seal.color,
+                        boxShadow: `0 2px 8px ${seal.color}33`,
+                      }}
+                    >
+                      {seal.name}
+                    </span>
+                  );
+                })}
+              </div>
+            )}
+            <div>
+              <button
+                type="button"
+                className={`w-full rounded-full px-3 py-2 text-xs font-semibold transition-colors duration-200 ${
+                  isCleanStyle
+                    ? 'bg-[#e9ddc8] text-[#2f251b] hover:bg-[#ddcfb3]'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onClick(item);
+                }}
+              >
+                Ver mais
+              </button>
             </div>
           </div>
-        )}
-      </div>
+        </div>
       </motion.div>
     );
   });
@@ -1128,7 +990,7 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
                     : 'text-sm text-gray-600'
                 }`}
               >
-                {isCleanStyle ? 'Categoria atual' : 'Categoria ativa:'}{!isCleanStyle && ' '}
+                {isCleanStyle ? 'Categoria atual' : ''}
                 <span
                   className="font-bold"
                   style={{
@@ -1181,8 +1043,8 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
                     }}
                     className={`category-tab rounded-full font-medium whitespace-nowrap transition-all duration-200 ${
                       isCleanStyle
-                        ? 'px-4 py-2 text-[0.7rem] uppercase tracking-[0.16em]'
-                        : 'px-6 py-3'
+                        ? 'px-3 py-1.5 text-[0.7rem] uppercase tracking-[0.16em]'
+                        : 'px-4 py-2 text-sm'
                     } ${
                       selectedCategory === category.name
                         ? 'active shadow-lg'
@@ -1264,18 +1126,14 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
                   style={{ top: `${stickySubcategoryOffset}px` }}
                 >
                   {/* Indicador de subcategoria ativa */}
-                  {activeSubcategory && (
-                    <div className="text-center py-1 px-4 bg-green-50 border-b border-green-200 mb-2">
-                      <span className="text-xs text-gray-600">
-                        Subcategoria: <span className="font-bold text-green-600">{activeSubcategory}</span>
-                      </span>
-                    </div>
-                  )}
+                  {/* Indicador da subcategoria ativa removido conforme solicitação */}
                   <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
                     {category.subCategories.map((subcat) => (
                       <button
                         key={subcat.name}
                         onClick={() => {
+                          setSelectedCategory(category.name);
+                          setActiveSubcategory(subcat.name);
                           scrollToIdWithOffset(
                             getSubcategoryDomId(category.name, subcat.name),
                             stickySubcategoryOffset + 12
@@ -1291,8 +1149,8 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
                         }}
                         className={`subcategory-tab rounded-full font-medium whitespace-nowrap transition-all duration-200 ${
                           isCleanStyle
-                            ? 'px-3 py-2 text-[0.7rem] uppercase tracking-[0.14em]'
-                            : 'px-4 py-2 text-sm'
+                        ? 'px-3 py-1.5 text-[0.7rem] uppercase tracking-[0.14em]'
+                        : 'px-3 py-1.5 text-xs'
                         } ${
                           activeSubcategory === subcat.name
                             ? 'shadow-md'
@@ -1331,32 +1189,36 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
               </div>
             ))}
           </div>
-        ) : (
-          currentCategory && (
-            <div>
-              <h2 className="text-2xl font-bold text-gray-900 mb-6">
-                {selectedCategory}
+) : (
+        // # INÍCIO DA CORREÇÃO
+        // Agora o desktop também renderiza TODAS as categorias de uma vez.
+        <div className="mt-8">
+          {menuCategories.map((category) => (
+            <div
+              key={category.id}
+              id={getCategoryDomId(category.name)} // ID para rolagem
+              data-category-name={category.name}
+            >
+              <h2 className="text-2xl font-bold text-gray-900 mt-8 mb-6">
+                {category.name}
               </h2>
 
+              {/* Menu de subcategorias fixo (desktop) */}
               <div
                 className="sticky z-30 bg-gradient-to-br from-gray-50 to-gray-100 pb-4 pt-2 -mt-4"
                 style={{ top: `${stickySubcategoryOffset}px` }}
               >
                 {/* Indicador de subcategoria ativa */}
-                {activeSubcategory && (
-                  <div className="text-center py-1 px-4 bg-green-50 border-b border-green-200 mb-2">
-                    <span className="text-xs text-gray-600">
-                      Subcategoria: <span className="font-bold text-green-600">{activeSubcategory}</span>
-                    </span>
-                  </div>
-                )}
+                {/* Indicador da subcategoria ativa removido conforme solicitação */}
                 <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
-                  {currentCategory.subCategories.map((subcat) => (
+                  {category.subCategories.map((subcat) => (
                     <button
                       key={subcat.name}
                       onClick={() => {
+                        setSelectedCategory(category.name);
+                        setActiveSubcategory(subcat.name);
                         scrollToIdWithOffset(
-                          getSubcategoryDomId(currentCategory.name, subcat.name),
+                          getSubcategoryDomId(category.name, subcat.name),
                           stickySubcategoryOffset + 12
                         );
                       }}
@@ -1366,8 +1228,8 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
                           : 'px-4 py-2 text-sm'
                       } ${
                         activeSubcategory === subcat.name
-                          ? 'bg-blue-500 text-white shadow-md'
-                          : 'bg-white text-gray-600 hover:bg-gray-50'
+                          ? 'bg-blue-500 text-white shadow-md' // Estilo desktop mantido
+                          : 'bg-white text-gray-600 hover:bg-gray-50' // Estilo desktop mantido
                       }`}
                     >
                       {subcat.name}
@@ -1376,10 +1238,11 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
                 </div>
               </div>
 
-              {currentCategory.subCategories.map((subcat) => (
+              {/* Itens da categoria (desktop) */}
+              {category.subCategories.map((subcat) => (
                 <div
                   key={subcat.name}
-                  id={getSubcategoryDomId(currentCategory.name, subcat.name)}
+                  id={getSubcategoryDomId(category.name, subcat.name)}
                   data-subcategory-name={subcat.name}
                   className="mt-8"
                 >
@@ -1390,7 +1253,7 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
                     className={`grid gap-4 ${
                       isCleanStyle
                         ? 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6'
-                        : 'grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'
+                        : 'grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4' // Classes de grid do desktop mantidas
                     }`}
                   >
                     {subcat.items.map((item) => (
@@ -1400,8 +1263,10 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
                 </div>
               ))}
             </div>
-          )
-        )}
+          ))}
+        </div>
+        // # FIM DA CORREÇÃO
+      )}
       </div>
       
       {/* Modal Sidebar Mobile */}
