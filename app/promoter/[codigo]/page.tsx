@@ -558,7 +558,7 @@ export default function PromoterPublicPage() {
             </motion.div>
           </div>
 
-          {/* Sidebar - Eventos e Convidados */}
+          {/* Sidebar - Eventos e Informação */}
           <div className="lg:col-span-1 space-y-6">
             {/* Eventos Disponíveis */}
             {eventos.length > 0 && (
@@ -622,7 +622,7 @@ export default function PromoterPublicPage() {
               </motion.div>
             )}
 
-            {/* Lista de Convidados */}
+            {/* Informativo sobre a lista */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -634,50 +634,26 @@ export default function PromoterPublicPage() {
                   <MdPeople className="text-white text-xl" />
                 </div>
                 <h3 className="text-xl font-bold text-gray-900">
-                  Convidados
+                  Lista VIP protegida
                 </h3>
               </div>
 
-              <div className="space-y-3 max-h-[600px] overflow-y-auto">
-                {convidados.length > 0 ? (
-                  convidados.slice(0, 20).map((convidado, index) => (
-                    <motion.div
-                      key={convidado.id}
-                      initial={{ opacity: 0, x: -10 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: index * 0.05 }}
-                      className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors"
-                    >
-                      <div className="bg-gradient-to-br from-purple-400 to-pink-400 p-2 rounded-full flex-shrink-0">
-                        <MdPerson className="text-white text-sm" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold text-gray-900 truncate">
-                          {convidado.nome}
-                        </p>
-                        {convidado.evento_nome && (
-                          <p className="text-xs text-gray-500 truncate">
-                            {convidado.evento_nome}
-                          </p>
-                        )}
-                      </div>
-                      <MdCheckCircle className="text-green-500 flex-shrink-0" />
-                    </motion.div>
-                  ))
-                ) : (
-                  <div className="text-center py-8">
-                    <MdPeople className="text-gray-300 text-5xl mx-auto mb-3" />
-                    <p className="text-gray-500 text-sm">
-                      Seja o primeiro a entrar na lista!
-                    </p>
-                  </div>
-                )}
+              <p className="text-gray-600 leading-relaxed">
+                Para privacidade e segurança, a lista completa de convidados é acessível
+                somente pelo promoter em seu painel exclusivo. Entre em contato com{" "}
+                <span className="font-semibold text-purple-700">{promoter.apelido || promoter.nome}</span> para saber mais
+                sobre sua entrada ou confirme sua presença pelo formulário ao lado.
+              </p>
 
-                {convidados.length > 20 && (
-                  <p className="text-center text-xs text-gray-500 pt-3">
-                    +{convidados.length - 20} convidados
-                  </p>
-                )}
+              <div className="mt-6 p-4 bg-purple-50 border border-purple-200 rounded-2xl">
+                <h4 className="text-sm font-semibold text-purple-900 mb-2">Quer gerenciar sua lista?</h4>
+                <p className="text-sm text-purple-800">
+                  Promoters podem acessar o painel completo em{" "}
+                  <span className="font-mono text-xs bg-white px-2 py-1 rounded border border-purple-200">
+                    /promoter/{params.codigo}/dashboard
+                  </span>{" "}
+                  utilizando suas credenciais.
+                </p>
               </div>
             </motion.div>
           </div>

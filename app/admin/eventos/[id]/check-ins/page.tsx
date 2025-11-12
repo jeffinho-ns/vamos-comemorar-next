@@ -1134,7 +1134,7 @@ export default function EventoCheckInsPage() {
                 <section className="bg-white/10 backdrop-blur-sm rounded-lg shadow-sm p-6 border border-white/20">
                   <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
                     <MdRestaurant size={24} className="text-green-400" />
-                    Lista de Convidados - Reservas de Restaurante ({guestListsRestaurante.length})
+                    Lista de Convidados - Reservas Aniversário ({guestListsRestaurante.length})
                   </h2>
                   
                   <div className="space-y-3">
@@ -1244,15 +1244,18 @@ export default function EventoCheckInsPage() {
                                     Reserva Normal
                                   </span>
                                 </div>
-                                <div className="text-sm text-gray-300 mt-1">
-                                  {gl.reservation_date ? new Date(gl.reservation_date + 'T12:00:00').toLocaleDateString('pt-BR') : 'Data não informada'} 
-                                  {gl.event_type ? ` • ${gl.event_type}` : ''} • {gl.reservation_time}
-                                </div>
-
-                                <div className="text-xs text-gray-400 mt-1">
-                                  Mesa reservada: {gl.table_number
-                                    ? `Mesa ${gl.table_number}`
-                                    : gl.area_name || '—'}
+                                <div className="mt-1 flex flex-wrap items-center justify-between gap-2">
+                                  <div className="text-sm text-gray-300">
+                                    {gl.reservation_date ? new Date(gl.reservation_date + 'T12:00:00').toLocaleDateString('pt-BR') : 'Data não informada'} 
+                                    {gl.event_type ? ` • ${gl.event_type}` : ''} • {gl.reservation_time}
+                                  </div>
+                                  <div
+                                    className="ml-auto rounded-full bg-white/10 px-3 py-1 text-sm sm:text-base font-semibold text-amber-200"
+                                  >
+                                    Mesa reservada: <span className="text-white">
+                                      {gl.table_number ? `Mesa ${gl.table_number}` : gl.area_name || '—'}
+                                    </span>
+                                  </div>
                                 </div>
                                 
                                 {/* Check-in do dono */}
