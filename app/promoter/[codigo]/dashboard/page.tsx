@@ -541,9 +541,11 @@ export default function PromoterDashboardPage() {
                         <option key={evento.evento_id} value={evento.evento_id}>
                           {evento.nome_do_evento} •{" "}
                           {new Date(
-                            evento.data_evento.includes("T")
-                              ? evento.data_evento
-                              : `${evento.data_evento}T12:00:00`,
+                          (evento.data_evento || "").includes("T")
+                              ? evento.data_evento || ""
+                              : evento.data_evento
+                              ? `${evento.data_evento}T12:00:00`
+                              : "",
                           ).toLocaleDateString("pt-BR")}
                         </option>
                       ))}
@@ -679,9 +681,11 @@ export default function PromoterDashboardPage() {
                       <option key={evento.evento_id} value={String(evento.evento_id)}>
                         {evento.nome_do_evento} •{" "}
                         {new Date(
-                          evento.data_evento.includes("T")
-                            ? evento.data_evento
-                            : `${evento.data_evento}T12:00:00`,
+                          (evento.data_evento || "").includes("T")
+                            ? evento.data_evento || ""
+                            : evento.data_evento
+                            ? `${evento.data_evento}T12:00:00`
+                            : "",
                         ).toLocaleDateString("pt-BR")}
                       </option>
                     ))}
@@ -753,9 +757,11 @@ export default function PromoterDashboardPage() {
                     </p>
                     <p className="text-xs text-white/60 mt-1">
                       {new Date(
-                        evento.data_evento.includes("T")
-                          ? evento.data_evento
-                          : `${evento.data_evento}T12:00:00`,
+                          (evento.data_evento || "").includes("T")
+                            ? evento.data_evento || ""
+                            : evento.data_evento
+                            ? `${evento.data_evento}T12:00:00`
+                            : "",
                       ).toLocaleDateString("pt-BR")}{" "}
                       às {evento.hora_do_evento}
                     </p>

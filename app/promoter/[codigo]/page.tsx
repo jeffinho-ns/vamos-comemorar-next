@@ -141,9 +141,10 @@ export default function PromoterPublicPage() {
           
           try {
             // Verificar se o evento já passou
-            const eventDate = evento.data_evento.includes('T') || evento.data_evento.includes(' ')
-              ? evento.data_evento
-              : evento.data_evento + 'T23:59:59';
+          const dataEvento = evento.data_evento || '';
+          const eventDate = dataEvento.includes('T') || dataEvento.includes(' ')
+              ? dataEvento
+              : dataEvento ? dataEvento + 'T23:59:59' : '';
             
             const eventDateObj = new Date(eventDate);
             const now = new Date();
@@ -182,9 +183,10 @@ export default function PromoterPublicPage() {
           
           try {
             // Verificar se o evento já passou
-            const eventDate = convidado.evento_data.includes('T') || convidado.evento_data.includes(' ')
-              ? convidado.evento_data
-              : convidado.evento_data + 'T23:59:59';
+            const dataConvidado = convidado.evento_data || '';
+            const eventDate = dataConvidado.includes('T') || dataConvidado.includes(' ')
+              ? dataConvidado
+              : dataConvidado ? dataConvidado + 'T23:59:59' : '';
             
             const eventDateObj = new Date(eventDate);
             const now = new Date();
@@ -593,9 +595,10 @@ export default function PromoterPublicPage() {
                         <p>📅 {(() => {
                           try {
                             // Adiciona T12:00:00 para evitar problemas de timezone
-                            const dateWithTime = evento.data_evento.includes('T') || evento.data_evento.includes(' ')
-                              ? evento.data_evento
-                              : evento.data_evento + 'T12:00:00';
+                            const dataEvento = evento.data_evento || '';
+                            const dateWithTime = dataEvento.includes('T') || dataEvento.includes(' ')
+                              ? dataEvento
+                              : dataEvento ? dataEvento + 'T12:00:00' : '';
                             return new Date(dateWithTime).toLocaleDateString('pt-BR');
                           } catch (error) {
                             console.error('Erro ao formatar data:', evento.data_evento, error);
