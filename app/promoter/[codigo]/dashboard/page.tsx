@@ -307,7 +307,7 @@ export default function PromoterDashboardPage() {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               nome,
-              whatsapp: entry.whatsapp || undefined,
+              whatsapp: "",
               evento_id: bulkEventoId || null,
             }),
           },
