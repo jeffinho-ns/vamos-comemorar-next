@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { 
   MdRestaurant, 
@@ -45,6 +45,18 @@ interface RestaurantTable {
   description?: string;
   is_active?: number;
   is_reserved?: boolean;
+}
+
+interface OperationalDetail {
+  id: number;
+  establishment_id: number | null;
+  establishment_name?: string | null;
+  event_date: string;
+  artistic_attraction?: string | null;
+  show_schedule?: string | null;
+  ticket_prices?: string | null;
+  promotions?: string | null;
+  visual_reference_url?: string | null;
 }
 
 // 🎂 FUNÇÃO PARA DETECTAR E CRIAR LISTA DE CONVIDADOS PARA ANIVERSÁRIOS E RESERVAS GRANDES
@@ -139,6 +151,10 @@ export default function ReservationForm() {
   const [showAgeModal, setShowAgeModal] = useState(false);
   const [operationalDetails, setOperationalDetails] = useState<any>(null);
   const [loadingDetails, setLoadingDetails] = useState(false);
+  const [upcomingEvents, setUpcomingEvents] = useState<Record<string, OperationalDetail[]>>({});
+  const [upcomingEventsLoading, setUpcomingEventsLoading] = useState<boolean>(true);
+  const [upcomingEventsError, setUpcomingEventsError] = useState<string | null>(null);
+  const [availableTimeSlots, setAvailableTimeSlots] = useState<string[]>([]);
 
   // Carregar estabelecimentos da API
   useEffect(() => {
@@ -483,9 +499,52 @@ export default function ReservationForm() {
     fetchOperationalDetails();
   }, [reservationData.reservation_date]);
 
+  useEffect(() => {
+    const loadUpcomingEvents = async () => {
+      setUpcomingEventsLoading(true);
+      setUpcomingEventsError(null);
+      try {
+        const response = await fetch('/api/operational-details/upcoming?days=30');
+        if (!response.ok) {
+          throw new Error(`Erro ao buscar eventos: ${response.status}`);
+        }
+        const result = await response.json();
+        if (result?.success && result?.data) {
+          const normalized: Record<string, OperationalDetail[]> = {};
+          Object.entries(result.data).forEach(([key, list]) => {
+            if (Array.isArray(list)) {
+              normalized[key] = [...list].sort((a, b) =>
+                (a.event_date || '').localeCompare(b.event_date || '')
+              );
+            }
+          });
+          setUpcomingEvents(normalized);
+        } else {
+          setUpcomingEvents({});
+          setUpcomingEventsError('Não foi possível carregar os próximos eventos.');
+        }
+      } catch (error) {
+        console.error('Erro ao carregar próximos eventos:', error);
+        setUpcomingEvents({});
+        setUpcomingEventsError('Não foi possível carregar os próximos eventos.');
+      } finally {
+        setUpcomingEventsLoading(false);
+      }
+    };
+
+    loadUpcomingEvents();
+  }, []);
+
   const handleEstablishmentSelect = (establishment: Establishment) => {
     setSelectedEstablishment(establishment);
     loadAreas(establishment.id);
+    setSelectedSubareaKey('');
+    setReservationData((prev) => ({
+      ...prev,
+      area_id: '',
+      reservation_time: '',
+      table_number: '',
+    }));
     setStep('form');
   };
 
@@ -519,6 +578,14 @@ export default function ReservationForm() {
 
     if (!reservationData.reservation_time) {
       newErrors.reservation_time = 'Horário é obrigatório';
+    }
+
+    if (
+      reservationData.reservation_time &&
+      availableTimeSlots.length > 0 &&
+      !availableTimeSlots.includes(reservationData.reservation_time)
+    ) {
+      newErrors.reservation_time = 'Escolha um horário disponível na lista.';
     }
 
     // Regra de horário de funcionamento do Highline
@@ -684,6 +751,134 @@ const handleSubmit = async (e: React.FormEvent) => {
     return d.toISOString().split('T')[0];
   };
 
+  const createSlotsFromWindow = (start: string, end: string) => {
+    const slots: string[] = [];
+    if (!start || !end) return slots;
+
+    const [startHour, startMinute] = start.split(':').map(Number);
+    const [endHour, endMinute] = end.split(':').map(Number);
+
+    if (isNaN(startHour) || isNaN(endHour)) return slots;
+
+    const startTotal = startHour * 60 + (isNaN(startMinute) ? 0 : startMinute);
+    const endTotal = endHour * 60 + (isNaN(endMinute) ? 0 : endMinute);
+
+    for (let current = startTotal; current <= endTotal; current += 30) {
+      const hour = Math.floor(current / 60);
+      const minute = current % 60;
+      slots.push(`${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`);
+    }
+
+    return slots;
+  };
+
+  const getDefaultTimeWindows = (dateStr: string) => {
+    if (!dateStr) return [] as Array<{ start: string; end: string; label?: string }>;
+    const date = new Date(`${dateStr}T00:00:00`);
+    const weekday = date.getDay();
+
+    if (weekday === 6) {
+      return [{ start: '14:00', end: '23:00', label: 'Sábado - Horário estendido' }];
+    }
+
+    if (weekday === 5) {
+      return [{ start: '18:00', end: '23:30', label: 'Sexta-feira - Noite' }];
+    }
+
+    return [{ start: '18:00', end: '22:30', label: 'Horário padrão' }];
+  };
+
+  const computeAvailableTimeSlots = () => {
+    if (!reservationData.reservation_date) return [] as string[];
+
+    if (isHighline) {
+      const windows = getHighlineTimeWindows(reservationData.reservation_date, selectedSubareaKey);
+      if (!selectedSubareaKey && windows.length > 1) {
+        return [];
+      }
+      return windows.flatMap((window) => createSlotsFromWindow(window.start, window.end));
+    }
+
+    const windows = getDefaultTimeWindows(reservationData.reservation_date);
+    return windows.flatMap((window) => createSlotsFromWindow(window.start, window.end));
+  };
+
+  const formatEventDate = (dateStr?: string | null) => {
+    if (!dateStr) return '';
+    const date = new Date(`${dateStr}T12:00:00`);
+    if (Number.isNaN(date.getTime())) return '';
+    return date.toLocaleDateString('pt-BR', {
+      weekday: 'short',
+      day: '2-digit',
+      month: 'short',
+    }).replace('.', '');
+  };
+
+  useEffect(() => {
+    if (!reservationData.reservation_date) {
+      setAvailableTimeSlots([]);
+      return;
+    }
+
+    if (!reservationData.area_id && !(isHighline && selectedSubareaKey)) {
+      setAvailableTimeSlots([]);
+      return;
+    }
+
+    const slots = computeAvailableTimeSlots();
+    setAvailableTimeSlots(slots);
+
+    if (
+      reservationData.reservation_time &&
+      slots.length > 0 &&
+      !slots.includes(reservationData.reservation_time)
+    ) {
+      setReservationData((prev) => ({
+        ...prev,
+        reservation_time: '',
+      }));
+    }
+  }, [
+    reservationData.reservation_date,
+    reservationData.area_id,
+    selectedSubareaKey,
+    isHighline,
+    selectedEstablishment,
+  ]);
+
+  const establishmentsMap = useMemo(() => {
+    const map = new Map<string, Establishment>();
+    establishments.forEach((est) => {
+      map.set(String(est.id), est);
+    });
+    return map;
+  }, [establishments]);
+
+  const upcomingEventsByEstablishment = useMemo(() => {
+    return Object.entries(upcomingEvents)
+      .map(([key, events]) => {
+        const establishment = establishmentsMap.get(key);
+        if (!establishment || !events || events.length === 0) {
+          return null;
+        }
+        return {
+          establishment,
+          events,
+        };
+      })
+      .filter((item): item is { establishment: Establishment; events: OperationalDetail[] } => Boolean(item))
+      .sort((a, b) =>
+        (a.events[0]?.event_date || '').localeCompare(b.events[0]?.event_date || '')
+      );
+  }, [upcomingEvents, establishmentsMap]);
+
+  const selectedEstablishmentEvents = useMemo(() => {
+    if (!selectedEstablishment) return [] as OperationalDetail[];
+    const key = String(selectedEstablishment.id);
+    const events = upcomingEvents[key] || [];
+    return events.slice(0, 4);
+  }, [selectedEstablishment, upcomingEvents]);
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
       <div className="max-w-4xl mx-auto p-3 sm:p-4 md:p-6">
@@ -783,6 +978,105 @@ const handleSubmit = async (e: React.FormEvent) => {
                 ))}
               </div>
             )}
+            
+            {!establishmentsLoading && (
+              <div className="mt-8">
+                <h3 className="text-lg sm:text-xl font-semibold text-gray-800 text-center mb-4">
+                  Próximos eventos em destaque
+                </h3>
+
+                {upcomingEventsLoading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <div className="text-center">
+                      <div className="w-10 h-10 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
+                      <p className="text-gray-500 text-sm">Carregando eventos...</p>
+                    </div>
+                  </div>
+                ) : upcomingEventsError ? (
+                  <p className="text-center text-sm text-red-500">{upcomingEventsError}</p>
+                ) : upcomingEventsByEstablishment.length === 0 ? (
+                  <p className="text-center text-sm text-gray-500">
+                    Nenhum evento futuro disponível no momento. Fique de olho na nossa agenda!
+                  </p>
+                ) : (
+                  <div className="space-y-6">
+                    {upcomingEventsByEstablishment.map(({ establishment, events }) => (
+                      <div
+                        key={establishment.id}
+                        className="rounded-2xl bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 border border-gray-700/40 shadow-xl p-4 sm:p-6"
+                      >
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
+                          <div>
+                            <p className="text-xs uppercase tracking-widest text-orange-300/80">Próximos eventos</p>
+                            <h4 className="text-xl font-semibold text-white">{establishment.name}</h4>
+                            <p className="text-gray-300 text-sm">{establishment.address}</p>
+                          </div>
+                          <button
+                            onClick={() => handleEstablishmentSelect(establishment)}
+                            className="inline-flex items-center justify-center px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white font-semibold rounded-lg transition-colors shadow-md"
+                          >
+                            Reservar nesta casa
+                          </button>
+                        </div>
+
+                        <div className="overflow-x-auto pb-2">
+                          <div className="flex gap-4 min-w-full">
+                            {events.slice(0, 4).map((event, index) => (
+                              <div
+                                key={`${event.id ?? event.event_date}-${index}`}
+                                className="min-w-[220px] rounded-2xl border border-gray-700/60 bg-white/5 backdrop-blur-sm p-4 text-white shadow-lg hover:border-orange-400/70 transition-colors"
+                              >
+                                <div className="h-32 rounded-xl overflow-hidden bg-gradient-to-br from-gray-800 to-gray-700 mb-3 relative">
+                                  {event.visual_reference_url ? (
+                                    <img
+                                      src={event.visual_reference_url}
+                                      alt={event.artistic_attraction || 'Evento'}
+                                      className="w-full h-full object-cover"
+                                      onError={(e) => {
+                                        (e.target as HTMLImageElement).style.display = 'none';
+                                      }}
+                                    />
+                                  ) : (
+                                    <div className="w-full h-full flex items-center justify-center text-orange-200 text-sm px-3 text-center">
+                                      Em breve imagem deste evento
+                                    </div>
+                                  )}
+                                  <div className="absolute top-2 left-2 bg-black/60 px-2 py-1 rounded-full text-xs font-semibold">
+                                    {formatEventDate(event.event_date)}
+                                  </div>
+                                </div>
+                                <div className="space-y-2 text-sm">
+                                  {event.artistic_attraction && (
+                                    <p className="font-semibold text-white leading-snug">
+                                      {event.artistic_attraction}
+                                    </p>
+                                  )}
+                                  {event.show_schedule && (
+                                    <p className="text-xs text-gray-300 whitespace-pre-line">
+                                      {event.show_schedule}
+                                    </p>
+                                  )}
+                                  {event.ticket_prices && (
+                                    <p className="text-xs text-orange-200 whitespace-pre-line">
+                                      {event.ticket_prices}
+                                    </p>
+                                  )}
+                                  {event.promotions && (
+                                    <p className="text-xs text-green-200 whitespace-pre-line">
+                                      {event.promotions}
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </motion.div>
         )}
 
@@ -809,6 +1103,50 @@ const handleSubmit = async (e: React.FormEvent) => {
                 </p>
               </div>
             </div>
+
+            {selectedEstablishmentEvents.length > 0 && (
+              <div className="mb-6">
+                <div className="flex items-center justify-between gap-3 mb-3">
+                  <h3 className="text-lg font-semibold text-gray-800">Eventos próximos nesta casa</h3>
+                  <span className="text-xs uppercase tracking-widest text-orange-500">
+                    Atualizamos diariamente
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {selectedEstablishmentEvents.map((event, index) => (
+                    <div
+                      key={`${event.id ?? event.event_date}-selected-${index}`}
+                      className="rounded-xl border border-gray-200 bg-gradient-to-br from-orange-50 via-white to-white p-4 shadow-sm"
+                    >
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2 text-sm font-semibold text-orange-600">
+                          <MdEvent />
+                          <span>{formatEventDate(event.event_date)}</span>
+                        </div>
+                        {event.show_schedule && (
+                          <span className="text-xs text-gray-500">{event.show_schedule}</span>
+                        )}
+                      </div>
+                      {event.artistic_attraction && (
+                        <p className="text-sm font-semibold text-gray-900 leading-snug">
+                          {event.artistic_attraction}
+                        </p>
+                      )}
+                      {event.ticket_prices && (
+                        <p className="text-xs text-gray-600 mt-2 whitespace-pre-line">
+                          {event.ticket_prices}
+                        </p>
+                      )}
+                      {event.promotions && (
+                        <p className="text-xs text-green-600 mt-2 whitespace-pre-line">
+                          {event.promotions}
+                        </p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
               {/* Personal Information */}
@@ -937,6 +1275,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                       onChange={(e) => {
                         handleInputChange('reservation_date', e.target.value);
                         handleInputChange('table_number', ''); // Adicione esta linha
+                        handleInputChange('reservation_time', '');
                       }}
                       className={`w-full px-3 sm:px-4 py-2 sm:py-3 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent text-sm sm:text-base ${
                         errors.reservation_date ? 'border-red-500' : 'border-gray-300'
@@ -949,69 +1288,118 @@ const handleSubmit = async (e: React.FormEvent) => {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Área Preferida *
+                  </label>
+                  <select
+                    value={(isHighline || isSeuJustino) ? selectedSubareaKey : reservationData.area_id}
+                    onChange={(e) => {
+                      if (isHighline || isSeuJustino) {
+                        const key = e.target.value;
+                        setSelectedSubareaKey(key);
+                        const sub = isHighline 
+                          ? highlineSubareas.find(s => s.key === key)
+                          : seuJustinoSubareas.find(s => s.key === key);
+                        handleInputChange('area_id', sub ? String(sub.area_id) : '');
+                        handleInputChange('table_number', '');
+                        handleInputChange('reservation_time', '');
+                      } else {
+                        handleInputChange('area_id', e.target.value);
+                        handleInputChange('table_number', '');
+                        handleInputChange('reservation_time', '');
+                      }
+                    }}
+                    className={`w-full px-3 sm:px-4 py-2 sm:py-3 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent text-sm sm:text-base ${
+                      errors.area_id ? 'border-red-500' : 'border-gray-300'
+                    }`}
+                  >
+                    <option value="">Selecione uma área</option>
+                    {isHighline
+                      ? highlineSubareas.map((s) => (
+                          <option key={s.key} value={s.key}>{s.label}</option>
+                        ))
+                      : isSeuJustino
+                      ? seuJustinoSubareas.map((s) => (
+                          <option key={s.key} value={s.key}>{s.label}</option>
+                        ))
+                      : areas.map((area) => (
+                          <option key={area.id} value={area.id}>{area.name}</option>
+                        ))}
+                  </select>
+                  {errors.area_id && (
+                    <p className="text-red-500 text-sm mt-1">{errors.area_id}</p>
+                  )}
+                  {(isHighline || isSeuJustino) && selectedSubareaKey && tables.length > 0 && (
+                    <div className="mt-3 grid grid-cols-2 md:grid-cols-3 gap-2 text-sm">
+                      {tables.map(t => (
+                        <div key={t.id} className="px-2 py-1 rounded border bg-blue-50 text-blue-700 border-blue-200">
+                          Mesa {t.table_number} • {t.capacity}p
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
                     Horário *
                   </label>
-                {(() => {
-                  // Calcula min/max quando há exatamente uma janela aplicável
-                  let minAttr: string | undefined;
-                  let maxAttr: string | undefined;
-                  let helperWindows: Array<{ start: string; end: string; label: string }> = [];
-                  if (isHighline && reservationData.reservation_date) {
-                    helperWindows = getHighlineTimeWindows(reservationData.reservation_date, selectedSubareaKey);
-                    if (helperWindows.length === 1) {
-                      minAttr = helperWindows[0].start;
-                      maxAttr = helperWindows[0].end;
-                    }
-                  }
-                  return (
-                    <input
-                      type="time"
-                      min={minAttr}
-                      max={maxAttr}
-                      value={reservationData.reservation_time}
-                      onChange={(e) => handleInputChange('reservation_time', e.target.value)}
-                      className={`w-full px-3 sm:px-4 py-2 sm:py-3 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent text-sm sm:text-base ${
-                        errors.reservation_time ? 'border-red-500' : 'border-gray-300'
-                      }`}
-                    />
-                  );
-                })()}
+                  <select
+                    value={reservationData.reservation_time}
+                    onChange={(e) => handleInputChange('reservation_time', e.target.value)}
+                    disabled={availableTimeSlots.length === 0}
+                    className={`w-full px-3 sm:px-4 py-2 sm:py-3 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent text-sm sm:text-base ${
+                      errors.reservation_time ? 'border-red-500' : 'border-gray-300'
+                    } ${availableTimeSlots.length === 0 ? 'bg-gray-100 text-gray-500' : ''}`}
+                  >
+                    <option value="">
+                      {availableTimeSlots.length === 0
+                        ? 'Selecione a área e a data para ver os horários'
+                        : 'Selecione um horário disponível'}
+                    </option>
+                    {availableTimeSlots.map((slot) => (
+                      <option key={slot} value={slot}>
+                        {slot}
+                      </option>
+                    ))}
+                  </select>
                   {errors.reservation_time && (
                     <p className="text-red-500 text-sm mt-1">{errors.reservation_time}</p>
                   )}
-                {isHighline && reservationData.reservation_date && (
-                  <div className="mt-2 text-xs text-gray-600">
-                    {(() => {
-                      const windows = getHighlineTimeWindows(reservationData.reservation_date, selectedSubareaKey);
-                      if (windows.length === 0) {
-                        return (
-                          <div className="p-4 bg-gradient-to-r from-red-100 to-pink-100 border-2 border-red-400 rounded-lg shadow-lg">
-                            <div className="flex items-center gap-2 mb-2">
-                              <MdAccessTime className="text-red-600 text-lg" />
-                              <span className="font-bold text-red-900">❌ RESERVAS FECHADAS</span>
+                  {isHighline && reservationData.reservation_date && (
+                    <div className="mt-2 text-xs text-gray-600">
+                      {(() => {
+                        const windows = getHighlineTimeWindows(reservationData.reservation_date, selectedSubareaKey);
+                        if (windows.length === 0) {
+                          return (
+                            <div className="p-4 bg-gradient-to-r from-red-100 to-pink-100 border-2 border-red-400 rounded-lg shadow-lg">
+                              <div className="flex items-center gap-2 mb-2">
+                                <MdAccessTime className="text-red-600 text-lg" />
+                                <span className="font-bold text-red-900">❌ RESERVAS FECHADAS</span>
+                              </div>
+                              <p className="text-sm text-red-800 font-medium">
+                                Reservas fechadas para este dia no Highline. Disponível apenas Sexta e Sábado.
+                              </p>
                             </div>
-                            <p className="text-sm text-red-800 font-medium">
-                              Reservas fechadas para este dia no Highline. Disponível apenas Sexta e Sábado.
-                            </p>
+                          );
+                        }
+                        return (
+                          <div className="p-4 bg-gradient-to-r from-amber-100 to-yellow-100 border-2 border-amber-400 rounded-lg shadow-lg">
+                            <div className="flex items-center gap-2 mb-2">
+                              <MdAccessTime className="text-amber-600 text-lg" />
+                              <span className="font-bold text-amber-900">🕐 HORÁRIOS DISPONÍVEIS:</span>
+                            </div>
+                            <ul className="list-disc pl-5 text-amber-800 font-medium">
+                              {windows.map((w, i) => (
+                                <li key={i} className="text-sm">{w.label}</li>
+                              ))}
+                            </ul>
                           </div>
                         );
-                      }
-                      return (
-                        <div className="p-4 bg-gradient-to-r from-amber-100 to-yellow-100 border-2 border-amber-400 rounded-lg shadow-lg">
-                          <div className="flex items-center gap-2 mb-2">
-                            <MdAccessTime className="text-amber-600 text-lg" />
-                            <span className="font-bold text-amber-900">🕐 HORÁRIOS DISPONÍVEIS:</span>
-                          </div>
-                          <ul className="list-disc pl-5 text-amber-800 font-medium">
-                            {windows.map((w, i) => (
-                              <li key={i} className="text-sm">{w.label}</li>
-                            ))}
-                          </ul>
-                        </div>
-                      );
-                    })()}
-                  </div>
-                )}
+                      })()}
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -1112,60 +1500,6 @@ const handleSubmit = async (e: React.FormEvent) => {
                   return null;
                 })()
               )}
-
-              {/* Area Selection */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Área Preferida *
-                </label>
-                <select
-                  value={(isHighline || isSeuJustino) ? selectedSubareaKey : reservationData.area_id}
-                  onChange={(e) => {
-                    if (isHighline || isSeuJustino) {
-                      const key = e.target.value;
-                      setSelectedSubareaKey(key);
-                      const sub = isHighline 
-                        ? highlineSubareas.find(s => s.key === key)
-                        : seuJustinoSubareas.find(s => s.key === key);
-                      handleInputChange('area_id', sub ? String(sub.area_id) : '');
-                      // limpar mesa ao trocar subárea
-                      handleInputChange('table_number', '');
-                    } else {
-                      handleInputChange('area_id', e.target.value);
-                      handleInputChange('table_number', '');
-                    }
-                  }}
-                  className={`w-full px-3 sm:px-4 py-2 sm:py-3 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent text-sm sm:text-base ${
-                    errors.area_id ? 'border-red-500' : 'border-gray-300'
-                  }`}
-                >
-                  <option value="">Selecione uma área</option>
-                  {isHighline
-                    ? highlineSubareas.map((s) => (
-                        <option key={s.key} value={s.key}>{s.label}</option>
-                      ))
-                    : isSeuJustino
-                    ? seuJustinoSubareas.map((s) => (
-                        <option key={s.key} value={s.key}>{s.label}</option>
-                      ))
-                    : areas.map((area) => (
-                        <option key={area.id} value={area.id}>{area.name}</option>
-                      ))}
-                </select>
-                {errors.area_id && (
-                  <p className="text-red-500 text-sm mt-1">{errors.area_id}</p>
-                )}
-                {/* Listagem de mesas da subárea (Highline e Seu Justino) */}
-                {(isHighline || isSeuJustino) && selectedSubareaKey && tables.length > 0 && (
-                  <div className="mt-3 grid grid-cols-2 md:grid-cols-3 gap-2 text-sm">
-                    {tables.map(t => (
-                      <div key={t.id} className="px-2 py-1 rounded border bg-blue-50 text-blue-700 border-blue-200">
-                        Mesa {t.table_number} • {t.capacity}p
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
 
               {/* Removido: seleção de mesa pelo cliente */}
 
