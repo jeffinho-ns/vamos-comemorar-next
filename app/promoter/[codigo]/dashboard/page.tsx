@@ -567,7 +567,7 @@ export default function PromoterDashboardPage() {
                       onChange={(e) =>
                         setSingleGuest((prev) => ({ ...prev, evento: e.target.value }))
                       }
-                      className="mt-2 w-full rounded-2xl bg-white/10 border border-white/10 px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-purple-400"
+                      className="mt-2 w-full rounded-2xl bg-white border border-white/10 px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-purple-400"
                     >
                       <option value="">— Selecionar evento —</option>
                       {eventos.map((evento) => (
@@ -735,7 +735,7 @@ export default function PromoterDashboardPage() {
                   onChange={(e) => setBulkInput(e.target.value)}
                   rows={6}
                   placeholder="Cole nomes separados por linha, vírgula ou ponto e vírgula..."
-                  className="w-full rounded-2xl bg-white/10 border border-white/10 px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-purple-400"
+                  className="w-full rounded-2xl bg-white border border-white/10 px-4 py-3 text-slate-900 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-purple-400 resize-none"
                 />
                 <p className="text-xs text-white/50 mt-2">
                   {parsedBulkNames.length > 0

@@ -466,7 +466,7 @@ export default function PromoterPublicPage() {
                 {/* WhatsApp */}
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    WhatsApp *
+                    WhatsApp
                   </label>
                   <div className="relative">
                     <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
@@ -478,11 +478,10 @@ export default function PromoterPublicPage() {
                       onChange={(e) => setFormData({ ...formData, whatsapp: e.target.value })}
                       className="w-full pl-12 pr-4 py-4 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all text-gray-900"
                       placeholder="(11) 99999-9999"
-                      required
                     />
                   </div>
                   <p className="mt-1 text-xs text-gray-500">
-                    Usaremos apenas para confirmações importantes
+                    Deixe em branco se preferir que o contato seja feito apenas pelo seu promoter
                   </p>
                 </div>
 
@@ -650,13 +649,15 @@ export default function PromoterPublicPage() {
 
               <div className="mt-6 p-4 bg-purple-50 border border-purple-200 rounded-2xl">
                 <h4 className="text-sm font-semibold text-purple-900 mb-2">Quer gerenciar sua lista?</h4>
-                <p className="text-sm text-purple-800">
-                  Promoters podem acessar o painel completo em{" "}
-                  <span className="font-mono text-xs bg-white px-2 py-1 rounded border border-purple-200">
-                    /promoter/{params.codigo}/dashboard
-                  </span>{" "}
-                  utilizando suas credenciais.
+                <p className="text-sm text-purple-800 mb-3">
+                  Promoters podem acessar o painel completo utilizando suas credenciais.
                 </p>
+                <button
+                  onClick={() => window.location.href = `/promoter/${params.codigo}/dashboard`}
+                  className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-purple-600 text-white font-semibold hover:bg-purple-700 transition"
+                >
+                  Acessar painel do promoter
+                </button>
               </div>
             </motion.div>
           </div>
