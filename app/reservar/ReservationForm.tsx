@@ -16,6 +16,7 @@ import {
 } from 'react-icons/md';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { formatDateBR } from '@/lib/dateUtils';
+import Link from 'next/link';
 
 // Configuração da API
 const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL_LOCAL || 'https://vamos-comemorar-api.onrender.com';
@@ -57,6 +58,16 @@ interface OperationalDetail {
   ticket_prices?: string | null;
   promotions?: string | null;
   visual_reference_url?: string | null;
+}
+
+interface PromoterEvent {
+  id: number;
+  nome: string;
+  data: string | null;
+  hora: string | null;
+  imagem_url?: string | null;
+  local_nome?: string | null;
+  local_endereco?: string | null;
 }
 
 // 🎂 FUNÇÃO PARA DETECTAR E CRIAR LISTA DE CONVIDADOS PARA ANIVERSÁRIOS E RESERVAS GRANDES
@@ -155,6 +166,9 @@ export default function ReservationForm() {
   const [upcomingEventsLoading, setUpcomingEventsLoading] = useState<boolean>(true);
   const [upcomingEventsError, setUpcomingEventsError] = useState<string | null>(null);
   const [availableTimeSlots, setAvailableTimeSlots] = useState<string[]>([]);
+  const [promoterEvents, setPromoterEvents] = useState<PromoterEvent[]>([]);
+  const [promoterEventsLoading, setPromoterEventsLoading] = useState(false);
+  const [promoterEventsError, setPromoterEventsError] = useState<string | null>(null);
 
   // Carregar estabelecimentos da API
   useEffect(() => {
@@ -500,6 +514,53 @@ export default function ReservationForm() {
   }, [reservationData.reservation_date]);
 
   useEffect(() => {
+    if (!isHighline) {
+      setPromoterEvents([]);
+      setPromoterEventsError(null);
+      setPromoterEventsLoading(false);
+      return;
+    }
+
+    let isActive = true;
+    const controller = new AbortController();
+
+    const loadPromoterEvents = async () => {
+      setPromoterEventsLoading(true);
+      setPromoterEventsError(null);
+      try {
+        const response = await fetch(`${API_URL}/api/promoter/highlinepromo/eventos`, {
+          signal: controller.signal,
+        });
+        if (!response.ok) {
+          throw new Error('Não foi possível carregar os eventos do promoter.');
+        }
+        const payload = await response.json();
+        const events = Array.isArray(payload?.eventos) ? payload.eventos : [];
+        if (!isActive) return;
+        setPromoterEvents(events);
+      } catch (error) {
+        if (!isActive && controller.signal.aborted) return;
+        console.error('Erro ao carregar eventos do promoter highlinepromo:', error);
+        if (isActive) {
+          setPromoterEvents([]);
+          setPromoterEventsError('Não foi possível carregar os eventos disponíveis.');
+        }
+      } finally {
+        if (isActive) {
+          setPromoterEventsLoading(false);
+        }
+      }
+    };
+
+    loadPromoterEvents();
+
+    return () => {
+      isActive = false;
+      controller.abort();
+    };
+  }, [isHighline]);
+
+  useEffect(() => {
     const loadUpcomingEvents = async () => {
       setUpcomingEventsLoading(true);
       setUpcomingEventsError(null);
@@ -814,6 +875,41 @@ const handleSubmit = async (e: React.FormEvent) => {
     }).replace('.', '');
   };
 
+  const formatPromoterEventDate = (dateStr?: string | null, timeStr?: string | null) => {
+    if (!dateStr) return '';
+    const date = new Date(`${dateStr}T12:00:00`);
+    if (Number.isNaN(date.getTime())) return '';
+
+    const formattedDate = date
+      .toLocaleDateString('pt-BR', {
+        weekday: 'short',
+        day: '2-digit',
+        month: 'short',
+      })
+      .replace(/\.$/, '')
+      .replace('.', '');
+
+    if (!timeStr) return formattedDate;
+
+    const [hour, minute] = timeStr.split(':');
+    if (!hour) return formattedDate;
+    const timeDisplay = `${hour.padStart(2, '0')}:${(minute || '00').padStart(2, '0')}`;
+
+    return `${formattedDate} • ${timeDisplay}`;
+  };
+
+  const uniquePromoterEvents = useMemo(() => {
+    if (!promoterEvents || promoterEvents.length === 0) return [];
+    const map = new Map<number, PromoterEvent>();
+    promoterEvents.forEach((event) => {
+      if (!event || !event.id || !event.imagem_url) return;
+      if (!map.has(event.id)) {
+        map.set(event.id, event);
+      }
+    });
+    return Array.from(map.values());
+  }, [promoterEvents]);
+
   useEffect(() => {
     if (!reservationData.reservation_date) {
       setAvailableTimeSlots([]);
@@ -1103,6 +1199,110 @@ const handleSubmit = async (e: React.FormEvent) => {
                 </p>
               </div>
             </div>
+
+            {isHighline && (
+              <div className="mb-10 overflow-hidden rounded-[28px] border border-white/10 bg-gradient-to-tr from-slate-900 via-indigo-900 to-slate-900 p-1">
+                <div className="rounded-[26px] bg-slate-950/70 p-6 sm:p-8">
+                  <div className="flex flex-col xl:flex-row xl:items-end xl:justify-between gap-6">
+                    <div className="space-y-3 max-w-3xl">
+                      <p className="text-xs font-semibold uppercase tracking-[0.35em] text-orange-400">
+                        Highline Promo
+                      </p>
+                      <h3 className="text-2xl sm:text-3xl font-bold text-white leading-tight">
+                        Só quer entrar? Coloque seu nome na lista do promoter.
+                      </h3>
+                      <p className="text-sm sm:text-base text-white/70 leading-relaxed">
+                        Para quem prefere vivenciar a noite do High Line sem reservar mesa, a lista do promoter garante entrada em horários alternativos e com a experiência de balada completa.
+                      </p>
+                    </div>
+                    <Link
+                      href="/promoter/highlinepromo"
+                      className="inline-flex items-center justify-center rounded-full bg-orange-500 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-orange-500/30 transition hover:-translate-y-0.5 hover:bg-orange-600"
+                    >
+                      Ir para a lista do promoter
+                    </Link>
+                  </div>
+
+                  <div className="mt-6">
+                    <div className="flex items-center justify-between gap-3 mb-4">
+                      <h4 className="text-sm font-semibold uppercase tracking-[0.25em] text-white/60">
+                        Eventos em destaque
+                      </h4>
+                      <Link
+                        href="/promoter/highlinepromo"
+                        className="text-xs font-semibold text-orange-300 hover:text-orange-200 transition"
+                      >
+                        Ver programação completa →
+                      </Link>
+                    </div>
+
+                    {promoterEventsLoading && (
+                      <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white/70">
+                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-orange-400 border-t-transparent" />
+                        Carregando eventos do promoter...
+                      </div>
+                    )}
+
+                    {promoterEventsError && !promoterEventsLoading && (
+                      <div className="rounded-2xl border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-100">
+                        {promoterEventsError}
+                      </div>
+                    )}
+
+                    {!promoterEventsLoading && !promoterEventsError && uniquePromoterEvents.length === 0 && (
+                      <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-4 text-sm text-white/70">
+                        Nenhum evento com imagem disponível no momento. Volte em breve para conferir as novidades do High Line Promo.
+                      </div>
+                    )}
+
+                    {!promoterEventsLoading && uniquePromoterEvents.length > 0 && (
+                      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                        {uniquePromoterEvents.slice(0, 6).map((event) => (
+                          <div
+                            key={event.id}
+                            className="group relative overflow-hidden rounded-3xl border border-white/10 bg-slate-900/60 shadow-lg transition hover:-translate-y-1 hover:shadow-2xl"
+                          >
+                            {event.imagem_url && (
+                              <>
+                                <img
+                                  src={event.imagem_url}
+                                  alt={event.nome}
+                                  className="absolute inset-0 h-full w-full object-cover transition duration-700 group-hover:scale-105"
+                                />
+                                <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/70 to-slate-900/20" />
+                              </>
+                            )}
+                            <div className="relative z-10 flex h-full flex-col justify-between p-5">
+                              <div className="space-y-3">
+                                <span className="inline-flex items-center rounded-full bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-widest text-white/80 backdrop-blur">
+                                  {formatPromoterEventDate(event.data, event.hora)}
+                                </span>
+                                <h5 className="text-lg font-bold text-white leading-snug">
+                                  {event.nome}
+                                </h5>
+                                {event.local_nome && (
+                                  <p className="text-xs font-medium text-white/70">
+                                    {event.local_nome}
+                                  </p>
+                                )}
+                              </div>
+                              <div className="mt-5 flex">
+                                <Link
+                                  href="/promoter/highlinepromo"
+                                  className="inline-flex items-center justify-center rounded-full bg-white/15 px-4 py-2 text-xs font-semibold text-white backdrop-blur transition hover:bg-white/25"
+                                >
+                                  Entrar na lista
+                                </Link>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
 
             {selectedEstablishmentEvents.length > 0 && (
               <div className="mb-6">
