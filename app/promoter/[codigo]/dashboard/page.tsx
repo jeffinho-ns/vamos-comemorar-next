@@ -104,12 +104,39 @@ export default function PromoterDashboardPage() {
       ? `${window.location.origin}/promoter/${params.codigo}`
       : "";
 
-  const parsedBulkNames = useMemo(() => {
+  const parsedBulkEntries = useMemo(() => {
     if (!bulkInput.trim()) return [];
+
     return bulkInput
       .split(/[\n,;]+/)
-      .map((name) => name.trim())
-      .filter((name) => name.length > 0);
+      .map((rawLine) => {
+        const line = rawLine.trim();
+        if (!line) return null;
+
+        const match = line.match(/^(.*?)[\s\-|,;]+(\+?[0-9()\s-]{8,})$/);
+        if (match) {
+          const nome = match[1].trim();
+          const rawWhatsapp = match[2].trim();
+          if (!nome) return null;
+          const digits = rawWhatsapp.replace(/\D/g, "");
+          const whatsapp = digits.length >= 8 ? digits : "";
+          return {
+            nome,
+            whatsapp,
+            rawWhatsapp,
+          };
+        }
+
+        return {
+          nome: line,
+          whatsapp: "",
+          rawWhatsapp: "",
+        };
+      })
+      .filter(
+        (entry): entry is { nome: string; whatsapp: string; rawWhatsapp: string } =>
+          Boolean(entry && entry.nome),
+      );
   }, [bulkInput]);
 
   const loadPromoterData = useCallback(async () => {
@@ -256,14 +283,22 @@ export default function PromoterDashboardPage() {
   };
 
   const handleBulkImport = async () => {
-    if (parsedBulkNames.length === 0) return;
+    if (parsedBulkEntries.length === 0) return;
     setBulkLoading(true);
     setBulkError(null);
     const errors: string[] = [];
     let added = 0;
     let skipped = 0;
 
-    for (const name of parsedBulkNames) {
+    for (const entry of parsedBulkEntries) {
+      const nome = entry.nome;
+
+      if (!nome.trim()) {
+        skipped += 1;
+        errors.push("Linha ignorada: nome não informado.");
+        continue;
+      }
+
       try {
         const response = await fetch(
           `${API_URL}/api/promoter/${params.codigo}/convidado`,
@@ -271,8 +306,8 @@ export default function PromoterDashboardPage() {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-              nome: name,
-              whatsapp: "",
+              nome,
+              whatsapp: entry.whatsapp || undefined,
               evento_id: bulkEventoId || null,
             }),
           },
@@ -283,11 +318,11 @@ export default function PromoterDashboardPage() {
         } else {
           skipped += 1;
           const data = await response.json().catch(() => null);
-          errors.push(data?.error || `Falha ao adicionar ${name}.`);
+          errors.push(data?.error || `Falha ao adicionar ${nome}.`);
         }
       } catch (err) {
         skipped += 1;
-        errors.push(`Erro inesperado ao adicionar ${name}.`);
+        errors.push(`Erro inesperado ao adicionar ${nome}.`);
       }
     }
 
@@ -621,7 +656,7 @@ export default function PromoterDashboardPage() {
                   </button>
                   <button
                     onClick={handleBulkImport}
-                    disabled={parsedBulkNames.length === 0 || bulkLoading}
+                    disabled={parsedBulkEntries.length === 0 || bulkLoading}
                     className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-purple-500 hover:bg-purple-600 transition text-sm font-semibold disabled:opacity-60"
                   >
                     <MdCloudUpload />
@@ -738,8 +773,8 @@ export default function PromoterDashboardPage() {
                   className="w-full rounded-2xl bg-white border border-white/10 px-4 py-3 text-slate-900 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-purple-400 resize-none"
                 />
                 <p className="text-xs text-white/50 mt-2">
-                  {parsedBulkNames.length > 0
-                    ? `${parsedBulkNames.length} convidado(s) serão importados.`
+                  {parsedBulkEntries.length > 0
+                    ? `${parsedBulkEntries.length} convidado(s) serão importados.`
                     : "Nenhum nome detectado ainda."}
                 </p>
                 {bulkError && (
