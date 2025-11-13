@@ -79,6 +79,7 @@ export default function Login() {
             router.push('/gerente');
             break;
           case 'promoter':
+          case 'promoter-list':
             if (data.promoterCodigo) {
               router.push(`/promoter/${data.promoterCodigo}/dashboard`);
             } else {

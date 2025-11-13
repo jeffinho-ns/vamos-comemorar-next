@@ -44,7 +44,8 @@ export function useUserPermissions() {
         
         // Determinar permissões baseadas no role
         const isAdmin = role === 'admin';
-        const isPromoter = role === 'promoter';
+        const isPromoter = role === 'promoter' || role === 'promoter-list';
+        const isPromoterList = role === 'promoter-list';
         const isClient = role === 'cliente';
         
         // Buscar informações do bar associado ao promoter
@@ -109,8 +110,8 @@ export function useUserPermissions() {
         }
 
         // Definir permissões de acesso
-        const canAccessAdmin = isAdmin || isPromoter;
-        const canAccessCardapio = isAdmin || isPromoter;
+        const canAccessAdmin = isAdmin || role === 'promoter';
+        const canAccessCardapio = isAdmin || role === 'promoter';
 
         setPermissions({
           role,
@@ -138,7 +139,7 @@ export function useUserPermissions() {
   const canAccessRoute = (route: string): boolean => {
     if (permissions.isAdmin) return true;
     
-    if (permissions.isPromoter) {
+    if (permissions.role === 'promoter') {
       // Promoters podem acessar algumas funcionalidades específicas
       const allowedRoutes = [
         '/admin/cardapio',

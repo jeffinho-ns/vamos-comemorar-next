@@ -317,16 +317,26 @@ export default function PromoterDashboardPage() {
       : 0;
 
   const canAccessDashboard = useMemo(() => {
-    if (!isPromoter) return false;
+    if (permissionsLoading) return false;
     if (!promoter) return false;
-    if (promoter.user_id && userId) {
-      return Number(promoter.user_id) === Number(userId);
+    if (!isPromoter) return false;
+
+    // Se temos o ID do usuário logado e o vínculo user_id do promoter, compare-os
+    if (userId && promoter.user_id) {
+      if (Number(userId) === Number(promoter.user_id)) {
+        return true;
+      }
     }
-    if (promoter.email && userEmail) {
-      return promoter.email.toLowerCase() === userEmail.toLowerCase();
+
+    // Caso não exista vínculo direto, permita se o e-mail corresponder
+    if (userEmail && promoter.email) {
+      if (promoter.email.toLowerCase() === userEmail.toLowerCase()) {
+        return true;
+      }
     }
+
     return false;
-  }, [isPromoter, promoter, userEmail, userId]);
+  }, [permissionsLoading, promoter, isPromoter, userId, userEmail]);
 
   if (permissionsLoading || loading) {
     return (

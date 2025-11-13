@@ -19,8 +19,11 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL('/login', request.url));
   }
 
+  const isPromoter = role === 'promoter';
+  const isPromoterList = role === 'promoter-list';
+
   // Promoters só podem acessar suas páginas dedicadas
-  if (role === 'promoter') {
+  if (isPromoterList) {
     const isPromoterRoute = url.startsWith('/promoter');
 
     if (!isPromoterRoute) {
@@ -47,10 +50,10 @@ export function middleware(request: NextRequest) {
     '/admin/tables': ['admin'],
     
     // Outras rotas internas controladas
-    '/admin/cardapio': ['admin'],
-    '/admin/events': ['admin'],
-    '/admin/reservas': ['admin'],
-    '/admin/qrcode': ['admin'],
+    '/admin/cardapio': ['admin', 'promoter'],
+    '/admin/events': ['admin', 'promoter'],
+    '/admin/reservas': ['admin', 'promoter'],
+    '/admin/qrcode': ['admin', 'promoter'],
   };
 
   // Verifica se a rota está definida nas permissões de rota
@@ -59,7 +62,9 @@ export function middleware(request: NextRequest) {
   
 
   // Verifica se o papel do usuário tem permissão para acessar a rota
-  if (allowedRoles && !allowedRoles.includes(role)) {
+  const roleAllowed = allowedRoles && allowedRoles.includes(role);
+
+  if (allowedRoles && !roleAllowed) {
     console.log("⛔ Acesso negado. Role:", role, "| URL:", url);
     return NextResponse.redirect(new URL('/acesso-negado', request.url));
   }
