@@ -42,12 +42,17 @@ interface Promoter {
 }
 
 interface Evento {
+  relacionamento_id: number;
   evento_id: number;
   nome_do_evento: string;
-  data_evento: string;
+  data_evento: string | null;
   hora_do_evento: string;
   tipo_evento: string;
   establishment_name?: string;
+  establishment_id?: number;
+  status?: string;
+  funcao?: string;
+  observacoes?: string | null;
 }
 
 interface Convidado {
@@ -129,12 +134,40 @@ export default function PromoterDashboardPage() {
   const loadEventos = useCallback(async () => {
     if (!params?.codigo) return;
     try {
-      const response = await fetch(
-        `${API_URL}/api/promoter/${params.codigo}/eventos`,
+      const promoterResponse = await fetch(
+        `${API_URL}/api/promoter/${params.codigo}`,
       );
-      if (response.ok) {
-        const data = await response.json();
-        setEventos(data.eventos || []);
+
+      if (!promoterResponse.ok) return;
+
+      const promoterData = await promoterResponse.json();
+      const promoterId = promoterData?.promoter?.id;
+
+      if (!promoterId) return;
+
+      const eventosResponse = await fetch(
+        `${API_URL}/api/promoter-eventos/promoter/${promoterId}?status=ativo`,
+      );
+
+      if (eventosResponse.ok) {
+        const data = await eventosResponse.json();
+        const eventosFormatados: Evento[] = (data.eventos || []).map(
+          (evento: any) => ({
+            relacionamento_id: evento.relacionamento_id,
+            evento_id: evento.evento_id,
+            nome_do_evento: evento.nome_do_evento,
+            data_evento: evento.data_evento || null,
+            hora_do_evento: evento.hora_do_evento,
+            tipo_evento: evento.tipo_evento,
+            establishment_name: evento.establishment_name,
+            establishment_id: evento.establishment_id,
+            status: evento.status,
+            funcao: evento.funcao,
+            observacoes: evento.observacoes,
+          }),
+        );
+
+        setEventos(eventosFormatados);
       }
     } catch (err) {
       console.error("Erro ao carregar eventos do promoter:", err);
@@ -538,15 +571,18 @@ export default function PromoterDashboardPage() {
                     >
                       <option value="">— Selecionar evento —</option>
                       {eventos.map((evento) => (
-                        <option key={evento.evento_id} value={evento.evento_id}>
+                        <option
+                          key={evento.relacionamento_id}
+                          value={evento.evento_id}
+                        >
                           {evento.nome_do_evento} •{" "}
-                          {new Date(
-                          (evento.data_evento || "").includes("T")
-                              ? evento.data_evento || ""
-                              : evento.data_evento
-                              ? `${evento.data_evento}T12:00:00`
-                              : "",
-                          ).toLocaleDateString("pt-BR")}
+                          {evento.data_evento
+                            ? new Date(
+                                (evento.data_evento || "").includes("T")
+                                  ? evento.data_evento || ""
+                                  : `${evento.data_evento}T12:00:00`,
+                              ).toLocaleDateString("pt-BR")
+                            : "Data a definir"}
                         </option>
                       ))}
                     </select>
@@ -749,31 +785,55 @@ export default function PromoterDashboardPage() {
                 )}
                 {eventos.map((evento) => (
                   <div
-                    key={evento.evento_id}
+                    key={evento.relacionamento_id}
                     className="rounded-2xl border border-white/10 bg-white/10 px-4 py-3"
                   >
                     <p className="font-semibold text-white">
                       {evento.nome_do_evento}
                     </p>
                     <p className="text-xs text-white/60 mt-1">
-                      {new Date(
-                          (evento.data_evento || "").includes("T")
-                            ? evento.data_evento || ""
-                            : evento.data_evento
-                            ? `${evento.data_evento}T12:00:00`
-                            : "",
-                      ).toLocaleDateString("pt-BR")}{" "}
-                      às {evento.hora_do_evento}
+                      {evento.data_evento
+                        ? `${new Date(
+                            (evento.data_evento || "").includes("T")
+                              ? evento.data_evento || ""
+                              : `${evento.data_evento}T12:00:00`,
+                          ).toLocaleDateString("pt-BR")} às ${
+                            evento.hora_do_evento
+                          }`
+                        : `Horário: ${evento.hora_do_evento}`}
                     </p>
                     {evento.establishment_name && (
                       <p className="text-xs text-purple-200 mt-1">
                         {evento.establishment_name}
                       </p>
                     )}
-                    {evento.tipo_evento === "semanal" && (
-                      <span className="mt-2 inline-flex items-center gap-1 text-xs rounded-full bg-purple-500/20 px-2 py-1 text-purple-200">
-                        Evento semanal
+                    <div className="mt-2 flex flex-wrap gap-2 text-[11px] uppercase tracking-wide">
+                      <span className="inline-flex items-center gap-1 rounded-full bg-purple-500/20 px-2 py-1 text-purple-200">
+                        {evento.tipo_evento === "semanal"
+                          ? "Evento semanal"
+                          : evento.tipo_evento}
                       </span>
+                      {evento.funcao && (
+                        <span className="inline-flex rounded-full bg-emerald-500/20 px-2 py-1 text-emerald-200">
+                          Função: {evento.funcao}
+                        </span>
+                      )}
+                      {evento.status && (
+                        <span
+                          className={`inline-flex rounded-full px-2 py-1 ${
+                            evento.status === "ativo"
+                              ? "bg-emerald-500/20 text-emerald-200"
+                              : "bg-amber-500/20 text-amber-200"
+                          }`}
+                        >
+                          Status: {evento.status}
+                        </span>
+                      )}
+                    </div>
+                    {evento.observacoes && (
+                      <p className="mt-3 text-xs text-white/60 border-t border-white/10 pt-2">
+                        {evento.observacoes}
+                      </p>
                     )}
                   </div>
                 ))}
