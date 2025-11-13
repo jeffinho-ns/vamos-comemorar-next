@@ -34,6 +34,7 @@ interface Promoter {
   instagram?: string;
   observacoes?: string;
   establishment_name?: string;
+  user_id?: number | null;
   stats?: {
     total_convidados: number;
     total_confirmados: number;
@@ -315,6 +316,18 @@ export default function PromoterDashboardPage() {
       ? Math.round((convidadosConfirmados / convidados.length) * 100)
       : 0;
 
+  const canAccessDashboard = useMemo(() => {
+    if (!isPromoter) return false;
+    if (!promoter) return false;
+    if (promoter.user_id && userId) {
+      return Number(promoter.user_id) === Number(userId);
+    }
+    if (promoter.email && userEmail) {
+      return promoter.email.toLowerCase() === userEmail.toLowerCase();
+    }
+    return false;
+  }, [isPromoter, promoter, userEmail, userId]);
+
   if (permissionsLoading || loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-900 text-white">
@@ -323,7 +336,15 @@ export default function PromoterDashboardPage() {
     );
   }
 
-  if (!isPromoter) {
+  if (error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-950 text-white">
+        {error}
+      </div>
+    );
+  }
+
+  if (!promoter || !canAccessDashboard) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-slate-950 text-slate-100 px-6">
         <div className="max-w-md w-full bg-white/10 backdrop-blur rounded-3xl p-8 text-center">
@@ -342,14 +363,6 @@ export default function PromoterDashboardPage() {
             <MdArrowBack /> Ir para login
           </button>
         </div>
-      </div>
-    );
-  }
-
-  if (!promoter) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-950 text-white">
-        {error || "Promoter não encontrado."}
       </div>
     );
   }
