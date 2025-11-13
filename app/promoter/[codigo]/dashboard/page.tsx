@@ -745,7 +745,7 @@ export default function PromoterDashboardPage() {
                   <select
                     value={bulkEventoId}
                     onChange={(e) => setBulkEventoId(e.target.value)}
-                    className="w-full rounded-2xl bg-white/10 border border-white/10 px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-purple-400"
+                    className="w-full rounded-2xl bg-slate-900/40 border border-white/20 px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-purple-300"
                   >
                     <option value="">Atribuir a um evento (opcional)</option>
                     {eventos.map((evento) => (
