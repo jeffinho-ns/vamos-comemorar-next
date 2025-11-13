@@ -4,6 +4,7 @@ import type { NextRequest } from 'next/server';
 export function middleware(request: NextRequest) {
   const token = request.cookies.get('authToken')?.value;
   const role = request.cookies.get('role')?.value;
+  const promoterCodigo = request.cookies.get('promoterCodigo')?.value;
   const url = request.nextUrl.pathname;
 
   // 🔍 DEBUG
@@ -18,9 +19,23 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL('/login', request.url));
   }
 
+  // Promoters só podem acessar suas páginas dedicadas
+  if (role === 'promoter') {
+    const isPromoterRoute = url.startsWith('/promoter');
+
+    if (!isPromoterRoute) {
+      const destino = promoterCodigo
+        ? `/promoter/${promoterCodigo}/dashboard`
+        : '/promoter';
+
+      console.log(`⛔ Promoter tentando acessar rota não permitida (${url}). Redirecionando para ${destino}`);
+      return NextResponse.redirect(new URL(destino, request.url));
+    }
+  }
+
   // Define as permissões para as rotas específicas
   const routePermissions: Record<string, string[]> = {
-    // Rotas que apenas Administradores podem acessar
+    // Rotas estritamente administrativas
     '/admin/commodities': ['admin'],
     '/admin/enterprise': ['admin'],
     '/admin/eventos': ['admin'],
@@ -31,11 +46,11 @@ export function middleware(request: NextRequest) {
     '/admin/places': ['admin'],
     '/admin/tables': ['admin'],
     
-    // Rotas que Administradores e Promoters podem acessar
-    '/admin/cardapio': ['admin', 'promoter'],
-    '/admin/events': ['admin', 'promoter'], // Promoters podem ver eventos
-    '/admin/reservas': ['admin', 'promoter'], // Promoters podem ver reservas
-    '/admin/qrcode': ['admin', 'promoter'], // Promoters podem usar QR code
+    // Outras rotas internas controladas
+    '/admin/cardapio': ['admin'],
+    '/admin/events': ['admin'],
+    '/admin/reservas': ['admin'],
+    '/admin/qrcode': ['admin'],
   };
 
   // Verifica se a rota está definida nas permissões de rota

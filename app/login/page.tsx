@@ -50,10 +50,25 @@ export default function Login() {
         localStorage.setItem("authToken", data.token);
         localStorage.setItem("userId", data.userId);
         localStorage.setItem("role", data.role);
+        if (data.promoterId) {
+          localStorage.setItem("promoterId", data.promoterId);
+        } else {
+          localStorage.removeItem("promoterId");
+        }
+        if (data.promoterCodigo) {
+          localStorage.setItem("promoterCodigo", data.promoterCodigo);
+        } else {
+          localStorage.removeItem("promoterCodigo");
+        }
       
         // Armazena nos cookies para o middleware ter acesso
         document.cookie = `authToken=${data.token}; path=/`;
         document.cookie = `role=${data.role}; path=/`;
+        if (data.promoterCodigo) {
+          document.cookie = `promoterCodigo=${encodeURIComponent(data.promoterCodigo)}; path=/`;
+        } else {
+          document.cookie = `promoterCodigo=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`;
+        }
       
         // Redirecionamento inteligente com base no role
         switch (data.role) {
@@ -64,7 +79,11 @@ export default function Login() {
             router.push('/gerente');
             break;
           case 'promoter':
-            router.push('/admin'); // Promoters vão para o admin (com restrições)
+            if (data.promoterCodigo) {
+              router.push(`/promoter/${data.promoterCodigo}/dashboard`);
+            } else {
+              router.push('/promoter');
+            }
             break;
           case 'cliente':
             router.push('/cliente');
