@@ -170,20 +170,28 @@ const PLACEHOLDER_IMAGE_URL = 'https://images.unsplash.com/photo-1504674900240-9
 const PLACEHOLDER_LOGO_URL = 'https://via.placeholder.com/150';
 
 const getValidImageUrl = (filename?: string | null): string => {
-  if (typeof filename !== 'string' || filename.trim() === '') {
+  // Verificar se filename é válido
+  if (!filename || typeof filename !== 'string' || filename.trim() === '' || filename === 'null' || filename === 'undefined') {
     return PLACEHOLDER_IMAGE_URL;
   }
   
+  // Se já é uma URL completa, retornar como está
   if (filename.startsWith('http://') || filename.startsWith('https://')) {
     return filename;
   }
   
-  const fullUrl = `${BASE_IMAGE_URL}${filename}`;
+  // Remover barras iniciais se houver
+  const cleanFilename = filename.startsWith('/') ? filename.substring(1) : filename;
   
+  // Construir URL completa
+  const fullUrl = `${BASE_IMAGE_URL}${cleanFilename}`;
+  
+  // Validar URL
   try {
     new URL(fullUrl);
     return fullUrl;
   } catch (e) {
+    console.warn('URL de imagem inválida:', filename, '-> usando placeholder');
     return PLACEHOLDER_IMAGE_URL;
   }
 };

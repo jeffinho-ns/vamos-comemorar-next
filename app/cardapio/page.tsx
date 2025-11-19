@@ -27,27 +27,49 @@ const PLACEHOLDER_BAR_URL = 'https://images.unsplash.com/photo-1514933651103-005
 
 // Função auxiliar para construir URL completa da imagem
 const getValidImageUrl = (imageUrl?: string | null, coverImages?: string[]): string => {
+  const BASE_IMAGE_URL = 'https://grupoideiaum.com.br/cardapio-agilizaiapp/';
+  
   // Primeiro, tenta usar a imagem principal
-  if (typeof imageUrl === 'string' && imageUrl.trim() !== '') {
+  if (imageUrl && typeof imageUrl === 'string' && imageUrl.trim() !== '' && imageUrl !== 'null' && imageUrl !== 'undefined') {
     // Verifica se já é uma URL absoluta
     if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
       return imageUrl;
     }
     
+    // Remover barras iniciais se houver
+    const cleanFilename = imageUrl.startsWith('/') ? imageUrl.substring(1) : imageUrl;
+    
     // Se for apenas o nome do arquivo, constrói a URL completa
-    return `https://grupoideiaum.com.br/cardapio-agilizaiapp/${imageUrl}`;
+    try {
+      const fullUrl = `${BASE_IMAGE_URL}${cleanFilename}`;
+      new URL(fullUrl); // Validar URL
+      return fullUrl;
+    } catch (e) {
+      console.warn('URL de imagem inválida:', imageUrl, '-> usando placeholder');
+    }
   }
   
   // Se não tiver imagem principal, tenta usar a primeira imagem do array coverImages
   if (Array.isArray(coverImages) && coverImages.length > 0 && coverImages[0]) {
     const firstImage = coverImages[0];
-    // Verifica se já é uma URL absoluta
-    if (firstImage.startsWith('http://') || firstImage.startsWith('https://')) {
-      return firstImage;
+    if (typeof firstImage === 'string' && firstImage.trim() !== '' && firstImage !== 'null' && firstImage !== 'undefined') {
+      // Verifica se já é uma URL absoluta
+      if (firstImage.startsWith('http://') || firstImage.startsWith('https://')) {
+        return firstImage;
+      }
+      
+      // Remover barras iniciais se houver
+      const cleanFilename = firstImage.startsWith('/') ? firstImage.substring(1) : firstImage;
+      
+      // Se for apenas o nome do arquivo, constrói a URL completa
+      try {
+        const fullUrl = `${BASE_IMAGE_URL}${cleanFilename}`;
+        new URL(fullUrl); // Validar URL
+        return fullUrl;
+      } catch (e) {
+        console.warn('URL de imagem inválida:', firstImage, '-> usando placeholder');
+      }
     }
-    
-    // Se for apenas o nome do arquivo, constrói a URL completa
-    return `https://grupoideiaum.com.br/cardapio-agilizaiapp/${firstImage}`;
   }
   
   // Se não tiver nenhuma imagem, usa placeholder
