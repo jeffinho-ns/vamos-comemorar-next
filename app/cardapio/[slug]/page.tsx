@@ -367,10 +367,24 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
         sampleItems: barItems.slice(0, 3).map(i => ({ id: i.id, name: i.name, barId: i.barId, visible: i.visible }))
       });
 
-      const groupedCategories = barCategories.map((category: MenuCategory) => ({
-        ...category,
-        subCategories: groupItemsBySubcategory(barItems.filter((item: MenuItem) => item.categoryId === category.id))
-      }));
+      const groupedCategories = barCategories.map((category: MenuCategory) => {
+        const normalizedCategoryId = String(category.id);
+        const categoryItems = barItems.filter((item: MenuItem) => String(item.categoryId) === normalizedCategoryId);
+        return {
+          ...category,
+          subCategories: groupItemsBySubcategory(categoryItems)
+        };
+      });
+      
+      console.log('📊 Categorias agrupadas:', {
+        totalCategories: groupedCategories.length,
+        categoriesWithItems: groupedCategories.filter(c => c.subCategories.some(sub => sub.items.length > 0)).length,
+        categories: groupedCategories.map(c => ({
+          id: c.id,
+          name: c.name,
+          itemsCount: c.subCategories.reduce((sum, sub) => sum + sub.items.length, 0)
+        }))
+      });
 
       setMenuCategories(groupedCategories);
       
