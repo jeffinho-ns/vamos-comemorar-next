@@ -346,8 +346,26 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
         itemsResponse.json()
       ]);
 
-      const barCategories = categories.filter((cat: MenuCategory) => cat.barId === bar.id);
-      const barItems = items.filter((item: MenuItem) => item.barId === bar.id);
+      // Normalizar IDs para comparação (pode ser string ou number)
+      const normalizedBarId = String(bar.id);
+      const barCategories = categories.filter((cat: MenuCategory) => String(cat.barId) === normalizedBarId);
+      const barItems = items.filter((item: MenuItem) => {
+        // Filtrar por barId e apenas itens visíveis (visible === 1 ou true ou null/undefined)
+        const matchesBar = String(item.barId) === normalizedBarId;
+        const isVisible = item.visible === undefined || item.visible === null || item.visible === 1 || item.visible === true;
+        return matchesBar && isVisible;
+      });
+      
+      console.log('🔍 Debug fetchBarData:', {
+        slug,
+        barId: bar.id,
+        normalizedBarId,
+        totalCategories: categories.length,
+        totalItems: items.length,
+        barCategoriesCount: barCategories.length,
+        barItemsCount: barItems.length,
+        sampleItems: barItems.slice(0, 3).map(i => ({ id: i.id, name: i.name, barId: i.barId, visible: i.visible }))
+      });
 
       const groupedCategories = barCategories.map((category: MenuCategory) => ({
         ...category,
