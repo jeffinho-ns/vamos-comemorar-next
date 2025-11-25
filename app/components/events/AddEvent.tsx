@@ -67,7 +67,7 @@ const AddEvent: React.FC<AddEventProps> = ({ isOpen, onRequestClose, onEventAdde
       const placesList = Array.isArray(data) ? data : (data.data || []);
       
       const formattedEstablishments: Establishment[] = placesList.map((place: any) => ({
-        id: place.id,
+        id: typeof place.id === 'string' ? parseInt(place.id) : place.id,
         name: place.name || "Sem nome",
       }));
 
@@ -113,7 +113,11 @@ const AddEvent: React.FC<AddEventProps> = ({ isOpen, onRequestClose, onEventAdde
 
   const handleEstablishmentChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const selectedId = parseInt(e.target.value);
-    const selectedEstablishment = establishments.find(est => est.id === selectedId);
+    // Normalizar comparação para funcionar com string ou number
+    const selectedEstablishment = establishments.find(est => {
+      const estId = typeof est.id === 'string' ? parseInt(est.id) : est.id;
+      return estId === selectedId;
+    });
     
     setIdPlace(selectedId);
     setCasaDoEvento(selectedEstablishment?.name || "");
@@ -198,10 +202,16 @@ const AddEvent: React.FC<AddEventProps> = ({ isOpen, onRequestClose, onEventAdde
     let finalCasaDoEvento = casaDoEvento;
     if (!finalCasaDoEvento || finalCasaDoEvento.trim() === '') {
       // Buscar o nome do estabelecimento baseado no idPlace
-      const selectedEstablishment = establishments.find(est => est.id === idPlace);
+      // Normalizar comparação para funcionar com string ou number
+      const selectedEstablishment = establishments.find(est => {
+        const estId = typeof est.id === 'string' ? parseInt(est.id) : est.id;
+        const placeId = typeof idPlace === 'string' ? parseInt(idPlace) : idPlace;
+        return estId === placeId;
+      });
       if (selectedEstablishment) {
         finalCasaDoEvento = selectedEstablishment.name;
       } else {
+        console.error('Estabelecimento não encontrado:', { idPlace, establishments });
         setError("Erro ao identificar o estabelecimento selecionado. Por favor, selecione novamente.");
         setIsLoading(false);
         return;
