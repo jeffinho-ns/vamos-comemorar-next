@@ -504,17 +504,9 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
     [stickyCategoryOffset, categoryBarHeight]
   );
 
-  // Intersection Observer para ScrollSpy das subcategorias
-  useEffect(() => {
-    if (typeof window === 'undefined' || menuCategories.length === 0) return;
-
-    // Limpar observer anterior se existir
-    if (observerRef.current) {
-      observerRef.current.disconnect();
-    }
-
-    // Função para atualizar visualmente os botões sem re-render (ZERO re-render do React)
-    const updateActiveButton = (categoryName: string, subcategoryName: string) => {
+  // Função para atualizar visualmente os botões sem re-render (ZERO re-render do React)
+  // Esta função é usada tanto no IntersectionObserver quanto nos cliques
+  const updateActiveButton = useCallback((categoryName: string, subcategoryName: string) => {
       const bar = selectedBarRef.current;
       const activeSubcategoryKey = `${categoryName}-${subcategoryName}`;
       
@@ -584,7 +576,16 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
           });
         });
       }
-    };
+  }, [selectedBar]);
+
+  // Intersection Observer para ScrollSpy das subcategorias
+  useEffect(() => {
+    if (typeof window === 'undefined' || menuCategories.length === 0) return;
+
+    // Limpar observer anterior se existir
+    if (observerRef.current) {
+      observerRef.current.disconnect();
+    }
 
     // Criar novo observer
     const observer = new IntersectionObserver(
@@ -1380,10 +1381,18 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
                         key={subcat.name}
                         ref={(el) => registerSubcategoryMenuRef(category.name, subcat.name, el)}
                         onClick={() => {
+                          // Atualizar estados (aceitável no clique)
                           setSelectedCategory(category.name);
                           setActiveSubcategory(subcat.name);
+                          
+                          // Atualizar refs
                           currentActiveCategoryRef.current = category.name;
                           currentActiveSubcategoryRef.current = subcat.name;
+                          
+                          // Atualizar visualmente imediatamente (DOM direto)
+                          updateActiveButton(category.name, subcat.name);
+                          
+                          // Fazer scroll suave até a seção
                           scrollToIdWithOffset(
                             getSubcategoryDomId(category.name, subcat.name),
                             stickySubcategoryOffset + 12
@@ -1456,10 +1465,18 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
                       key={subcat.name}
                       ref={(el) => registerSubcategoryMenuRef(category.name, subcat.name, el)}
                       onClick={() => {
+                        // Atualizar estados (aceitável no clique)
                         setSelectedCategory(category.name);
                         setActiveSubcategory(subcat.name);
+                        
+                        // Atualizar refs
                         currentActiveCategoryRef.current = category.name;
                         currentActiveSubcategoryRef.current = subcat.name;
+                        
+                        // Atualizar visualmente imediatamente (DOM direto)
+                        updateActiveButton(category.name, subcat.name);
+                        
+                        // Fazer scroll suave até a seção
                         scrollToIdWithOffset(
                           getSubcategoryDomId(category.name, subcat.name),
                           stickySubcategoryOffset + 12
