@@ -83,6 +83,7 @@ interface MenuItem {
   toppings: Topping[];
   order: number;
   seals?: string[];
+  visible?: boolean | number | null;
 }
 
 interface MenuCategory {
@@ -244,6 +245,18 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
   const [headerHeight, setHeaderHeight] = useState<number>(0);
   const [categoryBarHeight, setCategoryBarHeight] = useState<number>(0);
   const categoryBarRef = useRef<HTMLDivElement | null>(null);
+  
+  // Refs para ScrollSpy
+  const subcategoryRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+  const subcategoryMenuRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
+  const categoryMenuRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
+  const isScrollingProgrammatically = useRef(false);
+  const observerRef = useRef<IntersectionObserver | null>(null);
+  const currentActiveCategoryRef = useRef<string>('');
+  const currentActiveSubcategoryRef = useRef<string>('');
+  const trackedCategoryRef = useRef<string>('');
+  const trackedSubcategoryRef = useRef<string>('');
+  const selectedBarRef = useRef<Bar | null>(null);
 
   // Hook para verificar se a tela é mobile
   const isMobile = useMediaQuery({ maxWidth: 767 });
@@ -333,6 +346,7 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
       };
       
       setSelectedBar(barWithImages);
+      selectedBarRef.current = barWithImages;
 
       const [categoriesResponse, itemsResponse] = await Promise.all([
         fetch(`${API_BASE_URL}/categories`),
@@ -364,7 +378,7 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
         totalItems: items.length,
         barCategoriesCount: barCategories.length,
         barItemsCount: barItems.length,
-        sampleItems: barItems.slice(0, 3).map(i => ({ id: i.id, name: i.name, barId: i.barId, visible: i.visible }))
+        sampleItems: barItems.slice(0, 3).map((i: MenuItem) => ({ id: i.id, name: i.name, barId: i.barId, visible: i.visible }))
       });
 
       const groupedCategories = barCategories.map((category: MenuCategory) => {
@@ -378,11 +392,11 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
       
       console.log('📊 Categorias agrupadas:', {
         totalCategories: groupedCategories.length,
-        categoriesWithItems: groupedCategories.filter(c => c.subCategories.some(sub => sub.items.length > 0)).length,
-        categories: groupedCategories.map(c => ({
+        categoriesWithItems: groupedCategories.filter((c: GroupedCategory) => c.subCategories.some((sub: { name: string; items: MenuItem[] }) => sub.items.length > 0)).length,
+        categories: groupedCategories.map((c: GroupedCategory) => ({
           id: c.id,
           name: c.name,
-          itemsCount: c.subCategories.reduce((sum, sub) => sum + sub.items.length, 0)
+          itemsCount: c.subCategories.reduce((sum: number, sub: { name: string; items: MenuItem[] }) => sum + sub.items.length, 0)
         }))
       });
 
@@ -452,19 +466,8 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
     };
   }, [menuCategories.length, isMobile, isCleanStyle]);
 
-  // Rastrear mudanças de categoria e subcategoria
-  useEffect(() => {
-    if (selectedCategory && selectedBar) {
-      const pageLocation = typeof window !== 'undefined' ? window.location.href : `/cardapio/${slug}`;
-      trackCategoryView(
-        selectedCategory,
-        activeSubcategory || null,
-        selectedBar.name,
-        slug,
-        pageLocation
-      );
-    }
-  }, [selectedCategory, activeSubcategory, selectedBar, slug]);
+  // Rastreamento de categoria/subcategoria agora é feito diretamente no IntersectionObserver
+  // para evitar re-renders. Este useEffect foi removido.
 
   useEffect(() => {
     if (selectedBar && selectedBar.popupImageUrl && selectedBar.popupImageUrl.trim() !== '') {
@@ -501,10 +504,220 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
     [stickyCategoryOffset, categoryBarHeight]
   );
 
+  // Intersection Observer para ScrollSpy das subcategorias
+  useEffect(() => {
+    if (typeof window === 'undefined' || menuCategories.length === 0) return;
+
+    // Limpar observer anterior se existir
+    if (observerRef.current) {
+      observerRef.current.disconnect();
+    }
+
+    // Função para atualizar visualmente os botões sem re-render (ZERO re-render do React)
+    const updateActiveButton = (categoryName: string, subcategoryName: string) => {
+      const bar = selectedBarRef.current;
+      const activeSubcategoryKey = `${categoryName}-${subcategoryName}`;
+      
+      // 1. Atualizar botões de CATEGORIA PRINCIPAL via DOM direto
+      categoryMenuRefs.current.forEach((button, key) => {
+        if (!button) return;
+        const isActive = key === categoryName;
+        
+        if (isActive) {
+          // Botão ativo: aplicar cores do selectedBar
+          if (bar) {
+            button.style.backgroundColor = bar.menu_category_bg_color || '#3b82f6';
+            button.style.color = bar.menu_category_text_color || '#ffffff';
+          } else {
+            button.style.backgroundColor = '#3b82f6';
+            button.style.color = '#ffffff';
+          }
+          button.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)';
+          button.classList.add('active-category');
+        } else {
+          // Botão inativo: voltar para padrão
+          if (bar?.menu_display_style === 'clean') {
+            button.style.backgroundColor = '#f6efe3';
+            button.style.color = '#403a31';
+          } else {
+            button.style.backgroundColor = '#ffffff';
+            button.style.color = '#374151';
+          }
+          button.style.boxShadow = '';
+          button.classList.remove('active-category');
+        }
+      });
+      
+      // 2. Atualizar botões de SUBCATEGORIA via DOM direto
+      subcategoryMenuRefs.current.forEach((button, key) => {
+        if (!button) return;
+        const isActive = key === activeSubcategoryKey;
+        
+        if (isActive) {
+          // Botão ativo: aplicar cores do selectedBar
+          if (bar) {
+            button.style.backgroundColor = bar.menu_subcategory_bg_color || '#3b82f6';
+            button.style.color = bar.menu_subcategory_text_color || '#ffffff';
+          } else {
+            button.style.backgroundColor = '#3b82f6';
+            button.style.color = '#ffffff';
+          }
+          button.style.boxShadow = '0 2px 8px rgba(0,0,0,0.15)';
+          button.classList.add('active-subcategory');
+        } else {
+          // Botão inativo: voltar para padrão
+          button.style.backgroundColor = '';
+          button.style.color = '';
+          button.style.boxShadow = '';
+          button.classList.remove('active-subcategory');
+        }
+      });
+
+      // 3. Auto-scroll horizontal no menu de subcategorias
+      const menuButton = subcategoryMenuRefs.current.get(activeSubcategoryKey);
+      if (menuButton) {
+        requestAnimationFrame(() => {
+          menuButton.scrollIntoView({
+            behavior: 'smooth',
+            block: 'nearest',
+            inline: 'center'
+          });
+        });
+      }
+    };
+
+    // Criar novo observer
+    const observer = new IntersectionObserver(
+      (entries) => {
+        // Ignorar atualizações durante scroll programático
+        if (isScrollingProgrammatically.current) return;
+
+        // Encontrar a entrada que está mais próxima do topo da viewport
+        let closestEntry: IntersectionObserverEntry | null = null;
+        let closestDistance = Infinity;
+
+        for (const entry of entries) {
+          if (entry.isIntersecting) {
+            const rect = entry.boundingClientRect;
+            const distance = Math.abs(rect.top - stickySubcategoryOffset);
+            
+            if (distance < closestDistance) {
+              closestDistance = distance;
+              closestEntry = entry;
+            }
+          }
+        }
+
+        // Se encontrou uma entrada, atualizar a subcategoria ativa
+        if (closestEntry) {
+          const target = closestEntry.target;
+          if (!(target instanceof HTMLElement)) return;
+          const subcategoryName = target.getAttribute('data-subcategory-name');
+          const categoryName = target.getAttribute('data-category-name');
+
+          if (subcategoryName && categoryName) {
+            // Verificar se realmente mudou antes de atualizar
+            if (
+              currentActiveCategoryRef.current !== categoryName ||
+              currentActiveSubcategoryRef.current !== subcategoryName
+            ) {
+              // Atualizar refs imediatamente
+              currentActiveCategoryRef.current = categoryName;
+              currentActiveSubcategoryRef.current = subcategoryName;
+
+              // Atualizar visualmente SEM RE-RENDER (DOM direto apenas)
+              updateActiveButton(categoryName, subcategoryName);
+
+              // Rastreamento de Analytics (sem causar re-render)
+              if (
+                trackedCategoryRef.current !== categoryName ||
+                trackedSubcategoryRef.current !== subcategoryName
+              ) {
+                trackedCategoryRef.current = categoryName;
+                trackedSubcategoryRef.current = subcategoryName;
+                
+                const bar = selectedBarRef.current;
+                if (bar) {
+                  const pageLocation = typeof window !== 'undefined' ? window.location.href : `/cardapio/${slug}`;
+                  trackCategoryView(
+                    categoryName,
+                    subcategoryName,
+                    bar.name,
+                    slug,
+                    pageLocation
+                  );
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        root: null,
+        rootMargin: `-${stickySubcategoryOffset + 20}px 0px -50% 0px`,
+        threshold: [0, 0.1, 0.5, 1]
+      }
+    );
+
+    observerRef.current = observer;
+
+    // Observar todas as seções de subcategorias já registradas
+    subcategoryRefs.current.forEach((element) => {
+      if (element) {
+        observer.observe(element);
+      }
+    });
+
+    return () => {
+      if (observerRef.current) {
+        observerRef.current.disconnect();
+      }
+    };
+  }, [menuCategories, stickySubcategoryOffset]);
+
+  // Função auxiliar para registrar refs de subcategorias
+  const registerSubcategoryRef = useCallback((categoryName: string, subcategoryName: string, element: HTMLDivElement | null) => {
+    if (element) {
+      subcategoryRefs.current.set(`${categoryName}-${subcategoryName}`, element);
+      // Observar o elemento imediatamente se o observer já existir
+      if (observerRef.current) {
+        observerRef.current.observe(element);
+      }
+    } else {
+      const key = `${categoryName}-${subcategoryName}`;
+      const oldElement = subcategoryRefs.current.get(key);
+      if (oldElement && observerRef.current) {
+        observerRef.current.unobserve(oldElement);
+      }
+      subcategoryRefs.current.delete(key);
+    }
+  }, []);
+
+  // Função auxiliar para registrar refs dos botões do menu de subcategorias
+  const registerSubcategoryMenuRef = useCallback((categoryName: string, subcategoryName: string, element: HTMLButtonElement | null) => {
+    if (element) {
+      subcategoryMenuRefs.current.set(`${categoryName}-${subcategoryName}`, element);
+    } else {
+      subcategoryMenuRefs.current.delete(`${categoryName}-${subcategoryName}`);
+    }
+  }, []);
+
+  // Função auxiliar para registrar refs dos botões do menu de categorias principais
+  const registerCategoryMenuRef = useCallback((categoryName: string, element: HTMLButtonElement | null) => {
+    if (element) {
+      categoryMenuRefs.current.set(categoryName, element);
+    } else {
+      categoryMenuRefs.current.delete(categoryName);
+    }
+  }, []);
+
   const scrollToIdWithOffset = useCallback((targetId: string, offset: number) => {
     if (typeof window === 'undefined') return;
     const element = document.getElementById(targetId);
     if (!element) return;
+
+    // Marcar que estamos fazendo scroll programático
+    isScrollingProgrammatically.current = true;
 
     const elementPosition = element.getBoundingClientRect().top + window.scrollY;
     const targetPosition = Math.max(elementPosition - offset, 0);
@@ -513,6 +726,11 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
       top: targetPosition,
       behavior: 'smooth'
     });
+
+    // Resetar a flag após o scroll terminar
+    setTimeout(() => {
+      isScrollingProgrammatically.current = false;
+    }, 1000);
   }, []);
 
 
@@ -1050,9 +1268,10 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
                 {menuCategories.map((category) => (
                   <button
                     key={category.id}
-                    // A função de rolagem aqui vai para o topo da categoria no mobile
+                    ref={(el) => registerCategoryMenuRef(category.name, el)}
                     onClick={() => {
                         setSelectedCategory(category.name);
+                        currentActiveCategoryRef.current = category.name;
                         
                         // Rastrear visualização de categoria
                         if (selectedBar) {
@@ -1071,26 +1290,14 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
                           stickyCategoryOffset + Math.max(categoryBarHeight, 0) + 12
                         );
                     }}
-                    style={{
-                      backgroundColor:
-                        selectedCategory === category.name
-                          ? categorySelectedBg
-                          : categoryUnselectedBg,
-                      color:
-                        selectedCategory === category.name
-                          ? categorySelectedText
-                          : categoryUnselectedText,
-                    }}
                     className={`category-tab rounded-full font-medium whitespace-nowrap transition-all duration-200 ${
                       isCleanStyle
                         ? 'px-3 py-1.5 text-[0.7rem] uppercase tracking-[0.16em]'
                         : 'px-4 py-2 text-sm'
                     } ${
-                      selectedCategory === category.name
-                        ? 'active shadow-lg'
-                        : isCleanStyle
-                          ? 'shadow-sm hover:shadow-md'
-                          : 'hover:bg-gray-50 shadow-md'
+                      isCleanStyle
+                        ? 'shadow-sm hover:shadow-md'
+                        : 'hover:bg-gray-50 shadow-md'
                     } ${isCleanStyle ? 'border border-[#e7dbc4]/70 backdrop-blur-sm' : ''}`}
                   >
                     {category.name}
@@ -1171,31 +1378,22 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
                     {category.subCategories.map((subcat) => (
                       <button
                         key={subcat.name}
+                        ref={(el) => registerSubcategoryMenuRef(category.name, subcat.name, el)}
                         onClick={() => {
                           setSelectedCategory(category.name);
                           setActiveSubcategory(subcat.name);
+                          currentActiveCategoryRef.current = category.name;
+                          currentActiveSubcategoryRef.current = subcat.name;
                           scrollToIdWithOffset(
                             getSubcategoryDomId(category.name, subcat.name),
                             stickySubcategoryOffset + 12
                           );
                         }}
-                        style={{
-                          backgroundColor: activeSubcategory === subcat.name 
-                            ? (selectedBar.menu_subcategory_bg_color || '#3b82f6')
-                            : '#ffffff',
-                          color: activeSubcategory === subcat.name
-                            ? (selectedBar.menu_subcategory_text_color || '#ffffff')
-                            : '#374151'
-                        }}
                         className={`subcategory-tab rounded-full font-medium whitespace-nowrap transition-all duration-200 ${
                           isCleanStyle
                         ? 'px-3 py-1.5 text-[0.7rem] uppercase tracking-[0.14em]'
                         : 'px-3 py-1.5 text-xs'
-                        } ${
-                          activeSubcategory === subcat.name
-                            ? 'shadow-md'
-                            : 'hover:bg-gray-50'
-                        }`}
+                        } hover:bg-gray-50`}
                       >
                         {subcat.name}
                       </button>
@@ -1206,8 +1404,10 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
                 {category.subCategories.map((subcat) => (
                   <div
                     key={subcat.name}
+                    ref={(el) => registerSubcategoryRef(category.name, subcat.name, el)}
                     id={getSubcategoryDomId(category.name, subcat.name)}
                     data-subcategory-name={subcat.name}
+                    data-category-name={category.name}
                     className="mt-8"
                   >
                     <h3 className="text-xl font-bold text-gray-800 mb-4">
@@ -1254,9 +1454,12 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
                   {category.subCategories.map((subcat) => (
                     <button
                       key={subcat.name}
+                      ref={(el) => registerSubcategoryMenuRef(category.name, subcat.name, el)}
                       onClick={() => {
                         setSelectedCategory(category.name);
                         setActiveSubcategory(subcat.name);
+                        currentActiveCategoryRef.current = category.name;
+                        currentActiveSubcategoryRef.current = subcat.name;
                         scrollToIdWithOffset(
                           getSubcategoryDomId(category.name, subcat.name),
                           stickySubcategoryOffset + 12
@@ -1266,11 +1469,7 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
                         isCleanStyle
                           ? 'px-3 py-2 text-[0.7rem] uppercase tracking-[0.14em]'
                           : 'px-4 py-2 text-sm'
-                      } ${
-                        activeSubcategory === subcat.name
-                          ? 'bg-blue-500 text-white shadow-md' // Estilo desktop mantido
-                          : 'bg-white text-gray-600 hover:bg-gray-50' // Estilo desktop mantido
-                      }`}
+                      } bg-white text-gray-600 hover:bg-gray-50`}
                     >
                       {subcat.name}
                     </button>
@@ -1282,8 +1481,10 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
               {category.subCategories.map((subcat) => (
                 <div
                   key={subcat.name}
+                  ref={(el) => registerSubcategoryRef(category.name, subcat.name, el)}
                   id={getSubcategoryDomId(category.name, subcat.name)}
                   data-subcategory-name={subcat.name}
+                  data-category-name={category.name}
                   className="mt-8"
                 >
                   <h3 className="text-xl font-bold text-gray-800 mb-4">
