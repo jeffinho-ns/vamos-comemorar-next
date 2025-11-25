@@ -40,7 +40,7 @@ const AddEvent: React.FC<AddEventProps> = ({ isOpen, onRequestClose, onEventAdde
   const [tipoEvento, setTipoEvento] = useState<'unico' | 'semanal'>('unico');
   const [diaDaSemana, setDiaDaSemana] = useState('');
 
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL_LOCAL;
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL_LOCAL || 'https://vamos-comemorar-api.onrender.com';
 
   const fetchEstablishments = useCallback(async () => {
     setLoadingEstablishments(true);
@@ -201,16 +201,16 @@ const AddEvent: React.FC<AddEventProps> = ({ isOpen, onRequestClose, onEventAdde
       hora_do_evento: horaDoEvento,
       local_do_evento: localDoEvento,
       categoria: categoria,
-      mesas: mesas,
-      valor_da_mesa: valorDaMesa,
-      brinde: brinde,
-      numero_de_convidados: numeroDeConvidados,
+      mesas: mesas ? parseInt(mesas) : null,
+      valor_da_mesa: valorDaMesa ? parseFloat(valorDaMesa) : null,
+      brinde: brinde || null,
+      numero_de_convidados: numeroDeConvidados ? parseInt(numeroDeConvidados) : null,
       descricao: descricao,
-      valor_da_entrada: valorDaEntrada,
-      observacao: observacao,
+      valor_da_entrada: valorDaEntrada ? parseFloat(valorDaEntrada) : null,
+      observacao: observacao || null,
       tipo_evento: tipoEvento,
       data_do_evento: tipoEvento === 'unico' ? dataDoEvento : null,
-      dia_da_semana: tipoEvento === 'semanal' ? diaDaSemana : null,
+      dia_da_semana: tipoEvento === 'semanal' ? (diaDaSemana ? parseInt(diaDaSemana) : null) : null,
       imagem_do_evento: imagemEventoFilename,
       imagem_do_combo: imagemComboFilename,
       id_place: idPlace, // Enviando o ID do estabelecimento
@@ -227,8 +227,10 @@ const AddEvent: React.FC<AddEventProps> = ({ isOpen, onRequestClose, onEventAdde
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Erro ao criar evento");
+        const errorData = await response.json().catch(() => ({ message: 'Erro desconhecido' }));
+        const errorMessage = errorData.message || errorData.error || `Erro ${response.status}: ${response.statusText}`;
+        console.error('Erro da API:', errorData);
+        throw new Error(errorMessage);
       }
 
       alert("Evento criado com sucesso!");
@@ -237,7 +239,8 @@ const AddEvent: React.FC<AddEventProps> = ({ isOpen, onRequestClose, onEventAdde
       onEventAdded(); // Notifica o pai para recarregar a lista
     } catch (err) {
       console.error("Erro ao adicionar evento:", err);
-      setError("Ocorreu um erro ao adicionar o evento. Verifique se todos os campos estão corretos.");
+      const errorMessage = err instanceof Error ? err.message : "Ocorreu um erro ao adicionar o evento. Verifique se todos os campos estão corretos.";
+      setError(errorMessage);
     } finally {
       setIsLoading(false);
     }
