@@ -576,7 +576,7 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
           });
         });
       }
-  }, [selectedBar]);
+  }, []);
 
   // Intersection Observer para ScrollSpy das subcategorias
   useEffect(() => {
