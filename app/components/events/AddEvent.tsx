@@ -194,9 +194,23 @@ const AddEvent: React.FC<AddEventProps> = ({ isOpen, onRequestClose, onEventAdde
       return;
     }
 
+    // Garantir que casa_do_evento esteja preenchido
+    let finalCasaDoEvento = casaDoEvento;
+    if (!finalCasaDoEvento || finalCasaDoEvento.trim() === '') {
+      // Buscar o nome do estabelecimento baseado no idPlace
+      const selectedEstablishment = establishments.find(est => est.id === idPlace);
+      if (selectedEstablishment) {
+        finalCasaDoEvento = selectedEstablishment.name;
+      } else {
+        setError("Erro ao identificar o estabelecimento selecionado. Por favor, selecione novamente.");
+        setIsLoading(false);
+        return;
+      }
+    }
+
     // 3. Criação do evento com os nomes dos arquivos
     const eventData = {
-      casa_do_evento: casaDoEvento,
+      casa_do_evento: finalCasaDoEvento,
       nome_do_evento: nomeDoEvento,
       hora_do_evento: horaDoEvento,
       local_do_evento: localDoEvento,
