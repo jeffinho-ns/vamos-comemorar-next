@@ -73,12 +73,12 @@ export default function GiftsAdminPage() {
       
       if (Array.isArray(data)) {
         formattedEstablishments = data.map((place: any) => ({
-          id: Number(place.id || place.place_id), // Garantir que é sempre número
+          id: place.id || place.place_id, // Manter formato original da API
           name: place.name || place.place_name || 'Sem nome'
         }));
       } else if (data.data && Array.isArray(data.data)) {
         formattedEstablishments = data.data.map((place: any) => ({
-          id: Number(place.id || place.place_id), // Garantir que é sempre número
+          id: place.id || place.place_id, // Manter formato original da API
           name: place.name || place.place_name || 'Sem nome'
         }));
       }
