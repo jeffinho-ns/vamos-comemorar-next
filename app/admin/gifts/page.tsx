@@ -255,6 +255,11 @@ export default function GiftsAdminPage() {
             <p className="text-xl font-semibold text-gray-800 mb-2">Selecione um estabelecimento</p>
             <p className="text-gray-600">Escolha um estabelecimento no seletor acima para gerenciar as regras de brindes</p>
           </div>
+        ) : loadingRules ? (
+          <div className="bg-white rounded-lg p-12 text-center shadow-sm border-2 border-gray-200">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-yellow-600 mx-auto mb-4"></div>
+            <p className="text-gray-600 font-medium text-lg">Carregando regras de brindes para <strong>{selectedEstablishment.name}</strong>...</p>
+          </div>
         ) : (
           <div className="space-y-8">
             {/* Seção 1: Regras de Brindes para Reservas de Aniversário */}
