@@ -239,56 +239,37 @@ export default function GiftsAdminPage() {
                   return;
                 }
                 
-                // Buscar no array atual e na ref (que sempre tem o valor mais recente)
-                const currentEstabs = establishments.length > 0 ? establishments : establishmentsRef.current;
+                // Buscar no array atual primeiro, depois na ref como fallback
+                const searchArray = establishments.length > 0 ? establishments : establishmentsRef.current;
                 
-                console.log('🔍 Buscando em array com', currentEstabs.length, 'estabelecimentos');
+                console.log('🔍 Buscando estabelecimento com valor:', value);
+                console.log('📦 Array para busca tem', searchArray.length, 'itens');
+                console.log('📋 IDs disponíveis:', searchArray.map(e => String(e.id)));
                 
-                // Buscar estabelecimento - tentar comparação direta de string primeiro
-                let establishment = currentEstabs.find(est => String(est.id) === String(value));
-                
-                if (!establishment) {
-                  // Tentar como número
-                  const numValue = Number(value);
-                  if (!isNaN(numValue)) {
-                    establishment = currentEstabs.find(est => {
-                      const estNum = Number(est.id);
-                      return !isNaN(estNum) && estNum === numValue;
-                    });
+                // Buscar estabelecimento - usar comparação flexível
+                const establishment = searchArray.find(est => {
+                  const estIdStr = String(est.id);
+                  const valStr = String(value);
+                  const match = estIdStr === valStr;
+                  if (match) {
+                    console.log('✅ Match encontrado:', est);
                   }
-                }
+                  return match;
+                });
                 
                 if (establishment) {
-                  console.log('✅ Estabelecimento encontrado:', establishment);
+                  console.log('✅ Estabelecimento encontrado e selecionado:', establishment);
                   setSelectedEstablishment(establishment);
                 } else {
-                  console.error('❌ Estabelecimento não encontrado para valor:', value);
-                  console.error('📋 Estabelecimentos no array:', currentEstabs.map(e => ({ 
+                  console.error('❌ ERRO: Estabelecimento não encontrado!');
+                  console.error('📝 Valor selecionado:', value, '(tipo:', typeof value, ')');
+                  console.error('📋 Estabelecimentos disponíveis:', searchArray.map(e => ({ 
                     id: e.id, 
-                    idType: typeof e.id,
+                    idTipo: typeof e.id,
                     idString: String(e.id),
                     name: e.name 
                   })));
-                  
-                  // Tentar uma última vez recarregando
-                  if (establishments.length === 0) {
-                    console.log('🔄 Array vazio, recarregando estabelecimentos...');
-                    await fetchEstablishments();
-                    
-                    // Aguardar e tentar novamente com os novos dados
-                    setTimeout(() => {
-                      const updatedEstabs = establishmentsRef.current;
-                      const retry = updatedEstabs.find(est => String(est.id) === String(value));
-                      if (retry) {
-                        console.log('✅ Encontrado após recarregar:', retry);
-                        setSelectedEstablishment(retry);
-                      } else {
-                        alert(`Erro: Estabelecimento com ID ${value} não foi encontrado. Recarregue a página.`);
-                      }
-                    }, 300);
-                  } else {
-                    alert(`Erro: Estabelecimento não encontrado. Valor selecionado: ${value}. Recarregue a página.`);
-                  }
+                  alert(`Erro ao selecionar estabelecimento. Valor: ${value}. Recarregue a página e tente novamente.`);
                 }
               }}
               className="w-full md:w-1/2 px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 text-gray-800 font-medium text-lg bg-white hover:border-yellow-400 transition-colors"
