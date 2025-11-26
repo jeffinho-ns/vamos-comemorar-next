@@ -157,10 +157,37 @@ export default function RestaurantReservationsPage() {
     fetchEstablishments();
   }, [fetchEstablishments]);
 
+  // Função para carregar regras de brindes
+  const loadGiftRules = useCallback(async () => {
+    if (!selectedEstablishment) {
+      setGiftRules([]);
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('authToken');
+      const response = await fetch(`${API_URL}/api/gift-rules?establishment_id=${selectedEstablishment.id}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setGiftRules(data.rules || []);
+      } else {
+        console.error('Erro ao carregar regras de brindes');
+        setGiftRules([]);
+      }
+    } catch (error) {
+      console.error('Erro ao carregar regras de brindes:', error);
+      setGiftRules([]);
+    }
+  }, [selectedEstablishment, API_URL]);
+
   // Carregar dados imediatamente quando um estabelecimento é selecionado
   useEffect(() => {
     if (selectedEstablishment) {
       loadEstablishmentData();
+      loadGiftRules();
     }
   }, [selectedEstablishment]);
 
@@ -229,6 +256,26 @@ export default function RestaurantReservationsPage() {
   
   // Estados para check-in
   const [checkInStatus, setCheckInStatus] = useState<Record<number, { ownerCheckedIn: boolean; guestsCheckedIn: number; totalGuests: number }>>({});
+  
+  // Estados para Regras de Brindes
+  interface GiftRule {
+    id: number;
+    establishment_id: number;
+    evento_id: number | null;
+    descricao: string;
+    checkins_necessarios: number;
+    status: 'ATIVA' | 'INATIVA';
+    created_at?: string;
+    updated_at?: string;
+  }
+  const [giftRules, setGiftRules] = useState<GiftRule[]>([]);
+  const [showGiftRuleModal, setShowGiftRuleModal] = useState(false);
+  const [editingGiftRule, setEditingGiftRule] = useState<GiftRule | null>(null);
+  const [giftRuleForm, setGiftRuleForm] = useState<{ descricao: string; checkins_necessarios: number; status: 'ATIVA' | 'INATIVA' }>({
+    descricao: '',
+    checkins_necessarios: 5,
+    status: 'ATIVA'
+  });
   
   // Ref para rastrear o último mês carregado e evitar loops
   const lastLoadedMonthRef = useRef<string>('');
@@ -2384,6 +2431,140 @@ export default function RestaurantReservationsPage() {
                       </div>
                     </div>
                     
+                    {/* Seção de Regras de Brindes */}
+                    <div className="bg-gray-50 rounded-lg p-6">
+                      <div className="flex items-center justify-between mb-4">
+                        <h4 className="text-lg font-semibold text-gray-800">Regras de Brindes</h4>
+                        <button
+                          onClick={() => {
+                            setEditingGiftRule(null);
+                            setGiftRuleForm({ descricao: '', checkins_necessarios: 5, status: 'ATIVA' });
+                            setShowGiftRuleModal(true);
+                          }}
+                          className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors flex items-center gap-2"
+                        >
+                          <MdAdd size={20} />
+                          Nova Regra
+                        </button>
+                      </div>
+                      <p className="text-sm text-gray-600 mb-4">
+                        Configure brindes que serão liberados automaticamente quando uma quantidade de check-ins for atingida.
+                      </p>
+                      
+                      {giftRules.length === 0 ? (
+                        <div className="text-center py-8 text-gray-500">
+                          Nenhuma regra de brinde configurada. Clique em "Nova Regra" para criar.
+                        </div>
+                      ) : (
+                        <div className="space-y-3">
+                          {giftRules.map((rule) => (
+                            <div
+                              key={rule.id}
+                              className={`bg-white rounded-lg p-4 border-2 ${
+                                rule.status === 'ATIVA' ? 'border-green-200' : 'border-gray-200'
+                              }`}
+                            >
+                              <div className="flex items-start justify-between">
+                                <div className="flex-1">
+                                  <div className="flex items-center gap-2 mb-2">
+                                    <h5 className="font-semibold text-gray-800">{rule.descricao}</h5>
+                                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                      rule.status === 'ATIVA'
+                                        ? 'bg-green-100 text-green-700'
+                                        : 'bg-gray-100 text-gray-600'
+                                    }`}>
+                                      {rule.status === 'ATIVA' ? 'Ativa' : 'Inativa'}
+                                    </span>
+                                  </div>
+                                  <p className="text-sm text-gray-600">
+                                    Liberar quando atingir <strong>{rule.checkins_necessarios}</strong> check-in{rule.checkins_necessarios > 1 ? 's' : ''}
+                                  </p>
+                                </div>
+                                <div className="flex gap-2 ml-4">
+                                  <button
+                                    onClick={() => {
+                                      setEditingGiftRule(rule);
+                                      setGiftRuleForm({
+                                        descricao: rule.descricao,
+                                        checkins_necessarios: rule.checkins_necessarios,
+                                        status: rule.status
+                                      });
+                                      setShowGiftRuleModal(true);
+                                    }}
+                                    className="px-3 py-1 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors"
+                                  >
+                                    Editar
+                                  </button>
+                                  <button
+                                    onClick={async () => {
+                                      if (confirm(`Tem certeza que deseja ${rule.status === 'ATIVA' ? 'desativar' : 'ativar'} esta regra?`)) {
+                                        try {
+                                          const token = localStorage.getItem('authToken');
+                                          const response = await fetch(`${API_URL}/api/gift-rules/${rule.id}`, {
+                                            method: 'PUT',
+                                            headers: {
+                                              'Content-Type': 'application/json',
+                                              Authorization: `Bearer ${token}`
+                                            },
+                                            body: JSON.stringify({
+                                              status: rule.status === 'ATIVA' ? 'INATIVA' : 'ATIVA'
+                                            })
+                                          });
+
+                                          if (response.ok) {
+                                            await loadGiftRules();
+                                          } else {
+                                            alert('Erro ao atualizar regra');
+                                          }
+                                        } catch (error) {
+                                          console.error('Erro:', error);
+                                          alert('Erro ao atualizar regra');
+                                        }
+                                      }
+                                    }}
+                                    className={`px-3 py-1 text-sm rounded transition-colors ${
+                                      rule.status === 'ATIVA'
+                                        ? 'bg-yellow-600 hover:bg-yellow-700 text-white'
+                                        : 'bg-green-600 hover:bg-green-700 text-white'
+                                    }`}
+                                  >
+                                    {rule.status === 'ATIVA' ? 'Desativar' : 'Ativar'}
+                                  </button>
+                                  <button
+                                    onClick={async () => {
+                                      if (confirm('Tem certeza que deseja deletar esta regra? Esta ação não pode ser desfeita.')) {
+                                        try {
+                                          const token = localStorage.getItem('authToken');
+                                          const response = await fetch(`${API_URL}/api/gift-rules/${rule.id}`, {
+                                            method: 'DELETE',
+                                            headers: {
+                                              Authorization: `Bearer ${token}`
+                                            }
+                                          });
+
+                                          if (response.ok) {
+                                            await loadGiftRules();
+                                          } else {
+                                            alert('Erro ao deletar regra');
+                                          }
+                                        } catch (error) {
+                                          console.error('Erro:', error);
+                                          alert('Erro ao deletar regra');
+                                        }
+                                      }
+                                    }}
+                                    className="px-3 py-1 text-sm bg-red-600 hover:bg-red-700 text-white rounded transition-colors"
+                                  >
+                                    Deletar
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    
                     <div className="bg-gray-50 rounded-lg p-6">
                       <h4 className="text-lg font-semibold text-gray-800 mb-4">Configurações Gerais</h4>
                       <div className="space-y-4">
@@ -2693,6 +2874,126 @@ export default function RestaurantReservationsPage() {
               await loadGuestLists();
             }}
           />
+        )}
+
+        {/* Modal para Criar/Editar Regra de Brinde */}
+        {showGiftRuleModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
+              <h3 className="text-lg font-semibold text-gray-800 mb-4">
+                {editingGiftRule ? 'Editar Regra de Brinde' : 'Nova Regra de Brinde'}
+              </h3>
+              
+              <form onSubmit={async (e) => {
+                e.preventDefault();
+                if (!giftRuleForm.descricao || !giftRuleForm.checkins_necessarios) return;
+
+                try {
+                  const token = localStorage.getItem('authToken');
+                  const url = editingGiftRule
+                    ? `${API_URL}/api/gift-rules/${editingGiftRule.id}`
+                    : `${API_URL}/api/gift-rules`;
+                  const method = editingGiftRule ? 'PUT' : 'POST';
+
+                  const response = await fetch(url, {
+                    method,
+                    headers: {
+                      'Content-Type': 'application/json',
+                      Authorization: `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                      ...giftRuleForm,
+                      establishment_id: selectedEstablishment?.id
+                    })
+                  });
+
+                  if (response.ok) {
+                    await loadGiftRules();
+                    setShowGiftRuleModal(false);
+                    setEditingGiftRule(null);
+                    setGiftRuleForm({ descricao: '', checkins_necessarios: 5, status: 'ATIVA' });
+                  } else {
+                    const errorData = await response.json();
+                    alert('Erro: ' + (errorData.error || 'Erro desconhecido'));
+                  }
+                } catch (error) {
+                  console.error('Erro ao salvar regra:', error);
+                  alert('Erro ao salvar regra. Tente novamente.');
+                }
+              }} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Descrição do Brinde *
+                  </label>
+                  <input
+                    type="text"
+                    value={giftRuleForm.descricao}
+                    onChange={(e) => setGiftRuleForm(prev => ({ ...prev, descricao: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    placeholder="Ex: 1 drink, 4 cervejas, 1 garrafa de licor Rufus..."
+                    required
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Descreva claramente o brinde que será oferecido
+                  </p>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Check-ins Necessários *
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={giftRuleForm.checkins_necessarios}
+                    onChange={(e) => setGiftRuleForm(prev => ({ ...prev, checkins_necessarios: parseInt(e.target.value) || 1 }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    required
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Quantidade de check-ins que devem ser feitos para liberar este brinde
+                  </p>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Status
+                  </label>
+                  <select
+                    value={giftRuleForm.status}
+                    onChange={(e) => setGiftRuleForm(prev => ({ ...prev, status: e.target.value as 'ATIVA' | 'INATIVA' }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  >
+                    <option value="ATIVA">Ativa</option>
+                    <option value="INATIVA">Inativa</option>
+                  </select>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Regras inativas não serão verificadas automaticamente
+                  </p>
+                </div>
+                
+                <div className="flex gap-3 pt-4">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowGiftRuleModal(false);
+                      setEditingGiftRule(null);
+                      setGiftRuleForm({ descricao: '', checkins_necessarios: 5, status: 'ATIVA' });
+                    }}
+                    className="flex-1 px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded transition-colors"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    className="flex-1 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded transition-colors"
+                  >
+                    {editingGiftRule ? 'Salvar Alterações' : 'Criar Regra'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
         )}
 
       </div>

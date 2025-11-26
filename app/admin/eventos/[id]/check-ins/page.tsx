@@ -238,6 +238,23 @@ export default function EventoCheckInsPage() {
   const [convidadosPromoters, setConvidadosPromoters] = useState<ConvidadoPromoter[]>([]);
   const [camarotes, setCamarotes] = useState<Camarote[]>([]);
   
+  // Estados para brindes
+  interface GiftRule {
+    id: number;
+    descricao: string;
+    checkins_necessarios: number;
+    status: string;
+  }
+  interface GiftAwarded {
+    id: number;
+    descricao: string;
+    checkins_necessarios: number;
+    status: string;
+    liberado_em: string;
+  }
+  const [giftRules, setGiftRules] = useState<GiftRule[]>([]);
+  const [giftsByGuestList, setGiftsByGuestList] = useState<Record<number, GiftAwarded[]>>({});
+  
   // Função helper para validar se um item é realmente um convidado de promoter
   const isValidPromoterGuest = (c: any): c is ConvidadoPromoter => {
     return (
@@ -322,6 +339,22 @@ export default function EventoCheckInsPage() {
         console.log('📋 Total de guest lists para exibir:', (data.dados.guestListsRestaurante || []).length);
         
         setPromoters(data.dados.promoters || []);
+        
+        // Carregar regras de brindes para este estabelecimento/evento
+        if (data.evento?.establishment_id) {
+          try {
+            const giftRulesRes = await fetch(`${API_URL}/api/gift-rules?establishment_id=${data.evento.establishment_id}&evento_id=${eventoId}`, {
+              headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (giftRulesRes.ok) {
+              const giftRulesData = await giftRulesRes.json();
+              setGiftRules(giftRulesData.rules || []);
+              console.log('🎁 Regras de brindes carregadas:', giftRulesData.rules?.length || 0);
+            }
+          } catch (error) {
+            console.error('Erro ao carregar regras de brindes:', error);
+          }
+        }
         
         // Debug: verificar dados brutos recebidos do backend
         console.log('🔍 Debug - Dados brutos do backend:', {
@@ -568,6 +601,52 @@ export default function EventoCheckInsPage() {
                 : g
             )
           }));
+          
+          // Atualizar contador de check-ins
+          setCheckInStatus(prev => {
+            const current = prev[convidadoParaCheckIn.guestListId!] || { ownerCheckedIn: false, guestsCheckedIn: 0, totalGuests: 0 };
+            return {
+              ...prev,
+              [convidadoParaCheckIn.guestListId!]: {
+                ...current,
+                guestsCheckedIn: current.guestsCheckedIn + 1
+              }
+            };
+          });
+          
+          // Recarregar brindes para verificar se algum foi liberado
+          try {
+            const token = localStorage.getItem('authToken');
+            const guestListId = convidadoParaCheckIn.guestListId!;
+            const previousGifts = giftsByGuestList[guestListId] || [];
+            
+            const giftsRes = await fetch(`${API_URL}/api/gift-rules/guest-list/${guestListId}/gifts`, {
+              headers: { Authorization: `Bearer ${token}` }
+            });
+            if (giftsRes.ok) {
+              const giftsData = await giftsRes.json();
+              const newGifts = giftsData.gifts || [];
+              
+              // Se algum brinde foi liberado, mostrar mensagem
+              if (newGifts.length > previousGifts.length) {
+                const newlyAwarded = newGifts.filter((g: any) => {
+                  return !previousGifts.some((p: any) => p.id === g.id);
+                });
+                if (newlyAwarded.length > 0) {
+                  setTimeout(() => {
+                    alert(`🎁 Brinde(s) liberado(s)!\n\n${newlyAwarded.map((g: any) => `✅ ${g.descricao}`).join('\n')}`);
+                  }, 500);
+                }
+              }
+              
+              setGiftsByGuestList(prev => ({
+                ...prev,
+                [guestListId]: newGifts
+              }));
+            }
+          } catch (error) {
+            console.error('Erro ao recarregar brindes:', error);
+          }
         }
         
         setConvidadoParaCheckIn(null);
@@ -1221,6 +1300,22 @@ export default function EventoCheckInsPage() {
                                           }
                                         }));
                                       }
+
+                                      // Carregar brindes liberados para esta lista
+                                      try {
+                                        const giftsRes = await fetch(`${API_URL}/api/gift-rules/guest-list/${gl.guest_list_id}/gifts`, {
+                                          headers: { Authorization: `Bearer ${token}` }
+                                        });
+                                        if (giftsRes.ok) {
+                                          const giftsData = await giftsRes.json();
+                                          setGiftsByGuestList(prev => ({
+                                            ...prev,
+                                            [gl.guest_list_id]: giftsData.gifts || []
+                                          }));
+                                        }
+                                      } catch (giftError) {
+                                        console.error('Erro ao carregar brindes:', giftError);
+                                      }
                                     } catch (e) { 
                                       console.error('❌ Erro ao carregar dados da guest list:', e);
                                       // Definir como array vazio em caso de erro para evitar loops
@@ -1258,21 +1353,86 @@ export default function EventoCheckInsPage() {
                                   </div>
                                 </div>
                                 
-                                {/* Check-in do dono */}
-                                <div className="mt-2 flex items-center gap-2">
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleOwnerCheckIn(gl.guest_list_id, gl.owner_name);
-                                    }}
-                                    className={`px-3 py-1 text-xs rounded-full transition-colors font-medium ${
-                                      checkInStatus[gl.guest_list_id]?.ownerCheckedIn || gl.owner_checked_in === 1
-                                        ? 'bg-green-100 text-green-700 border border-green-300'
-                                        : 'bg-blue-100 text-blue-700 hover:bg-blue-200 border border-blue-300'
-                                    }`}
-                                  >
-                                    {checkInStatus[gl.guest_list_id]?.ownerCheckedIn || gl.owner_checked_in === 1 ? '✅ Dono Presente' : '📋 Check-in Dono'}
-                                  </button>
+                                {/* Check-in do dono e Indicadores de Brinde */}
+                                <div className="mt-2 space-y-2">
+                                  <div className="flex items-center gap-2">
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleOwnerCheckIn(gl.guest_list_id, gl.owner_name);
+                                      }}
+                                      className={`px-3 py-1 text-xs rounded-full transition-colors font-medium ${
+                                        checkInStatus[gl.guest_list_id]?.ownerCheckedIn || gl.owner_checked_in === 1
+                                          ? 'bg-green-100 text-green-700 border border-green-300'
+                                          : 'bg-blue-100 text-blue-700 hover:bg-blue-200 border border-blue-300'
+                                      }`}
+                                    >
+                                      {checkInStatus[gl.guest_list_id]?.ownerCheckedIn || gl.owner_checked_in === 1 ? '✅ Dono Presente' : '📋 Check-in Dono'}
+                                    </button>
+                                  </div>
+                                  
+                                  {/* Indicadores de Progresso e Brindes */}
+                                  {(() => {
+                                    const guestsCheckedIn = checkInStatus[gl.guest_list_id]?.guestsCheckedIn || 0;
+                                    const totalGuests = checkInStatus[gl.guest_list_id]?.totalGuests || gl.total_guests || 0;
+                                    const percentage = totalGuests > 0 ? Math.round((guestsCheckedIn / totalGuests) * 100) : 0;
+                                    const activeRules = giftRules.filter(r => r.status === 'ATIVA').sort((a, b) => a.checkins_necessarios - b.checkins_necessarios);
+                                    const nextRule = activeRules.find(r => guestsCheckedIn < r.checkins_necessarios);
+                                    const awardedGifts = giftsByGuestList[gl.guest_list_id] || [];
+                                    
+                                    return (
+                                      <div className="space-y-2">
+                                        {/* Barra de Progresso */}
+                                        {activeRules.length > 0 && (
+                                          <div className="bg-white/10 rounded-lg p-2">
+                                            <div className="flex items-center justify-between text-xs mb-1">
+                                              <span className="text-gray-300">Progresso: {guestsCheckedIn} check-in{guestsCheckedIn !== 1 ? 's' : ''}</span>
+                                              <span className="text-gray-300">{percentage}%</span>
+                                            </div>
+                                            <div className="w-full bg-gray-700 rounded-full h-2">
+                                              <div
+                                                className={`h-2 rounded-full transition-all ${
+                                                  percentage >= 80 ? 'bg-green-500' : percentage >= 50 ? 'bg-yellow-500' : 'bg-blue-500'
+                                                }`}
+                                                style={{ width: `${Math.min(percentage, 100)}%` }}
+                                              />
+                                            </div>
+                                            {nextRule && (
+                                              <p className="text-xs text-gray-400 mt-1">
+                                                Faltam {nextRule.checkins_necessarios - guestsCheckedIn} check-in{nextRule.checkins_necessarios - guestsCheckedIn !== 1 ? 's' : ''} para liberar: <strong>{nextRule.descricao}</strong>
+                                              </p>
+                                            )}
+                                          </div>
+                                        )}
+                                        
+                                        {/* Brindes Liberados */}
+                                        {awardedGifts.length > 0 && (
+                                          <div className="bg-gradient-to-r from-green-900/50 to-green-800/50 rounded-lg p-2 border border-green-500/50">
+                                            <div className="flex items-center gap-2 mb-1">
+                                              <span className="text-lg">🎁</span>
+                                              <span className="text-sm font-semibold text-green-200">Brinde(s) Liberado(s)!</span>
+                                            </div>
+                                            <div className="space-y-1">
+                                              {awardedGifts.map((gift) => (
+                                                <div key={gift.id} className="text-xs text-green-100">
+                                                  ✅ {gift.descricao}
+                                                </div>
+                                              ))}
+                                            </div>
+                                          </div>
+                                        )}
+                                        
+                                        {/* Mensagem quando atinge 80% */}
+                                        {percentage >= 80 && nextRule && guestsCheckedIn >= nextRule.checkins_necessarios && awardedGifts.some(g => g.checkins_necessarios === nextRule.checkins_necessarios) && (
+                                          <div className="bg-gradient-to-r from-yellow-900/50 to-orange-800/50 rounded-lg p-2 border border-yellow-500/50">
+                                            <p className="text-xs text-yellow-200 font-semibold">
+                                              🎉 Meta atingida! Brinde liberado para o dono da lista.
+                                            </p>
+                                          </div>
+                                        )}
+                                      </div>
+                                    );
+                                  })()}
                                 </div>
                               </div>
                               <span className={`text-xs px-2 py-1 rounded ${gl.is_valid === 1 ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>
