@@ -50,6 +50,13 @@ export default function Login() {
         localStorage.setItem("authToken", data.token);
         localStorage.setItem("userId", data.userId);
         localStorage.setItem("role", data.role);
+        if (data.nome) {
+          localStorage.setItem("userName", data.nome);
+        }
+        // Salvar email do usuário logado
+        if (emailCpf && emailCpf.includes('@')) {
+          localStorage.setItem("userEmail", emailCpf);
+        }
         if (data.promoterId) {
           localStorage.setItem("promoterId", data.promoterId);
         } else {
