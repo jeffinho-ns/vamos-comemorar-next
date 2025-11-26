@@ -348,7 +348,9 @@ export default function GiftsAdminPage() {
                                   });
 
                                   if (response.ok) {
-                                    await loadGiftRules();
+                                    if (selectedEstablishment) {
+                                      await loadGiftRules(selectedEstablishment.id);
+                                    }
                                   } else {
                                     alert('Erro ao atualizar regra');
                                   }
@@ -380,7 +382,9 @@ export default function GiftsAdminPage() {
                                   });
 
                                   if (response.ok) {
-                                    await loadGiftRules();
+                                    if (selectedEstablishment) {
+                                      await loadGiftRules(selectedEstablishment.id);
+                                    }
                                   } else {
                                     alert('Erro ao deletar regra');
                                   }
@@ -497,7 +501,9 @@ export default function GiftsAdminPage() {
                                   });
 
                                   if (response.ok) {
-                                    await loadPromoterGiftRules();
+                                    if (selectedEstablishment) {
+                                      await loadPromoterGiftRules(selectedEstablishment.id);
+                                    }
                                   } else {
                                     alert('Erro ao atualizar regra');
                                   }
@@ -529,7 +535,9 @@ export default function GiftsAdminPage() {
                                   });
 
                                   if (response.ok) {
-                                    await loadPromoterGiftRules();
+                                    if (selectedEstablishment) {
+                                      await loadPromoterGiftRules(selectedEstablishment.id);
+                                    }
                                   } else {
                                     alert('Erro ao deletar regra');
                                   }
