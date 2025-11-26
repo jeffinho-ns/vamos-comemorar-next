@@ -218,8 +218,15 @@ export default function GiftsAdminPage() {
             <select
               value={selectedEstablishment?.id || ''}
               onChange={(e) => {
-                const establishment = establishments.find(est => est.id === Number(e.target.value));
-                setSelectedEstablishment(establishment || null);
+                const value = e.target.value;
+                if (value === '') {
+                  setSelectedEstablishment(null);
+                } else {
+                  const establishment = establishments.find(est => est.id === Number(value));
+                  if (establishment) {
+                    setSelectedEstablishment(establishment);
+                  }
+                }
               }}
               className="w-full md:w-1/2 px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 text-gray-800 font-medium text-lg bg-white hover:border-yellow-400 transition-colors"
             >
@@ -230,11 +237,6 @@ export default function GiftsAdminPage() {
                 </option>
               ))}
             </select>
-          )}
-          {establishments.length > 0 && !selectedEstablishment && (
-            <p className="mt-3 text-sm text-amber-600 font-medium">
-              ⚠️ Por favor, selecione um estabelecimento para continuar
-            </p>
           )}
         </div>
 
