@@ -222,15 +222,27 @@ export default function GiftsAdminPage() {
               onChange={(e) => {
                 const value = e.target.value;
                 console.log('📝 Seleção de estabelecimento mudou:', value);
-                console.log('📦 Estabelecimentos disponíveis:', establishments);
+                console.log('📦 Total de estabelecimentos no array:', establishments.length);
+                
                 if (value === '') {
                   setSelectedEstablishment(null);
                   setGiftRules([]);
                   setPromoterGiftRules([]);
-                } else {
-                  // Buscar estabelecimento - usar comparação de string que é mais confiável
-                  const establishment = establishments.find(est => {
-                    return String(est.id) === String(value);
+                  return;
+                }
+                
+                // Usar função de atualização de estado para garantir que temos o array mais recente
+                setEstablishments(currentEstablishments => {
+                  console.log('📋 Estabelecimentos no momento da busca:', currentEstablishments.map(e => ({ 
+                    id: e.id, 
+                    idType: typeof e.id,
+                    name: e.name 
+                  })));
+                  
+                  // Buscar estabelecimento usando comparação de string
+                  const establishment = currentEstablishments.find(est => {
+                    const match = String(est.id) === String(value);
+                    return match;
                   });
                   
                   if (establishment) {
@@ -238,26 +250,12 @@ export default function GiftsAdminPage() {
                     setSelectedEstablishment(establishment);
                   } else {
                     console.error('❌ Estabelecimento não encontrado para valor:', value);
-                    console.error('📋 Total de estabelecimentos:', establishments.length);
-                    console.error('📋 IDs disponíveis:', establishments.map(e => ({ 
-                      id: e.id, 
-                      idType: typeof e.id, 
-                      idString: String(e.id),
-                      name: e.name 
-                    })));
-                    
-                    // Tentar buscar novamente após um pequeno delay caso o array ainda esteja sendo atualizado
-                    setTimeout(() => {
-                      const retry = establishments.find(est => String(est.id) === String(value));
-                      if (retry) {
-                        console.log('🔄 Encontrado na segunda tentativa:', retry);
-                        setSelectedEstablishment(retry);
-                      } else {
-                        alert(`Erro: Não foi possível selecionar o estabelecimento. Por favor, recarregue a página.`);
-                      }
-                    }, 100);
+                    console.error('📋 IDs disponíveis:', currentEstablishments.map(e => String(e.id)));
+                    alert(`Erro: Estabelecimento não encontrado. Tente recarregar a página.`);
                   }
-                }
+                  
+                  return currentEstablishments; // Retornar o array sem modificar
+                });
               }}
               className="w-full md:w-1/2 px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 text-gray-800 font-medium text-lg bg-white hover:border-yellow-400 transition-colors"
             >
