@@ -157,7 +157,7 @@ export default function RestaurantReservationsPage() {
     fetchEstablishments();
   }, [fetchEstablishments]);
 
-  // Função para carregar regras de brindes
+  // Função para carregar regras de brindes para aniversários
   const loadGiftRules = useCallback(async () => {
     if (!selectedEstablishment) {
       setGiftRules([]);
@@ -166,7 +166,7 @@ export default function RestaurantReservationsPage() {
 
     try {
       const token = localStorage.getItem('authToken');
-      const response = await fetch(`${API_URL}/api/gift-rules?establishment_id=${selectedEstablishment.id}`, {
+      const response = await fetch(`${API_URL}/api/gift-rules?establishment_id=${selectedEstablishment.id}&tipo_beneficiario=ANIVERSARIO`, {
         headers: { Authorization: `Bearer ${token}` }
       });
 
@@ -183,6 +183,32 @@ export default function RestaurantReservationsPage() {
     }
   }, [selectedEstablishment, API_URL]);
 
+  // Função para carregar regras de brindes para promoters
+  const loadPromoterGiftRules = useCallback(async () => {
+    if (!selectedEstablishment) {
+      setPromoterGiftRules([]);
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('authToken');
+      const response = await fetch(`${API_URL}/api/gift-rules?establishment_id=${selectedEstablishment.id}&tipo_beneficiario=PROMOTER`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setPromoterGiftRules(data.rules || []);
+      } else {
+        console.error('Erro ao carregar regras de brindes para promoters');
+        setPromoterGiftRules([]);
+      }
+    } catch (error) {
+      console.error('Erro ao carregar regras de brindes para promoters:', error);
+      setPromoterGiftRules([]);
+    }
+  }, [selectedEstablishment, API_URL]);
+
   // Carregar dados imediatamente quando um estabelecimento é selecionado
   useEffect(() => {
     if (selectedEstablishment) {
@@ -190,7 +216,7 @@ export default function RestaurantReservationsPage() {
       loadGiftRules();
       loadPromoterGiftRules();
     }
-  }, [selectedEstablishment]);
+  }, [selectedEstablishment, loadGiftRules, loadPromoterGiftRules]);
 
   // Atualizar dados em tempo real
   useEffect(() => {
@@ -2587,30 +2613,32 @@ export default function RestaurantReservationsPage() {
                     <div className="my-8 border-t-4 border-dashed border-gray-300"></div>
                     
                     {/* Seção de Regras de Brindes para Promoters */}
-                    <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg p-6 border-2 border-purple-300">
-                      <div className="flex items-center justify-between mb-4">
-                        <div className="flex items-center gap-3">
-                          <div className="bg-purple-600 rounded-full p-2">
-                            <MdPerson className="text-white" size={24} />
+                    <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg p-6 border-2 border-purple-300 shadow-lg">
+                      <div className="mb-4">
+                        <div className="flex items-center justify-between mb-4">
+                          <div className="flex items-center gap-3">
+                            <div className="bg-purple-600 rounded-full p-3 shadow-md">
+                              <MdPerson className="text-white" size={28} />
+                            </div>
+                            <div>
+                              <h4 className="text-2xl font-bold text-gray-800">🎯 Brindes para Promoters</h4>
+                              <p className="text-sm text-gray-600 mt-1">
+                                Regras que se aplicam aos promoters quando os convidados de suas listas fazem check-in nos eventos
+                              </p>
+                            </div>
                           </div>
-                          <div>
-                            <h4 className="text-xl font-bold text-gray-800">🎯 Brindes para Promoters</h4>
-                            <p className="text-sm text-gray-600 mt-1">
-                              Regras que se aplicam aos promoters quando os convidados de suas listas fazem check-in nos eventos
-                            </p>
-                          </div>
+                          <button
+                            onClick={() => {
+                              setEditingPromoterGiftRule(null);
+                              setPromoterGiftRuleForm({ descricao: '', checkins_necessarios: 5, status: 'ATIVA' });
+                              setShowPromoterGiftRuleModal(true);
+                            }}
+                            className="px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors flex items-center gap-2 shadow-md font-semibold text-lg"
+                          >
+                            <MdAdd size={24} />
+                            Nova Regra para Promoter
+                          </button>
                         </div>
-                        <button
-                          onClick={() => {
-                            setEditingPromoterGiftRule(null);
-                            setPromoterGiftRuleForm({ descricao: '', checkins_necessarios: 5, status: 'ATIVA' });
-                            setShowPromoterGiftRuleModal(true);
-                          }}
-                          className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors flex items-center gap-2 shadow-md"
-                        >
-                          <MdAdd size={20} />
-                          Nova Regra
-                        </button>
                       </div>
                       
                       {promoterGiftRules.length === 0 ? (
