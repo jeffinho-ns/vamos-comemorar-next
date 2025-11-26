@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { MdAdd, MdPeople, MdPerson, MdEdit, MdDelete, MdSettings, MdCheckCircle, MdClose } from "react-icons/md";
 
 interface Establishment {
@@ -26,6 +26,7 @@ export default function GiftsAdminPage() {
   // Estados
   const [selectedEstablishment, setSelectedEstablishment] = useState<Establishment | null>(null);
   const [establishments, setEstablishments] = useState<Establishment[]>([]);
+  const establishmentsRef = useRef<Establishment[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingRules, setLoadingRules] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -85,6 +86,7 @@ export default function GiftsAdminPage() {
       
       console.log('🏢 Estabelecimentos formatados:', formattedEstablishments);
       setEstablishments(formattedEstablishments);
+      establishmentsRef.current = formattedEstablishments; // Atualizar ref também
       
       // Selecionar o primeiro estabelecimento automaticamente
       if (formattedEstablishments.length > 0 && !selectedEstablishment) {
@@ -232,14 +234,19 @@ export default function GiftsAdminPage() {
                   return;
                 }
                 
-                // Buscar estabelecimento - tentar múltiplas formas
-                let establishment = establishments.find(est => String(est.id) === String(value));
+                // Buscar no array atual e na ref (que sempre tem o valor mais recente)
+                const currentEstabs = establishments.length > 0 ? establishments : establishmentsRef.current;
+                
+                console.log('🔍 Buscando em array com', currentEstabs.length, 'estabelecimentos');
+                
+                // Buscar estabelecimento - tentar comparação direta de string primeiro
+                let establishment = currentEstabs.find(est => String(est.id) === String(value));
                 
                 if (!establishment) {
                   // Tentar como número
                   const numValue = Number(value);
                   if (!isNaN(numValue)) {
-                    establishment = establishments.find(est => {
+                    establishment = currentEstabs.find(est => {
                       const estNum = Number(est.id);
                       return !isNaN(estNum) && estNum === numValue;
                     });
@@ -251,27 +258,32 @@ export default function GiftsAdminPage() {
                   setSelectedEstablishment(establishment);
                 } else {
                   console.error('❌ Estabelecimento não encontrado para valor:', value);
-                  console.error('📋 Estabelecimentos disponíveis:', establishments.map(e => ({ 
+                  console.error('📋 Estabelecimentos no array:', currentEstabs.map(e => ({ 
                     id: e.id, 
                     idType: typeof e.id,
                     idString: String(e.id),
                     name: e.name 
                   })));
                   
-                  // Recarregar estabelecimentos e tentar novamente
-                  console.log('🔄 Recarregando estabelecimentos...');
-                  await fetchEstablishments();
-                  
-                  // Aguardar um pouco e tentar novamente
-                  setTimeout(() => {
-                    const retry = establishments.find(est => String(est.id) === String(value));
-                    if (retry) {
-                      console.log('✅ Encontrado após recarregar:', retry);
-                      setSelectedEstablishment(retry);
-                    } else {
-                      alert(`Erro: Não foi possível selecionar o estabelecimento. Recarregue a página.`);
-                    }
-                  }, 200);
+                  // Tentar uma última vez recarregando
+                  if (establishments.length === 0) {
+                    console.log('🔄 Array vazio, recarregando estabelecimentos...');
+                    await fetchEstablishments();
+                    
+                    // Aguardar e tentar novamente com os novos dados
+                    setTimeout(() => {
+                      const updatedEstabs = establishmentsRef.current;
+                      const retry = updatedEstabs.find(est => String(est.id) === String(value));
+                      if (retry) {
+                        console.log('✅ Encontrado após recarregar:', retry);
+                        setSelectedEstablishment(retry);
+                      } else {
+                        alert(`Erro: Estabelecimento com ID ${value} não foi encontrado. Recarregue a página.`);
+                      }
+                    }, 300);
+                  } else {
+                    alert(`Erro: Estabelecimento não encontrado. Valor selecionado: ${value}. Recarregue a página.`);
+                  }
                 }
               }}
               className="w-full md:w-1/2 px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 text-gray-800 font-medium text-lg bg-white hover:border-yellow-400 transition-colors"
