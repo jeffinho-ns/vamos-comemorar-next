@@ -109,6 +109,31 @@ interface PromoterFormData {
   pode_selecionar_areas: boolean;
 }
 
+// Função para formatar números de forma compacta
+const formatNumber = (num: number): string => {
+  if (num === 0) return '0';
+  if (num < 1000) return num.toString();
+  if (num < 1000000) return `${(num / 1000).toFixed(1).replace('.', ',')}k`;
+  if (num < 1000000000) return `${(num / 1000000).toFixed(1).replace('.', ',')}M`;
+  return `${(num / 1000000000).toFixed(1).replace('.', ',')}B`;
+};
+
+// Função para formatar valores monetários em R$
+const formatCurrency = (value: number): string => {
+  if (value === 0) return 'R$ 0';
+  if (value < 1000) return `R$ ${Math.round(value).toLocaleString('pt-BR')}`;
+  if (value < 1000000) {
+    const formatted = (value / 1000).toFixed(1).replace('.', ',');
+    return `R$ ${formatted}k`;
+  }
+  if (value < 1000000000) {
+    const formatted = (value / 1000000).toFixed(1).replace('.', ',');
+    return `R$ ${formatted}M`;
+  }
+  const formatted = (value / 1000000000).toFixed(1).replace('.', ',');
+  return `R$ ${formatted}B`;
+};
+
 export default function PromotersPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
@@ -712,7 +737,7 @@ export default function PromotersPage() {
               <div>
                 <p className="text-sm font-medium text-gray-600">Total Convidados</p>
                 <p className="text-2xl font-bold text-blue-600">
-                  {promoters.reduce((sum, p) => sum + p.total_convidados, 0)}
+                  {formatNumber(promoters.reduce((sum, p) => sum + (p.total_convidados || 0), 0))}
                 </p>
               </div>
               <div className="bg-blue-100 text-blue-600 p-3 rounded-full">
@@ -726,7 +751,7 @@ export default function PromotersPage() {
               <div>
                 <p className="text-sm font-medium text-gray-600">Receita Total</p>
                 <p className="text-2xl font-bold text-green-600">
-                  R$ {promoters.reduce((sum, p) => sum + (p.receita_total_gerada || 0), 0).toLocaleString('pt-BR')}
+                  {formatCurrency(promoters.reduce((sum, p) => sum + (p.receita_total_gerada || 0), 0))}
                 </p>
               </div>
               <div className="bg-green-100 text-green-600 p-3 rounded-full">
@@ -825,11 +850,15 @@ export default function PromotersPage() {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="text-center">
                     <p className="text-xs text-gray-600">Convidados</p>
-                    <p className="text-lg font-bold text-gray-900">{promoter.total_convidados}</p>
+                    <p className="text-lg font-bold text-gray-900">
+                      {formatNumber(promoter.total_convidados || 0)}
+                    </p>
                   </div>
                   <div className="text-center">
                     <p className="text-xs text-gray-600">Check-ins</p>
-                    <p className="text-lg font-bold text-green-600">{promoter.total_checkins}</p>
+                    <p className="text-lg font-bold text-green-600">
+                      {formatNumber(promoter.total_checkins || 0)}
+                    </p>
                   </div>
                 </div>
                 
@@ -843,7 +872,7 @@ export default function PromotersPage() {
                   <div className="text-center">
                     <p className="text-xs text-gray-600">Receita</p>
                     <p className="text-lg font-bold text-green-600">
-                      R$ {(promoter.receita_total_gerada || 0).toLocaleString('pt-BR')}
+                      {formatCurrency(promoter.receita_total_gerada || 0)}
                     </p>
                   </div>
                 </div>

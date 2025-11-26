@@ -26,28 +26,29 @@ const EntradaStatusModal: React.FC<EntradaStatusModalProps> = ({
   const opcoes = React.useMemo(() => {
     const hora = horaAtual.getHours();
     const minutos = horaAtual.getMinutes();
-    const horaDecimal = hora + minutos / 60;
     
-    // SEMPRE mostrar todas as opções, mas com valores diferentes baseados no horário
-    // Admin pode escolher qualquer opção a qualquer momento
-    
-    // Até 22:00 - VIP é grátis, mas admin pode escolher outras opções
-    if (horaDecimal < 22) {
+    // Até 22:00h (inclusive) - VIP automático (sem opção de escolha)
+    // IMPORTANTE: Apenas durante o dia (não inclui madrugada 00:00-06:00)
+    // VIP válido: 06:00 até 22:00 (inclusive)
+    if ((hora >= 6 && hora < 22) || (hora === 22 && minutos === 0)) {
       return {
-        mostraVIP: true,
-        mostraSeco: true, // Admin pode escolher
-        mostraConsuma: true, // Admin pode escolher
-        valorSeco: 40, // Valor padrão antes das 22h
-        valorConsuma: 120 // Valor padrão antes das 22h
+        modoAutomatico: true,
+        tipoAutomatico: 'VIP' as EntradaTipo,
+        mostraVIP: false, // Não mostrar opção, será automático
+        mostraSeco: false,
+        mostraConsuma: false,
+        valorSeco: 0,
+        valorConsuma: 0
       };
     }
     
-    // Entre 22:00 e 00:30
-    // Se for antes da meia-noite (22:00 até 23:59) ou depois da meia-noite até 00:30
-    const horaMeiaNoite = (horaDecimal >= 22 && horaDecimal < 24) || (hora === 0 && minutos <= 30);
-    if (horaMeiaNoite) {
+    // Após 22:00h até 00:30h - Apenas SECO ou CONSOME (valores menores)
+    // Entre 22:00h (exclusivo) e 00:30h (inclusive)
+    if ((hora === 22 && minutos > 0) || (hora > 22 && hora < 24) || (hora === 0 && minutos <= 30)) {
       return {
-        mostraVIP: true, // Admin pode forçar VIP
+        modoAutomatico: false,
+        tipoAutomatico: null,
+        mostraVIP: false, // VIP inativo após 22:00h
         mostraSeco: true,
         mostraConsuma: true,
         valorSeco: 40,
@@ -55,20 +56,12 @@ const EntradaStatusModal: React.FC<EntradaStatusModalProps> = ({
       };
     }
     
-    // Após 00:30 até 03:00
-    if ((horaDecimal >= 0.5 && horaDecimal < 3) || (hora >= 0 && hora < 3 && minutos > 30)) {
-      return {
-        mostraVIP: true, // Admin pode forçar VIP até 03:00
-        mostraSeco: true,
-        mostraConsuma: true,
-        valorSeco: 50,
-        valorConsuma: 150
-      };
-    }
-    
-    // Após 03:00 - Ainda mostrar todas as opções, mas admin pode escolher
+    // Após 00:30h até 06:00h - Apenas SECO ou CONSOME com valores maiores
+    // Isso cobre: (hora === 0 && minutos > 30) || (hora > 0 && hora < 6)
     return {
-      mostraVIP: true,
+      modoAutomatico: false,
+      tipoAutomatico: null,
+      mostraVIP: false, // VIP inativo após 00:30h
       mostraSeco: true,
       mostraConsuma: true,
       valorSeco: 50,
@@ -76,14 +69,14 @@ const EntradaStatusModal: React.FC<EntradaStatusModalProps> = ({
     };
   }, [horaAtual]);
 
-  // Inicializar o tipo selecionado quando o modal abrir ou o horário mudar
+  // Inicializar o tipo selecionado quando o modal abrir
   React.useEffect(() => {
     if (isOpen) {
-      // Se for antes das 22h, selecionar VIP automaticamente
-      if (!opcoes.mostraSeco && !opcoes.mostraConsuma) {
-        setSelectedTipo('VIP');
+      if (opcoes.modoAutomatico && opcoes.tipoAutomatico) {
+        // Modo automático: já definir como VIP
+        setSelectedTipo(opcoes.tipoAutomatico);
       } else {
-        // Se houver opções pagas, deixar sem seleção inicial para o admin escolher
+        // Modo manual: deixar sem seleção para o usuário escolher
         setSelectedTipo(null);
       }
     } else {
@@ -93,16 +86,19 @@ const EntradaStatusModal: React.FC<EntradaStatusModalProps> = ({
   }, [isOpen, opcoes]);
 
   const handleConfirm = () => {
-    if (!selectedTipo) return;
-    
-    let valor = 0;
-    if (selectedTipo === 'SECO') {
-      valor = opcoes.valorSeco;
-    } else if (selectedTipo === 'CONSUMA') {
-      valor = opcoes.valorConsuma;
+    if (opcoes.modoAutomatico && opcoes.tipoAutomatico) {
+      // Modo automático: confirmar VIP diretamente
+      onConfirm(opcoes.tipoAutomatico, 0);
+    } else if (selectedTipo) {
+      // Modo manual: usar o tipo selecionado
+      let valor = 0;
+      if (selectedTipo === 'SECO') {
+        valor = opcoes.valorSeco;
+      } else if (selectedTipo === 'CONSUMA') {
+        valor = opcoes.valorConsuma;
+      }
+      onConfirm(selectedTipo, valor);
     }
-    
-    onConfirm(selectedTipo, valor);
   };
 
   if (!isOpen) return null;
@@ -137,91 +133,84 @@ const EntradaStatusModal: React.FC<EntradaStatusModalProps> = ({
               </p>
             </div>
 
-            <div className="space-y-3 mb-6">
-              {/* Opção VIP */}
-              {opcoes.mostraVIP && (
-                <button
-                  onClick={() => setSelectedTipo('VIP')}
-                  className={`w-full p-4 border-2 rounded-lg text-left transition-all ${
-                    selectedTipo === 'VIP'
-                      ? 'border-green-500 bg-green-50'
-                      : 'border-gray-300 hover:border-gray-400'
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <MdCheckCircle 
-                        size={24} 
-                        className={selectedTipo === 'VIP' ? 'text-green-500' : 'text-gray-400'} 
-                      />
-                      <div>
-                        <div className="font-semibold text-gray-900">VIP</div>
-                        <div className="text-sm text-gray-600">Entrada gratuita</div>
+            {/* Modo Automático VIP (até 22:00h) */}
+            {opcoes.modoAutomatico && opcoes.tipoAutomatico === 'VIP' && (
+              <div className="mb-6">
+                <div className="bg-green-50 border-2 border-green-500 rounded-lg p-4">
+                  <div className="flex items-center gap-3">
+                    <MdCheckCircle size={32} className="text-green-500" />
+                    <div className="flex-1">
+                      <div className="font-semibold text-lg text-gray-900">VIP</div>
+                      <div className="text-sm text-gray-600 mt-1">
+                        Entrada automática VIP (até 22:00h)
                       </div>
+                      <div className="text-green-600 font-bold text-lg mt-2">R$ 0,00</div>
                     </div>
-                    {selectedTipo === 'VIP' && (
-                      <span className="text-green-600 font-bold">R$ 0,00</span>
-                    )}
                   </div>
-                </button>
-              )}
+                </div>
+              </div>
+            )}
 
-              {/* Opção SECO */}
-              {opcoes.mostraSeco && (
-                <button
-                  onClick={() => setSelectedTipo('SECO')}
-                  className={`w-full p-4 border-2 rounded-lg text-left transition-all ${
-                    selectedTipo === 'SECO'
-                      ? 'border-blue-500 bg-blue-50'
-                      : 'border-gray-300 hover:border-gray-400'
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <MdAttachMoney 
-                        size={24} 
-                        className={selectedTipo === 'SECO' ? 'text-blue-500' : 'text-gray-400'} 
-                      />
-                      <div>
-                        <div className="font-semibold text-gray-900">SECO</div>
-                        <div className="text-sm text-gray-600">Sem consumação mínima</div>
+            {/* Modo Manual (após 22:00h) */}
+            {!opcoes.modoAutomatico && (
+              <div className="space-y-3 mb-6">
+                {/* Opção SECO */}
+                {opcoes.mostraSeco && (
+                  <button
+                    onClick={() => setSelectedTipo('SECO')}
+                    className={`w-full p-4 border-2 rounded-lg text-left transition-all ${
+                      selectedTipo === 'SECO'
+                        ? 'border-blue-500 bg-blue-50'
+                        : 'border-gray-300 hover:border-gray-400'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <MdAttachMoney 
+                          size={24} 
+                          className={selectedTipo === 'SECO' ? 'text-blue-500' : 'text-gray-400'} 
+                        />
+                        <div>
+                          <div className="font-semibold text-gray-900">SECO</div>
+                          <div className="text-sm text-gray-600">Sem consumação mínima</div>
+                        </div>
                       </div>
+                      {selectedTipo === 'SECO' && (
+                        <span className="text-blue-600 font-bold">R$ {opcoes.valorSeco.toFixed(2)}</span>
+                      )}
                     </div>
-                    {selectedTipo === 'SECO' && (
-                      <span className="text-blue-600 font-bold">R$ {opcoes.valorSeco.toFixed(2)}</span>
-                    )}
-                  </div>
-                </button>
-              )}
+                  </button>
+                )}
 
-              {/* Opção CONSUMA */}
-              {opcoes.mostraConsuma && (
-                <button
-                  onClick={() => setSelectedTipo('CONSUMA')}
-                  className={`w-full p-4 border-2 rounded-lg text-left transition-all ${
-                    selectedTipo === 'CONSUMA'
-                      ? 'border-purple-500 bg-purple-50'
-                      : 'border-gray-300 hover:border-gray-400'
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <MdLocalBar 
-                        size={24} 
-                        className={selectedTipo === 'CONSUMA' ? 'text-purple-500' : 'text-gray-400'} 
-                      />
-                      <div>
-                        <div className="font-semibold text-gray-900">CONSUMA</div>
-                        <div className="text-sm text-gray-600">Com consumação mínima</div>
+                {/* Opção CONSUMA */}
+                {opcoes.mostraConsuma && (
+                  <button
+                    onClick={() => setSelectedTipo('CONSUMA')}
+                    className={`w-full p-4 border-2 rounded-lg text-left transition-all ${
+                      selectedTipo === 'CONSUMA'
+                        ? 'border-purple-500 bg-purple-50'
+                        : 'border-gray-300 hover:border-gray-400'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <MdLocalBar 
+                          size={24} 
+                          className={selectedTipo === 'CONSUMA' ? 'text-purple-500' : 'text-gray-400'} 
+                        />
+                        <div>
+                          <div className="font-semibold text-gray-900">CONSUMA</div>
+                          <div className="text-sm text-gray-600">Com consumação mínima</div>
+                        </div>
                       </div>
+                      {selectedTipo === 'CONSUMA' && (
+                        <span className="text-purple-600 font-bold">R$ {opcoes.valorConsuma.toFixed(2)}</span>
+                      )}
                     </div>
-                    {selectedTipo === 'CONSUMA' && (
-                      <span className="text-purple-600 font-bold">R$ {opcoes.valorConsuma.toFixed(2)}</span>
-                    )}
-                  </div>
-                </button>
-              )}
-            </div>
+                  </button>
+                )}
+              </div>
+            )}
 
             <div className="flex gap-3">
               <button
@@ -232,14 +221,14 @@ const EntradaStatusModal: React.FC<EntradaStatusModalProps> = ({
               </button>
               <button
                 onClick={handleConfirm}
-                disabled={!selectedTipo}
+                disabled={!opcoes.modoAutomatico && !selectedTipo}
                 className={`flex-1 px-4 py-2 rounded-lg text-white font-semibold transition-colors ${
-                  selectedTipo
+                  (opcoes.modoAutomatico || selectedTipo)
                     ? 'bg-green-600 hover:bg-green-700'
                     : 'bg-gray-300 cursor-not-allowed'
                 }`}
               >
-                Confirmar Check-in
+                {opcoes.modoAutomatico ? 'Confirmar Check-in VIP' : 'Confirmar Check-in'}
               </button>
             </div>
           </div>
