@@ -188,6 +188,7 @@ export default function RestaurantReservationsPage() {
     if (selectedEstablishment) {
       loadEstablishmentData();
       loadGiftRules();
+      loadPromoterGiftRules();
     }
   }, [selectedEstablishment]);
 
@@ -272,6 +273,16 @@ export default function RestaurantReservationsPage() {
   const [showGiftRuleModal, setShowGiftRuleModal] = useState(false);
   const [editingGiftRule, setEditingGiftRule] = useState<GiftRule | null>(null);
   const [giftRuleForm, setGiftRuleForm] = useState<{ descricao: string; checkins_necessarios: number; status: 'ATIVA' | 'INATIVA' }>({
+    descricao: '',
+    checkins_necessarios: 5,
+    status: 'ATIVA'
+  });
+  
+  // Estados para regras de brindes de promoters
+  const [promoterGiftRules, setPromoterGiftRules] = useState<GiftRule[]>([]);
+  const [showPromoterGiftRuleModal, setShowPromoterGiftRuleModal] = useState(false);
+  const [editingPromoterGiftRule, setEditingPromoterGiftRule] = useState<GiftRule | null>(null);
+  const [promoterGiftRuleForm, setPromoterGiftRuleForm] = useState<{ descricao: string; checkins_necessarios: number; status: 'ATIVA' | 'INATIVA' }>({
     descricao: '',
     checkins_necessarios: 5,
     status: 'ATIVA'
@@ -2565,6 +2576,142 @@ export default function RestaurantReservationsPage() {
                       )}
                     </div>
                     
+                    {/* Seção de Regras de Brindes de Promoters */}
+                    <div className="bg-gray-50 rounded-lg p-6">
+                      <div className="flex items-center justify-between mb-4">
+                        <div>
+                          <h4 className="text-lg font-semibold text-gray-800">Regras de Brindes para Promoters</h4>
+                          <p className="text-sm text-gray-600 mt-1">
+                            Configure brindes que serão liberados automaticamente para promoters quando atingirem uma quantidade de check-ins.
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => {
+                            setEditingPromoterGiftRule(null);
+                            setPromoterGiftRuleForm({ descricao: '', checkins_necessarios: 5, status: 'ATIVA' });
+                            setShowPromoterGiftRuleModal(true);
+                          }}
+                          className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors flex items-center gap-2"
+                        >
+                          <MdAdd size={20} />
+                          Nova Regra
+                        </button>
+                      </div>
+                      
+                      {promoterGiftRules.length === 0 ? (
+                        <div className="text-center py-8 text-gray-500">
+                          Nenhuma regra de brinde para promoters configurada. Clique em "Nova Regra" para criar.
+                        </div>
+                      ) : (
+                        <div className="space-y-3">
+                          {promoterGiftRules.map((rule) => (
+                            <div
+                              key={rule.id}
+                              className={`bg-white rounded-lg p-4 border-2 ${
+                                rule.status === 'ATIVA' ? 'border-purple-200' : 'border-gray-200'
+                              }`}
+                            >
+                              <div className="flex items-start justify-between">
+                                <div className="flex-1">
+                                  <div className="flex items-center gap-2 mb-2">
+                                    <h5 className="font-semibold text-gray-800">{rule.descricao}</h5>
+                                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                      rule.status === 'ATIVA'
+                                        ? 'bg-purple-100 text-purple-700'
+                                        : 'bg-gray-100 text-gray-600'
+                                    }`}>
+                                      {rule.status === 'ATIVA' ? 'Ativa' : 'Inativa'}
+                                    </span>
+                                  </div>
+                                  <p className="text-sm text-gray-600">
+                                    Liberar quando atingir <strong>{rule.checkins_necessarios}</strong> check-in{rule.checkins_necessarios > 1 ? 's' : ''}
+                                  </p>
+                                </div>
+                                <div className="flex gap-2 ml-4">
+                                  <button
+                                    onClick={() => {
+                                      setEditingPromoterGiftRule(rule);
+                                      setPromoterGiftRuleForm({
+                                        descricao: rule.descricao,
+                                        checkins_necessarios: rule.checkins_necessarios,
+                                        status: rule.status
+                                      });
+                                      setShowPromoterGiftRuleModal(true);
+                                    }}
+                                    className="px-3 py-1 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors"
+                                  >
+                                    Editar
+                                  </button>
+                                  <button
+                                    onClick={async () => {
+                                      if (confirm(`Tem certeza que deseja ${rule.status === 'ATIVA' ? 'desativar' : 'ativar'} esta regra?`)) {
+                                        try {
+                                          const token = localStorage.getItem('authToken');
+                                          const response = await fetch(`${API_URL}/api/gift-rules/${rule.id}`, {
+                                            method: 'PUT',
+                                            headers: {
+                                              'Content-Type': 'application/json',
+                                              Authorization: `Bearer ${token}`
+                                            },
+                                            body: JSON.stringify({
+                                              status: rule.status === 'ATIVA' ? 'INATIVA' : 'ATIVA'
+                                            })
+                                          });
+
+                                          if (response.ok) {
+                                            await loadPromoterGiftRules();
+                                          } else {
+                                            alert('Erro ao atualizar regra');
+                                          }
+                                        } catch (error) {
+                                          console.error('Erro:', error);
+                                          alert('Erro ao atualizar regra');
+                                        }
+                                      }
+                                    }}
+                                    className={`px-3 py-1 text-sm rounded transition-colors ${
+                                      rule.status === 'ATIVA'
+                                        ? 'bg-yellow-600 hover:bg-yellow-700 text-white'
+                                        : 'bg-green-600 hover:bg-green-700 text-white'
+                                    }`}
+                                  >
+                                    {rule.status === 'ATIVA' ? 'Desativar' : 'Ativar'}
+                                  </button>
+                                  <button
+                                    onClick={async () => {
+                                      if (confirm('Tem certeza que deseja deletar esta regra? Esta ação não pode ser desfeita.')) {
+                                        try {
+                                          const token = localStorage.getItem('authToken');
+                                          const response = await fetch(`${API_URL}/api/gift-rules/${rule.id}`, {
+                                            method: 'DELETE',
+                                            headers: {
+                                              Authorization: `Bearer ${token}`
+                                            }
+                                          });
+
+                                          if (response.ok) {
+                                            await loadPromoterGiftRules();
+                                          } else {
+                                            alert('Erro ao deletar regra');
+                                          }
+                                        } catch (error) {
+                                          console.error('Erro:', error);
+                                          alert('Erro ao deletar regra');
+                                        }
+                                      }
+                                    }}
+                                    className="px-3 py-1 text-sm bg-red-600 hover:bg-red-700 text-white rounded transition-colors"
+                                  >
+                                    Deletar
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    
                     <div className="bg-gray-50 rounded-lg p-6">
                       <h4 className="text-lg font-semibold text-gray-800 mb-4">Configurações Gerais</h4>
                       <div className="space-y-4">
@@ -2903,7 +3050,8 @@ export default function RestaurantReservationsPage() {
                     },
                     body: JSON.stringify({
                       ...giftRuleForm,
-                      establishment_id: selectedEstablishment?.id
+                      establishment_id: selectedEstablishment?.id,
+                      tipo_beneficiario: 'ANIVERSARIO' // Sempre aniversário para este modal
                     })
                   });
 
@@ -2989,6 +3137,124 @@ export default function RestaurantReservationsPage() {
                     className="flex-1 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded transition-colors"
                   >
                     {editingGiftRule ? 'Salvar Alterações' : 'Criar Regra'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* Modal para Criar/Editar Regra de Brinde de Promoter */}
+        {showPromoterGiftRuleModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
+              <h3 className="text-lg font-semibold text-gray-800 mb-4">
+                {editingPromoterGiftRule ? 'Editar Regra de Brinde para Promoter' : 'Nova Regra de Brinde para Promoter'}
+              </h3>
+              
+              <form onSubmit={async (e) => {
+                e.preventDefault();
+                if (!promoterGiftRuleForm.descricao || !promoterGiftRuleForm.checkins_necessarios) return;
+
+                try {
+                  const token = localStorage.getItem('authToken');
+                  const url = editingPromoterGiftRule
+                    ? `${API_URL}/api/gift-rules/${editingPromoterGiftRule.id}`
+                    : `${API_URL}/api/gift-rules`;
+                  const method = editingPromoterGiftRule ? 'PUT' : 'POST';
+
+                  const response = await fetch(url, {
+                    method,
+                    headers: {
+                      'Content-Type': 'application/json',
+                      Authorization: `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                      ...promoterGiftRuleForm,
+                      establishment_id: selectedEstablishment?.id,
+                      tipo_beneficiario: 'PROMOTER'
+                    })
+                  });
+
+                  if (response.ok) {
+                    await loadPromoterGiftRules();
+                    setShowPromoterGiftRuleModal(false);
+                    setEditingPromoterGiftRule(null);
+                    setPromoterGiftRuleForm({ descricao: '', checkins_necessarios: 5, status: 'ATIVA' });
+                  } else {
+                    const errorData = await response.json();
+                    alert('Erro: ' + (errorData.error || 'Erro desconhecido'));
+                  }
+                } catch (error) {
+                  console.error('Erro ao salvar regra de promoter:', error);
+                  alert('Erro ao salvar regra. Tente novamente.');
+                }
+              }} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Descrição do Brinde *
+                  </label>
+                  <input
+                    type="text"
+                    value={promoterGiftRuleForm.descricao}
+                    onChange={(e) => setPromoterGiftRuleForm(prev => ({ ...prev, descricao: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    placeholder="Ex: 5% de comissão, R$ 100, Entrada VIP, Combo de bebidas..."
+                    required
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Descreva claramente o brinde que será oferecido ao promoter
+                  </p>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Check-ins Necessários *
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={promoterGiftRuleForm.checkins_necessarios}
+                    onChange={(e) => setPromoterGiftRuleForm(prev => ({ ...prev, checkins_necessarios: parseInt(e.target.value) || 1 }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    required
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Quantidade de check-ins que o promoter precisa atingir para ganhar este brinde
+                  </p>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Status
+                  </label>
+                  <select
+                    value={promoterGiftRuleForm.status}
+                    onChange={(e) => setPromoterGiftRuleForm(prev => ({ ...prev, status: e.target.value as 'ATIVA' | 'INATIVA' }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  >
+                    <option value="ATIVA">Ativa</option>
+                    <option value="INATIVA">Inativa</option>
+                  </select>
+                </div>
+                
+                <div className="flex gap-3 pt-4">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowPromoterGiftRuleModal(false);
+                      setEditingPromoterGiftRule(null);
+                      setPromoterGiftRuleForm({ descricao: '', checkins_necessarios: 5, status: 'ATIVA' });
+                    }}
+                    className="flex-1 px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded transition-colors"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    className="flex-1 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded transition-colors"
+                  >
+                    {editingPromoterGiftRule ? 'Salvar Alterações' : 'Criar Regra'}
                   </button>
                 </div>
               </form>

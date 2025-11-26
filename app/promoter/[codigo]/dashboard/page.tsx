@@ -101,6 +101,19 @@ export default function PromoterDashboardPage() {
   });
   const [addingSingleGuest, setAddingSingleGuest] = useState(false);
   const [isGuestsListOpen, setIsGuestsListOpen] = useState(true);
+  
+  // Estados para brindes de promoters
+  interface PromoterGift {
+    id: number;
+    descricao: string;
+    checkins_necessarios: number;
+    checkins_count: number;
+    status: string;
+    liberado_em: string;
+    tipo_brinde?: 'porcentagem' | 'valor' | 'beneficio';
+  }
+  const [promoterGifts, setPromoterGifts] = useState<{ [eventoId: number]: PromoterGift[] }>({});
+  const [promoterGiftRules, setPromoterGiftRules] = useState<{ [eventoId: number]: any[] }>({});
 
   const shareLink =
     typeof window !== "undefined"
@@ -218,6 +231,121 @@ export default function PromoterDashboardPage() {
       console.error("Erro ao carregar convidados do promoter:", err);
     }
   }, [params?.codigo]);
+
+  // Função para carregar brindes e regras de brindes para um evento específico
+  const loadPromoterGifts = useCallback(async (promoterId: number, eventoId: number) => {
+    try {
+      const token = localStorage.getItem('authToken');
+      if (!token) {
+        console.warn('Token não encontrado, não será possível carregar brindes');
+        return;
+      }
+
+      // Buscar brindes liberados, regras e check-ins
+      const giftsResponse = await fetch(
+        `${API_URL}/api/gift-rules/promoter/${promoterId}/evento/${eventoId}/gifts`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+      
+      if (giftsResponse.ok) {
+        const giftsData = await giftsResponse.json();
+        setPromoterGifts(prev => ({
+          ...prev,
+          [eventoId]: giftsData.gifts || []
+        }));
+        setPromoterGiftRules(prev => ({
+          ...prev,
+          [eventoId]: giftsData.rules || []
+        }));
+        setCheckinsPorEvento(prev => ({
+          ...prev,
+          [eventoId]: giftsData.checkins_count || 0
+        }));
+      }
+    } catch (err) {
+      console.error("Erro ao carregar brindes do promoter:", err);
+    }
+  }, [API_URL]);
+  
+  // Estado para armazenar check-ins por evento
+  const [checkinsPorEvento, setCheckinsPorEvento] = useState<{ [eventoId: number]: number }>({});
+  
+  // Carregar brindes quando eventos mudarem
+  useEffect(() => {
+    if (eventos.length > 0 && promoter?.id) {
+      eventos.forEach(evento => {
+        if (evento.evento_id) {
+          loadPromoterGifts(promoter.id, evento.evento_id);
+        }
+      });
+    }
+  }, [eventos, promoter?.id, loadPromoterGifts]);
+
+  // Função para obter dados de brindes por evento
+  const getPromoterGiftsForEvent = useMemo(() => {
+    return (eventoId: number) => {
+      const checkinsCount = checkinsPorEvento[eventoId] || 0;
+      const liberados = promoterGifts[eventoId] || [];
+      const regras = promoterGiftRules[eventoId] || [];
+      
+      // Separar regras em liberadas e em progresso
+      const regrasLiberadas = regras.filter(r => r.liberado === true);
+      const regrasEmProgresso = regras.filter(r => !r.liberado);
+      
+      return { checkinsCount, liberados, emProgresso: regrasEmProgresso, regras };
+    };
+  }, [checkinsPorEvento, promoterGifts, promoterGiftRules]);
+
+  // Função auxiliar para identificar tipo de brinde
+  const identifyGiftType = (descricao: string): 'porcentagem' | 'valor' | 'beneficio' => {
+    const descLower = descricao.toLowerCase();
+    // Se contém % ou "porcentagem" ou "comissão"
+    if (descLower.includes('%') || descLower.includes('porcentagem') || descLower.includes('comissão')) {
+      return 'porcentagem';
+    }
+    // Se contém R$ ou "reais" ou valores monetários
+    if (descLower.includes('r$') || descLower.includes('reais') || /\d+[\s]*(reais|rs?)/i.test(descLower)) {
+      return 'valor';
+    }
+    // Caso contrário, é benefício (VIP, camarote, combo, etc)
+    return 'beneficio';
+  };
+
+  // Obter dados do evento selecionado (ou primeiro evento)
+  const eventoAtual = useMemo(() => {
+    if (selectedEvento === 'todos' && eventos.length > 0) {
+      return eventos[0];
+    }
+    return eventos.find(e => String(e.evento_id) === selectedEvento) || eventos[0];
+  }, [selectedEvento, eventos]);
+
+  const giftsData = useMemo(() => {
+    if (!eventoAtual) return { checkinsCount: 0, liberados: [], emProgresso: [], regras: [] };
+    return getPromoterGiftsForEvent(eventoAtual.evento_id);
+  }, [eventoAtual, getPromoterGiftsForEvent]);
+  
+  // Separar brindes por tipo (usando regras ao invés de liberados)
+  const brindesPorcentagemValor = useMemo(() => {
+    const todos = [...giftsData.regras];
+    return todos.filter(b => {
+      const tipo = identifyGiftType(b.descricao);
+      return tipo === 'porcentagem' || tipo === 'valor';
+    });
+  }, [giftsData]);
+
+  const brindesBeneficios = useMemo(() => {
+    const todos = [...giftsData.regras];
+    return todos.filter(b => identifyGiftType(b.descricao) === 'beneficio');
+  }, [giftsData]);
+  
+  // Função auxiliar para identificar se um brinde está liberado
+  const isBrindeLiberado = (regra: any) => {
+    return giftsData.liberados.some(l => l.gift_rule_id === regra.id);
+  };
 
   useEffect(() => {
     loadPromoterData();
@@ -910,21 +1038,74 @@ export default function PromoterDashboardPage() {
               transition={{ delay: 0.25 }}
               className="rounded-3xl border border-white/10 bg-white/5 p-6 space-y-4"
             >
-              <h3 className="text-lg font-semibold">Insights rápidos</h3>
-              <div className="space-y-3 text-sm text-white/70">
-                <p>
-                  • Tenha sempre alguns nomes extras: o sistema aceita importação em
-                  massa sem limite de convidados.
+              <h3 className="text-lg font-semibold">Brindes e Comissões</h3>
+              {eventoAtual ? (
+                <div className="space-y-4">
+                  <div className="text-sm text-white/70">
+                    <p className="font-semibold text-white mb-2">
+                      Evento: {eventoAtual.nome_do_evento}
+                    </p>
+                    <p className="mb-3">
+                      Check-ins realizados: <span className="font-bold text-purple-300">{giftsData.checkinsCount}</span>
+                    </p>
+                  </div>
+                  
+                  {brindesPorcentagemValor.length > 0 ? (
+                    <div className="space-y-3">
+                      {brindesPorcentagemValor.map((brinde, idx) => {
+                        const isLiberado = brinde.liberado === true;
+                        const progresso = brinde.progresso || (isLiberado ? 100 : (giftsData.checkinsCount / brinde.checkins_necessarios) * 100);
+                        const faltam = brinde.faltam || Math.max(0, brinde.checkins_necessarios - giftsData.checkinsCount);
+                        
+                        return (
+                          <div
+                            key={brinde.id || idx}
+                            className={`rounded-lg p-3 border-2 ${
+                              isLiberado
+                                ? 'border-green-500/50 bg-green-500/10'
+                                : 'border-white/20 bg-white/5'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="font-semibold text-white text-sm">{brinde.descricao}</span>
+                              {isLiberado && (
+                                <span className="px-2 py-1 bg-green-500/20 text-green-300 text-xs rounded-full">
+                                  ✅ Liberado
+                                </span>
+                              )}
+                            </div>
+                            {!isLiberado && (
+                              <div className="space-y-1">
+                                <div className="flex justify-between text-xs text-white/60">
+                                  <span>Progresso: {giftsData.checkinsCount} / {brinde.checkins_necessarios}</span>
+                                  <span>{Math.round(progresso)}%</span>
+                                </div>
+                                <div className="w-full bg-white/10 rounded-full h-2">
+                                  <div
+                                    className="bg-purple-500 h-2 rounded-full transition-all"
+                                    style={{ width: `${Math.min(100, progresso)}%` }}
+                                  ></div>
+                                </div>
+                                <p className="text-xs text-purple-300">
+                                  Faltam {faltam} check-ins
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-white/60">
+                      Nenhum brinde de porcentagem ou valor configurado para este evento.
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <p className="text-sm text-white/60">
+                  Selecione um evento para ver seus brindes e comissões.
                 </p>
-                <p>
-                  • Atualize o status dos convidados no evento para garantir check-ins
-                  mais rápidos na portaria.
-                </p>
-                <p>
-                  • Use o link público para captar convidados e acompanhe as conversões
-                  aqui no painel.
-                </p>
-              </div>
+              )}
             </motion.div>
 
             <motion.div
@@ -933,18 +1114,64 @@ export default function PromoterDashboardPage() {
               transition={{ delay: 0.35 }}
               className="rounded-3xl border border-white/10 bg-gradient-to-br from-purple-700/40 to-purple-500/30 p-6"
             >
-              <h3 className="text-lg font-semibold mb-3">Ajuda rápida</h3>
-              <ul className="space-y-2 text-sm text-white/80">
-                <li>• Dúvidas sobre o painel? Procure o gerente responsável.</li>
-                <li>
-                  • Precisa de acesso ao evento? Certifique-se de estar vinculado pela
-                  equipe.
-                </li>
-                <li>
-                  • Atualize sua foto e observações enviando ao suporte para manter sua
-                  página pública atraente.
-                </li>
-              </ul>
+              <h3 className="text-lg font-semibold mb-3">Benefícios e Brindes</h3>
+              {eventoAtual ? (
+                brindesBeneficios.length > 0 ? (
+                  <div className="space-y-3">
+                    {brindesBeneficios.map((brinde, idx) => {
+                      const isLiberado = brinde.liberado === true;
+                      const progresso = brinde.progresso || (isLiberado ? 100 : (giftsData.checkinsCount / brinde.checkins_necessarios) * 100);
+                      const faltam = brinde.faltam || Math.max(0, brinde.checkins_necessarios - giftsData.checkinsCount);
+                      
+                      return (
+                        <div
+                          key={brinde.id || idx}
+                          className={`rounded-lg p-3 border-2 ${
+                            isLiberado
+                              ? 'border-yellow-500/50 bg-yellow-500/10'
+                              : 'border-white/20 bg-white/5'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="font-semibold text-white text-sm">🎁 {brinde.descricao}</span>
+                            {isLiberado && (
+                              <span className="px-2 py-1 bg-yellow-500/20 text-yellow-300 text-xs rounded-full">
+                                ✅ Disponível
+                              </span>
+                            )}
+                          </div>
+                          {!isLiberado && (
+                            <div className="space-y-1">
+                              <div className="flex justify-between text-xs text-white/80">
+                                <span>{giftsData.checkinsCount} / {brinde.checkins_necessarios} check-ins</span>
+                                <span>{Math.round(progresso)}%</span>
+                              </div>
+                              <div className="w-full bg-white/20 rounded-full h-2">
+                                <div
+                                  className="bg-yellow-400 h-2 rounded-full transition-all"
+                                  style={{ width: `${Math.min(100, progresso)}%` }}
+                                ></div>
+                              </div>
+                              <p className="text-xs text-yellow-200">
+                                Faltam {faltam} check-ins
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="text-sm text-white/80">
+                    Nenhum benefício ou brinde configurado para este evento.
+                  </p>
+                )
+              ) : (
+                <ul className="space-y-2 text-sm text-white/80">
+                  <li>• Selecione um evento para ver seus benefícios disponíveis.</li>
+                  <li>• Os brindes são liberados automaticamente ao atingir o número de check-ins necessário.</li>
+                </ul>
+              )}
             </motion.div>
           </aside>
         </div>
