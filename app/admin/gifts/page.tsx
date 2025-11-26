@@ -98,7 +98,7 @@ export default function GiftsAdminPage() {
     } finally {
       setLoading(false);
     }
-  }, [API_URL, selectedEstablishment]);
+  }, [API_URL]);
 
   // Função para carregar regras de brindes para aniversários
   const loadGiftRules = useCallback(async (establishmentId: number) => {
