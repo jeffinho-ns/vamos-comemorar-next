@@ -69,28 +69,27 @@ export default function GiftsAdminPage() {
 
       const data = await response.json();
       
+      let formattedEstablishments: Establishment[] = [];
+      
       if (Array.isArray(data)) {
-        const formattedEstablishments: Establishment[] = data.map((place: any) => ({
-          id: place.id || place.place_id,
+        formattedEstablishments = data.map((place: any) => ({
+          id: Number(place.id || place.place_id), // Garantir que é sempre número
           name: place.name || place.place_name || 'Sem nome'
         }));
-        setEstablishments(formattedEstablishments);
-        
-        // Selecionar o primeiro estabelecimento automaticamente
-        if (formattedEstablishments.length > 0 && !selectedEstablishment) {
-          setSelectedEstablishment(formattedEstablishments[0]);
-        }
       } else if (data.data && Array.isArray(data.data)) {
-        const formattedEstablishments: Establishment[] = data.data.map((place: any) => ({
-          id: place.id || place.place_id,
+        formattedEstablishments = data.data.map((place: any) => ({
+          id: Number(place.id || place.place_id), // Garantir que é sempre número
           name: place.name || place.place_name || 'Sem nome'
         }));
-        setEstablishments(formattedEstablishments);
-        
-        // Selecionar o primeiro estabelecimento automaticamente
-        if (formattedEstablishments.length > 0 && !selectedEstablishment) {
-          setSelectedEstablishment(formattedEstablishments[0]);
-        }
+      }
+      
+      console.log('🏢 Estabelecimentos formatados:', formattedEstablishments);
+      setEstablishments(formattedEstablishments);
+      
+      // Selecionar o primeiro estabelecimento automaticamente
+      if (formattedEstablishments.length > 0 && !selectedEstablishment) {
+        console.log('🎯 Selecionando primeiro estabelecimento automaticamente:', formattedEstablishments[0]);
+        setSelectedEstablishment(formattedEstablishments[0]);
       }
     } catch (error) {
       console.error("Erro ao buscar estabelecimentos:", error);
@@ -223,17 +222,37 @@ export default function GiftsAdminPage() {
               onChange={(e) => {
                 const value = e.target.value;
                 console.log('📝 Seleção de estabelecimento mudou:', value);
+                console.log('📦 Estabelecimentos disponíveis:', establishments);
                 if (value === '') {
                   setSelectedEstablishment(null);
                   setGiftRules([]);
                   setPromoterGiftRules([]);
                 } else {
-                  const establishment = establishments.find(est => est.id === Number(value));
+                  const establishmentId = Number(value);
+                  console.log('🔍 Procurando estabelecimento com ID:', establishmentId, 'Tipo:', typeof establishmentId);
+                  
+                  // Tentar encontrar por comparação flexível
+                  const establishment = establishments.find(est => {
+                    const estId = Number(est.id);
+                    const match = estId === establishmentId || est.id === establishmentId || String(est.id) === String(establishmentId);
+                    if (match) {
+                      console.log('✅ Match encontrado:', est);
+                    }
+                    return match;
+                  });
+                  
                   if (establishment) {
                     console.log('✅ Estabelecimento encontrado:', establishment);
                     setSelectedEstablishment(establishment);
                   } else {
                     console.error('❌ Estabelecimento não encontrado para ID:', value);
+                    console.error('📋 IDs disponíveis:', establishments.map(e => ({ id: e.id, tipo: typeof e.id, name: e.name })));
+                    // Tentar encontrar pelo valor exato como fallback
+                    const fallback = establishments.find(est => String(est.id) === String(value));
+                    if (fallback) {
+                      console.log('🔄 Usando fallback, encontrado:', fallback);
+                      setSelectedEstablishment(fallback);
+                    }
                   }
                 }
               }}
