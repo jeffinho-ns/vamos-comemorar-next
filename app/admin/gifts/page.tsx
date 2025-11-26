@@ -218,7 +218,7 @@ export default function GiftsAdminPage() {
             </div>
           ) : (
             <select
-              value={selectedEstablishment?.id || ''}
+              value={selectedEstablishment ? String(selectedEstablishment.id) : ''}
               onChange={(e) => {
                 const value = e.target.value;
                 console.log('📝 Seleção de estabelecimento mudou:', value);
@@ -260,7 +260,7 @@ export default function GiftsAdminPage() {
             >
               <option value="">-- Selecione um estabelecimento --</option>
               {establishments.map((est) => (
-                <option key={est.id} value={est.id}>
+                <option key={est.id} value={String(est.id)}>
                   {est.name}
                 </option>
               ))}
