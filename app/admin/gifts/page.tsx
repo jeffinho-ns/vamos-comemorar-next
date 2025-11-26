@@ -27,6 +27,7 @@ export default function GiftsAdminPage() {
   const [selectedEstablishment, setSelectedEstablishment] = useState<Establishment | null>(null);
   const [establishments, setEstablishments] = useState<Establishment[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingRules, setLoadingRules] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
   // Regras de brindes
@@ -101,15 +102,10 @@ export default function GiftsAdminPage() {
   }, [API_URL, selectedEstablishment]);
 
   // Função para carregar regras de brindes para aniversários
-  const loadGiftRules = useCallback(async () => {
-    if (!selectedEstablishment) {
-      setGiftRules([]);
-      return;
-    }
-
+  const loadGiftRules = useCallback(async (establishmentId: number) => {
     try {
       const token = localStorage.getItem('authToken');
-      const response = await fetch(`${API_URL}/api/gift-rules?establishment_id=${selectedEstablishment.id}&tipo_beneficiario=ANIVERSARIO`, {
+      const response = await fetch(`${API_URL}/api/gift-rules?establishment_id=${establishmentId}&tipo_beneficiario=ANIVERSARIO`, {
         headers: { Authorization: `Bearer ${token}` }
       });
 
@@ -124,18 +120,13 @@ export default function GiftsAdminPage() {
       console.error('Erro ao carregar regras de brindes:', error);
       setGiftRules([]);
     }
-  }, [selectedEstablishment, API_URL]);
+  }, [API_URL]);
 
   // Função para carregar regras de brindes para promoters
-  const loadPromoterGiftRules = useCallback(async () => {
-    if (!selectedEstablishment) {
-      setPromoterGiftRules([]);
-      return;
-    }
-
+  const loadPromoterGiftRules = useCallback(async (establishmentId: number) => {
     try {
       const token = localStorage.getItem('authToken');
-      const response = await fetch(`${API_URL}/api/gift-rules?establishment_id=${selectedEstablishment.id}&tipo_beneficiario=PROMOTER`, {
+      const response = await fetch(`${API_URL}/api/gift-rules?establishment_id=${establishmentId}&tipo_beneficiario=PROMOTER`, {
         headers: { Authorization: `Bearer ${token}` }
       });
 
@@ -150,15 +141,27 @@ export default function GiftsAdminPage() {
       console.error('Erro ao carregar regras de brindes para promoters:', error);
       setPromoterGiftRules([]);
     }
-  }, [selectedEstablishment, API_URL]);
+  }, [API_URL]);
 
   // Carregar dados quando o estabelecimento mudar
   useEffect(() => {
     if (selectedEstablishment) {
-      loadGiftRules();
-      loadPromoterGiftRules();
+      console.log('🔄 Estabelecimento mudou, carregando regras para:', selectedEstablishment.name, selectedEstablishment.id);
+      setLoadingRules(true);
+      setGiftRules([]);
+      setPromoterGiftRules([]);
+      
+      Promise.all([
+        loadGiftRules(selectedEstablishment.id),
+        loadPromoterGiftRules(selectedEstablishment.id)
+      ]).finally(() => {
+        setLoadingRules(false);
+      });
+    } else {
+      setGiftRules([]);
+      setPromoterGiftRules([]);
     }
-  }, [selectedEstablishment, loadGiftRules, loadPromoterGiftRules]);
+  }, [selectedEstablishment?.id, loadGiftRules, loadPromoterGiftRules]);
 
   // Carregar estabelecimentos ao montar (apenas uma vez)
   useEffect(() => {
@@ -219,12 +222,18 @@ export default function GiftsAdminPage() {
               value={selectedEstablishment?.id || ''}
               onChange={(e) => {
                 const value = e.target.value;
+                console.log('📝 Seleção de estabelecimento mudou:', value);
                 if (value === '') {
                   setSelectedEstablishment(null);
+                  setGiftRules([]);
+                  setPromoterGiftRules([]);
                 } else {
                   const establishment = establishments.find(est => est.id === Number(value));
                   if (establishment) {
+                    console.log('✅ Estabelecimento encontrado:', establishment);
                     setSelectedEstablishment(establishment);
+                  } else {
+                    console.error('❌ Estabelecimento não encontrado para ID:', value);
                   }
                 }
               }}
@@ -590,7 +599,9 @@ export default function GiftsAdminPage() {
                   });
 
                   if (response.ok) {
-                    await loadGiftRules();
+                    if (selectedEstablishment) {
+                      await loadGiftRules(selectedEstablishment.id);
+                    }
                     setShowGiftRuleModal(false);
                     setEditingGiftRule(null);
                     setGiftRuleForm({ descricao: '', checkins_necessarios: 5, status: 'ATIVA' });
@@ -723,7 +734,9 @@ export default function GiftsAdminPage() {
                   });
 
                   if (response.ok) {
-                    await loadPromoterGiftRules();
+                    if (selectedEstablishment) {
+                      await loadPromoterGiftRules(selectedEstablishment.id);
+                    }
                     setShowPromoterGiftRuleModal(false);
                     setEditingPromoterGiftRule(null);
                     setPromoterGiftRuleForm({ descricao: '', checkins_necessarios: 5, status: 'ATIVA' });
