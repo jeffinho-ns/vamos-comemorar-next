@@ -126,11 +126,14 @@ export default function ReservationDetailsModal({
   return (
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <motion.div
+          key="reservation-details-modal"
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0, scale: 0.95 }}
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+        >
           <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.95 }}
             className="bg-white rounded-xl w-full max-w-2xl max-h-[90vh] overflow-hidden"
           >
             {/* Header */}
@@ -366,12 +369,13 @@ export default function ReservationDetailsModal({
               </button>
             </div>
           </motion.div>
-        </div>
+        </motion.div>
       )}
 
       {/* Modal de Vincular a Evento */}
       {reservation && reservation.establishment_id && (
         <LinkReservationToEventModal
+          key="link-event-modal"
           isOpen={showLinkEventModal}
           onClose={() => setShowLinkEventModal(false)}
           reservationId={reservation.id}

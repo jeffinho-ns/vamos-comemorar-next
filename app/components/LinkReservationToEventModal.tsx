@@ -86,37 +86,83 @@ export default function LinkReservationToEventModal({
           return;
         }
         
+        // Log detalhado de todos os eventos recebidos
+        console.log('📊 Todos os eventos recebidos da API:', data.map((e: any) => ({
+          id: e.id,
+          nome: e.nome_do_evento,
+          data_do_evento: e.data_do_evento,
+          tipoEvento: e.tipoEvento,
+          tipo_evento: e.tipo_evento,
+          tipoevento: e.tipoevento, // Formato alternativo que pode vir da API
+          id_place: e.id_place,
+          id_place_type: typeof e.id_place,
+          establishment_id_buscado: establishmentId,
+          establishment_id_buscado_type: typeof establishmentId,
+          todas_as_propriedades: Object.keys(e)
+        })));
+        
         // Filtrar eventos por estabelecimento e data
         const eventosFiltrados = data.filter((event: any) => {
+          // Normalizar IDs para comparação (pode vir como string ou number)
+          const eventPlaceId = event.id_place !== null && event.id_place !== undefined 
+            ? Number(event.id_place) 
+            : null;
+          const reservationPlaceId = Number(establishmentId);
+          
           // Verificar se é do estabelecimento correto
-          if (event.id_place && Number(event.id_place) !== Number(establishmentId)) {
+          // Se o evento tem id_place, deve ser igual ao establishmentId da reserva
+          // Se o evento não tem id_place (null), vamos incluir para o usuário decidir
+          if (eventPlaceId !== null && eventPlaceId !== reservationPlaceId) {
+            console.log(`❌ Evento ${event.id} filtrado: id_place (${eventPlaceId}) !== establishmentId (${reservationPlaceId})`);
             return false;
           }
           
           // Verificar se é evento único
-          if (event.tipoEvento !== 'unico' && event.tipo_evento !== 'unico') {
+          // A API pode retornar em diferentes formatos: tipoEvento, tipo_evento, ou tipoevento
+          const tipoEvento = event.tipoEvento || event.tipo_evento || event.tipoevento;
+          const tipoEventoLower = tipoEvento ? String(tipoEvento).toLowerCase() : null;
+          if (!tipoEventoLower || tipoEventoLower !== 'unico') {
+            console.log(`❌ Evento ${event.id} filtrado: tipoEvento (${event.tipoEvento}) / tipo_evento (${event.tipo_evento}) / tipoevento (${event.tipoevento}) !== 'unico'`);
             return false;
           }
           
           // Verificar se tem data
           if (!event.data_do_evento) {
+            console.log(`❌ Evento ${event.id} filtrado: sem data_do_evento`);
             return false;
           }
           
           // Normalizar data do evento
           const eventDate = event.data_do_evento ? event.data_do_evento.split('T')[0].split(' ')[0] : null;
           if (!eventDate) {
+            console.log(`❌ Evento ${event.id} filtrado: data normalizada vazia`);
             return false;
           }
           
-          // Se temos data da reserva, mostrar apenas eventos da data ou futuros
+          // Se temos data da reserva, mostrar eventos da mesma data OU futuros
           if (normalizedReservationDate) {
-            return eventDate >= normalizedReservationDate;
+            const isSameDate = eventDate === normalizedReservationDate;
+            const isFutureDate = eventDate > normalizedReservationDate;
+            const shouldInclude = isSameDate || isFutureDate;
+            
+            if (!shouldInclude) {
+              console.log(`❌ Evento ${event.id} filtrado: data do evento (${eventDate}) < data da reserva (${normalizedReservationDate})`);
+            } else {
+              console.log(`✅ Evento ${event.id} incluído: data do evento (${eventDate}) ${isSameDate ? '===' : '>'} data da reserva (${normalizedReservationDate})`);
+            }
+            
+            return shouldInclude;
           }
           
           // Caso contrário, mostrar apenas eventos futuros (incluindo hoje)
           const today = new Date().toISOString().split('T')[0];
-          return eventDate >= today;
+          const isFutureOrToday = eventDate >= today;
+          
+          if (!isFutureOrToday) {
+            console.log(`❌ Evento ${event.id} filtrado: data do evento (${eventDate}) < hoje (${today})`);
+          }
+          
+          return isFutureOrToday;
         });
         
         console.log('📋 Eventos filtrados por estabelecimento e data:', eventosFiltrados.length);
