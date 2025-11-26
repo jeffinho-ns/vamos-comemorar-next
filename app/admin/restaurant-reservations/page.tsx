@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { MdRestaurant, MdPeople, MdSchedule, MdBarChart, MdSettings, MdAdd, MdSearch, MdChair, MdPhone, MdClose, MdCall, MdTimer, MdLocationOn } from "react-icons/md";
+import { MdRestaurant, MdPeople, MdSchedule, MdBarChart, MdSettings, MdAdd, MdSearch, MdChair, MdPhone, MdClose, MdCall, MdTimer, MdLocationOn, MdPerson } from "react-icons/md";
 import { motion } from "framer-motion";
 import ReservationCalendar from "../../components/ReservationCalendar";
 import WeeklyCalendar from "../../components/WeeklyCalendar";
@@ -2442,25 +2442,32 @@ export default function RestaurantReservationsPage() {
                       </div>
                     </div>
                     
-                    {/* Seção de Regras de Brindes */}
-                    <div className="bg-gray-50 rounded-lg p-6">
+                    {/* Seção de Regras de Brindes para Reservas de Aniversário */}
+                    <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-lg p-6 border-2 border-green-300">
                       <div className="flex items-center justify-between mb-4">
-                        <h4 className="text-lg font-semibold text-gray-800">Regras de Brindes</h4>
+                        <div className="flex items-center gap-3">
+                          <div className="bg-green-600 rounded-full p-2">
+                            <MdPeople className="text-white" size={24} />
+                          </div>
+                          <div>
+                            <h4 className="text-xl font-bold text-gray-800">🎉 Brindes para Reservas de Aniversário</h4>
+                            <p className="text-sm text-gray-600 mt-1">
+                              Regras que se aplicam aos donos de reservas de aniversário quando seus convidados fazem check-in
+                            </p>
+                          </div>
+                        </div>
                         <button
                           onClick={() => {
                             setEditingGiftRule(null);
                             setGiftRuleForm({ descricao: '', checkins_necessarios: 5, status: 'ATIVA' });
                             setShowGiftRuleModal(true);
                           }}
-                          className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors flex items-center gap-2"
+                          className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors flex items-center gap-2 shadow-md"
                         >
                           <MdAdd size={20} />
                           Nova Regra
                         </button>
                       </div>
-                      <p className="text-sm text-gray-600 mb-4">
-                        Configure brindes que serão liberados automaticamente quando uma quantidade de check-ins for atingida.
-                      </p>
                       
                       {giftRules.length === 0 ? (
                         <div className="text-center py-8 text-gray-500">
@@ -2471,9 +2478,9 @@ export default function RestaurantReservationsPage() {
                           {giftRules.map((rule) => (
                             <div
                               key={rule.id}
-                              className={`bg-white rounded-lg p-4 border-2 ${
-                                rule.status === 'ATIVA' ? 'border-green-200' : 'border-gray-200'
-                              }`}
+                              className={`bg-white rounded-lg p-4 border-l-4 ${
+                                rule.status === 'ATIVA' ? 'border-l-green-500 border-green-200' : 'border-l-gray-400 border-gray-200'
+                              } shadow-sm`}
                             >
                               <div className="flex items-start justify-between">
                                 <div className="flex-1">
@@ -2576,14 +2583,22 @@ export default function RestaurantReservationsPage() {
                       )}
                     </div>
                     
-                    {/* Seção de Regras de Brindes de Promoters */}
-                    <div className="bg-gray-50 rounded-lg p-6">
+                    {/* Separador visual entre as seções */}
+                    <div className="my-8 border-t-4 border-dashed border-gray-300"></div>
+                    
+                    {/* Seção de Regras de Brindes para Promoters */}
+                    <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg p-6 border-2 border-purple-300">
                       <div className="flex items-center justify-between mb-4">
-                        <div>
-                          <h4 className="text-lg font-semibold text-gray-800">Regras de Brindes para Promoters</h4>
-                          <p className="text-sm text-gray-600 mt-1">
-                            Configure brindes que serão liberados automaticamente para promoters quando atingirem uma quantidade de check-ins.
-                          </p>
+                        <div className="flex items-center gap-3">
+                          <div className="bg-purple-600 rounded-full p-2">
+                            <MdPerson className="text-white" size={24} />
+                          </div>
+                          <div>
+                            <h4 className="text-xl font-bold text-gray-800">🎯 Brindes para Promoters</h4>
+                            <p className="text-sm text-gray-600 mt-1">
+                              Regras que se aplicam aos promoters quando os convidados de suas listas fazem check-in nos eventos
+                            </p>
+                          </div>
                         </div>
                         <button
                           onClick={() => {
@@ -2591,7 +2606,7 @@ export default function RestaurantReservationsPage() {
                             setPromoterGiftRuleForm({ descricao: '', checkins_necessarios: 5, status: 'ATIVA' });
                             setShowPromoterGiftRuleModal(true);
                           }}
-                          className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors flex items-center gap-2"
+                          className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors flex items-center gap-2 shadow-md"
                         >
                           <MdAdd size={20} />
                           Nova Regra
@@ -2607,9 +2622,9 @@ export default function RestaurantReservationsPage() {
                           {promoterGiftRules.map((rule) => (
                             <div
                               key={rule.id}
-                              className={`bg-white rounded-lg p-4 border-2 ${
-                                rule.status === 'ATIVA' ? 'border-purple-200' : 'border-gray-200'
-                              }`}
+                              className={`bg-white rounded-lg p-4 border-l-4 ${
+                                rule.status === 'ATIVA' ? 'border-l-purple-500 border-purple-200' : 'border-l-gray-400 border-gray-200'
+                              } shadow-sm`}
                             >
                               <div className="flex items-start justify-between">
                                 <div className="flex-1">
