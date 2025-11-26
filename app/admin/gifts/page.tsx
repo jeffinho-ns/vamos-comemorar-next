@@ -27,6 +27,7 @@ export default function GiftsAdminPage() {
   const [selectedEstablishment, setSelectedEstablishment] = useState<Establishment | null>(null);
   const [establishments, setEstablishments] = useState<Establishment[]>([]);
   const establishmentsRef = useRef<Establishment[]>([]);
+  const establishmentsMapRef = useRef<Map<string | number, Establishment>>(new Map());
   const [loading, setLoading] = useState(true);
   const [loadingRules, setLoadingRules] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -88,11 +89,24 @@ export default function GiftsAdminPage() {
       setEstablishments(formattedEstablishments);
       establishmentsRef.current = formattedEstablishments; // Atualizar ref também
       
-      // Selecionar o primeiro estabelecimento automaticamente
-      if (formattedEstablishments.length > 0 && !selectedEstablishment) {
-        console.log('🎯 Selecionando primeiro estabelecimento automaticamente:', formattedEstablishments[0]);
-        setSelectedEstablishment(formattedEstablishments[0]);
-      }
+      // Criar mapa de IDs para acesso rápido
+      const newMap = new Map<string | number, Establishment>();
+      formattedEstablishments.forEach(est => {
+        newMap.set(est.id, est);
+        newMap.set(String(est.id), est); // Também indexar como string
+        newMap.set(Number(est.id), est); // E como número
+      });
+      establishmentsMapRef.current = newMap;
+      console.log('🗺️ Mapa de estabelecimentos criado com', newMap.size, 'entradas');
+      
+      // Selecionar o primeiro estabelecimento automaticamente apenas se não houver nenhum selecionado
+      setSelectedEstablishment(prev => {
+        if (!prev && formattedEstablishments.length > 0) {
+          console.log('🎯 Selecionando primeiro estabelecimento automaticamente:', formattedEstablishments[0]);
+          return formattedEstablishments[0];
+        }
+        return prev;
+      });
     } catch (error) {
       console.error("Erro ao buscar estabelecimentos:", error);
       setError("Erro ao carregar estabelecimentos. Tente recarregar a página.");
@@ -164,9 +178,18 @@ export default function GiftsAdminPage() {
     }
   }, [selectedEstablishment?.id, loadGiftRules, loadPromoterGiftRules]);
 
-  // Manter ref sincronizada com o estado
+  // Manter ref e mapa sincronizados com o estado
   useEffect(() => {
     establishmentsRef.current = establishments;
+    
+    // Atualizar mapa também
+    const newMap = new Map<string | number, Establishment>();
+    establishments.forEach(est => {
+      newMap.set(est.id, est);
+      newMap.set(String(est.id), est);
+      newMap.set(Number(est.id), est);
+    });
+    establishmentsMapRef.current = newMap;
   }, [establishments]);
 
   // Carregar estabelecimentos ao montar (apenas uma vez)
@@ -239,37 +262,34 @@ export default function GiftsAdminPage() {
                   return;
                 }
                 
-                // Buscar no array atual primeiro, depois na ref como fallback
-                const searchArray = establishments.length > 0 ? establishments : establishmentsRef.current;
+                // Buscar estabelecimento usando mapa direto (mais rápido e confiável)
+                console.log('🔍 Buscando estabelecimento com valor:', value, '(tipo:', typeof value, ')');
                 
-                console.log('🔍 Buscando estabelecimento com valor:', value);
-                console.log('📦 Array para busca tem', searchArray.length, 'itens');
-                console.log('📋 IDs disponíveis:', searchArray.map(e => String(e.id)));
+                // Tentar encontrar no mapa primeiro (acesso O(1))
+                let establishment = establishmentsMapRef.current.get(value) || 
+                                   establishmentsMapRef.current.get(String(value)) || 
+                                   establishmentsMapRef.current.get(Number(value));
                 
-                // Buscar estabelecimento - usar comparação flexível
-                const establishment = searchArray.find(est => {
-                  const estIdStr = String(est.id);
-                  const valStr = String(value);
-                  const match = estIdStr === valStr;
-                  if (match) {
-                    console.log('✅ Match encontrado:', est);
-                  }
-                  return match;
-                });
+                // Se não encontrou no mapa, tentar no array
+                if (!establishment) {
+                  const searchArray = establishments.length > 0 ? establishments : establishmentsRef.current;
+                  console.log('📦 Mapa não encontrou, buscando no array com', searchArray.length, 'itens');
+                  
+                  establishment = searchArray.find(est => 
+                    String(est.id) === String(value) || 
+                    Number(est.id) === Number(value)
+                  );
+                }
                 
                 if (establishment) {
                   console.log('✅ Estabelecimento encontrado e selecionado:', establishment);
                   setSelectedEstablishment(establishment);
                 } else {
                   console.error('❌ ERRO: Estabelecimento não encontrado!');
-                  console.error('📝 Valor selecionado:', value, '(tipo:', typeof value, ')');
-                  console.error('📋 Estabelecimentos disponíveis:', searchArray.map(e => ({ 
-                    id: e.id, 
-                    idTipo: typeof e.id,
-                    idString: String(e.id),
-                    name: e.name 
-                  })));
-                  alert(`Erro ao selecionar estabelecimento. Valor: ${value}. Recarregue a página e tente novamente.`);
+                  console.error('📝 Valor selecionado:', value);
+                  console.error('📋 Estabelecimentos no mapa:', Array.from(establishmentsMapRef.current.keys()));
+                  console.error('📋 Estabelecimentos no array:', establishments.map(e => String(e.id)));
+                  alert(`Erro: Estabelecimento com ID ${value} não encontrado. Recarregue a página.`);
                 }
               }}
               className="w-full md:w-1/2 px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 text-gray-800 font-medium text-lg bg-white hover:border-yellow-400 transition-colors"
