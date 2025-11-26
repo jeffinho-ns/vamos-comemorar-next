@@ -228,31 +228,34 @@ export default function GiftsAdminPage() {
                   setGiftRules([]);
                   setPromoterGiftRules([]);
                 } else {
-                  const establishmentId = Number(value);
-                  console.log('🔍 Procurando estabelecimento com ID:', establishmentId, 'Tipo:', typeof establishmentId);
-                  
-                  // Tentar encontrar por comparação flexível
+                  // Buscar estabelecimento - usar comparação de string que é mais confiável
                   const establishment = establishments.find(est => {
-                    const estId = Number(est.id);
-                    const match = estId === establishmentId || est.id === establishmentId || String(est.id) === String(establishmentId);
-                    if (match) {
-                      console.log('✅ Match encontrado:', est);
-                    }
-                    return match;
+                    return String(est.id) === String(value);
                   });
                   
                   if (establishment) {
                     console.log('✅ Estabelecimento encontrado:', establishment);
                     setSelectedEstablishment(establishment);
                   } else {
-                    console.error('❌ Estabelecimento não encontrado para ID:', value);
-                    console.error('📋 IDs disponíveis:', establishments.map(e => ({ id: e.id, tipo: typeof e.id, name: e.name })));
-                    // Tentar encontrar pelo valor exato como fallback
-                    const fallback = establishments.find(est => String(est.id) === String(value));
-                    if (fallback) {
-                      console.log('🔄 Usando fallback, encontrado:', fallback);
-                      setSelectedEstablishment(fallback);
-                    }
+                    console.error('❌ Estabelecimento não encontrado para valor:', value);
+                    console.error('📋 Total de estabelecimentos:', establishments.length);
+                    console.error('📋 IDs disponíveis:', establishments.map(e => ({ 
+                      id: e.id, 
+                      idType: typeof e.id, 
+                      idString: String(e.id),
+                      name: e.name 
+                    })));
+                    
+                    // Tentar buscar novamente após um pequeno delay caso o array ainda esteja sendo atualizado
+                    setTimeout(() => {
+                      const retry = establishments.find(est => String(est.id) === String(value));
+                      if (retry) {
+                        console.log('🔄 Encontrado na segunda tentativa:', retry);
+                        setSelectedEstablishment(retry);
+                      } else {
+                        alert(`Erro: Não foi possível selecionar o estabelecimento. Por favor, recarregue a página.`);
+                      }
+                    }, 100);
                   }
                 }
               }}
