@@ -391,53 +391,24 @@ export default function PromoterDashboardPage() {
       : 0;
 
   const canAccessDashboard = useMemo(() => {
-    // Debug logs
-    console.log('🔍 Verificando acesso ao dashboard:', {
-      permissionsLoading,
-      hasPromoter: !!promoter,
-      isPromoter,
-      userId,
-      userEmail,
-      promoterEmail: promoter?.email,
-      promoterUserId: promoter?.user_id,
-    });
-
-    if (permissionsLoading) {
-      console.log('⏳ Ainda carregando permissões...');
-      return false;
-    }
-    if (!promoter) {
-      console.log('❌ Promoter não carregado');
-      return false;
-    }
-    if (!isPromoter) {
-      console.log('❌ Usuário não é promoter');
-      return false;
-    }
+    if (permissionsLoading) return false;
+    if (!promoter) return false;
+    if (!isPromoter) return false;
 
     // Se temos o ID do usuário logado e o vínculo user_id do promoter, compare-os
     if (userId && promoter.user_id) {
       if (Number(userId) === Number(promoter.user_id)) {
-        console.log('✅ Acesso permitido via user_id');
         return true;
       }
     }
 
     // Caso não exista vínculo direto, permita se o e-mail corresponder
     if (userEmail && promoter.email) {
-      const emailMatch = promoter.email.toLowerCase() === userEmail.toLowerCase();
-      console.log('📧 Comparando emails:', {
-        userEmail: userEmail.toLowerCase(),
-        promoterEmail: promoter.email.toLowerCase(),
-        match: emailMatch,
-      });
-      if (emailMatch) {
-        console.log('✅ Acesso permitido via email');
+      if (promoter.email.toLowerCase() === userEmail.toLowerCase()) {
         return true;
       }
     }
 
-    console.log('❌ Acesso negado - nenhuma condição atendida');
     return false;
   }, [permissionsLoading, promoter, isPromoter, userId, userEmail]);
 
