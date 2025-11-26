@@ -164,6 +164,11 @@ export default function GiftsAdminPage() {
     }
   }, [selectedEstablishment?.id, loadGiftRules, loadPromoterGiftRules]);
 
+  // Manter ref sincronizada com o estado
+  useEffect(() => {
+    establishmentsRef.current = establishments;
+  }, [establishments]);
+
   // Carregar estabelecimentos ao montar (apenas uma vez)
   useEffect(() => {
     fetchEstablishments();
