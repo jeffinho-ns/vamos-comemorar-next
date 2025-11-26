@@ -15,6 +15,8 @@ import {
   MdSearch,
   MdWhatsapp,
   MdWarning,
+  MdExpandMore,
+  MdExpandLess,
 } from "react-icons/md";
 
 import { useUserPermissions } from "../../../hooks/useUserPermissions";
@@ -98,6 +100,7 @@ export default function PromoterDashboardPage() {
     evento: "",
   });
   const [addingSingleGuest, setAddingSingleGuest] = useState(false);
+  const [isGuestsListOpen, setIsGuestsListOpen] = useState(true);
 
   const shareLink =
     typeof window !== "undefined"
@@ -144,20 +147,14 @@ export default function PromoterDashboardPage() {
     try {
       setLoading(true);
       setError(null);
-      console.log('📡 Carregando dados do promoter com código:', params.codigo);
       const response = await fetch(`${API_URL}/api/promoter/${params.codigo}`);
       if (!response.ok) {
         throw new Error("Promoter não encontrado.");
       }
       const data = await response.json();
-      console.log('📥 Dados do promoter recebidos:', {
-        promoter: data.promoter,
-        email: data.promoter?.email,
-        user_id: data.promoter?.user_id,
-      });
       setPromoter(data.promoter);
     } catch (err) {
-      console.error('❌ Erro ao carregar promoter:', err);
+      console.error(err);
       setError(err instanceof Error ? err.message : "Erro ao carregar dados.");
     } finally {
       setLoading(false);
@@ -646,6 +643,7 @@ export default function PromoterDashboardPage() {
               transition={{ delay: 0.2 }}
               className="rounded-3xl border border-white/10 bg-white/5 p-6"
             >
+              {/* Título e Botões */}
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
                 <div>
                   <h2 className="text-2xl font-semibold">Convidados cadastrados</h2>
@@ -660,90 +658,11 @@ export default function PromoterDashboardPage() {
                   >
                     <MdDownload /> Exportar CSV
                   </button>
-                  <button
-                    onClick={handleBulkImport}
-                    disabled={parsedBulkEntries.length === 0 || bulkLoading}
-                    className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-purple-500 hover:bg-purple-600 transition text-sm font-semibold disabled:opacity-60"
-                  >
-                    <MdCloudUpload />
-                    {bulkLoading ? "Importando..." : "Importar em lote"}
-                  </button>
                 </div>
               </div>
 
-              <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-6">
-                <div className="relative flex-1 max-w-xl">
-                  <MdSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-white/40" />
-                  <input
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    placeholder="Pesquisar convidado por nome, WhatsApp ou evento..."
-                    className="w-full rounded-2xl bg-white/10 border border-white/10 pl-10 pr-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-purple-400"
-                  />
-                </div>
-                <select
-                  value={selectedEvento}
-                  onChange={(e) => setSelectedEvento(e.target.value)}
-                  className="rounded-2xl bg-white/10 border border-white/10 px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-purple-400"
-                >
-                  <option value="todos">Todos os eventos</option>
-                  {convidadosPorEvento.map((evento) => (
-                    <option key={evento.nome} value={evento.nome}>
-                      {evento.nome} ({evento.total})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="grid gap-3">
-                {filteredGuests.map((guest) => (
-                  <div
-                    key={guest.id}
-                    className="rounded-2xl border border-white/10 bg-white/10 px-4 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3"
-                  >
-                    <div>
-                      <p className="text-base font-semibold">{guest.nome}</p>
-                      <div className="flex flex-wrap items-center gap-2 text-sm text-white/60">
-                        {guest.evento_nome && (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-white/10 px-2 py-1">
-                            <MdEvent /> {guest.evento_nome}
-                          </span>
-                        )}
-                        {guest.whatsapp && (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-green-500/20 px-2 py-1">
-                            <MdWhatsapp /> {guest.whatsapp}
-                          </span>
-                        )}
-                        <span
-                          className={`inline-flex items-center gap-1 rounded-full px-2 py-1 ${
-                            guest.status === "confirmado"
-                              ? "bg-emerald-500/20 text-emerald-200"
-                              : "bg-amber-500/20 text-amber-200"
-                          }`}
-                        >
-                          {guest.status === "confirmado" ? "Confirmado" : "Pendente"}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="text-xs text-white/50">
-                      {guest.criado_em
-                        ? new Date(guest.criado_em).toLocaleString("pt-BR")
-                        : ""}
-                    </div>
-                  </div>
-                ))}
-
-                {filteredGuests.length === 0 && (
-                  <div className="text-center py-16 border border-dashed border-white/20 rounded-3xl">
-                    <MdPeople className="mx-auto text-5xl text-white/20 mb-4" />
-                    <p className="text-white/60">
-                      Nenhum convidado encontrado com os filtros atuais.
-                    </p>
-                  </div>
-                )}
-              </div>
-
-              <div className="mt-8">
+              {/* Seção de Importar convidados em lote */}
+              <div className="mb-6">
                 <label className="block text-xs uppercase tracking-[0.18em] text-purple-200 mb-2">
                   Importar convidados em lote
                 </label>
@@ -771,13 +690,25 @@ export default function PromoterDashboardPage() {
                     Se preferir, deixe em branco e atribua o evento mais tarde.
                   </p>
                 </div>
-                <textarea
-                  value={bulkInput}
-                  onChange={(e) => setBulkInput(e.target.value)}
-                  rows={6}
-                  placeholder="Cole nomes separados por linha, vírgula ou ponto e vírgula..."
-                  className="w-full rounded-2xl bg-white border border-white/10 px-4 py-3 text-slate-900 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-purple-400 resize-none"
-                />
+                <div className="flex gap-3">
+                  <textarea
+                    value={bulkInput}
+                    onChange={(e) => setBulkInput(e.target.value)}
+                    rows={6}
+                    placeholder="Cole nomes separados por linha, vírgula ou ponto e vírgula..."
+                    className="flex-1 rounded-2xl bg-white border border-white/10 px-4 py-3 text-slate-900 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-purple-400 resize-none"
+                  />
+                  <div className="flex flex-col gap-2">
+                    <button
+                      onClick={handleBulkImport}
+                      disabled={parsedBulkEntries.length === 0 || bulkLoading}
+                      className="inline-flex items-center justify-center gap-2 px-4 py-3 rounded-2xl bg-purple-500 hover:bg-purple-600 transition text-sm font-semibold disabled:opacity-60 disabled:cursor-not-allowed whitespace-nowrap"
+                    >
+                      <MdCloudUpload />
+                      {bulkLoading ? "Importando..." : "Importar"}
+                    </button>
+                  </div>
+                </div>
                 <p className="text-xs text-white/50 mt-2">
                   {parsedBulkEntries.length > 0
                     ? `${parsedBulkEntries.length} convidado(s) serão importados.`
@@ -803,6 +734,98 @@ export default function PromoterDashboardPage() {
                     <div>✅ Adicionados: {bulkFeedback.added}</div>
                     {bulkFeedback.skipped > 0 && (
                       <div>⚠️ Não adicionados: {bulkFeedback.skipped}</div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Lista de Convidados com Dropdown */}
+              <div className="border-t border-white/10 pt-6">
+                <div className="flex flex-col gap-4 mb-4">
+                  <div className="flex items-center justify-between">
+                    <button
+                      onClick={() => setIsGuestsListOpen(!isGuestsListOpen)}
+                      className="flex items-center gap-2 text-lg font-semibold hover:text-purple-300 transition-colors"
+                    >
+                      <span>Lista de Convidados ({filteredGuests.length})</span>
+                      {isGuestsListOpen ? (
+                        <MdExpandLess className="text-2xl text-white/60" />
+                      ) : (
+                        <MdExpandMore className="text-2xl text-white/60" />
+                      )}
+                    </button>
+                  </div>
+                  <div className="flex flex-col sm:flex-row gap-3">
+                    <div className="relative flex-1 max-w-xl">
+                      <MdSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-white/40" />
+                      <input
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        placeholder="Pesquisar convidado por nome, WhatsApp ou evento..."
+                        className="w-full rounded-2xl bg-white/10 border border-white/10 pl-10 pr-4 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"
+                      />
+                    </div>
+                    <select
+                      value={selectedEvento}
+                      onChange={(e) => setSelectedEvento(e.target.value)}
+                      className="rounded-2xl bg-white/10 border border-white/10 px-4 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"
+                    >
+                      <option value="todos">Todos os eventos</option>
+                      {convidadosPorEvento.map((evento) => (
+                        <option key={evento.nome} value={evento.nome}>
+                          {evento.nome} ({evento.total})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {isGuestsListOpen && (
+                  <div className="grid gap-3 max-h-[600px] overflow-y-auto pr-2">
+                    {filteredGuests.map((guest) => (
+                      <div
+                        key={guest.id}
+                        className="rounded-2xl border border-white/10 bg-white/10 px-4 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3"
+                      >
+                        <div>
+                          <p className="text-base font-semibold">{guest.nome}</p>
+                          <div className="flex flex-wrap items-center gap-2 text-sm text-white/60">
+                            {guest.evento_nome && (
+                              <span className="inline-flex items-center gap-1 rounded-full bg-white/10 px-2 py-1">
+                                <MdEvent /> {guest.evento_nome}
+                              </span>
+                            )}
+                            {guest.whatsapp && (
+                              <span className="inline-flex items-center gap-1 rounded-full bg-green-500/20 px-2 py-1">
+                                <MdWhatsapp /> {guest.whatsapp}
+                              </span>
+                            )}
+                            <span
+                              className={`inline-flex items-center gap-1 rounded-full px-2 py-1 ${
+                                guest.status === "confirmado"
+                                  ? "bg-emerald-500/20 text-emerald-200"
+                                  : "bg-amber-500/20 text-amber-200"
+                              }`}
+                            >
+                              {guest.status === "confirmado" ? "Confirmado" : "Pendente"}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="text-xs text-white/50">
+                          {guest.criado_em
+                            ? new Date(guest.criado_em).toLocaleString("pt-BR")
+                            : ""}
+                        </div>
+                      </div>
+                    ))}
+
+                    {filteredGuests.length === 0 && (
+                      <div className="text-center py-16 border border-dashed border-white/20 rounded-3xl">
+                        <MdPeople className="mx-auto text-5xl text-white/20 mb-4" />
+                        <p className="text-white/60">
+                          Nenhum convidado encontrado com os filtros atuais.
+                        </p>
+                      </div>
                     )}
                   </div>
                 )}
