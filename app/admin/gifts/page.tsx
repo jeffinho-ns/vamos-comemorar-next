@@ -27,6 +27,7 @@ export default function GiftsAdminPage() {
   const [selectedEstablishment, setSelectedEstablishment] = useState<Establishment | null>(null);
   const [establishments, setEstablishments] = useState<Establishment[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   
   // Regras de brindes
   const [giftRules, setGiftRules] = useState<GiftRule[]>([]);
