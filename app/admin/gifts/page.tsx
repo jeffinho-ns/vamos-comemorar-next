@@ -219,10 +219,11 @@ export default function GiftsAdminPage() {
           ) : (
             <select
               value={selectedEstablishment ? String(selectedEstablishment.id) : ''}
-              onChange={(e) => {
+              onChange={async (e) => {
                 const value = e.target.value;
                 console.log('📝 Seleção de estabelecimento mudou:', value);
-                console.log('📦 Total de estabelecimentos no array:', establishments.length);
+                console.log('📦 Estabelecimentos disponíveis:', establishments);
+                console.log('📦 Total no array:', establishments.length);
                 
                 if (value === '') {
                   setSelectedEstablishment(null);
@@ -231,31 +232,47 @@ export default function GiftsAdminPage() {
                   return;
                 }
                 
-                // Usar função de atualização de estado para garantir que temos o array mais recente
-                setEstablishments(currentEstablishments => {
-                  console.log('📋 Estabelecimentos no momento da busca:', currentEstablishments.map(e => ({ 
+                // Buscar estabelecimento - tentar múltiplas formas
+                let establishment = establishments.find(est => String(est.id) === String(value));
+                
+                if (!establishment) {
+                  // Tentar como número
+                  const numValue = Number(value);
+                  if (!isNaN(numValue)) {
+                    establishment = establishments.find(est => {
+                      const estNum = Number(est.id);
+                      return !isNaN(estNum) && estNum === numValue;
+                    });
+                  }
+                }
+                
+                if (establishment) {
+                  console.log('✅ Estabelecimento encontrado:', establishment);
+                  setSelectedEstablishment(establishment);
+                } else {
+                  console.error('❌ Estabelecimento não encontrado para valor:', value);
+                  console.error('📋 Estabelecimentos disponíveis:', establishments.map(e => ({ 
                     id: e.id, 
                     idType: typeof e.id,
+                    idString: String(e.id),
                     name: e.name 
                   })));
                   
-                  // Buscar estabelecimento usando comparação de string
-                  const establishment = currentEstablishments.find(est => {
-                    const match = String(est.id) === String(value);
-                    return match;
-                  });
+                  // Recarregar estabelecimentos e tentar novamente
+                  console.log('🔄 Recarregando estabelecimentos...');
+                  await fetchEstablishments();
                   
-                  if (establishment) {
-                    console.log('✅ Estabelecimento encontrado:', establishment);
-                    setSelectedEstablishment(establishment);
-                  } else {
-                    console.error('❌ Estabelecimento não encontrado para valor:', value);
-                    console.error('📋 IDs disponíveis:', currentEstablishments.map(e => String(e.id)));
-                    alert(`Erro: Estabelecimento não encontrado. Tente recarregar a página.`);
-                  }
-                  
-                  return currentEstablishments; // Retornar o array sem modificar
-                });
+                  // Aguardar um pouco e tentar novamente
+                  setTimeout(() => {
+                    const retry = establishments.find(est => String(est.id) === String(value));
+                    if (retry) {
+                      console.log('✅ Encontrado após recarregar:', retry);
+                      setSelectedEstablishment(retry);
+                    } else {
+                      alert(`Erro: Não foi possível selecionar o estabelecimento. Recarregue a página.`);
+                    }
+                  }, 200);
+                }
               }}
               className="w-full md:w-1/2 px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 text-gray-800 font-medium text-lg bg-white hover:border-yellow-400 transition-colors"
             >
