@@ -266,7 +266,7 @@ export default function EventoCheckInsPage() {
       ['Pendente', 'Check-in', 'No-Show'].includes(c.status_checkin) &&
       c.promoter_id !== undefined &&
       c.promoter_id !== null &&
-      typeof c.promoter_id === 'number' &&
+      (typeof c.promoter_id === 'number' || typeof c.promoter_id === 'string') &&
       c.tipo_lista !== undefined &&
       c.tipo_lista !== null &&
       (c.status === undefined || c.status === null) &&
