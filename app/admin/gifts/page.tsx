@@ -160,10 +160,11 @@ export default function GiftsAdminPage() {
     }
   }, [selectedEstablishment, loadGiftRules, loadPromoterGiftRules]);
 
-  // Carregar estabelecimentos ao montar
+  // Carregar estabelecimentos ao montar (apenas uma vez)
   useEffect(() => {
     fetchEstablishments();
-  }, [fetchEstablishments]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   if (loading) {
     return (
