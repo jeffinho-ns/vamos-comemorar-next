@@ -185,16 +185,33 @@ export default function GiftsAdminPage() {
         </div>
 
         {/* Seletor de Estabelecimento */}
-        <div className="bg-white rounded-lg p-6 mb-6 shadow-sm border border-gray-200">
-          <label className="block text-sm font-medium text-gray-700 mb-3">
-            Selecionar Estabelecimento *
+        <div className="bg-white rounded-lg p-6 mb-6 shadow-sm border-2 border-gray-200">
+          <label className="block text-lg font-semibold text-gray-800 mb-4">
+            📍 Selecionar Estabelecimento *
           </label>
-          {establishments.length === 0 ? (
-            <div className="text-center py-4">
-              <p className="text-gray-500">Carregando estabelecimentos...</p>
-              {error && (
-                <p className="text-red-500 text-sm mt-2">{error}</p>
-              )}
+          {loading && establishments.length === 0 ? (
+            <div className="text-center py-6">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-yellow-600 mx-auto mb-3"></div>
+              <p className="text-gray-600 font-medium">Carregando estabelecimentos...</p>
+            </div>
+          ) : error ? (
+            <div className="text-center py-6 bg-red-50 rounded-lg border-2 border-red-200">
+              <p className="text-red-600 font-semibold mb-2">❌ Erro ao carregar estabelecimentos</p>
+              <p className="text-red-500 text-sm">{error}</p>
+              <button
+                onClick={() => {
+                  setError(null);
+                  fetchEstablishments();
+                }}
+                className="mt-4 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
+              >
+                Tentar Novamente
+              </button>
+            </div>
+          ) : establishments.length === 0 ? (
+            <div className="text-center py-6 bg-yellow-50 rounded-lg border-2 border-yellow-200">
+              <p className="text-yellow-800 font-semibold">⚠️ Nenhum estabelecimento encontrado</p>
+              <p className="text-yellow-600 text-sm mt-2">Entre em contato com o administrador do sistema</p>
             </div>
           ) : (
             <select
@@ -203,7 +220,7 @@ export default function GiftsAdminPage() {
                 const establishment = establishments.find(est => est.id === Number(e.target.value));
                 setSelectedEstablishment(establishment || null);
               }}
-              className="w-full md:w-1/2 px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 text-gray-800 font-medium"
+              className="w-full md:w-1/2 px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 text-gray-800 font-medium text-lg bg-white hover:border-yellow-400 transition-colors"
             >
               <option value="">-- Selecione um estabelecimento --</option>
               {establishments.map((est) => (
@@ -212,6 +229,11 @@ export default function GiftsAdminPage() {
                 </option>
               ))}
             </select>
+          )}
+          {establishments.length > 0 && !selectedEstablishment && (
+            <p className="mt-3 text-sm text-amber-600 font-medium">
+              ⚠️ Por favor, selecione um estabelecimento para continuar
+            </p>
           )}
         </div>
 
