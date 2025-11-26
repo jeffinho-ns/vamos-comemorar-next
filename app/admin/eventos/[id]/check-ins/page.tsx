@@ -369,8 +369,28 @@ export default function EventoCheckInsPage() {
         setConvidadosPromoters([]);
         
         // Filtrar e validar apenas convidados de promoters
+        // Log dos dados brutos recebidos do backend
+        console.log('🔍 Dados brutos recebidos do backend (convidadosPromoters):', {
+          total: data.dados.convidadosPromoters?.length || 0,
+          primeiro: data.dados.convidadosPromoters?.[0] || null,
+          todos: data.dados.convidadosPromoters || []
+        });
+        
         const convidadosPromotersFiltrados = (data.dados.convidadosPromoters || [])
           .filter((c: any) => {
+            // Log de cada item antes da validação
+            console.log('🔍 Validando convidado:', {
+              id: c?.id,
+              nome: c?.nome,
+              tipo: c?.tipo,
+              status_checkin: c?.status_checkin,
+              promoter_id: c?.promoter_id,
+              tipo_lista: c?.tipo_lista,
+              email: c?.email,
+              documento: c?.documento,
+              status: c?.status
+            });
+            
             if (!isValidPromoterGuest(c)) {
               console.warn('⚠️ Item REJEITADO da lista de promoters (não é um convidado de promoter válido):', {
                 id: c?.id,
@@ -379,8 +399,10 @@ export default function EventoCheckInsPage() {
                 status_checkin: c?.status_checkin,
                 status: c?.status,
                 promoter_id: c?.promoter_id,
+                tipo_lista: c?.tipo_lista,
                 email: c?.email,
-                documento: c?.documento
+                documento: c?.documento,
+                motivo: 'Validação falhou'
               });
               return false;
             }
@@ -392,7 +414,7 @@ export default function EventoCheckInsPage() {
             tipo: 'convidado_promoter' as const,
             status_checkin: c.status_checkin as 'Pendente' | 'Check-in' | 'No-Show',
             promoter_id: Number(c.promoter_id),
-            tipo_lista: c.tipo_lista || ''
+            tipo_lista: c.tipo_lista || 'Promoter'
           }));
         
         console.log('✅ Convidados de Promoters FINAL após filtro:', {
