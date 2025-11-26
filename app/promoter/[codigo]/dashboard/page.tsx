@@ -110,6 +110,7 @@ export default function PromoterDashboardPage() {
     checkins_count: number;
     status: string;
     liberado_em: string;
+    gift_rule_id?: number;
     tipo_brinde?: 'porcentagem' | 'valor' | 'beneficio';
   }
   const [promoterGifts, setPromoterGifts] = useState<{ [eventoId: number]: PromoterGift[] }>({});
@@ -342,11 +343,6 @@ export default function PromoterDashboardPage() {
     return todos.filter(b => identifyGiftType(b.descricao) === 'beneficio');
   }, [giftsData]);
   
-  // Função auxiliar para identificar se um brinde está liberado
-  const isBrindeLiberado = (regra: any) => {
-    return giftsData.liberados.some(l => l.gift_rule_id === regra.id);
-  };
-
   useEffect(() => {
     loadPromoterData();
     loadEventos();
