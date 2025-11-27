@@ -488,6 +488,18 @@ export default function CardapioAdminPage() {
         });
       }
 
+      console.log('💾 [FINAL] Dados que serão salvos no estado:', {
+        bars: barsData.length,
+        categories: categoriesData.length,
+        subCategories: subCategoriesData.length,
+        items: itemsData.length,
+        barsNames: barsData.map(b => b.name),
+        categoriesNames: categoriesData.map(c => c.name),
+        firstBar: barsData[0] ? { id: barsData[0].id, name: barsData[0].name } : null,
+        firstCategory: categoriesData[0] ? { id: categoriesData[0].id, name: categoriesData[0].name, barId: categoriesData[0].barId } : null,
+        firstItem: itemsData[0] ? { id: itemsData[0].id, name: itemsData[0].name, barId: itemsData[0].barId } : null
+      });
+      
       setMenuData({
         bars: barsData,
         categories: categoriesData,
