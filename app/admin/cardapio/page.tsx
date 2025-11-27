@@ -345,6 +345,15 @@ export default function CardapioAdminPage() {
         categoriesRes.json(),
         itemsRes.json(),
       ]);
+      
+      console.log('📥 [API] Dados recebidos da API:', {
+        totalBars: Array.isArray(bars) ? bars.length : 0,
+        totalCategories: Array.isArray(categories) ? categories.length : 0,
+        totalItems: Array.isArray(items) ? items.length : 0,
+        bars: bars?.slice(0, 3).map((b: any) => ({ id: b.id, name: b.name, idType: typeof b.id })),
+        categories: categories?.slice(0, 3).map((c: any) => ({ id: c.id, name: c.name, barId: c.barId, barIdType: typeof c.barId })),
+        items: items?.slice(0, 3).map((i: any) => ({ id: i.id, name: i.name, barId: i.barId, barIdType: typeof i.barId }))
+      });
 
       const subCategories = items.reduce((acc: any[], item: any) => {
         if (item.subCategoryName && item.subCategoryName.trim() !== '') {
@@ -433,17 +442,36 @@ export default function CardapioAdminPage() {
       if (isPromoter && promoterBar) {
         console.log('🔍 [PROMOTER] Filtrando categorias e itens:', {
           promoterBarId: promoterBar.barId,
+          promoterBarIdType: typeof promoterBar.barId,
           totalCategories: categoriesData.length,
           totalItems: itemsData.length,
-          categoryBarIds: categoriesData.map(c => ({ id: c.id, barId: c.barId, barIdType: typeof c.barId, name: c.name })),
-          itemBarIds: itemsData.slice(0, 5).map(i => ({ id: i.id, barId: i.barId, barIdType: typeof i.barId, name: i.name }))
+          sampleCategories: categoriesData.slice(0, 5).map(c => ({ 
+            id: c.id, 
+            barId: c.barId, 
+            barIdType: typeof c.barId, 
+            name: c.name,
+            comparison: `${Number(c.barId)} === ${Number(promoterBar.barId)}? ${Number(c.barId) === Number(promoterBar.barId)}`
+          })),
+          sampleItems: itemsData.slice(0, 5).map(i => ({ 
+            id: i.id, 
+            barId: i.barId, 
+            barIdType: typeof i.barId, 
+            name: i.name,
+            comparison: `${Number(i.barId)} === ${Number(promoterBar.barId)}? ${Number(i.barId) === Number(promoterBar.barId)}`
+          }))
         });
+        
+        const beforeCategoriesCount = categoriesData.length;
+        const beforeItemsCount = itemsData.length;
         
         categoriesData = categoriesData.filter(
           (category) => {
             const catBarIdNum = Number(category.barId);
             const promoterBarIdNum = Number(promoterBar.barId);
             const match = catBarIdNum === promoterBarIdNum || String(category.barId) === String(promoterBar.barId);
+            if (match) {
+              console.log(`   ✅ Categoria "${category.name}" (barId: ${category.barId}) MATCH com promoterBarId: ${promoterBar.barId}`);
+            }
             return match;
           }
         );
@@ -454,8 +482,10 @@ export default function CardapioAdminPage() {
           return match;
         });
         
-        console.log('✅ [PROMOTER] Categorias filtradas:', categoriesData.length);
-        console.log('✅ [PROMOTER] Itens filtrados:', itemsData.length);
+        console.log('✅ [PROMOTER] Resultado da filtragem:', {
+          categories: { antes: beforeCategoriesCount, depois: categoriesData.length, filtrados: categoriesData.map(c => c.name) },
+          items: { antes: beforeItemsCount, depois: itemsData.length }
+        });
       }
 
       setMenuData({
