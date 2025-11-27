@@ -12,12 +12,20 @@ interface GiftRule {
   id: number;
   establishment_id: number;
   evento_id: number | null;
+  promoter_id: number | null; // Adicionado para suportar regras específicas por promoter
   descricao: string;
   checkins_necessarios: number;
   status: 'ATIVA' | 'INATIVA';
   tipo_beneficiario: 'ANIVERSARIO' | 'PROMOTER';
   created_at?: string;
   updated_at?: string;
+}
+
+interface Promoter {
+  promoter_id: number;
+  nome: string;
+  apelido?: string;
+  email?: string;
 }
 
 export default function GiftsAdminPage() {
@@ -49,11 +57,16 @@ export default function GiftsAdminPage() {
     status: 'ATIVA'
   });
   
-  const [promoterGiftRuleForm, setPromoterGiftRuleForm] = useState<{ descricao: string; checkins_necessarios: number; status: 'ATIVA' | 'INATIVA' }>({
+  const [promoterGiftRuleForm, setPromoterGiftRuleForm] = useState<{ descricao: string; checkins_necessarios: number; status: 'ATIVA' | 'INATIVA'; promoter_id: number | null }>({
     descricao: '',
     checkins_necessarios: 5,
-    status: 'ATIVA'
+    status: 'ATIVA',
+    promoter_id: null // null = regra geral para todos os promoters
   });
+  
+  // Estados para promoters
+  const [promoters, setPromoters] = useState<Promoter[]>([]);
+  const [loadingPromoters, setLoadingPromoters] = useState(false);
 
   // Carregar estabelecimentos
   const fetchEstablishments = useCallback(async () => {
@@ -192,9 +205,10 @@ export default function GiftsAdminPage() {
     establishmentsMapRef.current = newMap;
   }, [establishments]);
 
-  // Carregar estabelecimentos ao montar (apenas uma vez)
+  // Carregar estabelecimentos e promoters ao montar
   useEffect(() => {
     fetchEstablishments();
+    loadPromoters();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -487,7 +501,7 @@ export default function GiftsAdminPage() {
                 <button
                   onClick={() => {
                     setEditingPromoterGiftRule(null);
-                    setPromoterGiftRuleForm({ descricao: '', checkins_necessarios: 5, status: 'ATIVA' });
+                    setPromoterGiftRuleForm({ descricao: '', checkins_necessarios: 5, status: 'ATIVA', promoter_id: null });
                     setShowPromoterGiftRuleModal(true);
                   }}
                   className="px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors flex items-center gap-2 shadow-md font-semibold"
@@ -527,6 +541,16 @@ export default function GiftsAdminPage() {
                           <p className="text-sm text-gray-600">
                             Liberar quando atingir <strong className="text-purple-600">{rule.checkins_necessarios}</strong> check-in{rule.checkins_necessarios > 1 ? 's' : ''}
                           </p>
+                          {rule.promoter_id && (
+                            <p className="text-xs text-purple-700 mt-1 font-medium">
+                              📌 Regra específica para promoter: {promoters.find(p => p.promoter_id === rule.promoter_id)?.nome || `ID ${rule.promoter_id}`}
+                            </p>
+                          )}
+                          {!rule.promoter_id && (
+                            <p className="text-xs text-gray-500 mt-1">
+                              🌐 Regra geral (aplica-se a todos os promoters)
+                            </p>
+                          )}
                         </div>
                         <div className="flex gap-2 ml-4">
                           <button
@@ -535,7 +559,8 @@ export default function GiftsAdminPage() {
                               setPromoterGiftRuleForm({
                                 descricao: rule.descricao,
                                 checkins_necessarios: rule.checkins_necessarios,
-                                status: rule.status
+                                status: rule.status,
+                                promoter_id: rule.promoter_id || null
                               });
                               setShowPromoterGiftRuleModal(true);
                             }}
@@ -769,7 +794,7 @@ export default function GiftsAdminPage() {
                   onClick={() => {
                     setShowPromoterGiftRuleModal(false);
                     setEditingPromoterGiftRule(null);
-                    setPromoterGiftRuleForm({ descricao: '', checkins_necessarios: 5, status: 'ATIVA' });
+                    setPromoterGiftRuleForm({ descricao: '', checkins_necessarios: 5, status: 'ATIVA', promoter_id: null });
                   }}
                   className="text-gray-400 hover:text-gray-600"
                 >
@@ -807,7 +832,7 @@ export default function GiftsAdminPage() {
                     }
                     setShowPromoterGiftRuleModal(false);
                     setEditingPromoterGiftRule(null);
-                    setPromoterGiftRuleForm({ descricao: '', checkins_necessarios: 5, status: 'ATIVA' });
+                    setPromoterGiftRuleForm({ descricao: '', checkins_necessarios: 5, status: 'ATIVA', promoter_id: null });
                   } else {
                     const errorData = await response.json();
                     alert('Erro: ' + (errorData.error || 'Erro desconhecido'));
