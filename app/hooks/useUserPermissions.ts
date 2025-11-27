@@ -92,15 +92,16 @@ export function useUserPermissions() {
                 barName: 'HighLine',
                 barSlug: 'highline'
               };
-            } else if (userEmail === 'fran@highlinebar.com.br') {
+            } else if (userEmail === 'fran@highlinebar.com.br' || userEmail === 'fran@highlinebar.com.br') {
               promoterBar = {
                 userId: 0, // Será atualizado quando obtivermos o ID do banco
                 userEmail: 'fran@highlinebar.com.br',
                 userName: 'Fran HighLine',
-                barId: 7,
+                barId: 7, // Tentando com 7 primeiro, pode ser que precise ser 3
                 barName: 'HighLine',
                 barSlug: 'highline'
               };
+              console.log('✅ [PERMISSIONS] PromoterBar configurado para fran@highlinebar.com.br:', promoterBar);
             } else if (userEmail === 'analista@reserva.com') {
               promoterBar = {
                 userId: 63,

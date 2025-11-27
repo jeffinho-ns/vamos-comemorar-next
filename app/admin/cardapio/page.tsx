@@ -387,7 +387,21 @@ export default function CardapioAdminPage() {
 
       // Filtrar bares para promoters (só podem ver o seu bar)
       if (isPromoter && promoterBar) {
-        barsData = barsData.filter((bar) => Number(bar.id) === Number(promoterBar.barId));
+        console.log('🔍 [PROMOTER] Filtrando bares para:', {
+          promoterBar,
+          promoterBarId: promoterBar.barId,
+          promoterBarIdType: typeof promoterBar.barId,
+          totalBars: barsData.length,
+          barsIds: barsData.map(b => ({ id: b.id, idType: typeof b.id, name: b.name }))
+        });
+        barsData = barsData.filter((bar) => {
+          const barIdNum = Number(bar.id);
+          const promoterBarIdNum = Number(promoterBar.barId);
+          const match = barIdNum === promoterBarIdNum || String(bar.id) === String(promoterBar.barId);
+          console.log(`   Bar ${bar.id} (${bar.name}): ${barIdNum} === ${promoterBarIdNum}? ${match}`);
+          return match;
+        });
+        console.log('✅ [PROMOTER] Bares filtrados:', barsData.length, barsData.map(b => b.name));
       }
 
       let categoriesData = Array.isArray(categories) ? categories : [];
@@ -406,10 +420,31 @@ export default function CardapioAdminPage() {
 
       // Filtrar categorias e itens para promoters (só podem ver os do seu bar)
       if (isPromoter && promoterBar) {
+        console.log('🔍 [PROMOTER] Filtrando categorias e itens:', {
+          promoterBarId: promoterBar.barId,
+          totalCategories: categoriesData.length,
+          totalItems: itemsData.length,
+          categoryBarIds: categoriesData.map(c => ({ id: c.id, barId: c.barId, barIdType: typeof c.barId, name: c.name })),
+          itemBarIds: itemsData.slice(0, 5).map(i => ({ id: i.id, barId: i.barId, barIdType: typeof i.barId, name: i.name }))
+        });
+        
         categoriesData = categoriesData.filter(
-          (category) => Number(category.barId) === Number(promoterBar.barId),
+          (category) => {
+            const catBarIdNum = Number(category.barId);
+            const promoterBarIdNum = Number(promoterBar.barId);
+            const match = catBarIdNum === promoterBarIdNum || String(category.barId) === String(promoterBar.barId);
+            return match;
+          }
         );
-        itemsData = itemsData.filter((item) => Number(item.barId) === Number(promoterBar.barId));
+        itemsData = itemsData.filter((item) => {
+          const itemBarIdNum = Number(item.barId);
+          const promoterBarIdNum = Number(promoterBar.barId);
+          const match = itemBarIdNum === promoterBarIdNum || String(item.barId) === String(promoterBar.barId);
+          return match;
+        });
+        
+        console.log('✅ [PROMOTER] Categorias filtradas:', categoriesData.length);
+        console.log('✅ [PROMOTER] Itens filtrados:', itemsData.length);
       }
 
       setMenuData({
