@@ -163,7 +163,8 @@ export default function GiftsAdminPage() {
       const token = localStorage.getItem('authToken');
       console.log('🔍 Carregando promoters para estabelecimento:', establishmentId);
       
-      const url = `${API_URL}/api/v1/eventos/promoters?establishment_id=${establishmentId}`;
+      // Usar o endpoint /advanced que está funcionando na página de promoters
+      const url = `${API_URL}/api/v1/promoters/advanced?establishment_id=${establishmentId}`;
       console.log('📡 URL da requisição:', url);
       
       const response = await fetch(url, {
@@ -174,16 +175,16 @@ export default function GiftsAdminPage() {
         const data = await response.json();
         console.log('📥 Dados recebidos de promoters:', data);
         
-        // Formato pode variar, normalizar
-        const promotersList = Array.isArray(data) 
-          ? data 
-          : (data.promoters || data.data || []);
+        // O endpoint /advanced retorna { success: true, promoters: [...], total: ... }
+        const promotersList = data.success && data.promoters 
+          ? data.promoters 
+          : (Array.isArray(data) ? data : []);
         
         const formattedPromoters = promotersList.map((p: any) => ({
-          promoter_id: p.promoter_id || p.id,
-          nome: p.nome || p.name,
-          apelido: p.apelido || p.apelido || null,
-          email: p.email || p.email || null
+          promoter_id: parseInt(p.promoter_id) || parseInt(p.id),
+          nome: p.nome || p.name || 'Sem nome',
+          apelido: p.apelido || null,
+          email: p.email || null
         }));
         
         console.log('✅ Promoters formatados:', formattedPromoters.length, formattedPromoters);
