@@ -822,7 +822,8 @@ export default function GiftsAdminPage() {
                     body: JSON.stringify({
                       ...promoterGiftRuleForm,
                       establishment_id: selectedEstablishment?.id,
-                      tipo_beneficiario: 'PROMOTER'
+                      tipo_beneficiario: 'PROMOTER',
+                      promoter_id: promoterGiftRuleForm.promoter_id || null
                     })
                   });
 
