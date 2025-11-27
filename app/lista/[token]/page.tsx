@@ -2,10 +2,11 @@
 
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
+import { QRCodeSVG } from "qrcode.react";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL_LOCAL || 'https://vamos-comemorar-api.onrender.com';
 
-type Guest = { id: number; name: string; status: string };
+type Guest = { id: number; name: string; status: string; checked_in?: boolean; checkin_time?: string };
 
 export default function GuestListPublicPage() {
   const params = useParams<{ token: string }>();
@@ -23,6 +24,7 @@ export default function GuestListPublicPage() {
   const [bulkLoading, setBulkLoading] = useState(false);
   const [bulkFeedback, setBulkFeedback] = useState<{ added: number; skipped: number; errors: string[] }>({ added: 0, skipped: 0, errors: [] });
   const [bulkError, setBulkError] = useState<string | null>(null);
+  const [checkInUrl, setCheckInUrl] = useState<string>("");
 
   const token = params?.token;
 
@@ -53,9 +55,21 @@ export default function GuestListPublicPage() {
 
   useEffect(() => {
     loadGuestList();
-  }, [loadGuestList]);
+    // Gerar URL do check-in quando o componente montar
+    if (typeof window !== 'undefined' && token) {
+      setCheckInUrl(`${window.location.origin}/checkin/${token}`);
+    }
+  }, [loadGuestList, token]);
 
   const shareUrl = typeof window !== 'undefined' ? window.location.href : '';
+
+  // Calcular progresso de check-ins
+  const checkedInCount = useMemo(() => {
+    return guests.filter(g => g.checked_in === true || g.status === 'CHECK-IN').length;
+  }, [guests]);
+
+  const totalGuests = guests.length;
+  const progressPercentage = totalGuests > 0 ? (checkedInCount / totalGuests) * 100 : 0;
 
   const handleAddGuest = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -169,6 +183,68 @@ export default function GuestListPublicPage() {
           <p className="text-gray-600 mb-6 text-sm">Data do evento: {reservationDate ? new Date(reservationDate + 'T12:00:00').toLocaleDateString('pt-BR') : 'Data não informada'}</p>
         )}
 
+        {/* Seção de QR Code e Progresso */}
+        <div className="mb-6 p-4 bg-gradient-to-r from-orange-50 to-orange-100 border border-orange-200 rounded-lg">
+          <h3 className="text-lg font-semibold text-orange-900 mb-4">Auto Check-in via QR Code</h3>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
+            {/* QR Code */}
+            <div className="flex flex-col items-center">
+              <div className="bg-white p-4 rounded-lg shadow-md mb-3">
+                {checkInUrl ? (
+                  <QRCodeSVG
+                    value={checkInUrl}
+                    size={200}
+                    level="H"
+                    includeMargin={true}
+                  />
+                ) : (
+                  <div className="w-[200px] h-[200px] flex items-center justify-center bg-gray-100 rounded">
+                    <p className="text-gray-500 text-sm">Carregando...</p>
+                  </div>
+                )}
+              </div>
+              <p className="text-sm text-orange-800 text-center max-w-xs">
+                Convidados podem escanear este código para fazer check-in automaticamente
+              </p>
+            </div>
+
+            {/* Barra de Progresso */}
+            <div className="flex flex-col">
+              <div className="mb-3">
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-sm font-medium text-orange-900">Progresso de Check-ins</span>
+                  <span className="text-sm font-bold text-orange-700">
+                    {checkedInCount}/{totalGuests}
+                  </span>
+                </div>
+                <div className="w-full bg-orange-200 rounded-full h-6 overflow-hidden">
+                  <div
+                    className="bg-orange-500 h-full transition-all duration-500 ease-out flex items-center justify-center"
+                    style={{ width: `${Math.min(progressPercentage, 100)}%` }}
+                  >
+                    {progressPercentage > 15 && (
+                      <span className="text-xs font-medium text-white">
+                        {Math.round(progressPercentage)}%
+                      </span>
+                    )}
+                  </div>
+                </div>
+                {progressPercentage < 15 && (
+                  <span className="text-xs text-orange-700 mt-1 block text-right">
+                    {Math.round(progressPercentage)}%
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-orange-700">
+                {checkedInCount === totalGuests && totalGuests > 0
+                  ? "🎉 Todos os convidados fizeram check-in!"
+                  : `${totalGuests - checkedInCount} convidado(s) ainda não fizeram check-in`}
+              </p>
+            </div>
+          </div>
+        </div>
+
         {/* Formulário para convidados se cadastrarem */}
         <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
           <h3 className="text-lg font-semibold text-blue-900 mb-3">Adicionar-se à Lista</h3>
@@ -231,9 +307,15 @@ export default function GuestListPublicPage() {
                 <tr key={g.id}>
                   <td className="px-4 py-3 text-sm text-gray-900">{g.name}</td>
                   <td className="px-4 py-3 text-sm">
-                    <span className="inline-flex items-center px-2.5 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
-                      Confirmado
-                    </span>
+                    {g.checked_in === true || g.status === 'CHECK-IN' ? (
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+                        ✅ Check-in Realizado
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800">
+                        Confirmado
+                      </span>
+                    )}
                   </td>
                 </tr>
               ))}
