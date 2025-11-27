@@ -150,6 +150,48 @@ export default function GiftsAdminPage() {
     }
   }, [API_URL]);
 
+  // Função para carregar promoters
+  const loadPromoters = useCallback(async () => {
+    try {
+      setLoadingPromoters(true);
+      const token = localStorage.getItem('authToken');
+      console.log('🔍 Carregando promoters...');
+      
+      const response = await fetch(`${API_URL}/api/v1/eventos/promoters`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('📥 Dados recebidos de promoters:', data);
+        
+        // Formato pode variar, normalizar
+        const promotersList = Array.isArray(data) 
+          ? data 
+          : (data.promoters || data.data || []);
+        
+        const formattedPromoters = promotersList.map((p: any) => ({
+          promoter_id: p.promoter_id || p.id,
+          nome: p.nome || p.name,
+          apelido: p.apelido || p.apelido || null,
+          email: p.email || p.email || null
+        }));
+        
+        console.log('✅ Promoters formatados:', formattedPromoters.length);
+        setPromoters(formattedPromoters);
+      } else {
+        const errorText = await response.text();
+        console.error('❌ Erro ao carregar promoters:', response.status, errorText);
+        setPromoters([]);
+      }
+    } catch (error) {
+      console.error('❌ Erro ao carregar promoters:', error);
+      setPromoters([]);
+    } finally {
+      setLoadingPromoters(false);
+    }
+  }, [API_URL]);
+
   // Função para carregar regras de brindes para promoters
   const loadPromoterGiftRules = useCallback(async (establishmentId: number) => {
     try {
