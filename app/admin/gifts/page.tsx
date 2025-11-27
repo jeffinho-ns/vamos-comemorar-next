@@ -150,14 +150,23 @@ export default function GiftsAdminPage() {
     }
   }, [API_URL]);
 
-  // Função para carregar promoters
-  const loadPromoters = useCallback(async () => {
+  // Função para carregar promoters (filtrados por estabelecimento)
+  const loadPromoters = useCallback(async (establishmentId?: number | null) => {
+    // Só carrega se houver um estabelecimento selecionado
+    if (!establishmentId) {
+      setPromoters([]);
+      return;
+    }
+
     try {
       setLoadingPromoters(true);
       const token = localStorage.getItem('authToken');
-      console.log('🔍 Carregando promoters...');
+      console.log('🔍 Carregando promoters para estabelecimento:', establishmentId);
       
-      const response = await fetch(`${API_URL}/api/v1/eventos/promoters`, {
+      const url = `${API_URL}/api/v1/eventos/promoters?establishment_id=${establishmentId}`;
+      console.log('📡 URL da requisição:', url);
+      
+      const response = await fetch(url, {
         headers: { Authorization: `Bearer ${token}` }
       });
 
@@ -177,7 +186,7 @@ export default function GiftsAdminPage() {
           email: p.email || p.email || null
         }));
         
-        console.log('✅ Promoters formatados:', formattedPromoters.length);
+        console.log('✅ Promoters formatados:', formattedPromoters.length, formattedPromoters);
         setPromoters(formattedPromoters);
       } else {
         const errorText = await response.text();
@@ -216,22 +225,24 @@ export default function GiftsAdminPage() {
   // Carregar dados quando o estabelecimento mudar
   useEffect(() => {
     if (selectedEstablishment) {
-      console.log('🔄 Estabelecimento mudou, carregando regras para:', selectedEstablishment.name, selectedEstablishment.id);
+      console.log('🔄 Estabelecimento mudou, carregando regras e promoters para:', selectedEstablishment.name, selectedEstablishment.id);
       setLoadingRules(true);
       setGiftRules([]);
       setPromoterGiftRules([]);
       
       Promise.all([
         loadGiftRules(selectedEstablishment.id),
-        loadPromoterGiftRules(selectedEstablishment.id)
+        loadPromoterGiftRules(selectedEstablishment.id),
+        loadPromoters(selectedEstablishment.id) // Carregar promoters do estabelecimento selecionado
       ]).finally(() => {
         setLoadingRules(false);
       });
     } else {
       setGiftRules([]);
       setPromoterGiftRules([]);
+      setPromoters([]); // Limpar promoters quando não houver estabelecimento selecionado
     }
-  }, [selectedEstablishment?.id, loadGiftRules, loadPromoterGiftRules]);
+  }, [selectedEstablishment?.id, loadGiftRules, loadPromoterGiftRules, loadPromoters]);
 
   // Manter ref e mapa sincronizados com o estado
   useEffect(() => {
@@ -247,10 +258,9 @@ export default function GiftsAdminPage() {
     establishmentsMapRef.current = newMap;
   }, [establishments]);
 
-  // Carregar estabelecimentos e promoters ao montar
+  // Carregar estabelecimentos ao montar (promoters serão carregados quando um estabelecimento for selecionado)
   useEffect(() => {
     fetchEstablishments();
-    loadPromoters();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
