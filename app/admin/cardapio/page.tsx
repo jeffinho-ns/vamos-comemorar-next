@@ -229,6 +229,17 @@ const getValidImageUrl = (filename?: string | null): string => {
 
 export default function CardapioAdminPage() {
   const { isAdmin, isPromoter, promoterBar, canManageBar } = useUserPermissions();
+  
+  // Debug: Log das permissões
+  useEffect(() => {
+    console.log('🔐 [CARDAPIO] Permissões do usuário:', {
+      isAdmin,
+      isPromoter,
+      promoterBar,
+      canManageBar: promoterBar ? canManageBar(Number(promoterBar.barId)) : false
+    });
+  }, [isAdmin, isPromoter, promoterBar, canManageBar]);
+  
   const [activeTab, setActiveTab] = useState<'bars' | 'categories' | 'items'>('bars');
   const [showBarModal, setShowBarModal] = useState(false);
   const [showCategoryModal, setShowCategoryModal] = useState(false);

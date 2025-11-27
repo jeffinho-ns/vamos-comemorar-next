@@ -88,16 +88,16 @@ export function useUserPermissions() {
                 userId: 61,
                 userEmail: 'analista@highline.com',
                 userName: 'Analista HighLine',
-                barId: 7,
+                barId: 3, // Corrigido: 3 é o barId correto do Highline no banco
                 barName: 'HighLine',
                 barSlug: 'highline'
               };
-            } else if (userEmail === 'fran@highlinebar.com.br' || userEmail === 'fran@highlinebar.com.br') {
+            } else if (userEmail === 'fran@highlinebar.com.br') {
               promoterBar = {
                 userId: 0, // Será atualizado quando obtivermos o ID do banco
                 userEmail: 'fran@highlinebar.com.br',
                 userName: 'Fran HighLine',
-                barId: 7, // Tentando com 7 primeiro, pode ser que precise ser 3
+                barId: 3, // Corrigido: 3 é o barId correto do Highline no banco
                 barName: 'HighLine',
                 barSlug: 'highline'
               };
