@@ -843,6 +843,35 @@ export default function GiftsAdminPage() {
                   alert('Erro ao salvar regra. Tente novamente.');
                 }
               }} className="space-y-4">
+                {/* Campo para selecionar promoter */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Promoter (Opcional)
+                  </label>
+                  <select
+                    value={promoterGiftRuleForm.promoter_id || ''}
+                    onChange={(e) => setPromoterGiftRuleForm(prev => ({ 
+                      ...prev, 
+                      promoter_id: e.target.value === '' ? null : parseInt(e.target.value)
+                    }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  >
+                    <option value="">-- Todos os Promoters (Regra Geral) --</option>
+                    {loadingPromoters ? (
+                      <option disabled>Carregando promoters...</option>
+                    ) : (
+                      promoters.map((promoter) => (
+                        <option key={promoter.promoter_id} value={promoter.promoter_id}>
+                          {promoter.nome} {promoter.apelido ? `(${promoter.apelido})` : ''}
+                        </option>
+                      ))
+                    )}
+                  </select>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Selecione um promoter específico ou deixe em branco para aplicar a todos os promoters do estabelecimento
+                  </p>
+                </div>
+                
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Descrição do Brinde *
@@ -900,7 +929,7 @@ export default function GiftsAdminPage() {
                     onClick={() => {
                       setShowPromoterGiftRuleModal(false);
                       setEditingPromoterGiftRule(null);
-                      setPromoterGiftRuleForm({ descricao: '', checkins_necessarios: 5, status: 'ATIVA' });
+                      setPromoterGiftRuleForm({ descricao: '', checkins_necessarios: 5, status: 'ATIVA', promoter_id: null });
                     }}
                     className="flex-1 px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded-lg transition-colors"
                   >
