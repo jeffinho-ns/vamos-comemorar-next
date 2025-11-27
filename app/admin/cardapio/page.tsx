@@ -1967,6 +1967,23 @@ export default function CardapioAdminPage() {
                       Adicionar Estabelecimento
                     </button>
                   )}
+                  {isPromoter && promoterBar && (
+                    <button
+                      onClick={() => {
+                        const bar = menuData.bars.find((b) => Number(b.id) === Number(promoterBar.barId));
+                        if (bar) {
+                          handleEditBar(bar);
+                        } else {
+                          // Se o bar não existe, criar novo (normalmente não acontece, mas pode ser útil)
+                          setShowBarModal(true);
+                        }
+                      }}
+                      className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 w-full sm:w-auto justify-center"
+                    >
+                      <MdEdit className="h-5 w-5" />
+                      Editar {promoterBar.barName}
+                    </button>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6 admin-grid-4">
@@ -1981,7 +1998,7 @@ export default function CardapioAdminPage() {
                           className="object-cover"
                         />
                         <div className="absolute right-2 top-2 flex gap-1">
-                          {isAdmin && (
+                          {(isAdmin || (isPromoter && canManageBar(Number(bar.id)))) && (
                             <>
                               <button
                                 onClick={() => handleEditBar(bar)}
@@ -1989,12 +2006,14 @@ export default function CardapioAdminPage() {
                               >
                                 <MdEdit className="h-4 w-4" />
                               </button>
-                              <button
-                                onClick={() => handleDeleteBar(bar.id)}
-                                className="rounded-full bg-red-600 p-2 text-white hover:bg-red-700"
-                              >
-                                <MdDelete className="h-4 w-4" />
-                              </button>
+                              {isAdmin && (
+                                <button
+                                  onClick={() => handleDeleteBar(bar.id)}
+                                  className="rounded-full bg-red-600 p-2 text-white hover:bg-red-700"
+                                >
+                                  <MdDelete className="h-4 w-4" />
+                                </button>
+                              )}
                             </>
                           )}
                         </div>

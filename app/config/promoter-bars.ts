@@ -33,7 +33,15 @@ export const PROMOTER_BAR_MAPPINGS: PromoterBarMapping[] = [
     userId: 61, // ID real do usuário 'analista@highline.com'
     userEmail: "analista@highline.com",
     userName: "Analista HighLine",
-    barId: 3, // ID do bar "HighLine" - CORRIGIDO
+    barId: 7, // ID do bar "HighLine" (corrigido para 7 que é o usado atualmente)
+    barName: "HighLine",
+    barSlug: "highline"
+  },
+  {
+    userId: 0, // Será atualizado quando obtivermos o ID do banco
+    userEmail: "fran@highlinebar.com.br",
+    userName: "Fran HighLine",
+    barId: 7, // ID do bar "HighLine"
     barName: "HighLine",
     barSlug: "highline"
   },

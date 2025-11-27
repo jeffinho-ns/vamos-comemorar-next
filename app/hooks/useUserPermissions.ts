@@ -92,6 +92,15 @@ export function useUserPermissions() {
                 barName: 'HighLine',
                 barSlug: 'highline'
               };
+            } else if (userEmail === 'fran@highlinebar.com.br') {
+              promoterBar = {
+                userId: 0, // Será atualizado quando obtivermos o ID do banco
+                userEmail: 'fran@highlinebar.com.br',
+                userName: 'Fran HighLine',
+                barId: 7,
+                barName: 'HighLine',
+                barSlug: 'highline'
+              };
             } else if (userEmail === 'analista@reserva.com') {
               promoterBar = {
                 userId: 63,
