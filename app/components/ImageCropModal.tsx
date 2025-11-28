@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import Cropper from 'react-easy-crop';
 import { motion } from 'framer-motion';
 import { MdClose, MdCheck, MdZoomIn, MdZoomOut, MdRotateRight, MdFilter, MdAspectRatio } from 'react-icons/md';
@@ -44,6 +44,8 @@ export default function ImageCropModal({
   const [outputWidth, setOutputWidth] = useState<number | null>(null);
   const [outputHeight, setOutputHeight] = useState<number | null>(null);
   const [imageLoaded, setImageLoaded] = useState(false);
+  const [containerReady, setContainerReady] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   // Resetar estado quando uma nova imagem é carregada
   useEffect(() => {
@@ -73,58 +75,75 @@ export default function ImageCropModal({
         });
         setImageLoaded(true);
         
-        // Calcular área de crop inicial automaticamente
-        // Isso garante que croppedAreaPixels seja definido mesmo sem interação do usuário
-        setTimeout(() => {
-          const imgWidth = img.naturalWidth || img.width;
-          const imgHeight = img.naturalHeight || img.height;
-          
-          // Calcular o crop inicial baseado no aspect ratio
-          let cropWidth: number;
-          let cropHeight: number;
-          let cropX = 0;
-          let cropY = 0;
-          
-          if (aspectRatio === 1) {
-            // Quadrado: usar a menor dimensão
-            const size = Math.min(imgWidth, imgHeight);
-            cropWidth = size;
-            cropHeight = size;
-            cropX = (imgWidth - size) / 2;
-            cropY = (imgHeight - size) / 2;
-          } else {
-            // Outros aspect ratios
-            const imgAspect = imgWidth / imgHeight;
-            if (imgAspect > aspectRatio) {
-              // Imagem mais larga: altura é limitante
-              cropHeight = imgHeight;
-              cropWidth = imgHeight * aspectRatio;
-              cropX = (imgWidth - cropWidth) / 2;
+        // Verificar se o container está pronto
+        const checkContainer = () => {
+          if (containerRef.current) {
+            const rect = containerRef.current.getBoundingClientRect();
+            if (rect.width > 0 && rect.height > 0) {
+              console.log('✅ Container pronto:', { width: rect.width, height: rect.height });
+              setContainerReady(true);
+              
+              // Calcular área de crop inicial automaticamente
+              const imgWidth = img.naturalWidth || img.width;
+              const imgHeight = img.naturalHeight || img.height;
+              
+              // Calcular o crop inicial baseado no aspect ratio
+              let cropWidth: number;
+              let cropHeight: number;
+              let cropX = 0;
+              let cropY = 0;
+              
+              if (aspectRatio === 1) {
+                // Quadrado: usar a menor dimensão
+                const size = Math.min(imgWidth, imgHeight);
+                cropWidth = size;
+                cropHeight = size;
+                cropX = (imgWidth - size) / 2;
+                cropY = (imgHeight - size) / 2;
+              } else {
+                // Outros aspect ratios
+                const imgAspect = imgWidth / imgHeight;
+                if (imgAspect > aspectRatio) {
+                  // Imagem mais larga: altura é limitante
+                  cropHeight = imgHeight;
+                  cropWidth = imgHeight * aspectRatio;
+                  cropX = (imgWidth - cropWidth) / 2;
+                } else {
+                  // Imagem mais alta: largura é limitante
+                  cropWidth = imgWidth;
+                  cropHeight = imgWidth / aspectRatio;
+                  cropY = (imgHeight - cropHeight) / 2;
+                }
+              }
+              
+              const initialCrop: CropArea = {
+                x: cropX,
+                y: cropY,
+                width: cropWidth,
+                height: cropHeight
+              };
+              
+              console.log('📐 Área de crop inicial calculada manualmente:', initialCrop);
+              
+              // Validar antes de definir
+              if (!isNaN(cropWidth) && !isNaN(cropHeight) && cropWidth > 0 && cropHeight > 0) {
+                console.log('✅ Definindo croppedAreaPixels com valores válidos');
+                setCroppedAreaPixels(initialCrop);
+              } else {
+                console.error('❌ Valores de crop inválidos calculados:', initialCrop);
+              }
             } else {
-              // Imagem mais alta: largura é limitante
-              cropWidth = imgWidth;
-              cropHeight = imgWidth / aspectRatio;
-              cropY = (imgHeight - cropHeight) / 2;
+              // Tentar novamente após um pequeno delay
+              setTimeout(checkContainer, 100);
             }
-          }
-          
-          const initialCrop: CropArea = {
-            x: cropX,
-            y: cropY,
-            width: cropWidth,
-            height: cropHeight
-          };
-          
-          console.log('📐 Área de crop inicial calculada manualmente:', initialCrop);
-          
-          // Validar antes de definir
-          if (!isNaN(cropWidth) && !isNaN(cropHeight) && cropWidth > 0 && cropHeight > 0) {
-            console.log('✅ Definindo croppedAreaPixels com valores válidos');
-            setCroppedAreaPixels(initialCrop);
           } else {
-            console.error('❌ Valores de crop inválidos calculados:', initialCrop);
+            // Tentar novamente após um pequeno delay
+            setTimeout(checkContainer, 100);
           }
-        }, 500); // Delay maior para garantir que o Cropper esteja totalmente renderizado e tenha dimensões
+        };
+        
+        // Aguardar um pouco antes de verificar o container
+        setTimeout(checkContainer, 100);
       };
       img.onerror = (error) => {
         console.error('❌ Erro ao carregar imagem no modal de crop:', {
@@ -141,6 +160,7 @@ export default function ImageCropModal({
       // Resetar quando o modal fechar
       setImageLoaded(false);
       setCroppedAreaPixels(null);
+      setContainerReady(false);
     }
   }, [isOpen, imageSrc]);
 
@@ -528,7 +548,11 @@ export default function ImageCropModal({
         </div>
 
         {/* Crop Area */}
-        <div className="relative flex-1 bg-gray-900" style={{ minHeight: '500px', height: '500px' }}>
+        <div 
+          ref={containerRef}
+          className="relative flex-1 bg-gray-900" 
+          style={{ minHeight: '500px', height: '500px' }}
+        >
           {!imageSrc ? (
             <div className="absolute inset-0 flex items-center justify-center">
               <div className="text-white text-center">
@@ -540,6 +564,13 @@ export default function ImageCropModal({
               <div className="text-white text-center">
                 <div className="animate-spin mb-4 text-4xl">⏳</div>
                 <p>Carregando imagem...</p>
+              </div>
+            </div>
+          ) : !containerReady ? (
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="text-white text-center">
+                <div className="animate-spin mb-4 text-4xl">⏳</div>
+                <p>Preparando área de corte...</p>
               </div>
             </div>
           ) : (
@@ -559,7 +590,7 @@ export default function ImageCropModal({
                 }`,
               }}
             >
-              {imageSrc && (
+              {imageSrc && imageLoaded && containerReady && (
                 <Cropper
                   image={imageSrc}
                   crop={crop}
