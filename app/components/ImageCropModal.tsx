@@ -343,74 +343,111 @@ export default function ImageCropModal({
       console.error('❌ Erro ao criar imagem:', error);
       throw new Error(`Erro ao carregar a imagem: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
     }
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
 
-    if (!ctx) {
+    // Usar dimensões naturais da imagem
+    const imageWidth = image.naturalWidth || image.width;
+    const imageHeight = image.naturalHeight || image.height;
+
+    // Validar pixelCrop
+    if (!pixelCrop || pixelCrop.width <= 0 || pixelCrop.height <= 0) {
+      throw new Error('Área de crop inválida');
+    }
+
+    const finalWidth = targetWidth || Math.round(pixelCrop.width);
+    const finalHeight = targetHeight || Math.round(pixelCrop.height);
+
+    // Criar canvas para rotacionar a imagem
+    const maxSize = Math.max(imageWidth, imageHeight);
+    const safeArea = 2 * ((maxSize / 2) * Math.sqrt(2));
+
+    const rotatedCanvas = document.createElement('canvas');
+    rotatedCanvas.width = safeArea;
+    rotatedCanvas.height = safeArea;
+    const rotatedCtx = rotatedCanvas.getContext('2d');
+
+    if (!rotatedCtx) {
       throw new Error('Não foi possível obter o contexto 2D do canvas');
     }
 
-    const maxSize = Math.max(image.width, image.height);
-    const safeArea = 2 * ((maxSize / 2) * Math.sqrt(2));
+    // Centralizar e rotacionar a imagem
+    rotatedCtx.translate(safeArea / 2, safeArea / 2);
+    rotatedCtx.rotate((rotation * Math.PI) / 180);
+    rotatedCtx.translate(-imageWidth / 2, -imageHeight / 2);
 
-    // Set each dimensions to double largest dimension to allow for a safe area for the
-    // image to rotate in without being clipped by canvas context
-    canvas.width = safeArea;
-    canvas.height = safeArea;
+    // Desenhar imagem rotacionada
+    rotatedCtx.drawImage(image, 0, 0);
 
-    // Translate canvas context to a central location on image to allow rotating around the center.
-    ctx.translate(safeArea / 2, safeArea / 2);
-    ctx.rotate((rotation * Math.PI) / 180);
-    ctx.translate(-safeArea / 2, -safeArea / 2);
-
-    // Draw rotated image and store data.
-    ctx.drawImage(
-      image,
-      safeArea / 2 - image.width * 0.5,
-      safeArea / 2 - image.height * 0.5
-    );
-
-    let imageData = ctx.getImageData(0, 0, safeArea, safeArea);
+    // Obter dados da imagem rotacionada para aplicar filtros
+    let imageData = rotatedCtx.getImageData(0, 0, safeArea, safeArea);
 
     // Aplicar filtros
     imageData = applyFilters(imageData, brightness, contrast, saturation, filter);
 
-    // Set canvas width to final desired crop size - this will clear existing context
-    const finalWidth = targetWidth || pixelCrop.width;
-    const finalHeight = targetHeight || pixelCrop.height;
-    
-    canvas.width = finalWidth;
-    canvas.height = finalHeight;
+    // Criar canvas temporário com a imagem filtrada
+    const filteredCanvas = document.createElement('canvas');
+    filteredCanvas.width = safeArea;
+    filteredCanvas.height = safeArea;
+    const filteredCtx = filteredCanvas.getContext('2d');
+    if (!filteredCtx) throw new Error('No 2d context');
+    filteredCtx.putImageData(imageData, 0, 0);
 
-    // Criar canvas temporário para aplicar o crop
-    const tempCanvas = document.createElement('canvas');
-    tempCanvas.width = safeArea;
-    tempCanvas.height = safeArea;
-    const tempCtx = tempCanvas.getContext('2d');
-    if (!tempCtx) throw new Error('No 2d context');
+    // O react-easy-crop retorna pixelCrop em coordenadas da imagem original
+    // Precisamos converter essas coordenadas para o espaço rotacionado no safeArea
+    // A imagem original está centralizada em (safeArea/2, safeArea/2) após rotação
     
-    tempCtx.putImageData(imageData, 0, 0);
+    // Calcular onde a imagem original está no canvas rotacionado
+    const imageCenterX = safeArea / 2;
+    const imageCenterY = safeArea / 2;
+    
+    // O crop está em coordenadas da imagem original
+    // Precisamos encontrar onde esse crop está no canvas rotacionado
+    const cropX = pixelCrop.x;
+    const cropY = pixelCrop.y;
+    const cropWidth = pixelCrop.width;
+    const cropHeight = pixelCrop.height;
+    
+    // Converter coordenadas do crop (da imagem original) para o canvas rotacionado
+    // A imagem original está centralizada, então:
+    const imageStartX = imageCenterX - imageWidth / 2;
+    const imageStartY = imageCenterY - imageHeight / 2;
+    
+    // Posição do crop no canvas rotacionado
+    const cropStartX = imageStartX + cropX;
+    const cropStartY = imageStartY + cropY;
 
-    // Paste generated rotate image with correct offsets for x,y crop values.
-    ctx.drawImage(
-      tempCanvas,
-      safeArea / 2 - image.width * 0.5 - pixelCrop.x,
-      safeArea / 2 - image.height * 0.5 - pixelCrop.y,
-      pixelCrop.width,
-      pixelCrop.height,
+    // Canvas final para o crop
+    const finalCanvas = document.createElement('canvas');
+    finalCanvas.width = finalWidth;
+    finalCanvas.height = finalHeight;
+    const finalCtx = finalCanvas.getContext('2d');
+    if (!finalCtx) throw new Error('No 2d context');
+
+    // Fazer o crop da área correta da imagem rotacionada e filtrada
+    finalCtx.drawImage(
+      filteredCanvas,
+      cropStartX,
+      cropStartY,
+      cropWidth,
+      cropHeight,
       0,
       0,
       finalWidth,
       finalHeight
     );
 
-    // As Base64 string
+    // Converter para blob
     return new Promise((resolve, reject) => {
-      canvas.toBlob((blob) => {
+      finalCanvas.toBlob((blob) => {
         if (!blob) {
           reject(new Error('Canvas is empty'));
           return;
         }
+        console.log('✅ Imagem recortada criada:', {
+          blobSize: blob.size,
+          finalWidth,
+          finalHeight,
+          cropArea: { x: cropStartX, y: cropStartY, width: cropWidth, height: cropHeight }
+        });
         resolve(blob);
       }, 'image/jpeg', 0.95);
     });
