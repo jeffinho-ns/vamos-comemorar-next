@@ -59,7 +59,10 @@ export default function ImageCropModal({
       
       // Verificar se a imagem carrega corretamente
       const img = new Image();
-      img.crossOrigin = 'anonymous'; // Permitir CORS para blob URLs
+      // Só definir crossOrigin para URLs externas, não para blob URLs
+      if (!imageSrc.startsWith('blob:')) {
+        img.crossOrigin = 'anonymous';
+      }
       img.onload = () => {
         console.log('✅ Imagem carregada com sucesso:', {
           src: imageSrc,
