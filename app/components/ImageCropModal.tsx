@@ -356,101 +356,139 @@ export default function ImageCropModal({
     const finalWidth = targetWidth || Math.round(pixelCrop.width);
     const finalHeight = targetHeight || Math.round(pixelCrop.height);
 
-    // Criar canvas para rotacionar a imagem
-    const maxSize = Math.max(imageWidth, imageHeight);
-    const safeArea = 2 * ((maxSize / 2) * Math.sqrt(2));
+    // Validar que o crop está dentro dos limites
+    const cropX = Math.max(0, Math.min(pixelCrop.x, imageWidth - pixelCrop.width));
+    const cropY = Math.max(0, Math.min(pixelCrop.y, imageHeight - pixelCrop.height));
+    const cropWidth = Math.min(pixelCrop.width, imageWidth - cropX);
+    const cropHeight = Math.min(pixelCrop.height, imageHeight - cropY);
 
-    const rotatedCanvas = document.createElement('canvas');
-    rotatedCanvas.width = safeArea;
-    rotatedCanvas.height = safeArea;
-    const rotatedCtx = rotatedCanvas.getContext('2d');
+    // Primeiro: fazer o crop da imagem original
+    const croppedCanvas = document.createElement('canvas');
+    croppedCanvas.width = cropWidth;
+    croppedCanvas.height = cropHeight;
+    const croppedCtx = croppedCanvas.getContext('2d');
+    if (!croppedCtx) throw new Error('No 2d context');
 
-    if (!rotatedCtx) {
-      throw new Error('Não foi possível obter o contexto 2D do canvas');
-    }
-
-    // Centralizar e rotacionar a imagem
-    rotatedCtx.translate(safeArea / 2, safeArea / 2);
-    rotatedCtx.rotate((rotation * Math.PI) / 180);
-    rotatedCtx.translate(-imageWidth / 2, -imageHeight / 2);
-
-    // Desenhar imagem rotacionada
-    rotatedCtx.drawImage(image, 0, 0);
-
-    // Obter dados da imagem rotacionada para aplicar filtros
-    let imageData = rotatedCtx.getImageData(0, 0, safeArea, safeArea);
-
-    // Aplicar filtros
-    imageData = applyFilters(imageData, brightness, contrast, saturation, filter);
-
-    // Criar canvas temporário com a imagem filtrada
-    const filteredCanvas = document.createElement('canvas');
-    filteredCanvas.width = safeArea;
-    filteredCanvas.height = safeArea;
-    const filteredCtx = filteredCanvas.getContext('2d');
-    if (!filteredCtx) throw new Error('No 2d context');
-    filteredCtx.putImageData(imageData, 0, 0);
-
-    // O react-easy-crop retorna pixelCrop em coordenadas da imagem original
-    // Precisamos converter essas coordenadas para o espaço rotacionado no safeArea
-    // A imagem original está centralizada em (safeArea/2, safeArea/2) após rotação
-    
-    // Calcular onde a imagem original está no canvas rotacionado
-    const imageCenterX = safeArea / 2;
-    const imageCenterY = safeArea / 2;
-    
-    // O crop está em coordenadas da imagem original
-    // Precisamos encontrar onde esse crop está no canvas rotacionado
-    const cropX = pixelCrop.x;
-    const cropY = pixelCrop.y;
-    const cropWidth = pixelCrop.width;
-    const cropHeight = pixelCrop.height;
-    
-    // Converter coordenadas do crop (da imagem original) para o canvas rotacionado
-    // A imagem original está centralizada, então:
-    const imageStartX = imageCenterX - imageWidth / 2;
-    const imageStartY = imageCenterY - imageHeight / 2;
-    
-    // Posição do crop no canvas rotacionado
-    const cropStartX = imageStartX + cropX;
-    const cropStartY = imageStartY + cropY;
-
-    // Canvas final para o crop
-    const finalCanvas = document.createElement('canvas');
-    finalCanvas.width = finalWidth;
-    finalCanvas.height = finalHeight;
-    const finalCtx = finalCanvas.getContext('2d');
-    if (!finalCtx) throw new Error('No 2d context');
-
-    // Fazer o crop da área correta da imagem rotacionada e filtrada
-    finalCtx.drawImage(
-      filteredCanvas,
-      cropStartX,
-      cropStartY,
+    // Fazer o crop da área selecionada
+    croppedCtx.drawImage(
+      image,
+      cropX,
+      cropY,
       cropWidth,
       cropHeight,
       0,
       0,
-      finalWidth,
-      finalHeight
+      cropWidth,
+      cropHeight
     );
 
-    // Converter para blob
-    return new Promise((resolve, reject) => {
-      finalCanvas.toBlob((blob) => {
-        if (!blob) {
-          reject(new Error('Canvas is empty'));
-          return;
+    // Obter dados da imagem recortada para aplicar filtros
+    let imageData = croppedCtx.getImageData(0, 0, cropWidth, cropHeight);
+
+    // Aplicar filtros
+    imageData = applyFilters(imageData, brightness, contrast, saturation, filter);
+
+    // Aplicar filtros de volta no canvas
+    croppedCtx.putImageData(imageData, 0, 0);
+
+    // Segundo: rotacionar a imagem recortada se necessário
+    if (rotation !== 0) {
+      const maxSize = Math.max(cropWidth, cropHeight);
+      const safeArea = 2 * ((maxSize / 2) * Math.sqrt(2));
+
+      const rotatedCanvas = document.createElement('canvas');
+      rotatedCanvas.width = safeArea;
+      rotatedCanvas.height = safeArea;
+      const rotatedCtx = rotatedCanvas.getContext('2d');
+      if (!rotatedCtx) throw new Error('No 2d context');
+
+      // Centralizar e rotacionar
+      rotatedCtx.translate(safeArea / 2, safeArea / 2);
+      rotatedCtx.rotate((rotation * Math.PI) / 180);
+      rotatedCtx.translate(-cropWidth / 2, -cropHeight / 2);
+
+      // Desenhar imagem recortada rotacionada
+      rotatedCtx.drawImage(croppedCanvas, 0, 0);
+
+      // Fazer crop do resultado rotacionado (remover áreas transparentes)
+      const rotatedImageData = rotatedCtx.getImageData(0, 0, safeArea, safeArea);
+      // Encontrar bounding box da imagem rotacionada
+      let minX = safeArea, minY = safeArea, maxX = 0, maxY = 0;
+      for (let y = 0; y < safeArea; y++) {
+        for (let x = 0; x < safeArea; x++) {
+          const idx = (y * safeArea + x) * 4;
+          if (rotatedImageData.data[idx + 3] > 0) { // alpha > 0
+            minX = Math.min(minX, x);
+            minY = Math.min(minY, y);
+            maxX = Math.max(maxX, x);
+            maxY = Math.max(maxY, y);
+          }
         }
-        console.log('✅ Imagem recortada criada:', {
-          blobSize: blob.size,
-          finalWidth,
-          finalHeight,
-          cropArea: { x: cropStartX, y: cropStartY, width: cropWidth, height: cropHeight }
-        });
-        resolve(blob);
-      }, 'image/jpeg', 0.95);
-    });
+      }
+
+      // Canvas final
+      const finalCanvas = document.createElement('canvas');
+      finalCanvas.width = finalWidth;
+      finalCanvas.height = finalHeight;
+      const finalCtx = finalCanvas.getContext('2d');
+      if (!finalCtx) throw new Error('No 2d context');
+
+      // Fazer crop e redimensionar
+      const rotatedWidth = maxX - minX + 1;
+      const rotatedHeight = maxY - minY + 1;
+      finalCtx.drawImage(
+        rotatedCanvas,
+        minX,
+        minY,
+        rotatedWidth,
+        rotatedHeight,
+        0,
+        0,
+        finalWidth,
+        finalHeight
+      );
+
+      // Converter para blob
+      return new Promise((resolve, reject) => {
+        finalCanvas.toBlob((blob) => {
+          if (!blob) {
+            reject(new Error('Canvas is empty'));
+            return;
+          }
+          console.log('✅ Imagem recortada e rotacionada criada:', {
+            blobSize: blob.size,
+            finalWidth,
+            finalHeight
+          });
+          resolve(blob);
+        }, 'image/jpeg', 0.95);
+      });
+    } else {
+      // Sem rotação: apenas redimensionar se necessário
+      const finalCanvas = document.createElement('canvas');
+      finalCanvas.width = finalWidth;
+      finalCanvas.height = finalHeight;
+      const finalCtx = finalCanvas.getContext('2d');
+      if (!finalCtx) throw new Error('No 2d context');
+
+      finalCtx.drawImage(croppedCanvas, 0, 0, cropWidth, cropHeight, 0, 0, finalWidth, finalHeight);
+
+      // Converter para blob
+      return new Promise((resolve, reject) => {
+        finalCanvas.toBlob((blob) => {
+          if (!blob) {
+            reject(new Error('Canvas is empty'));
+            return;
+          }
+          console.log('✅ Imagem recortada criada:', {
+            blobSize: blob.size,
+            finalWidth,
+            finalHeight
+          });
+          resolve(blob);
+        }, 'image/jpeg', 0.95);
+      });
+    }
   };
 
   // Tamanhos pré-definidos
