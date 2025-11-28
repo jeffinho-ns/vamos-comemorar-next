@@ -115,9 +115,15 @@ export default function ImageCropModal({
             height: cropHeight
           };
           
-          console.log('📐 Área de crop inicial calculada:', initialCrop);
-          setCroppedAreaPixels(initialCrop);
-        }, 100); // Pequeno delay para garantir que o Cropper esteja renderizado
+          console.log('📐 Área de crop inicial calculada manualmente:', initialCrop);
+          
+          // Validar antes de definir
+          if (!isNaN(cropWidth) && !isNaN(cropHeight) && cropWidth > 0 && cropHeight > 0) {
+            setCroppedAreaPixels(initialCrop);
+          } else {
+            console.error('❌ Valores de crop inválidos calculados:', initialCrop);
+          }
+        }, 200); // Delay um pouco maior para garantir que o Cropper esteja totalmente renderizado
       };
       img.onerror = (error) => {
         console.error('❌ Erro ao carregar imagem no modal de crop:', {
@@ -151,19 +157,31 @@ export default function ImageCropModal({
 
   const onCropCompleteCallback = useCallback(
     (croppedArea: CropArea, croppedAreaPixels: CropArea) => {
-      console.log('📐 Área de crop atualizada:', {
+      console.log('📐 Área de crop atualizada pelo Cropper:', {
         croppedArea,
         croppedAreaPixels,
         width: croppedAreaPixels.width,
         height: croppedAreaPixels.height,
         x: croppedAreaPixels.x,
-        y: croppedAreaPixels.y
+        y: croppedAreaPixels.y,
+        isValid: !isNaN(croppedAreaPixels.width) && !isNaN(croppedAreaPixels.height) && 
+                 croppedAreaPixels.width > 0 && croppedAreaPixels.height > 0
       });
-      // Garantir que croppedAreaPixels seja sempre definido
-      if (croppedAreaPixels && croppedAreaPixels.width > 0 && croppedAreaPixels.height > 0) {
+      
+      // Ignorar valores NaN ou inválidos do Cropper
+      // O Cropper pode retornar NaN quando ainda está calculando ou quando o container não tem dimensões
+      if (croppedAreaPixels && 
+          !isNaN(croppedAreaPixels.width) && 
+          !isNaN(croppedAreaPixels.height) &&
+          !isNaN(croppedAreaPixels.x) &&
+          !isNaN(croppedAreaPixels.y) &&
+          croppedAreaPixels.width > 0 && 
+          croppedAreaPixels.height > 0) {
         setCroppedAreaPixels(croppedAreaPixels);
       } else {
-        console.warn('⚠️ croppedAreaPixels inválido recebido:', croppedAreaPixels);
+        console.warn('⚠️ croppedAreaPixels inválido recebido do Cropper (ignorando):', croppedAreaPixels);
+        // Não atualizar o estado com valores inválidos
+        // O cálculo manual no useEffect já vai definir valores válidos
       }
     },
     []
