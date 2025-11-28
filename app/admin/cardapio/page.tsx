@@ -2105,6 +2105,8 @@ export default function CardapioAdminPage() {
           const isGalleryUpload = showImageGalleryModal && imageGalleryField === field;
           
           if (isGalleryUpload) {
+            // Aguardar um pouco para garantir que a imagem foi salva no banco
+            await new Promise(resolve => setTimeout(resolve, 500));
             // Atualizar a galeria para mostrar a nova imagem
             await fetchGalleryImages();
             // Selecionar automaticamente a imagem no campo
