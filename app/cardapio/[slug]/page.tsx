@@ -986,6 +986,13 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
                 })}
               </div>
             )}
+            {isReservaRooftop && (
+              <div className="mb-2 text-right">
+                <p className="font-serif text-[#2b241a] text-sm tracking-[0.25em] font-extralight">
+                  {formatPrice(item.price).replace('R$', '').trim()}
+                </p>
+              </div>
+            )}
             <div>
               <button
                 type="button"
@@ -1726,7 +1733,7 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
                       </button>
                       
                       <div className="flex flex-col md:flex-row gap-6">
-                          <div className="flex-shrink-0 w-full md:w-1/2">
+                          <div className="flex-shrink-0 w-full md:w-1/2 relative">
                               <Image
                                   src={getValidImageUrl(selectedItem.imageUrl)}
                                   alt={selectedItem.name}
@@ -1734,15 +1741,26 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
                                   height={400}
                                   className="w-full h-auto object-cover rounded-lg shadow-lg"
                               />
+                              {isReservaRooftop && (
+                                <div className="absolute top-4 right-4 z-10">
+                                  <div className="bg-black/60 backdrop-blur-md px-4 py-2 rounded border border-white/15 shadow-xl">
+                                    <p className="font-serif text-white text-sm tracking-[0.25em] font-extralight">
+                                      {formatPrice(selectedItem.price).replace('R$', '').trim()}
+                                    </p>
+                                  </div>
+                                </div>
+                              )}
                           </div>
                           
                           <div className="flex-1">
                               <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">
                                   {selectedItem.name}
                               </h2>
-                              <p className="text-xl sm:text-2xl font-semibold text-green-600 mb-4">
-                                  {formatPrice(selectedItem.price)}
-                              </p>
+                              {!isReservaRooftop && (
+                                <p className="text-xl sm:text-2xl font-semibold text-green-600 mb-4">
+                                    {formatPrice(selectedItem.price)}
+                                </p>
+                              )}
                               <p className="text-sm sm:text-base text-gray-700 mb-6 leading-relaxed">
                                   {selectedItem.description}
                               </p>
