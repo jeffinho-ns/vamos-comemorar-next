@@ -546,72 +546,73 @@ export default function ImageCropModal({
             minHeight: '500px',
             maxHeight: '500px',
             overflow: 'hidden',
-            flexShrink: 0
+            flexShrink: 0,
+            position: 'relative'
           }}
         >
           {!imageSrc ? (
-            <div className="absolute inset-0 flex items-center justify-center">
+            <div className="absolute inset-0 flex items-center justify-center z-10">
               <div className="text-white text-center">
                 <p className="text-red-400">Erro: Nenhuma imagem fornecida</p>
               </div>
             </div>
           ) : !imageLoaded ? (
-            <div className="absolute inset-0 flex items-center justify-center">
+            <div className="absolute inset-0 flex items-center justify-center z-10">
               <div className="text-white text-center">
                 <div className="animate-spin mb-4 text-4xl">⏳</div>
                 <p>Carregando imagem...</p>
               </div>
             </div>
-          ) : (
+          ) : imageSrc && imageLoaded ? (
             <div 
-              ref={containerRef}
-              className="relative"
               style={{
                 width: '100%',
                 height: '100%',
-                position: 'relative',
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
               }}
             >
-              {imageSrc && imageLoaded && (
-                <Cropper
-                  image={imageSrc}
-                  crop={crop}
-                  zoom={zoom}
-                  rotation={rotation}
-                  aspect={aspectRatio}
-                  onCropChange={onCropChange}
-                  onZoomChange={onZoomChange}
-                  onRotationChange={onRotationChange}
-                  onCropComplete={onCropCompleteCallback}
-                  minZoom={minZoom}
-                  maxZoom={maxZoom}
-                  cropShape={aspectRatio === 1 ? 'rect' : 'rect'}
-                  showGrid={true}
-                  style={{
-                    containerStyle: {
-                      width: '100%',
-                      height: '100%',
-                      position: 'relative',
-                      backgroundColor: '#111827',
-                    },
-                    cropAreaStyle: {
-                      border: '2px solid #fff',
-                    },
-                    mediaStyle: {
-                      filter: `brightness(${brightness}%) contrast(${contrast}%) saturate(${saturation}%) ${
-                        filter === 'grayscale' ? 'grayscale(100%)' :
-                        filter === 'sepia' ? 'sepia(100%)' :
-                        filter === 'vintage' ? 'sepia(30%) contrast(110%) brightness(105%)' :
-                        filter === 'cool' ? 'sepia(0%) hue-rotate(180deg)' :
-                        filter === 'warm' ? 'sepia(20%) hue-rotate(-20deg)' :
-                        ''
-                      }`,
-                    },
-                  }}
-                />
-              )}
+              <Cropper
+                image={imageSrc}
+                crop={crop}
+                zoom={zoom}
+                rotation={rotation}
+                aspect={aspectRatio}
+                onCropChange={onCropChange}
+                onZoomChange={onZoomChange}
+                onRotationChange={onRotationChange}
+                onCropComplete={onCropCompleteCallback}
+                minZoom={minZoom}
+                maxZoom={maxZoom}
+                cropShape={aspectRatio === 1 ? 'rect' : 'rect'}
+                showGrid={true}
+                style={{
+                  containerStyle: {
+                    width: '100%',
+                    height: '100%',
+                    position: 'relative',
+                    backgroundColor: '#111827',
+                  },
+                  cropAreaStyle: {
+                    border: '2px solid #fff',
+                  },
+                  mediaStyle: {
+                    filter: `brightness(${brightness}%) contrast(${contrast}%) saturate(${saturation}%) ${
+                      filter === 'grayscale' ? 'grayscale(100%)' :
+                      filter === 'sepia' ? 'sepia(100%)' :
+                      filter === 'vintage' ? 'sepia(30%) contrast(110%) brightness(105%)' :
+                      filter === 'cool' ? 'sepia(0%) hue-rotate(180deg)' :
+                      filter === 'warm' ? 'sepia(20%) hue-rotate(-20deg)' :
+                      ''
+                    }`,
+                  },
+                }}
+              />
             </div>
-          )}
+          ) : null}
         </div>
 
         {/* Controls */}
