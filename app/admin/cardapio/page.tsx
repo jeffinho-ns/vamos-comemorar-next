@@ -2057,6 +2057,7 @@ export default function CardapioAdminPage() {
       const response = await fetch(`${API_BASE_URL}/gallery/images`);
       if (response.ok) {
         const data = await response.json();
+        console.log('📊 Galeria atualizada:', { total: data.total, images: data.images?.length });
         setGalleryImages(data.images || []);
       } else {
         console.error('Erro ao buscar imagens da galeria');
@@ -2106,9 +2107,9 @@ export default function CardapioAdminPage() {
           if (isGalleryUpload) {
             // Atualizar a galeria para mostrar a nova imagem
             await fetchGalleryImages();
-            // Não fechar o modal nem selecionar automaticamente - deixar o usuário escolher
-            console.log('✅ Imagem adicionada à galeria com sucesso!');
-            alert('Imagem adicionada à galeria com sucesso! Agora você pode selecioná-la.');
+            // Selecionar automaticamente a imagem no campo
+            handleSelectGalleryImage(filename);
+            console.log('✅ Imagem adicionada à galeria e selecionada automaticamente!');
           } else {
             // Atualizar os formulários normalmente
             if (field === 'coverImages') {

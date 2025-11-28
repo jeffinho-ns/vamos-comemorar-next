@@ -677,7 +677,7 @@ export default function ImageCropModal({
         </div>
 
         {/* Controls */}
-        <div className="p-6 border-t border-gray-200 space-y-4">
+        <div className="p-6 border-t border-gray-200 space-y-4 overflow-y-auto flex-shrink-0" style={{ maxHeight: '40vh' }}>
           {/* Zoom Control */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
