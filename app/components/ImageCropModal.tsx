@@ -3,7 +3,7 @@
 import React, { useState, useCallback } from 'react';
 import Cropper from 'react-easy-crop';
 import { motion } from 'framer-motion';
-import { MdClose, MdCheck, MdZoomIn, MdZoomOut, MdRotateRight, MdFilter, MdResize } from 'react-icons/md';
+import { MdClose, MdCheck, MdZoomIn, MdZoomOut, MdRotateRight, MdFilter, MdAspectRatio } from 'react-icons/md';
 
 interface ImageCropModalProps {
   isOpen: boolean;
@@ -498,7 +498,7 @@ export default function ImageCropModal({
               {/* Output Size */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  <MdResize className="inline h-4 w-4 mr-1" />
+                  <MdAspectRatio className="inline h-4 w-4 mr-1" />
                   Tamanho de Saída
                 </label>
                 <select
