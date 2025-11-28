@@ -1203,8 +1203,8 @@ const handleSubmit = async (e: React.FormEvent) => {
             {isHighline && (
               <div className="mb-10 overflow-hidden rounded-[28px] border border-white/10 bg-gradient-to-tr from-slate-900 via-indigo-900 to-slate-900 p-1">
                 <div className="rounded-[26px] bg-slate-950/70 p-6 sm:p-8">
-                  <div className="flex flex-col xl:flex-row xl:items-end xl:justify-between gap-6">
-                    <div className="space-y-3 max-w-3xl">
+                  <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+                    <div className="space-y-3 flex-1 max-w-3xl">
                       <p className="text-xs font-semibold uppercase tracking-[0.35em] text-orange-400">
                         Highline Promo
                       </p>
@@ -1217,7 +1217,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                     </div>
                     <Link
                       href="/promoter/highlinepromo"
-                      className="inline-flex items-center justify-center rounded-full bg-orange-500 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-orange-500/30 transition hover:-translate-y-0.5 hover:bg-orange-600"
+                      className="inline-flex items-center justify-center rounded-full bg-orange-500 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-orange-500/30 transition hover:-translate-y-0.5 hover:bg-orange-600 whitespace-nowrap flex-shrink-0"
                     >
                       Ir para a lista do promoter
                     </Link>
