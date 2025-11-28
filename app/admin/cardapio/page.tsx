@@ -2050,11 +2050,31 @@ export default function CardapioAdminPage() {
     [],
   );
 
+  // Função para buscar imagens da galeria
+  const fetchGalleryImages = useCallback(async () => {
+    setGalleryLoading(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/gallery/images`);
+      if (response.ok) {
+        const data = await response.json();
+        setGalleryImages(data.images || []);
+      } else {
+        console.error('Erro ao buscar imagens da galeria');
+        setGalleryImages([]);
+      }
+    } catch (error) {
+      console.error('Erro ao buscar imagens da galeria:', error);
+      setGalleryImages([]);
+    } finally {
+      setGalleryLoading(false);
+    }
+  }, []);
+
   // Função para fazer upload da imagem após o crop
   const uploadCroppedImage = useCallback(
     async (croppedBlob: Blob, field: string) => {
       try {
-        console.log('🔄 Iniciando upload da imagem recortada');
+        console.log('🔄 Iniciando upload da imagem recortada', { field, blobSize: croppedBlob.size });
 
         const formData = new FormData();
         formData.append('image', croppedBlob, 'cropped-image.jpg');
@@ -2079,24 +2099,31 @@ export default function CardapioAdminPage() {
 
         if (result.success && result.filename) {
           const filename = result.filename;
-          if (field === 'coverImages') {
-            setBarForm((prev) => ({
-              ...prev,
-              coverImages: [...prev.coverImages, filename],
-            }));
-          } else if (field === 'logoUrl' || field === 'coverImageUrl' || field === 'popupImageUrl') {
-            setBarForm((prev) => ({ ...prev, [field]: filename }));
+          
+          // Se o upload foi feito através da galeria, atualizar a galeria primeiro
+          const isGalleryUpload = showImageGalleryModal && imageGalleryField === field;
+          
+          if (isGalleryUpload) {
+            // Atualizar a galeria para mostrar a nova imagem
+            await fetchGalleryImages();
+            // Não fechar o modal nem selecionar automaticamente - deixar o usuário escolher
+            console.log('✅ Imagem adicionada à galeria com sucesso!');
+            alert('Imagem adicionada à galeria com sucesso! Agora você pode selecioná-la.');
           } else {
-            setItemForm((prev) => ({ ...prev, imageUrl: filename }));
+            // Atualizar os formulários normalmente
+            if (field === 'coverImages') {
+              setBarForm((prev) => ({
+                ...prev,
+                coverImages: [...prev.coverImages, filename],
+              }));
+            } else if (field === 'logoUrl' || field === 'coverImageUrl' || field === 'popupImageUrl') {
+              setBarForm((prev) => ({ ...prev, [field]: filename }));
+            } else {
+              setItemForm((prev) => ({ ...prev, imageUrl: filename }));
+            }
+            console.log('✅ Upload concluído com sucesso');
+            alert('Imagem carregada com sucesso!');
           }
-
-          // Se o upload foi feito através da galeria, selecionar automaticamente
-          if (showImageGalleryModal && imageGalleryField === field) {
-            handleSelectGalleryImage(filename);
-          }
-
-          console.log('✅ Upload concluído com sucesso');
-          alert('Imagem carregada com sucesso!');
         } else {
           throw new Error(result.error || 'Resposta inválida do servidor');
         }
@@ -2113,21 +2140,28 @@ export default function CardapioAdminPage() {
         }
 
         alert(`Erro no upload: ${errorMessage}`);
+        throw error; // Re-throw para que o handleCropComplete possa tratar
       }
     },
-    [showImageGalleryModal, imageGalleryField],
+    [showImageGalleryModal, imageGalleryField, fetchGalleryImages],
   );
 
   // Handler quando o crop for completado
   const handleCropComplete = useCallback(
-    (croppedBlob: Blob) => {
-      uploadCroppedImage(croppedBlob, cropImageField);
-      // Limpar URL temporária
-      if (cropImageSrc && cropImageSrc.startsWith('blob:')) {
-        URL.revokeObjectURL(cropImageSrc);
+    async (croppedBlob: Blob) => {
+      try {
+        await uploadCroppedImage(croppedBlob, cropImageField);
+        // Limpar URL temporária apenas após sucesso
+        if (cropImageSrc && cropImageSrc.startsWith('blob:')) {
+          URL.revokeObjectURL(cropImageSrc);
+        }
+        setCropImageSrc('');
+        setCropImageField('');
+      } catch (error) {
+        // Erro já foi tratado em uploadCroppedImage
+        console.error('Erro no handleCropComplete:', error);
+        // Não limpar o estado para permitir que o usuário tente novamente
       }
-      setCropImageSrc('');
-      setCropImageField('');
     },
     [cropImageField, cropImageSrc, uploadCroppedImage],
   );
@@ -2161,26 +2195,6 @@ export default function CardapioAdminPage() {
       coverImages: prev.coverImages.filter((url) => url !== urlToRemove),
     }));
   };
-
-  // Função para buscar imagens da galeria
-  const fetchGalleryImages = useCallback(async () => {
-    setGalleryLoading(true);
-    try {
-      const response = await fetch(`${API_BASE_URL}/gallery/images`);
-      if (response.ok) {
-        const data = await response.json();
-        setGalleryImages(data.images || []);
-      } else {
-        console.error('Erro ao buscar imagens da galeria');
-        setGalleryImages([]);
-      }
-    } catch (error) {
-      console.error('Erro ao buscar imagens da galeria:', error);
-      setGalleryImages([]);
-    } finally {
-      setGalleryLoading(false);
-    }
-  }, []);
 
   // Função para abrir galeria de imagens
   const openImageGallery = useCallback((field: string) => {

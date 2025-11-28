@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import Cropper from 'react-easy-crop';
 import { motion } from 'framer-motion';
 import { MdClose, MdCheck, MdZoomIn, MdZoomOut, MdRotateRight, MdFilter, MdAspectRatio } from 'react-icons/md';
@@ -43,6 +43,32 @@ export default function ImageCropModal({
   const [saturation, setSaturation] = useState(100);
   const [outputWidth, setOutputWidth] = useState<number | null>(null);
   const [outputHeight, setOutputHeight] = useState<number | null>(null);
+  const [imageLoaded, setImageLoaded] = useState(false);
+
+  // Resetar estado quando uma nova imagem é carregada
+  useEffect(() => {
+    if (isOpen && imageSrc) {
+      setImageLoaded(false);
+      setCrop({ x: 0, y: 0 });
+      setZoom(1);
+      setRotation(0);
+      setCroppedAreaPixels(null);
+      setOutputWidth(null);
+      setOutputHeight(null);
+      
+      // Verificar se a imagem carrega corretamente
+      const img = new Image();
+      img.onload = () => {
+        setImageLoaded(true);
+        console.log('✅ Imagem carregada no modal de crop:', imageSrc);
+      };
+      img.onerror = (error) => {
+        console.error('❌ Erro ao carregar imagem no modal de crop:', error);
+        setImageLoaded(false);
+      };
+      img.src = imageSrc;
+    }
+  }, [isOpen, imageSrc]);
 
   const onCropChange = useCallback((crop: { x: number; y: number }) => {
     setCrop(crop);
@@ -292,42 +318,57 @@ export default function ImageCropModal({
 
         {/* Crop Area */}
         <div className="relative flex-1 bg-gray-900" style={{ minHeight: '400px' }}>
-          <div 
-            className="relative w-full h-full"
-            style={{
-              filter: `brightness(${brightness}%) contrast(${contrast}%) saturate(${saturation}%) ${
-                filter === 'grayscale' ? 'grayscale(100%)' :
-                filter === 'sepia' ? 'sepia(100%)' :
-                filter === 'vintage' ? 'sepia(30%) contrast(110%) brightness(105%)' :
-                filter === 'cool' ? 'sepia(0%) hue-rotate(180deg)' :
-                filter === 'warm' ? 'sepia(20%) hue-rotate(-20deg)' :
-                ''
-              }`,
-            }}
-          >
-            <Cropper
-              image={imageSrc}
-              crop={crop}
-              zoom={zoom}
-              rotation={rotation}
-              aspect={aspectRatio}
-              onCropChange={onCropChange}
-              onZoomChange={onZoomChange}
-              onRotationChange={onRotationChange}
-              onCropComplete={onCropCompleteCallback}
-              minZoom={minZoom}
-              maxZoom={maxZoom}
-              cropShape={aspectRatio === 1 ? 'rect' : 'rect'}
-              showGrid={true}
+          {!imageLoaded && imageSrc ? (
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="text-white text-center">
+                <div className="animate-spin mb-4 text-4xl">⏳</div>
+                <p>Carregando imagem...</p>
+              </div>
+            </div>
+          ) : !imageSrc ? (
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="text-white text-center">
+                <p className="text-red-400">Erro: Nenhuma imagem fornecida</p>
+              </div>
+            </div>
+          ) : (
+            <div 
+              className="relative w-full h-full"
               style={{
-                containerStyle: {
-                  width: '100%',
-                  height: '100%',
-                  position: 'relative',
-                },
+                filter: `brightness(${brightness}%) contrast(${contrast}%) saturate(${saturation}%) ${
+                  filter === 'grayscale' ? 'grayscale(100%)' :
+                  filter === 'sepia' ? 'sepia(100%)' :
+                  filter === 'vintage' ? 'sepia(30%) contrast(110%) brightness(105%)' :
+                  filter === 'cool' ? 'sepia(0%) hue-rotate(180deg)' :
+                  filter === 'warm' ? 'sepia(20%) hue-rotate(-20deg)' :
+                  ''
+                }`,
               }}
-            />
-          </div>
+            >
+              <Cropper
+                image={imageSrc}
+                crop={crop}
+                zoom={zoom}
+                rotation={rotation}
+                aspect={aspectRatio}
+                onCropChange={onCropChange}
+                onZoomChange={onZoomChange}
+                onRotationChange={onRotationChange}
+                onCropComplete={onCropCompleteCallback}
+                minZoom={minZoom}
+                maxZoom={maxZoom}
+                cropShape={aspectRatio === 1 ? 'rect' : 'rect'}
+                showGrid={true}
+                style={{
+                  containerStyle: {
+                    width: '100%',
+                    height: '100%',
+                    position: 'relative',
+                  },
+                }}
+              />
+            </div>
+          )}
         </div>
 
         {/* Controls */}
