@@ -48,6 +48,7 @@ export default function ImageCropModal({
   // Resetar estado quando uma nova imagem é carregada
   useEffect(() => {
     if (isOpen && imageSrc) {
+      console.log('🔄 Iniciando carregamento da imagem no modal:', imageSrc);
       setImageLoaded(false);
       setCrop({ x: 0, y: 0 });
       setZoom(1);
@@ -58,15 +59,32 @@ export default function ImageCropModal({
       
       // Verificar se a imagem carrega corretamente
       const img = new Image();
+      img.crossOrigin = 'anonymous'; // Permitir CORS para blob URLs
       img.onload = () => {
+        console.log('✅ Imagem carregada com sucesso:', {
+          src: imageSrc,
+          width: img.width,
+          height: img.height,
+          naturalWidth: img.naturalWidth,
+          naturalHeight: img.naturalHeight
+        });
         setImageLoaded(true);
-        console.log('✅ Imagem carregada no modal de crop:', imageSrc);
       };
       img.onerror = (error) => {
-        console.error('❌ Erro ao carregar imagem no modal de crop:', error);
+        console.error('❌ Erro ao carregar imagem no modal de crop:', {
+          error,
+          src: imageSrc,
+          type: typeof imageSrc,
+          isBlob: imageSrc.startsWith('blob:')
+        });
         setImageLoaded(false);
+        alert('Erro ao carregar a imagem. Por favor, tente novamente.');
       };
       img.src = imageSrc;
+    } else if (!isOpen) {
+      // Resetar quando o modal fechar
+      setImageLoaded(false);
+      setCroppedAreaPixels(null);
     }
   }, [isOpen, imageSrc]);
 
@@ -84,7 +102,20 @@ export default function ImageCropModal({
 
   const onCropCompleteCallback = useCallback(
     (croppedArea: CropArea, croppedAreaPixels: CropArea) => {
-      setCroppedAreaPixels(croppedAreaPixels);
+      console.log('📐 Área de crop atualizada:', {
+        croppedArea,
+        croppedAreaPixels,
+        width: croppedAreaPixels.width,
+        height: croppedAreaPixels.height,
+        x: croppedAreaPixels.x,
+        y: croppedAreaPixels.y
+      });
+      // Garantir que croppedAreaPixels seja sempre definido
+      if (croppedAreaPixels && croppedAreaPixels.width > 0 && croppedAreaPixels.height > 0) {
+        setCroppedAreaPixels(croppedAreaPixels);
+      } else {
+        console.warn('⚠️ croppedAreaPixels inválido recebido:', croppedAreaPixels);
+      }
     },
     []
   );
@@ -168,12 +199,32 @@ export default function ImageCropModal({
     targetWidth?: number,
     targetHeight?: number
   ): Promise<Blob> => {
-    const image = await createImage(imageSrc);
+    console.log('🎨 Iniciando getCroppedImg:', {
+      imageSrc: imageSrc.substring(0, 50) + '...',
+      pixelCrop,
+      rotation,
+      targetWidth,
+      targetHeight
+    });
+
+    let image: HTMLImageElement;
+    try {
+      image = await createImage(imageSrc);
+      console.log('✅ Imagem criada:', {
+        width: image.width,
+        height: image.height,
+        naturalWidth: image.naturalWidth,
+        naturalHeight: image.naturalHeight
+      });
+    } catch (error) {
+      console.error('❌ Erro ao criar imagem:', error);
+      throw new Error(`Erro ao carregar a imagem: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
+    }
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
 
     if (!ctx) {
-      throw new Error('No 2d context');
+      throw new Error('Não foi possível obter o contexto 2D do canvas');
     }
 
     const maxSize = Math.max(image.width, image.height);
@@ -252,8 +303,24 @@ export default function ImageCropModal({
   ];
 
   const handleSave = async () => {
+    console.log('💾 Iniciando salvamento da imagem...', {
+      hasCroppedAreaPixels: !!croppedAreaPixels,
+      croppedAreaPixels,
+      imageSrc,
+      rotation,
+      outputWidth,
+      outputHeight
+    });
+
     if (!croppedAreaPixels) {
-      alert('Por favor, ajuste a imagem antes de salvar.');
+      console.warn('⚠️ croppedAreaPixels não está definido');
+      alert('Por favor, ajuste a imagem antes de salvar. Aguarde a imagem carregar completamente.');
+      return;
+    }
+
+    if (!imageSrc) {
+      console.error('❌ imageSrc não está definido');
+      alert('Erro: Nenhuma imagem foi fornecida.');
       return;
     }
 
@@ -262,6 +329,12 @@ export default function ImageCropModal({
       const finalWidth = outputWidth || croppedAreaPixels.width;
       const finalHeight = outputHeight || croppedAreaPixels.height;
       
+      console.log('🔄 Processando imagem com dimensões:', {
+        finalWidth,
+        finalHeight,
+        originalCrop: croppedAreaPixels
+      });
+      
       const croppedImage = await getCroppedImg(
         imageSrc, 
         croppedAreaPixels, 
@@ -269,11 +342,23 @@ export default function ImageCropModal({
         finalWidth,
         finalHeight
       );
+      
+      console.log('✅ Imagem processada com sucesso:', {
+        blobSize: croppedImage.size,
+        blobType: croppedImage.type
+      });
+      
       onCropComplete(croppedImage);
       onClose();
     } catch (error) {
-      console.error('Erro ao processar imagem:', error);
-      alert('Erro ao processar a imagem. Tente novamente.');
+      console.error('❌ Erro ao processar imagem:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
+      console.error('Detalhes do erro:', {
+        errorMessage,
+        errorName: error instanceof Error ? error.name : 'Unknown',
+        stack: error instanceof Error ? error.stack : 'No stack'
+      });
+      alert(`Erro ao processar a imagem: ${errorMessage}. Tente novamente.`);
     } finally {
       setIsProcessing(false);
     }
@@ -345,28 +430,30 @@ export default function ImageCropModal({
                 }`,
               }}
             >
-              <Cropper
-                image={imageSrc}
-                crop={crop}
-                zoom={zoom}
-                rotation={rotation}
-                aspect={aspectRatio}
-                onCropChange={onCropChange}
-                onZoomChange={onZoomChange}
-                onRotationChange={onRotationChange}
-                onCropComplete={onCropCompleteCallback}
-                minZoom={minZoom}
-                maxZoom={maxZoom}
-                cropShape={aspectRatio === 1 ? 'rect' : 'rect'}
-                showGrid={true}
-                style={{
-                  containerStyle: {
-                    width: '100%',
-                    height: '100%',
-                    position: 'relative',
-                  },
-                }}
-              />
+              {imageLoaded && imageSrc && (
+                <Cropper
+                  image={imageSrc}
+                  crop={crop}
+                  zoom={zoom}
+                  rotation={rotation}
+                  aspect={aspectRatio}
+                  onCropChange={onCropChange}
+                  onZoomChange={onZoomChange}
+                  onRotationChange={onRotationChange}
+                  onCropComplete={onCropCompleteCallback}
+                  minZoom={minZoom}
+                  maxZoom={maxZoom}
+                  cropShape={aspectRatio === 1 ? 'rect' : 'rect'}
+                  showGrid={true}
+                  style={{
+                    containerStyle: {
+                      width: '100%',
+                      height: '100%',
+                      position: 'relative',
+                    },
+                  }}
+                />
+              )}
             </div>
           )}
         </div>
