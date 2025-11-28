@@ -44,67 +44,13 @@ export default function ImageCropModal({
   const [outputWidth, setOutputWidth] = useState<number | null>(null);
   const [outputHeight, setOutputHeight] = useState<number | null>(null);
   const [imageLoaded, setImageLoaded] = useState(false);
-  const [containerReady, setContainerReady] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
-
-  // Verificar quando o container está pronto - usar requestAnimationFrame para garantir que o DOM está renderizado
-  useEffect(() => {
-    if (isOpen && imageLoaded && !containerReady) {
-      const checkContainer = () => {
-        if (containerRef.current) {
-          const rect = containerRef.current.getBoundingClientRect();
-          console.log('🔍 Verificando container:', { 
-            width: rect.width, 
-            height: rect.height,
-            hasRef: !!containerRef.current,
-            isVisible: rect.width > 0 && rect.height > 0
-          });
-          
-          if (rect.width > 0 && rect.height > 0) {
-            console.log('✅ Container pronto com dimensões válidas:', { width: rect.width, height: rect.height });
-            setContainerReady(true);
-            return true;
-          }
-        } else {
-          console.warn('⚠️ containerRef.current é null');
-        }
-        return false;
-      };
-      
-      // Usar requestAnimationFrame para garantir que o DOM está renderizado
-      requestAnimationFrame(() => {
-        setTimeout(() => {
-          if (checkContainer()) {
-            return;
-          }
-          
-          // Tentar novamente após um delay
-          const interval = setInterval(() => {
-            if (checkContainer()) {
-              clearInterval(interval);
-            }
-          }, 100);
-          
-          // Limpar após 5 segundos se não conseguir
-          setTimeout(() => {
-            clearInterval(interval);
-            if (!containerReady) {
-              console.error('❌ Timeout: Container não ficou pronto após 5 segundos');
-              // Forçar como pronto mesmo assim
-              setContainerReady(true);
-            }
-          }, 5000);
-        }, 100);
-      });
-    }
-  }, [isOpen, imageLoaded, containerReady]);
 
   // Resetar estado quando uma nova imagem é carregada
   useEffect(() => {
     if (isOpen && imageSrc) {
       console.log('🔄 Iniciando carregamento da imagem no modal:', imageSrc);
       setImageLoaded(false);
-      setContainerReady(false);
       setCrop({ x: 0, y: 0 });
       setZoom(1);
       setRotation(0);
@@ -143,13 +89,12 @@ export default function ImageCropModal({
       // Resetar quando o modal fechar
       setImageLoaded(false);
       setCroppedAreaPixels(null);
-      setContainerReady(false);
     }
   }, [isOpen, imageSrc, aspectRatio]);
 
-  // Calcular área de crop quando container e imagem estiverem prontos
+  // Calcular área de crop quando imagem estiver carregada
   useEffect(() => {
-    if (isOpen && imageLoaded && containerReady && imageSrc && !croppedAreaPixels) {
+    if (isOpen && imageLoaded && imageSrc && !croppedAreaPixels) {
       console.log('🔄 Calculando área de crop inicial...');
       
       const img = new Image();
@@ -205,7 +150,7 @@ export default function ImageCropModal({
       };
       img.src = imageSrc;
     }
-  }, [isOpen, imageLoaded, containerReady, imageSrc, croppedAreaPixels, aspectRatio]);
+  }, [isOpen, imageLoaded, imageSrc, croppedAreaPixels, aspectRatio]);
 
   const onCropChange = useCallback((crop: { x: number; y: number }) => {
     setCrop(crop);
@@ -617,15 +562,9 @@ export default function ImageCropModal({
                 <p>Carregando imagem...</p>
               </div>
             </div>
-          ) : !containerReady ? (
-            <div className="absolute inset-0 flex items-center justify-center">
-              <div className="text-white text-center">
-                <div className="animate-spin mb-4 text-4xl">⏳</div>
-                <p>Preparando área de corte...</p>
-              </div>
-            </div>
           ) : (
             <div 
+              ref={containerRef}
               className="relative"
               style={{
                 width: '100%',
@@ -633,53 +572,43 @@ export default function ImageCropModal({
                 position: 'relative',
               }}
             >
-              {imageSrc && imageLoaded && containerReady && (
-                <div
+              {imageSrc && imageLoaded && (
+                <Cropper
+                  image={imageSrc}
+                  crop={crop}
+                  zoom={zoom}
+                  rotation={rotation}
+                  aspect={aspectRatio}
+                  onCropChange={onCropChange}
+                  onZoomChange={onZoomChange}
+                  onRotationChange={onRotationChange}
+                  onCropComplete={onCropCompleteCallback}
+                  minZoom={minZoom}
+                  maxZoom={maxZoom}
+                  cropShape={aspectRatio === 1 ? 'rect' : 'rect'}
+                  showGrid={true}
                   style={{
-                    width: '100%',
-                    height: '100%',
-                    position: 'relative',
-                    filter: `brightness(${brightness}%) contrast(${contrast}%) saturate(${saturation}%) ${
-                      filter === 'grayscale' ? 'grayscale(100%)' :
-                      filter === 'sepia' ? 'sepia(100%)' :
-                      filter === 'vintage' ? 'sepia(30%) contrast(110%) brightness(105%)' :
-                      filter === 'cool' ? 'sepia(0%) hue-rotate(180deg)' :
-                      filter === 'warm' ? 'sepia(20%) hue-rotate(-20deg)' :
-                      ''
-                    }`,
+                    containerStyle: {
+                      width: '100%',
+                      height: '100%',
+                      position: 'relative',
+                      backgroundColor: '#111827',
+                    },
+                    cropAreaStyle: {
+                      border: '2px solid #fff',
+                    },
+                    mediaStyle: {
+                      filter: `brightness(${brightness}%) contrast(${contrast}%) saturate(${saturation}%) ${
+                        filter === 'grayscale' ? 'grayscale(100%)' :
+                        filter === 'sepia' ? 'sepia(100%)' :
+                        filter === 'vintage' ? 'sepia(30%) contrast(110%) brightness(105%)' :
+                        filter === 'cool' ? 'sepia(0%) hue-rotate(180deg)' :
+                        filter === 'warm' ? 'sepia(20%) hue-rotate(-20deg)' :
+                        ''
+                      }`,
+                    },
                   }}
-                >
-                  <Cropper
-                    key={`cropper-${Date.now()}`}
-                    image={imageSrc}
-                    crop={crop}
-                    zoom={zoom}
-                    rotation={rotation}
-                    aspect={aspectRatio}
-                    onCropChange={onCropChange}
-                    onZoomChange={onZoomChange}
-                    onRotationChange={onRotationChange}
-                    onCropComplete={onCropCompleteCallback}
-                    minZoom={minZoom}
-                    maxZoom={maxZoom}
-                    cropShape={aspectRatio === 1 ? 'rect' : 'rect'}
-                    showGrid={true}
-                    style={{
-                      containerStyle: {
-                        width: '100%',
-                        height: '100%',
-                        position: 'relative',
-                      },
-                      cropAreaStyle: {
-                        border: '2px solid #fff',
-                      },
-                      mediaStyle: {
-                        maxWidth: '100%',
-                        maxHeight: '100%',
-                      },
-                    }}
-                  />
-                </div>
+                />
               )}
             </div>
           )}
