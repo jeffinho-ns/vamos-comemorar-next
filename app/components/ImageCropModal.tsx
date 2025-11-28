@@ -70,9 +70,15 @@ export default function ImageCropModal({
           width: img.width,
           height: img.height,
           naturalWidth: img.naturalWidth,
-          naturalHeight: img.naturalHeight
+          naturalHeight: img.naturalHeight,
+          complete: img.complete,
+          isBlob: imageSrc.startsWith('blob:')
         });
-        setImageLoaded(true);
+        // Aguardar um frame para garantir que o DOM está pronto
+        requestAnimationFrame(() => {
+          setImageLoaded(true);
+          console.log('✅ Estado imageLoaded definido como true');
+        });
       };
       img.onerror = (error) => {
         console.error('❌ Erro ao carregar imagem no modal de crop:', {
@@ -575,42 +581,55 @@ export default function ImageCropModal({
                 bottom: 0,
               }}
             >
-              <Cropper
-                image={imageSrc}
-                crop={crop}
-                zoom={zoom}
-                rotation={rotation}
-                aspect={aspectRatio}
-                onCropChange={onCropChange}
-                onZoomChange={onZoomChange}
-                onRotationChange={onRotationChange}
-                onCropComplete={onCropCompleteCallback}
-                minZoom={minZoom}
-                maxZoom={maxZoom}
-                cropShape={aspectRatio === 1 ? 'rect' : 'rect'}
-                showGrid={true}
-                style={{
-                  containerStyle: {
-                    width: '100%',
-                    height: '100%',
-                    position: 'relative',
-                    backgroundColor: '#111827',
-                  },
-                  cropAreaStyle: {
-                    border: '2px solid #fff',
-                  },
-                  mediaStyle: {
-                    filter: `brightness(${brightness}%) contrast(${contrast}%) saturate(${saturation}%) ${
-                      filter === 'grayscale' ? 'grayscale(100%)' :
-                      filter === 'sepia' ? 'sepia(100%)' :
-                      filter === 'vintage' ? 'sepia(30%) contrast(110%) brightness(105%)' :
-                      filter === 'cool' ? 'sepia(0%) hue-rotate(180deg)' :
-                      filter === 'warm' ? 'sepia(20%) hue-rotate(-20deg)' :
-                      ''
-                    }`,
-                  },
-                }}
-              />
+              {(() => {
+                console.log('🎨 Renderizando Cropper:', {
+                  imageSrc,
+                  imageLoaded,
+                  hasImage: !!imageSrc,
+                  isBlob: imageSrc?.startsWith('blob:'),
+                  crop,
+                  zoom,
+                  aspectRatio
+                });
+                return (
+                  <Cropper
+                    image={imageSrc}
+                    crop={crop}
+                    zoom={zoom}
+                    rotation={rotation}
+                    aspect={aspectRatio}
+                    onCropChange={onCropChange}
+                    onZoomChange={onZoomChange}
+                    onRotationChange={onRotationChange}
+                    onCropComplete={onCropCompleteCallback}
+                    minZoom={minZoom}
+                    maxZoom={maxZoom}
+                    cropShape={aspectRatio === 1 ? 'rect' : 'rect'}
+                    showGrid={true}
+                    style={{
+                      containerStyle: {
+                        width: '100%',
+                        height: '100%',
+                        position: 'relative',
+                        backgroundColor: '#111827',
+                      },
+                      cropAreaStyle: {
+                        border: '2px solid #fff',
+                      },
+                      mediaStyle: {
+                        filter: `brightness(${brightness}%) contrast(${contrast}%) saturate(${saturation}%) ${
+                          filter === 'grayscale' ? 'grayscale(100%)' :
+                          filter === 'sepia' ? 'sepia(100%)' :
+                          filter === 'vintage' ? 'sepia(30%) contrast(110%) brightness(105%)' :
+                          filter === 'cool' ? 'sepia(0%) hue-rotate(180deg)' :
+                          filter === 'warm' ? 'sepia(20%) hue-rotate(-20deg)' :
+                          ''
+                        }`,
+                      },
+                    }}
+                  />
+                );
+              })()}
             </div>
           ) : null}
         </div>
