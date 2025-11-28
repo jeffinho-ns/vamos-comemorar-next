@@ -47,36 +47,56 @@ export default function ImageCropModal({
   const [containerReady, setContainerReady] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Verificar quando o container está pronto
+  // Verificar quando o container está pronto - usar requestAnimationFrame para garantir que o DOM está renderizado
   useEffect(() => {
-    if (isOpen && imageLoaded && containerRef.current && !containerReady) {
+    if (isOpen && imageLoaded && !containerReady) {
       const checkContainer = () => {
         if (containerRef.current) {
           const rect = containerRef.current.getBoundingClientRect();
+          console.log('🔍 Verificando container:', { 
+            width: rect.width, 
+            height: rect.height,
+            hasRef: !!containerRef.current,
+            isVisible: rect.width > 0 && rect.height > 0
+          });
+          
           if (rect.width > 0 && rect.height > 0) {
-            console.log('✅ Container pronto:', { width: rect.width, height: rect.height });
+            console.log('✅ Container pronto com dimensões válidas:', { width: rect.width, height: rect.height });
             setContainerReady(true);
             return true;
           }
+        } else {
+          console.warn('⚠️ containerRef.current é null');
         }
         return false;
       };
       
-      // Verificar imediatamente
-      if (checkContainer()) {
-        return undefined;
-      }
-      
-      // Verificar periodicamente até estar pronto
-      const interval = setInterval(() => {
-        if (checkContainer()) {
-          clearInterval(interval);
-        }
-      }, 50);
-      
-      return () => clearInterval(interval);
+      // Usar requestAnimationFrame para garantir que o DOM está renderizado
+      requestAnimationFrame(() => {
+        setTimeout(() => {
+          if (checkContainer()) {
+            return;
+          }
+          
+          // Tentar novamente após um delay
+          const interval = setInterval(() => {
+            if (checkContainer()) {
+              clearInterval(interval);
+            }
+          }, 100);
+          
+          // Limpar após 5 segundos se não conseguir
+          setTimeout(() => {
+            clearInterval(interval);
+            if (!containerReady) {
+              console.error('❌ Timeout: Container não ficou pronto após 5 segundos');
+              // Forçar como pronto mesmo assim
+              setContainerReady(true);
+            }
+          }, 5000);
+        }, 100);
+      });
     }
-    return undefined;
   }, [isOpen, imageLoaded, containerReady]);
 
   // Resetar estado quando uma nova imagem é carregada
@@ -556,6 +576,7 @@ export default function ImageCropModal({
         exit={{ scale: 0.9, opacity: 0 }}
         className="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col"
         onClick={(e) => e.stopPropagation()}
+        style={{ display: 'flex', flexDirection: 'column' }}
       >
         {/* Header */}
         <div className="p-6 border-b border-gray-200 flex items-center justify-between">
@@ -573,8 +594,15 @@ export default function ImageCropModal({
         {/* Crop Area */}
         <div 
           ref={containerRef}
-          className="relative flex-1 bg-gray-900" 
-          style={{ minHeight: '500px', height: '500px' }}
+          className="relative bg-gray-900" 
+          style={{ 
+            width: '100%', 
+            height: '500px',
+            minHeight: '500px',
+            maxHeight: '500px',
+            overflow: 'hidden',
+            flexShrink: 0
+          }}
         >
           {!imageSrc ? (
             <div className="absolute inset-0 flex items-center justify-center">
@@ -598,52 +626,60 @@ export default function ImageCropModal({
             </div>
           ) : (
             <div 
-              className="relative w-full h-full"
+              className="relative"
               style={{
                 width: '100%',
                 height: '100%',
-                minHeight: '500px',
-                filter: `brightness(${brightness}%) contrast(${contrast}%) saturate(${saturation}%) ${
-                  filter === 'grayscale' ? 'grayscale(100%)' :
-                  filter === 'sepia' ? 'sepia(100%)' :
-                  filter === 'vintage' ? 'sepia(30%) contrast(110%) brightness(105%)' :
-                  filter === 'cool' ? 'sepia(0%) hue-rotate(180deg)' :
-                  filter === 'warm' ? 'sepia(20%) hue-rotate(-20deg)' :
-                  ''
-                }`,
+                position: 'relative',
               }}
             >
               {imageSrc && imageLoaded && containerReady && (
-                <Cropper
-                  key={`cropper-${containerReady}-${imageLoaded}`}
-                  image={imageSrc}
-                  crop={crop}
-                  zoom={zoom}
-                  rotation={rotation}
-                  aspect={aspectRatio}
-                  onCropChange={onCropChange}
-                  onZoomChange={onZoomChange}
-                  onRotationChange={onRotationChange}
-                  onCropComplete={onCropCompleteCallback}
-                  minZoom={minZoom}
-                  maxZoom={maxZoom}
-                  cropShape={aspectRatio === 1 ? 'rect' : 'rect'}
-                  showGrid={true}
+                <div
                   style={{
-                    containerStyle: {
-                      width: '100%',
-                      height: '100%',
-                      position: 'relative',
-                    },
-                    cropAreaStyle: {
-                      border: '2px solid #fff',
-                    },
-                    mediaStyle: {
-                      maxWidth: '100%',
-                      maxHeight: '100%',
-                    },
+                    width: '100%',
+                    height: '100%',
+                    position: 'relative',
+                    filter: `brightness(${brightness}%) contrast(${contrast}%) saturate(${saturation}%) ${
+                      filter === 'grayscale' ? 'grayscale(100%)' :
+                      filter === 'sepia' ? 'sepia(100%)' :
+                      filter === 'vintage' ? 'sepia(30%) contrast(110%) brightness(105%)' :
+                      filter === 'cool' ? 'sepia(0%) hue-rotate(180deg)' :
+                      filter === 'warm' ? 'sepia(20%) hue-rotate(-20deg)' :
+                      ''
+                    }`,
                   }}
-                />
+                >
+                  <Cropper
+                    key={`cropper-${Date.now()}`}
+                    image={imageSrc}
+                    crop={crop}
+                    zoom={zoom}
+                    rotation={rotation}
+                    aspect={aspectRatio}
+                    onCropChange={onCropChange}
+                    onZoomChange={onZoomChange}
+                    onRotationChange={onRotationChange}
+                    onCropComplete={onCropCompleteCallback}
+                    minZoom={minZoom}
+                    maxZoom={maxZoom}
+                    cropShape={aspectRatio === 1 ? 'rect' : 'rect'}
+                    showGrid={true}
+                    style={{
+                      containerStyle: {
+                        width: '100%',
+                        height: '100%',
+                        position: 'relative',
+                      },
+                      cropAreaStyle: {
+                        border: '2px solid #fff',
+                      },
+                      mediaStyle: {
+                        maxWidth: '100%',
+                        maxHeight: '100%',
+                      },
+                    }}
+                  />
+                </div>
               )}
             </div>
           )}
