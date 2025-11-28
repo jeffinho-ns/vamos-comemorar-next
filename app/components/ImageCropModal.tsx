@@ -72,6 +72,52 @@ export default function ImageCropModal({
           naturalHeight: img.naturalHeight
         });
         setImageLoaded(true);
+        
+        // Calcular área de crop inicial automaticamente
+        // Isso garante que croppedAreaPixels seja definido mesmo sem interação do usuário
+        setTimeout(() => {
+          const imgWidth = img.naturalWidth || img.width;
+          const imgHeight = img.naturalHeight || img.height;
+          
+          // Calcular o crop inicial baseado no aspect ratio
+          let cropWidth: number;
+          let cropHeight: number;
+          let cropX = 0;
+          let cropY = 0;
+          
+          if (aspectRatio === 1) {
+            // Quadrado: usar a menor dimensão
+            const size = Math.min(imgWidth, imgHeight);
+            cropWidth = size;
+            cropHeight = size;
+            cropX = (imgWidth - size) / 2;
+            cropY = (imgHeight - size) / 2;
+          } else {
+            // Outros aspect ratios
+            const imgAspect = imgWidth / imgHeight;
+            if (imgAspect > aspectRatio) {
+              // Imagem mais larga: altura é limitante
+              cropHeight = imgHeight;
+              cropWidth = imgHeight * aspectRatio;
+              cropX = (imgWidth - cropWidth) / 2;
+            } else {
+              // Imagem mais alta: largura é limitante
+              cropWidth = imgWidth;
+              cropHeight = imgWidth / aspectRatio;
+              cropY = (imgHeight - cropHeight) / 2;
+            }
+          }
+          
+          const initialCrop: CropArea = {
+            x: cropX,
+            y: cropY,
+            width: cropWidth,
+            height: cropHeight
+          };
+          
+          console.log('📐 Área de crop inicial calculada:', initialCrop);
+          setCroppedAreaPixels(initialCrop);
+        }, 100); // Pequeno delay para garantir que o Cropper esteja renderizado
       };
       img.onerror = (error) => {
         console.error('❌ Erro ao carregar imagem no modal de crop:', {
@@ -312,11 +358,69 @@ export default function ImageCropModal({
       imageSrc,
       rotation,
       outputWidth,
-      outputHeight
+      outputHeight,
+      imageLoaded
     });
 
+    if (!imageLoaded) {
+      console.warn('⚠️ Imagem ainda não carregou');
+      alert('Por favor, aguarde a imagem carregar completamente.');
+      return;
+    }
+
     if (!croppedAreaPixels) {
-      console.warn('⚠️ croppedAreaPixels não está definido');
+      console.warn('⚠️ croppedAreaPixels não está definido, tentando calcular...');
+      
+      // Tentar calcular novamente se não estiver definido
+      if (imageSrc) {
+        const img = new Image();
+        img.onload = () => {
+          const imgWidth = img.naturalWidth || img.width;
+          const imgHeight = img.naturalHeight || img.height;
+          
+          let cropWidth: number;
+          let cropHeight: number;
+          let cropX = 0;
+          let cropY = 0;
+          
+          if (aspectRatio === 1) {
+            const size = Math.min(imgWidth, imgHeight);
+            cropWidth = size;
+            cropHeight = size;
+            cropX = (imgWidth - size) / 2;
+            cropY = (imgHeight - size) / 2;
+          } else {
+            const imgAspect = imgWidth / imgHeight;
+            if (imgAspect > aspectRatio) {
+              cropHeight = imgHeight;
+              cropWidth = imgHeight * aspectRatio;
+              cropX = (imgWidth - cropWidth) / 2;
+            } else {
+              cropWidth = imgWidth;
+              cropHeight = imgWidth / aspectRatio;
+              cropY = (imgHeight - cropHeight) / 2;
+            }
+          }
+          
+          const calculatedCrop: CropArea = {
+            x: cropX,
+            y: cropY,
+            width: cropWidth,
+            height: cropHeight
+          };
+          
+          console.log('📐 Área de crop calculada no handleSave:', calculatedCrop);
+          setCroppedAreaPixels(calculatedCrop);
+          
+          // Tentar salvar novamente após definir croppedAreaPixels
+          setTimeout(() => {
+            handleSave();
+          }, 100);
+        };
+        img.src = imageSrc;
+        return;
+      }
+      
       alert('Por favor, ajuste a imagem antes de salvar. Aguarde a imagem carregar completamente.');
       return;
     }
@@ -406,17 +510,17 @@ export default function ImageCropModal({
 
         {/* Crop Area */}
         <div className="relative flex-1 bg-gray-900" style={{ minHeight: '400px' }}>
-          {!imageLoaded && imageSrc ? (
+            {!imageSrc ? (
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="text-white text-center">
+                <p className="text-red-400">Erro: Nenhuma imagem fornecida</p>
+              </div>
+            </div>
+          ) : !imageLoaded ? (
             <div className="absolute inset-0 flex items-center justify-center">
               <div className="text-white text-center">
                 <div className="animate-spin mb-4 text-4xl">⏳</div>
                 <p>Carregando imagem...</p>
-              </div>
-            </div>
-          ) : !imageSrc ? (
-            <div className="absolute inset-0 flex items-center justify-center">
-              <div className="text-white text-center">
-                <p className="text-red-400">Erro: Nenhuma imagem fornecida</p>
               </div>
             </div>
           ) : (
@@ -433,30 +537,28 @@ export default function ImageCropModal({
                 }`,
               }}
             >
-              {imageLoaded && imageSrc && (
-                <Cropper
-                  image={imageSrc}
-                  crop={crop}
-                  zoom={zoom}
-                  rotation={rotation}
-                  aspect={aspectRatio}
-                  onCropChange={onCropChange}
-                  onZoomChange={onZoomChange}
-                  onRotationChange={onRotationChange}
-                  onCropComplete={onCropCompleteCallback}
-                  minZoom={minZoom}
-                  maxZoom={maxZoom}
-                  cropShape={aspectRatio === 1 ? 'rect' : 'rect'}
-                  showGrid={true}
-                  style={{
-                    containerStyle: {
-                      width: '100%',
-                      height: '100%',
-                      position: 'relative',
-                    },
-                  }}
-                />
-              )}
+              <Cropper
+                image={imageSrc}
+                crop={crop}
+                zoom={zoom}
+                rotation={rotation}
+                aspect={aspectRatio}
+                onCropChange={onCropChange}
+                onZoomChange={onZoomChange}
+                onRotationChange={onRotationChange}
+                onCropComplete={onCropCompleteCallback}
+                minZoom={minZoom}
+                maxZoom={maxZoom}
+                cropShape={aspectRatio === 1 ? 'rect' : 'rect'}
+                showGrid={true}
+                style={{
+                  containerStyle: {
+                    width: '100%',
+                    height: '100%',
+                    position: 'relative',
+                  },
+                }}
+              />
             </div>
           )}
         </div>
