@@ -44,12 +44,51 @@ export default function ImageCropModal({
   const [outputWidth, setOutputWidth] = useState<number | null>(null);
   const [outputHeight, setOutputHeight] = useState<number | null>(null);
   const [imageLoaded, setImageLoaded] = useState(false);
+  const [processedImageSrc, setProcessedImageSrc] = useState<string>('');
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // Converter blob URL para data URL se necessário
+  useEffect(() => {
+    if (isOpen && imageSrc) {
+      console.log('🔄 Processando imagem:', { imageSrc, isBlob: imageSrc.startsWith('blob:') });
+      
+      if (imageSrc.startsWith('blob:')) {
+        // Converter blob URL para data URL
+        fetch(imageSrc)
+          .then(res => res.blob())
+          .then(blob => {
+            return new Promise<string>((resolve, reject) => {
+              const reader = new FileReader();
+              reader.onloadend = () => {
+                const dataUrl = reader.result as string;
+                console.log('✅ Blob convertido para data URL:', { dataUrl: dataUrl.substring(0, 50) + '...' });
+                resolve(dataUrl);
+              };
+              reader.onerror = reject;
+              reader.readAsDataURL(blob);
+            });
+          })
+          .then(dataUrl => {
+            setProcessedImageSrc(dataUrl);
+            console.log('✅ ProcessedImageSrc definido');
+          })
+          .catch(error => {
+            console.error('❌ Erro ao converter blob para data URL:', error);
+            // Fallback: usar blob URL diretamente
+            setProcessedImageSrc(imageSrc);
+          });
+      } else {
+        setProcessedImageSrc(imageSrc);
+      }
+    } else if (!isOpen) {
+      setProcessedImageSrc('');
+    }
+  }, [isOpen, imageSrc]);
 
   // Resetar estado quando uma nova imagem é carregada
   useEffect(() => {
-    if (isOpen && imageSrc) {
-      console.log('🔄 Iniciando carregamento da imagem no modal:', imageSrc);
+    if (isOpen && processedImageSrc) {
+      console.log('🔄 Iniciando carregamento da imagem no modal:', processedImageSrc);
       setImageLoaded(false);
       setCrop({ x: 0, y: 0 });
       setZoom(1);
@@ -60,19 +99,20 @@ export default function ImageCropModal({
       
       // Verificar se a imagem carrega corretamente
       const img = new Image();
-      // Só definir crossOrigin para URLs externas, não para blob URLs
-      if (!imageSrc.startsWith('blob:')) {
+      // Só definir crossOrigin para URLs externas, não para data URLs ou blob URLs
+      if (!processedImageSrc.startsWith('blob:') && !processedImageSrc.startsWith('data:')) {
         img.crossOrigin = 'anonymous';
       }
       img.onload = () => {
         console.log('✅ Imagem carregada com sucesso:', {
-          src: imageSrc,
+          src: processedImageSrc.substring(0, 50) + '...',
           width: img.width,
           height: img.height,
           naturalWidth: img.naturalWidth,
           naturalHeight: img.naturalHeight,
           complete: img.complete,
-          isBlob: imageSrc.startsWith('blob:')
+          isBlob: processedImageSrc.startsWith('blob:'),
+          isDataUrl: processedImageSrc.startsWith('data:')
         });
         // Aguardar um frame para garantir que o DOM está pronto
         requestAnimationFrame(() => {
@@ -83,24 +123,25 @@ export default function ImageCropModal({
       img.onerror = (error) => {
         console.error('❌ Erro ao carregar imagem no modal de crop:', {
           error,
-          src: imageSrc,
-          type: typeof imageSrc,
-          isBlob: imageSrc.startsWith('blob:')
+          src: processedImageSrc.substring(0, 50) + '...',
+          type: typeof processedImageSrc,
+          isBlob: processedImageSrc.startsWith('blob:'),
+          isDataUrl: processedImageSrc.startsWith('data:')
         });
         setImageLoaded(false);
         alert('Erro ao carregar a imagem. Por favor, tente novamente.');
       };
-      img.src = imageSrc;
+      img.src = processedImageSrc;
     } else if (!isOpen) {
       // Resetar quando o modal fechar
       setImageLoaded(false);
       setCroppedAreaPixels(null);
     }
-  }, [isOpen, imageSrc, aspectRatio]);
+  }, [isOpen, processedImageSrc, aspectRatio]);
 
   // Calcular área de crop quando imagem estiver carregada
   useEffect(() => {
-    if (isOpen && imageLoaded && imageSrc && !croppedAreaPixels) {
+    if (isOpen && imageLoaded && processedImageSrc && !croppedAreaPixels) {
       console.log('🔄 Calculando área de crop inicial...');
       
       const img = new Image();
@@ -154,9 +195,9 @@ export default function ImageCropModal({
           console.error('❌ Valores de crop inválidos calculados:', initialCrop);
         }
       };
-      img.src = imageSrc;
+      img.src = processedImageSrc;
     }
-  }, [isOpen, imageLoaded, imageSrc, croppedAreaPixels, aspectRatio]);
+  }, [isOpen, imageLoaded, processedImageSrc, croppedAreaPixels, aspectRatio]);
 
   const onCropChange = useCallback((crop: { x: number; y: number }) => {
     setCrop(crop);
@@ -569,7 +610,7 @@ export default function ImageCropModal({
                 <p>Carregando imagem...</p>
               </div>
             </div>
-          ) : imageSrc && imageLoaded ? (
+          ) : processedImageSrc && imageLoaded ? (
             <div 
               style={{
                 width: '100%',
@@ -583,17 +624,18 @@ export default function ImageCropModal({
             >
               {(() => {
                 console.log('🎨 Renderizando Cropper:', {
-                  imageSrc,
+                  processedImageSrc: processedImageSrc.substring(0, 50) + '...',
                   imageLoaded,
-                  hasImage: !!imageSrc,
-                  isBlob: imageSrc?.startsWith('blob:'),
+                  hasImage: !!processedImageSrc,
+                  isBlob: processedImageSrc?.startsWith('blob:'),
+                  isDataUrl: processedImageSrc?.startsWith('data:'),
                   crop,
                   zoom,
                   aspectRatio
                 });
                 return (
                   <Cropper
-                    image={imageSrc}
+                    image={processedImageSrc}
                     crop={crop}
                     zoom={zoom}
                     rotation={rotation}
