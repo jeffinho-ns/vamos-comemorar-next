@@ -3,7 +3,7 @@
 import React, { useState, useCallback } from 'react';
 import Cropper from 'react-easy-crop';
 import { motion } from 'framer-motion';
-import { MdClose, MdCheck, MdZoomIn, MdZoomOut, MdRotateRight } from 'react-icons/md';
+import { MdClose, MdCheck, MdZoomIn, MdZoomOut, MdRotateRight, MdFilter, MdResize } from 'react-icons/md';
 
 interface ImageCropModalProps {
   isOpen: boolean;
@@ -36,6 +36,13 @@ export default function ImageCropModal({
   const [rotation, setRotation] = useState(0);
   const [croppedAreaPixels, setCroppedAreaPixels] = useState<CropArea | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
+  const [filter, setFilter] = useState<string>('none');
+  const [brightness, setBrightness] = useState(100);
+  const [contrast, setContrast] = useState(100);
+  const [saturation, setSaturation] = useState(100);
+  const [outputWidth, setOutputWidth] = useState<number | null>(null);
+  const [outputHeight, setOutputHeight] = useState<number | null>(null);
 
   const onCropChange = useCallback((crop: { x: number; y: number }) => {
     setCrop(crop);
@@ -64,10 +71,76 @@ export default function ImageCropModal({
       image.src = url;
     });
 
+  // Aplicar filtros na imagem usando canvas
+  const applyFilters = useCallback((imageData: ImageData, brightness: number, contrast: number, saturation: number, filter: string): ImageData => {
+    const data = imageData.data;
+    const brightnessFactor = brightness / 100;
+    const contrastFactor = (contrast / 100) * 255;
+    const saturationFactor = saturation / 100;
+
+    for (let i = 0; i < data.length; i += 4) {
+      let r = data[i];
+      let g = data[i + 1];
+      let b = data[i + 2];
+
+      // Aplicar brilho
+      r = Math.max(0, Math.min(255, r * brightnessFactor));
+      g = Math.max(0, Math.min(255, g * brightnessFactor));
+      b = Math.max(0, Math.min(255, b * brightnessFactor));
+
+      // Aplicar contraste
+      r = Math.max(0, Math.min(255, ((r - 128) * contrastFactor / 128) + 128));
+      g = Math.max(0, Math.min(255, ((g - 128) * contrastFactor / 128) + 128));
+      b = Math.max(0, Math.min(255, ((b - 128) * contrastFactor / 128) + 128));
+
+      // Aplicar saturação
+      const gray = 0.299 * r + 0.587 * g + 0.114 * b;
+      r = Math.max(0, Math.min(255, gray + (r - gray) * saturationFactor));
+      g = Math.max(0, Math.min(255, gray + (g - gray) * saturationFactor));
+      b = Math.max(0, Math.min(255, gray + (b - gray) * saturationFactor));
+
+      // Aplicar filtros pré-definidos
+      switch (filter) {
+        case 'grayscale':
+          const grayValue = 0.299 * r + 0.587 * g + 0.114 * b;
+          r = g = b = grayValue;
+          break;
+        case 'sepia':
+          r = Math.min(255, (r * 0.393) + (g * 0.769) + (b * 0.189));
+          g = Math.min(255, (r * 0.349) + (g * 0.686) + (b * 0.168));
+          b = Math.min(255, (r * 0.272) + (g * 0.534) + (b * 0.131));
+          break;
+        case 'vintage':
+          r = Math.min(255, r * 1.1);
+          g = Math.min(255, g * 0.95);
+          b = Math.min(255, b * 0.9);
+          break;
+        case 'cool':
+          r = Math.max(0, r * 0.9);
+          g = Math.min(255, g * 1.05);
+          b = Math.min(255, b * 1.1);
+          break;
+        case 'warm':
+          r = Math.min(255, r * 1.1);
+          g = Math.min(255, g * 1.05);
+          b = Math.max(0, b * 0.9);
+          break;
+      }
+
+      data[i] = r;
+      data[i + 1] = g;
+      data[i + 2] = b;
+    }
+
+    return imageData;
+  }, []);
+
   const getCroppedImg = async (
     imageSrc: string,
     pixelCrop: CropArea,
-    rotation = 0
+    rotation = 0,
+    targetWidth?: number,
+    targetHeight?: number
   ): Promise<Blob> => {
     const image = await createImage(imageSrc);
     const canvas = document.createElement('canvas');
@@ -97,17 +170,38 @@ export default function ImageCropModal({
       safeArea / 2 - image.height * 0.5
     );
 
-    const data = ctx.getImageData(0, 0, safeArea, safeArea);
+    let imageData = ctx.getImageData(0, 0, safeArea, safeArea);
+
+    // Aplicar filtros
+    imageData = applyFilters(imageData, brightness, contrast, saturation, filter);
 
     // Set canvas width to final desired crop size - this will clear existing context
-    canvas.width = pixelCrop.width;
-    canvas.height = pixelCrop.height;
+    const finalWidth = targetWidth || pixelCrop.width;
+    const finalHeight = targetHeight || pixelCrop.height;
+    
+    canvas.width = finalWidth;
+    canvas.height = finalHeight;
+
+    // Criar canvas temporário para aplicar o crop
+    const tempCanvas = document.createElement('canvas');
+    tempCanvas.width = safeArea;
+    tempCanvas.height = safeArea;
+    const tempCtx = tempCanvas.getContext('2d');
+    if (!tempCtx) throw new Error('No 2d context');
+    
+    tempCtx.putImageData(imageData, 0, 0);
 
     // Paste generated rotate image with correct offsets for x,y crop values.
-    ctx.putImageData(
-      data,
-      0 - safeArea / 2 + image.width * 0.5 - pixelCrop.x,
-      0 - safeArea / 2 + image.height * 0.5 - pixelCrop.y
+    ctx.drawImage(
+      tempCanvas,
+      safeArea / 2 - image.width * 0.5 - pixelCrop.x,
+      safeArea / 2 - image.height * 0.5 - pixelCrop.y,
+      pixelCrop.width,
+      pixelCrop.height,
+      0,
+      0,
+      finalWidth,
+      finalHeight
     );
 
     // As Base64 string
@@ -122,6 +216,15 @@ export default function ImageCropModal({
     });
   };
 
+  // Tamanhos pré-definidos
+  const presetSizes = [
+    { label: 'Original', width: null, height: null },
+    { label: 'Pequeno (300x300)', width: 300, height: 300 },
+    { label: 'Médio (500x500)', width: 500, height: 500 },
+    { label: 'Grande (800x800)', width: 800, height: 800 },
+    { label: 'HD (1024x1024)', width: 1024, height: 1024 },
+  ];
+
   const handleSave = async () => {
     if (!croppedAreaPixels) {
       alert('Por favor, ajuste a imagem antes de salvar.');
@@ -130,7 +233,16 @@ export default function ImageCropModal({
 
     setIsProcessing(true);
     try {
-      const croppedImage = await getCroppedImg(imageSrc, croppedAreaPixels, rotation);
+      const finalWidth = outputWidth || croppedAreaPixels.width;
+      const finalHeight = outputHeight || croppedAreaPixels.height;
+      
+      const croppedImage = await getCroppedImg(
+        imageSrc, 
+        croppedAreaPixels, 
+        rotation,
+        finalWidth,
+        finalHeight
+      );
       onCropComplete(croppedImage);
       onClose();
     } catch (error) {
@@ -139,6 +251,13 @@ export default function ImageCropModal({
     } finally {
       setIsProcessing(false);
     }
+  };
+
+  const resetFilters = () => {
+    setBrightness(100);
+    setContrast(100);
+    setSaturation(100);
+    setFilter('none');
   };
 
   if (!isOpen) return null;
@@ -173,28 +292,42 @@ export default function ImageCropModal({
 
         {/* Crop Area */}
         <div className="relative flex-1 bg-gray-900" style={{ minHeight: '400px' }}>
-          <Cropper
-            image={imageSrc}
-            crop={crop}
-            zoom={zoom}
-            rotation={rotation}
-            aspect={aspectRatio}
-            onCropChange={onCropChange}
-            onZoomChange={onZoomChange}
-            onRotationChange={onRotationChange}
-            onCropComplete={onCropCompleteCallback}
-            minZoom={minZoom}
-            maxZoom={maxZoom}
-            cropShape={aspectRatio === 1 ? 'rect' : 'rect'}
-            showGrid={true}
+          <div 
+            className="relative w-full h-full"
             style={{
-              containerStyle: {
-                width: '100%',
-                height: '100%',
-                position: 'relative',
-              },
+              filter: `brightness(${brightness}%) contrast(${contrast}%) saturate(${saturation}%) ${
+                filter === 'grayscale' ? 'grayscale(100%)' :
+                filter === 'sepia' ? 'sepia(100%)' :
+                filter === 'vintage' ? 'sepia(30%) contrast(110%) brightness(105%)' :
+                filter === 'cool' ? 'sepia(0%) hue-rotate(180deg)' :
+                filter === 'warm' ? 'sepia(20%) hue-rotate(-20deg)' :
+                ''
+              }`,
             }}
-          />
+          >
+            <Cropper
+              image={imageSrc}
+              crop={crop}
+              zoom={zoom}
+              rotation={rotation}
+              aspect={aspectRatio}
+              onCropChange={onCropChange}
+              onZoomChange={onZoomChange}
+              onRotationChange={onRotationChange}
+              onCropComplete={onCropCompleteCallback}
+              minZoom={minZoom}
+              maxZoom={maxZoom}
+              cropShape={aspectRatio === 1 ? 'rect' : 'rect'}
+              showGrid={true}
+              style={{
+                containerStyle: {
+                  width: '100%',
+                  height: '100%',
+                  position: 'relative',
+                },
+              }}
+            />
+          </div>
         </div>
 
         {/* Controls */}
@@ -261,6 +394,139 @@ export default function ImageCropModal({
               </span>
             </div>
           </div>
+
+          {/* Toggle Filters */}
+          <div className="flex items-center justify-between pt-2 border-t border-gray-200">
+            <button
+              type="button"
+              onClick={() => setShowFilters(!showFilters)}
+              className="flex items-center gap-2 text-sm font-medium text-gray-700 hover:text-gray-900"
+            >
+              <MdFilter className="h-5 w-5" />
+              {showFilters ? 'Ocultar' : 'Mostrar'} Filtros e Ajustes
+            </button>
+            <button
+              type="button"
+              onClick={resetFilters}
+              className="text-xs text-gray-500 hover:text-gray-700"
+            >
+              Resetar
+            </button>
+          </div>
+
+          {/* Filters Panel */}
+          {showFilters && (
+            <div className="space-y-4 pt-4 border-t border-gray-200">
+              {/* Brightness Control */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Brilho: {brightness}%
+                </label>
+                <input
+                  type="range"
+                  min={0}
+                  max={200}
+                  step={1}
+                  value={brightness}
+                  onChange={(e) => setBrightness(parseInt(e.target.value))}
+                  className="w-full"
+                />
+              </div>
+
+              {/* Contrast Control */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Contraste: {contrast}%
+                </label>
+                <input
+                  type="range"
+                  min={0}
+                  max={200}
+                  step={1}
+                  value={contrast}
+                  onChange={(e) => setContrast(parseInt(e.target.value))}
+                  className="w-full"
+                />
+              </div>
+
+              {/* Saturation Control */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Saturação: {saturation}%
+                </label>
+                <input
+                  type="range"
+                  min={0}
+                  max={200}
+                  step={1}
+                  value={saturation}
+                  onChange={(e) => setSaturation(parseInt(e.target.value))}
+                  className="w-full"
+                />
+              </div>
+
+              {/* Filter Presets */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Filtros
+                </label>
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { value: 'none', label: 'Nenhum' },
+                    { value: 'grayscale', label: 'Preto e Branco' },
+                    { value: 'sepia', label: 'Sépia' },
+                    { value: 'vintage', label: 'Vintage' },
+                    { value: 'cool', label: 'Frio' },
+                    { value: 'warm', label: 'Quente' },
+                  ].map((f) => (
+                    <button
+                      key={f.value}
+                      type="button"
+                      onClick={() => setFilter(f.value)}
+                      className={`px-3 py-2 rounded-md text-xs font-medium transition-colors ${
+                        filter === f.value
+                          ? 'bg-blue-600 text-white'
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      }`}
+                    >
+                      {f.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Output Size */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <MdResize className="inline h-4 w-4 mr-1" />
+                  Tamanho de Saída
+                </label>
+                <select
+                  value={outputWidth && outputHeight ? `${outputWidth}x${outputHeight}` : 'original'}
+                  onChange={(e) => {
+                    if (e.target.value === 'original') {
+                      setOutputWidth(null);
+                      setOutputHeight(null);
+                    } else {
+                      const [w, h] = e.target.value.split('x').map(Number);
+                      setOutputWidth(w);
+                      setOutputHeight(h);
+                    }
+                  }}
+                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  {presetSizes.map((size) => (
+                    <option
+                      key={size.label}
+                      value={size.width && size.height ? `${size.width}x${size.height}` : 'original'}
+                    >
+                      {size.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          )}
 
           {/* Action Buttons */}
           <div className="flex justify-end gap-3 pt-4">

@@ -2206,6 +2206,37 @@ export default function CardapioAdminPage() {
     setGallerySearchTerm('');
   }, [imageGalleryField]);
 
+  // Função para deletar imagem da galeria
+  const handleDeleteGalleryImage = useCallback(
+    async (filename: string, e: React.MouseEvent) => {
+      e.stopPropagation(); // Impedir que selecione a imagem ao clicar em deletar
+      
+      if (!confirm(`Tem certeza que deseja deletar a imagem "${filename}"?\n\nIsso só será possível se a imagem não estiver sendo usada em nenhum item ou estabelecimento.`)) {
+        return;
+      }
+
+      try {
+        const response = await fetch(`${API_BASE_URL}/gallery/images/${encodeURIComponent(filename)}`, {
+          method: 'DELETE',
+        });
+
+        if (response.ok) {
+          const result = await response.json();
+          alert(result.message || 'Imagem deletada com sucesso!');
+          fetchGalleryImages(); // Atualizar lista
+        } else {
+          const errorData = await response.json().catch(() => ({}));
+          const errorMessage = errorData.message || errorData.error || 'Erro ao deletar imagem.';
+          alert(errorMessage);
+        }
+      } catch (err) {
+        console.error('Erro ao deletar imagem:', err);
+        alert('Erro ao deletar imagem. Tente novamente.');
+      }
+    },
+    [fetchGalleryImages],
+  );
+
   const selectImageFile = useCallback(
     (field: string) => {
       // Abrir galeria em vez de input direto
@@ -4317,20 +4348,18 @@ export default function CardapioAdminPage() {
           title="Galeria de Imagens"
         >
           <div className="space-y-4">
-            {/* Barra de busca */}
-            <div className="relative">
-              <MdSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
-              <input
-                type="text"
-                placeholder="Buscar imagens..."
-                value={gallerySearchTerm}
-                onChange={(e) => setGallerySearchTerm(e.target.value)}
-                className="w-full rounded-md border border-gray-300 pl-10 pr-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-
-            {/* Botão para upload de nova imagem */}
-            <div className="flex justify-between items-center">
+            {/* Header com busca e ações */}
+            <div className="flex flex-col sm:flex-row gap-3">
+              <div className="relative flex-1">
+                <MdSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+                <input
+                  type="text"
+                  placeholder="Buscar imagens por nome..."
+                  value={gallerySearchTerm}
+                  onChange={(e) => setGallerySearchTerm(e.target.value)}
+                  className="w-full rounded-md border border-gray-300 pl-10 pr-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
               <button
                 onClick={() => {
                   const input = document.createElement('input');
@@ -4345,15 +4374,34 @@ export default function CardapioAdminPage() {
                   };
                   input.click();
                 }}
-                className="flex items-center gap-2 rounded-md bg-green-600 px-4 py-2 text-white hover:bg-green-700"
+                className="flex items-center justify-center gap-2 rounded-md bg-green-600 px-4 py-2 text-white hover:bg-green-700 transition-colors shadow-sm"
               >
                 <MdUpload className="h-5 w-5" />
-                Fazer Upload de Nova Imagem
+                <span className="hidden sm:inline">Upload</span>
               </button>
               {galleryLoading && (
-                <span className="text-sm text-gray-500">Carregando...</span>
+                <div className="flex items-center gap-2 text-sm text-gray-500 px-4">
+                  <span className="animate-spin">⏳</span>
+                  <span className="hidden sm:inline">Carregando...</span>
+                </div>
               )}
             </div>
+
+            {/* Estatísticas */}
+            {!galleryLoading && galleryImages.length > 0 && (
+              <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600 bg-gray-50 rounded-lg p-3">
+                <span className="font-medium">
+                  📊 {galleryImages.length} imagem{galleryImages.length !== 1 ? 's' : ''} na galeria
+                </span>
+                {gallerySearchTerm && (
+                  <span className="text-blue-600">
+                    {galleryImages.filter(img => 
+                      img.filename.toLowerCase().includes(gallerySearchTerm.toLowerCase())
+                    ).length} resultado(s) para "{gallerySearchTerm}"
+                  </span>
+                )}
+              </div>
+            )}
 
             {/* Grid de imagens */}
             {galleryLoading ? (
@@ -4374,7 +4422,7 @@ export default function CardapioAdminPage() {
                     img.filename.toLowerCase().includes(gallerySearchTerm.toLowerCase())
                   ).length} imagem(s) encontrada(s)
                 </div>
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 max-h-[60vh] overflow-y-auto">
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 max-h-[60vh] overflow-y-auto p-1">
                   {galleryImages
                     .filter(img => 
                       !gallerySearchTerm || 
@@ -4383,29 +4431,43 @@ export default function CardapioAdminPage() {
                     .map((image, index) => (
                       <div
                         key={`${image.filename}-${index}`}
-                        className="relative group cursor-pointer rounded-lg border-2 border-gray-200 hover:border-blue-500 transition-all overflow-hidden"
+                        className="relative group cursor-pointer rounded-lg border-2 border-gray-200 hover:border-blue-500 transition-all overflow-hidden shadow-md hover:shadow-lg"
                         onClick={() => handleSelectGalleryImage(image.filename)}
                       >
-                        <div className="aspect-square relative">
+                        <div className="aspect-square relative bg-gray-100">
                           <Image
                             src={getValidImageUrl(image.filename)}
                             alt={image.filename}
                             fill
-                            sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"
-                            className="object-cover"
+                            sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 20vw"
+                            className="object-cover transition-transform group-hover:scale-105"
                             unoptimized
                           />
                         </div>
-                        <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-50 transition-all flex items-center justify-center">
-                          <span className="text-white text-sm font-semibold opacity-0 group-hover:opacity-100 transition-opacity">
-                            Selecionar
-                          </span>
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/0 to-black/0 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <div className="absolute inset-0 flex items-center justify-center gap-2">
+                            <span className="text-white text-sm font-semibold bg-black/50 px-3 py-1 rounded-full">
+                              Selecionar
+                            </span>
+                            <button
+                              onClick={(e) => handleDeleteGalleryImage(image.filename, e)}
+                              className="bg-red-600 hover:bg-red-700 text-white p-2 rounded-full shadow-lg transition-transform hover:scale-110"
+                              title="Deletar imagem"
+                            >
+                              <MdDelete className="h-4 w-4" />
+                            </button>
+                          </div>
                         </div>
-                        <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-75 text-white text-xs p-1 truncate">
-                          {image.filename}
+                        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent text-white text-xs p-2">
+                          <p className="truncate font-medium">{image.filename}</p>
+                          {image.sourceType && (
+                            <p className="text-xs text-gray-300 mt-0.5">
+                              {image.sourceType === 'menu_item' ? 'Item' : 'Bar'} • {image.usageCount}x usado
+                            </p>
+                          )}
                         </div>
                         {image.usageCount > 1 && (
-                          <div className="absolute top-1 right-1 bg-blue-600 text-white text-xs px-2 py-1 rounded-full">
+                          <div className="absolute top-2 right-2 bg-blue-600 text-white text-xs px-2 py-1 rounded-full shadow-lg font-semibold">
                             {image.usageCount}x
                           </div>
                         )}
