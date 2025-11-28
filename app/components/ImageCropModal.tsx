@@ -119,11 +119,12 @@ export default function ImageCropModal({
           
           // Validar antes de definir
           if (!isNaN(cropWidth) && !isNaN(cropHeight) && cropWidth > 0 && cropHeight > 0) {
+            console.log('✅ Definindo croppedAreaPixels com valores válidos');
             setCroppedAreaPixels(initialCrop);
           } else {
             console.error('❌ Valores de crop inválidos calculados:', initialCrop);
           }
-        }, 200); // Delay um pouco maior para garantir que o Cropper esteja totalmente renderizado
+        }, 500); // Delay maior para garantir que o Cropper esteja totalmente renderizado e tenha dimensões
       };
       img.onerror = (error) => {
         console.error('❌ Erro ao carregar imagem no modal de crop:', {
@@ -527,8 +528,8 @@ export default function ImageCropModal({
         </div>
 
         {/* Crop Area */}
-        <div className="relative flex-1 bg-gray-900" style={{ minHeight: '400px' }}>
-            {!imageSrc ? (
+        <div className="relative flex-1 bg-gray-900" style={{ minHeight: '500px', height: '500px' }}>
+          {!imageSrc ? (
             <div className="absolute inset-0 flex items-center justify-center">
               <div className="text-white text-center">
                 <p className="text-red-400">Erro: Nenhuma imagem fornecida</p>
@@ -545,6 +546,9 @@ export default function ImageCropModal({
             <div 
               className="relative w-full h-full"
               style={{
+                width: '100%',
+                height: '100%',
+                minHeight: '500px',
                 filter: `brightness(${brightness}%) contrast(${contrast}%) saturate(${saturation}%) ${
                   filter === 'grayscale' ? 'grayscale(100%)' :
                   filter === 'sepia' ? 'sepia(100%)' :
@@ -555,28 +559,37 @@ export default function ImageCropModal({
                 }`,
               }}
             >
-              <Cropper
-                image={imageSrc}
-                crop={crop}
-                zoom={zoom}
-                rotation={rotation}
-                aspect={aspectRatio}
-                onCropChange={onCropChange}
-                onZoomChange={onZoomChange}
-                onRotationChange={onRotationChange}
-                onCropComplete={onCropCompleteCallback}
-                minZoom={minZoom}
-                maxZoom={maxZoom}
-                cropShape={aspectRatio === 1 ? 'rect' : 'rect'}
-                showGrid={true}
-                style={{
-                  containerStyle: {
-                    width: '100%',
-                    height: '100%',
-                    position: 'relative',
-                  },
-                }}
-              />
+              {imageSrc && (
+                <Cropper
+                  image={imageSrc}
+                  crop={crop}
+                  zoom={zoom}
+                  rotation={rotation}
+                  aspect={aspectRatio}
+                  onCropChange={onCropChange}
+                  onZoomChange={onZoomChange}
+                  onRotationChange={onRotationChange}
+                  onCropComplete={onCropCompleteCallback}
+                  minZoom={minZoom}
+                  maxZoom={maxZoom}
+                  cropShape={aspectRatio === 1 ? 'rect' : 'rect'}
+                  showGrid={true}
+                  style={{
+                    containerStyle: {
+                      width: '100%',
+                      height: '100%',
+                      position: 'relative',
+                    },
+                    cropAreaStyle: {
+                      border: '2px solid #fff',
+                    },
+                    mediaStyle: {
+                      maxWidth: '100%',
+                      maxHeight: '100%',
+                    },
+                  }}
+                />
+              )}
             </div>
           )}
         </div>
