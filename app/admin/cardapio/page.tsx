@@ -13,8 +13,13 @@ import {
   MdUpload,
   MdSearch,
   MdSecurity,
+  MdPause,
+  MdPlayArrow,
+  MdRestore,
+  MdDeleteOutline,
 } from 'react-icons/md';
 import { useUserPermissions } from '../../hooks/useUserPermissions';
+import ImageCropModal from '../../components/ImageCropModal';
 
 type MenuDisplayStyle = 'normal' | 'clean';
 
@@ -245,6 +250,37 @@ export default function CardapioAdminPage() {
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [showItemModal, setShowItemModal] = useState(false);
   const [showQuickEditModal, setShowQuickEditModal] = useState(false);
+  const [showImageGalleryModal, setShowImageGalleryModal] = useState(false);
+  const [showTrashModal, setShowTrashModal] = useState(false);
+  const [showImageEditorModal, setShowImageEditorModal] = useState(false);
+  const [showCropModal, setShowCropModal] = useState(false);
+  const [cropImageSrc, setCropImageSrc] = useState<string>('');
+  const [cropImageField, setCropImageField] = useState<string>('');
+  const [imageGalleryField, setImageGalleryField] = useState<string>('');
+  const [galleryImages, setGalleryImages] = useState<Array<{
+    filename: string;
+    sourceType: string;
+    imageType: string;
+    usageCount: number;
+    barIds?: Array<{ id: number; name: string; type: string }>;
+    firstItemId?: number;
+  }>>([]);
+  const [galleryLoading, setGalleryLoading] = useState(false);
+  const [gallerySearchTerm, setGallerySearchTerm] = useState('');
+  const [trashItems, setTrashItems] = useState<Array<{
+    id: number | string;
+    name: string;
+    description: string;
+    price: number;
+    imageUrl: string;
+    categoryId: number | string;
+    barId: number | string;
+    category: string;
+    deletedAt: string;
+    daysDeleted: number;
+    canRestore: boolean;
+  }>>([]);
+  const [trashLoading, setTrashLoading] = useState(false);
   const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
   const [editingBar, setEditingBar] = useState<Bar | null>(null);
   const [editingCategory, setEditingCategory] = useState<MenuCategory | null>(null);
@@ -1909,11 +1945,13 @@ export default function CardapioAdminPage() {
 
   const handleDeleteItem = useCallback(
     async (itemId: string | number) => {
-      if (confirm('Tem certeza que deseja excluir este item?')) {
+      if (confirm('Tem certeza que deseja excluir este item? Ele será movido para a lixeira e poderá ser restaurado dentro de 30 dias.')) {
         try {
           const response = await fetch(`${API_BASE_URL}/items/${itemId}`, { method: 'DELETE' });
           if (response.ok) {
+            const result = await response.json();
             fetchData();
+            alert(result.message || 'Item movido para a lixeira com sucesso!');
           } else {
             throw new Error('Falha ao deletar item.');
           }
@@ -1926,35 +1964,100 @@ export default function CardapioAdminPage() {
     [fetchData],
   );
 
-  const handleImageUpload = useCallback(
-    async (file: File, field: string) => {
-      if (!file) return;
-
-      if (!file.type.startsWith('image/')) {
-        alert('Apenas imagens são permitidas');
-        return;
-      }
-
-      if (file.size > 5 * 1024 * 1024) {
-        alert('Arquivo muito grande. Máximo 5MB.');
-        return;
-      }
-
-      const tempUrl = URL.createObjectURL(file);
-
-      if (field === 'coverImages') {
-        setBarForm((prev) => ({ ...prev, coverImages: [...prev.coverImages, tempUrl] }));
-      } else if (field === 'logoUrl' || field === 'coverImageUrl' || field === 'popupImageUrl') {
-        setBarForm((prev) => ({ ...prev, [field]: tempUrl }));
+  // Função para buscar itens da lixeira
+  const fetchTrashItems = useCallback(async () => {
+    setTrashLoading(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/items/trash`);
+      if (response.ok) {
+        const data = await response.json();
+        setTrashItems(data.items || []);
       } else {
-        setItemForm((prev) => ({ ...prev, imageUrl: tempUrl }));
+        console.error('Erro ao buscar itens da lixeira');
+        setTrashItems([]);
       }
+    } catch (error) {
+      console.error('Erro ao buscar itens da lixeira:', error);
+      setTrashItems([]);
+    } finally {
+      setTrashLoading(false);
+    }
+  }, []);
 
+  // Função para abrir modal de lixeira
+  const openTrashModal = useCallback(() => {
+    setShowTrashModal(true);
+    fetchTrashItems();
+  }, [fetchTrashItems]);
+
+  // Função para restaurar item da lixeira
+  const handleRestoreItem = useCallback(
+    async (itemId: string | number) => {
       try {
-        console.log('🔄 Iniciando upload da imagem:', file.name);
+        const response = await fetch(`${API_BASE_URL}/items/${itemId}/restore`, {
+          method: 'PATCH',
+        });
+        
+        if (response.ok) {
+          const result = await response.json();
+          alert(result.message || 'Item restaurado com sucesso!');
+          fetchTrashItems(); // Atualizar lista da lixeira
+          fetchData(); // Atualizar lista principal
+        } else {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.error || 'Falha ao restaurar item.');
+        }
+      } catch (err) {
+        console.error(err);
+        const errorMessage = err instanceof Error ? err.message : 'Erro ao restaurar item.';
+        alert(errorMessage);
+      }
+    },
+    [fetchTrashItems, fetchData],
+  );
+
+  // Função para pausar/ativar item (alterna visibilidade)
+  const handleToggleItemVisibility = useCallback(
+    async (itemId: string | number, currentVisible: boolean | number | undefined) => {
+      try {
+        // Alternar visibilidade: se está visível (1/true), pausar (0), senão ativar (1)
+        const newVisible = currentVisible === 1 || currentVisible === true ? false : true;
+        
+        const response = await fetch(`${API_BASE_URL}/items/${itemId}/visibility`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ visible: newVisible }),
+        });
+
+        if (response.ok) {
+          // Atualizar o item localmente sem recarregar tudo
+          setMenuData((prev) => ({
+            ...prev,
+            items: prev.items.map((item) =>
+              item.id === itemId
+                ? { ...item, visible: newVisible ? 1 : 0 }
+                : item
+            ),
+          }));
+        } else {
+          throw new Error('Falha ao alterar visibilidade do item.');
+        }
+      } catch (err) {
+        console.error(err);
+        alert('Erro ao pausar/ativar item.');
+      }
+    },
+    [],
+  );
+
+  // Função para fazer upload da imagem após o crop
+  const uploadCroppedImage = useCallback(
+    async (croppedBlob: Blob, field: string) => {
+      try {
+        console.log('🔄 Iniciando upload da imagem recortada');
 
         const formData = new FormData();
-        formData.append('image', file);
+        formData.append('image', croppedBlob, 'cropped-image.jpg');
 
         const response = await fetch(API_UPLOAD_URL, {
           method: 'POST',
@@ -1977,19 +2080,20 @@ export default function CardapioAdminPage() {
         if (result.success && result.filename) {
           const filename = result.filename;
           if (field === 'coverImages') {
-            setBarForm((prev) => {
-              const updatedImages = prev.coverImages.map((url) => (url === tempUrl ? filename : url));
-              return { ...prev, coverImages: updatedImages };
-            });
+            setBarForm((prev) => ({
+              ...prev,
+              coverImages: [...prev.coverImages, filename],
+            }));
           } else if (field === 'logoUrl' || field === 'coverImageUrl' || field === 'popupImageUrl') {
             setBarForm((prev) => ({ ...prev, [field]: filename }));
           } else {
             setItemForm((prev) => ({ ...prev, imageUrl: filename }));
           }
 
-          setTimeout(() => {
-            URL.revokeObjectURL(tempUrl);
-          }, 1000);
+          // Se o upload foi feito através da galeria, selecionar automaticamente
+          if (showImageGalleryModal && imageGalleryField === field) {
+            handleSelectGalleryImage(filename);
+          }
 
           console.log('✅ Upload concluído com sucesso');
           alert('Imagem carregada com sucesso!');
@@ -2009,19 +2113,44 @@ export default function CardapioAdminPage() {
         }
 
         alert(`Erro no upload: ${errorMessage}`);
-
-        URL.revokeObjectURL(tempUrl);
-        if (field === 'coverImages') {
-          setBarForm((prev) => ({
-            ...prev,
-            coverImages: prev.coverImages.filter((url) => url !== tempUrl),
-          }));
-        } else if (field === 'logoUrl' || field === 'coverImageUrl' || field === 'popupImageUrl') {
-          setBarForm((prev) => ({ ...prev, [field]: '' }));
-        } else {
-          setItemForm((prev) => ({ ...prev, imageUrl: '' }));
-        }
       }
+    },
+    [showImageGalleryModal, imageGalleryField],
+  );
+
+  // Handler quando o crop for completado
+  const handleCropComplete = useCallback(
+    (croppedBlob: Blob) => {
+      uploadCroppedImage(croppedBlob, cropImageField);
+      // Limpar URL temporária
+      if (cropImageSrc && cropImageSrc.startsWith('blob:')) {
+        URL.revokeObjectURL(cropImageSrc);
+      }
+      setCropImageSrc('');
+      setCropImageField('');
+    },
+    [cropImageField, cropImageSrc, uploadCroppedImage],
+  );
+
+  const handleImageUpload = useCallback(
+    (file: File, field: string) => {
+      if (!file) return;
+
+      if (!file.type.startsWith('image/')) {
+        alert('Apenas imagens são permitidas');
+        return;
+      }
+
+      if (file.size > 5 * 1024 * 1024) {
+        alert('Arquivo muito grande. Máximo 5MB.');
+        return;
+      }
+
+      // Abrir modal de crop antes de fazer upload
+      const tempUrl = URL.createObjectURL(file);
+      setCropImageSrc(tempUrl);
+      setCropImageField(field);
+      setShowCropModal(true);
     },
     [],
   );
@@ -2033,25 +2162,56 @@ export default function CardapioAdminPage() {
     }));
   };
 
+  // Função para buscar imagens da galeria
+  const fetchGalleryImages = useCallback(async () => {
+    setGalleryLoading(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/gallery/images`);
+      if (response.ok) {
+        const data = await response.json();
+        setGalleryImages(data.images || []);
+      } else {
+        console.error('Erro ao buscar imagens da galeria');
+        setGalleryImages([]);
+      }
+    } catch (error) {
+      console.error('Erro ao buscar imagens da galeria:', error);
+      setGalleryImages([]);
+    } finally {
+      setGalleryLoading(false);
+    }
+  }, []);
+
+  // Função para abrir galeria de imagens
+  const openImageGallery = useCallback((field: string) => {
+    setImageGalleryField(field);
+    setShowImageGalleryModal(true);
+    fetchGalleryImages();
+  }, [fetchGalleryImages]);
+
+  // Função para selecionar imagem da galeria
+  const handleSelectGalleryImage = useCallback((filename: string) => {
+    if (imageGalleryField === 'coverImages') {
+      setBarForm((prev) => ({
+        ...prev,
+        coverImages: [...prev.coverImages, filename],
+      }));
+    } else if (imageGalleryField === 'logoUrl' || imageGalleryField === 'coverImageUrl' || imageGalleryField === 'popupImageUrl') {
+      setBarForm((prev) => ({ ...prev, [imageGalleryField]: filename }));
+    } else {
+      setItemForm((prev) => ({ ...prev, imageUrl: filename }));
+    }
+    setShowImageGalleryModal(false);
+    setImageGalleryField('');
+    setGallerySearchTerm('');
+  }, [imageGalleryField]);
+
   const selectImageFile = useCallback(
     (field: string) => {
-      const input = document.createElement('input');
-      input.type = 'file';
-      input.accept = 'image/*';
-      input.multiple = field === 'coverImages'; // Habilita múltiplas seleções
-      input.onchange = (e) => {
-        const files = (e.target as HTMLInputElement).files;
-        if (files) {
-          if (field === 'coverImages') {
-            Array.from(files).forEach((file) => handleImageUpload(file, field));
-          } else {
-            handleImageUpload(files[0], field);
-          }
-        }
-      };
-      input.click();
+      // Abrir galeria em vez de input direto
+      openImageGallery(field);
     },
-    [handleImageUpload],
+    [openImageGallery],
   );
 
   const Modal = useCallback(({ isOpen, onClose, children, title }: any) => (
@@ -2512,6 +2672,14 @@ export default function CardapioAdminPage() {
                         Excluir Selecionados ({selectedItems.length})
                       </button>
                     )}
+                    <button
+                      onClick={openTrashModal}
+                      className="flex items-center gap-2 rounded-lg bg-gray-600 px-4 py-2 text-white hover:bg-gray-700"
+                      title="Ver itens deletados (lixeira)"
+                    >
+                      <MdDeleteOutline className="h-5 w-5" />
+                      Lixeira
+                    </button>
                     {isAdmin && (
                       <button
                         onClick={() => setShowItemModal(true)}
@@ -2589,8 +2757,16 @@ export default function CardapioAdminPage() {
                           return (
                             <div
                               key={item.id}
-                              className="relative overflow-hidden rounded-lg bg-white shadow-md"
+                              className={`relative overflow-hidden rounded-lg bg-white shadow-md ${
+                                item.visible === 0 || item.visible === false ? 'opacity-60' : ''
+                              }`}
                             >
+                              {/* Badge de pausado */}
+                              {(item.visible === 0 || item.visible === false) && (
+                                <div className="absolute left-0 top-0 z-20 rounded-br-lg bg-yellow-500 px-3 py-1">
+                                  <span className="text-xs font-bold text-white">PAUSADO</span>
+                                </div>
+                              )}
                               <div className="absolute left-2 top-2 z-10">
                                 <input
                                   type="checkbox"
@@ -2611,15 +2787,37 @@ export default function CardapioAdminPage() {
                                   {(isAdmin ||
                                     (isPromoter && canManageBar(Number(item.barId)))) && (
                                     <>
+                                      {/* Botão Pausar/Ativar */}
+                                      <button
+                                        onClick={() => handleToggleItemVisibility(item.id, item.visible)}
+                                        className={`rounded-full p-2 text-white hover:opacity-90 ${
+                                          item.visible === 1 || item.visible === true || item.visible === undefined || item.visible === null
+                                            ? 'bg-yellow-600 hover:bg-yellow-700'
+                                            : 'bg-green-600 hover:bg-green-700'
+                                        }`}
+                                        title={
+                                          item.visible === 1 || item.visible === true || item.visible === undefined || item.visible === null
+                                            ? 'Pausar item'
+                                            : 'Ativar item'
+                                        }
+                                      >
+                                        {item.visible === 1 || item.visible === true || item.visible === undefined || item.visible === null ? (
+                                          <MdPause className="h-4 w-4" />
+                                        ) : (
+                                          <MdPlayArrow className="h-4 w-4" />
+                                        )}
+                                      </button>
                                       <button
                                         onClick={() => handleEditItem(item)}
                                         className="rounded-full bg-blue-600 p-2 text-white hover:bg-blue-700"
+                                        title="Editar item"
                                       >
                                         <MdEdit className="h-4 w-4" />
                                       </button>
                                       <button
                                         onClick={() => handleDeleteItem(item.id)}
                                         className="rounded-full bg-red-600 p-2 text-white hover:bg-red-700"
+                                        title="Excluir item"
                                       >
                                         <MdDelete className="h-4 w-4" />
                                       </button>
@@ -3494,10 +3692,13 @@ export default function CardapioAdminPage() {
                     className="flex-1 rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                   <button
-                    onClick={() => selectImageFile('imageUrl')}
+                    type="button"
+                    onClick={() => openImageGallery('imageUrl')}
                     className="flex items-center gap-1 rounded-md bg-green-600 px-3 py-2 text-white hover:bg-green-700"
+                    title="Abrir galeria de imagens"
                   >
                     <MdUpload className="h-4 w-4" />
+                    Galeria
                   </button>
                 </div>
                 {itemForm.imageUrl && itemForm.imageUrl.trim() !== '' && (
@@ -4104,6 +4305,241 @@ export default function CardapioAdminPage() {
             </div>
           )}
         </Modal>
+
+        {/* Image Gallery Modal */}
+        <Modal
+          isOpen={showImageGalleryModal}
+          onClose={() => {
+            setShowImageGalleryModal(false);
+            setImageGalleryField('');
+            setGallerySearchTerm('');
+          }}
+          title="Galeria de Imagens"
+        >
+          <div className="space-y-4">
+            {/* Barra de busca */}
+            <div className="relative">
+              <MdSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+              <input
+                type="text"
+                placeholder="Buscar imagens..."
+                value={gallerySearchTerm}
+                onChange={(e) => setGallerySearchTerm(e.target.value)}
+                className="w-full rounded-md border border-gray-300 pl-10 pr-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+
+            {/* Botão para upload de nova imagem */}
+            <div className="flex justify-between items-center">
+              <button
+                onClick={() => {
+                  const input = document.createElement('input');
+                  input.type = 'file';
+                  input.accept = 'image/*';
+                  input.onchange = async (e) => {
+                    const files = (e.target as HTMLInputElement).files;
+                    if (files && files[0]) {
+                      await handleImageUpload(files[0], imageGalleryField);
+                      await fetchGalleryImages(); // Atualizar galeria após upload
+                    }
+                  };
+                  input.click();
+                }}
+                className="flex items-center gap-2 rounded-md bg-green-600 px-4 py-2 text-white hover:bg-green-700"
+              >
+                <MdUpload className="h-5 w-5" />
+                Fazer Upload de Nova Imagem
+              </button>
+              {galleryLoading && (
+                <span className="text-sm text-gray-500">Carregando...</span>
+              )}
+            </div>
+
+            {/* Grid de imagens */}
+            {galleryLoading ? (
+              <div className="flex justify-center items-center py-12">
+                <span className="text-gray-500">Carregando imagens...</span>
+              </div>
+            ) : galleryImages.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12 text-gray-500">
+                <MdUpload className="h-12 w-12 mb-4 text-gray-300" />
+                <p>Nenhuma imagem encontrada.</p>
+                <p className="text-sm mt-1">Faça upload de uma imagem para começar.</p>
+              </div>
+            ) : (
+              <>
+                <div className="text-sm text-gray-600 mb-2">
+                  {galleryImages.filter(img => 
+                    !gallerySearchTerm || 
+                    img.filename.toLowerCase().includes(gallerySearchTerm.toLowerCase())
+                  ).length} imagem(s) encontrada(s)
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 max-h-[60vh] overflow-y-auto">
+                  {galleryImages
+                    .filter(img => 
+                      !gallerySearchTerm || 
+                      img.filename.toLowerCase().includes(gallerySearchTerm.toLowerCase())
+                    )
+                    .map((image, index) => (
+                      <div
+                        key={`${image.filename}-${index}`}
+                        className="relative group cursor-pointer rounded-lg border-2 border-gray-200 hover:border-blue-500 transition-all overflow-hidden"
+                        onClick={() => handleSelectGalleryImage(image.filename)}
+                      >
+                        <div className="aspect-square relative">
+                          <Image
+                            src={getValidImageUrl(image.filename)}
+                            alt={image.filename}
+                            fill
+                            sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"
+                            className="object-cover"
+                            unoptimized
+                          />
+                        </div>
+                        <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-50 transition-all flex items-center justify-center">
+                          <span className="text-white text-sm font-semibold opacity-0 group-hover:opacity-100 transition-opacity">
+                            Selecionar
+                          </span>
+                        </div>
+                        <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-75 text-white text-xs p-1 truncate">
+                          {image.filename}
+                        </div>
+                        {image.usageCount > 1 && (
+                          <div className="absolute top-1 right-1 bg-blue-600 text-white text-xs px-2 py-1 rounded-full">
+                            {image.usageCount}x
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                </div>
+              </>
+            )}
+          </div>
+        </Modal>
+
+        {/* Trash Modal - Lixeira */}
+        <Modal
+          isOpen={showTrashModal}
+          onClose={() => {
+            setShowTrashModal(false);
+          }}
+          title="Lixeira - Itens Deletados"
+        >
+          <div className="space-y-4">
+            {trashLoading ? (
+              <div className="flex justify-center items-center py-12">
+                <span className="text-gray-500">Carregando itens deletados...</span>
+              </div>
+            ) : trashItems.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12 text-gray-500">
+                <MdDeleteOutline className="h-12 w-12 mb-4 text-gray-300" />
+                <p>A lixeira está vazia.</p>
+                <p className="text-sm mt-1">Itens deletados aparecerão aqui por até 30 dias.</p>
+              </div>
+            ) : (
+              <>
+                <div className="rounded-lg bg-yellow-50 border border-yellow-200 p-4 mb-4">
+                  <p className="text-sm text-yellow-800">
+                    <strong>⚠️ Atenção:</strong> Os itens na lixeira serão excluídos permanentemente após 30 dias. 
+                    Você pode restaurá-los clicando no botão "Restaurar".
+                  </p>
+                  {trashItems.filter(item => item.daysDeleted >= 25 && item.daysDeleted < 30).length > 0 && (
+                    <p className="text-sm text-orange-800 mt-2">
+                      <strong>⚠️ Urgente:</strong> {trashItems.filter(item => item.daysDeleted >= 25 && item.daysDeleted < 30).length} item(s) expirando em breve (mais de 25 dias deletados)!
+                    </p>
+                  )}
+                </div>
+                
+                <div className="text-sm text-gray-600 mb-2">
+                  {trashItems.length} item(s) deletado(s) na lixeira
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 max-h-[60vh] overflow-y-auto">
+                  {trashItems.map((item) => {
+                    const category = menuData.categories.find((c) => c.id === item.categoryId);
+                    const daysRemaining = Math.max(0, 30 - item.daysDeleted);
+                    const isExpiringSoon = item.daysDeleted >= 25;
+
+                    return (
+                      <div
+                        key={item.id}
+                        className={`relative overflow-hidden rounded-lg bg-white border-2 shadow-md ${
+                          isExpiringSoon ? 'border-orange-300' : 'border-gray-200'
+                        }`}
+                      >
+                        <div className="relative h-32">
+                          <Image
+                            src={getValidImageUrl(item.imageUrl)}
+                            alt={item.name}
+                            fill
+                            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                            className="object-cover opacity-60"
+                          />
+                          {isExpiringSoon && (
+                            <div className="absolute top-2 left-2 bg-orange-500 text-white text-xs px-2 py-1 rounded-full">
+                              Expirando em {Math.ceil(daysRemaining)} dia(s)
+                            </div>
+                          )}
+                          <div className="absolute top-2 right-2 bg-gray-800 text-white text-xs px-2 py-1 rounded-full">
+                            {Math.floor(item.daysDeleted)} dia(s) atrás
+                          </div>
+                        </div>
+                        <div className="p-4">
+                          <h3 className="mb-1 line-clamp-1 text-lg font-semibold text-gray-900">
+                            {item.name}
+                          </h3>
+                          <p className="mb-2 line-clamp-2 text-sm text-gray-600">
+                            {item.description}
+                          </p>
+                          <div className="mb-3 text-xs text-gray-500">
+                            <p>Categoria: {category?.name || 'N/A'}</p>
+                            <p className="mt-1">
+                              Deletado em: {new Date(item.deletedAt).toLocaleDateString('pt-BR')}
+                            </p>
+                          </div>
+                          <div className="flex gap-2">
+                            {item.canRestore ? (
+                              <button
+                                onClick={() => handleRestoreItem(item.id)}
+                                className="flex-1 flex items-center justify-center gap-2 rounded-md bg-green-600 px-3 py-2 text-sm text-white hover:bg-green-700"
+                                title="Restaurar item"
+                              >
+                                <MdRestore className="h-4 w-4" />
+                                Restaurar
+                              </button>
+                            ) : (
+                              <div className="flex-1 rounded-md bg-gray-300 px-3 py-2 text-sm text-gray-600 text-center">
+                                Expirado
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
+            )}
+          </div>
+        </Modal>
+
+        {/* Image Crop Modal */}
+        <ImageCropModal
+          isOpen={showCropModal}
+          imageSrc={cropImageSrc}
+          onClose={() => {
+            setShowCropModal(false);
+            if (cropImageSrc && cropImageSrc.startsWith('blob:')) {
+              URL.revokeObjectURL(cropImageSrc);
+            }
+            setCropImageSrc('');
+            setCropImageField('');
+          }}
+          onCropComplete={handleCropComplete}
+          aspectRatio={1} // Quadrado obrigatório
+          minZoom={1}
+          maxZoom={3}
+        />
       </div>
 
       <style jsx>{`

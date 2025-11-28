@@ -82,7 +82,10 @@ export default function Login() {
         const adminEmails = [
           'analista@reserva.com',
           'analista@seujustino.com',
-          'analista@pracinha.com'
+          'analista@pracinha.com',
+          'gerente@highlinebar.com.br',
+          'regianebrunno@gmail.com',
+          'franciely.mendes@ideiaum.com.br'
         ];
         
         const userEmail = emailCpf.toLowerCase().trim();
