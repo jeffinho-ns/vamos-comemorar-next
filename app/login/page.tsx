@@ -77,7 +77,22 @@ export default function Login() {
           document.cookie = `promoterCodigo=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`;
         }
       
-        // Redirecionamento inteligente com base no role
+        // Redirecionamento inteligente com base no email ou role
+        // Emails que devem ir direto para /admin
+        const adminEmails = [
+          'analista@reserva.com',
+          'analista@seujustino.com',
+          'analista@pracinha.com'
+        ];
+        
+        const userEmail = emailCpf.toLowerCase().trim();
+        
+        if (adminEmails.includes(userEmail)) {
+          router.push('/admin');
+          return;
+        }
+        
+        // Redirecionamento padrão com base no role
         switch (data.role) {
           case 'admin':
             router.push('/admin');

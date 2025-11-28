@@ -751,114 +751,257 @@ export default function CardapioAdminPage() {
     const category = menuData.categories.find((c) => c.id === categoryId);
     const bar = menuData.bars.find((b) => b.id === barId);
 
-    if (!category || !bar) return;
+    if (!category || !bar) {
+      console.error('❌ [QuickEdit] Categoria ou bar não encontrado:', { categoryId, barId });
+      return;
+    }
 
-    try {
-      // Buscar subcategorias da nova API
-      const response = await fetch(`${API_BASE_URL}/subcategories/category/${categoryId}`);
+    // Normalizar IDs para comparação
+    const normalizedCategoryId = String(categoryId);
+    const normalizedBarId = String(barId);
 
-      if (!response.ok) {
-        console.warn('API endpoint não disponível, usando dados locais');
-        // Fallback: usar dados locais se a API não estiver disponível
-        const itemsInCategory = menuData.items.filter(
-          (item) => item.categoryId === categoryId && item.barId === barId,
-        );
-
-        const uniqueSubCategories = new Map();
-        itemsInCategory.forEach((item) => {
-          if (item.subCategoryName && item.subCategoryName.trim() !== '') {
-            if (!uniqueSubCategories.has(item.subCategoryName)) {
-              uniqueSubCategories.set(item.subCategoryName, {
-                id: item.subCategoryName,
-                name: item.subCategoryName,
-                order: uniqueSubCategories.size,
-                count: 1,
-                barId: item.barId,
-                categoryId: item.categoryId,
-              });
-            } else {
-              const existing = uniqueSubCategories.get(item.subCategoryName);
-              existing.count++;
-            }
-          }
-        });
-
-        const subCategories = Array.from(uniqueSubCategories.values())
-          .sort((a, b) => a.order - b.order)
-          .map((sub) => ({
-            ...sub,
-            originalName: sub.name,
-            originalOrder: sub.order,
-          }));
-
-        setQuickEditData({
-          barId,
-          categoryId,
-          subCategories,
-        });
-        setShowQuickEditModal(true);
-        return;
-      }
-
-      const apiSubCategories = await response.json();
-
-      // Filtrar apenas subcategorias do bar específico
-      const subCategories = apiSubCategories
-        .filter((sub: any) => sub.barId === barId)
-        .sort((a: any, b: any) => a.order - b.order)
-        .map((sub: any) => ({
-          ...sub,
-          originalName: sub.name,
-          originalOrder: sub.order,
-          count: sub.itemsCount || 0,
-        }));
-
-      setQuickEditData({
-        barId,
-        categoryId,
-        subCategories,
-      });
-      setShowQuickEditModal(true);
-    } catch (error) {
-      console.error('Erro ao buscar subcategorias:', error);
-      alert('Erro ao carregar subcategorias. Usando dados locais como fallback.');
-
-      // Fallback: usar dados locais
+    // Função auxiliar para extrair subcategorias dos itens locais
+    // IMPORTANTE: Busca TODOS os itens, incluindo temporários e ocultos
+    const extractSubCategoriesFromItems = () => {
       const itemsInCategory = menuData.items.filter(
-        (item) => item.categoryId === categoryId && item.barId === barId,
+        (item) => {
+          const matchesCategory = String(item.categoryId) === normalizedCategoryId;
+          const matchesBar = String(item.barId) === normalizedBarId;
+          // IMPORTANTE: Incluir TODOS os itens, mesmo os temporários (que começam com "[Nova Subcategoria]")
+          // e mesmo os ocultos (visible = 0 ou false)
+          return matchesCategory && matchesBar;
+        }
       );
 
+      console.log('🔍 [QuickEdit] Itens na categoria (incluindo temporários):', {
+        categoryId: normalizedCategoryId,
+        barId: normalizedBarId,
+        itemsCount: itemsInCategory.length,
+        items: itemsInCategory.map((item: any) => ({
+          id: item.id,
+          name: item.name,
+          subCategoryName: item.subCategoryName || item.subCategory,
+          subCategory: item.subCategory || item.subCategoryName,
+          visible: item.visible,
+          isTemporary: item.name && item.name.startsWith('[Nova Subcategoria]'),
+        })),
+      });
+
       const uniqueSubCategories = new Map();
-      itemsInCategory.forEach((item) => {
-        if (item.subCategoryName && item.subCategoryName.trim() !== '') {
-          if (!uniqueSubCategories.has(item.subCategoryName)) {
-            uniqueSubCategories.set(item.subCategoryName, {
-              id: item.subCategoryName,
-              name: item.subCategoryName,
-              order: uniqueSubCategories.size,
+      itemsInCategory.forEach((item: any) => {
+        // Buscar subcategoria em ambos os campos possíveis
+        const subCategoryValue = item.subCategoryName || item.subCategory || null;
+        
+        if (subCategoryValue && subCategoryValue.trim() !== '') {
+          const subName = subCategoryValue.trim();
+          
+          // Verificar se já existe essa subcategoria
+          if (!uniqueSubCategories.has(subName)) {
+            // Buscar o order do item (pode estar no campo order do item)
+            const itemOrder = item.order !== undefined && item.order !== null ? Number(item.order) : uniqueSubCategories.size;
+            
+            uniqueSubCategories.set(subName, {
+              id: item.id || `${categoryId}-${barId}-${subName}`, // Usar ID do item se existir
+              name: subName,
+              order: itemOrder,
               count: 1,
               barId: item.barId,
               categoryId: item.categoryId,
+              isTemporary: item.name && item.name.startsWith('[Nova Subcategoria]'),
             });
           } else {
-            const existing = uniqueSubCategories.get(item.subCategoryName);
+            const existing = uniqueSubCategories.get(subName);
             existing.count++;
+            
+            // Se o item atual tem um ID válido (não é apenas um ID gerado), usar ele
+            if (item.id && !item.id.toString().includes('-') && !existing.id.toString().includes('-')) {
+              existing.id = item.id;
+            }
+            
+            // Atualizar order se o item atual tiver uma ordem válida
+            if (item.order !== undefined && item.order !== null) {
+              const itemOrder = Number(item.order);
+              if (itemOrder < existing.order) {
+                existing.order = itemOrder;
+              }
+            }
           }
         }
       });
 
-      const subCategories = Array.from(uniqueSubCategories.values())
-        .sort((a, b) => a.order - b.order)
-        .map((sub) => ({
+      return Array.from(uniqueSubCategories.values())
+        .sort((a, b) => {
+          // Ordenar por order primeiro, depois por nome
+          const orderA = a.order !== undefined && a.order !== null ? Number(a.order) : 999;
+          const orderB = b.order !== undefined && b.order !== null ? Number(b.order) : 999;
+          if (orderA !== orderB) return orderA - orderB;
+          return (a.name || '').localeCompare(b.name || '');
+        })
+        .map((sub, index) => ({
           ...sub,
           originalName: sub.name,
-          originalOrder: sub.order,
+          originalOrder: sub.order !== undefined ? sub.order : index,
+          order: sub.order !== undefined ? sub.order : index,
         }));
+    };
+
+    // Extrair subcategorias dos dados locais (para usar como fallback/complemento)
+    const localSubCategories = extractSubCategoriesFromItems();
+    
+    console.log('✅ [QuickEdit] Subcategorias extraídas dos itens locais:', {
+      count: localSubCategories.length,
+      subCategories: localSubCategories.map((s) => ({ name: s.name, count: s.count })),
+    });
+
+    // Variável para armazenar as subcategorias finais (começar com dados locais)
+    let finalSubCategories = localSubCategories;
+
+    try {
+      // Buscar subcategorias da API primeiro (pode ter dados mais completos, incluindo itens temporários)
+      console.log('🔍 [QuickEdit] Buscando subcategorias da API para categoryId:', categoryId);
+      const response = await fetch(`${API_BASE_URL}/subcategories/category/${categoryId}`);
+
+      if (response.ok) {
+        const apiSubCategories = await response.json();
+
+        // Normalizar barId para comparação (pode ser string ou number)
+        const normalizedBarId = String(barId);
+
+      console.log('🔍 [QuickEdit] Buscando subcategorias:', {
+        categoryId,
+        barId,
+        normalizedBarId,
+        totalSubCategories: apiSubCategories?.length || 0,
+        sampleSubCategories: apiSubCategories?.slice(0, 3).map((s: any) => ({
+          name: s.name,
+          barId: s.barId,
+          barIdType: typeof s.barId,
+          itemsCount: s.itemsCount,
+        })),
+      });
+
+      // Filtrar apenas subcategorias do bar específico (normalizando IDs para comparação)
+      const filteredSubCategories = (apiSubCategories || []).filter((sub: any) => {
+        const subBarId = String(sub.barId);
+        return subBarId === normalizedBarId;
+      });
+
+      console.log('🔍 [QuickEdit] Subcategorias da API filtradas:', {
+        filteredCount: filteredSubCategories.length,
+        filteredSubCategories: filteredSubCategories.map((s: any) => ({
+          name: s.name,
+          barId: s.barId,
+        })),
+      });
+
+      // Ordenar e mapear subcategorias da API
+      let apiSubCategoriesList = filteredSubCategories
+        .sort((a: any, b: any) => {
+          // Ordenar por order se existir, caso contrário por nome
+          const orderA = a.order !== undefined && a.order !== null ? Number(a.order) : 999;
+          const orderB = b.order !== undefined && b.order !== null ? Number(b.order) : 999;
+          if (orderA !== orderB) return orderA - orderB;
+          return (a.name || '').localeCompare(b.name || '');
+        })
+        .map((sub: any, index: number) => ({
+          ...sub,
+          id: sub.id || `${sub.categoryId}-${sub.barId}-${sub.name}`,
+          originalName: sub.name,
+          originalOrder: sub.order !== undefined && sub.order !== null ? Number(sub.order) : index,
+          order: sub.order !== undefined && sub.order !== null ? Number(sub.order) : index,
+          count: sub.itemsCount || 0,
+        }));
+
+      // Mesclar dados da API com dados locais
+      // Criar um mapa das subcategorias locais para fácil acesso
+      const localSubCategoriesMap = new Map();
+      localSubCategories.forEach((sub: any) => {
+        localSubCategoriesMap.set(sub.name.toLowerCase().trim(), sub);
+      });
+
+      // Mesclar: usar dados locais como base e complementar com dados da API
+      const mergedSubCategories = new Map();
+      
+      // Primeiro, adicionar todas as subcategorias locais (prioridade)
+      localSubCategories.forEach((sub: any) => {
+        mergedSubCategories.set(sub.name.toLowerCase().trim(), sub);
+      });
+      
+      // Depois, adicionar subcategorias da API que não estão nos dados locais
+      apiSubCategoriesList.forEach((apiSub: any) => {
+        const key = apiSub.name.toLowerCase().trim();
+        if (!mergedSubCategories.has(key)) {
+          mergedSubCategories.set(key, apiSub);
+        } else {
+          // Se já existe, atualizar com dados da API (pode ter mais informações)
+          const existing = mergedSubCategories.get(key);
+          mergedSubCategories.set(key, {
+            ...existing,
+            ...apiSub,
+            // Manter a ordem original se existir
+            order: existing.order !== undefined ? existing.order : apiSub.order,
+          });
+        }
+      });
+
+        // Converter para array e ordenar
+        finalSubCategories = Array.from(mergedSubCategories.values())
+          .sort((a: any, b: any) => {
+            const orderA = a.order !== undefined && a.order !== null ? Number(a.order) : 999;
+            const orderB = b.order !== undefined && b.order !== null ? Number(b.order) : 999;
+            if (orderA !== orderB) return orderA - orderB;
+            return (a.name || '').localeCompare(b.name || '');
+          });
+
+        console.log('✅ [QuickEdit] Subcategorias mescladas (local + API):', {
+          count: finalSubCategories.length,
+          localCount: localSubCategories.length,
+          apiCount: apiSubCategoriesList.length,
+          subCategories: finalSubCategories.map((s) => ({
+            name: s.name,
+            barId: s.barId,
+            order: s.order,
+            count: s.count,
+          })),
+        });
+      } else {
+        // Se a API não respondeu, usar apenas dados locais (já está em finalSubCategories)
+        console.log('⚠️ [QuickEdit] API não respondeu, usando apenas dados locais');
+      }
+
+      // Garantir que subCategories seja sempre um array
+      const finalSubCategoriesToUse = finalSubCategories;
+
+      console.log('✅ [QuickEdit] Subcategorias finais a serem exibidas:', {
+        count: finalSubCategoriesToUse.length,
+        subCategories: finalSubCategoriesToUse.map((s) => ({
+          name: s.name,
+          barId: s.barId,
+          order: s.order,
+          count: s.count,
+        })),
+      });
 
       setQuickEditData({
         barId,
         categoryId,
-        subCategories,
+        subCategories: finalSubCategoriesToUse,
+      });
+      setShowQuickEditModal(true);
+    } catch (error) {
+      console.error('❌ [QuickEdit] Erro ao buscar subcategorias:', error);
+      console.warn('⚠️ [QuickEdit] Usando dados locais como fallback devido ao erro');
+      
+      // Fallback: usar dados locais (já extraídos no início)
+      console.log('✅ [QuickEdit] Subcategorias do fallback (dados locais):', {
+        count: localSubCategories.length,
+        subCategories: localSubCategories.map((s) => ({ name: s.name, count: s.count })),
+      });
+
+      setQuickEditData({
+        barId,
+        categoryId,
+        subCategories: localSubCategories,
       });
       setShowQuickEditModal(true);
     }
@@ -901,13 +1044,21 @@ export default function CardapioAdminPage() {
       let useApiEndpoints = false;
 
       // Verificar se os novos endpoints estão disponíveis
+      // Não bloquear o fluxo se houver erro - tentar usar os endpoints mesmo assim
       try {
         const testResponse = await fetch(`${API_BASE_URL}/subcategories`, { method: 'GET' });
         if (testResponse.ok) {
           useApiEndpoints = true;
+          console.log('✅ [SaveQuickEdit] Endpoints de subcategorias disponíveis');
+        } else {
+          console.warn('⚠️ [SaveQuickEdit] Endpoint /subcategories retornou status:', testResponse.status);
+          // Mesmo com erro, tentar usar os endpoints específicos (PUT, POST) que podem funcionar
+          useApiEndpoints = true;
         }
       } catch (error) {
-        console.warn('Novos endpoints não disponíveis, usando método tradicional');
+        console.warn('⚠️ [SaveQuickEdit] Erro ao verificar endpoints de subcategorias:', error);
+        // Mesmo com erro na verificação, tentar usar os endpoints específicos
+        useApiEndpoints = true;
       }
 
       if (useApiEndpoints) {
@@ -970,8 +1121,12 @@ export default function CardapioAdminPage() {
 
         for (const subCategory of validSubCategories) {
           if (!subCategory.id.toString().includes('temp-')) {
+            // Buscar itens que têm essa subcategoria (verificando ambos os campos)
             const itemsWithThisSubCategory = itemsToUpdate.filter(
-              (item) => item.subCategoryName === subCategory.originalName,
+              (item: any) => {
+                const itemSubCategory = item.subCategoryName || item.subCategory;
+                return itemSubCategory === subCategory.originalName;
+              },
             );
 
             for (const item of itemsWithThisSubCategory) {
@@ -983,6 +1138,7 @@ export default function CardapioAdminPage() {
                     body: JSON.stringify({
                       ...item,
                       subCategory: subCategory.name,
+                      subCategoryName: subCategory.name, // Atualizar ambos os campos se existirem
                     }),
                   });
 
@@ -1041,7 +1197,10 @@ export default function CardapioAdminPage() {
               if (sub.name.trim() !== '') {
                 subcategoryGroups.set(sub.name, {
                   order: sub.order,
-                  items: itemsToUpdate.filter((item) => item.subCategoryName === sub.name),
+                  items: itemsToUpdate.filter((item: any) => {
+                    const itemSubCategory = item.subCategoryName || item.subCategory;
+                    return itemSubCategory === sub.name;
+                  }),
                 });
               }
             });
@@ -1106,8 +1265,21 @@ export default function CardapioAdminPage() {
 
       alert(message);
 
+      // Salvar os IDs antes de recarregar para reabrir o modal depois se necessário
+      const savedBarId = quickEditData.barId;
+      const savedCategoryId = quickEditData.categoryId;
+
+      // Recarregar dados do servidor
       await fetchData();
+      
+      // Aguardar um momento para garantir que os dados foram atualizados
+      await new Promise(resolve => setTimeout(resolve, 300));
+      
+      // Fechar o modal
       handleCloseQuickEditModal();
+      
+      // Nota: Quando o usuário reabrir o modal, a função handleOpenQuickEditModal
+      // irá buscar as subcategorias atualizadas automaticamente
     } catch (err) {
       console.error('Erro ao salvar edição rápida:', err);
       alert(`Erro ao salvar alterações: ${err instanceof Error ? err.message : 'Erro desconhecido'}`);
