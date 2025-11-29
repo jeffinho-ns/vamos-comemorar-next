@@ -932,24 +932,24 @@ export default function EventoCheckInsPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
         {/* Header */}
-        <div className="bg-gradient-to-r from-green-600 to-green-700 text-white p-6 shadow-lg">
+        <div className="bg-gradient-to-r from-green-600 to-green-700 text-white p-4 md:p-6 shadow-lg">
           <div className="max-w-7xl mx-auto">
-            <div className="flex items-center gap-4 mb-4">
+            <div className="flex items-center gap-2 md:gap-4 mb-3 md:mb-4">
               <button
                 onClick={() => router.back()}
-                className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+                className="p-2 hover:bg-white/10 rounded-lg transition-colors flex-shrink-0"
               >
-                <MdArrowBack size={24} />
+                <MdArrowBack size={20} className="md:w-6 md:h-6" />
               </button>
-              <div className="flex-1">
-                <h1 className="text-3xl font-bold flex items-center gap-3">
-                  <MdCheckCircle size={36} />
-                  Check-ins do Evento
+              <div className="flex-1 min-w-0">
+                <h1 className="text-xl md:text-3xl font-bold flex items-center gap-2 md:gap-3">
+                  <MdCheckCircle size={24} className="md:w-9 md:h-9" />
+                  <span className="truncate">Check-ins do Evento</span>
                 </h1>
                 {evento && (
                   <div className="mt-2 text-green-100 space-y-1">
-                    <p className="text-lg font-semibold">{evento.nome}</p>
-                    <div className="flex items-center gap-4 text-sm">
+                    <p className="text-base md:text-lg font-semibold truncate">{evento.nome}</p>
+                    <div className="flex flex-wrap items-center gap-2 md:gap-4 text-xs md:text-sm">
                     <span>📅 {(() => {
                       const raw = evento.data_evento || '';
                       const datePart = raw.split('T')[0].split(' ')[0];
@@ -961,7 +961,7 @@ export default function EventoCheckInsPage() {
                       return isNaN(d2.getTime()) ? 'Data inválida' : d2.toLocaleDateString('pt-BR');
                     })()}</span>
                       <span>🕐 {evento.horario}</span>
-                      <span>🏢 {evento.establishment_name}</span>
+                      <span className="truncate">🏢 {evento.establishment_name}</span>
                     </div>
                   </div>
                 )}
@@ -972,25 +972,25 @@ export default function EventoCheckInsPage() {
 
         {/* Barra de filtros */}
         <div className="bg-white/5 backdrop-blur-sm border-b border-white/10 sticky top-0 z-30">
-          <div className="max-w-7xl mx-auto p-4">
-            <div className="flex flex-col md:flex-row gap-4 items-center">
+          <div className="max-w-7xl mx-auto p-3 md:p-4">
+            <div className="flex flex-col md:flex-row gap-3 md:gap-4 items-stretch md:items-center">
               {/* Busca */}
               <div className="flex-1 w-full">
                 <div className="relative">
-                  <MdSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
+                  <MdSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
                   <input
                     type="text"
-                    placeholder="Buscar por nome, telefone, responsável..."
+                    placeholder="Buscar por nome, telefone..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full pl-10 pr-10 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    className="w-full pl-9 md:pl-10 pr-9 md:pr-10 py-2.5 md:py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm md:text-base"
                   />
                   {searchTerm && (
                     <button
                       onClick={() => setSearchTerm('')}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white p-1"
                     >
-                      <MdClose size={20} />
+                      <MdClose size={18} />
                     </button>
                   )}
                 </div>
@@ -1000,18 +1000,18 @@ export default function EventoCheckInsPage() {
               <button
                 onClick={loadCheckInData}
                 disabled={loading}
-                className="flex items-center gap-2 px-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors disabled:opacity-50 font-semibold"
+                className="flex items-center justify-center gap-2 px-4 md:px-6 py-2.5 md:py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors disabled:opacity-50 font-semibold text-sm md:text-base"
               >
-                <MdRefresh className={loading ? 'animate-spin' : ''} size={20} />
-                Atualizar
+                <MdRefresh className={loading ? 'animate-spin' : ''} size={18} />
+                <span>Atualizar</span>
               </button>
             </div>
 
             {/* Tabs */}
-            <div className="flex gap-2 mt-4 overflow-x-auto">
+            <div className="flex gap-2 mt-3 md:mt-4 overflow-x-auto pb-2 -mb-2 scrollbar-hide">
               <button
                 onClick={() => setSelectedTab('todos')}
-                className={`px-4 py-2 rounded-lg font-semibold transition-colors whitespace-nowrap ${
+                className={`px-3 md:px-4 py-2 rounded-lg font-semibold transition-colors whitespace-nowrap text-sm md:text-base ${
                   selectedTab === 'todos'
                     ? 'bg-green-600 text-white'
                     : 'bg-white/10 text-gray-300 hover:bg-white/20'
@@ -1021,7 +1021,7 @@ export default function EventoCheckInsPage() {
               </button>
               <button
                 onClick={() => setSelectedTab('reservas')}
-                className={`px-4 py-2 rounded-lg font-semibold transition-colors whitespace-nowrap ${
+                className={`px-3 md:px-4 py-2 rounded-lg font-semibold transition-colors whitespace-nowrap text-sm md:text-base ${
                   selectedTab === 'reservas'
                     ? 'bg-blue-600 text-white'
                     : 'bg-white/10 text-gray-300 hover:bg-white/20'
@@ -1031,7 +1031,7 @@ export default function EventoCheckInsPage() {
               </button>
               <button
                 onClick={() => setSelectedTab('promoters')}
-                className={`px-4 py-2 rounded-lg font-semibold transition-colors whitespace-nowrap ${
+                className={`px-3 md:px-4 py-2 rounded-lg font-semibold transition-colors whitespace-nowrap text-sm md:text-base ${
                   selectedTab === 'promoters'
                     ? 'bg-purple-600 text-white'
                     : 'bg-white/10 text-gray-300 hover:bg-white/20'
@@ -1041,7 +1041,7 @@ export default function EventoCheckInsPage() {
               </button>
               <button
                 onClick={() => setSelectedTab('camarotes')}
-                className={`px-4 py-2 rounded-lg font-semibold transition-colors whitespace-nowrap ${
+                className={`px-3 md:px-4 py-2 rounded-lg font-semibold transition-colors whitespace-nowrap text-sm md:text-base ${
                   selectedTab === 'camarotes'
                     ? 'bg-orange-600 text-white'
                     : 'bg-white/10 text-gray-300 hover:bg-white/20'
@@ -1054,8 +1054,8 @@ export default function EventoCheckInsPage() {
         </div>
 
         {/* Estatísticas */}
-        <div className="max-w-7xl mx-auto p-4">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        <div className="max-w-7xl mx-auto p-3 md:p-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-4 md:mb-6">
             <div className="bg-white/10 backdrop-blur-sm rounded-lg shadow p-4 border border-white/20">
               <div className="text-sm text-gray-300 mb-1">Total Geral</div>
               <div className="text-2xl font-bold text-white">
@@ -1099,39 +1099,39 @@ export default function EventoCheckInsPage() {
             <div className="space-y-6">
               {/* Reservas de Mesa */}
               {(selectedTab === 'todos' || selectedTab === 'reservas') && reservasMesa.length > 0 && (
-                <section className="bg-white/10 backdrop-blur-sm rounded-lg shadow-sm p-6 border border-white/20">
-                  <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-                    <MdTableBar size={24} className="text-blue-400" />
-                    Reservas de Mesa ({reservasMesa.length})
+                <section className="bg-white/10 backdrop-blur-sm rounded-lg shadow-sm p-4 md:p-6 border border-white/20">
+                  <h2 className="text-lg md:text-xl font-bold text-white mb-3 md:mb-4 flex items-center gap-2">
+                    <MdTableBar size={20} className="md:w-6 md:h-6 text-blue-400" />
+                    <span className="truncate">Reservas de Mesa ({reservasMesa.length})</span>
                   </h2>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-3 md:gap-4">
                     {reservasMesa.map((reserva) => (
-                      <motion.div
-                        key={reserva.id}
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className={`border rounded-lg p-4 ${
-                          reserva.convidados_checkin > 0
-                            ? 'bg-blue-900/20 border-blue-500/40'
-                            : 'bg-white/5 border-white/20 hover:border-blue-400/50'
-                        }`}
-                      >
-                        <div className="flex items-start justify-between mb-3">
-                          <div>
-                            <h3 className="font-bold text-lg text-white">{reserva.responsavel}</h3>
-                            <div className="text-sm text-gray-300 space-y-1 mt-1">
-                              <div className="text-xs text-gray-400">Origem: {reserva.origem || '—'}</div>
+                        <motion.div
+                          key={reserva.id}
+                          initial={{ opacity: 0, y: 20 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          className={`border rounded-lg p-3 ${
+                            reserva.convidados_checkin > 0
+                              ? 'bg-blue-900/20 border-blue-500/40'
+                              : 'bg-white/5 border-white/20 hover:border-blue-400/50'
+                          }`}
+                        >
+                        <div className="flex items-start justify-between mb-2">
+                          <div className="flex-1 min-w-0">
+                            <h3 className="font-bold text-base text-white truncate">{reserva.responsavel}</h3>
+                            <div className="text-xs text-gray-300 space-y-0.5 mt-1">
+                              <div className="text-xs text-gray-400 truncate">Origem: {reserva.origem || '—'}</div>
                               <div className="flex items-center gap-1">
-                                <MdAccessTime size={14} />
-                                {reserva.data_reserva || '—'}
+                                <MdAccessTime size={12} />
+                                <span className="text-xs">{reserva.data_reserva || '—'}</span>
                               </div>
                               <div className="flex items-center gap-1">
-                                <MdPerson size={14} />
-                                {reserva.quantidade_convidados ?? reserva.total_convidados ?? 0} pessoas
+                                <MdPerson size={12} />
+                                <span className="text-xs">{reserva.quantidade_convidados ?? reserva.total_convidados ?? 0} pessoas</span>
                               </div>
                               {typeof reserva.total_convidados === 'number' && (
                                 <div className="text-xs text-gray-400">
-                                  {reserva.convidados_checkin || 0}/{reserva.total_convidados} convidados presentes
+                                  {reserva.convidados_checkin || 0}/{reserva.total_convidados} presentes
                                 </div>
                               )}
                             </div>
@@ -1145,63 +1145,63 @@ export default function EventoCheckInsPage() {
 
               {/* Convidados de Reservas */}
               {(selectedTab === 'todos' || selectedTab === 'reservas') && (
-                <section className="bg-white/10 backdrop-blur-sm rounded-lg shadow-sm p-6 border border-white/20">
-                  <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-                    <MdGroups size={24} className="text-blue-400" />
-                    Convidados de Reservas ({filteredConvidadosReservas.length})
+                <section className="bg-white/10 backdrop-blur-sm rounded-lg shadow-sm p-4 md:p-6 border border-white/20">
+                  <h2 className="text-lg md:text-xl font-bold text-white mb-3 md:mb-4 flex items-center gap-2">
+                    <MdGroups size={20} className="md:w-6 md:h-6 text-blue-400" />
+                    <span className="truncate">Convidados de Reservas ({filteredConvidadosReservas.length})</span>
                   </h2>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-3 md:gap-4">
                     {filteredConvidadosReservas.map(convidado => (
                       <motion.div
                         key={convidado.id}
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
-                        className={`border rounded-lg p-4 ${
+                        className={`border rounded-lg p-3 ${
                           convidado.status === 'CHECK-IN'
                             ? 'bg-green-900/30 border-green-500/50'
                             : 'bg-white/5 border-white/20 hover:border-blue-400/50'
                         }`}
                       >
-                        <div className="flex items-start justify-between mb-3">
-                          <div className="flex-1">
-                            <h3 className="font-bold text-lg text-white">{convidado.nome}</h3>
-                            <div className="text-sm text-gray-300 space-y-1 mt-1">
-                              <div className="text-xs text-gray-400">Lista: {convidado.origem}</div>
-                              <div>Responsável: {convidado.responsavel}</div>
+                        <div className="flex items-start justify-between mb-2">
+                          <div className="flex-1 min-w-0">
+                            <h3 className="font-bold text-base text-white truncate">{convidado.nome}</h3>
+                            <div className="text-xs text-gray-300 space-y-0.5 mt-1">
+                              <div className="text-xs text-gray-400 truncate">Lista: {convidado.origem}</div>
+                              <div className="truncate">Responsável: {convidado.responsavel}</div>
                               {convidado.email && (
-                                <div className="flex items-center gap-1">
-                                  <MdEmail size={14} />
-                                  {convidado.email}
+                                <div className="flex items-center gap-1 truncate">
+                                  <MdEmail size={12} />
+                                  <span className="truncate text-xs">{convidado.email}</span>
                                 </div>
                               )}
                               {convidado.documento && (
-                                <div className="flex items-center gap-1">
-                                  <MdVpnKey size={14} />
-                                  {convidado.documento}
+                                <div className="flex items-center gap-1 truncate">
+                                  <MdVpnKey size={12} />
+                                  <span className="truncate text-xs">{convidado.documento}</span>
                                 </div>
                               )}
                             </div>
                           </div>
                           {convidado.status === 'CHECK-IN' && (
-                            <MdCheckCircle size={32} className="text-green-400" />
+                            <MdCheckCircle size={24} className="text-green-400 flex-shrink-0 ml-2" />
                           )}
                         </div>
 
                         {convidado.status !== 'CHECK-IN' ? (
                           <button
                             onClick={() => handleConvidadoReservaCheckIn(convidado)}
-                            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-lg transition-colors flex items-center justify-center gap-2"
+                            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 rounded-lg transition-colors flex items-center justify-center gap-1.5 text-sm touch-manipulation"
                           >
-                            <MdCheckCircle size={20} />
-                            Fazer Check-in
+                            <MdCheckCircle size={16} />
+                            Check-in
                           </button>
                         ) : (
                           <div className="text-center space-y-1">
-                            <div className="text-sm text-green-400 font-medium">
-                              ✅ Check-in feito às {convidado.data_checkin ? new Date(convidado.data_checkin).toLocaleTimeString('pt-BR') : ''}
+                            <div className="text-xs text-green-400 font-medium">
+                              ✅ {convidado.data_checkin ? new Date(convidado.data_checkin).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : ''}
                             </div>
                             {convidado.entrada_tipo && (
-                              <div className={`text-xs px-2 py-1 rounded-full inline-block font-semibold ${
+                              <div className={`text-xs px-2 py-0.5 rounded-full inline-block font-medium ${
                                 convidado.entrada_tipo === 'VIP' 
                                   ? 'bg-green-100 text-green-700' 
                                   : convidado.entrada_tipo === 'SECO'
@@ -1213,7 +1213,7 @@ export default function EventoCheckInsPage() {
                                   const valor = typeof convidado.entrada_valor === 'number' 
                                     ? convidado.entrada_valor 
                                     : parseFloat(String(convidado.entrada_valor));
-                                  return !isNaN(valor) ? ` - R$ ${valor.toFixed(2)}` : '';
+                                  return !isNaN(valor) ? ` R$ ${valor.toFixed(2)}` : '';
                                 })()}
                               </div>
                             )}
@@ -1232,13 +1232,13 @@ export default function EventoCheckInsPage() {
 
               {/* Guest Lists de Reservas de Restaurante (Sistema de Reservas) */}
             {(selectedTab === 'todos' || selectedTab === 'reservas') && (
-                <section className="bg-white/10 backdrop-blur-sm rounded-lg shadow-sm p-6 border border-white/20">
-                  <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-                    <MdRestaurant size={24} className="text-green-400" />
-                    Lista de Convidados - Reservas Aniversário ({guestListsRestaurante.length})
+                <section className="bg-white/10 backdrop-blur-sm rounded-lg shadow-sm p-4 md:p-6 border border-white/20">
+                  <h2 className="text-lg md:text-xl font-bold text-white mb-3 md:mb-4 flex items-center gap-2">
+                    <MdRestaurant size={20} className="md:w-6 md:h-6 text-green-400" />
+                    <span className="truncate">Lista de Convidados - Reservas Aniversário ({guestListsRestaurante.length})</span>
                   </h2>
                   
-                  <div className="space-y-3">
+                  <div className="space-y-2 md:space-y-3">
                     {guestListsRestaurante.length === 0 ? (
                       <div className="text-center py-8 text-gray-400">
                         Nenhuma lista de convidados encontrada para este evento.
@@ -1252,7 +1252,7 @@ export default function EventoCheckInsPage() {
                         const listUrl = `https://agilizaiapp.com.br/lista/${gl.shareable_link_token}`;
                         
                         return (
-                          <div key={gl.guest_list_id} className="border rounded-lg border-white/20 bg-white/5">
+                          <div key={gl.guest_list_id} className="border rounded-lg border-white/20 bg-white/5 overflow-hidden">
                             <div
                               onClick={async () => {
                                 const willExpand = expandedGuestListId !== gl.guest_list_id;
@@ -1348,12 +1348,12 @@ export default function EventoCheckInsPage() {
                                   }
                                 }
                               }}
-                              className="w-full text-left px-4 py-3 bg-white/5 hover:bg-white/10 flex items-center justify-between cursor-pointer"
+                              className="w-full text-left px-3 md:px-4 py-2.5 md:py-3 bg-white/5 hover:bg-white/10 flex items-center justify-between cursor-pointer"
                             >
-                              <div className="flex-1">
-                                <div className="flex items-center gap-2">
-                                  <span className="font-semibold text-white">{gl.owner_name}</span>
-                                  <span className={`text-xs px-2 py-0.5 rounded-full ${
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className="font-semibold text-white text-sm md:text-base truncate">{gl.owner_name}</span>
+                                  <span className={`text-xs px-2 py-0.5 rounded-full flex-shrink-0 ${
                                     gl.reservation_type === 'large' 
                                       ? 'bg-orange-100 text-orange-700' 
                                       : 'bg-blue-100 text-blue-700'
@@ -1361,15 +1361,15 @@ export default function EventoCheckInsPage() {
                                     Reserva Normal
                                   </span>
                                 </div>
-                                <div className="mt-1 flex flex-wrap items-center justify-between gap-2">
-                                  <div className="text-sm text-gray-300">
+                                <div className="mt-1 flex flex-col md:flex-row md:items-center md:justify-between gap-1 md:gap-2">
+                                  <div className="text-xs md:text-sm text-gray-300">
                                     {gl.reservation_date ? new Date(gl.reservation_date + 'T12:00:00').toLocaleDateString('pt-BR') : 'Data não informada'} 
                                     {gl.event_type ? ` • ${gl.event_type}` : ''} • {gl.reservation_time}
                                   </div>
                                   <div
-                                    className="ml-auto rounded-full bg-white/10 px-3 py-1 text-sm sm:text-base font-semibold text-amber-200"
+                                    className="rounded-full bg-white/10 px-2 md:px-3 py-1 text-xs md:text-sm font-semibold text-amber-200"
                                   >
-                                    Mesa reservada: <span className="text-white">
+                                    Mesa: <span className="text-white">
                                       {gl.table_number ? `Mesa ${gl.table_number}` : gl.area_name || '—'}
                                     </span>
                                   </div>
@@ -1383,7 +1383,7 @@ export default function EventoCheckInsPage() {
                                         e.stopPropagation();
                                         handleOwnerCheckIn(gl.guest_list_id, gl.owner_name);
                                       }}
-                                      className={`px-3 py-1 text-xs rounded-full transition-colors font-medium ${
+                                      className={`px-2 md:px-3 py-1 text-xs rounded-full transition-colors font-medium touch-manipulation ${
                                         checkInStatus[gl.guest_list_id]?.ownerCheckedIn || gl.owner_checked_in === 1
                                           ? 'bg-green-100 text-green-700 border border-green-300'
                                           : 'bg-blue-100 text-blue-700 hover:bg-blue-200 border border-blue-300'
@@ -1457,13 +1457,13 @@ export default function EventoCheckInsPage() {
                                   })()}
                                 </div>
                               </div>
-                              <span className={`text-xs px-2 py-1 rounded ${gl.is_valid === 1 ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>
+                              <span className={`text-xs px-2 py-1 rounded flex-shrink-0 ${gl.is_valid === 1 ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>
                                 {gl.is_valid === 1 ? 'Ativo' : 'Expirado'}
                               </span>
                             </div>
 
                             {expandedGuestListId === gl.guest_list_id && (
-                              <div className="p-4 space-y-3 bg-white/5">
+                              <div className="p-3 md:p-4 space-y-2 md:space-y-3 bg-white/5">
                                 {/* Resumo de presença */}
                                 <div className="bg-white/10 rounded-lg p-3">
                                   <div className="flex items-center justify-between text-sm">
@@ -1490,113 +1490,212 @@ export default function EventoCheckInsPage() {
                                     value={guestSearch[gl.guest_list_id] || ''}
                                     onChange={(e) => setGuestSearch(prev => ({ ...prev, [gl.guest_list_id]: e.target.value }))}
                                     placeholder="Buscar convidado por nome ou WhatsApp..."
-                                    className="w-full px-3 py-2 rounded bg-white/10 border border-white/20 text-white placeholder-gray-400 focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                                    className="w-full px-3 py-2.5 md:py-2 rounded bg-white/10 border border-white/20 text-white placeholder-gray-400 focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm md:text-base"
                                   />
                                 </div>
 
                                 {/* Lista de convidados */}
                                 <div className="border rounded border-white/20 bg-white/5">
-                                  <table className="min-w-full divide-y divide-white/20">
-                                    <thead className="bg-white/10">
-                                      <tr>
-                                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Nome</th>
-                                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">WhatsApp</th>
-                                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Status</th>
-                                        <th className="px-4 py-2 text-right text-xs font-medium text-gray-300 uppercase tracking-wider">Ação</th>
-                                      </tr>
-                                    </thead>
-                                    <tbody className="bg-white/5 divide-y divide-white/10">
-                                      {(() => {
-                                        const guests = guestsByList[gl.guest_list_id] || [];
-                                        const filteredGuests = guests.filter((g) => {
-                                          const q = (guestSearch[gl.guest_list_id] || '').toLowerCase();
-                                          if (!q) return true;
-                                          return (
-                                            g.name.toLowerCase().includes(q) ||
-                                            (g.whatsapp || '').toLowerCase().includes(q)
-                                          );
-                                        });
-                                        
-                                        if (filteredGuests.length === 0 && guests.length > 0) {
-                                          return (
-                                            <tr>
-                                              <td className="px-4 py-4 text-sm text-gray-400 text-center" colSpan={4}>
-                                                Nenhum convidado encontrado com a busca.
-                                              </td>
-                                            </tr>
-                                          );
-                                        }
-                                        
-                                        if (filteredGuests.length === 0) {
-                                          return (
-                                            <tr>
-                                              <td className="px-4 py-4 text-sm text-gray-400 text-center" colSpan={4}>
-                                                {guests.length === 0 ? (
-                                                  <div>
-                                                    <div>Nenhum convidado cadastrado nesta lista.</div>
-                                                    <div className="text-xs mt-1 text-gray-500">
-                                                      Total esperado: {gl.total_guests || 0} convidados
+                                  {/* Desktop: Tabela */}
+                                  <div className="hidden md:block overflow-x-auto">
+                                    <table className="min-w-full divide-y divide-white/20">
+                                      <thead className="bg-white/10">
+                                        <tr>
+                                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Nome</th>
+                                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">WhatsApp</th>
+                                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Status</th>
+                                          <th className="px-4 py-2 text-right text-xs font-medium text-gray-300 uppercase tracking-wider">Ação</th>
+                                        </tr>
+                                      </thead>
+                                      <tbody className="bg-white/5 divide-y divide-white/10">
+                                        {(() => {
+                                          const guests = guestsByList[gl.guest_list_id] || [];
+                                          const filteredGuests = guests.filter((g) => {
+                                            const q = (guestSearch[gl.guest_list_id] || '').toLowerCase();
+                                            if (!q) return true;
+                                            return (
+                                              g.name.toLowerCase().includes(q) ||
+                                              (g.whatsapp || '').toLowerCase().includes(q)
+                                            );
+                                          });
+                                          
+                                          if (filteredGuests.length === 0 && guests.length > 0) {
+                                            return (
+                                              <tr>
+                                                <td className="px-4 py-4 text-sm text-gray-400 text-center" colSpan={4}>
+                                                  Nenhum convidado encontrado com a busca.
+                                                </td>
+                                              </tr>
+                                            );
+                                          }
+                                          
+                                          if (filteredGuests.length === 0) {
+                                            return (
+                                              <tr>
+                                                <td className="px-4 py-4 text-sm text-gray-400 text-center" colSpan={4}>
+                                                  {guests.length === 0 ? (
+                                                    <div>
+                                                      <div>Nenhum convidado cadastrado nesta lista.</div>
+                                                      <div className="text-xs mt-1 text-gray-500">
+                                                        Total esperado: {gl.total_guests || 0} convidados
+                                                      </div>
                                                     </div>
-                                                  </div>
-                                                ) : 'Carregando convidados...'}
-                                              </td>
-                                            </tr>
-                                          );
-                                        }
-                                        
-                                        return filteredGuests.map((g) => {
-                                          const isCheckedIn = g.checked_in === 1 || g.checked_in === true;
-                                          return (
-                                            <tr key={g.id} className="hover:bg-white/10">
-                                              <td className="px-4 py-2 text-sm text-white">{g.name}</td>
-                                              <td className="px-4 py-2 text-sm text-gray-300">{g.whatsapp || '-'}</td>
-                                              <td className="px-4 py-2 text-sm">
-                                                <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                                                  isCheckedIn
-                                                    ? 'bg-green-100 text-green-700 border border-green-300'
-                                                    : 'bg-gray-100 text-gray-600 border border-gray-300'
-                                                }`}>
-                                                  {isCheckedIn ? '✅ Presente' : '⏳ Aguardando'}
-                                                </span>
-                                                {isCheckedIn && g.entrada_tipo && (
-                                                  <div className={`mt-1 text-xs px-2 py-0.5 rounded-full inline-block ${
-                                                    g.entrada_tipo === 'VIP'
-                                                      ? 'bg-green-100 text-green-700'
-                                                      : g.entrada_tipo === 'SECO'
-                                                      ? 'bg-blue-100 text-blue-700'
-                                                      : 'bg-purple-100 text-purple-700'
+                                                  ) : 'Carregando convidados...'}
+                                                </td>
+                                              </tr>
+                                            );
+                                          }
+                                          
+                                          return filteredGuests.map((g) => {
+                                            const isCheckedIn = g.checked_in === 1 || g.checked_in === true;
+                                            return (
+                                              <tr key={g.id} className="hover:bg-white/10">
+                                                <td className="px-4 py-2 text-sm text-white">{g.name}</td>
+                                                <td className="px-4 py-2 text-sm text-gray-300">{g.whatsapp || '-'}</td>
+                                                <td className="px-4 py-2 text-sm">
+                                                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                                    isCheckedIn
+                                                      ? 'bg-green-100 text-green-700 border border-green-300'
+                                                      : 'bg-gray-100 text-gray-600 border border-gray-300'
                                                   }`}>
-                                                    {g.entrada_tipo}
-                                                    {g.entrada_valor && (() => {
-                                                      const valor = typeof g.entrada_valor === 'number' 
-                                                        ? g.entrada_valor 
-                                                        : parseFloat(String(g.entrada_valor));
-                                                      return !isNaN(valor) ? ` - R$ ${valor.toFixed(2)}` : '';
-                                                    })()}
+                                                    {isCheckedIn ? '✅ Presente' : '⏳ Aguardando'}
+                                                  </span>
+                                                  {isCheckedIn && g.entrada_tipo && (
+                                                    <div className={`mt-1 text-xs px-2 py-0.5 rounded-full inline-block ${
+                                                      g.entrada_tipo === 'VIP'
+                                                        ? 'bg-green-100 text-green-700'
+                                                        : g.entrada_tipo === 'SECO'
+                                                        ? 'bg-blue-100 text-blue-700'
+                                                        : 'bg-purple-100 text-purple-700'
+                                                    }`}>
+                                                      {g.entrada_tipo}
+                                                      {g.entrada_valor && (() => {
+                                                        const valor = typeof g.entrada_valor === 'number' 
+                                                          ? g.entrada_valor 
+                                                          : parseFloat(String(g.entrada_valor));
+                                                        return !isNaN(valor) ? ` - R$ ${valor.toFixed(2)}` : '';
+                                                      })()}
+                                                    </div>
+                                                  )}
+                                                </td>
+                                                <td className="px-4 py-2 text-right">
+                                                  {!isCheckedIn && (
+                                                    <button
+                                                      type="button"
+                                                      onClick={(e) => {
+                                                        e.preventDefault();
+                                                        e.stopPropagation();
+                                                        handleGuestCheckIn(gl.guest_list_id, g.id, g.name);
+                                                      }}
+                                                      className="px-3 py-1 text-xs bg-green-600 hover:bg-green-700 text-white rounded border border-green-300"
+                                                    >
+                                                      📋 Check-in
+                                                    </button>
+                                                  )}
+                                                </td>
+                                              </tr>
+                                            );
+                                          });
+                                        })()}
+                                      </tbody>
+                                    </table>
+                                  </div>
+
+                                  {/* Mobile: Cards */}
+                                  <div className="md:hidden space-y-3 p-3">
+                                    {(() => {
+                                      const guests = guestsByList[gl.guest_list_id] || [];
+                                      const filteredGuests = guests.filter((g) => {
+                                        const q = (guestSearch[gl.guest_list_id] || '').toLowerCase();
+                                        if (!q) return true;
+                                        return (
+                                          g.name.toLowerCase().includes(q) ||
+                                          (g.whatsapp || '').toLowerCase().includes(q)
+                                        );
+                                      });
+                                      
+                                      if (filteredGuests.length === 0 && guests.length > 0) {
+                                        return (
+                                          <div className="text-center py-4 text-sm text-gray-400">
+                                            Nenhum convidado encontrado com a busca.
+                                          </div>
+                                        );
+                                      }
+                                      
+                                      if (filteredGuests.length === 0) {
+                                        return (
+                                          <div className="text-center py-4 text-sm text-gray-400">
+                                            {guests.length === 0 ? (
+                                              <div>
+                                                <div>Nenhum convidado cadastrado nesta lista.</div>
+                                                <div className="text-xs mt-1 text-gray-500">
+                                                  Total esperado: {gl.total_guests || 0} convidados
+                                                </div>
+                                              </div>
+                                            ) : 'Carregando convidados...'}
+                                          </div>
+                                        );
+                                      }
+                                      
+                                      return filteredGuests.map((g) => {
+                                        const isCheckedIn = g.checked_in === 1 || g.checked_in === true;
+                                        return (
+                                          <div key={g.id} className="bg-white/5 border border-white/20 rounded-lg p-3">
+                                            <div className="flex items-start justify-between mb-2">
+                                              <div className="flex-1 min-w-0">
+                                                <h4 className="font-semibold text-white text-base truncate">{g.name}</h4>
+                                                {g.whatsapp && (
+                                                  <div className="text-sm text-gray-300 mt-1 flex items-center gap-1">
+                                                    <MdPhone size={14} />
+                                                    <span className="truncate">{g.whatsapp}</span>
                                                   </div>
                                                 )}
-                                              </td>
-                                              <td className="px-4 py-2 text-right">
-                                                {!isCheckedIn && (
-                                                  <button
-                                                    type="button"
-                                                    onClick={(e) => {
-                                                      e.preventDefault();
-                                                      e.stopPropagation();
-                                                      handleGuestCheckIn(gl.guest_list_id, g.id, g.name);
-                                                    }}
-                                                    className="px-3 py-1 text-xs bg-green-600 hover:bg-green-700 text-white rounded border border-green-300"
-                                                  >
-                                                    📋 Check-in
-                                                  </button>
-                                                )}
-                                              </td>
-                                            </tr>
-                                          );
-                                        });
-                                      })()}
-                                    </tbody>
-                                  </table>
+                                              </div>
+                                            </div>
+                                            <div className="flex items-center justify-between gap-2">
+                                              <span className={`px-3 py-1.5 rounded-full text-xs font-medium ${
+                                                isCheckedIn
+                                                  ? 'bg-green-100 text-green-700 border border-green-300'
+                                                  : 'bg-gray-100 text-gray-600 border border-gray-300'
+                                              }`}>
+                                                {isCheckedIn ? '✅ Presente' : '⏳ Aguardando'}
+                                              </span>
+                                              {isCheckedIn && g.entrada_tipo && (
+                                                <div className={`text-xs px-2 py-1 rounded-full ${
+                                                  g.entrada_tipo === 'VIP'
+                                                    ? 'bg-green-100 text-green-700'
+                                                    : g.entrada_tipo === 'SECO'
+                                                    ? 'bg-blue-100 text-blue-700'
+                                                    : 'bg-purple-100 text-purple-700'
+                                                }`}>
+                                                  {g.entrada_tipo}
+                                                  {g.entrada_valor && (() => {
+                                                    const valor = typeof g.entrada_valor === 'number' 
+                                                      ? g.entrada_valor 
+                                                      : parseFloat(String(g.entrada_valor));
+                                                    return !isNaN(valor) ? ` R$ ${valor.toFixed(2)}` : '';
+                                                  })()}
+                                                </div>
+                                              )}
+                                            </div>
+                                            {!isCheckedIn && (
+                                              <button
+                                                type="button"
+                                                onClick={(e) => {
+                                                  e.preventDefault();
+                                                  e.stopPropagation();
+                                                  handleGuestCheckIn(gl.guest_list_id, g.id, g.name);
+                                                }}
+                                                className="w-full mt-2 px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg border border-green-300 font-medium text-xs touch-manipulation"
+                                              >
+                                                📋 Check-in
+                                              </button>
+                                            )}
+                                          </div>
+                                        );
+                                      });
+                                    })()}
+                                  </div>
                                 </div>
                               </div>
                             )}
@@ -1613,40 +1712,40 @@ export default function EventoCheckInsPage() {
                 <>
                   {/* Lista de Promoters */}
                   {filteredPromoters.length > 0 && (
-                    <section className="bg-white/10 backdrop-blur-sm rounded-lg shadow-sm p-6 border border-white/20">
-                      <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-                        <MdStar size={24} className="text-yellow-400" />
-                        Promoters ({filteredPromoters.length})
+                    <section className="bg-white/10 backdrop-blur-sm rounded-lg shadow-sm p-4 md:p-6 border border-white/20">
+                      <h2 className="text-lg md:text-xl font-bold text-white mb-3 md:mb-4 flex items-center gap-2">
+                        <MdStar size={20} className="md:w-6 md:h-6 text-yellow-400" />
+                        <span className="truncate">Promoters ({filteredPromoters.length})</span>
                       </h2>
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-3 md:gap-4">
                         {filteredPromoters.map(promoter => (
                           <motion.div
                             key={promoter.id}
                             initial={{ opacity: 0, y: 20 }}
                             animate={{ opacity: 1, y: 0 }}
-                            className="border rounded-lg p-4 bg-purple-900/20 border-purple-500/50"
+                            className="border rounded-lg p-3 bg-purple-900/20 border-purple-500/50"
                           >
-                            <div className="flex items-start justify-between mb-3">
-                              <div>
-                                <h3 className="font-bold text-lg text-white flex items-center gap-2">
-                                  {promoter.nome}
-                                  <MdStar size={20} className="text-yellow-400" />
+                            <div className="flex items-start justify-between mb-2">
+                              <div className="flex-1 min-w-0">
+                                <h3 className="font-bold text-base text-white flex items-center gap-1.5">
+                                  <span className="truncate">{promoter.nome}</span>
+                                  <MdStar size={16} className="text-yellow-400 flex-shrink-0" />
                                 </h3>
-                                <div className="text-sm text-gray-300 space-y-1 mt-1">
+                                <div className="text-xs text-gray-300 space-y-0.5 mt-1">
                                   {promoter.email && (
-                                    <div className="flex items-center gap-1">
-                                      <MdEmail size={14} />
-                                      {promoter.email}
+                                    <div className="flex items-center gap-1 truncate">
+                                      <MdEmail size={12} />
+                                      <span className="truncate">{promoter.email}</span>
                                     </div>
                                   )}
                                   {promoter.telefone && (
-                                    <div className="flex items-center gap-1">
-                                      <MdPhone size={14} />
-                                      {promoter.telefone}
+                                    <div className="flex items-center gap-1 truncate">
+                                      <MdPhone size={12} />
+                                      <span className="truncate">{promoter.telefone}</span>
                                     </div>
                                   )}
-                                  <div className="text-xs text-purple-300 mt-2">
-                                    {promoter.convidados_checkin}/{promoter.total_convidados} convidados presentes
+                                  <div className="text-xs text-purple-300 mt-1.5">
+                                    {promoter.convidados_checkin}/{promoter.total_convidados} presentes
                                   </div>
                                 </div>
                               </div>
@@ -1658,7 +1757,7 @@ export default function EventoCheckInsPage() {
                   )}
 
                   {/* Convidados dos Promoters */}
-                  <section className="bg-white/10 backdrop-blur-sm rounded-lg shadow-sm p-6 border border-white/20">
+                  <section className="bg-white/10 backdrop-blur-sm rounded-lg shadow-sm p-4 md:p-6 border border-white/20">
                     {(() => {
                       // Debug: verificar dados antes de renderizar
                       if (process.env.NODE_ENV === 'development') {
@@ -1670,10 +1769,10 @@ export default function EventoCheckInsPage() {
                       }
                       return null;
                     })()}
-                    <div className="flex items-center justify-between mb-4">
-                      <h2 className="text-xl font-bold text-white flex items-center gap-2">
-                        <MdEvent size={24} className="text-purple-400" />
-                        Convidados de Promoters ({filteredConvidadosPromoters.length})
+                    <div className="flex items-center justify-between mb-3 md:mb-4">
+                      <h2 className="text-lg md:text-xl font-bold text-white flex items-center gap-2 min-w-0">
+                        <MdEvent size={20} className="md:w-6 md:h-6 text-purple-400 flex-shrink-0" />
+                        <span className="truncate">Convidados de Promoters ({filteredConvidadosPromoters.length})</span>
                       </h2>
                       <div className="flex items-center gap-2">
                         <button
@@ -1702,9 +1801,9 @@ export default function EventoCheckInsPage() {
                     </div>
 
                     {/* Campo de busca específico para convidados de promoters */}
-                    <div className="mb-4">
+                      <div className="mb-4">
                       <div className="relative">
-                        <MdSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
+                        <MdSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
                         <input
                           type="text"
                           placeholder="Buscar convidado por nome..."
@@ -1717,7 +1816,7 @@ export default function EventoCheckInsPage() {
                               console.log('🔍 Busca alterada:', value, 'Total de convidados:', convidadosPromoters.length);
                             }
                           }}
-                          className="w-full pl-10 pr-10 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                          className="w-full pl-9 md:pl-10 pr-9 md:pr-10 py-2.5 md:py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm md:text-base"
                         />
                         {promoterGuestsSearch && (
                           <button
@@ -1727,9 +1826,9 @@ export default function EventoCheckInsPage() {
                                 console.log('🔍 Busca limpa');
                               }
                             }}
-                            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white p-1"
                           >
-                            <MdClose size={20} />
+                            <MdClose size={18} />
                           </button>
                         )}
                       </div>
@@ -1742,13 +1841,13 @@ export default function EventoCheckInsPage() {
 
                     {/* Visualização em Grade */}
                     {promoterGuestsViewMode === 'grid' && (
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-3 md:gap-4">
                         {filteredConvidadosPromoters.map(convidado => (
                           <motion.div
                             key={convidado.id}
                             initial={{ opacity: 0, y: 20 }}
                             animate={{ opacity: 1, y: 0 }}
-                            className={`border rounded-lg p-4 ${
+                            className={`border rounded-lg p-3 ${
                               convidado.status_checkin === 'Check-in'
                                 ? 'bg-green-900/30 border-green-500/50'
                                 : convidado.status_checkin === 'No-Show'
@@ -1756,53 +1855,53 @@ export default function EventoCheckInsPage() {
                                 : 'bg-white/5 border-white/20 hover:border-purple-400/50'
                             }`}
                           >
-                            <div className="flex items-start justify-between mb-3">
-                              <div className="flex-1">
-                                <div className="flex items-center gap-2">
-                                  <h3 className="font-bold text-lg text-white">{convidado.nome}</h3>
+                            <div className="flex items-start justify-between mb-2">
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-1.5">
+                                  <h3 className="font-bold text-base text-white truncate">{convidado.nome}</h3>
                                   {convidado.is_vip && (
-                                    <MdStar size={20} className="text-yellow-400" title="VIP" />
+                                    <MdStar size={16} className="text-yellow-400 flex-shrink-0" title="VIP" />
                                   )}
                                 </div>
-                                <div className="text-sm text-gray-300 space-y-1 mt-1">
-                                  <div className="text-xs text-gray-400">Lista: {convidado.origem}</div>
-                                  <div>Promoter: {convidado.responsavel}</div>
+                                <div className="text-xs text-gray-300 space-y-0.5 mt-1">
+                                  <div className="text-xs text-gray-400 truncate">Lista: {convidado.origem}</div>
+                                  <div className="truncate">Promoter: {convidado.responsavel}</div>
                                   {convidado.telefone && (
-                                    <div className="flex items-center gap-1">
-                                      <MdPhone size={14} />
-                                      {convidado.telefone}
+                                    <div className="flex items-center gap-1 truncate">
+                                      <MdPhone size={12} />
+                                      <span className="truncate text-xs">{convidado.telefone}</span>
                                     </div>
                                   )}
                                   {convidado.observacoes && (
                                     <div className="flex items-center gap-1">
-                                      <MdDescription size={14} />
-                                      <span className="text-xs">{convidado.observacoes}</span>
+                                      <MdDescription size={12} />
+                                      <span className="text-xs truncate">{convidado.observacoes}</span>
                                     </div>
                                   )}
                                 </div>
                               </div>
                               {convidado.status_checkin === 'Check-in' && (
-                                <MdCheckCircle size={32} className="text-green-400" />
+                                <MdCheckCircle size={24} className="text-green-400 flex-shrink-0 ml-2" />
                               )}
                             </div>
 
                             {convidado.status_checkin === 'Pendente' ? (
                               <button
                                 onClick={() => handleConvidadoPromoterCheckIn(convidado)}
-                                className="w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3 rounded-lg transition-colors flex items-center justify-center gap-2"
+                                className="w-full bg-purple-600 hover:bg-purple-700 text-white font-medium py-2 rounded-lg transition-colors flex items-center justify-center gap-1.5 text-sm touch-manipulation"
                               >
-                                <MdCheckCircle size={20} />
-                                Fazer Check-in
+                                <MdCheckCircle size={16} />
+                                Check-in
                               </button>
                             ) : convidado.status_checkin === 'Check-in' ? (
                               <div className="text-center space-y-1">
-                                <div className="text-sm text-green-400 font-medium">
-                                  ✅ Check-in feito às {convidado.data_checkin ? new Date(convidado.data_checkin).toLocaleTimeString('pt-BR') : ''}
+                                <div className="text-xs text-green-400 font-medium">
+                                  ✅ {convidado.data_checkin ? new Date(convidado.data_checkin).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : ''}
                                 </div>
                                 {convidado.entrada_tipo && (
-                                  <div className={`text-xs px-2 py-1 rounded-full inline-block font-semibold ${
-                                    convidado.entrada_tipo === 'VIP' 
-                                      ? 'bg-green-100 text-green-700' 
+                                  <div className={`text-xs px-2 py-0.5 rounded-full inline-block font-medium ${
+                                    convidado.entrada_tipo === 'VIP'
+                                      ? 'bg-green-100 text-green-700'
                                       : convidado.entrada_tipo === 'SECO'
                                       ? 'bg-blue-100 text-blue-700'
                                       : 'bg-purple-100 text-purple-700'
@@ -1812,7 +1911,7 @@ export default function EventoCheckInsPage() {
                                       const valor = typeof convidado.entrada_valor === 'number' 
                                         ? convidado.entrada_valor 
                                         : parseFloat(String(convidado.entrada_valor));
-                                      return !isNaN(valor) ? ` - R$ ${valor.toFixed(2)}` : '';
+                                      return !isNaN(valor) ? ` R$ ${valor.toFixed(2)}` : '';
                                     })()}
                                   </div>
                                 )}
@@ -1920,61 +2019,61 @@ export default function EventoCheckInsPage() {
 
               {/* Camarotes */}
               {(selectedTab === 'todos' || selectedTab === 'camarotes') && filteredCamarotes.length > 0 && (
-                <section className="bg-white/10 backdrop-blur-sm rounded-lg shadow-sm p-6 border border-white/20">
-                  <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-                    <MdTableBar size={24} className="text-orange-400" />
-                    Camarotes / Reservas Grandes ({filteredCamarotes.length})
+                <section className="bg-white/10 backdrop-blur-sm rounded-lg shadow-sm p-4 md:p-6 border border-white/20">
+                  <h2 className="text-lg md:text-xl font-bold text-white mb-3 md:mb-4 flex items-center gap-2">
+                    <MdTableBar size={20} className="md:w-6 md:h-6 text-orange-400" />
+                    <span className="truncate">Camarotes / Reservas Grandes ({filteredCamarotes.length})</span>
                   </h2>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-3 md:gap-4">
                     {filteredCamarotes.map(camarote => (
                       <motion.div
                         key={camarote.id}
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
-                        className={`border rounded-lg p-4 ${
+                        className={`border rounded-lg p-3 ${
                           camarote.checked_in
                             ? 'bg-green-900/30 border-green-500/50'
                             : 'bg-white/5 border-white/20 hover:border-orange-400/50'
                         }`}
                       >
-                        <div className="flex items-start justify-between mb-3">
-                          <div>
-                            <h3 className="font-bold text-lg text-white">{camarote.responsavel}</h3>
-                            <div className="text-sm text-gray-300 space-y-1 mt-1">
-                              <div className="text-xs bg-orange-800/30 text-orange-300 px-2 py-1 rounded inline-block">
+                        <div className="flex items-start justify-between mb-2">
+                          <div className="flex-1 min-w-0">
+                            <h3 className="font-bold text-base text-white truncate">{camarote.responsavel}</h3>
+                            <div className="text-xs text-gray-300 space-y-0.5 mt-1">
+                              <div className="text-xs bg-orange-800/30 text-orange-300 px-2 py-0.5 rounded inline-block">
                                 {camarote.origem}
                               </div>
                               <div className="flex items-center gap-1">
-                                <MdAccessTime size={14} />
-                                {camarote.reservation_time}
+                                <MdAccessTime size={12} />
+                                <span className="text-xs">{camarote.reservation_time}</span>
                               </div>
                               <div className="flex items-center gap-1">
-                                <MdPerson size={14} />
-                                {camarote.number_of_people} pessoas
+                                <MdPerson size={12} />
+                                <span className="text-xs">{camarote.number_of_people} pessoas</span>
                               </div>
                               {camarote.total_convidados > 0 && (
                                 <div className="text-xs text-gray-400">
-                                  {camarote.convidados_checkin}/{camarote.total_convidados} convidados presentes
+                                  {camarote.convidados_checkin}/{camarote.total_convidados} presentes
                                 </div>
                               )}
                             </div>
                           </div>
                           {camarote.checked_in && (
-                            <MdCheckCircle size={32} className="text-green-400" />
+                            <MdCheckCircle size={24} className="text-green-400 flex-shrink-0 ml-2" />
                           )}
                         </div>
 
                         {!camarote.checked_in ? (
                           <button
                             onClick={() => handleCamaroteCheckIn(camarote)}
-                            className="w-full bg-orange-600 hover:bg-orange-700 text-white font-semibold py-3 rounded-lg transition-colors flex items-center justify-center gap-2"
+                            className="w-full bg-orange-600 hover:bg-orange-700 text-white font-medium py-2 rounded-lg transition-colors flex items-center justify-center gap-1.5 text-sm touch-manipulation"
                           >
-                            <MdCheckCircle size={20} />
-                            Fazer Check-in
+                            <MdCheckCircle size={16} />
+                            Check-in
                           </button>
                         ) : (
-                          <div className="text-center text-sm text-green-400 font-medium">
-                            ✅ Check-in feito às {camarote.checkin_time ? new Date(camarote.checkin_time).toLocaleTimeString('pt-BR') : ''}
+                          <div className="text-center text-xs text-green-400 font-medium">
+                            ✅ {camarote.checkin_time ? new Date(camarote.checkin_time).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : ''}
                           </div>
                         )}
                       </motion.div>
