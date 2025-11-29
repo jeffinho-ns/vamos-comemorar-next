@@ -181,9 +181,24 @@ const getValidImageUrl = (filename?: string | null): string => {
     return PLACEHOLDER_IMAGE_URL;
   }
   
-  // Se já é uma URL completa, retornar como está
+  // Se já é uma URL completa, tratar URLs antigas de cardápio e, caso contrário, retornar como está
   if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
-    return trimmed;
+    try {
+      const url = new URL(trimmed);
+      // Se a URL aponta para algum host antigo mas o caminho contém /cardapio-agilizaiapp/,
+      // reescrevemos para o domínio atual usando apenas o nome do arquivo
+      if (url.pathname.includes('/cardapio-agilizaiapp/')) {
+        const parts = url.pathname.split('/');
+        const lastSegment = parts[parts.length - 1]?.trim();
+        if (lastSegment) {
+          return `${BASE_IMAGE_URL}${lastSegment}`;
+        }
+      }
+      // Caso contrário, mantemos a URL como está (ex.: Unsplash, outros domínios permitidos)
+      return trimmed;
+    } catch {
+      // Se der erro ao parsear, cai para a lógica de filename abaixo
+    }
   }
   
   // Sempre extrair apenas o nome do arquivo (último segmento), para evitar base duplicada
