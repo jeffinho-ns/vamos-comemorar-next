@@ -23,7 +23,8 @@ interface Bar {
 }
 
 const API_BASE_URL = 'https://vamos-comemorar-api.onrender.com/api/cardapio';
-const PLACEHOLDER_BAR_URL = 'https://images.unsplash.com/photo-1514933651103-005eec06c04b?w=800&h=400&fit=crop';
+// Placeholder local para evitar erros 404 externos e reduzir ruído no terminal
+const PLACEHOLDER_BAR_URL = '/placeholder-cardapio.svg';
 
 // Função auxiliar para construir URL completa da imagem
 const getValidImageUrl = (imageUrl?: string | null, coverImages?: string[]): string => {

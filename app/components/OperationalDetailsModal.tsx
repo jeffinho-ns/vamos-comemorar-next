@@ -12,7 +12,7 @@ import BarServiceOSForm from './BarServiceOSForm';
 
 const API_UPLOAD_URL = 'https://vamos-comemorar-api.onrender.com/api/images/upload';
 const BASE_IMAGE_URL = 'https://grupoideiaum.com.br/cardapio-agilizaiapp/';
-const PLACEHOLDER_IMAGE_URL = 'https://placehold.co/400x300';
+const PLACEHOLDER_IMAGE_URL = '/placeholder-cardapio.svg';
 
 const getValidImageUrl = (filename: string): string => {
   if (!filename || filename.trim() === '' || filename.startsWith('blob:')) {

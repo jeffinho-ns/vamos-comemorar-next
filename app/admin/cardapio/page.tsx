@@ -161,7 +161,8 @@ declare module 'react' {
 const API_BASE_URL = 'https://vamos-comemorar-api.onrender.com/api/cardapio';
 const API_UPLOAD_URL = 'https://vamos-comemorar-api.onrender.com/api/images/upload';
 
-const PLACEHOLDER_IMAGE_URL = 'https://placehold.co/400x300';
+// Placeholder local para todos os pontos do admin
+const PLACEHOLDER_IMAGE_URL = '/placeholder-cardapio.svg';
 const BASE_IMAGE_URL = 'https://grupoideiaum.com.br/cardapio-agilizaiapp/';
 
 // Constantes dos selos

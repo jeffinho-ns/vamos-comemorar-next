@@ -167,8 +167,9 @@ interface CardapioBarPageProps {
 
 const API_BASE_URL = 'https://vamos-comemorar-api.onrender.com/api/cardapio';
 const BASE_IMAGE_URL = 'https://grupoideiaum.com.br/cardapio-agilizaiapp/';
-const PLACEHOLDER_IMAGE_URL = 'https://images.unsplash.com/photo-1504674900240-9c9c0c1d0b1a?w=400&h=300&fit=crop';
-const PLACEHOLDER_LOGO_URL = 'https://via.placeholder.com/150';
+// Placeholders locais para evitar erros 404 externos
+const PLACEHOLDER_IMAGE_URL = '/placeholder-cardapio.svg';
+const PLACEHOLDER_LOGO_URL = '/placeholder-cardapio.svg';
 
 const getValidImageUrl = (filename?: string | null): string => {
   // Verificar se filename é válido
@@ -872,6 +873,12 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
     const itemRef = React.useRef<HTMLDivElement>(null);
     const hasTrackedView = React.useRef(false);
     const hasAnimated = React.useRef(false);
+    const [imageSrc, setImageSrc] = React.useState<string>(() => getValidImageUrl(item.imageUrl));
+
+    // Atualiza o src se o imageUrl do item mudar
+    React.useEffect(() => {
+      setImageSrc(getValidImageUrl(item.imageUrl));
+    }, [item.imageUrl, getValidImageUrl]);
     
     // Rastrear visualização quando o item aparece na tela
     React.useEffect(() => {
@@ -941,11 +948,17 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
           } ${isCleanStyle ? 'border-b border-[#e7d9c3]' : ''}`}
         >
           <Image
-            src={getValidImageUrl(item.imageUrl)}
+            src={imageSrc}
             alt={item.name}
             fill
             sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
             className={`object-cover ${isCleanStyle ? 'scale-[1.02]' : ''}`}
+            onError={() => {
+              // Se a imagem real falhar (404 no FTP ou URL inválida), garante fallback local
+              if (imageSrc !== PLACEHOLDER_IMAGE_URL) {
+                setImageSrc(PLACEHOLDER_IMAGE_URL);
+              }
+            }}
           />
         </div>
       
@@ -1756,6 +1769,12 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
                                   width={500}
                                   height={400}
                                   className="w-full h-auto object-cover rounded-lg shadow-lg"
+                                  onError={(e) => {
+                                    const target = e.currentTarget;
+                                    if (target.src !== window.location.origin + PLACEHOLDER_IMAGE_URL) {
+                                      target.src = PLACEHOLDER_IMAGE_URL;
+                                    }
+                                  }}
                               />
                               {isReservaRooftop && (
                                 <div className="absolute top-4 right-4 z-10">
