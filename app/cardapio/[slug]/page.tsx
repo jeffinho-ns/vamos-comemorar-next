@@ -172,29 +172,30 @@ const PLACEHOLDER_LOGO_URL = 'https://via.placeholder.com/150';
 
 const getValidImageUrl = (filename?: string | null): string => {
   // Verificar se filename é válido
-  if (!filename || typeof filename !== 'string' || filename.trim() === '' || filename === 'null' || filename === 'undefined') {
+  if (!filename || typeof filename !== 'string') {
+    return PLACEHOLDER_IMAGE_URL;
+  }
+
+  const trimmed = filename.trim();
+  if (trimmed === '' || trimmed === 'null' || trimmed === 'undefined') {
     return PLACEHOLDER_IMAGE_URL;
   }
   
   // Se já é uma URL completa, retornar como está
-  if (filename.startsWith('http://') || filename.startsWith('https://')) {
-    return filename;
+  if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+    return trimmed;
   }
   
-  // Remover barras iniciais se houver
-  const cleanFilename = filename.startsWith('/') ? filename.substring(1) : filename;
-  
-  // Construir URL completa
-  const fullUrl = `${BASE_IMAGE_URL}${cleanFilename}`;
-  
-  // Validar URL
-  try {
-    new URL(fullUrl);
-    return fullUrl;
-  } catch (e) {
-    console.warn('URL de imagem inválida:', filename, '-> usando placeholder');
+  // Sempre extrair apenas o nome do arquivo (último segmento), para evitar base duplicada
+  const withoutLeadingSlash = trimmed.startsWith('/') ? trimmed.substring(1) : trimmed;
+  const parts = withoutLeadingSlash.split('/');
+  const lastSegment = parts[parts.length - 1]?.trim();
+
+  if (!lastSegment) {
     return PLACEHOLDER_IMAGE_URL;
   }
+
+  return `${BASE_IMAGE_URL}${lastSegment}`;
 };
 
 const groupItemsBySubcategory = (items: MenuItem[]): { name: string; items: MenuItem[] }[] => {

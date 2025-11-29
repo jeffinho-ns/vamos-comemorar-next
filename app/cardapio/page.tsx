@@ -30,44 +30,56 @@ const getValidImageUrl = (imageUrl?: string | null, coverImages?: string[]): str
   const BASE_IMAGE_URL = 'https://grupoideiaum.com.br/cardapio-agilizaiapp/';
   
   // Primeiro, tenta usar a imagem principal
-  if (imageUrl && typeof imageUrl === 'string' && imageUrl.trim() !== '' && imageUrl !== 'null' && imageUrl !== 'undefined') {
-    // Verifica se já é uma URL absoluta
-    if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
-      return imageUrl;
-    }
-    
-    // Remover barras iniciais se houver
-    const cleanFilename = imageUrl.startsWith('/') ? imageUrl.substring(1) : imageUrl;
-    
-    // Se for apenas o nome do arquivo, constrói a URL completa
-    try {
-      const fullUrl = `${BASE_IMAGE_URL}${cleanFilename}`;
-      new URL(fullUrl); // Validar URL
-      return fullUrl;
-    } catch (e) {
-      console.warn('URL de imagem inválida:', imageUrl, '-> usando placeholder');
+  if (imageUrl && typeof imageUrl === 'string') {
+    const trimmed = imageUrl.trim();
+    if (trimmed !== '' && trimmed !== 'null' && trimmed !== 'undefined') {
+      // Verifica se já é uma URL absoluta
+      if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+        return trimmed;
+      }
+
+      // Extrair sempre apenas o nome do arquivo (último segmento) para evitar base duplicada
+      const withoutLeadingSlash = trimmed.startsWith('/') ? trimmed.substring(1) : trimmed;
+      const parts = withoutLeadingSlash.split('/');
+      const lastSegment = parts[parts.length - 1]?.trim();
+
+      if (lastSegment) {
+        try {
+          const fullUrl = `${BASE_IMAGE_URL}${lastSegment}`;
+          new URL(fullUrl); // Validar URL
+          return fullUrl;
+        } catch (e) {
+          console.warn('URL de imagem inválida:', imageUrl, '-> usando placeholder');
+        }
+      }
     }
   }
   
   // Se não tiver imagem principal, tenta usar a primeira imagem do array coverImages
   if (Array.isArray(coverImages) && coverImages.length > 0 && coverImages[0]) {
     const firstImage = coverImages[0];
-    if (typeof firstImage === 'string' && firstImage.trim() !== '' && firstImage !== 'null' && firstImage !== 'undefined') {
-      // Verifica se já é uma URL absoluta
-      if (firstImage.startsWith('http://') || firstImage.startsWith('https://')) {
-        return firstImage;
-      }
-      
-      // Remover barras iniciais se houver
-      const cleanFilename = firstImage.startsWith('/') ? firstImage.substring(1) : firstImage;
-      
-      // Se for apenas o nome do arquivo, constrói a URL completa
-      try {
-        const fullUrl = `${BASE_IMAGE_URL}${cleanFilename}`;
-        new URL(fullUrl); // Validar URL
-        return fullUrl;
-      } catch (e) {
-        console.warn('URL de imagem inválida:', firstImage, '-> usando placeholder');
+    if (typeof firstImage === 'string') {
+      const trimmed = firstImage.trim();
+      if (trimmed !== '' && trimmed !== 'null' && trimmed !== 'undefined') {
+        // Verifica se já é uma URL absoluta
+        if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+          return trimmed;
+        }
+        
+        // Extrair sempre apenas o nome do arquivo (último segmento) para evitar base duplicada
+        const withoutLeadingSlash = trimmed.startsWith('/') ? trimmed.substring(1) : trimmed;
+        const parts = withoutLeadingSlash.split('/');
+        const lastSegment = parts[parts.length - 1]?.trim();
+
+        if (lastSegment) {
+          try {
+            const fullUrl = `${BASE_IMAGE_URL}${lastSegment}`;
+            new URL(fullUrl); // Validar URL
+            return fullUrl;
+          } catch (e) {
+            console.warn('URL de imagem inválida:', firstImage, '-> usando placeholder');
+          }
+        }
       }
     }
   }
