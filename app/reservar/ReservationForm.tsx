@@ -169,6 +169,9 @@ export default function ReservationForm() {
   const [promoterEvents, setPromoterEvents] = useState<PromoterEvent[]>([]);
   const [promoterEventsLoading, setPromoterEventsLoading] = useState(false);
   const [promoterEventsError, setPromoterEventsError] = useState<string | null>(null);
+  const [establishmentEvents, setEstablishmentEvents] = useState<any[]>([]);
+  const [establishmentEventsLoading, setEstablishmentEventsLoading] = useState(false);
+  const [establishmentPromoterCode, setEstablishmentPromoterCode] = useState<string | null>(null);
 
   // Carregar estabelecimentos da API
   useEffect(() => {
@@ -596,6 +599,64 @@ export default function ReservationForm() {
     loadUpcomingEvents();
   }, []);
 
+  // Buscar eventos do estabelecimento e código do promoter
+  const loadEstablishmentEvents = async (establishmentId: number) => {
+    setEstablishmentEventsLoading(true);
+    setEstablishmentEvents([]);
+    setEstablishmentPromoterCode(null);
+    
+    try {
+      // Buscar eventos da API
+      const eventsResponse = await fetch(`${API_URL}/api/events?tipo=unico`);
+      if (eventsResponse.ok) {
+        const allEvents = await eventsResponse.json();
+        // Filtrar eventos do estabelecimento selecionado
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        
+        const filteredEvents = allEvents
+          .filter((event: any) => {
+            // Verificar se o evento pertence ao estabelecimento
+            const matchesEstablishment = event.id_place === establishmentId || 
+                                        (event.casa_do_evento && 
+                                         event.casa_do_evento.toLowerCase().includes(selectedEstablishment?.name.toLowerCase() || ''));
+            
+            if (matchesEstablishment && event.tipoEvento === 'unico') {
+              // Apenas eventos futuros ou sem data
+              if (!event.data_do_evento) return true;
+              const eventDate = new Date(event.data_do_evento);
+              eventDate.setHours(0, 0, 0, 0);
+              return eventDate >= today;
+            }
+            return false;
+          })
+          .sort((a: any, b: any) => {
+            if (!a.data_do_evento && !b.data_do_evento) return 0;
+            if (!a.data_do_evento) return 1;
+            if (!b.data_do_evento) return -1;
+            return new Date(a.data_do_evento).getTime() - new Date(b.data_do_evento).getTime();
+          })
+          .slice(0, 6);
+        
+        setEstablishmentEvents(filteredEvents);
+      }
+      
+      // Mapeamento conhecido de estabelecimentos para códigos de promoter
+      const establishmentPromoterMap: Record<number, string> = {
+        7: 'highlinepromo', // High Line
+        // Adicionar outros estabelecimentos conforme necessário
+      };
+      
+      if (establishmentPromoterMap[establishmentId]) {
+        setEstablishmentPromoterCode(establishmentPromoterMap[establishmentId]);
+      }
+    } catch (error) {
+      console.error('Erro ao buscar eventos do estabelecimento:', error);
+    } finally {
+      setEstablishmentEventsLoading(false);
+    }
+  };
+
   const handleEstablishmentSelect = (establishment: Establishment) => {
     setSelectedEstablishment(establishment);
     loadAreas(establishment.id);
@@ -607,6 +668,8 @@ export default function ReservationForm() {
       table_number: '',
     }));
     setStep('form');
+    // Buscar eventos e promoter do estabelecimento
+    loadEstablishmentEvents(establishment.id);
   };
 
   const validateForm = () => {
@@ -714,9 +777,11 @@ const handleSubmit = async (e: React.FormEvent) => {
     delete payload.table_number;
   }
 
-  // 4. Lógica para reservas grandes (acima de 3 pessoas)
-  const isLargeGroup = payload.number_of_people >= 4;
-  if (isLargeGroup) {
+  // 4. Lógica para reservas grandes (11+ pessoas vão para large-reservations, 4-10 vão para restaurant-reservations)
+  const isLargeGroup = payload.number_of_people >= 11; // CORRIGIDO: apenas 11+ pessoas vão para large-reservations
+  const isMediumGroup = payload.number_of_people >= 4 && payload.number_of_people < 11; // 4-10 pessoas
+  
+  if (isLargeGroup || isMediumGroup) {
     const reservationDate = new Date(`${reservationData.reservation_date}T00:00:00`);
     const dayOfWeek = reservationDate.getDay(); // Domingo = 0, Sexta = 5, Sábado = 6
     const isWeekend = dayOfWeek === 5 || dayOfWeek === 6; // Sexta ou Sábado
@@ -743,6 +808,7 @@ const handleSubmit = async (e: React.FormEvent) => {
 
   try {
     // 5. Determina o endpoint correto
+    // CORRIGIDO: apenas reservas com 11+ pessoas vão para large-reservations
     const endpoint = isLargeGroup
       ? `${API_URL}/api/large-reservations`
       : `${API_URL}/api/restaurant-reservations`;
@@ -951,7 +1017,7 @@ const handleSubmit = async (e: React.FormEvent) => {
   }, [establishments]);
 
   const upcomingEventsByEstablishment = useMemo(() => {
-    return Object.entries(upcomingEvents)
+    const eventsList = Object.entries(upcomingEvents)
       .map(([key, events]) => {
         const establishment = establishmentsMap.get(key);
         if (!establishment || !events || events.length === 0) {
@@ -966,7 +1032,29 @@ const handleSubmit = async (e: React.FormEvent) => {
       .sort((a, b) =>
         (a.events[0]?.event_date || '').localeCompare(b.events[0]?.event_date || '')
       );
-  }, [upcomingEvents, establishmentsMap]);
+    
+    // Se há um estabelecimento selecionado, filtrar apenas os eventos desse estabelecimento
+    // Caso contrário, mostrar todos os eventos
+    if (selectedEstablishment) {
+      const filtered = eventsList.filter(item => {
+        // Comparar tanto por ID quanto por nome (para garantir compatibilidade)
+        const matchesId = item.establishment.id === selectedEstablishment.id;
+        const matchesName = item.establishment.name.toLowerCase().includes(selectedEstablishment.name.toLowerCase()) ||
+                           selectedEstablishment.name.toLowerCase().includes(item.establishment.name.toLowerCase());
+        return matchesId || matchesName;
+      });
+      console.log('🔍 Eventos filtrados para estabelecimento selecionado:', {
+        selectedEstablishment: selectedEstablishment.name,
+        selectedId: selectedEstablishment.id,
+        totalEvents: eventsList.length,
+        filteredEvents: filtered.length,
+        filtered: filtered.map(f => ({ name: f.establishment.name, id: f.establishment.id, eventsCount: f.events.length }))
+      });
+      return filtered;
+    }
+    
+    return eventsList;
+  }, [upcomingEvents, establishmentsMap, selectedEstablishment]);
 
   const selectedEstablishmentEvents = useMemo(() => {
     if (!selectedEstablishment) return [] as OperationalDetail[];
@@ -1199,6 +1287,85 @@ const handleSubmit = async (e: React.FormEvent) => {
                 </p>
               </div>
             </div>
+
+            {/* Seção de eventos disponíveis - Mostrar para todos os estabelecimentos */}
+            {establishmentEventsLoading ? (
+              <div className="mb-6 flex items-center justify-center py-8">
+                <div className="text-center">
+                  <div className="w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
+                  <p className="text-gray-500 text-sm">Carregando eventos...</p>
+                </div>
+              </div>
+            ) : establishmentEvents.length > 0 && (
+              <div className="mb-6 rounded-2xl bg-gradient-to-br from-orange-50 via-white to-orange-50/30 border border-orange-200/50 p-6 shadow-lg">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h3 className="text-lg font-bold text-gray-800 mb-1">
+                      Eventos disponíveis nesta casa
+                    </h3>
+                    <p className="text-sm text-gray-600">
+                      Não quer reservar mesa? Coloque seu nome na lista do promoter!
+                    </p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {establishmentEvents.map((event) => (
+                    <div
+                      key={event.id}
+                      className="group relative overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm hover:shadow-md transition-all"
+                    >
+                      {event.imagem_do_evento_url && (
+                        <div className="relative h-32 overflow-hidden">
+                          <img
+                            src={event.imagem_do_evento_url}
+                            alt={event.nome_do_evento}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                          />
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+                        </div>
+                      )}
+                      <div className="p-4">
+                        <div className="flex items-center gap-2 text-xs font-semibold text-orange-600 mb-2">
+                          <MdEvent size={16} />
+                          <span>
+                            {event.data_do_evento 
+                              ? new Date(event.data_do_evento).toLocaleDateString('pt-BR', { 
+                                  day: '2-digit', 
+                                  month: 'short',
+                                  year: 'numeric'
+                                })
+                              : 'Data a definir'}
+                          </span>
+                        </div>
+                        <h4 className="text-base font-bold text-gray-900 mb-2 line-clamp-2">
+                          {event.nome_do_evento}
+                        </h4>
+                        {event.hora_do_evento && (
+                          <p className="text-xs text-gray-600 mb-3">
+                            {event.hora_do_evento}
+                          </p>
+                        )}
+                        {establishmentPromoterCode ? (
+                          <Link
+                            href={`/promoter/${establishmentPromoterCode}${event.id ? `?evento=${event.id}` : ''}`}
+                            className="inline-flex items-center justify-center w-full rounded-lg bg-orange-500 hover:bg-orange-600 text-white text-sm font-semibold px-4 py-2 transition-colors"
+                          >
+                            Entrar na lista
+                          </Link>
+                        ) : (
+                          <button
+                            disabled
+                            className="inline-flex items-center justify-center w-full rounded-lg bg-gray-300 text-gray-500 text-sm font-semibold px-4 py-2 cursor-not-allowed"
+                          >
+                            Lista não disponível
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {isHighline && (
               <div className="mb-10 overflow-hidden rounded-[28px] border border-white/10 bg-gradient-to-tr from-slate-900 via-indigo-900 to-slate-900 p-1">
