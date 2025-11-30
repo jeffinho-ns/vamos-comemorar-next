@@ -820,15 +820,13 @@ export default function EventoCheckInsPage() {
     );
   }, [convidadosReservas, searchTerm]);
 
-  // Filtrar convidados de promoters
-  // VALIDAÇÃO RIGOROSA: Garantir que apenas convidados de promoters sejam exibidos
-  // Usar apenas os dados que já foram validados ao carregar
+  // Filtrar convidados de promoters - agora também usa searchTerm principal
   const filteredConvidadosPromoters = useMemo(() => {
     // Primeiro, validar que são realmente convidados de promoters
     const validados = convidadosPromoters.filter(c => isValidPromoterGuest(c));
     
-    // Depois, aplicar filtro de busca
-    const searchText = promoterGuestsSearch.trim();
+    // Usar searchTerm principal se existir, senão usar promoterGuestsSearch
+    const searchText = searchTerm.trim() || promoterGuestsSearch.trim();
     if (!searchText) {
       return validados;
     }
@@ -846,32 +844,124 @@ export default function EventoCheckInsPage() {
                         responsavel.includes(searchLower) ||
                         origem.includes(searchLower);
       
-      // Debug temporário
-      if (process.env.NODE_ENV === 'development' && encontrado) {
-        console.log('✅ Match encontrado:', {
-          nome: c.nome,
-          busca: searchText,
-          matchNome: nome.includes(searchLower),
-          matchTelefone: telefone.includes(searchLower),
-          matchResponsavel: responsavel.includes(searchLower),
-          matchOrigem: origem.includes(searchLower)
-        });
-      }
-      
       return encontrado;
     });
     
-    if (process.env.NODE_ENV === 'development') {
-      console.log('🔍 Filtro aplicado:', {
-        busca: searchText,
-        totalAntes: validados.length,
-        totalDepois: filtrados.length,
-        primeirosNomes: filtrados.slice(0, 3).map(c => c.nome)
-      });
-    }
-    
     return filtrados;
-  }, [convidadosPromoters, promoterGuestsSearch]);
+  }, [convidadosPromoters, searchTerm, promoterGuestsSearch]);
+
+  const filteredConvidadosReservasRestaurante = convidadosReservasRestaurante.filter(c => 
+    filterBySearch(c.nome) || 
+    filterBySearch(c.telefone || '') || 
+    filterBySearch(c.responsavel) ||
+    filterBySearch(c.origem) ||
+    filterBySearch(c.data_nascimento || '')
+  );
+
+  // Resultados unificados de busca - todos os convidados encontrados
+  const resultadosBuscaUnificados = useMemo(() => {
+    if (!searchTerm.trim()) {
+      return [];
+    }
+
+    const resultados: Array<{
+      tipo: 'reserva' | 'promoter' | 'guest_list' | 'restaurante';
+      id: number;
+      nome: string;
+      origem: string;
+      responsavel: string;
+      status: string;
+      data_checkin?: string;
+      email?: string;
+      telefone?: string;
+      documento?: string;
+      entrada_tipo?: EntradaTipo;
+      entrada_valor?: number;
+      convidado?: ConvidadoReserva | ConvidadoPromoter | ConvidadoReservaRestaurante | GuestItem;
+      guestListId?: number;
+    }> = [];
+
+    // Adicionar convidados de reservas
+    filteredConvidadosReservas.forEach(c => {
+      resultados.push({
+        tipo: 'reserva',
+        id: c.id,
+        nome: c.nome,
+        origem: c.origem,
+        responsavel: c.responsavel,
+        status: c.status,
+        data_checkin: c.data_checkin,
+        email: c.email,
+        documento: c.documento,
+        entrada_tipo: c.entrada_tipo,
+        entrada_valor: c.entrada_valor,
+        convidado: c
+      });
+    });
+
+    // Adicionar convidados de promoters
+    filteredConvidadosPromoters.forEach(c => {
+      resultados.push({
+        tipo: 'promoter',
+        id: c.id,
+        nome: c.nome,
+        origem: c.origem || c.tipo_lista || 'Promoter',
+        responsavel: c.responsavel,
+        status: c.status_checkin,
+        data_checkin: c.data_checkin,
+        telefone: c.telefone,
+        entrada_tipo: c.entrada_tipo,
+        entrada_valor: c.entrada_valor,
+        convidado: c
+      });
+    });
+
+    // Adicionar convidados de reservas de restaurante
+    filteredConvidadosReservasRestaurante.forEach(c => {
+      resultados.push({
+        tipo: 'restaurante',
+        id: c.id,
+        nome: c.nome,
+        origem: c.origem,
+        responsavel: c.responsavel,
+        status: c.status_checkin === 1 || c.status_checkin === true ? 'CHECK-IN' : 'Pendente',
+        data_checkin: c.data_checkin,
+        telefone: c.telefone,
+        convidado: c
+      });
+    });
+
+    // Adicionar convidados de guest lists (listas de aniversário)
+    Object.entries(guestsByList).forEach(([listId, guests]) => {
+      const searchLower = searchTerm.toLowerCase();
+      guests.forEach(g => {
+        const nome = (g.name || '').toLowerCase();
+        const whatsapp = (g.whatsapp || '').toLowerCase();
+        
+        if (nome.includes(searchLower) || whatsapp.includes(searchLower)) {
+          // Encontrar a guest list correspondente
+          const guestList = guestListsRestaurante.find(gl => gl.guest_list_id === Number(listId));
+          
+          resultados.push({
+            tipo: 'guest_list',
+            id: g.id,
+            nome: g.name,
+            origem: guestList ? guestList.owner_name : 'Lista de Aniversário',
+            responsavel: guestList ? guestList.owner_name : 'Aniversário',
+            status: (g.checked_in === 1 || g.checked_in === true) ? 'CHECK-IN' : 'Pendente',
+            data_checkin: g.checkin_time,
+            telefone: g.whatsapp,
+            entrada_tipo: g.entrada_tipo,
+            entrada_valor: g.entrada_valor,
+            convidado: g,
+            guestListId: Number(listId)
+          });
+        }
+      });
+    });
+
+    return resultados;
+  }, [searchTerm, filteredConvidadosReservas, filteredConvidadosPromoters, filteredConvidadosReservasRestaurante, guestsByList, guestListsRestaurante]);
 
   const filteredCamarotes = camarotes.filter(c => 
     filterBySearch(c.responsavel) || 
@@ -881,14 +971,6 @@ export default function EventoCheckInsPage() {
   const filteredReservasRestaurante = reservasRestaurante.filter(r => 
     filterBySearch(r.responsavel) || 
     filterBySearch(r.origem)
-  );
-
-  const filteredConvidadosReservasRestaurante = convidadosReservasRestaurante.filter(c => 
-    filterBySearch(c.nome) || 
-    filterBySearch(c.telefone || '') || 
-    filterBySearch(c.responsavel) ||
-    filterBySearch(c.origem) ||
-    filterBySearch(c.data_nascimento || '')
   );
 
   const filteredPromoters = promoters.filter(p => 
@@ -1097,6 +1179,137 @@ export default function EventoCheckInsPage() {
 
           {!loading && (
             <div className="space-y-6">
+              {/* Resultados Unificados de Busca */}
+              {searchTerm.trim() && resultadosBuscaUnificados.length > 0 && (
+                <section className="bg-gradient-to-r from-blue-600/20 to-purple-600/20 backdrop-blur-sm rounded-lg shadow-sm p-4 md:p-6 border border-blue-500/50">
+                  <h2 className="text-lg md:text-xl font-bold text-white mb-3 md:mb-4 flex items-center gap-2">
+                    <MdSearch size={20} className="md:w-6 md:h-6 text-blue-400" />
+                    <span>Resultados da Busca: "{searchTerm}" ({resultadosBuscaUnificados.length} encontrado{resultadosBuscaUnificados.length !== 1 ? 's' : ''})</span>
+                  </h2>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-3 md:gap-4">
+                    {resultadosBuscaUnificados.map(resultado => {
+                      const isCheckedIn = resultado.status === 'CHECK-IN' || resultado.status === 'Check-in';
+                      const getBorderClass = () => {
+                        if (isCheckedIn) return 'bg-green-900/30 border-green-500/50';
+                        if (resultado.tipo === 'reserva') return 'bg-white/5 border-blue-500/30 hover:border-blue-400/50';
+                        if (resultado.tipo === 'promoter') return 'bg-white/5 border-purple-500/30 hover:border-purple-400/50';
+                        if (resultado.tipo === 'guest_list') return 'bg-white/5 border-green-500/30 hover:border-green-400/50';
+                        return 'bg-white/5 border-orange-500/30 hover:border-orange-400/50';
+                      };
+                      const getButtonClass = () => {
+                        if (resultado.tipo === 'reserva') return 'bg-blue-600 hover:bg-blue-700';
+                        if (resultado.tipo === 'promoter') return 'bg-purple-600 hover:bg-purple-700';
+                        if (resultado.tipo === 'guest_list') return 'bg-green-600 hover:bg-green-700';
+                        return 'bg-orange-600 hover:bg-orange-700';
+                      };
+                      
+                      return (
+                        <motion.div
+                          key={`${resultado.tipo}-${resultado.id}`}
+                          initial={{ opacity: 0, y: 20 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          className={`border rounded-lg p-3 ${getBorderClass()}`}
+                        >
+                          <div className="flex items-start justify-between mb-2">
+                            <div className="flex-1 min-w-0">
+                              <h3 className="font-bold text-base text-white truncate">{resultado.nome}</h3>
+                              <div className="text-xs text-gray-300 space-y-0.5 mt-1">
+                                <div className={`text-xs px-2 py-0.5 rounded-full inline-block font-medium ${
+                                  resultado.tipo === 'reserva' 
+                                    ? 'bg-blue-100 text-blue-700'
+                                    : resultado.tipo === 'promoter'
+                                    ? 'bg-purple-100 text-purple-700'
+                                    : resultado.tipo === 'guest_list'
+                                    ? 'bg-green-100 text-green-700'
+                                    : 'bg-orange-100 text-orange-700'
+                                }`}>
+                                  {resultado.tipo === 'reserva' ? '📋 Reserva' : resultado.tipo === 'promoter' ? '⭐ Promoter' : resultado.tipo === 'guest_list' ? '🎂 Aniversário' : '🍽️ Restaurante'}
+                                </div>
+                                <div className="text-xs text-gray-400 truncate mt-1">
+                                  <strong>Lista:</strong> {resultado.origem}
+                                </div>
+                                <div className="text-xs text-gray-400 truncate">
+                                  <strong>Responsável:</strong> {resultado.responsavel}
+                                </div>
+                                {resultado.email && (
+                                  <div className="flex items-center gap-1 truncate">
+                                    <MdEmail size={12} />
+                                    <span className="truncate text-xs">{resultado.email}</span>
+                                  </div>
+                                )}
+                                {resultado.telefone && (
+                                  <div className="flex items-center gap-1 truncate">
+                                    <MdPhone size={12} />
+                                    <span className="truncate text-xs">{resultado.telefone}</span>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                            {isCheckedIn && (
+                              <MdCheckCircle size={24} className="text-green-400 flex-shrink-0 ml-2" />
+                            )}
+                          </div>
+
+                          {!isCheckedIn ? (
+                            <button
+                              onClick={() => {
+                                if (resultado.tipo === 'reserva' && resultado.convidado) {
+                                  handleConvidadoReservaCheckIn(resultado.convidado as ConvidadoReserva);
+                                } else if (resultado.tipo === 'promoter' && resultado.convidado) {
+                                  handleConvidadoPromoterCheckIn(resultado.convidado as ConvidadoPromoter);
+                                } else if (resultado.tipo === 'restaurante' && resultado.convidado) {
+                                  handleConvidadoReservaRestauranteCheckIn(resultado.convidado as ConvidadoReservaRestaurante);
+                                } else if (resultado.tipo === 'guest_list' && resultado.guestListId) {
+                                  handleGuestCheckIn(resultado.guestListId, resultado.id, resultado.nome);
+                                }
+                              }}
+                              className={`w-full ${getButtonClass()} text-white font-medium py-2 rounded-lg transition-colors flex items-center justify-center gap-1.5 text-sm touch-manipulation`}
+                            >
+                              <MdCheckCircle size={16} />
+                              Check-in
+                            </button>
+                          ) : (
+                            <div className="text-center space-y-1">
+                              <div className="text-xs text-green-400 font-medium">
+                                ✅ {resultado.data_checkin ? new Date(resultado.data_checkin).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : ''}
+                              </div>
+                              {resultado.entrada_tipo && (
+                                <div className={`text-xs px-2 py-0.5 rounded-full inline-block font-medium ${
+                                  resultado.entrada_tipo === 'VIP'
+                                    ? 'bg-green-100 text-green-700'
+                                    : resultado.entrada_tipo === 'SECO'
+                                    ? 'bg-blue-100 text-blue-700'
+                                    : 'bg-purple-100 text-purple-700'
+                                }`}>
+                                  {resultado.entrada_tipo}
+                                  {resultado.entrada_valor && (() => {
+                                    const valor = typeof resultado.entrada_valor === 'number' 
+                                      ? resultado.entrada_valor 
+                                      : parseFloat(String(resultado.entrada_valor));
+                                    return !isNaN(valor) ? ` R$ ${valor.toFixed(2)}` : '';
+                                  })()}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </motion.div>
+                      );
+                    })}
+                  </div>
+                </section>
+              )}
+
+              {/* Mensagem quando busca não encontra resultados */}
+              {searchTerm.trim() && resultadosBuscaUnificados.length === 0 && (
+                <section className="bg-white/10 backdrop-blur-sm rounded-lg shadow-sm p-6 border border-white/20">
+                  <div className="text-center py-8 text-gray-400">
+                    <MdSearch size={48} className="mx-auto mb-4 opacity-50" />
+                    <p className="text-lg">Nenhum resultado encontrado para "{searchTerm}"</p>
+                    <p className="text-sm mt-2">Tente buscar por nome, telefone ou responsável</p>
+                  </div>
+                </section>
+              )}
+
               {/* Reservas de Mesa */}
               {(selectedTab === 'todos' || selectedTab === 'reservas') && reservasMesa.length > 0 && (
                 <section className="bg-white/10 backdrop-blur-sm rounded-lg shadow-sm p-4 md:p-6 border border-white/20">
@@ -1144,7 +1357,7 @@ export default function EventoCheckInsPage() {
               )}
 
               {/* Convidados de Reservas */}
-              {(selectedTab === 'todos' || selectedTab === 'reservas') && (
+              {(selectedTab === 'todos' || selectedTab === 'reservas') && !searchTerm.trim() && (
                 <section className="bg-white/10 backdrop-blur-sm rounded-lg shadow-sm p-4 md:p-6 border border-white/20">
                   <h2 className="text-lg md:text-xl font-bold text-white mb-3 md:mb-4 flex items-center gap-2">
                     <MdGroups size={20} className="md:w-6 md:h-6 text-blue-400" />
@@ -1231,7 +1444,7 @@ export default function EventoCheckInsPage() {
               )}
 
               {/* Guest Lists de Reservas de Restaurante (Sistema de Reservas) */}
-            {(selectedTab === 'todos' || selectedTab === 'reservas') && (
+            {(selectedTab === 'todos' || selectedTab === 'reservas') && !searchTerm.trim() && (
                 <section className="bg-white/10 backdrop-blur-sm rounded-lg shadow-sm p-4 md:p-6 border border-white/20">
                   <h2 className="text-lg md:text-xl font-bold text-white mb-3 md:mb-4 flex items-center gap-2">
                     <MdRestaurant size={20} className="md:w-6 md:h-6 text-green-400" />
@@ -1708,7 +1921,7 @@ export default function EventoCheckInsPage() {
               )}
 
               {/* Convidados de Promoters */}
-              {(selectedTab === 'todos' || selectedTab === 'promoters') && (
+              {(selectedTab === 'todos' || selectedTab === 'promoters') && !searchTerm.trim() && (
                 <>
                   {/* Lista de Promoters */}
                   {filteredPromoters.length > 0 && (
@@ -2018,7 +2231,7 @@ export default function EventoCheckInsPage() {
               )}
 
               {/* Camarotes */}
-              {(selectedTab === 'todos' || selectedTab === 'camarotes') && filteredCamarotes.length > 0 && (
+              {(selectedTab === 'todos' || selectedTab === 'camarotes') && !searchTerm.trim() && filteredCamarotes.length > 0 && (
                 <section className="bg-white/10 backdrop-blur-sm rounded-lg shadow-sm p-4 md:p-6 border border-white/20">
                   <h2 className="text-lg md:text-xl font-bold text-white mb-3 md:mb-4 flex items-center gap-2">
                     <MdTableBar size={20} className="md:w-6 md:h-6 text-orange-400" />
