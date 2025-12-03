@@ -2119,15 +2119,52 @@ export default function CardapioAdminPage() {
           const filename = result.filename;
           
           // Se o upload foi feito através da galeria, atualizar a galeria primeiro
-          const isGalleryUpload = showImageGalleryModal && imageGalleryField === field;
+          // Verificar se o campo corresponde ao campo da galeria (mesmo que o modal esteja fechado temporariamente)
+          // Também verificar se o campo é 'imageUrl' e a galeria estava aberta (para itens do menu)
+          const isGalleryUpload = (imageGalleryField === field && imageGalleryField !== '') || 
+                                  (field === 'imageUrl' && imageGalleryField === 'imageUrl');
+          
+          console.log('🔍 Verificando se é upload da galeria:', {
+            isGalleryUpload,
+            imageGalleryField,
+            field,
+            filename
+          });
           
           if (isGalleryUpload) {
+            console.log('📸 Upload através da galeria detectado', { field, imageGalleryField, filename });
+            
             // Aguardar um pouco para garantir que a imagem foi salva no banco
             await new Promise(resolve => setTimeout(resolve, 500));
             // Atualizar a galeria para mostrar a nova imagem
             await fetchGalleryImages();
-            // Selecionar automaticamente a imagem no campo
-            handleSelectGalleryImage(filename);
+            
+            // Atualizar o formulário diretamente com o filename
+            // Usar o field que foi passado (que deve ser o mesmo do imageGalleryField)
+            const targetField = field;
+            
+            if (targetField === 'coverImages') {
+              setBarForm((prev) => ({
+                ...prev,
+                coverImages: [...prev.coverImages, filename],
+              }));
+            } else if (targetField === 'logoUrl' || targetField === 'coverImageUrl' || targetField === 'popupImageUrl') {
+              setBarForm((prev) => ({ ...prev, [targetField]: filename }));
+            } else if (targetField === 'imageUrl') {
+              // Para itens do menu (imageUrl)
+              console.log('🖼️ Atualizando itemForm.imageUrl com:', filename);
+              setItemForm((prev) => {
+                const updated = { ...prev, imageUrl: filename };
+                console.log('✅ itemForm atualizado:', updated);
+                return updated;
+              });
+            }
+            
+            // Fechar o modal da galeria após selecionar
+            setShowImageGalleryModal(false);
+            setImageGalleryField('');
+            setGallerySearchTerm('');
+            
             console.log('✅ Imagem adicionada à galeria e selecionada automaticamente!');
           } else {
             // Atualizar os formulários normalmente
@@ -2163,7 +2200,7 @@ export default function CardapioAdminPage() {
         throw error; // Re-throw para que o handleCropComplete possa tratar
       }
     },
-    [showImageGalleryModal, imageGalleryField, fetchGalleryImages],
+    [imageGalleryField, fetchGalleryImages],
   );
 
   // Handler quando o crop for completado
@@ -2200,13 +2237,22 @@ export default function CardapioAdminPage() {
         return;
       }
 
+      // Preservar o imageGalleryField antes de abrir o crop
+      // Isso garante que mesmo que o modal da galeria seja fechado, o campo será preservado
+      console.log('📸 Preparando upload com campo:', field, 'imageGalleryField atual:', imageGalleryField);
+      
       // Abrir modal de crop antes de fazer upload
       const tempUrl = URL.createObjectURL(file);
       setCropImageSrc(tempUrl);
       setCropImageField(field);
+      // Garantir que o imageGalleryField seja preservado se for um upload da galeria
+      if (imageGalleryField && imageGalleryField === field) {
+        console.log('✅ Preservando imageGalleryField:', imageGalleryField);
+        // O imageGalleryField já está definido, não precisa fazer nada
+      }
       setShowCropModal(true);
     },
-    [],
+    [imageGalleryField],
   );
 
   const handleRemoveCoverImage = (urlToRemove: string) => {
@@ -3774,8 +3820,9 @@ export default function CardapioAdminPage() {
                       width={150}
                       height={100}
                       className="rounded-lg border object-cover"
-                      unoptimized={itemForm.imageUrl.startsWith('blob:')}
+                      unoptimized={itemForm.imageUrl.startsWith('blob:') || itemForm.imageUrl.startsWith('http')}
                       priority={true}
+                      key={itemForm.imageUrl} // Forçar re-render quando a URL mudar
                     />
                   </div>
                 )}
@@ -4402,8 +4449,11 @@ export default function CardapioAdminPage() {
                   input.onchange = async (e) => {
                     const files = (e.target as HTMLInputElement).files;
                     if (files && files[0]) {
-                      await handleImageUpload(files[0], imageGalleryField);
-                      await fetchGalleryImages(); // Atualizar galeria após upload
+                      // Preservar o imageGalleryField antes de abrir o crop
+                      const currentGalleryField = imageGalleryField;
+                      console.log('📸 Iniciando upload da galeria com campo:', currentGalleryField);
+                      await handleImageUpload(files[0], currentGalleryField);
+                      // Não atualizar a galeria aqui, será feito após o upload completo
                     }
                   };
                   input.click();
