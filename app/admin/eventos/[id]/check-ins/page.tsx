@@ -238,6 +238,16 @@ export default function EventoCheckInsPage() {
   const [convidadosPromoters, setConvidadosPromoters] = useState<ConvidadoPromoter[]>([]);
   const [camarotes, setCamarotes] = useState<Camarote[]>([]);
   
+  // Estado para atrações
+  interface Atracao {
+    id: number;
+    nome_atracao: string;
+    ambiente: string;
+    horario_inicio: string;
+    horario_termino: string;
+  }
+  const [atracoes, setAtracoes] = useState<Atracao[]>([]);
+  
   // Estados para brindes
   interface GiftRule {
     id: number;
@@ -430,6 +440,7 @@ export default function EventoCheckInsPage() {
         
         setConvidadosPromoters(convidadosPromotersFiltrados);
         setCamarotes(data.dados.camarotes || []);
+        setAtracoes(data.dados.atracoes || []);
         setEstatisticas(data.estatisticas);
         
         // A arrecadação será calculada automaticamente pelo useEffect quando os estados mudarem
@@ -1356,92 +1367,6 @@ export default function EventoCheckInsPage() {
                 </section>
               )}
 
-              {/* Convidados de Reservas */}
-              {(selectedTab === 'todos' || selectedTab === 'reservas') && !searchTerm.trim() && (
-                <section className="bg-white/10 backdrop-blur-sm rounded-lg shadow-sm p-4 md:p-6 border border-white/20">
-                  <h2 className="text-lg md:text-xl font-bold text-white mb-3 md:mb-4 flex items-center gap-2">
-                    <MdGroups size={20} className="md:w-6 md:h-6 text-blue-400" />
-                    <span className="truncate">Convidados de Reservas ({filteredConvidadosReservas.length})</span>
-                  </h2>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-3 md:gap-4">
-                    {filteredConvidadosReservas.map(convidado => (
-                      <motion.div
-                        key={convidado.id}
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className={`border rounded-lg p-3 ${
-                          convidado.status === 'CHECK-IN'
-                            ? 'bg-green-900/30 border-green-500/50'
-                            : 'bg-white/5 border-white/20 hover:border-blue-400/50'
-                        }`}
-                      >
-                        <div className="flex items-start justify-between mb-2">
-                          <div className="flex-1 min-w-0">
-                            <h3 className="font-bold text-base text-white truncate">{convidado.nome}</h3>
-                            <div className="text-xs text-gray-300 space-y-0.5 mt-1">
-                              <div className="text-xs text-gray-400 truncate">Lista: {convidado.origem}</div>
-                              <div className="truncate">Responsável: {convidado.responsavel}</div>
-                              {convidado.email && (
-                                <div className="flex items-center gap-1 truncate">
-                                  <MdEmail size={12} />
-                                  <span className="truncate text-xs">{convidado.email}</span>
-                                </div>
-                              )}
-                              {convidado.documento && (
-                                <div className="flex items-center gap-1 truncate">
-                                  <MdVpnKey size={12} />
-                                  <span className="truncate text-xs">{convidado.documento}</span>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                          {convidado.status === 'CHECK-IN' && (
-                            <MdCheckCircle size={24} className="text-green-400 flex-shrink-0 ml-2" />
-                          )}
-                        </div>
-
-                        {convidado.status !== 'CHECK-IN' ? (
-                          <button
-                            onClick={() => handleConvidadoReservaCheckIn(convidado)}
-                            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 rounded-lg transition-colors flex items-center justify-center gap-1.5 text-sm touch-manipulation"
-                          >
-                            <MdCheckCircle size={16} />
-                            Check-in
-                          </button>
-                        ) : (
-                          <div className="text-center space-y-1">
-                            <div className="text-xs text-green-400 font-medium">
-                              ✅ {convidado.data_checkin ? new Date(convidado.data_checkin).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : ''}
-                            </div>
-                            {convidado.entrada_tipo && (
-                              <div className={`text-xs px-2 py-0.5 rounded-full inline-block font-medium ${
-                                convidado.entrada_tipo === 'VIP' 
-                                  ? 'bg-green-100 text-green-700' 
-                                  : convidado.entrada_tipo === 'SECO'
-                                  ? 'bg-blue-100 text-blue-700'
-                                  : 'bg-purple-100 text-purple-700'
-                              }`}>
-                                {convidado.entrada_tipo}
-                                {convidado.entrada_valor && (() => {
-                                  const valor = typeof convidado.entrada_valor === 'number' 
-                                    ? convidado.entrada_valor 
-                                    : parseFloat(String(convidado.entrada_valor));
-                                  return !isNaN(valor) ? ` R$ ${valor.toFixed(2)}` : '';
-                                })()}
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </motion.div>
-                    ))}
-                    {filteredConvidadosReservas.length === 0 && (
-                      <div className="col-span-full text-center py-8 text-gray-400">
-                        Nenhum convidado de reserva encontrado
-                      </div>
-                    )}
-                  </div>
-                </section>
-              )}
 
               {/* Guest Lists de Reservas de Restaurante (Sistema de Reservas) */}
             {(selectedTab === 'todos' || selectedTab === 'reservas') && !searchTerm.trim() && (
@@ -2292,6 +2217,54 @@ export default function EventoCheckInsPage() {
                       </motion.div>
                     ))}
                   </div>
+                </section>
+              )}
+
+              {/* Line Up - Atrações do Evento */}
+              {(selectedTab === 'todos' || selectedTab === 'reservas') && !searchTerm.trim() && (
+                <section className="bg-white/10 backdrop-blur-sm rounded-lg shadow-sm p-4 md:p-6 border border-white/20">
+                  <h2 className="text-lg md:text-xl font-bold text-white mb-3 md:mb-4 flex items-center gap-2">
+                    <MdEvent size={20} className="md:w-6 md:h-6 text-pink-400" />
+                    <span className="truncate">Line Up ({atracoes.length})</span>
+                  </h2>
+                  {atracoes.length > 0 ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
+                      {atracoes.map(atracao => (
+                        <motion.div
+                          key={atracao.id}
+                          initial={{ opacity: 0, y: 20 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          className="border rounded-lg p-4 bg-pink-900/20 border-pink-500/50 hover:border-pink-400/70 transition-colors"
+                        >
+                          <div className="flex items-start justify-between mb-3">
+                            <div className="flex-1 min-w-0">
+                              <h3 className="font-bold text-lg text-white mb-2 truncate">{atracao.nome_atracao}</h3>
+                              <div className="text-sm text-gray-300 space-y-1">
+                                <div className="flex items-center gap-2">
+                                  <MdTableBar size={16} className="text-pink-400 flex-shrink-0" />
+                                  <span className="truncate">{atracao.ambiente}</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <MdAccessTime size={16} className="text-pink-400 flex-shrink-0" />
+                                  <span>
+                                    {(() => {
+                                      const inicio = atracao.horario_inicio ? atracao.horario_inicio.substring(0, 5) : '';
+                                      const termino = atracao.horario_termino ? atracao.horario_termino.substring(0, 5) : '';
+                                      return `${inicio} - ${termino}`;
+                                    })()}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </motion.div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8 text-gray-400">
+                      Nenhuma atração cadastrada para este evento
+                    </div>
+                  )}
                 </section>
               )}
             </div>

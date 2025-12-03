@@ -42,6 +42,15 @@ const AddEvent: React.FC<AddEventProps> = ({ isOpen, onRequestClose, onEventAdde
   const [tipoEvento, setTipoEvento] = useState<'unico' | 'semanal'>('unico');
   const [diaDaSemana, setDiaDaSemana] = useState('');
 
+  // Estados para atrações
+  interface Atracao {
+    nome_atracao: string;
+    ambiente: string;
+    horario_inicio: string;
+    horario_termino: string;
+  }
+  const [atracoes, setAtracoes] = useState<Atracao[]>([]);
+
   const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL_LOCAL || 'https://vamos-comemorar-api.onrender.com';
 
   const fetchEstablishments = useCallback(async () => {
@@ -112,6 +121,7 @@ const AddEvent: React.FC<AddEventProps> = ({ isOpen, onRequestClose, onEventAdde
     setImagemComboPreview(null);
     setTipoEvento('unico');
     setDiaDaSemana('');
+    setAtracoes([]);
     setError(null);
   };
 
@@ -272,6 +282,7 @@ const AddEvent: React.FC<AddEventProps> = ({ isOpen, onRequestClose, onEventAdde
       imagem_do_evento: imagemEventoFilename,
       imagem_do_combo: imagemComboFilename,
       id_place: idPlace, // Enviando o ID do estabelecimento
+      atracoes: atracoes, // Enviando as atrações
     };
 
     try {
@@ -392,6 +403,83 @@ const AddEvent: React.FC<AddEventProps> = ({ isOpen, onRequestClose, onEventAdde
           </div>
 
           <textarea className="w-full p-2 border rounded col-span-2" placeholder="Observação" value={observacao} onChange={(e) => setObservacao(e.target.value)} />
+
+          {/* Seção de Atrações */}
+          <div className="col-span-2 border rounded p-4 bg-gray-50">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-lg font-semibold text-gray-700">Atrações do Evento</h3>
+              <button
+                type="button"
+                onClick={() => setAtracoes([...atracoes, { nome_atracao: '', ambiente: '', horario_inicio: '', horario_termino: '' }])}
+                className="px-3 py-1 bg-green-500 text-white rounded hover:bg-green-600 transition text-sm"
+              >
+                + Adicionar Atração
+              </button>
+            </div>
+            {atracoes.map((atracao, index) => (
+              <div key={index} className="mb-4 p-3 bg-white border rounded">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium text-gray-600">Atração {index + 1}</span>
+                  <button
+                    type="button"
+                    onClick={() => setAtracoes(atracoes.filter((_, i) => i !== index))}
+                    className="text-red-500 hover:text-red-700 text-sm"
+                  >
+                    Remover
+                  </button>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <input
+                    className="w-full p-2 border rounded"
+                    type="text"
+                    placeholder="Nome da Atração"
+                    value={atracao.nome_atracao}
+                    onChange={(e) => {
+                      const novasAtracoes = [...atracoes];
+                      novasAtracoes[index].nome_atracao = e.target.value;
+                      setAtracoes(novasAtracoes);
+                    }}
+                  />
+                  <input
+                    className="w-full p-2 border rounded"
+                    type="text"
+                    placeholder="Ambiente"
+                    value={atracao.ambiente}
+                    onChange={(e) => {
+                      const novasAtracoes = [...atracoes];
+                      novasAtracoes[index].ambiente = e.target.value;
+                      setAtracoes(novasAtracoes);
+                    }}
+                  />
+                  <input
+                    className="w-full p-2 border rounded"
+                    type="time"
+                    placeholder="Horário de Início"
+                    value={atracao.horario_inicio}
+                    onChange={(e) => {
+                      const novasAtracoes = [...atracoes];
+                      novasAtracoes[index].horario_inicio = e.target.value;
+                      setAtracoes(novasAtracoes);
+                    }}
+                  />
+                  <input
+                    className="w-full p-2 border rounded"
+                    type="time"
+                    placeholder="Horário de Término"
+                    value={atracao.horario_termino}
+                    onChange={(e) => {
+                      const novasAtracoes = [...atracoes];
+                      novasAtracoes[index].horario_termino = e.target.value;
+                      setAtracoes(novasAtracoes);
+                    }}
+                  />
+                </div>
+              </div>
+            ))}
+            {atracoes.length === 0 && (
+              <p className="text-sm text-gray-500 text-center py-2">Nenhuma atração adicionada. Clique em "Adicionar Atração" para incluir.</p>
+            )}
+          </div>
 
           <button type="submit" disabled={isLoading} className="col-span-2 bg-blue-500 text-white py-2 rounded hover:bg-blue-600 transition disabled:bg-gray-400">
             {isLoading ? 'Adicionando...' : 'Adicionar Evento'}
