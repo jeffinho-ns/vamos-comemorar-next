@@ -276,6 +276,7 @@ export default function CardapioAdminPage() {
   const [imageGalleryField, setImageGalleryField] = useState<string>('');
   const [galleryImages, setGalleryImages] = useState<Array<{
     filename: string;
+    url?: string | null; // URL completa do Cloudinary se disponível
     sourceType: string;
     imageType: string;
     usageCount: number;
@@ -2117,6 +2118,16 @@ export default function CardapioAdminPage() {
 
         if (result.success && result.filename) {
           const filename = result.filename;
+          // Usar a URL completa do Cloudinary se disponível, senão usar apenas o filename
+          // A função getValidImageUrl vai construir a URL correta se necessário
+          const imageValue = result.url || filename;
+          
+          console.log('📸 Valores recebidos do upload:', {
+            filename,
+            url: result.url,
+            imageValue,
+            field
+          });
           
           // Se o upload foi feito através da galeria, atualizar a galeria primeiro
           // Verificar se o campo corresponde ao campo da galeria (mesmo que o modal esteja fechado temporariamente)
@@ -2128,33 +2139,34 @@ export default function CardapioAdminPage() {
             isGalleryUpload,
             imageGalleryField,
             field,
-            filename
+            filename,
+            imageValue
           });
           
           if (isGalleryUpload) {
-            console.log('📸 Upload através da galeria detectado', { field, imageGalleryField, filename });
+            console.log('📸 Upload através da galeria detectado', { field, imageGalleryField, filename, imageValue });
             
             // Aguardar um pouco para garantir que a imagem foi salva no banco
             await new Promise(resolve => setTimeout(resolve, 500));
             // Atualizar a galeria para mostrar a nova imagem
             await fetchGalleryImages();
             
-            // Atualizar o formulário diretamente com o filename
+            // Atualizar o formulário diretamente com a URL completa ou filename
             // Usar o field que foi passado (que deve ser o mesmo do imageGalleryField)
             const targetField = field;
             
             if (targetField === 'coverImages') {
               setBarForm((prev) => ({
                 ...prev,
-                coverImages: [...prev.coverImages, filename],
+                coverImages: [...prev.coverImages, imageValue],
               }));
             } else if (targetField === 'logoUrl' || targetField === 'coverImageUrl' || targetField === 'popupImageUrl') {
-              setBarForm((prev) => ({ ...prev, [targetField]: filename }));
+              setBarForm((prev) => ({ ...prev, [targetField]: imageValue }));
             } else if (targetField === 'imageUrl') {
-              // Para itens do menu (imageUrl)
-              console.log('🖼️ Atualizando itemForm.imageUrl com:', filename);
+              // Para itens do menu (imageUrl) - usar a URL completa do Cloudinary se disponível
+              console.log('🖼️ Atualizando itemForm.imageUrl com:', imageValue);
               setItemForm((prev) => {
-                const updated = { ...prev, imageUrl: filename };
+                const updated = { ...prev, imageUrl: imageValue };
                 console.log('✅ itemForm atualizado:', updated);
                 return updated;
               });
@@ -2171,12 +2183,12 @@ export default function CardapioAdminPage() {
             if (field === 'coverImages') {
               setBarForm((prev) => ({
                 ...prev,
-                coverImages: [...prev.coverImages, filename],
+                coverImages: [...prev.coverImages, imageValue],
               }));
             } else if (field === 'logoUrl' || field === 'coverImageUrl' || field === 'popupImageUrl') {
-              setBarForm((prev) => ({ ...prev, [field]: filename }));
+              setBarForm((prev) => ({ ...prev, [field]: imageValue }));
             } else {
-              setItemForm((prev) => ({ ...prev, imageUrl: filename }));
+              setItemForm((prev) => ({ ...prev, imageUrl: imageValue }));
             }
             console.log('✅ Upload concluído com sucesso');
             alert('Imagem carregada com sucesso!');
@@ -2270,16 +2282,25 @@ export default function CardapioAdminPage() {
   }, [fetchGalleryImages]);
 
   // Função para selecionar imagem da galeria
-  const handleSelectGalleryImage = useCallback((filename: string) => {
+  const handleSelectGalleryImage = useCallback((filename: string, imageUrl?: string | null) => {
+    // Usar a URL completa do Cloudinary se disponível, senão usar o filename
+    const imageValue = imageUrl || filename;
+    
+    console.log('🖼️ Selecionando imagem da galeria:', { filename, imageUrl, imageValue, imageGalleryField });
+    
     if (imageGalleryField === 'coverImages') {
       setBarForm((prev) => ({
         ...prev,
-        coverImages: [...prev.coverImages, filename],
+        coverImages: [...prev.coverImages, imageValue],
       }));
     } else if (imageGalleryField === 'logoUrl' || imageGalleryField === 'coverImageUrl' || imageGalleryField === 'popupImageUrl') {
-      setBarForm((prev) => ({ ...prev, [imageGalleryField]: filename }));
+      setBarForm((prev) => ({ ...prev, [imageGalleryField]: imageValue }));
     } else {
-      setItemForm((prev) => ({ ...prev, imageUrl: filename }));
+      setItemForm((prev) => {
+        const updated = { ...prev, imageUrl: imageValue };
+        console.log('✅ itemForm atualizado ao selecionar da galeria:', updated);
+        return updated;
+      });
     }
     setShowImageGalleryModal(false);
     setImageGalleryField('');
@@ -4512,22 +4533,26 @@ export default function CardapioAdminPage() {
                       !gallerySearchTerm || 
                       img.filename.toLowerCase().includes(gallerySearchTerm.toLowerCase())
                     )
-                    .map((image, index) => (
-                      <div
-                        key={`${image.filename}-${index}`}
-                        className="relative group cursor-pointer rounded-lg border-2 border-gray-200 hover:border-blue-500 transition-all overflow-hidden shadow-md hover:shadow-lg"
-                        onClick={() => handleSelectGalleryImage(image.filename)}
-                      >
-                        <div className="aspect-square relative bg-gray-100">
-                          <Image
-                            src={getValidImageUrl(image.filename)}
-                            alt={image.filename}
-                            fill
-                            sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 20vw"
-                            className="object-cover transition-transform group-hover:scale-105"
-                            unoptimized
-                          />
-                        </div>
+                    .map((image, index) => {
+                      // Usar a URL completa do Cloudinary se disponível, senão construir a URL
+                      const imageUrl = image.url || getValidImageUrl(image.filename);
+                      
+                      return (
+                        <div
+                          key={`${image.filename}-${index}`}
+                          className="relative group cursor-pointer rounded-lg border-2 border-gray-200 hover:border-blue-500 transition-all overflow-hidden shadow-md hover:shadow-lg"
+                          onClick={() => handleSelectGalleryImage(image.filename, image.url || undefined)}
+                        >
+                          <div className="aspect-square relative bg-gray-100">
+                            <Image
+                              src={imageUrl}
+                              alt={image.filename}
+                              fill
+                              sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 20vw"
+                              className="object-cover transition-transform group-hover:scale-105"
+                              unoptimized
+                            />
+                          </div>
                         <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/0 to-black/0 opacity-0 group-hover:opacity-100 transition-opacity">
                           <div className="absolute inset-0 flex items-center justify-center gap-2">
                             <span className="text-white text-sm font-semibold bg-black/50 px-3 py-1 rounded-full">
@@ -4556,7 +4581,8 @@ export default function CardapioAdminPage() {
                           </div>
                         )}
                       </div>
-                    ))}
+                      );
+                    })}
                 </div>
               </>
             )}
