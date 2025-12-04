@@ -182,10 +182,14 @@ const getValidImageUrl = (filename?: string | null): string => {
     return PLACEHOLDER_IMAGE_URL;
   }
   
-  // Se já é uma URL completa, tratar URLs antigas de cardápio e, caso contrário, retornar como está
+  // Se já é uma URL completa (Cloudinary, Unsplash, etc), retornar como está
   if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
     try {
       const url = new URL(trimmed);
+      // Se é Cloudinary, retornar como está
+      if (url.hostname.includes('cloudinary.com')) {
+        return trimmed;
+      }
       // Se a URL aponta para algum host antigo mas o caminho contém /cardapio-agilizaiapp/,
       // reescrevemos para o domínio atual usando apenas o nome do arquivo
       if (url.pathname.includes('/cardapio-agilizaiapp/')) {
@@ -953,6 +957,7 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
             fill
             sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
             className={`object-cover ${isCleanStyle ? 'scale-[1.02]' : ''}`}
+            unoptimized={imageSrc.includes('cloudinary.com') || imageSrc.startsWith('blob:')}
             onError={() => {
               // Se a imagem real falhar (404 no FTP ou URL inválida), garante fallback local
               if (imageSrc !== PLACEHOLDER_IMAGE_URL) {
@@ -1194,6 +1199,7 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
                   width={64}
                   height={64}
                   className="rounded-lg"
+                  unoptimized={selectedBar.logoUrl?.includes('cloudinary.com') || false}
                 />
                 
                 <div className="menu-indicator absolute -top-1 -right-1 md:hidden">
@@ -1597,6 +1603,7 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
                       width={48}
                       height={48}
                       className="rounded-lg"
+                      unoptimized={selectedBar.logoUrl?.includes('cloudinary.com') || false}
                     />
                     <h2 className="text-xl font-bold">{selectedBar.name}</h2>
                   </div>
@@ -1729,6 +1736,7 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
                   height={400}
                   className="w-full h-auto rounded-lg"
                   priority
+                  unoptimized={selectedBar.popupImageUrl?.includes('cloudinary.com') || false}
                 />
               </div>
             </motion.div>
@@ -1769,6 +1777,7 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
                                   width={500}
                                   height={400}
                                   className="w-full h-auto object-cover rounded-lg shadow-lg"
+                                  unoptimized={selectedItem.imageUrl?.includes('cloudinary.com') || false}
                                   onError={(e) => {
                                     const target = e.currentTarget;
                                     if (target.src !== window.location.origin + PLACEHOLDER_IMAGE_URL) {
