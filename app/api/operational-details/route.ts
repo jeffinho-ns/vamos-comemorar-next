@@ -111,7 +111,7 @@ export async function POST(request: NextRequest) {
       visual_reference_url: (body.visual_reference_url && String(body.visual_reference_url).trim() !== '') ? String(body.visual_reference_url).trim() : null,
       admin_notes: (body.admin_notes && String(body.admin_notes).trim() !== '') ? String(body.admin_notes).trim() : null,
       operational_instructions: (body.operational_instructions && String(body.operational_instructions).trim() !== '') ? String(body.operational_instructions).trim() : null,
-      // is_active deve ser boolean, mas a API converte para 1 ou 0
+      // is_active deve ser enviado como boolean, a API converte para 1 ou 0
       is_active: body.is_active !== undefined ? Boolean(body.is_active) : true,
       
       // Campos de Artista (todos null se não fornecidos)
@@ -182,10 +182,13 @@ export async function POST(request: NextRequest) {
       provider_signature: body.provider_signature || null,
     };
     
-    // Remover campos undefined
+    // Remover campos undefined e converter strings vazias para null em campos opcionais
     Object.keys(dataToSend).forEach(key => {
       if (dataToSend[key] === undefined) {
         delete dataToSend[key];
+      } else if (typeof dataToSend[key] === 'string' && dataToSend[key].trim() === '' && 
+                 !['event_date', 'artistic_attraction', 'ticket_prices'].includes(key)) {
+        dataToSend[key] = null;
       }
     });
 
@@ -200,8 +203,10 @@ export async function POST(request: NextRequest) {
         artistic_attraction: dataToSend.artistic_attraction,
         ticket_prices: dataToSend.ticket_prices,
         is_active: dataToSend.is_active,
-        establishment_id: dataToSend.establishment_id
-      }
+        establishment_id: dataToSend.establishment_id,
+        admin_notes: dataToSend.admin_notes ? 'present' : 'null'
+      },
+      fullData: JSON.stringify(dataToSend, null, 2).substring(0, 1000)
     });
 
     const apiUrl = `${API_BASE_URL}/api/v1/operational-details`;
