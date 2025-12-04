@@ -154,7 +154,7 @@ export async function POST(request: NextRequest) {
       
       // Campos de Bar/Fornecedor (todos null se não fornecidos)
       provider_name: body.provider_name || null,
-      provider_cnpj: body.provider_cnpj || null,
+      provider_cpf_cnpj: body.provider_cpf_cnpj || null,
       provider_address: body.provider_address || null,
       provider_responsible_name: body.provider_responsible_name || null,
       provider_responsible_contact: body.provider_responsible_contact || null,
