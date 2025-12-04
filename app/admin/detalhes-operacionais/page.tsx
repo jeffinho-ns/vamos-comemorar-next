@@ -18,6 +18,8 @@ import { useEstablishments } from '@/app/hooks/useEstablishments';
 import { OperationalDetail } from '@/app/types/operationalDetail';
 import OperationalDetailsModal from '@/app/components/OperationalDetailsModal';
 import EventsModal from '@/app/components/EventsModal';
+import ArtistOSList from '@/app/components/ArtistOSList';
+import ArtistOSCreateModal from '@/app/components/ArtistOSCreateModal';
 
 export default function DetalhesOperacionaisPage() {
   const { establishments, loading: establishmentsLoading, fetchEstablishments } = useEstablishments();
@@ -26,6 +28,7 @@ export default function DetalhesOperacionaisPage() {
   const [error, setError] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [showEventsModal, setShowEventsModal] = useState(false);
+  const [showArtistOSCreateModal, setShowArtistOSCreateModal] = useState(false);
   const [editingDetail, setEditingDetail] = useState<OperationalDetail | null>(null);
   const [selectedEstablishment, setSelectedEstablishment] = useState<number | null>(null);
   const [filterDate, setFilterDate] = useState<string>('');
@@ -274,6 +277,15 @@ export default function DetalhesOperacionaisPage() {
           </div>
         )}
 
+        {/* Seção de OS de Artista/Banda/DJ */}
+        <div className="mb-8">
+          <ArtistOSList
+            details={details}
+            onRefresh={fetchDetails}
+            onAddNew={() => setShowArtistOSCreateModal(true)}
+          />
+        </div>
+
         {/* Lista de Detalhes */}
         <div className="space-y-4">
           {details.map((detail, index) => (
@@ -425,6 +437,35 @@ export default function DetalhesOperacionaisPage() {
       <EventsModal
         isOpen={showEventsModal}
         onClose={() => setShowEventsModal(false)}
+      />
+
+      {/* Artist OS Create Modal */}
+      <ArtistOSCreateModal
+        isOpen={showArtistOSCreateModal}
+        onClose={() => setShowArtistOSCreateModal(false)}
+        onSave={async (data) => {
+          const token = localStorage.getItem('authToken');
+          if (!token) {
+            throw new Error('Token de autenticação não encontrado');
+          }
+
+          const response = await fetch('/api/operational-details', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`,
+            },
+            body: JSON.stringify(data),
+          });
+
+          if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.error || 'Erro ao criar OS');
+          }
+
+          fetchDetails();
+        }}
+        establishments={establishments}
       />
     </div>
   );
