@@ -2918,6 +2918,15 @@ export default function CardapioAdminPage() {
                                   fill
                                   sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                                   className="object-cover"
+                                  unoptimized={item.imageUrl?.includes('cloudinary.com') || item.imageUrl?.startsWith('blob:') || false}
+                                  onError={(e) => {
+                                    console.error('❌ Erro ao carregar imagem do item:', item.name, item.imageUrl);
+                                    const target = e.currentTarget;
+                                    // Tentar usar a URL diretamente se for Cloudinary
+                                    if (item.imageUrl?.includes('cloudinary.com') && target.src !== item.imageUrl) {
+                                      target.src = item.imageUrl;
+                                    }
+                                  }}
                                 />
                                 <div className="absolute right-2 top-2 flex gap-1">
                                   {(isAdmin ||
@@ -4659,6 +4668,15 @@ export default function CardapioAdminPage() {
                             fill
                             sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                             className="object-cover opacity-60"
+                            unoptimized={item.imageUrl?.includes('cloudinary.com') || item.imageUrl?.startsWith('blob:') || false}
+                            onError={(e) => {
+                              console.error('❌ Erro ao carregar imagem do item na lixeira:', item.name, item.imageUrl);
+                              const target = e.currentTarget;
+                              // Tentar usar a URL diretamente se for Cloudinary
+                              if (item.imageUrl?.includes('cloudinary.com') && target.src !== item.imageUrl) {
+                                target.src = item.imageUrl;
+                              }
+                            }}
                           />
                           {isExpiringSoon && (
                             <div className="absolute top-2 left-2 bg-orange-500 text-white text-xs px-2 py-1 rounded-full">
