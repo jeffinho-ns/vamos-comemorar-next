@@ -1045,6 +1045,7 @@ export default function EventoCheckInsPage() {
   );
 
   const reservasMetrics = useMemo(() => {
+    // Contar convidados (não reservas)
     const totalConvidadosReservas = convidadosReservas.length;
     const checkinConvidadosReservas = convidadosReservas.filter((c) => c.status === 'CHECK-IN').length;
 
