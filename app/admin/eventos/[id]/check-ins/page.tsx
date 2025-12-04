@@ -443,6 +443,38 @@ export default function EventoCheckInsPage() {
         setAtracoes(data.dados.atracoes || []);
         setEstatisticas(data.estatisticas);
         
+        // Carregar brindes automaticamente para todas as guest lists
+        if (guestLists.length > 0) {
+          const loadAllGifts = async () => {
+            const token = localStorage.getItem('authToken');
+            const giftsPromises = guestLists.map(async (gl: GuestListRestaurante) => {
+              try {
+                const giftsRes = await fetch(`${API_URL}/api/gift-rules/guest-list/${gl.guest_list_id}/gifts`, {
+                  headers: { Authorization: `Bearer ${token}` }
+                });
+                if (giftsRes.ok) {
+                  const giftsData = await giftsRes.json();
+                  return { guestListId: gl.guest_list_id, gifts: giftsData.gifts || [] };
+                }
+              } catch (error) {
+                console.error(`Erro ao carregar brindes para lista ${gl.guest_list_id}:`, error);
+              }
+              return { guestListId: gl.guest_list_id, gifts: [] };
+            });
+            
+            const giftsResults = await Promise.all(giftsPromises);
+            const giftsMap: Record<number, GiftAwarded[]> = {};
+            giftsResults.forEach(result => {
+              giftsMap[result.guestListId] = result.gifts;
+            });
+            setGiftsByGuestList(giftsMap);
+            console.log('🎁 Brindes carregados automaticamente para todas as listas:', Object.keys(giftsMap).length);
+          };
+          
+          // Carregar brindes em background sem bloquear a UI
+          loadAllGifts();
+        }
+        
         // A arrecadação será calculada automaticamente pelo useEffect quando os estados mudarem
         
         // Debug: verificar dados filtrados
@@ -1162,7 +1194,7 @@ export default function EventoCheckInsPage() {
                     : 'bg-white/10 text-gray-300 hover:bg-white/20'
                 }`}
               >
-                Camarotes ({estatisticas.totalCamarotes})
+                Camarotes ({camarotes.length})
               </button>
             </div>
           </div>
@@ -1174,13 +1206,14 @@ export default function EventoCheckInsPage() {
             <div className="bg-white/10 backdrop-blur-sm rounded-lg shadow p-4 border border-white/20">
               <div className="text-sm text-gray-300 mb-1">Total Geral</div>
               <div className="text-2xl font-bold text-white">
-                {estatisticas.checkinGeral}/{estatisticas.totalGeral}
+                {reservasMetrics.checkins + promoterMetrics.checkins + (camarotes.reduce((sum, c) => sum + (c.convidados_checkin || 0), 0))}/{reservasMetrics.total + promoterMetrics.total + camarotes.reduce((sum, c) => sum + (c.total_convidados || 0), 0)}
               </div>
               <div className="text-xs text-gray-400 mt-1">
-                {estatisticas.totalGeral > 0 
-                  ? `${Math.round((estatisticas.checkinGeral / estatisticas.totalGeral) * 100)}%`
-                  : '0%'
-                }
+                {(() => {
+                  const total = reservasMetrics.total + promoterMetrics.total + camarotes.reduce((sum, c) => sum + (c.total_convidados || 0), 0);
+                  const checkins = reservasMetrics.checkins + promoterMetrics.checkins + camarotes.reduce((sum, c) => sum + (c.convidados_checkin || 0), 0);
+                  return total > 0 ? `${Math.round((checkins / total) * 100)}%` : '0%';
+                })()}
               </div>
             </div>
             <div className="bg-white/10 backdrop-blur-sm rounded-lg shadow p-4 border border-blue-500/50">
@@ -1198,7 +1231,7 @@ export default function EventoCheckInsPage() {
             <div className="bg-white/10 backdrop-blur-sm rounded-lg shadow p-4 border border-orange-500/50">
               <div className="text-sm text-gray-300 mb-1">Camarotes</div>
               <div className="text-2xl font-bold text-white">
-                {estatisticas.checkinCamarotes}/{estatisticas.totalCamarotes}
+                {camarotes.reduce((sum, c) => sum + (c.convidados_checkin || 0), 0)}/{camarotes.reduce((sum, c) => sum + (c.total_convidados || 0), 0)}
               </div>
             </div>
           </div>
