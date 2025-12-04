@@ -222,7 +222,7 @@ export default function RestaurantReservationsPage() {
   const [guestsByList, setGuestsByList] = useState<Record<number, GuestItem[]>>({});
   const [guestForm, setGuestForm] = useState<{ listId?: number; name: string; whatsapp: string; editingGuestId?: number | null }>({ name: '', whatsapp: '', editingGuestId: null });
   const [showCreateListModal, setShowCreateListModal] = useState(false);
-  const [createListForm, setCreateListForm] = useState<{ client_name: string; reservation_date: string; event_type: string }>({ client_name: '', reservation_date: '', event_type: '' });
+  const [createListForm, setCreateListForm] = useState<{ client_name: string; reservation_date: string; event_type: string; establishment_id?: number }>({ client_name: '', reservation_date: '', event_type: '' });
   const [selectedMonth, setSelectedMonth] = useState<string>(new Date().toISOString().slice(0, 7)); // YYYY-MM
   const [selectedDay, setSelectedDay] = useState<string>(''); // YYYY-MM-DD para filtrar por dia
   const [ownerSearchTerm, setOwnerSearchTerm] = useState<string>(''); // Termo de busca pelo nome do dono
@@ -2609,15 +2609,30 @@ export default function RestaurantReservationsPage() {
                 e.preventDefault();
                 if (!createListForm.client_name || !createListForm.reservation_date) return;
                 
+                // Validar se há estabelecimento selecionado
+                if (!selectedEstablishment) {
+                  alert('Por favor, selecione um estabelecimento primeiro');
+                  return;
+                }
+                
                 try {
                   const token = localStorage.getItem('authToken');
+                  
+                  // Incluir establishment_id no payload
+                  const payload = {
+                    ...createListForm,
+                    establishment_id: selectedEstablishment.id
+                  };
+                  
+                  console.log('📤 Enviando dados para criar lista:', payload);
+                  
                   const res = await fetch(`${API_URL}/api/admin/guest-lists/create`, {
                     method: 'POST',
                     headers: { 
                       'Content-Type': 'application/json', 
                       Authorization: `Bearer ${token}` 
                     },
-                    body: JSON.stringify(createListForm)
+                    body: JSON.stringify(payload)
                   });
                   
                   if (res.ok) {
@@ -2629,7 +2644,11 @@ export default function RestaurantReservationsPage() {
                     await loadGuestLists();
                   } else {
                     const errorData = await res.json();
-                    alert('Erro: ' + (errorData.error || 'Erro desconhecido'));
+                    const errorMessage = errorData.error || errorData.details || 'Erro desconhecido';
+                    const errorDetails = errorData.code || errorData.constraint ? 
+                      ` (Código: ${errorData.code || 'N/A'}, Constraint: ${errorData.constraint || 'N/A'})` : '';
+                    alert(`Erro: ${errorMessage}${errorDetails}`);
+                    console.error('❌ Erro completo da API:', errorData);
                   }
                 } catch (e) {
                   alert('Erro ao criar lista');
