@@ -800,8 +800,9 @@ export default function EventoCheckInsPage() {
   };
 
   // Filtrar por busca
-  const filterBySearch = (text: string) => {
+  const filterBySearch = (text: string | null | undefined) => {
     if (!searchTerm.trim()) return true;
+    if (!text) return false;
     return text.toLowerCase().includes(searchTerm.toLowerCase());
   };
 
@@ -944,19 +945,14 @@ export default function EventoCheckInsPage() {
 
     // Adicionar convidados de guest lists (listas de aniversário)
     Object.entries(guestsByList).forEach(([listId, guests]) => {
-      const searchLower = searchTerm.toLowerCase();
-      guests.forEach(g => {
-        const nome = (g.name || '').toLowerCase();
-        const whatsapp = (g.whatsapp || '').toLowerCase();
-        
-        if (nome.includes(searchLower) || whatsapp.includes(searchLower)) {
-          // Encontrar a guest list correspondente
+      if (!searchTerm.trim()) {
+        // Se não há busca, adiciona todos
+        guests.forEach(g => {
           const guestList = guestListsRestaurante.find(gl => gl.guest_list_id === Number(listId));
-          
           resultados.push({
             tipo: 'guest_list',
             id: g.id,
-            nome: g.name,
+            nome: g.name || 'Sem nome',
             origem: guestList ? guestList.owner_name : 'Lista de Aniversário',
             responsavel: guestList ? guestList.owner_name : 'Aniversário',
             status: (g.checked_in === 1 || g.checked_in === true) ? 'CHECK-IN' : 'Pendente',
@@ -967,8 +963,34 @@ export default function EventoCheckInsPage() {
             convidado: g,
             guestListId: Number(listId)
           });
-        }
-      });
+        });
+      } else {
+        const searchLower = searchTerm.toLowerCase();
+        guests.forEach(g => {
+          const nome = (g.name || '').toLowerCase();
+          const whatsapp = (g.whatsapp || '').toLowerCase();
+          
+          if (nome.includes(searchLower) || whatsapp.includes(searchLower)) {
+            // Encontrar a guest list correspondente
+            const guestList = guestListsRestaurante.find(gl => gl.guest_list_id === Number(listId));
+            
+            resultados.push({
+              tipo: 'guest_list',
+              id: g.id,
+              nome: g.name || 'Sem nome',
+              origem: guestList ? guestList.owner_name : 'Lista de Aniversário',
+              responsavel: guestList ? guestList.owner_name : 'Aniversário',
+              status: (g.checked_in === 1 || g.checked_in === true) ? 'CHECK-IN' : 'Pendente',
+              data_checkin: g.checkin_time,
+              telefone: g.whatsapp,
+              entrada_tipo: g.entrada_tipo,
+              entrada_valor: g.entrada_valor,
+              convidado: g,
+              guestListId: Number(listId)
+            });
+          }
+        });
+      }
     });
 
     return resultados;

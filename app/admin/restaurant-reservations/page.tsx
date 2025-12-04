@@ -1861,7 +1861,45 @@ export default function RestaurantReservationsPage() {
                       {/* FIM DA ALTERAÇÃO */}
 
                     </div>
-                    <span className={`text-xs px-2 py-1 rounded ${gl.is_valid ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>{gl.is_valid ? 'Ativo' : 'Expirado'}</span>
+                    <div className="flex items-center gap-2">
+                      <span className={`text-xs px-2 py-1 rounded ${gl.is_valid ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>{gl.is_valid ? 'Ativo' : 'Expirado'}</span>
+                      {/* Botão de excluir apenas para usuários autorizados e listas expiradas */}
+                      {!gl.is_valid && (() => {
+                        const userEmail = localStorage.getItem('userEmail');
+                        const canDelete = userEmail === 'jeffinho_ns@hotmail.com' || userEmail === 'teste@teste';
+                        return canDelete ? (
+                          <button
+                            onClick={async (e) => {
+                              e.stopPropagation();
+                              if (!confirm(`Tem certeza que deseja excluir a lista de convidados de ${gl.owner_name}? Esta ação não pode ser desfeita.`)) return;
+                              
+                              try {
+                                const token = localStorage.getItem('authToken');
+                                const res = await fetch(`${API_URL}/api/admin/guest-lists/${gl.guest_list_id}`, {
+                                  method: 'DELETE',
+                                  headers: { Authorization: `Bearer ${token}` }
+                                });
+                                
+                                if (res.ok) {
+                                  alert('✅ Lista excluída com sucesso!');
+                                  await loadGuestLists();
+                                } else {
+                                  const errorData = await res.json().catch(() => ({}));
+                                  alert(`❌ Erro ao excluir lista: ${errorData.error || 'Erro desconhecido'}`);
+                                }
+                              } catch (error) {
+                                console.error('❌ Erro ao excluir lista:', error);
+                                alert('❌ Erro ao excluir lista. Tente novamente.');
+                              }
+                            }}
+                            className="text-xs px-2 py-1 bg-red-100 hover:bg-red-200 text-red-700 rounded transition-colors"
+                            title="Excluir lista (apenas para usuários autorizados)"
+                          >
+                            🗑️ Excluir
+                          </button>
+                        ) : null;
+                      })()}
+                    </div>
                   </div>
 
                   {expandedGuestListId === gl.guest_list_id && (
