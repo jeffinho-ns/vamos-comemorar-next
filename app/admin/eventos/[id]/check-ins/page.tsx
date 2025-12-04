@@ -443,36 +443,92 @@ export default function EventoCheckInsPage() {
         setAtracoes(data.dados.atracoes || []);
         setEstatisticas(data.estatisticas);
         
-        // Carregar brindes automaticamente para todas as guest lists
+        // Carregar brindes e status de check-in automaticamente para todas as guest lists
         if (guestLists.length > 0) {
-          const loadAllGifts = async () => {
+          const loadAllGiftsAndStatus = async () => {
             const token = localStorage.getItem('authToken');
-            const giftsPromises = guestLists.map(async (gl: GuestListRestaurante) => {
+            
+            // Carregar brindes e status de check-in em paralelo para cada lista
+            const promises = guestLists.map(async (gl: GuestListRestaurante) => {
               try {
+                // Carregar brindes
                 const giftsRes = await fetch(`${API_URL}/api/gift-rules/guest-list/${gl.guest_list_id}/gifts`, {
                   headers: { Authorization: `Bearer ${token}` }
                 });
+                
+                // Carregar status de check-in
+                const checkinRes = await fetch(`${API_URL}/api/admin/guest-lists/${gl.guest_list_id}/checkin-status`, {
+                  headers: { Authorization: `Bearer ${token}` }
+                });
+                
+                let gifts: GiftAwarded[] = [];
+                let checkinStatus: { ownerCheckedIn: boolean; guestsCheckedIn: number; totalGuests: number } | null = null;
+                
                 if (giftsRes.ok) {
                   const giftsData = await giftsRes.json();
-                  return { guestListId: gl.guest_list_id, gifts: giftsData.gifts || [] };
+                  gifts = giftsData.gifts || [];
                 }
+                
+                if (checkinRes.ok) {
+                  const checkinData = await checkinRes.json();
+                  checkinStatus = {
+                    ownerCheckedIn: checkinData.checkin_status.owner_checked_in || false,
+                    guestsCheckedIn: checkinData.checkin_status.guests_checked_in || 0,
+                    totalGuests: checkinData.checkin_status.total_guests || gl.total_guests || 0
+                  };
+                } else {
+                  // Fallback: usar dados da lista se não conseguir carregar
+                  checkinStatus = {
+                    ownerCheckedIn: gl.owner_checked_in === 1,
+                    guestsCheckedIn: gl.guests_checked_in || 0,
+                    totalGuests: gl.total_guests || 0
+                  };
+                }
+                
+                return { 
+                  guestListId: gl.guest_list_id, 
+                  gifts,
+                  checkinStatus
+                };
               } catch (error) {
-                console.error(`Erro ao carregar brindes para lista ${gl.guest_list_id}:`, error);
+                console.error(`Erro ao carregar dados para lista ${gl.guest_list_id}:`, error);
+                return { 
+                  guestListId: gl.guest_list_id, 
+                  gifts: [],
+                  checkinStatus: {
+                    ownerCheckedIn: gl.owner_checked_in === 1,
+                    guestsCheckedIn: gl.guests_checked_in || 0,
+                    totalGuests: gl.total_guests || 0
+                  }
+                };
               }
-              return { guestListId: gl.guest_list_id, gifts: [] };
             });
             
-            const giftsResults = await Promise.all(giftsPromises);
+            const results = await Promise.all(promises);
+            
+            // Atualizar estado de brindes
             const giftsMap: Record<number, GiftAwarded[]> = {};
-            giftsResults.forEach(result => {
+            const statusMap: Record<number, { ownerCheckedIn: boolean; guestsCheckedIn: number; totalGuests: number }> = {};
+            
+            results.forEach(result => {
               giftsMap[result.guestListId] = result.gifts;
+              if (result.checkinStatus) {
+                statusMap[result.guestListId] = result.checkinStatus;
+              }
             });
+            
             setGiftsByGuestList(giftsMap);
-            console.log('🎁 Brindes carregados automaticamente para todas as listas:', Object.keys(giftsMap).length);
+            setCheckInStatus(prev => ({ ...prev, ...statusMap }));
+            
+            console.log('🎁 Brindes e status carregados automaticamente:', {
+              listas: Object.keys(giftsMap).length,
+              brindes: Object.values(giftsMap).flat().length,
+              status: Object.keys(statusMap).length
+            });
           };
           
-          // Carregar brindes em background sem bloquear a UI
-          loadAllGifts();
+          // Carregar em background sem bloquear a UI
+          loadAllGiftsAndStatus();
         }
         
         // A arrecadação será calculada automaticamente pelo useEffect quando os estados mudarem
