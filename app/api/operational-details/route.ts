@@ -211,6 +211,13 @@ export async function POST(request: NextRequest) {
 
     const apiUrl = `${API_BASE_URL}/api/v1/operational-details`;
     
+    console.log('🌐 Tentando conectar com API externa:', {
+      url: apiUrl,
+      method: 'POST',
+      hasToken: !!token,
+      dataSize: JSON.stringify(dataToSend).length
+    });
+    
     // Timeout de 30 segundos
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 30000);
@@ -221,7 +228,7 @@ export async function POST(request: NextRequest) {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': token,
+          'Authorization': token || '',
         },
         body: JSON.stringify(dataToSend),
         signal: controller.signal,
@@ -229,10 +236,17 @@ export async function POST(request: NextRequest) {
       clearTimeout(timeoutId);
     } catch (fetchError) {
       clearTimeout(timeoutId);
+      console.error('❌ Erro no fetch:', fetchError);
       if (fetchError instanceof Error && fetchError.name === 'AbortError') {
         throw new Error('Timeout ao conectar com a API. Tente novamente.');
       }
-      throw new Error(`Erro ao conectar com a API: ${fetchError instanceof Error ? fetchError.message : 'Erro desconhecido'}`);
+      const errorMsg = fetchError instanceof Error ? fetchError.message : 'Erro desconhecido';
+      console.error('❌ Detalhes do erro de fetch:', {
+        message: errorMsg,
+        name: fetchError instanceof Error ? fetchError.name : 'Unknown',
+        url: apiUrl
+      });
+      throw new Error(`Erro ao conectar com a API: ${errorMsg}`);
     }
 
     const responseText = await response.text();
@@ -315,9 +329,31 @@ export async function POST(request: NextRequest) {
     const errorMessage = error instanceof Error ? error.message : 'Erro interno do servidor';
     const errorStack = error instanceof Error ? error.stack : undefined;
     console.error('❌ Stack trace:', errorStack);
+    console.error('❌ API_BASE_URL:', API_BASE_URL);
+    console.error('❌ Tipo do erro:', error instanceof Error ? error.constructor.name : typeof error);
+    
+    // Se for um erro de fetch, incluir mais detalhes
+    if (error instanceof TypeError && error.message.includes('fetch')) {
+      return NextResponse.json(
+        { 
+          error: `Erro ao conectar com a API externa: ${errorMessage}`,
+          details: {
+            apiUrl: API_BASE_URL,
+            message: 'Verifique se a API está acessível e se a URL está correta'
+          },
+          stack: process.env.NODE_ENV === 'development' ? errorStack : undefined
+        },
+        { status: 500 }
+      );
+    }
+    
     return NextResponse.json(
       { 
         error: errorMessage,
+        details: {
+          apiUrl: API_BASE_URL,
+          type: error instanceof Error ? error.constructor.name : typeof error
+        },
         stack: process.env.NODE_ENV === 'development' ? errorStack : undefined
       },
       { status: 500 }
