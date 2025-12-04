@@ -1486,10 +1486,18 @@ export default function EventoCheckInsPage() {
               {/* Guest Lists de Reservas de Restaurante (Sistema de Reservas) */}
             {(selectedTab === 'todos' || selectedTab === 'reservas') && !searchTerm.trim() && (
                 <section className="bg-white/10 backdrop-blur-sm rounded-lg shadow-sm p-4 md:p-6 border border-white/20">
-                  <h2 className="text-lg md:text-xl font-bold text-white mb-3 md:mb-4 flex items-center gap-2">
-                    <MdRestaurant size={20} className="md:w-6 md:h-6 text-green-400" />
-                    <span className="truncate">Lista de Convidados - Reservas Aniversário ({guestListsRestaurante.length})</span>
-                  </h2>
+                    <div className="mb-4">
+  <h2 className="text-lg md:text-xl font-bold text-white flex items-center gap-2">
+    <MdRestaurant size={20} className="md:w-6 md:h-6 text-green-400" />
+    <span className="truncate">Listas de Convidados e Reservas ({guestListsRestaurante.length})</span>
+  </h2>
+  
+  {/* Descrição adicionada aqui */}
+  <p className="text-xs md:text-sm text-gray-400 mt-1 ml-1 md:ml-8">
+    Gerencie aqui as listas de aniversários, despedidas, confraternizações e reservas de mesas.
+  </p>
+</div>
+                    
                   
                   <div className="space-y-2 md:space-y-3">
                     {guestListsRestaurante.length === 0 ? (
@@ -2022,36 +2030,43 @@ export default function EventoCheckInsPage() {
                       }
                       return null;
                     })()}
-                    <div className="flex items-center justify-between mb-3 md:mb-4">
-                      <h2 className="text-lg md:text-xl font-bold text-white flex items-center gap-2 min-w-0">
-                        <MdEvent size={20} className="md:w-6 md:h-6 text-purple-400 flex-shrink-0" />
-                        <span className="truncate">Convidados de Promoters ({filteredConvidadosPromoters.length})</span>
-                      </h2>
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => setPromoterGuestsViewMode('grid')}
-                          className={`p-2 rounded-lg transition-colors ${
-                            promoterGuestsViewMode === 'grid'
-                              ? 'bg-purple-600 text-white'
-                              : 'bg-white/10 text-gray-300 hover:bg-white/20'
-                          }`}
-                          title="Visualização em grade"
-                        >
-                          <MdViewModule size={24} />
-                        </button>
-                        <button
-                          onClick={() => setPromoterGuestsViewMode('list')}
-                          className={`p-2 rounded-lg transition-colors ${
-                            promoterGuestsViewMode === 'list'
-                              ? 'bg-purple-600 text-white'
-                              : 'bg-white/10 text-gray-300 hover:bg-white/20'
-                          }`}
-                          title="Visualização em lista"
-                        >
-                          <MdViewList size={24} />
-                        </button>
-                      </div>
-                    </div>
+<div className="flex items-start justify-between mb-3 md:mb-4 gap-4">
+    <div className="flex-1 min-w-0"> {/* Container para Título e Descrição */}
+      <h2 className="text-lg md:text-xl font-bold text-white flex items-center gap-2">
+        <MdEvent size={20} className="md:w-6 md:h-6 text-purple-400 flex-shrink-0" />
+        <span className="truncate">Listas de Promoters e Cadastros ({filteredConvidadosPromoters.length})</span>
+      </h2>
+      <p className="text-xs md:text-sm text-gray-400 mt-1 ml-1 md:ml-8">
+        Inclui convidados de promoters, cadastros via Site/Instagram e listas promocionais (ex: VIP até horário).
+      </p>
+    </div>
+
+    {/* Botões de Visualização (Grid/List) - Mantidos à direita */}
+    <div className="flex items-center gap-2 flex-shrink-0 mt-1">
+      <button
+        onClick={() => setPromoterGuestsViewMode('grid')}
+        className={`p-2 rounded-lg transition-colors ${
+          promoterGuestsViewMode === 'grid'
+            ? 'bg-purple-600 text-white'
+            : 'bg-white/10 text-gray-300 hover:bg-white/20'
+        }`}
+        title="Visualização em grade"
+      >
+        <MdViewModule size={24} />
+      </button>
+      <button
+        onClick={() => setPromoterGuestsViewMode('list')}
+        className={`p-2 rounded-lg transition-colors ${
+          promoterGuestsViewMode === 'list'
+            ? 'bg-purple-600 text-white'
+            : 'bg-white/10 text-gray-300 hover:bg-white/20'
+        }`}
+        title="Visualização em lista"
+      >
+        <MdViewList size={24} />
+      </button>
+    </div>
+  </div>
 
                     {/* Campo de busca específico para convidados de promoters */}
                       <div className="mb-4">
