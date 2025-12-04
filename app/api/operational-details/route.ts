@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-const API_BASE_URL = 'https://vamos-comemorar-api.onrender.com';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || process.env.API_URL || 'https://vamos-comemorar-api.onrender.com';
 
 // GET - Buscar todos os detalhes operacionais
 export async function GET(request: NextRequest) {
@@ -255,8 +255,22 @@ export async function POST(request: NextRequest) {
         status: response.status,
         statusText: response.statusText,
         error: errorData,
-        url: apiUrl
+        url: apiUrl,
+        fullResponse: responseText
       });
+      
+      // Se for erro 500, retornar mais detalhes para debug
+      if (response.status === 500) {
+        return NextResponse.json(
+          { 
+            error: errorData.error || errorData.message || 'Erro interno do servidor na API externa',
+            details: errorData.details || errorData,
+            fullError: process.env.NODE_ENV === 'development' ? responseText : undefined
+          },
+          { status: 500 }
+        );
+      }
+      
       return NextResponse.json(
         { 
           error: errorData.error || errorData.message || `Erro ao criar detalhe operacional: ${response.status} ${response.statusText}`,
