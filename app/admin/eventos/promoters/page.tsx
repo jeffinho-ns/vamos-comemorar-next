@@ -408,7 +408,12 @@ export default function PromotersPage() {
           setSubmitSuccess(null);
         }, 3000);
       } else {
-        setSubmitError(data.error || 'Erro ao criar promoter. Tente novamente.');
+        // Mostrar erro mais detalhado se disponível
+        const errorMessage = data.error || data.details || 'Erro ao criar promoter. Tente novamente.';
+        const errorDetails = data.code || data.constraint ? 
+          ` (Código: ${data.code || 'N/A'}, Constraint: ${data.constraint || 'N/A'})` : '';
+        setSubmitError(`${errorMessage}${errorDetails}`);
+        console.error('❌ Erro completo da API:', data);
       }
     } catch (error) {
       console.error('❌ Erro ao criar promoter:', error);
