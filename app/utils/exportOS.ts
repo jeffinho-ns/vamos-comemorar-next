@@ -20,13 +20,13 @@ export async function exportToWord(detail: OperationalDetail) {
     <html>
     <head>
       <meta charset="UTF-8">
-      <title>OS de Artista - ${detail.event_name || 'Sem nome'}</title>
+      <title>OS de Artista - ${detail.event_name || detail.artistic_attraction || 'Sem nome'}</title>
       <style>
         body { font-family: Arial, sans-serif; margin: 20px; }
         h1 { color: #7c3aed; }
         .field { margin-bottom: 15px; }
         .label { font-weight: bold; color: #555; }
-        .value { margin-top: 5px; }
+        .value { margin-top: 5px; white-space: pre-wrap; }
       </style>
     </head>
     <body>
@@ -37,8 +37,24 @@ export async function exportToWord(detail: OperationalDetail) {
       </div>
       <div class="field">
         <div class="label">Nome do Projeto:</div>
-        <div class="value">${detail.event_name || 'Não informado'}</div>
+        <div class="value">${detail.event_name || detail.artistic_attraction || 'Não informado'}</div>
       </div>
+      ${detail.os_number ? `<div class="field">
+        <div class="label">Número da OS:</div>
+        <div class="value">${detail.os_number}</div>
+      </div>` : ''}
+      ${detail.show_schedule ? `<div class="field">
+        <div class="label">Horários de Funcionamento:</div>
+        <div class="value">${String(detail.show_schedule).replace(/\n/g, '<br>')}</div>
+      </div>` : ''}
+      ${detail.ticket_prices ? `<div class="field">
+        <div class="label">Valores de entrada:</div>
+        <div class="value">${String(detail.ticket_prices).replace(/\n/g, '<br>')}</div>
+      </div>` : ''}
+      ${detail.promotions ? `<div class="field">
+        <div class="label">Promoções:</div>
+        <div class="value">${String(detail.promotions).replace(/\n/g, '<br>')}</div>
+      </div>` : ''}
   `;
 
   // Adicionar campos dinâmicos de admin_notes (JSON)
@@ -73,7 +89,8 @@ export async function exportToWord(detail: OperationalDetail) {
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
-  link.download = `OS_Artista_${detail.event_name || 'OS'}_${formatDate(detail.event_date).replace(/\//g, '_')}.doc`;
+  const fileName = `OS_Artista_${(detail.event_name || detail.artistic_attraction || 'OS').replace(/[^a-zA-Z0-9]/g, '_')}_${formatDate(detail.event_date).replace(/\//g, '_')}.doc`;
+  link.download = fileName;
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
@@ -84,7 +101,22 @@ export async function exportToExcel(detail: OperationalDetail) {
   // Criar CSV (simples, mas funciona)
   let csvContent = 'Campo,Valor\n';
   csvContent += `Dia do Evento,"${formatDate(detail.event_date)}"\n`;
-  csvContent += `Nome do Projeto,"${detail.event_name || 'Não informado'}"\n`;
+  csvContent += `Nome do Projeto,"${detail.event_name || detail.artistic_attraction || 'Não informado'}"\n`;
+  if (detail.os_number) {
+    csvContent += `Número da OS,"${detail.os_number}"\n`;
+  }
+  if (detail.show_schedule) {
+    const escaped = String(detail.show_schedule).replace(/"/g, '""');
+    csvContent += `Horários de Funcionamento,"${escaped}"\n`;
+  }
+  if (detail.ticket_prices) {
+    const escaped = String(detail.ticket_prices).replace(/"/g, '""');
+    csvContent += `Valores de entrada,"${escaped}"\n`;
+  }
+  if (detail.promotions) {
+    const escaped = String(detail.promotions).replace(/"/g, '""');
+    csvContent += `Promoções,"${escaped}"\n`;
+  }
 
   // Adicionar campos dinâmicos de admin_notes (JSON)
   if (detail.admin_notes) {
@@ -108,7 +140,8 @@ export async function exportToExcel(detail: OperationalDetail) {
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
-  link.download = `OS_Artista_${detail.event_name || 'OS'}_${formatDate(detail.event_date).replace(/\//g, '_')}.csv`;
+  const fileName = `OS_Artista_${(detail.event_name || detail.artistic_attraction || 'OS').replace(/[^a-zA-Z0-9]/g, '_')}_${formatDate(detail.event_date).replace(/\//g, '_')}.csv`;
+  link.download = fileName;
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
@@ -128,7 +161,7 @@ export async function exportToPDF(detail: OperationalDetail) {
     <html>
     <head>
       <meta charset="UTF-8">
-      <title>OS de Artista - ${detail.event_name || 'Sem nome'}</title>
+      <title>OS de Artista - ${detail.event_name || detail.artistic_attraction || 'Sem nome'}</title>
       <style>
         @media print {
           @page { margin: 2cm; }
@@ -148,8 +181,24 @@ export async function exportToPDF(detail: OperationalDetail) {
       </div>
       <div class="field">
         <div class="label">Nome do Projeto:</div>
-        <div class="value">${detail.event_name || 'Não informado'}</div>
+        <div class="value">${detail.event_name || detail.artistic_attraction || 'Não informado'}</div>
       </div>
+      ${detail.os_number ? `<div class="field">
+        <div class="label">Número da OS:</div>
+        <div class="value">${detail.os_number}</div>
+      </div>` : ''}
+      ${detail.show_schedule ? `<div class="field">
+        <div class="label">Horários de Funcionamento:</div>
+        <div class="value">${String(detail.show_schedule).replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>
+      </div>` : ''}
+      ${detail.ticket_prices ? `<div class="field">
+        <div class="label">Valores de entrada:</div>
+        <div class="value">${String(detail.ticket_prices).replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>
+      </div>` : ''}
+      ${detail.promotions ? `<div class="field">
+        <div class="label">Promoções:</div>
+        <div class="value">${String(detail.promotions).replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>
+      </div>` : ''}
   `;
 
   // Adicionar campos dinâmicos de admin_notes (JSON)

@@ -81,7 +81,12 @@ export default function DetalhesOperacionaisPage() {
       }
 
       const data = await response.json();
+      // A API pode retornar { success: true, data: [...] } ou diretamente [...]
       if (data.success && data.data) {
+        setDetails(data.data);
+      } else if (Array.isArray(data)) {
+        setDetails(data);
+      } else if (data.data && Array.isArray(data.data)) {
         setDetails(data.data);
       } else {
         setDetails([]);
@@ -449,21 +454,51 @@ export default function DetalhesOperacionaisPage() {
             throw new Error('Token de autenticação não encontrado');
           }
 
-          const response = await fetch('/api/operational-details', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}`,
-            },
-            body: JSON.stringify(data),
-          });
+          try {
+            // Limpar campos undefined/null desnecessários
+            const cleanData: Record<string, any> = {};
+            Object.entries(data).forEach(([key, value]) => {
+              if (value !== undefined && value !== null) {
+                // Converter strings vazias para null em campos opcionais
+                if (typeof value === 'string' && value.trim() === '' && 
+                    !['artistic_attraction', 'ticket_prices', 'event_date'].includes(key)) {
+                  cleanData[key] = null;
+                } else {
+                  cleanData[key] = value;
+                }
+              }
+            });
 
-          if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || 'Erro ao criar OS');
+            console.log('📤 Dados limpos para envio:', cleanData);
+
+            const response = await fetch('/api/operational-details', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`,
+              },
+              body: JSON.stringify(cleanData),
+            });
+
+            if (!response.ok) {
+              const errorText = await response.text();
+              let errorData;
+              try {
+                errorData = JSON.parse(errorText);
+              } catch {
+                errorData = { error: errorText || 'Erro desconhecido' };
+              }
+              console.error('❌ Erro da API:', errorData);
+              throw new Error(errorData.error || `Erro ao criar OS: ${response.status} ${response.statusText}`);
+            }
+
+            const result = await response.json();
+            console.log('✅ OS criada com sucesso:', result);
+            fetchDetails();
+          } catch (error) {
+            console.error('❌ Erro ao salvar OS:', error);
+            throw error;
           }
-
-          fetchDetails();
         }}
         establishments={establishments}
       />

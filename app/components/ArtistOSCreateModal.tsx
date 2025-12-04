@@ -83,38 +83,53 @@ export default function ArtistOSCreateModal({
       const projectName = formData.project_name?.trim() || 'OS de Artista';
       const ticketPrices = formData.ticket_values?.trim() || 'Não informado';
       
+      // Garantir que os campos obrigatórios não sejam vazios
+      if (!projectName || projectName === '') {
+        throw new Error('Nome do projeto é obrigatório');
+      }
+      
+      if (!ticketPrices || ticketPrices === '') {
+        throw new Error('Valores de entrada são obrigatórios');
+      }
+      
+      if (!formData.event_day) {
+        throw new Error('Data do evento é obrigatória');
+      }
+      
       const standardFields: Record<string, any> = {
         os_type: 'artist' as const,
         os_number: formData.os_number || null,
         event_date: formData.event_day,
-        establishment_id: formData.establishment_id || null,
-        show_schedule: formData.working_hours || '',
-        ticket_prices: ticketPrices,
-        promotions: formData.promotions || '',
-        artistic_attraction: projectName, // Obrigatório
-        event_name: projectName,
+        establishment_id: formData.establishment_id ? parseInt(String(formData.establishment_id)) : null,
+        show_schedule: formData.working_hours || null,
+        ticket_prices: ticketPrices, // Obrigatório - não pode ser vazio
+        promotions: formData.promotions || null,
+        artistic_attraction: projectName, // Obrigatório - não pode ser vazio
+        event_name: projectName || null,
         is_active: true,
       };
 
-      // Coletar campos dinâmicos
+      // Coletar campos dinâmicos (excluindo os que já foram mapeados)
       const dynamicFields: Record<string, any> = {};
       Object.entries(formData).forEach(([key, value]) => {
         if (
           ['benefits', 'menu', 'briefing', 'partnership', 'tv_games'].includes(key) ||
           key.startsWith('custom_')
         ) {
-          if (value !== null && value !== undefined && value !== '') {
-            dynamicFields[key] = value;
+          if (value !== null && value !== undefined && value !== '' && String(value).trim() !== '') {
+            dynamicFields[key] = String(value).trim();
           }
         }
       });
 
-      // Salvar campos dinâmicos em admin_notes como JSON
+      // Salvar campos dinâmicos em admin_notes como JSON (só se houver campos)
       if (Object.keys(dynamicFields).length > 0) {
         standardFields.admin_notes = JSON.stringify({ dynamicFields });
+      } else {
+        standardFields.admin_notes = null;
       }
 
-      // Adicionar outros campos (excluindo project_name que já foi usado)
+      // Adicionar outros campos (excluindo os que já foram processados)
       Object.entries(formData).forEach(([key, value]) => {
         if (
           !['event_day', 'os_number', 'establishment_id', 'project_name', 'working_hours', 'ticket_values', 'promotions',
@@ -122,11 +137,20 @@ export default function ArtistOSCreateModal({
           !key.startsWith('custom_') &&
           value !== null &&
           value !== undefined &&
-          value !== ''
+          value !== '' &&
+          String(value).trim() !== ''
         ) {
-          standardFields[key] = value;
+          // Converter para número se for um campo numérico conhecido
+          if (['event_id', 'establishment_id'].includes(key)) {
+            standardFields[key] = parseInt(String(value));
+          } else {
+            standardFields[key] = String(value).trim();
+          }
         }
       });
+
+      // Log para debug (remover em produção se necessário)
+      console.log('📤 Enviando dados para API:', standardFields);
 
       await onSave(standardFields);
       
