@@ -217,10 +217,14 @@ const getValidImageUrl = (filename?: string | null): string => {
     return PLACEHOLDER_IMAGE_URL;
   }
   
-  // Se já é uma URL completa, tratar URLs antigas de cardápio e, caso contrário, retornar como está
+  // Se já é uma URL completa (Cloudinary, Unsplash, etc), retornar como está
   if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
     try {
       const url = new URL(trimmed);
+      // Se é Cloudinary, retornar como está
+      if (url.hostname.includes('cloudinary.com')) {
+        return trimmed;
+      }
       // Se a URL aponta para algum host antigo mas o caminho contém /cardapio-agilizaiapp/,
       // reescrevemos para o domínio atual usando apenas o nome do arquivo
       if (url.pathname.includes('/cardapio-agilizaiapp/')) {
@@ -3841,9 +3845,18 @@ export default function CardapioAdminPage() {
                       width={150}
                       height={100}
                       className="rounded-lg border object-cover"
-                      unoptimized={itemForm.imageUrl.startsWith('blob:') || itemForm.imageUrl.startsWith('http')}
+                      unoptimized={itemForm.imageUrl.startsWith('blob:') || itemForm.imageUrl.includes('cloudinary.com')}
                       priority={true}
                       key={itemForm.imageUrl} // Forçar re-render quando a URL mudar
+                      onError={(e) => {
+                        console.error('❌ Erro ao carregar imagem:', itemForm.imageUrl);
+                        console.error('URL usada:', getValidImageUrl(itemForm.imageUrl));
+                        // Em caso de erro, tentar usar a URL diretamente
+                        const target = e.target as HTMLImageElement;
+                        if (target.src !== itemForm.imageUrl && itemForm.imageUrl.startsWith('http')) {
+                          target.src = itemForm.imageUrl;
+                        }
+                      }}
                     />
                   </div>
                 )}

@@ -33,6 +33,11 @@ const nextConfig = {
                 hostname: 'via.placeholder.com',
                 pathname: '/**',
             },
+            {
+                protocol: 'https',
+                hostname: 'res.cloudinary.com',
+                pathname: '/**',
+            },
         ],
         unoptimized: false,
         formats: ['image/webp', 'image/avif'],
