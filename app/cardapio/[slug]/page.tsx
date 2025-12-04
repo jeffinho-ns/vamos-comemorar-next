@@ -939,7 +939,7 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
             hasAnimated.current = true;
           }
         }}
-        className={`menu-item-card cursor-pointer overflow-hidden transition-all duration-300 ${
+        className={`menu-item-card cursor-pointer overflow-hidden transition-all duration-300 flex flex-col ${
           isCleanStyle
             ? 'rounded-[28px] border border-[#d7c4a2] bg-[#f9f5ed]/95 shadow-[0_18px_38px_rgba(25,18,10,0.18)] hover:shadow-[0_28px_60px_rgba(25,18,10,0.28)]'
             : 'bg-white rounded-lg shadow-lg hover:shadow-xl'
@@ -967,7 +967,7 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
           />
         </div>
       
-        <div className={`flex flex-col gap-4 h-full p-3 sm:p-4 ${isCleanStyle ? 'sm:p-6' : ''}`}>
+        <div className={`flex flex-col h-full p-3 sm:p-4 ${isCleanStyle ? 'sm:p-6' : ''}`}>
           <div className="space-y-2">
             <h3
               className={`mb-1 line-clamp-2 ${
@@ -1027,22 +1027,22 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
                 </p>
               </div>
             )}
-            <div>
-              <button
-                type="button"
-                className={`w-full rounded-full px-3 py-2 text-xs font-semibold transition-colors duration-200 ${
-                  isCleanStyle
-                    ? 'bg-[#e9ddc8] text-[#2f251b] hover:bg-[#ddcfb3]'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-                onClick={(event) => {
-                  event.stopPropagation();
-                  onClick(item);
-                }}
-              >
-                Ver mais
-              </button>
-            </div>
+          </div>
+          <div className="mt-auto">
+            <button
+              type="button"
+              className={`w-full rounded-full px-3 py-2 text-xs font-semibold transition-colors duration-200 ${
+                isCleanStyle
+                  ? 'bg-[#e9ddc8] text-[#2f251b] hover:bg-[#ddcfb3]'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+              onClick={(event) => {
+                event.stopPropagation();
+                onClick(item);
+              }}
+            >
+              Ver mais
+            </button>
           </div>
         </div>
       </motion.div>

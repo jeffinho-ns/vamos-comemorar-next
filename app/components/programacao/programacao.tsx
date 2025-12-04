@@ -11,6 +11,7 @@ interface EventData {
   hora_do_evento: string;
   valor_da_entrada: string;
   imagem_do_evento: string;
+  imagem_do_evento_url?: string; // URL completa do Cloudinary
   local_do_evento: string;
 }
 
@@ -28,6 +29,31 @@ const Programacao: React.FC<ProgramacaoProps> = ({ barId, logo, location, establ
   const [loading, setLoading] = useState(true);
   const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL_LOCAL || "http://localhost:3000";
   const BASE_IMAGE_URL = 'https://grupoideiaum.com.br/cardapio-agilizaiapp/';
+
+  // Função para obter URL da imagem (suporta Cloudinary e FTP)
+  const getImageUrl = useCallback((event: EventData): string => {
+    // Se temos uma URL completa já construída pela API (Cloudinary), usar ela
+    if (event.imagem_do_evento_url && (event.imagem_do_evento_url.startsWith('http://') || event.imagem_do_evento_url.startsWith('https://'))) {
+      return event.imagem_do_evento_url;
+    }
+    
+    if (!event.imagem_do_evento) {
+      return 'https://placehold.co/400x300?text=Sem+Imagem';
+    }
+    
+    const trimmed = String(event.imagem_do_evento).trim();
+    if (!trimmed || trimmed === 'null' || trimmed === 'undefined') {
+      return 'https://placehold.co/400x300?text=Sem+Imagem';
+    }
+    
+    // Se já é uma URL completa (Cloudinary), usar diretamente
+    if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+      return trimmed;
+    }
+    
+    // Se ainda é apenas um filename (legado do FTP), construir URL do FTP
+    return `${BASE_IMAGE_URL}${trimmed}`;
+  }, []);
 
   // Mapeamento de estabelecimentos para nomes na API
   const establishmentNameMap = useCallback((): Record<string, string> => ({
@@ -109,7 +135,7 @@ const Programacao: React.FC<ProgramacaoProps> = ({ barId, logo, location, establ
           {events.map((event) => (
             <EventCard
               key={event.id}
-              img={`${BASE_IMAGE_URL}${event.imagem_do_evento}`}
+              img={getImageUrl(event)}
               title={event.nome_do_evento}
               date={new Date(event.data_do_evento).toLocaleDateString("pt-BR")}
               time={event.hora_do_evento}

@@ -169,9 +169,6 @@ export default function ReservationForm() {
   const [promoterEvents, setPromoterEvents] = useState<PromoterEvent[]>([]);
   const [promoterEventsLoading, setPromoterEventsLoading] = useState(false);
   const [promoterEventsError, setPromoterEventsError] = useState<string | null>(null);
-  const [establishmentEvents, setEstablishmentEvents] = useState<any[]>([]);
-  const [establishmentEventsLoading, setEstablishmentEventsLoading] = useState(false);
-  const [establishmentPromoterCode, setEstablishmentPromoterCode] = useState<string | null>(null);
 
   // Carregar estabelecimentos da API
   useEffect(() => {
@@ -599,64 +596,6 @@ export default function ReservationForm() {
     loadUpcomingEvents();
   }, []);
 
-  // Buscar eventos do estabelecimento e código do promoter
-  const loadEstablishmentEvents = async (establishmentId: number) => {
-    setEstablishmentEventsLoading(true);
-    setEstablishmentEvents([]);
-    setEstablishmentPromoterCode(null);
-    
-    try {
-      // Buscar eventos da API
-      const eventsResponse = await fetch(`${API_URL}/api/events?tipo=unico`);
-      if (eventsResponse.ok) {
-        const allEvents = await eventsResponse.json();
-        // Filtrar eventos do estabelecimento selecionado
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        
-        const filteredEvents = allEvents
-          .filter((event: any) => {
-            // Verificar se o evento pertence ao estabelecimento
-            const matchesEstablishment = event.id_place === establishmentId || 
-                                        (event.casa_do_evento && 
-                                         event.casa_do_evento.toLowerCase().includes(selectedEstablishment?.name.toLowerCase() || ''));
-            
-            if (matchesEstablishment && event.tipoEvento === 'unico') {
-              // Apenas eventos futuros ou sem data
-              if (!event.data_do_evento) return true;
-              const eventDate = new Date(event.data_do_evento);
-              eventDate.setHours(0, 0, 0, 0);
-              return eventDate >= today;
-            }
-            return false;
-          })
-          .sort((a: any, b: any) => {
-            if (!a.data_do_evento && !b.data_do_evento) return 0;
-            if (!a.data_do_evento) return 1;
-            if (!b.data_do_evento) return -1;
-            return new Date(a.data_do_evento).getTime() - new Date(b.data_do_evento).getTime();
-          })
-          .slice(0, 6);
-        
-        setEstablishmentEvents(filteredEvents);
-      }
-      
-      // Mapeamento conhecido de estabelecimentos para códigos de promoter
-      const establishmentPromoterMap: Record<number, string> = {
-        7: 'highlinepromo', // High Line
-        // Adicionar outros estabelecimentos conforme necessário
-      };
-      
-      if (establishmentPromoterMap[establishmentId]) {
-        setEstablishmentPromoterCode(establishmentPromoterMap[establishmentId]);
-      }
-    } catch (error) {
-      console.error('Erro ao buscar eventos do estabelecimento:', error);
-    } finally {
-      setEstablishmentEventsLoading(false);
-    }
-  };
-
   const handleEstablishmentSelect = (establishment: Establishment) => {
     setSelectedEstablishment(establishment);
     loadAreas(establishment.id);
@@ -668,8 +607,6 @@ export default function ReservationForm() {
       table_number: '',
     }));
     setStep('form');
-    // Buscar eventos e promoter do estabelecimento
-    loadEstablishmentEvents(establishment.id);
   };
 
   const validateForm = () => {
@@ -966,14 +903,34 @@ const handleSubmit = async (e: React.FormEvent) => {
 
   const uniquePromoterEvents = useMemo(() => {
     if (!promoterEvents || promoterEvents.length === 0) return [];
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
     const map = new Map<number, PromoterEvent>();
     promoterEvents.forEach((event) => {
       if (!event || !event.id || !event.imagem_url) return;
+      
+      // Filtrar apenas eventos futuros ou sem data
+      if (event.data) {
+        const eventDate = new Date(event.data);
+        eventDate.setHours(0, 0, 0, 0);
+        if (eventDate < today) {
+          return; // Ignorar eventos passados
+        }
+      }
+      // Se não tem data, considerar como futuro (eventos a definir)
+      
       if (!map.has(event.id)) {
         map.set(event.id, event);
       }
     });
-    return Array.from(map.values());
+    return Array.from(map.values()).sort((a, b) => {
+      // Ordenar por data: eventos sem data ficam por último
+      if (!a.data && !b.data) return 0;
+      if (!a.data) return 1;
+      if (!b.data) return -1;
+      return new Date(a.data).getTime() - new Date(b.data).getTime();
+    });
   }, [promoterEvents]);
 
   useEffect(() => {
@@ -1060,7 +1017,19 @@ const handleSubmit = async (e: React.FormEvent) => {
     if (!selectedEstablishment) return [] as OperationalDetail[];
     const key = String(selectedEstablishment.id);
     const events = upcomingEvents[key] || [];
-    return events.slice(0, 4);
+    
+    // Filtrar apenas eventos futuros
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const futureEvents = events.filter((event) => {
+      if (!event.event_date) return false;
+      const eventDate = new Date(event.event_date);
+      eventDate.setHours(0, 0, 0, 0);
+      return eventDate >= today;
+    });
+    
+    return futureEvents.slice(0, 4);
   }, [selectedEstablishment, upcomingEvents]);
 
   return (
@@ -1279,93 +1248,11 @@ const handleSubmit = async (e: React.FormEvent) => {
                 <MdArrowBack size={20} className="sm:w-6 sm:h-6" />
               </button>
               <div className="min-w-0 flex-1">
-                <h2 className="text-xl sm:text-2xl font-bold text-gray-800 truncate">
-                  Dados da Reserva
-                </h2>
                 <p className="text-gray-600 text-sm sm:text-base truncate">
                   {selectedEstablishment.name}
                 </p>
               </div>
             </div>
-
-            {/* Seção de eventos disponíveis - Mostrar para todos os estabelecimentos */}
-            {establishmentEventsLoading ? (
-              <div className="mb-6 flex items-center justify-center py-8">
-                <div className="text-center">
-                  <div className="w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
-                  <p className="text-gray-500 text-sm">Carregando eventos...</p>
-                </div>
-              </div>
-            ) : establishmentEvents.length > 0 && (
-              <div className="mb-6 rounded-2xl bg-gradient-to-br from-orange-50 via-white to-orange-50/30 border border-orange-200/50 p-6 shadow-lg">
-                <div className="flex items-center justify-between mb-4">
-                  <div>
-                    <h3 className="text-lg font-bold text-gray-800 mb-1">
-                      Eventos disponíveis nesta casa
-                    </h3>
-                    <p className="text-sm text-gray-600">
-                      Não quer reservar mesa? Coloque seu nome na lista do promoter!
-                    </p>
-                  </div>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {establishmentEvents.map((event) => (
-                    <div
-                      key={event.id}
-                      className="group relative overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm hover:shadow-md transition-all"
-                    >
-                      {event.imagem_do_evento_url && (
-                        <div className="relative h-32 overflow-hidden">
-                          <img
-                            src={event.imagem_do_evento_url}
-                            alt={event.nome_do_evento}
-                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                          />
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-                        </div>
-                      )}
-                      <div className="p-4">
-                        <div className="flex items-center gap-2 text-xs font-semibold text-orange-600 mb-2">
-                          <MdEvent size={16} />
-                          <span>
-                            {event.data_do_evento 
-                              ? new Date(event.data_do_evento).toLocaleDateString('pt-BR', { 
-                                  day: '2-digit', 
-                                  month: 'short',
-                                  year: 'numeric'
-                                })
-                              : 'Data a definir'}
-                          </span>
-                        </div>
-                        <h4 className="text-base font-bold text-gray-900 mb-2 line-clamp-2">
-                          {event.nome_do_evento}
-                        </h4>
-                        {event.hora_do_evento && (
-                          <p className="text-xs text-gray-600 mb-3">
-                            {event.hora_do_evento}
-                          </p>
-                        )}
-                        {establishmentPromoterCode ? (
-                          <Link
-                            href={`/promoter/${establishmentPromoterCode}${event.id ? `?evento=${event.id}` : ''}`}
-                            className="inline-flex items-center justify-center w-full rounded-lg bg-orange-500 hover:bg-orange-600 text-white text-sm font-semibold px-4 py-2 transition-colors"
-                          >
-                            Entrar na lista
-                          </Link>
-                        ) : (
-                          <button
-                            disabled
-                            className="inline-flex items-center justify-center w-full rounded-lg bg-gray-300 text-gray-500 text-sm font-semibold px-4 py-2 cursor-not-allowed"
-                          >
-                            Lista não disponível
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
 
             {isHighline && (
               <div className="mb-10 overflow-hidden rounded-[28px] border border-white/10 bg-gradient-to-tr from-slate-900 via-indigo-900 to-slate-900 p-1">
@@ -1376,7 +1263,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                         Highline Promo
                       </p>
                       <h3 className="text-2xl sm:text-3xl font-bold text-white leading-tight">
-                        Só quer entrar? Coloque seu nome na lista do promoter.
+                        Só quer entrar? Coloque seu nome na lista da casa.
                       </h3>
                       <p className="text-sm sm:text-base text-white/70 leading-relaxed">
                         Para quem prefere vivenciar a noite do High Line sem reservar mesa, a lista do promoter garante entrada em horários alternativos e com a experiência de balada completa.
@@ -1517,6 +1404,11 @@ const handleSubmit = async (e: React.FormEvent) => {
 
             <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
               {/* Personal Information */}
+              <div>
+                <h2 className="text-xl sm:text-2xl font-bold text-gray-800 mb-4 sm:mb-6">
+                  Reservas de Mesa
+                </h2>
+              </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">

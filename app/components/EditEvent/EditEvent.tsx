@@ -43,15 +43,29 @@ const EditEvent: React.FC<EditEventProps> = ({ isOpen, onRequestClose, event, on
   const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL_LOCAL;
 
   // Função auxiliar para montar a URL completa da imagem
-  const getImageUrl = useCallback((filename: string | null | undefined): string => {
-    if (!filename) {
+  // Suporta URLs completas do Cloudinary e filenames legados do FTP
+  const getImageUrl = useCallback((imageValue: string | null | undefined, imageUrl?: string | null): string => {
+    // Se temos uma URL completa já construída pela API, usar ela
+    if (imageUrl && (imageUrl.startsWith('http://') || imageUrl.startsWith('https://'))) {
+      return imageUrl;
+    }
+    
+    if (!imageValue) {
       return "https://via.placeholder.com/150";
     }
-    // Se já é uma URL completa, retorna
-    if (filename.startsWith('http')) {
-      return filename;
+    
+    const trimmed = String(imageValue).trim();
+    if (!trimmed || trimmed === 'null' || trimmed === 'undefined') {
+      return "https://via.placeholder.com/150";
     }
-    return `${BASE_IMAGE_URL}${filename}`;
+    
+    // Se já é uma URL completa (Cloudinary, FTP ou outro serviço), usar diretamente
+    if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+      return trimmed;
+    }
+    
+    // Se ainda é apenas um filename (legado do FTP), construir URL do FTP
+    return `${BASE_IMAGE_URL}${trimmed}`;
   }, []);
 
   useEffect(() => {
@@ -80,8 +94,9 @@ const EditEvent: React.FC<EditEventProps> = ({ isOpen, onRequestClose, event, on
       setDiaDaSemana(event.dia_da_semana !== null ? String(event.dia_da_semana) : "");
       
       // Define os previews das imagens
-      setImagemEventoPreview(getImageUrl(event.imagem_do_evento));
-      setImagemComboPreview(getImageUrl(event.imagem_do_combo));
+      // Usar imagem_do_evento_url se disponível (URL completa do Cloudinary)
+      setImagemEventoPreview(getImageUrl(event.imagem_do_evento, (event as any).imagem_do_evento_url));
+      setImagemComboPreview(getImageUrl(event.imagem_do_combo, (event as any).imagem_do_combo_url));
       
       setImagemDoEvento(null); // Limpa o arquivo recém-selecionado ao mudar de evento
       setImagemDoCombo(null); // Limpa o arquivo recém-selecionado ao mudar de evento
