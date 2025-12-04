@@ -221,14 +221,26 @@ export async function POST(request: NextRequest) {
     });
     
     // Fazer requisição para o backend
-    const response = await fetch(apiUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': token || '',
-      },
-      body: JSON.stringify(dataToSend),
-    });
+    let response;
+    try {
+      response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': token || '',
+        },
+        body: JSON.stringify(dataToSend),
+      });
+    } catch (fetchError) {
+      console.error('❌ Erro ao fazer fetch para API backend:', fetchError);
+      return NextResponse.json(
+        { 
+          error: 'Erro ao conectar com o servidor backend',
+          details: fetchError instanceof Error ? fetchError.message : 'Erro desconhecido'
+        },
+        { status: 500 }
+      );
+    }
 
     const responseText = await response.text();
     console.log('📥 Resposta da API externa:', {
