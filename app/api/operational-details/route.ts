@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || process.env.API_URL || 'https://vamos-comemorar-api.onrender.com';
+// URL da API backend - sempre usar vamos-comemorar-api.onrender.com
+const API_BASE_URL = 'https://vamos-comemorar-api.onrender.com';
 
 // GET - Buscar todos os detalhes operacionais
 export async function GET(request: NextRequest) {
@@ -209,45 +210,25 @@ export async function POST(request: NextRequest) {
       fullData: JSON.stringify(dataToSend, null, 2).substring(0, 1000)
     });
 
+    // URL completa da API backend
     const apiUrl = `${API_BASE_URL}/api/v1/operational-details`;
     
-    console.log('🌐 Tentando conectar com API externa:', {
+    console.log('🌐 Fazendo proxy para API backend:', {
       url: apiUrl,
       method: 'POST',
       hasToken: !!token,
-      dataSize: JSON.stringify(dataToSend).length
+      dataKeys: Object.keys(dataToSend).length
     });
     
-    // Timeout de 30 segundos
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 30000);
-    
-    let response;
-    try {
-      response = await fetch(apiUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': token || '',
-        },
-        body: JSON.stringify(dataToSend),
-        signal: controller.signal,
-      });
-      clearTimeout(timeoutId);
-    } catch (fetchError) {
-      clearTimeout(timeoutId);
-      console.error('❌ Erro no fetch:', fetchError);
-      if (fetchError instanceof Error && fetchError.name === 'AbortError') {
-        throw new Error('Timeout ao conectar com a API. Tente novamente.');
-      }
-      const errorMsg = fetchError instanceof Error ? fetchError.message : 'Erro desconhecido';
-      console.error('❌ Detalhes do erro de fetch:', {
-        message: errorMsg,
-        name: fetchError instanceof Error ? fetchError.name : 'Unknown',
-        url: apiUrl
-      });
-      throw new Error(`Erro ao conectar com a API: ${errorMsg}`);
-    }
+    // Fazer requisição para o backend
+    const response = await fetch(apiUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': token || '',
+      },
+      body: JSON.stringify(dataToSend),
+    });
 
     const responseText = await response.text();
     console.log('📥 Resposta da API externa:', {
