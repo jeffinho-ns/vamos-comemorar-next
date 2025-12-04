@@ -1175,7 +1175,7 @@ export default function EventoCheckInsPage() {
                     : 'bg-white/10 text-gray-300 hover:bg-white/20'
                 }`}
               >
-                Reservas ({reservasMetrics.total})
+                Reservas ({reservasMesa.length + reservasRestaurante.length})
               </button>
               <button
                 onClick={() => setSelectedTab('promoters')}
@@ -1221,6 +1221,9 @@ export default function EventoCheckInsPage() {
               <div className="text-sm text-gray-300 mb-1">Reservas</div>
               <div className="text-2xl font-bold text-white">
                 {reservasMetrics.checkins}/{reservasMetrics.total}
+              </div>
+              <div className="text-xs text-gray-400 mt-1">
+                {reservasMesa.length + reservasRestaurante.length} reserva{(reservasMesa.length + reservasRestaurante.length) !== 1 ? 's' : ''}
               </div>
             </div>
             <div className="bg-white/10 backdrop-blur-sm rounded-lg shadow p-4 border border-purple-500/50">
