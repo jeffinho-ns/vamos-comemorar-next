@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import Image from "next/image";
 import Modal from "../ui/Modal";
+import { MdSearch, MdUpload, MdDelete } from "react-icons/md";
 
 interface AddEventProps {
   isOpen: boolean;
@@ -34,6 +35,8 @@ const AddEvent: React.FC<AddEventProps> = ({ isOpen, onRequestClose, onEventAdde
   const [imagemDoCombo, setImagemDoCombo] = useState<File | null>(null);
   const [imagemEventoPreview, setImagemEventoPreview] = useState<string | null>(null);
   const [imagemComboPreview, setImagemComboPreview] = useState<string | null>(null);
+  const [imagemEventoFilename, setImagemEventoFilename] = useState<string | null>(null);
+  const [imagemComboFilename, setImagemComboFilename] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [establishments, setEstablishments] = useState<Establishment[]>([]);
@@ -51,7 +54,22 @@ const AddEvent: React.FC<AddEventProps> = ({ isOpen, onRequestClose, onEventAdde
   }
   const [atracoes, setAtracoes] = useState<Atracao[]>([]);
 
+  // Estados para galeria de imagens
+  const [showImageGalleryModal, setShowImageGalleryModal] = useState(false);
+  const [imageGalleryField, setImageGalleryField] = useState<string>('');
+  const [galleryImages, setGalleryImages] = useState<Array<{
+    filename: string;
+    url?: string | null;
+    sourceType: string;
+    imageType: string;
+    usageCount: number;
+  }>>([]);
+  const [galleryLoading, setGalleryLoading] = useState(false);
+  const [gallerySearchTerm, setGallerySearchTerm] = useState('');
+
   const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL_LOCAL || 'https://vamos-comemorar-api.onrender.com';
+  const API_BASE_URL = `${API_URL}/api/cardapio`;
+  const BASE_IMAGE_URL = 'https://grupoideiaum.com.br/cardapio-agilizaiapp/';
 
   const fetchEstablishments = useCallback(async () => {
     setLoadingEstablishments(true);
@@ -100,6 +118,100 @@ const AddEvent: React.FC<AddEventProps> = ({ isOpen, onRequestClose, onEventAdde
     }
   }, [isOpen, fetchEstablishments]);
 
+  // Função para buscar imagens da galeria
+  const fetchGalleryImages = useCallback(async (): Promise<Array<{
+    filename: string;
+    url?: string | null;
+    sourceType: string;
+    imageType: string;
+    usageCount: number;
+  }>> => {
+    setGalleryLoading(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/gallery/images`);
+      if (response.ok) {
+        const data = await response.json();
+        const images = data.images || [];
+        setGalleryImages(images);
+        return images;
+      } else {
+        console.error('Erro ao buscar imagens da galeria');
+        setGalleryImages([]);
+        return [];
+      }
+    } catch (error) {
+      console.error('Erro ao buscar imagens da galeria:', error);
+      setGalleryImages([]);
+      return [];
+    } finally {
+      setGalleryLoading(false);
+    }
+  }, [API_BASE_URL]);
+
+  // Função auxiliar para montar URL da imagem
+  const getValidImageUrl = useCallback((filename: string): string => {
+    if (!filename) return '';
+    if (filename.startsWith('http://') || filename.startsWith('https://')) {
+      return filename;
+    }
+    return `${BASE_IMAGE_URL}${filename}`;
+  }, []);
+
+  // Função para abrir galeria de imagens
+  const openImageGallery = useCallback((field: string) => {
+    setImageGalleryField(field);
+    setShowImageGalleryModal(true);
+    fetchGalleryImages();
+  }, [fetchGalleryImages]);
+
+  // Função para selecionar imagem da galeria
+  const handleSelectGalleryImage = useCallback((filename: string, imageUrl?: string | null) => {
+    // Usar a URL completa para preview, mas manter o filename para envio à API
+    const previewUrl = imageUrl || getValidImageUrl(filename);
+    
+    if (imageGalleryField === 'imagem_do_evento') {
+      setImagemDoEvento(null);
+      setImagemEventoPreview(previewUrl);
+      setImagemEventoFilename(filename);
+    } else if (imageGalleryField === 'imagem_do_combo') {
+      setImagemDoCombo(null);
+      setImagemComboPreview(previewUrl);
+      setImagemComboFilename(filename);
+    }
+    
+    setShowImageGalleryModal(false);
+    setImageGalleryField('');
+    setGallerySearchTerm('');
+  }, [imageGalleryField, getValidImageUrl]);
+
+  // Função para deletar imagem da galeria
+  const handleDeleteGalleryImage = useCallback(
+    async (filename: string, e: React.MouseEvent) => {
+      e.stopPropagation();
+      
+      if (!confirm(`Tem certeza que deseja deletar a imagem "${filename}"?`)) {
+        return;
+      }
+
+      try {
+        const response = await fetch(`${API_BASE_URL}/gallery/images/${encodeURIComponent(filename)}`, {
+          method: 'DELETE',
+        });
+
+        if (response.ok) {
+          fetchGalleryImages();
+        } else {
+          const errorData = await response.json().catch(() => ({}));
+          alert(errorData.message || errorData.error || 'Erro ao deletar imagem.');
+        }
+      } catch (err) {
+        console.error('Erro ao deletar imagem:', err);
+        alert('Erro ao deletar imagem. Tente novamente.');
+      }
+    },
+    [API_BASE_URL, fetchGalleryImages],
+  );
+
   const resetForm = () => {
     setIdPlace(null);
     setCasaDoEvento("");
@@ -119,6 +231,8 @@ const AddEvent: React.FC<AddEventProps> = ({ isOpen, onRequestClose, onEventAdde
     setImagemDoCombo(null);
     setImagemEventoPreview(null);
     setImagemComboPreview(null);
+    setImagemEventoFilename(null);
+    setImagemComboFilename(null);
     setTipoEvento('unico');
     setDiaDaSemana('');
     setAtracoes([]);
@@ -199,30 +313,45 @@ const AddEvent: React.FC<AddEventProps> = ({ isOpen, onRequestClose, onEventAdde
       return;
     }
 
-    let imagemEventoFilename: string | null = null;
-    let imagemComboFilename: string | null = null;
+    let finalImagemEventoFilename: string | null = null;
+    let finalImagemComboFilename: string | null = null;
 
     // 1. Upload da imagem do evento
     if (imagemDoEvento) {
-      imagemEventoFilename = await uploadImage(imagemDoEvento);
-      if (!imagemEventoFilename) {
+      // Se é um File, fazer upload
+      finalImagemEventoFilename = await uploadImage(imagemDoEvento);
+      if (!finalImagemEventoFilename) {
         setIsLoading(false);
         return;
       }
+    } else if (imagemEventoFilename) {
+      // Se foi selecionada da galeria, usar o filename armazenado
+      finalImagemEventoFilename = imagemEventoFilename;
     }
 
     // 2. Upload da imagem do combo (se houver)
     if (imagemDoCombo) {
-      imagemComboFilename = await uploadImage(imagemDoCombo);
-      if (!imagemComboFilename) {
+      // Se é um File, fazer upload
+      finalImagemComboFilename = await uploadImage(imagemDoCombo);
+      if (!finalImagemComboFilename) {
         setIsLoading(false);
         return;
       }
+    } else if (imagemComboFilename) {
+      // Se foi selecionada da galeria, usar o filename armazenado
+      finalImagemComboFilename = imagemComboFilename;
     }
 
     // Validação: verificar se um estabelecimento foi selecionado
     if (!idPlace) {
       setError("Por favor, selecione um estabelecimento.");
+      setIsLoading(false);
+      return;
+    }
+
+    // Validação: verificar se a imagem do evento foi fornecida
+    if (!finalImagemEventoFilename && !imagemDoEvento && !imagemEventoFilename) {
+      setError("Por favor, selecione ou faça upload de uma imagem para o evento.");
       setIsLoading(false);
       return;
     }
@@ -279,8 +408,8 @@ const AddEvent: React.FC<AddEventProps> = ({ isOpen, onRequestClose, onEventAdde
       tipo_evento: tipoEvento,
       data_do_evento: tipoEvento === 'unico' ? dataDoEvento : null,
       dia_da_semana: tipoEvento === 'semanal' ? (diaDaSemana ? parseInt(diaDaSemana) : null) : null,
-      imagem_do_evento: imagemEventoFilename,
-      imagem_do_combo: imagemComboFilename,
+      imagem_do_evento: finalImagemEventoFilename,
+      imagem_do_combo: finalImagemComboFilename,
       id_place: idPlace, // Enviando o ID do estabelecimento
       atracoes: atracoes, // Enviando as atrações
     };
@@ -315,11 +444,15 @@ const AddEvent: React.FC<AddEventProps> = ({ isOpen, onRequestClose, onEventAdde
     }
   };
 
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>, setImage: React.Dispatch<React.SetStateAction<File | null>>, setPreview: React.Dispatch<React.SetStateAction<string | null>>) => {
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>, setImage: React.Dispatch<React.SetStateAction<File | null>>, setPreview: React.Dispatch<React.SetStateAction<string | null>>, setFilename?: React.Dispatch<React.SetStateAction<string | null>>) => {
     const file = e.target.files ? e.target.files[0] : null;
     if (file) {
       setImage(file);
       setPreview(URL.createObjectURL(file));
+      // Limpar filename da galeria se um novo arquivo for selecionado
+      if (setFilename) {
+        setFilename(null);
+      }
     }
   };
 
@@ -390,16 +523,44 @@ const AddEvent: React.FC<AddEventProps> = ({ isOpen, onRequestClose, onEventAdde
           <textarea className="w-full p-2 border rounded col-span-2" placeholder="Descrição" value={descricao} onChange={(e) => setDescricao(e.target.value)} required />
 
           <div className="col-span-2 grid grid-cols-2 gap-4">
-            <label className="flex flex-col items-center border-2 border-dashed border-gray-300 p-4 rounded-lg cursor-pointer hover:border-blue-400 transition">
-              <span className="text-sm font-semibold text-gray-500">Imagem do evento</span>
-              <input type="file" className="hidden" onChange={(e) => handleImageChange(e, setImagemDoEvento, setImagemEventoPreview)} required />
-              {imagemEventoPreview ? <Image src={imagemEventoPreview} alt="Pré-visualização do evento" className="mt-2 h-24 w-auto rounded shadow" width={64} height={64} /> : <span className="text-xs text-gray-400">Selecione uma imagem</span>}
-            </label>
-            <label className="flex flex-col items-center border-2 border-dashed border-gray-300 p-4 rounded-lg cursor-pointer hover:border-blue-400 transition">
-              <span className="text-sm font-semibold text-gray-500">Imagem do combo</span>
-              <input type="file" className="hidden" onChange={(e) => handleImageChange(e, setImagemDoCombo, setImagemComboPreview)} />
-              {imagemComboPreview ? <Image src={imagemComboPreview} alt="Pré-visualização do combo" className="mt-2 h-24 w-auto rounded shadow" width={64} height={64} /> : <span className="text-xs text-gray-400">Selecione uma imagem</span>}
-            </label>
+            <div className="flex flex-col gap-2">
+              <label className="flex flex-col items-center border-2 border-dashed border-gray-300 p-4 rounded-lg cursor-pointer hover:border-blue-400 transition">
+                <span className="text-sm font-semibold text-gray-500">Imagem do evento</span>
+                <input type="file" className="hidden" onChange={(e) => handleImageChange(e, setImagemDoEvento, setImagemEventoPreview, setImagemEventoFilename)} />
+                {imagemEventoPreview ? (
+                  <Image src={imagemEventoPreview} alt="Pré-visualização do evento" className="mt-2 h-24 w-auto rounded shadow" width={64} height={64} />
+                ) : (
+                  <span className="text-xs text-gray-400">Selecione uma imagem</span>
+                )}
+              </label>
+              <button
+                type="button"
+                onClick={() => openImageGallery('imagem_do_evento')}
+                className="flex items-center justify-center gap-2 rounded-md bg-green-600 px-3 py-2 text-white text-sm hover:bg-green-700 transition-colors"
+              >
+                <MdUpload className="h-4 w-4" />
+                Abrir Galeria
+              </button>
+            </div>
+            <div className="flex flex-col gap-2">
+              <label className="flex flex-col items-center border-2 border-dashed border-gray-300 p-4 rounded-lg cursor-pointer hover:border-blue-400 transition">
+                <span className="text-sm font-semibold text-gray-500">Imagem do combo</span>
+                <input type="file" className="hidden" onChange={(e) => handleImageChange(e, setImagemDoCombo, setImagemComboPreview, setImagemComboFilename)} />
+                {imagemComboPreview ? (
+                  <Image src={imagemComboPreview} alt="Pré-visualização do combo" className="mt-2 h-24 w-auto rounded shadow" width={64} height={64} />
+                ) : (
+                  <span className="text-xs text-gray-400">Selecione uma imagem</span>
+                )}
+              </label>
+              <button
+                type="button"
+                onClick={() => openImageGallery('imagem_do_combo')}
+                className="flex items-center justify-center gap-2 rounded-md bg-green-600 px-3 py-2 text-white text-sm hover:bg-green-700 transition-colors"
+              >
+                <MdUpload className="h-4 w-4" />
+                Abrir Galeria
+              </button>
+            </div>
           </div>
 
           <textarea className="w-full p-2 border rounded col-span-2" placeholder="Observação" value={observacao} onChange={(e) => setObservacao(e.target.value)} />
@@ -488,6 +649,138 @@ const AddEvent: React.FC<AddEventProps> = ({ isOpen, onRequestClose, onEventAdde
         </form>
         <button onClick={onRequestClose} className="mt-4 w-full bg-gray-500 text-white py-2 rounded hover:bg-gray-600 transition">Fechar</button>
       </div>
+
+      {/* Modal da Galeria de Imagens */}
+      <Modal
+        isOpen={showImageGalleryModal}
+        onRequestClose={() => {
+          setShowImageGalleryModal(false);
+          setImageGalleryField('');
+          setGallerySearchTerm('');
+        }}
+        contentLabel="Galeria de Imagens"
+        className="fixed inset-0 flex items-center justify-center p-4 z-50"
+        overlayClassName="fixed inset-0 bg-black bg-opacity-50"
+      >
+        <div className="bg-white rounded-lg shadow-lg w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+          <div className="p-6 border-b">
+            <h2 className="text-2xl font-bold mb-4">Galeria de Imagens</h2>
+            <div className="flex flex-col sm:flex-row gap-3">
+              <div className="relative flex-1">
+                <MdSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+                <input
+                  type="text"
+                  placeholder="Buscar imagens por nome..."
+                  value={gallerySearchTerm}
+                  onChange={(e) => setGallerySearchTerm(e.target.value)}
+                  className="w-full rounded-md border border-gray-300 pl-10 pr-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <button
+                onClick={async () => {
+                  const input = document.createElement('input');
+                  input.type = 'file';
+                  input.accept = 'image/*';
+                  input.onchange = async (e) => {
+                    const files = (e.target as HTMLInputElement).files;
+                    if (files && files[0]) {
+                      const filename = await uploadImage(files[0]);
+                      if (filename) {
+                        // Aguardar um pouco para garantir que a imagem foi salva no banco
+                        await new Promise(resolve => setTimeout(resolve, 500));
+                        // Buscar imagens e obter a lista atualizada
+                        const updatedImages = await fetchGalleryImages();
+                        // Buscar a imagem recém-enviada na galeria para obter a URL completa
+                        const uploadedImage = updatedImages.find(img => img.filename === filename);
+                        const imageUrl = uploadedImage?.url || null;
+                        // Selecionar automaticamente a imagem recém-enviada
+                        handleSelectGalleryImage(filename, imageUrl);
+                      }
+                    }
+                  };
+                  input.click();
+                }}
+                className="flex items-center justify-center gap-2 rounded-md bg-green-600 px-4 py-2 text-white hover:bg-green-700 transition-colors"
+              >
+                <MdUpload className="h-5 w-5" />
+                <span>Upload</span>
+              </button>
+            </div>
+            {!galleryLoading && galleryImages.length > 0 && (
+              <div className="mt-3 text-sm text-gray-600">
+                {galleryImages.filter(img => 
+                  !gallerySearchTerm || 
+                  img.filename.toLowerCase().includes(gallerySearchTerm.toLowerCase())
+                ).length} imagem(s) encontrada(s)
+              </div>
+            )}
+          </div>
+          <div className="flex-1 overflow-y-auto p-6">
+            {galleryLoading ? (
+              <div className="flex justify-center items-center py-12">
+                <span className="text-gray-500">Carregando imagens...</span>
+              </div>
+            ) : galleryImages.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12 text-gray-500">
+                <MdUpload className="h-12 w-12 mb-4 text-gray-300" />
+                <p>Nenhuma imagem encontrada.</p>
+                <p className="text-sm mt-1">Faça upload de uma imagem para começar.</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                {galleryImages
+                  .filter(img => 
+                    !gallerySearchTerm || 
+                    img.filename.toLowerCase().includes(gallerySearchTerm.toLowerCase())
+                  )
+                  .map((image, index) => {
+                    const imageUrl = image.url || getValidImageUrl(image.filename);
+                    return (
+                      <div
+                        key={`${image.filename}-${index}`}
+                        className="relative group cursor-pointer rounded-lg border-2 border-gray-200 hover:border-blue-500 transition-all overflow-hidden shadow-md hover:shadow-lg"
+                        onClick={() => handleSelectGalleryImage(image.filename, image.url || undefined)}
+                      >
+                        <div className="aspect-square relative bg-gray-100">
+                          <Image
+                            src={imageUrl}
+                            alt={image.filename}
+                            fill
+                            sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 20vw"
+                            className="object-cover transition-transform group-hover:scale-105"
+                            unoptimized
+                          />
+                        </div>
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/0 to-black/0 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <div className="absolute inset-0 flex items-center justify-center gap-2">
+                            <span className="text-white text-sm font-semibold bg-black/50 px-3 py-1 rounded-full">
+                              Selecionar
+                            </span>
+                            <button
+                              onClick={(e) => handleDeleteGalleryImage(image.filename, e)}
+                              className="bg-red-600 hover:bg-red-700 text-white p-2 rounded-full shadow-lg transition-transform hover:scale-110"
+                              title="Deletar imagem"
+                            >
+                              <MdDelete className="h-4 w-4" />
+                            </button>
+                          </div>
+                        </div>
+                        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent text-white text-xs p-2">
+                          <p className="truncate font-medium">{image.filename}</p>
+                          {image.sourceType && (
+                            <p className="text-xs text-gray-300 mt-0.5">
+                              {image.sourceType === 'menu_item' ? 'Item' : 'Bar'} • {image.usageCount}x usado
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+              </div>
+            )}
+          </div>
+        </div>
+      </Modal>
     </Modal>
   );
 };
