@@ -579,13 +579,19 @@ export default function ReservationForm() {
               );
             }
           });
+          console.log('📅 Eventos carregados:', {
+            totalKeys: Object.keys(normalized).length,
+            keys: Object.keys(normalized),
+            eventsByKey: Object.entries(normalized).map(([k, v]) => ({ key: k, count: v.length }))
+          });
           setUpcomingEvents(normalized);
         } else {
+          console.warn('⚠️ Resposta da API sem dados:', result);
           setUpcomingEvents({});
           setUpcomingEventsError('Não foi possível carregar os próximos eventos.');
         }
       } catch (error) {
-        console.error('Erro ao carregar próximos eventos:', error);
+        console.error('❌ Erro ao carregar próximos eventos:', error);
         setUpcomingEvents({});
         setUpcomingEventsError('Não foi possível carregar os próximos eventos.');
       } finally {
@@ -903,40 +909,91 @@ const handleSubmit = async (e: React.FormEvent) => {
 
   const uniquePromoterEvents = useMemo(() => {
     if (!promoterEvents || promoterEvents.length === 0) return [];
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    
+    // Data/hora atual
+    const now = new Date();
+    const currentHour = now.getHours();
+    
+    // Se for antes das 03:00, considerar que ainda é o dia anterior (madrugada)
+    // Exemplo: 02:00 do dia 06/12 ainda mostra eventos de 05/12
+    let cutoffDate = new Date(now);
+    if (currentHour < 3) {
+      // Se for antes das 03:00, considerar eventos até o dia anterior às 03:00
+      cutoffDate.setDate(cutoffDate.getDate() - 1);
+    }
+    cutoffDate.setHours(3, 0, 0, 0); // 03:00 do dia de corte
     
     const map = new Map<number, PromoterEvent>();
     promoterEvents.forEach((event) => {
       if (!event || !event.id) return;
       
-      // Filtrar apenas eventos futuros ou sem data
+      // Filtrar eventos futuros ou do dia atual (até 03:00 do dia seguinte)
       if (event.data) {
         const eventDate = new Date(event.data);
         eventDate.setHours(0, 0, 0, 0);
-        if (eventDate < today) {
+        
+        // Se o evento tem hora, considerar a data/hora completa
+        let eventDateTime = new Date(eventDate);
+        if (event.hora) {
+          const [hours, minutes, seconds] = event.hora.split(':').map(Number);
+          eventDateTime.setHours(hours || 0, minutes || 0, seconds || 0);
+        } else {
+          // Se não tem hora, considerar como início do dia (00:00)
+          eventDateTime.setHours(0, 0, 0, 0);
+        }
+        
+        // Evento deve ser >= cutoffDate (03:00 do dia anterior se for madrugada, ou hoje)
+        if (eventDateTime < cutoffDate) {
           return; // Ignorar eventos passados
         }
       }
       // Se não tem data, considerar como futuro (eventos a definir)
       
-      // Filtrar apenas eventos com imagem
-      if (!event.imagem_url) {
-        console.warn('Evento sem imagem_url:', event);
-        return;
-      }
+      // REMOVIDO: Filtro de imagem - agora exibe eventos mesmo sem imagem
+      // if (!event.imagem_url) {
+      //   console.warn('Evento sem imagem_url:', event);
+      //   return;
+      // }
       
       if (!map.has(event.id)) {
         map.set(event.id, event);
       }
     });
-    return Array.from(map.values()).sort((a, b) => {
+    
+    const sorted = Array.from(map.values()).sort((a, b) => {
       // Ordenar por data: eventos sem data ficam por último
       if (!a.data && !b.data) return 0;
       if (!a.data) return 1;
       if (!b.data) return -1;
-      return new Date(a.data).getTime() - new Date(b.data).getTime();
+      
+      // Se tiverem a mesma data, ordenar por hora
+      const dateA = new Date(a.data);
+      const dateB = new Date(b.data);
+      if (dateA.getTime() === dateB.getTime()) {
+        if (a.hora && b.hora) {
+          return a.hora.localeCompare(b.hora);
+        }
+        if (a.hora) return -1;
+        if (b.hora) return 1;
+      }
+      
+      return dateA.getTime() - dateB.getTime();
     });
+    
+    console.log('🎯 Eventos do promoter filtrados:', {
+      total: promoterEvents.length,
+      filtrados: sorted.length,
+      cutoffDate: cutoffDate.toISOString(),
+      eventos: sorted.map(e => ({
+        id: e.id,
+        nome: e.nome,
+        data: e.data,
+        hora: e.hora,
+        temImagem: !!e.imagem_url
+      }))
+    });
+    
+    return sorted;
   }, [promoterEvents]);
 
   useEffect(() => {
@@ -982,7 +1039,21 @@ const handleSubmit = async (e: React.FormEvent) => {
   const upcomingEventsByEstablishment = useMemo(() => {
     const eventsList = Object.entries(upcomingEvents)
       .map(([key, events]) => {
-        const establishment = establishmentsMap.get(key);
+        // Tentar encontrar estabelecimento por ID primeiro
+        let establishment = establishmentsMap.get(key);
+        
+        // Se não encontrou por ID, tentar encontrar por nome (busca mais flexível)
+        if (!establishment && events && events.length > 0) {
+          // Pegar o nome do estabelecimento do primeiro evento (se disponível)
+          const firstEvent = events[0];
+          if (firstEvent?.establishment_name) {
+            establishment = Array.from(establishmentsMap.values()).find(
+              est => est.name.toLowerCase().includes(firstEvent.establishment_name!.toLowerCase()) ||
+                     firstEvent.establishment_name!.toLowerCase().includes(est.name.toLowerCase())
+            );
+          }
+        }
+        
         if (!establishment || !events || events.length === 0) {
           return null;
         }
@@ -996,14 +1067,23 @@ const handleSubmit = async (e: React.FormEvent) => {
         (a.events[0]?.event_date || '').localeCompare(b.events[0]?.event_date || '')
       );
     
+    console.log('📊 Eventos agrupados por estabelecimento:', {
+      totalKeys: Object.keys(upcomingEvents).length,
+      eventsListLength: eventsList.length,
+      establishments: eventsList.map(e => ({ id: e.establishment.id, name: e.establishment.name, eventsCount: e.events.length }))
+    });
+    
     // Se há um estabelecimento selecionado, filtrar apenas os eventos desse estabelecimento
     // Caso contrário, mostrar todos os eventos
     if (selectedEstablishment) {
       const filtered = eventsList.filter(item => {
         // Comparar tanto por ID quanto por nome (para garantir compatibilidade)
         const matchesId = item.establishment.id === selectedEstablishment.id;
-        const matchesName = item.establishment.name.toLowerCase().includes(selectedEstablishment.name.toLowerCase()) ||
-                           selectedEstablishment.name.toLowerCase().includes(item.establishment.name.toLowerCase());
+        const selectedNameLower = selectedEstablishment.name.toLowerCase();
+        const itemNameLower = item.establishment.name.toLowerCase();
+        const matchesName = itemNameLower.includes(selectedNameLower) ||
+                           selectedNameLower.includes(itemNameLower) ||
+                           selectedNameLower.includes('high') && itemNameLower.includes('high');
         return matchesId || matchesName;
       });
       console.log('🔍 Eventos filtrados para estabelecimento selecionado:', {
@@ -1021,8 +1101,70 @@ const handleSubmit = async (e: React.FormEvent) => {
 
   const selectedEstablishmentEvents = useMemo(() => {
     if (!selectedEstablishment) return [] as OperationalDetail[];
+    
+    // Tentar encontrar eventos por ID do estabelecimento
     const key = String(selectedEstablishment.id);
-    const events = upcomingEvents[key] || [];
+    let events = upcomingEvents[key] || [];
+    
+    // Se não encontrou por ID, tentar encontrar por nome (para compatibilidade)
+    if (events.length === 0) {
+      const establishmentName = (selectedEstablishment.name || '').toLowerCase();
+      
+      // Primeiro, tentar encontrar por nome do estabelecimento nos eventos
+      for (const [eventKey, eventList] of Object.entries(upcomingEvents)) {
+        if (Array.isArray(eventList) && eventList.length > 0) {
+          // Verificar se algum evento tem o nome do estabelecimento correspondente
+          const firstEvent = eventList[0];
+          if (firstEvent?.establishment_name) {
+            const eventEstName = (firstEvent.establishment_name || '').toLowerCase();
+            if (eventEstName.includes(establishmentName) || establishmentName.includes(eventEstName) ||
+                (establishmentName.includes('high') && eventEstName.includes('high'))) {
+              events = eventList;
+              console.log('🔍 Eventos encontrados por nome do estabelecimento no evento:', {
+                selectedId: selectedEstablishment.id,
+                selectedName: selectedEstablishment.name,
+                foundKey: eventKey,
+                eventsCount: events.length,
+                eventEstablishmentName: firstEvent.establishment_name
+              });
+              break;
+            }
+          }
+          
+          // Também tentar encontrar pelo ID do estabelecimento nos eventos
+          const est = establishments.find(e => String(e.id) === eventKey);
+          if (est) {
+            const estName = (est.name || '').toLowerCase();
+            if (estName.includes(establishmentName) || establishmentName.includes(estName) ||
+                (establishmentName.includes('high') && estName.includes('high'))) {
+              events = eventList;
+              console.log('🔍 Eventos encontrados por nome do estabelecimento no mapa:', {
+                selectedId: selectedEstablishment.id,
+                selectedName: selectedEstablishment.name,
+                foundKey: eventKey,
+                eventsCount: events.length,
+                mappedEstablishmentName: est.name
+              });
+              break;
+            }
+          }
+        }
+      }
+    }
+    
+    console.log('📋 Eventos para estabelecimento selecionado:', {
+      establishmentId: selectedEstablishment.id,
+      establishmentName: selectedEstablishment.name,
+      key: key,
+      eventsFound: events.length,
+      allKeys: Object.keys(upcomingEvents),
+      sampleEvent: events.length > 0 ? {
+        id: events[0].id,
+        establishment_id: events[0].establishment_id,
+        establishment_name: events[0].establishment_name,
+        event_date: events[0].event_date
+      } : null
+    });
     
     // Filtrar apenas eventos futuros
     const today = new Date();
@@ -1035,8 +1177,15 @@ const handleSubmit = async (e: React.FormEvent) => {
       return eventDate >= today;
     });
     
+    console.log('✅ Eventos futuros filtrados:', {
+      total: events.length,
+      future: futureEvents.length,
+      returned: futureEvents.slice(0, 4).length,
+      futureEventDates: futureEvents.slice(0, 4).map(e => e.event_date)
+    });
+    
     return futureEvents.slice(0, 4);
-  }, [selectedEstablishment, upcomingEvents]);
+  }, [selectedEstablishment, upcomingEvents, establishments]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
@@ -1311,7 +1460,7 @@ const handleSubmit = async (e: React.FormEvent) => {
 
                     {!promoterEventsLoading && !promoterEventsError && uniquePromoterEvents.length === 0 && (
                       <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-4 text-sm text-white/70">
-                        Nenhum evento com imagem disponível no momento. Volte em breve para conferir as novidades do High Line Promo.
+                        Nenhum evento disponível no momento. Volte em breve para conferir as novidades do High Line Promo.
                       </div>
                     )}
 
@@ -1320,9 +1469,9 @@ const handleSubmit = async (e: React.FormEvent) => {
                         {uniquePromoterEvents.slice(0, 6).map((event) => (
                           <div
                             key={event.id}
-                            className="group relative overflow-hidden rounded-3xl border border-white/10 bg-slate-900/60 shadow-lg transition hover:-translate-y-1 hover:shadow-2xl"
+                            className="group relative overflow-hidden rounded-3xl border border-white/10 bg-slate-900/60 shadow-lg transition hover:-translate-y-1 hover:shadow-2xl min-h-[280px]"
                           >
-                            {event.imagem_url && (
+                            {event.imagem_url ? (
                               <>
                                 <img
                                   src={event.imagem_url}
@@ -1335,6 +1484,8 @@ const handleSubmit = async (e: React.FormEvent) => {
                                 />
                                 <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/70 to-slate-900/20" />
                               </>
+                            ) : (
+                              <div className="absolute inset-0 bg-gradient-to-br from-slate-800 via-slate-900 to-slate-950" />
                             )}
                             <div className="relative z-10 flex h-full flex-col justify-between p-5">
                               <div className="space-y-3">
