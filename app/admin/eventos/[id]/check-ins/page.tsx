@@ -204,6 +204,12 @@ export default function EventoCheckInsPage() {
   const [promoterGuestsViewMode, setPromoterGuestsViewMode] = useState<'grid' | 'list'>('grid');
   const [promoterGuestsSearch, setPromoterGuestsSearch] = useState('');
   
+  // Estados para organização e filtros (mobile/tablet)
+  const [sortBy, setSortBy] = useState<'nome' | 'status' | 'tipo' | 'hora'>('nome');
+  const [filterStatus, setFilterStatus] = useState<'todos' | 'pendente' | 'checkin'>('todos');
+  const [showFilters, setShowFilters] = useState(false);
+  const [viewMode, setViewMode] = useState<'compact' | 'detailed'>('compact');
+  
   // Estados para modal de status de entrada
   const [entradaModalOpen, setEntradaModalOpen] = useState(false);
   const [convidadoParaCheckIn, setConvidadoParaCheckIn] = useState<{
@@ -909,14 +915,20 @@ export default function EventoCheckInsPage() {
 
   // Filtrar dados - Mostrar todos se não houver busca
   const filteredConvidadosReservas = useMemo(() => {
+    let filtered;
     if (!searchTerm.trim()) {
-      return convidadosReservas;
+      filtered = convidadosReservas;
+    } else {
+      filtered = convidadosReservas.filter(c => 
+        filterBySearch(c.nome) || 
+        filterBySearch(c.email || '') || 
+        filterBySearch(c.responsavel) ||
+        filterBySearch(c.origem)
+      );
     }
-    return convidadosReservas.filter(c => 
-      filterBySearch(c.nome) || 
-      filterBySearch(c.email || '') || 
-      filterBySearch(c.responsavel) ||
-      filterBySearch(c.origem)
+    // Ordenar alfabeticamente
+    return filtered.sort((a, b) => 
+      (a.nome || '').localeCompare(b.nome || '', 'pt-BR', { sensitivity: 'base' })
     );
   }, [convidadosReservas, searchTerm]);
 
@@ -950,15 +962,50 @@ export default function EventoCheckInsPage() {
     return filtrados;
   }, [convidadosPromoters, searchTerm, promoterGuestsSearch]);
 
-  const filteredConvidadosReservasRestaurante = convidadosReservasRestaurante.filter(c => 
-    filterBySearch(c.nome) || 
-    filterBySearch(c.telefone || '') || 
-    filterBySearch(c.responsavel) ||
-    filterBySearch(c.origem) ||
-    filterBySearch(c.data_nascimento || '')
-  );
+  const filteredConvidadosReservasRestaurante = useMemo(() => {
+    const filtered = convidadosReservasRestaurante.filter(c => 
+      filterBySearch(c.nome) || 
+      filterBySearch(c.telefone || '') || 
+      filterBySearch(c.responsavel) ||
+      filterBySearch(c.origem) ||
+      filterBySearch(c.data_nascimento || '')
+    );
+    // Ordenar alfabeticamente
+    return filtered.sort((a, b) => 
+      (a.nome || '').localeCompare(b.nome || '', 'pt-BR', { sensitivity: 'base' })
+    );
+  }, [convidadosReservasRestaurante, searchTerm]);
 
-  // Resultados unificados de busca - todos os convidados encontrados
+  // Função de busca melhorada (busca em múltiplos campos)
+  const enhancedSearch = useCallback((term: string, item: any) => {
+    if (!term.trim()) return true;
+    const searchLower = term.toLowerCase().trim();
+    
+    // Busca em nome
+    const nome = (item.nome || item.name || '').toLowerCase();
+    if (nome.includes(searchLower)) return true;
+    
+    // Busca em telefone/whatsapp
+    const telefone = (item.telefone || item.whatsapp || item.phone || '').replace(/\D/g, '');
+    const searchNumbers = searchLower.replace(/\D/g, '');
+    if (telefone.includes(searchNumbers)) return true;
+    
+    // Busca em responsável
+    const responsavel = (item.responsavel || item.responsible || '').toLowerCase();
+    if (responsavel.includes(searchLower)) return true;
+    
+    // Busca em origem
+    const origem = (item.origem || item.origin || '').toLowerCase();
+    if (origem.includes(searchLower)) return true;
+    
+    // Busca em email
+    const email = (item.email || '').toLowerCase();
+    if (email.includes(searchLower)) return true;
+    
+    return false;
+  }, []);
+
+  // Resultados unificados de busca - todos os convidados encontrados (com filtros e ordenação)
   const resultadosBuscaUnificados = useMemo(() => {
     if (!searchTerm.trim()) {
       return [];
@@ -1081,24 +1128,96 @@ export default function EventoCheckInsPage() {
       }
     });
 
-    return resultados;
-  }, [searchTerm, filteredConvidadosReservas, filteredConvidadosPromoters, filteredConvidadosReservasRestaurante, guestsByList, guestListsRestaurante]);
+    // Aplicar filtros
+    let filtered = resultados;
+    
+    if (filterStatus !== 'todos') {
+      filtered = filtered.filter(r => {
+        const isCheckedIn = r.status === 'CHECK-IN' || r.status === 'Check-in';
+        return filterStatus === 'checkin' ? isCheckedIn : !isCheckedIn;
+      });
+    }
+    
+    // Aplicar ordenação (padrão: alfabética por nome)
+    const sorted = [...filtered].sort((a, b) => {
+      switch (sortBy) {
+        case 'nome':
+          return a.nome.localeCompare(b.nome, 'pt-BR', { sensitivity: 'base' });
+        case 'status':
+          const statusA = a.status === 'CHECK-IN' || a.status === 'Check-in' ? 1 : 0;
+          const statusB = b.status === 'CHECK-IN' || b.status === 'Check-in' ? 1 : 0;
+          if (statusA !== statusB) return statusB - statusA; // Check-in primeiro
+          // Se mesmo status, ordenar alfabeticamente
+          return a.nome.localeCompare(b.nome, 'pt-BR', { sensitivity: 'base' });
+        case 'tipo':
+          const tipoCompare = a.tipo.localeCompare(b.tipo);
+          if (tipoCompare !== 0) return tipoCompare;
+          // Se mesmo tipo, ordenar alfabeticamente
+          return a.nome.localeCompare(b.nome, 'pt-BR', { sensitivity: 'base' });
+        case 'hora':
+          const horaA = a.data_checkin ? new Date(a.data_checkin).getTime() : 0;
+          const horaB = b.data_checkin ? new Date(b.data_checkin).getTime() : 0;
+          if (horaA !== horaB) return horaB - horaA; // Mais recente primeiro
+          // Se mesma hora, ordenar alfabeticamente
+          return a.nome.localeCompare(b.nome, 'pt-BR', { sensitivity: 'base' });
+        default:
+          // Padrão: ordenação alfabética
+          return a.nome.localeCompare(b.nome, 'pt-BR', { sensitivity: 'base' });
+      }
+    });
+    
+    return sorted;
+  }, [searchTerm, filteredConvidadosReservas, filteredConvidadosPromoters, filteredConvidadosReservasRestaurante, guestsByList, guestListsRestaurante, filterStatus, sortBy]);
 
-  const filteredCamarotes = camarotes.filter(c => 
-    filterBySearch(c.responsavel) || 
-    filterBySearch(c.origem)
-  );
+  // Ordenar listas e convidados alfabeticamente
+  const sortedGuestListsRestaurante = useMemo(() => {
+    return [...guestListsRestaurante].sort((a, b) => 
+      (a.owner_name || '').localeCompare(b.owner_name || '', 'pt-BR', { sensitivity: 'base' })
+    );
+  }, [guestListsRestaurante]);
 
-  const filteredReservasRestaurante = reservasRestaurante.filter(r => 
-    filterBySearch(r.responsavel) || 
-    filterBySearch(r.origem)
-  );
+  const sortedReservasMesa = useMemo(() => {
+    return [...reservasMesa].sort((a, b) => 
+      (a.responsavel || '').localeCompare(b.responsavel || '', 'pt-BR', { sensitivity: 'base' })
+    );
+  }, [reservasMesa]);
 
-  const filteredPromoters = promoters.filter(p => 
-    filterBySearch(p.nome) || 
-    filterBySearch(p.email || '') ||
-    filterBySearch(p.telefone || '')
-  );
+  const sortedFilteredConvidadosPromoters = useMemo(() => {
+    return [...filteredConvidadosPromoters].sort((a, b) => 
+      (a.nome || '').localeCompare(b.nome || '', 'pt-BR', { sensitivity: 'base' })
+    );
+  }, [filteredConvidadosPromoters]);
+
+  const filteredCamarotes = useMemo(() => {
+    const filtered = camarotes.filter(c => 
+      filterBySearch(c.responsavel) || 
+      filterBySearch(c.origem)
+    );
+    return filtered.sort((a, b) => 
+      (a.responsavel || '').localeCompare(b.responsavel || '', 'pt-BR', { sensitivity: 'base' })
+    );
+  }, [camarotes, searchTerm]);
+
+  const filteredReservasRestaurante = useMemo(() => {
+    const filtered = reservasRestaurante.filter(r => 
+      filterBySearch(r.responsavel) || 
+      filterBySearch(r.origem)
+    );
+    return filtered.sort((a, b) => 
+      (a.responsavel || '').localeCompare(b.responsavel || '', 'pt-BR', { sensitivity: 'base' })
+    );
+  }, [reservasRestaurante, searchTerm]);
+
+  const sortedFilteredPromoters = useMemo(() => {
+    const filtered = promoters.filter(p => 
+      filterBySearch(p.nome) || 
+      filterBySearch(p.email || '') ||
+      filterBySearch(p.telefone || '')
+    );
+    return filtered.sort((a, b) => 
+      (a.nome || '').localeCompare(b.nome || '', 'pt-BR', { sensitivity: 'base' })
+    );
+  }, [promoters, searchTerm]);
 
   const reservasMetrics = useMemo(() => {
     // Contar convidados (não reservas)
@@ -1177,7 +1296,141 @@ export default function EventoCheckInsPage() {
         {/* Barra de filtros */}
         <div className="bg-white/5 backdrop-blur-sm border-b border-white/10 sticky top-0 z-30">
           <div className="max-w-7xl mx-auto p-3 md:p-4">
-            <div className="flex flex-col md:flex-row gap-3 md:gap-4 items-stretch md:items-center">
+            {/* Mobile: Layout simplificado */}
+            <div className="md:hidden space-y-3">
+              {/* Busca rápida */}
+              <div className="relative">
+                <MdSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                <input
+                  type="text"
+                  placeholder="Buscar nome, telefone, responsável..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-10 pr-10 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:ring-2 focus:ring-green-500 focus:border-transparent text-base"
+                  autoFocus={false}
+                />
+                {searchTerm && (
+                  <button
+                    onClick={() => setSearchTerm('')}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white p-1"
+                  >
+                    <MdClose size={18} />
+                  </button>
+                )}
+              </div>
+
+              {/* Botões de ação rápida */}
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setShowFilters(!showFilters)}
+                  className={`flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg transition-colors text-sm font-medium ${
+                    showFilters 
+                      ? 'bg-green-600 text-white' 
+                      : 'bg-white/10 text-gray-300 hover:bg-white/20'
+                  }`}
+                >
+                  <MdViewList size={18} />
+                  <span>Filtros</span>
+                </button>
+                <button
+                  onClick={loadCheckInData}
+                  disabled={loading}
+                  className="flex items-center justify-center gap-2 px-4 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors disabled:opacity-50 font-medium text-sm"
+                >
+                  <MdRefresh className={loading ? 'animate-spin' : ''} size={18} />
+                </button>
+                <button
+                  onClick={() => setViewMode(viewMode === 'compact' ? 'detailed' : 'compact')}
+                  className="flex items-center justify-center gap-2 px-3 py-2.5 bg-white/10 text-gray-300 hover:bg-white/20 rounded-lg transition-colors text-sm"
+                >
+                  <MdViewModule size={18} />
+                </button>
+              </div>
+
+              {/* Filtros expandidos (mobile) */}
+              {showFilters && (
+                <div className="bg-white/10 rounded-lg p-3 space-y-3 border border-white/20">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-300 mb-1.5">Status</label>
+                    <div className="flex gap-2">
+                      {(['todos', 'pendente', 'checkin'] as const).map((status) => (
+                        <button
+                          key={status}
+                          onClick={() => setFilterStatus(status)}
+                          className={`flex-1 px-3 py-2 rounded-lg text-xs font-medium transition-colors ${
+                            filterStatus === status
+                              ? 'bg-green-600 text-white'
+                              : 'bg-white/10 text-gray-300 hover:bg-white/20'
+                          }`}
+                        >
+                          {status === 'todos' ? 'Todos' : status === 'pendente' ? 'Pendentes' : 'Check-in'}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-300 mb-1.5">Ordenar por</label>
+                    <select
+                      value={sortBy}
+                      onChange={(e) => setSortBy(e.target.value as any)}
+                      className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    >
+                      <option value="nome">Nome</option>
+                      <option value="status">Status</option>
+                      <option value="tipo">Tipo</option>
+                      <option value="hora">Horário</option>
+                    </select>
+                  </div>
+                </div>
+              )}
+
+              {/* Tabs mobile - scroll horizontal */}
+              <div className="flex gap-2 overflow-x-auto pb-2 -mb-2 scrollbar-hide">
+                <button
+                  onClick={() => setSelectedTab('todos')}
+                  className={`px-4 py-2 rounded-lg font-semibold transition-colors whitespace-nowrap text-sm ${
+                    selectedTab === 'todos'
+                      ? 'bg-green-600 text-white'
+                      : 'bg-white/10 text-gray-300'
+                  }`}
+                >
+                  Todos
+                </button>
+                <button
+                  onClick={() => setSelectedTab('reservas')}
+                  className={`px-4 py-2 rounded-lg font-semibold transition-colors whitespace-nowrap text-sm ${
+                    selectedTab === 'reservas'
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-white/10 text-gray-300'
+                  }`}
+                >
+                  Reservas
+                </button>
+                <button
+                  onClick={() => setSelectedTab('promoters')}
+                  className={`px-4 py-2 rounded-lg font-semibold transition-colors whitespace-nowrap text-sm ${
+                    selectedTab === 'promoters'
+                      ? 'bg-purple-600 text-white'
+                      : 'bg-white/10 text-gray-300'
+                  }`}
+                >
+                  Promoters
+                </button>
+                <button
+                  onClick={() => setSelectedTab('camarotes')}
+                  className={`px-4 py-2 rounded-lg font-semibold transition-colors whitespace-nowrap text-sm ${
+                    selectedTab === 'camarotes'
+                      ? 'bg-orange-600 text-white'
+                      : 'bg-white/10 text-gray-300'
+                  }`}
+                >
+                  Camarotes
+                </button>
+              </div>
+            </div>
+
+            {/* Desktop: Layout original */}
+            <div className="hidden md:flex flex-col md:flex-row gap-3 md:gap-4 items-stretch md:items-center">
               {/* Busca */}
               <div className="flex-1 w-full">
                 <div className="relative">
@@ -1211,8 +1464,8 @@ export default function EventoCheckInsPage() {
               </button>
             </div>
 
-            {/* Tabs */}
-            <div className="flex gap-2 mt-3 md:mt-4 overflow-x-auto pb-2 -mb-2 scrollbar-hide">
+            {/* Tabs Desktop */}
+            <div className="hidden md:flex gap-2 mt-3 md:mt-4 overflow-x-auto pb-2 -mb-2 scrollbar-hide">
               <button
                 onClick={() => setSelectedTab('todos')}
                 className={`px-3 md:px-4 py-2 rounded-lg font-semibold transition-colors whitespace-nowrap text-sm md:text-base ${
@@ -1257,8 +1510,8 @@ export default function EventoCheckInsPage() {
           </div>
         </div>
 
-        {/* Estatísticas */}
-        <div className="max-w-7xl mx-auto p-3 md:p-4">
+        {/* Estatísticas - Ocultas em mobile/tablet, visíveis em desktop/notebook */}
+        <div className="hidden md:block max-w-7xl mx-auto p-3 md:p-4">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-4 md:mb-6">
             <div className="bg-white/10 backdrop-blur-sm rounded-lg shadow p-4 border border-white/20">
               <div className="text-sm text-gray-300 mb-1">Total Geral</div>
@@ -1295,7 +1548,9 @@ export default function EventoCheckInsPage() {
               </div>
             </div>
           </div>
+        </div>
 
+        <div className="max-w-7xl mx-auto p-3 md:p-4">
           {loading && (
             <div className="text-center py-12">
               <MdRefresh className="animate-spin inline-block text-green-600" size={48} />
@@ -1307,12 +1562,86 @@ export default function EventoCheckInsPage() {
             <div className="space-y-6">
               {/* Resultados Unificados de Busca */}
               {searchTerm.trim() && resultadosBuscaUnificados.length > 0 && (
-                <section className="bg-gradient-to-r from-blue-600/20 to-purple-600/20 backdrop-blur-sm rounded-lg shadow-sm p-4 md:p-6 border border-blue-500/50">
-                  <h2 className="text-lg md:text-xl font-bold text-white mb-3 md:mb-4 flex items-center gap-2">
-                    <MdSearch size={20} className="md:w-6 md:h-6 text-blue-400" />
-                    <span>Resultados da Busca: "{searchTerm}" ({resultadosBuscaUnificados.length} encontrado{resultadosBuscaUnificados.length !== 1 ? 's' : ''})</span>
-                  </h2>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-3 md:gap-4">
+                <section className="bg-gradient-to-r from-blue-600/20 to-purple-600/20 backdrop-blur-sm rounded-lg shadow-sm p-3 md:p-6 border border-blue-500/50">
+                  <div className="flex items-center justify-between mb-3 md:mb-4">
+                    <h2 className="text-base md:text-xl font-bold text-white flex items-center gap-2">
+                      <MdSearch size={18} className="md:w-6 md:h-6 text-blue-400" />
+                      <span className="hidden md:inline">Resultados: "{searchTerm}" ({resultadosBuscaUnificados.length})</span>
+                      <span className="md:hidden">Busca: {resultadosBuscaUnificados.length} resultado{resultadosBuscaUnificados.length !== 1 ? 's' : ''}</span>
+                    </h2>
+                  </div>
+                  {/* Mobile/Tablet: Lista simples em linhas */}
+                  <div className="md:hidden divide-y divide-white/10">
+                    {resultadosBuscaUnificados.map(resultado => {
+                      const isCheckedIn = resultado.status === 'CHECK-IN' || resultado.status === 'Check-in';
+                      return (
+                        <div
+                          key={`${resultado.tipo}-${resultado.id}`}
+                          className={`flex items-center justify-between gap-2 px-3 py-2.5 ${
+                            isCheckedIn ? 'bg-green-900/10' : 'hover:bg-white/5'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2 flex-1 min-w-0">
+                            {isCheckedIn ? (
+                              <MdCheckCircle size={18} className="text-green-400 flex-shrink-0" />
+                            ) : (
+                              <div className="w-4 h-4 rounded-full border-2 border-gray-400 flex-shrink-0" />
+                            )}
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <span className="font-medium text-white text-sm truncate">{resultado.nome}</span>
+                                <span className={`text-xs px-1.5 py-0.5 rounded ${
+                                  resultado.tipo === 'reserva' 
+                                    ? 'bg-blue-500/30 text-blue-200'
+                                    : resultado.tipo === 'promoter'
+                                    ? 'bg-purple-500/30 text-purple-200'
+                                    : resultado.tipo === 'guest_list'
+                                    ? 'bg-green-500/30 text-green-200'
+                                    : 'bg-orange-500/30 text-orange-200'
+                                }`}>
+                                  {resultado.tipo === 'reserva' ? '📋' : resultado.tipo === 'promoter' ? '⭐' : resultado.tipo === 'guest_list' ? '🎂' : '🍽️'}
+                                </span>
+                                {resultado.entrada_tipo && isCheckedIn && (
+                                  <span className={`text-xs px-1.5 py-0.5 rounded ${
+                                    resultado.entrada_tipo === 'VIP'
+                                      ? 'bg-green-500/30 text-green-200'
+                                      : resultado.entrada_tipo === 'SECO'
+                                      ? 'bg-blue-500/30 text-blue-200'
+                                      : 'bg-purple-500/30 text-purple-200'
+                                  }`}>
+                                    {resultado.entrada_tipo}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="text-xs text-gray-400 truncate mt-0.5">
+                                {resultado.telefone || resultado.origem}
+                              </div>
+                            </div>
+                          </div>
+                          {!isCheckedIn && (
+                            <button
+                              onClick={() => {
+                                if (resultado.tipo === 'reserva' && resultado.convidado) {
+                                  handleConvidadoReservaCheckIn(resultado.convidado as ConvidadoReserva);
+                                } else if (resultado.tipo === 'promoter' && resultado.convidado) {
+                                  handleConvidadoPromoterCheckIn(resultado.convidado as ConvidadoPromoter);
+                                } else if (resultado.tipo === 'restaurante' && resultado.convidado) {
+                                  handleConvidadoReservaRestauranteCheckIn(resultado.convidado as ConvidadoReservaRestaurante);
+                                } else if (resultado.tipo === 'guest_list' && resultado.guestListId) {
+                                  handleGuestCheckIn(resultado.guestListId, resultado.id, resultado.nome);
+                                }
+                              }}
+                              className="px-3 py-1.5 text-xs bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors touch-manipulation font-medium flex-shrink-0"
+                            >
+                              Check-in
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                  {/* Desktop: Grid original */}
+                  <div className="hidden md:grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-3 md:gap-4">
                     {resultadosBuscaUnificados.map(resultado => {
                       const isCheckedIn = resultado.status === 'CHECK-IN' || resultado.status === 'Check-in';
                       const getBorderClass = () => {
@@ -1444,7 +1773,7 @@ export default function EventoCheckInsPage() {
                     <span className="truncate">Reservas de Mesa ({reservasMesa.length})</span>
                   </h2>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-3 md:gap-4">
-                    {reservasMesa.map((reserva) => (
+                    {sortedReservasMesa.map((reserva) => (
                         <motion.div
                           key={reserva.id}
                           initial={{ opacity: 0, y: 20 }}
@@ -1489,7 +1818,7 @@ export default function EventoCheckInsPage() {
                     <div className="mb-4">
   <h2 className="text-lg md:text-xl font-bold text-white flex items-center gap-2">
     <MdRestaurant size={20} className="md:w-6 md:h-6 text-green-400" />
-    <span className="truncate">Listas de Convidados e Reservas ({guestListsRestaurante.length})</span>
+        <span className="truncate">Listas de Convidados e Reservas ({guestListsRestaurante.length})</span>
   </h2>
   
   {/* Descrição adicionada aqui */}
@@ -1500,12 +1829,12 @@ export default function EventoCheckInsPage() {
                     
                   
                   <div className="space-y-2 md:space-y-3">
-                    {guestListsRestaurante.length === 0 ? (
+                    {sortedGuestListsRestaurante.length === 0 ? (
                       <div className="text-center py-8 text-gray-400">
                         Nenhuma lista de convidados encontrada para este evento.
                       </div>
                     ) : (
-                      guestListsRestaurante
+                      sortedGuestListsRestaurante
                         // Os dados já vêm filtrados do backend por establishment_id e data_evento
                         // Apenas aplicar filtro de busca textual
                         .filter(gl => filterBySearch(gl.owner_name) || filterBySearch(gl.origin))
@@ -1544,7 +1873,11 @@ export default function EventoCheckInsPage() {
                                         });
                                         
                                         if (guestsData && guestsData.guests) {
-                                          setGuestsByList(prev => ({ ...prev, [gl.guest_list_id]: guestsData!.guests || [] }));
+                                          // Ordenar convidados alfabeticamente por nome
+                                          const sortedGuests = [...(guestsData.guests || [])].sort((a, b) => 
+                                            (a.name || '').localeCompare(b.name || '', 'pt-BR', { sensitivity: 'base' })
+                                          );
+                                          setGuestsByList(prev => ({ ...prev, [gl.guest_list_id]: sortedGuests }));
                                         } else {
                                           console.warn(`⚠️ Resposta vazia ou sem guests para ${gl.guest_list_id}`);
                                           setGuestsByList(prev => ({ ...prev, [gl.guest_list_id]: [] }));
@@ -1810,14 +2143,18 @@ export default function EventoCheckInsPage() {
                                       <tbody className="bg-white/5 divide-y divide-white/10">
                                         {(() => {
                                           const guests = guestsByList[gl.guest_list_id] || [];
-                                          const filteredGuests = guests.filter((g) => {
-                                            const q = (guestSearch[gl.guest_list_id] || '').toLowerCase();
-                                            if (!q) return true;
-                                            return (
-                                              g.name.toLowerCase().includes(q) ||
-                                              (g.whatsapp || '').toLowerCase().includes(q)
+                                          const filteredGuests = guests
+                                            .filter((g) => {
+                                              const q = (guestSearch[gl.guest_list_id] || '').toLowerCase();
+                                              if (!q) return true;
+                                              return (
+                                                g.name.toLowerCase().includes(q) ||
+                                                (g.whatsapp || '').toLowerCase().includes(q)
+                                              );
+                                            })
+                                            .sort((a, b) => 
+                                              (a.name || '').localeCompare(b.name || '', 'pt-BR', { sensitivity: 'base' })
                                             );
-                                          });
                                           
                                           if (filteredGuests.length === 0 && guests.length > 0) {
                                             return (
@@ -1901,22 +2238,26 @@ export default function EventoCheckInsPage() {
                                     </table>
                                   </div>
 
-                                  {/* Mobile: Cards */}
-                                  <div className="md:hidden space-y-3 p-3">
+                                  {/* Mobile/Tablet: Lista simples em linhas */}
+                                  <div className="md:hidden divide-y divide-white/10">
                                     {(() => {
                                       const guests = guestsByList[gl.guest_list_id] || [];
-                                      const filteredGuests = guests.filter((g) => {
-                                        const q = (guestSearch[gl.guest_list_id] || '').toLowerCase();
-                                        if (!q) return true;
-                                        return (
-                                          g.name.toLowerCase().includes(q) ||
-                                          (g.whatsapp || '').toLowerCase().includes(q)
+                                      const filteredGuests = guests
+                                        .filter((g) => {
+                                          const q = (guestSearch[gl.guest_list_id] || '').toLowerCase();
+                                          if (!q) return true;
+                                          return (
+                                            g.name.toLowerCase().includes(q) ||
+                                            (g.whatsapp || '').toLowerCase().includes(q)
+                                          );
+                                        })
+                                        .sort((a, b) => 
+                                          (a.name || '').localeCompare(b.name || '', 'pt-BR', { sensitivity: 'base' })
                                         );
-                                      });
                                       
                                       if (filteredGuests.length === 0 && guests.length > 0) {
                                         return (
-                                          <div className="text-center py-4 text-sm text-gray-400">
+                                          <div className="text-center py-4 text-sm text-gray-400 px-3">
                                             Nenhum convidado encontrado com a busca.
                                           </div>
                                         );
@@ -1924,7 +2265,7 @@ export default function EventoCheckInsPage() {
                                       
                                       if (filteredGuests.length === 0) {
                                         return (
-                                          <div className="text-center py-4 text-sm text-gray-400">
+                                          <div className="text-center py-4 text-sm text-gray-400 px-3">
                                             {guests.length === 0 ? (
                                               <div>
                                                 <div>Nenhum convidado cadastrado nesta lista.</div>
@@ -1940,43 +2281,41 @@ export default function EventoCheckInsPage() {
                                       return filteredGuests.map((g) => {
                                         const isCheckedIn = g.checked_in === 1 || g.checked_in === true;
                                         return (
-                                          <div key={g.id} className="bg-white/5 border border-white/20 rounded-lg p-3">
-                                            <div className="flex items-start justify-between mb-2">
+                                          <div 
+                                            key={g.id} 
+                                            className={`flex items-center justify-between gap-2 px-3 py-2 ${
+                                              isCheckedIn 
+                                                ? 'bg-green-900/10' 
+                                                : 'hover:bg-white/5'
+                                            }`}
+                                          >
+                                            <div className="flex items-center gap-2 flex-1 min-w-0">
+                                              {isCheckedIn ? (
+                                                <MdCheckCircle size={18} className="text-green-400 flex-shrink-0" />
+                                              ) : (
+                                                <div className="w-4 h-4 rounded-full border-2 border-gray-400 flex-shrink-0" />
+                                              )}
                                               <div className="flex-1 min-w-0">
-                                                <h4 className="font-semibold text-white text-base truncate">{g.name}</h4>
+                                                <div className="flex items-center gap-2">
+                                                  <span className="font-medium text-white text-sm truncate">{g.name}</span>
+                                                  {g.entrada_tipo && isCheckedIn && (
+                                                    <span className={`text-xs px-1.5 py-0.5 rounded ${
+                                                      g.entrada_tipo === 'VIP'
+                                                        ? 'bg-green-500/30 text-green-200'
+                                                        : g.entrada_tipo === 'SECO'
+                                                        ? 'bg-blue-500/30 text-blue-200'
+                                                        : 'bg-purple-500/30 text-purple-200'
+                                                    }`}>
+                                                      {g.entrada_tipo}
+                                                    </span>
+                                                  )}
+                                                </div>
                                                 {g.whatsapp && (
-                                                  <div className="text-sm text-gray-300 mt-1 flex items-center gap-1">
-                                                    <MdPhone size={14} />
-                                                    <span className="truncate">{g.whatsapp}</span>
+                                                  <div className="text-xs text-gray-400 truncate mt-0.5">
+                                                    {g.whatsapp}
                                                   </div>
                                                 )}
                                               </div>
-                                            </div>
-                                            <div className="flex items-center justify-between gap-2">
-                                              <span className={`px-3 py-1.5 rounded-full text-xs font-medium ${
-                                                isCheckedIn
-                                                  ? 'bg-green-100 text-green-700 border border-green-300'
-                                                  : 'bg-gray-100 text-gray-600 border border-gray-300'
-                                              }`}>
-                                                {isCheckedIn ? '✅ Presente' : '⏳ Aguardando'}
-                                              </span>
-                                              {isCheckedIn && g.entrada_tipo && (
-                                                <div className={`text-xs px-2 py-1 rounded-full ${
-                                                  g.entrada_tipo === 'VIP'
-                                                    ? 'bg-green-100 text-green-700'
-                                                    : g.entrada_tipo === 'SECO'
-                                                    ? 'bg-blue-100 text-blue-700'
-                                                    : 'bg-purple-100 text-purple-700'
-                                                }`}>
-                                                  {g.entrada_tipo}
-                                                  {g.entrada_valor && (() => {
-                                                    const valor = typeof g.entrada_valor === 'number' 
-                                                      ? g.entrada_valor 
-                                                      : parseFloat(String(g.entrada_valor));
-                                                    return !isNaN(valor) ? ` R$ ${valor.toFixed(2)}` : '';
-                                                  })()}
-                                                </div>
-                                              )}
                                             </div>
                                             {!isCheckedIn && (
                                               <button
@@ -1986,9 +2325,9 @@ export default function EventoCheckInsPage() {
                                                   e.stopPropagation();
                                                   handleGuestCheckIn(gl.guest_list_id, g.id, g.name);
                                                 }}
-                                                className="w-full mt-2 px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg border border-green-300 font-medium text-xs touch-manipulation"
+                                                className="px-3 py-1.5 text-xs bg-green-600 hover:bg-green-700 text-white rounded-lg touch-manipulation font-medium flex-shrink-0"
                                               >
-                                                📋 Check-in
+                                                Check-in
                                               </button>
                                             )}
                                           </div>
@@ -2011,14 +2350,14 @@ export default function EventoCheckInsPage() {
               {(selectedTab === 'todos' || selectedTab === 'promoters') && !searchTerm.trim() && (
                 <>
                   {/* Lista de Promoters */}
-                  {filteredPromoters.length > 0 && (
+                  {sortedFilteredPromoters.length > 0 && (
                     <section className="bg-white/10 backdrop-blur-sm rounded-lg shadow-sm p-4 md:p-6 border border-white/20">
                       <h2 className="text-lg md:text-xl font-bold text-white mb-3 md:mb-4 flex items-center gap-2">
                         <MdStar size={20} className="md:w-6 md:h-6 text-yellow-400" />
-                        <span className="truncate">Promoters ({filteredPromoters.length})</span>
+                        <span className="truncate">Promoters ({sortedFilteredPromoters.length})</span>
                       </h2>
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-3 md:gap-4">
-                        {filteredPromoters.map(promoter => (
+                        {sortedFilteredPromoters.map(promoter => (
                           <motion.div
                             key={promoter.id}
                             initial={{ opacity: 0, y: 20 }}
@@ -2062,9 +2401,9 @@ export default function EventoCheckInsPage() {
                       // Debug: verificar dados antes de renderizar
                       if (process.env.NODE_ENV === 'development') {
                         console.log('🎯 Renderizando Convidados de Promoters:', {
-                          total: filteredConvidadosPromoters.length,
-                          tipos: [...new Set(filteredConvidadosPromoters.map(c => c.tipo))],
-                          primeirosNomes: filteredConvidadosPromoters.slice(0, 5).map(c => c.nome)
+                          total: sortedFilteredConvidadosPromoters.length,
+                          tipos: [...new Set(sortedFilteredConvidadosPromoters.map(c => c.tipo))],
+                          primeirosNomes: sortedFilteredConvidadosPromoters.slice(0, 5).map(c => c.nome)
                         });
                       }
                       return null;
@@ -2073,7 +2412,7 @@ export default function EventoCheckInsPage() {
     <div className="flex-1 min-w-0"> {/* Container para Título e Descrição */}
       <h2 className="text-lg md:text-xl font-bold text-white flex items-center gap-2">
         <MdEvent size={20} className="md:w-6 md:h-6 text-purple-400 flex-shrink-0" />
-        <span className="truncate">Listas de Promoters e Cadastros ({filteredConvidadosPromoters.length})</span>
+        <span className="truncate">Listas de Promoters e Cadastros ({sortedFilteredConvidadosPromoters.length})</span>
       </h2>
       <p className="text-xs md:text-sm text-gray-400 mt-1 ml-1 md:ml-8">
         Inclui convidados de promoters, cadastros via Site/Instagram e listas promocionais (ex: VIP até horário).
@@ -2141,15 +2480,75 @@ export default function EventoCheckInsPage() {
                       </div>
                       {promoterGuestsSearch && (
                         <div className="mt-2 text-sm text-gray-400">
-                          Buscando: "{promoterGuestsSearch}" - {filteredConvidadosPromoters.length} resultado(s) encontrado(s)
+                          Buscando: "{promoterGuestsSearch}" - {sortedFilteredConvidadosPromoters.length} resultado(s) encontrado(s)
                         </div>
                       )}
                     </div>
 
-                    {/* Visualização em Grade */}
+                    {/* Mobile/Tablet: Lista simples em linhas */}
+                    <div className="md:hidden divide-y divide-white/10">
+                      {sortedFilteredConvidadosPromoters.map(convidado => {
+                        const isCheckedIn = convidado.status_checkin === 'Check-in';
+                        const isNoShow = convidado.status_checkin === 'No-Show';
+                        return (
+                          <div
+                            key={convidado.id}
+                            className={`flex items-center justify-between gap-2 px-3 py-2 ${
+                              isCheckedIn
+                                ? 'bg-green-900/10'
+                                : isNoShow
+                                ? 'bg-red-900/10'
+                                : 'hover:bg-white/5'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2 flex-1 min-w-0">
+                              {isCheckedIn ? (
+                                <MdCheckCircle size={18} className="text-green-400 flex-shrink-0" />
+                              ) : isNoShow ? (
+                                <MdClose size={18} className="text-red-400 flex-shrink-0" />
+                              ) : (
+                                <div className="w-4 h-4 rounded-full border-2 border-gray-400 flex-shrink-0" />
+                              )}
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-1.5">
+                                  <span className="font-medium text-white text-sm truncate">{convidado.nome}</span>
+                                  {convidado.is_vip && (
+                                    <MdStar size={14} className="text-yellow-400 flex-shrink-0" />
+                                  )}
+                                  {convidado.entrada_tipo && isCheckedIn && (
+                                    <span className={`text-xs px-1.5 py-0.5 rounded ${
+                                      convidado.entrada_tipo === 'VIP'
+                                        ? 'bg-green-500/30 text-green-200'
+                                        : convidado.entrada_tipo === 'SECO'
+                                        ? 'bg-blue-500/30 text-blue-200'
+                                        : 'bg-purple-500/30 text-purple-200'
+                                    }`}>
+                                      {convidado.entrada_tipo}
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="text-xs text-gray-400 truncate mt-0.5">
+                                  {convidado.telefone || convidado.origem}
+                                </div>
+                              </div>
+                            </div>
+                            {!isCheckedIn && !isNoShow && (
+                              <button
+                                onClick={() => handleConvidadoPromoterCheckIn(convidado)}
+                                className="px-3 py-1.5 text-xs bg-green-600 hover:bg-green-700 text-white rounded-lg touch-manipulation font-medium flex-shrink-0"
+                              >
+                                Check-in
+                              </button>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Desktop: Visualização em Grade */}
                     {promoterGuestsViewMode === 'grid' && (
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-3 md:gap-4">
-                        {filteredConvidadosPromoters.map(convidado => (
+                      <div className="hidden md:grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-3 md:gap-4">
+                        {sortedFilteredConvidadosPromoters.map(convidado => (
                           <motion.div
                             key={convidado.id}
                             initial={{ opacity: 0, y: 20 }}
@@ -2230,7 +2629,7 @@ export default function EventoCheckInsPage() {
                             )}
                           </motion.div>
                         ))}
-                        {filteredConvidadosPromoters.length === 0 && (
+                        {sortedFilteredConvidadosPromoters.length === 0 && (
                           <div className="col-span-full text-center py-8 text-gray-400">
                             Nenhum convidado de promoter encontrado
                           </div>
@@ -2238,10 +2637,10 @@ export default function EventoCheckInsPage() {
                       </div>
                     )}
 
-                    {/* Visualização em Lista - Apenas nomes */}
+                    {/* Desktop: Visualização em Lista - Apenas nomes */}
                     {promoterGuestsViewMode === 'list' && (
-                      <div className="space-y-2">
-                        {filteredConvidadosPromoters.map(convidado => (
+                      <div className="hidden md:block space-y-2">
+                        {sortedFilteredConvidadosPromoters.map(convidado => (
                           <motion.div
                             key={convidado.id}
                             initial={{ opacity: 0, x: -20 }}
