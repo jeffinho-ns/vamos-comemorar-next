@@ -266,7 +266,7 @@ const AddEvent: React.FC<AddEventProps> = ({ isOpen, onRequestClose, onEventAdde
     }
   };
 
-  const uploadImage = async (file: File): Promise<string | null> => {
+  const uploadImage = async (file: File): Promise<{ filename: string; url: string } | null> => {
     const token = localStorage.getItem("authToken");
     if (!token) {
       setError("Token não encontrado. Faça login novamente.");
@@ -293,7 +293,10 @@ const AddEvent: React.FC<AddEventProps> = ({ isOpen, onRequestClose, onEventAdde
       }
 
       const result = await response.json();
-      return result.filename;
+      return {
+        filename: result.filename,
+        url: result.url || result.filename // URL completa do Cloudinary ou fallback para filename
+      };
     } catch (error) {
       console.error("Erro ao enviar imagem:", error);
       setError("Ocorreu um erro de conexão ao enviar a imagem.");
@@ -319,11 +322,15 @@ const AddEvent: React.FC<AddEventProps> = ({ isOpen, onRequestClose, onEventAdde
     // 1. Upload da imagem do evento
     if (imagemDoEvento) {
       // Se é um File, fazer upload
-      finalImagemEventoFilename = await uploadImage(imagemDoEvento);
-      if (!finalImagemEventoFilename) {
+      const uploadResult = await uploadImage(imagemDoEvento);
+      if (!uploadResult) {
         setIsLoading(false);
         return;
       }
+      finalImagemEventoFilename = uploadResult.filename;
+      // Atualiza o preview imediatamente com a URL completa do Cloudinary
+      setImagemEventoPreview(uploadResult.url);
+      setImagemEventoFilename(uploadResult.filename);
     } else if (imagemEventoFilename) {
       // Se foi selecionada da galeria, usar o filename armazenado
       finalImagemEventoFilename = imagemEventoFilename;
@@ -332,11 +339,15 @@ const AddEvent: React.FC<AddEventProps> = ({ isOpen, onRequestClose, onEventAdde
     // 2. Upload da imagem do combo (se houver)
     if (imagemDoCombo) {
       // Se é um File, fazer upload
-      finalImagemComboFilename = await uploadImage(imagemDoCombo);
-      if (!finalImagemComboFilename) {
+      const uploadResult = await uploadImage(imagemDoCombo);
+      if (!uploadResult) {
         setIsLoading(false);
         return;
       }
+      finalImagemComboFilename = uploadResult.filename;
+      // Atualiza o preview imediatamente com a URL completa do Cloudinary
+      setImagemComboPreview(uploadResult.url);
+      setImagemComboFilename(uploadResult.filename);
     } else if (imagemComboFilename) {
       // Se foi selecionada da galeria, usar o filename armazenado
       finalImagemComboFilename = imagemComboFilename;
@@ -684,17 +695,17 @@ const AddEvent: React.FC<AddEventProps> = ({ isOpen, onRequestClose, onEventAdde
                   input.onchange = async (e) => {
                     const files = (e.target as HTMLInputElement).files;
                     if (files && files[0]) {
-                      const filename = await uploadImage(files[0]);
-                      if (filename) {
+                      const uploadResult = await uploadImage(files[0]);
+                      if (uploadResult) {
                         // Aguardar um pouco para garantir que a imagem foi salva no banco
                         await new Promise(resolve => setTimeout(resolve, 500));
                         // Buscar imagens e obter a lista atualizada
                         const updatedImages = await fetchGalleryImages();
                         // Buscar a imagem recém-enviada na galeria para obter a URL completa
-                        const uploadedImage = updatedImages.find(img => img.filename === filename);
-                        const imageUrl = uploadedImage?.url || null;
+                        const uploadedImage = updatedImages.find(img => img.filename === uploadResult.filename);
+                        const imageUrl = uploadedImage?.url || uploadResult.url;
                         // Selecionar automaticamente a imagem recém-enviada
-                        handleSelectGalleryImage(filename, imageUrl);
+                        handleSelectGalleryImage(uploadResult.filename, imageUrl);
                       }
                     }
                   };

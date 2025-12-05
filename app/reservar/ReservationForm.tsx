@@ -908,7 +908,7 @@ const handleSubmit = async (e: React.FormEvent) => {
     
     const map = new Map<number, PromoterEvent>();
     promoterEvents.forEach((event) => {
-      if (!event || !event.id || !event.imagem_url) return;
+      if (!event || !event.id) return;
       
       // Filtrar apenas eventos futuros ou sem data
       if (event.data) {
@@ -919,6 +919,12 @@ const handleSubmit = async (e: React.FormEvent) => {
         }
       }
       // Se não tem data, considerar como futuro (eventos a definir)
+      
+      // Filtrar apenas eventos com imagem
+      if (!event.imagem_url) {
+        console.warn('Evento sem imagem_url:', event);
+        return;
+      }
       
       if (!map.has(event.id)) {
         map.set(event.id, event);
@@ -1322,6 +1328,10 @@ const handleSubmit = async (e: React.FormEvent) => {
                                   src={event.imagem_url}
                                   alt={event.nome}
                                   className="absolute inset-0 h-full w-full object-cover transition duration-700 group-hover:scale-105"
+                                  onError={(e) => {
+                                    console.error('Erro ao carregar imagem do evento:', event.imagem_url, event);
+                                    (e.target as HTMLImageElement).style.display = 'none';
+                                  }}
                                 />
                                 <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/70 to-slate-900/20" />
                               </>

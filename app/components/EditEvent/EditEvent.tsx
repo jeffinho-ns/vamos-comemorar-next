@@ -121,8 +121,8 @@ const EditEvent: React.FC<EditEventProps> = ({ isOpen, onRequestClose, event, on
       
       // Define os previews das imagens
       // Usar imagem_do_evento_url se disponível (URL completa do Cloudinary)
-      setImagemEventoPreview(getImageUrl(event.imagem_do_evento, (event as any).imagem_do_evento_url));
-      setImagemComboPreview(getImageUrl(event.imagem_do_combo, (event as any).imagem_do_combo_url));
+      setImagemEventoPreview(getImageUrl(event.imagem_do_evento, event.imagem_do_evento_url));
+      setImagemComboPreview(getImageUrl(event.imagem_do_combo, event.imagem_do_combo_url));
       
       setImagemDoEvento(null); // Limpa o arquivo recém-selecionado ao mudar de evento
       setImagemDoCombo(null); // Limpa o arquivo recém-selecionado ao mudar de evento
@@ -219,7 +219,7 @@ const EditEvent: React.FC<EditEventProps> = ({ isOpen, onRequestClose, event, on
     [API_BASE_URL, fetchGalleryImages],
   );
 
-  const uploadImage = async (file: File): Promise<string | null> => {
+  const uploadImage = async (file: File): Promise<{ filename: string; url: string } | null> => {
     const token = localStorage.getItem("authToken");
     if (!token || !API_URL) return null;
 
@@ -243,7 +243,10 @@ const EditEvent: React.FC<EditEventProps> = ({ isOpen, onRequestClose, event, on
       }
 
       const result = await response.json();
-      return result.filename;
+      return {
+        filename: result.filename,
+        url: result.url || result.filename // URL completa do Cloudinary ou fallback para filename
+      };
     } catch (error) {
       console.error("Erro ao enviar imagem:", error);
       setError("Ocorreu um erro de conexão ao enviar a imagem.");
@@ -269,12 +272,15 @@ const EditEvent: React.FC<EditEventProps> = ({ isOpen, onRequestClose, event, on
 
     // 1. Faz o upload da imagem do evento se um novo arquivo foi selecionado
     if (imagemDoEvento) {
-      const filename = await uploadImage(imagemDoEvento);
-      if (!filename) {
+      const uploadResult = await uploadImage(imagemDoEvento);
+      if (!uploadResult) {
         setIsLoading(false);
         return;
       }
-      finalImagemEventoFilename = filename;
+      finalImagemEventoFilename = uploadResult.filename;
+      // Atualiza o preview imediatamente com a URL completa do Cloudinary
+      setImagemEventoPreview(uploadResult.url);
+      setImagemEventoFilename(uploadResult.filename);
     } else if (imagemEventoFilename) {
       // Se foi selecionada da galeria, usar o filename armazenado
       finalImagemEventoFilename = imagemEventoFilename;
@@ -282,12 +288,15 @@ const EditEvent: React.FC<EditEventProps> = ({ isOpen, onRequestClose, event, on
 
     // 2. Faz o upload da imagem do combo se um novo arquivo foi selecionado
     if (imagemDoCombo) {
-      const filename = await uploadImage(imagemDoCombo);
-      if (!filename) {
+      const uploadResult = await uploadImage(imagemDoCombo);
+      if (!uploadResult) {
         setIsLoading(false);
         return;
       }
-      finalImagemComboFilename = filename;
+      finalImagemComboFilename = uploadResult.filename;
+      // Atualiza o preview imediatamente com a URL completa do Cloudinary
+      setImagemComboPreview(uploadResult.url);
+      setImagemComboFilename(uploadResult.filename);
     } else if (imagemComboFilename) {
       // Se foi selecionada da galeria, usar o filename armazenado
       finalImagemComboFilename = imagemComboFilename;
@@ -330,6 +339,20 @@ const EditEvent: React.FC<EditEventProps> = ({ isOpen, onRequestClose, event, on
         setError(`Erro ao atualizar o evento: ${errorData.message || 'Erro desconhecido.'}`);
         setIsLoading(false);
         return;
+      }
+
+      // Captura a resposta com o evento atualizado (incluindo URLs completas)
+      const responseData = await response.json();
+      const updatedEvent = responseData.event;
+      
+      // Atualiza os previews com as URLs completas retornadas pela API
+      if (updatedEvent) {
+        if (updatedEvent.imagem_do_evento_url) {
+          setImagemEventoPreview(updatedEvent.imagem_do_evento_url);
+        }
+        if (updatedEvent.imagem_do_combo_url) {
+          setImagemComboPreview(updatedEvent.imagem_do_combo_url);
+        }
       }
 
       alert("Evento atualizado com sucesso!");
@@ -410,7 +433,14 @@ const EditEvent: React.FC<EditEventProps> = ({ isOpen, onRequestClose, event, on
                   <span className="text-sm font-semibold text-gray-500">Imagem do evento</span>
                   <input type="file" className="hidden" onChange={(e) => handleImageChange(e, setImagemDoEvento, setImagemEventoPreview, setImagemEventoFilename)} />
                   {imagemEventoPreview && (
-                    <Image src={imagemEventoPreview} alt="Pré-visualização do evento" className="mt-2 h-24 w-auto rounded shadow" width={96} height={96} />
+                    <Image 
+                      src={imagemEventoPreview} 
+                      alt="Pré-visualização do evento" 
+                      className="mt-2 h-24 w-auto rounded shadow" 
+                      width={96} 
+                      height={96}
+                      unoptimized={imagemEventoPreview.includes('cloudinary.com') || imagemEventoPreview.startsWith('blob:')}
+                    />
                   )}
                   {!imagemEventoPreview && <span className="text-xs text-gray-400">Selecione nova imagem</span>}
                 </label>
@@ -429,7 +459,14 @@ const EditEvent: React.FC<EditEventProps> = ({ isOpen, onRequestClose, event, on
                   <span className="text-sm font-semibold text-gray-500">Imagem do combo</span>
                   <input type="file" className="hidden" onChange={(e) => handleImageChange(e, setImagemDoCombo, setImagemComboPreview, setImagemComboFilename)} />
                   {imagemComboPreview && (
-                    <Image src={imagemComboPreview} alt="Pré-visualização do combo" className="mt-2 h-24 w-auto rounded shadow" width={96} height={96} />
+                    <Image 
+                      src={imagemComboPreview} 
+                      alt="Pré-visualização do combo" 
+                      className="mt-2 h-24 w-auto rounded shadow" 
+                      width={96} 
+                      height={96}
+                      unoptimized={imagemComboPreview.includes('cloudinary.com') || imagemComboPreview.startsWith('blob:')}
+                    />
                   )}
                   {!imagemComboPreview && <span className="text-xs text-gray-400">Selecione nova imagem</span>}
                 </label>
@@ -489,17 +526,17 @@ const EditEvent: React.FC<EditEventProps> = ({ isOpen, onRequestClose, event, on
                   input.onchange = async (e) => {
                     const files = (e.target as HTMLInputElement).files;
                     if (files && files[0]) {
-                      const filename = await uploadImage(files[0]);
-                      if (filename) {
+                      const uploadResult = await uploadImage(files[0]);
+                      if (uploadResult) {
                         // Aguardar um pouco para garantir que a imagem foi salva no banco
                         await new Promise(resolve => setTimeout(resolve, 500));
                         // Buscar imagens e obter a lista atualizada
                         const updatedImages = await fetchGalleryImages();
                         // Buscar a imagem recém-enviada na galeria para obter a URL completa
-                        const uploadedImage = updatedImages.find(img => img.filename === filename);
-                        const imageUrl = uploadedImage?.url || null;
+                        const uploadedImage = updatedImages.find(img => img.filename === uploadResult.filename);
+                        const imageUrl = uploadedImage?.url || uploadResult.url;
                         // Selecionar automaticamente a imagem recém-enviada
-                        handleSelectGalleryImage(filename, imageUrl);
+                        handleSelectGalleryImage(uploadResult.filename, imageUrl);
                       }
                     }
                   };
