@@ -26,16 +26,29 @@ export default function ArtistOSList({
   const [exporting, setExporting] = useState<string | null>(null);
   const [openExportMenu, setOpenExportMenu] = useState<number | null>(null);
 
-  const formatDate = (dateString: string) => {
+  const formatDate = (dateString: string | null | undefined) => {
+    if (!dateString) {
+      return 'Data não informada';
+    }
     try {
-      const date = new Date(dateString + 'T12:00:00');
+      // Se já está no formato YYYY-MM-DD, adicionar hora
+      const date = dateString.includes('T') 
+        ? new Date(dateString) 
+        : new Date(dateString + 'T12:00:00');
+      
+      // Verificar se a data é válida
+      if (isNaN(date.getTime())) {
+        return 'Data inválida';
+      }
+      
       return date.toLocaleDateString('pt-BR', {
         day: '2-digit',
         month: '2-digit',
         year: 'numeric'
       });
     } catch (error) {
-      return dateString;
+      console.error('Erro ao formatar data:', error, dateString);
+      return dateString || 'Data inválida';
     }
   };
 
@@ -153,7 +166,7 @@ export default function ArtistOSList({
                 <div className="flex items-center justify-between">
                   <div className="flex-grow">
                     <h3 className="text-xl font-bold text-gray-900 mb-1">
-                      {formatDate(detail.event_date)} - {detail.event_name || 'Sem nome'}
+                      {formatDate(detail.event_date)} - {detail.event_name || detail.artistic_attraction || detail.project_name || 'Sem nome'}
                     </h3>
                     {detail.artist_artistic_name && (
                       <p className="text-sm text-gray-600">

@@ -182,16 +182,29 @@ export default function DetalhesOperacionaisPage() {
     handleModalClose();
   };
 
-  const formatDate = (dateString: string) => {
+  const formatDate = (dateString: string | null | undefined) => {
+    if (!dateString) {
+      return 'Data não informada';
+    }
     try {
-      const date = new Date(dateString + 'T12:00:00');
+      // Se já está no formato YYYY-MM-DD, adicionar hora
+      const date = dateString.includes('T') 
+        ? new Date(dateString) 
+        : new Date(dateString + 'T12:00:00');
+      
+      // Verificar se a data é válida
+      if (isNaN(date.getTime())) {
+        return 'Data inválida';
+      }
+      
       return date.toLocaleDateString('pt-BR', {
         day: '2-digit',
         month: '2-digit',
         year: 'numeric'
       });
     } catch (error) {
-      return dateString;
+      console.error('Erro ao formatar data:', error, dateString);
+      return dateString || 'Data inválida';
     }
   };
 
