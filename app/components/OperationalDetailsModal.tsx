@@ -10,7 +10,8 @@ import OSTypeSelectionModal from './OSTypeSelectionModal';
 import ArtistOSForm from './ArtistOSForm';
 import BarServiceOSForm from './BarServiceOSForm';
 
-const API_UPLOAD_URL = 'https://vamos-comemorar-api.onrender.com/api/images/upload';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://vamos-comemorar-api.onrender.com';
+const API_UPLOAD_URL = `${API_URL}/api/images/upload`;
 const BASE_IMAGE_URL = 'https://grupoideiaum.com.br/cardapio-agilizaiapp/';
 const PLACEHOLDER_IMAGE_URL = '/placeholder-cardapio.svg';
 
@@ -278,8 +279,8 @@ export default function OperationalDetailsModal({
       }
 
       const url = detail
-        ? `/api/operational-details/${detail.id}`
-        : '/api/operational-details';
+        ? `${API_URL}/api/operational-details/${detail.id}`
+        : `${API_URL}/api/operational-details`;
 
       const method = detail ? 'PUT' : 'POST';
 

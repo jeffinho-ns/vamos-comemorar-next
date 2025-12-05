@@ -56,7 +56,7 @@ export default function DetalhesOperacionaisPage() {
         return;
       }
 
-      let url = '/api/operational-details?';
+      let url = `${API_URL}/api/operational-details?`;
       const params = new URLSearchParams();
       
       if (selectedEstablishment) {
@@ -121,7 +121,7 @@ export default function DetalhesOperacionaisPage() {
         return;
       }
 
-      const response = await fetch(`/api/operational-details/${id}`, {
+      const response = await fetch(`${API_URL}/api/operational-details/${id}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -149,7 +149,7 @@ export default function DetalhesOperacionaisPage() {
         return;
       }
 
-      const response = await fetch(`/api/operational-details/${detail.id}`, {
+      const response = await fetch(`${API_URL}/api/operational-details/${detail.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -471,7 +471,7 @@ export default function DetalhesOperacionaisPage() {
 
             console.log('📤 Dados limpos para envio:', cleanData);
 
-            const response = await fetch('/api/operational-details', {
+            const response = await fetch(`${API_URL}/api/operational-details`, {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
