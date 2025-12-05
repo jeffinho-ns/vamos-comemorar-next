@@ -908,20 +908,40 @@ const handleSubmit = async (e: React.FormEvent) => {
   };
 
   const uniquePromoterEvents = useMemo(() => {
-    if (!promoterEvents || promoterEvents.length === 0) return [];
+    if (!promoterEvents || promoterEvents.length === 0) {
+      console.log('⚠️ Nenhum evento de promoter disponível');
+      return [];
+    }
     
     // Data/hora atual
     const now = new Date();
     const currentHour = now.getHours();
+    const currentDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     
-    // Se for antes das 03:00, considerar que ainda é o dia anterior (madrugada)
-    // Exemplo: 02:00 do dia 06/12 ainda mostra eventos de 05/12
-    let cutoffDate = new Date(now);
+    // Calcular o cutoff: se estamos antes das 03:00, considerar que ainda é o dia anterior
+    // Exemplo: Se estamos em 06/12 02:00, eventos de 05/12 ainda devem aparecer
+    // Exemplo: Se estamos em 06/12 04:00, eventos de 05/12 não devem mais aparecer
+    let cutoffDateTime: Date;
     if (currentHour < 3) {
-      // Se for antes das 03:00, considerar eventos até o dia anterior às 03:00
-      cutoffDate.setDate(cutoffDate.getDate() - 1);
+      // Antes das 03:00: mostrar eventos até 03:00 de hoje
+      // Exemplo: 06/12 02:00 -> mostrar eventos até 06/12 03:00
+      cutoffDateTime = new Date(currentDate);
+      cutoffDateTime.setHours(3, 0, 0, 0);
+    } else {
+      // Depois das 03:00: mostrar eventos até 03:00 de amanhã
+      // Exemplo: 06/12 10:00 -> mostrar eventos até 07/12 03:00
+      const tomorrow = new Date(currentDate);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      tomorrow.setHours(3, 0, 0, 0);
+      cutoffDateTime = tomorrow;
     }
-    cutoffDate.setHours(3, 0, 0, 0); // 03:00 do dia de corte
+    
+    console.log('📅 Filtro de eventos:', {
+      agora: now.toISOString(),
+      horaAtual: currentHour,
+      cutoffDateTime: cutoffDateTime.toISOString(),
+      totalEventos: promoterEvents.length
+    });
     
     const map = new Map<number, PromoterEvent>();
     promoterEvents.forEach((event) => {
@@ -929,31 +949,51 @@ const handleSubmit = async (e: React.FormEvent) => {
       
       // Filtrar eventos futuros ou do dia atual (até 03:00 do dia seguinte)
       if (event.data) {
-        const eventDate = new Date(event.data);
-        eventDate.setHours(0, 0, 0, 0);
-        
-        // Se o evento tem hora, considerar a data/hora completa
-        let eventDateTime = new Date(eventDate);
-        if (event.hora) {
-          const [hours, minutes, seconds] = event.hora.split(':').map(Number);
-          eventDateTime.setHours(hours || 0, minutes || 0, seconds || 0);
-        } else {
-          // Se não tem hora, considerar como início do dia (00:00)
-          eventDateTime.setHours(0, 0, 0, 0);
-        }
-        
-        // Evento deve ser >= cutoffDate (03:00 do dia anterior se for madrugada, ou hoje)
-        if (eventDateTime < cutoffDate) {
-          return; // Ignorar eventos passados
+        try {
+          // Criar data do evento
+          const eventDateStr = event.data; // Formato esperado: "YYYY-MM-DD"
+          const [year, month, day] = eventDateStr.split('-').map(Number);
+          const eventDate = new Date(year, month - 1, day);
+          
+          // Se o evento tem hora, considerar a data/hora completa
+          let eventDateTime: Date;
+          if (event.hora) {
+            const [hours, minutes, seconds] = event.hora.split(':').map(Number);
+            eventDateTime = new Date(eventDate);
+            eventDateTime.setHours(hours || 0, minutes || 0, seconds || 0);
+          } else {
+            // Se não tem hora, considerar como início do dia (00:00)
+            eventDateTime = new Date(eventDate);
+            eventDateTime.setHours(0, 0, 0, 0);
+          }
+          
+          // Um evento deve aparecer se sua data/hora for anterior ao cutoff
+          // Exemplo: Evento de 05/12 18:00 deve aparecer até 06/12 03:00
+          // Se estamos em 06/12 02:00, cutoff é 06/12 03:00, então 05/12 18:00 < 06/12 03:00 -> mostrar
+          // Se estamos em 06/12 04:00, cutoff é 07/12 03:00, então 05/12 18:00 < 07/12 03:00 -> mostrar (mas não deveria)
+          
+          // Correção: um evento do dia X deve aparecer até 03:00 do dia X+1
+          // Então precisamos verificar se o evento ainda está dentro da janela válida
+          const eventDay = new Date(eventDate);
+          eventDay.setHours(0, 0, 0, 0);
+          
+          // Data limite para exibir o evento: dia do evento + 1, às 03:00
+          const eventExpiryDate = new Date(eventDay);
+          eventExpiryDate.setDate(eventExpiryDate.getDate() + 1);
+          eventExpiryDate.setHours(3, 0, 0, 0);
+          
+          // Se já passou da data de expiração, não mostrar
+          if (now >= eventExpiryDate) {
+            return;
+          }
+          
+          // Se chegou aqui, o evento deve ser exibido
+        } catch (error) {
+          console.error('❌ Erro ao processar data do evento:', event, error);
+          return;
         }
       }
       // Se não tem data, considerar como futuro (eventos a definir)
-      
-      // REMOVIDO: Filtro de imagem - agora exibe eventos mesmo sem imagem
-      // if (!event.imagem_url) {
-      //   console.warn('Evento sem imagem_url:', event);
-      //   return;
-      // }
       
       if (!map.has(event.id)) {
         map.set(event.id, event);
@@ -983,7 +1023,7 @@ const handleSubmit = async (e: React.FormEvent) => {
     console.log('🎯 Eventos do promoter filtrados:', {
       total: promoterEvents.length,
       filtrados: sorted.length,
-      cutoffDate: cutoffDate.toISOString(),
+      cutoffDateTime: cutoffDateTime.toISOString(),
       eventos: sorted.map(e => ({
         id: e.id,
         nome: e.nome,
