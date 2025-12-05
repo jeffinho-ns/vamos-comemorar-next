@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
-import { MdEdit, MdVisibility, MdFileDownload, MdAdd } from 'react-icons/md';
+import { motion, AnimatePresence } from 'framer-motion';
+import { MdEdit, MdVisibility, MdFileDownload, MdAdd, MdClose } from 'react-icons/md';
 import { OperationalDetail } from '@/app/types/operationalDetail';
 import ArtistOSViewModal from './ArtistOSViewModal';
 import ArtistOSEditModal from './ArtistOSEditModal';
@@ -24,7 +24,8 @@ export default function ArtistOSList({
   const [showViewModal, setShowViewModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [exporting, setExporting] = useState<string | null>(null);
-  const [openExportMenu, setOpenExportMenu] = useState<number | null>(null);
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [selectedDetailForExport, setSelectedDetailForExport] = useState<OperationalDetail | null>(null);
 
   const formatDate = (dateString: string | null | undefined) => {
     if (!dateString) {
@@ -83,21 +84,34 @@ export default function ArtistOSList({
     setShowEditModal(true);
   };
 
-  const handleExport = async (detail: OperationalDetail, format: 'word' | 'excel' | 'pdf') => {
-    setExporting(`${detail.id}-${format}`);
-    setOpenExportMenu(null); // Fechar menu após selecionar
+  const handleOpenExportModal = (detail: OperationalDetail) => {
+    setSelectedDetailForExport(detail);
+    setShowExportModal(true);
+  };
+
+  const handleCloseExportModal = () => {
+    setShowExportModal(false);
+    setSelectedDetailForExport(null);
+    setExporting(null);
+  };
+
+  const handleExport = async (format: 'word' | 'excel' | 'pdf') => {
+    if (!selectedDetailForExport) return;
+    
+    setExporting(`${selectedDetailForExport.id}-${format}`);
     try {
       switch (format) {
         case 'word':
-          await exportToWord(detail);
+          await exportToWord(selectedDetailForExport);
           break;
         case 'excel':
-          await exportToExcel(detail);
+          await exportToExcel(selectedDetailForExport);
           break;
         case 'pdf':
-          await exportToPDF(detail);
+          await exportToPDF(selectedDetailForExport);
           break;
       }
+      handleCloseExportModal();
     } catch (error) {
       console.error('Erro ao exportar:', error);
       alert('Erro ao exportar o arquivo. Tente novamente.');
@@ -105,25 +119,6 @@ export default function ArtistOSList({
       setExporting(null);
     }
   };
-
-  // Fechar menu ao clicar fora
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (openExportMenu !== null) {
-        const target = e.target as HTMLElement;
-        if (!target.closest('.export-menu-container')) {
-          setOpenExportMenu(null);
-        }
-      }
-    };
-
-    if (openExportMenu !== null) {
-      document.addEventListener('click', handleClickOutside);
-      return () => {
-        document.removeEventListener('click', handleClickOutside);
-      };
-    }
-  }, [openExportMenu]);
 
   const handleSave = async (data: Record<string, any>) => {
     const token = localStorage.getItem('authToken');
@@ -229,79 +224,13 @@ export default function ArtistOSList({
                     >
                       <MdEdit size={20} />
                     </button>
-                    <div className="relative export-menu-container">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setOpenExportMenu(openExportMenu === detail.id ? null : detail.id);
-                        }}
-                        className="bg-purple-500 hover:bg-purple-600 text-white p-2 rounded-lg transition-colors relative z-10"
-                        title="Exportar"
-                      >
-                        <MdFileDownload size={20} />
-                      </button>
-                      {openExportMenu === detail.id && (
-                        <div
-                          className="absolute right-0 bottom-full mb-2 bg-white rounded-lg shadow-2xl border border-gray-300 py-2 w-[160px]"
-                          style={{ 
-                            position: 'absolute',
-                            zIndex: 1001,
-                            display: 'flex',
-                            flexDirection: 'column',
-                            visibility: 'visible',
-                            opacity: 1,
-                            minHeight: 'auto'
-                          }}
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <button
-                            onClick={() => handleExport(detail, 'word')}
-                            disabled={exporting === `${detail.id}-word`}
-                            className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors border-b border-gray-100"
-                          >
-                            {exporting === `${detail.id}-word` ? (
-                              <>
-                                <span className="animate-spin">⏳</span> Exportando...
-                              </>
-                            ) : (
-                              <>
-                                📄 Word
-                              </>
-                            )}
-                          </button>
-                          <button
-                            onClick={() => handleExport(detail, 'excel')}
-                            disabled={exporting === `${detail.id}-excel`}
-                            className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors border-b border-gray-100"
-                          >
-                            {exporting === `${detail.id}-excel` ? (
-                              <>
-                                <span className="animate-spin">⏳</span> Exportando...
-                              </>
-                            ) : (
-                              <>
-                                📊 Excel
-                              </>
-                            )}
-                          </button>
-                          <button
-                            onClick={() => handleExport(detail, 'pdf')}
-                            disabled={exporting === `${detail.id}-pdf`}
-                            className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                          >
-                            {exporting === `${detail.id}-pdf` ? (
-                              <>
-                                <span className="animate-spin">⏳</span> Exportando...
-                              </>
-                            ) : (
-                              <>
-                                📑 PDF
-                              </>
-                            )}
-                          </button>
-                        </div>
-                      )}
-                    </div>
+                    <button
+                      onClick={() => handleOpenExportModal(detail)}
+                      className="bg-purple-500 hover:bg-purple-600 text-white p-2 rounded-lg transition-colors"
+                      title="Exportar"
+                    >
+                      <MdFileDownload size={20} />
+                    </button>
                   </div>
                 </div>
               </motion.div>
