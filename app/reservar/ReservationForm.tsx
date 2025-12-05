@@ -154,7 +154,7 @@ export default function ReservationForm() {
     table_number: '',
     notes: ''
   });
-  const [eventType, setEventType] = useState<'aniversario' | 'despedida' | ''>('');
+  const [eventType, setEventType] = useState<'aniversario' | 'despedida' | 'outros' | ''>('');
   const [guestListLink, setGuestListLink] = useState<string | null>(null);
   const [birthdayGuestListCreated, setBirthdayGuestListCreated] = useState<boolean>(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -1597,15 +1597,49 @@ const handleSubmit = async (e: React.FormEvent) => {
                   {errors.area_id && (
                     <p className="text-red-500 text-sm mt-1">{errors.area_id}</p>
                   )}
-                  {(isHighline || isSeuJustino) && selectedSubareaKey && tables.length > 0 && (
-                    <div className="mt-3 grid grid-cols-2 md:grid-cols-3 gap-2 text-sm">
-                      {tables.map(t => (
-                        <div key={t.id} className="px-2 py-1 rounded border bg-blue-50 text-blue-700 border-blue-200">
-                          Mesa {t.table_number} • {t.capacity}p
+                  {/* Exibir imagem do mapa da área quando selecionada (apenas para Highline) */}
+                  {isHighline && selectedSubareaKey && (() => {
+                    const isDeck = selectedSubareaKey.startsWith('deck') || selectedSubareaKey === 'bar';
+                    const isRooftop = selectedSubareaKey.startsWith('roof');
+                    const deckImageUrl = 'https://res.cloudinary.com/drjovtmuw/image/upload/v1764908188/MAPA_HLB_-_DECK_tizbti.png';
+                    const rooftopImageUrl = 'https://res.cloudinary.com/drjovtmuw/image/upload/v1764908187/MAPA_-_HLB_ROOFTOP_mibdvd.png';
+                    
+                    if (isDeck || isRooftop) {
+                      return (
+                        <div className="mt-4 rounded-lg overflow-hidden border-2 border-orange-300 shadow-lg bg-white">
+                          <div className="p-2 sm:p-3 bg-gradient-to-r from-orange-50 to-amber-50 border-b border-orange-200">
+                            <h4 className="text-xs sm:text-sm font-semibold text-orange-900 flex items-center gap-2">
+                              <MdLocationOn className="text-orange-600 flex-shrink-0" size={18} />
+                              <span>{isDeck ? 'Área Deck' : 'Área Rooftop'} - Mapa do Ambiente</span>
+                            </h4>
+                          </div>
+                          <div className="relative w-full bg-gray-100 overflow-hidden">
+                            <img
+                              src={isDeck ? deckImageUrl : rooftopImageUrl}
+                              alt={`Mapa da ${isDeck ? 'Área Deck' : 'Área Rooftop'}`}
+                              className="w-full h-auto object-contain"
+                              style={{ maxHeight: '300px' }}
+                              loading="lazy"
+                              onError={(e) => {
+                                const target = e.target as HTMLImageElement;
+                                target.style.display = 'none';
+                                const parent = target.parentElement;
+                                if (parent) {
+                                  parent.innerHTML = '<div class="p-6 sm:p-8 text-center text-gray-500 text-sm">Imagem não disponível no momento</div>';
+                                }
+                              }}
+                            />
+                          </div>
+                          <div className="p-2 sm:p-3 bg-gray-50 border-t border-gray-200">
+                            <p className="text-xs text-gray-600 text-center">
+                              Visualize o layout do ambiente para escolher sua área preferida
+                            </p>
+                          </div>
                         </div>
-                      ))}
-                    </div>
-                  )}
+                      );
+                    }
+                    return null;
+                  })()}
                 </div>
               </div>
 
@@ -1743,7 +1777,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                     return (
                       <div className="p-4 bg-indigo-50 border border-indigo-200 rounded-lg">
                         <label className="block text-sm font-medium text-indigo-900 mb-2">Tipo de evento (sábado)</label>
-                        <div className="flex items-center gap-6 text-sm text-indigo-900">
+                        <div className="flex flex-wrap items-center gap-4 sm:gap-6 text-sm text-indigo-900">
                           <label className="inline-flex items-center gap-2">
                             <input
                               type="radio"
@@ -1761,6 +1795,15 @@ const handleSubmit = async (e: React.FormEvent) => {
                               onChange={() => setEventType('despedida')}
                             />
                             Despedida
+                          </label>
+                          <label className="inline-flex items-center gap-2">
+                            <input
+                              type="radio"
+                              name="event_type"
+                              checked={eventType === 'outros'}
+                              onChange={() => setEventType('outros')}
+                            />
+                            Outros
                           </label>
                         </div>
                       </div>

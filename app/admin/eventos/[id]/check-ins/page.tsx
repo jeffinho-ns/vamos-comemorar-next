@@ -1627,12 +1627,30 @@ export default function EventoCheckInsPage() {
                                     {gl.reservation_date ? new Date(gl.reservation_date + 'T12:00:00').toLocaleDateString('pt-BR') : 'Data não informada'} 
                                     {gl.event_type ? ` • ${gl.event_type}` : ''} • {gl.reservation_time}
                                   </div>
-                                  <div
-                                    className="rounded-full bg-white/10 px-2 md:px-3 py-1 text-xs md:text-sm font-semibold text-amber-200"
-                                  >
-                                    Mesa: <span className="text-white">
-                                      {gl.table_number ? `Mesa ${gl.table_number}` : gl.area_name || '—'}
-                                    </span>
+                                  <div className="flex flex-col items-end gap-1">
+                                    <div
+                                      className="rounded-full bg-white/10 px-2 md:px-3 py-1 text-xs md:text-sm font-semibold text-amber-200"
+                                    >
+                                      Mesa: <span className="text-white">
+                                        {gl.table_number ? `Mesa ${gl.table_number}` : gl.area_name || '—'}
+                                      </span>
+                                    </div>
+                                    {(() => {
+                                      const guestsCheckedIn = checkInStatus[gl.guest_list_id]?.guestsCheckedIn || 0;
+                                      const activeRules = giftRules.filter(r => r.status === 'ATIVA').sort((a, b) => a.checkins_necessarios - b.checkins_necessarios);
+                                      const nextRule = activeRules.find(r => guestsCheckedIn < r.checkins_necessarios);
+                                      if (nextRule) {
+                                        const faltam = nextRule.checkins_necessarios - guestsCheckedIn;
+                                        return (
+                                          <div
+                                            className="rounded-full bg-gradient-to-r from-orange-500/90 to-red-500/90 px-2 md:px-3 py-1 text-xs md:text-sm font-bold text-white shadow-lg animate-pulse"
+                                          >
+                                            ⚠️ Faltam {faltam} check-in{faltam !== 1 ? 's' : ''} para o brinde!
+                                          </div>
+                                        );
+                                      }
+                                      return null;
+                                    })()}
                                   </div>
                                 </div>
                                 
@@ -1667,23 +1685,44 @@ export default function EventoCheckInsPage() {
                                       <div className="space-y-2">
                                         {/* Barra de Progresso */}
                                         {activeRules.length > 0 && (
-                                          <div className="bg-white/10 rounded-lg p-2">
-                                            <div className="flex items-center justify-between text-xs mb-1">
-                                              <span className="text-gray-300">Progresso: {guestsCheckedIn} check-in{guestsCheckedIn !== 1 ? 's' : ''}</span>
-                                              <span className="text-gray-300">{percentage}%</span>
+                                          <div className="bg-gradient-to-br from-white/15 to-white/5 rounded-xl p-3 border border-white/20 shadow-lg">
+                                            <div className="flex items-center justify-between mb-2">
+                                              <div className="flex items-center gap-2">
+                                                <span className="text-sm font-semibold text-white">🎯 Progresso do Brinde</span>
+                                              </div>
+                                              <div className="flex items-center gap-2">
+                                                <span className="text-xs font-medium text-gray-300">{guestsCheckedIn} / {nextRule?.checkins_necessarios || activeRules[activeRules.length - 1]?.checkins_necessarios || 0}</span>
+                                                <span className={`text-sm font-bold px-2 py-0.5 rounded-full ${
+                                                  percentage >= 80 ? 'bg-green-500/20 text-green-300' : percentage >= 50 ? 'bg-yellow-500/20 text-yellow-300' : 'bg-blue-500/20 text-blue-300'
+                                                }`}>
+                                                  {percentage}%
+                                                </span>
+                                              </div>
                                             </div>
-                                            <div className="w-full bg-gray-700 rounded-full h-2">
+                                            <div className="relative w-full bg-gray-800/50 rounded-full h-5 overflow-hidden shadow-inner border border-gray-700/50">
                                               <div
-                                                className={`h-2 rounded-full transition-all ${
-                                                  percentage >= 80 ? 'bg-green-500' : percentage >= 50 ? 'bg-yellow-500' : 'bg-blue-500'
+                                                className={`h-full rounded-full transition-all duration-500 ease-out relative ${
+                                                  percentage >= 80 
+                                                    ? 'bg-gradient-to-r from-green-500 via-emerald-400 to-green-500 shadow-lg shadow-green-500/50' 
+                                                    : percentage >= 50 
+                                                    ? 'bg-gradient-to-r from-yellow-500 via-amber-400 to-yellow-500 shadow-lg shadow-yellow-500/50' 
+                                                    : 'bg-gradient-to-r from-blue-500 via-cyan-400 to-blue-500 shadow-lg shadow-blue-500/50'
                                                 }`}
                                                 style={{ width: `${Math.min(percentage, 100)}%` }}
-                                              />
+                                              >
+                                                {percentage > 20 && (
+                                                  <span className="absolute inset-0 flex items-center justify-center text-xs font-bold text-white drop-shadow-md">
+                                                    {percentage}%
+                                                  </span>
+                                                )}
+                                              </div>
                                             </div>
                                             {nextRule && (
-                                              <p className="text-xs text-gray-400 mt-1">
-                                                Faltam {nextRule.checkins_necessarios - guestsCheckedIn} check-in{nextRule.checkins_necessarios - guestsCheckedIn !== 1 ? 's' : ''} para liberar: <strong>{nextRule.descricao}</strong>
-                                              </p>
+                                              <div className="mt-2 pt-2 border-t border-white/10">
+                                                <p className="text-xs text-gray-300">
+                                                  Próximo brinde: <span className="font-semibold text-amber-300">{nextRule.descricao}</span>
+                                                </p>
+                                              </div>
                                             )}
                                           </div>
                                         )}

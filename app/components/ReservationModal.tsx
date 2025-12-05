@@ -93,7 +93,7 @@ export default function ReservationModal({
   const [sendWhatsAppConfirmation, setSendWhatsAppConfirmation] = useState(true);
   
   // NOVO: Estado para tipo de evento (para reservas grandes)
-  const [eventType, setEventType] = useState<'aniversario' | 'despedida' | ''>('');
+  const [eventType, setEventType] = useState<'aniversario' | 'despedida' | 'outros' | ''>('');
   
   // Estados para vinculação de evento
   const [eventosDisponiveis, setEventosDisponiveis] = useState<any[]>([]);
@@ -525,12 +525,13 @@ export default function ReservationModal({
                         </label>
                         <select
                           value={eventType}
-                          onChange={(e) => setEventType(e.target.value as 'aniversario' | 'despedida' | '')}
+                          onChange={(e) => setEventType(e.target.value as 'aniversario' | 'despedida' | 'outros' | '')}
                           className="w-full px-2 py-1 text-sm bg-white border border-orange-300 rounded text-orange-900 focus:outline-none focus:ring-2 focus:ring-orange-500"
                         >
                           <option value="">Selecione (opcional)</option>
                           <option value="aniversario">Aniversário</option>
                           <option value="despedida">Despedida</option>
+                          <option value="outros">Outros</option>
                         </select>
                       </div>
                     </div>

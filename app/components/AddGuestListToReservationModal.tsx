@@ -27,7 +27,7 @@ export default function AddGuestListToReservationModal({
   clientName,
   onSuccess
 }: AddGuestListToReservationModalProps) {
-  const [eventType, setEventType] = useState<'aniversario' | 'despedida' | ''>('');
+  const [eventType, setEventType] = useState<'aniversario' | 'despedida' | 'outros' | ''>('');
   const [loading, setLoading] = useState(false);
   const [guestListLink, setGuestListLink] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -126,12 +126,13 @@ export default function AddGuestListToReservationModal({
                   </label>
                   <select
                     value={eventType}
-                    onChange={(e) => setEventType(e.target.value as 'aniversario' | 'despedida' | '')}
+                    onChange={(e) => setEventType(e.target.value as 'aniversario' | 'despedida' | 'outros' | '')}
                     className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
                     <option value="">Selecione (opcional)</option>
                     <option value="aniversario">Aniversário</option>
                     <option value="despedida">Despedida</option>
+                    <option value="outros">Outros</option>
                   </select>
                 </div>
 
