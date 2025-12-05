@@ -209,7 +209,7 @@ export default function ArtistOSList({
                     )}
                   </div>
 
-                  <div className="flex items-center gap-2 relative" style={{ zIndex: openExportMenu === detail.id ? 1000 : 'auto' }}>
+                  <div className="flex items-center gap-2">
                     <button
                       onClick={() => handleView(detail)}
                       className="bg-blue-500 hover:bg-blue-600 text-white p-2 rounded-lg transition-colors"
@@ -259,6 +259,102 @@ export default function ArtistOSList({
         onSave={handleSave}
         detail={editingDetail}
       />
+
+      {/* Export Modal */}
+      <AnimatePresence>
+        {showExportModal && selectedDetailForExport && (
+          <div 
+            className="fixed inset-0 z-[9999] flex items-center justify-center bg-black bg-opacity-50 p-4"
+            onClick={handleCloseExportModal}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.9 }}
+              className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-2xl font-bold text-gray-900">Exportar OS</h2>
+                <button
+                  onClick={handleCloseExportModal}
+                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                  disabled={!!exporting}
+                >
+                  <MdClose size={24} />
+                </button>
+              </div>
+
+              <p className="text-gray-600 mb-6">
+                Escolha o formato para exportar a OS de <strong>{selectedDetailForExport.event_name || selectedDetailForExport.artistic_attraction || 'Artista'}</strong>
+              </p>
+
+              <div className="space-y-3">
+                <button
+                  onClick={() => handleExport('word')}
+                  disabled={!!exporting}
+                  className="w-full flex items-center justify-between px-6 py-4 bg-blue-50 hover:bg-blue-100 border-2 border-blue-200 rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="text-2xl">📄</span>
+                    <div className="text-left">
+                      <div className="font-semibold text-gray-900">Microsoft Word</div>
+                      <div className="text-sm text-gray-600">Documento .docx</div>
+                    </div>
+                  </div>
+                  {exporting === `${selectedDetailForExport.id}-word` && (
+                    <span className="animate-spin text-blue-600">⏳</span>
+                  )}
+                </button>
+
+                <button
+                  onClick={() => handleExport('excel')}
+                  disabled={!!exporting}
+                  className="w-full flex items-center justify-between px-6 py-4 bg-green-50 hover:bg-green-100 border-2 border-green-200 rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="text-2xl">📊</span>
+                    <div className="text-left">
+                      <div className="font-semibold text-gray-900">Microsoft Excel</div>
+                      <div className="text-sm text-gray-600">Planilha .xlsx</div>
+                    </div>
+                  </div>
+                  {exporting === `${selectedDetailForExport.id}-excel` && (
+                    <span className="animate-spin text-green-600">⏳</span>
+                  )}
+                </button>
+
+                <button
+                  onClick={() => handleExport('pdf')}
+                  disabled={!!exporting}
+                  className="w-full flex items-center justify-between px-6 py-4 bg-red-50 hover:bg-red-100 border-2 border-red-200 rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="text-2xl">📑</span>
+                    <div className="text-left">
+                      <div className="font-semibold text-gray-900">PDF</div>
+                      <div className="text-sm text-gray-600">Documento .pdf</div>
+                    </div>
+                  </div>
+                  {exporting === `${selectedDetailForExport.id}-pdf` && (
+                    <span className="animate-spin text-red-600">⏳</span>
+                  )}
+                </button>
+              </div>
+
+              <div className="mt-6 flex justify-end">
+                <button
+                  onClick={handleCloseExportModal}
+                  disabled={!!exporting}
+                  className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Cancelar
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </>
   );
 }
