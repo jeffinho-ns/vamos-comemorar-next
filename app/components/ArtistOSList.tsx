@@ -166,7 +166,7 @@ export default function ArtistOSList({
                 <div className="flex items-center justify-between">
                   <div className="flex-grow">
                     <h3 className="text-xl font-bold text-gray-900 mb-1">
-                      {formatDate(detail.event_date)} - {detail.event_name || detail.artistic_attraction || detail.project_name || 'Sem nome'}
+                      {formatDate(detail.event_date)} - {detail.event_name || detail.artistic_attraction || (detail as any).project_name || 'Sem nome'}
                     </h3>
                     {detail.artist_artistic_name && (
                       <p className="text-sm text-gray-600">
