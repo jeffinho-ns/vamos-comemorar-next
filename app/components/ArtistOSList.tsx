@@ -194,7 +194,8 @@ export default function ArtistOSList({
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.05 }}
-                className="bg-white/95 backdrop-blur-sm rounded-xl shadow-lg p-6 border border-gray-200/20 hover:shadow-xl transition-all duration-200"
+                className="bg-white/95 backdrop-blur-sm rounded-xl shadow-lg p-6 border border-gray-200/20 hover:shadow-xl transition-all duration-200 relative overflow-visible"
+                style={{ overflow: 'visible' }}
               >
                 <div className="flex items-center justify-between">
                   <div className="flex-grow">
@@ -213,7 +214,7 @@ export default function ArtistOSList({
                     )}
                   </div>
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 relative" style={{ zIndex: openExportMenu === detail.id ? 1000 : 'auto' }}>
                     <button
                       onClick={() => handleView(detail)}
                       className="bg-blue-500 hover:bg-blue-600 text-white p-2 rounded-lg transition-colors"
@@ -234,20 +235,29 @@ export default function ArtistOSList({
                           e.stopPropagation();
                           setOpenExportMenu(openExportMenu === detail.id ? null : detail.id);
                         }}
-                        className="bg-purple-500 hover:bg-purple-600 text-white p-2 rounded-lg transition-colors"
+                        className="bg-purple-500 hover:bg-purple-600 text-white p-2 rounded-lg transition-colors relative z-10"
                         title="Exportar"
                       >
                         <MdFileDownload size={20} />
                       </button>
                       {openExportMenu === detail.id && (
                         <div
-                          className="absolute right-0 top-full mt-1 bg-white rounded-lg shadow-xl border border-gray-200 py-1 min-w-[140px] z-[100]"
+                          className="absolute right-0 bottom-full mb-2 bg-white rounded-lg shadow-2xl border border-gray-300 py-2 w-[160px]"
+                          style={{ 
+                            position: 'absolute',
+                            zIndex: 1001,
+                            display: 'flex',
+                            flexDirection: 'column',
+                            visibility: 'visible',
+                            opacity: 1,
+                            minHeight: 'auto'
+                          }}
                           onClick={(e) => e.stopPropagation()}
                         >
                           <button
                             onClick={() => handleExport(detail, 'word')}
                             disabled={exporting === `${detail.id}-word`}
-                            className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                            className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors border-b border-gray-100"
                           >
                             {exporting === `${detail.id}-word` ? (
                               <>
@@ -262,7 +272,7 @@ export default function ArtistOSList({
                           <button
                             onClick={() => handleExport(detail, 'excel')}
                             disabled={exporting === `${detail.id}-excel`}
-                            className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                            className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors border-b border-gray-100"
                           >
                             {exporting === `${detail.id}-excel` ? (
                               <>
