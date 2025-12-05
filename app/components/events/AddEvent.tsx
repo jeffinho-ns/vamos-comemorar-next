@@ -539,7 +539,14 @@ const AddEvent: React.FC<AddEventProps> = ({ isOpen, onRequestClose, onEventAdde
                 <span className="text-sm font-semibold text-gray-500">Imagem do evento</span>
                 <input type="file" className="hidden" onChange={(e) => handleImageChange(e, setImagemDoEvento, setImagemEventoPreview, setImagemEventoFilename)} />
                 {imagemEventoPreview ? (
-                  <Image src={imagemEventoPreview} alt="Pré-visualização do evento" className="mt-2 h-24 w-auto rounded shadow" width={64} height={64} />
+                  <Image 
+                    src={imagemEventoPreview} 
+                    alt="Pré-visualização do evento" 
+                    className="mt-2 h-24 w-auto rounded shadow" 
+                    width={64} 
+                    height={64}
+                    unoptimized={true}
+                  />
                 ) : (
                   <span className="text-xs text-gray-400">Selecione uma imagem</span>
                 )}
@@ -558,7 +565,14 @@ const AddEvent: React.FC<AddEventProps> = ({ isOpen, onRequestClose, onEventAdde
                 <span className="text-sm font-semibold text-gray-500">Imagem do combo</span>
                 <input type="file" className="hidden" onChange={(e) => handleImageChange(e, setImagemDoCombo, setImagemComboPreview, setImagemComboFilename)} />
                 {imagemComboPreview ? (
-                  <Image src={imagemComboPreview} alt="Pré-visualização do combo" className="mt-2 h-24 w-auto rounded shadow" width={64} height={64} />
+                  <Image 
+                    src={imagemComboPreview} 
+                    alt="Pré-visualização do combo" 
+                    className="mt-2 h-24 w-auto rounded shadow" 
+                    width={64} 
+                    height={64}
+                    unoptimized={true}
+                  />
                 ) : (
                   <span className="text-xs text-gray-400">Selecione uma imagem</span>
                 )}

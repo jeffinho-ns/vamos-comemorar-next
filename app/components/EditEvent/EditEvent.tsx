@@ -346,13 +346,10 @@ const EditEvent: React.FC<EditEventProps> = ({ isOpen, onRequestClose, event, on
       const updatedEvent = responseData.event;
       
       // Atualiza os previews com as URLs completas retornadas pela API
+      // Usa getImageUrl para garantir que a URL seja construída corretamente
       if (updatedEvent) {
-        if (updatedEvent.imagem_do_evento_url) {
-          setImagemEventoPreview(updatedEvent.imagem_do_evento_url);
-        }
-        if (updatedEvent.imagem_do_combo_url) {
-          setImagemComboPreview(updatedEvent.imagem_do_combo_url);
-        }
+        setImagemEventoPreview(getImageUrl(updatedEvent.imagem_do_evento, updatedEvent.imagem_do_evento_url));
+        setImagemComboPreview(getImageUrl(updatedEvent.imagem_do_combo, updatedEvent.imagem_do_combo_url));
       }
 
       alert("Evento atualizado com sucesso!");
@@ -439,7 +436,7 @@ const EditEvent: React.FC<EditEventProps> = ({ isOpen, onRequestClose, event, on
                       className="mt-2 h-24 w-auto rounded shadow" 
                       width={96} 
                       height={96}
-                      unoptimized={imagemEventoPreview.includes('cloudinary.com') || imagemEventoPreview.startsWith('blob:')}
+                      unoptimized={true}
                     />
                   )}
                   {!imagemEventoPreview && <span className="text-xs text-gray-400">Selecione nova imagem</span>}
@@ -465,7 +462,7 @@ const EditEvent: React.FC<EditEventProps> = ({ isOpen, onRequestClose, event, on
                       className="mt-2 h-24 w-auto rounded shadow" 
                       width={96} 
                       height={96}
-                      unoptimized={imagemComboPreview.includes('cloudinary.com') || imagemComboPreview.startsWith('blob:')}
+                      unoptimized={true}
                     />
                   )}
                   {!imagemComboPreview && <span className="text-xs text-gray-400">Selecione nova imagem</span>}
