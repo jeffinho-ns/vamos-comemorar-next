@@ -28,27 +28,48 @@ export default function ArtistOSList({
 
   const formatDate = (dateString: string | null | undefined) => {
     if (!dateString) {
+      console.warn('⚠️ formatDate: dateString é null/undefined');
       return 'Data não informada';
     }
+    
+    // Log para debug em produção
+    if (typeof dateString !== 'string') {
+      console.warn('⚠️ formatDate: dateString não é string:', typeof dateString, dateString);
+      return 'Data inválida';
+    }
+    
     try {
+      // Limpar a string de data
+      const cleanDate = String(dateString).trim();
+      
       // Se já está no formato YYYY-MM-DD, adicionar hora
-      const date = dateString.includes('T') 
-        ? new Date(dateString) 
-        : new Date(dateString + 'T12:00:00');
+      let date: Date;
+      if (cleanDate.includes('T')) {
+        date = new Date(cleanDate);
+      } else if (cleanDate.match(/^\d{4}-\d{2}-\d{2}$/)) {
+        // Formato YYYY-MM-DD
+        date = new Date(cleanDate + 'T12:00:00');
+      } else {
+        // Tentar parsear diretamente
+        date = new Date(cleanDate);
+      }
       
       // Verificar se a data é válida
       if (isNaN(date.getTime())) {
+        console.warn('⚠️ formatDate: data inválida após parse:', cleanDate);
         return 'Data inválida';
       }
       
-      return date.toLocaleDateString('pt-BR', {
+      const formatted = date.toLocaleDateString('pt-BR', {
         day: '2-digit',
         month: '2-digit',
         year: 'numeric'
       });
+      
+      return formatted;
     } catch (error) {
-      console.error('Erro ao formatar data:', error, dateString);
-      return dateString || 'Data inválida';
+      console.error('❌ Erro ao formatar data:', error, dateString);
+      return 'Data inválida';
     }
   };
 
@@ -155,7 +176,19 @@ export default function ArtistOSList({
           </div>
         ) : (
           <div className="space-y-4">
-            {artistOS.map((detail, index) => (
+            {artistOS.map((detail, index) => {
+              // Debug: log dos dados do detail
+              if (index === 0) {
+                console.log('🔍 Debug ArtistOS - detail completo:', detail);
+                console.log('🔍 Debug ArtistOS - event_date:', detail.event_date, typeof detail.event_date);
+                console.log('🔍 Debug ArtistOS - event_name:', detail.event_name);
+                console.log('🔍 Debug ArtistOS - artistic_attraction:', detail.artistic_attraction);
+              }
+              
+              const eventName = detail.event_name || detail.artistic_attraction || (detail as any).project_name || 'Sem nome';
+              const formattedDate = formatDate(detail.event_date);
+              
+              return (
               <motion.div
                 key={detail.id}
                 initial={{ opacity: 0, y: 20 }}
@@ -166,7 +199,7 @@ export default function ArtistOSList({
                 <div className="flex items-center justify-between">
                   <div className="flex-grow">
                     <h3 className="text-xl font-bold text-gray-900 mb-1">
-                      {formatDate(detail.event_date)} - {detail.event_name || detail.artistic_attraction || (detail as any).project_name || 'Sem nome'}
+                      {formattedDate} - {eventName}
                     </h3>
                     {detail.artist_artistic_name && (
                       <p className="text-sm text-gray-600">
@@ -262,7 +295,8 @@ export default function ArtistOSList({
                   </div>
                 </div>
               </motion.div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
