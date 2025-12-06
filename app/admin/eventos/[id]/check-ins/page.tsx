@@ -1521,7 +1521,7 @@ export default function EventoCheckInsPage() {
             <div className="bg-white/10 backdrop-blur-sm rounded-lg shadow p-4 border border-white/20">
               <div className="text-sm text-gray-300 mb-1">Total Geral</div>
               <div className="text-2xl font-bold text-white">
-                {reservasMetrics.checkins + promoterMetrics.checkins + (camarotes.reduce((sum, c) => sum + (c.convidados_checkin || 0), 0))}/{reservasMetrics.total + promoterMetrics.total + camarotes.reduce((sum, c) => sum + (c.total_convidados || 0), 0)}
+                {Number(reservasMetrics.checkins + promoterMetrics.checkins + (camarotes.reduce((sum, c) => sum + (c.convidados_checkin || 0), 0)))}/{Number(reservasMetrics.total + promoterMetrics.total + camarotes.reduce((sum, c) => sum + (c.total_convidados || 0), 0))}
               </div>
               <div className="text-xs text-gray-400 mt-1">
                 {(() => {
@@ -1534,7 +1534,7 @@ export default function EventoCheckInsPage() {
             <div className="bg-white/10 backdrop-blur-sm rounded-lg shadow p-4 border border-blue-500/50">
               <div className="text-sm text-gray-300 mb-1">Reservas</div>
               <div className="text-2xl font-bold text-white">
-                {reservasMetrics.checkins}/{reservasMetrics.total}
+                {Number(reservasMetrics.checkins)}/{Number(reservasMetrics.total)}
               </div>
               <div className="text-xs text-gray-400 mt-1">
                 {reservasMesa.length + reservasRestaurante.length} reserva{(reservasMesa.length + reservasRestaurante.length) !== 1 ? 's' : ''}
@@ -1543,13 +1543,13 @@ export default function EventoCheckInsPage() {
             <div className="bg-white/10 backdrop-blur-sm rounded-lg shadow p-4 border border-purple-500/50">
               <div className="text-sm text-gray-300 mb-1">Promoters</div>
               <div className="text-2xl font-bold text-white">
-                {promoterMetrics.checkins}/{promoterMetrics.total}
+                {Number(promoterMetrics.checkins)}/{Number(promoterMetrics.total)}
               </div>
             </div>
             <div className="bg-white/10 backdrop-blur-sm rounded-lg shadow p-4 border border-orange-500/50">
               <div className="text-sm text-gray-300 mb-1">Camarotes</div>
               <div className="text-2xl font-bold text-white">
-                {camarotes.reduce((sum, c) => sum + (c.convidados_checkin || 0), 0)}/{camarotes.reduce((sum, c) => sum + (c.total_convidados || 0), 0)}
+                {Number(camarotes.reduce((sum, c) => sum + (c.convidados_checkin || 0), 0))}/{Number(camarotes.reduce((sum, c) => sum + (c.total_convidados || 0), 0))}
               </div>
             </div>
           </div>
