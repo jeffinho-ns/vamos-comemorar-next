@@ -95,16 +95,25 @@ const detectAndCreateBirthdayGuestList = async (reservationId: number, payload: 
       const eventType = isWeekend && isHighLine ? 'aniversario' : 'despedida';
       console.log(`🎂 Detectada ${eventType}! Criando lista de convidados automaticamente...`);
       
+      // Determinar o tipo de reserva baseado no número de pessoas
+      const isLargeReservation = payload.number_of_people >= 11;
+      const reservationType = isLargeReservation ? 'large' : 'restaurant';
+      const endpoint = isLargeReservation 
+        ? `${API_URL}/api/large-reservations/${reservationId}/add-guest-list`
+        : `${API_URL}/api/restaurant-reservations/${reservationId}/add-guest-list`;
+      
       const guestListData = {
         owner_name: payload.client_name,
         reservation_date: payload.reservation_date,
         event_type: eventType,
-        reservation_type: 'restaurant',
+        reservation_type: reservationType,
         establishment_id: payload.establishment_id,
         quantidade_convidados: payload.number_of_people
       };
 
-      const response = await fetch(`${API_URL}/api/restaurant-reservations/${reservationId}/add-guest-list`, {
+      console.log(`📝 Criando guest list via ${reservationType}-reservations para reserva ID ${reservationId}`);
+
+      const response = await fetch(endpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
