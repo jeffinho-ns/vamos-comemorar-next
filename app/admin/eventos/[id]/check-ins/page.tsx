@@ -1229,23 +1229,44 @@ export default function EventoCheckInsPage() {
     const totalConvidadosReservas = convidadosReservas.length;
     const checkinConvidadosReservas = convidadosReservas.filter((c) => c.status === 'CHECK-IN').length;
 
-    const totalConvidadosRestaurante =
-      convidadosReservasRestaurante.length > 0
-        ? convidadosReservasRestaurante.length
-        : guestListsRestaurante.reduce((acc, gl) => acc + (gl.total_guests || 0), 0);
+    // CORREÇÃO: Contar apenas convidados individuais, não total_guests das listas
+    // Se temos convidadosReservasRestaurante, usar eles. Caso contrário, contar guests individuais das listas
+    let totalConvidadosRestaurante = 0;
+    let checkinConvidadosRestaurante = 0;
 
-    const checkinConvidadosRestaurante =
-      convidadosReservasRestaurante.length > 0
-        ? convidadosReservasRestaurante.filter(
-            (c) => c.status_checkin === 1 || c.status_checkin === true
-          ).length
-        : guestListsRestaurante.reduce((acc, gl) => acc + (gl.guests_checked_in || 0), 0);
+    if (convidadosReservasRestaurante.length > 0) {
+      // Se temos lista de convidados individuais, usar ela
+      totalConvidadosRestaurante = convidadosReservasRestaurante.length;
+      checkinConvidadosRestaurante = convidadosReservasRestaurante.filter(
+        (c) => c.status_checkin === 1 || c.status_checkin === true
+      ).length;
+    } else {
+      // Caso contrário, contar guests individuais das guest lists (não total_guests)
+      // Somar apenas os guests que estão em guestsByList
+      Object.values(guestsByList).forEach(guests => {
+        totalConvidadosRestaurante += guests.length;
+        checkinConvidadosRestaurante += guests.filter(g => g.checked_in).length;
+      });
+    }
+
+    console.log('📊 reservasMetrics calculado:', {
+      totalConvidadosReservas,
+      checkinConvidadosReservas,
+      totalConvidadosRestaurante,
+      checkinConvidadosRestaurante,
+      total: totalConvidadosReservas + totalConvidadosRestaurante,
+      checkins: checkinConvidadosReservas + checkinConvidadosRestaurante,
+      convidadosReservasRestaurante_length: convidadosReservasRestaurante.length,
+      guestListsRestaurante_length: guestListsRestaurante.length,
+      guestsByList_keys: Object.keys(guestsByList).length,
+      guestsByList_total: Object.values(guestsByList).reduce((sum, guests) => sum + guests.length, 0)
+    });
 
     return {
       total: totalConvidadosReservas + totalConvidadosRestaurante,
       checkins: checkinConvidadosReservas + checkinConvidadosRestaurante
     };
-  }, [convidadosReservas, convidadosReservasRestaurante, guestListsRestaurante]);
+  }, [convidadosReservas, convidadosReservasRestaurante, guestListsRestaurante, guestsByList]);
 
   const promoterMetrics = useMemo(() => {
     const total = convidadosPromoters.length;
