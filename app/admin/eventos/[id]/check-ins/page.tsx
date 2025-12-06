@@ -2042,7 +2042,8 @@ export default function EventoCheckInsPage() {
                                   {/* Indicadores de Progresso e Brindes */}
                                   {(() => {
                                     const guestsCheckedIn = checkInStatus[gl.guest_list_id]?.guestsCheckedIn || 0;
-                                    const totalGuests = checkInStatus[gl.guest_list_id]?.totalGuests || gl.total_guests || 0;
+                                    // CORREÇÃO: Usar contagem real de guests carregados, não total_guests
+                                    const totalGuests = (guestsByList[gl.guest_list_id] || []).length || 0;
                                     const percentage = totalGuests > 0 ? Math.round((guestsCheckedIn / totalGuests) * 100) : 0;
                                     const activeRules = giftRules.filter(r => r.status === 'ATIVA').sort((a, b) => a.checkins_necessarios - b.checkins_necessarios);
                                     const nextRule = activeRules.find(r => guestsCheckedIn < r.checkins_necessarios);
@@ -2144,7 +2145,7 @@ export default function EventoCheckInsPage() {
                                         Dono: {(checkInStatus[gl.guest_list_id]?.ownerCheckedIn || gl.owner_checked_in === 1) ? '✅ Presente' : '⏳ Aguardando'}
                                       </span>
                                       <span className="px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-700">
-                                        Convidados: {checkInStatus[gl.guest_list_id]?.guestsCheckedIn || 0} / {(guestsByList[gl.guest_list_id] || []).length || gl.total_guests}
+                                        Convidados: {checkInStatus[gl.guest_list_id]?.guestsCheckedIn || 0} / {(guestsByList[gl.guest_list_id] || []).length || 0}
                                       </span>
                                     </div>
                                   </div>
