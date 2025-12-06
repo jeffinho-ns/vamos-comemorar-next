@@ -485,14 +485,16 @@ export default function EventoCheckInsPage() {
                   checkinStatus = {
                     ownerCheckedIn: checkinData.checkin_status.owner_checked_in || false,
                     guestsCheckedIn: checkinData.checkin_status.guests_checked_in || 0,
-                    totalGuests: (guestsByList[gl.guest_list_id] || []).length || 0
+                    // Usar total_guests do checkin_status se disponível, caso contrário será atualizado quando guests forem carregados
+                    totalGuests: checkinData.checkin_status.total_guests || 0
                   };
                 } else {
                   // Fallback: usar dados da lista se não conseguir carregar
+                  // O totalGuests será atualizado quando os guests forem carregados
                   checkinStatus = {
                     ownerCheckedIn: gl.owner_checked_in === 1,
                     guestsCheckedIn: gl.guests_checked_in || 0,
-                    totalGuests: (guestsByList[gl.guest_list_id] || []).length || 0
+                    totalGuests: 0 // Será atualizado quando guests forem carregados
                   };
                 }
                 
@@ -509,7 +511,7 @@ export default function EventoCheckInsPage() {
                   checkinStatus: {
                     ownerCheckedIn: gl.owner_checked_in === 1,
                     guestsCheckedIn: gl.guests_checked_in || 0,
-                    totalGuests: (guestsByList[gl.guest_list_id] || []).length || 0
+                    totalGuests: 0 // Será atualizado quando guests forem carregados
                   }
                 };
               }
@@ -1912,6 +1914,14 @@ export default function EventoCheckInsPage() {
                                             (a.name || '').localeCompare(b.name || '', 'pt-BR', { sensitivity: 'base' })
                                           );
                                           setGuestsByList(prev => ({ ...prev, [gl.guest_list_id]: sortedGuests }));
+                                          // Atualizar totalGuests no checkInStatus quando guests forem carregados
+                                          setCheckInStatus(prev => ({
+                                            ...prev,
+                                            [gl.guest_list_id]: {
+                                              ...prev[gl.guest_list_id],
+                                              totalGuests: sortedGuests.length
+                                            }
+                                          }));
                                         } else {
                                           console.warn(`⚠️ Resposta vazia ou sem guests para ${gl.guest_list_id}`);
                                           setGuestsByList(prev => ({ ...prev, [gl.guest_list_id]: [] }));
