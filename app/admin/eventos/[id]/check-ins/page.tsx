@@ -485,14 +485,14 @@ export default function EventoCheckInsPage() {
                   checkinStatus = {
                     ownerCheckedIn: checkinData.checkin_status.owner_checked_in || false,
                     guestsCheckedIn: checkinData.checkin_status.guests_checked_in || 0,
-                    totalGuests: checkinData.checkin_status.total_guests || gl.total_guests || 0
+                    totalGuests: (guestsByList[gl.guest_list_id] || []).length || 0
                   };
                 } else {
                   // Fallback: usar dados da lista se não conseguir carregar
                   checkinStatus = {
                     ownerCheckedIn: gl.owner_checked_in === 1,
                     guestsCheckedIn: gl.guests_checked_in || 0,
-                    totalGuests: gl.total_guests || 0
+                    totalGuests: (guestsByList[gl.guest_list_id] || []).length || 0
                   };
                 }
                 
@@ -509,7 +509,7 @@ export default function EventoCheckInsPage() {
                   checkinStatus: {
                     ownerCheckedIn: gl.owner_checked_in === 1,
                     guestsCheckedIn: gl.guests_checked_in || 0,
-                    totalGuests: gl.total_guests || 0
+                    totalGuests: (guestsByList[gl.guest_list_id] || []).length || 0
                   }
                 };
               }
