@@ -1232,23 +1232,37 @@ export default function EventoCheckInsPage() {
     const checkinConvidadosReservas = convidadosReservas.filter((c) => c.status === 'CHECK-IN').length;
 
     // CORREÇÃO: Contar apenas convidados individuais, não total_guests das listas
-    // Se temos convidadosReservasRestaurante, usar eles. Caso contrário, contar guests individuais das listas
+    // Prioridade: 1) convidadosReservasRestaurante, 2) guestsByList (guests carregados), 3) checkInStatus.totalGuests
     let totalConvidadosRestaurante = 0;
     let checkinConvidadosRestaurante = 0;
 
     if (convidadosReservasRestaurante.length > 0) {
-      // Se temos lista de convidados individuais, usar ela
+      // Se temos lista de convidados individuais, usar ela (mais confiável)
       totalConvidadosRestaurante = convidadosReservasRestaurante.length;
       checkinConvidadosRestaurante = convidadosReservasRestaurante.filter(
         (c) => c.status_checkin === 1 || c.status_checkin === true
       ).length;
     } else {
-      // Caso contrário, contar guests individuais das guest lists (não total_guests)
-      // Somar apenas os guests que estão em guestsByList
-      Object.values(guestsByList).forEach(guests => {
-        totalConvidadosRestaurante += guests.length;
-        checkinConvidadosRestaurante += guests.filter(g => g.checked_in).length;
-      });
+      // Caso contrário, usar guests carregados ou checkInStatus
+      const guestsLoaded = Object.values(guestsByList).reduce((sum, guests) => sum + guests.length, 0);
+      const guestsCheckedInLoaded = Object.values(guestsByList).reduce((sum, guests) => 
+        sum + guests.filter(g => g.checked_in === 1 || g.checked_in === true).length, 0
+      );
+      
+      // Se temos guests carregados, usar eles
+      if (guestsLoaded > 0) {
+        totalConvidadosRestaurante = guestsLoaded;
+        checkinConvidadosRestaurante = guestsCheckedInLoaded;
+      } else {
+        // Caso contrário, usar checkInStatus (que pode ter totalGuests do backend)
+        guestListsRestaurante.forEach(gl => {
+          const status = checkInStatus[gl.guest_list_id];
+          if (status && status.totalGuests > 0) {
+            totalConvidadosRestaurante += status.totalGuests;
+            checkinConvidadosRestaurante += status.guestsCheckedIn || 0;
+          }
+        });
+      }
     }
 
     console.log('📊 reservasMetrics calculado:', {
@@ -1261,14 +1275,15 @@ export default function EventoCheckInsPage() {
       convidadosReservasRestaurante_length: convidadosReservasRestaurante.length,
       guestListsRestaurante_length: guestListsRestaurante.length,
       guestsByList_keys: Object.keys(guestsByList).length,
-      guestsByList_total: Object.values(guestsByList).reduce((sum, guests) => sum + guests.length, 0)
+      guestsByList_total: Object.values(guestsByList).reduce((sum, guests) => sum + guests.length, 0),
+      checkInStatus_keys: Object.keys(checkInStatus).length
     });
 
     return {
       total: totalConvidadosReservas + totalConvidadosRestaurante,
       checkins: checkinConvidadosReservas + checkinConvidadosRestaurante
     };
-  }, [convidadosReservas, convidadosReservasRestaurante, guestListsRestaurante, guestsByList]);
+  }, [convidadosReservas, convidadosReservasRestaurante, guestListsRestaurante, guestsByList, checkInStatus]);
 
   const promoterMetrics = useMemo(() => {
     const total = convidadosPromoters.length;
@@ -1940,12 +1955,17 @@ export default function EventoCheckInsPage() {
                                       
                                       if (checkinRes.ok) {
                                         const checkinData = await checkinRes.json();
+                                        // Se guests já foram carregados, usar contagem real, senão usar do checkin_status
+                                        const currentGuests = guestsByList[gl.guest_list_id] || [];
+                                        const totalGuestsToUse = currentGuests.length > 0 
+                                          ? currentGuests.length 
+                                          : (checkinData.checkin_status?.total_guests || 0);
                                         setCheckInStatus(prev => ({
                                           ...prev,
                                           [gl.guest_list_id]: {
-                                            ownerCheckedIn: checkinData.checkin_status.owner_checked_in,
-                                            guestsCheckedIn: checkinData.checkin_status.guests_checked_in,
-                                            totalGuests: checkinData.checkin_status.total_guests
+                                            ownerCheckedIn: checkinData.checkin_status.owner_checked_in || false,
+                                            guestsCheckedIn: checkinData.checkin_status.guests_checked_in || 0,
+                                            totalGuests: totalGuestsToUse
                                           }
                                         }));
                                       } else {
