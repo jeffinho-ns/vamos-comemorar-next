@@ -1520,8 +1520,12 @@ export default function EventoCheckInsPage() {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-4 md:mb-6">
             <div className="bg-white/10 backdrop-blur-sm rounded-lg shadow p-4 border border-white/20">
               <div className="text-sm text-gray-300 mb-1">Total Geral</div>
-              <div className="text-2xl font-bold text-white">
-                {Number(reservasMetrics.checkins + promoterMetrics.checkins + (camarotes.reduce((sum, c) => sum + (c.convidados_checkin || 0), 0)))}/{Number(reservasMetrics.total + promoterMetrics.total + camarotes.reduce((sum, c) => sum + (c.total_convidados || 0), 0))}
+              <div className="text-2xl font-bold text-white" style={{ fontVariantNumeric: 'normal' }}>
+                {(() => {
+                  const checkins = Number(reservasMetrics.checkins + promoterMetrics.checkins + (camarotes.reduce((sum, c) => sum + (c.convidados_checkin || 0), 0)));
+                  const total = Number(reservasMetrics.total + promoterMetrics.total + camarotes.reduce((sum, c) => sum + (c.total_convidados || 0), 0));
+                  return `${checkins}/${total}`;
+                })()}
               </div>
               <div className="text-xs text-gray-400 mt-1">
                 {(() => {
@@ -1533,7 +1537,7 @@ export default function EventoCheckInsPage() {
             </div>
             <div className="bg-white/10 backdrop-blur-sm rounded-lg shadow p-4 border border-blue-500/50">
               <div className="text-sm text-gray-300 mb-1">Reservas</div>
-              <div className="text-2xl font-bold text-white">
+              <div className="text-2xl font-bold text-white" style={{ fontVariantNumeric: 'normal' }}>
                 {Number(reservasMetrics.checkins)}/{Number(reservasMetrics.total)}
               </div>
               <div className="text-xs text-gray-400 mt-1">
@@ -1542,14 +1546,18 @@ export default function EventoCheckInsPage() {
             </div>
             <div className="bg-white/10 backdrop-blur-sm rounded-lg shadow p-4 border border-purple-500/50">
               <div className="text-sm text-gray-300 mb-1">Promoters</div>
-              <div className="text-2xl font-bold text-white">
+              <div className="text-2xl font-bold text-white" style={{ fontVariantNumeric: 'normal' }}>
                 {Number(promoterMetrics.checkins)}/{Number(promoterMetrics.total)}
               </div>
             </div>
             <div className="bg-white/10 backdrop-blur-sm rounded-lg shadow p-4 border border-orange-500/50">
               <div className="text-sm text-gray-300 mb-1">Camarotes</div>
-              <div className="text-2xl font-bold text-white">
-                {Number(camarotes.reduce((sum, c) => sum + (c.convidados_checkin || 0), 0))}/{Number(camarotes.reduce((sum, c) => sum + (c.total_convidados || 0), 0))}
+              <div className="text-2xl font-bold text-white" style={{ fontVariantNumeric: 'normal' }}>
+                {(() => {
+                  const checkins = Number(camarotes.reduce((sum, c) => sum + (c.convidados_checkin || 0), 0));
+                  const total = Number(camarotes.reduce((sum, c) => sum + (c.total_convidados || 0), 0));
+                  return `${checkins}/${total}`;
+                })()}
               </div>
             </div>
           </div>
