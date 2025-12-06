@@ -340,11 +340,16 @@ export default function EventoCheckInsPage() {
         // O backend agora vincula automaticamente reservas ao evento e retorna os dados corretos
         // Não precisamos mais buscar via API admin/guest-lists
         const guestLists = data.dados.guestListsRestaurante || [];
+        console.log('📋 Dados brutos de guestListsRestaurante recebidos:', data.dados.guestListsRestaurante);
+        console.log('📋 Guest Lists processadas:', guestLists);
+        console.log('📋 Total de guest lists:', guestLists.length);
         setGuestListsRestaurante(guestLists);
         console.log('📋 Guest Lists carregadas:', guestLists.map((gl: GuestListRestaurante) => ({
           id: gl.guest_list_id,
           owner: gl.owner_name,
-          total_guests: gl.total_guests
+          total_guests: gl.total_guests,
+          reservation_date: gl.reservation_date,
+          reservation_id: gl.reservation_id
         })));
         
         // Armazenar o establishment_id para uso posterior se necessário
