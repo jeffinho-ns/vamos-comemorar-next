@@ -699,7 +699,7 @@ const handleSubmit = async (e: React.FormEvent) => {
     
     // Campos de status padrão
     status: 'NOVA',
-    origin: 'SITE',
+    origin: 'CLIENTE', // Corrigido: enum só aceita 'CLIENTE' ou 'ADMIN', não 'SITE'
 
     // Renomeia o campo de data de nascimento para o padrão do backend
     data_nascimento_cliente: reservationData.client_birthdate || null,
