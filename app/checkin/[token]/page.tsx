@@ -237,7 +237,7 @@ export default function SelfCheckInPage() {
           <p className="text-sm text-blue-800">
             <strong>⚠️ Validação de Segurança:</strong>
             <br />
-            • Você precisa estar no local do evento (raio de 200m)
+            • Você precisa estar no local do evento (raio de 30m)
             <br />
             • O check-in só é válido dentro do horário do evento
             <br />
