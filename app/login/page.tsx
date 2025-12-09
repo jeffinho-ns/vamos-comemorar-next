@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import logoWhite from "../../app/assets/logo-agilizai-h.png";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { MdVisibility, MdVisibilityOff, MdHelp } from "react-icons/md";
 import { FcGoogle } from "react-icons/fc";
@@ -16,6 +16,7 @@ export default function Login() {
   const [error, setError] = useState<string | null>(null);
   const [loginLoading, setLoginLoading] = useState(false);
   const [openModal, setOpenModal] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
   const router = useRouter();
 
   const validInputs = useMemo(() => {
@@ -23,6 +24,53 @@ export default function Login() {
   }, [emailCpf, password]);
 
   const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL_LOCAL;
+
+  // Carregar credenciais salvas quando o componente montar
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const savedEmailCpf = localStorage.getItem("rememberedEmailCpf");
+      const savedPassword = localStorage.getItem("rememberedPassword");
+      const savedRememberMe = localStorage.getItem("rememberMe") === "true";
+      
+      if (savedEmailCpf && savedPassword && savedRememberMe) {
+        setEmailCpf(savedEmailCpf);
+        setPassword(savedPassword);
+        setRememberMe(true);
+      }
+    }
+  }, []);
+
+  // Salvar ou remover credenciais quando o checkbox mudar
+  const handleRememberMeChange = (checked: boolean) => {
+    setRememberMe(checked);
+    if (checked) {
+      if (emailCpf && password) {
+        localStorage.setItem("rememberedEmailCpf", emailCpf);
+        localStorage.setItem("rememberedPassword", password);
+        localStorage.setItem("rememberMe", "true");
+      }
+    } else {
+      localStorage.removeItem("rememberedEmailCpf");
+      localStorage.removeItem("rememberedPassword");
+      localStorage.removeItem("rememberMe");
+    }
+  };
+
+  // Salvar credenciais quando o login for bem-sucedido e o checkbox estiver marcado
+  const saveCredentialsIfRemembered = () => {
+    if (rememberMe && emailCpf && password) {
+      localStorage.setItem("rememberedEmailCpf", emailCpf);
+      localStorage.setItem("rememberedPassword", password);
+      localStorage.setItem("rememberMe", "true");
+    }
+  };
+
+  // Handler para tecla Enter
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter" && validInputs && !loginLoading) {
+      handleLogin();
+    }
+  };
 
   const handleLogin = async () => {
     if (!validInputs) {
@@ -46,6 +94,9 @@ export default function Login() {
       const data = await response.json();
 
       if (response.ok && data.token && data.userId) {
+        // Salvar credenciais se "lembrar-me" estiver marcado
+        saveCredentialsIfRemembered();
+        
         // Armazena no localStorage
         localStorage.setItem("authToken", data.token);
         localStorage.setItem("userId", data.userId);
@@ -153,13 +204,28 @@ export default function Login() {
           </div>
         )}
 
-        <div className="space-y-4">
+        <form 
+          className="space-y-4"
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (validInputs && !loginLoading) {
+              handleLogin();
+            }
+          }}
+        >
           <input
             type="text"
             placeholder="Email / CPF"
             className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600"
             value={emailCpf}
-            onChange={(e) => setEmailCpf(e.target.value)}
+            onChange={(e) => {
+              setEmailCpf(e.target.value);
+              // Atualizar credenciais salvas se lembrar-me estiver marcado
+              if (rememberMe && password) {
+                localStorage.setItem("rememberedEmailCpf", e.target.value);
+              }
+            }}
+            onKeyDown={handleKeyDown}
           />
 
           <div className="relative">
@@ -168,7 +234,14 @@ export default function Login() {
               placeholder="Senha"
               className="w-full p-3 pr-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={(e) => {
+                setPassword(e.target.value);
+                // Atualizar credenciais salvas se lembrar-me estiver marcado
+                if (rememberMe && emailCpf) {
+                  localStorage.setItem("rememberedPassword", e.target.value);
+                }
+              }}
+              onKeyDown={handleKeyDown}
             />
             <button
               type="button"
@@ -186,9 +259,15 @@ export default function Login() {
         type="checkbox"
         className="sr-only peer"
         id="rememberMe"
+        checked={rememberMe}
+        onChange={(e) => handleRememberMeChange(e.target.checked)}
       />
-      <div className="w-10 h-5 bg-gray-300 rounded-full peer-checked:bg-blue-600 transition-colors"></div>
-      <div className="absolute left-1 top-1 w-3 h-3 bg-white rounded-full transition-transform peer-checked:translate-x-5"></div>
+      <div className={`w-10 h-5 rounded-full transition-colors ${
+        rememberMe ? "bg-blue-600" : "bg-gray-300"
+      }`}></div>
+      <div className={`absolute left-1 top-1 w-3 h-3 bg-white rounded-full transition-transform ${
+        rememberMe ? "translate-x-5" : ""
+      }`}></div>
     </div>
     <span className="text-gray-700 select-none">Lembrar-me</span>
   </label>
@@ -203,12 +282,12 @@ export default function Login() {
 </div>
 
           <button
+            type="submit"
             className={`w-full py-3 rounded-lg text-white font-bold ${
               validInputs
                 ? "bg-blue-600 hover:bg-blue-700"
                 : "bg-gray-400 cursor-not-allowed"
             }`}
-            onClick={handleLogin}
             disabled={loginLoading || !validInputs}
           >
             {loginLoading ? "Entrando..." : "Entrar"}
@@ -217,7 +296,7 @@ export default function Login() {
           {error && (
             <p className="text-red-500 text-sm text-center">{error}</p>
           )}
-        </div>
+        </form>
 
         <div className="space-y-2">
           <button

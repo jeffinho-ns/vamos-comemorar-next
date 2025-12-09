@@ -1,0 +1,173 @@
+[1mdiff --git a/app/login/page.tsx b/app/login/page.tsx[m
+[1mindex 267ecca..2d45f32 100644[m
+[1m--- a/app/login/page.tsx[m
+[1m+++ b/app/login/page.tsx[m
+[36m@@ -2,7 +2,7 @@[m
+ [m
+ import Image from "next/image";[m
+ import logoWhite from "../../app/assets/logo-agilizai-h.png";[m
+[31m-import { useState, useMemo } from "react";[m
+[32m+[m[32mimport { useState, useMemo, useEffect } from "react";[m
+ import { useRouter } from "next/navigation";[m
+ import { MdVisibility, MdVisibilityOff, MdHelp } from "react-icons/md";[m
+ import { FcGoogle } from "react-icons/fc";[m
+[36m@@ -16,6 +16,7 @@[m [mexport default function Login() {[m
+   const [error, setError] = useState<string | null>(null);[m
+   const [loginLoading, setLoginLoading] = useState(false);[m
+   const [openModal, setOpenModal] = useState(false);[m
+[32m+[m[32m  const [rememberMe, setRememberMe] = useState(false);[m
+   const router = useRouter();[m
+ [m
+   const validInputs = useMemo(() => {[m
+[36m@@ -24,6 +25,53 @@[m [mexport default function Login() {[m
+ [m
+   const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL_LOCAL;[m
+ [m
+[32m+[m[32m  // Carregar credenciais salvas quando o componente montar[m
+[32m+[m[32m  useEffect(() => {[m
+[32m+[m[32m    if (typeof window !== "undefined") {[m
+[32m+[m[32m      const savedEmailCpf = localStorage.getItem("rememberedEmailCpf");[m
+[32m+[m[32m      const savedPassword = localStorage.getItem("rememberedPassword");[m
+[32m+[m[32m      const savedRememberMe = localStorage.getItem("rememberMe") === "true";[m
+[32m+[m[41m      [m
+[32m+[m[32m      if (savedEmailCpf && savedPassword && savedRememberMe) {[m
+[32m+[m[32m        setEmailCpf(savedEmailCpf);[m
+[32m+[m[32m        setPassword(savedPassword);[m
+[32m+[m[32m        setRememberMe(true);[m
+[32m+[m[32m      }[m
+[32m+[m[32m    }[m
+[32m+[m[32m  }, []);[m
+[32m+[m
+[32m+[m[32m  // Salvar ou remover credenciais quando o checkbox mudar[m
+[32m+[m[32m  const handleRememberMeChange = (checked: boolean) => {[m
+[32m+[m[32m    setRememberMe(checked);[m
+[32m+[m[32m    if (checked) {[m
+[32m+[m[32m      if (emailCpf && password) {[m
+[32m+[m[32m        localStorage.setItem("rememberedEmailCpf", emailCpf);[m
+[32m+[m[32m        localStorage.setItem("rememberedPassword", password);[m
+[32m+[m[32m        localStorage.setItem("rememberMe", "true");[m
+[32m+[m[32m      }[m
+[32m+[m[32m    } else {[m
+[32m+[m[32m      localStorage.removeItem("rememberedEmailCpf");[m
+[32m+[m[32m      localStorage.removeItem("rememberedPassword");[m
+[32m+[m[32m      localStorage.removeItem("rememberMe");[m
+[32m+[m[32m    }[m
+[32m+[m[32m  };[m
+[32m+[m
+[32m+[m[32m  // Salvar credenciais quando o login for bem-sucedido e o checkbox estiver marcado[m
+[32m+[m[32m  const saveCredentialsIfRemembered = () => {[m
+[32m+[m[32m    if (rememberMe && emailCpf && password) {[m
+[32m+[m[32m      localStorage.setItem("rememberedEmailCpf", emailCpf);[m
+[32m+[m[32m      localStorage.setItem("rememberedPassword", password);[m
+[32m+[m[32m      localStorage.setItem("rememberMe", "true");[m
+[32m+[m[32m    }[m
+[32m+[m[32m  };[m
+[32m+[m
+[32m+[m[32m  // Handler para tecla Enter[m
+[32m+[m[32m  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {[m
+[32m+[m[32m    if (e.key === "Enter" && validInputs && !loginLoading) {[m
+[32m+[m[32m      handleLogin();[m
+[32m+[m[32m    }[m
+[32m+[m[32m  };[m
+[32m+[m
+   const handleLogin = async () => {[m
+     if (!validInputs) {[m
+       setError("Por favor, preencha todos os campos.");[m
+[36m@@ -46,6 +94,9 @@[m [mexport default function Login() {[m
+       const data = await response.json();[m
+ [m
+       if (response.ok && data.token && data.userId) {[m
+[32m+[m[32m        // Salvar credenciais se "lembrar-me" estiver marcado[m
+[32m+[m[32m        saveCredentialsIfRemembered();[m
+[32m+[m[41m        [m
+         // Armazena no localStorage[m
+         localStorage.setItem("authToken", data.token);[m
+         localStorage.setItem("userId", data.userId);[m
+[36m@@ -153,13 +204,28 @@[m [mexport default function Login() {[m
+           </div>[m
+         )}[m
+ [m
+[31m-        <div className="space-y-4">[m
+[32m+[m[32m        <form[m[41m [m
+[32m+[m[32m          className="space-y-4"[m
+[32m+[m[32m          onSubmit={(e) => {[m
+[32m+[m[32m            e.preventDefault();[m
+[32m+[m[32m            if (validInputs && !loginLoading) {[m
+[32m+[m[32m              handleLogin();[m
+[32m+[m[32m            }[m
+[32m+[m[32m          }}[m
+[32m+[m[32m        >[m
+           <input[m
+             type="text"[m
+             placeholder="Email / CPF"[m
+             className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600"[m
+             value={emailCpf}[m
+[31m-            onChange={(e) => setEmailCpf(e.target.value)}[m
+[32m+[m[32m            onChange={(e) => {[m
+[32m+[m[32m              setEmailCpf(e.target.value);[m
+[32m+[m[32m              // Atualizar credenciais salvas se lembrar-me estiver marcado[m
+[32m+[m[32m              if (rememberMe && password) {[m
+[32m+[m[32m                localStorage.setItem("rememberedEmailCpf", e.target.value);[m
+[32m+[m[32m              }[m
+[32m+[m[32m            }}[m
+[32m+[m[32m            onKeyDown={handleKeyDown}[m
+           />[m
+ [m
+           <div className="relative">[m
+[36m@@ -168,7 +234,14 @@[m [mexport default function Login() {[m
+               placeholder="Senha"[m
+               className="w-full p-3 pr-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600"[m
+               value={password}[m
+[31m-              onChange={(e) => setPassword(e.target.value)}[m
+[32m+[m[32m              onChange={(e) => {[m
+[32m+[m[32m                setPassword(e.target.value);[m
+[32m+[m[32m                // Atualizar credenciais salvas se lembrar-me estiver marcado[m
+[32m+[m[32m                if (rememberMe && emailCpf) {[m
+[32m+[m[32m                  localStorage.setItem("rememberedPassword", e.target.value);[m
+[32m+[m[32m                }[m
+[32m+[m[32m              }}[m
+[32m+[m[32m              onKeyDown={handleKeyDown}[m
+             />[m
+             <button[m
+               type="button"[m
+[36m@@ -186,9 +259,15 @@[m [mexport default function Login() {[m
+         type="checkbox"[m
+         className="sr-only peer"[m
+         id="rememberMe"[m
+[32m+[m[32m        checked={rememberMe}[m
+[32m+[m[32m        onChange={(e) => handleRememberMeChange(e.target.checked)}[m
+       />[m
+[31m-      <div className="w-10 h-5 bg-gray-300 rounded-full peer-checked:bg-blue-600 transition-colors"></div>[m
+[31m-      <div className="absolute left-1 top-1 w-3 h-3 bg-white rounded-full transition-transform peer-checked:translate-x-5"></div>[m
+[32m+[m[32m      <div className={`w-10 h-5 rounded-full transition-colors ${[m
+[32m+[m[32m        rememberMe ? "bg-blue-600" : "bg-gray-300"[m
+[32m+[m[32m      }`}></div>[m
+[32m+[m[32m      <div className={`absolute left-1 top-1 w-3 h-3 bg-white rounded-full transition-transform ${[m
+[32m+[m[32m        rememberMe ? "translate-x-5" : ""[m
+[32m+[m[32m      }`}></div>[m
+     </div>[m
+     <span className="text-gray-700 select-none">Lembrar-me</span>[m
+   </label>[m
+[36m@@ -203,12 +282,12 @@[m [mexport default function Login() {[m
+ </div>[m
+ [m
+           <button[m
+[32m+[m[32m            type="submit"[m
+             className={`w-full py-3 rounded-lg text-white font-bold ${[m
+               validInputs[m
+                 ? "bg-blue-600 hover:bg-blue-700"[m
+                 : "bg-gray-400 cursor-not-allowed"[m
+             }`}[m
+[31m-            onClick={handleLogin}[m
+             disabled={loginLoading || !validInputs}[m
+           >[m
+             {loginLoading ? "Entrando..." : "Entrar"}[m
+[36m@@ -217,7 +296,7 @@[m [mexport default function Login() {[m
+           {error && ([m
+             <p className="text-red-500 text-sm text-center">{error}</p>[m
+           )}[m
+[31m-        </div>[m
+[32m+[m[32m        </form>[m
+ [m
+         <div className="space-y-2">[m
+           <button[m
