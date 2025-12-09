@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from "react";
 import Image, { StaticImageData } from "next/image";
-import { MdLocationOn, MdInfoOutline, MdEvent, MdStar, MdAccessTime, MdPhone } from "react-icons/md";
+import { MdLocationOn, MdInfoOutline, MdEvent, MdStar, MdAccessTime, MdPhone, MdRestaurant } from "react-icons/md";
+import Link from "next/link";
 import Footer from "../components/footer/footer";
 import Header from "../components/header/header";
 import imgBanner from "@/app/assets/highline/capa-highline.jpeg";
@@ -50,12 +51,7 @@ const Highline = () => {
   const [expandedImage, setExpandedImage] = useState<StaticImageData | null>(null);
   const [user, setUser] = useState<any>(null);
 
-  useEffect(() => {
-    const token = localStorage.getItem('authToken');
-    if (!token) {
-      redirect('/login');
-    }
-  }, []);
+  // Removido: login não é mais obrigatório para visualizar a página
 
   const toggleContent = (content: string) => {
     setShowDescription(content === "sobre");
@@ -179,12 +175,12 @@ const Highline = () => {
 
           {/* Reserve Button */}
           <div className="text-center mt-8">
-            <button 
-              onClick={openModal} 
-              className="bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-600 hover:to-yellow-700 text-gray-900 px-8 py-4 rounded-xl font-bold text-lg transition-all duration-200 transform hover:scale-105 shadow-lg"
-            >
-              🎉 Fazer Reserva
-            </button>
+            <Link href="/reservar?establishment=High Line">
+              <button className="bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-600 hover:to-yellow-700 text-gray-900 px-8 py-4 rounded-xl font-bold text-lg transition-all duration-200 transform hover:scale-105 shadow-lg flex items-center gap-2 mx-auto">
+                <MdRestaurant size={24} />
+                Fazer Reserva
+              </button>
+            </Link>
           </div>
         </div>
       </div>

@@ -3,276 +3,495 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import Banner from "./components/banner/banner";
-import Header from "./components/header/header";
-import Image, { StaticImageData } from "next/image";
-import imgBanner from "@/app/assets/banner01.webp";
-import Form from "./components/form/form";
-import Select from "./components/select/select";
-import Input from "./components/input/input";
-import img01 from "@/app/assets/justino/capa-justino.png";
-import img02 from "@/app/assets/oh-fregues.jpg";
-import img03 from "@/app/assets/highline/capa-highline.jpeg";
-import Footer from "./components/footer/footer";
-import { MdLocationOn, MdRestaurant, MdSearch, MdLocationPin, MdLocationCity, MdStar } from "react-icons/md";
-import logoBanner from "@/app/assets/icone-ag.png";
+import Image from "next/image";
 import Link from "next/link";
+import Header from "./components/header/header";
+import Footer from "./components/footer/footer";
+import { 
+  MdRestaurant, 
+  MdQrCodeScanner, 
+  MdCheckCircle, 
+  MdEvent, 
+  MdPeople, 
+  MdMenuBook,
+  MdDashboard,
+  MdPhotoLibrary,
+  MdLocalOffer,
+  MdSecurity,
+  MdSpeed,
+  MdTrendingUp,
+  MdArrowForward,
+  MdStar,
+  MdLocationOn,
+  MdPhone,
+  MdEmail
+} from "react-icons/md";
+import logoBanner from "@/app/assets/icone-ag.png";
+import imgBanner from "@/app/assets/banner01.webp";
 
-import places from "@/app/data/places";
-interface CardProps {
-  image: StaticImageData;
-  title: string;
+interface Establishment {
+  id: number;
+  name: string;
+  logo: string;
   address: string;
-  distance: string;
-  rating: string;
-  description: string;
-  link: string;
-  state: string;
-  date: string;
+  phone: string;
+  email: string;
+}
+
+interface GalleryImage {
+  filename: string;
+  url?: string;
+  sourceType: string;
 }
 
 export default function Home() {
-  const [filteredPlaces, setFilteredPlaces] = useState<CardProps[]>(places);
-  const [selectedState, setSelectedState] = useState<string>('');
-  const [searchTerm, setSearchTerm] = useState<string>('');
-  const [selectedDate, setSelectedDate] = useState<string>('');
   const router = useRouter();
+  const [establishments, setEstablishments] = useState<Establishment[]>([]);
+  const [galleryImages, setGalleryImages] = useState<GalleryImage[]>([]);
+  const [loading, setLoading] = useState(true);
   
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL_LOCAL || 'https://vamos-comemorar-api.onrender.com';
+
   useEffect(() => {
-    const handleResize = () => {
-      if (window.innerWidth < 768) {
-        router.push("/");
+    const fetchData = async () => {
+      try {
+        // Buscar estabelecimentos
+        const placesResponse = await fetch(`${API_URL}/api/places`);
+        if (placesResponse.ok) {
+          const placesData = await placesResponse.json();
+          const places = Array.isArray(placesData) ? placesData : (placesData.data || []);
+          
+          const formattedPlaces: Establishment[] = places.slice(0, 6).map((place: any) => ({
+            id: place.id,
+            name: place.name || "Sem nome",
+            logo: place.logo ? `${API_URL}/uploads/${place.logo}` : "/images/default-logo.png",
+            address: place.street ? `${place.street}, ${place.number || ''}`.trim() : "Endereço não informado",
+            phone: place.phone || "(11) 99999-9999",
+            email: place.email || "contato@estabelecimento.com.br"
+          }));
+          
+          setEstablishments(formattedPlaces);
+        }
+
+        // Buscar imagens da galeria
+        try {
+          const galleryResponse = await fetch(`${API_URL}/api/cardapio/gallery/images`);
+          if (galleryResponse.ok) {
+            const galleryData = await galleryResponse.json();
+            const images = galleryData.images || [];
+            // Pegar apenas imagens com URL válida e limitar a 12
+            const validImages = images
+              .filter((img: GalleryImage) => img.url || img.filename)
+              .slice(0, 12);
+            setGalleryImages(validImages);
+          }
+        } catch (galleryError) {
+          console.log("Galeria não disponível, usando imagens padrão");
+        }
+      } catch (error) {
+        console.error("Erro ao carregar dados:", error);
+      } finally {
+        setLoading(false);
       }
     };
 
-    handleResize();
-    window.addEventListener("resize", handleResize);
-    return () => {
-      window.removeEventListener("resize", handleResize);
-    };
-  }, [router]);
+    fetchData();
+  }, [API_URL]);
 
-
-
-  useEffect(() => {
-    let updatedPlaces = places;
-  
-    if (selectedState) {
-      updatedPlaces = updatedPlaces.filter(place => place.state === selectedState);
+  const features = [
+    {
+      icon: MdRestaurant,
+      title: "Sistema de Reservas",
+      description: "Gestão completa de reservas normais e grandes grupos. Controle de mesas, áreas e horários em tempo real.",
+      color: "from-orange-500 to-red-500"
+    },
+    {
+      icon: MdMenuBook,
+      title: "Cardápio Digital",
+      description: "Cardápio interativo com QR Code. Atualização em tempo real, categorias, subcategorias e gestão de itens.",
+      color: "from-blue-500 to-cyan-500"
+    },
+    {
+      icon: MdQrCodeScanner,
+      title: "Check-in Inteligente",
+      description: "Sistema de check-in via QR Code com validação de geolocalização. Controle de entrada rápido e seguro.",
+      color: "from-green-500 to-emerald-500"
+    },
+    {
+      icon: MdPeople,
+      title: "Listas de Convidados",
+      description: "Gestão completa de listas de convidados. Compartilhamento via link, QR Code e controle de presença.",
+      color: "from-purple-500 to-pink-500"
+    },
+    {
+      icon: MdEvent,
+      title: "Gestão de Eventos",
+      description: "Criação e gestão de eventos únicos ou semanais. Integração com promoters e controle operacional completo.",
+      color: "from-yellow-500 to-orange-500"
+    },
+    {
+      icon: MdDashboard,
+      title: "Painel Administrativo",
+      description: "Dashboard completo com métricas, relatórios, logs e controle total do estabelecimento.",
+      color: "from-indigo-500 to-purple-500"
+    },
+    {
+      icon: MdPhotoLibrary,
+      title: "Galeria de Imagens",
+      description: "Sistema centralizado de galeria de imagens. Upload, organização e reutilização de fotos.",
+      color: "from-pink-500 to-rose-500"
+    },
+    {
+      icon: MdLocalOffer,
+      title: "Sistema de Brindes",
+      description: "Gestão de brindes e benefícios. Controle de estoque e distribuição automática.",
+      color: "from-teal-500 to-cyan-500"
     }
-  
-    if (searchTerm) {
-      updatedPlaces = updatedPlaces.filter(place => 
-        place.title.toLowerCase().includes(searchTerm.toLowerCase())
-      );
+  ];
+
+  const benefits = [
+    {
+      icon: MdSpeed,
+      title: "Performance",
+      description: "Sistema otimizado para alta performance e escalabilidade"
+    },
+    {
+      icon: MdSecurity,
+      title: "Segurança",
+      description: "Autenticação robusta e controle de permissões por perfil"
+    },
+    {
+      icon: MdTrendingUp,
+      title: "Crescimento",
+      description: "Ferramentas para aumentar a receita e melhorar a experiência"
     }
-  
-    if (selectedDate) {
-      updatedPlaces = updatedPlaces.filter(place => place.date === selectedDate);
+  ];
+
+  const getImageUrl = (image: GalleryImage) => {
+    if (image.url) return image.url;
+    if (image.filename) {
+      return `${API_URL}/uploads/${image.filename}`;
     }
-  
-    setFilteredPlaces(updatedPlaces);
-  }, [selectedState, searchTerm, selectedDate]);
-  
-  const filterByState = (event: any) => {
-    setSelectedState(event);
-  };
-  
-  const filterPlacesByTitle = (event: any) => {
-    setSearchTerm(event);
-  };
-  
-  const filterPlacesByDate = (event: any) => {
-    setSelectedDate(event);
+    return "/images/default-logo.png";
   };
 
-  const Card = ({ image, title, address, distance, rating, description, link }: CardProps) => (
-    <motion.div
-      className="relative bg-white/95 backdrop-blur-sm rounded-2xl shadow-lg overflow-hidden border border-gray-200/20 hover:shadow-xl transition-all duration-300 transform hover:scale-105"
-      initial={{ opacity: 0, y: 50 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.6 }}
-    >
-      <div className="relative w-full h-48">
-        <Image
-          src={image}
-          alt={title}
-          className="w-full h-full object-cover rounded-t-2xl"
-          priority
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent rounded-t-2xl"></div>
-        <Link href={`/reservar?establishment=${encodeURIComponent(title)}`}>
-          <button className="absolute bottom-4 right-4 bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-600 hover:to-yellow-700 text-gray-900 px-6 py-3 rounded-xl font-semibold transition-all duration-200 transform hover:scale-105 shadow-lg">
-            Reservar
-          </button>
-        </Link>
-      </div>
-      <div className="p-6">
-        <h2 className="text-xl font-bold mb-3 text-gray-800">{title}</h2>
-        <div className="space-y-2 mb-4">
-          <p className="text-gray-600 flex items-center gap-2">
-            <MdLocationOn className="text-yellow-500" />
-            {address}
-          </p>
-          <p className="text-gray-500 text-sm">{distance}</p>
-        </div>
-        <div className="flex items-center mb-4">
-          <div className="flex items-center gap-2">
-            <MdRestaurant className="text-gray-400" />
-            <MdStar className="text-yellow-500 text-xl" />
-            <span className="text-gray-800 font-semibold ml-1">{rating}</span>
-          </div>
-        </div>
-        <p className="text-gray-700 text-sm leading-relaxed">{description}</p>
-      </div>
-    </motion.div>
-  );
+  // Função para mapear nome do estabelecimento para sua rota
+  const getEstablishmentRoute = (name: string): string => {
+    const lowerName = name.toLowerCase();
+    if (lowerName.includes('justino')) return '/justino';
+    if (lowerName.includes('high') || lowerName.includes('highline')) return '/highline';
+    if (lowerName.includes('freguês') || lowerName.includes('fregues') || lowerName.includes('oh')) return '/ohfregues';
+    if (lowerName.includes('pracinha')) return '/pracinha';
+    // Fallback para reservar se não encontrar
+    return '/reservar';
+  };
 
   return (
     <>
       <Header />
-      <Banner
-        id="banner"
-        className="banner background-gradient h-screen relative flex items-center justify-center overflow-hidden"
-      >
-        <div className="overlay background-gradient absolute h-full top-0 right-0 bottom-0 left-0 bg-gradient-to-br from-gray-900/80 via-gray-800/80 to-gray-900/80"></div>
-        <div className="title-banner absolute flex flex-col items-center md:text-center z-10 px-6">
+      
+      {/* Hero Section */}
+      <section className="relative min-h-screen flex items-center justify-center overflow-hidden bg-gradient-to-br from-gray-900 via-gray-800 to-black">
+        <div className="absolute inset-0 z-0">
+          <Image
+            src={imgBanner}
+            alt="Background"
+            fill
+            className="object-cover opacity-30"
+            priority
+            sizes="100vw"
+          />
+          <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/40 to-black/60"></div>
+        </div>
+        
+        <div className="relative z-10 container mx-auto px-4 py-20 text-center">
           <motion.div
             initial={{ scale: 0.8, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             transition={{ duration: 0.8 }}
+            className="mb-8"
           >
-            <Image src={logoBanner} alt="Logo banner" width={180} height={180} className="mb-6" />
+            <Image 
+              src={logoBanner} 
+              alt="Logo" 
+              width={200} 
+              height={200} 
+              className="mx-auto mb-8 drop-shadow-2xl"
+            />
           </motion.div>
+          
           <motion.h1 
-            className="text-4xl md:text-6xl text-white text-center font-bold mb-6 leading-tight"
+            className="text-5xl md:text-7xl font-bold text-white mb-6 leading-tight"
             initial={{ y: 50, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             transition={{ duration: 0.8, delay: 0.2 }}
           >
-            Sua comemoração de um jeito que você nunca imaginou!
+            Sistema Completo de Gestão
+            <br />
+            <span className="bg-gradient-to-r from-orange-400 via-yellow-400 to-orange-400 bg-clip-text text-transparent">
+              para Estabelecimentos
+            </span>
           </motion.h1>
+          
           <motion.p 
-            className="text-lg md:text-xl text-gray-200 text-center max-w-3xl leading-relaxed mb-8"
+            className="text-xl md:text-2xl text-gray-300 max-w-3xl mx-auto mb-12 leading-relaxed"
             initial={{ y: 50, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             transition={{ duration: 0.8, delay: 0.4 }}
           >
-            Reunimos os melhores estabelecimentos e benefícios para facilitar a
-            sua comemoração, quanto mais convidados você levar, mais benefícios
-            receberá.
+            Transforme a gestão do seu estabelecimento com uma plataforma completa que integra reservas, cardápio digital, check-in, eventos e muito mais.
           </motion.p>
+          
           <motion.div
+            className="flex flex-col sm:flex-row gap-6 justify-center items-center"
             initial={{ y: 50, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             transition={{ duration: 0.8, delay: 0.6 }}
-            className="flex flex-col sm:flex-row gap-4 justify-center"
           >
             <Link href="/reservar">
-              <button className="px-8 py-4 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white rounded-xl font-semibold text-lg transition-all duration-200 transform hover:scale-105 shadow-lg flex items-center gap-2">
-                <MdRestaurant size={24} />
+              <button className="px-10 py-5 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white rounded-xl font-bold text-lg transition-all duration-200 transform hover:scale-105 shadow-2xl flex items-center gap-3">
+                <MdRestaurant size={28} />
                 Fazer Reserva
               </button>
             </Link>
-            <Link href="#form-search">
-              <button className="px-8 py-4 bg-white/20 hover:bg-white/30 text-white rounded-xl font-semibold text-lg transition-all duration-200 transform hover:scale-105 border border-white/30 backdrop-blur-sm">
-                Explorar Locais
+            <Link href="/documentacao">
+              <button className="px-10 py-5 bg-white/10 hover:bg-white/20 text-white rounded-xl font-bold text-lg transition-all duration-200 transform hover:scale-105 border-2 border-white/30 backdrop-blur-sm flex items-center gap-3">
+                <MdDashboard size={28} />
+                Ver Funcionalidades
               </button>
             </Link>
           </motion.div>
         </div>
-        <Image
-          src={imgBanner}
-          alt="Imagem do banner"
-          className="Image-banner object-cover h-full w-full"
-          priority
-          sizes="100vw"
-        />
-      </Banner>
-      
-      <div className="flex justify-center w-screen relative -mt-32 md:-mt-20 px-4 z-20">
-        <Form
-          id="form-search"
-          className="md:w-4/5 lg:w-3/5 border-0 form-search bg-white/95 backdrop-blur-sm px-8 py-6 rounded-2xl shadow-2xl border border-gray-200/20"
-        >
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="flex items-center w-full">
-              <div className="bg-gradient-to-r from-yellow-500 to-yellow-600 p-3 rounded-xl mr-4">
-                <MdLocationPin className="text-white text-xl" />
-              </div>
-              <Select
-                value={selectedState}
-                id="estado"
-                className="p-3 w-full rounded-xl border border-gray-200/30 bg-white/80 focus:ring-2 focus:ring-yellow-500 focus:border-transparent transition-all duration-200"
-                onChange={filterByState}
+      </section>
+
+      {/* Funcionalidades Principais */}
+      <section className="py-20 bg-gradient-to-b from-gray-50 to-white">
+        <div className="container mx-auto px-4">
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6 }}
+            className="text-center mb-16"
+          >
+            <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
+              Funcionalidades <span className="text-orange-500">Completas</span>
+            </h2>
+            <p className="text-xl text-gray-600 max-w-2xl mx-auto">
+              Uma plataforma completa com todas as ferramentas que você precisa para gerenciar seu estabelecimento
+            </p>
+          </motion.div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+            {features.map((feature, index) => (
+              <motion.div
+                key={feature.title}
+                initial={{ opacity: 0, y: 30 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.6, delay: index * 0.1 }}
+                className="bg-white rounded-2xl p-8 shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 border border-gray-100"
               >
-                <option>Selecione o estado</option>
-                <option value="rj">Rio de Janeiro</option>
-                <option value="sp">São Paulo</option>
-              </Select>
-            </div>
-            <div className="flex items-center w-full">
-              <div className="bg-gradient-to-r from-blue-500 to-blue-600 p-3 rounded-xl mr-4">
-                <MdLocationCity className="text-white text-xl" />
-              </div>
-              <Input
-                type="date"
-                value={selectedDate}
-                id="data"
-                className="p-3 w-full rounded-xl border border-gray-200/30 bg-white/80 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
-                onChange={filterPlacesByDate}
-              />
-            </div>
-            <div className="flex items-center w-full relative">
-              <div className="bg-gradient-to-r from-green-500 to-green-600 p-3 rounded-xl mr-4">
-                <MdSearch className="text-white text-xl" />
-              </div>
-              <Input
-                placeholder="Buscar por nome"
-                type="text"
-                value={searchTerm}
-                id="search"
-                className="p-3 w-full rounded-xl border border-gray-200/30 bg-white/80 focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all duration-200"
-                onChange={filterPlacesByTitle}
-              />
+                <div className={`w-16 h-16 rounded-xl bg-gradient-to-r ${feature.color} flex items-center justify-center mb-6 mx-auto`}>
+                  <feature.icon className="text-white text-3xl" />
+                </div>
+                <h3 className="text-xl font-bold text-gray-900 mb-3 text-center">
+                  {feature.title}
+                </h3>
+                <p className="text-gray-600 text-center leading-relaxed">
+                  {feature.description}
+                </p>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Galeria de Imagens */}
+      {galleryImages.length > 0 && (
+        <section className="py-20 bg-white">
+          <div className="container mx-auto px-4">
+            <motion.div
+              initial={{ opacity: 0, y: 30 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.6 }}
+              className="text-center mb-16"
+            >
+              <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
+                Galeria de <span className="text-orange-500">Imagens</span>
+              </h2>
+              <p className="text-xl text-gray-600 max-w-2xl mx-auto">
+                Veja alguns momentos e ambientes dos nossos estabelecimentos
+              </p>
+            </motion.div>
+
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+              {galleryImages.map((image, index) => (
+                <motion.div
+                  key={index}
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  whileInView={{ opacity: 1, scale: 1 }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 0.5, delay: index * 0.1 }}
+                  className="relative aspect-square rounded-xl overflow-hidden group cursor-pointer"
+                >
+                  <Image
+                    src={getImageUrl(image)}
+                    alt={`Galeria ${index + 1}`}
+                    fill
+                    className="object-cover transition-transform duration-300 group-hover:scale-110"
+                    sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                </motion.div>
+              ))}
             </div>
           </div>
-        </Form>
-      </div>
-      
-      <main className="container mx-auto px-8 py-16 bg-gradient-to-br from-gray-50 to-gray-100 min-h-screen">
-        <div className="mb-12 text-center">
-          <h2 className="text-4xl font-bold text-gray-800 mb-4">Estabelecimentos em Destaque</h2>
-          <p className="text-gray-600 text-lg max-w-2xl mx-auto">
-            Descubra os melhores lugares para suas comemorações com benefícios exclusivos
-          </p>
-        </div>
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {filteredPlaces.length > 0 ? filteredPlaces.map((place) => (
-            <Card
-              key={place.title}
-              image={place.image}
-              title={place.title}
-              address={place.address}
-              distance={place.distance}
-              rating={place.rating}
-              description={place.description}
-              link={place.link}
-              state={place.state}
-              date={place.date}
-            />
-          )) : (
-            <div className="col-span-full flex items-center justify-center py-16">
-              <div className="text-center">
-                <div className="text-gray-400 text-6xl mb-4">🔍</div>
-                <h3 className="text-2xl font-bold text-gray-800 mb-2">Nenhum estabelecimento encontrado</h3>
-                <p className="text-gray-600">Tente ajustar os filtros de busca</p>
-              </div>
+        </section>
+      )}
+
+      {/* Estabelecimentos */}
+      {establishments.length > 0 && (
+        <section className="py-20 bg-gradient-to-b from-white to-gray-50">
+          <div className="container mx-auto px-4">
+            <motion.div
+              initial={{ opacity: 0, y: 30 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.6 }}
+              className="text-center mb-16"
+            >
+              <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
+                Nossos <span className="text-orange-500">Estabelecimentos</span>
+              </h2>
+              <p className="text-xl text-gray-600 max-w-2xl mx-auto">
+                Conheça os estabelecimentos que já utilizam nossa plataforma
+              </p>
+            </motion.div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+              {establishments.map((establishment, index) => (
+                <motion.div
+                  key={establishment.id}
+                  initial={{ opacity: 0, y: 30 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 0.6, delay: index * 0.1 }}
+                  className="bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2"
+                >
+                  <div className="relative h-48 bg-gradient-to-r from-orange-500 to-red-500">
+                    <Image
+                      src={establishment.logo}
+                      alt={establishment.name}
+                      fill
+                      className="object-contain p-4"
+                      sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                    />
+                  </div>
+                  <div className="p-6">
+                    <h3 className="text-2xl font-bold text-gray-900 mb-3">
+                      {establishment.name}
+                    </h3>
+                    <div className="space-y-2 mb-6">
+                      <p className="text-gray-600 flex items-center gap-2">
+                        <MdLocationOn className="text-orange-500" />
+                        {establishment.address}
+                      </p>
+                      <p className="text-gray-600 flex items-center gap-2">
+                        <MdPhone className="text-orange-500" />
+                        {establishment.phone}
+                      </p>
+                      <p className="text-gray-600 flex items-center gap-2">
+                        <MdEmail className="text-orange-500" />
+                        {establishment.email}
+                      </p>
+                    </div>
+                    <Link href={getEstablishmentRoute(establishment.name)}>
+                      <button className="w-full py-3 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white rounded-xl font-semibold transition-all duration-200 transform hover:scale-105 flex items-center justify-center gap-2">
+                        Conhecer Estabelecimento
+                        <MdArrowForward />
+                      </button>
+                    </Link>
+                  </div>
+                </motion.div>
+              ))}
             </div>
-          )}
+          </div>
+        </section>
+      )}
+
+      {/* Benefícios */}
+      <section className="py-20 bg-gradient-to-br from-gray-900 to-black text-white">
+        <div className="container mx-auto px-4">
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6 }}
+            className="text-center mb-16"
+          >
+            <h2 className="text-4xl md:text-5xl font-bold mb-4">
+              Por que escolher nossa <span className="text-orange-400">plataforma?</span>
+            </h2>
+            <p className="text-xl text-gray-400 max-w-2xl mx-auto">
+              Tecnologia de ponta para transformar a gestão do seu estabelecimento
+            </p>
+          </motion.div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {benefits.map((benefit, index) => (
+              <motion.div
+                key={benefit.title}
+                initial={{ opacity: 0, y: 30 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.6, delay: index * 0.2 }}
+                className="text-center p-8 bg-white/5 rounded-2xl backdrop-blur-sm border border-white/10 hover:bg-white/10 transition-all duration-300"
+              >
+                <div className="w-20 h-20 rounded-full bg-gradient-to-r from-orange-500 to-orange-600 flex items-center justify-center mx-auto mb-6">
+                  <benefit.icon className="text-white text-4xl" />
+                </div>
+                <h3 className="text-2xl font-bold mb-4">{benefit.title}</h3>
+                <p className="text-gray-400 text-lg">{benefit.description}</p>
+              </motion.div>
+            ))}
+          </div>
         </div>
-      </main>
+      </section>
+
+      {/* CTA Final */}
+      <section className="py-20 bg-gradient-to-r from-orange-500 via-orange-600 to-red-500">
+        <div className="container mx-auto px-4 text-center">
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6 }}
+          >
+            <h2 className="text-4xl md:text-5xl font-bold text-white mb-6">
+              Pronto para transformar seu estabelecimento?
+            </h2>
+            <p className="text-xl text-white/90 mb-10 max-w-2xl mx-auto">
+              Entre em contato conosco e descubra como nossa plataforma pode revolucionar a gestão do seu negócio
+            </p>
+            <div className="flex flex-col sm:flex-row gap-6 justify-center">
+              <Link href="/reservar">
+                <button className="px-10 py-5 bg-white text-orange-600 rounded-xl font-bold text-lg transition-all duration-200 transform hover:scale-105 shadow-2xl flex items-center gap-3 mx-auto">
+                  Começar Agora
+                  <MdArrowForward size={24} />
+                </button>
+              </Link>
+              <Link href="/contato">
+                <button className="px-10 py-5 bg-white/10 hover:bg-white/20 text-white rounded-xl font-bold text-lg transition-all duration-200 transform hover:scale-105 border-2 border-white/30 backdrop-blur-sm flex items-center gap-3 mx-auto">
+                  Falar com Especialista
+                  <MdPhone size={24} />
+                </button>
+              </Link>
+            </div>
+          </motion.div>
+        </div>
+      </section>
 
       <Footer />
     </>
