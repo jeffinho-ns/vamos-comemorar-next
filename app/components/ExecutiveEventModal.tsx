@@ -377,9 +377,7 @@ export default function ExecutiveEventModal({
     setGalleryLoading(true);
     try {
       const token = localStorage.getItem('authToken');
-      const response = await fetch(`${API_URL}/api/cardapio/gallery/images`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      const response = await fetch(`${API_URL}/api/cardapio/gallery/images`);
       if (response.ok) {
         const data = await response.json();
         setGalleryImages(data.images || []);
@@ -420,6 +418,7 @@ export default function ExecutiveEventModal({
     if (!confirm('Tem certeza que deseja deletar esta imagem?')) return;
     
     try {
+      const token = localStorage.getItem('authToken');
       const token = localStorage.getItem('authToken');
       const response = await fetch(`${API_URL}/api/cardapio/gallery/images/${encodeURIComponent(filename)}`, {
         method: 'DELETE',
