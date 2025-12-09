@@ -17,9 +17,11 @@ import {
   MdPlayArrow,
   MdRestore,
   MdDeleteOutline,
+  MdEvent,
 } from 'react-icons/md';
 import { useUserPermissions } from '../../hooks/useUserPermissions';
 import ImageCropModal from '../../components/ImageCropModal';
+import { useRouter } from 'next/navigation';
 
 type MenuDisplayStyle = 'normal' | 'clean';
 
@@ -255,6 +257,7 @@ const getValidImageUrl = (filename?: string | null): string => {
 
 export default function CardapioAdminPage() {
   const { isAdmin, isPromoter, promoterBar, canManageBar } = useUserPermissions();
+  const router = useRouter();
   
   // Debug: Log das permissões
   useEffect(() => {
@@ -2514,15 +2517,26 @@ export default function CardapioAdminPage() {
               <div>
                 <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                   <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Estabelecimentos</h2>
-                  {isAdmin && (
-                    <button
-                      onClick={() => setShowBarModal(true)}
-                      className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 w-full sm:w-auto justify-center"
-                    >
-                      <MdAdd className="h-5 w-5" />
-                      Adicionar Estabelecimento
-                    </button>
-                  )}
+                  <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+                    {isAdmin && (
+                      <>
+                        <button
+                          onClick={() => setShowBarModal(true)}
+                          className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 w-full sm:w-auto justify-center"
+                        >
+                          <MdAdd className="h-5 w-5" />
+                          Adicionar Estabelecimento
+                        </button>
+                        <button
+                          onClick={() => router.push('/admin/executive-events')}
+                          className="flex items-center gap-2 rounded-lg bg-yellow-500 px-4 py-2 text-gray-900 hover:bg-yellow-600 w-full sm:w-auto justify-center font-semibold"
+                        >
+                          <MdEvent className="h-5 w-5" />
+                          Executive Events
+                        </button>
+                      </>
+                    )}
+                  </div>
                   {isPromoter && promoterBar && (
                     <button
                       onClick={() => {
