@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MdClose, MdSave, MdUpload, MdDelete, MdArrowUp, MdArrowDown } from 'react-icons/md';
+import { MdClose, MdSave, MdUpload, MdDelete, MdKeyboardArrowUp, MdKeyboardArrowDown } from 'react-icons/md';
 import Image from 'next/image';
 import { ExecutiveEvent, ExecutiveEventForm } from '@/app/types/executiveEvents';
 import { Establishment } from '@/app/hooks/useEstablishments';
@@ -494,13 +494,14 @@ export default function ExecutiveEventModal({
 
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-        <motion.div
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          exit={{ opacity: 0, scale: 0.95 }}
-          className="bg-gray-800 rounded-lg w-full max-w-4xl max-h-[90vh] overflow-y-auto"
-        >
+      {isOpen && (
+        <div key="main-modal" className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            className="bg-gray-800 rounded-lg w-full max-w-4xl max-h-[90vh] overflow-y-auto"
+          >
           <div className="flex items-center justify-between p-6 border-b border-gray-700">
             <h2 className="text-xl font-bold text-white">
               {event ? 'Editar Evento Executivo' : 'Novo Evento Executivo'}
@@ -698,7 +699,7 @@ export default function ExecutiveEventModal({
                       onClick={openOrderingModal}
                       className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors flex items-center gap-2"
                     >
-                      <MdArrowUp className="inline" />
+                      <MdKeyboardArrowUp className="inline" />
                       Ordenar Categorias e Subcategorias
                     </button>
                   </div>
@@ -822,8 +823,9 @@ export default function ExecutiveEventModal({
               </button>
             </div>
           </form>
-        </motion.div>
-      </div>
+          </motion.div>
+        </div>
+      )}
       
       {/* Modal de Galeria de Imagens */}
       <AnimatePresence>
@@ -981,10 +983,13 @@ export default function ExecutiveEventModal({
                 <div>
                   <h3 className="text-lg font-semibold text-white mb-3">Categorias</h3>
                   <div className="space-y-2">
-                    {orderedCategories.map((catId, index) => {
-                      const cat = categories.find(c => c.id === catId);
-                      if (!cat) return null;
-                      return (
+                    {orderedCategories
+                      .map((catId) => {
+                        const cat = categories.find(c => c.id === catId);
+                        return cat ? { catId, cat, index: orderedCategories.indexOf(catId) } : null;
+                      })
+                      .filter((item): item is { catId: number; cat: MenuCategory; index: number } => item !== null)
+                      .map(({ catId, cat, index }) => (
                         <div key={catId} className="flex items-center gap-2 bg-gray-700 rounded-lg p-3">
                           <button
                             type="button"
@@ -992,7 +997,7 @@ export default function ExecutiveEventModal({
                             disabled={index === 0}
                             className="p-1 bg-gray-600 hover:bg-gray-500 rounded disabled:opacity-50 disabled:cursor-not-allowed"
                           >
-                            <MdArrowUp size={20} className="text-white" />
+                            <MdKeyboardArrowUp size={20} className="text-white" />
                           </button>
                           <button
                             type="button"
@@ -1000,13 +1005,12 @@ export default function ExecutiveEventModal({
                             disabled={index === orderedCategories.length - 1}
                             className="p-1 bg-gray-600 hover:bg-gray-500 rounded disabled:opacity-50 disabled:cursor-not-allowed"
                           >
-                            <MdArrowDown size={20} className="text-white" />
+                            <MdKeyboardArrowDown size={20} className="text-white" />
                           </button>
                           <span className="flex-1 text-white">{cat.name}</span>
                           <span className="text-gray-400 text-sm">#{index + 1}</span>
                         </div>
-                      );
-                    })}
+                      ))}
                   </div>
                 </div>
                 
@@ -1020,14 +1024,14 @@ export default function ExecutiveEventModal({
                       </h3>
                       <div className="space-y-2">
                         {item.subcategories.map((subcat, subIndex) => (
-                          <div key={subcat} className="flex items-center gap-2 bg-gray-700 rounded-lg p-3 ml-4">
+                          <div key={`${item.categoryId}-${subcat}-${subIndex}`} className="flex items-center gap-2 bg-gray-700 rounded-lg p-3 ml-4">
                             <button
                               type="button"
                               onClick={() => moveSubcategory(catIndex, subIndex, 'up')}
                               disabled={subIndex === 0}
                               className="p-1 bg-gray-600 hover:bg-gray-500 rounded disabled:opacity-50 disabled:cursor-not-allowed"
                             >
-                              <MdArrowUp size={20} className="text-white" />
+                              <MdKeyboardArrowUp size={20} className="text-white" />
                             </button>
                             <button
                               type="button"
@@ -1035,7 +1039,7 @@ export default function ExecutiveEventModal({
                               disabled={subIndex === item.subcategories.length - 1}
                               className="p-1 bg-gray-600 hover:bg-gray-500 rounded disabled:opacity-50 disabled:cursor-not-allowed"
                             >
-                              <MdArrowDown size={20} className="text-white" />
+                              <MdKeyboardArrowDown size={20} className="text-white" />
                             </button>
                             <span className="flex-1 text-white">{subcat}</span>
                             <span className="text-gray-400 text-sm">#{subIndex + 1}</span>
