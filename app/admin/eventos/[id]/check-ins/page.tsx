@@ -1588,7 +1588,7 @@ export default function EventoCheckInsPage() {
                   
                   // Adicionar nomes de guests das guest lists (se carregados)
                   Object.values(guestsByList).flat().forEach(g => {
-                    const nome = (g.name || g.nome || '').trim();
+                    const nome = (g.name || '').trim();
                     if (nome) {
                       const nomeNormalizado = nome.toLowerCase();
                       nomesUnicos.add(nomeNormalizado);
@@ -1645,8 +1645,9 @@ export default function EventoCheckInsPage() {
                   });
                   
                   Object.values(guestsByList).flat().forEach(g => {
-                    if (g.nome && g.nome.trim()) {
-                      const nomeNormalizado = g.nome.trim().toLowerCase();
+                    const nome = (g.name || '').trim();
+                    if (nome) {
+                      const nomeNormalizado = nome.toLowerCase();
                       nomesUnicos.add(nomeNormalizado);
                       if (g.checked_in === 1 || g.checked_in === true) {
                         nomesCheckin.add(nomeNormalizado);
@@ -1664,19 +1665,9 @@ export default function EventoCheckInsPage() {
                     }
                   });
                   
-                  camarotes.forEach(c => {
-                    if (c.convidados && Array.isArray(c.convidados)) {
-                      c.convidados.forEach((conv: any) => {
-                        if (conv.nome && conv.nome.trim()) {
-                          const nomeNormalizado = conv.nome.trim().toLowerCase();
-                          nomesUnicos.add(nomeNormalizado);
-                          if (conv.status_checkin === 'Check-in' || conv.checked_in === 1 || conv.checked_in === true) {
-                            nomesCheckin.add(nomeNormalizado);
-                          }
-                        }
-                      });
-                    }
-                  });
+                  // Nota: Camarotes não têm lista de nomes individuais, apenas total_convidados
+                  // Por isso não adicionamos nomes de camarotes aqui
+                  // O total de camarotes já está sendo considerado separadamente nas métricas
                   
                   const total = nomesUnicos.size;
                   const checkins = nomesCheckin.size;
