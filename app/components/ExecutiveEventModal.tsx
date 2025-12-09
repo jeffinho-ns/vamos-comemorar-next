@@ -60,6 +60,20 @@ export default function ExecutiveEventModal({
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [uploadingCover, setUploadingCover] = useState(false);
   
+  // Estados para gerenciar itens do cardápio
+  const [eventItems, setEventItems] = useState<Array<{
+    id: number;
+    name: string;
+    description: string;
+    imageUrl: string | null;
+    categoryId: number;
+    category: string;
+    subCategoryName: string | null;
+    visible: boolean;
+  }>>([]);
+  const [visibleItemIds, setVisibleItemIds] = useState<number[]>([]);
+  const [loadingItems, setLoadingItems] = useState(false);
+  
   // Estados para galeria
   const [showImageGalleryModal, setShowImageGalleryModal] = useState(false);
   const [imageGalleryField, setImageGalleryField] = useState<string>('');
@@ -169,6 +183,16 @@ export default function ExecutiveEventModal({
     }
   }, [formData.establishment_id]);
 
+  // Buscar itens do evento quando estiver editando
+  useEffect(() => {
+    if (isOpen && event && event.id) {
+      fetchEventItems(event.id);
+    } else {
+      setEventItems([]);
+      setVisibleItemIds([]);
+    }
+  }, [isOpen, event]);
+
   const fetchCategories = async (barId: number) => {
     try {
       const token = localStorage.getItem('authToken');
@@ -197,6 +221,44 @@ export default function ExecutiveEventModal({
     } catch (error) {
       console.error('Erro ao buscar subcategorias:', error);
     }
+  };
+
+  const fetchEventItems = async (eventId: number) => {
+    setLoadingItems(true);
+    try {
+      const token = localStorage.getItem('authToken');
+      const response = await fetch(`${API_URL}/api/executive-events/${eventId}/items`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        const items = data.items || [];
+        setEventItems(items);
+        // Inicializar visibleItemIds com os itens que estão visíveis
+        const visibleIds = items.filter((item: any) => item.visible !== false).map((item: any) => item.id);
+        setVisibleItemIds(visibleIds);
+      } else {
+        console.error('Erro ao buscar itens do evento');
+        setEventItems([]);
+        setVisibleItemIds([]);
+      }
+    } catch (error) {
+      console.error('Erro ao buscar itens do evento:', error);
+      setEventItems([]);
+      setVisibleItemIds([]);
+    } finally {
+      setLoadingItems(false);
+    }
+  };
+
+  const handleItemVisibilityToggle = (itemId: number) => {
+    setVisibleItemIds(prev => {
+      if (prev.includes(itemId)) {
+        return prev.filter(id => id !== itemId);
+      } else {
+        return [...prev, itemId];
+      }
+    });
   };
 
   const handleImageUpload = useCallback(
@@ -283,6 +345,7 @@ export default function ExecutiveEventModal({
         cover_image_url: formData.cover_image_url || null,
         category_ids: formData.category_ids,
         subcategory_ids: formData.subcategory_ids,
+        visible_item_ids: visibleItemIds, // IDs dos itens que devem aparecer no cardápio
         custom_colors: formData.custom_colors,
         welcome_message: formData.welcome_message || null,
         wifi_info: formData.wifi_info?.network || formData.wifi_info?.password
@@ -309,6 +372,11 @@ export default function ExecutiveEventModal({
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         throw new Error(errorData.error || `Erro ao ${event ? 'atualizar' : 'criar'} evento`);
+      }
+
+      // Se foi uma atualização, recarregar os itens
+      if (event && event.id) {
+        await fetchEventItems(event.id);
       }
 
       onSave();
@@ -702,6 +770,62 @@ export default function ExecutiveEventModal({
                       <MdKeyboardArrowUp className="inline" />
                       Ordenar Categorias e Subcategorias
                     </button>
+                  </div>
+                )}
+
+                {/* Seleção de Itens do Cardápio (apenas na edição) */}
+                {event && eventItems.length > 0 && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                      Itens do Cardápio - Selecionar quais aparecem no evento
+                    </label>
+                    <p className="text-xs text-gray-400 mb-3">
+                      Marque os itens que devem aparecer no cardápio do evento. Itens desmarcados ficarão ocultos.
+                    </p>
+                    {loadingItems ? (
+                      <div className="text-center py-4 text-gray-400">Carregando itens...</div>
+                    ) : (
+                      <div className="max-h-60 overflow-y-auto bg-gray-700 rounded-lg p-3 space-y-2">
+                        {eventItems.map(item => {
+                          const isVisible = visibleItemIds.includes(item.id);
+                          return (
+                            <label
+                              key={item.id}
+                              className={`flex items-center gap-3 p-2 rounded cursor-pointer transition-colors ${
+                                isVisible
+                                  ? 'bg-green-900/30 border border-green-600/50'
+                                  : 'bg-gray-800/50 border border-gray-600/30 opacity-60'
+                              }`}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={isVisible}
+                                onChange={() => handleItemVisibilityToggle(item.id)}
+                                className="rounded"
+                              />
+                              <div className="flex-1">
+                                <span className={`text-sm ${isVisible ? 'text-white' : 'text-gray-400'}`}>
+                                  {item.name}
+                                </span>
+                                {item.subCategoryName && (
+                                  <span className="text-xs text-gray-500 ml-2">
+                                    ({item.category} - {item.subCategoryName})
+                                  </span>
+                                )}
+                              </div>
+                              {!isVisible && (
+                                <span className="text-xs text-red-400 bg-red-900/30 px-2 py-1 rounded">
+                                  Oculto
+                                </span>
+                              )}
+                            </label>
+                          );
+                        })}
+                      </div>
+                    )}
+                    <div className="mt-2 text-xs text-gray-400">
+                      {visibleItemIds.length} de {eventItems.length} itens visíveis
+                    </div>
                   </div>
                 )}
               </>
