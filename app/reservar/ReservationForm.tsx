@@ -163,7 +163,7 @@ export default function ReservationForm() {
     table_number: '',
     notes: ''
   });
-  const [eventType, setEventType] = useState<'aniversario' | 'despedida' | 'outros' | ''>('');
+  const [eventType, setEventType] = useState<'aniversario' | 'despedida' | 'eventos' | 'outros' | ''>('');
   const [guestListLink, setGuestListLink] = useState<string | null>(null);
   const [birthdayGuestListCreated, setBirthdayGuestListCreated] = useState<boolean>(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -683,6 +683,11 @@ export default function ReservationForm() {
       newErrors.number_of_people = 'Número de pessoas deve ser maior que 0';
     }
 
+    // Validação: tipo de reserva obrigatório para Highline com mais de 5 pessoas
+    if (isHighline && reservationData.number_of_people > 5 && !eventType) {
+      newErrors.event_type = 'Tipo de reserva é obrigatório para grupos acima de 5 pessoas';
+    }
+
     // Removido: cliente não escolhe mesa; admin define a mesa
 
     setErrors(newErrors);
@@ -739,9 +744,11 @@ const handleSubmit = async (e: React.FormEvent) => {
     const isWeekend = dayOfWeek === 5 || dayOfWeek === 6; // Sexta ou Sábado
     const isHighLine = payload.establishment_id === 1;
 
-    // Detectar automaticamente o tipo de evento
-    if (isWeekend && isHighLine) {
-      // Aniversário no HighLine (sexta/sábado)
+    // Priorizar o tipo selecionado pelo usuário quando disponível (Highline com mais de 5 pessoas)
+    if (isHighLine && payload.number_of_people > 5 && eventType) {
+      payload.event_type = eventType;
+    } else if (isWeekend && isHighLine) {
+      // Aniversário no HighLine (sexta/sábado) - fallback automático
       payload.event_type = 'aniversario';
     } else if (dayOfWeek === 5) {
       // Sexta-feira para reservas grandes
@@ -1705,7 +1712,14 @@ const handleSubmit = async (e: React.FormEvent) => {
                     type="number"
                     min={1}
                     value={reservationData.number_of_people}
-                    onChange={(e) => handleInputChange('number_of_people', parseInt(e.target.value || '0'))}
+                    onChange={(e) => {
+                      const newValue = parseInt(e.target.value || '0');
+                      handleInputChange('number_of_people', newValue);
+                      // Limpar eventType se o número de pessoas for reduzido para 5 ou menos
+                      if (newValue <= 5 && eventType) {
+                        setEventType('');
+                      }
+                    }}
                     className={`w-full px-3 sm:px-4 py-2 sm:py-3 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent text-sm sm:text-base ${
                       errors.number_of_people ? 'border-red-500' : 'border-gray-300'
                     }`}
@@ -1959,6 +1973,60 @@ const handleSubmit = async (e: React.FormEvent) => {
                 </div>
               )}
 
+              {/* Campo de tipo de reserva para reservas acima de 5 pessoas (apenas Highline) */}
+              {isHighline && reservationData.number_of_people > 5 && (
+                <div className="p-4 bg-indigo-50 border border-indigo-200 rounded-lg">
+                  <label className="block text-sm font-medium text-indigo-900 mb-2">
+                    Tipo de Reserva *
+                  </label>
+                  <div className="flex flex-wrap items-center gap-4 sm:gap-6 text-sm text-indigo-900">
+                    <label className="inline-flex items-center gap-2">
+                      <input
+                        type="radio"
+                        name="event_type"
+                        checked={eventType === 'aniversario'}
+                        onChange={() => setEventType('aniversario')}
+                        required
+                      />
+                      Aniversário
+                    </label>
+                    <label className="inline-flex items-center gap-2">
+                      <input
+                        type="radio"
+                        name="event_type"
+                        checked={eventType === 'despedida'}
+                        onChange={() => setEventType('despedida')}
+                        required
+                      />
+                      Despedida
+                    </label>
+                    <label className="inline-flex items-center gap-2">
+                      <input
+                        type="radio"
+                        name="event_type"
+                        checked={eventType === 'eventos'}
+                        onChange={() => setEventType('eventos')}
+                        required
+                      />
+                      Eventos
+                    </label>
+                    <label className="inline-flex items-center gap-2">
+                      <input
+                        type="radio"
+                        name="event_type"
+                        checked={eventType === 'outros'}
+                        onChange={() => setEventType('outros')}
+                        required
+                      />
+                      Outros
+                    </label>
+                  </div>
+                  {errors.event_type && (
+                    <p className="text-red-500 text-sm mt-2">{errors.event_type}</p>
+                  )}
+                </div>
+              )}
+
               {/* Lógica condicional sexta/sábado para reservas grandes */}
               {reservationData.number_of_people >= 4 && reservationData.reservation_date && (
                 (() => {
@@ -1969,42 +2037,6 @@ const handleSubmit = async (e: React.FormEvent) => {
                       <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-lg">
                         <div className="text-emerald-800 text-sm">
                           Sexta-feira: opção de criar lista de convidados disponível. O link será exibido após confirmar.
-                        </div>
-                      </div>
-                    );
-                  }
-                  if (weekday === 6) {
-                    return (
-                      <div className="p-4 bg-indigo-50 border border-indigo-200 rounded-lg">
-                        <label className="block text-sm font-medium text-indigo-900 mb-2">Tipo de evento (sábado)</label>
-                        <div className="flex flex-wrap items-center gap-4 sm:gap-6 text-sm text-indigo-900">
-                          <label className="inline-flex items-center gap-2">
-                            <input
-                              type="radio"
-                              name="event_type"
-                              checked={eventType === 'aniversario'}
-                              onChange={() => setEventType('aniversario')}
-                            />
-                            Aniversário
-                          </label>
-                          <label className="inline-flex items-center gap-2">
-                            <input
-                              type="radio"
-                              name="event_type"
-                              checked={eventType === 'despedida'}
-                              onChange={() => setEventType('despedida')}
-                            />
-                            Despedida
-                          </label>
-                          <label className="inline-flex items-center gap-2">
-                            <input
-                              type="radio"
-                              name="event_type"
-                              checked={eventType === 'outros'}
-                              onChange={() => setEventType('outros')}
-                            />
-                            Outros
-                          </label>
                         </div>
                       </div>
                     );
