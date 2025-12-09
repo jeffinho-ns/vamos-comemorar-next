@@ -419,7 +419,6 @@ export default function ExecutiveEventModal({
     
     try {
       const token = localStorage.getItem('authToken');
-      const token = localStorage.getItem('authToken');
       const response = await fetch(`${API_URL}/api/cardapio/gallery/images/${encodeURIComponent(filename)}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
