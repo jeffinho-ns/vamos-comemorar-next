@@ -11,6 +11,9 @@ export interface ExecutiveEvent {
   updated_at: string;
   establishment_name?: string;
   items_count?: number;
+  category_ids?: number[];
+  subcategory_ids?: string[];
+  settings?: EventSettings;
 }
 
 export interface EventSettings {

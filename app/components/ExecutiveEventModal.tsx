@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MdClose, MdSave, MdUpload } from 'react-icons/md';
+import { MdClose, MdSave, MdUpload, MdDelete, MdArrowUp, MdArrowDown } from 'react-icons/md';
+import Image from 'next/image';
 import { ExecutiveEvent, ExecutiveEventForm } from '@/app/types/executiveEvents';
 import { Establishment } from '@/app/hooks/useEstablishments';
 
@@ -58,23 +59,87 @@ export default function ExecutiveEventModal({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [uploadingCover, setUploadingCover] = useState(false);
+  
+  // Estados para galeria
+  const [showImageGalleryModal, setShowImageGalleryModal] = useState(false);
+  const [imageGalleryField, setImageGalleryField] = useState<string>('');
+  const [galleryImages, setGalleryImages] = useState<Array<{
+    filename: string;
+    url?: string | null;
+    sourceType: string;
+    imageType: string;
+    usageCount: number;
+  }>>([]);
+  const [galleryLoading, setGalleryLoading] = useState(false);
+  const [gallerySearchTerm, setGallerySearchTerm] = useState('');
+  
+  // Estados para ordenação
+  const [showOrderingModal, setShowOrderingModal] = useState(false);
+  const [orderedCategories, setOrderedCategories] = useState<number[]>([]);
+  const [orderedSubcategories, setOrderedSubcategories] = useState<{ categoryId: number; subcategories: string[] }[]>([]);
 
-  // Carregar dados do evento se estiver editando
+  // Carregar dados completos do evento se estiver editando
   useEffect(() => {
     if (isOpen && event) {
-      setFormData({
-        establishment_id: event.establishment_id.toString(),
-        name: event.name,
-        event_date: event.event_date.split('T')[0], // Formato YYYY-MM-DD
-        logo_url: event.logo_url || '',
-        cover_image_url: event.cover_image_url || '',
-        category_ids: [],
-        subcategory_ids: [],
-        custom_colors: {},
-        welcome_message: '',
-        wifi_info: { network: '', password: '' },
-        is_active: event.is_active
-      });
+      // Buscar dados completos do evento
+      const fetchEventDetails = async () => {
+        try {
+          const token = localStorage.getItem('authToken');
+          const response = await fetch(`${API_URL}/api/executive-events/${event.id}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          
+          if (response.ok) {
+            const fullEvent = await response.json();
+            setFormData({
+              establishment_id: fullEvent.establishment_id.toString(),
+              name: fullEvent.name,
+              event_date: fullEvent.event_date.split('T')[0],
+              logo_url: fullEvent.logo_url || '',
+              cover_image_url: fullEvent.cover_image_url || '',
+              category_ids: fullEvent.category_ids || [],
+              subcategory_ids: fullEvent.subcategory_ids || [],
+              custom_colors: fullEvent.settings?.custom_colors || {},
+              welcome_message: fullEvent.settings?.welcome_message || '',
+              wifi_info: fullEvent.settings?.wifi_info || { network: '', password: '' },
+              is_active: fullEvent.is_active
+            });
+          } else {
+            // Fallback para dados básicos se a busca falhar
+            setFormData({
+              establishment_id: event.establishment_id.toString(),
+              name: event.name,
+              event_date: event.event_date.split('T')[0],
+              logo_url: event.logo_url || '',
+              cover_image_url: event.cover_image_url || '',
+              category_ids: event.category_ids || [],
+              subcategory_ids: event.subcategory_ids || [],
+              custom_colors: event.settings?.custom_colors || {},
+              welcome_message: event.settings?.welcome_message || '',
+              wifi_info: event.settings?.wifi_info || { network: '', password: '' },
+              is_active: event.is_active
+            });
+          }
+        } catch (error) {
+          console.error('Erro ao buscar detalhes do evento:', error);
+          // Fallback para dados básicos
+          setFormData({
+            establishment_id: event.establishment_id.toString(),
+            name: event.name,
+            event_date: event.event_date.split('T')[0],
+            logo_url: event.logo_url || '',
+            cover_image_url: event.cover_image_url || '',
+            category_ids: event.category_ids || [],
+            subcategory_ids: event.subcategory_ids || [],
+            custom_colors: event.settings?.custom_colors || {},
+            welcome_message: event.settings?.welcome_message || '',
+            wifi_info: event.settings?.wifi_info || { network: '', password: '' },
+            is_active: event.is_active
+          });
+        }
+      };
+      
+      fetchEventDetails();
     } else if (isOpen && !event) {
       // Reset form para novo evento
       setFormData({
@@ -297,6 +362,136 @@ export default function ExecutiveEventModal({
     });
   };
 
+  // Funções para galeria
+  const getValidImageUrl = (filename?: string | null): string => {
+    if (!filename || typeof filename !== 'string' || filename.trim() === '' || filename === 'null') {
+      return '/placeholder-cardapio.svg';
+    }
+    if (filename.startsWith('http://') || filename.startsWith('https://')) {
+      return filename;
+    }
+    return `${BASE_IMAGE_URL}${filename}`;
+  };
+
+  const fetchGalleryImages = useCallback(async () => {
+    setGalleryLoading(true);
+    try {
+      const token = localStorage.getItem('authToken');
+      const response = await fetch(`${API_URL}/api/cardapio/gallery/images`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setGalleryImages(data.images || []);
+      } else {
+        console.error('Erro ao buscar imagens da galeria');
+        setGalleryImages([]);
+      }
+    } catch (error) {
+      console.error('Erro ao buscar imagens da galeria:', error);
+      setGalleryImages([]);
+    } finally {
+      setGalleryLoading(false);
+    }
+  }, []);
+
+  const openImageGallery = useCallback((field: string) => {
+    setImageGalleryField(field);
+    setShowImageGalleryModal(true);
+    fetchGalleryImages();
+  }, [fetchGalleryImages]);
+
+  const handleSelectGalleryImage = useCallback((filename: string, imageUrl?: string | null) => {
+    const imageValue = imageUrl || filename;
+    
+    if (imageGalleryField === 'logo_url') {
+      setFormData(prev => ({ ...prev, logo_url: imageValue }));
+    } else if (imageGalleryField === 'cover_image_url') {
+      setFormData(prev => ({ ...prev, cover_image_url: imageValue }));
+    }
+    
+    setShowImageGalleryModal(false);
+    setImageGalleryField('');
+    setGallerySearchTerm('');
+  }, [imageGalleryField]);
+
+  const handleDeleteGalleryImage = useCallback(async (filename: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!confirm('Tem certeza que deseja deletar esta imagem?')) return;
+    
+    try {
+      const token = localStorage.getItem('authToken');
+      const response = await fetch(`${API_URL}/api/cardapio/gallery/images/${encodeURIComponent(filename)}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      if (response.ok) {
+        await fetchGalleryImages();
+      } else {
+        alert('Erro ao deletar imagem');
+      }
+    } catch (err) {
+      console.error('Erro ao deletar imagem:', err);
+      alert('Erro ao deletar imagem');
+    }
+  }, [fetchGalleryImages]);
+
+  // Funções para ordenação
+  const openOrderingModal = useCallback(() => {
+    if (formData.category_ids.length === 0) {
+      alert('Selecione pelo menos uma categoria antes de ordenar');
+      return;
+    }
+    
+    // Inicializar ordenação com categorias selecionadas
+    setOrderedCategories([...formData.category_ids]);
+    
+    // Inicializar ordenação de subcategorias
+    const subcatsByCategory: { categoryId: number; subcategories: string[] }[] = [];
+    formData.category_ids.forEach(catId => {
+      const catSubcats = subcategories
+        .filter(sub => sub.categoryId === catId && formData.subcategory_ids.includes(sub.name))
+        .map(sub => sub.name);
+      if (catSubcats.length > 0) {
+        subcatsByCategory.push({ categoryId: catId, subcategories: catSubcats });
+      }
+    });
+    setOrderedSubcategories(subcatsByCategory);
+    
+    setShowOrderingModal(true);
+  }, [formData.category_ids, formData.subcategory_ids, subcategories]);
+
+  const moveCategory = (index: number, direction: 'up' | 'down') => {
+    const newOrder = [...orderedCategories];
+    if (direction === 'up' && index > 0) {
+      [newOrder[index - 1], newOrder[index]] = [newOrder[index], newOrder[index - 1]];
+    } else if (direction === 'down' && index < newOrder.length - 1) {
+      [newOrder[index], newOrder[index + 1]] = [newOrder[index + 1], newOrder[index]];
+    }
+    setOrderedCategories(newOrder);
+  };
+
+  const moveSubcategory = (categoryIndex: number, subcatIndex: number, direction: 'up' | 'down') => {
+    const newOrder = [...orderedSubcategories];
+    const subcats = newOrder[categoryIndex].subcategories;
+    if (direction === 'up' && subcatIndex > 0) {
+      [subcats[subcatIndex - 1], subcats[subcatIndex]] = [subcats[subcatIndex], subcats[subcatIndex - 1]];
+    } else if (direction === 'down' && subcatIndex < subcats.length - 1) {
+      [subcats[subcatIndex], subcats[subcatIndex + 1]] = [subcats[subcatIndex + 1], subcats[subcatIndex]];
+    }
+    setOrderedSubcategories(newOrder);
+  };
+
+  const applyOrdering = () => {
+    setFormData(prev => ({
+      ...prev,
+      category_ids: orderedCategories,
+      subcategory_ids: orderedSubcategories.flatMap(item => item.subcategories)
+    }));
+    setShowOrderingModal(false);
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -379,40 +574,39 @@ export default function ExecutiveEventModal({
               </div>
             </div>
 
-            {/* Upload de Imagens */}
+            {/* Upload de Imagens - Galeria */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">
                   Logo do Evento
                 </label>
                 <div className="flex items-center gap-2">
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file) handleImageUpload(file, 'logo');
-                    }}
-                    className="hidden"
-                    id="logo-upload"
-                  />
-                  <label
-                    htmlFor="logo-upload"
+                  <button
+                    type="button"
+                    onClick={() => openImageGallery('logo_url')}
                     className="flex-1 px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white cursor-pointer hover:bg-gray-600 transition-colors text-center"
                   >
-                    {uploadingLogo ? 'Enviando...' : (
-                      <>
-                        <MdUpload className="inline mr-2" /> Upload Logo
-                      </>
-                    )}
-                  </label>
+                    <MdUpload className="inline mr-2" /> Selecionar da Galeria
+                  </button>
                 </div>
                 {formData.logo_url && (
-                  <img
-                    src={formData.logo_url.startsWith('http') ? formData.logo_url : `${BASE_IMAGE_URL}${formData.logo_url}`}
-                    alt="Logo"
-                    className="mt-2 h-20 object-contain"
-                  />
+                  <div className="mt-2 relative">
+                    <Image
+                      src={getValidImageUrl(formData.logo_url)}
+                      alt="Logo"
+                      width={80}
+                      height={80}
+                      className="object-contain"
+                      unoptimized
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setFormData(prev => ({ ...prev, logo_url: '' }))}
+                      className="absolute -top-2 -right-2 bg-red-600 text-white rounded-full p-1 hover:bg-red-700"
+                    >
+                      <MdClose size={16} />
+                    </button>
+                  </div>
                 )}
               </div>
 
@@ -421,33 +615,32 @@ export default function ExecutiveEventModal({
                   Imagem de Capa
                 </label>
                 <div className="flex items-center gap-2">
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file) handleImageUpload(file, 'cover');
-                    }}
-                    className="hidden"
-                    id="cover-upload"
-                  />
-                  <label
-                    htmlFor="cover-upload"
+                  <button
+                    type="button"
+                    onClick={() => openImageGallery('cover_image_url')}
                     className="flex-1 px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white cursor-pointer hover:bg-gray-600 transition-colors text-center"
                   >
-                    {uploadingCover ? 'Enviando...' : (
-                      <>
-                        <MdUpload className="inline mr-2" /> Upload Capa
-                      </>
-                    )}
-                  </label>
+                    <MdUpload className="inline mr-2" /> Selecionar da Galeria
+                  </button>
                 </div>
                 {formData.cover_image_url && (
-                  <img
-                    src={formData.cover_image_url.startsWith('http') ? formData.cover_image_url : `${BASE_IMAGE_URL}${formData.cover_image_url}`}
-                    alt="Capa"
-                    className="mt-2 h-20 object-contain"
-                  />
+                  <div className="mt-2 relative">
+                    <Image
+                      src={getValidImageUrl(formData.cover_image_url)}
+                      alt="Capa"
+                      width={80}
+                      height={80}
+                      className="object-contain"
+                      unoptimized
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setFormData(prev => ({ ...prev, cover_image_url: '' }))}
+                      className="absolute -top-2 -right-2 bg-red-600 text-white rounded-full p-1 hover:bg-red-700"
+                    >
+                      <MdClose size={16} />
+                    </button>
+                  </div>
                 )}
               </div>
             </div>
@@ -498,6 +691,20 @@ export default function ExecutiveEventModal({
                     )}
                   </div>
                 </div>
+                
+                {/* Botão de Ordenação */}
+                {(formData.category_ids.length > 0 || formData.subcategory_ids.length > 0) && (
+                  <div>
+                    <button
+                      type="button"
+                      onClick={openOrderingModal}
+                      className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors flex items-center gap-2"
+                    >
+                      <MdArrowUp className="inline" />
+                      Ordenar Categorias e Subcategorias
+                    </button>
+                  </div>
+                )}
               </>
             )}
 
@@ -619,6 +826,249 @@ export default function ExecutiveEventModal({
           </form>
         </motion.div>
       </div>
+      
+      {/* Modal de Galeria de Imagens */}
+      <AnimatePresence>
+        {showImageGalleryModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black bg-opacity-75 z-[60] flex items-center justify-center p-4"
+            onClick={() => setShowImageGalleryModal(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-gray-800 rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="p-6 border-b border-gray-700">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-xl font-bold text-white">Galeria de Imagens</h2>
+                  <button
+                    onClick={() => setShowImageGalleryModal(false)}
+                    className="text-gray-400 hover:text-white transition-colors"
+                  >
+                    <MdClose size={24} />
+                  </button>
+                </div>
+              </div>
+              
+              <div className="p-6">
+                <div className="mb-4 flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={gallerySearchTerm}
+                    onChange={(e) => setGallerySearchTerm(e.target.value)}
+                    placeholder="Buscar imagem..."
+                    className="flex-1 px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white"
+                  />
+                  <button
+                    onClick={() => {
+                      const input = document.createElement('input');
+                      input.type = 'file';
+                      input.accept = 'image/*';
+                      input.onchange = async (e) => {
+                        const files = (e.target as HTMLInputElement).files;
+                        if (files && files[0]) {
+                          setUploadingLogo(true);
+                          await handleImageUpload(files[0], imageGalleryField === 'logo_url' ? 'logo' : 'cover');
+                          setUploadingLogo(false);
+                          await fetchGalleryImages();
+                        }
+                      };
+                      input.click();
+                    }}
+                    className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors flex items-center gap-2"
+                  >
+                    <MdUpload size={20} />
+                    Upload
+                  </button>
+                </div>
+                
+                {galleryLoading ? (
+                  <div className="flex justify-center items-center py-12">
+                    <span className="text-gray-400">Carregando imagens...</span>
+                  </div>
+                ) : galleryImages.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-12 text-gray-400">
+                    <MdUpload className="h-12 w-12 mb-4" />
+                    <p>Nenhuma imagem encontrada.</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                    {galleryImages
+                      .filter(img => 
+                        !gallerySearchTerm || 
+                        img.filename.toLowerCase().includes(gallerySearchTerm.toLowerCase())
+                      )
+                      .map((image, index) => {
+                        const imageUrl = image.url || getValidImageUrl(image.filename);
+                        return (
+                          <div
+                            key={`${image.filename}-${index}`}
+                            className="relative group cursor-pointer rounded-lg border-2 border-gray-600 hover:border-yellow-500 transition-all overflow-hidden"
+                            onClick={() => handleSelectGalleryImage(image.filename, image.url || undefined)}
+                          >
+                            <div className="aspect-square relative bg-gray-700">
+                              <Image
+                                src={imageUrl}
+                                alt={image.filename}
+                                fill
+                                sizes="(max-width: 768px) 50vw, 33vw"
+                                className="object-cover"
+                                unoptimized
+                              />
+                            </div>
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/0 to-black/0 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <div className="absolute inset-0 flex items-center justify-center">
+                                <span className="text-white text-sm font-semibold bg-black/50 px-3 py-1 rounded-full">
+                                  Selecionar
+                                </span>
+                              </div>
+                            </div>
+                            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent text-white text-xs p-2">
+                              <p className="truncate font-medium">{image.filename}</p>
+                            </div>
+                            <button
+                              onClick={(e) => handleDeleteGalleryImage(image.filename, e)}
+                              className="absolute top-2 right-2 bg-red-600 hover:bg-red-700 text-white p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                            >
+                              <MdDelete size={16} />
+                            </button>
+                          </div>
+                        );
+                      })}
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+      
+      {/* Modal de Ordenação */}
+      <AnimatePresence>
+        {showOrderingModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black bg-opacity-75 z-[60] flex items-center justify-center p-4"
+            onClick={() => setShowOrderingModal(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-gray-800 rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="p-6 border-b border-gray-700">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-xl font-bold text-white">Ordenar Categorias e Subcategorias</h2>
+                  <button
+                    onClick={() => setShowOrderingModal(false)}
+                    className="text-gray-400 hover:text-white transition-colors"
+                  >
+                    <MdClose size={24} />
+                  </button>
+                </div>
+              </div>
+              
+              <div className="p-6 space-y-6">
+                {/* Ordenação de Categorias */}
+                <div>
+                  <h3 className="text-lg font-semibold text-white mb-3">Categorias</h3>
+                  <div className="space-y-2">
+                    {orderedCategories.map((catId, index) => {
+                      const cat = categories.find(c => c.id === catId);
+                      if (!cat) return null;
+                      return (
+                        <div key={catId} className="flex items-center gap-2 bg-gray-700 rounded-lg p-3">
+                          <button
+                            type="button"
+                            onClick={() => moveCategory(index, 'up')}
+                            disabled={index === 0}
+                            className="p-1 bg-gray-600 hover:bg-gray-500 rounded disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            <MdArrowUp size={20} className="text-white" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => moveCategory(index, 'down')}
+                            disabled={index === orderedCategories.length - 1}
+                            className="p-1 bg-gray-600 hover:bg-gray-500 rounded disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            <MdArrowDown size={20} className="text-white" />
+                          </button>
+                          <span className="flex-1 text-white">{cat.name}</span>
+                          <span className="text-gray-400 text-sm">#{index + 1}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+                
+                {/* Ordenação de Subcategorias */}
+                {orderedSubcategories.map((item, catIndex) => {
+                  const cat = categories.find(c => c.id === item.categoryId);
+                  return (
+                    <div key={item.categoryId}>
+                      <h3 className="text-md font-semibold text-gray-300 mb-2">
+                        Subcategorias de {cat?.name || 'Categoria'}
+                      </h3>
+                      <div className="space-y-2">
+                        {item.subcategories.map((subcat, subIndex) => (
+                          <div key={subcat} className="flex items-center gap-2 bg-gray-700 rounded-lg p-3 ml-4">
+                            <button
+                              type="button"
+                              onClick={() => moveSubcategory(catIndex, subIndex, 'up')}
+                              disabled={subIndex === 0}
+                              className="p-1 bg-gray-600 hover:bg-gray-500 rounded disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              <MdArrowUp size={20} className="text-white" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => moveSubcategory(catIndex, subIndex, 'down')}
+                              disabled={subIndex === item.subcategories.length - 1}
+                              className="p-1 bg-gray-600 hover:bg-gray-500 rounded disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              <MdArrowDown size={20} className="text-white" />
+                            </button>
+                            <span className="flex-1 text-white">{subcat}</span>
+                            <span className="text-gray-400 text-sm">#{subIndex + 1}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+                
+                <div className="flex justify-end gap-3 pt-4 border-t border-gray-700">
+                  <button
+                    type="button"
+                    onClick={() => setShowOrderingModal(false)}
+                    className="px-6 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={applyOrdering}
+                    className="px-6 py-2 bg-yellow-500 hover:bg-yellow-600 text-gray-900 rounded-lg transition-colors font-semibold"
+                  >
+                    Aplicar Ordenação
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </AnimatePresence>
   );
 }
