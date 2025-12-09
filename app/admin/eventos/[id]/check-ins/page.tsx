@@ -1560,15 +1560,126 @@ export default function EventoCheckInsPage() {
               <div className="text-sm text-gray-300 mb-1">Total Geral</div>
               <div className="text-2xl font-bold text-white" style={{ fontVariantNumeric: 'normal' }}>
                 {(() => {
-                  const checkins = Number(reservasMetrics.checkins + promoterMetrics.checkins + (camarotes.reduce((sum, c) => sum + (c.convidados_checkin || 0), 0)));
-                  const total = Number(reservasMetrics.total + promoterMetrics.total + camarotes.reduce((sum, c) => sum + (c.total_convidados || 0), 0));
+                  // Contar apenas nomes únicos de pessoas (sem duplicatas)
+                  const nomesUnicos = new Set<string>();
+                  const nomesCheckin = new Set<string>();
+                  
+                  // Adicionar nomes de convidados de reservas
+                  convidadosReservas.forEach(c => {
+                    if (c.nome && c.nome.trim()) {
+                      const nomeNormalizado = c.nome.trim().toLowerCase();
+                      nomesUnicos.add(nomeNormalizado);
+                      if (c.status === 'CHECK-IN') {
+                        nomesCheckin.add(nomeNormalizado);
+                      }
+                    }
+                  });
+                  
+                  // Adicionar nomes de convidados de restaurante
+                  convidadosReservasRestaurante.forEach(c => {
+                    if (c.nome && c.nome.trim()) {
+                      const nomeNormalizado = c.nome.trim().toLowerCase();
+                      nomesUnicos.add(nomeNormalizado);
+                      if (c.status_checkin === 1 || c.status_checkin === true) {
+                        nomesCheckin.add(nomeNormalizado);
+                      }
+                    }
+                  });
+                  
+                  // Adicionar nomes de guests das guest lists (se carregados)
+                  Object.values(guestsByList).flat().forEach(g => {
+                    const nome = (g.name || g.nome || '').trim();
+                    if (nome) {
+                      const nomeNormalizado = nome.toLowerCase();
+                      nomesUnicos.add(nomeNormalizado);
+                      if (g.checked_in === 1 || g.checked_in === true) {
+                        nomesCheckin.add(nomeNormalizado);
+                      }
+                    }
+                  });
+                  
+                  // Adicionar nomes de convidados de promoters
+                  convidadosPromoters.forEach(c => {
+                    if (c.nome && c.nome.trim()) {
+                      const nomeNormalizado = c.nome.trim().toLowerCase();
+                      nomesUnicos.add(nomeNormalizado);
+                      if (c.status_checkin === 'Check-in') {
+                        nomesCheckin.add(nomeNormalizado);
+                      }
+                    }
+                  });
+                  
+                  // Nota: Camarotes não têm lista de nomes individuais, apenas total_convidados
+                  // Por isso não adicionamos nomes de camarotes aqui
+                  // O total de camarotes já está sendo considerado separadamente nas métricas
+                  
+                  const total = nomesUnicos.size;
+                  const checkins = nomesCheckin.size;
                   return `${checkins}/${total}`;
                 })()}
               </div>
               <div className="text-xs text-gray-400 mt-1">
                 {(() => {
-                  const total = reservasMetrics.total + promoterMetrics.total + camarotes.reduce((sum, c) => sum + (c.total_convidados || 0), 0);
-                  const checkins = reservasMetrics.checkins + promoterMetrics.checkins + camarotes.reduce((sum, c) => sum + (c.convidados_checkin || 0), 0);
+                  // Mesmo cálculo para porcentagem
+                  const nomesUnicos = new Set<string>();
+                  const nomesCheckin = new Set<string>();
+                  
+                  convidadosReservas.forEach(c => {
+                    if (c.nome && c.nome.trim()) {
+                      const nomeNormalizado = c.nome.trim().toLowerCase();
+                      nomesUnicos.add(nomeNormalizado);
+                      if (c.status === 'CHECK-IN') {
+                        nomesCheckin.add(nomeNormalizado);
+                      }
+                    }
+                  });
+                  
+                  convidadosReservasRestaurante.forEach(c => {
+                    if (c.nome && c.nome.trim()) {
+                      const nomeNormalizado = c.nome.trim().toLowerCase();
+                      nomesUnicos.add(nomeNormalizado);
+                      if (c.status_checkin === 1 || c.status_checkin === true) {
+                        nomesCheckin.add(nomeNormalizado);
+                      }
+                    }
+                  });
+                  
+                  Object.values(guestsByList).flat().forEach(g => {
+                    if (g.nome && g.nome.trim()) {
+                      const nomeNormalizado = g.nome.trim().toLowerCase();
+                      nomesUnicos.add(nomeNormalizado);
+                      if (g.checked_in === 1 || g.checked_in === true) {
+                        nomesCheckin.add(nomeNormalizado);
+                      }
+                    }
+                  });
+                  
+                  convidadosPromoters.forEach(c => {
+                    if (c.nome && c.nome.trim()) {
+                      const nomeNormalizado = c.nome.trim().toLowerCase();
+                      nomesUnicos.add(nomeNormalizado);
+                      if (c.status_checkin === 'Check-in') {
+                        nomesCheckin.add(nomeNormalizado);
+                      }
+                    }
+                  });
+                  
+                  camarotes.forEach(c => {
+                    if (c.convidados && Array.isArray(c.convidados)) {
+                      c.convidados.forEach((conv: any) => {
+                        if (conv.nome && conv.nome.trim()) {
+                          const nomeNormalizado = conv.nome.trim().toLowerCase();
+                          nomesUnicos.add(nomeNormalizado);
+                          if (conv.status_checkin === 'Check-in' || conv.checked_in === 1 || conv.checked_in === true) {
+                            nomesCheckin.add(nomeNormalizado);
+                          }
+                        }
+                      });
+                    }
+                  });
+                  
+                  const total = nomesUnicos.size;
+                  const checkins = nomesCheckin.size;
                   return total > 0 ? `${Math.round((checkins / total) * 100)}%` : '0%';
                 })()}
               </div>
