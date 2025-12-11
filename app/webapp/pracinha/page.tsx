@@ -293,8 +293,6 @@ const Section: React.FC<SectionProps> = ({ title, images, openImage }) => {
               src={image}
               alt={`${title} ${index + 1}`}
               className={styles.image}
-              width={400}
-              height={300}
             />
           </div>
         ))}

@@ -4,9 +4,10 @@ import React, { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import Header from "../components/headerNotificatioin/headerNotification";
-import Footer from "../components/footer/footer";
+import Footer from "../../components/footer/footer";
 import styles from "./minhasReservas.module.scss";
 import defaultBanner from "@/app/assets/highline/capa-highline.jpeg";
+import logoBlue from "@/app/assets/logo-agilizai-h.png";
 import { useRouter } from "next/navigation"; // Alteração aqui para o useRouter correto
 
 interface Reserva {
@@ -115,7 +116,7 @@ export default function MinhasReservas() {
       </div>
 
       <div className={styles.footerContainer}>
-        <Footer />
+        <Footer logo={logoBlue} />
       </div>
     </>
   );

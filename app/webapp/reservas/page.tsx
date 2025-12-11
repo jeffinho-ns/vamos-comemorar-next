@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Image from "next/image";
-import Footer from "../components/footer/footer";
+import Footer from "../../components/footer/footer";
 import HeaderLike from "../components/headerLike/headerLike";
 import styles from "./reservas.module.scss";
 import defaultLogo from "@/app/assets/highline/highlinelogo.png";
@@ -183,7 +183,7 @@ const Reservas = () => {
           </div>
         </div>
       </div>
-      <Footer />
+      <Footer logo={defaultLogo} />
 
       <Modal
         isOpen={modalIsOpen}

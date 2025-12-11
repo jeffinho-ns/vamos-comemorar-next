@@ -2,12 +2,9 @@
 
 import { useState, useEffect } from "react";
 import Image, { StaticImageData } from "next/image";
-import { MdLocationOn, MdInfoOutline, MdEvent, MdStar, MdAccessTime, MdPhone, MdRestaurant } from "react-icons/md";
-import Link from "next/link";
+import { MdLocationOn, MdInfoOutline, MdEvent, MdStar, MdAccessTime, MdPhone } from "react-icons/md";
 import Footer from "../components/footer/footer";
 import Header from "../components/header/header";
-import logoWhite from "@/app/assets/logo-agilizai-h.png";
-import logoBlue from "@/app/assets/logo-agilizai-h.png";
 import imgBanner from "@/app/assets/pracinha/capa-pracinha.jpg";
 import "react-multi-carousel/lib/styles.css";
 import Programacao from "../components/programacao/programacao";
@@ -51,7 +48,12 @@ const Pracinha = () => {
   const [expandedImage, setExpandedImage] = useState<StaticImageData | null>(null);
   const [user, setUser] = useState<any>(null);
 
-  // Removido: login não é mais obrigatório para visualizar a página
+  useEffect(() => {
+    const token = localStorage.getItem('authToken');
+    if (!token) {
+      redirect('/login');
+    }
+  }, []);
 
   const toggleContent = (content: string) => {
     setShowDescription(content === "sobre");
@@ -79,7 +81,7 @@ const Pracinha = () => {
 
   return (
     <>
-      <Header logo={logoWhite} />
+      <Header />
 
       {/* Banner Section */}
       <div className="relative h-[500px] overflow-hidden">
@@ -175,12 +177,12 @@ const Pracinha = () => {
 
           {/* Reserve Button */}
           <div className="text-center mt-8">
-            <Link href="/reservar?establishment=Pracinha">
-              <button className="bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-600 hover:to-yellow-700 text-gray-900 px-8 py-4 rounded-xl font-bold text-lg transition-all duration-200 transform hover:scale-105 shadow-lg flex items-center gap-2 mx-auto">
-                <MdRestaurant size={24} />
-                Fazer Reserva
-              </button>
-            </Link>
+            <button 
+              onClick={openModal} 
+              className="bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-600 hover:to-yellow-700 text-gray-900 px-8 py-4 rounded-xl font-bold text-lg transition-all duration-200 transform hover:scale-105 shadow-lg"
+            >
+              🎉 Fazer Reserva
+            </button>
           </div>
         </div>
       </div>
@@ -319,7 +321,7 @@ const Pracinha = () => {
         onSaveUser={handleSaveUser}
       />
 
-      <Footer logo={logoBlue} />
+      <Footer logo={logoImage} />
     </>
   );
 };
@@ -332,15 +334,13 @@ const Section: React.FC<SectionProps> = ({ title, images, openImage }) => (
       {images.map((img, index) => (
         <div
           key={index}
-          className="group cursor-pointer overflow-hidden rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 relative h-64"
+          className="group cursor-pointer overflow-hidden rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
           onClick={() => openImage(img)}
         >
           <Image 
             src={img} 
-            alt={`${title} ${index + 1}`}
-            fill
-            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 25vw"
-            className="object-cover group-hover:scale-110 transition-transform duration-300" 
+            alt={title} 
+            className="w-full h-64 object-cover group-hover:scale-110 transition-transform duration-300" 
           />
         </div>
       ))}

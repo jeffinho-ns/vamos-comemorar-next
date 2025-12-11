@@ -58,6 +58,39 @@ export default function Home() {
     process.env.NEXT_PUBLIC_API_URL_LOCAL ||
     "https://vamos-comemorar-api.onrender.com";
 
+  // Função para construir URL da imagem
+  const getImageUrl = (image: GalleryImage) => {
+    // Prioridade 1: Se já tem URL completa (Cloudinary ou outra), retornar diretamente
+    if (image.url && (image.url.startsWith('http://') || image.url.startsWith('https://'))) {
+      return image.url;
+    }
+    
+    // Prioridade 2: Se tem URL relativa, construir caminho completo
+    if (image.url && image.url.startsWith('/')) {
+      return `${API_URL}${image.url}`;
+    }
+    
+    // Prioridade 3: Se filename já é uma URL completa, retornar
+    if (image.filename && (image.filename.startsWith('http://') || image.filename.startsWith('https://'))) {
+      return image.filename;
+    }
+    
+    // Prioridade 4: Se filename começa com /, adicionar API_URL
+    if (image.filename && image.filename.startsWith('/')) {
+      return `${API_URL}${image.filename}`;
+    }
+    
+    // Prioridade 5: Construir URL padrão de uploads
+    if (image.filename) {
+      // Remover qualquer prefixo de URL que possa estar no filename
+      const cleanFilename = image.filename.replace(/^https?:\/\/[^\/]+/, '').replace(/^\//, '');
+      return `${API_URL}/uploads/${cleanFilename}`;
+    }
+    
+    // Fallback
+    return "/images/default-logo.png";
+  };
+
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -110,16 +143,37 @@ export default function Home() {
               // Pegar apenas imagens com URL válida ou filename e limitar a 12
               const validImages = images
                 .filter((img: GalleryImage) => {
-                  const hasUrl = img.url && (img.url.startsWith('http') || img.url.startsWith('/'));
-                  const hasFilename = img.filename && img.filename.trim() !== '';
-                  return hasUrl || hasFilename;
+                  // Verificar se tem URL válida (completa ou relativa)
+                  const hasUrl = img.url && (
+                    img.url.startsWith('http://') || 
+                    img.url.startsWith('https://') || 
+                    img.url.startsWith('/')
+                  );
+                  // Verificar se tem filename válido
+                  const hasFilename = img.filename && 
+                    img.filename.trim() !== '' && 
+                    img.filename !== 'null' &&
+                    img.filename !== 'undefined';
+                  // Verificar se filename é uma URL válida
+                  const filenameIsUrl = img.filename && (
+                    img.filename.startsWith('http://') || 
+                    img.filename.startsWith('https://')
+                  );
+                  
+                  return hasUrl || hasFilename || filenameIsUrl;
                 })
                 .slice(0, 12);
               
               console.log(`✅ ${validImages.length} imagens válidas encontradas na galeria`);
+              console.log('📸 Primeiras 3 imagens:', validImages.slice(0, 3).map(img => ({
+                filename: img.filename,
+                url: img.url,
+                fullUrl: getImageUrl(img)
+              })));
               setGalleryImages(validImages);
             } else {
               console.log('⚠️ Galeria retornou sem imagens ou array vazio');
+              setGalleryImages([]);
             }
           } else {
             console.warn(`⚠️ Erro ao buscar galeria: ${galleryResponse.status} - ${galleryResponse.statusText}`);
@@ -215,31 +269,6 @@ export default function Home() {
     },
   ];
 
-  const getImageUrl = (image: GalleryImage) => {
-    // Se já tem URL completa, retornar
-    if (image.url && (image.url.startsWith('http://') || image.url.startsWith('https://'))) {
-      return image.url;
-    }
-    // Se tem URL relativa, construir caminho completo
-    if (image.url && image.url.startsWith('/')) {
-      return `${API_URL}${image.url}`;
-    }
-    // Se tem filename, construir URL do upload
-    if (image.filename) {
-      // Se filename já é uma URL completa, retornar
-      if (image.filename.startsWith('http://') || image.filename.startsWith('https://')) {
-        return image.filename;
-      }
-      // Se filename começa com /, adicionar API_URL
-      if (image.filename.startsWith('/')) {
-        return `${API_URL}${image.filename}`;
-      }
-      // Caso contrário, construir URL padrão de uploads
-      return `${API_URL}/uploads/${image.filename}`;
-    }
-    return "/images/default-logo.png";
-  };
-
   // Função para mapear nome do estabelecimento para sua rota
   const getEstablishmentRoute = (name: string): string => {
     const lowerName = name.toLowerCase();
@@ -259,10 +288,7 @@ export default function Home() {
 
   return (
     <>
-      {/* Passando a imagem estática 'logoWhite' como prop para o Header. 
-         Isso permite que o componente Next.js Image use o objeto estático e o atributo 'priority' 
-         para carregar instantaneamente o logo. */}
-      <Header logo={logoWhite} />
+      <Header />
 
       {/* Hero Section */}
       <section className="relative min-h-screen flex items-center justify-center overflow-hidden bg-gradient-to-br from-gray-900 via-gray-800 to-black">
@@ -407,25 +433,32 @@ export default function Home() {
             </motion.div>
 
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-              {galleryImages.map((image, index) => (
-                <motion.div
-                  key={index}
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  whileInView={{ opacity: 1, scale: 1 }}
-                  viewport={{ once: true }}
-                  transition={{ duration: 0.5, delay: index * 0.1 }}
-                  className="relative aspect-square rounded-xl overflow-hidden group cursor-pointer"
-                >
-                  <Image
-                    src={getImageUrl(image)}
-                    alt={`Galeria ${index + 1}`}
-                    fill
-                    className="object-cover transition-transform duration-300 group-hover:scale-110"
-                    sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                </motion.div>
-              ))}
+              {galleryImages.map((image, index) => {
+                const imageUrl = getImageUrl(image);
+                return (
+                  <motion.div
+                    key={`${image.filename || image.url || index}-${index}`}
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    whileInView={{ opacity: 1, scale: 1 }}
+                    viewport={{ once: true }}
+                    transition={{ duration: 0.5, delay: index * 0.1 }}
+                    className="relative aspect-square rounded-xl overflow-hidden group cursor-pointer bg-gray-200"
+                  >
+                    <Image
+                      src={imageUrl}
+                      alt={`Galeria ${index + 1}`}
+                      fill
+                      className="object-cover transition-transform duration-300 group-hover:scale-110"
+                      sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"
+                      unoptimized={imageUrl.startsWith('https://res.cloudinary.com') || imageUrl.startsWith('http://')}
+                      onError={() => {
+                        console.error(`Erro ao carregar imagem ${index + 1}:`, imageUrl);
+                      }}
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                  </motion.div>
+                );
+              })}
             </div>
           </div>
         </section>

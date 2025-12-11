@@ -5,8 +5,9 @@ import { useRouter } from "next/navigation";
 import { FiSettings, FiLogOut, FiLock, FiHelpCircle } from "react-icons/fi";
 import Link from "next/link";
 import Header from "../components/headerNotificatioin/headerNotification";
-import Footer from "../components/footer/footer";
+import Footer from "../../components/footer/footer";
 import Image from "next/image";
+import logoBlue from "@/app/assets/logo-agilizai-h.png";
 import "./profile.module.scss";
 
 interface User {
@@ -140,7 +141,7 @@ export default function PerfilMobile() {
           </div>
         </div>
       </div>
-      <Footer />
+      <Footer logo={logoBlue} />
     </>
   );
 }

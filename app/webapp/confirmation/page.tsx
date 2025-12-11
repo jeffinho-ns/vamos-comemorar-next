@@ -2,8 +2,9 @@
 
 import React, { useState, useEffect, Suspense } from "react";
 import Header from "../components/headerNotificatioin/headerNotification";
-import Footer from "../components/footer/footer";
+import Footer from "../../components/footer/footer";
 import { useSearchParams } from "next/navigation";
+import logoBlue from "@/app/assets/logo-agilizai-h.png";
 import Image from "next/image";
 
 interface Reserva {
@@ -185,7 +186,7 @@ function ReservationDetails() {
         </div>
       )}
 
-      <Footer />
+      <Footer logo={logoBlue} />
     </>
   );
 }

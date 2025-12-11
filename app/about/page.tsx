@@ -1,6 +1,7 @@
 import React from "react";
 
 import Image from "next/image";
+import SafeImage from "../components/SafeImage";
 import Header from "../components/header/header"
 import Footer from "../components/footer/footer"
 
@@ -15,7 +16,7 @@ export default function About() {
     <div>
       {/* Banner */}
       <section className="relative h-[600px]"><div className="texto">QUEM SOMOS</div>
-        <Image
+        <SafeImage
           src={Image1} 
           alt="Banner Quem Somos" 
           fill
@@ -45,10 +46,10 @@ export default function About() {
             {/* Coluna de Imagens */}
             <div className="flex justify-center">
               <div className="relative w-[280px] h-[280px] mx-2">
-                <Image src={Image2} alt="Descrição da imagem 2" fill sizes="280px" className="rounded-lg shadow-lg object-cover" />
+                <SafeImage src={Image2} alt="Descrição da imagem 2" fill sizes="280px" className="rounded-lg shadow-lg object-cover" />
               </div>
               <div className="relative w-[280px] h-[280px] mx-2">
-                <Image src={Image3} alt="Descrição da imagem 3" fill sizes="280px" className="rounded-lg shadow-lg object-cover" />
+                <SafeImage src={Image3} alt="Descrição da imagem 3" fill sizes="280px" className="rounded-lg shadow-lg object-cover" />
               </div>
             </div>
           </div>

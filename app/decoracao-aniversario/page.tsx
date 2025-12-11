@@ -33,21 +33,22 @@ export default function DecoracaoAniversarioPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
       {/* Header */}
-      <div className="relative h-80 sm:h-96 overflow-hidden">
+      <div className="relative h-80 sm:h-96"> {/* AJUSTE RESPONSIVO */}
         <Image
           src="/agilizai/niver.jpeg"
           alt="Decoração de Aniversário"
           fill
           sizes="100vw"
-          className="object-cover"
+          className="absolute z-0 object-cover"
           priority
+          unoptimized={false}
         />
-        <div className="absolute inset-0 bg-gradient-to-r from-orange-500 to-red-500 opacity-70 z-10"></div>
-        <div className="absolute inset-0 z-20 flex items-center justify-center">
-          <div className="text-center text-white px-4 max-w-4xl mx-auto">
-            <FaBirthdayCake className="text-5xl sm:text-6xl mx-auto mb-4" />
-            <h1 className="text-4xl sm:text-5xl font-bold mb-4">Decoração de Aniversário</h1>
-            <p className="text-lg sm:text-xl">Transforme sua festa em um momento mágico!</p>
+        <div className="absolute inset-0 bg-gradient-to-r from-orange-500 to-red-500 opacity-70"></div>
+        <div className="relative z-10 flex items-center justify-center h-full">
+          <div className="text-center text-white px-4"> {/* Adicionado padding para segurança */}
+            <FaBirthdayCake className="text-5xl sm:text-6xl mx-auto mb-4" /> {/* AJUSTE RESPONSIVO */}
+            <h1 className="text-4xl sm:text-5xl font-bold mb-4">Decoração de Aniversário</h1> {/* AJUSTE RESPONSIVO */}
+            <p className="text-lg sm:text-xl">Transforme sua festa em um momento mágico!</p> {/* AJUSTE RESPONSIVO */}
           </div>
         </div>
       </div>
@@ -174,6 +175,7 @@ export default function DecoracaoAniversarioPage() {
                       fill 
                       sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw" 
                       className="object-cover transition-transform hover:scale-110"
+                      unoptimized={false}
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
                   </div>

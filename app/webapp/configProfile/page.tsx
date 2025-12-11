@@ -4,8 +4,9 @@ import React, { useState, useEffect, useCallback } from "react";
 import Image from "next/image";
 import { FiSave } from "react-icons/fi";
 import Header from "../components/headerNotificatioin/headerNotification";
-import Footer from "../components/footer/footer";
+import Footer from "../../components/footer/footer";
 import { useRouter } from "next/navigation";
+import logoBlue from "@/app/assets/logo-agilizai-h.png";
 
 type UserField = "nome" | "endereco" | "telefone";
 type ProfileField = "nome" | "endereco" | "telefone" | "senha";
@@ -244,7 +245,7 @@ const PerfilMobile: React.FC = () => {
             ))}
           </div>
         </div>
-        <Footer />
+        <Footer logo={logoBlue} />
       </div>
     </>
   );
