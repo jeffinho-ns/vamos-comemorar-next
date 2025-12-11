@@ -2,11 +2,12 @@
 
 import { useState, useEffect } from "react";
 import Image, { StaticImageData } from "next/image";
-import SafeImage from "../components/SafeImage";
 import { MdLocationOn, MdInfoOutline, MdEvent, MdStar, MdAccessTime, MdPhone, MdRestaurant } from "react-icons/md";
 import Link from "next/link";
 import Footer from "../components/footer/footer";
 import Header from "../components/header/header";
+import logoWhite from "@/app/assets/logo-agilizai-h.png";
+import logoBlue from "@/app/assets/logo-agilizai-h.png";
 import imgBanner from "@/app/assets/highline/capa-highline.jpeg";
 import "react-multi-carousel/lib/styles.css";
 import Programacao from "../components/programacao/programacao";
@@ -80,11 +81,11 @@ const Highline = () => {
 
   return (
     <>
-      <Header />
+      <Header logo={logoWhite} />
 
       {/* Banner Section */}
       <div className="relative h-[500px] overflow-hidden">
-        <SafeImage
+        <Image
           src={imgBanner}
           alt="High Line Bar"
           fill
@@ -149,26 +150,26 @@ const Highline = () => {
             {/* Middle Column - Logo */}
             <div className="flex justify-center">
               <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-200/20">
-                <SafeImage src={logoNew} alt="High Line Logo" width={200} height={200} className="rounded-xl" />
+                <Image src={logoNew} alt="High Line Logo" width={200} height={200} className="rounded-xl" />
               </div>
             </div>
 
             {/* Right Column - Features */}
             <div className="grid grid-cols-2 gap-4">
               <div className="bg-gradient-to-r from-blue-50 to-blue-100 p-4 rounded-xl text-center">
-                <SafeImage src={icon1} width={40} height={40} alt="Área aberta" className="mx-auto mb-2" />
+                <Image src={icon1} width={40} height={40} alt="Área aberta" className="mx-auto mb-2" />
                 <p className="text-sm font-semibold text-gray-800">Área aberta</p>
               </div>
               <div className="bg-gradient-to-r from-green-50 to-green-100 p-4 rounded-xl text-center">
-                <SafeImage src={icon2} width={40} height={40} alt="Acessível" className="mx-auto mb-2" />
+                <Image src={icon2} width={40} height={40} alt="Acessível" className="mx-auto mb-2" />
                 <p className="text-sm font-semibold text-gray-800">Acessível</p>
               </div>
               <div className="bg-gradient-to-r from-purple-50 to-purple-100 p-4 rounded-xl text-center">
-                <SafeImage src={icon3} width={40} height={40} alt="Estacionamento" className="mx-auto mb-2" />
+                <Image src={icon3} width={40} height={40} alt="Estacionamento" className="mx-auto mb-2" />
                 <p className="text-sm font-semibold text-gray-800">Estacionamento</p>
               </div>
               <div className="bg-gradient-to-r from-red-50 to-red-100 p-4 rounded-xl text-center">
-                <SafeImage src={icon4} width={40} height={40} alt="+18" className="mx-auto mb-2" />
+                <Image src={icon4} width={40} height={40} alt="+18" className="mx-auto mb-2" />
                 <p className="text-sm font-semibold text-gray-800">+18</p>
               </div>
             </div>
@@ -301,7 +302,7 @@ const Highline = () => {
             >
               ✕
             </button>
-            <SafeImage
+            <Image
               src={expandedImage}
               alt="Expanded"
               className="w-full h-auto rounded-xl"
@@ -322,7 +323,7 @@ const Highline = () => {
         onSaveUser={handleSaveUser}
       />
 
-      <Footer />
+      <Footer logo={logoBlue} />
     </>
   );
 };
@@ -338,7 +339,7 @@ const Section: React.FC<SectionProps> = ({ title, images, openImage }) => (
           className="group cursor-pointer overflow-hidden rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 relative h-64"
           onClick={() => openImage(img)}
         >
-          <SafeImage 
+          <Image 
             src={img} 
             alt={`${title} ${index + 1}`}
             fill

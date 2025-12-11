@@ -9,6 +9,8 @@ import Image, { StaticImageData } from "next/image";
 import imgBanner from "@/app/assets/banner01.webp";
 import Footer from "../components/footer/footer";
 import logoBanner from "@/app/assets/commemoration.png";
+import logoWhite from "@/app/assets/logo-agilizai-h.png";
+import logoBlue from "@/app/assets/logo-agilizai-h.png";
 import "react-multi-carousel/lib/styles.css";
 
 // Defina uma interface para os props do componente Card
@@ -85,7 +87,7 @@ export default function ProfilePage() {
 
   return (
     <>
-      <Header />
+      <Header logo={logoWhite} />
       <Banner
         id="banner"
         className="banner background-gradient relative flex items-center justify-center h-[400px] overflow-hidden"
@@ -132,7 +134,7 @@ export default function ProfilePage() {
         </div>
       </main>
       
-      <Footer />
+      <Footer logo={logoBlue} />
     </>
   );
 }

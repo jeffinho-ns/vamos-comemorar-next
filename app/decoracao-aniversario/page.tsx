@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import SafeImage from '../components/SafeImage';
+import Image from 'next/image';
 import { FaBirthdayCake, FaGift, FaGlassCheers, FaPalette, FaInfoCircle, FaArrowRight } from 'react-icons/fa';
 import { useGoogleAnalytics } from '../hooks/useGoogleAnalytics';
 
@@ -34,7 +34,7 @@ export default function DecoracaoAniversarioPage() {
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
       {/* Header */}
       <div className="relative h-80 sm:h-96 overflow-hidden">
-        <SafeImage
+        <Image
           src="/agilizai/niver.jpeg"
           alt="Decoração de Aniversário"
           fill
@@ -168,7 +168,7 @@ export default function DecoracaoAniversarioPage() {
               {decorationOptions.map((option, index) => (
                 <div key={index} className="bg-slate-800 rounded-2xl overflow-hidden border border-slate-700 hover:border-orange-500 transition-all hover:shadow-2xl hover:shadow-orange-500/20 flex flex-col">
                   <div className="h-48 sm:h-56 relative overflow-hidden flex-shrink-0">
-                    <SafeImage 
+                    <Image 
                       src={option.image} 
                       alt={option.name} 
                       fill 

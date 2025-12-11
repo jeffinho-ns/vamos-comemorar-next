@@ -3,11 +3,13 @@ import Image from "next/image";
 import { MdStar, MdPeople, MdTrendingUp, MdSecurity, MdSupport } from "react-icons/md";
 import Header from "../components/header/header";
 import Footer from "../components/footer/footer";
+import logoWhite from "@/app/assets/logo-agilizai-h.png";
+import logoBlue from "@/app/assets/logo-agilizai-h.png";
 
 export default function QuemSomos() {
   return (
     <>
-      <Header />
+      <Header logo={logoWhite} />
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
       {/* Hero Section */}
       <div className="relative h-[400px] bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 flex items-center justify-center">
@@ -188,7 +190,7 @@ export default function QuemSomos() {
         </div>
       </div>
     </div>
-    <Footer />
+    <Footer logo={logoBlue} />
     </>
   );
 } 

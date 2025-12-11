@@ -4,19 +4,18 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import Image from "next/image";
-import SafeImage from "./components/SafeImage";
 import Link from "next/link";
 import Header from "./components/header/header";
 import Footer from "./components/footer/footer";
 // Importar logos diretamente da pasta assets para carregamento rápido
 import logoWhite from "@/app/assets/logo-agilizai-h.png";
 import logoBlue from "@/app/assets/logo-agilizai-h.png";
-import { 
-  MdRestaurant, 
-  MdQrCodeScanner, 
-  MdCheckCircle, 
-  MdEvent, 
-  MdPeople, 
+import {
+  MdRestaurant,
+  MdQrCodeScanner,
+  MdCheckCircle,
+  MdEvent,
+  MdPeople,
   MdMenuBook,
   MdDashboard,
   MdPhotoLibrary,
@@ -28,7 +27,7 @@ import {
   MdStar,
   MdLocationOn,
   MdPhone,
-  MdEmail
+  MdEmail,
 } from "react-icons/md";
 import { getImageUrl as getCloudinaryImageUrl } from "@/lib/imageConfig";
 
@@ -52,8 +51,11 @@ export default function Home() {
   const [establishments, setEstablishments] = useState<Establishment[]>([]);
   const [galleryImages, setGalleryImages] = useState<GalleryImage[]>([]);
   const [loading, setLoading] = useState(true);
-  
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL_LOCAL || 'https://vamos-comemorar-api.onrender.com';
+
+  const API_URL =
+    process.env.NEXT_PUBLIC_API_URL ||
+    process.env.NEXT_PUBLIC_API_URL_LOCAL ||
+    "https://vamos-comemorar-api.onrender.com";
 
   useEffect(() => {
     const fetchData = async () => {
@@ -62,23 +64,33 @@ export default function Home() {
         const placesResponse = await fetch(`${API_URL}/api/places`);
         if (placesResponse.ok) {
           const placesData = await placesResponse.json();
-          const places = Array.isArray(placesData) ? placesData : (placesData.data || []);
-          
-          const formattedPlaces: Establishment[] = places.slice(0, 6).map((place: any) => ({
-            id: place.id,
-            name: place.name || "Sem nome",
-            logo: place.logo ? `${API_URL}/uploads/${place.logo}` : "/images/default-logo.png",
-            address: place.street ? `${place.street}, ${place.number || ''}`.trim() : "Endereço não informado",
-            phone: place.phone || "(11) 99999-9999",
-            email: place.email || "contato@estabelecimento.com.br"
-          }));
-          
+          const places = Array.isArray(placesData)
+            ? placesData
+            : placesData.data || [];
+
+          const formattedPlaces: Establishment[] = places
+            .slice(0, 6)
+            .map((place: any) => ({
+              id: place.id,
+              name: place.name || "Sem nome",
+              logo: place.logo
+                ? `${API_URL}/uploads/${place.logo}`
+                : "/images/default-logo.png",
+              address: place.street
+                ? `${place.street}, ${place.number || ""}`.trim()
+                : "Endereço não informado",
+              phone: place.phone || "(11) 99999-9999",
+              email: place.email || "contato@estabelecimento.com.br",
+            }));
+
           setEstablishments(formattedPlaces);
         }
 
         // Buscar imagens da galeria
         try {
-          const galleryResponse = await fetch(`${API_URL}/api/cardapio/gallery/images`);
+          const galleryResponse = await fetch(
+            `${API_URL}/api/cardapio/gallery/images`
+          );
           if (galleryResponse.ok) {
             const galleryData = await galleryResponse.json();
             const images = galleryData.images || [];
@@ -105,69 +117,78 @@ export default function Home() {
     {
       icon: MdRestaurant,
       title: "Sistema de Reservas",
-      description: "Gestão completa de reservas normais e grandes grupos. Controle de mesas, áreas e horários em tempo real.",
-      color: "from-orange-500 to-red-500"
+      description:
+        "Gestão completa de reservas normais e grandes grupos. Controle de mesas, áreas e horários em tempo real.",
+      color: "from-orange-500 to-red-500",
     },
     {
       icon: MdMenuBook,
       title: "Cardápio Digital",
-      description: "Cardápio interativo com QR Code. Atualização em tempo real, categorias, subcategorias e gestão de itens.",
-      color: "from-blue-500 to-cyan-500"
+      description:
+        "Cardápio interativo com QR Code. Atualização em tempo real, categorias, subcategorias e gestão de itens.",
+      color: "from-blue-500 to-cyan-500",
     },
     {
       icon: MdQrCodeScanner,
       title: "Check-in Inteligente",
-      description: "Sistema de check-in via QR Code com validação de geolocalização. Controle de entrada rápido e seguro.",
-      color: "from-green-500 to-emerald-500"
+      description:
+        "Sistema de check-in via QR Code com validação de geolocalização. Controle de entrada rápido e seguro.",
+      color: "from-green-500 to-emerald-500",
     },
     {
       icon: MdPeople,
       title: "Listas de Convidados",
-      description: "Gestão completa de listas de convidados. Compartilhamento via link, QR Code e controle de presença.",
-      color: "from-purple-500 to-pink-500"
+      description:
+        "Gestão completa de listas de convidados. Compartilhamento via link, QR Code e controle de presença.",
+      color: "from-purple-500 to-pink-500",
     },
     {
       icon: MdEvent,
       title: "Gestão de Eventos",
-      description: "Criação e gestão de eventos únicos ou semanais. Integração com promoters e controle operacional completo.",
-      color: "from-yellow-500 to-orange-500"
+      description:
+        "Criação e gestão de eventos únicos ou semanais. Integração com promoters e controle operacional completo.",
+      color: "from-yellow-500 to-orange-500",
     },
     {
       icon: MdDashboard,
       title: "Painel Administrativo",
-      description: "Dashboard completo com métricas, relatórios, logs e controle total do estabelecimento.",
-      color: "from-indigo-500 to-purple-500"
+      description:
+        "Dashboard completo com métricas, relatórios, logs e controle total do estabelecimento.",
+      color: "from-indigo-500 to-purple-500",
     },
     {
       icon: MdPhotoLibrary,
       title: "Galeria de Imagens",
-      description: "Sistema centralizado de galeria de imagens. Upload, organização e reutilização de fotos.",
-      color: "from-pink-500 to-rose-500"
+      description:
+        "Sistema centralizado de galeria de imagens. Upload, organização e reutilização de fotos.",
+      color: "from-pink-500 to-rose-500",
     },
     {
       icon: MdLocalOffer,
       title: "Sistema de Brindes",
-      description: "Gestão de brindes e benefícios. Controle de estoque e distribuição automática.",
-      color: "from-teal-500 to-cyan-500"
-    }
+      description:
+        "Gestão de brindes e benefícios. Controle de estoque e distribuição automática.",
+      color: "from-teal-500 to-cyan-500",
+    },
   ];
 
   const benefits = [
     {
       icon: MdSpeed,
       title: "Performance",
-      description: "Sistema otimizado para alta performance e escalabilidade"
+      description: "Sistema otimizado para alta performance e escalabilidade",
     },
     {
       icon: MdSecurity,
       title: "Segurança",
-      description: "Autenticação robusta e controle de permissões por perfil"
+      description: "Autenticação robusta e controle de permissões por perfil",
     },
     {
       icon: MdTrendingUp,
       title: "Crescimento",
-      description: "Ferramentas para aumentar a receita e melhorar a experiência"
-    }
+      description:
+        "Ferramentas para aumentar a receita e melhorar a experiência",
+    },
   ];
 
   const getImageUrl = (image: GalleryImage) => {
@@ -181,23 +202,35 @@ export default function Home() {
   // Função para mapear nome do estabelecimento para sua rota
   const getEstablishmentRoute = (name: string): string => {
     const lowerName = name.toLowerCase();
-    if (lowerName.includes('justino')) return '/justino';
-    if (lowerName.includes('high') || lowerName.includes('highline')) return '/highline';
-    if (lowerName.includes('freguês') || lowerName.includes('fregues') || lowerName.includes('oh')) return '/ohfregues';
-    if (lowerName.includes('pracinha')) return '/pracinha';
+    if (lowerName.includes("justino")) return "/justino";
+    if (lowerName.includes("high") || lowerName.includes("highline"))
+      return "/highline";
+    if (
+      lowerName.includes("freguês") ||
+      lowerName.includes("fregues") ||
+      lowerName.includes("oh")
+    )
+      return "/ohfregues";
+    if (lowerName.includes("pracinha")) return "/pracinha";
     // Fallback para reservar se não encontrar
-    return '/reservar';
+    return "/reservar";
   };
 
   return (
     <>
-      <Header />
-      
+      {/* Passando a imagem estática 'logoWhite' como prop para o Header. 
+         Isso permite que o componente Next.js Image use o objeto estático e o atributo 'priority' 
+         para carregar instantaneamente o logo. */}
+      <Header logo={logoWhite} />
+
       {/* Hero Section */}
       <section className="relative min-h-screen flex items-center justify-center overflow-hidden bg-gradient-to-br from-gray-900 via-gray-800 to-black">
         <div className="absolute inset-0 z-0">
-          <SafeImage
-            src={getCloudinaryImageUrl('banner01.webp') || 'https://res.cloudinary.com/drjovtmuw/image/upload/v1765426017/vamos-comemorar-next/assets/vamos-comemorar-next/assets/banner01.webp'}
+          <Image
+            src={
+              getCloudinaryImageUrl("banner01.webp") ||
+              "https://res.cloudinary.com/drjovtmuw/image/upload/v1765426017/vamos-comemorar-next/assets/vamos-comemorar-next/assets/banner01.webp"
+            }
             alt="Background"
             fill
             className="object-cover opacity-30"
@@ -206,7 +239,7 @@ export default function Home() {
           />
           <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/40 to-black/60"></div>
         </div>
-        
+
         <div className="relative z-10 container mx-auto px-4 py-20 text-center w-full">
           <motion.div
             initial={{ scale: 0.8, opacity: 0 }}
@@ -214,17 +247,20 @@ export default function Home() {
             transition={{ duration: 0.8 }}
             className="mb-8 flex justify-center"
           >
-            <SafeImage 
-              src={getCloudinaryImageUrl('icone-ag.png') || 'https://res.cloudinary.com/drjovtmuw/image/upload/v1765426036/vamos-comemorar-next/assets/vamos-comemorar-next/assets/icone-ag.png'}
-              alt="Logo" 
-              width={200} 
-              height={200} 
+            <Image
+              src={
+                getCloudinaryImageUrl("icone-ag.png") ||
+                "https://res.cloudinary.com/drjovtmuw/image/upload/v1765426036/vamos-comemorar-next/assets/vamos-comemorar-next/assets/icone-ag.png"
+              }
+              alt="Logo"
+              width={200}
+              height={200}
               className="mx-auto mb-8 drop-shadow-2xl"
               priority
             />
           </motion.div>
-          
-          <motion.h1 
+
+          <motion.h1
             className="text-5xl md:text-7xl font-bold text-white mb-6 leading-tight"
             initial={{ y: 50, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
@@ -236,16 +272,18 @@ export default function Home() {
               para Estabelecimentos
             </span>
           </motion.h1>
-          
-          <motion.p 
+
+          <motion.p
             className="text-xl md:text-2xl text-gray-300 max-w-3xl mx-auto mb-12 leading-relaxed"
             initial={{ y: 50, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             transition={{ duration: 0.8, delay: 0.4 }}
           >
-            Transforme a gestão do seu estabelecimento com uma plataforma completa que integra reservas, cardápio digital, check-in, eventos e muito mais.
+            Transforme a gestão do seu estabelecimento com uma plataforma
+            completa que integra reservas, cardápio digital, check-in, eventos e
+            muito mais.
           </motion.p>
-          
+
           <motion.div
             className="flex flex-col sm:flex-row gap-6 justify-center items-center"
             initial={{ y: 50, opacity: 0 }}
@@ -282,7 +320,8 @@ export default function Home() {
               Funcionalidades <span className="text-orange-500">Completas</span>
             </h2>
             <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-              Uma plataforma completa com todas as ferramentas que você precisa para gerenciar seu estabelecimento
+              Uma plataforma completa com todas as ferramentas que você precisa
+              para gerenciar seu estabelecimento
             </p>
           </motion.div>
 
@@ -296,7 +335,9 @@ export default function Home() {
                 transition={{ duration: 0.6, delay: index * 0.1 }}
                 className="bg-white rounded-2xl p-8 shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 border border-gray-100"
               >
-                <div className={`w-16 h-16 rounded-xl bg-gradient-to-r ${feature.color} flex items-center justify-center mb-6 mx-auto`}>
+                <div
+                  className={`w-16 h-16 rounded-xl bg-gradient-to-r ${feature.color} flex items-center justify-center mb-6 mx-auto`}
+                >
                   <feature.icon className="text-white text-3xl" />
                 </div>
                 <h3 className="text-xl font-bold text-gray-900 mb-3 text-center">
@@ -340,7 +381,7 @@ export default function Home() {
                   transition={{ duration: 0.5, delay: index * 0.1 }}
                   className="relative aspect-square rounded-xl overflow-hidden group cursor-pointer"
                 >
-                  <SafeImage
+                  <Image
                     src={getImageUrl(image)}
                     alt={`Galeria ${index + 1}`}
                     fill
@@ -385,7 +426,7 @@ export default function Home() {
                   className="bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2"
                 >
                   <div className="relative h-48 bg-gradient-to-r from-orange-500 to-red-500">
-                    <SafeImage
+                    <Image
                       src={establishment.logo}
                       alt={establishment.name}
                       fill
@@ -436,10 +477,12 @@ export default function Home() {
             className="text-center mb-16"
           >
             <h2 className="text-4xl md:text-5xl font-bold mb-4">
-              Por que escolher nossa <span className="text-orange-400">plataforma?</span>
+              Por que escolher nossa{" "}
+              <span className="text-orange-400">plataforma?</span>
             </h2>
             <p className="text-xl text-gray-400 max-w-2xl mx-auto">
-              Tecnologia de ponta para transformar a gestão do seu estabelecimento
+              Tecnologia de ponta para transformar a gestão do seu
+              estabelecimento
             </p>
           </motion.div>
 
@@ -477,7 +520,8 @@ export default function Home() {
               Pronto para transformar seu estabelecimento?
             </h2>
             <p className="text-xl text-white/90 mb-10 max-w-2xl mx-auto">
-              Entre em contato conosco e descubra como nossa plataforma pode revolucionar a gestão do seu negócio
+              Entre em contato conosco e descubra como nossa plataforma pode
+              revolucionar a gestão do seu negócio
             </p>
             <div className="flex flex-col sm:flex-row gap-6 justify-center">
               <Link href="/reservar">
@@ -497,7 +541,9 @@ export default function Home() {
         </div>
       </section>
 
-      <Footer />
+      {/* Passando a imagem estática 'logoBlue' como prop para o Footer. 
+         Assumimos que o Footer.tsx foi modificado para receber essa prop. */}
+      <Footer logo={logoBlue} />
     </>
   );
 }

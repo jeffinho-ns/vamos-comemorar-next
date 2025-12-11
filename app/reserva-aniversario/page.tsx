@@ -3,7 +3,6 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import SafeImage from '../components/SafeImage';
 import {
   FaBirthdayCake, FaPalette, FaGift, FaGlassCheers, FaUtensils, FaInfoCircle, FaExclamationTriangle,
   FaCheck, FaUser, FaImage, FaPlus, FaMinus, FaArrowLeft, FaArrowRight
@@ -256,7 +255,7 @@ export default function ReservaAniversarioPage() {
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
       {/* Header */}
       <div className="relative h-80 sm:h-96 overflow-hidden">
-        <SafeImage
+        <Image
           src="/agilizai/niver.jpeg" 
           alt="Reserve seu Aniversário"
           fill
@@ -422,7 +421,7 @@ export default function ReservaAniversarioPage() {
                   }`}
                 >
                   <div className="h-32 relative overflow-hidden rounded-lg mb-4">
-                    <SafeImage
+                    <Image
                       src={option.image}
                       alt={option.name}
                       fill
@@ -496,7 +495,7 @@ export default function ReservaAniversarioPage() {
                           : 'border-slate-600 hover:border-orange-400'
                       }`}
                     >
-                      <SafeImage
+                      <Image
                         src={image}
                         alt={`Painel ${index + 1}`}
                         fill
@@ -693,7 +692,7 @@ export default function ReservaAniversarioPage() {
                     }`}
                   >
                     <div className="h-32 relative overflow-hidden rounded-lg mb-4">
-                      <SafeImage
+                      <Image
                         src={gift.image}
                         alt={gift.name}
                         fill

@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import Image from "next/image";
-import SafeImage from "../components/SafeImage";
 import { 
   MdLocationOn, 
   MdStar, 
@@ -49,7 +48,7 @@ export default function ReservaRooftopPage() {
     <div className="min-h-screen bg-gray-900">
       {/* Hero Section */}
       <div className="relative h-screen overflow-hidden">
-        <SafeImage
+        <Image
           src={capaReservaRooftop}
           alt="Reserva Rooftop"
           fill
@@ -84,7 +83,7 @@ export default function ReservaRooftopPage() {
           >
             <div className="flex items-center gap-4 mb-6">
               <div className="w-20 h-20 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center">
-                <SafeImage
+                <Image
                   src={logoReservaRooftop}
                   alt="Logo Reserva Rooftop"
                   width={60}
