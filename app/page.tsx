@@ -27,8 +27,7 @@ import {
   MdPhone,
   MdEmail
 } from "react-icons/md";
-import logoBanner from "@/app/assets/icone-ag.png";
-import imgBanner from "@/app/assets/banner01.webp";
+import { getImageUrl as getCloudinaryImageUrl } from "@/lib/imageConfig";
 
 interface Establishment {
   id: number;
@@ -195,7 +194,7 @@ export default function Home() {
       <section className="relative min-h-screen flex items-center justify-center overflow-hidden bg-gradient-to-br from-gray-900 via-gray-800 to-black">
         <div className="absolute inset-0 z-0">
           <SafeImage
-            src={imgBanner}
+            src={getCloudinaryImageUrl('banner01.webp') || '/app/assets/banner01.webp'}
             alt="Background"
             fill
             className="object-cover opacity-30"
@@ -213,7 +212,7 @@ export default function Home() {
             className="mb-8 flex justify-center"
           >
             <SafeImage 
-              src={logoBanner} 
+              src={getCloudinaryImageUrl('icone-ag.png') || '/app/assets/icone-ag.png'}
               alt="Logo" 
               width={200} 
               height={200} 
