@@ -194,7 +194,7 @@ export default function Home() {
       <section className="relative min-h-screen flex items-center justify-center overflow-hidden bg-gradient-to-br from-gray-900 via-gray-800 to-black">
         <div className="absolute inset-0 z-0">
           <SafeImage
-            src={getCloudinaryImageUrl('banner01.webp') || '/app/assets/banner01.webp'}
+            src={getCloudinaryImageUrl('banner01.webp') || 'https://res.cloudinary.com/drjovtmuw/image/upload/v1765426017/vamos-comemorar-next/assets/vamos-comemorar-next/assets/banner01.webp'}
             alt="Background"
             fill
             className="object-cover opacity-30"
@@ -212,7 +212,7 @@ export default function Home() {
             className="mb-8 flex justify-center"
           >
             <SafeImage 
-              src={getCloudinaryImageUrl('icone-ag.png') || '/app/assets/icone-ag.png'}
+              src={getCloudinaryImageUrl('icone-ag.png') || 'https://res.cloudinary.com/drjovtmuw/image/upload/v1765426036/vamos-comemorar-next/assets/vamos-comemorar-next/assets/icone-ag.png'}
               alt="Logo" 
               width={200} 
               height={200} 
