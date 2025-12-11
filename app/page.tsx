@@ -29,7 +29,8 @@ import {
   MdPhone,
   MdEmail,
 } from "react-icons/md";
-import { getImageUrl as getCloudinaryImageUrl } from "@/lib/imageConfig";
+import bannerBackground from "@/app/assets/banner01.webp";
+import iconAg from "@/app/assets/icone-ag.png";
 
 interface Establishment {
   id: number;
@@ -89,19 +90,42 @@ export default function Home() {
         // Buscar imagens da galeria
         try {
           const galleryResponse = await fetch(
-            `${API_URL}/api/cardapio/gallery/images`
+            `${API_URL}/api/cardapio/gallery/images`,
+            {
+              method: 'GET',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+            }
           );
+          
           if (galleryResponse.ok) {
             const galleryData = await galleryResponse.json();
-            const images = galleryData.images || [];
-            // Pegar apenas imagens com URL válida e limitar a 12
-            const validImages = images
-              .filter((img: GalleryImage) => img.url || img.filename)
-              .slice(0, 12);
-            setGalleryImages(validImages);
+            console.log('📸 Galeria de imagens recebida:', galleryData);
+            
+            // Verificar diferentes formatos de resposta
+            const images = galleryData.images || galleryData.data || [];
+            
+            if (Array.isArray(images) && images.length > 0) {
+              // Pegar apenas imagens com URL válida ou filename e limitar a 12
+              const validImages = images
+                .filter((img: GalleryImage) => {
+                  const hasUrl = img.url && (img.url.startsWith('http') || img.url.startsWith('/'));
+                  const hasFilename = img.filename && img.filename.trim() !== '';
+                  return hasUrl || hasFilename;
+                })
+                .slice(0, 12);
+              
+              console.log(`✅ ${validImages.length} imagens válidas encontradas na galeria`);
+              setGalleryImages(validImages);
+            } else {
+              console.log('⚠️ Galeria retornou sem imagens ou array vazio');
+            }
+          } else {
+            console.warn(`⚠️ Erro ao buscar galeria: ${galleryResponse.status} - ${galleryResponse.statusText}`);
           }
         } catch (galleryError) {
-          console.log("Galeria não disponível, usando imagens padrão");
+          console.error("❌ Erro ao buscar galeria de imagens:", galleryError);
         }
       } catch (error) {
         console.error("Erro ao carregar dados:", error);
@@ -192,8 +216,25 @@ export default function Home() {
   ];
 
   const getImageUrl = (image: GalleryImage) => {
-    if (image.url) return image.url;
+    // Se já tem URL completa, retornar
+    if (image.url && (image.url.startsWith('http://') || image.url.startsWith('https://'))) {
+      return image.url;
+    }
+    // Se tem URL relativa, construir caminho completo
+    if (image.url && image.url.startsWith('/')) {
+      return `${API_URL}${image.url}`;
+    }
+    // Se tem filename, construir URL do upload
     if (image.filename) {
+      // Se filename já é uma URL completa, retornar
+      if (image.filename.startsWith('http://') || image.filename.startsWith('https://')) {
+        return image.filename;
+      }
+      // Se filename começa com /, adicionar API_URL
+      if (image.filename.startsWith('/')) {
+        return `${API_URL}${image.filename}`;
+      }
+      // Caso contrário, construir URL padrão de uploads
       return `${API_URL}/uploads/${image.filename}`;
     }
     return "/images/default-logo.png";
@@ -227,10 +268,7 @@ export default function Home() {
       <section className="relative min-h-screen flex items-center justify-center overflow-hidden bg-gradient-to-br from-gray-900 via-gray-800 to-black">
         <div className="absolute inset-0 z-0">
           <Image
-            src={
-              getCloudinaryImageUrl("banner01.webp") ||
-              "https://res.cloudinary.com/drjovtmuw/image/upload/v1765426017/vamos-comemorar-next/assets/vamos-comemorar-next/assets/banner01.webp"
-            }
+            src={bannerBackground}
             alt="Background"
             fill
             className="object-cover opacity-30"
@@ -248,10 +286,7 @@ export default function Home() {
             className="mb-8 flex justify-center"
           >
             <Image
-              src={
-                getCloudinaryImageUrl("icone-ag.png") ||
-                "https://res.cloudinary.com/drjovtmuw/image/upload/v1765426036/vamos-comemorar-next/assets/vamos-comemorar-next/assets/icone-ag.png"
-              }
+              src={iconAg}
               alt="Logo"
               width={200}
               height={200}
