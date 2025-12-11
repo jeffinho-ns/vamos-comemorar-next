@@ -66,7 +66,7 @@ export default function Footer({ logo }: FooterProps) {
                 alt="Logo Agilizai Footer"
                 width={200}
                 height={60}
-                className="filter brightness-0 invert"
+                className="filter"
               />
             </Link>
             <p className="text-gray-300 leading-relaxed">

@@ -2,7 +2,14 @@
 
 import { useState, useEffect } from "react";
 import Image, { StaticImageData } from "next/image";
-import { MdLocationOn, MdInfoOutline, MdEvent, MdStar, MdAccessTime, MdPhone } from "react-icons/md";
+import {
+  MdLocationOn,
+  MdInfoOutline,
+  MdEvent,
+  MdStar,
+  MdAccessTime,
+  MdPhone,
+} from "react-icons/md";
 import Footer from "../components/footer/footer";
 import Header from "../components/header/header";
 import imgBanner from "@/app/assets/pracinha/capa-pracinha.jpg";
@@ -33,8 +40,8 @@ import icon3 from "@/app/assets/icones/estacionamento.png";
 import icon4 from "@/app/assets/icones/18.png";
 import icon5 from "@/app/assets/icones/mesa.png";
 
-import Modal from '../components/ui/Modal';
-import { redirect } from 'next/navigation';
+import Modal from "../components/ui/Modal";
+import { redirect } from "next/navigation";
 
 interface SectionProps {
   title: string;
@@ -45,26 +52,28 @@ interface SectionProps {
 const Pracinha = () => {
   const [showDescription, setShowDescription] = useState(true);
   const [modalIsOpen, setModalIsOpen] = useState(false);
-  const [expandedImage, setExpandedImage] = useState<StaticImageData | null>(null);
+  const [expandedImage, setExpandedImage] = useState<StaticImageData | null>(
+    null
+  );
   const [user, setUser] = useState<any>(null);
 
-  useEffect(() => {
-    const token = localStorage.getItem('authToken');
-    if (!token) {
-      redirect('/login');
-    }
-  }, []);
+  // useEffect(() => {
+  //   const token = localStorage.getItem('authToken');
+  //   if (!token) {
+  //     redirect('/login');
+  //   }
+  // }, []);
 
   const toggleContent = (content: string) => {
     setShowDescription(content === "sobre");
   };
 
   const openModal = () => {
-    localStorage.setItem('logo', logoNew.src);
-    localStorage.setItem('localInfo', 'Rua das Flores, 123 - Centro');
+    localStorage.setItem("logo", logoNew.src);
+    localStorage.setItem("localInfo", "Rua das Flores, 123 - Centro");
     setModalIsOpen(true);
   };
-  
+
   const closeModal = () => setModalIsOpen(false);
 
   const openImage = (img: StaticImageData) => setExpandedImage(img);
@@ -94,15 +103,15 @@ const Pracinha = () => {
           priority
         />
         <div className="absolute inset-0 bg-gradient-to-br from-gray-900/70 via-gray-800/70 to-gray-900/70"></div>
-        
+
         {/* Navigation Buttons */}
         <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 z-10">
           <div className="flex space-x-4">
             <button
               className={`px-6 py-3 rounded-xl font-semibold transition-all duration-200 flex items-center gap-2 ${
-                showDescription 
-                  ? 'bg-gradient-to-r from-yellow-500 to-yellow-600 text-gray-900 shadow-lg' 
-                  : 'bg-white/20 backdrop-blur-sm text-white hover:bg-white/30'
+                showDescription
+                  ? "bg-gradient-to-r from-yellow-500 to-yellow-600 text-gray-900 shadow-lg"
+                  : "bg-white/20 backdrop-blur-sm text-white hover:bg-white/30"
               }`}
               onClick={() => toggleContent("sobre")}
             >
@@ -111,9 +120,9 @@ const Pracinha = () => {
             </button>
             <button
               className={`px-6 py-3 rounded-xl font-semibold transition-all duration-200 flex items-center gap-2 ${
-                !showDescription 
-                  ? 'bg-gradient-to-r from-yellow-500 to-yellow-600 text-gray-900 shadow-lg' 
-                  : 'bg-white/20 backdrop-blur-sm text-white hover:bg-white/30'
+                !showDescription
+                  ? "bg-gradient-to-r from-yellow-500 to-yellow-600 text-gray-900 shadow-lg"
+                  : "bg-white/20 backdrop-blur-sm text-white hover:bg-white/30"
               }`}
               onClick={() => toggleContent("eventos")}
             >
@@ -150,26 +159,60 @@ const Pracinha = () => {
             {/* Middle Column - Logo */}
             <div className="flex justify-center">
               <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-200/20">
-                <Image src={logoNew} alt="Pracinha Logo" width={200} height={200} className="rounded-xl" />
+                <Image
+                  src={logoNew}
+                  alt="Pracinha Logo"
+                  width={200}
+                  height={200}
+                  className="rounded-xl"
+                />
               </div>
             </div>
 
             {/* Right Column - Features */}
             <div className="grid grid-cols-2 gap-4">
               <div className="bg-gradient-to-r from-blue-50 to-blue-100 p-4 rounded-xl text-center">
-                <Image src={icon1} width={40} height={40} alt="Área aberta" className="mx-auto mb-2" />
-                <p className="text-sm font-semibold text-gray-800">Área aberta</p>
+                <Image
+                  src={icon1}
+                  width={40}
+                  height={40}
+                  alt="Área aberta"
+                  className="mx-auto mb-2"
+                />
+                <p className="text-sm font-semibold text-gray-800">
+                  Área aberta
+                </p>
               </div>
               <div className="bg-gradient-to-r from-green-50 to-green-100 p-4 rounded-xl text-center">
-                <Image src={icon2} width={40} height={40} alt="Acessível" className="mx-auto mb-2" />
+                <Image
+                  src={icon2}
+                  width={40}
+                  height={40}
+                  alt="Acessível"
+                  className="mx-auto mb-2"
+                />
                 <p className="text-sm font-semibold text-gray-800">Acessível</p>
               </div>
               <div className="bg-gradient-to-r from-purple-50 to-purple-100 p-4 rounded-xl text-center">
-                <Image src={icon3} width={40} height={40} alt="Estacionamento" className="mx-auto mb-2" />
-                <p className="text-sm font-semibold text-gray-800">Estacionamento</p>
+                <Image
+                  src={icon3}
+                  width={40}
+                  height={40}
+                  alt="Estacionamento"
+                  className="mx-auto mb-2"
+                />
+                <p className="text-sm font-semibold text-gray-800">
+                  Estacionamento
+                </p>
               </div>
               <div className="bg-gradient-to-r from-red-50 to-red-100 p-4 rounded-xl text-center">
-                <Image src={icon4} width={40} height={40} alt="+18" className="mx-auto mb-2" />
+                <Image
+                  src={icon4}
+                  width={40}
+                  height={40}
+                  alt="+18"
+                  className="mx-auto mb-2"
+                />
                 <p className="text-sm font-semibold text-gray-800">+18</p>
               </div>
             </div>
@@ -177,8 +220,8 @@ const Pracinha = () => {
 
           {/* Reserve Button */}
           <div className="text-center mt-8">
-            <button 
-              onClick={openModal} 
+            <button
+              onClick={openModal}
               className="bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-600 hover:to-yellow-700 text-gray-900 px-8 py-4 rounded-xl font-bold text-lg transition-all duration-200 transform hover:scale-105 shadow-lg"
             >
               🎉 Fazer Reserva
@@ -191,15 +234,20 @@ const Pracinha = () => {
       <div className="bg-gradient-to-br from-gray-50 to-gray-100 py-16">
         <div className="container mx-auto px-8">
           <div className="max-w-4xl mx-auto">
-            <h2 className="text-3xl font-bold text-gray-800 mb-6 text-center">Sobre a Pracinha</h2>
+            <h2 className="text-3xl font-bold text-gray-800 mb-6 text-center">
+              Sobre a Pracinha
+            </h2>
             <p className="text-gray-700 text-lg leading-relaxed text-center">
-              A Pracinha é um espaço único que combina a tradição dos bares de rua com a modernidade 
-              dos estabelecimentos contemporâneos. Localizada no coração da cidade, oferece uma 
-              experiência gastronômica excepcional com pratos típicos da culinária brasileira e 
-              internacionais. O ambiente acolhedor e a decoração rústica criam uma atmosfera 
-              perfeita para encontros com amigos, happy hours e celebrações especiais. Com música 
-              ao vivo nos fins de semana e uma carta de bebidas diversificada, a Pracinha é o lugar 
-              ideal para quem busca qualidade, bom atendimento e momentos inesquecíveis.
+              A Pracinha é um espaço único que combina a tradição dos bares de
+              rua com a modernidade dos estabelecimentos contemporâneos.
+              Localizada no coração da cidade, oferece uma experiência
+              gastronômica excepcional com pratos típicos da culinária
+              brasileira e internacionais. O ambiente acolhedor e a decoração
+              rústica criam uma atmosfera perfeita para encontros com amigos,
+              happy hours e celebrações especiais. Com música ao vivo nos fins
+              de semana e uma carta de bebidas diversificada, a Pracinha é o
+              lugar ideal para quem busca qualidade, bom atendimento e momentos
+              inesquecíveis.
             </p>
           </div>
         </div>
@@ -209,7 +257,9 @@ const Pracinha = () => {
       {!showDescription && (
         <div className="bg-white py-16">
           <div className="container mx-auto px-8">
-            <h2 className="text-3xl font-bold text-gray-800 mb-8 text-center">Programação de Eventos</h2>
+            <h2 className="text-3xl font-bold text-gray-800 mb-8 text-center">
+              Programação de Eventos
+            </h2>
             <Programacao
               barId={5}
               logo={logoImage.src}
@@ -246,7 +296,9 @@ const Pracinha = () => {
       {/* Map Section */}
       <div className="bg-gray-50 py-16">
         <div className="container mx-auto px-8">
-          <h2 className="text-3xl font-bold text-gray-800 mb-8 text-center">Localização</h2>
+          <h2 className="text-3xl font-bold text-gray-800 mb-8 text-center">
+            Localização
+          </h2>
           <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
             <iframe
               src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3658.8531229789736!2d-46.70965078450384!3d-23.504566264570394!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x94cef8c55b0f2e7b%3A0x6b9156a1e51233b3!2sLargo%20da%20Matriz%20de%20Nossa%20Senhora%20do%20%C3%93%2C%20145%20-%20Freguesia%20do%20%C3%93%2C%20S%C3%A3o%20Paulo%20-%20SP%2C%2002925-040!5e0!3m2!1sen!2sbr!4v1625157527756!5m2!1sen!2sbr"
@@ -274,12 +326,20 @@ const Pracinha = () => {
             <div className="bg-white/10 backdrop-blur-sm p-6 rounded-2xl">
               <MdLocationOn className="text-3xl text-yellow-400 mx-auto mb-4" />
               <h3 className="text-xl font-semibold mb-2">Endereço</h3>
-              <p className="text-gray-300">Rua das Flores, 123<br />Centro</p>
+              <p className="text-gray-300">
+                Rua das Flores, 123
+                <br />
+                Centro
+              </p>
             </div>
             <div className="bg-white/10 backdrop-blur-sm p-6 rounded-2xl">
               <MdAccessTime className="text-3xl text-yellow-400 mx-auto mb-4" />
               <h3 className="text-xl font-semibold mb-2">Horário</h3>
-              <p className="text-gray-300">Seg - Dom<br />18h às 02:30</p>
+              <p className="text-gray-300">
+                Seg - Dom
+                <br />
+                18h às 02:30
+              </p>
             </div>
           </div>
         </div>
@@ -312,9 +372,9 @@ const Pracinha = () => {
       )}
 
       {/* Profile Modal */}
-      <Profile 
-        isOpen={modalIsOpen} 
-        onRequestClose={closeModal} 
+      <Profile
+        isOpen={modalIsOpen}
+        onRequestClose={closeModal}
         addUser={addUser}
         user={user}
         userType={user?.type}
@@ -337,10 +397,10 @@ const Section: React.FC<SectionProps> = ({ title, images, openImage }) => (
           className="group cursor-pointer overflow-hidden rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
           onClick={() => openImage(img)}
         >
-          <Image 
-            src={img} 
-            alt={title} 
-            className="w-full h-64 object-cover group-hover:scale-110 transition-transform duration-300" 
+          <Image
+            src={img}
+            alt={title}
+            className="w-full h-64 object-cover group-hover:scale-110 transition-transform duration-300"
           />
         </div>
       ))}
@@ -348,4 +408,4 @@ const Section: React.FC<SectionProps> = ({ title, images, openImage }) => (
   </div>
 );
 
-export default Pracinha; 
+export default Pracinha;
