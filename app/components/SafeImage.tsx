@@ -75,7 +75,55 @@ export default function SafeImage({
 
   // Verificar se é URL externa (Cloudinary ou outras URLs HTTP)
   const isExternalUrl = typeof imageSrc === 'string' && (imageSrc.startsWith('http://') || imageSrc.startsWith('https://'));
+  
+  // Para imagens locais estáticas importadas (StaticImageData), usar img HTML diretamente para evitar erro 402
+  // Imagens locais já estão otimizadas no build e não precisam do otimizador do Next.js
+  // StaticImageData sempre tem um src que aponta para /_next/static/media/...
+  const isLocalStaticImage = isStaticImage;
 
+  // Se for imagem local estática, usar img HTML padrão
+  if (isLocalStaticImage) {
+    if (fill) {
+      return (
+        <div className="relative w-full h-full">
+          {isLoading && (
+            <div className="absolute inset-0 bg-gray-200 animate-pulse flex items-center justify-center z-0">
+              <div className="w-8 h-8 border-4 border-gray-400 border-t-transparent rounded-full animate-spin"></div>
+            </div>
+          )}
+          <img
+            src={imageSrc}
+            alt={alt}
+            className={`${className} ${isLoading ? 'opacity-0' : 'opacity-100'} transition-opacity duration-300`}
+            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+            onError={handleError}
+            onLoad={handleLoad}
+          />
+        </div>
+      );
+    }
+
+    return (
+      <div className="relative" style={{ width, height }}>
+        {isLoading && (
+          <div className="absolute inset-0 bg-gray-200 animate-pulse flex items-center justify-center z-0">
+            <div className="w-8 h-8 border-4 border-gray-400 border-t-transparent rounded-full animate-spin"></div>
+          </div>
+        )}
+        <img
+          src={imageSrc}
+          alt={alt}
+          width={width}
+          height={height}
+          className={`${className} ${isLoading ? 'opacity-0' : 'opacity-100'} transition-opacity duration-300`}
+          onError={handleError}
+          onLoad={handleLoad}
+        />
+      </div>
+    );
+  }
+
+  // Para URLs externas, usar Image do Next.js com unoptimized
   if (fill) {
     return (
       <div className="relative w-full h-full">
@@ -93,7 +141,7 @@ export default function SafeImage({
           priority={priority}
           onError={handleError}
           onLoad={handleLoad}
-          unoptimized={isExternalUrl}
+          unoptimized={true}
         />
       </div>
     );
@@ -115,7 +163,7 @@ export default function SafeImage({
         priority={priority}
         onError={handleError}
         onLoad={handleLoad}
-        unoptimized={isExternalUrl}
+        unoptimized={true}
       />
     </div>
   );

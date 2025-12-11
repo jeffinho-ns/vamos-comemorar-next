@@ -1,6 +1,6 @@
 import React from "react";
 import logoBlue from "../../assets/logo-agilizai-h.png";
-import Image from "next/image";
+import SafeImage from "../SafeImage";
 import Link from "next/link";
 import { FaFacebookF, FaTwitter, FaInstagram, FaLinkedin } from "react-icons/fa";
 import { MdLocationOn, MdEmail, MdPhone, MdAccessTime } from "react-icons/md";
@@ -50,7 +50,7 @@ export default function App() {
           {/* Company Info */}
           <div className="space-y-6">
             <Link href="/" className="inline-block">
-              <Image src={logoBlue} alt="Logo" width={200} className="filter brightness-0 invert" />
+              <SafeImage src={logoBlue} alt="Logo" width={200} className="filter brightness-0 invert" />
             </Link>
             <p className="text-gray-300 leading-relaxed">
               A missão da Agilizaí App é facilitar o agendamento de

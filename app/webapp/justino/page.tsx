@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Image, { StaticImageData } from "next/image";
+import SafeImage from "../../components/SafeImage";
 import { MdLocationOn, MdInfoOutline, MdEvent } from "react-icons/md";
 import Footer from "../components/footer/footer";
 import HeaderLike from "../components/headerLike/headerLike";
@@ -293,10 +294,12 @@ const Section: React.FC<SectionProps> = ({ title, images, openImage }) => {
             className={styles.imageContainer}
             onClick={() => openImage(image)}
           >
-            <Image
+            <SafeImage
               src={image}
               alt={`${title} ${index + 1}`}
               className={styles.image}
+              width={400}
+              height={300}
             />
           </div>
         ))}

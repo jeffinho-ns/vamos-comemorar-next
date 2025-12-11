@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import Image from "next/image";
+import SafeImage from "../SafeImage";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FaFacebookF, FaInstagram } from "react-icons/fa";
@@ -55,7 +55,7 @@ const Header: React.FC = () => {
       <div className="px-8 py-4 container mx-auto flex justify-between items-center">
         <div className="flex items-center">
           <Link href="/" className="transition-transform duration-200 hover:scale-105">
-            <Image src={logoWhite} alt="Logo" className="w-32 md:w-40" />
+            <SafeImage src={logoWhite} alt="Logo" width={160} height={60} className="w-32 md:w-40" />
           </Link>
           <div className="hidden md:flex items-center ml-10 space-x-8">
             <Link 
