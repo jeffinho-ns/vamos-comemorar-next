@@ -205,12 +205,12 @@ export default function Home() {
           <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/40 to-black/60"></div>
         </div>
         
-        <div className="relative z-10 container mx-auto px-4 py-20 text-center">
+        <div className="relative z-10 container mx-auto px-4 py-20 text-center w-full">
           <motion.div
             initial={{ scale: 0.8, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             transition={{ duration: 0.8 }}
-            className="mb-8"
+            className="mb-8 flex justify-center"
           >
             <SafeImage 
               src={logoBanner} 
@@ -218,6 +218,7 @@ export default function Home() {
               width={200} 
               height={200} 
               className="mx-auto mb-8 drop-shadow-2xl"
+              priority
             />
           </motion.div>
           

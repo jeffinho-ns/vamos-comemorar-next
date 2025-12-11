@@ -57,7 +57,7 @@ export default function DecoracaoAniversarioPage() {
       <div className="bg-slate-800 border-b border-slate-700 sticky top-0 z-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           {/* AJUSTE RESPONSIVO: Adicionado overflow-x-auto e ajustado o espaçamento */}
-          <nav className="flex space-x-4 sm:space-x-8 overflow-x-auto">
+          <nav className="flex space-x-2 sm:space-x-4 md:space-x-8 overflow-x-auto scrollbar-hide">
             {[
               { id: 'como-funciona', label: 'Como Funciona', icon: FaInfoCircle },
               { id: 'opcoes', label: 'Opções', icon: FaPalette },
@@ -70,13 +70,13 @@ export default function DecoracaoAniversarioPage() {
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
                   /* AJUSTE RESPONSIVO: Adicionado whitespace-nowrap para não quebrar o texto do botão */
-                  className={`py-4 px-1 border-b-2 font-medium text-sm flex items-center space-x-2 transition-colors whitespace-nowrap ${
+                  className={`py-4 px-2 sm:px-4 border-b-2 font-medium text-xs sm:text-sm flex items-center space-x-1 sm:space-x-2 transition-colors whitespace-nowrap flex-shrink-0 ${
                     activeTab === tab.id
                       ? 'border-orange-500 text-orange-500'
                       : 'border-transparent text-slate-300 hover:text-slate-200 hover:border-slate-300'
                   }`}
                 >
-                  <Icon className="text-lg" />
+                  <Icon className="text-base sm:text-lg" />
                   <span>{tab.label}</span>
                 </button>
               );
@@ -97,34 +97,34 @@ export default function DecoracaoAniversarioPage() {
               </p>
             </div>
 
-            <div className="grid md:grid-cols-3 gap-8">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
               {/* Cards de como funciona (já são responsivos por padrão) */}
-              <div className="bg-slate-800 p-6 sm:p-8 rounded-2xl border border-slate-700 text-center">
-                <div className="bg-orange-500 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-6">
-                  <FaPalette className="text-2xl text-white" />
+              <div className="bg-slate-800 p-6 sm:p-8 rounded-2xl border border-slate-700 text-center flex flex-col">
+                <div className="bg-orange-500 w-14 h-14 sm:w-16 sm:h-16 rounded-full flex items-center justify-center mx-auto mb-4 sm:mb-6 flex-shrink-0">
+                  <FaPalette className="text-xl sm:text-2xl text-white" />
                 </div>
-                <h3 className="text-xl font-bold text-white mb-4">1. Escolha sua Decoração</h3>
-                <p className="text-slate-300">
+                <h3 className="text-lg sm:text-xl font-bold text-white mb-3 sm:mb-4">1. Escolha sua Decoração</h3>
+                <p className="text-slate-300 text-sm sm:text-base">
                   Selecione entre nossos kits de decoração, com diferentes estilos e preços.
                 </p>
               </div>
 
-              <div className="bg-slate-800 p-6 sm:p-8 rounded-2xl border border-slate-700 text-center">
-                <div className="bg-orange-500 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-6">
-                  <FaGift className="text-2xl text-white" />
+              <div className="bg-slate-800 p-6 sm:p-8 rounded-2xl border border-slate-700 text-center flex flex-col">
+                <div className="bg-orange-500 w-14 h-14 sm:w-16 sm:h-16 rounded-full flex items-center justify-center mx-auto mb-4 sm:mb-6 flex-shrink-0">
+                  <FaGift className="text-xl sm:text-2xl text-white" />
                 </div>
-                <h3 className="text-xl font-bold text-white mb-4">2. Personalize seu Painel</h3>
-                <p className="text-slate-300">
+                <h3 className="text-lg sm:text-xl font-bold text-white mb-3 sm:mb-4">2. Personalize seu Painel</h3>
+                <p className="text-slate-300 text-sm sm:text-base">
                   Use um painel do nosso estoque ou crie um personalizado com seu tema e frase.
                 </p>
               </div>
 
-              <div className="bg-slate-800 p-6 sm:p-8 rounded-2xl border border-slate-700 text-center">
-                <div className="bg-orange-500 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-6">
-                  <FaGlassCheers className="text-2xl text-white" />
+              <div className="bg-slate-800 p-6 sm:p-8 rounded-2xl border border-slate-700 text-center flex flex-col sm:col-span-2 lg:col-span-1">
+                <div className="bg-orange-500 w-14 h-14 sm:w-16 sm:h-16 rounded-full flex items-center justify-center mx-auto mb-4 sm:mb-6 flex-shrink-0">
+                  <FaGlassCheers className="text-xl sm:text-2xl text-white" />
                 </div>
-                <h3 className="text-xl font-bold text-white mb-4">3. Adicione Extras</h3>
-                <p className="text-slate-300">
+                <h3 className="text-lg sm:text-xl font-bold text-white mb-3 sm:mb-4">3. Adicione Extras</h3>
+                <p className="text-slate-300 text-sm sm:text-base">
                   Complemente com bebidas, comidas e uma lista de presentes para sua festa.
                 </p>
               </div>
@@ -165,24 +165,24 @@ export default function DecoracaoAniversarioPage() {
               </p>
             </div>
 
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
               {decorationOptions.map((option, index) => (
-                <div key={index} className="bg-slate-800 rounded-2xl overflow-hidden border border-slate-700 hover:border-orange-500 transition-all hover:shadow-2xl hover:shadow-orange-500/20">
-                  <div className="h-48 relative overflow-hidden">
+                <div key={index} className="bg-slate-800 rounded-2xl overflow-hidden border border-slate-700 hover:border-orange-500 transition-all hover:shadow-2xl hover:shadow-orange-500/20 flex flex-col">
+                  <div className="h-48 sm:h-56 relative overflow-hidden flex-shrink-0">
                     <SafeImage src={option.image} alt={option.name} fill sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw" className="object-cover transition-transform hover:scale-110"/>
                     <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
                   </div>
-                  <div className="p-6">
-                    <h3 className="text-xl font-bold text-white mb-2">{option.name}</h3>
-                    <p className="text-3xl font-bold text-orange-500 mb-4">R$ {option.price.toFixed(2)}</p>
-                    <p className="text-slate-300 mb-4 text-sm sm:text-base">{option.description}</p>
+                  <div className="p-4 sm:p-6 flex flex-col flex-grow">
+                    <h3 className="text-lg sm:text-xl font-bold text-white mb-2">{option.name}</h3>
+                    <p className="text-2xl sm:text-3xl font-bold text-orange-500 mb-3 sm:mb-4">R$ {option.price.toFixed(2)}</p>
+                    <p className="text-slate-300 mb-4 text-sm sm:text-base flex-grow">{option.description}</p>
                     <div className="space-y-2">
                       <p className="text-sm font-semibold text-white">Inclui:</p>
-                      <ul className="text-sm text-slate-300 space-y-1">
+                      <ul className="text-xs sm:text-sm text-slate-300 space-y-1">
                         {option.includes.map((item, idx) => (
-                          <li key={idx} className="flex items-center">
-                            <span className="w-2 h-2 bg-orange-500 rounded-full mr-2"></span>
-                            {item}
+                          <li key={idx} className="flex items-start">
+                            <span className="w-2 h-2 bg-orange-500 rounded-full mr-2 mt-1.5 flex-shrink-0"></span>
+                            <span>{item}</span>
                           </li>
                         ))}
                       </ul>
