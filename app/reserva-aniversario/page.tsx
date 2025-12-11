@@ -74,7 +74,7 @@ export default function ReservaAniversarioPage() {
     { name: 'Decoração Pequena 1', price: 200.0, image: '/agilizai/kit-1.jpg', description: 'Decoração pequena estilo 1.' },
     { name: 'Decoração Pequena 2', price: 220.0, image: '/agilizai/kit-2.jpg', description: 'Decoração pequena estilo 2.' },
     { name: 'Decoração Media 3', price: 250.0, image: '/agilizai/kit-3.jpg', description: 'Decoração média estilo 3.' },
-    { name: 'Decoração Media 4', price: 270.0, image: '/assets/agilizai/kit-4.jpg', description: 'Decoração média estilo 4.' },
+    { name: 'Decoração Media 4', price: 270.0, image: '/agilizai/kit-4.jpg', description: 'Decoração média estilo 4.' },
     { name: 'Decoração Grande 5', price: 300.0, image: '/agilizai/kit-5.jpg', description: 'Decoração grande estilo 5.' },
     { name: 'Decoração Grande 6', price: 320.0, image: '/agilizai/kit-6.jpg', description: 'Decoração grande estilo 6.' },
   ];
@@ -255,21 +255,21 @@ export default function ReservaAniversarioPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
       {/* Header */}
-      <div className="relative h-96">
+      <div className="relative h-80 sm:h-96 overflow-hidden">
         <SafeImage
           src="/agilizai/niver.jpeg" 
           alt="Reserve seu Aniversário"
           fill
           sizes="100vw"
-          className="absolute z-0 object-cover"
+          className="object-cover"
           priority
         />
-        <div className="absolute inset-0 bg-gradient-to-r from-orange-500 to-red-500 opacity-70"></div>
-        <div className="relative z-10 flex items-center justify-center h-full">
-          <div className="text-center text-white">
-            <FaBirthdayCake className="text-6xl mx-auto mb-4" />
-            <h1 className="text-5xl font-bold mb-4">Reserve seu Aniversário 🎉</h1>
-            <p className="text-xl">Crie uma festa inesquecível com nossa decoração</p>
+        <div className="absolute inset-0 bg-gradient-to-r from-orange-500 to-red-500 opacity-70 z-10"></div>
+        <div className="absolute inset-0 z-20 flex items-center justify-center">
+          <div className="text-center text-white px-4 max-w-4xl mx-auto">
+            <FaBirthdayCake className="text-5xl sm:text-6xl mx-auto mb-4" />
+            <h1 className="text-4xl sm:text-5xl font-bold mb-4 break-words">Reserve seu Aniversário 🎉</h1>
+            <p className="text-lg sm:text-xl">Crie uma festa inesquecível com nossa decoração</p>
           </div>
         </div>
       </div>

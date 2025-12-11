@@ -77,18 +77,22 @@ export default function SafeImage({
   // Verificar se é URL externa (Cloudinary ou outras URLs HTTP)
   const isExternalUrl = typeof imageSrc === 'string' && (imageSrc.startsWith('http://') || imageSrc.startsWith('https://'));
   
-  // Para imagens locais estáticas importadas (StaticImageData), usar img HTML diretamente para evitar erro 402
-  // Imagens locais já estão otimizadas no build e não precisam do otimizador do Next.js
+  // Para imagens locais estáticas (StaticImageData ou arquivos da pasta public), usar img HTML diretamente
+  // Imagens da pasta public (começam com /) devem ser carregadas diretamente sem otimização
   // StaticImageData sempre tem um src que aponta para /_next/static/media/...
-  // Verificar também se o src começa com /_next/static/ ou / para garantir que é uma imagem local
-  const isLocalStaticImage = isStaticImage || (typeof imageSrc === 'string' && !isExternalUrl && (imageSrc.startsWith('/_next/static/') || imageSrc.startsWith('/')));
+  // Imagens da pasta public começam com / e não precisam de otimização
+  const isPublicImage = typeof imageSrc === 'string' && imageSrc.startsWith('/') && !imageSrc.startsWith('/_next/');
+  const isLocalStaticImage = isStaticImage || isPublicImage || (typeof imageSrc === 'string' && !isExternalUrl && imageSrc.startsWith('/_next/static/'));
 
   // Se for imagem local estática, usar img HTML padrão
   if (isLocalStaticImage) {
+    // Para imagens da pasta public, não mostrar loading spinner pois carregam instantaneamente
+    const isPublicStaticImage = isPublicImage;
+    
     if (fill) {
       return (
         <div className="relative w-full h-full" style={{ position: 'relative', width: '100%', height: '100%' }}>
-          {isLoading && (
+          {!isPublicStaticImage && isLoading && (
             <div className="absolute inset-0 bg-gray-200 animate-pulse flex items-center justify-center z-0">
               <div className="w-8 h-8 border-4 border-gray-400 border-t-transparent rounded-full animate-spin"></div>
             </div>
@@ -96,7 +100,7 @@ export default function SafeImage({
           <img
             src={imageSrc}
             alt={alt}
-            className={`${className} ${isLoading ? 'opacity-0' : 'opacity-100'} transition-opacity duration-300`}
+            className={`${className} ${!isPublicStaticImage && isLoading ? 'opacity-0' : 'opacity-100'} transition-opacity duration-300`}
             style={{ 
               position: 'absolute',
               top: 0,
@@ -105,6 +109,7 @@ export default function SafeImage({
               height: '100%',
               objectFit: className.includes('object-cover') ? 'cover' : className.includes('object-contain') ? 'contain' : className.includes('object-fill') ? 'fill' : 'cover'
             }}
+            loading={priority ? 'eager' : 'lazy'}
             onError={handleError}
             onLoad={handleLoad}
           />
@@ -114,7 +119,7 @@ export default function SafeImage({
 
     return (
       <div className="relative" style={{ width, height }}>
-        {isLoading && (
+        {!isPublicStaticImage && isLoading && (
           <div className="absolute inset-0 bg-gray-200 animate-pulse flex items-center justify-center z-0">
             <div className="w-8 h-8 border-4 border-gray-400 border-t-transparent rounded-full animate-spin"></div>
           </div>
@@ -124,8 +129,9 @@ export default function SafeImage({
           alt={alt}
           width={width}
           height={height}
-          className={`${className} ${isLoading ? 'opacity-0' : 'opacity-100'} transition-opacity duration-300`}
+          className={`${className} ${!isPublicStaticImage && isLoading ? 'opacity-0' : 'opacity-100'} transition-opacity duration-300`}
           style={{ display: 'block' }}
+          loading={priority ? 'eager' : 'lazy'}
           onError={handleError}
           onLoad={handleLoad}
         />
