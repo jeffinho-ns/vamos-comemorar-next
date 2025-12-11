@@ -19,6 +19,7 @@ import {
   MdPersonAdd
 } from 'react-icons/md';
 import PromoterEventosModal from '../../../components/PromoterEventosModal';
+import { useEstablishmentPermissions } from '@/app/hooks/useEstablishmentPermissions';
 
 interface Establishment {
   id: number;
@@ -68,6 +69,7 @@ type TabType = 'dashboard' | 'promoters' | 'listas' | 'hostess' | 'aniversarios'
 
 export default function EventosDashboard() {
   const router = useRouter();
+  const establishmentPermissions = useEstablishmentPermissions();
   const [loading, setLoading] = useState(true);
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
   const [activeTab, setActiveTab] = useState<TabType>('dashboard');
@@ -113,12 +115,20 @@ export default function EventosDashboard() {
         name: place.name || 'Sem nome'
       }));
 
-      setEstablishments(formatted);
+      // Filtrar estabelecimentos baseado nas permissões do usuário
+      const filteredEstablishments = establishmentPermissions.getFilteredEstablishments(formatted) as Establishment[];
+      setEstablishments(filteredEstablishments);
       
-      // NÃO seleciona nenhum por padrão - mostra todos os estabelecimentos
-      // if (formatted.length > 0 && !selectedEstablishment) {
-      //   setSelectedEstablishment(formatted[0]);
-      // }
+      // Se o usuário está restrito a um único estabelecimento, seleciona automaticamente
+      if (establishmentPermissions.isRestrictedToSingleEstablishment() && filteredEstablishments.length > 0) {
+        const defaultId = establishmentPermissions.getDefaultEstablishmentId();
+        if (defaultId && !selectedEstablishment) {
+          const defaultEst = filteredEstablishments.find(est => est.id === defaultId);
+          if (defaultEst) {
+            setSelectedEstablishment(defaultEst);
+          }
+        }
+      }
     } catch (error) {
       console.error('❌ Erro ao carregar estabelecimentos:', error);
       setError('Erro ao carregar estabelecimentos');
@@ -388,13 +398,24 @@ export default function EventosDashboard() {
               setSelectedEstablishment(estab || null);
             }}
             className="w-full md:w-96 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-base"
+            disabled={establishmentPermissions.isRestrictedToSingleEstablishment()}
           >
-            <option value="">🏢 Todos os estabelecimentos</option>
-            {establishments.map((est) => (
-              <option key={est.id} value={est.id}>
-                {est.name}
-              </option>
-            ))}
+            {establishmentPermissions.isRestrictedToSingleEstablishment() ? (
+              establishments.map((est) => (
+                <option key={est.id} value={est.id}>
+                  {est.name}
+                </option>
+              ))
+            ) : (
+              <>
+                <option value="">🏢 Todos os estabelecimentos</option>
+                {establishments.map((est) => (
+                  <option key={est.id} value={est.id}>
+                    {est.name}
+                  </option>
+                ))}
+              </>
+            )}
           </select>
         </div>
 

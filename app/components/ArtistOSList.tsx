@@ -12,12 +12,16 @@ interface ArtistOSListProps {
   details: OperationalDetail[];
   onRefresh: () => void;
   onAddNew: () => void;
+  canEdit?: boolean;
+  canCreate?: boolean;
 }
 
 export default function ArtistOSList({
   details,
   onRefresh,
-  onAddNew
+  onAddNew,
+  canEdit = true,
+  canCreate = true
 }: ArtistOSListProps) {
   const [viewingDetail, setViewingDetail] = useState<OperationalDetail | null>(null);
   const [editingDetail, setEditingDetail] = useState<OperationalDetail | null>(null);
@@ -151,23 +155,27 @@ export default function ArtistOSList({
       <div className="mb-6">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-2xl font-bold text-white">OS de Artista/Banda/DJ</h2>
-          <button
-            onClick={onAddNew}
-            className="bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white px-6 py-3 rounded-xl shadow-lg transition-all duration-200 transform hover:scale-105 font-semibold flex items-center gap-2"
-          >
-            <MdAdd size={20} /> Nova OS
-          </button>
+          {canCreate && (
+            <button
+              onClick={onAddNew}
+              className="bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white px-6 py-3 rounded-xl shadow-lg transition-all duration-200 transform hover:scale-105 font-semibold flex items-center gap-2"
+            >
+              <MdAdd size={20} /> Nova OS
+            </button>
+          )}
         </div>
 
         {artistOS.length === 0 ? (
           <div className="text-center py-12 bg-white/95 backdrop-blur-sm rounded-xl shadow-lg border border-gray-200/20">
             <p className="text-gray-500 mb-6">Nenhuma OS de Artista encontrada</p>
-            <button
-              onClick={onAddNew}
-              className="bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white px-6 py-3 rounded-xl shadow-lg transition-all duration-200 transform hover:scale-105 font-semibold flex items-center gap-2 mx-auto"
-            >
-              <MdAdd size={20} /> Criar Primeira OS
-            </button>
+            {canCreate && (
+              <button
+                onClick={onAddNew}
+                className="bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white px-6 py-3 rounded-xl shadow-lg transition-all duration-200 transform hover:scale-105 font-semibold flex items-center gap-2 mx-auto"
+              >
+                <MdAdd size={20} /> Criar Primeira OS
+              </button>
+            )}
           </div>
         ) : (
           <div className="space-y-4">
@@ -217,13 +225,15 @@ export default function ArtistOSList({
                     >
                       <MdVisibility size={20} />
                     </button>
-                    <button
-                      onClick={() => handleEdit(detail)}
-                      className="bg-green-500 hover:bg-green-600 text-white p-2 rounded-lg transition-colors"
-                      title="Editar"
-                    >
-                      <MdEdit size={20} />
-                    </button>
+                    {canEdit && (
+                      <button
+                        onClick={() => handleEdit(detail)}
+                        className="bg-green-500 hover:bg-green-600 text-white p-2 rounded-lg transition-colors"
+                        title="Editar"
+                      >
+                        <MdEdit size={20} />
+                      </button>
+                    )}
                     <button
                       onClick={() => handleOpenExportModal(detail)}
                       className="bg-purple-500 hover:bg-purple-600 text-white p-2 rounded-lg transition-colors"

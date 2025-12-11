@@ -11,6 +11,7 @@ import WaitlistModal from "../../components/WaitlistModal";
 import AddGuestListToReservationModal from "../../components/AddGuestListToReservationModal";
 import { Reservation } from "@/app/types/reservation";
 import { BirthdayService, BirthdayReservation } from "../../services/birthdayService";
+import { useEstablishmentPermissions } from '@/app/hooks/useEstablishmentPermissions';
 
 interface Establishment {
   id: number;
@@ -62,6 +63,7 @@ interface RestaurantArea {
 type TabType = 'reservations' | 'walk-ins' | 'waitlist' | 'guest-lists' | 'reports' | 'settings';
 
 export default function RestaurantReservationsPage() {
+  const establishmentPermissions = useEstablishmentPermissions();
   const [selectedEstablishment, setSelectedEstablishment] = useState<Establishment | null>(null);
   const [establishments, setEstablishments] = useState<Establishment[]>([]);
   const [activeTab, setActiveTab] = useState<TabType>('reservations');
@@ -87,25 +89,40 @@ export default function RestaurantReservationsPage() {
       const data = await response.json();
       console.log("Dados recebidos da API (places):", data);
       
+      let formattedEstablishments: Establishment[] = [];
+      
       if (Array.isArray(data)) {
-        const formattedEstablishments: Establishment[] = data.map((place: any) => ({
+        formattedEstablishments = data.map((place: any) => ({
           id: place.id,
           name: place.name || "Sem nome",
           logo: place.logo || '',
           address: place.street ? `${place.street}, ${place.number || ''}`.trim() : "Endereço não informado"
         }));
-        setEstablishments(formattedEstablishments);
       } else if (data.data && Array.isArray(data.data)) {
         // Se os dados vêm em um objeto com propriedade data
-        const formattedEstablishments: Establishment[] = data.data.map((place: any) => ({
+        formattedEstablishments = data.data.map((place: any) => ({
           id: place.id,
           name: place.name || "Sem nome",
           logo: place.logo || '',
           address: place.street ? `${place.street}, ${place.number || ''}`.trim() : "Endereço não informado"
         }));
-        setEstablishments(formattedEstablishments);
       } else {
         setError("Dados de estabelecimentos inválidos.");
+      }
+      
+      // Filtrar estabelecimentos baseado nas permissões do usuário
+      const filteredEstablishments = establishmentPermissions.getFilteredEstablishments(formattedEstablishments);
+      setEstablishments(filteredEstablishments);
+      
+      // Se o usuário está restrito a um único estabelecimento, seleciona automaticamente
+      if (establishmentPermissions.isRestrictedToSingleEstablishment() && filteredEstablishments.length > 0) {
+        const defaultId = establishmentPermissions.getDefaultEstablishmentId();
+        if (defaultId && !selectedEstablishment) {
+          const defaultEst = filteredEstablishments.find(est => est.id === defaultId);
+          if (defaultEst) {
+            setSelectedEstablishment(defaultEst);
+          }
+        }
       }
     } catch (error) {
       if (error instanceof Error) {
@@ -913,7 +930,7 @@ export default function RestaurantReservationsPage() {
           <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-2xl border border-gray-200/20 p-6 mb-8">
             <h2 className="text-2xl font-bold text-gray-800 mb-6">Selecione o Estabelecimento</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 admin-grid-4">
-              {establishments.map((establishment) => (
+              {establishmentPermissions.getFilteredEstablishments(establishments).map((establishment) => (
                 <button
                   key={establishment.id}
                   onClick={() => handleEstablishmentSelect(establishment)}

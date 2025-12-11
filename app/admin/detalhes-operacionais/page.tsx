@@ -20,9 +20,11 @@ import OperationalDetailsModal from '@/app/components/OperationalDetailsModal';
 import EventsModal from '@/app/components/EventsModal';
 import ArtistOSList from '@/app/components/ArtistOSList';
 import ArtistOSCreateModal from '@/app/components/ArtistOSCreateModal';
+import { useEstablishmentPermissions } from '@/app/hooks/useEstablishmentPermissions';
 
 export default function DetalhesOperacionaisPage() {
   const { establishments, loading: establishmentsLoading, fetchEstablishments } = useEstablishments();
+  const establishmentPermissions = useEstablishmentPermissions();
   const [details, setDetails] = useState<OperationalDetail[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -37,8 +39,25 @@ export default function DetalhesOperacionaisPage() {
 
   useEffect(() => {
     fetchEstablishments();
-    fetchDetails();
   }, []);
+
+  useEffect(() => {
+    // Se o usuário está restrito a um único estabelecimento, seleciona automaticamente
+    if (!establishmentPermissions.isLoading && establishmentPermissions.isRestrictedToSingleEstablishment()) {
+      const defaultId = establishmentPermissions.getDefaultEstablishmentId();
+      if (defaultId && !selectedEstablishment && establishments.length > 0) {
+        // Encontrar o estabelecimento correspondente
+        const est = establishments.find(e => {
+          const estId = typeof e.id === 'string' ? parseInt(e.id) : e.id;
+          return estId === defaultId;
+        });
+        if (est) {
+          const estId = typeof est.id === 'string' ? parseInt(est.id) : est.id;
+          setSelectedEstablishment(estId);
+        }
+      }
+    }
+  }, [establishmentPermissions.isLoading, establishments.length]);
 
   useEffect(() => {
     fetchDetails();
@@ -240,13 +259,24 @@ export default function DetalhesOperacionaisPage() {
                 value={selectedEstablishment || ''}
                 onChange={(e) => setSelectedEstablishment(e.target.value ? parseInt(e.target.value) : null)}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+                disabled={establishmentPermissions.isRestrictedToSingleEstablishment()}
               >
-                <option value="">Todos</option>
-                {establishments.map((est) => (
-                  <option key={est.id} value={est.id}>
-                    {est.name}
-                  </option>
-                ))}
+                {establishmentPermissions.isRestrictedToSingleEstablishment() ? (
+                  establishmentPermissions.getFilteredEstablishments(establishments).map((est) => (
+                    <option key={est.id} value={typeof est.id === 'string' ? parseInt(est.id) : est.id}>
+                      {est.name}
+                    </option>
+                  ))
+                ) : (
+                  <>
+                    <option value="">Todos</option>
+                    {establishmentPermissions.getFilteredEstablishments(establishments).map((est) => (
+                      <option key={est.id} value={typeof est.id === 'string' ? parseInt(est.id) : est.id}>
+                        {est.name}
+                      </option>
+                    ))}
+                  </>
+                )}
               </select>
             </div>
 
@@ -278,12 +308,14 @@ export default function DetalhesOperacionaisPage() {
               >
                 <MdEvent size={20} /> Ver Eventos
               </button>
-              <button
-                onClick={handleAdd}
-                className="bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-600 hover:to-yellow-700 text-gray-900 px-6 py-3 rounded-xl shadow-lg transition-all duration-200 transform hover:scale-105 font-semibold flex items-center gap-2"
-              >
-                <MdAdd size={20} /> Novo Detalhe
-              </button>
+              {establishmentPermissions.canCreateOperationalDetail() && (
+                <button
+                  onClick={handleAdd}
+                  className="bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-600 hover:to-yellow-700 text-gray-900 px-6 py-3 rounded-xl shadow-lg transition-all duration-200 transform hover:scale-105 font-semibold flex items-center gap-2"
+                >
+                  <MdAdd size={20} /> Novo Detalhe
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -300,7 +332,9 @@ export default function DetalhesOperacionaisPage() {
           <ArtistOSList
             details={details}
             onRefresh={fetchDetails}
-            onAddNew={() => setShowArtistOSCreateModal(true)}
+            onAddNew={() => establishmentPermissions.canCreateOS() && setShowArtistOSCreateModal(true)}
+            canEdit={establishmentPermissions.canEditOS()}
+            canCreate={establishmentPermissions.canCreateOS()}
           />
         </div>
 
@@ -346,31 +380,35 @@ export default function DetalhesOperacionaisPage() {
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => handleToggleActive(detail)}
-                    className={`p-2 rounded-lg transition-colors ${
-                      detail.is_active
-                        ? 'bg-green-100 text-green-700 hover:bg-green-200'
-                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                    }`}
-                    title={detail.is_active ? 'Desativar' : 'Ativar'}
-                  >
-                    {detail.is_active ? <MdToggleOn size={24} /> : <MdToggleOff size={24} />}
-                  </button>
-                  <button
-                    onClick={() => handleEdit(detail)}
-                    className="bg-blue-500 hover:bg-blue-600 text-white p-2 rounded-lg transition-colors"
-                    title="Editar"
-                  >
-                    <MdEdit size={20} />
-                  </button>
-                  <button
-                    onClick={() => handleDelete(detail.id)}
-                    className="bg-red-500 hover:bg-red-600 text-white p-2 rounded-lg transition-colors"
-                    title="Excluir"
-                  >
-                    <MdDelete size={20} />
-                  </button>
+                  {establishmentPermissions.canEditOperationalDetail() && (
+                    <>
+                      <button
+                        onClick={() => handleToggleActive(detail)}
+                        className={`p-2 rounded-lg transition-colors ${
+                          detail.is_active
+                            ? 'bg-green-100 text-green-700 hover:bg-green-200'
+                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                        }`}
+                        title={detail.is_active ? 'Desativar' : 'Ativar'}
+                      >
+                        {detail.is_active ? <MdToggleOn size={24} /> : <MdToggleOff size={24} />}
+                      </button>
+                      <button
+                        onClick={() => handleEdit(detail)}
+                        className="bg-blue-500 hover:bg-blue-600 text-white p-2 rounded-lg transition-colors"
+                        title="Editar"
+                      >
+                        <MdEdit size={20} />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(detail.id)}
+                        className="bg-red-500 hover:bg-red-600 text-white p-2 rounded-lg transition-colors"
+                        title="Excluir"
+                      >
+                        <MdDelete size={20} />
+                      </button>
+                    </>
+                  )}
                 </div>
               </div>
 
@@ -403,12 +441,14 @@ export default function DetalhesOperacionaisPage() {
                   ? 'Ajuste os filtros ou crie novos detalhes'
                   : 'Crie o primeiro detalhe operacional clicando no botão acima'}
               </p>
-              <button
-                onClick={handleAdd}
-                className="bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-600 hover:to-yellow-700 text-gray-900 px-6 py-3 rounded-xl shadow-lg transition-all duration-200 transform hover:scale-105 font-semibold flex items-center gap-2 mx-auto"
-              >
-                <MdAdd size={20} /> Criar Detalhe Operacional
-              </button>
+              {establishmentPermissions.canCreateOperationalDetail() && (
+                <button
+                  onClick={handleAdd}
+                  className="bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-600 hover:to-yellow-700 text-gray-900 px-6 py-3 rounded-xl shadow-lg transition-all duration-200 transform hover:scale-105 font-semibold flex items-center gap-2 mx-auto"
+                >
+                  <MdAdd size={20} /> Criar Detalhe Operacional
+                </button>
+              )}
             </div>
           )}
         </div>

@@ -21,6 +21,7 @@ import {
   MdArrowBack,
 } from 'react-icons/md';
 import { WithPermission } from '../../components/WithPermission/WithPermission';
+import { useEstablishmentPermissions } from '@/app/hooks/useEstablishmentPermissions';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.agilizaiapp.com.br';
 
@@ -38,6 +39,7 @@ interface EventoLista {
 
 export default function CheckInsGeralPage() {
   const router = useRouter();
+  const establishmentPermissions = useEstablishmentPermissions();
 
   // Estados
   const [loading, setLoading] = useState(false);
@@ -120,7 +122,18 @@ export default function CheckInsGeralPage() {
 
       // Ordena
       const lista = Array.from(merged.values()).sort((a, b) => a.nome.localeCompare(b.nome));
-      setEstabelecimentos(lista);
+      
+      // Filtrar estabelecimentos baseado nas permissões do usuário
+      const filteredLista = establishmentPermissions.getFilteredEstablishments(lista);
+      setEstabelecimentos(filteredLista);
+      
+      // Se o usuário está restrito a um único estabelecimento, seleciona automaticamente
+      if (establishmentPermissions.isRestrictedToSingleEstablishment() && filteredLista.length > 0) {
+        const defaultId = establishmentPermissions.getDefaultEstablishmentId();
+        if (defaultId && !estabelecimentoSelecionado) {
+          setEstabelecimentoSelecionado(defaultId);
+        }
+      }
     } catch (err) {
       console.error('Erro ao carregar dados:', err);
     } finally {
@@ -198,11 +211,20 @@ export default function CheckInsGeralPage() {
                   className="w-full bg-white/10 border border-white/20 rounded-lg text-white px-3 py-3"
                   value={estabelecimentoSelecionado ?? ''}
                   onChange={(e) => setEstabelecimentoSelecionado(e.target.value ? Number(e.target.value) : null)}
+                  disabled={establishmentPermissions.isRestrictedToSingleEstablishment()}
                 >
-                  <option value="" className="text-black">Selecione...</option>
-                  {estabelecimentos.map(est => (
-                    <option key={est.id} value={est.id} className="text-black">{est.nome}</option>
-                  ))}
+                  {establishmentPermissions.isRestrictedToSingleEstablishment() ? (
+                    estabelecimentos.map(est => (
+                      <option key={est.id} value={est.id} className="text-black">{est.nome}</option>
+                    ))
+                  ) : (
+                    <>
+                      <option value="" className="text-black">Selecione...</option>
+                      {estabelecimentos.map(est => (
+                        <option key={est.id} value={est.id} className="text-black">{est.nome}</option>
+                      ))}
+                    </>
+                  )}
                 </select>
               </div>
               <button
