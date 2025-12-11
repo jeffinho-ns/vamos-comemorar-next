@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
+import SafeImage from '../components/SafeImage';
 import {
   FaBirthdayCake, FaPalette, FaGift, FaGlassCheers, FaUtensils, FaInfoCircle, FaExclamationTriangle,
   FaCheck, FaUser, FaImage, FaPlus, FaMinus, FaArrowLeft, FaArrowRight
@@ -255,11 +256,13 @@ export default function ReservaAniversarioPage() {
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
       {/* Header */}
       <div className="relative h-96">
-        <Image
+        <SafeImage
           src="/agilizai/niver.jpeg" 
           alt="Reserve seu Aniversário"
           fill
+          sizes="100vw"
           className="absolute z-0 object-cover"
+          priority
         />
         <div className="absolute inset-0 bg-gradient-to-r from-orange-500 to-red-500 opacity-70"></div>
         <div className="relative z-10 flex items-center justify-center h-full">
@@ -419,10 +422,11 @@ export default function ReservaAniversarioPage() {
                   }`}
                 >
                   <div className="h-32 relative overflow-hidden rounded-lg mb-4">
-                    <Image
+                    <SafeImage
                       src={option.image}
                       alt={option.name}
                       fill
+                      sizes="(max-width: 768px) 100vw, 50vw"
                       className="object-cover transition-transform hover:scale-105"
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent"></div>
@@ -492,10 +496,11 @@ export default function ReservaAniversarioPage() {
                           : 'border-slate-600 hover:border-orange-400'
                       }`}
                     >
-                      <Image
+                      <SafeImage
                         src={image}
                         alt={`Painel ${index + 1}`}
                         fill
+                        sizes="96px"
                         className="object-cover"
                       />
                       <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent"></div>
@@ -688,10 +693,11 @@ export default function ReservaAniversarioPage() {
                     }`}
                   >
                     <div className="h-32 relative overflow-hidden rounded-lg mb-4">
-                      <Image
+                      <SafeImage
                         src={gift.image}
                         alt={gift.name}
                         fill
+                        sizes="(max-width: 768px) 100vw, 50vw"
                         className="object-cover transition-transform hover:scale-105"
                       />
                       <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent"></div>

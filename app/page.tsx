@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import Image from "next/image";
+import SafeImage from "./components/SafeImage";
 import Link from "next/link";
 import Header from "./components/header/header";
 import Footer from "./components/footer/footer";
@@ -193,7 +194,7 @@ export default function Home() {
       {/* Hero Section */}
       <section className="relative min-h-screen flex items-center justify-center overflow-hidden bg-gradient-to-br from-gray-900 via-gray-800 to-black">
         <div className="absolute inset-0 z-0">
-          <Image
+          <SafeImage
             src={imgBanner}
             alt="Background"
             fill
@@ -211,7 +212,7 @@ export default function Home() {
             transition={{ duration: 0.8 }}
             className="mb-8"
           >
-            <Image 
+            <SafeImage 
               src={logoBanner} 
               alt="Logo" 
               width={200} 
@@ -336,7 +337,7 @@ export default function Home() {
                   transition={{ duration: 0.5, delay: index * 0.1 }}
                   className="relative aspect-square rounded-xl overflow-hidden group cursor-pointer"
                 >
-                  <Image
+                  <SafeImage
                     src={getImageUrl(image)}
                     alt={`Galeria ${index + 1}`}
                     fill
@@ -381,7 +382,7 @@ export default function Home() {
                   className="bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2"
                 >
                   <div className="relative h-48 bg-gradient-to-r from-orange-500 to-red-500">
-                    <Image
+                    <SafeImage
                       src={establishment.logo}
                       alt={establishment.name}
                       fill

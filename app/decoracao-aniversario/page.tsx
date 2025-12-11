@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
+import SafeImage from '../components/SafeImage';
 import { FaBirthdayCake, FaGift, FaGlassCheers, FaPalette, FaInfoCircle, FaArrowRight } from 'react-icons/fa';
 import { useGoogleAnalytics } from '../hooks/useGoogleAnalytics';
 
@@ -34,11 +35,13 @@ export default function DecoracaoAniversarioPage() {
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
       {/* Header */}
       <div className="relative h-80 sm:h-96"> {/* AJUSTE RESPONSIVO */}
-        <Image
+        <SafeImage
           src="/agilizai/niver.jpeg"
           alt="Decoração de Aniversário"
           fill
+          sizes="100vw"
           className="absolute z-0 object-cover"
+          priority
         />
         <div className="absolute inset-0 bg-gradient-to-r from-orange-500 to-red-500 opacity-70"></div>
         <div className="relative z-10 flex items-center justify-center h-full">
@@ -166,7 +169,7 @@ export default function DecoracaoAniversarioPage() {
               {decorationOptions.map((option, index) => (
                 <div key={index} className="bg-slate-800 rounded-2xl overflow-hidden border border-slate-700 hover:border-orange-500 transition-all hover:shadow-2xl hover:shadow-orange-500/20">
                   <div className="h-48 relative overflow-hidden">
-                    <Image src={option.image} alt={option.name} fill className="object-cover transition-transform hover:scale-110"/>
+                    <SafeImage src={option.image} alt={option.name} fill sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw" className="object-cover transition-transform hover:scale-110"/>
                     <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
                   </div>
                   <div className="p-6">
