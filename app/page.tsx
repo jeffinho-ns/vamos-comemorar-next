@@ -8,6 +8,9 @@ import SafeImage from "./components/SafeImage";
 import Link from "next/link";
 import Header from "./components/header/header";
 import Footer from "./components/footer/footer";
+// Importar logos diretamente da pasta assets para carregamento rápido
+import logoWhite from "@/app/assets/logo-agilizai-h.png";
+import logoBlue from "@/app/assets/logo-agilizai-h.png";
 import { 
   MdRestaurant, 
   MdQrCodeScanner, 

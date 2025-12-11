@@ -70,7 +70,8 @@ export default function SafeImage({
   }
 
   // Converter StaticImageData para objeto ou string conforme necessário
-  const isStaticImage = typeof src === 'object' && src !== null && 'src' in src;
+  // StaticImageData é um objeto com propriedades: src, height, width, blurDataURL
+  const isStaticImage = typeof src === 'object' && src !== null && 'src' in src && typeof (src as any).src === 'string';
   const imageSrc = isStaticImage ? (src as StaticImageData).src : (typeof src === 'string' ? src : String(src));
 
   // Verificar se é URL externa (Cloudinary ou outras URLs HTTP)
@@ -79,13 +80,14 @@ export default function SafeImage({
   // Para imagens locais estáticas importadas (StaticImageData), usar img HTML diretamente para evitar erro 402
   // Imagens locais já estão otimizadas no build e não precisam do otimizador do Next.js
   // StaticImageData sempre tem um src que aponta para /_next/static/media/...
-  const isLocalStaticImage = isStaticImage;
+  // Verificar também se o src começa com /_next/static/ ou / para garantir que é uma imagem local
+  const isLocalStaticImage = isStaticImage || (typeof imageSrc === 'string' && !isExternalUrl && (imageSrc.startsWith('/_next/static/') || imageSrc.startsWith('/')));
 
   // Se for imagem local estática, usar img HTML padrão
   if (isLocalStaticImage) {
     if (fill) {
       return (
-        <div className="relative w-full h-full">
+        <div className="relative w-full h-full" style={{ position: 'relative', width: '100%', height: '100%' }}>
           {isLoading && (
             <div className="absolute inset-0 bg-gray-200 animate-pulse flex items-center justify-center z-0">
               <div className="w-8 h-8 border-4 border-gray-400 border-t-transparent rounded-full animate-spin"></div>
@@ -95,7 +97,14 @@ export default function SafeImage({
             src={imageSrc}
             alt={alt}
             className={`${className} ${isLoading ? 'opacity-0' : 'opacity-100'} transition-opacity duration-300`}
-            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+            style={{ 
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              width: '100%',
+              height: '100%',
+              objectFit: className.includes('object-cover') ? 'cover' : className.includes('object-contain') ? 'contain' : className.includes('object-fill') ? 'fill' : 'cover'
+            }}
             onError={handleError}
             onLoad={handleLoad}
           />
@@ -116,6 +125,7 @@ export default function SafeImage({
           width={width}
           height={height}
           className={`${className} ${isLoading ? 'opacity-0' : 'opacity-100'} transition-opacity duration-300`}
+          style={{ display: 'block' }}
           onError={handleError}
           onLoad={handleLoad}
         />
