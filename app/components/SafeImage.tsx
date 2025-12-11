@@ -70,10 +70,10 @@ export default function SafeImage({
   }
 
   // Converter StaticImageData para objeto ou string conforme necessário
-  const isStaticImage = typeof src === 'object' && 'src' in src;
-  const imageSrc = isStaticImage ? (src as StaticImageData).src : src;
+  const isStaticImage = typeof src === 'object' && src !== null && 'src' in src;
+  const imageSrc = isStaticImage ? (src as StaticImageData).src : (typeof src === 'string' ? src : String(src));
 
-  // Verificar se é URL externa
+  // Verificar se é URL externa (Cloudinary ou outras URLs HTTP)
   const isExternalUrl = typeof imageSrc === 'string' && (imageSrc.startsWith('http://') || imageSrc.startsWith('https://'));
 
   if (fill) {
