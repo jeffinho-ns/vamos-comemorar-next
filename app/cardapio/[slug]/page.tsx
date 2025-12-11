@@ -262,6 +262,7 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
   const [activeSubcategory, setActiveSubcategory] = useState<string>('');
   const [showPopup, setShowPopup] = useState(false);
   const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null);
+  const [imageError, setImageError] = useState<string | null>(null);
   const [showMobileSidebar, setShowMobileSidebar] = useState(false);
   const [headerHeight, setHeaderHeight] = useState<number>(0);
   const [categoryBarHeight, setCategoryBarHeight] = useState<number>(0);
@@ -292,6 +293,7 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
 
   const handleItemClick = useCallback((item: MenuItem) => {
     setSelectedItem(item);
+    setImageError(null); // Resetar erro de imagem ao selecionar novo item
     
     // Rastrear clique no item do cardápio
     if (selectedBar) {
@@ -317,6 +319,7 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
 
   const handleCloseModal = () => {
     setSelectedItem(null);
+    setImageError(null);
   };
   
   const handleClosePopup = () => {
@@ -1771,36 +1774,58 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
                       
                       <div className="flex flex-col md:flex-row gap-6">
                           <div className="flex-shrink-0 w-full md:w-1/2 relative">
-                              <Image
-                                  src={getValidImageUrl(selectedItem.imageUrl)}
-                                  alt={selectedItem.name}
-                                  width={500}
-                                  height={400}
-                                  className="w-full h-auto object-cover rounded-lg shadow-lg"
-                                  unoptimized={selectedItem.imageUrl?.includes('cloudinary.com') || false}
-                                  onError={(e) => {
-                                    const target = e.currentTarget;
-                                    if (target.src !== window.location.origin + PLACEHOLDER_IMAGE_URL) {
-                                      target.src = PLACEHOLDER_IMAGE_URL;
-                                    }
-                                  }}
-                              />
-                              {isReservaRooftop && (
-                                <div className="absolute top-4 right-4 z-10">
-                                  <div className="bg-black/60 backdrop-blur-md px-4 py-2 rounded border border-white/15 shadow-xl">
-                                    <p className="font-serif text-white text-sm tracking-[0.25em] font-extralight">
-                                      {formatPrice(selectedItem.price).replace('R$', '').trim()}
-                                    </p>
+                              <div className="relative w-full aspect-[4/3] bg-gray-100 rounded-lg overflow-hidden">
+                                {imageError ? (
+                                  <div className="w-full h-full flex items-center justify-center bg-gray-200 rounded-lg">
+                                    <Image
+                                      src={PLACEHOLDER_IMAGE_URL}
+                                      alt="Imagem não disponível"
+                                      width={500}
+                                      height={400}
+                                      className="w-full h-full object-contain rounded-lg"
+                                      unoptimized
+                                    />
                                   </div>
-                                </div>
-                              )}
+                                ) : (
+                                  <Image
+                                      src={getValidImageUrl(selectedItem.imageUrl)}
+                                      alt={selectedItem.name}
+                                      width={500}
+                                      height={400}
+                                      className="w-full h-auto object-cover rounded-lg shadow-lg"
+                                      unoptimized={true}
+                                      onError={(e) => {
+                                        console.error('❌ Erro ao carregar imagem do item:', {
+                                          originalUrl: selectedItem.imageUrl,
+                                          generatedUrl: getValidImageUrl(selectedItem.imageUrl),
+                                          itemName: selectedItem.name
+                                        });
+                                        setImageError(selectedItem.imageUrl || 'error');
+                                      }}
+                                      onLoad={() => {
+                                        // Resetar erro se a imagem carregar com sucesso
+                                        if (imageError) {
+                                          setImageError(null);
+                                        }
+                                      }}
+                                  />
+                                )}
+                              </div>
                           </div>
                           
                           <div className="flex-1">
-                              <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">
-                                  {selectedItem.name}
-                              </h2>
-                              {!isReservaRooftop && (
+                              <div className="flex items-start justify-between mb-2">
+                                <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 flex-1">
+                                    {selectedItem.name}
+                                </h2>
+                              </div>
+                              {isReservaRooftop ? (
+                                <div className="text-right mb-4">
+                                  <p className="font-serif text-[#2b241a] text-sm tracking-[0.25em] font-extralight">
+                                    {formatPrice(selectedItem.price).replace('R$', '').trim()}
+                                  </p>
+                                </div>
+                              ) : (
                                 <p className="text-xl sm:text-2xl font-semibold text-green-600 mb-4">
                                     {formatPrice(selectedItem.price)}
                                 </p>
