@@ -113,14 +113,14 @@ export default function ReservationModal({
 
   // Subáreas específicas do Seu Justino (mapeadas para area_id base 1 ou 2)
   const seuJustinoSubareas = [
-    { key: 'lounge-bar', area_id: 1, label: 'Lounge Bar', tableNumbers: ['200','202'] },
-    { key: 'lounge-palco', area_id: 1, label: 'Lounge Palco', tableNumbers: ['204','206'] },
-    { key: 'lounge-aquario-tv', area_id: 1, label: 'Lounge Aquário TV', tableNumbers: ['208'] },
-    { key: 'lounge-aquario-spaten', area_id: 1, label: 'Lounge Aquário Spaten', tableNumbers: ['210'] },
-    { key: 'quintal-lateral-esquerdo', area_id: 2, label: 'Quintal Lateral Esquerdo', tableNumbers: ['20','22','24','26','28','29'] },
-    { key: 'quintal-central-esquerdo', area_id: 2, label: 'Quintal Central Esquerdo', tableNumbers: ['30','32','34','36','38','39'] },
-    { key: 'quintal-central-direito', area_id: 2, label: 'Quintal Central Direito', tableNumbers: ['40','42','44','46','48'] },
-    { key: 'quintal-lateral-direito', area_id: 2, label: 'Quintal Lateral Direito', tableNumbers: ['50','52','54','56','58','60','62','64'] },
+    { key: 'lounge-aquario-spaten', area_id: 1, label: 'Lounge Aquario Spaten', tableNumbers: ['210'], capacity: 8 },
+    { key: 'lounge-aquario-tv', area_id: 1, label: 'Lounge Aquario TV', tableNumbers: ['208'], capacity: 10 },
+    { key: 'lounge-palco', area_id: 1, label: 'Lounge Palco', tableNumbers: ['204','206'], capacity: 6 },
+    { key: 'lounge-bar', area_id: 1, label: 'Lounges Bar', tableNumbers: ['200','202'], capacity: 6 },
+    { key: 'quintal-lateral-esquerdo', area_id: 2, label: 'Quintal Lateral Esquerdo', tableNumbers: ['20','22','24','26','28','29'], capacity: 6 },
+    { key: 'quintal-central-esquerdo', area_id: 2, label: 'Quintal Central Esquerdo', tableNumbers: ['30','32','34','36','38','39'], capacity: 4 },
+    { key: 'quintal-central-direito', area_id: 2, label: 'Quintal Central Direito', tableNumbers: ['40','42','44','46','48'], capacity: 4 },
+    { key: 'quintal-lateral-direito', area_id: 2, label: 'Quintal Lateral Direito', tableNumbers: ['50','52','54','56','58','60','62','64'], capacity: 6 },
   ];
 
   const isHighline = establishment && ((establishment.name || '').toLowerCase().includes('high'));
@@ -193,6 +193,16 @@ export default function ReservationModal({
         // Desliga as notificações por padrão ao editar
         setSendEmailConfirmation(false);
         setSendWhatsAppConfirmation(false);
+        
+        // Se for Seu Justino ou Highline, tentar encontrar a subárea baseada na mesa
+        if (reservation.table_number && (isSeuJustino || isHighline)) {
+          const tableNum = String(reservation.table_number);
+          const subareas = isSeuJustino ? seuJustinoSubareas : highlineSubareas;
+          const foundSubarea = subareas.find(sub => sub.tableNumbers.includes(tableNum));
+          if (foundSubarea) {
+            setSelectedSubareaKey(foundSubarea.key);
+          }
+        }
       } else { // Modo de Criação
         setFormData({
           client_name: '',
@@ -211,10 +221,11 @@ export default function ReservationModal({
         // Liga as notificações por padrão ao criar
         setSendEmailConfirmation(true);
         setSendWhatsAppConfirmation(true);
+        setSelectedSubareaKey('');
       }
       setErrors({});
     }
-  }, [isOpen, reservation, selectedDate, selectedTime]);
+  }, [isOpen, reservation, selectedDate, selectedTime, isSeuJustino, isHighline]);
 
   useEffect(() => {
     const loadTables = async () => {
@@ -238,15 +249,87 @@ export default function ReservationModal({
             const sub = seuJustinoSubareas.find(s => s.key === selectedSubareaKey);
             if (sub) {
               fetched = fetched.filter(t => sub.tableNumbers.includes(String(t.table_number)));
+              // Se não houver mesas da API, cria mesas virtuais baseadas na subárea
+              if (fetched.length === 0 && sub.tableNumbers.length > 0) {
+                fetched = sub.tableNumbers.map((tableNum, index) => ({
+                  id: index + 1,
+                  area_id: sub.area_id,
+                  table_number: tableNum,
+                  capacity: sub.capacity || 4,
+                  is_reserved: false
+                }));
+              }
             }
           }
           setTables(fetched);
         } else {
-          setTables([]);
+          // Se a API falhar mas houver subárea selecionada (Seu Justino ou Highline), criar mesas virtuais
+          if (isSeuJustino && selectedSubareaKey) {
+            const sub = seuJustinoSubareas.find(s => s.key === selectedSubareaKey);
+            if (sub && sub.tableNumbers.length > 0) {
+              const virtualTables: RestaurantTable[] = sub.tableNumbers.map((tableNum, index) => ({
+                id: index + 1,
+                area_id: sub.area_id,
+                table_number: tableNum,
+                capacity: sub.capacity || 4,
+                is_reserved: false
+              }));
+              setTables(virtualTables);
+            } else {
+              setTables([]);
+            }
+          } else if (isHighline && selectedSubareaKey) {
+            const sub = highlineSubareas.find(s => s.key === selectedSubareaKey);
+            if (sub && sub.tableNumbers.length > 0) {
+              const virtualTables: RestaurantTable[] = sub.tableNumbers.map((tableNum, index) => ({
+                id: index + 1,
+                area_id: sub.area_id,
+                table_number: tableNum,
+                capacity: 4,
+                is_reserved: false
+              }));
+              setTables(virtualTables);
+            } else {
+              setTables([]);
+            }
+          } else {
+            setTables([]);
+          }
         }
       } catch (e) {
         console.error('Erro ao carregar mesas (admin):', e);
-        setTables([]);
+        // Em caso de erro, se houver subárea selecionada, criar mesas virtuais
+        if (isSeuJustino && selectedSubareaKey) {
+          const sub = seuJustinoSubareas.find(s => s.key === selectedSubareaKey);
+          if (sub && sub.tableNumbers.length > 0) {
+            const virtualTables: RestaurantTable[] = sub.tableNumbers.map((tableNum, index) => ({
+              id: index + 1,
+              area_id: sub.area_id,
+              table_number: tableNum,
+              capacity: sub.capacity || 4,
+              is_reserved: false
+            }));
+            setTables(virtualTables);
+          } else {
+            setTables([]);
+          }
+        } else if (isHighline && selectedSubareaKey) {
+          const sub = highlineSubareas.find(s => s.key === selectedSubareaKey);
+          if (sub && sub.tableNumbers.length > 0) {
+            const virtualTables: RestaurantTable[] = sub.tableNumbers.map((tableNum, index) => ({
+              id: index + 1,
+              area_id: sub.area_id,
+              table_number: tableNum,
+              capacity: 4,
+              is_reserved: false
+            }));
+            setTables(virtualTables);
+          } else {
+            setTables([]);
+          }
+        } else {
+          setTables([]);
+        }
       }
     };
     loadTables();
@@ -654,7 +737,7 @@ export default function ReservationModal({
                     <MdTableBar className="inline mr-2" />
                     Mesa {formData.number_of_people >= 4 && <span className="text-orange-400">(Opcional para Reserva Grande)</span>}
                   </label>
-                  {tables.length > 0 ? (
+                  {(tables.length > 0 || (isSeuJustino && selectedSubareaKey) || (isHighline && selectedSubareaKey)) ? (
                     <select
                       value={formData.table_number}
                       onChange={(e) => handleInputChange('table_number', e.target.value)}
@@ -663,20 +746,36 @@ export default function ReservationModal({
                       }`}
                     >
                       <option value="">Selecione uma mesa (opcional)</option>
-                      {tables
-                        .filter(t => {
-                          // Para reservas grandes (4+), mostra todas as mesas não reservadas
-                          // Para reservas normais, filtra por capacidade
-                          if (formData.number_of_people >= 4) {
-                            return !t.is_reserved;
+                      {(() => {
+                        // Se for Seu Justino ou Highline com subárea selecionada, mas não houver mesas da API, usar mesas da subárea
+                        if ((isSeuJustino || isHighline) && selectedSubareaKey && tables.length === 0) {
+                          const sub = isSeuJustino 
+                            ? seuJustinoSubareas.find(s => s.key === selectedSubareaKey)
+                            : highlineSubareas.find(s => s.key === selectedSubareaKey);
+                          if (sub) {
+                            return sub.tableNumbers.map((tableNum) => (
+                              <option key={tableNum} value={tableNum}>
+                                Mesa {tableNum} • {isSeuJustino && (sub as any).capacity ? `${(sub as any).capacity} lugares` : '4 lugares'}
+                              </option>
+                            ));
                           }
-                          return !t.is_reserved && t.capacity >= formData.number_of_people;
-                        })
-                        .map(t => (
-                          <option key={t.id} value={t.table_number}>
-                            Mesa {t.table_number} • {t.capacity} lugares{t.table_type ? ` • ${t.table_type}` : ''}
-                          </option>
-                        ))}
+                        }
+                        // Caso contrário, usar mesas da API
+                        return tables
+                          .filter(t => {
+                            // Para reservas grandes (4+), mostra todas as mesas não reservadas
+                            // Para reservas normais, filtra por capacidade
+                            if (formData.number_of_people >= 4) {
+                              return !t.is_reserved;
+                            }
+                            return !t.is_reserved && t.capacity >= formData.number_of_people;
+                          })
+                          .map(t => (
+                            <option key={t.id} value={t.table_number}>
+                              Mesa {t.table_number} • {t.capacity} lugares{t.table_type ? ` • ${t.table_type}` : ''}
+                            </option>
+                          ));
+                      })()}
                     </select>
                   ) : (
                     <input
