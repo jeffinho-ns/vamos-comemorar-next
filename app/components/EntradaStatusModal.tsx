@@ -21,6 +21,7 @@ const EntradaStatusModal: React.FC<EntradaStatusModalProps> = ({
   horaAtual
 }) => {
   const [selectedTipo, setSelectedTipo] = React.useState<EntradaTipo | null>(null);
+  const hasInitialized = React.useRef(false);
 
   // Calcular opções baseadas no horário
   const opcoes = React.useMemo(() => {
@@ -69,9 +70,10 @@ const EntradaStatusModal: React.FC<EntradaStatusModalProps> = ({
     };
   }, [horaAtual]);
 
-  // Inicializar o tipo selecionado quando o modal abrir
+  // Inicializar o tipo selecionado apenas quando o modal abrir
   React.useEffect(() => {
-    if (isOpen) {
+    if (isOpen && !hasInitialized.current) {
+      // Primeira vez que o modal abre nesta sessão
       if (opcoes.modoAutomatico && opcoes.tipoAutomatico) {
         // Modo automático: já definir como VIP
         setSelectedTipo(opcoes.tipoAutomatico);
@@ -79,11 +81,14 @@ const EntradaStatusModal: React.FC<EntradaStatusModalProps> = ({
         // Modo manual: deixar sem seleção para o usuário escolher
         setSelectedTipo(null);
       }
-    } else {
+      hasInitialized.current = true;
+    } else if (!isOpen) {
       // Resetar quando o modal fechar
       setSelectedTipo(null);
+      hasInitialized.current = false;
     }
-  }, [isOpen, opcoes]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen]); // Apenas quando isOpen mudar
 
   const handleConfirm = () => {
     if (opcoes.modoAutomatico && opcoes.tipoAutomatico) {

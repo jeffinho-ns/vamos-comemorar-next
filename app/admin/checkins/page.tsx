@@ -41,6 +41,29 @@ export default function CheckInsGeralPage() {
   const router = useRouter();
   const establishmentPermissions = useEstablishmentPermissions();
 
+  // Detectar se é tablet e redirecionar
+  useEffect(() => {
+    const isTablet = () => {
+      // Verificar largura da tela (tablets geralmente têm entre 600px e 1024px)
+      const width = window.innerWidth;
+      const isTabletWidth = width >= 600 && width <= 1024;
+      
+      // Verificar user agent para tablets
+      const userAgent = navigator.userAgent.toLowerCase();
+      const isTabletUA = /ipad|android(?!.*mobile)|tablet/.test(userAgent);
+      
+      // Verificar se tem touch e não é mobile pequeno
+      const hasTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+      const isNotSmallMobile = width >= 600;
+      
+      return (isTabletWidth || isTabletUA) && hasTouch && isNotSmallMobile;
+    };
+
+    if (isTablet()) {
+      router.replace('/admin/checkins/tablet');
+    }
+  }, [router]);
+
   // Estados
   const [loading, setLoading] = useState(false);
   const [estabelecimentos, setEstabelecimentos] = useState<{ id: number; nome: string }[]>([]);
