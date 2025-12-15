@@ -1,9 +1,11 @@
 "use client";
 import React from 'react';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
+import { toast, ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 import {
   MdCheckCircle,
   MdPending,
@@ -197,12 +199,32 @@ export default function EventoCheckInsPage() {
   const router = useRouter();
   const eventoId = params?.id?.toString() ?? '';
 
+  // Detectar se é mobile para otimizar animações
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
   // Estados
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
   const [selectedTab, setSelectedTab] = useState<'todos' | 'reservas' | 'promoters' | 'camarotes'>('todos');
   const [promoterGuestsViewMode, setPromoterGuestsViewMode] = useState<'grid' | 'list'>('grid');
   const [promoterGuestsSearch, setPromoterGuestsSearch] = useState('');
+  
+  // Debounce da busca para melhorar performance
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+    }, 150); // 150ms de debounce para desktop
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
   
   // Estados para organização e filtros (mobile/tablet)
   const [sortBy, setSortBy] = useState<'nome' | 'status' | 'tipo' | 'hora'>('nome');
@@ -306,6 +328,26 @@ export default function EventoCheckInsPage() {
     checkinGeral: 0,
   });
 
+  // Refs para prevenir múltiplos cliques simultâneos (debounce)
+  const checkInInProgressRef = useRef<Record<string, boolean>>({});
+  
+  // Cache para comparações de strings (otimização de performance)
+  const stringCompareCache = useRef<Map<string, number>>(new Map());
+  
+  // Função otimizada de comparação de strings com cache
+  const cachedStringCompare = useCallback((a: string, b: string): number => {
+    const cacheKey = `${a}|||${b}`;
+    if (stringCompareCache.current.has(cacheKey)) {
+      return stringCompareCache.current.get(cacheKey)!;
+    }
+    const result = (a || '').localeCompare(b || '', 'pt-BR', { sensitivity: 'base' });
+    // Limitar cache a 1000 entradas para não consumir muita memória
+    if (stringCompareCache.current.size < 1000) {
+      stringCompareCache.current.set(cacheKey, result);
+    }
+    return result;
+  }, []);
+
   // Carregar dados
   const loadCheckInData = useCallback(async () => {
     if (!eventoId) return;
@@ -319,7 +361,6 @@ export default function EventoCheckInsPage() {
 
       if (response.ok) {
         const data = await response.json();
-        console.log('Dados recebidos:', data);
         
         setEvento(data.evento);
         setReservasMesa(data.dados.reservasMesa || []);
@@ -327,37 +368,15 @@ export default function EventoCheckInsPage() {
         setReservasRestaurante(data.dados.reservasRestaurante || []);
         setConvidadosReservasRestaurante(data.dados.convidadosReservasRestaurante || []);
         
-        // Debug: verificar dados recebidos do backend
-        console.log('🔍 Debug - Dados recebidos do backend:', {
-          establishment_id: data.evento?.establishment_id,
-          establishment_name: data.evento?.establishment_name,
-          data_evento: data.evento?.data_evento,
-          guestListsRestaurante_count: (data.dados.guestListsRestaurante || []).length,
-          reservasRestaurante_count: (data.dados.reservasRestaurante || []).length,
-          convidadosReservasRestaurante_count: (data.dados.convidadosReservasRestaurante || []).length
-        });
-        
         // O backend agora vincula automaticamente reservas ao evento e retorna os dados corretos
         // Não precisamos mais buscar via API admin/guest-lists
         const guestLists = data.dados.guestListsRestaurante || [];
-        console.log('📋 Dados brutos de guestListsRestaurante recebidos:', data.dados.guestListsRestaurante);
-        console.log('📋 Guest Lists processadas:', guestLists);
-        console.log('📋 Total de guest lists:', guestLists.length);
         setGuestListsRestaurante(guestLists);
-        console.log('📋 Guest Lists carregadas:', guestLists.map((gl: GuestListRestaurante) => ({
-          id: gl.guest_list_id,
-          owner: gl.owner_name,
-          total_guests: gl.total_guests,
-          reservation_date: gl.reservation_date,
-          reservation_id: gl.reservation_id
-        })));
         
         // Armazenar o establishment_id para uso posterior se necessário
         if (data.evento?.establishment_id) {
           setEstablishmentFilterId(Number(data.evento.establishment_id));
         }
-        
-        console.log('📋 Total de guest lists para exibir:', (data.dados.guestListsRestaurante || []).length);
         
         setPromoters(data.dados.promoters || []);
         
@@ -370,61 +389,20 @@ export default function EventoCheckInsPage() {
             if (giftRulesRes.ok) {
               const giftRulesData = await giftRulesRes.json();
               setGiftRules(giftRulesData.rules || []);
-              console.log('🎁 Regras de brindes carregadas:', giftRulesData.rules?.length || 0);
             }
           } catch (error) {
             console.error('Erro ao carregar regras de brindes:', error);
           }
         }
         
-        // Debug: verificar dados brutos recebidos do backend
-        console.log('🔍 Debug - Dados brutos do backend:', {
-          convidadosPromoters_raw: data.dados.convidadosPromoters?.length || 0,
-          convidadosReservas_raw: data.dados.convidadosReservas?.length || 0,
-          tipos_convidadosPromoters: [...new Set(data.dados.convidadosPromoters?.map((c: any) => c.tipo) || [])],
-          tipos_convidadosReservas: [...new Set(data.dados.convidadosReservas?.map((c: any) => c.tipo) || [])],
-        });
-        
         // VALIDAÇÃO RIGOROSA: Garantir que apenas convidados de promoters sejam exibidos
         // Limpar array primeiro
         setConvidadosPromoters([]);
         
         // Filtrar e validar apenas convidados de promoters
-        // Log dos dados brutos recebidos do backend
-        console.log('🔍 Dados brutos recebidos do backend (convidadosPromoters):', {
-          total: data.dados.convidadosPromoters?.length || 0,
-          primeiro: data.dados.convidadosPromoters?.[0] || null,
-          todos: data.dados.convidadosPromoters || []
-        });
-        
         const convidadosPromotersFiltrados = (data.dados.convidadosPromoters || [])
           .filter((c: any) => {
-            // Log de cada item antes da validação
-            console.log('🔍 Validando convidado:', {
-              id: c?.id,
-              nome: c?.nome,
-              tipo: c?.tipo,
-              status_checkin: c?.status_checkin,
-              promoter_id: c?.promoter_id,
-              tipo_lista: c?.tipo_lista,
-              email: c?.email,
-              documento: c?.documento,
-              status: c?.status
-            });
-            
             if (!isValidPromoterGuest(c)) {
-              console.warn('⚠️ Item REJEITADO da lista de promoters (não é um convidado de promoter válido):', {
-                id: c?.id,
-                nome: c?.nome,
-                tipo: c?.tipo,
-                status_checkin: c?.status_checkin,
-                status: c?.status,
-                promoter_id: c?.promoter_id,
-                tipo_lista: c?.tipo_lista,
-                email: c?.email,
-                documento: c?.documento,
-                motivo: 'Validação falhou'
-              });
               return false;
             }
             return true;
@@ -437,17 +415,6 @@ export default function EventoCheckInsPage() {
             promoter_id: Number(c.promoter_id),
             tipo_lista: c.tipo_lista || 'Promoter'
           }));
-        
-        console.log('✅ Convidados de Promoters FINAL após filtro:', {
-          total: convidadosPromotersFiltrados.length,
-          validados: convidadosPromotersFiltrados.length,
-          primeiros: convidadosPromotersFiltrados.slice(0, 3).map((c: any) => ({
-            id: c.id,
-            nome: c.nome,
-            tipo: c.tipo,
-            promoter_id: c.promoter_id
-          }))
-        });
         
         setConvidadosPromoters(convidadosPromotersFiltrados);
         setCamarotes(data.dados.camarotes || []);
@@ -532,12 +499,6 @@ export default function EventoCheckInsPage() {
             
             setGiftsByGuestList(giftsMap);
             setCheckInStatus(prev => ({ ...prev, ...statusMap }));
-            
-            console.log('🎁 Brindes e status carregados automaticamente:', {
-              listas: Object.keys(giftsMap).length,
-              brindes: Object.values(giftsMap).flat().length,
-              status: Object.keys(statusMap).length
-            });
           };
           
           // Carregar em background sem bloquear a UI
@@ -545,18 +506,6 @@ export default function EventoCheckInsPage() {
         }
         
         // A arrecadação será calculada automaticamente pelo useEffect quando os estados mudarem
-        
-        // Debug: verificar dados filtrados
-        console.log('✅ Debug - Convidados de Promoters Filtrados:', {
-          total: convidadosPromotersFiltrados.length,
-          tipos: [...new Set(convidadosPromotersFiltrados.map((c: any) => c.tipo))],
-          primeiros: convidadosPromotersFiltrados.slice(0, 3).map((c: any) => ({
-            id: c.id,
-            nome: c.nome,
-            tipo: c.tipo,
-            responsavel: c.responsavel
-          }))
-        });
       } else {
         console.error('Erro ao carregar dados:', response.statusText);
       }
@@ -636,36 +585,73 @@ export default function EventoCheckInsPage() {
     setArrecadacao({ totalGeral, porPromoter, porTipo });
   }, []);
 
-  // Recalcular arrecadação quando os dados mudarem
+  // Recalcular arrecadação quando os dados mudarem (otimizado - só recalcula quando realmente necessário)
+  const prevDataRef = useRef<{ 
+    reservas: number; 
+    promoters: number; 
+    guests: number;
+    guestsByListKeys: string;
+  }>({ reservas: 0, promoters: 0, guests: 0, guestsByListKeys: '' });
+  
   useEffect(() => {
-    if (convidadosReservas.length > 0 || convidadosPromoters.length > 0 || Object.keys(guestsByList).length > 0) {
+    const guestsByListKeys = Object.keys(guestsByList).sort().join(',');
+    const currentData = {
+      reservas: convidadosReservas.length,
+      promoters: convidadosPromoters.length,
+      guests: Object.values(guestsByList).flat().length,
+      guestsByListKeys
+    };
+    
+    // Só recalcular se os dados realmente mudaram
+    const hasChanged = 
+      prevDataRef.current.reservas !== currentData.reservas ||
+      prevDataRef.current.promoters !== currentData.promoters ||
+      prevDataRef.current.guests !== currentData.guests ||
+      prevDataRef.current.guestsByListKeys !== currentData.guestsByListKeys;
+    
+    if (hasChanged && (convidadosReservas.length > 0 || convidadosPromoters.length > 0 || Object.keys(guestsByList).length > 0)) {
       calcularArrecadacao(
         convidadosReservas,
         convidadosPromoters,
         promoters,
         guestsByList
       );
+      prevDataRef.current = currentData;
     }
   }, [convidadosReservas, convidadosPromoters, promoters, guestsByList, calcularArrecadacao]);
 
-  // Funções de check-in - Abre modal primeiro
-  const handleConvidadoReservaCheckIn = (convidado: ConvidadoReserva) => {
+  // Funções de check-in - Abre modal primeiro (memoizadas para evitar re-renderizações)
+  const handleConvidadoReservaCheckIn = useCallback((convidado: ConvidadoReserva) => {
+    const key = `reserva-${convidado.id}`;
+    if (checkInInProgressRef.current[key]) return;
+    
+    checkInInProgressRef.current[key] = true;
     setConvidadoParaCheckIn({
       tipo: 'reserva',
       id: convidado.id,
       nome: convidado.nome
     });
     setEntradaModalOpen(true);
-  };
+    setTimeout(() => {
+      checkInInProgressRef.current[key] = false;
+    }, 500);
+  }, []);
 
-  const handleConvidadoPromoterCheckIn = (convidado: ConvidadoPromoter) => {
+  const handleConvidadoPromoterCheckIn = useCallback((convidado: ConvidadoPromoter) => {
+    const key = `promoter-${convidado.id}`;
+    if (checkInInProgressRef.current[key]) return;
+    
+    checkInInProgressRef.current[key] = true;
     setConvidadoParaCheckIn({
       tipo: 'promoter',
       id: convidado.id,
       nome: convidado.nome
     });
     setEntradaModalOpen(true);
-  };
+    setTimeout(() => {
+      checkInInProgressRef.current[key] = false;
+    }, 500);
+  }, []);
 
   // Função que realmente faz o check-in após seleção do status
   const handleConfirmarCheckIn = async (tipo: EntradaTipo, valor: number) => {
@@ -721,7 +707,10 @@ export default function EventoCheckInsPage() {
 
       if (response.ok) {
         const tipoTexto = tipo === 'VIP' ? 'VIP (grátis)' : tipo === 'SECO' ? `SECO (R$ ${valor.toFixed(2)})` : `CONSUMA (R$ ${valor.toFixed(2)})`;
-        alert(`✅ Check-in de ${convidadoParaCheckIn.nome} confirmado!\nStatus: ${tipoTexto}`);
+        toast.success(`✅ Check-in de ${convidadoParaCheckIn.nome} confirmado! Status: ${tipoTexto}`, {
+          position: "top-center",
+          autoClose: 3000,
+        });
         setEntradaModalOpen(false);
         
         // Se for guest list, atualizar o estado local também
@@ -768,7 +757,10 @@ export default function EventoCheckInsPage() {
                 });
                 if (newlyAwarded.length > 0) {
                   setTimeout(() => {
-                    alert(`🎁 Brinde(s) liberado(s)!\n\n${newlyAwarded.map((g: any) => `✅ ${g.descricao}`).join('\n')}`);
+                    toast.success(`🎁 Brinde(s) liberado(s)!\n\n${newlyAwarded.map((g: any) => `✅ ${g.descricao}`).join('\n')}`, {
+                      position: "top-center",
+                      autoClose: 5000,
+                    });
                   }, 500);
                 }
               }
@@ -787,15 +779,34 @@ export default function EventoCheckInsPage() {
         loadCheckInData();
       } else {
         const errorData = await response.json();
-        alert(`❌ ${errorData.message || errorData.error || 'Erro ao fazer check-in'}`);
+        toast.error(`❌ ${errorData.message || errorData.error || 'Erro ao fazer check-in'}`, {
+          position: "top-center",
+          autoClose: 4000,
+        });
       }
     } catch (error) {
       console.error('Erro:', error);
-      alert('❌ Erro ao fazer check-in');
+      toast.error('❌ Erro ao fazer check-in', {
+        position: "top-center",
+        autoClose: 4000,
+      });
+    } finally {
+      // Limpar flag de progresso
+      if (convidadoParaCheckIn) {
+        const key = `${convidadoParaCheckIn.tipo}-${convidadoParaCheckIn.id}`;
+        checkInInProgressRef.current[key] = false;
+      }
     }
   };
 
-  const handleCamaroteCheckIn = async (camarote: Camarote) => {
+  const handleCamaroteCheckIn = useCallback(async (camarote: Camarote, e?: React.MouseEvent) => {
+    e?.preventDefault();
+    e?.stopPropagation();
+    
+    const key = `camarote-${camarote.id}`;
+    if (checkInInProgressRef.current[key]) return;
+    checkInInProgressRef.current[key] = true;
+    
     try {
       const token = localStorage.getItem('authToken');
       const response = await fetch(`${API_URL}/api/large-reservations/${camarote.id}/checkin`, {
@@ -807,18 +818,36 @@ export default function EventoCheckInsPage() {
       });
 
       if (response.ok) {
-        alert(`✅ Check-in de ${camarote.responsavel} confirmado!`);
+        toast.success(`✅ Check-in de ${camarote.responsavel} confirmado!`, {
+          position: "top-center",
+          autoClose: 3000,
+        });
         loadCheckInData();
       } else {
-        alert('❌ Erro ao fazer check-in');
+        toast.error('❌ Erro ao fazer check-in', {
+          position: "top-center",
+          autoClose: 4000,
+        });
       }
     } catch (error) {
       console.error('Erro:', error);
-      alert('❌ Erro ao fazer check-in');
+      toast.error('❌ Erro ao fazer check-in', {
+        position: "top-center",
+        autoClose: 4000,
+      });
+    } finally {
+      checkInInProgressRef.current[key] = false;
     }
-  };
+  }, [loadCheckInData]);
 
-  const handleReservaRestauranteCheckIn = async (reserva: ReservaRestaurante) => {
+  const handleReservaRestauranteCheckIn = useCallback(async (reserva: ReservaRestaurante, e?: React.MouseEvent) => {
+    e?.preventDefault();
+    e?.stopPropagation();
+    
+    const key = `reserva-restaurante-${reserva.id}`;
+    if (checkInInProgressRef.current[key]) return;
+    checkInInProgressRef.current[key] = true;
+    
     try {
       const token = localStorage.getItem('authToken');
       const response = await fetch(`${API_URL}/api/restaurant-reservations/${reserva.id}/checkin`, {
@@ -830,18 +859,36 @@ export default function EventoCheckInsPage() {
       });
 
       if (response.ok) {
-        alert(`✅ Check-in de ${reserva.responsavel} confirmado!`);
+        toast.success(`✅ Check-in de ${reserva.responsavel} confirmado!`, {
+          position: "top-center",
+          autoClose: 3000,
+        });
         loadCheckInData();
       } else {
-        alert('❌ Erro ao fazer check-in');
+        toast.error('❌ Erro ao fazer check-in', {
+          position: "top-center",
+          autoClose: 4000,
+        });
       }
     } catch (error) {
       console.error('Erro:', error);
-      alert('❌ Erro ao fazer check-in');
+      toast.error('❌ Erro ao fazer check-in', {
+        position: "top-center",
+        autoClose: 4000,
+      });
+    } finally {
+      checkInInProgressRef.current[key] = false;
     }
-  };
+  }, [loadCheckInData]);
 
-  const handleConvidadoReservaRestauranteCheckIn = async (convidado: ConvidadoReservaRestaurante) => {
+  const handleConvidadoReservaRestauranteCheckIn = useCallback(async (convidado: ConvidadoReservaRestaurante, e?: React.MouseEvent) => {
+    e?.preventDefault();
+    e?.stopPropagation();
+    
+    const key = `convidado-restaurante-${convidado.id}`;
+    if (checkInInProgressRef.current[key]) return;
+    checkInInProgressRef.current[key] = true;
+    
     try {
       const token = localStorage.getItem('authToken');
       const response = await fetch(`${API_URL}/api/admin/guests/${convidado.id}/checkin`, {
@@ -853,19 +900,37 @@ export default function EventoCheckInsPage() {
       });
 
       if (response.ok) {
-        alert(`✅ Check-in de ${convidado.nome} confirmado!`);
+        toast.success(`✅ Check-in de ${convidado.nome} confirmado!`, {
+          position: "top-center",
+          autoClose: 3000,
+        });
         loadCheckInData();
       } else {
-        alert('❌ Erro ao fazer check-in');
+        toast.error('❌ Erro ao fazer check-in', {
+          position: "top-center",
+          autoClose: 4000,
+        });
       }
     } catch (error) {
       console.error('Erro:', error);
-      alert('❌ Erro ao fazer check-in');
+      toast.error('❌ Erro ao fazer check-in', {
+        position: "top-center",
+        autoClose: 4000,
+      });
+    } finally {
+      checkInInProgressRef.current[key] = false;
     }
-  };
+  }, [loadCheckInData]);
 
   // Funções para guest lists (replicando Sistema de Reservas)
-  const handleOwnerCheckIn = async (guestListId: number, ownerName: string) => {
+  const handleOwnerCheckIn = useCallback(async (guestListId: number, ownerName: string, e?: React.MouseEvent) => {
+    e?.preventDefault();
+    e?.stopPropagation();
+    
+    const key = `owner-${guestListId}`;
+    if (checkInInProgressRef.current[key]) return;
+    checkInInProgressRef.current[key] = true;
+    
     try {
       const token = localStorage.getItem('authToken');
       const response = await fetch(`${API_URL}/api/admin/guest-lists/${guestListId}/owner-checkin`, {
@@ -878,18 +943,36 @@ export default function EventoCheckInsPage() {
           ...prev,
           [guestListId]: { ...prev[guestListId], ownerCheckedIn: true }
         }));
-        alert(`✅ Check-in de ${ownerName} confirmado!`);
+        toast.success(`✅ Check-in de ${ownerName} confirmado!`, {
+          position: "top-center",
+          autoClose: 3000,
+        });
         loadCheckInData();
       } else {
-        alert('❌ Erro ao fazer check-in do dono');
+        toast.error('❌ Erro ao fazer check-in do dono', {
+          position: "top-center",
+          autoClose: 4000,
+        });
       }
     } catch (error) {
       console.error('Erro:', error);
-      alert('❌ Erro ao fazer check-in do dono');
+      toast.error('❌ Erro ao fazer check-in do dono', {
+        position: "top-center",
+        autoClose: 4000,
+      });
+    } finally {
+      checkInInProgressRef.current[key] = false;
     }
-  };
+  }, [loadCheckInData]);
 
-  const handleGuestCheckIn = (guestListId: number, guestId: number, guestName: string) => {
+  const handleGuestCheckIn = useCallback((guestListId: number, guestId: number, guestName: string, e?: React.MouseEvent) => {
+    e?.preventDefault();
+    e?.stopPropagation();
+    
+    const key = `guest-${guestListId}-${guestId}`;
+    if (checkInInProgressRef.current[key]) return;
+    checkInInProgressRef.current[key] = true;
+    
     // Abre o modal ao invés de fazer check-in direto
     setConvidadoParaCheckIn({
       tipo: 'guest_list',
@@ -898,14 +981,19 @@ export default function EventoCheckInsPage() {
       guestListId: guestListId
     });
     setEntradaModalOpen(true);
-  };
+    
+    setTimeout(() => {
+      checkInInProgressRef.current[key] = false;
+    }, 500);
+  }, []);
 
-  // Filtrar por busca
-  const filterBySearch = (text: string | null | undefined) => {
-    if (!searchTerm.trim()) return true;
+  // Filtrar por busca (otimizado com cache de lowercase)
+  const searchTermLower = useMemo(() => debouncedSearchTerm.toLowerCase().trim(), [debouncedSearchTerm]);
+  const filterBySearch = useCallback((text: string | null | undefined) => {
+    if (!searchTermLower) return true;
     if (!text) return false;
-    return text.toLowerCase().includes(searchTerm.toLowerCase());
-  };
+    return text.toLowerCase().includes(searchTermLower);
+  }, [searchTermLower]);
 
   // Normalizador para comparação de nomes de estabelecimentos
   const normalizeName = (name: string): string => {
@@ -920,32 +1008,35 @@ export default function EventoCheckInsPage() {
       .trim();
   };
 
-  // Filtrar dados - Mostrar todos se não houver busca
+  // Filtrar dados - Mostrar todos se não houver busca (otimizado)
   const filteredConvidadosReservas = useMemo(() => {
-    let filtered;
-    if (!searchTerm.trim()) {
-      filtered = convidadosReservas;
-    } else {
-      filtered = convidadosReservas.filter(c => 
-        filterBySearch(c.nome) || 
-        filterBySearch(c.email || '') || 
-        filterBySearch(c.responsavel) ||
-        filterBySearch(c.origem)
+    if (!debouncedSearchTerm.trim()) {
+      // Se não há busca, retornar array ordenado uma vez
+      const sorted = [...convidadosReservas].sort((a, b) => 
+        cachedStringCompare(a.nome || '', b.nome || '')
       );
+      return sorted;
     }
-    // Ordenar alfabeticamente
-    return filtered.sort((a, b) => 
-      (a.nome || '').localeCompare(b.nome || '', 'pt-BR', { sensitivity: 'base' })
+    
+    const filtered = convidadosReservas.filter(c => 
+      filterBySearch(c.nome) || 
+      filterBySearch(c.email || '') || 
+      filterBySearch(c.responsavel) ||
+      filterBySearch(c.origem)
     );
-  }, [convidadosReservas, searchTerm]);
+    // Ordenar alfabeticamente usando cache
+    return filtered.sort((a, b) => 
+      cachedStringCompare(a.nome || '', b.nome || '')
+    );
+  }, [convidadosReservas, debouncedSearchTerm, filterBySearch, cachedStringCompare]);
 
-  // Filtrar convidados de promoters - agora também usa searchTerm principal
+  // Filtrar convidados de promoters - agora também usa searchTerm principal (otimizado)
   const filteredConvidadosPromoters = useMemo(() => {
-    // Primeiro, validar que são realmente convidados de promoters
+    // Primeiro, validar que são realmente convidados de promoters (cachear resultado)
     const validados = convidadosPromoters.filter(c => isValidPromoterGuest(c));
     
     // Usar searchTerm principal se existir, senão usar promoterGuestsSearch
-    const searchText = searchTerm.trim() || promoterGuestsSearch.trim();
+    const searchText = debouncedSearchTerm.trim() || promoterGuestsSearch.trim();
     if (!searchText) {
       return validados;
     }
@@ -958,18 +1049,23 @@ export default function EventoCheckInsPage() {
       const origem = (c.origem || '').toLowerCase();
       
       // Buscar principalmente pelo nome, mas também nos outros campos
-      const encontrado = nome.includes(searchLower) || 
-                        telefone.includes(searchLower) || 
-                        responsavel.includes(searchLower) ||
-                        origem.includes(searchLower);
-      
-      return encontrado;
+      return nome.includes(searchLower) || 
+             telefone.includes(searchLower) || 
+             responsavel.includes(searchLower) ||
+             origem.includes(searchLower);
     });
     
     return filtrados;
-  }, [convidadosPromoters, searchTerm, promoterGuestsSearch]);
+  }, [convidadosPromoters, debouncedSearchTerm, promoterGuestsSearch]);
 
   const filteredConvidadosReservasRestaurante = useMemo(() => {
+    if (!debouncedSearchTerm.trim()) {
+      const sorted = [...convidadosReservasRestaurante].sort((a, b) => 
+        cachedStringCompare(a.nome || '', b.nome || '')
+      );
+      return sorted;
+    }
+    
     const filtered = convidadosReservasRestaurante.filter(c => 
       filterBySearch(c.nome) || 
       filterBySearch(c.telefone || '') || 
@@ -977,11 +1073,11 @@ export default function EventoCheckInsPage() {
       filterBySearch(c.origem) ||
       filterBySearch(c.data_nascimento || '')
     );
-    // Ordenar alfabeticamente
+    // Ordenar alfabeticamente usando cache
     return filtered.sort((a, b) => 
-      (a.nome || '').localeCompare(b.nome || '', 'pt-BR', { sensitivity: 'base' })
+      cachedStringCompare(a.nome || '', b.nome || '')
     );
-  }, [convidadosReservasRestaurante, searchTerm]);
+  }, [convidadosReservasRestaurante, debouncedSearchTerm, filterBySearch, cachedStringCompare]);
 
   // Função de busca melhorada (busca em múltiplos campos)
   const enhancedSearch = useCallback((term: string, item: any) => {
@@ -1012,9 +1108,9 @@ export default function EventoCheckInsPage() {
     return false;
   }, []);
 
-  // Resultados unificados de busca - todos os convidados encontrados (com filtros e ordenação)
+  // Resultados unificados de busca - todos os convidados encontrados (com filtros e ordenação) - OTIMIZADO
   const resultadosBuscaUnificados = useMemo(() => {
-    if (!searchTerm.trim()) {
+    if (!debouncedSearchTerm.trim()) {
       return [];
     }
 
@@ -1107,7 +1203,7 @@ export default function EventoCheckInsPage() {
           });
         });
       } else {
-        const searchLower = searchTerm.toLowerCase();
+        const searchLower = debouncedSearchTerm.toLowerCase();
         guests.forEach(g => {
           const nome = (g.name || '').toLowerCase();
           const whatsapp = (g.whatsapp || '').toLowerCase();
@@ -1145,86 +1241,101 @@ export default function EventoCheckInsPage() {
       });
     }
     
-    // Aplicar ordenação (padrão: alfabética por nome)
+    // Aplicar ordenação (padrão: alfabética por nome) - OTIMIZADO com cache
     const sorted = [...filtered].sort((a, b) => {
       switch (sortBy) {
         case 'nome':
-          return a.nome.localeCompare(b.nome, 'pt-BR', { sensitivity: 'base' });
+          return cachedStringCompare(a.nome, b.nome);
         case 'status':
           const statusA = a.status === 'CHECK-IN' || a.status === 'Check-in' ? 1 : 0;
           const statusB = b.status === 'CHECK-IN' || b.status === 'Check-in' ? 1 : 0;
           if (statusA !== statusB) return statusB - statusA; // Check-in primeiro
           // Se mesmo status, ordenar alfabeticamente
-          return a.nome.localeCompare(b.nome, 'pt-BR', { sensitivity: 'base' });
+          return cachedStringCompare(a.nome, b.nome);
         case 'tipo':
-          const tipoCompare = a.tipo.localeCompare(b.tipo);
+          const tipoCompare = cachedStringCompare(a.tipo, b.tipo);
           if (tipoCompare !== 0) return tipoCompare;
           // Se mesmo tipo, ordenar alfabeticamente
-          return a.nome.localeCompare(b.nome, 'pt-BR', { sensitivity: 'base' });
+          return cachedStringCompare(a.nome, b.nome);
         case 'hora':
           const horaA = a.data_checkin ? new Date(a.data_checkin).getTime() : 0;
           const horaB = b.data_checkin ? new Date(b.data_checkin).getTime() : 0;
           if (horaA !== horaB) return horaB - horaA; // Mais recente primeiro
           // Se mesma hora, ordenar alfabeticamente
-          return a.nome.localeCompare(b.nome, 'pt-BR', { sensitivity: 'base' });
+          return cachedStringCompare(a.nome, b.nome);
         default:
           // Padrão: ordenação alfabética
-          return a.nome.localeCompare(b.nome, 'pt-BR', { sensitivity: 'base' });
+          return cachedStringCompare(a.nome, b.nome);
       }
     });
     
     return sorted;
-  }, [searchTerm, filteredConvidadosReservas, filteredConvidadosPromoters, filteredConvidadosReservasRestaurante, guestsByList, guestListsRestaurante, filterStatus, sortBy]);
+  }, [debouncedSearchTerm, filteredConvidadosReservas, filteredConvidadosPromoters, filteredConvidadosReservasRestaurante, guestsByList, guestListsRestaurante, filterStatus, sortBy, cachedStringCompare]);
 
-  // Ordenar listas e convidados alfabeticamente
+  // Ordenar listas e convidados alfabeticamente (otimizado)
   const sortedGuestListsRestaurante = useMemo(() => {
     return [...guestListsRestaurante].sort((a, b) => 
-      (a.owner_name || '').localeCompare(b.owner_name || '', 'pt-BR', { sensitivity: 'base' })
+      cachedStringCompare(a.owner_name || '', b.owner_name || '')
     );
-  }, [guestListsRestaurante]);
+  }, [guestListsRestaurante, cachedStringCompare]);
 
   const sortedReservasMesa = useMemo(() => {
     return [...reservasMesa].sort((a, b) => 
-      (a.responsavel || '').localeCompare(b.responsavel || '', 'pt-BR', { sensitivity: 'base' })
+      cachedStringCompare(a.responsavel || '', b.responsavel || '')
     );
-  }, [reservasMesa]);
+  }, [reservasMesa, cachedStringCompare]);
 
   const sortedFilteredConvidadosPromoters = useMemo(() => {
     return [...filteredConvidadosPromoters].sort((a, b) => 
-      (a.nome || '').localeCompare(b.nome || '', 'pt-BR', { sensitivity: 'base' })
+      cachedStringCompare(a.nome || '', b.nome || '')
     );
-  }, [filteredConvidadosPromoters]);
+  }, [filteredConvidadosPromoters, cachedStringCompare]);
 
   const filteredCamarotes = useMemo(() => {
+    if (!debouncedSearchTerm.trim()) {
+      return [...camarotes].sort((a, b) => 
+        cachedStringCompare(a.responsavel || '', b.responsavel || '')
+      );
+    }
     const filtered = camarotes.filter(c => 
       filterBySearch(c.responsavel) || 
       filterBySearch(c.origem)
     );
     return filtered.sort((a, b) => 
-      (a.responsavel || '').localeCompare(b.responsavel || '', 'pt-BR', { sensitivity: 'base' })
+      cachedStringCompare(a.responsavel || '', b.responsavel || '')
     );
-  }, [camarotes, searchTerm]);
+  }, [camarotes, debouncedSearchTerm, filterBySearch, cachedStringCompare]);
 
   const filteredReservasRestaurante = useMemo(() => {
+    if (!debouncedSearchTerm.trim()) {
+      return [...reservasRestaurante].sort((a, b) => 
+        cachedStringCompare(a.responsavel || '', b.responsavel || '')
+      );
+    }
     const filtered = reservasRestaurante.filter(r => 
       filterBySearch(r.responsavel) || 
       filterBySearch(r.origem)
     );
     return filtered.sort((a, b) => 
-      (a.responsavel || '').localeCompare(b.responsavel || '', 'pt-BR', { sensitivity: 'base' })
+      cachedStringCompare(a.responsavel || '', b.responsavel || '')
     );
-  }, [reservasRestaurante, searchTerm]);
+  }, [reservasRestaurante, debouncedSearchTerm, filterBySearch, cachedStringCompare]);
 
   const sortedFilteredPromoters = useMemo(() => {
+    if (!debouncedSearchTerm.trim()) {
+      return [...promoters].sort((a, b) => 
+        cachedStringCompare(a.nome || '', b.nome || '')
+      );
+    }
     const filtered = promoters.filter(p => 
       filterBySearch(p.nome) || 
       filterBySearch(p.email || '') ||
       filterBySearch(p.telefone || '')
     );
     return filtered.sort((a, b) => 
-      (a.nome || '').localeCompare(b.nome || '', 'pt-BR', { sensitivity: 'base' })
+      cachedStringCompare(a.nome || '', b.nome || '')
     );
-  }, [promoters, searchTerm]);
+  }, [promoters, debouncedSearchTerm, filterBySearch, cachedStringCompare]);
 
   const reservasMetrics = useMemo(() => {
     // Contar convidados (não reservas)
@@ -1265,20 +1376,6 @@ export default function EventoCheckInsPage() {
       }
     }
 
-    console.log('📊 reservasMetrics calculado:', {
-      totalConvidadosReservas,
-      checkinConvidadosReservas,
-      totalConvidadosRestaurante,
-      checkinConvidadosRestaurante,
-      total: totalConvidadosReservas + totalConvidadosRestaurante,
-      checkins: checkinConvidadosReservas + checkinConvidadosRestaurante,
-      convidadosReservasRestaurante_length: convidadosReservasRestaurante.length,
-      guestListsRestaurante_length: guestListsRestaurante.length,
-      guestsByList_keys: Object.keys(guestsByList).length,
-      guestsByList_total: Object.values(guestsByList).reduce((sum, guests) => sum + guests.length, 0),
-      checkInStatus_keys: Object.keys(checkInStatus).length
-    });
-
     return {
       total: totalConvidadosReservas + totalConvidadosRestaurante,
       checkins: checkinConvidadosReservas + checkinConvidadosRestaurante
@@ -1296,7 +1393,7 @@ export default function EventoCheckInsPage() {
   }, [convidadosPromoters]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900" style={{ touchAction: 'manipulation' }}>
         {/* Header */}
         <div className="bg-gradient-to-r from-green-600 to-green-700 text-white p-4 md:p-6 shadow-lg">
           <div className="max-w-7xl mx-auto">
@@ -1814,9 +1911,11 @@ export default function EventoCheckInsPage() {
                       return (
                         <motion.div
                           key={`${resultado.tipo}-${resultado.id}`}
-                          initial={{ opacity: 0, y: 20 }}
-                          animate={{ opacity: 1, y: 0 }}
+                          initial={isMobile ? false : { opacity: 0, y: 20 }}
+                          animate={isMobile ? false : { opacity: 1, y: 0 }}
+                          transition={isMobile ? undefined : { duration: 0.2 }}
                           className={`border rounded-lg p-3 ${getBorderClass()}`}
+                          style={{ touchAction: 'manipulation' }}
                         >
                           <div className="flex items-start justify-between mb-2">
                             <div className="flex-1 min-w-0">
@@ -1929,8 +2028,9 @@ export default function EventoCheckInsPage() {
                     {sortedReservasMesa.map((reserva) => (
                         <motion.div
                           key={reserva.id}
-                          initial={{ opacity: 0, y: 20 }}
-                          animate={{ opacity: 1, y: 0 }}
+                          initial={false}
+                          animate={false}
+                          style={{ touchAction: 'manipulation' }}
                           className={`border rounded-lg p-3 ${
                             reserva.convidados_checkin > 0
                               ? 'bg-blue-900/20 border-blue-500/40'
@@ -2010,7 +2110,6 @@ export default function EventoCheckInsPage() {
                                   if (!hasGuests) {
                                     try {
                                       const token = localStorage.getItem('authToken');
-                                      console.log(`🔄 Carregando convidados para guest list ${gl.guest_list_id}...`);
                                       
                                       // Carregar convidados
                                       const guestsRes = await fetch(`${API_URL}/api/admin/guest-lists/${gl.guest_list_id}/guests`, { 
@@ -2020,10 +2119,6 @@ export default function EventoCheckInsPage() {
                                       let guestsData: { guests: GuestItem[] } | null = null;
                                       if (guestsRes.ok) {
                                         guestsData = await guestsRes.json();
-                                        console.log(`✅ Convidados carregados para ${gl.owner_name}:`, {
-                                          total: guestsData?.guests?.length || 0,
-                                          dados: guestsData
-                                        });
                                         
                                         if (guestsData && guestsData.guests) {
                                           // Ordenar convidados alfabeticamente por nome
@@ -2040,7 +2135,6 @@ export default function EventoCheckInsPage() {
                                             }
                                           }));
                                         } else {
-                                          console.warn(`⚠️ Resposta vazia ou sem guests para ${gl.guest_list_id}`);
                                           setGuestsByList(prev => ({ ...prev, [gl.guest_list_id]: [] }));
                                         }
                                       } else {
@@ -2099,12 +2193,9 @@ export default function EventoCheckInsPage() {
                                         console.error('Erro ao carregar brindes:', giftError);
                                       }
                                     } catch (e) { 
-                                      console.error('❌ Erro ao carregar dados da guest list:', e);
                                       // Definir como array vazio em caso de erro para evitar loops
                                       setGuestsByList(prev => ({ ...prev, [gl.guest_list_id]: [] }));
                                     }
-                                  } else {
-                                    console.log(`✅ Convidados já carregados para ${gl.owner_name}: ${guestsByList[gl.guest_list_id].length} convidados`);
                                   }
                                 }
                               }}
@@ -2158,8 +2249,9 @@ export default function EventoCheckInsPage() {
                                   <div className="flex items-center gap-2">
                                     <button
                                       onClick={(e) => {
+                                        e.preventDefault();
                                         e.stopPropagation();
-                                        handleOwnerCheckIn(gl.guest_list_id, gl.owner_name);
+                                        handleOwnerCheckIn(gl.guest_list_id, gl.owner_name, e);
                                       }}
                                       className={`px-2 md:px-3 py-1 text-xs rounded-full transition-colors font-medium touch-manipulation ${
                                         checkInStatus[gl.guest_list_id]?.ownerCheckedIn || gl.owner_checked_in === 1
@@ -2527,8 +2619,10 @@ export default function EventoCheckInsPage() {
                         {sortedFilteredPromoters.map(promoter => (
                           <motion.div
                             key={promoter.id}
-                            initial={{ opacity: 0, y: 20 }}
-                            animate={{ opacity: 1, y: 0 }}
+                            initial={isMobile ? false : { opacity: 0, y: 20 }}
+                            animate={isMobile ? false : { opacity: 1, y: 0 }}
+                            transition={isMobile ? undefined : { duration: 0.2 }}
+                            style={{ touchAction: 'manipulation' }}
                             className="border rounded-lg p-3 bg-purple-900/20 border-purple-500/50"
                           >
                             <div className="flex items-start justify-between mb-2">
@@ -2565,14 +2659,6 @@ export default function EventoCheckInsPage() {
                   {/* Convidados dos Promoters */}
                   <section className="bg-white/10 backdrop-blur-sm rounded-lg shadow-sm p-4 md:p-6 border border-white/20">
                     {(() => {
-                      // Debug: verificar dados antes de renderizar
-                      if (process.env.NODE_ENV === 'development') {
-                        console.log('🎯 Renderizando Convidados de Promoters:', {
-                          total: sortedFilteredConvidadosPromoters.length,
-                          tipos: [...new Set(sortedFilteredConvidadosPromoters.map(c => c.tipo))],
-                          primeirosNomes: sortedFilteredConvidadosPromoters.slice(0, 5).map(c => c.nome)
-                        });
-                      }
                       return null;
                     })()}
 <div className="flex items-start justify-between mb-3 md:mb-4 gap-4">
@@ -2624,10 +2710,6 @@ export default function EventoCheckInsPage() {
                           onChange={(e) => {
                             const value = e.target.value;
                             setPromoterGuestsSearch(value);
-                            // Debug temporário
-                            if (process.env.NODE_ENV === 'development') {
-                              console.log('🔍 Busca alterada:', value, 'Total de convidados:', convidadosPromoters.length);
-                            }
                           }}
                           className="w-full pl-9 md:pl-10 pr-9 md:pr-10 py-2.5 md:py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm md:text-base"
                         />
@@ -2635,9 +2717,6 @@ export default function EventoCheckInsPage() {
                           <button
                             onClick={() => {
                               setPromoterGuestsSearch('');
-                              if (process.env.NODE_ENV === 'development') {
-                                console.log('🔍 Busca limpa');
-                              }
                             }}
                             className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white p-1"
                           >
@@ -2701,7 +2780,11 @@ export default function EventoCheckInsPage() {
                             </div>
                             {!isCheckedIn && !isNoShow && (
                               <button
-                                onClick={() => handleConvidadoPromoterCheckIn(convidado)}
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  handleConvidadoPromoterCheckIn(convidado);
+                                }}
                                 className="px-3 py-1.5 text-xs bg-green-600 hover:bg-green-700 text-white rounded-lg touch-manipulation font-medium flex-shrink-0"
                               >
                                 Check-in
@@ -2718,8 +2801,10 @@ export default function EventoCheckInsPage() {
                         {sortedFilteredConvidadosPromoters.map(convidado => (
                           <motion.div
                             key={convidado.id}
-                            initial={{ opacity: 0, y: 20 }}
-                            animate={{ opacity: 1, y: 0 }}
+                            initial={isMobile ? false : { opacity: 0, y: 20 }}
+                            animate={isMobile ? false : { opacity: 1, y: 0 }}
+                            transition={isMobile ? undefined : { duration: 0.2 }}
+                            style={{ touchAction: 'manipulation' }}
                             className={`border rounded-lg p-3 ${
                               convidado.status_checkin === 'Check-in'
                                 ? 'bg-green-900/30 border-green-500/50'
@@ -2760,7 +2845,11 @@ export default function EventoCheckInsPage() {
 
                             {convidado.status_checkin === 'Pendente' ? (
                               <button
-                                onClick={() => handleConvidadoPromoterCheckIn(convidado)}
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  handleConvidadoPromoterCheckIn(convidado);
+                                }}
                                 className="w-full bg-purple-600 hover:bg-purple-700 text-white font-medium py-2 rounded-lg transition-colors flex items-center justify-center gap-1.5 text-sm touch-manipulation"
                               >
                                 <MdCheckCircle size={16} />
@@ -2810,8 +2899,9 @@ export default function EventoCheckInsPage() {
                         {sortedFilteredConvidadosPromoters.map(convidado => (
                           <motion.div
                             key={convidado.id}
-                            initial={{ opacity: 0, x: -20 }}
-                            animate={{ opacity: 1, x: 0 }}
+                            initial={false}
+                            animate={false}
+                            style={{ touchAction: 'manipulation' }}
                             className={`border rounded-lg p-4 flex items-center justify-between ${
                               convidado.status_checkin === 'Check-in'
                                 ? 'bg-green-900/30 border-green-500/50'
@@ -2841,8 +2931,12 @@ export default function EventoCheckInsPage() {
                             </div>
                             {convidado.status_checkin === 'Pendente' && (
                               <button
-                                onClick={() => handleConvidadoPromoterCheckIn(convidado)}
-                                className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded-lg transition-colors flex items-center gap-2"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  handleConvidadoPromoterCheckIn(convidado);
+                                }}
+                                className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded-lg transition-colors flex items-center gap-2 touch-manipulation"
                               >
                                 <MdCheckCircle size={18} />
                                 Check-in
@@ -2901,8 +2995,10 @@ export default function EventoCheckInsPage() {
                     {filteredCamarotes.map(camarote => (
                       <motion.div
                         key={camarote.id}
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
+                        initial={isMobile ? false : { opacity: 0, y: 20 }}
+                        animate={isMobile ? false : { opacity: 1, y: 0 }}
+                        transition={isMobile ? undefined : { duration: 0.2 }}
+                        style={{ touchAction: 'manipulation' }}
                         className={`border rounded-lg p-3 ${
                           camarote.checked_in
                             ? 'bg-green-900/30 border-green-500/50'
@@ -2938,7 +3034,7 @@ export default function EventoCheckInsPage() {
 
                         {!camarote.checked_in ? (
                           <button
-                            onClick={() => handleCamaroteCheckIn(camarote)}
+                            onClick={(e) => handleCamaroteCheckIn(camarote, e)}
                             className="w-full bg-orange-600 hover:bg-orange-700 text-white font-medium py-2 rounded-lg transition-colors flex items-center justify-center gap-1.5 text-sm touch-manipulation"
                           >
                             <MdCheckCircle size={16} />
@@ -2967,8 +3063,9 @@ export default function EventoCheckInsPage() {
                       {atracoes.map(atracao => (
                         <motion.div
                           key={atracao.id}
-                          initial={{ opacity: 0, y: 20 }}
-                          animate={{ opacity: 1, y: 0 }}
+                          initial={false}
+                          animate={false}
+                          style={{ touchAction: 'manipulation' }}
                           className="border rounded-lg p-4 bg-pink-900/20 border-pink-500/50 hover:border-pink-400/70 transition-colors"
                         >
                           <div className="flex items-start justify-between mb-3">
@@ -3085,6 +3182,20 @@ export default function EventoCheckInsPage() {
             horaAtual={new Date()}
           />
         )}
+        
+        {/* Toast Container para notificações não-bloqueantes */}
+        <ToastContainer
+          position="top-center"
+          autoClose={3000}
+          hideProgressBar={false}
+          newestOnTop={true}
+          closeOnClick
+          rtl={false}
+          pauseOnFocusLoss
+          draggable
+          pauseOnHover
+          style={{ touchAction: 'manipulation' }}
+        />
       </div>
   );
 }
