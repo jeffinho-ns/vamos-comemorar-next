@@ -34,6 +34,11 @@ const getValidImageUrl = (imageUrl?: string | null, coverImages?: string[]): str
   if (imageUrl && typeof imageUrl === 'string') {
     const trimmed = imageUrl.trim();
     if (trimmed !== '' && trimmed !== 'null' && trimmed !== 'undefined') {
+      // Se já é uma URL completa do Cloudinary, retornar como está
+      if (trimmed.startsWith('https://res.cloudinary.com')) {
+        return trimmed;
+      }
+      
       // Verifica se já é uma URL absoluta
       if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
         try {
@@ -79,6 +84,11 @@ const getValidImageUrl = (imageUrl?: string | null, coverImages?: string[]): str
     if (typeof firstImage === 'string') {
       const trimmed = firstImage.trim();
       if (trimmed !== '' && trimmed !== 'null' && trimmed !== 'undefined') {
+        // Se já é uma URL completa do Cloudinary, retornar como está
+        if (trimmed.startsWith('https://res.cloudinary.com')) {
+          return trimmed;
+        }
+        
         // Verifica se já é uma URL absoluta
         if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
           return trimmed;
@@ -123,7 +133,41 @@ export default function CardapioPage() {
 
       const bars = await barsRes.json();
       const barsData = Array.isArray(bars) ? bars : [];
-      setAllBars(barsData);
+      
+      // Processar URLs das imagens para garantir que estão corretas
+      const processedBars = barsData.map((bar: Bar) => {
+        // Processar coverImages - pode vir como array, string JSON ou null
+        let processedCoverImages: string[] = [];
+        if (bar.coverImages) {
+          if (Array.isArray(bar.coverImages)) {
+            processedCoverImages = bar.coverImages.map((img: string) => getValidImageUrl(img));
+          } else if (typeof bar.coverImages === 'string') {
+            try {
+              const parsed = JSON.parse(bar.coverImages);
+              if (Array.isArray(parsed)) {
+                processedCoverImages = parsed.map((img: string) => getValidImageUrl(img));
+              } else if (typeof parsed === 'string' && parsed.trim() !== '') {
+                processedCoverImages = [getValidImageUrl(parsed)];
+              }
+            } catch (e) {
+              // Se não for JSON válido, tratar como string simples
+              const coverImagesStr = bar.coverImages as string;
+              if (coverImagesStr.trim() !== '') {
+                processedCoverImages = [getValidImageUrl(coverImagesStr)];
+              }
+            }
+          }
+        }
+        
+        return {
+          ...bar,
+          logoUrl: getValidImageUrl(bar.logoUrl),
+          coverImageUrl: getValidImageUrl(bar.coverImageUrl),
+          coverImages: processedCoverImages.length > 0 ? processedCoverImages : [],
+        };
+      });
+      
+      setAllBars(processedBars);
       
     } catch (err) {
       console.error("Erro ao carregar dados:", err);
@@ -146,11 +190,15 @@ export default function CardapioPage() {
       >
         <div className="relative h-48">
           <Image
-            src={getValidImageUrl(bar.coverImageUrl, bar.coverImages)}
+            src={bar.coverImageUrl || PLACEHOLDER_BAR_URL}
             alt={bar.name}
             fill
             sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 25vw"
             className="object-cover"
+            onError={(e) => {
+              e.currentTarget.src = PLACEHOLDER_BAR_URL;
+            }}
+            unoptimized={bar.coverImageUrl?.startsWith('https://res.cloudinary.com')}
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
           <div className="absolute bottom-4 left-4 right-4">

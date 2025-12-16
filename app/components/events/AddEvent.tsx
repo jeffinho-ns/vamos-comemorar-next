@@ -69,7 +69,7 @@ const AddEvent: React.FC<AddEventProps> = ({ isOpen, onRequestClose, onEventAdde
 
   const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL_LOCAL || 'https://vamos-comemorar-api.onrender.com';
   const API_BASE_URL = `${API_URL}/api/cardapio`;
-  const BASE_IMAGE_URL = 'https://grupoideiaum.com.br/cardapio-agilizaiapp/';
+  const BASE_IMAGE_URL = 'https://res.cloudinary.com/drjovtmuw/image/upload/v1764862686/cardapio-agilizaiapp/';
 
   const fetchEstablishments = useCallback(async () => {
     setLoadingEstablishments(true);
@@ -131,9 +131,38 @@ const AddEvent: React.FC<AddEventProps> = ({ isOpen, onRequestClose, onEventAdde
       const response = await fetch(`${API_BASE_URL}/gallery/images`);
       if (response.ok) {
         const data = await response.json();
-        const images = data.images || [];
-        setGalleryImages(images);
-        return images;
+        
+        // Processar imagens para garantir que todas usem Cloudinary
+        const processedImages = (data.images || []).map((img: any) => {
+          // Se a URL existe e não é do Cloudinary, processar
+          if (img.url && typeof img.url === 'string' && !img.url.startsWith('https://res.cloudinary.com')) {
+            // Se é URL antiga, converter para Cloudinary
+            if (img.url.includes('grupoideiaum.com.br') || img.url.includes('/cardapio-agilizaiapp/')) {
+              const parts = img.url.split('/');
+              const filename = parts[parts.length - 1];
+              return {
+                ...img,
+                url: getValidImageUrl(filename) // Converte para Cloudinary
+              };
+            }
+            // Se é outra URL, manter mas processar filename
+            return {
+              ...img,
+              url: getValidImageUrl(img.url)
+            };
+          }
+          // Se não tem URL mas tem filename, garantir que URL seja do Cloudinary
+          if (!img.url && img.filename) {
+            return {
+              ...img,
+              url: getValidImageUrl(img.filename)
+            };
+          }
+          return img;
+        });
+        
+        setGalleryImages(processedImages);
+        return processedImages;
       } else {
         console.error('Erro ao buscar imagens da galeria');
         setGalleryImages([]);
@@ -146,15 +175,36 @@ const AddEvent: React.FC<AddEventProps> = ({ isOpen, onRequestClose, onEventAdde
     } finally {
       setGalleryLoading(false);
     }
-  }, [API_BASE_URL]);
+  }, [API_BASE_URL, getValidImageUrl]);
 
-  // Função auxiliar para montar URL da imagem
+  // Função auxiliar para montar URL da imagem - sempre usar Cloudinary
   const getValidImageUrl = useCallback((filename: string): string => {
-    if (!filename) return '';
-    if (filename.startsWith('http://') || filename.startsWith('https://')) {
-      return filename;
+    if (!filename || typeof filename !== 'string') return '';
+    
+    const trimmed = filename.trim();
+    if (trimmed === '' || trimmed === 'null' || trimmed === 'undefined') return '';
+    
+    // Se já é uma URL completa do Cloudinary, retornar como está
+    if (trimmed.startsWith('https://res.cloudinary.com')) {
+      return trimmed;
     }
-    return `${BASE_IMAGE_URL}${filename}`;
+    
+    // Se é uma URL antiga (grupoideiaum.com.br), extrair filename e converter para Cloudinary
+    if (trimmed.includes('grupoideiaum.com.br') || (trimmed.includes('/cardapio-agilizaiapp/') && !trimmed.startsWith('https://res.cloudinary.com'))) {
+      const parts = trimmed.split('/');
+      const lastSegment = parts[parts.length - 1]?.trim();
+      if (lastSegment) {
+        return `${BASE_IMAGE_URL}${lastSegment}`;
+      }
+    }
+    
+    // Se já é uma URL completa (não Cloudinary), retornar como está
+    if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+      return trimmed;
+    }
+    
+    // Se é apenas um filename, construir URL do Cloudinary
+    return `${BASE_IMAGE_URL}${trimmed}`;
   }, []);
 
   // Função para abrir galeria de imagens
@@ -759,12 +809,26 @@ const AddEvent: React.FC<AddEventProps> = ({ isOpen, onRequestClose, onEventAdde
                     img.filename.toLowerCase().includes(gallerySearchTerm.toLowerCase())
                   )
                   .map((image, index) => {
-                    const imageUrl = image.url || getValidImageUrl(image.filename);
+                    // Processar URL da imagem - sempre usar Cloudinary
+                    let imageUrl: string;
+                    if (image.url && image.url.startsWith('https://res.cloudinary.com')) {
+                      imageUrl = image.url;
+                    } else if (image.url && typeof image.url === 'string') {
+                      imageUrl = getValidImageUrl(image.url);
+                    } else {
+                      imageUrl = getValidImageUrl(image.filename);
+                    }
+                    
+                    // URL para passar ao selecionar - priorizar URL completa do Cloudinary
+                    const selectUrl = (image.url && image.url.startsWith('https://res.cloudinary.com'))
+                      ? image.url
+                      : imageUrl;
+                    
                     return (
                       <div
                         key={`${image.filename}-${index}`}
                         className="relative group cursor-pointer rounded-lg border-2 border-gray-200 hover:border-blue-500 transition-all overflow-hidden shadow-md hover:shadow-lg"
-                        onClick={() => handleSelectGalleryImage(image.filename, image.url || undefined)}
+                        onClick={() => handleSelectGalleryImage(image.filename, selectUrl)}
                       >
                         <div className="aspect-square relative bg-gray-100">
                           <Image
@@ -773,7 +837,10 @@ const AddEvent: React.FC<AddEventProps> = ({ isOpen, onRequestClose, onEventAdde
                             fill
                             sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 20vw"
                             className="object-cover transition-transform group-hover:scale-105"
-                            unoptimized
+                            onError={(e) => {
+                              e.currentTarget.src = '/placeholder-cardapio.svg';
+                            }}
+                            unoptimized={imageUrl.startsWith('https://res.cloudinary.com')}
                           />
                         </div>
                         <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/0 to-black/0 opacity-0 group-hover:opacity-100 transition-opacity">

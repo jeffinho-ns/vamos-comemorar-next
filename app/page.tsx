@@ -62,32 +62,41 @@ export default function Home() {
   // Função para construir URL da imagem
   const getImageUrl = (image: GalleryImage) => {
     // Prioridade 1: Se já tem URL completa (Cloudinary ou outra), retornar diretamente
-    if (image.url && (image.url.startsWith('http://') || image.url.startsWith('https://'))) {
+    if (
+      image.url &&
+      (image.url.startsWith("http://") || image.url.startsWith("https://"))
+    ) {
       return image.url;
     }
-    
+
     // Prioridade 2: Se tem URL relativa, construir caminho completo
-    if (image.url && image.url.startsWith('/')) {
+    if (image.url && image.url.startsWith("/")) {
       return `${API_URL}${image.url}`;
     }
-    
+
     // Prioridade 3: Se filename já é uma URL completa, retornar
-    if (image.filename && (image.filename.startsWith('http://') || image.filename.startsWith('https://'))) {
+    if (
+      image.filename &&
+      (image.filename.startsWith("http://") ||
+        image.filename.startsWith("https://"))
+    ) {
       return image.filename;
     }
-    
+
     // Prioridade 4: Se filename começa com /, adicionar API_URL
-    if (image.filename && image.filename.startsWith('/')) {
+    if (image.filename && image.filename.startsWith("/")) {
       return `${API_URL}${image.filename}`;
     }
-    
+
     // Prioridade 5: Construir URL padrão de uploads
     if (image.filename) {
       // Remover qualquer prefixo de URL que possa estar no filename
-      const cleanFilename = image.filename.replace(/^https?:\/\/[^\/]+/, '').replace(/^\//, '');
+      const cleanFilename = image.filename
+        .replace(/^https?:\/\/[^\/]+/, "")
+        .replace(/^\//, "");
       return `${API_URL}/uploads/${cleanFilename}`;
     }
-    
+
     // Fallback
     return "/images/default-logo.png";
   };
@@ -126,58 +135,66 @@ export default function Home() {
           const galleryResponse = await fetch(
             `${API_URL}/api/cardapio/gallery/images`,
             {
-              method: 'GET',
+              method: "GET",
               headers: {
-                'Content-Type': 'application/json',
+                "Content-Type": "application/json",
               },
             }
           );
-          
+
           if (galleryResponse.ok) {
             const galleryData = await galleryResponse.json();
-            console.log('📸 Galeria de imagens recebida:', galleryData);
-            
+            console.log("📸 Galeria de imagens recebida:", galleryData);
+
             // Verificar diferentes formatos de resposta
             const images = galleryData.images || galleryData.data || [];
-            
+
             if (Array.isArray(images) && images.length > 0) {
               // Pegar apenas imagens com URL válida ou filename e limitar a 12
               const validImages = images
                 .filter((img: GalleryImage) => {
                   // Verificar se tem URL válida (completa ou relativa)
-                  const hasUrl = img.url && (
-                    img.url.startsWith('http://') || 
-                    img.url.startsWith('https://') || 
-                    img.url.startsWith('/')
-                  );
+                  const hasUrl =
+                    img.url &&
+                    (img.url.startsWith("http://") ||
+                      img.url.startsWith("https://") ||
+                      img.url.startsWith("/"));
                   // Verificar se tem filename válido
-                  const hasFilename = img.filename && 
-                    img.filename.trim() !== '' && 
-                    img.filename !== 'null' &&
-                    img.filename !== 'undefined';
+                  const hasFilename =
+                    img.filename &&
+                    img.filename.trim() !== "" &&
+                    img.filename !== "null" &&
+                    img.filename !== "undefined";
                   // Verificar se filename é uma URL válida
-                  const filenameIsUrl = img.filename && (
-                    img.filename.startsWith('http://') || 
-                    img.filename.startsWith('https://')
-                  );
-                  
+                  const filenameIsUrl =
+                    img.filename &&
+                    (img.filename.startsWith("http://") ||
+                      img.filename.startsWith("https://"));
+
                   return hasUrl || hasFilename || filenameIsUrl;
                 })
                 .slice(0, 12);
-              
-              console.log(`✅ ${validImages.length} imagens válidas encontradas na galeria`);
-              console.log('📸 Primeiras 3 imagens:', validImages.slice(0, 3).map(img => ({
-                filename: img.filename,
-                url: img.url,
-                fullUrl: getImageUrl(img)
-              })));
+
+              console.log(
+                `✅ ${validImages.length} imagens válidas encontradas na galeria`
+              );
+              console.log(
+                "📸 Primeiras 3 imagens:",
+                validImages.slice(0, 3).map((img) => ({
+                  filename: img.filename,
+                  url: img.url,
+                  fullUrl: getImageUrl(img),
+                }))
+              );
               setGalleryImages(validImages);
             } else {
-              console.log('⚠️ Galeria retornou sem imagens ou array vazio');
+              console.log("⚠️ Galeria retornou sem imagens ou array vazio");
               setGalleryImages([]);
             }
           } else {
-            console.warn(`⚠️ Erro ao buscar galeria: ${galleryResponse.status} - ${galleryResponse.statusText}`);
+            console.warn(
+              `⚠️ Erro ao buscar galeria: ${galleryResponse.status} - ${galleryResponse.statusText}`
+            );
           }
         } catch (galleryError) {
           console.error("❌ Erro ao buscar galeria de imagens:", galleryError);
@@ -271,49 +288,83 @@ export default function Home() {
   ];
 
   const decorationOptions = [
-    { 
-      name: 'Decoração Pequena 1', 
-      price: 200.00, 
-      image: '/agilizai/kit-1.jpg', 
-      description: 'Kit básico com painel, balões e acessórios para festas íntimas',
-      includes: ['Painel decorativo', 'Balões coloridos', 'Bandeja de doces', 'Acessórios básicos'] 
+    {
+      name: "Decoração Pequena 1",
+      price: 200.0,
+      image: "/agilizai/kit-1.jpg",
+      description:
+        "Kit básico com painel, balões e acessórios para festas íntimas",
+      includes: [
+        "Painel decorativo",
+        "Balões coloridos",
+        "Bandeja de doces",
+        "Acessórios básicos",
+      ],
     },
-    { 
-      name: 'Decoração Média 3', 
-      price: 250.00, 
-      image: '/agilizai/kit-3.jpg', 
-      description: 'Kit médio com mais elementos e decoração elaborada',
-      includes: ['Painel grande', 'Balões em quantidade', 'Bandejas decoradas', 'Acessórios variados'] 
+    {
+      name: "Decoração Média 3",
+      price: 250.0,
+      image: "/agilizai/kit-3.jpg",
+      description: "Kit médio com mais elementos e decoração elaborada",
+      includes: [
+        "Painel grande",
+        "Balões em quantidade",
+        "Bandejas decoradas",
+        "Acessórios variados",
+      ],
     },
-    { 
-      name: 'Decoração Grande 5', 
-      price: 300.00, 
-      image: '/agilizai/kit-5.jpg', 
-      description: 'Kit grande para festas com muitos convidados',
-      includes: ['Painel grande', 'Muitos balões', 'Várias bandejas', 'Acessórios completos'] 
-    }
+    {
+      name: "Decoração Grande 5",
+      price: 300.0,
+      image: "/agilizai/kit-5.jpg",
+      description: "Kit grande para festas com muitos convidados",
+      includes: [
+        "Painel grande",
+        "Muitos balões",
+        "Várias bandejas",
+        "Acessórios completos",
+      ],
+    },
   ];
 
   const painelEstoqueImages = [
-    '/agilizai/painel-1.jpg', '/agilizai/painel-2.jpg', '/agilizai/painel-3.jpg',
-    '/agilizai/painel-4.jpg', '/agilizai/painel-5.jpg', '/agilizai/painel-6.jpg',
-    '/agilizai/painel-7.jpg', '/agilizai/painel-8.jpg', '/agilizai/painel-9.jpg',
-    '/agilizai/painel-10.jpg'
+    "/agilizai/painel-1.jpg",
+    "/agilizai/painel-2.jpg",
+    "/agilizai/painel-3.jpg",
+    "/agilizai/painel-4.jpg",
+    "/agilizai/painel-5.jpg",
+    "/agilizai/painel-6.jpg",
+    "/agilizai/painel-7.jpg",
+    "/agilizai/painel-8.jpg",
+    "/agilizai/painel-9.jpg",
+    "/agilizai/painel-10.jpg",
   ];
 
   // Função para mapear nome do estabelecimento para sua rota
   const getEstablishmentRoute = (name: string): string => {
     const lowerName = name.toLowerCase();
-    if (lowerName.includes("justino")) return "/justino";
-    if (lowerName.includes("high") || lowerName.includes("highline"))
+
+    // Corrigido: Dar prioridade à Pracinha
+    if (lowerName.includes("pracinha")) {
+      return "/pracinha";
+    }
+
+    if (lowerName.includes("justino")) {
+      return "/justino";
+    }
+
+    if (lowerName.includes("high") || lowerName.includes("highline")) {
       return "/highline";
+    }
+
     if (
       lowerName.includes("freguês") ||
       lowerName.includes("fregues") ||
       lowerName.includes("oh")
-    )
+    ) {
       return "/ohfregues";
-    if (lowerName.includes("pracinha")) return "/pracinha";
+    }
+
     // Fallback para reservar se não encontrar
     return "/reservar";
   };
@@ -464,12 +515,16 @@ export default function Home() {
             <div className="flex items-center justify-center gap-4 mb-6">
               <FaBirthdayCake className="text-5xl md:text-6xl text-orange-400" />
               <h2 className="text-4xl md:text-6xl font-bold text-white">
-                Decore seu <span className="bg-gradient-to-r from-orange-400 via-yellow-400 to-orange-400 bg-clip-text text-transparent">Aniversário</span>
+                Decore seu{" "}
+                <span className="bg-gradient-to-r from-orange-400 via-yellow-400 to-orange-400 bg-clip-text text-transparent">
+                  Aniversário
+                </span>
               </h2>
               <FaPalette className="text-5xl md:text-6xl text-orange-400" />
             </div>
             <p className="text-xl md:text-2xl text-gray-300 max-w-3xl mx-auto mb-4">
-              Comemore em grande estilo! Transforme sua festa em um momento mágico e inesquecível
+              Comemore em grande estilo! Transforme sua festa em um momento
+              mágico e inesquecível
             </p>
             <p className="text-lg text-orange-300 font-semibold">
               Escolha um de nossos bares e deixe a decoração por nossa conta! 🎉
@@ -508,7 +563,7 @@ export default function Home() {
                   <p className="text-gray-300 mb-4 text-sm leading-relaxed">
                     {option.description}
                   </p>
-                  
+
                   {/* Lista de Inclusos */}
                   <div className="space-y-2 mb-4">
                     <p className="text-sm font-semibold text-orange-400 flex items-center gap-2">
@@ -548,7 +603,8 @@ export default function Home() {
                 Escolha um painel do nosso estoque
               </h3>
               <p className="text-lg text-gray-300 max-w-2xl mx-auto">
-                Temos diversos painéis disponíveis para tornar sua festa ainda mais especial
+                Temos diversos painéis disponíveis para tornar sua festa ainda
+                mais especial
               </p>
             </div>
             <div className="grid grid-cols-3 sm:grid-cols-5 md:grid-cols-5 lg:grid-cols-5 gap-4 max-w-4xl mx-auto">
@@ -588,8 +644,9 @@ export default function Home() {
                 Pronto para comemorar em grande estilo? 🎊
               </h3>
               <p className="text-lg text-gray-300 mb-6 max-w-2xl mx-auto">
-                Escolha sua decoração favorita e reserve seu aniversário em um de nossos bares parceiros. 
-                Transforme sua festa em um momento inesquecível!
+                Escolha sua decoração favorita e reserve seu aniversário em um
+                de nossos bares parceiros. Transforme sua festa em um momento
+                inesquecível!
               </p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
                 <Link href="/decoracao-aniversario">
@@ -649,9 +706,15 @@ export default function Home() {
                       fill
                       className="object-cover transition-transform duration-300 group-hover:scale-110"
                       sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"
-                      unoptimized={imageUrl.startsWith('https://res.cloudinary.com') || imageUrl.startsWith('http://')}
+                      unoptimized={
+                        imageUrl.startsWith("https://res.cloudinary.com") ||
+                        imageUrl.startsWith("http://")
+                      }
                       onError={() => {
-                        console.error(`Erro ao carregar imagem ${index + 1}:`, imageUrl);
+                        console.error(
+                          `Erro ao carregar imagem ${index + 1}:`,
+                          imageUrl
+                        );
                       }}
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>

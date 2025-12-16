@@ -165,7 +165,7 @@ const API_UPLOAD_URL = 'https://vamos-comemorar-api.onrender.com/api/images/uplo
 
 // Placeholder local para todos os pontos do admin
 const PLACEHOLDER_IMAGE_URL = '/placeholder-cardapio.svg';
-const BASE_IMAGE_URL = 'https://grupoideiaum.com.br/cardapio-agilizaiapp/';
+const BASE_IMAGE_URL = 'https://res.cloudinary.com/drjovtmuw/image/upload/v1764862686/cardapio-agilizaiapp/';
 
 // Constantes dos selos
 const FOOD_SEALS: Seal[] = [
@@ -215,21 +215,22 @@ const getValidImageUrl = (filename?: string | null): string => {
   }
 
   const trimmed = filename.trim();
-  if (trimmed === '' || trimmed === 'null' || trimmed === 'undefined') {
+  if (trimmed === '' || trimmed === 'null' || trimmed === 'undefined' || trimmed === 'NULL') {
     return PLACEHOLDER_IMAGE_URL;
   }
   
-  // Se já é uma URL completa (Cloudinary, Unsplash, etc), retornar como está
+  // Se já é uma URL completa do Cloudinary, retornar como está
+  if (trimmed.startsWith('https://res.cloudinary.com')) {
+    return trimmed;
+  }
+  
+  // Se já é uma URL completa (Unsplash, etc), retornar como está
   if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
     try {
       const url = new URL(trimmed);
-      // Se é Cloudinary, retornar como está
-      if (url.hostname.includes('cloudinary.com')) {
-        return trimmed;
-      }
-      // Se a URL aponta para algum host antigo mas o caminho contém /cardapio-agilizaiapp/,
-      // reescrevemos para o domínio atual usando apenas o nome do arquivo
-      if (url.pathname.includes('/cardapio-agilizaiapp/')) {
+      // Se a URL aponta para algum host antigo (grupoideiaum.com.br) mas o caminho contém /cardapio-agilizaiapp/,
+      // reescrevemos para o Cloudinary usando apenas o nome do arquivo
+      if (url.pathname.includes('/cardapio-agilizaiapp/') || url.hostname.includes('grupoideiaum.com.br')) {
         const parts = url.pathname.split('/');
         const lastSegment = parts[parts.length - 1]?.trim();
         if (lastSegment) {
@@ -248,7 +249,7 @@ const getValidImageUrl = (filename?: string | null): string => {
   const parts = withoutLeadingSlash.split('/');
   const lastSegment = parts[parts.length - 1]?.trim();
 
-  if (!lastSegment) {
+  if (!lastSegment || lastSegment === 'null' || lastSegment === 'undefined') {
     return PLACEHOLDER_IMAGE_URL;
   }
 
@@ -439,22 +440,44 @@ export default function CardapioAdminPage() {
 
       let barsData = Array.isArray(bars)
         ? bars.map((bar) => {
+            // Processar URLs das imagens - manter URLs completas do Cloudinary, limpar apenas URLs antigas
+            const processImageUrl = (url: string | null | undefined): string => {
+              if (!url || typeof url !== 'string') return '';
+              
+              const trimmed = url.trim();
+              if (trimmed === '' || trimmed === 'null' || trimmed === 'undefined') return '';
+              
+              // Se já é uma URL completa do Cloudinary, manter como está (não limpar)
+              if (trimmed.startsWith('https://res.cloudinary.com')) {
+                return trimmed;
+              }
+              
+              // Se é uma URL antiga (grupoideiaum.com.br), extrair apenas o filename
+              if (trimmed.includes('grupoideiaum.com.br') || (trimmed.includes('/cardapio-agilizaiapp/') && !trimmed.startsWith('https://res.cloudinary.com'))) {
+                const parts = trimmed.split('/');
+                const filename = parts[parts.length - 1] || '';
+                return filename;
+              }
+              
+              // Se já é apenas um filename (sem http), manter como está
+              if (!trimmed.startsWith('http://') && !trimmed.startsWith('https://')) {
+                return trimmed;
+              }
+              
+              // Para outras URLs (ex: Unsplash), manter como está
+              return trimmed;
+            };
+            
             const cleanedBar = {
               ...bar,
-              logoUrl: bar.logoUrl?.includes(BASE_IMAGE_URL)
-                ? bar.logoUrl.split('/').pop()
-                : bar.logoUrl,
-              coverImageUrl: bar.coverImageUrl?.includes(BASE_IMAGE_URL)
-                ? bar.coverImageUrl.split('/').pop()
-                : bar.coverImageUrl,
+              logoUrl: processImageUrl(bar.logoUrl),
+              coverImageUrl: processImageUrl(bar.coverImageUrl),
               coverImages: Array.isArray(bar.coverImages)
-                ? bar.coverImages.map((url: string) =>
-                    url.includes(BASE_IMAGE_URL) ? url.split('/').pop() || '' : url,
-                  )
-                : [],
-              popupImageUrl: bar.popupImageUrl?.includes(BASE_IMAGE_URL)
-                ? bar.popupImageUrl.split('/').pop()
-                : bar.popupImageUrl,
+                ? bar.coverImages.map((url: string) => processImageUrl(url))
+                : typeof bar.coverImages === 'string'
+                  ? JSON.parse(bar.coverImages).map((url: string) => processImageUrl(url))
+                  : [],
+              popupImageUrl: processImageUrl(bar.popupImageUrl),
               menu_display_style:
                 bar.menu_display_style === 'clean'
                   ? 'clean'
@@ -1592,8 +1615,27 @@ export default function CardapioAdminPage() {
 
       const method = editingBar ? 'PUT' : 'POST';
 
+      // Processar URLs das imagens antes de salvar
+      // Se for URL completa do Cloudinary, manter; se for filename, manter também (API vai processar)
+      const processUrlForSave = (url: string): string => {
+        if (!url || typeof url !== 'string') return '';
+        const trimmed = url.trim();
+        // Se já é URL completa do Cloudinary, manter como está
+        if (trimmed.startsWith('https://res.cloudinary.com')) {
+          return trimmed;
+        }
+        // Caso contrário, manter como está (pode ser filename ou outra URL)
+        return trimmed;
+      };
+
       const barData = {
         ...barForm,
+        logoUrl: processUrlForSave(barForm.logoUrl),
+        coverImageUrl: processUrlForSave(barForm.coverImageUrl),
+        coverImages: Array.isArray(barForm.coverImages) 
+          ? barForm.coverImages.map(url => processUrlForSave(url))
+          : [],
+        popupImageUrl: processUrlForSave(barForm.popupImageUrl),
         rating: barForm.rating ? parseFloat(barForm.rating) : 0,
         reviewsCount: barForm.reviewsCount ? parseInt(barForm.reviewsCount) : 0,
         latitude: barForm.latitude ? parseFloat(barForm.latitude) : null,
@@ -1603,7 +1645,13 @@ export default function CardapioAdminPage() {
         whatsapp: barForm.whatsapp || '',
       };
 
-      console.log('🔄 Salvando estabelecimento:', method, url, barData);
+      console.log('🔄 Salvando estabelecimento:', method, url);
+      console.log('📸 URLs das imagens sendo salvas:', {
+        logoUrl: barData.logoUrl,
+        coverImageUrl: barData.coverImageUrl,
+        coverImages: barData.coverImages,
+        popupImageUrl: barData.popupImageUrl
+      });
 
       const response = await fetch(url, {
         method,
@@ -1809,20 +1857,39 @@ export default function CardapioAdminPage() {
 
   const handleEditBar = useCallback((bar: Bar) => {
     setEditingBar(bar);
+    
+    // Processar URLs para garantir que sejam URLs completas do Cloudinary quando possível
+    const processUrlForForm = (url: string | null | undefined): string => {
+      if (!url || typeof url !== 'string') return '';
+      const trimmed = url.trim();
+      // Se já é URL completa do Cloudinary, manter
+      if (trimmed.startsWith('https://res.cloudinary.com')) {
+        return trimmed;
+      }
+      // Se é apenas filename, construir URL completa do Cloudinary
+      if (!trimmed.startsWith('http://') && !trimmed.startsWith('https://')) {
+        return getValidImageUrl(trimmed);
+      }
+      // Caso contrário, manter como está
+      return trimmed;
+    };
+    
     setBarForm({
       name: bar.name,
       slug: bar.slug,
       description: bar.description,
-      logoUrl: bar.logoUrl || '',
-      coverImageUrl: bar.coverImageUrl || '',
-      coverImages: bar.coverImages || [],
+      logoUrl: processUrlForForm(bar.logoUrl),
+      coverImageUrl: processUrlForForm(bar.coverImageUrl),
+      coverImages: Array.isArray(bar.coverImages) 
+        ? bar.coverImages.map(url => processUrlForForm(url))
+        : [],
       address: bar.address,
       rating: bar.rating?.toString() || '',
       reviewsCount: bar.reviewsCount?.toString() || '',
       amenities: bar.amenities || [],
       latitude: bar.latitude?.toString() || '',
       longitude: bar.longitude?.toString() || '',
-      popupImageUrl: bar.popupImageUrl || '',
+      popupImageUrl: processUrlForForm(bar.popupImageUrl),
       // **CORREÇÃO**: Garante que os campos não sejam undefined
       facebook: bar.facebook || '', 
       instagram: bar.instagram || '',
@@ -2083,7 +2150,49 @@ export default function CardapioAdminPage() {
       if (response.ok) {
         const data = await response.json();
         console.log('📊 Galeria atualizada:', { total: data.total, images: data.images?.length });
-        setGalleryImages(data.images || []);
+        
+        // Processar imagens para garantir que todas usem Cloudinary
+        const processedImages = (data.images || []).map((img: any) => {
+          let finalUrl: string | null = null;
+          
+          // PRIORIDADE 1: Se já tem URL completa do Cloudinary, usar diretamente
+          if (img.url && typeof img.url === 'string' && img.url.startsWith('https://res.cloudinary.com')) {
+            finalUrl = img.url;
+          }
+          // PRIORIDADE 2: Se tem URL mas não é do Cloudinary, processar
+          else if (img.url && typeof img.url === 'string') {
+            // Se é URL antiga, extrair filename e construir URL do Cloudinary
+            if (img.url.includes('grupoideiaum.com.br') || (img.url.includes('/cardapio-agilizaiapp/') && !img.url.startsWith('https://res.cloudinary.com'))) {
+              const parts = img.url.split('/');
+              const filename = parts[parts.length - 1];
+              finalUrl = getValidImageUrl(filename);
+            } else {
+              // Se é outra URL, processar
+              finalUrl = getValidImageUrl(img.url);
+            }
+          }
+          // PRIORIDADE 3: Se não tem URL mas tem filename, construir URL do Cloudinary
+          else if (img.filename) {
+            finalUrl = getValidImageUrl(img.filename);
+          }
+          
+          return {
+            ...img,
+            url: finalUrl
+          };
+        });
+        
+        // Log das primeiras imagens processadas para debug
+        if (processedImages.length > 0) {
+          console.log('📊 Primeiras 5 imagens processadas:', processedImages.slice(0, 5).map(img => ({
+            filename: img.filename,
+            url: img.url,
+            hasUrl: !!img.url,
+            isCloudinary: img.url?.startsWith('https://res.cloudinary.com')
+          })));
+        }
+        
+        setGalleryImages(processedImages);
       } else {
         console.error('Erro ao buscar imagens da galeria');
         setGalleryImages([]);
@@ -2125,15 +2234,19 @@ export default function CardapioAdminPage() {
 
         if (result.success && result.filename) {
           const filename = result.filename;
-          // Usar a URL completa do Cloudinary se disponível, senão usar apenas o filename
-          // A função getValidImageUrl vai construir a URL correta se necessário
-          const imageValue = result.url || filename;
+          // SEMPRE usar a URL completa do Cloudinary se disponível
+          // Se result.url existir e for uma URL completa do Cloudinary, usar ela
+          // Caso contrário, usar apenas o filename (que será processado por getValidImageUrl)
+          const imageValue = (result.url && result.url.startsWith('https://res.cloudinary.com')) 
+            ? result.url 
+            : filename;
           
           console.log('📸 Valores recebidos do upload:', {
             filename,
             url: result.url,
             imageValue,
-            field
+            field,
+            isCloudinaryUrl: imageValue.startsWith('https://res.cloudinary.com')
           });
           
           // Se o upload foi feito através da galeria, atualizar a galeria primeiro
@@ -2291,9 +2404,18 @@ export default function CardapioAdminPage() {
   // Função para selecionar imagem da galeria
   const handleSelectGalleryImage = useCallback((filename: string, imageUrl?: string | null) => {
     // Usar a URL completa do Cloudinary se disponível, senão usar o filename
-    const imageValue = imageUrl || filename;
+    // Priorizar URL completa do Cloudinary se disponível, senão usar filename
+    const imageValue = (imageUrl && imageUrl.startsWith('https://res.cloudinary.com')) 
+      ? imageUrl 
+      : (imageUrl || filename);
     
-    console.log('🖼️ Selecionando imagem da galeria:', { filename, imageUrl, imageValue, imageGalleryField });
+    console.log('🖼️ Selecionando imagem da galeria:', { 
+      filename, 
+      imageUrl, 
+      imageValue, 
+      imageGalleryField,
+      isCloudinaryUrl: imageValue.startsWith('https://res.cloudinary.com')
+    });
     
     if (imageGalleryField === 'coverImages') {
       setBarForm((prev) => ({
@@ -2566,6 +2688,10 @@ export default function CardapioAdminPage() {
                           fill
                           sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                           className="object-cover"
+                          onError={(e) => {
+                            e.currentTarget.src = PLACEHOLDER_IMAGE_URL;
+                          }}
+                          unoptimized={bar.coverImageUrl?.startsWith('https://res.cloudinary.com')}
                         />
                         <div className="absolute right-2 top-2 flex gap-1">
                           {(isAdmin || (isPromoter && canManageBar(Number(bar.id)))) && (
@@ -3132,7 +3258,10 @@ export default function CardapioAdminPage() {
                       width={100}
                       height={100}
                       className="rounded-lg border object-cover"
-                      unoptimized={barForm.logoUrl.startsWith('blob:')}
+                      onError={(e) => {
+                        e.currentTarget.src = PLACEHOLDER_IMAGE_URL;
+                      }}
+                      unoptimized={barForm.logoUrl.startsWith('blob:') || barForm.logoUrl.startsWith('https://res.cloudinary.com')}
                       priority={true}
                     />
                   </div>
@@ -3161,7 +3290,10 @@ export default function CardapioAdminPage() {
                           width={200}
                           height={100}
                           className="rounded-lg border object-cover"
-                          unoptimized={imageUrl.startsWith('blob:')}
+                          onError={(e) => {
+                            e.currentTarget.src = PLACEHOLDER_IMAGE_URL;
+                          }}
+                          unoptimized={imageUrl.startsWith('blob:') || imageUrl.startsWith('https://res.cloudinary.com')}
                           priority={true}
                         />
                         <button
@@ -3207,7 +3339,10 @@ export default function CardapioAdminPage() {
                     width={200}
                     height={150}
                     className="rounded-lg border object-contain"
-                    unoptimized={barForm.popupImageUrl.startsWith('blob:')}
+                    onError={(e) => {
+                      e.currentTarget.src = PLACEHOLDER_IMAGE_URL;
+                    }}
+                    unoptimized={barForm.popupImageUrl.startsWith('blob:') || barForm.popupImageUrl.startsWith('https://res.cloudinary.com')}
                     priority={true}
                   />
                 </div>
@@ -4570,14 +4705,41 @@ export default function CardapioAdminPage() {
                       img.filename.toLowerCase().includes(gallerySearchTerm.toLowerCase())
                     )
                     .map((image, index) => {
-                      // Usar a URL completa do Cloudinary se disponível, senão construir a URL
+                      // A imagem já foi processada no fetchGalleryImages
+                      // Usar image.url se disponível (já deve ser Cloudinary), senão construir
                       const imageUrl = image.url || getValidImageUrl(image.filename);
+                      
+                      // URL para passar ao selecionar - SEMPRE priorizar URL completa do Cloudinary
+                      // Se image.url existe e é do Cloudinary, usar ela
+                      // Caso contrário, tentar construir a URL completa do Cloudinary
+                      let selectUrl: string;
+                      if (image.url && image.url.startsWith('https://res.cloudinary.com')) {
+                        selectUrl = image.url; // URL completa do Cloudinary
+                      } else if (image.url) {
+                        // Se tem URL mas não é Cloudinary, processar
+                        selectUrl = getValidImageUrl(image.url);
+                      } else {
+                        // Se não tem URL, construir do filename
+                        selectUrl = getValidImageUrl(image.filename);
+                      }
+                      
+                      // Log apenas para as primeiras imagens para não poluir o console
+                      if (index < 3) {
+                        console.log('🖼️ Exibindo imagem na galeria:', {
+                          index,
+                          filename: image.filename,
+                          imageUrl: image.url,
+                          finalImageUrl: imageUrl,
+                          selectUrl,
+                          isCloudinary: imageUrl.startsWith('https://res.cloudinary.com')
+                        });
+                      }
                       
                       return (
                         <div
                           key={`${image.filename}-${index}`}
                           className="relative group cursor-pointer rounded-lg border-2 border-gray-200 hover:border-blue-500 transition-all overflow-hidden shadow-md hover:shadow-lg"
-                          onClick={() => handleSelectGalleryImage(image.filename, image.url || undefined)}
+                          onClick={() => handleSelectGalleryImage(image.filename, selectUrl)}
                         >
                           <div className="aspect-square relative bg-gray-100">
                             <Image
@@ -4586,7 +4748,16 @@ export default function CardapioAdminPage() {
                               fill
                               sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 20vw"
                               className="object-cover transition-transform group-hover:scale-105"
-                              unoptimized
+                              onError={(e) => {
+                                console.error('❌ Erro ao carregar imagem:', imageUrl, 'para', image.filename);
+                                e.currentTarget.src = PLACEHOLDER_IMAGE_URL;
+                              }}
+                              onLoad={() => {
+                                if (index < 3) {
+                                  console.log('✅ Imagem carregada com sucesso:', imageUrl);
+                                }
+                              }}
+                              unoptimized={imageUrl.startsWith('https://res.cloudinary.com')}
                             />
                           </div>
                         <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/0 to-black/0 opacity-0 group-hover:opacity-100 transition-opacity">

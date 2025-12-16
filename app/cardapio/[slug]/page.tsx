@@ -361,7 +361,7 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
         logoUrl: getValidImageUrl(bar.logoUrl),
         coverImageUrl: getValidImageUrl(bar.coverImageUrl),
         coverImages: coverImages.length > 0 ? coverImages : [getValidImageUrl(bar.coverImageUrl)],
-        popupImageUrl: bar.popupImageUrl,
+        popupImageUrl: bar.popupImageUrl ? getValidImageUrl(bar.popupImageUrl) : undefined,
         facebook: bar.facebook || '',
         instagram: bar.instagram || '',
         whatsapp: bar.whatsapp || '',
