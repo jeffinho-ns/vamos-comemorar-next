@@ -41,7 +41,7 @@ export default function DecoracaoAniversarioPage() {
           sizes="100vw"
           className="absolute z-0 object-cover"
           priority
-          unoptimized={false}
+          unoptimized={true}
         />
         <div className="absolute inset-0 bg-gradient-to-r from-orange-500 to-red-500 opacity-70"></div>
         <div className="relative z-10 flex items-center justify-center h-full">
@@ -175,7 +175,7 @@ export default function DecoracaoAniversarioPage() {
                       fill 
                       sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw" 
                       className="object-cover transition-transform hover:scale-110"
-                      unoptimized={false}
+                      unoptimized={true}
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
                   </div>

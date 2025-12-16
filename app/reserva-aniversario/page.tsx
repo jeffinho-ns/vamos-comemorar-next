@@ -74,7 +74,7 @@ export default function ReservaAniversarioPage() {
     { name: 'Decoração Pequena 1', price: 200.0, image: '/agilizai/kit-1.jpg', description: 'Decoração pequena estilo 1.' },
     { name: 'Decoração Pequena 2', price: 220.0, image: '/agilizai/kit-2.jpg', description: 'Decoração pequena estilo 2.' },
     { name: 'Decoração Media 3', price: 250.0, image: '/agilizai/kit-3.jpg', description: 'Decoração média estilo 3.' },
-    { name: 'Decoração Media 4', price: 270.0, image: '/assets/agilizai/kit-4.jpg', description: 'Decoração média estilo 4.' },
+    { name: 'Decoração Media 4', price: 270.0, image: '/agilizai/kit-4.jpg', description: 'Decoração média estilo 4.' },
     { name: 'Decoração Grande 5', price: 300.0, image: '/agilizai/kit-5.jpg', description: 'Decoração grande estilo 5.' },
     { name: 'Decoração Grande 6', price: 320.0, image: '/agilizai/kit-6.jpg', description: 'Decoração grande estilo 6.' },
   ];
@@ -263,6 +263,7 @@ export default function ReservaAniversarioPage() {
           sizes="100vw"
           className="absolute z-0 object-cover"
           priority
+          unoptimized={true}
         />
         <div className="absolute inset-0 bg-gradient-to-r from-orange-500 to-red-500 opacity-70"></div>
         <div className="relative z-10 flex items-center justify-center h-full">
@@ -428,6 +429,7 @@ export default function ReservaAniversarioPage() {
                       fill
                       sizes="(max-width: 768px) 100vw, 50vw"
                       className="object-cover transition-transform hover:scale-105"
+                      unoptimized={true}
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent"></div>
                   </div>
@@ -502,6 +504,7 @@ export default function ReservaAniversarioPage() {
                         fill
                         sizes="96px"
                         className="object-cover"
+                        unoptimized={true}
                       />
                       <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent"></div>
                     </div>
@@ -699,6 +702,7 @@ export default function ReservaAniversarioPage() {
                         fill
                         sizes="(max-width: 768px) 100vw, 50vw"
                         className="object-cover transition-transform hover:scale-105"
+                        unoptimized={true}
                       />
                       <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent"></div>
                     </div>
