@@ -1,9 +1,9 @@
 {
-  "buildCommand": "npm run build",
+  "buildCommand": "yarn build",
   "outputDirectory": ".next",
   "framework": "nextjs",
-  "installCommand": "npm install",
-  "devCommand": "npm run dev",
+  "installCommand": "yarn install",
+  "devCommand": "yarn dev",
   "regions": ["gru1"],
   "functions": {
     "app/cardapio/[slug]/page.tsx": {
