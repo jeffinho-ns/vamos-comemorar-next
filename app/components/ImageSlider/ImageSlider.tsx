@@ -41,6 +41,7 @@ const ImageSlider: React.FC<ImageSliderProps> = ({ images, interval = 5000 }) =>
             sizes="100vw"
             className="object-cover"
             priority={currentIndex === 0}
+            unoptimized={images[currentIndex]?.includes('grupoideiaum.com.br') || images[currentIndex]?.includes('cloudinary.com') || images[currentIndex]?.startsWith('blob:') || images[currentIndex]?.includes('/placeholder-') || false}
           />
         </motion.div>
       </AnimatePresence>

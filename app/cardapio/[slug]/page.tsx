@@ -960,7 +960,7 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
             fill
             sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
             className={`object-cover ${isCleanStyle ? 'scale-[1.02]' : ''}`}
-            unoptimized={imageSrc.includes('cloudinary.com') || imageSrc.startsWith('blob:')}
+            unoptimized={imageSrc.includes('cloudinary.com') || imageSrc.includes('grupoideiaum.com.br') || imageSrc.startsWith('blob:') || imageSrc === PLACEHOLDER_IMAGE_URL}
             onError={() => {
               // Se a imagem real falhar (404 no FTP ou URL inválida), garante fallback local
               if (imageSrc !== PLACEHOLDER_IMAGE_URL) {
@@ -1202,7 +1202,7 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
                   width={64}
                   height={64}
                   className="rounded-lg"
-                  unoptimized={selectedBar.logoUrl?.includes('cloudinary.com') || false}
+                  unoptimized={selectedBar.logoUrl?.includes('cloudinary.com') || getValidImageUrl(selectedBar.logoUrl).includes('grupoideiaum.com.br') || getValidImageUrl(selectedBar.logoUrl) === PLACEHOLDER_IMAGE_URL}
                 />
                 
                 <div className="menu-indicator absolute -top-1 -right-1 md:hidden">
@@ -1379,6 +1379,7 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
                 className="hidden md:block w-full h-auto object-cover hover:scale-105 transition-transform duration-300"
                 priority
                 sizes="(max-width: 767px) 0vw, 100vw"
+                unoptimized={true}
               />
               {/* Banner Mobile - Visível apenas em telas pequenas (até 767px) */}
               <Image
@@ -1389,6 +1390,7 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
                 className="block md:hidden w-full h-auto object-cover hover:scale-105 transition-transform duration-300"
                 priority
                 sizes="(max-width: 767px) 100vw, 0vw"
+                unoptimized={true}
               />
               {/* Overlay gradiente para ambos os banners */}
               <div className="absolute inset-0 bg-gradient-to-r from-blue-600/20 to-purple-600/20 hover:from-blue-600/30 hover:to-purple-600/30 transition-all duration-300"></div>
@@ -1606,7 +1608,7 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
                       width={48}
                       height={48}
                       className="rounded-lg"
-                      unoptimized={selectedBar.logoUrl?.includes('cloudinary.com') || false}
+                      unoptimized={selectedBar.logoUrl?.includes('cloudinary.com') || getValidImageUrl(selectedBar.logoUrl).includes('grupoideiaum.com.br') || getValidImageUrl(selectedBar.logoUrl) === PLACEHOLDER_IMAGE_URL}
                     />
                     <h2 className="text-xl font-bold">{selectedBar.name}</h2>
                   </div>
@@ -1739,7 +1741,7 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
                   height={400}
                   className="w-full h-auto rounded-lg"
                   priority
-                  unoptimized={selectedBar.popupImageUrl?.includes('cloudinary.com') || false}
+                  unoptimized={selectedBar.popupImageUrl?.includes('cloudinary.com') || getValidImageUrl(selectedBar.popupImageUrl).includes('grupoideiaum.com.br') || getValidImageUrl(selectedBar.popupImageUrl) === PLACEHOLDER_IMAGE_URL}
                 />
               </div>
             </motion.div>
