@@ -118,6 +118,36 @@ const AddEvent: React.FC<AddEventProps> = ({ isOpen, onRequestClose, onEventAdde
     }
   }, [isOpen, fetchEstablishments]);
 
+  // Função auxiliar para montar URL da imagem - sempre usar Cloudinary
+  const getValidImageUrl = useCallback((filename: string): string => {
+    if (!filename || typeof filename !== 'string') return '';
+    
+    const trimmed = filename.trim();
+    if (trimmed === '' || trimmed === 'null' || trimmed === 'undefined') return '';
+    
+    // Se já é uma URL completa do Cloudinary, retornar como está
+    if (trimmed.startsWith('https://res.cloudinary.com')) {
+      return trimmed;
+    }
+    
+    // Se é uma URL antiga (grupoideiaum.com.br), extrair filename e converter para Cloudinary
+    if (trimmed.includes('grupoideiaum.com.br') || (trimmed.includes('/cardapio-agilizaiapp/') && !trimmed.startsWith('https://res.cloudinary.com'))) {
+      const parts = trimmed.split('/');
+      const lastSegment = parts[parts.length - 1]?.trim();
+      if (lastSegment) {
+        return `${BASE_IMAGE_URL}${lastSegment}`;
+      }
+    }
+    
+    // Se já é uma URL completa (não Cloudinary), retornar como está
+    if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+      return trimmed;
+    }
+    
+    // Se é apenas um filename, construir URL do Cloudinary
+    return `${BASE_IMAGE_URL}${trimmed}`;
+  }, []);
+
   // Função para buscar imagens da galeria
   const fetchGalleryImages = useCallback(async (): Promise<Array<{
     filename: string;
@@ -176,36 +206,6 @@ const AddEvent: React.FC<AddEventProps> = ({ isOpen, onRequestClose, onEventAdde
       setGalleryLoading(false);
     }
   }, [API_BASE_URL, getValidImageUrl]);
-
-  // Função auxiliar para montar URL da imagem - sempre usar Cloudinary
-  const getValidImageUrl = useCallback((filename: string): string => {
-    if (!filename || typeof filename !== 'string') return '';
-    
-    const trimmed = filename.trim();
-    if (trimmed === '' || trimmed === 'null' || trimmed === 'undefined') return '';
-    
-    // Se já é uma URL completa do Cloudinary, retornar como está
-    if (trimmed.startsWith('https://res.cloudinary.com')) {
-      return trimmed;
-    }
-    
-    // Se é uma URL antiga (grupoideiaum.com.br), extrair filename e converter para Cloudinary
-    if (trimmed.includes('grupoideiaum.com.br') || (trimmed.includes('/cardapio-agilizaiapp/') && !trimmed.startsWith('https://res.cloudinary.com'))) {
-      const parts = trimmed.split('/');
-      const lastSegment = parts[parts.length - 1]?.trim();
-      if (lastSegment) {
-        return `${BASE_IMAGE_URL}${lastSegment}`;
-      }
-    }
-    
-    // Se já é uma URL completa (não Cloudinary), retornar como está
-    if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
-      return trimmed;
-    }
-    
-    // Se é apenas um filename, construir URL do Cloudinary
-    return `${BASE_IMAGE_URL}${trimmed}`;
-  }, []);
 
   // Função para abrir galeria de imagens
   const openImageGallery = useCallback((field: string) => {

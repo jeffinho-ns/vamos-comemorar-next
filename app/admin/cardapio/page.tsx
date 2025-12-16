@@ -2184,7 +2184,7 @@ export default function CardapioAdminPage() {
         
         // Log das primeiras imagens processadas para debug
         if (processedImages.length > 0) {
-          console.log('📊 Primeiras 5 imagens processadas:', processedImages.slice(0, 5).map(img => ({
+          console.log('📊 Primeiras 5 imagens processadas:', processedImages.slice(0, 5).map((img: any) => ({
             filename: img.filename,
             url: img.url,
             hasUrl: !!img.url,
