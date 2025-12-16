@@ -166,7 +166,7 @@ interface CardapioBarPageProps {
 }
 
 const API_BASE_URL = 'https://vamos-comemorar-api.onrender.com/api/cardapio';
-const BASE_IMAGE_URL = 'https://grupoideiaum.com.br/cardapio-agilizaiapp/';
+const BASE_IMAGE_URL = 'https://res.cloudinary.com/drjovtmuw/image/upload/v1764862686/cardapio-agilizaiapp/';
 // Placeholders locais para evitar erros 404 externos
 const PLACEHOLDER_IMAGE_URL = '/placeholder-cardapio.svg';
 const PLACEHOLDER_LOGO_URL = '/placeholder-cardapio.svg';
@@ -190,9 +190,9 @@ const getValidImageUrl = (filename?: string | null): string => {
       if (url.hostname.includes('cloudinary.com')) {
         return trimmed;
       }
-      // Se a URL aponta para algum host antigo mas o caminho contém /cardapio-agilizaiapp/,
-      // reescrevemos para o domínio atual usando apenas o nome do arquivo
-      if (url.pathname.includes('/cardapio-agilizaiapp/')) {
+      // Se a URL aponta para algum host antigo (grupoideiaum.com.br) mas o caminho contém /cardapio-agilizaiapp/,
+      // reescrevemos para o Cloudinary usando apenas o nome do arquivo
+      if (url.pathname.includes('/cardapio-agilizaiapp/') || url.hostname.includes('grupoideiaum.com.br')) {
         const parts = url.pathname.split('/');
         const lastSegment = parts[parts.length - 1]?.trim();
         if (lastSegment) {

@@ -28,7 +28,7 @@ const PLACEHOLDER_BAR_URL = '/placeholder-cardapio.svg';
 
 // Função auxiliar para construir URL completa da imagem
 const getValidImageUrl = (imageUrl?: string | null, coverImages?: string[]): string => {
-  const BASE_IMAGE_URL = 'https://grupoideiaum.com.br/cardapio-agilizaiapp/';
+  const BASE_IMAGE_URL = 'https://res.cloudinary.com/drjovtmuw/image/upload/v1764862686/cardapio-agilizaiapp/';
   
   // Primeiro, tenta usar a imagem principal
   if (imageUrl && typeof imageUrl === 'string') {
@@ -38,9 +38,9 @@ const getValidImageUrl = (imageUrl?: string | null, coverImages?: string[]): str
       if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
         try {
           const url = new URL(trimmed);
-          // Se a URL aponta para algum host antigo mas o caminho contém /cardapio-agilizaiapp/,
-          // reescrevemos para o domínio atual usando apenas o nome do arquivo
-          if (url.pathname.includes('/cardapio-agilizaiapp/')) {
+          // Se a URL aponta para algum host antigo (grupoideiaum.com.br) mas o caminho contém /cardapio-agilizaiapp/,
+          // reescrevemos para o Cloudinary usando apenas o nome do arquivo
+          if (url.pathname.includes('/cardapio-agilizaiapp/') || url.hostname.includes('grupoideiaum.com.br')) {
             const parts = url.pathname.split('/');
             const lastSegment = parts[parts.length - 1]?.trim();
             if (lastSegment) {
