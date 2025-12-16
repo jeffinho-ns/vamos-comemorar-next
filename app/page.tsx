@@ -29,6 +29,7 @@ import {
   MdPhone,
   MdEmail,
 } from "react-icons/md";
+import { FaBirthdayCake, FaPalette, FaGift } from "react-icons/fa";
 import bannerBackground from "@/app/assets/banner01.webp";
 import iconAg from "@/app/assets/icone-ag.png";
 
@@ -269,6 +270,37 @@ export default function Home() {
     },
   ];
 
+  const decorationOptions = [
+    { 
+      name: 'Decoração Pequena 1', 
+      price: 200.00, 
+      image: '/agilizai/kit-1.jpg', 
+      description: 'Kit básico com painel, balões e acessórios para festas íntimas',
+      includes: ['Painel decorativo', 'Balões coloridos', 'Bandeja de doces', 'Acessórios básicos'] 
+    },
+    { 
+      name: 'Decoração Média 3', 
+      price: 250.00, 
+      image: '/agilizai/kit-3.jpg', 
+      description: 'Kit médio com mais elementos e decoração elaborada',
+      includes: ['Painel grande', 'Balões em quantidade', 'Bandejas decoradas', 'Acessórios variados'] 
+    },
+    { 
+      name: 'Decoração Grande 5', 
+      price: 300.00, 
+      image: '/agilizai/kit-5.jpg', 
+      description: 'Kit grande para festas com muitos convidados',
+      includes: ['Painel grande', 'Muitos balões', 'Várias bandejas', 'Acessórios completos'] 
+    }
+  ];
+
+  const painelEstoqueImages = [
+    '/agilizai/painel-1.jpg', '/agilizai/painel-2.jpg', '/agilizai/painel-3.jpg',
+    '/agilizai/painel-4.jpg', '/agilizai/painel-5.jpg', '/agilizai/painel-6.jpg',
+    '/agilizai/painel-7.jpg', '/agilizai/painel-8.jpg', '/agilizai/painel-9.jpg',
+    '/agilizai/painel-10.jpg'
+  ];
+
   // Função para mapear nome do estabelecimento para sua rota
   const getEstablishmentRoute = (name: string): string => {
     const lowerName = name.toLowerCase();
@@ -410,6 +442,173 @@ export default function Home() {
               </motion.div>
             ))}
           </div>
+        </div>
+      </section>
+
+      {/* Seção de Decoração de Aniversário */}
+      <section className="py-20 bg-gradient-to-br from-slate-900 via-orange-900/20 to-slate-900 relative overflow-hidden">
+        {/* Efeito de fundo decorativo */}
+        <div className="absolute inset-0 opacity-10">
+          <div className="absolute top-0 left-0 w-96 h-96 bg-orange-500 rounded-full blur-3xl"></div>
+          <div className="absolute bottom-0 right-0 w-96 h-96 bg-red-500 rounded-full blur-3xl"></div>
+        </div>
+
+        <div className="container mx-auto px-4 relative z-10">
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6 }}
+            className="text-center mb-16"
+          >
+            <div className="flex items-center justify-center gap-4 mb-6">
+              <FaBirthdayCake className="text-5xl md:text-6xl text-orange-400" />
+              <h2 className="text-4xl md:text-6xl font-bold text-white">
+                Decore seu <span className="bg-gradient-to-r from-orange-400 via-yellow-400 to-orange-400 bg-clip-text text-transparent">Aniversário</span>
+              </h2>
+              <FaPalette className="text-5xl md:text-6xl text-orange-400" />
+            </div>
+            <p className="text-xl md:text-2xl text-gray-300 max-w-3xl mx-auto mb-4">
+              Comemore em grande estilo! Transforme sua festa em um momento mágico e inesquecível
+            </p>
+            <p className="text-lg text-orange-300 font-semibold">
+              Escolha um de nossos bares e deixe a decoração por nossa conta! 🎉
+            </p>
+          </motion.div>
+
+          {/* Cards de Decoração */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+            {decorationOptions.map((option, index) => (
+              <motion.div
+                key={option.name}
+                initial={{ opacity: 0, y: 30 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.6, delay: index * 0.1 }}
+                className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl overflow-hidden border-2 border-slate-700 hover:border-orange-500 transition-all duration-300 transform hover:-translate-y-2 hover:shadow-2xl hover:shadow-orange-500/30 group"
+              >
+                {/* Imagem do Kit */}
+                <div className="relative h-56 overflow-hidden">
+                  <Image
+                    src={option.image}
+                    alt={option.name}
+                    fill
+                    sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                    className="object-cover transition-transform duration-500 group-hover:scale-110"
+                    unoptimized={true}
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent"></div>
+                </div>
+
+                {/* Conteúdo do Card */}
+                <div className="p-6">
+                  <h3 className="text-xl font-bold text-white mb-3 group-hover:text-orange-400 transition-colors">
+                    {option.name}
+                  </h3>
+                  <p className="text-gray-300 mb-4 text-sm leading-relaxed">
+                    {option.description}
+                  </p>
+                  
+                  {/* Lista de Inclusos */}
+                  <div className="space-y-2 mb-4">
+                    <p className="text-sm font-semibold text-orange-400 flex items-center gap-2">
+                      <FaGift className="text-xs" />
+                      Inclui:
+                    </p>
+                    <ul className="text-xs text-gray-400 space-y-1">
+                      {option.includes.slice(0, 3).map((item, idx) => (
+                        <li key={idx} className="flex items-start">
+                          <span className="w-1.5 h-1.5 bg-orange-500 rounded-full mr-2 mt-1.5 flex-shrink-0"></span>
+                          <span>{item}</span>
+                        </li>
+                      ))}
+                      {option.includes.length > 3 && (
+                        <li className="text-orange-400 font-semibold">
+                          + {option.includes.length - 3} itens
+                        </li>
+                      )}
+                    </ul>
+                  </div>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+
+          {/* Seção de Painéis do Estoque */}
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6 }}
+            className="mb-12"
+          >
+            <div className="text-center mb-8">
+              <h3 className="text-3xl md:text-4xl font-bold text-white mb-4 flex items-center justify-center gap-3">
+                <FaGift className="text-orange-400" />
+                Escolha um painel do nosso estoque
+              </h3>
+              <p className="text-lg text-gray-300 max-w-2xl mx-auto">
+                Temos diversos painéis disponíveis para tornar sua festa ainda mais especial
+              </p>
+            </div>
+            <div className="grid grid-cols-3 sm:grid-cols-5 md:grid-cols-5 lg:grid-cols-5 gap-4 max-w-4xl mx-auto">
+              {painelEstoqueImages.map((image, index) => (
+                <motion.div
+                  key={index}
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  whileInView={{ opacity: 1, scale: 1 }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 0.4, delay: index * 0.05 }}
+                  className="relative aspect-square overflow-hidden rounded-full cursor-pointer border-2 border-slate-600 hover:border-orange-500 transition-all duration-300 transform hover:scale-110 group"
+                >
+                  <Image
+                    src={image}
+                    alt={`Painel ${index + 1}`}
+                    fill
+                    sizes="(max-width: 640px) 33vw, (max-width: 768px) 20vw, 20vw"
+                    className="object-cover transition-transform duration-300 group-hover:scale-110"
+                    unoptimized={true}
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                </motion.div>
+              ))}
+            </div>
+          </motion.div>
+
+          {/* CTA Principal */}
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            whileInView={{ opacity: 1, scale: 1 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6 }}
+            className="text-center"
+          >
+            <div className="bg-gradient-to-r from-orange-500/20 to-red-500/20 backdrop-blur-sm border-2 border-orange-500/50 rounded-2xl p-8 mb-8">
+              <h3 className="text-2xl md:text-3xl font-bold text-white mb-4">
+                Pronto para comemorar em grande estilo? 🎊
+              </h3>
+              <p className="text-lg text-gray-300 mb-6 max-w-2xl mx-auto">
+                Escolha sua decoração favorita e reserve seu aniversário em um de nossos bares parceiros. 
+                Transforme sua festa em um momento inesquecível!
+              </p>
+              <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                <Link href="/decoracao-aniversario">
+                  <button className="px-8 py-4 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white rounded-xl font-bold text-lg transition-all duration-200 transform hover:scale-105 shadow-2xl flex items-center gap-3 mx-auto sm:mx-0">
+                    <FaPalette size={24} />
+                    Ver Todas as Opções
+                    <MdArrowForward size={24} />
+                  </button>
+                </Link>
+                <Link href="/reserva-aniversario">
+                  <button className="px-8 py-4 bg-white/10 hover:bg-white/20 text-white rounded-xl font-bold text-lg transition-all duration-200 transform hover:scale-105 border-2 border-white/30 backdrop-blur-sm flex items-center gap-3 mx-auto sm:mx-0">
+                    <FaBirthdayCake size={24} />
+                    Fazer Minha Reserva
+                    <MdArrowForward size={24} />
+                  </button>
+                </Link>
+              </div>
+            </div>
+          </motion.div>
         </div>
       </section>
 
