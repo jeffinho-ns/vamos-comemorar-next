@@ -170,11 +170,17 @@ const PLACEHOLDER_IMAGE_URL = '/placeholder-cardapio.svg';
 // Isso evita construir URLs quebradas do Cloudinary e melhora o preview ao selecionar da galeria.
 const imageUrlIndex = new Map<string, string>();
 
+function isHttpUrl(value: string) {
+  return /^https?:\/\//i.test(value);
+}
+
 const indexImageUrl = (key: unknown, url: unknown) => {
   if (typeof key !== 'string' || typeof url !== 'string') return;
   const k = key.trim();
   const u = url.trim();
   if (!k || !u) return;
+  // Só indexar URLs absolutas válidas (evita mapear "filename" -> "filename" e gerar 404 em /admin/*.jpg)
+  if (!isHttpUrl(u)) return;
   // Não indexar Cloudinary (objetivo é remover completamente)
   if (u.includes('res.cloudinary.com') || u.includes('cloudinary.com')) return;
   imageUrlIndex.set(k, u);
@@ -257,12 +263,16 @@ const getValidImageUrl = (filename?: string | null): string => {
 
   // Resolver via índice da galeria (filename/objectPath -> url pública)
   const byExact = imageUrlIndex.get(trimmed);
-  if (byExact) return byExact;
+  if (byExact && (isHttpUrl(byExact) || byExact.startsWith('/') || byExact.startsWith('blob:') || byExact.startsWith('data:'))) {
+    return byExact;
+  }
 
   const lastSegment = trimmed.split('/').pop();
   if (lastSegment) {
     const byLast = imageUrlIndex.get(lastSegment);
-    if (byLast) return byLast;
+    if (byLast && (isHttpUrl(byLast) || byLast.startsWith('/') || byLast.startsWith('blob:') || byLast.startsWith('data:'))) {
+      return byLast;
+    }
   }
 
   // Não conseguimos resolver: não construa URL do Cloudinary (evita 404); use placeholder.
@@ -2167,11 +2177,16 @@ export default function CardapioAdminPage() {
         // Processar imagens: manter URLs como vierem da API (Firebase/Cloudinary/FTP/etc)
         // e atualizar o índice local para resolver filenames -> URL pública (melhora preview e evita 404).
         const processedImages = (data.images || []).map((img: any) => {
-          const url = (typeof img.url === 'string' && img.url.trim()) ? img.url.trim() : null;
-          // Index apenas se NÃO for Cloudinary
-          if (img?.filename && url) indexImageUrl(img.filename, url);
-          // Não manter Cloudinary na UI
-          const safeUrl = url && (url.includes('res.cloudinary.com') || url.includes('cloudinary.com')) ? null : url;
+          const rawUrl = (typeof img.url === 'string' && img.url.trim()) ? img.url.trim() : null;
+          const isCloudinary = !!rawUrl && (rawUrl.includes('res.cloudinary.com') || rawUrl.includes('cloudinary.com'));
+          const isAbsolute = !!rawUrl && /^https?:\/\//i.test(rawUrl);
+
+          // Só manter URL se for absoluta e NÃO for Cloudinary
+          const safeUrl = rawUrl && isAbsolute && !isCloudinary ? rawUrl : null;
+
+          // Indexar somente URLs seguras
+          if (img?.filename && safeUrl) indexImageUrl(img.filename, safeUrl);
+
           return { ...img, url: safeUrl };
         });
         
