@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import Image from "next/image";
 import { MdPerson, MdEmail, MdPhone, MdLocationOn, MdCalendarToday, MdEdit, MdSave, MdCameraAlt } from "react-icons/md";
+import { uploadImage as uploadImageToFirebase } from "@/app/services/uploadService";
 
 // Definindo a interface para as props
 interface ProfileUserProps {
@@ -54,9 +55,13 @@ const ProfileUser: React.FC<ProfileUserProps> = ({ addUser, user }) => {
 
     useEffect(() => {
         if (user) {
+            const fotoUrl =
+              user.foto_perfil && user.foto_perfil.startsWith("http")
+                ? user.foto_perfil
+                : (user.foto_perfil ? `${API_URL}/uploads/${user.foto_perfil}` : "");
             setProfile({
                 ...user,
-                foto_perfil: user.foto_perfil ? `${API_URL}/uploads/${user.foto_perfil}` : "",
+                foto_perfil: fotoUrl,
                 status: user.status === "Ativado" ? "Ativado" : "Desativado",
                 password: "",
             });
@@ -121,31 +126,11 @@ const ProfileUser: React.FC<ProfileUserProps> = ({ addUser, user }) => {
             return;
         }
 
-        const formData = new FormData();
-        formData.append('image', selectedFile!);
-        formData.append('data', JSON.stringify({
-            ...profile,
-            password: profile.password,
-        }));
-
         try {
-            const uploadResponse = await fetch(`${API_URL}/api/upload`, {
-                method: 'POST',
-                body: formData,
-            });
-
-            const uploadData = await uploadResponse.json();
-
-            if (uploadResponse.ok) {
-                console.log('Imagem enviada com sucesso:', uploadData.imageUrl);
-                setProfile((prevProfile) => ({
-                    ...prevProfile,
-                    foto_perfil: `${API_URL}/uploads/${uploadData.imageUrl}`
-                }));
-            } else {
-                console.error('Erro ao enviar a imagem:', uploadData.error);
-                setIsLoading(false);
-                return;
+            let fotoPerfilUrl = profile.foto_perfil;
+            if (selectedFile) {
+              fotoPerfilUrl = await uploadImageToFirebase(selectedFile, "users/profile");
+              setProfile((prev) => ({ ...prev, foto_perfil: fotoPerfilUrl }));
             }
 
             const url = `${API_URL}/api/users/${profile.id}`;
@@ -157,7 +142,7 @@ const ProfileUser: React.FC<ProfileUserProps> = ({ addUser, user }) => {
                 },
                 body: JSON.stringify({
                     ...profile,
-                    foto_perfil: uploadData.imageUrl
+                    foto_perfil: fotoPerfilUrl,
                 }),
             });
 

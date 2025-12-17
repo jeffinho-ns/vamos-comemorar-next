@@ -1,6 +1,9 @@
+'use client';
+
 import Image from "next/image";
 import React, { useState, useEffect } from "react";
 import Modal from "../ui/Modal";
+import { uploadImage as uploadImageToFirebase } from "@/app/services/uploadService";
 
 interface Place {
   id?: string;
@@ -73,7 +76,7 @@ const EditPlaceModal: React.FC<EditPlaceModalProps> = ({
   
   // States for commodities and photos
   const [commodities, setCommodities] = useState(commoditiesOptions.map(option => ({ ...option, enabled: false })));
-  const [photos, setPhotos] = useState<File[]>(Array(10).fill(null));
+  const [photos, setPhotos] = useState<(File | null)[]>(Array(10).fill(null));
   const [previewPhotos, setPreviewPhotos] = useState<string[]>(Array(10).fill(""));
   const [logoUrl, setLogoUrl] = useState<string | null>(currentPlace?.logo || "");
   const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL_LOCAL;
@@ -163,22 +166,25 @@ const EditPlaceModal: React.FC<EditPlaceModalProps> = ({
 
     try {
       let imageUrl = logo;
-
       if (selectedFile) {
-        const formData = new FormData();
-        formData.append("image", selectedFile);
+        imageUrl = await uploadImageToFirebase(selectedFile, "places/logo");
+      } else if (logo && (logo.startsWith("data:") || logo.startsWith("blob:"))) {
+        // Se ainda estiver em preview local e não houve upload, manter vazio para evitar persistir data/blob URL
+        imageUrl = currentPlace?.logo || "";
+      }
 
-        const response = await fetch(`${API_URL}/api/uploads`, {
-          method: "POST",
-          body: formData,
-        });
-
-        if (!response.ok) {
-          throw new Error("Erro ao enviar a imagem");
+      const finalPhotoUrls: string[] = [];
+      for (let i = 0; i < previewPhotos.length; i++) {
+        const file = photos[i];
+        if (file) {
+          const url = await uploadImageToFirebase(file, "places/photos");
+          finalPhotoUrls.push(url);
+          continue;
         }
-
-        const data = await response.json();
-        imageUrl = data.imageUrl;
+        const existing = previewPhotos[i];
+        if (existing && !existing.startsWith("blob:")) {
+          finalPhotoUrls.push(existing);
+        }
       }
 
       const dataToSend: Place = {
@@ -199,7 +205,7 @@ const EditPlaceModal: React.FC<EditPlaceModalProps> = ({
         status,
         visible,
         commodities,
-        photos: previewPhotos.filter(photo => photo !== ""), // Filtrar fotos não selecionadas
+        photos: finalPhotoUrls,
       };
 
       const url = `${API_URL}/api/places/${currentPlace?.id}`;

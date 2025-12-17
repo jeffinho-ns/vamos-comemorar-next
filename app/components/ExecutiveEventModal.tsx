@@ -6,9 +6,9 @@ import { MdClose, MdSave, MdUpload, MdDelete, MdKeyboardArrowUp, MdKeyboardArrow
 import Image from 'next/image';
 import { ExecutiveEvent, ExecutiveEventForm } from '@/app/types/executiveEvents';
 import { Establishment } from '@/app/hooks/useEstablishments';
+import { uploadImage } from '@/app/services/uploadService';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://vamos-comemorar-api.onrender.com';
-const API_UPLOAD_URL = `${API_URL}/api/images/upload`;
 const BASE_IMAGE_URL = 'https://grupoideiaum.com.br/cardapio-agilizaiapp/';
 
 interface ExecutiveEventModalProps {
@@ -269,30 +269,14 @@ export default function ExecutiveEventModal({
       setUploading(true);
 
       try {
-        const formDataUpload = new FormData();
-        formDataUpload.append('image', file);
-
-        const response = await fetch(API_UPLOAD_URL, {
-          method: 'POST',
-          body: formDataUpload,
-        });
-
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}));
-          throw new Error(errorData.error || `Erro no upload: ${response.status}`);
-        }
-
-        const result = await response.json();
-        if (result.success && result.filename) {
-          if (type === 'logo') {
-            setFormData(prev => ({ ...prev, logo_url: result.filename }));
-          } else {
-            setFormData(prev => ({ ...prev, cover_image_url: result.filename }));
-          }
-          alert('Imagem carregada com sucesso!');
+        const folder = type === 'logo' ? 'executive-events/logo' : 'executive-events/cover';
+        const url = await uploadImage(file, folder);
+        if (type === 'logo') {
+          setFormData(prev => ({ ...prev, logo_url: url }));
         } else {
-          throw new Error(result.error || 'Resposta inválida do servidor');
+          setFormData(prev => ({ ...prev, cover_image_url: url }));
         }
+        alert('Imagem carregada com sucesso!');
       } catch (error) {
         console.error('❌ Erro no upload:', error);
         alert(error instanceof Error ? error.message : 'Erro ao fazer upload da imagem');

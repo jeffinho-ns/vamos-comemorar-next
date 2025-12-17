@@ -7,6 +7,7 @@ import Header from "../components/headerNotificatioin/headerNotification";
 import Footer from "../../components/footer/footer";
 import { useRouter } from "next/navigation";
 import logoBlue from "@/app/assets/logo-agilizai-h.png";
+import { uploadImage as uploadImageToFirebase } from "@/app/services/uploadService";
 
 type UserField = "nome" | "endereco" | "telefone";
 type ProfileField = "nome" | "endereco" | "telefone" | "senha";
@@ -56,7 +57,9 @@ const PerfilMobile: React.FC = () => {
         const userData = await response.json();
         const baseUrl = `${API_URL}`;
         const fotoUrl = userData.foto_perfil
-          ? `${baseUrl}${userData.foto_perfil.startsWith("/") ? userData.foto_perfil : `/uploads/${userData.foto_perfil}`}`
+          ? (typeof userData.foto_perfil === "string" && userData.foto_perfil.startsWith("http")
+              ? userData.foto_perfil
+              : `${baseUrl}${userData.foto_perfil.startsWith("/") ? userData.foto_perfil : `/uploads/${userData.foto_perfil}`}`)
           : "";
         setUserInfo({
           nome: userData.name,
@@ -110,29 +113,39 @@ const PerfilMobile: React.FC = () => {
 
   const handleSaveClick = async () => {
     const token = localStorage.getItem("authToken");
+    if (!token) {
+      setMessage("Token não encontrado. Faça login novamente.");
+      return;
+    }
 
-    const formData = new FormData();
+    const payload: Record<string, any> = {};
 
-    // Adiciona os dados ao formData se estiverem modificados
+    // Adiciona os dados ao payload se estiverem modificados
     if (user) {
         if (userInfo.nome && userInfo.nome !== user.name) {
-            formData.append("name", userInfo.nome);
+            payload.name = userInfo.nome;
         }
         if (userInfo.telefone && userInfo.telefone !== user.telefone) {
-            formData.append("telefone", userInfo.telefone);
+            payload.telefone = userInfo.telefone;
         }
         if (userInfo.senha && userInfo.senha !== "") {
-            formData.append("password", userInfo.senha);
+            payload.password = userInfo.senha;
         }
     }
 
-    // Adiciona a foto ao formData, se houver
+    // Se houver foto nova, faz upload no Firebase e envia a URL pública
     if (file) {
-        formData.append("foto_perfil", file);
+      try {
+        const url = await uploadImageToFirebase(file, "users/profile");
+        payload.foto_perfil = url;
+      } catch (err) {
+        setMessage(`Erro ao enviar a imagem: ${err instanceof Error ? err.message : "Erro desconhecido"}`);
+        return;
+      }
     }
 
     // Verifica se há algo para atualizar
-    if (formData.entries().next().done) {
+    if (Object.keys(payload).length === 0) {
         setMessage("Nenhum campo para atualizar.");
         return;
     }
@@ -144,8 +157,9 @@ const PerfilMobile: React.FC = () => {
             method: "PUT", // Altera para PUT já que estamos atualizando dados e imagem
             headers: {
                 Authorization: `Bearer ${token}`,
+                "Content-Type": "application/json",
             },
-            body: formData,
+            body: JSON.stringify(payload),
         });
 
         if (updateResponse.ok) {

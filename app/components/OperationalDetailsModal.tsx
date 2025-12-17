@@ -9,9 +9,9 @@ import { Establishment } from '@/app/hooks/useEstablishments';
 import OSTypeSelectionModal from './OSTypeSelectionModal';
 import ArtistOSForm from './ArtistOSForm';
 import BarServiceOSForm from './BarServiceOSForm';
+import { uploadImage } from '@/app/services/uploadService';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://vamos-comemorar-api.onrender.com';
-const API_UPLOAD_URL = `${API_URL}/api/images/upload`;
 const BASE_IMAGE_URL = 'https://grupoideiaum.com.br/cardapio-agilizaiapp/';
 const PLACEHOLDER_IMAGE_URL = '/placeholder-cardapio.svg';
 
@@ -322,29 +322,10 @@ export default function OperationalDetailsModal({
       setFormData((prev) => ({ ...prev, visual_reference_url: tempUrl }));
 
       try {
-        const formDataUpload = new FormData();
-        formDataUpload.append('image', file);
-
-        const response = await fetch(API_UPLOAD_URL, {
-          method: 'POST',
-          body: formDataUpload,
-        });
-
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}));
-          throw new Error(errorData.error || `Erro no upload: ${response.status}`);
-        }
-
-        const result = await response.json();
-        if (result.success && result.filename) {
-          setFormData((prev) => ({ ...prev, visual_reference_url: result.filename }));
-          setTimeout(() => {
-            URL.revokeObjectURL(tempUrl);
-          }, 1000);
-          alert('Imagem carregada com sucesso!');
-        } else {
-          throw new Error(result.error || 'Resposta inválida do servidor');
-        }
+        const url = await uploadImage(file, 'operational-details');
+        setFormData((prev) => ({ ...prev, visual_reference_url: url }));
+        setTimeout(() => URL.revokeObjectURL(tempUrl), 1000);
+        alert('Imagem carregada com sucesso!');
       } catch (error) {
         console.error('❌ Erro no upload:', error);
         alert(`Erro no upload: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);

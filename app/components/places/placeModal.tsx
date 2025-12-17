@@ -1,7 +1,10 @@
+'use client';
+
 import React, { useState, useEffect } from "react";
 import Modal from "../ui/Modal";
 import Image from "next/image";
 import { Place } from "../../admin/commodities/types";
+import { uploadImage as uploadImageToFirebase } from "@/app/services/uploadService";
 
 interface PlaceModalProps {
   isOpen: boolean;
@@ -38,7 +41,7 @@ export default function PlaceModal({ isOpen, onRequestClose, addPlace, place }: 
   ];
 
   const [commodities, setCommodities] = useState(commoditiesOptions.map(option => ({ ...option, enabled: false })));
-  const [photos, setPhotos] = useState<File[]>(Array(10).fill(null));
+  const [photos, setPhotos] = useState<(File | null)[]>(Array(10).fill(null));
   const [previewPhotos, setPreviewPhotos] = useState<string[]>(Array(10).fill(""));
   const [logo, setLogo] = useState<File | null>(null);
   const [logoUrl, setLogoUrl] = useState<string | null>(place?.logo || "");
@@ -68,83 +71,64 @@ export default function PlaceModal({ isOpen, onRequestClose, addPlace, place }: 
     }
   };
 
-  const uploadFile = async (file: File) => {
-    const formData = new FormData();
-    formData.append("file", file);
-
+  const handleSubmit = async () => {
     try {
-      const response = await fetch(`${API_URL}/uploads`, {
-        method: "POST",
-        body: formData,
+      const uploadedLogoUrl =
+        logo ? await uploadImageToFirebase(logo, "places/logo") : null;
+
+      const existingLogoUrl =
+        logoUrl && !logoUrl.startsWith("blob:") ? logoUrl : null;
+
+      const finalLogoUrl = uploadedLogoUrl || existingLogoUrl || null;
+
+      const uploadedPhotoUrls: string[] = [];
+      for (const photo of photos) {
+        if (!photo) continue;
+        const url = await uploadImageToFirebase(photo, "places/photos");
+        uploadedPhotoUrls.push(url);
+      }
+
+      const payload: Record<string, any> = {
+        ...(place?.id ? { id: place.id } : {}),
+        name,
+        email,
+        phone,
+        address,
+        number,
+        neighborhood,
+        city,
+        state,
+        zipcode,
+        description,
+        latitude,
+        longitude,
+        slug,
+        status,
+        logo: finalLogoUrl,
+        commodities: commodities.map((commodity) => ({
+          name: commodity.name,
+          enabled: commodity.enabled,
+        })),
+        photos: uploadedPhotoUrls,
+      };
+
+      const response = await fetch(`${API_URL}/api/places`, {
+        method: place ? "PUT" : "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
       });
+
       if (response.ok) {
-        const data = await response.json();
-        return data.url; // Assuming the API returns the file URL in `data.url`
+        const createdPlace = await response.json();
+        addPlace(createdPlace);
+        onRequestClose();
       } else {
-        console.error("Failed to upload file:", response.statusText);
-        return null;
+        console.error("Failed to submit place:", response.statusText);
       }
     } catch (error) {
-      console.error("Error uploading file:", error);
-      return null;
-    }
-  };
-
-  const handleSubmit = async () => {
-    const formData = new FormData();
-
-    // Adiciona dados textuais
-    formData.append("id", place?.id || "");
-    formData.append("name", name);
-    formData.append("email", email);
-    formData.append("phone", phone);
-    formData.append("address", address);
-    formData.append("number", number);
-    formData.append("neighborhood", neighborhood);
-    formData.append("city", city);
-    formData.append("state", state);
-    formData.append("zipcode", zipcode);
-    formData.append("description", description);
-    formData.append("latitude", latitude);
-    formData.append("longitude", longitude);
-    formData.append("slug", slug);
-    formData.append("status", status);
-
-    // Adiciona logo, se houver
-    if (logo) {
-        formData.append("logo", logo);
-    }
-
-    // Adiciona as comodidades
-    formData.append("commodities", JSON.stringify(
-        commodities.map((commodity) => ({
-            name: commodity.name,
-            enabled: commodity.enabled,
-        }))
-    ));
-
-    // Adiciona as fotos, se houver
-    photos.forEach((photo, index) => {
-        if (photo) {
-            formData.append(`photos`, photo);
-        }
-    });
-
-    try {
-        const response = await fetch(`${API_URL}/api/places`, {
-            method: place ? "PUT" : "POST",
-            body: formData,
-        });
-
-        if (response.ok) {
-            const createdPlace = await response.json();
-            addPlace(createdPlace);
-            onRequestClose();
-        } else {
-            console.error("Failed to submit place:", response.statusText);
-        }
-    } catch (error) {
-        console.error("Error submitting place:", error);
+      console.error("Error submitting place:", error);
     }
 };
 

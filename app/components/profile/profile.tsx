@@ -3,6 +3,7 @@ import Modal from "../ui/Modal";
 import styles from "./profile.module.scss";
 import Image from "next/image";
 import { User, APIUser } from '../../types/types';
+import { uploadImage as uploadImageToFirebase } from "@/app/services/uploadService";
 
 // ✨ Adicione a URL base para as imagens, como fizemos nos outros componentes
 const BASE_IMAGE_URL = 'https://grupoideiaum.com.br/cardapio-agilizaiapp/';
@@ -78,33 +79,12 @@ const Profile = ({ isOpen, onRequestClose, onSaveUser, user, addUser }: ProfileP
 
   // ✨ Função para fazer o upload da imagem separadamente
   const uploadImage = async (file: File): Promise<string | null> => {
-    const token = localStorage.getItem("authToken");
-    if (!token || !API_URL) return null;
-
-    const formData = new FormData();
-    formData.append('image', file);
-
     try {
-        const response = await fetch(`${API_URL}/api/images/upload`, {
-            method: 'POST',
-            headers: {
-                Authorization: `Bearer ${token}`,
-            },
-            body: formData,
-        });
-
-        if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            console.error("Erro no upload da imagem:", errorData);
-            setErrorMessage(`Erro no upload da imagem: ${errorData.error || 'Erro desconhecido.'}`);
-            return null;
-        }
-
-        const result = await response.json();
-        return result.filename;
+        const url = await uploadImageToFirebase(file, 'users/profile');
+        return url;
     } catch (error) {
         console.error("Erro ao enviar imagem:", error);
-        setErrorMessage("Ocorreu um erro de conexão ao enviar a imagem.");
+        setErrorMessage(`Erro no upload da imagem: ${error instanceof Error ? error.message : 'Erro desconhecido.'}`);
         return null;
     }
   };
@@ -122,11 +102,11 @@ const Profile = ({ isOpen, onRequestClose, onSaveUser, user, addUser }: ProfileP
       return;
     }
 
-    let fotoPerfilFilename: string | null = null;
+    let fotoPerfilUrl: string | null = null;
     // 1. Faz o upload da foto se um novo arquivo foi selecionado
     if (selectedFile) {
-        fotoPerfilFilename = await uploadImage(selectedFile);
-        if (!fotoPerfilFilename) {
+        fotoPerfilUrl = await uploadImage(selectedFile);
+        if (!fotoPerfilUrl) {
             setIsLoading(false);
             return;
         }
@@ -150,19 +130,13 @@ const Profile = ({ isOpen, onRequestClose, onSaveUser, user, addUser }: ProfileP
         password: profile.password
     };
 
-    // 3. Adiciona o nome do arquivo da foto se o upload foi bem-sucedido
-    if (fotoPerfilFilename) {
-        profileData.foto_perfil = fotoPerfilFilename;
+    // 3. Adiciona a URL pública da foto (Firebase) ou mantém a URL atual
+    if (fotoPerfilUrl) {
+      profileData.foto_perfil = fotoPerfilUrl;
     } else if (profile.foto_perfil && !profile.foto_perfil.startsWith('blob:')) {
-        // Se a foto não foi alterada, mas já existia, garante que o nome do arquivo original seja enviado.
-        // Extrai o nome do arquivo da URL completa.
-        const originalFilename = profile.foto_perfil.split('/').pop();
-        if(originalFilename) {
-          profileData.foto_perfil = originalFilename;
-        }
+      profileData.foto_perfil = profile.foto_perfil;
     } else {
-        // Se a foto foi removida ou nunca existiu, envia null.
-        profileData.foto_perfil = null;
+      profileData.foto_perfil = null;
     }
     
     // 4. Faz a requisição PUT para atualizar o perfil

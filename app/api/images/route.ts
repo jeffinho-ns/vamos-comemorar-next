@@ -1,30 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-const API_BASE_URL = 'https://vamos-comemorar-api.onrender.com';
-
 export async function POST(request: NextRequest) {
   try {
-    const formData = await request.formData();
-    
-    // Fazer proxy para o backend
-    const response = await fetch(`${API_BASE_URL}/api/images/upload`, {
-      method: 'POST',
-      body: formData,
-    });
+    const body = await request.json().catch(() => ({} as any));
+    const url = body?.url;
 
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      console.error('❌ Erro do servidor:', errorData);
+    if (!url || typeof url !== 'string') {
       return NextResponse.json(
-        { error: errorData.error || `Erro no upload: ${response.status} - ${response.statusText}` },
-        { status: response.status }
+        { error: 'Campo "url" é obrigatório (string).' },
+        { status: 400 },
       );
     }
 
-    const result = await response.json();
-    console.log('✅ Resultado do upload:', result);
-
-    return NextResponse.json(result);
+    // A partir da migração para Firebase Storage, o upload acontece no client-side.
+    // Esta rota passa a apenas validar e retornar a URL pública.
+    return NextResponse.json({ success: true, url });
   } catch (error) {
     console.error('❌ Erro no upload:', error);
     
