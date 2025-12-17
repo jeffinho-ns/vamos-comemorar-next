@@ -22,6 +22,7 @@ import {
 import { useUserPermissions } from '../../hooks/useUserPermissions';
 import ImageCropModal from '../../components/ImageCropModal';
 import { useRouter } from 'next/navigation';
+import { uploadImage as uploadImageToFirebase } from '@/app/services/uploadService';
 
 type MenuDisplayStyle = 'normal' | 'clean';
 
@@ -161,11 +162,23 @@ declare module 'react' {
 }
 
 const API_BASE_URL = 'https://vamos-comemorar-api.onrender.com/api/cardapio';
-const API_UPLOAD_URL = 'https://vamos-comemorar-api.onrender.com/api/images/upload';
 
 // Placeholder local para todos os pontos do admin
 const PLACEHOLDER_IMAGE_URL = '/placeholder-cardapio.svg';
-const BASE_IMAGE_URL = 'https://res.cloudinary.com/drjovtmuw/image/upload/v1764862686/cardapio-agilizaiapp/';
+
+// Índice em memória: resolve valores antigos (filename/objectPath) -> URL pública (Firebase/Cloudinary/etc)
+// Isso evita construir URLs quebradas do Cloudinary e melhora o preview ao selecionar da galeria.
+const imageUrlIndex = new Map<string, string>();
+
+const indexImageUrl = (key: unknown, url: unknown) => {
+  if (typeof key !== 'string' || typeof url !== 'string') return;
+  const k = key.trim();
+  const u = url.trim();
+  if (!k || !u) return;
+  imageUrlIndex.set(k, u);
+  const last = k.split('/').pop();
+  if (last) imageUrlIndex.set(last, u);
+};
 
 // Constantes dos selos
 const FOOD_SEALS: Seal[] = [
@@ -210,7 +223,7 @@ const WINE_TYPES: { id: string; label: string; color: string }[] = [
 
 const getValidImageUrl = (filename?: string | null): string => {
   // Verificar se filename é válido
-  if (!filename || typeof filename !== 'string' || filename.startsWith('blob:')) {
+  if (!filename || typeof filename !== 'string') {
     return PLACEHOLDER_IMAGE_URL;
   }
 
@@ -218,42 +231,29 @@ const getValidImageUrl = (filename?: string | null): string => {
   if (trimmed === '' || trimmed === 'null' || trimmed === 'undefined' || trimmed === 'NULL') {
     return PLACEHOLDER_IMAGE_URL;
   }
-  
-  // Se já é uma URL completa do Cloudinary, retornar como está
-  if (trimmed.startsWith('https://res.cloudinary.com')) {
+
+  // Preview local (upload) ou data URL
+  if (trimmed.startsWith('blob:') || trimmed.startsWith('data:')) {
     return trimmed;
   }
   
-  // Se já é uma URL completa (Unsplash, etc), retornar como está
+  // Se já é uma URL completa (Firebase/Cloudinary/FTP/Unsplash/etc), retornar como está
   if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
-    try {
-      const url = new URL(trimmed);
-      // Se a URL aponta para algum host antigo (grupoideiaum.com.br) mas o caminho contém /cardapio-agilizaiapp/,
-      // reescrevemos para o Cloudinary usando apenas o nome do arquivo
-      if (url.pathname.includes('/cardapio-agilizaiapp/') || url.hostname.includes('grupoideiaum.com.br')) {
-        const parts = url.pathname.split('/');
-        const lastSegment = parts[parts.length - 1]?.trim();
-        if (lastSegment) {
-          return `${BASE_IMAGE_URL}${lastSegment}`;
-        }
-      }
-      // Caso contrário, mantemos a URL como está (ex.: Unsplash, outros domínios permitidos)
-      return trimmed;
-    } catch {
-      // Se der erro ao parsear, cai para a lógica de filename abaixo
-    }
-  }
-  
-  // Sempre extrair apenas o nome do arquivo (último segmento), para evitar base duplicada
-  const withoutLeadingSlash = trimmed.startsWith('/') ? trimmed.substring(1) : trimmed;
-  const parts = withoutLeadingSlash.split('/');
-  const lastSegment = parts[parts.length - 1]?.trim();
-
-  if (!lastSegment || lastSegment === 'null' || lastSegment === 'undefined') {
-    return PLACEHOLDER_IMAGE_URL;
+    return trimmed;
   }
 
-  return `${BASE_IMAGE_URL}${lastSegment}`;
+  // Resolver via índice da galeria (filename/objectPath -> url pública)
+  const byExact = imageUrlIndex.get(trimmed);
+  if (byExact) return byExact;
+
+  const lastSegment = trimmed.split('/').pop();
+  if (lastSegment) {
+    const byLast = imageUrlIndex.get(lastSegment);
+    if (byLast) return byLast;
+  }
+
+  // Não conseguimos resolver: não construa URL do Cloudinary (evita 404); use placeholder.
+  return PLACEHOLDER_IMAGE_URL;
 };
 
 export default function CardapioAdminPage() {
@@ -514,9 +514,9 @@ export default function CardapioAdminPage() {
         ? items.map((item) => {
             const cleanedItem = {
               ...item,
-              imageUrl: item.imageUrl?.includes(BASE_IMAGE_URL)
-                ? item.imageUrl.split('/').pop()
-                : item.imageUrl,
+              // A API pode retornar URL completa (Firebase/Cloudinary/etc) ou valores legados.
+              // Mantemos como veio; a exibição resolve via getValidImageUrl().
+              imageUrl: item.imageUrl,
             };
             return cleanedItem;
           })
@@ -2151,35 +2151,12 @@ export default function CardapioAdminPage() {
         const data = await response.json();
         console.log('📊 Galeria atualizada:', { total: data.total, images: data.images?.length });
         
-        // Processar imagens para garantir que todas usem Cloudinary
+        // Processar imagens: manter URLs como vierem da API (Firebase/Cloudinary/FTP/etc)
+        // e atualizar o índice local para resolver filenames -> URL pública (melhora preview e evita 404).
         const processedImages = (data.images || []).map((img: any) => {
-          let finalUrl: string | null = null;
-          
-          // PRIORIDADE 1: Se já tem URL completa do Cloudinary, usar diretamente
-          if (img.url && typeof img.url === 'string' && img.url.startsWith('https://res.cloudinary.com')) {
-            finalUrl = img.url;
-          }
-          // PRIORIDADE 2: Se tem URL mas não é do Cloudinary, processar
-          else if (img.url && typeof img.url === 'string') {
-            // Se é URL antiga, extrair filename e construir URL do Cloudinary
-            if (img.url.includes('grupoideiaum.com.br') || (img.url.includes('/cardapio-agilizaiapp/') && !img.url.startsWith('https://res.cloudinary.com'))) {
-              const parts = img.url.split('/');
-              const filename = parts[parts.length - 1];
-              finalUrl = getValidImageUrl(filename);
-            } else {
-              // Se é outra URL, processar
-              finalUrl = getValidImageUrl(img.url);
-            }
-          }
-          // PRIORIDADE 3: Se não tem URL mas tem filename, construir URL do Cloudinary
-          else if (img.filename) {
-            finalUrl = getValidImageUrl(img.filename);
-          }
-          
-          return {
-            ...img,
-            url: finalUrl
-          };
+          const url = (typeof img.url === 'string' && img.url.trim()) ? img.url.trim() : null;
+          if (img?.filename && url) indexImageUrl(img.filename, url);
+          return { ...img, url };
         });
         
         // Log das primeiras imagens processadas para debug
@@ -2188,7 +2165,7 @@ export default function CardapioAdminPage() {
             filename: img.filename,
             url: img.url,
             hasUrl: !!img.url,
-            isCloudinary: img.url?.startsWith('https://res.cloudinary.com')
+            isFirebase: typeof img.url === 'string' && img.url.includes('firebasestorage.googleapis.com')
           })));
         }
         
@@ -2211,43 +2188,15 @@ export default function CardapioAdminPage() {
       try {
         console.log('🔄 Iniciando upload da imagem recortada', { field, blobSize: croppedBlob.size });
 
-        const formData = new FormData();
-        formData.append('image', croppedBlob, 'cropped-image.jpg');
-
-        const response = await fetch(API_UPLOAD_URL, {
-          method: 'POST',
-          body: formData,
+        const file = new File([croppedBlob], 'cropped-image.jpg', {
+          type: croppedBlob.type || 'image/jpeg',
         });
 
-        console.log('📡 Resposta do upload:', response.status, response.statusText);
+        const folder =
+          field === 'imageUrl' ? 'cardapio/items' : 'cardapio/bars';
 
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}));
-          console.error('❌ Erro do servidor:', errorData);
-          throw new Error(
-            errorData.error || `Erro no upload: ${response.status} - ${response.statusText}`,
-          );
-        }
-
-        const result = await response.json();
-        console.log('✅ Resultado do upload:', result);
-
-        if (result.success && result.filename) {
-          const filename = result.filename;
-          // SEMPRE usar a URL completa do Cloudinary se disponível
-          // Se result.url existir e for uma URL completa do Cloudinary, usar ela
-          // Caso contrário, usar apenas o filename (que será processado por getValidImageUrl)
-          const imageValue = (result.url && result.url.startsWith('https://res.cloudinary.com')) 
-            ? result.url 
-            : filename;
-          
-          console.log('📸 Valores recebidos do upload:', {
-            filename,
-            url: result.url,
-            imageValue,
-            field,
-            isCloudinaryUrl: imageValue.startsWith('https://res.cloudinary.com')
-          });
+        const imageValue = await uploadImageToFirebase(file, folder);
+        console.log('✅ Upload concluído (Firebase Storage):', { imageValue, field, folder });
           
           // Se o upload foi feito através da galeria, atualizar a galeria primeiro
           // Verificar se o campo corresponde ao campo da galeria (mesmo que o modal esteja fechado temporariamente)
@@ -2259,17 +2208,11 @@ export default function CardapioAdminPage() {
             isGalleryUpload,
             imageGalleryField,
             field,
-            filename,
             imageValue
           });
           
           if (isGalleryUpload) {
-            console.log('📸 Upload através da galeria detectado', { field, imageGalleryField, filename, imageValue });
-            
-            // Aguardar um pouco para garantir que a imagem foi salva no banco
-            await new Promise(resolve => setTimeout(resolve, 500));
-            // Atualizar a galeria para mostrar a nova imagem
-            await fetchGalleryImages();
+            console.log('📸 Upload via galeria detectado (agora Firebase Storage)', { field, imageGalleryField, imageValue });
             
             // Atualizar o formulário diretamente com a URL completa ou filename
             // Usar o field que foi passado (que deve ser o mesmo do imageGalleryField)
@@ -2313,9 +2256,6 @@ export default function CardapioAdminPage() {
             console.log('✅ Upload concluído com sucesso');
             alert('Imagem carregada com sucesso!');
           }
-        } else {
-          throw new Error(result.error || 'Resposta inválida do servidor');
-        }
       } catch (error) {
         console.error('❌ Erro no upload:', error);
 
@@ -2332,7 +2272,7 @@ export default function CardapioAdminPage() {
         throw error; // Re-throw para que o handleCropComplete possa tratar
       }
     },
-    [imageGalleryField, fetchGalleryImages],
+    [imageGalleryField],
   );
 
   // Handler quando o crop for completado
@@ -4705,23 +4645,13 @@ export default function CardapioAdminPage() {
                       img.filename.toLowerCase().includes(gallerySearchTerm.toLowerCase())
                     )
                     .map((image, index) => {
-                      // A imagem já foi processada no fetchGalleryImages
-                      // Usar image.url se disponível (já deve ser Cloudinary), senão construir
+                      // A imagem já foi processada no fetchGalleryImages:
+                      // - image.url (Firebase/Cloudinary/etc) quando disponível
+                      // - fallback via getValidImageUrl(image.filename) usando o índice local
                       const imageUrl = image.url || getValidImageUrl(image.filename);
                       
-                      // URL para passar ao selecionar - SEMPRE priorizar URL completa do Cloudinary
-                      // Se image.url existe e é do Cloudinary, usar ela
-                      // Caso contrário, tentar construir a URL completa do Cloudinary
-                      let selectUrl: string;
-                      if (image.url && image.url.startsWith('https://res.cloudinary.com')) {
-                        selectUrl = image.url; // URL completa do Cloudinary
-                      } else if (image.url) {
-                        // Se tem URL mas não é Cloudinary, processar
-                        selectUrl = getValidImageUrl(image.url);
-                      } else {
-                        // Se não tem URL, construir do filename
-                        selectUrl = getValidImageUrl(image.filename);
-                      }
+                      // URL para salvar ao selecionar (sempre preferir URL completa quando existir)
+                      const selectUrl = image.url ? getValidImageUrl(image.url) : getValidImageUrl(image.filename);
                       
                       // Log apenas para as primeiras imagens para não poluir o console
                       if (index < 3) {
@@ -4731,7 +4661,7 @@ export default function CardapioAdminPage() {
                           imageUrl: image.url,
                           finalImageUrl: imageUrl,
                           selectUrl,
-                          isCloudinary: imageUrl.startsWith('https://res.cloudinary.com')
+                          isFirebase: imageUrl.includes('firebasestorage.googleapis.com')
                         });
                       }
                       
@@ -4757,7 +4687,7 @@ export default function CardapioAdminPage() {
                                   console.log('✅ Imagem carregada com sucesso:', imageUrl);
                                 }
                               }}
-                              unoptimized={imageUrl.startsWith('https://res.cloudinary.com')}
+                              unoptimized={true}
                             />
                           </div>
                         <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/0 to-black/0 opacity-0 group-hover:opacity-100 transition-opacity">

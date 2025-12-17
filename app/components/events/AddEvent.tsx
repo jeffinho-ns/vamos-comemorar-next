@@ -1,7 +1,10 @@
+'use client';
+
 import React, { useState, useEffect, useCallback } from "react";
 import Image from "next/image";
 import Modal from "../ui/Modal";
 import { MdSearch, MdUpload, MdDelete } from "react-icons/md";
+import { uploadImage as uploadImageToFirebase } from "@/app/services/uploadService";
 
 interface AddEventProps {
   isOpen: boolean;
@@ -216,17 +219,18 @@ const AddEvent: React.FC<AddEventProps> = ({ isOpen, onRequestClose, onEventAdde
 
   // Função para selecionar imagem da galeria
   const handleSelectGalleryImage = useCallback((filename: string, imageUrl?: string | null) => {
-    // Usar a URL completa para preview, mas manter o filename para envio à API
-    const previewUrl = imageUrl || getValidImageUrl(filename);
+    // A partir da migração para Firebase, sempre persistimos a URL completa.
+    const imageValue = imageUrl || filename;
+    const previewUrl = getValidImageUrl(imageValue);
     
     if (imageGalleryField === 'imagem_do_evento') {
       setImagemDoEvento(null);
       setImagemEventoPreview(previewUrl);
-      setImagemEventoFilename(filename);
+      setImagemEventoFilename(imageValue);
     } else if (imageGalleryField === 'imagem_do_combo') {
       setImagemDoCombo(null);
       setImagemComboPreview(previewUrl);
-      setImagemComboFilename(filename);
+      setImagemComboFilename(imageValue);
     }
     
     setShowImageGalleryModal(false);
@@ -316,40 +320,13 @@ const AddEvent: React.FC<AddEventProps> = ({ isOpen, onRequestClose, onEventAdde
     }
   };
 
-  const uploadImage = async (file: File): Promise<{ filename: string; url: string } | null> => {
-    const token = localStorage.getItem("authToken");
-    if (!token) {
-      setError("Token não encontrado. Faça login novamente.");
-      return null;
-    }
-
-    const formData = new FormData();
-    formData.append('image', file);
-    formData.append('entityType', 'event');
-
+  const uploadImage = async (file: File): Promise<{ url: string } | null> => {
     try {
-      const response = await fetch(`${API_URL}/api/images/upload`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-        body: formData,
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        setError(`Erro no upload da imagem: ${errorData.error || 'Erro desconhecido.'}`);
-        return null;
-      }
-
-      const result = await response.json();
-      return {
-        filename: result.filename,
-        url: result.url || result.filename // URL completa do Cloudinary ou fallback para filename
-      };
+      const url = await uploadImageToFirebase(file, 'events');
+      return { url };
     } catch (error) {
       console.error("Erro ao enviar imagem:", error);
-      setError("Ocorreu um erro de conexão ao enviar a imagem.");
+      setError(`Erro no upload da imagem: ${error instanceof Error ? error.message : 'Erro desconhecido.'}`);
       return null;
     }
   };
@@ -377,10 +354,10 @@ const AddEvent: React.FC<AddEventProps> = ({ isOpen, onRequestClose, onEventAdde
         setIsLoading(false);
         return;
       }
-      finalImagemEventoFilename = uploadResult.filename;
-      // Atualiza o preview imediatamente com a URL completa do Cloudinary
+      finalImagemEventoFilename = uploadResult.url;
+      // Atualiza o preview imediatamente com a URL pública do Firebase Storage
       setImagemEventoPreview(uploadResult.url);
-      setImagemEventoFilename(uploadResult.filename);
+      setImagemEventoFilename(uploadResult.url);
     } else if (imagemEventoFilename) {
       // Se foi selecionada da galeria, usar o filename armazenado
       finalImagemEventoFilename = imagemEventoFilename;
@@ -394,10 +371,10 @@ const AddEvent: React.FC<AddEventProps> = ({ isOpen, onRequestClose, onEventAdde
         setIsLoading(false);
         return;
       }
-      finalImagemComboFilename = uploadResult.filename;
-      // Atualiza o preview imediatamente com a URL completa do Cloudinary
+      finalImagemComboFilename = uploadResult.url;
+      // Atualiza o preview imediatamente com a URL pública do Firebase Storage
       setImagemComboPreview(uploadResult.url);
-      setImagemComboFilename(uploadResult.filename);
+      setImagemComboFilename(uploadResult.url);
     } else if (imagemComboFilename) {
       // Se foi selecionada da galeria, usar o filename armazenado
       finalImagemComboFilename = imagemComboFilename;
@@ -761,15 +738,8 @@ const AddEvent: React.FC<AddEventProps> = ({ isOpen, onRequestClose, onEventAdde
                     if (files && files[0]) {
                       const uploadResult = await uploadImage(files[0]);
                       if (uploadResult) {
-                        // Aguardar um pouco para garantir que a imagem foi salva no banco
-                        await new Promise(resolve => setTimeout(resolve, 500));
-                        // Buscar imagens e obter a lista atualizada
-                        const updatedImages = await fetchGalleryImages();
-                        // Buscar a imagem recém-enviada na galeria para obter a URL completa
-                        const uploadedImage = updatedImages.find(img => img.filename === uploadResult.filename);
-                        const imageUrl = uploadedImage?.url || uploadResult.url;
-                        // Selecionar automaticamente a imagem recém-enviada
-                        handleSelectGalleryImage(uploadResult.filename, imageUrl);
+                        // Selecionar automaticamente a imagem recém-enviada (URL Firebase)
+                        handleSelectGalleryImage(uploadResult.url, uploadResult.url);
                       }
                     }
                   };
