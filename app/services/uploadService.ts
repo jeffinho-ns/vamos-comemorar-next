@@ -2,12 +2,13 @@
 
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { v4 as uuidv4 } from 'uuid';
-import { storage, auth } from '@/app/config/firebase';
 import { signInAnonymously } from 'firebase/auth';
+import { getFirebaseAuth, getFirebaseStorage } from '@/app/config/firebase';
 
 let signInPromise: Promise<void> | null = null;
 
 async function ensureSignedIn() {
+  const auth = getFirebaseAuth();
   if (auth.currentUser) return;
   if (!signInPromise) {
     signInPromise = signInAnonymously(auth)
@@ -58,6 +59,7 @@ export async function uploadImage(file: File, folder?: string): Promise<string> 
   const filename = ext ? `${uuidv4()}.${ext}` : uuidv4();
   const fullPath = `${safeFolder}/${filename}`;
 
+  const storage = getFirebaseStorage();
   const storageRef = ref(storage, fullPath);
   await uploadBytes(storageRef, file, {
     contentType: file.type || undefined,
