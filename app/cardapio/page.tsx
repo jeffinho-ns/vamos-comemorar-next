@@ -6,6 +6,12 @@ import Image from 'next/image';
 import { MdStar, MdLocationOn, MdCalendarToday } from 'react-icons/md';
 import Link from 'next/link';
 
+import {
+  getCardapioPlaceholderUrl,
+  resolveCardapioImageUrl,
+  warmCardapioImageIndex,
+} from '@/app/utils/cardapioImageResolver';
+
 interface Bar {
   id: string | number;
   name: string;
@@ -23,97 +29,16 @@ interface Bar {
 }
 
 const API_BASE_URL = 'https://vamos-comemorar-api.onrender.com/api/cardapio';
-// Placeholder local para evitar erros 404 externos e reduzir ruído no terminal
-const PLACEHOLDER_BAR_URL = '/placeholder-cardapio.svg';
+const PLACEHOLDER_BAR_URL = getCardapioPlaceholderUrl();
 
-// Função auxiliar para construir URL completa da imagem
-const getValidImageUrl = (imageUrl?: string | null, coverImages?: string[]): string => {
-  const BASE_IMAGE_URL = 'https://res.cloudinary.com/drjovtmuw/image/upload/v1764862686/cardapio-agilizaiapp/';
-  
-  // Primeiro, tenta usar a imagem principal
-  if (imageUrl && typeof imageUrl === 'string') {
-    const trimmed = imageUrl.trim();
-    if (trimmed !== '' && trimmed !== 'null' && trimmed !== 'undefined') {
-      // Se já é uma URL completa do Cloudinary, retornar como está
-      if (trimmed.startsWith('https://res.cloudinary.com')) {
-        return trimmed;
-      }
-      
-      // Verifica se já é uma URL absoluta
-      if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
-        try {
-          const url = new URL(trimmed);
-          // Se a URL aponta para algum host antigo (grupoideiaum.com.br) mas o caminho contém /cardapio-agilizaiapp/,
-          // reescrevemos para o Cloudinary usando apenas o nome do arquivo
-          if (url.pathname.includes('/cardapio-agilizaiapp/') || url.hostname.includes('grupoideiaum.com.br')) {
-            const parts = url.pathname.split('/');
-            const lastSegment = parts[parts.length - 1]?.trim();
-            if (lastSegment) {
-              const fullUrl = `${BASE_IMAGE_URL}${lastSegment}`;
-              new URL(fullUrl);
-              return fullUrl;
-            }
-          }
-          // Caso contrário, mantemos a URL como está (ex.: Unsplash, outros domínios permitidos)
-          return trimmed;
-        } catch {
-          // Se der erro ao parsear, cai para a lógica de filename abaixo
-        }
-      }
-
-      // Extrair sempre apenas o nome do arquivo (último segmento) para evitar base duplicada
-      const withoutLeadingSlash = trimmed.startsWith('/') ? trimmed.substring(1) : trimmed;
-      const parts = withoutLeadingSlash.split('/');
-      const lastSegment = parts[parts.length - 1]?.trim();
-
-      if (lastSegment) {
-        try {
-          const fullUrl = `${BASE_IMAGE_URL}${lastSegment}`;
-          new URL(fullUrl); // Validar URL
-          return fullUrl;
-        } catch (e) {
-          console.warn('URL de imagem inválida:', imageUrl, '-> usando placeholder');
-        }
-      }
-    }
-  }
-  
-  // Se não tiver imagem principal, tenta usar a primeira imagem do array coverImages
-  if (Array.isArray(coverImages) && coverImages.length > 0 && coverImages[0]) {
-    const firstImage = coverImages[0];
-    if (typeof firstImage === 'string') {
-      const trimmed = firstImage.trim();
-      if (trimmed !== '' && trimmed !== 'null' && trimmed !== 'undefined') {
-        // Se já é uma URL completa do Cloudinary, retornar como está
-        if (trimmed.startsWith('https://res.cloudinary.com')) {
-          return trimmed;
-        }
-        
-        // Verifica se já é uma URL absoluta
-        if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
-          return trimmed;
-        }
-        
-        // Extrair sempre apenas o nome do arquivo (último segmento) para evitar base duplicada
-        const withoutLeadingSlash = trimmed.startsWith('/') ? trimmed.substring(1) : trimmed;
-        const parts = withoutLeadingSlash.split('/');
-        const lastSegment = parts[parts.length - 1]?.trim();
-
-        if (lastSegment) {
-          try {
-            const fullUrl = `${BASE_IMAGE_URL}${lastSegment}`;
-            new URL(fullUrl); // Validar URL
-            return fullUrl;
-          } catch (e) {
-            console.warn('URL de imagem inválida:', firstImage, '-> usando placeholder');
-          }
-        }
-      }
-    }
-  }
-  
-  // Se não tiver nenhuma imagem, usa placeholder
-  return PLACEHOLDER_BAR_URL;
+const resolveCoverImage = (coverImageUrl?: string | null, coverImages?: string[] | null) => {
+  const primary = resolveCardapioImageUrl(coverImageUrl || null);
+  if (primary !== PLACEHOLDER_BAR_URL) return primary;
+  const first =
+    Array.isArray(coverImages) && coverImages[0]
+      ? resolveCardapioImageUrl(coverImages[0])
+      : PLACEHOLDER_BAR_URL;
+  return first;
 };
 
 export default function CardapioPage() {
@@ -125,6 +50,9 @@ export default function CardapioPage() {
     setIsLoading(true);
     setError(null);
     try {
+      // Aquecer índice (filename -> URL Firebase) antes de montar os cards
+      await warmCardapioImageIndex(API_BASE_URL);
+
       const barsRes = await fetch(`${API_BASE_URL}/bars`);
       
       if (!barsRes.ok) {
@@ -134,26 +62,26 @@ export default function CardapioPage() {
       const bars = await barsRes.json();
       const barsData = Array.isArray(bars) ? bars : [];
       
-      // Processar URLs das imagens para garantir que estão corretas
+      // Processar URLs das imagens (resolver para URL Firebase quando necessário)
       const processedBars = barsData.map((bar: Bar) => {
         // Processar coverImages - pode vir como array, string JSON ou null
         let processedCoverImages: string[] = [];
         if (bar.coverImages) {
           if (Array.isArray(bar.coverImages)) {
-            processedCoverImages = bar.coverImages.map((img: string) => getValidImageUrl(img));
+            processedCoverImages = bar.coverImages.map((img: string) => resolveCardapioImageUrl(img));
           } else if (typeof bar.coverImages === 'string') {
             try {
               const parsed = JSON.parse(bar.coverImages);
               if (Array.isArray(parsed)) {
-                processedCoverImages = parsed.map((img: string) => getValidImageUrl(img));
+                processedCoverImages = parsed.map((img: string) => resolveCardapioImageUrl(img));
               } else if (typeof parsed === 'string' && parsed.trim() !== '') {
-                processedCoverImages = [getValidImageUrl(parsed)];
+                processedCoverImages = [resolveCardapioImageUrl(parsed)];
               }
             } catch (e) {
               // Se não for JSON válido, tratar como string simples
               const coverImagesStr = bar.coverImages as string;
               if (coverImagesStr.trim() !== '') {
-                processedCoverImages = [getValidImageUrl(coverImagesStr)];
+                processedCoverImages = [resolveCardapioImageUrl(coverImagesStr)];
               }
             }
           }
@@ -161,8 +89,8 @@ export default function CardapioPage() {
         
         return {
           ...bar,
-          logoUrl: getValidImageUrl(bar.logoUrl),
-          coverImageUrl: getValidImageUrl(bar.coverImageUrl),
+          logoUrl: resolveCardapioImageUrl(bar.logoUrl),
+          coverImageUrl: resolveCoverImage(bar.coverImageUrl, processedCoverImages),
           coverImages: processedCoverImages.length > 0 ? processedCoverImages : [],
         };
       });
@@ -198,7 +126,7 @@ export default function CardapioPage() {
             onError={(e) => {
               e.currentTarget.src = PLACEHOLDER_BAR_URL;
             }}
-            unoptimized={bar.coverImageUrl?.startsWith('https://res.cloudinary.com')}
+            unoptimized={true}
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
           <div className="absolute bottom-4 left-4 right-4">

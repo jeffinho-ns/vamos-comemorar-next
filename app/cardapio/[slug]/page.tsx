@@ -14,6 +14,12 @@ import { useGoogleAnalytics } from '../../hooks/useGoogleAnalytics';
 import ImageSlider from '../../components/ImageSlider/ImageSlider';
 import { scrollToSection } from '../../utils/scrollToSection';
 
+import {
+  getCardapioPlaceholderUrl,
+  resolveCardapioImageUrl,
+  warmCardapioImageIndex,
+} from '@/app/utils/cardapioImageResolver';
+
 // Constantes dos selos
 const FOOD_SEALS: { [key: string]: { name: string; color: string } } = {
   'especial-do-dia': { name: 'Especial do Dia', color: '#FF6B35' },
@@ -166,56 +172,12 @@ interface CardapioBarPageProps {
 }
 
 const API_BASE_URL = 'https://vamos-comemorar-api.onrender.com/api/cardapio';
-const BASE_IMAGE_URL = 'https://res.cloudinary.com/drjovtmuw/image/upload/v1764862686/cardapio-agilizaiapp/';
 // Placeholders locais para evitar erros 404 externos
 const PLACEHOLDER_IMAGE_URL = '/placeholder-cardapio.svg';
-const PLACEHOLDER_LOGO_URL = '/placeholder-cardapio.svg';
+const PLACEHOLDER_LOGO_URL = getCardapioPlaceholderUrl();
 
 const getValidImageUrl = (filename?: string | null): string => {
-  // Verificar se filename é válido
-  if (!filename || typeof filename !== 'string') {
-    return PLACEHOLDER_IMAGE_URL;
-  }
-
-  const trimmed = filename.trim();
-  if (trimmed === '' || trimmed === 'null' || trimmed === 'undefined') {
-    return PLACEHOLDER_IMAGE_URL;
-  }
-  
-  // Se já é uma URL completa (Cloudinary, Unsplash, etc), retornar como está
-  if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
-    try {
-      const url = new URL(trimmed);
-      // Se é Cloudinary, retornar como está
-      if (url.hostname.includes('cloudinary.com')) {
-        return trimmed;
-      }
-      // Se a URL aponta para algum host antigo (grupoideiaum.com.br) mas o caminho contém /cardapio-agilizaiapp/,
-      // reescrevemos para o Cloudinary usando apenas o nome do arquivo
-      if (url.pathname.includes('/cardapio-agilizaiapp/') || url.hostname.includes('grupoideiaum.com.br')) {
-        const parts = url.pathname.split('/');
-        const lastSegment = parts[parts.length - 1]?.trim();
-        if (lastSegment) {
-          return `${BASE_IMAGE_URL}${lastSegment}`;
-        }
-      }
-      // Caso contrário, mantemos a URL como está (ex.: Unsplash, outros domínios permitidos)
-      return trimmed;
-    } catch {
-      // Se der erro ao parsear, cai para a lógica de filename abaixo
-    }
-  }
-  
-  // Sempre extrair apenas o nome do arquivo (último segmento), para evitar base duplicada
-  const withoutLeadingSlash = trimmed.startsWith('/') ? trimmed.substring(1) : trimmed;
-  const parts = withoutLeadingSlash.split('/');
-  const lastSegment = parts[parts.length - 1]?.trim();
-
-  if (!lastSegment) {
-    return PLACEHOLDER_IMAGE_URL;
-  }
-
-  return `${BASE_IMAGE_URL}${lastSegment}`;
+  return resolveCardapioImageUrl(filename || null);
 };
 
 const groupItemsBySubcategory = (items: MenuItem[]): { name: string; items: MenuItem[] }[] => {
@@ -329,6 +291,9 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
   const fetchBarData = useCallback(async () => {
     try {
       if (!slug) return;
+
+      // Aquecer índice (filename -> URL Firebase) antes de resolver logo/capa
+      await warmCardapioImageIndex(API_BASE_URL);
 
       const barsResponse = await fetch(`${API_BASE_URL}/bars`);
       if (!barsResponse.ok) throw new Error('Erro ao carregar estabelecimentos');
@@ -960,7 +925,7 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
             fill
             sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
             className={`object-cover ${isCleanStyle ? 'scale-[1.02]' : ''}`}
-            unoptimized={imageSrc.includes('cloudinary.com') || imageSrc.includes('grupoideiaum.com.br') || imageSrc.startsWith('blob:') || imageSrc === PLACEHOLDER_IMAGE_URL}
+            unoptimized={true}
             onError={() => {
               // Se a imagem real falhar (404 no FTP ou URL inválida), garante fallback local
               if (imageSrc !== PLACEHOLDER_IMAGE_URL) {
@@ -1202,7 +1167,7 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
                   width={64}
                   height={64}
                   className="rounded-lg"
-                  unoptimized={selectedBar.logoUrl?.includes('cloudinary.com') || getValidImageUrl(selectedBar.logoUrl).includes('grupoideiaum.com.br') || getValidImageUrl(selectedBar.logoUrl) === PLACEHOLDER_IMAGE_URL}
+                  unoptimized={true}
                 />
                 
                 <div className="menu-indicator absolute -top-1 -right-1 md:hidden">
@@ -1608,7 +1573,7 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
                       width={48}
                       height={48}
                       className="rounded-lg"
-                      unoptimized={selectedBar.logoUrl?.includes('cloudinary.com') || getValidImageUrl(selectedBar.logoUrl).includes('grupoideiaum.com.br') || getValidImageUrl(selectedBar.logoUrl) === PLACEHOLDER_IMAGE_URL}
+                      unoptimized={true}
                     />
                     <h2 className="text-xl font-bold">{selectedBar.name}</h2>
                   </div>
@@ -1741,7 +1706,7 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
                   height={400}
                   className="w-full h-auto rounded-lg"
                   priority
-                  unoptimized={selectedBar.popupImageUrl?.includes('cloudinary.com') || getValidImageUrl(selectedBar.popupImageUrl).includes('grupoideiaum.com.br') || getValidImageUrl(selectedBar.popupImageUrl) === PLACEHOLDER_IMAGE_URL}
+                  unoptimized={true}
                 />
               </div>
             </motion.div>
