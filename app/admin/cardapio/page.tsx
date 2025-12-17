@@ -410,6 +410,7 @@ export default function CardapioAdminPage() {
   });
 
   const [newTopping, setNewTopping] = useState({ name: '', price: '' });
+  const [imageIndexVersion, setImageIndexVersion] = useState(0);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -625,6 +626,31 @@ export default function CardapioAdminPage() {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  // Aquecer índice de imagens ao carregar a página (para resolver filename/objectPath -> URL Firebase)
+  // Isso evita placeholders nos cards de Estabelecimentos antes de abrir a galeria.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`${API_BASE_URL}/gallery/images`);
+        if (!res.ok) return;
+        const data = await res.json();
+        const images = Array.isArray(data?.images) ? data.images : [];
+        for (const img of images) {
+          if (img?.filename && img?.url) {
+            indexImageUrl(img.filename, img.url);
+          }
+        }
+        if (!cancelled) setImageIndexVersion((v) => v + 1);
+      } catch {
+        // silencioso: se falhar, apenas fica no placeholder até abrir a galeria manualmente
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const formatPrice = useCallback((price: number) => {
     return new Intl.NumberFormat('pt-BR', {
