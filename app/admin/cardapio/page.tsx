@@ -1669,6 +1669,10 @@ export default function CardapioAdminPage() {
       const processUrlForSave = (url: string): string => {
         if (!url || typeof url !== 'string') return '';
         const trimmed = url.trim();
+        // Nunca salvar placeholder no banco
+        if (trimmed === '' || trimmed === 'null' || trimmed === 'undefined' || trimmed === PLACEHOLDER_IMAGE_URL) {
+          return '';
+        }
         // Se já é URL completa do Cloudinary, manter como está
         if (trimmed.startsWith('https://res.cloudinary.com')) {
           return trimmed;
@@ -1677,13 +1681,22 @@ export default function CardapioAdminPage() {
         return trimmed;
       };
 
+      const normalizedCoverImages = Array.isArray(barForm.coverImages)
+        ? barForm.coverImages
+            .map((u) => processUrlForSave(u))
+            .filter((u) => !!u)
+        : [];
+
+      // Como a UI usa "Imagens de Capa (Carrossel)" e não expõe um campo separado para coverImageUrl,
+      // garantimos um coverImageUrl principal usando a primeira imagem do carrossel quando necessário.
+      const normalizedCoverImageUrl =
+        processUrlForSave(barForm.coverImageUrl) || normalizedCoverImages[0] || '';
+
       const barData = {
         ...barForm,
         logoUrl: processUrlForSave(barForm.logoUrl),
-        coverImageUrl: processUrlForSave(barForm.coverImageUrl),
-        coverImages: Array.isArray(barForm.coverImages) 
-          ? barForm.coverImages.map(url => processUrlForSave(url))
-          : [],
+        coverImageUrl: normalizedCoverImageUrl,
+        coverImages: normalizedCoverImages,
         popupImageUrl: processUrlForSave(barForm.popupImageUrl),
         rating: barForm.rating ? parseFloat(barForm.rating) : 0,
         reviewsCount: barForm.reviewsCount ? parseInt(barForm.reviewsCount) : 0,
@@ -1907,20 +1920,16 @@ export default function CardapioAdminPage() {
   const handleEditBar = useCallback((bar: Bar) => {
     setEditingBar(bar);
     
-    // Processar URLs para garantir que sejam URLs completas do Cloudinary quando possível
+    // IMPORTANTE:
+    // - Não converta para placeholder aqui. O estado do form deve guardar o valor "real" (URL/filename).
+    // - O preview usa getValidImageUrl() para resolver (Firebase URL via índice ou placeholder).
     const processUrlForForm = (url: string | null | undefined): string => {
       if (!url || typeof url !== 'string') return '';
       const trimmed = url.trim();
-      // Se já é URL completa do Cloudinary, manter
-      if (trimmed.startsWith('https://res.cloudinary.com')) {
-        return trimmed;
-      }
-      // Se é apenas filename, construir URL completa do Cloudinary
-      if (!trimmed.startsWith('http://') && !trimmed.startsWith('https://')) {
-        return getValidImageUrl(trimmed);
-      }
-      // Caso contrário, manter como está
-      return trimmed;
+      if (trimmed === '' || trimmed === 'null' || trimmed === 'undefined') return '';
+      // Nunca persistir placeholder como valor real
+      if (trimmed === PLACEHOLDER_IMAGE_URL) return '';
+      return trimmed; // URL absoluta (Firebase etc) ou filename/objectPath legado
     };
     
     setBarForm({
@@ -2276,10 +2285,18 @@ export default function CardapioAdminPage() {
             const targetField = field;
             
             if (targetField === 'coverImages') {
-              setBarForm((prev) => ({
-                ...prev,
-                coverImages: [...prev.coverImages, imageValue],
-              }));
+              setBarForm((prev) => {
+                const nextCoverImages = [...prev.coverImages, imageValue];
+                const nextCoverImageUrl =
+                  prev.coverImageUrl && prev.coverImageUrl !== PLACEHOLDER_IMAGE_URL
+                    ? prev.coverImageUrl
+                    : imageValue;
+                return {
+                  ...prev,
+                  coverImages: nextCoverImages,
+                  coverImageUrl: nextCoverImageUrl,
+                };
+              });
             } else if (targetField === 'logoUrl' || targetField === 'coverImageUrl' || targetField === 'popupImageUrl') {
               setBarForm((prev) => ({ ...prev, [targetField]: imageValue }));
             } else if (targetField === 'imageUrl') {
@@ -2301,10 +2318,18 @@ export default function CardapioAdminPage() {
           } else {
             // Atualizar os formulários normalmente
             if (field === 'coverImages') {
-              setBarForm((prev) => ({
-                ...prev,
-                coverImages: [...prev.coverImages, imageValue],
-              }));
+              setBarForm((prev) => {
+                const nextCoverImages = [...prev.coverImages, imageValue];
+                const nextCoverImageUrl =
+                  prev.coverImageUrl && prev.coverImageUrl !== PLACEHOLDER_IMAGE_URL
+                    ? prev.coverImageUrl
+                    : imageValue;
+                return {
+                  ...prev,
+                  coverImages: nextCoverImages,
+                  coverImageUrl: nextCoverImageUrl,
+                };
+              });
             } else if (field === 'logoUrl' || field === 'coverImageUrl' || field === 'popupImageUrl') {
               setBarForm((prev) => ({ ...prev, [field]: imageValue }));
             } else {
@@ -2400,11 +2425,8 @@ export default function CardapioAdminPage() {
 
   // Função para selecionar imagem da galeria
   const handleSelectGalleryImage = useCallback((filename: string, imageUrl?: string | null) => {
-    // Usar a URL completa do Cloudinary se disponível, senão usar o filename
-    // Priorizar URL completa do Cloudinary se disponível, senão usar filename
-    const imageValue = (imageUrl && imageUrl.startsWith('https://res.cloudinary.com')) 
-      ? imageUrl 
-      : (imageUrl || filename);
+    // Pós-migração: sempre persistir URL completa do Firebase quando existir; fallback para filename.
+    const imageValue = imageUrl || filename;
     
     console.log('🖼️ Selecionando imagem da galeria:', { 
       filename, 
@@ -2415,10 +2437,18 @@ export default function CardapioAdminPage() {
     });
     
     if (imageGalleryField === 'coverImages') {
-      setBarForm((prev) => ({
-        ...prev,
-        coverImages: [...prev.coverImages, imageValue],
-      }));
+      setBarForm((prev) => {
+        const nextCoverImages = [...prev.coverImages, imageValue];
+        const nextCoverImageUrl =
+          prev.coverImageUrl && prev.coverImageUrl !== PLACEHOLDER_IMAGE_URL
+            ? prev.coverImageUrl
+            : imageValue;
+        return {
+          ...prev,
+          coverImages: nextCoverImages,
+          coverImageUrl: nextCoverImageUrl,
+        };
+      });
     } else if (imageGalleryField === 'logoUrl' || imageGalleryField === 'coverImageUrl' || imageGalleryField === 'popupImageUrl') {
       setBarForm((prev) => ({ ...prev, [imageGalleryField]: imageValue }));
     } else {
@@ -2680,7 +2710,11 @@ export default function CardapioAdminPage() {
                     <div key={bar.id} className="overflow-hidden rounded-lg bg-white shadow-md">
                       <div className="relative h-48">
                         <Image
-                          src={getValidImageUrl(bar.coverImageUrl)}
+                          src={getValidImageUrl(bar.coverImageUrl) !== PLACEHOLDER_IMAGE_URL
+                            ? getValidImageUrl(bar.coverImageUrl)
+                            : (Array.isArray(bar.coverImages) && bar.coverImages[0]
+                                ? getValidImageUrl(bar.coverImages[0])
+                                : PLACEHOLDER_IMAGE_URL)}
                           alt={bar.name}
                           fill
                           sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
@@ -2688,7 +2722,7 @@ export default function CardapioAdminPage() {
                           onError={(e) => {
                             e.currentTarget.src = PLACEHOLDER_IMAGE_URL;
                           }}
-                          unoptimized={bar.coverImageUrl?.startsWith('https://res.cloudinary.com')}
+                          unoptimized={true}
                         />
                         <div className="absolute right-2 top-2 flex gap-1">
                           {(isAdmin || (isPromoter && canManageBar(Number(bar.id)))) && (
