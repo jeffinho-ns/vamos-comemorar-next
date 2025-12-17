@@ -175,6 +175,8 @@ const indexImageUrl = (key: unknown, url: unknown) => {
   const k = key.trim();
   const u = url.trim();
   if (!k || !u) return;
+  // Não indexar Cloudinary (objetivo é remover completamente)
+  if (u.includes('res.cloudinary.com') || u.includes('cloudinary.com')) return;
   imageUrlIndex.set(k, u);
   const last = k.split('/').pop();
   if (last) imageUrlIndex.set(last, u);
@@ -237,7 +239,18 @@ const getValidImageUrl = (filename?: string | null): string => {
     return trimmed;
   }
   
-  // Se já é uma URL completa (Firebase/Cloudinary/FTP/Unsplash/etc), retornar como está
+  // Se for Cloudinary, NÃO usar (evita 404 e remove dependência).
+  // Tenta resolver por filename/objectPath no índice local; se não achar, placeholder.
+  if (trimmed.includes('res.cloudinary.com') || trimmed.includes('cloudinary.com')) {
+    const last = trimmed.split('?')[0]?.split('/').pop()?.trim();
+    if (last) {
+      const mapped = imageUrlIndex.get(last);
+      if (mapped) return mapped;
+    }
+    return PLACEHOLDER_IMAGE_URL;
+  }
+
+  // Se já é uma URL completa (Firebase/FTP/Unsplash/etc), retornar como está
   if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
     return trimmed;
   }
@@ -2155,8 +2168,11 @@ export default function CardapioAdminPage() {
         // e atualizar o índice local para resolver filenames -> URL pública (melhora preview e evita 404).
         const processedImages = (data.images || []).map((img: any) => {
           const url = (typeof img.url === 'string' && img.url.trim()) ? img.url.trim() : null;
+          // Index apenas se NÃO for Cloudinary
           if (img?.filename && url) indexImageUrl(img.filename, url);
-          return { ...img, url };
+          // Não manter Cloudinary na UI
+          const safeUrl = url && (url.includes('res.cloudinary.com') || url.includes('cloudinary.com')) ? null : url;
+          return { ...img, url: safeUrl };
         });
         
         // Log das primeiras imagens processadas para debug
@@ -4648,7 +4664,7 @@ export default function CardapioAdminPage() {
                       // A imagem já foi processada no fetchGalleryImages:
                       // - image.url (Firebase/Cloudinary/etc) quando disponível
                       // - fallback via getValidImageUrl(image.filename) usando o índice local
-                      const imageUrl = image.url || getValidImageUrl(image.filename);
+                      const imageUrl = getValidImageUrl((image.url as any) || image.filename);
                       
                       // URL para salvar ao selecionar (sempre preferir URL completa quando existir)
                       const selectUrl = image.url ? getValidImageUrl(image.url) : getValidImageUrl(image.filename);
