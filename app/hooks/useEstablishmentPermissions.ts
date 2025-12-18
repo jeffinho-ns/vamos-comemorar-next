@@ -153,18 +153,31 @@ export function useEstablishmentPermissions() {
   ): T[] => {
     // Se tem userConfig, usar ele (prioridade)
     if (userConfig && userConfig.establishmentIds.length > 0) {
+      // Normalizar IDs para números para comparação correta
+      const allowedIds = userConfig.establishmentIds.map(id => Number(id));
+      
       const filtered = establishments.filter((est) => {
-        const estId = typeof est.id === 'string' ? parseInt(est.id) : est.id;
-        const allowed = userConfig.establishmentIds.includes(estId);
+        const estId = typeof est.id === 'string' ? parseInt(est.id, 10) : Number(est.id);
+        const allowed = allowedIds.includes(estId);
+        
         if (!allowed) {
-          console.log(`🚫 [FILTER] Estabelecimento ${estId} não permitido para usuário`);
+          console.log(`🚫 [FILTER] Estabelecimento ${estId} (${(est as any).name || (est as any).nome}) não permitido. IDs permitidos: [${allowedIds.join(', ')}]`);
+        } else {
+          console.log(`✅ [FILTER] Estabelecimento ${estId} (${(est as any).name || (est as any).nome}) permitido`);
         }
+        
         return allowed;
       });
-      console.log(`✅ [FILTER] Filtrando estabelecimentos: ${filtered.length} de ${establishments.length} permitidos`, {
-        allowedIds: userConfig.establishmentIds,
-        filtered: filtered.map(e => ({ id: e.id, name: (e as any).name || (e as any).nome }))
+      
+      console.log(`📊 [FILTER] Resultado: ${filtered.length} de ${establishments.length} estabelecimentos permitidos`, {
+        allowedIds: allowedIds,
+        totalEstabelecimentos: establishments.length,
+        estabelecimentosPermitidos: filtered.map(e => ({ 
+          id: typeof e.id === 'string' ? parseInt(e.id, 10) : Number(e.id), 
+          name: (e as any).name || (e as any).nome 
+        }))
       });
+      
       return filtered;
     }
     

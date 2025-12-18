@@ -132,22 +132,35 @@ export default function CheckInsGeralPage() {
       }
 
       const merged = new Map<string, { id: number; nome: string }>();
-      const addItem = (id: number, nome: string) => {
+      const addItem = (id: number, nome: string, source: string) => {
         const key = normalize(nome);
         if (!key) return;
-        const eventId = eventoNomeToId.get(key);
-        const finalId = eventId ?? id;
-        if (!merged.has(key)) merged.set(key, { id: Number(finalId), nome: nome.replace(/Jutino/gi, 'Justino') });
+        // Priorizar o ID original do estabelecimento (não o eventId que pode estar incorreto)
+        // O eventId é usado apenas para garantir que eventos estejam associados ao estabelecimento correto
+        const finalId = id; // Usar sempre o ID do estabelecimento
+        if (!merged.has(key)) {
+          merged.set(key, { id: Number(finalId), nome: nome.replace(/Jutino/gi, 'Justino') });
+          console.log(`📍 [ESTAB] Adicionando: ${nome} (ID: ${finalId}, source: ${source})`);
+        }
       };
 
-      bars.forEach(b => addItem(Number(b.id), b.name));
-      places.forEach(p => addItem(Number(p.id), p.name));
+      bars.forEach(b => addItem(Number(b.id), b.name, 'bars'));
+      places.forEach(p => addItem(Number(p.id), p.name, 'places'));
 
       // Ordena
       const lista = Array.from(merged.values()).sort((a, b) => a.nome.localeCompare(b.nome));
       
+      console.log(`📋 [CHECKINS] Total de estabelecimentos antes do filtro: ${lista.length}`, 
+        lista.map(e => ({ id: e.id, nome: e.nome }))
+      );
+      
       // Filtrar estabelecimentos baseado nas permissões do usuário
       const filteredLista = establishmentPermissions.getFilteredEstablishments(lista);
+      
+      console.log(`📋 [CHECKINS] Total de estabelecimentos após filtro: ${filteredLista.length}`, 
+        filteredLista.map(e => ({ id: e.id, nome: e.nome }))
+      );
+      
       setEstabelecimentos(filteredLista);
       
       // Se o usuário está restrito a um único estabelecimento, seleciona automaticamente
