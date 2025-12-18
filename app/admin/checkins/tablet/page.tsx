@@ -550,13 +550,13 @@ export default function TabletCheckInsPage() {
 
   return (
     <WithPermission allowedRoles={["admin", "gerente", "hostess", "promoter"]}>
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-4">
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 p-2 sm:p-4">
         <div className="max-w-5xl mx-auto">
           {/* Seletores */}
-          <div className="bg-white rounded-xl shadow-lg p-6 mb-6 space-y-4">
+          <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl shadow-lg p-4 sm:p-6 mb-4 sm:mb-6 space-y-4">
             <div className="flex items-center gap-2 mb-4">
-              <MdStore className="text-blue-600" size={24} />
-              <h2 className="text-lg font-semibold text-gray-800">Selecione o Estabelecimento</h2>
+              <MdStore className="text-blue-400" size={24} />
+              <h2 className="text-base sm:text-lg font-semibold text-white">Selecione o Estabelecimento</h2>
             </div>
             <select
               value={estabelecimentoSelecionado || ''}
@@ -566,23 +566,23 @@ export default function TabletCheckInsPage() {
                 setSearchTerm('');
                 setResults([]);
               }}
-              className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-lg transition-all"
+              className="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-white/10 border-2 border-white/20 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base sm:text-lg text-white transition-all"
             >
-              <option value="">Selecione um estabelecimento</option>
+              <option value="" className="text-gray-900">Selecione um estabelecimento</option>
               {estabelecimentos.map(est => (
-                <option key={est.id} value={est.id}>{est.nome}</option>
+                <option key={est.id} value={est.id} className="text-gray-900">{est.nome}</option>
               ))}
             </select>
 
             {estabelecimentoSelecionado && (
               <>
                 <div className="flex items-center gap-2 mt-4 mb-4">
-                  <MdEvent className="text-blue-600" size={24} />
-                  <h2 className="text-lg font-semibold text-gray-800">Selecione o Evento</h2>
+                  <MdEvent className="text-blue-400" size={24} />
+                  <h2 className="text-base sm:text-lg font-semibold text-white">Selecione o Evento</h2>
                 </div>
                 {eventosDoEstabelecimento.length === 0 ? (
-                  <div className="p-4 bg-yellow-50 border-2 border-yellow-200 rounded-lg">
-                    <p className="text-yellow-800">
+                  <div className="p-4 bg-yellow-900/30 border-2 border-yellow-500/50 rounded-lg">
+                    <p className="text-yellow-200">
                       Nenhum evento encontrado para este estabelecimento.
                     </p>
                   </div>
@@ -594,12 +594,12 @@ export default function TabletCheckInsPage() {
                       setSearchTerm('');
                       setResults([]);
                     }}
-                    className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-lg transition-all"
+                    className="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-white/10 border-2 border-white/20 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base sm:text-lg text-white transition-all"
                     disabled={!estabelecimentoSelecionado}
                   >
-                    <option value="">Selecione um evento</option>
+                    <option value="" className="text-gray-900">Selecione um evento</option>
                     {eventosDoEstabelecimento.map(ev => (
-                      <option key={ev.evento_id} value={ev.evento_id}>
+                      <option key={ev.evento_id} value={ev.evento_id} className="text-gray-900">
                         {ev.nome} {ev.data_evento ? `- ${new Date(ev.data_evento + 'T12:00:00').toLocaleDateString('pt-BR')}` : ''}
                       </option>
                     ))}
@@ -610,8 +610,8 @@ export default function TabletCheckInsPage() {
 
             {loadingData && (
               <div className="text-center py-4">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
-                <p className="mt-2 text-gray-600 font-medium">Carregando dados...</p>
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-400 mx-auto"></div>
+                <p className="mt-2 text-gray-300 font-medium">Carregando dados...</p>
               </div>
             )}
           </div>
@@ -619,15 +619,15 @@ export default function TabletCheckInsPage() {
           {/* Barra de busca - só aparece quando dados estão carregados */}
           {estabelecimentoSelecionado && eventoSelecionado && !loadingData && (
             <>
-              <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
-                <div className="flex items-center gap-4">
-                  <MdSearch className="text-gray-400" size={28} />
+              <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl shadow-lg p-4 sm:p-6 mb-4 sm:mb-6">
+                <div className="flex items-center gap-2 sm:gap-4">
+                  <MdSearch className="text-gray-400 flex-shrink-0" size={24} />
                   <input
                     type="text"
                     value={searchTerm}
                     onChange={(e) => handleInputChange(e.target.value)}
                     placeholder="Digite o nome do convidado, dono da reserva, promoter ou convidado do promoter..."
-                    className="flex-1 text-lg px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                    className="flex-1 text-base sm:text-lg px-3 sm:px-4 py-2.5 sm:py-3 bg-white/10 border-2 border-white/20 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-white placeholder-gray-400 transition-all"
                     autoFocus
                   />
                 </div>
@@ -635,14 +635,14 @@ export default function TabletCheckInsPage() {
 
               {/* Erro */}
               {error && (
-                <div className="bg-red-100 border-2 border-red-400 text-red-700 px-4 py-3 rounded-lg mb-4">
+                <div className="bg-red-900/30 border-2 border-red-500/50 text-red-200 px-4 py-3 rounded-lg mb-4">
                   {error}
                 </div>
               )}
 
               {/* Resultados */}
               {results.length > 0 && (
-                <div className="space-y-4">
+                <div className="space-y-3 sm:space-y-4">
                   {results.map((result, index) => {
                     const eventTypeInfo = getEventTypeLabel(result.reservation?.eventType);
                     const isOwner = result.type === 'owner';
@@ -650,147 +650,149 @@ export default function TabletCheckInsPage() {
                     return (
                       <div
                         key={index}
-                        className={`bg-white rounded-xl shadow-lg p-6 border-l-4 transition-all hover:shadow-xl ${
+                        className={`bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl shadow-lg p-4 sm:p-6 border-l-4 transition-all hover:shadow-xl ${
                           result.checkedIn 
-                            ? 'border-green-500 bg-green-50/30' 
+                            ? 'border-l-green-500 bg-green-900/20' 
                             : isOwner 
-                              ? 'border-purple-500 bg-purple-50/30' 
-                              : 'border-blue-500'
+                              ? 'border-l-purple-500 bg-purple-900/20' 
+                              : 'border-l-blue-500'
                         }`}
                       >
-                        <div className="flex items-start gap-4">
-                          <div className={`p-4 rounded-full ${
+                        <div className="flex items-start gap-3 sm:gap-4">
+                          <div className={`p-2 sm:p-4 rounded-full flex-shrink-0 ${
                             result.checkedIn 
-                              ? 'bg-green-100' 
+                              ? 'bg-green-500/20' 
                               : isOwner 
-                                ? 'bg-purple-100' 
-                                : 'bg-blue-100'
+                                ? 'bg-purple-500/20' 
+                                : 'bg-blue-500/20'
                           }`}>
                             {result.type === 'promoter' || result.type === 'promoter_guest' ? (
-                              <MdEvent className={result.checkedIn ? 'text-green-600' : 'text-blue-600'} size={28} />
+                              <MdEvent className={result.checkedIn ? 'text-green-400' : 'text-blue-400'} size={24} />
                             ) : (
-                              <MdPerson className={result.checkedIn ? 'text-green-600' : isOwner ? 'text-purple-600' : 'text-blue-600'} size={28} />
+                              <MdPerson className={result.checkedIn ? 'text-green-400' : isOwner ? 'text-purple-400' : 'text-blue-400'} size={24} />
                             )}
                           </div>
-                          <div className="flex-1">
-                            <div className="flex items-start justify-between mb-3">
-                              <div className="flex-1">
-                                <div className="flex items-center gap-3 mb-2">
-                                  <h3 className={`text-2xl font-bold ${
-                                    isOwner ? 'text-purple-800' : 'text-gray-800'
+                          <div className="flex-1 min-w-0">
+                            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-3">
+                              <div className="flex-1 min-w-0">
+                                <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-2">
+                                  <h3 className={`text-xl sm:text-2xl font-bold truncate ${
+                                    isOwner ? 'text-purple-300' : 'text-white'
                                   }`}>
                                     {result.name}
                                   </h3>
                                   {isOwner && (
-                                    <span className="px-3 py-1 bg-purple-200 text-purple-800 rounded-full text-sm font-semibold flex items-center gap-1">
-                                      <MdPerson size={16} />
+                                    <span className="px-2 sm:px-3 py-1 bg-purple-500/30 text-purple-200 rounded-full text-xs sm:text-sm font-semibold flex items-center gap-1 flex-shrink-0">
+                                      <MdPerson size={14} />
                                       DONO DA RESERVA
                                     </span>
                                   )}
                                   {eventTypeInfo && (
-                                    <span className={`px-3 py-1 rounded-full text-sm font-semibold flex items-center gap-1 ${eventTypeInfo.color} bg-opacity-20`}>
-                                      <eventTypeInfo.icon size={16} />
+                                    <span className={`px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm font-semibold flex items-center gap-1 ${eventTypeInfo.color} bg-opacity-20 flex-shrink-0`}>
+                                      <eventTypeInfo.icon size={14} />
                                       {eventTypeInfo.label}
                                     </span>
                                   )}
                                 </div>
                                 
                                 {result.type === 'guest' && result.ownerName && (
-                                  <p className="text-gray-600 mb-2">
-                                    <strong className="text-gray-800">Convidado de:</strong> {result.ownerName}
+                                  <p className="text-gray-300 mb-2 text-sm sm:text-base">
+                                    <strong className="text-gray-200">Convidado de:</strong> {result.ownerName}
                                   </p>
                                 )}
                               </div>
                               
-                              {!result.checkedIn && (result.type === 'guest' || result.type === 'owner' || result.type === 'promoter_guest') && (
-                                <button
-                                  onClick={() => handleCheckInClick(result)}
-                                  className="px-5 py-2.5 bg-green-500 hover:bg-green-600 text-white rounded-lg flex items-center gap-2 transition-all shadow-md hover:shadow-lg font-semibold"
-                                >
-                                  <MdCheckCircle size={20} />
-                                  Check-in
-                                </button>
-                              )}
-                              {result.checkedIn && (
-                                <span className="px-5 py-2.5 bg-green-100 text-green-700 rounded-lg flex items-center gap-2 font-semibold">
-                                  <MdCheckCircle size={20} />
-                                  Check-in realizado
-                                </span>
-                              )}
+                              <div className="flex-shrink-0">
+                                {!result.checkedIn && (result.type === 'guest' || result.type === 'owner' || result.type === 'promoter_guest') && (
+                                  <button
+                                    onClick={() => handleCheckInClick(result)}
+                                    className="w-full sm:w-auto px-4 sm:px-5 py-2 sm:py-2.5 bg-green-500 hover:bg-green-600 text-white rounded-lg flex items-center justify-center gap-2 transition-all shadow-md hover:shadow-lg font-semibold text-sm sm:text-base"
+                                  >
+                                    <MdCheckCircle size={18} />
+                                    Check-in
+                                  </button>
+                                )}
+                                {result.checkedIn && (
+                                  <span className="w-full sm:w-auto px-4 sm:px-5 py-2 sm:py-2.5 bg-green-500/20 text-green-300 rounded-lg flex items-center justify-center gap-2 font-semibold text-sm sm:text-base">
+                                    <MdCheckCircle size={18} />
+                                    Check-in realizado
+                                  </span>
+                                )}
+                              </div>
                             </div>
                             
                             {result.type === 'guest' && (
-                              <div className="space-y-2 text-gray-700 bg-gray-50 p-4 rounded-lg">
-                                <div className="grid grid-cols-2 gap-3">
+                              <div className="space-y-2 text-gray-300 bg-white/5 p-3 sm:p-4 rounded-lg">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                   <div>
-                                    <p className="text-sm text-gray-500">Data da Reserva</p>
-                                    <p className="font-semibold">{new Date(result.reservation?.date + 'T12:00:00').toLocaleDateString('pt-BR')} às {result.reservation?.time}</p>
+                                    <p className="text-xs sm:text-sm text-gray-400">Data da Reserva</p>
+                                    <p className="font-semibold text-sm sm:text-base">{new Date(result.reservation?.date + 'T12:00:00').toLocaleDateString('pt-BR')} às {result.reservation?.time}</p>
                                   </div>
                                   {result.reservation?.table && (
                                     <div>
-                                      <p className="text-sm text-gray-500">Mesa</p>
-                                      <p className="font-semibold flex items-center gap-1">
-                                        <MdTableBar size={18} />
+                                      <p className="text-xs sm:text-sm text-gray-400">Mesa</p>
+                                      <p className="font-semibold flex items-center gap-1 text-sm sm:text-base">
+                                        <MdTableBar size={16} />
                                         {result.reservation.table} {result.reservation.area && `(${result.reservation.area})`}
                                       </p>
                                     </div>
                                   )}
                                 </div>
                                 <div>
-                                  <p className="text-sm text-gray-500">Lista de Reserva</p>
-                                  <p className="font-semibold">ID: {result.reservation?.id}</p>
+                                  <p className="text-xs sm:text-sm text-gray-400">Lista de Reserva</p>
+                                  <p className="font-semibold text-sm sm:text-base">ID: {result.reservation?.id}</p>
                                 </div>
                               </div>
                             )}
 
                             {result.type === 'owner' && (
                               <div className="space-y-3">
-                                <div className="bg-gray-50 p-4 rounded-lg space-y-2">
-                                  <div className="grid grid-cols-2 gap-3">
+                                <div className="bg-white/5 p-3 sm:p-4 rounded-lg space-y-2">
+                                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                     <div>
-                                      <p className="text-sm text-gray-500">Data da Reserva</p>
-                                      <p className="font-semibold">{new Date(result.reservation?.date + 'T12:00:00').toLocaleDateString('pt-BR')} às {result.reservation?.time}</p>
+                                      <p className="text-xs sm:text-sm text-gray-400">Data da Reserva</p>
+                                      <p className="font-semibold text-sm sm:text-base">{new Date(result.reservation?.date + 'T12:00:00').toLocaleDateString('pt-BR')} às {result.reservation?.time}</p>
                                     </div>
                                     {result.reservation?.table && (
                                       <div>
-                                        <p className="text-sm text-gray-500">Mesa</p>
-                                        <p className="font-semibold flex items-center gap-1">
-                                          <MdTableBar size={18} />
+                                        <p className="text-xs sm:text-sm text-gray-400">Mesa</p>
+                                        <p className="font-semibold flex items-center gap-1 text-sm sm:text-base">
+                                          <MdTableBar size={16} />
                                           {result.reservation.table} {result.reservation.area && `(${result.reservation.area})`}
                                         </p>
                                       </div>
                                     )}
                                   </div>
-                                  <div className="grid grid-cols-2 gap-3">
+                                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                     <div>
-                                      <p className="text-sm text-gray-500">Total de Convidados</p>
-                                      <p className="font-semibold">{result.reservation?.totalGuests}</p>
+                                      <p className="text-xs sm:text-sm text-gray-400">Total de Convidados</p>
+                                      <p className="font-semibold text-sm sm:text-base">{result.reservation?.totalGuests}</p>
                                     </div>
                                     <div>
-                                      <p className="text-sm text-gray-500">Check-ins Realizados</p>
-                                      <p className="font-semibold text-green-600">{result.reservation?.checkedInGuests}</p>
+                                      <p className="text-xs sm:text-sm text-gray-400">Check-ins Realizados</p>
+                                      <p className="font-semibold text-green-400 text-sm sm:text-base">{result.reservation?.checkedInGuests}</p>
                                     </div>
                                   </div>
                                 </div>
                                 
                                 {result.giftInfo?.hasGift ? (
-                                  <div className="p-4 bg-gradient-to-r from-yellow-50 to-yellow-100 border-2 border-yellow-300 rounded-lg">
+                                  <div className="p-3 sm:p-4 bg-gradient-to-r from-yellow-900/30 to-yellow-800/30 border-2 border-yellow-500/50 rounded-lg">
                                     <div className="flex items-center gap-2 mb-2">
-                                      <MdCardGiftcard className="text-yellow-600" size={24} />
-                                      <strong className="text-yellow-900 text-lg">🎁 Brinde Disponível!</strong>
+                                      <MdCardGiftcard className="text-yellow-400" size={20} />
+                                      <strong className="text-yellow-200 text-base sm:text-lg">🎁 Brinde Disponível!</strong>
                                     </div>
-                                    <p className="text-yellow-800 font-semibold mb-1">
+                                    <p className="text-yellow-200 font-semibold mb-1 text-sm sm:text-base">
                                       {result.giftInfo.giftDescription}
                                     </p>
                                   </div>
                                 ) : result.giftInfo && result.giftInfo.remainingCheckins > 0 ? (
-                                  <div className="p-4 bg-blue-50 border-2 border-blue-200 rounded-lg">
+                                  <div className="p-3 sm:p-4 bg-blue-900/30 border-2 border-blue-500/50 rounded-lg">
                                     <div className="flex items-center gap-2 mb-2">
-                                      <MdPending className="text-blue-600" size={24} />
-                                      <strong className="text-blue-900">Check-ins para Brinde</strong>
+                                      <MdPending className="text-blue-400" size={20} />
+                                      <strong className="text-blue-200 text-sm sm:text-base">Check-ins para Brinde</strong>
                                     </div>
-                                    <p className="text-blue-800 font-semibold">
-                                      Faltam <span className="text-2xl text-blue-600">{result.giftInfo.remainingCheckins}</span> check-in(s) para ganhar o brinde
+                                    <p className="text-blue-200 font-semibold text-sm sm:text-base">
+                                      Faltam <span className="text-xl sm:text-2xl text-blue-400">{result.giftInfo.remainingCheckins}</span> check-in(s) para ganhar o brinde
                                     </p>
                                   </div>
                                 ) : null}
@@ -798,19 +800,19 @@ export default function TabletCheckInsPage() {
                             )}
 
                             {result.type === 'promoter' && (
-                              <div className="bg-gray-50 p-4 rounded-lg">
-                                <p className="text-gray-600">
-                                  <strong>Total de check-ins:</strong> <span className="text-green-600 font-semibold">{result.promoterInfo?.totalCheckins}</span>
+                              <div className="bg-white/5 p-3 sm:p-4 rounded-lg">
+                                <p className="text-gray-300 text-sm sm:text-base">
+                                  <strong>Total de check-ins:</strong> <span className="text-green-400 font-semibold">{result.promoterInfo?.totalCheckins}</span>
                                 </p>
                               </div>
                             )}
 
                             {result.type === 'promoter_guest' && (
-                              <div className="bg-gray-50 p-4 rounded-lg">
-                                <p className="text-gray-600">
+                              <div className="bg-white/5 p-3 sm:p-4 rounded-lg">
+                                <p className="text-gray-300 text-sm sm:text-base">
                                   <strong>Promoter:</strong> {result.promoterInfo?.name}
                                 </p>
-                                <p className="text-gray-600 mt-1">
+                                <p className="text-gray-300 mt-1 text-sm sm:text-base">
                                   <strong>Total de check-ins do promoter:</strong> {result.promoterInfo?.totalCheckins}
                                 </p>
                               </div>
@@ -824,16 +826,16 @@ export default function TabletCheckInsPage() {
               )}
 
               {searchTerm.length >= 2 && results.length === 0 && (
-                <div className="bg-white rounded-xl shadow-lg p-8 text-center text-gray-500">
-                  <MdSearch size={48} className="mx-auto mb-4 text-gray-300" />
-                  <p className="text-lg">Nenhum resultado encontrado para "{searchTerm}"</p>
+                <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl shadow-lg p-6 sm:p-8 text-center text-gray-400">
+                  <MdSearch size={40} className="mx-auto mb-4 text-gray-500" />
+                  <p className="text-base sm:text-lg">Nenhum resultado encontrado para "{searchTerm}"</p>
                 </div>
               )}
 
               {searchTerm.length < 2 && (
-                <div className="bg-white rounded-xl shadow-lg p-8 text-center text-gray-500">
-                  <MdSearch size={48} className="mx-auto mb-4 text-gray-300" />
-                  <p className="text-lg">Digite pelo menos 2 caracteres para buscar</p>
+                <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl shadow-lg p-6 sm:p-8 text-center text-gray-400">
+                  <MdSearch size={40} className="mx-auto mb-4 text-gray-500" />
+                  <p className="text-base sm:text-lg">Digite pelo menos 2 caracteres para buscar</p>
                 </div>
               )}
             </>

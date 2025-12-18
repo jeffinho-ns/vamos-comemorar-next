@@ -250,14 +250,24 @@ export default function CheckInsGeralPage() {
                   )}
                 </select>
               </div>
-              <button
-                onClick={carregarTudo}
-                disabled={loading}
-                className="flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-50 font-semibold"
-              >
-                <MdRefresh className={loading ? 'animate-spin' : ''} size={20} />
-                Atualizar
-              </button>
+              <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
+                <button
+                  onClick={() => router.push('/admin/checkins/tablet')}
+                  className="flex items-center justify-center gap-2 px-4 sm:px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors font-semibold text-sm sm:text-base"
+                >
+                  <MdTableBar size={20} />
+                  <span className="hidden sm:inline">Modo Tablet</span>
+                  <span className="sm:hidden">Tablet</span>
+                </button>
+                <button
+                  onClick={carregarTudo}
+                  disabled={loading}
+                  className="flex items-center justify-center gap-2 px-4 sm:px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-50 font-semibold text-sm sm:text-base"
+                >
+                  <MdRefresh className={loading ? 'animate-spin' : ''} size={20} />
+                  Atualizar
+                </button>
+              </div>
             </div>
           </div>
         </div>
