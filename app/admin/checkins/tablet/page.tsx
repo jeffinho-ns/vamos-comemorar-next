@@ -817,9 +817,9 @@ export default function TabletCheckInsPage() {
                                     {result.reservation?.table && (
                                       <div>
                                         <p className="text-xs sm:text-sm text-gray-400">Mesa</p>
-                                        <p className="font-semibold flex items-center gap-1 text-sm sm:text-base">
-                                          <MdTableBar size={16} />
-                                          {result.reservation.table} {result.reservation.area && `(${result.reservation.area})`}
+                                        <p className="font-semibold flex items-center gap-1 text-sm sm:text-base text-amber-300 bg-amber-500/20 px-2 py-1 rounded-md">
+                                          <MdTableBar size={16} className="text-amber-400" />
+                                          <span className="font-bold">{result.reservation.table}</span> {result.reservation.area && <span className="text-amber-200">({result.reservation.area})</span>}
                                         </p>
                                       </div>
                                     )}
