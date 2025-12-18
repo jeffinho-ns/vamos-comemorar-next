@@ -80,6 +80,9 @@ export default function TabletCheckInsPage() {
 
   // Carregar estabelecimentos e eventos (apenas uma vez)
   useEffect(() => {
+    // Aguardar o hook carregar as permissões antes de carregar estabelecimentos
+    if (establishmentPermissions.isLoading) return;
+    
     // Evitar carregar múltiplas vezes
     if (loadingEstabelecimentosRef.current || estabelecimentosLoadedRef.current) return;
 
@@ -143,19 +146,43 @@ export default function TabletCheckInsPage() {
           console.error('Erro na requisição de places:', placesErr);
         }
 
+        // Normalizar nomes para evitar duplicatas (mesmo padrão da página normal)
+        const normalize = (str: string) => str.toLowerCase().trim().replace(/\s+/g, '');
+        
         const merged = new Map<string, { id: number; nome: string }>();
-        bars.forEach(b => merged.set(String(b.id), { id: Number(b.id), nome: b.name }));
-        places.forEach(p => merged.set(String(p.id), { id: Number(p.id), nome: p.name }));
+        const addItem = (id: number, nome: string, source: string) => {
+          const key = normalize(nome);
+          if (!key) return;
+          // Usar sempre o ID original do estabelecimento
+          const finalId = id;
+          if (!merged.has(key)) {
+            merged.set(key, { id: Number(finalId), nome: nome.replace(/Jutino/gi, 'Justino') });
+            console.log(`📍 [TABLET] Adicionando: ${nome} (ID: ${finalId}, source: ${source})`);
+          }
+        };
+
+        bars.forEach(b => addItem(Number(b.id), b.name, 'bars'));
+        places.forEach(p => addItem(Number(p.id), p.name, 'places'));
 
         const lista = Array.from(merged.values()).sort((a, b) => a.nome.localeCompare(b.nome));
+        
+        console.log(`📋 [TABLET] Total de estabelecimentos antes do filtro: ${lista.length}`, 
+          lista.map(e => ({ id: e.id, nome: e.nome }))
+        );
+        
         const filteredLista = establishmentPermissions.getFilteredEstablishments(lista);
+        
+        console.log(`📋 [TABLET] Total de estabelecimentos após filtro: ${filteredLista.length}`, 
+          filteredLista.map(e => ({ id: e.id, nome: e.nome }))
+        );
+        
         setEstabelecimentos(filteredLista);
         estabelecimentosLoadedRef.current = true;
 
         // Auto-selecionar se restrito a um estabelecimento
         if (establishmentPermissions.isRestrictedToSingleEstablishment() && filteredLista.length > 0) {
           const defaultId = establishmentPermissions.getDefaultEstablishmentId();
-          if (defaultId) {
+          if (defaultId && !estabelecimentoSelecionado) {
             setEstabelecimentoSelecionado(defaultId);
           }
         }
@@ -168,7 +195,7 @@ export default function TabletCheckInsPage() {
     };
 
     carregarEstabelecimentos();
-  }, [establishmentPermissions]);
+  }, [establishmentPermissions.isLoading, establishmentPermissions]);
 
   // Carregar todos os dados quando estabelecimento e evento forem selecionados
   useEffect(() => {
