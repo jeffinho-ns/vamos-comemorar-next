@@ -18,6 +18,7 @@ import {
   MdEvent
 } from 'react-icons/md';
 import { FaWhatsapp } from 'react-icons/fa'; // <-- 1. IMPORTAÇÃO ADICIONADA
+import { useUserPermissions } from '@/app/hooks/useUserPermissions';
 
 // Configuração da API
 const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL_LOCAL || 'https://vamos-comemorar-api.onrender.com';
@@ -87,6 +88,11 @@ export default function ReservationModal({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [tables, setTables] = useState<RestaurantTable[]>([]);
   const [selectedSubareaKey, setSelectedSubareaKey] = useState<string>('');
+  
+  // Estado para múltiplas mesas (apenas admin)
+  const { isAdmin } = useUserPermissions();
+  const [selectedTables, setSelectedTables] = useState<string[]>([]);
+  const [allowMultipleTables, setAllowMultipleTables] = useState(false);
 
   // 2. ESTADOS PARA OS CONTROLES DE NOTIFICAÇÃO ADICIONADOS
   const [sendEmailConfirmation, setSendEmailConfirmation] = useState(true);
@@ -176,6 +182,10 @@ export default function ReservationModal({
   useEffect(() => {
     if (isOpen) {
       if (reservation) { // Modo de Edição
+        // Verificar se table_number contém múltiplas mesas (separadas por vírgula)
+        const tableNumberStr = String(reservation.table_number || '');
+        const hasMultipleTables = tableNumberStr.includes(',');
+        
         setFormData({
           client_name: reservation.client_name || '',
           client_phone: reservation.client_phone || '',
@@ -185,18 +195,31 @@ export default function ReservationModal({
           reservation_time: reservation.reservation_time || '',
           number_of_people: reservation.number_of_people || 1,
           area_id: reservation.area_id || '',
-          table_number: reservation.table_number || '',
+          table_number: hasMultipleTables ? '' : tableNumberStr, // Se múltiplas, limpar campo único
           status: reservation.status || 'NOVA',
           origin: reservation.origin || 'PESSOAL',
           notes: reservation.notes || ''
         });
+        
+        // Se tem múltiplas mesas, parsear e habilitar modo múltiplo
+        if (hasMultipleTables && isAdmin) {
+          const tablesArray = tableNumberStr.split(',').map(t => t.trim()).filter(t => t);
+          setSelectedTables(tablesArray);
+          setAllowMultipleTables(true);
+        } else {
+          setSelectedTables([]);
+          setAllowMultipleTables(false);
+        }
+        
         // Desliga as notificações por padrão ao editar
         setSendEmailConfirmation(false);
         setSendWhatsAppConfirmation(false);
         
-        // Se for Seu Justino ou Highline, tentar encontrar a subárea baseada na mesa
+        // Se for Seu Justino ou Highline, tentar encontrar a subárea baseada na primeira mesa
         if (reservation.table_number && (isSeuJustino || isHighline)) {
-          const tableNum = String(reservation.table_number);
+          const tableNum = hasMultipleTables 
+            ? tableNumberStr.split(',')[0].trim() 
+            : String(reservation.table_number);
           const subareas = isSeuJustino ? seuJustinoSubareas : highlineSubareas;
           const foundSubarea = subareas.find(sub => sub.tableNumbers.includes(tableNum));
           if (foundSubarea) {
@@ -223,6 +246,8 @@ export default function ReservationModal({
         setSendWhatsAppConfirmation(true);
         setSelectedSubareaKey('');
       }
+      setSelectedTables([]);
+      setAllowMultipleTables(false);
       setErrors({});
     }
   }, [isOpen, reservation, selectedDate, selectedTime, isSeuJustino, isHighline]);
@@ -396,7 +421,13 @@ export default function ReservationModal({
     const isLargeReservation = formData.number_of_people >= 4;
     const hasOptions = tables && tables.length > 0;
     const hasCompatible = tables.some(t => !t.is_reserved && t.capacity >= formData.number_of_people);
-    if (!isLargeReservation && hasOptions && hasCompatible && !formData.table_number) {
+    
+    // Se múltiplas mesas estão habilitadas, validar se pelo menos uma foi selecionada
+    if (allowMultipleTables && isAdmin) {
+      if (selectedTables.length === 0 && hasOptions && hasCompatible) {
+        newErrors.table_number = 'Selecione pelo menos uma mesa disponível';
+      }
+    } else if (!isLargeReservation && hasOptions && hasCompatible && !formData.table_number && selectedTables.length === 0) {
       newErrors.table_number = 'Selecione uma mesa disponível';
     }
 
@@ -414,8 +445,29 @@ export default function ReservationModal({
 
     setLoading(true);
 
+    // Processar mesas: se múltiplas mesas foram selecionadas, concatenar
+    let finalTableNumber = formData.table_number;
+    let finalNotes = formData.notes;
+    
+    if (allowMultipleTables && isAdmin && selectedTables.length > 0) {
+      // Concatenar mesas selecionadas (ex: "1,2" ou "Mesa 1, Mesa 2")
+      finalTableNumber = selectedTables.join(', ');
+      
+      // Adicionar observação automática sobre múltiplas mesas
+      const mesaText = selectedTables.length === 1 ? 'mesa' : 'mesas';
+      const observacaoMesas = `${selectedTables.length} ${mesaText} reservadas para esta reserva (${selectedTables.join(', ')})`;
+      
+      if (finalNotes && finalNotes.trim()) {
+        finalNotes = `${observacaoMesas}\n\n${finalNotes}`;
+      } else {
+        finalNotes = observacaoMesas;
+      }
+    }
+
     const payload: any = {
       ...formData,
+      table_number: finalTableNumber,
+      notes: finalNotes,
       establishment_id: establishment?.id,
       send_email: sendEmailConfirmation,
       send_whatsapp: sendWhatsAppConfirmation,
@@ -737,7 +789,85 @@ export default function ReservationModal({
                     <MdTableBar className="inline mr-2" />
                     Mesa {formData.number_of_people >= 4 && <span className="text-orange-400">(Opcional para Reserva Grande)</span>}
                   </label>
-                  {(tables.length > 0 || (isSeuJustino && selectedSubareaKey) || (isHighline && selectedSubareaKey)) ? (
+                  
+                  {/* Checkbox para permitir múltiplas mesas (apenas admin) */}
+                  {isAdmin && (tables.length > 0 || (isSeuJustino && selectedSubareaKey) || (isHighline && selectedSubareaKey)) && (
+                    <div className="mb-2">
+                      <label className="flex items-center gap-2 cursor-pointer text-gray-300 text-sm">
+                        <input
+                          type="checkbox"
+                          checked={allowMultipleTables}
+                          onChange={(e) => {
+                            setAllowMultipleTables(e.target.checked);
+                            if (!e.target.checked) {
+                              setSelectedTables([]);
+                              handleInputChange('table_number', '');
+                            }
+                          }}
+                          className="w-4 h-4 bg-gray-600 border-gray-500 rounded text-orange-500 focus:ring-orange-600"
+                        />
+                        <span>Reservar múltiplas mesas (apenas admin)</span>
+                      </label>
+                    </div>
+                  )}
+                  
+                  {allowMultipleTables && isAdmin ? (
+                    // Seleção múltipla de mesas (apenas admin)
+                    <div className="space-y-2">
+                      <div className="max-h-48 overflow-y-auto border border-gray-600 rounded-lg bg-gray-800 p-2">
+                        {(() => {
+                          let availableTables: RestaurantTable[] = [];
+                          
+                          if ((isSeuJustino || isHighline) && selectedSubareaKey && tables.length === 0) {
+                            const sub = isSeuJustino 
+                              ? seuJustinoSubareas.find(s => s.key === selectedSubareaKey)
+                              : highlineSubareas.find(s => s.key === selectedSubareaKey);
+                            if (sub) {
+                              availableTables = sub.tableNumbers.map((tableNum, index) => ({
+                                id: index + 1,
+                                area_id: sub.area_id,
+                                table_number: tableNum,
+                                capacity: isSeuJustino && (sub as any).capacity ? (sub as any).capacity : 4,
+                                is_reserved: false
+                              }));
+                            }
+                          } else {
+                            availableTables = tables.filter(t => {
+                              if (formData.number_of_people >= 4) {
+                                return !t.is_reserved;
+                              }
+                              return !t.is_reserved && t.capacity >= formData.number_of_people;
+                            });
+                          }
+                          
+                          return availableTables.map(t => (
+                            <label key={t.id} className="flex items-center gap-2 p-2 hover:bg-gray-700 rounded cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={selectedTables.includes(t.table_number)}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    setSelectedTables([...selectedTables, t.table_number]);
+                                  } else {
+                                    setSelectedTables(selectedTables.filter(tn => tn !== t.table_number));
+                                  }
+                                }}
+                                className="w-4 h-4 bg-gray-600 border-gray-500 rounded text-orange-500 focus:ring-orange-600"
+                              />
+                              <span className="text-white text-sm">
+                                Mesa {t.table_number} • {t.capacity} lugares{t.table_type ? ` • ${t.table_type}` : ''}
+                              </span>
+                            </label>
+                          ));
+                        })()}
+                      </div>
+                      {selectedTables.length > 0 && (
+                        <p className="text-xs text-green-400">
+                          ✓ {selectedTables.length} mesa{selectedTables.length > 1 ? 's' : ''} selecionada{selectedTables.length > 1 ? 's' : ''}: {selectedTables.join(', ')}
+                        </p>
+                      )}
+                    </div>
+                  ) : (tables.length > 0 || (isSeuJustino && selectedSubareaKey) || (isHighline && selectedSubareaKey)) ? (
                     <select
                       value={formData.table_number}
                       onChange={(e) => handleInputChange('table_number', e.target.value)}
@@ -790,7 +920,7 @@ export default function ReservationModal({
                     <p className="text-red-500 text-sm mt-1">{errors.table_number}</p>
                   )}
                   
-                  {formData.number_of_people >= 4 && (
+                  {formData.number_of_people >= 4 && !allowMultipleTables && (
                     <p className="text-xs text-gray-400 mt-1">
                       💡 Para reservas grandes, você pode selecionar uma mesa principal ou deixar em branco
                     </p>

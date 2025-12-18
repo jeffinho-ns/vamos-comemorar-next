@@ -165,6 +165,8 @@ interface GuestListRestaurante {
   establishment_name?: string;
   table_number?: string | number;
   area_name?: string;
+  notes?: string;
+  admin_notes?: string;
 }
 
 interface GuestItem {
@@ -2216,14 +2218,53 @@ export default function EventoCheckInsPage() {
                                   <div className="text-xs md:text-sm text-gray-300">
                                     {gl.reservation_date ? new Date(gl.reservation_date + 'T12:00:00').toLocaleDateString('pt-BR') : 'Data não informada'} 
                                     {gl.event_type ? ` • ${gl.event_type}` : ''} • {gl.reservation_time}
+                                    {/* Exibir observação se existir */}
+                                    {(() => {
+                                      // Buscar observação da reserva (pode estar em notes ou admin_notes)
+                                      const notes = (gl as any).notes || (gl as any).admin_notes || '';
+                                      if (notes && notes.trim()) {
+                                        return (
+                                          <div className="mt-1 text-xs text-gray-400 italic">
+                                            📝 {notes.trim().split('\n')[0]}
+                                            {notes.trim().split('\n').length > 1 && '...'}
+                                          </div>
+                                        );
+                                      }
+                                      return null;
+                                    })()}
                                   </div>
                                   <div className="flex flex-col items-end gap-1">
                                     <div
                                       className="rounded-full bg-white/10 px-2 md:px-3 py-1 text-xs md:text-sm font-semibold text-amber-200"
                                     >
-                                      Mesa: <span className="text-white">
-                                        {gl.table_number ? `Mesa ${gl.table_number}` : gl.area_name || '—'}
-                                      </span>
+                                      {(() => {
+                                        // Verificar se há múltiplas mesas (separadas por vírgula)
+                                        const tableNumberStr = String(gl.table_number || '');
+                                        const hasMultipleTables = tableNumberStr.includes(',');
+                                        
+                                        if (hasMultipleTables) {
+                                          const tablesArray = tableNumberStr.split(',').map(t => t.trim()).filter(t => t);
+                                          return (
+                                            <>
+                                              Mesa{ tablesArray.length > 1 ? 's' : '' }: <span className="text-white">
+                                                {tablesArray.map((t, idx) => (
+                                                  <span key={idx}>
+                                                    {idx > 0 && ', '}Mesa {t}
+                                                  </span>
+                                                ))}
+                                              </span>
+                                            </>
+                                          );
+                                        }
+                                        
+                                        return (
+                                          <>
+                                            Mesa: <span className="text-white">
+                                              {gl.table_number ? `Mesa ${gl.table_number}` : gl.area_name || '—'}
+                                            </span>
+                                          </>
+                                        );
+                                      })()}
                                     </div>
                                     {(() => {
                                       const guestsCheckedIn = checkInStatus[gl.guest_list_id]?.guestsCheckedIn || 0;
