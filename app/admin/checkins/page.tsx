@@ -165,8 +165,11 @@ export default function CheckInsGeralPage() {
   }, []);
 
   useEffect(() => {
-    carregarTudo();
-  }, [carregarTudo]);
+    // Aguardar o hook carregar as permissões antes de carregar estabelecimentos
+    if (!establishmentPermissions.isLoading) {
+      carregarTudo();
+    }
+  }, [carregarTudo, establishmentPermissions.isLoading]);
 
   // Seleção robusta: por id OU por nome normalizado (cobre casos com id_place incorreto/NULL)
   const selectedEstablishmentName = estabelecimentoSelecionado

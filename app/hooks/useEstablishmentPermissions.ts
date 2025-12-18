@@ -92,7 +92,8 @@ export function useEstablishmentPermissions() {
           setPermissions(permissionsData);
           
           // Converter para formato UserEstablishmentConfig
-          const establishmentIds = permissionsData.map(p => p.establishment_id);
+          // Agrupar IDs únicos de estabelecimentos
+          const establishmentIds = Array.from(new Set(permissionsData.map(p => p.establishment_id)));
           const firstPermission = permissionsData[0];
           
           const config: UserEstablishmentConfig = {
@@ -110,18 +111,20 @@ export function useEstablishmentPermissions() {
           };
           
           setUserConfig(config);
+          console.log('✅ [PERMISSIONS] Config carregada:', config);
         } else {
-          // Verificar role - se for admin sem permissões, permite acesso total
-          // Se for outro role (recepção, promoter, etc), não permite acesso total
+          // Se não tem permissões configuradas
           const role = localStorage.getItem('role') || '';
           if (role === 'admin') {
+            // Admin sem permissões específicas vê todos
             setUserConfig(null);
             setPermissions([]);
           } else {
-            // Para roles não-admin, mesmo sem permissões específicas, não dar acesso total
-            // Isso força que permissões sejam configuradas
+            // Para outros roles, também permite ver todos se não houver permissões
+            // (o middleware já controla o acesso às rotas)
             setUserConfig(null);
             setPermissions([]);
+            console.log('⚠️ [PERMISSIONS] Usuário sem permissões específicas configuradas');
           }
         }
       } catch (error) {
@@ -148,36 +151,50 @@ export function useEstablishmentPermissions() {
   const getFilteredEstablishments = <T extends { id: number | string }>(
     establishments: T[]
   ): T[] => {
-    // Se tem permissões configuradas, sempre filtrar
+    // Se tem userConfig, usar ele (prioridade)
+    if (userConfig && userConfig.establishmentIds.length > 0) {
+      const filtered = establishments.filter((est) => {
+        const estId = typeof est.id === 'string' ? parseInt(est.id) : est.id;
+        const allowed = userConfig.establishmentIds.includes(estId);
+        if (!allowed) {
+          console.log(`🚫 [FILTER] Estabelecimento ${estId} não permitido para usuário`);
+        }
+        return allowed;
+      });
+      console.log(`✅ [FILTER] Filtrando estabelecimentos: ${filtered.length} de ${establishments.length} permitidos`, {
+        allowedIds: userConfig.establishmentIds,
+        filtered: filtered.map(e => ({ id: e.id, name: (e as any).name || (e as any).nome }))
+      });
+      return filtered;
+    }
+    
+    // Se não tem userConfig mas tem permissões ativas, usar elas
     if (permissions.length > 0 && permissions.some(p => p.is_active)) {
       // Filtrar pelos estabelecimentos das permissões ativas
-      const allowedIds = permissions
-        .filter(p => p.is_active)
-        .map(p => p.establishment_id);
+      const allowedIds = Array.from(new Set(
+        permissions
+          .filter(p => p.is_active)
+          .map(p => p.establishment_id)
+      ));
       
-      return establishments.filter((est) => {
+      const filtered = establishments.filter((est) => {
         const estId = typeof est.id === 'string' ? parseInt(est.id) : est.id;
         return allowedIds.includes(estId);
       });
-    }
-    
-    // Se tem userConfig, usar ele
-    if (userConfig && userConfig.establishmentIds.length > 0) {
-      return establishments.filter((est) => {
-        const estId = typeof est.id === 'string' ? parseInt(est.id) : est.id;
-        return userConfig.establishmentIds.includes(estId);
+      console.log(`✅ [FILTER] Filtrando por permissões: ${filtered.length} de ${establishments.length} permitidos`, {
+        allowedIds,
+        filtered: filtered.map(e => ({ id: e.id, name: (e as any).name || (e as any).nome }))
       });
+      return filtered;
     }
     
     // Se não tem userConfig nem permissões, verificar role
     const role = localStorage.getItem('role') || '';
-    if (role === 'admin') {
-      // Admin sem permissões específicas vê todos
-      return establishments;
-    }
+    console.log(`⚠️ [FILTER] Sem permissões configuradas, role: ${role}, retornando todos os estabelecimentos`);
     
-    // Para outros roles sem permissões, retornar vazio (força configuração de permissões)
-    return [];
+    // Para qualquer role sem permissões configuradas, mostrar todos
+    // (o middleware já controla o acesso às rotas)
+    return establishments;
   };
 
   // Buscar permissão específica para um estabelecimento
