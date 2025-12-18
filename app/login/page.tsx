@@ -154,6 +154,9 @@ export default function Login() {
           case 'gerente':
             router.push('/gerente');
             break;
+          case 'recepção':
+            router.push('/admin');
+            break;
           case 'promoter':
           case 'promoter-list':
             if (data.promoterCodigo) {

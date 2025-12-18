@@ -38,7 +38,10 @@ export function middleware(request: NextRequest) {
 
   // Define as permissões para as rotas específicas
   const routePermissions: Record<string, string[]> = {
-    // Rotas estritamente administrativas
+    // Rota principal do admin - permite admin, gerente e recepção
+    '/admin': ['admin', 'gerente', 'recepção', 'promoter'],
+    
+    // Rotas estritamente administrativas (apenas admin)
     '/admin/commodities': ['admin'],
     '/admin/enterprise': ['admin'],
     '/admin/eventos': ['admin'],
@@ -50,10 +53,13 @@ export function middleware(request: NextRequest) {
     '/admin/tables': ['admin'],
     
     // Outras rotas internas controladas
-    '/admin/cardapio': ['admin', 'promoter'],
-    '/admin/events': ['admin', 'promoter'],
-    '/admin/reservas': ['admin', 'promoter'],
-    '/admin/qrcode': ['admin', 'promoter'],
+    '/admin/cardapio': ['admin', 'promoter', 'recepção'],
+    '/admin/events': ['admin', 'promoter', 'recepção'],
+    '/admin/reservas': ['admin', 'promoter', 'recepção'],
+    '/admin/qrcode': ['admin', 'promoter', 'recepção'],
+    '/admin/checkins': ['admin', 'promoter', 'recepção'],
+    '/admin/restaurant-reservations': ['admin', 'promoter', 'recepção'],
+    '/admin/detalhes-operacionais': ['admin', 'recepção'],
   };
 
   // Verifica se a rota está definida nas permissões de rota

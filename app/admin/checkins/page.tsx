@@ -201,7 +201,7 @@ export default function CheckInsGeralPage() {
   })();
 
   return (
-    <WithPermission allowedRoles={["admin", "gerente", "hostess", "promoter"]}>
+    <WithPermission allowedRoles={["admin", "gerente", "hostess", "promoter", "recepção"]}>
       <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
         {/* Header */}
         <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white p-6 shadow-lg">

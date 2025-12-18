@@ -59,6 +59,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         { href: "/admin/qrcode", label: "Scanner QR Code", icon: MdQrCodeScanner },
         { href: "/admin/checkins", label: "Check-ins", icon: MdCheckCircle },
       ];
+    } else if (userRole === 'recepção') {
+      // Recepção (recepcionista) - acesso restrito aos estabelecimentos configurados
+      return [
+        { href: "/admin", label: "Dashboard", icon: MdDashboard },
+        { href: "/admin/checkins", label: "Check-ins", icon: MdCheckCircle },
+        { href: "/admin/restaurant-reservations", label: "Sistema de Reservas", icon: MdRestaurant },
+        { href: "/admin/detalhes-operacionais", label: "Detalhes Operacionais do Evento", icon: MdInfo },
+        { href: "/admin/qrcode", label: "Scanner QR Code", icon: MdQrCodeScanner },
+        { href: "/admin/reservas", label: "Reservas", icon: MdEditCalendar },
+      ];
     } else if (userRole === 'admin') {
       // Administrador pode ver tudo
       return [
@@ -91,6 +101,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     const activeLink = navLinks.find(link => pathname.startsWith(link.href));
     if (userRole === 'promoter') {
       return "Cardápio - Promoter";
+    }
+    if (userRole === 'recepção') {
+      return "Admin - Recepção";
     }
     return activeLink ? activeLink.label : "Admin";
   };

@@ -111,9 +111,18 @@ export function useEstablishmentPermissions() {
           
           setUserConfig(config);
         } else {
-          // Se não tem permissões configuradas, permite acesso total (admin)
-          setUserConfig(null);
-          setPermissions([]);
+          // Verificar role - se for admin sem permissões, permite acesso total
+          // Se for outro role (recepção, promoter, etc), não permite acesso total
+          const role = localStorage.getItem('role') || '';
+          if (role === 'admin') {
+            setUserConfig(null);
+            setPermissions([]);
+          } else {
+            // Para roles não-admin, mesmo sem permissões específicas, não dar acesso total
+            // Isso força que permissões sejam configuradas
+            setUserConfig(null);
+            setPermissions([]);
+          }
         }
       } catch (error) {
         console.error('Erro ao carregar permissões:', error);
@@ -139,11 +148,36 @@ export function useEstablishmentPermissions() {
   const getFilteredEstablishments = <T extends { id: number | string }>(
     establishments: T[]
   ): T[] => {
-    if (!userConfig) return establishments; // Admin vê todos
-    return establishments.filter((est) => {
-      const estId = typeof est.id === 'string' ? parseInt(est.id) : est.id;
-      return userConfig.establishmentIds.includes(estId);
-    });
+    // Se tem permissões configuradas, sempre filtrar
+    if (permissions.length > 0 && permissions.some(p => p.is_active)) {
+      // Filtrar pelos estabelecimentos das permissões ativas
+      const allowedIds = permissions
+        .filter(p => p.is_active)
+        .map(p => p.establishment_id);
+      
+      return establishments.filter((est) => {
+        const estId = typeof est.id === 'string' ? parseInt(est.id) : est.id;
+        return allowedIds.includes(estId);
+      });
+    }
+    
+    // Se tem userConfig, usar ele
+    if (userConfig && userConfig.establishmentIds.length > 0) {
+      return establishments.filter((est) => {
+        const estId = typeof est.id === 'string' ? parseInt(est.id) : est.id;
+        return userConfig.establishmentIds.includes(estId);
+      });
+    }
+    
+    // Se não tem userConfig nem permissões, verificar role
+    const role = localStorage.getItem('role') || '';
+    if (role === 'admin') {
+      // Admin sem permissões específicas vê todos
+      return establishments;
+    }
+    
+    // Para outros roles sem permissões, retornar vazio (força configuração de permissões)
+    return [];
   };
 
   // Buscar permissão específica para um estabelecimento
