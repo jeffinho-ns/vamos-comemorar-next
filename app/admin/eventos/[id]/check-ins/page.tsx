@@ -2215,18 +2215,43 @@ export default function EventoCheckInsPage() {
                                   </span>
                                 </div>
                                 <div className="mt-1 flex flex-col md:flex-row md:items-center md:justify-between gap-1 md:gap-2">
-                                  <div className="text-xs md:text-sm text-gray-300">
-                                    {gl.reservation_date ? new Date(gl.reservation_date + 'T12:00:00').toLocaleDateString('pt-BR') : 'Data não informada'} 
-                                    {gl.event_type ? ` • ${gl.event_type}` : ''} • {gl.reservation_time}
-                                    {/* Exibir observação se existir */}
+                                  <div className="flex-1 min-w-0">
+                                    <div className="text-xs md:text-sm text-gray-300">
+                                      {(() => {
+                                        const dateStr = gl.reservation_date;
+                                        if (!dateStr) return 'Data não informada';
+                                        
+                                        try {
+                                          const datePart = dateStr.split('T')[0] || dateStr.split(' ')[0];
+                                          if (datePart && datePart.length === 10) {
+                                            const d = new Date(`${datePart}T12:00:00`);
+                                            if (isNaN(d.getTime())) {
+                                              return 'Data inválida';
+                                            }
+                                            return d.toLocaleDateString('pt-BR');
+                                          }
+                                          const d2 = new Date(dateStr);
+                                          if (isNaN(d2.getTime())) {
+                                            return 'Data inválida';
+                                          }
+                                          return d2.toLocaleDateString('pt-BR');
+                                        } catch {
+                                          return 'Data inválida';
+                                        }
+                                      })()}
+                                      {gl.event_type ? ` • ${gl.event_type}` : ''} • {gl.reservation_time}
+                                    </div>
+                                    {/* Exibir observação abaixo da data */}
                                     {(() => {
                                       // Buscar observação da reserva (pode estar em notes ou admin_notes)
                                       const notes = (gl as any).notes || (gl as any).admin_notes || '';
                                       if (notes && notes.trim()) {
+                                        // Pegar primeira linha ou até 100 caracteres
+                                        const firstLine = notes.trim().split('\n')[0];
+                                        const displayText = firstLine.length > 100 ? firstLine.substring(0, 100) + '...' : firstLine;
                                         return (
-                                          <div className="mt-1 text-xs text-gray-400 italic">
-                                            📝 {notes.trim().split('\n')[0]}
-                                            {notes.trim().split('\n').length > 1 && '...'}
+                                          <div className="mt-1.5 text-xs text-gray-400 italic break-words">
+                                            📝 {displayText}
                                           </div>
                                         );
                                       }
