@@ -639,11 +639,20 @@ export default function TabletCheckInsPage() {
                 setResults([]);
               }}
               className="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-white/10 border-2 border-white/20 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base sm:text-lg text-white transition-all"
+              disabled={establishmentPermissions.isRestrictedToSingleEstablishment()}
             >
-              <option value="" className="text-gray-900">Selecione um estabelecimento</option>
-              {estabelecimentos.map(est => (
-                <option key={est.id} value={est.id} className="text-gray-900">{est.nome}</option>
-              ))}
+              {establishmentPermissions.isRestrictedToSingleEstablishment() ? (
+                estabelecimentos.map(est => (
+                  <option key={est.id} value={est.id} className="text-gray-900">{est.nome}</option>
+                ))
+              ) : (
+                <>
+                  <option value="" className="text-gray-900">Selecione um estabelecimento</option>
+                  {estabelecimentos.map(est => (
+                    <option key={est.id} value={est.id} className="text-gray-900">{est.nome}</option>
+                  ))}
+                </>
+              )}
             </select>
 
             {estabelecimentoSelecionado && (
