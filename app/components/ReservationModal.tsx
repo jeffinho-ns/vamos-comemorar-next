@@ -474,6 +474,16 @@ export default function ReservationModal({
       evento_id: eventoSelecionado || undefined, // Adicionar vinculação de evento
     };
 
+    // Log do payload para debug
+    console.log('📤 Payload sendo enviado:', JSON.stringify(payload, null, 2));
+    console.log('📤 Detalhes do payload:', {
+      table_number: payload.table_number,
+      hasMultipleTables: allowMultipleTables && isAdmin && selectedTables.length > 0,
+      selectedTables: selectedTables,
+      area_id: payload.area_id,
+      establishment_id: payload.establishment_id
+    });
+
     // Adicionar event_type automaticamente baseado nos critérios
     if (formData.number_of_people >= 4) {
       const reservationDate = new Date(`${formData.reservation_date}T00:00:00`);

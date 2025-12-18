@@ -2500,19 +2500,51 @@ export default function RestaurantReservationsPage() {
                   : `${API_URL}/api/restaurant-reservations`;
                 const method = isEditing ? 'PUT' : 'POST';
 
+                const requestBody = {
+                  ...reservationData,
+                  establishment_id: selectedEstablishment?.id,
+                  created_by: 1, // ID do usuário admin padrão
+                  status: isEditing ? reservationData.status || editingReservation.status : 'NOVA',
+                  origin: reservationData.origin || 'PESSOAL' // Usar origin do formData ou padrão
+                };
+
+                // Garantir que area_id seja um número
+                if (requestBody.area_id) {
+                  requestBody.area_id = Number(requestBody.area_id);
+                }
+
+                console.log('📤 [restaurant-reservations] Enviando requisição:', {
+                  method,
+                  url,
+                  body: requestBody,
+                  table_number: requestBody.table_number,
+                  hasMultipleTables: String(requestBody.table_number || '').includes(',')
+                });
+
                 const response = await fetch(url, {
                   method: method,
                   headers: {
                     'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${localStorage.getItem('authToken')}`
                   },
-                  body: JSON.stringify({
-                    ...reservationData,
-                    establishment_id: selectedEstablishment?.id,
-                    created_by: 1, // ID do usuário admin padrão
-                    status: isEditing ? reservationData.status || editingReservation.status : 'NOVA',
-                    origin: 'ADMIN'
-                  }),
+                  body: JSON.stringify(requestBody),
                 });
+
+                if (!response.ok) {
+                  const errorText = await response.text();
+                  console.error('❌ [restaurant-reservations] Erro na resposta:', {
+                    status: response.status,
+                    statusText: response.statusText,
+                    error: errorText
+                  });
+                  let errorData;
+                  try {
+                    errorData = JSON.parse(errorText);
+                  } catch (e) {
+                    errorData = { error: errorText };
+                  }
+                  throw new Error(errorData.error || `Erro ${response.status}: ${response.statusText}`);
+                }
 
                 if (response.ok) {
                   const result = await response.json();
