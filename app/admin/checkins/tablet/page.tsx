@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect, useMemo } from 'react';
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { MdSearch, MdPerson, MdTableBar, MdCardGiftcard, MdCheckCircle, MdPending, MdStore, MdEvent, MdCake, MdGroups } from 'react-icons/md';
 import { WithPermission } from '../../../components/WithPermission/WithPermission';
 import { useEstablishmentPermissions } from '@/app/hooks/useEstablishmentPermissions';
@@ -74,9 +74,17 @@ export default function TabletCheckInsPage() {
   const [entradaModalOpen, setEntradaModalOpen] = useState(false);
   const [convidadoParaCheckIn, setConvidadoParaCheckIn] = useState<{ tipo: 'guest' | 'owner' | 'promoter_guest'; id?: number; guestId?: number; guestListId?: number; reservationId?: number; nome: string } | null>(null);
 
+  // Flag para evitar múltiplas requisições simultâneas
+  const loadingEstabelecimentosRef = useRef(false);
+  const estabelecimentosLoadedRef = useRef(false);
+
   // Carregar estabelecimentos e eventos (apenas uma vez)
   useEffect(() => {
+    // Evitar carregar múltiplas vezes
+    if (loadingEstabelecimentosRef.current || estabelecimentosLoadedRef.current) return;
+
     const carregarEstabelecimentos = async () => {
+      loadingEstabelecimentosRef.current = true;
       try {
         const token = localStorage.getItem('authToken');
         const headers: HeadersInit = {
@@ -86,37 +94,53 @@ export default function TabletCheckInsPage() {
           headers['Authorization'] = `Bearer ${token}`;
         }
 
-        // Buscar eventos
-        const evRes = await fetch(`${API_URL}/api/v1/eventos`, { headers });
-        if (evRes.ok) {
-          const evData = await evRes.json();
-          const listaEventos = (evData.eventos || []).map((e: any) => ({
-            evento_id: e.evento_id,
-            nome: e.nome,
-            data_evento: e.data_evento,
-            establishment_id: e.establishment_id || e.id_place,
-            establishment_name: e.establishment_name || e.casa_do_evento || ''
-          }));
-          setEventos(listaEventos);
+        // Buscar eventos com tratamento de erro
+        try {
+          const evRes = await fetch(`${API_URL}/api/v1/eventos`, { headers });
+          if (evRes.ok) {
+            const evData = await evRes.json();
+            const listaEventos = (evData.eventos || []).map((e: any) => ({
+              evento_id: e.evento_id,
+              nome: e.nome,
+              data_evento: e.data_evento,
+              establishment_id: e.establishment_id || e.id_place,
+              establishment_name: e.establishment_name || e.casa_do_evento || ''
+            }));
+            setEventos(listaEventos);
+          } else {
+            console.error('Erro ao buscar eventos:', evRes.status, evRes.statusText);
+          }
+        } catch (evErr) {
+          console.error('Erro na requisição de eventos:', evErr);
         }
 
-        // Buscar estabelecimentos
-        const [barsRes, placesRes] = await Promise.all([
-          fetch(`${API_URL}/api/bars`, { headers }),
-          fetch(`${API_URL}/api/places`, { headers })
-        ]);
-
+        // Buscar estabelecimentos com tratamento de erro individual
         let bars: any[] = [];
-        if (barsRes.ok) {
-          const barsData = await barsRes.json();
-          if (Array.isArray(barsData)) bars = barsData;
+        let places: any[] = [];
+
+        try {
+          const barsRes = await fetch(`${API_URL}/api/bars`, { headers });
+          if (barsRes.ok) {
+            const barsData = await barsRes.json();
+            if (Array.isArray(barsData)) bars = barsData;
+          } else {
+            console.error('Erro ao buscar bars:', barsRes.status, barsRes.statusText);
+          }
+        } catch (barsErr) {
+          console.error('Erro na requisição de bars:', barsErr);
         }
 
-        let places: any[] = [];
-        if (placesRes.ok) {
-          const placesData = await placesRes.json();
-          if (Array.isArray(placesData)) places = placesData;
-          else if (placesData?.data && Array.isArray(placesData.data)) places = placesData.data;
+        try {
+          const placesRes = await fetch(`${API_URL}/api/places`, { headers });
+          if (placesRes.ok) {
+            const placesData = await placesRes.json();
+            if (Array.isArray(placesData)) places = placesData;
+            else if (placesData?.data && Array.isArray(placesData.data)) places = placesData.data;
+          } else {
+            console.error('Erro ao buscar places:', placesRes.status, placesRes.statusText);
+          }
+        } catch (placesErr) {
+          console.error('Erro na requisição de places:', placesErr);
         }
 
         const merged = new Map<string, { id: number; nome: string }>();
@@ -126,6 +150,7 @@ export default function TabletCheckInsPage() {
         const lista = Array.from(merged.values()).sort((a, b) => a.nome.localeCompare(b.nome));
         const filteredLista = establishmentPermissions.getFilteredEstablishments(lista);
         setEstabelecimentos(filteredLista);
+        estabelecimentosLoadedRef.current = true;
 
         // Auto-selecionar se restrito a um estabelecimento
         if (establishmentPermissions.isRestrictedToSingleEstablishment() && filteredLista.length > 0) {
@@ -136,6 +161,9 @@ export default function TabletCheckInsPage() {
         }
       } catch (err) {
         console.error('Erro ao carregar estabelecimentos:', err);
+        estabelecimentosLoadedRef.current = true; // Marcar como carregado mesmo com erro para evitar loop
+      } finally {
+        loadingEstabelecimentosRef.current = false;
       }
     };
 
@@ -567,8 +595,8 @@ export default function TabletCheckInsPage() {
 
   return (
     <WithPermission allowedRoles={["admin", "gerente", "hostess", "promoter"]}>
-      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 p-2 sm:p-4">
-        <div className="max-w-5xl mx-auto">
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 px-1 sm:px-4 py-2 sm:py-4">
+        <div className="max-w-5xl mx-auto w-full">
           {/* Seletores */}
           <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl shadow-lg p-4 sm:p-6 mb-4 sm:mb-6 space-y-4">
             <div className="flex items-center gap-2 mb-4">
