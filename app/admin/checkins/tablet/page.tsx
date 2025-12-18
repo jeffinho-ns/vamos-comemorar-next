@@ -390,6 +390,23 @@ export default function TabletCheckInsPage() {
           (p.id || p.promoter_id) === Number(guestPromoterId)
         );
         
+        // Buscar o nome do promoter de forma mais robusta
+        let promoterName = 'Promoter não identificado';
+        if (promoter) {
+          promoterName = promoter.nome || promoter.name || 'Promoter não identificado';
+        } else {
+          // Tentar buscar o promoter novamente com diferentes campos
+          const altPromoter = loadedData.promoters.find((p: any) => 
+            Number(p.id) === Number(guestPromoterId) || 
+            Number(p.promoter_id) === Number(guestPromoterId) ||
+            String(p.id) === String(guestPromoterId) ||
+            String(p.promoter_id) === String(guestPromoterId)
+          );
+          if (altPromoter) {
+            promoterName = altPromoter.nome || altPromoter.name || 'Promoter não identificado';
+          }
+        }
+        
         results.push({
           type: 'promoter_guest',
           name: guest.nome || guest.nome_convidado,
@@ -398,7 +415,7 @@ export default function TabletCheckInsPage() {
           checkedIn: guest.status_checkin === 'Check-in' || guest.status_checkin === 'Check-in',
           promoterInfo: {
             id: Number(guestPromoterId),
-            name: promoter?.nome || 'Promoter',
+            name: promoterName,
             totalCheckins: promoter?.convidados_checkin || 0,
           },
         });
@@ -726,14 +743,36 @@ export default function TabletCheckInsPage() {
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                   <div>
                                     <p className="text-xs sm:text-sm text-gray-400">Data da Reserva</p>
-                                    <p className="font-semibold text-sm sm:text-base">{new Date(result.reservation?.date + 'T12:00:00').toLocaleDateString('pt-BR')} às {result.reservation?.time}</p>
+                                    <p className="font-semibold text-sm sm:text-base text-white">
+                                      {(() => {
+                                        const dateStr = result.reservation?.date;
+                                        if (!dateStr) return 'Data não informada';
+                                        try {
+                                          const datePart = dateStr.split('T')[0] || dateStr.split(' ')[0];
+                                          if (datePart && datePart.length === 10) {
+                                            const d = new Date(`${datePart}T12:00:00`);
+                                            if (isNaN(d.getTime())) {
+                                              return 'Data inválida';
+                                            }
+                                            return d.toLocaleDateString('pt-BR');
+                                          }
+                                          const d2 = new Date(dateStr);
+                                          if (isNaN(d2.getTime())) {
+                                            return 'Data inválida';
+                                          }
+                                          return d2.toLocaleDateString('pt-BR');
+                                        } catch {
+                                          return 'Data inválida';
+                                        }
+                                      })()} às {result.reservation?.time}
+                                    </p>
                                   </div>
                                   {result.reservation?.table && (
                                     <div>
                                       <p className="text-xs sm:text-sm text-gray-400">Mesa</p>
-                                      <p className="font-semibold flex items-center gap-1 text-sm sm:text-base">
-                                        <MdTableBar size={16} />
-                                        {result.reservation.table} {result.reservation.area && `(${result.reservation.area})`}
+                                      <p className="font-semibold flex items-center gap-1 text-sm sm:text-base text-amber-300 bg-amber-500/20 px-2 py-1 rounded-md">
+                                        <MdTableBar size={16} className="text-amber-400" />
+                                        <span className="font-bold">{result.reservation.table}</span> {result.reservation.area && <span className="text-amber-200">({result.reservation.area})</span>}
                                       </p>
                                     </div>
                                   )}
@@ -751,7 +790,29 @@ export default function TabletCheckInsPage() {
                                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                     <div>
                                       <p className="text-xs sm:text-sm text-gray-400">Data da Reserva</p>
-                                      <p className="font-semibold text-sm sm:text-base">{new Date(result.reservation?.date + 'T12:00:00').toLocaleDateString('pt-BR')} às {result.reservation?.time}</p>
+                                      <p className="font-semibold text-sm sm:text-base text-white">
+                                        {(() => {
+                                          const dateStr = result.reservation?.date;
+                                          if (!dateStr) return 'Data não informada';
+                                          try {
+                                            const datePart = dateStr.split('T')[0] || dateStr.split(' ')[0];
+                                            if (datePart && datePart.length === 10) {
+                                              const d = new Date(`${datePart}T12:00:00`);
+                                              if (isNaN(d.getTime())) {
+                                                return 'Data inválida';
+                                              }
+                                              return d.toLocaleDateString('pt-BR');
+                                            }
+                                            const d2 = new Date(dateStr);
+                                            if (isNaN(d2.getTime())) {
+                                              return 'Data inválida';
+                                            }
+                                            return d2.toLocaleDateString('pt-BR');
+                                          } catch {
+                                            return 'Data inválida';
+                                          }
+                                        })()} às {result.reservation?.time}
+                                      </p>
                                     </div>
                                     {result.reservation?.table && (
                                       <div>
@@ -810,10 +871,10 @@ export default function TabletCheckInsPage() {
                             {result.type === 'promoter_guest' && (
                               <div className="bg-white/5 p-3 sm:p-4 rounded-lg">
                                 <p className="text-gray-300 text-sm sm:text-base">
-                                  <strong>Promoter:</strong> {result.promoterInfo?.name}
+                                  <strong>Promoter:</strong> <span className="text-purple-300 font-semibold">{result.promoterInfo?.name || 'Promoter não identificado'}</span>
                                 </p>
                                 <p className="text-gray-300 mt-1 text-sm sm:text-base">
-                                  <strong>Total de check-ins do promoter:</strong> {result.promoterInfo?.totalCheckins}
+                                  <strong>Total de check-ins do promoter:</strong> <span className="text-green-400 font-semibold">{result.promoterInfo?.totalCheckins || 0}</span>
                                 </p>
                               </div>
                             )}
