@@ -96,6 +96,11 @@ export default function ImageCropModal({
       setCroppedAreaPixels(null);
       setOutputWidth(null);
       setOutputHeight(null);
+      // Resetar filtros para valores padrão (sem alterações)
+      setBrightness(100);
+      setContrast(100);
+      setSaturation(100);
+      setFilter('none');
       
       // Verificar se a imagem carrega corretamente
       const img = new Image();
@@ -385,11 +390,23 @@ export default function ImageCropModal({
     // Obter dados da imagem recortada para aplicar filtros
     let imageData = croppedCtx.getImageData(0, 0, cropWidth, cropHeight);
 
-    // Aplicar filtros
-    imageData = applyFilters(imageData, brightness, contrast, saturation, filter);
+    // Aplicar filtros APENAS se houver alterações dos valores padrão
+    const hasBrightnessChange = brightness !== 100;
+    const hasContrastChange = contrast !== 100;
+    const hasSaturationChange = saturation !== 100;
+    const hasFilterChange = filter !== 'none';
+    const hasAnyFilterChange = hasBrightnessChange || hasContrastChange || hasSaturationChange || hasFilterChange;
 
-    // Aplicar filtros de volta no canvas
-    croppedCtx.putImageData(imageData, 0, 0);
+    if (hasAnyFilterChange) {
+      console.log('🎨 Aplicando filtros:', { brightness, contrast, saturation, filter });
+      // Aplicar filtros apenas se houver alterações
+      imageData = applyFilters(imageData, brightness, contrast, saturation, filter);
+      // Aplicar filtros de volta no canvas
+      croppedCtx.putImageData(imageData, 0, 0);
+    } else {
+      console.log('✅ Nenhuma alteração de filtros detectada, mantendo imagem original');
+      // Não aplicar filtros, manter imagem original
+    }
 
     // Segundo: rotacionar a imagem recortada se necessário
     if (rotation !== 0) {
