@@ -575,8 +575,26 @@ export default function ReservationModal({
     }
     const establishment_id = Number(establishment.id);
 
+    // Validar todos os campos obrigatórios antes de criar o payload
+    const client_name = formData.client_name?.trim();
+    if (!client_name || client_name === '') {
+      throw new Error('Nome do cliente é obrigatório');
+    }
+    
+    if (!formData.reservation_date) {
+      throw new Error('Data da reserva é obrigatória');
+    }
+    
+    if (!reservation_time) {
+      throw new Error('Horário da reserva é obrigatório');
+    }
+    
+    if (!number_of_people || number_of_people < 1) {
+      throw new Error('Número de pessoas deve ser maior que 0');
+    }
+
     const payload: any = {
-      client_name: formData.client_name?.trim() || '',
+      client_name: client_name,
       client_phone: formData.client_phone?.trim() || null,
       client_email: formData.client_email?.trim() || null,
       data_nascimento_cliente: formData.data_nascimento_cliente || null,
@@ -635,10 +653,28 @@ export default function ReservationModal({
     }
 
     try {
+      console.log('🔍 Validação final antes de enviar:', {
+        client_name: payload.client_name,
+        client_name_length: payload.client_name?.length,
+        reservation_date: payload.reservation_date,
+        reservation_time: payload.reservation_time,
+        number_of_people: payload.number_of_people,
+        area_id: payload.area_id,
+        area_id_type: typeof payload.area_id,
+        establishment_id: payload.establishment_id,
+        establishment_id_type: typeof payload.establishment_id,
+        table_number: payload.table_number,
+        origin: payload.origin
+      });
+      
       await onSave(payload);
       onClose();
-    } catch (error) {
-      console.error('Erro ao salvar reserva:', error);
+    } catch (error: any) {
+      console.error('❌ Erro ao salvar reserva:', error);
+      console.error('❌ Mensagem de erro:', error?.message);
+      console.error('❌ Stack:', error?.stack);
+      // Mostrar erro para o usuário
+      alert(`Erro ao salvar reserva: ${error?.message || 'Erro desconhecido'}`);
     } finally {
       setLoading(false);
     }

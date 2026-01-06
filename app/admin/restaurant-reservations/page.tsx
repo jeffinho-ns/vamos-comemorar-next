@@ -2500,18 +2500,55 @@ export default function RestaurantReservationsPage() {
                   : `${API_URL}/api/restaurant-reservations`;
                 const method = isEditing ? 'PUT' : 'POST';
 
-                const requestBody = {
-                  ...reservationData,
-                  establishment_id: selectedEstablishment?.id,
-                  created_by: 1, // ID do usuário admin padrão
-                  status: isEditing ? reservationData.status || editingReservation.status : 'NOVA',
-                  origin: 'PESSOAL' // Sempre 'PESSOAL' para reservas criadas por admin (permite mesas virtuais)
-                };
-
-                // Garantir que area_id seja um número
-                if (requestBody.area_id) {
-                  requestBody.area_id = Number(requestBody.area_id);
+                // Validar campos obrigatórios antes de criar o requestBody
+                if (!reservationData.client_name || !reservationData.client_name.trim()) {
+                  throw new Error('Nome do cliente é obrigatório');
                 }
+                if (!reservationData.reservation_date) {
+                  throw new Error('Data da reserva é obrigatória');
+                }
+                if (!reservationData.reservation_time) {
+                  throw new Error('Horário da reserva é obrigatório');
+                }
+                if (!reservationData.area_id) {
+                  throw new Error('Área é obrigatória');
+                }
+                if (!selectedEstablishment?.id) {
+                  throw new Error('Estabelecimento é obrigatório');
+                }
+
+                // Garantir que o horário esteja no formato HH:mm:ss
+                let reservation_time = reservationData.reservation_time;
+                if (reservation_time && reservation_time.split(':').length === 2) {
+                  reservation_time = `${reservation_time}:00`;
+                }
+
+                const requestBody = {
+                  client_name: reservationData.client_name.trim(),
+                  client_phone: reservationData.client_phone?.trim() || null,
+                  client_email: reservationData.client_email?.trim() || null,
+                  data_nascimento_cliente: reservationData.data_nascimento_cliente || null,
+                  reservation_date: reservationData.reservation_date,
+                  reservation_time: reservation_time,
+                  number_of_people: Number(reservationData.number_of_people) || 1,
+                  area_id: Number(reservationData.area_id),
+                  table_number: reservationData.table_number || null,
+                  status: isEditing ? reservationData.status || editingReservation.status : 'NOVA',
+                  origin: 'PESSOAL', // Sempre 'PESSOAL' para reservas criadas por admin (permite mesas virtuais)
+                  notes: reservationData.notes || null,
+                  created_by: 1, // ID do usuário admin padrão
+                  establishment_id: Number(selectedEstablishment.id),
+                  evento_id: reservationData.evento_id || null,
+                  send_email: reservationData.send_email !== undefined ? reservationData.send_email : true,
+                  send_whatsapp: reservationData.send_whatsapp !== undefined ? reservationData.send_whatsapp : true,
+                };
+                
+                // Remover campos undefined
+                Object.keys(requestBody).forEach(key => {
+                  if (requestBody[key as keyof typeof requestBody] === undefined) {
+                    delete requestBody[key as keyof typeof requestBody];
+                  }
+                });
 
                 console.log('📤 [restaurant-reservations] Enviando requisição:', {
                   method,
@@ -2519,6 +2556,14 @@ export default function RestaurantReservationsPage() {
                   body: requestBody,
                   table_number: requestBody.table_number,
                   hasMultipleTables: String(requestBody.table_number || '').includes(',')
+                });
+                console.log('🔍 Validação dos campos obrigatórios:', {
+                  client_name: !!requestBody.client_name && requestBody.client_name.trim() !== '',
+                  reservation_date: !!requestBody.reservation_date,
+                  reservation_time: !!requestBody.reservation_time,
+                  area_id: !!requestBody.area_id && !isNaN(Number(requestBody.area_id)),
+                  establishment_id: !!requestBody.establishment_id && !isNaN(Number(requestBody.establishment_id)),
+                  number_of_people: !!requestBody.number_of_people && Number(requestBody.number_of_people) > 0
                 });
 
                 const response = await fetch(url, {
