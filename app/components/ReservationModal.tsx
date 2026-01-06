@@ -430,7 +430,7 @@ export default function ReservationModal({
     }
 
 
-    if (!formData.client_name.trim()) {
+    if (!formData.client_name || !formData.client_name.trim()) {
       newErrors.client_name = 'Nome do cliente é obrigatório';
     }
     if (!formData.reservation_date) {
@@ -456,8 +456,26 @@ export default function ReservationModal({
       }
     }
     
-    if (!formData.area_id) {
-      newErrors.area_id = 'Área é obrigatória';
+    // Validação específica para Highline e Seu Justino (precisam de subárea)
+    if (isHighline || isSeuJustino) {
+      if (!selectedSubareaKey) {
+        newErrors.area_id = 'Selecione uma área';
+      } else {
+        // Garantir que o area_id está definido baseado na subárea
+        const subareas = isHighline ? highlineSubareas : seuJustinoSubareas;
+        const sub = subareas.find(s => s.key === selectedSubareaKey);
+        if (sub) {
+          // Atualizar o area_id no formData baseado na subárea selecionada
+          if (!formData.area_id || formData.area_id !== String(sub.area_id)) {
+            handleInputChange('area_id', String(sub.area_id));
+          }
+        }
+      }
+    } else {
+      // Para outros estabelecimentos, validar area_id normalmente
+      if (!formData.area_id) {
+        newErrors.area_id = 'Área é obrigatória';
+      }
     }
     if (formData.number_of_people < 1) {
       newErrors.number_of_people = 'Número de pessoas deve ser maior que 0';
@@ -513,16 +531,76 @@ export default function ReservationModal({
       finalTableNumber = undefined;
     }
 
+    // Garantir que number_of_people seja um número válido
+    const number_of_people = Number(formData.number_of_people) || 1;
+    
+    // Garantir que o horário esteja no formato HH:mm:ss
+    let reservation_time = formData.reservation_time;
+    if (reservation_time && reservation_time.split(':').length === 2) {
+      reservation_time = `${reservation_time}:00`;
+    }
+
+    // Para Highline e Seu Justino, garantir que uma subárea foi selecionada e area_id está definido
+    let finalAreaId = formData.area_id;
+    
+    if (isHighline || isSeuJustino) {
+      if (!selectedSubareaKey) {
+        throw new Error('Selecione uma área para criar a reserva');
+      }
+      
+      const subareas = isHighline ? highlineSubareas : seuJustinoSubareas;
+      const sub = subareas.find(s => s.key === selectedSubareaKey);
+      
+      if (!sub) {
+        throw new Error('Subárea selecionada não encontrada');
+      }
+      
+      // Usar o area_id da subárea selecionada
+      finalAreaId = String(sub.area_id);
+    }
+    
+    // Garantir que area_id seja um número válido (obrigatório para a API)
+    if (!finalAreaId || finalAreaId === '' || finalAreaId === '0') {
+      throw new Error('Área é obrigatória para criar a reserva');
+    }
+    const area_id = Number(finalAreaId);
+    
+    if (isNaN(area_id) || area_id <= 0) {
+      throw new Error('Área inválida. Selecione uma área válida.');
+    }
+    
+    // Garantir que establishment_id seja sempre enviado (obrigatório para a API)
+    if (!establishment?.id) {
+      throw new Error('Estabelecimento é obrigatório para criar a reserva');
+    }
+    const establishment_id = Number(establishment.id);
+
     const payload: any = {
-      ...formData,
-      table_number: finalTableNumber, // undefined se vazio para evitar validação desnecessária
-      notes: finalNotes,
-      establishment_id: establishment?.id,
+      client_name: formData.client_name?.trim() || '',
+      client_phone: formData.client_phone?.trim() || null,
+      client_email: formData.client_email?.trim() || null,
+      data_nascimento_cliente: formData.data_nascimento_cliente || null,
+      reservation_date: formData.reservation_date,
+      reservation_time: reservation_time,
+      number_of_people: number_of_people,
+      area_id: area_id,
+      table_number: finalTableNumber || null,
+      status: formData.status || 'NOVA',
       origin: 'PESSOAL', // Sempre 'PESSOAL' para reservas criadas por admin (permite mesas virtuais)
+      notes: finalNotes || null,
+      created_by: 1, // ID do usuário admin padrão
+      establishment_id: establishment_id,
+      evento_id: eventoSelecionado || null,
       send_email: sendEmailConfirmation,
       send_whatsapp: sendWhatsAppConfirmation,
-      evento_id: eventoSelecionado || undefined, // Adicionar vinculação de evento
     };
+    
+    // Remover campos undefined para evitar problemas na serialização JSON
+    Object.keys(payload).forEach(key => {
+      if (payload[key] === undefined) {
+        delete payload[key];
+      }
+    });
 
     // Log do payload para debug
     console.log('📤 Payload sendo enviado:', JSON.stringify(payload, null, 2));
