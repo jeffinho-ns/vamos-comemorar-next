@@ -2505,7 +2505,7 @@ export default function RestaurantReservationsPage() {
                   establishment_id: selectedEstablishment?.id,
                   created_by: 1, // ID do usuário admin padrão
                   status: isEditing ? reservationData.status || editingReservation.status : 'NOVA',
-                  origin: reservationData.origin || 'PESSOAL' // Usar origin do formData ou padrão
+                  origin: 'PESSOAL' // Sempre 'PESSOAL' para reservas criadas por admin (permite mesas virtuais)
                 };
 
                 // Garantir que area_id seja um número

@@ -406,6 +406,10 @@ export default function ReservationForm() {
     !(selectedEstablishment.name || '').toLowerCase().includes('pracinha')
   );
 
+  const isPracinha = selectedEstablishment && (
+    (selectedEstablishment.name || '').toLowerCase().includes('pracinha')
+  );
+
   // Janelas de horário para o Highline (Sexta e Sábado)
   const getHighlineTimeWindows = (dateStr: string, subareaKey?: string) => {
     if (!dateStr) return [] as Array<{ start: string; end: string; label: string }>;
@@ -675,6 +679,17 @@ export default function ReservationForm() {
       }
     }
 
+    // Regra de horário de funcionamento do Seu Justino e Pracinha do Seu Justino
+    if (isSeuJustino || isPracinha) {
+      const windows = getSeuJustinoTimeWindows(reservationData.reservation_date);
+      const hasWindows = windows.length > 0;
+      if (!hasWindows) {
+        newErrors.reservation_time = 'Reservas fechadas para o dia selecionado.';
+      } else if (reservationData.reservation_time && !isTimeWithinWindows(reservationData.reservation_time, windows)) {
+        newErrors.reservation_time = 'Horário fora do funcionamento. Consulte os horários disponíveis abaixo.';
+      }
+    }
+
     if (!reservationData.area_id) {
       newErrors.area_id = 'Área é obrigatória';
     }
@@ -858,6 +873,30 @@ const handleSubmit = async (e: React.FormEvent) => {
     return slots;
   };
 
+  // Janelas de horário para Seu Justino e Pracinha do Seu Justino
+  const getSeuJustinoTimeWindows = (dateStr: string) => {
+    if (!dateStr) return [] as Array<{ start: string; end: string; label: string }>;
+    const date = new Date(`${dateStr}T00:00:00`);
+    const weekday = date.getDay(); // 0=Dom, 1=Seg, 2=Ter, 3=Qua, 4=Qui, 5=Sex, 6=Sáb
+    const windows: Array<{ start: string; end: string; label: string }> = [];
+
+    // Terça a sexta (2, 3, 4, 5): 18h às 21h
+    if (weekday >= 2 && weekday <= 5) {
+      windows.push({ start: '18:00', end: '21:00', label: 'Terça a Sexta: 18:00–21:00' });
+    }
+    // Sábado (6): 12h às 15h (primeiro giro) e 20h às 23h (segundo giro)
+    else if (weekday === 6) {
+      windows.push({ start: '12:00', end: '15:00', label: 'Sábado - Primeiro Giro: 12:00–15:00' });
+      windows.push({ start: '20:00', end: '23:00', label: 'Sábado - Segundo Giro: 20:00–23:00' });
+    }
+    // Domingo (0): 12h às 15h
+    else if (weekday === 0) {
+      windows.push({ start: '12:00', end: '15:00', label: 'Domingo: 12:00–15:00' });
+    }
+
+    return windows;
+  };
+
   const getDefaultTimeWindows = (dateStr: string) => {
     if (!dateStr) return [] as Array<{ start: string; end: string; label?: string }>;
     const date = new Date(`${dateStr}T00:00:00`);
@@ -882,6 +921,11 @@ const handleSubmit = async (e: React.FormEvent) => {
       if (!selectedSubareaKey && windows.length > 1) {
         return [];
       }
+      return windows.flatMap((window) => createSlotsFromWindow(window.start, window.end));
+    }
+
+    if (isSeuJustino || isPracinha) {
+      const windows = getSeuJustinoTimeWindows(reservationData.reservation_date);
       return windows.flatMap((window) => createSlotsFromWindow(window.start, window.end));
     }
 
@@ -1897,6 +1941,39 @@ const handleSubmit = async (e: React.FormEvent) => {
                               </div>
                               <p className="text-sm text-red-800 font-medium">
                                 Reservas fechadas para este dia no Highline. Disponível apenas Sexta e Sábado.
+                              </p>
+                            </div>
+                          );
+                        }
+                        return (
+                          <div className="p-4 bg-gradient-to-r from-amber-100 to-yellow-100 border-2 border-amber-400 rounded-lg shadow-lg">
+                            <div className="flex items-center gap-2 mb-2">
+                              <MdAccessTime className="text-amber-600 text-lg" />
+                              <span className="font-bold text-amber-900">🕐 HORÁRIOS DISPONÍVEIS:</span>
+                            </div>
+                            <ul className="list-disc pl-5 text-amber-800 font-medium">
+                              {windows.map((w, i) => (
+                                <li key={i} className="text-sm">{w.label}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  )}
+                  {(isSeuJustino || isPracinha) && reservationData.reservation_date && (
+                    <div className="mt-2 text-xs text-gray-600">
+                      {(() => {
+                        const windows = getSeuJustinoTimeWindows(reservationData.reservation_date);
+                        if (windows.length === 0) {
+                          return (
+                            <div className="p-4 bg-gradient-to-r from-red-100 to-pink-100 border-2 border-red-400 rounded-lg shadow-lg">
+                              <div className="flex items-center gap-2 mb-2">
+                                <MdAccessTime className="text-red-600 text-lg" />
+                                <span className="font-bold text-red-900">❌ RESERVAS FECHADAS</span>
+                              </div>
+                              <p className="text-sm text-red-800 font-medium">
+                                Reservas fechadas para este dia.
                               </p>
                             </div>
                           );

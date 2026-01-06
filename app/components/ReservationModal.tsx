@@ -134,11 +134,38 @@ export default function ReservationModal({
     (establishment.name || '').toLowerCase().includes('seu justino') && 
     !(establishment.name || '').toLowerCase().includes('pracinha')
   );
+  const isPracinha = establishment && (
+    (establishment.name || '').toLowerCase().includes('pracinha')
+  );
 
   const getMaxBirthdate = () => {
     const d = new Date();
     d.setFullYear(d.getFullYear() - 18);
     return d.toISOString().split('T')[0];
+  };
+
+  // Janelas de horário para Seu Justino e Pracinha do Seu Justino
+  const getSeuJustinoTimeWindows = (dateStr: string) => {
+    if (!dateStr) return [] as Array<{ start: string; end: string; label: string }>;
+    const date = new Date(dateStr + 'T00:00:00');
+    const weekday = date.getDay(); // 0=Dom, 1=Seg, 2=Ter, 3=Qua, 4=Qui, 5=Sex, 6=Sáb
+    const windows: Array<{ start: string; end: string; label: string }> = [];
+
+    // Terça a sexta (2, 3, 4, 5): 18h às 21h
+    if (weekday >= 2 && weekday <= 5) {
+      windows.push({ start: '18:00', end: '21:00', label: 'Terça a Sexta: 18:00–21:00' });
+    }
+    // Sábado (6): 12h às 15h (primeiro giro) e 20h às 23h (segundo giro)
+    else if (weekday === 6) {
+      windows.push({ start: '12:00', end: '15:00', label: 'Sábado - Primeiro Giro: 12:00–15:00' });
+      windows.push({ start: '20:00', end: '23:00', label: 'Sábado - Segundo Giro: 20:00–23:00' });
+    }
+    // Domingo (0): 12h às 15h
+    else if (weekday === 0) {
+      windows.push({ start: '12:00', end: '15:00', label: 'Domingo: 12:00–15:00' });
+    }
+
+    return windows;
   };
 
   // Janelas de horário para o Highline (Sexta e Sábado)
@@ -412,6 +439,23 @@ export default function ReservationModal({
     if (!formData.reservation_time) {
       newErrors.reservation_time = 'Horário da reserva é obrigatório';
     }
+    
+    // Validação de horário para Highline
+    if (isHighline && formData.reservation_time && formData.reservation_date) {
+      const windows = getHighlineTimeWindows(formData.reservation_date, selectedSubareaKey);
+      if (windows.length > 0 && !isTimeWithinWindows(formData.reservation_time, windows)) {
+        newErrors.reservation_time = 'Horário fora do funcionamento. Consulte os horários disponíveis abaixo.';
+      }
+    }
+    
+    // Validação de horário para Seu Justino e Pracinha do Seu Justino
+    if ((isSeuJustino || isPracinha) && formData.reservation_time && formData.reservation_date) {
+      const windows = getSeuJustinoTimeWindows(formData.reservation_date);
+      if (windows.length > 0 && !isTimeWithinWindows(formData.reservation_time, windows)) {
+        newErrors.reservation_time = 'Horário fora do funcionamento. Consulte os horários disponíveis abaixo.';
+      }
+    }
+    
     if (!formData.area_id) {
       newErrors.area_id = 'Área é obrigatória';
     }
@@ -446,12 +490,12 @@ export default function ReservationModal({
     setLoading(true);
 
     // Processar mesas: se múltiplas mesas foram selecionadas, concatenar
-    let finalTableNumber = formData.table_number;
+    let finalTableNumber: string | undefined = formData.table_number?.trim() || undefined;
     let finalNotes = formData.notes;
     
     if (allowMultipleTables && isAdmin && selectedTables.length > 0) {
-      // Concatenar mesas selecionadas (ex: "1,2" ou "Mesa 1, Mesa 2")
-      finalTableNumber = selectedTables.join(', ');
+      // Concatenar mesas selecionadas sem espaços após vírgula (ex: "1,2" em vez de "1, 2")
+      finalTableNumber = selectedTables.join(',');
       
       // Adicionar observação automática sobre múltiplas mesas
       const mesaText = selectedTables.length === 1 ? 'mesa' : 'mesas';
@@ -464,11 +508,17 @@ export default function ReservationModal({
       }
     }
 
+    // Se não há mesa selecionada e não é obrigatório, enviar undefined
+    if (!finalTableNumber || finalTableNumber.trim() === '') {
+      finalTableNumber = undefined;
+    }
+
     const payload: any = {
       ...formData,
-      table_number: finalTableNumber,
+      table_number: finalTableNumber, // undefined se vazio para evitar validação desnecessária
       notes: finalNotes,
       establishment_id: establishment?.id,
+      origin: 'PESSOAL', // Sempre 'PESSOAL' para reservas criadas por admin (permite mesas virtuais)
       send_email: sendEmailConfirmation,
       send_whatsapp: sendWhatsAppConfirmation,
       evento_id: eventoSelecionado || undefined, // Adicionar vinculação de evento
@@ -729,6 +779,30 @@ export default function ReservationModal({
                           return (
                             <div className="p-2 bg-red-900/20 border border-red-600/40 rounded">
                               Reservas fechadas para este dia no Highline. Disponível apenas Sexta e Sábado.
+                            </div>
+                          );
+                        }
+                        return (
+                          <div className="p-2 bg-amber-900/20 border border-amber-600/40 rounded">
+                            <div className="font-medium text-amber-300">Horários disponíveis:</div>
+                            <ul className="list-disc pl-5">
+                              {windows.map((w, i) => (
+                                <li key={i}>{w.label}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  )}
+                  {(isSeuJustino || isPracinha) && formData.reservation_date && (
+                    <div className="mt-2 text-xs text-gray-300">
+                      {(() => {
+                        const windows = getSeuJustinoTimeWindows(formData.reservation_date);
+                        if (windows.length === 0) {
+                          return (
+                            <div className="p-2 bg-red-900/20 border border-red-600/40 rounded">
+                              Reservas fechadas para este dia.
                             </div>
                           );
                         }
