@@ -1703,22 +1703,73 @@ export default function RestaurantReservationsPage() {
               {/* Campo de busca pelo nome do dono */}
               <div className="relative">
                 <label className="block text-sm font-medium text-gray-700 mb-1">Buscar por dono</label>
-                <div className="relative">
-                  <MdSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
-                  <input
-                    type="text"
-                    placeholder="Nome do dono da lista"
-                    value={ownerSearchTerm}
-                    onChange={(e) => setOwnerSearchTerm(e.target.value)}
-                    className="pl-10 pr-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-transparent w-full sm:w-64"
-                  />
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <MdSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+                    <input
+                      type="text"
+                      placeholder="Nome do dono da lista"
+                      value={ownerSearchTerm}
+                      onChange={(e) => setOwnerSearchTerm(e.target.value)}
+                      className="pl-10 pr-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-transparent w-full sm:w-64"
+                    />
+                    {ownerSearchTerm && (
+                      <button
+                        onClick={() => setOwnerSearchTerm('')}
+                        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                        title="Limpar busca"
+                      >
+                        <MdClose size={18} />
+                      </button>
+                    )}
+                  </div>
                   {ownerSearchTerm && (
                     <button
-                      onClick={() => setOwnerSearchTerm('')}
-                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                      title="Limpar busca"
+                      onClick={async () => {
+                        const filteredLists = guestLists.filter((gl) => {
+                          const searchLower = ownerSearchTerm.toLowerCase().trim();
+                          const ownerNameLower = (gl.owner_name || '').toLowerCase();
+                          return ownerNameLower.includes(searchLower);
+                        });
+                        
+                        if (filteredLists.length === 0) {
+                          alert('Nenhuma lista encontrada com esse nome.');
+                          return;
+                        }
+                        
+                        const confirmMessage = filteredLists.length === 1
+                          ? `Tem certeza que deseja excluir a lista de convidados de "${filteredLists[0].owner_name}"? Esta ação não pode ser desfeita.`
+                          : `Tem certeza que deseja excluir ${filteredLists.length} lista(s) encontrada(s) para "${ownerSearchTerm}"? Esta ação não pode ser desfeita.`;
+                        
+                        if (!confirm(confirmMessage)) return;
+                        
+                        try {
+                          const token = localStorage.getItem('authToken');
+                          const encodedOwnerName = encodeURIComponent(ownerSearchTerm.trim());
+                          const res = await fetch(`${API_URL}/api/admin/guest-lists/by-owner/${encodedOwnerName}`, {
+                            method: 'DELETE',
+                            headers: { Authorization: `Bearer ${token}` }
+                          });
+                          
+                          if (res.ok) {
+                            const result = await res.json();
+                            alert(`✅ ${result.message || 'Lista(s) excluída(s) com sucesso!'}`);
+                            setOwnerSearchTerm('');
+                            await loadGuestLists();
+                          } else {
+                            const errorData = await res.json().catch(() => ({}));
+                            alert(`❌ Erro ao excluir lista: ${errorData.error || 'Erro desconhecido'}`);
+                          }
+                        } catch (error) {
+                          console.error('❌ Erro ao excluir lista:', error);
+                          alert('❌ Erro ao excluir lista. Tente novamente.');
+                        }
+                      }}
+                      className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors flex items-center gap-2"
+                      title="Excluir lista(s) encontrada(s)"
                     >
                       <MdClose size={18} />
+                      Excluir
                     </button>
                   )}
                 </div>
