@@ -2561,11 +2561,23 @@ export default function RestaurantReservationsPage() {
                 if (!reservationData.reservation_time) {
                   throw new Error('Horário da reserva é obrigatório');
                 }
-                if (!reservationData.area_id) {
-                  throw new Error('Área é obrigatória');
+                
+                // Validar area_id de forma mais robusta
+                const areaIdValue = reservationData.area_id;
+                if (!areaIdValue || areaIdValue === '' || areaIdValue === '0') {
+                  throw new Error('Área é obrigatória. Selecione uma área válida.');
                 }
+                const area_id = Number(areaIdValue);
+                if (isNaN(area_id) || area_id <= 0) {
+                  throw new Error('Área inválida. Selecione uma área válida.');
+                }
+                
                 if (!selectedEstablishment?.id) {
                   throw new Error('Estabelecimento é obrigatório');
+                }
+                const establishment_id = Number(selectedEstablishment.id);
+                if (isNaN(establishment_id) || establishment_id <= 0) {
+                  throw new Error('Estabelecimento inválido.');
                 }
 
                 // Garantir que o horário esteja no formato HH:mm:ss
@@ -2582,13 +2594,13 @@ export default function RestaurantReservationsPage() {
                   reservation_date: reservationData.reservation_date,
                   reservation_time: reservation_time,
                   number_of_people: Number(reservationData.number_of_people) || 1,
-                  area_id: Number(reservationData.area_id),
+                  area_id: area_id,
                   table_number: reservationData.table_number || null,
                   status: isEditing ? reservationData.status || editingReservation.status : 'NOVA',
                   origin: 'PESSOAL', // Sempre 'PESSOAL' para reservas criadas por admin (permite mesas virtuais)
                   notes: reservationData.notes || null,
                   created_by: 1, // ID do usuário admin padrão
-                  establishment_id: Number(selectedEstablishment.id),
+                  establishment_id: establishment_id,
                   evento_id: reservationData.evento_id || null,
                   send_email: reservationData.send_email !== undefined ? reservationData.send_email : true,
                   send_whatsapp: reservationData.send_whatsapp !== undefined ? reservationData.send_whatsapp : true,
@@ -2612,10 +2624,25 @@ export default function RestaurantReservationsPage() {
                   client_name: !!requestBody.client_name && requestBody.client_name.trim() !== '',
                   reservation_date: !!requestBody.reservation_date,
                   reservation_time: !!requestBody.reservation_time,
-                  area_id: !!requestBody.area_id && !isNaN(Number(requestBody.area_id)),
-                  establishment_id: !!requestBody.establishment_id && !isNaN(Number(requestBody.establishment_id)),
-                  number_of_people: !!requestBody.number_of_people && Number(requestBody.number_of_people) > 0
+                  area_id: requestBody.area_id,
+                  area_id_type: typeof requestBody.area_id,
+                  area_id_valid: !!requestBody.area_id && !isNaN(Number(requestBody.area_id)) && Number(requestBody.area_id) > 0,
+                  establishment_id: requestBody.establishment_id,
+                  establishment_id_type: typeof requestBody.establishment_id,
+                  establishment_id_valid: !!requestBody.establishment_id && !isNaN(Number(requestBody.establishment_id)) && Number(requestBody.establishment_id) > 0,
+                  number_of_people: requestBody.number_of_people,
+                  number_of_people_valid: !!requestBody.number_of_people && Number(requestBody.number_of_people) > 0
                 });
+                
+                // Validação final antes de enviar
+                if (!requestBody.area_id || isNaN(Number(requestBody.area_id)) || Number(requestBody.area_id) <= 0) {
+                  console.error('❌ [restaurant-reservations] area_id inválido:', requestBody.area_id);
+                  throw new Error(`Área inválida: ${requestBody.area_id}. Selecione uma área válida.`);
+                }
+                if (!requestBody.establishment_id || isNaN(Number(requestBody.establishment_id)) || Number(requestBody.establishment_id) <= 0) {
+                  console.error('❌ [restaurant-reservations] establishment_id inválido:', requestBody.establishment_id);
+                  throw new Error(`Estabelecimento inválido: ${requestBody.establishment_id}.`);
+                }
 
                 const response = await fetch(url, {
                   method: method,

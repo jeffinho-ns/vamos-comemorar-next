@@ -416,10 +416,8 @@ export default function ReservationModal({
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
-    // 18+
-    if (!formData.data_nascimento_cliente) {
-      newErrors.data_nascimento_cliente = 'Data de nascimento é obrigatória';
-    } else {
+    // 18+ (apenas se fornecido)
+    if (formData.data_nascimento_cliente) {
       const bd = new Date(formData.data_nascimento_cliente + 'T00:00:00');
       const today = new Date();
       const eighteen = new Date(today);
