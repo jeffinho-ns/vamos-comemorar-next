@@ -346,6 +346,8 @@ const DuplicateEvent: React.FC<DuplicateEventProps> = ({ isOpen, onRequestClose,
       dia_da_semana: tipoEvento === 'semanal' ? diaDaSemana : null,
       imagem_do_evento: finalImagemEventoFilename,
       imagem_do_combo: finalImagemComboFilename,
+      // IMPORTANTE: Incluir id_place do evento original para que as reservas sejam vinculadas corretamente
+      id_place: event.id_place || event.establishment_id || null,
       // Incluir atrações do evento original para duplicação
       atracoes: atracoesOriginais.length > 0 ? atracoesOriginais.map(a => ({
         nome_atracao: a.nome_atracao,
