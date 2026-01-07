@@ -2580,10 +2580,27 @@ export default function RestaurantReservationsPage() {
                   throw new Error('Estabelecimento inválido.');
                 }
 
-                // Garantir que o horário esteja no formato HH:mm:ss
+                // Validar e formatar o horário
                 let reservation_time = reservationData.reservation_time;
-                if (reservation_time && reservation_time.split(':').length === 2) {
+                if (!reservation_time || reservation_time.trim() === '') {
+                  throw new Error('Horário da reserva é obrigatório');
+                }
+                
+                // Garantir que o horário esteja no formato HH:mm:ss
+                reservation_time = reservation_time.trim();
+                if (reservation_time.split(':').length === 2) {
                   reservation_time = `${reservation_time}:00`;
+                }
+                
+                // Validar formato do horário
+                const timeRegex = /^([0-1][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$/;
+                if (!timeRegex.test(reservation_time)) {
+                  throw new Error(`Formato de horário inválido: ${reservation_time}. Use HH:mm ou HH:mm:ss`);
+                }
+                
+                // Validar formato da data
+                if (!reservationData.reservation_date || !/^\d{4}-\d{2}-\d{2}$/.test(reservationData.reservation_date)) {
+                  throw new Error(`Formato de data inválido: ${reservationData.reservation_date}. Use YYYY-MM-DD`);
                 }
 
                 const requestBody = {
@@ -2658,7 +2675,8 @@ export default function RestaurantReservationsPage() {
                   console.error('❌ [restaurant-reservations] Erro na resposta:', {
                     status: response.status,
                     statusText: response.statusText,
-                    error: errorText
+                    error: errorText,
+                    requestBody: requestBody
                   });
                   let errorData;
                   try {
@@ -2666,56 +2684,64 @@ export default function RestaurantReservationsPage() {
                   } catch (e) {
                     errorData = { error: errorText };
                   }
-                  throw new Error(errorData.error || `Erro ${response.status}: ${response.statusText}`);
+                  
+                  // Exibir mensagem de erro mais detalhada
+                  const errorMessage = errorData.error || errorData.message || `Erro ${response.status}: ${response.statusText}`;
+                  console.error('❌ [restaurant-reservations] Mensagem de erro da API:', errorMessage);
+                  alert(`Erro ao salvar reserva:\n\n${errorMessage}\n\nVerifique o console (F12) para mais detalhes.`);
+                  setShowModal(false);
+                  setEditingReservation(null);
+                  return; // Sair da função sem fechar o modal novamente
                 }
 
-                if (response.ok) {
-                  const result = await response.json();
-                  
-                  if (isEditing) {
-                    // Atualizar reserva existente
-                    setReservations(prev => 
-                      prev.map(r => 
-                        r.id === editingReservation.id ? result.reservation : r
-                      )
-                    );
-                    alert('Reserva atualizada com sucesso!');
-                    console.log('✅ Reserva atualizada com sucesso:', result);
-                  } else {
-                    // Adicionar nova reserva
-                    setReservations(prev => [...prev, result.reservation]);
-                    console.log('✅ Reserva salva com sucesso:', result);
-                    
-                    // Se foi gerada uma lista de convidados, mostrar o link
-                    if (result.guest_list_link) {
-                      const copyToClipboard = () => {
-                        navigator.clipboard.writeText(result.guest_list_link);
-                      };
-                      
-                      if (window.confirm(
-                        `✅ Reserva criada com sucesso!\n\n` +
-                        `🎉 Lista de convidados gerada!\n\n` +
-                        `Link: ${result.guest_list_link}\n\n` +
-                        `Clique em OK para copiar o link para a área de transferência.`
-                      )) {
-                        copyToClipboard();
-                        alert('Link copiado! Você pode enviar este link para o cliente.');
-                      }
-                      
-                      // Recarregar lista de convidados
-                      await loadGuestLists();
-                    } else {
-                      alert('Reserva criada com sucesso!');
-                    }
-                  }
+                // Se chegou aqui, a resposta foi OK
+                const result = await response.json();
+                
+                if (isEditing) {
+                  // Atualizar reserva existente
+                  setReservations(prev => 
+                    prev.map(r => 
+                      r.id === editingReservation.id ? result.reservation : r
+                    )
+                  );
+                  alert('Reserva atualizada com sucesso!');
+                  console.log('✅ Reserva atualizada com sucesso:', result);
                 } else {
-                  const errorData = await response.json();
-                  console.error('❌ Erro ao salvar reserva:', errorData);
-                  alert('Erro ao salvar reserva: ' + (errorData.error || 'Erro desconhecido'));
+                  // Adicionar nova reserva
+                  setReservations(prev => [...prev, result.reservation]);
+                  console.log('✅ Reserva salva com sucesso:', result);
+                  
+                  // Se foi gerada uma lista de convidados, mostrar o link
+                  if (result.guest_list_link) {
+                    const copyToClipboard = () => {
+                      navigator.clipboard.writeText(result.guest_list_link);
+                    };
+                    
+                    if (window.confirm(
+                      `✅ Reserva criada com sucesso!\n\n` +
+                      `🎉 Lista de convidados gerada!\n\n` +
+                      `Link: ${result.guest_list_link}\n\n` +
+                      `Clique em OK para copiar o link para a área de transferência.`
+                    )) {
+                      copyToClipboard();
+                      alert('Link copiado! Você pode enviar este link para o cliente.');
+                    }
+                    
+                    // Recarregar lista de convidados
+                    await loadGuestLists();
+                  } else {
+                    alert('Reserva criada com sucesso!');
+                  }
                 }
-              } catch (error) {
+                
+                setShowModal(false);
+                setEditingReservation(null);
+              } catch (error: any) {
                 console.error('❌ Erro ao salvar reserva:', error);
-                alert('Erro ao salvar reserva. Tente novamente.');
+                console.error('❌ Stack trace:', error?.stack);
+                const errorMessage = error?.message || 'Erro desconhecido ao salvar reserva.';
+                alert(`Erro ao salvar reserva:\n\n${errorMessage}\n\nVerifique o console (F12) para mais detalhes.`);
+                // Não fechar o modal em caso de erro para que o usuário possa corrigir
               }
               setShowModal(false);
               setEditingReservation(null);
