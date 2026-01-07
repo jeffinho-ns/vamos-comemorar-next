@@ -1,11 +1,10 @@
 "use client";
-import { MdAdd, MdRefresh, MdEdit, MdDelete } from "react-icons/md";
+import { MdAdd, MdRefresh, MdEdit, MdDelete, MdContentCopy } from "react-icons/md";
 import { EventDataApi } from '../../types/types';
 import AddEvent from "../../components/events/AddEvent";
 import EditEventModal from "@/app/components/EditEvent/EditEvent";
-import { useEffect, useState } from "react";
-import { useRouter } from 'next/navigation';
-import Image from 'next/image';
+import DuplicateEvent from "@/app/components/DuplicateEvent/DuplicateEvent";
+import { useEffect, useState, useMemo } from "react";
 
 
 
@@ -15,6 +14,7 @@ export default function EventsPage() {
   const [error, setError] = useState<string | null>(null);
   const [modalIsOpen, setModalIsOpen] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
+  const [duplicateModalOpen, setDuplicateModalOpen] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<EventDataApi | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(0);
@@ -89,6 +89,29 @@ const openEditModal = (event: EventDataApi) => {
     setEditModalOpen(false);
   };
 
+  const openDuplicateModal = (event: EventDataApi) => {
+    setSelectedEvent(event);
+    setDuplicateModalOpen(true);
+  };
+
+  const closeDuplicateModal = () => {
+    setSelectedEvent(null);
+    setDuplicateModalOpen(false);
+  };
+
+  // Agrupar eventos por estabelecimento (casa_do_evento)
+  const eventsByEstablishment = useMemo(() => {
+    const grouped: Record<string, EventDataApi[]> = {};
+    events.forEach(event => {
+      const establishment = event.casa_do_evento || 'Sem estabelecimento';
+      if (!grouped[establishment]) {
+        grouped[establishment] = [];
+      }
+      grouped[establishment].push(event);
+    });
+    return grouped;
+  }, [events]);
+
   const handlePreviousPage = () => {
     if (currentPage > 1) setCurrentPage(currentPage - 1);
   };
@@ -132,85 +155,100 @@ const openEditModal = (event: EventDataApi) => {
           </button>
         </div>
 
-        <div className="bg-white/95 backdrop-blur-sm shadow-lg rounded-2xl overflow-hidden border border-gray-200/20">
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-left">
-              <thead className="bg-gray-50/80">
-                <tr>
-                  <th className="px-6 py-4 font-bold text-gray-800">Dia do Evento</th>
-                  <th className="px-6 py-4 font-bold text-gray-800">Nome do Evento</th>
-                  <th className="px-6 py-4 font-bold text-gray-800">Local</th>
-                  <th className="px-6 py-4 font-bold text-gray-800">Brinde</th>
-                  <th className="px-6 py-4 font-bold text-gray-800">Mesas</th>
-                  <th className="px-6 py-4 font-bold text-gray-800">Categoria</th>
-                  <th className="px-6 py-4 font-bold text-gray-800">Ações</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {events.length > 0 ? (
-                  events.map((event) => (
-                    <tr key={event.id} className="hover:bg-gray-50/50 transition-colors">
-                      <td className="px-6 py-4">
-                        {/* LÓGICA CORRIGIDA PARA TIMEZONE */}
-                        {event.tipo_evento === 'unico'
-                          ? (() => {
-                              if (!event.data_do_evento) return 'Data não definida';
-                              try {
-                                const dateWithTime = event.data_do_evento.includes('T') || event.data_do_evento.includes(' ')
-                                  ? event.data_do_evento
-                                  : event.data_do_evento + 'T12:00:00';
-                                return new Date(dateWithTime).toLocaleDateString('pt-BR');
-                              } catch (error) {
-                                console.error('Erro ao formatar data:', event.data_do_evento, error);
-                                return 'Data inválida';
-                              }
-                            })()
-                          : `Toda ${['Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado'][event.dia_da_semana!]}`
-                        }
-                      </td>
-                      <td className="px-6 py-4 font-semibold text-gray-800">{event.nome_do_evento}</td>
-                      <td className="px-6 py-4 text-gray-600">{event.casa_do_evento}</td>
-                      <td className="px-6 py-4">
-                        <span className="inline-block px-3 py-1 text-sm font-semibold bg-yellow-100 text-yellow-800 rounded-full border border-yellow-200">
-                          {event.brinde}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-gray-600">{event.mesas}</td>
-                      <td className="px-6 py-4">
-                        <span className="inline-block px-3 py-1 text-sm font-semibold bg-blue-100 text-blue-800 rounded-full border border-blue-200">
-                          {event.categoria}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 flex space-x-3">
-                        <button 
-                          title="Editar" 
-                          onClick={() => openEditModal(event)}
-                          className="text-blue-600 hover:text-blue-800 p-2 rounded-lg hover:bg-blue-50 transition-all duration-200"
-                        >
-                          <MdEdit size={20} />
-                        </button>
-                        <button 
-                          onClick={() => deleteEvent(event.id)} 
-                          title="Excluir"
-                          className="text-red-600 hover:text-red-800 p-2 rounded-lg hover:bg-red-50 transition-all duration-200"
-                        >
-                          <MdDelete size={20} />
-                        </button>
-                      </td>
-                    </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan={7} className="px-6 py-12 text-center">
-                      <div className="text-gray-400 text-lg mb-2">📅</div>
-                      <p className="text-gray-500 text-lg">Nenhum evento encontrado</p>
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+        {/* Eventos separados por estabelecimento */}
+        {Object.keys(eventsByEstablishment).length > 0 ? (
+          Object.entries(eventsByEstablishment).map(([establishment, establishmentEvents]) => (
+            <div key={establishment} className="mb-8">
+              <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white p-4 rounded-t-2xl">
+                <h2 className="text-2xl font-bold">{establishment}</h2>
+                <p className="text-blue-100 text-sm mt-1">{establishmentEvents.length} evento(s)</p>
+              </div>
+              <div className="bg-white/95 backdrop-blur-sm shadow-lg rounded-b-2xl overflow-hidden border border-gray-200/20 border-t-0">
+                <div className="overflow-x-auto">
+                  <table className="min-w-full text-left">
+                    <thead className="bg-gray-50/80">
+                      <tr>
+                        <th className="px-6 py-4 font-bold text-gray-800">Dia do Evento</th>
+                        <th className="px-6 py-4 font-bold text-gray-800">Nome do Evento</th>
+                        <th className="px-6 py-4 font-bold text-gray-800">Local</th>
+                        <th className="px-6 py-4 font-bold text-gray-800">Brinde</th>
+                        <th className="px-6 py-4 font-bold text-gray-800">Mesas</th>
+                        <th className="px-6 py-4 font-bold text-gray-800">Categoria</th>
+                        <th className="px-6 py-4 font-bold text-gray-800">Ações</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {establishmentEvents.map((event) => (
+                        <tr key={event.id} className="hover:bg-gray-50/50 transition-colors">
+                          <td className="px-6 py-4">
+                            {event.tipo_evento === 'unico'
+                              ? (() => {
+                                  if (!event.data_do_evento) return 'Data não definida';
+                                  try {
+                                    const dateWithTime = event.data_do_evento.includes('T') || event.data_do_evento.includes(' ')
+                                      ? event.data_do_evento
+                                      : event.data_do_evento + 'T12:00:00';
+                                    return new Date(dateWithTime).toLocaleDateString('pt-BR');
+                                  } catch (error) {
+                                    console.error('Erro ao formatar data:', event.data_do_evento, error);
+                                    return 'Data inválida';
+                                  }
+                                })()
+                              : `Toda ${['Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado'][event.dia_da_semana!]}`
+                            }
+                          </td>
+                          <td className="px-6 py-4 font-semibold text-gray-800">{event.nome_do_evento}</td>
+                          <td className="px-6 py-4 text-gray-600">{event.local_do_evento || '-'}</td>
+                          <td className="px-6 py-4">
+                            <span className="inline-block px-3 py-1 text-sm font-semibold bg-yellow-100 text-yellow-800 rounded-full border border-yellow-200">
+                              {event.brinde || '-'}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 text-gray-600">{event.mesas || '-'}</td>
+                          <td className="px-6 py-4">
+                            <span className="inline-block px-3 py-1 text-sm font-semibold bg-blue-100 text-blue-800 rounded-full border border-blue-200">
+                              {event.categoria || '-'}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 flex space-x-2">
+                            <button 
+                              title="Editar" 
+                              onClick={() => openEditModal(event)}
+                              className="text-blue-600 hover:text-blue-800 p-2 rounded-lg hover:bg-blue-50 transition-all duration-200"
+                            >
+                              <MdEdit size={20} />
+                            </button>
+                            <button 
+                              title="Duplicar" 
+                              onClick={() => openDuplicateModal(event)}
+                              className="text-green-600 hover:text-green-800 p-2 rounded-lg hover:bg-green-50 transition-all duration-200"
+                            >
+                              <MdContentCopy size={20} />
+                            </button>
+                            <button 
+                              onClick={() => deleteEvent(event.id)} 
+                              title="Excluir"
+                              className="text-red-600 hover:text-red-800 p-2 rounded-lg hover:bg-red-50 transition-all duration-200"
+                            >
+                              <MdDelete size={20} />
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          ))
+        ) : (
+          <div className="bg-white/95 backdrop-blur-sm shadow-lg rounded-2xl overflow-hidden border border-gray-200/20">
+            <div className="px-6 py-12 text-center">
+              <div className="text-gray-400 text-lg mb-2">📅</div>
+              <p className="text-gray-500 text-lg">Nenhum evento encontrado</p>
+            </div>
           </div>
-        </div>
+        )}
 
         <div className="mt-8 flex justify-center gap-3">
           <button 
@@ -239,12 +277,23 @@ const openEditModal = (event: EventDataApi) => {
         onEventAdded={() => fetchEvents(currentPage)}
       />
       {selectedEvent && (
-        <EditEventModal
-          isOpen={editModalOpen}
-          onRequestClose={closeEditModal}
-          event={selectedEvent}
-          onEventUpdated={() => fetchEvents(currentPage)}
-        />
+        <>
+          <EditEventModal
+            isOpen={editModalOpen}
+            onRequestClose={closeEditModal}
+            event={selectedEvent}
+            onEventUpdated={() => fetchEvents(currentPage)}
+          />
+          <DuplicateEvent
+            isOpen={duplicateModalOpen}
+            onRequestClose={closeDuplicateModal}
+            event={selectedEvent}
+            onEventDuplicated={() => {
+              fetchEvents(currentPage);
+              closeDuplicateModal();
+            }}
+          />
+        </>
       )}
     </div>
   );
