@@ -574,8 +574,16 @@ export default function ReservationModal({
     const establishment_id = Number(establishment.id);
 
     // Validar todos os campos obrigatórios antes de criar o payload
-    const client_name = formData.client_name?.trim();
+    const client_name = formData.client_name?.trim() || '';
+    console.log('🔍 [ReservationModal] Validando client_name:', {
+      original: formData.client_name,
+      trimmed: client_name,
+      isEmpty: !client_name || client_name === '',
+      formData: formData
+    });
+    
     if (!client_name || client_name === '') {
+      console.error('❌ [ReservationModal] client_name está vazio ou ausente');
       throw new Error('Nome do cliente é obrigatório');
     }
     
@@ -651,9 +659,11 @@ export default function ReservationModal({
     }
 
     try {
-      console.log('🔍 Validação final antes de enviar:', {
+      console.log('🔍 [ReservationModal] Validação final antes de enviar:', {
         client_name: payload.client_name,
         client_name_length: payload.client_name?.length,
+        client_name_type: typeof payload.client_name,
+        client_name_valid: !!payload.client_name && payload.client_name.trim() !== '',
         reservation_date: payload.reservation_date,
         reservation_time: payload.reservation_time,
         number_of_people: payload.number_of_people,
@@ -664,6 +674,14 @@ export default function ReservationModal({
         table_number: payload.table_number,
         origin: payload.origin
       });
+      
+      console.log('📤 [ReservationModal] Payload completo sendo enviado para onSave:', JSON.stringify(payload, null, 2));
+      
+      // Validação final crítica antes de chamar onSave
+      if (!payload.client_name || typeof payload.client_name !== 'string' || payload.client_name.trim() === '') {
+        console.error('❌ [ReservationModal] ERRO CRÍTICO: client_name inválido no payload final:', payload);
+        throw new Error('Nome do cliente é obrigatório e não pode estar vazio.');
+      }
       
       await onSave(payload);
       onClose();

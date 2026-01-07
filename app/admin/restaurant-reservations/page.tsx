@@ -2655,6 +2655,16 @@ export default function RestaurantReservationsPage() {
                 });
                 
                 // Validação final antes de enviar
+                // Validação crítica do client_name
+                if (!requestBody.client_name || typeof requestBody.client_name !== 'string' || requestBody.client_name.trim() === '') {
+                  console.error('❌ [restaurant-reservations] client_name inválido ou ausente:', {
+                    client_name: requestBody.client_name,
+                    type: typeof requestBody.client_name,
+                    reservationData: reservationData
+                  });
+                  throw new Error('Nome do cliente é obrigatório e não pode estar vazio.');
+                }
+                
                 if (!requestBody.area_id || isNaN(Number(requestBody.area_id)) || Number(requestBody.area_id) <= 0) {
                   console.error('❌ [restaurant-reservations] area_id inválido:', requestBody.area_id);
                   throw new Error(`Área inválida: ${requestBody.area_id}. Selecione uma área válida.`);
@@ -2663,6 +2673,19 @@ export default function RestaurantReservationsPage() {
                   console.error('❌ [restaurant-reservations] establishment_id inválido:', requestBody.establishment_id);
                   throw new Error(`Estabelecimento inválido: ${requestBody.establishment_id}.`);
                 }
+
+                // Log final do payload antes de enviar
+                console.log('📤 [restaurant-reservations] Payload final antes de enviar:', {
+                  client_name: requestBody.client_name,
+                  client_name_length: requestBody.client_name?.length,
+                  client_name_type: typeof requestBody.client_name,
+                  reservation_date: requestBody.reservation_date,
+                  reservation_time: requestBody.reservation_time,
+                  area_id: requestBody.area_id,
+                  establishment_id: requestBody.establishment_id,
+                  number_of_people: requestBody.number_of_people,
+                  full_payload: JSON.stringify(requestBody, null, 2)
+                });
 
                 const response = await fetch(url, {
                   method: method,
