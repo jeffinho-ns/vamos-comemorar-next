@@ -2552,9 +2552,12 @@ export default function RestaurantReservationsPage() {
                 const method = isEditing ? 'PUT' : 'POST';
 
                 // Validar campos obrigatórios antes de criar o requestBody
-                if (!reservationData.client_name || !reservationData.client_name.trim()) {
+                // Validar client_name de forma mais robusta
+                const client_name = reservationData.client_name?.trim() || '';
+                if (!client_name || client_name === '') {
                   throw new Error('Nome do cliente é obrigatório');
                 }
+                
                 if (!reservationData.reservation_date) {
                   throw new Error('Data da reserva é obrigatória');
                 }
@@ -2604,7 +2607,7 @@ export default function RestaurantReservationsPage() {
                 }
 
                 const requestBody = {
-                  client_name: reservationData.client_name.trim(),
+                  client_name: client_name,
                   client_phone: reservationData.client_phone?.trim() || null,
                   client_email: reservationData.client_email?.trim() || null,
                   data_nascimento_cliente: reservationData.data_nascimento_cliente || null,
