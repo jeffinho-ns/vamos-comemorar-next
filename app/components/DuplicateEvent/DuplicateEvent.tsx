@@ -63,6 +63,15 @@ const DuplicateEvent: React.FC<DuplicateEventProps> = ({ isOpen, onRequestClose,
 
   // Data original do evento para validação
   const [originalEventDate, setOriginalEventDate] = useState<string | null>(null);
+  
+  // Estado para atrações do evento original
+  interface Atracao {
+    nome_atracao: string;
+    ambiente: string;
+    horario_inicio: string;
+    horario_termino: string;
+  }
+  const [atracoesOriginais, setAtracoesOriginais] = useState<Atracao[]>([]);
 
   // Função auxiliar para montar URL da imagem (para galeria)
   const getValidImageUrl = useCallback((filename: string): string => {
@@ -130,8 +139,36 @@ const DuplicateEvent: React.FC<DuplicateEventProps> = ({ isOpen, onRequestClose,
       setImagemDoCombo(null);
       setImagemEventoFilename(null);
       setImagemComboFilename(null);
+      
+      // Buscar atrações do evento original
+      if (event.id) {
+        fetchAtracoes(event.id);
+      }
     }
   }, [event, getImageUrl]);
+
+  // Função para buscar atrações do evento original
+  const fetchAtracoes = async (eventoId: number) => {
+    try {
+      const token = localStorage.getItem("authToken");
+      // Buscar atrações através do endpoint de check-ins que retorna as atrações
+      const response = await fetch(`${API_URL}/api/v1/eventos/${eventoId}/checkins`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        const atracoes = data.dados?.atracoes || [];
+        setAtracoesOriginais(atracoes);
+        console.log('✅ Atrações do evento original carregadas:', atracoes.length);
+      }
+    } catch (error) {
+      console.error('Erro ao buscar atrações do evento original:', error);
+      setAtracoesOriginais([]);
+    }
+  };
 
   // Função para buscar imagens da galeria
   const fetchGalleryImages = useCallback(async (): Promise<Array<{
@@ -309,6 +346,13 @@ const DuplicateEvent: React.FC<DuplicateEventProps> = ({ isOpen, onRequestClose,
       dia_da_semana: tipoEvento === 'semanal' ? diaDaSemana : null,
       imagem_do_evento: finalImagemEventoFilename,
       imagem_do_combo: finalImagemComboFilename,
+      // Incluir atrações do evento original para duplicação
+      atracoes: atracoesOriginais.length > 0 ? atracoesOriginais.map(a => ({
+        nome_atracao: a.nome_atracao,
+        ambiente: a.ambiente,
+        horario_inicio: a.horario_inicio,
+        horario_termino: a.horario_termino
+      })) : [],
     };
 
     // 4. Faz a requisição POST para criar o novo evento (duplicado)
