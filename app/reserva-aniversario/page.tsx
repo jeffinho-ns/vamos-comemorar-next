@@ -474,13 +474,26 @@ export default function ReservaAniversarioPage() {
         }
       }
 
+      // Validar que areaId e horario foram fornecidos
+      if (!areaId || areaId === 0 || isNaN(areaId)) {
+        alert('Por favor, selecione uma área válida');
+        setIsLoading(false);
+        return;
+      }
+      
+      if (!formData.horario || formData.horario.trim() === '') {
+        alert('Por favor, selecione um horário');
+        setIsLoading(false);
+        return;
+      }
+
       const reservationData = {
         user_id: 1, // TODO: Get from auth
         aniversariante_nome: formData.aniversarianteNome,
         data_aniversario: new Date(formData.dataAniversario).toISOString(),
         quantidade_convidados: formData.quantidadeConvidados,
         id_casa_evento: establishmentId,
-        area_id: areaId, // Adicionar área
+        area_id: areaId, // Adicionar área (garantir que é número)
         reservation_time: formData.horario.includes(':') && formData.horario.split(':').length === 2 
           ? `${formData.horario}:00` 
           : formData.horario, // Adicionar horário
@@ -497,12 +510,20 @@ export default function ReservaAniversarioPage() {
         email: formData.email,
       };
 
+      console.log('📤 Enviando dados para API:', {
+        ...reservationData,
+        area_id: areaId,
+        reservation_time: reservationData.reservation_time
+      });
+      
       const result = await BirthdayService.createBirthdayReservation(reservationData);
       
       // A criação de reserva de restaurante e lista de convidados agora é feita automaticamente na API
       console.log('✅ Reserva de aniversário criada:', result);
       if ((result as any).restaurant_reservation_id) {
         console.log('✅ Reserva de restaurante criada automaticamente:', (result as any).restaurant_reservation_id);
+      } else {
+        console.warn('⚠️ Reserva de restaurante não foi criada. Verifique os logs da API.');
       }
       
       alert(`Reserva criada com sucesso! ID: ${result.id}`);
