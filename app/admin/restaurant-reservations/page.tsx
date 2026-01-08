@@ -1187,11 +1187,19 @@ export default function RestaurantReservationsPage() {
                           className="bg-gray-50 rounded-lg p-4 border border-gray-200 hover:shadow-md transition-shadow"
                         >
                           <div className="flex items-start justify-between mb-3">
-                            <div>
-                              <h4 className="font-semibold text-gray-800">{reservation.client_name}</h4>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                {reservation.notes && reservation.notes.includes('🎂') && (
+                                  <span className="text-xl flex-shrink-0">🎂</span>
+                                )}
+                                <h4 className="font-semibold text-gray-800 truncate">{reservation.client_name}</h4>
+                              </div>
                               <p className="text-sm text-gray-500">{reservation.reservation_date} às {reservation.reservation_time}</p>
+                              {reservation.notes && reservation.notes.includes('🎂') && (
+                                <p className="text-xs text-pink-600 font-medium mt-1">Reserva de Aniversário</p>
+                              )}
                             </div>
-                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                            <span className={`px-2 py-1 rounded-full text-xs font-medium flex-shrink-0 ${
                               reservation.status === 'confirmed' ? 'bg-green-100 text-green-800' :
                               reservation.status === 'checked-in' ? 'bg-blue-100 text-blue-800' :
                               reservation.status === 'completed' ? 'bg-gray-100 text-gray-800' :

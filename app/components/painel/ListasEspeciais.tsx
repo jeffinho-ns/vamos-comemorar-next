@@ -168,6 +168,13 @@ export default function ListasEspeciais({ establishment }: ListasEspeciaisProps)
 
               {/* Informações Principais */}
               <div className="space-y-3 mb-4">
+                {reservation.place_name && (
+                  <div className="flex items-center gap-2 text-gray-600">
+                    <MdLocationOn className="text-orange-500" />
+                    <span className="font-semibold">{reservation.place_name}</span>
+                  </div>
+                )}
+                
                 <div className="flex items-center gap-2 text-gray-600">
                   <MdPeople className="text-blue-500" />
                   <span>{reservation.quantidade_convidados} convidados</span>

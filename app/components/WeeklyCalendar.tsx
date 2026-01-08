@@ -503,15 +503,24 @@ export default function WeeklyCalendar({
                             key={reservation.id}
                             initial={{ opacity: 0, scale: 0.9 }}
                             animate={{ opacity: 1, scale: 1 }}
-                            className="p-2 rounded-lg border-2 text-xs cursor-pointer hover:shadow-lg transition-all duration-200 bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200 hover:border-blue-400"
+                            className={`p-2 rounded-lg border-2 text-xs cursor-pointer hover:shadow-lg transition-all duration-200 ${
+                              reservation.notes && reservation.notes.includes('🎂') 
+                                ? 'bg-gradient-to-r from-pink-50 to-yellow-50 border-pink-300 hover:border-pink-400' 
+                                : 'bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200 hover:border-blue-400'
+                            }`}
                             onClick={() => onEditReservation(reservation)}
                           >
                             {/* Cabeçalho da reserva */}
                             <div className="flex items-center justify-between mb-2">
-                              <span className="font-bold text-gray-800 truncate text-xs">
-                                {reservation.client_name}
-                              </span>
-                              <span className={`px-2 py-1 rounded-full text-xs font-bold ${getStatusColor(reservation.status)}`}>
+                              <div className="flex items-center gap-1 flex-1 min-w-0">
+                                {reservation.notes && reservation.notes.includes('🎂') && (
+                                  <span className="text-lg flex-shrink-0">🎂</span>
+                                )}
+                                <span className="font-bold text-gray-800 truncate text-xs">
+                                  {reservation.client_name}
+                                </span>
+                              </div>
+                              <span className={`px-2 py-1 rounded-full text-xs font-bold flex-shrink-0 ${getStatusColor(reservation.status)}`}>
                                 {getStatusText(reservation.status)}
                               </span>
                             </div>

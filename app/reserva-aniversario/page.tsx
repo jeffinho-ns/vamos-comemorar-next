@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import SafeImage from '../components/SafeImage';
@@ -8,7 +8,24 @@ import {
   FaBirthdayCake, FaPalette, FaGift, FaGlassCheers, FaUtensils, FaInfoCircle, FaExclamationTriangle,
   FaCheck, FaUser, FaImage, FaPlus, FaMinus, FaArrowLeft, FaArrowRight
 } from 'react-icons/fa';
+import { MdAccessTime, MdLocationOn } from 'react-icons/md';
 import { BirthdayService } from '../services/birthdayService';
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL_LOCAL || 'https://vamos-comemorar-api.onrender.com';
+
+interface Establishment {
+  id: number;
+  name: string;
+  logo: string;
+  address: string;
+}
+
+interface RestaurantArea {
+  id: number;
+  name: string;
+  capacity_lunch: number;
+  capacity_dinner: number;
+}
 
 // (Suas interfaces DecorationOption, BeverageOption, etc. permanecem as mesmas aqui)
 interface DecorationOption {
@@ -56,6 +73,8 @@ export default function ReservaAniversarioPage() {
     email: '',
     dataAniversario: '',
     barSelecionado: '',
+    areaPreferida: '',
+    horario: '',
     quantidadeConvidados: 1,
     painelTema: '',
     painelFrase: '',
@@ -68,6 +87,13 @@ export default function ReservaAniversarioPage() {
   const [selectedBeverages, setSelectedBeverages] = useState<Record<string, number>>({});
   const [selectedFoods, setSelectedFoods] = useState<Record<string, number>>({});
   const [selectedGifts, setSelectedGifts] = useState<GiftOption[]>([]);
+
+  // Estados para áreas e horários
+  const [establishments, setEstablishments] = useState<Establishment[]>([]);
+  const [selectedEstablishment, setSelectedEstablishment] = useState<Establishment | null>(null);
+  const [areas, setAreas] = useState<RestaurantArea[]>([]);
+  const [availableTimeSlots, setAvailableTimeSlots] = useState<string[]>([]);
+  const [selectedSubareaKey, setSelectedSubareaKey] = useState<string>('');
 
   // (Suas opções de decoração, painel, bebidas, etc. permanecem as mesmas)
   const decorationOptions: DecorationOption[] = [
@@ -135,7 +161,193 @@ export default function ReservaAniversarioPage() {
     { name: 'Lista-Presente - 20', price: 240.0, category: 'Presente', image: '/agilizai/prod-5.png' },
   ];
 
-  const barOptions = ['Seu Justino', 'Oh Fregues', 'HighLine', 'Pracinha do Seu Justino'];
+  // Subáreas específicas do Highline (mesmas da página de reserva)
+  const highlineSubareas = [
+    { key: 'deck-frente', area_id: 2, label: 'Área Deck - Frente', tableNumbers: ['05','06','07','08'] },
+    { key: 'deck-esquerdo', area_id: 2, label: 'Área Deck - Esquerdo', tableNumbers: ['01','02','03','04'] },
+    { key: 'deck-direito', area_id: 2, label: 'Área Deck - Direito', tableNumbers: ['09','10','11','12'] },
+    { key: 'bar', area_id: 2, label: 'Área Bar', tableNumbers: ['15','16','17'] },
+    { key: 'roof-direito', area_id: 5, label: 'Área Rooftop - Direito', tableNumbers: ['50','51','52','53','54','55'] },
+    { key: 'roof-bistro', area_id: 5, label: 'Área Rooftop - Bistrô', tableNumbers: ['70','71','72','73'] },
+    { key: 'roof-centro', area_id: 5, label: 'Área Rooftop - Centro', tableNumbers: ['44','45','46','47'] },
+    { key: 'roof-esquerdo', area_id: 5, label: 'Área Rooftop - Esquerdo', tableNumbers: ['60','61','62','63','64','65'] },
+    { key: 'roof-vista', area_id: 5, label: 'Área Rooftop - Vista', tableNumbers: ['40','41','42'] },
+  ];
+
+  // Subáreas específicas do Seu Justino
+  const seuJustinoSubareas = [
+    { key: 'lounge-bar', area_id: 1, label: 'Lounge Bar', tableNumbers: ['200','202'] },
+    { key: 'lounge-palco', area_id: 1, label: 'Lounge Palco', tableNumbers: ['204','206'] },
+    { key: 'lounge-aquario-tv', area_id: 1, label: 'Lounge Aquário TV', tableNumbers: ['208'] },
+    { key: 'lounge-aquario-spaten', area_id: 1, label: 'Lounge Aquário Spaten', tableNumbers: ['210'] },
+    { key: 'quintal-lateral-esquerdo', area_id: 2, label: 'Quintal Lateral Esquerdo', tableNumbers: ['20','22','24','26','28','29'] },
+    { key: 'quintal-central-esquerdo', area_id: 2, label: 'Quintal Central Esquerdo', tableNumbers: ['30','32','34','36','38','39'] },
+    { key: 'quintal-central-direito', area_id: 2, label: 'Quintal Central Direito', tableNumbers: ['40','42','44','46','48'] },
+    { key: 'quintal-lateral-direito', area_id: 2, label: 'Quintal Lateral Direito', tableNumbers: ['50','52','54','56','58','60','62','64'] },
+  ];
+
+  const isHighline = selectedEstablishment && (
+    (selectedEstablishment.name || '').toLowerCase().includes('high')
+  );
+
+  const isSeuJustino = selectedEstablishment && (
+    (selectedEstablishment.name || '').toLowerCase().includes('seu justino') && 
+    !(selectedEstablishment.name || '').toLowerCase().includes('pracinha')
+  );
+
+  const isPracinha = selectedEstablishment && (
+    (selectedEstablishment.name || '').toLowerCase().includes('pracinha')
+  );
+
+  // Carregar estabelecimentos
+  useEffect(() => {
+    const loadEstablishments = async () => {
+      try {
+        const response = await fetch(`${API_URL}/api/places`);
+        if (response.ok) {
+          const data = await response.json();
+          setEstablishments(Array.isArray(data) ? data : []);
+        }
+      } catch (error) {
+        console.error('Erro ao carregar estabelecimentos:', error);
+      }
+    };
+    loadEstablishments();
+  }, []);
+
+  // Carregar áreas quando estabelecimento for selecionado
+  const loadAreas = async (establishmentId: number) => {
+    try {
+      const response = await fetch(`${API_URL}/api/restaurant-areas`);
+      if (response.ok) {
+        const data = await response.json();
+        setAreas(data.areas || []);
+      } else {
+        setAreas([]);
+      }
+    } catch (error) {
+      console.error('Erro ao carregar áreas:', error);
+      setAreas([]);
+    }
+  };
+
+  // Janelas de horário para o Highline
+  const getHighlineTimeWindows = (dateStr: string, subareaKey?: string) => {
+    if (!dateStr) return [] as Array<{ start: string; end: string; label: string }>;
+    const date = new Date(dateStr + 'T00:00:00');
+    const weekday = date.getDay();
+    const windows: Array<{ start: string; end: string; label: string }> = [];
+    const isRooftop = subareaKey ? subareaKey.startsWith('roof') : false;
+    const isDeckOrBar = subareaKey ? (subareaKey.startsWith('deck') || subareaKey === 'bar') : false;
+
+    if (weekday === 5) {
+      windows.push({ start: '18:00', end: '21:00', label: 'Sexta-feira: 18:00–21:00' });
+    } else if (weekday === 6) {
+      if (isRooftop) {
+        windows.push({ start: '14:00', end: '17:00', label: 'Sábado Rooftop: 14:00–17:00' });
+      } else if (isDeckOrBar) {
+        windows.push({ start: '14:00', end: '20:00', label: 'Sábado Deck: 14:00–20:00' });
+      } else {
+        windows.push({ start: '14:00', end: '17:00', label: 'Sábado Rooftop: 14:00–17:00' });
+        windows.push({ start: '14:00', end: '20:00', label: 'Sábado Deck: 14:00–20:00' });
+      }
+    }
+    return windows;
+  };
+
+  // Janelas de horário para Seu Justino
+  const getSeuJustinoTimeWindows = (dateStr: string) => {
+    if (!dateStr) return [] as Array<{ start: string; end: string; label: string }>;
+    const date = new Date(`${dateStr}T00:00:00`);
+    const weekday = date.getDay();
+    const windows: Array<{ start: string; end: string; label: string }> = [];
+
+    if (weekday >= 2 && weekday <= 5) {
+      windows.push({ start: '18:00', end: '21:00', label: 'Terça a Sexta: 18:00–21:00' });
+    } else if (weekday === 6) {
+      windows.push({ start: '12:00', end: '15:00', label: 'Sábado - Primeiro Giro: 12:00–15:00' });
+      windows.push({ start: '20:00', end: '23:00', label: 'Sábado - Segundo Giro: 20:00–23:00' });
+    } else if (weekday === 0) {
+      windows.push({ start: '12:00', end: '15:00', label: 'Domingo: 12:00–15:00' });
+    }
+
+    return windows;
+  };
+
+  const getDefaultTimeWindows = (dateStr: string) => {
+    if (!dateStr) return [] as Array<{ start: string; end: string; label?: string }>;
+    const date = new Date(`${dateStr}T00:00:00`);
+    const weekday = date.getDay();
+
+    if (weekday === 6) {
+      return [{ start: '14:00', end: '23:00', label: 'Sábado - Horário estendido' }];
+    }
+    if (weekday === 5) {
+      return [{ start: '18:00', end: '23:30', label: 'Sexta-feira - Noite' }];
+    }
+    return [{ start: '18:00', end: '22:30', label: 'Horário padrão' }];
+  };
+
+  const createSlotsFromWindow = (start: string, end: string) => {
+    const slots: string[] = [];
+    if (!start || !end) return slots;
+
+    const [startHour, startMinute] = start.split(':').map(Number);
+    const [endHour, endMinute] = end.split(':').map(Number);
+
+    if (isNaN(startHour) || isNaN(endHour)) return slots;
+
+    const startTotal = startHour * 60 + (isNaN(startMinute) ? 0 : startMinute);
+    const endTotal = endHour * 60 + (isNaN(endMinute) ? 0 : endMinute);
+
+    for (let current = startTotal; current <= endTotal; current += 30) {
+      const hour = Math.floor(current / 60);
+      const minute = current % 60;
+      slots.push(`${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`);
+    }
+
+    return slots;
+  };
+
+  const computeAvailableTimeSlots = () => {
+    if (!formData.dataAniversario) return [] as string[];
+
+    if (isHighline) {
+      const windows = getHighlineTimeWindows(formData.dataAniversario, selectedSubareaKey);
+      if (!selectedSubareaKey && windows.length > 1) {
+        return [];
+      }
+      return windows.flatMap((window) => createSlotsFromWindow(window.start, window.end));
+    }
+
+    if (isSeuJustino || isPracinha) {
+      const windows = getSeuJustinoTimeWindows(formData.dataAniversario);
+      return windows.flatMap((window) => createSlotsFromWindow(window.start, window.end));
+    }
+
+    const windows = getDefaultTimeWindows(formData.dataAniversario);
+    return windows.flatMap((window) => createSlotsFromWindow(window.start, window.end));
+  };
+
+  // Calcular horários disponíveis quando área e data mudarem
+  useEffect(() => {
+    if (!formData.dataAniversario) {
+      setAvailableTimeSlots([]);
+      return;
+    }
+
+    if (!formData.areaPreferida && !(isHighline && selectedSubareaKey)) {
+      setAvailableTimeSlots([]);
+      return;
+    }
+
+    const slots = computeAvailableTimeSlots();
+    setAvailableTimeSlots(slots);
+
+    if (formData.horario && slots.length > 0 && !slots.includes(formData.horario)) {
+      setFormData(prev => ({ ...prev, horario: '' }));
+    }
+  }, [formData.dataAniversario, formData.areaPreferida, selectedSubareaKey, isHighline, isSeuJustino, isPracinha, selectedEstablishment]);
 
   // --- NOVAS FUNÇÕES de navegação ---
   const handleNext = () => {
@@ -178,8 +390,8 @@ export default function ReservaAniversarioPage() {
   };
 
   const handleSubmit = async () => {
-    if (!selectedDecoration || !formData.barSelecionado || !formData.dataAniversario) {
-      alert('Por favor, preencha todos os campos obrigatórios');
+    if (!selectedDecoration || !formData.barSelecionado || !formData.dataAniversario || !formData.areaPreferida || !formData.horario) {
+      alert('Por favor, preencha todos os campos obrigatórios (Estabelecimento, Data, Área e Horário)');
       return;
     }
 
@@ -205,12 +417,27 @@ export default function ReservaAniversarioPage() {
         return;
       }
 
+      // Obter area_id baseado na seleção
+      let areaId = parseInt(formData.areaPreferida);
+      if (isHighline || isSeuJustino) {
+        const sub = isHighline 
+          ? highlineSubareas.find(s => s.key === selectedSubareaKey)
+          : seuJustinoSubareas.find(s => s.key === selectedSubareaKey);
+        if (sub) {
+          areaId = sub.area_id;
+        }
+      }
+
       const reservationData = {
         user_id: 1, // TODO: Get from auth
         aniversariante_nome: formData.aniversarianteNome,
         data_aniversario: new Date(formData.dataAniversario).toISOString(),
         quantidade_convidados: formData.quantidadeConvidados,
         id_casa_evento: establishmentId,
+        area_id: areaId, // Adicionar área
+        reservation_time: formData.horario.includes(':') && formData.horario.split(':').length === 2 
+          ? `${formData.horario}:00` 
+          : formData.horario, // Adicionar horário
         decoracao_tipo: selectedDecoration.name,
         painel_personalizado: selectedPainelOption === 'personalizado',
         painel_tema: selectedPainelOption === 'personalizado' ? formData.painelTema : undefined,
@@ -225,6 +452,12 @@ export default function ReservaAniversarioPage() {
       };
 
       const result = await BirthdayService.createBirthdayReservation(reservationData);
+      
+      // A criação de reserva de restaurante e lista de convidados agora é feita automaticamente na API
+      console.log('✅ Reserva de aniversário criada:', result);
+      if (result.restaurant_reservation_id) {
+        console.log('✅ Reserva de restaurante criada automaticamente:', result.restaurant_reservation_id);
+      }
       
       alert(`Reserva criada com sucesso! ID: ${result.id}`);
       router.push('/decoracao-aniversario');
@@ -370,23 +603,159 @@ export default function ReservaAniversarioPage() {
                 <input
                   type="date"
                   value={formData.dataAniversario}
-                  onChange={(e) => setFormData({...formData, dataAniversario: e.target.value})}
+                  onChange={(e) => setFormData({
+                    ...formData, 
+                    dataAniversario: e.target.value,
+                    horario: '' // Limpar horário quando data mudar
+                  })}
                   className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-white focus:border-orange-500 focus:outline-none"
                 />
               </div>
               <div>
-                <label className="block text-white font-medium mb-2">Bar *</label>
+                <label className="block text-white font-medium mb-2">Estabelecimento *</label>
                 <select
                   value={formData.barSelecionado}
-                  onChange={(e) => setFormData({...formData, barSelecionado: e.target.value})}
+                  onChange={(e) => {
+                    const establishmentId = e.target.value;
+                    setFormData({
+                      ...formData, 
+                      barSelecionado: establishmentId,
+                      areaPreferida: '',
+                      horario: ''
+                    });
+                    const establishment = establishments.find(est => String(est.id) === establishmentId);
+                    setSelectedEstablishment(establishment || null);
+                    if (establishment) {
+                      loadAreas(establishment.id);
+                    }
+                    setSelectedSubareaKey('');
+                  }}
                   className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-white focus:border-orange-500 focus:outline-none"
                 >
-                  <option value="">Selecione um bar</option>
-                  {barOptions.map((bar) => (
-                    <option key={bar} value={bar}>{bar}</option>
+                  <option value="">Selecione um estabelecimento</option>
+                  {establishments.map((establishment) => (
+                    <option key={establishment.id} value={establishment.id.toString()}>
+                      {establishment.name}
+                    </option>
                   ))}
                 </select>
               </div>
+              {selectedEstablishment && (
+                <>
+                  <div>
+                    <label className="block text-white font-medium mb-2">Área Preferida *</label>
+                    <select
+                      value={(isHighline || isSeuJustino) ? selectedSubareaKey : formData.areaPreferida}
+                      onChange={(e) => {
+                        if (isHighline || isSeuJustino) {
+                          const key = e.target.value;
+                          setSelectedSubareaKey(key);
+                          const sub = isHighline 
+                            ? highlineSubareas.find(s => s.key === key)
+                            : seuJustinoSubareas.find(s => s.key === key);
+                          setFormData({
+                            ...formData,
+                            areaPreferida: sub ? String(sub.area_id) : '',
+                            horario: ''
+                          });
+                        } else {
+                          setFormData({
+                            ...formData,
+                            areaPreferida: e.target.value,
+                            horario: ''
+                          });
+                        }
+                      }}
+                      className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-white focus:border-orange-500 focus:outline-none"
+                    >
+                      <option value="">Selecione uma área</option>
+                      {isHighline
+                        ? highlineSubareas.map((s) => (
+                            <option key={s.key} value={s.key}>{s.label}</option>
+                          ))
+                        : isSeuJustino
+                        ? seuJustinoSubareas.map((s) => (
+                            <option key={s.key} value={s.key}>{s.label}</option>
+                          ))
+                        : areas.map((area) => (
+                            <option key={area.id} value={area.id.toString()}>{area.name}</option>
+                          ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-white font-medium mb-2">Horário *</label>
+                    <select
+                      value={formData.horario}
+                      onChange={(e) => setFormData({...formData, horario: e.target.value})}
+                      disabled={availableTimeSlots.length === 0}
+                      className={`w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-white focus:border-orange-500 focus:outline-none ${
+                        availableTimeSlots.length === 0 ? 'opacity-50 cursor-not-allowed' : ''
+                      }`}
+                    >
+                      <option value="">
+                        {availableTimeSlots.length === 0
+                          ? 'Selecione a área e a data para ver os horários'
+                          : 'Selecione um horário disponível'}
+                      </option>
+                      {availableTimeSlots.map((slot) => (
+                        <option key={slot} value={slot}>
+                          {slot}
+                        </option>
+                      ))}
+                    </select>
+                    {isHighline && formData.dataAniversario && (
+                      <div className="mt-2 text-xs text-gray-400">
+                        {(() => {
+                          const windows = getHighlineTimeWindows(formData.dataAniversario, selectedSubareaKey);
+                          if (windows.length === 0) {
+                            return (
+                              <div className="p-3 bg-red-500/20 border border-red-500/40 rounded-lg text-red-200">
+                                <p className="font-semibold">❌ RESERVAS FECHADAS</p>
+                                <p className="text-sm">Reservas disponíveis apenas Sexta e Sábado.</p>
+                              </div>
+                            );
+                          }
+                          return (
+                            <div className="p-3 bg-amber-500/20 border border-amber-500/40 rounded-lg text-amber-200">
+                              <p className="font-semibold mb-1">🕐 HORÁRIOS DISPONÍVEIS:</p>
+                              <ul className="list-disc pl-5 text-sm">
+                                {windows.map((w, i) => (
+                                  <li key={i}>{w.label}</li>
+                                ))}
+                              </ul>
+                            </div>
+                          );
+                        })()}
+                      </div>
+                    )}
+                    {(isSeuJustino || isPracinha) && formData.dataAniversario && (
+                      <div className="mt-2 text-xs text-gray-400">
+                        {(() => {
+                          const windows = getSeuJustinoTimeWindows(formData.dataAniversario);
+                          if (windows.length === 0) {
+                            return (
+                              <div className="p-3 bg-red-500/20 border border-red-500/40 rounded-lg text-red-200">
+                                <p className="font-semibold">❌ RESERVAS FECHADAS</p>
+                                <p className="text-sm">Reservas fechadas para este dia.</p>
+                              </div>
+                            );
+                          }
+                          return (
+                            <div className="p-3 bg-amber-500/20 border border-amber-500/40 rounded-lg text-amber-200">
+                              <p className="font-semibold mb-1">🕐 HORÁRIOS DISPONÍVEIS:</p>
+                              <ul className="list-disc pl-5 text-sm">
+                                {windows.map((w, i) => (
+                                  <li key={i}>{w.label}</li>
+                                ))}
+                              </ul>
+                            </div>
+                          );
+                        })()}
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
             </div>
             <div>
               <label className="block text-white font-medium mb-2">Quantidade de convidados</label>
@@ -753,7 +1122,7 @@ export default function ReservaAniversarioPage() {
             // Na última etapa, mostra o botão de confirmar
             <button
               onClick={handleSubmit}
-              disabled={isLoading || !selectedDecoration || !formData.barSelecionado || !formData.dataAniversario}
+              disabled={isLoading || !selectedDecoration || !formData.barSelecionado || !formData.dataAniversario || !formData.areaPreferida || !formData.horario}
               className="px-8 py-3 bg-orange-500 hover:bg-orange-600 disabled:bg-slate-600 text-white font-bold rounded-lg transition-colors disabled:cursor-not-allowed"
             >
               {isLoading ? 'Processando...' : 'CONFIRMAR RESERVA'}
