@@ -146,6 +146,12 @@ export default function PromotersPage() {
   const [establishmentFilter, setEstablishmentFilter] = useState<string>('');
   const [sortBy, setSortBy] = useState<string>('nome');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+  const [statistics, setStatistics] = useState({
+    total_promoters: 0,
+    active_promoters: 0,
+    total_convidados: 0,
+    receita_total: 0
+  });
   
   // Modais e estados
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -190,7 +196,8 @@ export default function PromotersPage() {
   useEffect(() => {
     fetchPromoters();
     fetchEstablishments();
-  }, []);
+    fetchStatistics();
+  }, [establishmentFilter]);
 
   useEffect(() => {
     filterAndSortPromoters();
@@ -220,6 +227,33 @@ export default function PromotersPage() {
       console.error('❌ Erro ao carregar promoters:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchStatistics = async () => {
+    try {
+      const token = localStorage.getItem('authToken');
+      const params = new URLSearchParams();
+      
+      if (establishmentFilter) {
+        params.append('establishment_id', establishmentFilter);
+      }
+      
+      const response = await fetch(`${API_URL}/api/v1/promoters/statistics?${params.toString()}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.statistics) {
+          setStatistics(data.statistics);
+        }
+      }
+    } catch (error) {
+      console.error('❌ Erro ao buscar estatísticas:', error);
     }
   };
 
@@ -715,7 +749,7 @@ export default function PromotersPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Total Promoters</p>
-                <p className="text-2xl font-bold text-gray-900">{promoters.length}</p>
+                <p className="text-2xl font-bold text-gray-900">{statistics.total_promoters}</p>
               </div>
               <div className="bg-purple-100 text-purple-600 p-3 rounded-full">
                 <MdPerson size={24} />
@@ -728,7 +762,7 @@ export default function PromotersPage() {
               <div>
                 <p className="text-sm font-medium text-gray-600">Promoters Ativos</p>
                 <p className="text-2xl font-bold text-green-600">
-                  {promoters.filter(p => p.status === 'Ativo').length}
+                  {statistics.active_promoters}
                 </p>
               </div>
               <div className="bg-green-100 text-green-600 p-3 rounded-full">
@@ -742,7 +776,7 @@ export default function PromotersPage() {
               <div>
                 <p className="text-sm font-medium text-gray-600">Total Convidados</p>
                 <p className="text-2xl font-bold text-blue-600">
-                  {formatNumber(promoters.reduce((sum, p) => sum + (p.total_convidados || 0), 0))}
+                  {formatNumber(statistics.total_convidados)}
                 </p>
               </div>
               <div className="bg-blue-100 text-blue-600 p-3 rounded-full">
@@ -756,7 +790,7 @@ export default function PromotersPage() {
               <div>
                 <p className="text-sm font-medium text-gray-600">Receita Total</p>
                 <p className="text-2xl font-bold text-green-600">
-                  {formatCurrency(promoters.reduce((sum, p) => sum + (p.receita_total_gerada || 0), 0))}
+                  {formatCurrency(statistics.receita_total)}
                 </p>
               </div>
               <div className="bg-green-100 text-green-600 p-3 rounded-full">

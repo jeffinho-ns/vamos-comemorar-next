@@ -75,6 +75,10 @@ export interface EventDataApi {
   // NOVOS CAMPOS DO JOIN na rota GET /api/events
   total_convidados_checkin: number;
   total_convidados_cadastrados: number;
+  
+  // Campos opcionais para estabelecimento
+  id_place?: number;
+  establishment_id?: number;
 }
 
 // Tipo para o formulário de evento no frontend (pode ter campos como string antes da conversão)
