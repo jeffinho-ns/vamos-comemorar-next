@@ -12,10 +12,29 @@ import {
 } from "react-icons/md";
 import { useRouter } from "next/navigation";
 
-// ✨ URL base para as imagens do usuário
-const BASE_IMAGE_URL = "https://grupoideiaum.com.br/cardapio-agilizaiapp/";
 // URL padrão para o caso de não haver foto
 const DEFAULT_AVATAR_URL = "https://via.placeholder.com/150";
+
+// Helper para obter a URL correta da imagem de perfil
+const getProfileImageUrl = (fotoPerfil?: string | null, fotoPerfilUrl?: string | null): string => {
+  // Priorizar foto_perfil_url se existir e for uma URL válida
+  if (fotoPerfilUrl && (fotoPerfilUrl.startsWith('http://') || fotoPerfilUrl.startsWith('https://'))) {
+    return fotoPerfilUrl;
+  }
+  
+  // Se foto_perfil for uma URL completa (Firebase Storage), usar diretamente
+  if (fotoPerfil && (fotoPerfil.startsWith('http://') || fotoPerfil.startsWith('https://'))) {
+    return fotoPerfil;
+  }
+  
+  // Se for blob URL (preview temporário), usar diretamente
+  if (fotoPerfil && fotoPerfil.startsWith('blob:')) {
+    return fotoPerfil;
+  }
+  
+  // Se não for URL completa, retornar placeholder (não usar URLs legadas do FTP)
+  return DEFAULT_AVATAR_URL;
+};
 
 export default function UserMenu() {
   const [user, setUser] = useState<any>(null);
@@ -81,33 +100,41 @@ export default function UserMenu() {
     );
   }
 
-  // ✨ Cria a URL completa da imagem usando a URL base e o nome do arquivo
-  const userProfileImageUrl = user?.foto_perfil
-    ? `${BASE_IMAGE_URL}${user.foto_perfil}`
-    : DEFAULT_AVATAR_URL;
+  // Obtém a URL correta da imagem (Firebase Storage ou placeholder)
+  const userProfileImageUrl = getProfileImageUrl(user?.foto_perfil, user?.foto_perfil_url);
+  const hasImage = userProfileImageUrl !== DEFAULT_AVATAR_URL && (user?.foto_perfil || user?.foto_perfil_url);
 
   return (
     <div className="relative" ref={menuRef}>
       <button
-        className="flex items-center gap-2 px-2 py-1 rounded-full hover:bg-gray-100"
+        className="flex items-center gap-2 px-2 py-1 rounded-full hover:bg-gray-100 transition-colors"
         onClick={() => setUserMenuOpen(!userMenuOpen)}
       >
-        <Image
-          src={userProfileImageUrl}
-          alt="Avatar"
-          width={36}
-          height={36}
-          className="rounded-full object-cover w-9 h-9"
-        />
+        {hasImage ? (
+          <Image
+            src={userProfileImageUrl}
+            alt="Avatar"
+            width={36}
+            height={36}
+            className="rounded-full object-cover w-9 h-9"
+            unoptimized={userProfileImageUrl.startsWith('blob:')}
+          />
+        ) : (
+          <div className="w-9 h-9 rounded-full bg-gradient-to-br from-gray-300 to-gray-400 flex items-center justify-center">
+            <MdPerson className="text-white text-xl" />
+          </div>
+        )}
 
-        <div className="hidden sm:flex flex-col items-start text-left">
-          <span className="text-sm font-semibold text-gray-800">
+        <div className="flex flex-col items-start text-left min-w-[100px]">
+          <span className="text-sm font-semibold text-gray-800 truncate max-w-[150px]">
             {user?.name || "Usuário"}
           </span>
-          <span className="text-xs text-gray-500">{user?.empresa || "Empresa"}</span>
+          <span className="text-xs text-gray-500 truncate max-w-[150px]">
+            {user?.empresa || user?.role || "Usuário"}
+          </span>
         </div>
 
-        <MdArrowDropDown className="text-gray-500" />
+        <MdArrowDropDown className="text-gray-500 flex-shrink-0" />
       </button>
 
       {userMenuOpen && (
