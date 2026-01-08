@@ -513,7 +513,11 @@ export default function ReservaAniversarioPage() {
       console.log('📤 Enviando dados para API:', {
         ...reservationData,
         area_id: areaId,
-        reservation_time: reservationData.reservation_time
+        reservation_time: reservationData.reservation_time,
+        'area_id (tipo)': typeof areaId,
+        'reservation_time (tipo)': typeof reservationData.reservation_time,
+        'area_id válido?': areaId && !isNaN(areaId) && areaId > 0,
+        'reservation_time válido?': reservationData.reservation_time && reservationData.reservation_time.trim() !== ''
       });
       
       const result = await BirthdayService.createBirthdayReservation(reservationData);

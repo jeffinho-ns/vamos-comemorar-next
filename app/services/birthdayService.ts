@@ -134,9 +134,12 @@ export class BirthdayService {
 
   static async getBirthdayReservationsByEstablishment(establishmentId: number): Promise<BirthdayReservation[]> {
     try {
-      console.log('Buscando reservas para estabelecimento ID:', establishmentId);
+      console.log('🔍 [BirthdayService] Buscando reservas para estabelecimento ID:', establishmentId, 'tipo:', typeof establishmentId);
       
-      const response = await fetch(`${API_BASE_URL}/birthday-reservations?establishment_id=${establishmentId}`, {
+      const url = `${API_BASE_URL}/birthday-reservations?establishment_id=${establishmentId}`;
+      console.log('🔍 [BirthdayService] URL:', url);
+      
+      const response = await fetch(url, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -145,18 +148,19 @@ export class BirthdayService {
         mode: 'cors',
       });
       
-      console.log('Status da resposta:', response.status);
+      console.log('📡 [BirthdayService] Status da resposta:', response.status);
       
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('Resposta de erro:', errorText);
+        console.error('❌ [BirthdayService] Resposta de erro:', errorText);
         throw new Error(`HTTP error! status: ${response.status} - ${errorText}`);
       }
       
       const data = await response.json();
-      console.log('Reservas filtradas recebidas:', data);
+      console.log('✅ [BirthdayService] Reservas filtradas recebidas:', data.length, 'reservas');
+      console.log('📋 [BirthdayService] Dados completos:', data);
       
-      return data;
+      return Array.isArray(data) ? data : [];
     } catch (error) {
       console.error('Erro ao buscar reservas por estabelecimento:', error);
       throw error;
