@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { MdStar, MdPeople, MdEvent, MdAdd, MdEdit, MdDelete, MdCake, MdLocalBar, MdRestaurant, MdCardGiftcard, MdVisibility, MdPhone, MdEmail } from "react-icons/md";
+import { MdStar, MdPeople, MdEvent, MdAdd, MdEdit, MdDelete, MdCake, MdLocalBar, MdRestaurant, MdCardGiftcard, MdVisibility, MdPhone, MdEmail, MdLocationOn } from "react-icons/md";
 import { BirthdayService, BirthdayReservation } from "../../services/birthdayService";
 import BirthdayDetailsModal from "./BirthdayDetailsModal";
 

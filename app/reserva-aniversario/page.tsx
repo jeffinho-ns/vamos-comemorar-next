@@ -501,8 +501,8 @@ export default function ReservaAniversarioPage() {
       
       // A criação de reserva de restaurante e lista de convidados agora é feita automaticamente na API
       console.log('✅ Reserva de aniversário criada:', result);
-      if (result.restaurant_reservation_id) {
-        console.log('✅ Reserva de restaurante criada automaticamente:', result.restaurant_reservation_id);
+      if ((result as any).restaurant_reservation_id) {
+        console.log('✅ Reserva de restaurante criada automaticamente:', (result as any).restaurant_reservation_id);
       }
       
       alert(`Reserva criada com sucesso! ID: ${result.id}`);
