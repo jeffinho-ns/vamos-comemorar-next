@@ -4,6 +4,28 @@ import Image from 'next/image';
 import { MdPerson, MdPhone, MdLocationOn, MdPhotoCamera, MdEdit } from "react-icons/md";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL_LOCAL;
+const DEFAULT_AVATAR_URL = 'https://via.placeholder.com/150';
+
+// Helper para obter a URL correta da imagem de perfil
+const getProfileImageUrl = (fotoPerfil?: string | null, fotoPerfilUrl?: string | null): string => {
+  // Priorizar foto_perfil_url se existir e for uma URL válida
+  if (fotoPerfilUrl && (fotoPerfilUrl.startsWith('http://') || fotoPerfilUrl.startsWith('https://'))) {
+    return fotoPerfilUrl;
+  }
+  
+  // Se foto_perfil for uma URL completa (Firebase Storage), usar diretamente
+  if (fotoPerfil && (fotoPerfil.startsWith('http://') || fotoPerfil.startsWith('https://'))) {
+    return fotoPerfil;
+  }
+  
+  // Se for blob URL (preview temporário), usar diretamente
+  if (fotoPerfil && fotoPerfil.startsWith('blob:')) {
+    return fotoPerfil;
+  }
+  
+  // Se não for URL completa, retornar placeholder (não usar URLs legadas do FTP)
+  return DEFAULT_AVATAR_URL;
+};
 
 export default function ProfileTab() {
   const [user, setUser] = useState<any>(null);
@@ -51,31 +73,37 @@ export default function ProfileTab() {
           </h3>
           <div className="flex items-center gap-6">
             <div className="relative">
-              {user?.foto_perfil ? (
-                <div className="w-24 h-24 rounded-2xl overflow-hidden border-4 border-gray-200 shadow-lg">
-                  <Image
-                    src={`https://grupoideiaum.com.br/cardapio-agilizaiapp/${user.foto_perfil}`}
-                    alt="Foto de perfil"
-                    width={96}
-                    height={96}
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-              ) : (
-                <div className="w-24 h-24 rounded-2xl bg-gradient-to-br from-gray-300 to-gray-400 flex items-center justify-center border-4 border-gray-200 shadow-lg">
-                  <MdPerson className="text-white text-3xl" />
-                </div>
-              )}
+              {(() => {
+                const imageUrl = getProfileImageUrl(user?.foto_perfil, user?.foto_perfil_url);
+                const hasImage = imageUrl !== DEFAULT_AVATAR_URL && (user?.foto_perfil || user?.foto_perfil_url);
+                
+                return hasImage ? (
+                  <div className="w-24 h-24 rounded-2xl overflow-hidden border-4 border-gray-200 shadow-lg">
+                    <Image
+                      src={imageUrl}
+                      alt="Foto de perfil"
+                      width={96}
+                      height={96}
+                      className="w-full h-full object-cover"
+                      unoptimized={imageUrl.startsWith('blob:')}
+                    />
+                  </div>
+                ) : (
+                  <div className="w-24 h-24 rounded-2xl bg-gradient-to-br from-gray-300 to-gray-400 flex items-center justify-center border-4 border-gray-200 shadow-lg">
+                    <MdPerson className="text-white text-3xl" />
+                  </div>
+                );
+              })()}
               <button className="absolute -bottom-2 -right-2 bg-gradient-to-r from-yellow-500 to-yellow-600 text-white p-2 rounded-full shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-110">
                 <MdEdit size={16} />
               </button>
             </div>
             <div className="flex-1">
               <p className="text-gray-600 text-sm mb-2">
-                {user?.foto_perfil ? "Sua foto de perfil está atualizada" : "Nenhuma foto de perfil enviada"}
+                {(user?.foto_perfil || user?.foto_perfil_url) ? "Sua foto de perfil está atualizada" : "Nenhuma foto de perfil enviada"}
               </p>
               <button className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white px-4 py-2 rounded-xl font-semibold transition-all duration-200 transform hover:scale-105">
-                {user?.foto_perfil ? "Alterar Foto" : "Enviar Foto"}
+                {(user?.foto_perfil || user?.foto_perfil_url) ? "Alterar Foto" : "Enviar Foto"}
               </button>
             </div>
           </div>
@@ -146,7 +174,7 @@ export default function ProfileTab() {
             </div>
             <div className="bg-white/80 rounded-xl p-4 text-center">
               <div className="text-2xl font-bold text-purple-600 mb-1">
-                {user?.foto_perfil ? "✅" : "❌"}
+                {(user?.foto_perfil || user?.foto_perfil_url) ? "✅" : "❌"}
               </div>
               <div className="text-sm text-gray-600">Foto</div>
             </div>
