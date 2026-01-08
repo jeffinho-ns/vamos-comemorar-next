@@ -90,6 +90,7 @@ export default function ReservaAniversarioPage() {
 
   // Estados para áreas e horários
   const [establishments, setEstablishments] = useState<Establishment[]>([]);
+  const [establishmentsLoading, setEstablishmentsLoading] = useState(true);
   const [selectedEstablishment, setSelectedEstablishment] = useState<Establishment | null>(null);
   const [areas, setAreas] = useState<RestaurantArea[]>([]);
   const [availableTimeSlots, setAvailableTimeSlots] = useState<string[]>([]);
@@ -202,14 +203,59 @@ export default function ReservaAniversarioPage() {
   // Carregar estabelecimentos
   useEffect(() => {
     const loadEstablishments = async () => {
+      setEstablishmentsLoading(true);
       try {
+        console.log('🔍 Carregando estabelecimentos de:', `${API_URL}/api/places`);
         const response = await fetch(`${API_URL}/api/places`);
+        console.log('📡 Status da resposta:', response.status);
+        
         if (response.ok) {
           const data = await response.json();
-          setEstablishments(Array.isArray(data) ? data : []);
+          console.log('📦 Dados recebidos (tipo):', typeof data, Array.isArray(data), data);
+          
+          // A API retorna { data: formattedPlaces } conforme routes/places.js linha 274
+          let rawPlaces = [];
+          if (Array.isArray(data)) {
+            rawPlaces = data;
+          } else if (data.data && Array.isArray(data.data)) {
+            rawPlaces = data.data;
+          } else if (data.places && Array.isArray(data.places)) {
+            rawPlaces = data.places;
+          }
+          
+          console.log('📋 Raw places extraídos:', rawPlaces.length, rawPlaces);
+          
+          // Formatar estabelecimentos no formato esperado
+          // Filtrar apenas lugares válidos e visíveis (se tiver campo visible)
+          const formattedEstablishments: Establishment[] = rawPlaces
+            .filter((place: any) => {
+              // Filtrar lugares válidos
+              if (!place || !place.id) return false;
+              // Se tiver campo visible, mostrar apenas os visíveis (ou se não tiver o campo, mostrar todos)
+              if (place.visible !== undefined) {
+                return place.visible === true || place.visible === 1;
+              }
+              return true;
+            })
+            .map((place: any) => ({
+              id: place.id,
+              name: place.name || "Sem nome",
+              logo: place.logo || "",
+              address: place.street ? `${place.street}, ${place.number || ''}`.trim() : (place.address || "Endereço não informado")
+            }));
+          
+          console.log('✅ Estabelecimentos formatados:', formattedEstablishments.length, formattedEstablishments);
+          setEstablishments(formattedEstablishments);
+        } else {
+          const errorText = await response.text();
+          console.error('❌ Erro ao carregar estabelecimentos:', response.status, errorText);
+          setEstablishments([]);
         }
       } catch (error) {
-        console.error('Erro ao carregar estabelecimentos:', error);
+        console.error('❌ Erro ao carregar estabelecimentos:', error);
+        setEstablishments([]);
+      } finally {
+        setEstablishmentsLoading(false);
       }
     };
     loadEstablishments();
@@ -632,13 +678,26 @@ export default function ReservaAniversarioPage() {
                   }}
                   className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-white focus:border-orange-500 focus:outline-none"
                 >
-                  <option value="">Selecione um estabelecimento</option>
-                  {establishments.map((establishment) => (
-                    <option key={establishment.id} value={establishment.id.toString()}>
-                      {establishment.name}
-                    </option>
-                  ))}
+                  <option value="">
+                    {establishmentsLoading ? 'Carregando estabelecimentos...' : 'Selecione um estabelecimento'}
+                  </option>
+                  {establishmentsLoading ? (
+                    <option value="" disabled>Carregando...</option>
+                  ) : establishments.length === 0 ? (
+                    <option value="" disabled>Nenhum estabelecimento disponível</option>
+                  ) : (
+                    establishments.map((establishment) => (
+                      <option key={establishment.id} value={establishment.id.toString()}>
+                        {establishment.name}
+                      </option>
+                    ))
+                  )}
                 </select>
+                {!establishmentsLoading && establishments.length === 0 && (
+                  <p className="text-yellow-400 text-sm mt-2">
+                    ⚠️ Nenhum estabelecimento encontrado. Verifique a conexão com a API.
+                  </p>
+                )}
               </div>
               {selectedEstablishment && (
                 <>
