@@ -399,13 +399,14 @@ export default function ReservasCamarote({ establishment }: { establishment: Est
     id_camarote: selectedCamarote.id,
     id_evento: null,
     lista_convidados: guests,
-    status_reserva: 'reservado',
+    status_reserva: reservationData.status_reserva || 'reservado',
     nome_cliente: reservationData.nome_cliente || '',
     telefone: reservationData.telefone || '',
     cpf_cnpj: reservationData.cpf_cnpj || '',
     email: reservationData.email || '',
     data_nascimento: reservationData.data_nascimento || null,
     data_reserva: reservationData.data_reserva || new Date().toISOString().split('T')[0],
+    data_expiracao: reservationData.data_expiracao || null, // Adicionado campo data_expiracao
     maximo_pessoas: reservationData.maximo_pessoas || selectedCamarote.capacidade_maxima,
     entradas_unisex_free: reservationData.entradas_unisex_free || 0,
     entradas_masculino_free: reservationData.entradas_masculino_free || 0,
@@ -454,6 +455,10 @@ export default function ReservasCamarote({ establishment }: { establishment: Est
       const result = await response.json();
       console.log('✅ Resposta de sucesso:', result);
       
+      if (result.success === false) {
+        throw new Error(result.error || 'Erro ao processar reserva');
+      }
+      
       alert(`Reserva ${showSidebar === 'edit' ? 'atualizada' : 'criada'} com sucesso!`);
       console.log('🔄 Fechando sidebar e recarregando dados...');
       setShowSidebar(null);
@@ -462,35 +467,22 @@ export default function ReservasCamarote({ establishment }: { establishment: Est
       setTimeout(() => {
         console.log('🔄 Recarregando dados após atualização...');
         fetchReservas();
-      }, 1000);
+      }, 500);
     } catch (error) {
       console.error(`Erro ao ${method === 'POST' ? 'criar' : 'atualizar'} reserva:`, error);
       
-      // Fallback temporário: simular sucesso localmente
-      if (method === 'POST') {
-        console.log('Aplicando fallback local...');
-        const mockReservation: Camarote = {
-          ...selectedCamarote,
-          reserva_camarote_id: Date.now(), // ID temporário
-          nome_cliente: payload.nome_cliente,
-          status_reserva: 'reservado' as const,
-          data_reserva: new Date().toISOString().split('T')[0],
-          data_expiracao: addDaysToDate(new Date().toISOString().split('T')[0], 1),
-          valor_pago: payload.valor_pago,
-        };
-        
-        setCamarotes(prev => 
-          prev.map(c => 
-            c.id === selectedCamarote.id ? mockReservation : c
-          )
-        );
-        
-        alert('Reserva criada localmente (API temporariamente indisponível)!');
-        setShowSidebar(null);
-        return;
+      // Tentar parsear erro JSON se possível
+      let errorMessage = 'Ocorreu um erro ao processar a reserva.';
+      if (error instanceof Error) {
+        try {
+          const errorJson = JSON.parse(error.message);
+          errorMessage = errorJson.error || errorJson.details || error.message;
+        } catch {
+          errorMessage = error.message;
+        }
       }
       
-      alert(`Erro: ${error instanceof Error ? error.message : 'Ocorreu um problema.'}`);
+      alert(`Erro: ${errorMessage}`);
     }
   };
 
