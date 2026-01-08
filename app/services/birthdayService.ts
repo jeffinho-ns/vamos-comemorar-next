@@ -176,15 +176,29 @@ export class BirthdayService {
 
   static async getBirthdayReservationsByEstablishment(establishmentId: number): Promise<BirthdayReservation[]> {
     try {
-      console.log('Buscando todas as reservas...');
-      const allReservations = await this.getAllBirthdayReservations();
-      console.log('Todas as reservas:', allReservations);
-      console.log('Filtrando por estabelecimento ID:', establishmentId);
+      console.log('Buscando reservas para estabelecimento ID:', establishmentId);
       
-      const filteredReservations = allReservations.filter(reservation => reservation.id_casa_evento === establishmentId);
-      console.log('Reservas filtradas:', filteredReservations);
+      const response = await fetch(`${API_BASE_URL}/birthday-reservations?establishment_id=${establishmentId}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        mode: 'cors',
+      });
       
-      return filteredReservations;
+      console.log('Status da resposta:', response.status);
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Resposta de erro:', errorText);
+        throw new Error(`HTTP error! status: ${response.status} - ${errorText}`);
+      }
+      
+      const data = await response.json();
+      console.log('Reservas filtradas recebidas:', data);
+      
+      return data;
     } catch (error) {
       console.error('Erro ao buscar reservas por estabelecimento:', error);
       throw error;

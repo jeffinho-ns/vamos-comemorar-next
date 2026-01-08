@@ -197,12 +197,20 @@ export default function ReservaAniversarioPage() {
         comidasMap[`item_bar_comida_${i}`] = selectedFoods[key] || 0;
       }
 
+      // Validar que o estabelecimento foi selecionado
+      const establishmentId = parseInt(formData.barSelecionado);
+      if (!establishmentId || isNaN(establishmentId) || establishmentId === 0) {
+        alert('Por favor, selecione um estabelecimento válido');
+        setIsLoading(false);
+        return;
+      }
+
       const reservationData = {
         user_id: 1, // TODO: Get from auth
         aniversariante_nome: formData.aniversarianteNome,
         data_aniversario: new Date(formData.dataAniversario).toISOString(),
         quantidade_convidados: formData.quantidadeConvidados,
-        id_casa_evento: parseInt(formData.barSelecionado) || 0,
+        id_casa_evento: establishmentId,
         decoracao_tipo: selectedDecoration.name,
         painel_personalizado: selectedPainelOption === 'personalizado',
         painel_tema: selectedPainelOption === 'personalizado' ? formData.painelTema : undefined,
