@@ -1,9 +1,10 @@
 "use client";
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
-import { MdClose, MdCake, MdPeople, MdEvent, MdLocalBar, MdRestaurant, MdCardGiftcard, MdContactPhone, MdEmail, MdDescription, MdImage, MdPalette } from "react-icons/md";
+import { MdClose, MdCake, MdPeople, MdEvent, MdLocalBar, MdRestaurant, MdCardGiftcard, MdContactPhone, MdEmail, MdDescription, MdImage, MdPalette, MdAttachMoney } from "react-icons/md";
 import { BirthdayReservation } from "../../services/birthdayService";
+import SafeImage from "../SafeImage";
 
 interface BirthdayDetailsModalProps {
   reservation: BirthdayReservation | null;
@@ -66,30 +67,339 @@ export default function BirthdayDetailsModal({ reservation, isOpen, onClose }: B
     return items;
   };
 
-  const getBarItems = () => {
-    const bebidas = [];
-    const comidas = [];
-    
-    // Bebidas do bar
-    for (let i = 1; i <= 10; i++) {
-      const quantidade = reservation[`item_bar_bebida_${i}` as keyof BirthdayReservation] as number;
-      if (quantidade && quantidade > 0) {
-        bebidas.push({ nome: `Bebida ${i}`, quantidade });
-      }
+  const [menuItems, setMenuItems] = useState<{ bebidas: any[], comidas: any[] }>({ bebidas: [], comidas: [] });
+  const [menuLoading, setMenuLoading] = useState(true);
+
+  // Função para resolver URL de imagem do cardápio
+  const getCardapioImageUrl = (imageUrl?: string | null): string => {
+    if (!imageUrl || typeof imageUrl !== 'string') {
+      return '/placeholder-cardapio.svg';
     }
-    
-    // Comidas do bar
-    for (let i = 1; i <= 10; i++) {
-      const quantidade = reservation[`item_bar_comida_${i}` as keyof BirthdayReservation] as number;
-      if (quantidade && quantidade > 0) {
-        comidas.push({ nome: `Comida ${i}`, quantidade });
-      }
+
+    const trimmed = imageUrl.trim();
+    if (trimmed === '' || trimmed === 'null' || trimmed === 'undefined') {
+      return '/placeholder-cardapio.svg';
     }
+
+    if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+      if (trimmed.includes('res.cloudinary.com')) {
+        return trimmed;
+      }
+      return trimmed;
+    }
+
+    const cleanFilename = trimmed.startsWith('/') ? trimmed.substring(1) : trimmed;
+    const filename = cleanFilename.split('/').pop() || cleanFilename;
     
-    return { bebidas, comidas };
+    if (filename && filename !== 'null' && filename !== 'undefined') {
+      return `https://res.cloudinary.com/drjovtmuw/image/upload/v1764862686/cardapio-agilizaiapp/${filename}`;
+    }
+
+    return '/placeholder-cardapio.svg';
   };
 
-  const barItems = getBarItems();
+  // Buscar itens do cardápio quando o modal abrir
+  useEffect(() => {
+    if (!isOpen || !reservation || !reservation.id_casa_evento) {
+      setMenuLoading(false);
+      return;
+    }
+
+    const loadMenuItems = async () => {
+      setMenuLoading(true);
+      try {
+        const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL_LOCAL || 'https://vamos-comemorar-api.onrender.com';
+        const API_BASE_URL = `${API_URL}/api/cardapio`;
+        
+        // 1. Buscar o estabelecimento (place) para pegar o nome/slug
+        const placesResponse = await fetch(`${API_URL}/api/places`);
+        let establishmentName = '';
+        let establishmentSlug = '';
+        
+        if (placesResponse.ok) {
+          const placesData = await placesResponse.json();
+          const places = Array.isArray(placesData) ? placesData : (placesData.data || []);
+          const place = places.find((p: any) => String(p.id) === String(reservation.id_casa_evento));
+          if (place) {
+            establishmentName = place.name || '';
+            establishmentSlug = place.slug || '';
+          }
+        }
+
+        if (!establishmentName) {
+          setMenuLoading(false);
+          return;
+        }
+
+        // 2. Buscar bars do cardápio
+        const barsResponse = await fetch(`${API_BASE_URL}/bars`);
+        if (!barsResponse.ok) throw new Error('Erro ao carregar estabelecimentos do cardápio');
+        
+        const bars = await barsResponse.json();
+        
+        // Normalizar nomes para comparação
+        const normalizeName = (name: string) => {
+          return name
+            .toLowerCase()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .replace(/\s+/g, ' ')
+            .trim()
+            .replace(/[^a-z0-9\s]/g, '');
+        };
+        
+        const simplifyName = (name: string) => {
+          return normalizeName(name)
+            .replace(/\s+/g, '')
+            .replace(/[^a-z0-9]/g, '');
+        };
+        
+        const normalizedEstablishmentName = normalizeName(establishmentName);
+        const simplifiedEstablishmentName = simplifyName(establishmentName);
+        
+        // Buscar bar por slug, ID ou nome
+        let bar = null;
+        if (establishmentSlug) {
+          bar = bars.find((b: any) => b.slug === establishmentSlug);
+        }
+        if (!bar && reservation.id_casa_evento) {
+          bar = bars.find((b: any) => String(b.id) === String(reservation.id_casa_evento));
+        }
+        if (!bar) {
+          bar = bars.find((b: any) => {
+            const normalizedBarName = normalizeName(b.name);
+            const simplifiedBarName = simplifyName(b.name);
+            return normalizedBarName === normalizedEstablishmentName || 
+                   simplifiedBarName === simplifiedEstablishmentName ||
+                   normalizedBarName.includes(normalizedEstablishmentName) ||
+                   normalizedEstablishmentName.includes(normalizedBarName);
+          });
+        }
+
+        if (!bar) {
+          console.warn('Bar não encontrado no cardápio');
+          setMenuLoading(false);
+          return;
+        }
+
+        // 3. Buscar categorias e itens
+        const [categoriesResponse, itemsResponse] = await Promise.all([
+          fetch(`${API_BASE_URL}/categories`),
+          fetch(`${API_BASE_URL}/items`)
+        ]);
+
+        if (!categoriesResponse.ok || !itemsResponse.ok) {
+          throw new Error('Erro ao carregar dados do cardápio');
+        }
+
+        const [categories, items] = await Promise.all([
+          categoriesResponse.json(),
+          itemsResponse.json()
+        ]);
+
+        // 4. Processar selos dos itens
+        const processedItems = items.map((item: any) => {
+          let seals = [];
+          if (item.seals) {
+            if (Array.isArray(item.seals)) {
+              seals = item.seals;
+            } else if (typeof item.seals === 'string') {
+              try {
+                seals = JSON.parse(item.seals);
+                if (!Array.isArray(seals)) seals = [];
+              } catch (e) {
+                seals = [];
+              }
+            }
+          }
+          return { ...item, seals };
+        });
+
+        // 5. Filtrar itens do bar e visíveis
+        const normalizedBarId = String(bar.id);
+        const barItemsFiltered = processedItems.filter((item: any) => {
+          const matchesBar = String(item.barId) === normalizedBarId;
+          const isVisible = item.visible === undefined || item.visible === null || item.visible === 1 || item.visible === true;
+          return matchesBar && isVisible;
+        });
+
+        // 6. Buscar selos customizados do bar
+        const customSeals = bar.custom_seals || [];
+
+        // 7. Filtrar categorias de bebidas e comidas
+        const beverageCategories = categories.filter((cat: any) => {
+          const categoryName = normalizeName(cat.name || '');
+          return categoryName === 'drinks' || 
+                 categoryName === 'carta de vinho' ||
+                 categoryName === 'bebidas' ||
+                 categoryName.includes('drink') || 
+                 categoryName.includes('vinho') ||
+                 categoryName.includes('bebida');
+        }).map((cat: any) => String(cat.id));
+
+        const foodCategories = categories.filter((cat: any) => {
+          const categoryName = normalizeName(cat.name || '');
+          return categoryName === 'menu' || categoryName.includes('menu');
+        }).map((cat: any) => String(cat.id));
+
+        // 8. Filtrar itens com selo B-day
+        const beveragesWithBday = barItemsFiltered.filter((item: any) => {
+          const hasBeverageCategory = beverageCategories.includes(String(item.categoryId));
+          if (!hasBeverageCategory) return false;
+          
+          if (!item.seals || !Array.isArray(item.seals) || item.seals.length === 0) {
+            return false;
+          }
+
+          return item.seals.some((sealId: string) => {
+            if (!sealId || typeof sealId !== 'string') return false;
+            
+            const normalizedSeal = simplifyName(sealId);
+            
+            if (normalizedSeal.includes('b-day') || 
+                normalizedSeal.includes('bday') ||
+                normalizedSeal.includes('birthday')) {
+              return true;
+            }
+            
+            const customSeal = customSeals.find((cs: any) => cs.id === sealId);
+            if (customSeal) {
+              const customSealName = simplifyName(customSeal.name || '');
+              if (customSealName.includes('b-day') || 
+                  customSealName.includes('bday') ||
+                  customSealName.includes('birthday')) {
+                return true;
+              }
+            }
+            
+            return false;
+          });
+        });
+
+        const foodsWithBday = barItemsFiltered.filter((item: any) => {
+          const hasFoodCategory = foodCategories.includes(String(item.categoryId));
+          if (!hasFoodCategory) return false;
+          
+          if (!item.seals || !Array.isArray(item.seals) || item.seals.length === 0) {
+            return false;
+          }
+
+          return item.seals.some((sealId: string) => {
+            if (!sealId || typeof sealId !== 'string') return false;
+            
+            const normalizedSeal = simplifyName(sealId);
+            
+            if (normalizedSeal.includes('b-day') || 
+                normalizedSeal.includes('bday') ||
+                normalizedSeal.includes('birthday')) {
+              return true;
+            }
+            
+            const customSeal = customSeals.find((cs: any) => cs.id === sealId);
+            if (customSeal) {
+              const customSealName = simplifyName(customSeal.name || '');
+              if (customSealName.includes('b-day') || 
+                  customSealName.includes('bday') ||
+                  customSealName.includes('birthday')) {
+                return true;
+              }
+            }
+            
+            return false;
+          });
+        });
+
+        // 9. Mapear itens selecionados na reserva com os itens do cardápio
+        const bebidasSelecionadas = [];
+        const comidasSelecionadas = [];
+
+        // Mapear bebidas (na ordem que foram salvas)
+        for (let i = 1; i <= 10; i++) {
+          const quantidade = reservation[`item_bar_bebida_${i}` as keyof BirthdayReservation] as number;
+          if (quantidade && quantidade > 0) {
+            // Pegar o item na posição correspondente da lista filtrada
+            const itemIndex = i - 1;
+            if (itemIndex < beveragesWithBday.length) {
+              const item = beveragesWithBday[itemIndex];
+              bebidasSelecionadas.push({
+                nome: item.name || `Bebida ${i}`,
+                quantidade,
+                preco: parseFloat(item.price) || 0,
+                imagem: item.imageUrl || null,
+                descricao: item.description || ''
+              });
+            } else {
+              // Se não encontrou na posição, adicionar como genérico
+              bebidasSelecionadas.push({
+                nome: `Bebida ${i}`,
+                quantidade,
+                preco: 0,
+                imagem: null,
+                descricao: ''
+              });
+            }
+          }
+        }
+
+        // Mapear comidas (na ordem que foram salvas)
+        for (let i = 1; i <= 10; i++) {
+          const quantidade = reservation[`item_bar_comida_${i}` as keyof BirthdayReservation] as number;
+          if (quantidade && quantidade > 0) {
+            // Pegar o item na posição correspondente da lista filtrada
+            const itemIndex = i - 1;
+            if (itemIndex < foodsWithBday.length) {
+              const item = foodsWithBday[itemIndex];
+              comidasSelecionadas.push({
+                nome: item.name || `Porção ${i}`,
+                quantidade,
+                preco: parseFloat(item.price) || 0,
+                imagem: item.imageUrl || null,
+                descricao: item.description || ''
+              });
+            } else {
+              // Se não encontrou na posição, adicionar como genérico
+              comidasSelecionadas.push({
+                nome: `Porção ${i}`,
+                quantidade,
+                preco: 0,
+                imagem: null,
+                descricao: ''
+              });
+            }
+          }
+        }
+
+        setMenuItems({
+          bebidas: bebidasSelecionadas,
+          comidas: comidasSelecionadas
+        });
+      } catch (error) {
+        console.error('Erro ao carregar itens do cardápio:', error);
+        // Em caso de erro, usar os itens genéricos
+        const bebidas = [];
+        const comidas = [];
+        
+        for (let i = 1; i <= 10; i++) {
+          const quantidadeBebida = reservation[`item_bar_bebida_${i}` as keyof BirthdayReservation] as number;
+          if (quantidadeBebida && quantidadeBebida > 0) {
+            bebidas.push({ nome: `Bebida ${i}`, quantidade: quantidadeBebida, preco: 0, imagem: null, descricao: '' });
+          }
+          
+          const quantidadeComida = reservation[`item_bar_comida_${i}` as keyof BirthdayReservation] as number;
+          if (quantidadeComida && quantidadeComida > 0) {
+            comidas.push({ nome: `Porção ${i}`, quantidade: quantidadeComida, preco: 0, imagem: null, descricao: '' });
+          }
+        }
+        
+        setMenuItems({ bebidas, comidas });
+      } finally {
+        setMenuLoading(false);
+      }
+    };
+
+    loadMenuItems();
+  }, [isOpen, reservation]);
+
   const bebidasItems = getBebidasItems();
 
   return (
@@ -208,35 +518,86 @@ export default function BirthdayDetailsModal({ reservation, isOpen, onClose }: B
           )}
 
           {/* Itens do Bar */}
-          {(barItems.bebidas.length > 0 || barItems.comidas.length > 0) && (
+          {(menuItems.bebidas.length > 0 || menuItems.comidas.length > 0) && (
             <div className="bg-gray-50 rounded-xl p-4">
               <h3 className="text-lg font-semibold text-gray-800 mb-3 flex items-center gap-2">
                 <MdRestaurant className="text-green-500" />
                 Itens do Bar
+                {menuLoading && <span className="text-sm text-gray-500 font-normal">(Carregando...)</span>}
               </h3>
               
-              {barItems.bebidas.length > 0 && (
+              {menuItems.bebidas.length > 0 && (
                 <div className="mb-4">
-                  <h4 className="font-medium text-gray-700 mb-2">Bebidas:</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                    {barItems.bebidas.map((item, index) => (
-                      <div key={index} className="bg-white rounded-lg p-3 border">
-                        <p className="font-medium">{item.nome}</p>
-                        <p className="text-gray-600">Quantidade: {item.quantidade}</p>
+                  <h4 className="font-medium text-gray-700 mb-3">Bebidas:</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {menuItems.bebidas.map((item, index) => (
+                      <div key={index} className="bg-white rounded-lg overflow-hidden border border-gray-200 hover:shadow-md transition-shadow">
+                        {item.imagem && (
+                          <div className="relative h-32 w-full">
+                            <SafeImage
+                              src={getCardapioImageUrl(item.imagem)}
+                              alt={item.nome}
+                              fill
+                              sizes="(max-width: 768px) 100vw, 50vw"
+                              className="object-cover"
+                              unoptimized={true}
+                            />
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent"></div>
+                          </div>
+                        )}
+                        <div className="p-3">
+                          <p className="font-medium text-gray-800 mb-1">{item.nome}</p>
+                          {item.descricao && (
+                            <p className="text-sm text-gray-600 mb-2 line-clamp-2">{item.descricao}</p>
+                          )}
+                          <div className="flex items-center justify-between mt-2">
+                            <p className="text-green-600 font-bold">
+                              {item.preco > 0 ? `R$ ${item.preco.toFixed(2)}` : 'Preço não disponível'}
+                            </p>
+                            <p className="text-gray-600 text-sm">
+                              Qtd: <span className="font-semibold">{item.quantidade}</span>
+                            </p>
+                          </div>
+                        </div>
                       </div>
                     ))}
                   </div>
                 </div>
               )}
 
-              {barItems.comidas.length > 0 && (
+              {menuItems.comidas.length > 0 && (
                 <div>
-                  <h4 className="font-medium text-gray-700 mb-2">Comidas:</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                    {barItems.comidas.map((item, index) => (
-                      <div key={index} className="bg-white rounded-lg p-3 border">
-                        <p className="font-medium">{item.nome}</p>
-                        <p className="text-gray-600">Quantidade: {item.quantidade}</p>
+                  <h4 className="font-medium text-gray-700 mb-3">Porções:</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {menuItems.comidas.map((item, index) => (
+                      <div key={index} className="bg-white rounded-lg overflow-hidden border border-gray-200 hover:shadow-md transition-shadow">
+                        {item.imagem && (
+                          <div className="relative h-32 w-full">
+                            <SafeImage
+                              src={getCardapioImageUrl(item.imagem)}
+                              alt={item.nome}
+                              fill
+                              sizes="(max-width: 768px) 100vw, 50vw"
+                              className="object-cover"
+                              unoptimized={true}
+                            />
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent"></div>
+                          </div>
+                        )}
+                        <div className="p-3">
+                          <p className="font-medium text-gray-800 mb-1">{item.nome}</p>
+                          {item.descricao && (
+                            <p className="text-sm text-gray-600 mb-2 line-clamp-2">{item.descricao}</p>
+                          )}
+                          <div className="flex items-center justify-between mt-2">
+                            <p className="text-green-600 font-bold">
+                              {item.preco > 0 ? `R$ ${item.preco.toFixed(2)}` : 'Preço não disponível'}
+                            </p>
+                            <p className="text-gray-600 text-sm">
+                              Qtd: <span className="font-semibold">{item.quantidade}</span>
+                            </p>
+                          </div>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -268,6 +629,66 @@ export default function BirthdayDetailsModal({ reservation, isOpen, onClose }: B
               );
             }
             return null;
+          })()}
+
+          {/* Valor Total da Reserva */}
+          {(() => {
+            // Preços de decoração (mesmos da página de reserva)
+            const decorationPrices: Record<string, number> = {
+              'Decoração Pequena 1': 200.0,
+              'Decoração Pequena 2': 220.0,
+              'Decoração Media 3': 250.0,
+              'Decoração Media 4': 270.0,
+              'Decoração Grande 5': 300.0,
+              'Decoração Grande 6': 320.0,
+            };
+
+            // Calcular valor total
+            let total = 0;
+            
+            // Valor da decoração
+            if (reservation.decoracao_tipo) {
+              total += decorationPrices[reservation.decoracao_tipo] || 0;
+            }
+
+            // Valor das bebidas do bar
+            menuItems.bebidas.forEach(item => {
+              total += item.preco * item.quantidade;
+            });
+
+            // Valor das porções do bar
+            menuItems.comidas.forEach(item => {
+              total += item.preco * item.quantidade;
+            });
+
+            // Valor das bebidas especiais (se houver preços)
+            bebidasItems.forEach(item => {
+              // Preços conhecidos das bebidas especiais
+              const specialPrices: Record<string, number> = {
+                'Balde Budweiser': 50.0,
+                'Balde Corona': 55.0,
+                'Balde Heineken': 60.0,
+                'Combo Gin 142': 80.0,
+                'Licor Rufus': 45.0,
+              };
+              const price = specialPrices[item.nome] || 0;
+              total += price * item.quantidade;
+            });
+
+            return (
+              <div className="bg-gradient-to-r from-orange-500/10 to-red-500/10 border-2 border-orange-500/30 rounded-xl p-6">
+                <h3 className="text-2xl font-bold text-gray-800 mb-2 flex items-center gap-2">
+                  <MdAttachMoney className="text-orange-500" />
+                  Valor Total da Reserva
+                </h3>
+                <p className="text-4xl font-bold text-orange-600 mb-2">
+                  R$ {total.toFixed(2)}
+                </p>
+                <p className="text-sm text-gray-600 italic">
+                  Este valor será adicionado à comanda no estabelecimento.
+                </p>
+              </div>
+            );
           })()}
 
           {/* Informações Adicionais */}

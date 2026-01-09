@@ -30,6 +30,8 @@ import {
 } from 'react-icons/md';
 import { WithPermission } from '../../../../components/WithPermission/WithPermission';
 import EntradaStatusModal, { EntradaTipo } from '../../../../components/EntradaStatusModal';
+import BirthdayDetailsModal from '../../../../components/painel/BirthdayDetailsModal';
+import { BirthdayReservation } from '../../../../services/birthdayService';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.agilizaiapp.com.br';
 
@@ -295,6 +297,14 @@ export default function EventoCheckInsPage() {
   const [giftRules, setGiftRules] = useState<GiftRule[]>([]);
   const [giftsByGuestList, setGiftsByGuestList] = useState<Record<number, GiftAwarded[]>>({});
   
+  // Estado para reservas de aniversário relacionadas às guest lists
+  const [birthdayReservationsByReservationId, setBirthdayReservationsByReservationId] = useState<Record<number, BirthdayReservation>>({});
+  const [selectedBirthdayReservation, setSelectedBirthdayReservation] = useState<BirthdayReservation | null>(null);
+  const [birthdayModalOpen, setBirthdayModalOpen] = useState(false);
+  
+  // Estado para itens do menu por reserva de aniversário (para cálculo preciso do valor total)
+  const [menuItemsByBirthdayReservation, setMenuItemsByBirthdayReservation] = useState<Record<number, { bebidas: any[], comidas: any[] }>>({});
+  
   // Função helper para validar se um item é realmente um convidado de promoter
   const isValidPromoterGuest = (c: any): c is ConvidadoPromoter => {
     return (
@@ -336,6 +346,228 @@ export default function EventoCheckInsPage() {
   // Cache para comparações de strings (otimização de performance)
   const stringCompareCache = useRef<Map<string, number>>(new Map());
   
+  // Função para carregar itens do cardápio para reservas de aniversário
+  const loadMenuItemsForBirthdayReservations = useCallback(async (
+    birthdayReservationsMap: Record<number, BirthdayReservation>,
+    establishmentId: number
+  ) => {
+    try {
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL_LOCAL || 'https://vamos-comemorar-api.onrender.com';
+      const API_BASE_URL = `${API_URL}/api/cardapio`;
+      
+      // Buscar o estabelecimento (place) para pegar o nome/slug
+      const placesResponse = await fetch(`${API_URL}/api/places`);
+      let establishmentName = '';
+      let establishmentSlug = '';
+      
+      if (placesResponse.ok) {
+        const placesData = await placesResponse.json();
+        const places = Array.isArray(placesData) ? placesData : (placesData.data || []);
+        const place = places.find((p: any) => Number(p.id) === Number(establishmentId));
+        if (place) {
+          establishmentName = place.name || '';
+          establishmentSlug = place.slug || '';
+        }
+      }
+
+      if (!establishmentName) {
+        console.warn('Estabelecimento não encontrado para carregar cardápio');
+        return;
+      }
+
+      // Buscar bars, categories e items do cardápio
+      const [barsResponse, categoriesResponse, itemsResponse] = await Promise.all([
+        fetch(`${API_BASE_URL}/bars`),
+        fetch(`${API_BASE_URL}/categories`),
+        fetch(`${API_BASE_URL}/items`)
+      ]);
+
+      if (!barsResponse.ok || !categoriesResponse.ok || !itemsResponse.ok) {
+        throw new Error('Erro ao carregar dados do cardápio');
+      }
+
+      const [bars, categories, items] = await Promise.all([
+        barsResponse.json(),
+        categoriesResponse.json(),
+        itemsResponse.json()
+      ]);
+
+      // Normalizar nomes para comparação
+      const normalizeName = (name: string) => {
+        return name
+          .toLowerCase()
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '')
+          .replace(/\s+/g, ' ')
+          .trim()
+          .replace(/[^a-z0-9\s]/g, '');
+      };
+      
+      const simplifyName = (name: string) => {
+        return normalizeName(name)
+          .replace(/\s+/g, '')
+          .replace(/[^a-z0-9]/g, '');
+      };
+      
+      // Buscar bar por slug, ID ou nome
+      let bar = null;
+      if (establishmentSlug) {
+        bar = bars.find((b: any) => b.slug === establishmentSlug);
+      }
+      if (!bar) {
+        bar = bars.find((b: any) => Number(b.id) === Number(establishmentId));
+      }
+      if (!bar) {
+        const normalizedEstablishmentName = normalizeName(establishmentName);
+        const simplifiedEstablishmentName = simplifyName(establishmentName);
+        bar = bars.find((b: any) => {
+          const normalizedBarName = normalizeName(b.name);
+          const simplifiedBarName = simplifyName(b.name);
+          return normalizedBarName === normalizedEstablishmentName || 
+                 simplifiedBarName === simplifiedEstablishmentName;
+        });
+      }
+
+      if (!bar) {
+        console.warn('Bar não encontrado no cardápio');
+        return;
+      }
+
+      // Processar selos dos itens
+      const processedItems = items.map((item: any) => {
+        let seals = [];
+        if (item.seals) {
+          if (Array.isArray(item.seals)) {
+            seals = item.seals;
+          } else if (typeof item.seals === 'string') {
+            try {
+              seals = JSON.parse(item.seals);
+              if (!Array.isArray(seals)) seals = [];
+            } catch (e) {
+              seals = [];
+            }
+          }
+        }
+        return { ...item, seals };
+      });
+
+      // Filtrar itens do bar
+      const normalizedBarId = String(bar.id);
+      const barItemsFiltered = processedItems.filter((item: any) => {
+        const matchesBar = String(item.barId) === normalizedBarId;
+        const isVisible = item.visible === undefined || item.visible === null || item.visible === 1 || item.visible === true;
+        return matchesBar && isVisible;
+      });
+
+      const customSeals = bar.custom_seals || [];
+
+      // Filtrar categorias
+      const beverageCategories = categories.filter((cat: any) => {
+        const categoryName = normalizeName(cat.name || '');
+        return categoryName === 'drinks' || 
+               categoryName === 'carta de vinho' ||
+               categoryName === 'bebidas' ||
+               categoryName.includes('drink') || 
+               categoryName.includes('vinho') ||
+               categoryName.includes('bebida');
+      }).map((cat: any) => String(cat.id));
+
+      const foodCategories = categories.filter((cat: any) => {
+        const categoryName = normalizeName(cat.name || '');
+        return categoryName === 'menu' || categoryName.includes('menu');
+      }).map((cat: any) => String(cat.id));
+
+      // Filtrar itens com selo B-day
+      const beveragesWithBday = barItemsFiltered.filter((item: any) => {
+        const hasBeverageCategory = beverageCategories.includes(String(item.categoryId));
+        if (!hasBeverageCategory) return false;
+        if (!item.seals || !Array.isArray(item.seals) || item.seals.length === 0) return false;
+        return item.seals.some((sealId: string) => {
+          if (!sealId || typeof sealId !== 'string') return false;
+          const normalizedSeal = simplifyName(sealId);
+          if (normalizedSeal.includes('b-day') || normalizedSeal.includes('bday') || normalizedSeal.includes('birthday')) {
+            return true;
+          }
+          const customSeal = customSeals.find((cs: any) => cs.id === sealId);
+          if (customSeal) {
+            const customSealName = simplifyName(customSeal.name || '');
+            if (customSealName.includes('b-day') || customSealName.includes('bday') || customSealName.includes('birthday')) {
+              return true;
+            }
+          }
+          return false;
+        });
+      });
+
+      const foodsWithBday = barItemsFiltered.filter((item: any) => {
+        const hasFoodCategory = foodCategories.includes(String(item.categoryId));
+        if (!hasFoodCategory) return false;
+        if (!item.seals || !Array.isArray(item.seals) || item.seals.length === 0) return false;
+        return item.seals.some((sealId: string) => {
+          if (!sealId || typeof sealId !== 'string') return false;
+          const normalizedSeal = simplifyName(sealId);
+          if (normalizedSeal.includes('b-day') || normalizedSeal.includes('bday') || normalizedSeal.includes('birthday')) {
+            return true;
+          }
+          const customSeal = customSeals.find((cs: any) => cs.id === sealId);
+          if (customSeal) {
+            const customSealName = simplifyName(customSeal.name || '');
+            if (customSealName.includes('b-day') || customSealName.includes('bday') || customSealName.includes('birthday')) {
+              return true;
+            }
+          }
+          return false;
+        });
+      });
+
+      // Mapear itens selecionados para cada reserva de aniversário
+      const menuItemsMap: Record<number, { bebidas: any[], comidas: any[] }> = {};
+      
+      Object.values(birthdayReservationsMap).forEach((br) => {
+        const bebidasSelecionadas = [];
+        const comidasSelecionadas = [];
+
+        // Mapear bebidas
+        for (let i = 1; i <= 10; i++) {
+          const quantidade = (br as any)[`item_bar_bebida_${i}`] as number;
+          if (quantidade && quantidade > 0) {
+            const itemIndex = i - 1;
+            if (itemIndex < beveragesWithBday.length) {
+              const item = beveragesWithBday[itemIndex];
+              bebidasSelecionadas.push({
+                nome: item.name || `Bebida ${i}`,
+                quantidade,
+                preco: parseFloat(item.price) || 0,
+              });
+            }
+          }
+        }
+
+        // Mapear comidas
+        for (let i = 1; i <= 10; i++) {
+          const quantidade = (br as any)[`item_bar_comida_${i}`] as number;
+          if (quantidade && quantidade > 0) {
+            const itemIndex = i - 1;
+            if (itemIndex < foodsWithBday.length) {
+              const item = foodsWithBday[itemIndex];
+              comidasSelecionadas.push({
+                nome: item.name || `Porção ${i}`,
+                quantidade,
+                preco: parseFloat(item.price) || 0,
+              });
+            }
+          }
+        }
+
+        menuItemsMap[br.id] = { bebidas: bebidasSelecionadas, comidas: comidasSelecionadas };
+      });
+
+      setMenuItemsByBirthdayReservation(menuItemsMap);
+    } catch (error) {
+      console.error('Erro ao carregar itens do cardápio:', error);
+    }
+  }, []);
+  
   // Função otimizada de comparação de strings com cache
   const cachedStringCompare = useCallback((a: string, b: string): number => {
     const cacheKey = `${a}|||${b}`;
@@ -374,6 +606,108 @@ export default function EventoCheckInsPage() {
         // Não precisamos mais buscar via API admin/guest-lists
         const guestLists = data.dados.guestListsRestaurante || [];
         setGuestListsRestaurante(guestLists);
+        
+        // Buscar reservas de aniversário relacionadas às guest lists com event_type='aniversario'
+        const birthdayReservationsMap: Record<number, BirthdayReservation> = {};
+        const aniversarioGuestLists = guestLists.filter((gl: GuestListRestaurante) => gl.event_type === 'aniversario');
+        
+        if (aniversarioGuestLists.length > 0 && data.evento?.establishment_id) {
+          try {
+            const birthdayResResponse = await fetch(`${API_URL}/api/birthday-reservations?establishment_id=${data.evento.establishment_id}`, {
+              headers: { 'Authorization': `Bearer ${token}` }
+            });
+            
+            if (birthdayResResponse.ok) {
+              const birthdayData = await birthdayResResponse.json();
+              const birthdayReservations = Array.isArray(birthdayData) ? birthdayData : (birthdayData.data || []);
+              
+              // Mapear reservas de aniversário pelo restaurant_reservation_id e também por nome/date como fallback
+              const allReservationsRestaurante = [...reservasRestaurante, ...(data.dados.reservasRestaurante || [])];
+              
+              birthdayReservations.forEach((br: any) => {
+                // Primeiro tenta mapear pelo restaurant_reservation_id
+                if (br.restaurant_reservation_id) {
+                  const resId = Number(br.restaurant_reservation_id);
+                  birthdayReservationsMap[resId] = br;
+                  console.log('🎂 [check-ins] Mapeada por restaurant_reservation_id:', {
+                    restaurantReservationId: resId,
+                    birthdayId: br.id,
+                    nome: br.aniversariante_nome
+                  });
+                }
+                
+                // Fallback: tentar encontrar pela reserva de restaurante correspondente usando nome e data
+                if (br.aniversariante_nome && br.data_aniversario) {
+                  const relatedReservation = allReservationsRestaurante.find((rr: ReservaRestaurante) => {
+                    // Verificar se nome do cliente e data correspondem
+                    const reservationDate = rr.reservation_date ? rr.reservation_date.split('T')[0] : null;
+                    const birthdayDate = br.data_aniversario ? br.data_aniversario.split('T')[0] : null;
+                    const nameMatch = rr.responsavel && (
+                      rr.responsavel.toLowerCase().includes(br.aniversariante_nome.toLowerCase()) ||
+                      br.aniversariante_nome.toLowerCase().includes(rr.responsavel.toLowerCase())
+                    );
+                    const dateMatch = reservationDate === birthdayDate;
+                    
+                    return nameMatch && dateMatch && !birthdayReservationsMap[rr.id];
+                  });
+                  
+                  if (relatedReservation) {
+                    birthdayReservationsMap[relatedReservation.id] = br;
+                    console.log('🎂 [check-ins] Mapeada por nome e data (fallback):', {
+                      restaurantReservationId: relatedReservation.id,
+                      birthdayId: br.id,
+                      nome: br.aniversariante_nome,
+                      cliente: relatedReservation.responsavel
+                    });
+                  }
+                }
+              });
+              
+              // Também mapear diretamente para guest lists com event_type='aniversario'
+              aniversarioGuestLists.forEach((gl: GuestListRestaurante) => {
+                // Se não encontrou pelo restaurant_reservation_id, tenta encontrar pela guest list
+                if (!birthdayReservationsMap[gl.reservation_id]) {
+                  const relatedBr = birthdayReservations.find((br: any) => {
+                    // Verificar se a reserva de aniversário corresponde à guest list
+                    const brDate = br.data_aniversario ? br.data_aniversario.split('T')[0] : null;
+                    const glDate = gl.reservation_date ? gl.reservation_date.split('T')[0] : null;
+                    const nameMatch = gl.owner_name && (
+                      gl.owner_name.toLowerCase().includes((br.aniversariante_nome || '').toLowerCase()) ||
+                      (br.aniversariante_nome || '').toLowerCase().includes(gl.owner_name.toLowerCase())
+                    );
+                    
+                    return (brDate === glDate && nameMatch) || 
+                           (br.restaurant_reservation_id && Number(br.restaurant_reservation_id) === gl.reservation_id);
+                  });
+                  
+                  if (relatedBr) {
+                    birthdayReservationsMap[gl.reservation_id] = relatedBr;
+                    console.log('🎂 [check-ins] Mapeada por guest list:', {
+                      guestListId: gl.guest_list_id,
+                      reservationId: gl.reservation_id,
+                      birthdayId: relatedBr.id,
+                      nome: relatedBr.aniversariante_nome,
+                      ownerName: gl.owner_name
+                    });
+                  }
+                }
+              });
+              
+              console.log('🎂 [check-ins] Total de reservas de aniversário mapeadas:', Object.keys(birthdayReservationsMap).length);
+              console.log('🎂 [check-ins] IDs mapeados:', Object.keys(birthdayReservationsMap));
+              
+              setBirthdayReservationsByReservationId(birthdayReservationsMap);
+              
+              // Carregar itens do cardápio para todas as reservas de aniversário encontradas
+              if (Object.keys(birthdayReservationsMap).length > 0 && data.evento?.establishment_id) {
+                console.log('🎂 [check-ins] Carregando itens do cardápio para', Object.keys(birthdayReservationsMap).length, 'reservas de aniversário');
+                loadMenuItemsForBirthdayReservations(birthdayReservationsMap, data.evento.establishment_id);
+              }
+            }
+          } catch (error) {
+            console.error('Erro ao buscar reservas de aniversário:', error);
+          }
+        }
         
         // Armazenar o establishment_id para uso posterior se necessário
         if (data.evento?.establishment_id) {
@@ -516,7 +850,7 @@ export default function EventoCheckInsPage() {
     } finally {
       setLoading(false);
     }
-  }, [eventoId]);
+  }, [eventoId, loadMenuItemsForBirthdayReservations]);
 
   useEffect(() => {
     loadCheckInData();
@@ -2259,6 +2593,48 @@ export default function EventoCheckInsPage() {
                                     })()}
                                   </div>
                                   <div className="flex flex-col items-end gap-1">
+                                    {/* Botão de Detalhes - apenas para aniversários */}
+                                    {gl.event_type === 'aniversario' && (() => {
+                                      // Tentar encontrar a reserva de aniversário de várias formas
+                                      let birthdayReservation: BirthdayReservation | undefined = birthdayReservationsByReservationId[gl.reservation_id];
+                                      
+                                      // Se não encontrou pelo reservation_id, tentar buscar pela guest list
+                                      if (!birthdayReservation) {
+                                        const allBirthdayReservations = Object.values(birthdayReservationsByReservationId);
+                                        birthdayReservation = allBirthdayReservations.find((br: any) => {
+                                          const nameMatch = gl.owner_name && br.aniversariante_nome && (
+                                            gl.owner_name.toLowerCase().includes(br.aniversariante_nome.toLowerCase()) ||
+                                            br.aniversariante_nome.toLowerCase().includes(gl.owner_name.toLowerCase())
+                                          );
+                                          const brDate = br.data_aniversario ? br.data_aniversario.split('T')[0] : null;
+                                          const glDate = gl.reservation_date ? gl.reservation_date.split('T')[0] : null;
+                                          const dateMatch = brDate === glDate;
+                                          const idMatch = br.restaurant_reservation_id && Number(br.restaurant_reservation_id) === gl.reservation_id;
+                                          return idMatch || (nameMatch && dateMatch);
+                                        }) as BirthdayReservation | undefined;
+                                      }
+                                      
+                                      if (!birthdayReservation) {
+                                        return null;
+                                      }
+                                      
+                                      return (
+                                        <div className="flex items-center gap-2 mb-1">
+                                          <button
+                                            onClick={(e) => {
+                                              e.preventDefault();
+                                              e.stopPropagation();
+                                              setSelectedBirthdayReservation(birthdayReservation);
+                                              setBirthdayModalOpen(true);
+                                            }}
+                                            className="px-3 py-1.5 text-xs bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors font-medium flex items-center gap-1"
+                                          >
+                                            <MdEvent size={14} />
+                                            Detalhes
+                                          </button>
+                                        </div>
+                                      );
+                                    })()}
                                     <div
                                       className="rounded-full bg-white/10 px-2 md:px-3 py-1 text-xs md:text-sm font-semibold text-amber-200"
                                     >
@@ -2291,6 +2667,109 @@ export default function EventoCheckInsPage() {
                                         );
                                       })()}
                                     </div>
+                                    {/* Valor Total da Reserva de Aniversário - acima da mensagem do brinde */}
+                                    {gl.event_type === 'aniversario' && (() => {
+                                      // Tentar encontrar a reserva de aniversário de várias formas
+                                      let birthdayReservation: BirthdayReservation | undefined = birthdayReservationsByReservationId[gl.reservation_id];
+                                      
+                                      // Se não encontrou pelo reservation_id, tentar buscar pela guest list
+                                      if (!birthdayReservation) {
+                                        // Buscar diretamente nas reservas de aniversário já carregadas
+                                        const allBirthdayReservations = Object.values(birthdayReservationsByReservationId);
+                                        birthdayReservation = allBirthdayReservations.find((br: any) => {
+                                          // Tentar encontrar por nome do dono da lista
+                                          const nameMatch = gl.owner_name && br.aniversariante_nome && (
+                                            gl.owner_name.toLowerCase().includes(br.aniversariante_nome.toLowerCase()) ||
+                                            br.aniversariante_nome.toLowerCase().includes(gl.owner_name.toLowerCase())
+                                          );
+                                          
+                                          // Tentar encontrar por data
+                                          const brDate = br.data_aniversario ? br.data_aniversario.split('T')[0] : null;
+                                          const glDate = gl.reservation_date ? gl.reservation_date.split('T')[0] : null;
+                                          const dateMatch = brDate === glDate;
+                                          
+                                          // Tentar encontrar por restaurant_reservation_id
+                                          const idMatch = br.restaurant_reservation_id && Number(br.restaurant_reservation_id) === gl.reservation_id;
+                                          
+                                          return idMatch || (nameMatch && dateMatch);
+                                        }) as BirthdayReservation | undefined;
+                                      }
+                                      
+                                      if (!birthdayReservation) {
+                                        console.log('⚠️ [check-ins] Reserva de aniversário não encontrada para guest list:', {
+                                          guestListId: gl.guest_list_id,
+                                          reservationId: gl.reservation_id,
+                                          ownerName: gl.owner_name,
+                                          eventType: gl.event_type,
+                                          disponiveis: Object.keys(birthdayReservationsByReservationId).length
+                                        });
+                                        return null;
+                                      }
+                                      
+                                      const menuItems = menuItemsByBirthdayReservation[birthdayReservation.id] || { bebidas: [], comidas: [] };
+                                      
+                                      console.log('💰 [check-ins] Calculando valor total para reserva:', {
+                                        birthdayReservationId: birthdayReservation.id,
+                                        nome: birthdayReservation.aniversariante_nome,
+                                        menuItemsBebidas: menuItems.bebidas.length,
+                                        menuItemsComidas: menuItems.comidas.length,
+                                        decoracao: birthdayReservation.decoracao_tipo
+                                      });
+                                      
+                                      // Calcular valor total com preços reais do cardápio
+                                      const decorationPrices: Record<string, number> = {
+                                        'Decoração Pequena 1': 200.0,
+                                        'Decoração Pequena 2': 220.0,
+                                        'Decoração Media 3': 250.0,
+                                        'Decoração Media 4': 270.0,
+                                        'Decoração Grande 5': 300.0,
+                                        'Decoração Grande 6': 320.0,
+                                      };
+                                      
+                                      let total = 0;
+                                      
+                                      // Valor da decoração
+                                      if (birthdayReservation.decoracao_tipo) {
+                                        total += decorationPrices[birthdayReservation.decoracao_tipo] || 0;
+                                      }
+                                      
+                                      // Valor das bebidas do bar (com preços reais do cardápio)
+                                      menuItems.bebidas.forEach(item => {
+                                        total += item.preco * item.quantidade;
+                                      });
+
+                                      // Valor das porções do bar (com preços reais do cardápio)
+                                      menuItems.comidas.forEach(item => {
+                                        total += item.preco * item.quantidade;
+                                      });
+                                      
+                                      // Valor das bebidas especiais
+                                      const bebidasEspeciaisMap: Record<string, { nome: string; preco: number }> = {
+                                        'bebida_balde_budweiser': { nome: 'Balde Budweiser', preco: 50.0 },
+                                        'bebida_balde_corona': { nome: 'Balde Corona', preco: 55.0 },
+                                        'bebida_balde_heineken': { nome: 'Balde Heineken', preco: 60.0 },
+                                        'bebida_combo_gin_142': { nome: 'Combo Gin 142', preco: 80.0 },
+                                        'bebida_licor_rufus': { nome: 'Licor Rufus', preco: 45.0 },
+                                      };
+                                      
+                                      Object.entries(bebidasEspeciaisMap).forEach(([campo, info]) => {
+                                        const qtd = (birthdayReservation as any)[campo] || 0;
+                                        if (qtd > 0) {
+                                          total += info.preco * qtd;
+                                        }
+                                      });
+                                      
+                                      console.log('💰 [check-ins] Valor total calculado:', total);
+                                      
+                                      if (total > 0) {
+                                        return (
+                                          <div className="rounded-full bg-gradient-to-r from-orange-500/90 to-red-500/90 px-3 py-1.5 text-xs md:text-sm font-bold text-white shadow-lg" title="Valor total da reserva. Será adicionado à comanda no estabelecimento.">
+                                            💰 Total: R$ {total.toFixed(2)}
+                                          </div>
+                                        );
+                                      }
+                                      return null;
+                                    })()}
                                     {(() => {
                                       const guestsCheckedIn = checkInStatus[gl.guest_list_id]?.guestsCheckedIn || 0;
                                       const activeRules = giftRules.filter(r => r.status === 'ATIVA').sort((a, b) => a.checkins_necessarios - b.checkins_necessarios);
@@ -3248,6 +3727,16 @@ export default function EventoCheckInsPage() {
             horaAtual={new Date()}
           />
         )}
+
+        {/* Modal de Detalhes do Aniversário */}
+        <BirthdayDetailsModal
+          reservation={selectedBirthdayReservation}
+          isOpen={birthdayModalOpen}
+          onClose={() => {
+            setBirthdayModalOpen(false);
+            setSelectedBirthdayReservation(null);
+          }}
+        />
         
         {/* Toast Container para notificações não-bloqueantes */}
         <ToastContainer

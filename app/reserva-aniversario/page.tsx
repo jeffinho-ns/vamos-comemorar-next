@@ -13,11 +13,43 @@ import { BirthdayService } from '../services/birthdayService';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL_LOCAL || 'https://vamos-comemorar-api.onrender.com';
 
+// Função helper para resolver URL de imagem do cardápio
+const getCardapioImageUrl = (imageUrl?: string | null): string => {
+  if (!imageUrl || typeof imageUrl !== 'string') {
+    return '/placeholder-cardapio.svg';
+  }
+
+  const trimmed = imageUrl.trim();
+  if (trimmed === '' || trimmed === 'null' || trimmed === 'undefined') {
+    return '/placeholder-cardapio.svg';
+  }
+
+  // Se já é uma URL completa (Cloudinary, Firebase, etc)
+  if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+    // Se é Cloudinary, retornar como está
+    if (trimmed.includes('res.cloudinary.com')) {
+      return trimmed;
+    }
+    return trimmed;
+  }
+
+  // Se é apenas um filename, construir URL Cloudinary
+  const cleanFilename = trimmed.startsWith('/') ? trimmed.substring(1) : trimmed;
+  const filename = cleanFilename.split('/').pop() || cleanFilename;
+  
+  if (filename && filename !== 'null' && filename !== 'undefined') {
+    return `https://res.cloudinary.com/drjovtmuw/image/upload/v1764862686/cardapio-agilizaiapp/${filename}`;
+  }
+
+  return '/placeholder-cardapio.svg';
+};
+
 interface Establishment {
   id: number;
   name: string;
   logo: string;
   address: string;
+  slug?: string;
 }
 
 interface RestaurantArea {
@@ -40,6 +72,7 @@ interface BeverageOption {
   price: number;
   category: string;
   description: string;
+  imageUrl?: string;
 }
 
 interface GiftOption {
@@ -54,6 +87,7 @@ interface FoodOption {
   price: number;
   category: string;
   description: string;
+  imageUrl?: string;
 }
 
 export default function ReservaAniversarioPage() {
@@ -96,6 +130,11 @@ export default function ReservaAniversarioPage() {
   const [availableTimeSlots, setAvailableTimeSlots] = useState<string[]>([]);
   const [selectedSubareaKey, setSelectedSubareaKey] = useState<string>('');
 
+  // Estados para cardápio
+  const [beverageOptions, setBeverageOptions] = useState<BeverageOption[]>([]);
+  const [foodOptions, setFoodOptions] = useState<FoodOption[]>([]);
+  const [menuLoading, setMenuLoading] = useState(false);
+
   // (Suas opções de decoração, painel, bebidas, etc. permanecem as mesmas)
   const decorationOptions: DecorationOption[] = [
     { name: 'Decoração Pequena 1', price: 200.0, image: '/agilizai/kit-1.jpg', description: 'Decoração pequena estilo 1.' },
@@ -113,31 +152,7 @@ export default function ReservaAniversarioPage() {
     '/agilizai/painel-10.jpg'
   ];
 
-  const beverageOptions: BeverageOption[] = [
-    { name: 'Item-bar-Bebida - 1', price: 12.0, category: 'Bebida', description: 'Bebida do bar item 1.' },
-    { name: 'Item-bar-Bebida - 2', price: 15.0, category: 'Bebida', description: 'Bebida do bar item 2.' },
-    { name: 'Item-bar-Bebida - 3', price: 18.0, category: 'Bebida', description: 'Bebida do bar item 3.' },
-    { name: 'Item-bar-Bebida - 4', price: 20.0, category: 'Bebida', description: 'Bebida do bar item 4.' },
-    { name: 'Item-bar-Bebida - 5', price: 22.0, category: 'Bebida', description: 'Bebida do bar item 5.' },
-    { name: 'Item-bar-Bebida - 6', price: 25.0, category: 'Bebida', description: 'Bebida do bar item 6.' },
-    { name: 'Item-bar-Bebida - 7', price: 28.0, category: 'Bebida', description: 'Bebida do bar item 7.' },
-    { name: 'Item-bar-Bebida - 8', price: 30.0, category: 'Bebida', description: 'Bebida do bar item 8.' },
-    { name: 'Item-bar-Bebida - 9', price: 35.0, category: 'Bebida', description: 'Bebida do bar item 9.' },
-    { name: 'Item-bar-Bebida - 10', price: 40.0, category: 'Bebida', description: 'Bebida do bar item 10.' },
-  ];
-
-  const foodOptions: FoodOption[] = [
-    { name: 'Item-bar-Comida - 1', price: 25.0, category: 'Comida', description: 'Comida do bar item 1' },
-    { name: 'Item-bar-Comida - 2', price: 28.0, category: 'Comida', description: 'Comida do bar item 2' },
-    { name: 'Item-bar-Comida - 3', price: 30.0, category: 'Comida', description: 'Comida do bar item 3' },
-    { name: 'Item-bar-Comida - 4', price: 32.0, category: 'Comida', description: 'Comida do bar item 4' },
-    { name: 'Item-bar-Comida - 5', price: 35.0, category: 'Comida', description: 'Comida do bar item 5' },
-    { name: 'Item-bar-Comida - 6', price: 38.0, category: 'Comida', description: 'Comida do bar item 6' },
-    { name: 'Item-bar-Comida - 7', price: 40.0, category: 'Comida', description: 'Comida do bar item 7' },
-    { name: 'Item-bar-Comida - 8', price: 42.0, category: 'Comida', description: 'Comida do bar item 8' },
-    { name: 'Item-bar-Comida - 9', price: 45.0, category: 'Comida', description: 'Comida do bar item 9' },
-    { name: 'Item-bar-Comida - 10', price: 48.0, category: 'Comida', description: 'Comida do bar item 10' },
-  ];
+  // Cardápio será carregado dinamicamente quando o estabelecimento for selecionado
 
   const giftOptions: GiftOption[] = [
     { name: 'Lista-Presente - 1', price: 50.0, category: 'Presente', image: '/agilizai/prod-1.png' },
@@ -241,7 +256,8 @@ export default function ReservaAniversarioPage() {
               id: place.id,
               name: place.name || "Sem nome",
               logo: place.logo || "",
-              address: place.street ? `${place.street}, ${place.number || ''}`.trim() : (place.address || "Endereço não informado")
+              address: place.street ? `${place.street}, ${place.number || ''}`.trim() : (place.address || "Endereço não informado"),
+              slug: place.slug || null
             }));
           
           console.log('✅ Estabelecimentos formatados:', formattedEstablishments.length, formattedEstablishments);
@@ -274,6 +290,377 @@ export default function ReservaAniversarioPage() {
     } catch (error) {
       console.error('Erro ao carregar áreas:', error);
       setAreas([]);
+    }
+  };
+
+  // Carregar cardápio do estabelecimento selecionado
+  const loadMenu = async (establishmentName: string, establishmentId?: string) => {
+    if (!establishmentName) {
+      setBeverageOptions([]);
+      setFoodOptions([]);
+      return;
+    }
+
+    setMenuLoading(true);
+    try {
+      const API_BASE_URL = `${API_URL}/api/cardapio`;
+      
+      // 1. Buscar todos os bars para encontrar o que corresponde ao estabelecimento
+      const barsResponse = await fetch(`${API_BASE_URL}/bars`);
+      if (!barsResponse.ok) throw new Error('Erro ao carregar estabelecimentos do cardápio');
+      
+      const bars = await barsResponse.json();
+      
+      // 2. Buscar o estabelecimento completo para pegar o slug
+      let establishmentSlug: string | null = null;
+      if (establishmentId) {
+        const place = establishments.find(est => String(est.id) === establishmentId);
+        if (place && place.slug) {
+          establishmentSlug = place.slug;
+        }
+      }
+      
+      // Normalizar nomes para comparação (remover acentos, espaços extras, etc)
+      const normalizeName = (name: string) => {
+        return name
+          .toLowerCase()
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '')
+          .replace(/\s+/g, ' ') // Múltiplos espaços para um único espaço
+          .trim()
+          .replace(/[^a-z0-9\s]/g, ''); // Remove caracteres especiais
+      };
+      
+      // Função para criar versão simplificada (sem espaços, hífens, etc) para matching mais flexível
+      const simplifyName = (name: string) => {
+        return normalizeName(name)
+          .replace(/\s+/g, '')
+          .replace(/[^a-z0-9]/g, '');
+      };
+      
+      const normalizedEstablishmentName = normalizeName(establishmentName);
+      const simplifiedEstablishmentName = simplifyName(establishmentName);
+      
+      console.log('🔍 Buscando bar no cardápio:', {
+        establishmentName,
+        establishmentId,
+        establishmentSlug,
+        normalizedName: normalizedEstablishmentName,
+        simplifiedName: simplifiedEstablishmentName,
+        totalBars: bars.length,
+        barNames: bars.map((b: any) => ({ name: b.name, slug: b.slug, id: b.id }))
+      });
+      
+      // Priorizar busca por slug (mais confiável)
+      let bar = null;
+      if (establishmentSlug) {
+        bar = bars.find((b: any) => b.slug === establishmentSlug);
+        if (bar) {
+          console.log('✅ Bar encontrado por slug:', bar.name);
+        }
+      }
+      
+      // Se não encontrou por slug, tentar por ID
+      if (!bar && establishmentId) {
+        bar = bars.find((b: any) => String(b.id) === String(establishmentId));
+        if (bar) {
+          console.log('✅ Bar encontrado por ID:', bar.name);
+        }
+      }
+      
+      // Se ainda não encontrou, tentar por nome
+      if (!bar) {
+        bar = bars.find((b: any) => {
+          const normalizedBarName = normalizeName(b.name);
+          const simplifiedBarName = simplifyName(b.name);
+          
+          // Match exato normalizado
+          if (normalizedBarName === normalizedEstablishmentName) return true;
+          
+          // Match simplificado (sem espaços)
+          if (simplifiedBarName === simplifiedEstablishmentName) return true;
+          
+          // Match parcial (um contém o outro)
+          if (normalizedBarName.includes(normalizedEstablishmentName) || 
+              normalizedEstablishmentName.includes(normalizedBarName)) return true;
+          
+          // Match simplificado parcial
+          if (simplifiedBarName.includes(simplifiedEstablishmentName) || 
+              simplifiedEstablishmentName.includes(simplifiedBarName)) return true;
+          
+          // Match especial para variações conhecidas
+          const nameVariations: Record<string, string[]> = {
+            'highline': ['highline', 'high line', 'high-line'],
+            'seu justino': ['seu justino', 'seujustino'],
+            'pracinha do seu justino': ['pracinha do seu justino', 'pracinha', 'pracinha seu justino'],
+            'oh fregues': ['oh fregues', 'ohfregues'],
+            'reserva rooftop': ['reserva rooftop', 'reservarooftop', 'reserva-rooftop']
+          };
+          
+          const establishmentKey = Object.keys(nameVariations).find(key => 
+            simplifiedEstablishmentName.includes(simplifyName(key)) || 
+            simplifyName(key).includes(simplifiedEstablishmentName)
+          );
+          
+          if (establishmentKey && nameVariations[establishmentKey]) {
+            return nameVariations[establishmentKey].some(variation => 
+              simplifiedBarName.includes(simplifyName(variation)) ||
+              simplifyName(variation).includes(simplifiedBarName)
+            );
+          }
+          
+          return false;
+        });
+        
+        if (bar) {
+          console.log('✅ Bar encontrado por nome:', bar.name);
+        }
+      }
+      
+      if (!bar) {
+        console.warn('Bar não encontrado no cardápio para:', establishmentName);
+        setBeverageOptions([]);
+        setFoodOptions([]);
+        setMenuLoading(false);
+        return;
+      }
+
+      // 3. Buscar todas as categorias e itens
+      const [categoriesResponse, itemsResponse] = await Promise.all([
+        fetch(`${API_BASE_URL}/categories`),
+        fetch(`${API_BASE_URL}/items`)
+      ]);
+
+      if (!categoriesResponse.ok || !itemsResponse.ok) {
+        throw new Error('Erro ao carregar dados do cardápio');
+      }
+
+      const [categories, items] = await Promise.all([
+        categoriesResponse.json(),
+        itemsResponse.json()
+      ]);
+
+      // 3. Filtrar itens pelo barId e apenas itens visíveis
+      const normalizedBarId = String(bar.id);
+      const barItems = items.filter((item: any) => {
+        const matchesBar = String(item.barId) === normalizedBarId;
+        const isVisible = item.visible === undefined || item.visible === null || item.visible === 1 || item.visible === true;
+        return matchesBar && isVisible;
+      });
+
+      // Processar selos dos itens (garantir que sejam arrays)
+      const processedBarItems = barItems.map((item: any) => {
+        let seals = [];
+        if (item.seals) {
+          if (Array.isArray(item.seals)) {
+            seals = item.seals;
+          } else if (typeof item.seals === 'string') {
+            try {
+              seals = JSON.parse(item.seals);
+              if (!Array.isArray(seals)) {
+                seals = [];
+              }
+            } catch (e) {
+              console.warn('Erro ao parsear seals como JSON:', e, item.seals);
+              seals = [];
+            }
+          }
+        }
+        return { ...item, seals };
+      });
+
+      console.log('🔍 Debug cardápio:', {
+        establishmentName,
+        barId: bar.id,
+        totalItems: items.length,
+        barItemsCount: processedBarItems.length,
+        sampleItem: processedBarItems[0] ? {
+          id: processedBarItems[0].id,
+          name: processedBarItems[0].name,
+          categoryId: processedBarItems[0].categoryId,
+          seals: processedBarItems[0].seals,
+          sealsType: typeof processedBarItems[0].seals,
+          sealsIsArray: Array.isArray(processedBarItems[0].seals)
+        } : null,
+        allSealsFound: processedBarItems
+          .filter((item: any) => item.seals && item.seals.length > 0)
+          .flatMap((item: any) => item.seals)
+          .filter((seal: string, index: number, arr: string[]) => arr.indexOf(seal) === index)
+      });
+
+      // 4. Filtrar categorias de bebidas (Drinks, Carta de Vinho, Bebidas)
+      const beverageCategories = categories.filter((cat: any) => {
+        const categoryName = cat.name ? normalizeName(cat.name) : '';
+        // Buscar por nomes exatos ou variações comuns
+        return categoryName === 'drinks' || 
+               categoryName === 'carta de vinho' ||
+               categoryName === 'bebidas' ||
+               categoryName.includes('drink') || 
+               categoryName.includes('carta de vinho') || 
+               categoryName.includes('vinho') ||
+               categoryName.includes('bebida');
+      }).map((cat: any) => String(cat.id));
+
+      console.log('🍷 Categorias de bebidas encontradas:', {
+        totalCategories: categories.length,
+        beverageCategoryIds: beverageCategories,
+        beverageCategoryNames: categories
+          .filter((cat: any) => beverageCategories.includes(String(cat.id)))
+          .map((cat: any) => cat.name)
+      });
+
+      // 5. Filtrar categorias de comidas (Menu)
+      const foodCategories = categories.filter((cat: any) => {
+        const categoryName = cat.name ? normalizeName(cat.name) : '';
+        // Buscar por nome exato Menu
+        return categoryName === 'menu' || categoryName.includes('menu');
+      }).map((cat: any) => String(cat.id));
+
+      console.log('🍽️ Categorias de comidas encontradas:', {
+        foodCategoryIds: foodCategories,
+        foodCategoryNames: categories
+          .filter((cat: any) => foodCategories.includes(String(cat.id)))
+          .map((cat: any) => cat.name)
+      });
+
+      // 6. Buscar selos customizados do bar se houver
+      const customSeals = bar.custom_seals || [];
+      console.log('🏷️ Selos customizados do bar:', customSeals);
+
+      // 7. Filtrar bebidas com selo B-day
+      const beveragesWithBday = processedBarItems.filter((item: any) => {
+        const hasBeverageCategory = beverageCategories.includes(String(item.categoryId));
+        if (!hasBeverageCategory) return false;
+        
+        // Verificar se tem selos
+        if (!item.seals || !Array.isArray(item.seals) || item.seals.length === 0) {
+          return false;
+        }
+
+        // Verificar se tem selo B-day nos selos padrão ou customizados
+        const hasBdaySeal = item.seals.some((sealId: string) => {
+          if (!sealId || typeof sealId !== 'string') return false;
+          
+          const normalizedSeal = normalizeName(sealId);
+          
+          // Verificar selos padrão (IDs conhecidos)
+          if (normalizedSeal.includes('b-day') || 
+              normalizedSeal.includes('bday') ||
+              normalizedSeal.includes('birthday') ||
+              normalizedSeal === 'b-day') {
+            return true;
+          }
+          
+          // Verificar selos customizados do bar
+          const customSeal = customSeals.find((cs: any) => cs.id === sealId);
+          if (customSeal) {
+            const customSealName = normalizeName(customSeal.name || '');
+            if (customSealName.includes('b-day') || 
+                customSealName.includes('bday') ||
+                customSealName.includes('birthday')) {
+              return true;
+            }
+          }
+          
+          return false;
+        });
+        
+        return hasBdaySeal;
+      });
+
+      console.log('🥂 Bebidas com selo B-day:', {
+        total: beveragesWithBday.length,
+        items: beveragesWithBday.map((item: any) => ({
+          id: item.id,
+          name: item.name,
+          categoryId: item.categoryId,
+          seals: item.seals
+        }))
+      });
+
+      // 8. Filtrar comidas com selo B-day
+      const foodsWithBday = processedBarItems.filter((item: any) => {
+        const hasFoodCategory = foodCategories.includes(String(item.categoryId));
+        if (!hasFoodCategory) return false;
+        
+        // Verificar se tem selos
+        if (!item.seals || !Array.isArray(item.seals) || item.seals.length === 0) {
+          return false;
+        }
+
+        // Verificar se tem selo B-day nos selos padrão ou customizados
+        const hasBdaySeal = item.seals.some((sealId: string) => {
+          if (!sealId || typeof sealId !== 'string') return false;
+          
+          const normalizedSeal = normalizeName(sealId);
+          
+          // Verificar selos padrão (IDs conhecidos)
+          if (normalizedSeal.includes('b-day') || 
+              normalizedSeal.includes('bday') ||
+              normalizedSeal.includes('birthday') ||
+              normalizedSeal === 'b-day') {
+            return true;
+          }
+          
+          // Verificar selos customizados do bar
+          const customSeal = customSeals.find((cs: any) => cs.id === sealId);
+          if (customSeal) {
+            const customSealName = normalizeName(customSeal.name || '');
+            if (customSealName.includes('b-day') || 
+                customSealName.includes('bday') ||
+                customSealName.includes('birthday')) {
+              return true;
+            }
+          }
+          
+          return false;
+        });
+        
+        return hasBdaySeal;
+      });
+
+      console.log('🍽️ Porções com selo B-day:', {
+        total: foodsWithBday.length,
+        items: foodsWithBday.map((item: any) => ({
+          id: item.id,
+          name: item.name,
+          categoryId: item.categoryId,
+          seals: item.seals
+        }))
+      });
+
+      // 9. Converter para BeverageOption e FoodOption
+      const formattedBeverages: BeverageOption[] = beveragesWithBday.map((item: any) => ({
+        name: item.name || 'Bebida sem nome',
+        price: parseFloat(item.price) || 0,
+        category: item.category || 'Bebida',
+        description: item.description || '',
+        imageUrl: item.imageUrl || null,
+      }));
+
+      const formattedFoods: FoodOption[] = foodsWithBday.map((item: any) => ({
+        name: item.name || 'Porção sem nome',
+        price: parseFloat(item.price) || 0,
+        category: item.category || 'Comida',
+        description: item.description || '',
+        imageUrl: item.imageUrl || null,
+      }));
+
+      setBeverageOptions(formattedBeverages);
+      setFoodOptions(formattedFoods);
+
+      console.log('✅ Cardápio carregado:', {
+        establishment: establishmentName,
+        barId: bar.id,
+        beverages: formattedBeverages.length,
+        foods: formattedFoods.length
+      });
+    } catch (error) {
+      console.error('❌ Erro ao carregar cardápio:', error);
+      setBeverageOptions([]);
+      setFoodOptions([]);
+    } finally {
+      setMenuLoading(false);
     }
   };
 
@@ -443,16 +830,30 @@ export default function ReservaAniversarioPage() {
 
     setIsLoading(true);
     try {
+      // Mapear bebidas selecionadas do cardápio dinâmico
       const bebidasMap: Record<string, number> = {};
-      for (let i = 1; i <= 10; i++) {
-        const key = `Item-bar-Bebida - ${i}`;
-        bebidasMap[`item_bar_bebida_${i}`] = selectedBeverages[key] || 0;
+      const selectedBeverageEntries = Object.entries(selectedBeverages).filter(([_, qty]) => qty > 0);
+      selectedBeverageEntries.forEach(([beverageName, quantity], index) => {
+        if (index < 10) {
+          bebidasMap[`item_bar_bebida_${index + 1}`] = quantity;
+        }
+      });
+      // Preencher campos restantes com 0 para manter compatibilidade com API
+      for (let i = selectedBeverageEntries.length + 1; i <= 10; i++) {
+        bebidasMap[`item_bar_bebida_${i}`] = 0;
       }
 
+      // Mapear comidas selecionadas do cardápio dinâmico
       const comidasMap: Record<string, number> = {};
-      for (let i = 1; i <= 10; i++) {
-        const key = `Item-bar-Comida - ${i}`;
-        comidasMap[`item_bar_comida_${i}`] = selectedFoods[key] || 0;
+      const selectedFoodEntries = Object.entries(selectedFoods).filter(([_, qty]) => qty > 0);
+      selectedFoodEntries.forEach(([foodName, quantity], index) => {
+        if (index < 10) {
+          comidasMap[`item_bar_comida_${index + 1}`] = quantity;
+        }
+      });
+      // Preencher campos restantes com 0 para manter compatibilidade com API
+      for (let i = selectedFoodEntries.length + 1; i <= 10; i++) {
+        comidasMap[`item_bar_comida_${i}`] = 0;
       }
 
       // Validar que o estabelecimento foi selecionado
@@ -698,6 +1099,13 @@ export default function ReservaAniversarioPage() {
                     setSelectedEstablishment(establishment || null);
                     if (establishment) {
                       loadAreas(establishment.id);
+                      loadMenu(establishment.name, String(establishment.id));
+                      // Limpar seleções de bebidas e comidas quando mudar estabelecimento
+                      setSelectedBeverages({});
+                      setSelectedFoods({});
+                    } else {
+                      setBeverageOptions([]);
+                      setFoodOptions([]);
                     }
                     setSelectedSubareaKey('');
                   }}
@@ -848,7 +1256,7 @@ export default function ReservaAniversarioPage() {
                 <input
                   type="range"
                   min="1"
-                  max="50"
+                  max="100"
                   value={formData.quantidadeConvidados}
                   onChange={(e) => setFormData({...formData, quantidadeConvidados: parseInt(e.target.value)})}
                   className="flex-1"
@@ -1021,15 +1429,53 @@ export default function ReservaAniversarioPage() {
               message="Cada bebida que for adicionada será acrescentada o valor na comanda de quem está criando essa lista."
             />
 
-            <div className="space-y-4">
+            {!formData.barSelecionado && (
+              <div className="bg-yellow-500 bg-opacity-10 border border-yellow-500 border-opacity-30 rounded-lg p-4 mb-4">
+                <p className="text-yellow-400 text-sm font-semibold">
+                  ⚠️ Selecione um estabelecimento primeiro para ver as bebidas disponíveis com selo B-day.
+                </p>
+              </div>
+            )}
+
+            {menuLoading && formData.barSelecionado && (
+              <div className="bg-blue-500 bg-opacity-10 border border-blue-500 border-opacity-30 rounded-lg p-4 mb-4">
+                <p className="text-blue-400 text-sm font-semibold">
+                  🔄 Carregando cardápio do estabelecimento...
+                </p>
+              </div>
+            )}
+
+            {!menuLoading && formData.barSelecionado && beverageOptions.length === 0 && (
+              <div className="bg-gray-500 bg-opacity-10 border border-gray-500 border-opacity-30 rounded-lg p-4 mb-4">
+                <p className="text-gray-400 text-sm font-semibold">
+                  ℹ️ Nenhuma bebida com selo B-day encontrada no cardápio deste estabelecimento nas categorias Drinks, Carta de Vinho ou Bebidas.
+                </p>
+              </div>
+            )}
+
+            <div className="grid md:grid-cols-2 gap-4">
               {beverageOptions.map((beverage) => (
-                <div key={beverage.name} className="bg-slate-800 rounded-lg p-4 border border-slate-700">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h4 className="text-white font-medium">{beverage.name}</h4>
-                      <p className="text-orange-500 font-bold">R$ {beverage.price.toFixed(2)}</p>
+                <div key={beverage.name} className="bg-slate-800 rounded-xl p-4 border border-slate-700 hover:border-orange-400 transition-all">
+                  <div className="h-40 relative overflow-hidden rounded-lg mb-3">
+                    <SafeImage
+                      src={getCardapioImageUrl(beverage.imageUrl)}
+                      alt={beverage.name}
+                      fill
+                      sizes="(max-width: 768px) 100vw, 50vw"
+                      className="object-cover transition-transform hover:scale-105"
+                      unoptimized={true}
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
+                  </div>
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <h4 className="text-white font-medium text-lg mb-1">{beverage.name}</h4>
+                      {beverage.description && (
+                        <p className="text-slate-300 text-sm mb-2 line-clamp-2">{beverage.description}</p>
+                      )}
+                      <p className="text-orange-500 font-bold text-xl">R$ {beverage.price.toFixed(2)}</p>
                     </div>
-                    <div className="flex items-center space-x-3">
+                    <div className="flex items-center space-x-2 ml-4">
                       <button
                         onClick={() => {
                           const current = selectedBeverages[beverage.name] || 0;
@@ -1040,7 +1486,7 @@ export default function ReservaAniversarioPage() {
                             });
                           }
                         }}
-                        className="w-8 h-8 bg-slate-700 rounded-full flex items-center justify-center text-white hover:bg-slate-600"
+                        className="w-8 h-8 bg-slate-700 rounded-full flex items-center justify-center text-white hover:bg-slate-600 transition-colors"
                       >
                         <FaMinus className="text-sm" />
                       </button>
@@ -1055,7 +1501,7 @@ export default function ReservaAniversarioPage() {
                             [beverage.name]: current + 1
                           });
                         }}
-                        className="w-8 h-8 bg-orange-500 rounded-full flex items-center justify-center text-white hover:bg-orange-600"
+                        className="w-8 h-8 bg-orange-500 rounded-full flex items-center justify-center text-white hover:bg-orange-600 transition-colors"
                       >
                         <FaPlus className="text-sm" />
                       </button>
@@ -1078,15 +1524,53 @@ export default function ReservaAniversarioPage() {
               message="Lembre que cada porção será acrescentada na comanda."
             />
 
-            <div className="space-y-4">
+            {!formData.barSelecionado && (
+              <div className="bg-yellow-500 bg-opacity-10 border border-yellow-500 border-opacity-30 rounded-lg p-4 mb-4">
+                <p className="text-yellow-400 text-sm font-semibold">
+                  ⚠️ Selecione um estabelecimento primeiro para ver as porções disponíveis com selo B-day.
+                </p>
+              </div>
+            )}
+
+            {menuLoading && formData.barSelecionado && (
+              <div className="bg-blue-500 bg-opacity-10 border border-blue-500 border-opacity-30 rounded-lg p-4 mb-4">
+                <p className="text-blue-400 text-sm font-semibold">
+                  🔄 Carregando cardápio do estabelecimento...
+                </p>
+              </div>
+            )}
+
+            {!menuLoading && formData.barSelecionado && foodOptions.length === 0 && (
+              <div className="bg-gray-500 bg-opacity-10 border border-gray-500 border-opacity-30 rounded-lg p-4 mb-4">
+                <p className="text-gray-400 text-sm font-semibold">
+                  ℹ️ Nenhuma porção com selo B-day encontrada no cardápio deste estabelecimento na categoria Menu.
+                </p>
+              </div>
+            )}
+
+            <div className="grid md:grid-cols-2 gap-4">
               {foodOptions.map((food) => (
-                <div key={food.name} className="bg-slate-800 rounded-lg p-4 border border-slate-700">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h4 className="text-white font-medium">{food.name}</h4>
-                      <p className="text-orange-500 font-bold">R$ {food.price.toFixed(2)}</p>
+                <div key={food.name} className="bg-slate-800 rounded-xl p-4 border border-slate-700 hover:border-orange-400 transition-all">
+                  <div className="h-40 relative overflow-hidden rounded-lg mb-3">
+                    <SafeImage
+                      src={getCardapioImageUrl(food.imageUrl)}
+                      alt={food.name}
+                      fill
+                      sizes="(max-width: 768px) 100vw, 50vw"
+                      className="object-cover transition-transform hover:scale-105"
+                      unoptimized={true}
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
+                  </div>
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <h4 className="text-white font-medium text-lg mb-1">{food.name}</h4>
+                      {food.description && (
+                        <p className="text-slate-300 text-sm mb-2 line-clamp-2">{food.description}</p>
+                      )}
+                      <p className="text-orange-500 font-bold text-xl">R$ {food.price.toFixed(2)}</p>
                     </div>
-                    <div className="flex items-center space-x-3">
+                    <div className="flex items-center space-x-2 ml-4">
                       <button
                         onClick={() => {
                           const current = selectedFoods[food.name] || 0;
@@ -1097,7 +1581,7 @@ export default function ReservaAniversarioPage() {
                             });
                           }
                         }}
-                        className="w-8 h-8 bg-slate-700 rounded-full flex items-center justify-center text-white hover:bg-slate-600"
+                        className="w-8 h-8 bg-slate-700 rounded-full flex items-center justify-center text-white hover:bg-slate-600 transition-colors"
                       >
                         <FaMinus className="text-sm" />
                       </button>
@@ -1112,7 +1596,7 @@ export default function ReservaAniversarioPage() {
                             [food.name]: current + 1
                           });
                         }}
-                        className="w-8 h-8 bg-orange-500 rounded-full flex items-center justify-center text-white hover:bg-orange-600"
+                        className="w-8 h-8 bg-orange-500 rounded-full flex items-center justify-center text-white hover:bg-orange-600 transition-colors"
                       >
                         <FaPlus className="text-sm" />
                       </button>
