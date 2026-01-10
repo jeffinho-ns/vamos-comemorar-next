@@ -438,16 +438,16 @@ export default function ReservationModal({
       newErrors.reservation_time = 'Horário da reserva é obrigatório';
     }
     
-    // Validação de horário para Highline
-    if (isHighline && formData.reservation_time && formData.reservation_date) {
+    // Validação de horário para Highline (apenas para não-admins)
+    if (isHighline && formData.reservation_time && formData.reservation_date && !isAdmin) {
       const windows = getHighlineTimeWindows(formData.reservation_date, selectedSubareaKey);
       if (windows.length > 0 && !isTimeWithinWindows(formData.reservation_time, windows)) {
         newErrors.reservation_time = 'Horário fora do funcionamento. Consulte os horários disponíveis abaixo.';
       }
     }
     
-    // Validação de horário para Seu Justino e Pracinha do Seu Justino
-    if ((isSeuJustino || isPracinha) && formData.reservation_time && formData.reservation_date) {
+    // Validação de horário para Seu Justino e Pracinha do Seu Justino (apenas para não-admins)
+    if ((isSeuJustino || isPracinha) && formData.reservation_time && formData.reservation_date && !isAdmin) {
       const windows = getSeuJustinoTimeWindows(formData.reservation_date);
       if (windows.length > 0 && !isTimeWithinWindows(formData.reservation_time, windows)) {
         newErrors.reservation_time = 'Horário fora do funcionamento. Consulte os horários disponíveis abaixo.';
@@ -521,6 +521,36 @@ export default function ReservationModal({
         finalNotes = `${observacaoMesas}\n\n${finalNotes}`;
       } else {
         finalNotes = observacaoMesas;
+      }
+    }
+    
+    // Verificar se o horário está fora da janela disponível e adicionar observação automática (apenas para admins)
+    if (isAdmin && formData.reservation_time && formData.reservation_date) {
+      let isOutsideWindow = false;
+      
+      if (isHighline) {
+        const windows = getHighlineTimeWindows(formData.reservation_date, selectedSubareaKey);
+        if (windows.length > 0 && !isTimeWithinWindows(formData.reservation_time, windows)) {
+          isOutsideWindow = true;
+        }
+      } else if (isSeuJustino || isPracinha) {
+        const windows = getSeuJustinoTimeWindows(formData.reservation_date);
+        if (windows.length > 0 && !isTimeWithinWindows(formData.reservation_time, windows)) {
+          isOutsideWindow = true;
+        }
+      }
+      
+      if (isOutsideWindow) {
+        const observacaoForaHorario = 'ADMIN autoriza que a reserva foi feita fora do horário das reservas disponíveis.';
+        
+        if (finalNotes && finalNotes.trim()) {
+          // Verificar se a observação já não foi adicionada (para evitar duplicação)
+          if (!finalNotes.includes(observacaoForaHorario)) {
+            finalNotes = `${observacaoForaHorario}\n\n${finalNotes}`;
+          }
+        } else {
+          finalNotes = observacaoForaHorario;
+        }
       }
     }
 
@@ -909,6 +939,11 @@ export default function ReservationModal({
                           return (
                             <div className="p-2 bg-red-900/20 border border-red-600/40 rounded">
                               Reservas fechadas para este dia no Highline. Disponível apenas Sexta e Sábado.
+                              {isAdmin && (
+                                <div className="mt-2 text-amber-300 font-medium">
+                                  ⚠️ Admin: Você pode criar reservas fora do horário disponível.
+                                </div>
+                              )}
                             </div>
                           );
                         }
@@ -920,6 +955,11 @@ export default function ReservationModal({
                                 <li key={i}>{w.label}</li>
                               ))}
                             </ul>
+                            {isAdmin && (
+                              <div className="mt-2 text-amber-300 font-medium">
+                                ⚠️ Admin: Você pode criar reservas fora do horário disponível.
+                              </div>
+                            )}
                           </div>
                         );
                       })()}
@@ -933,6 +973,11 @@ export default function ReservationModal({
                           return (
                             <div className="p-2 bg-red-900/20 border border-red-600/40 rounded">
                               Reservas fechadas para este dia.
+                              {isAdmin && (
+                                <div className="mt-2 text-amber-300 font-medium">
+                                  ⚠️ Admin: Você pode criar reservas fora do horário disponível.
+                                </div>
+                              )}
                             </div>
                           );
                         }
@@ -944,6 +989,11 @@ export default function ReservationModal({
                                 <li key={i}>{w.label}</li>
                               ))}
                             </ul>
+                            {isAdmin && (
+                              <div className="mt-2 text-amber-300 font-medium">
+                                ⚠️ Admin: Você pode criar reservas fora do horário disponível.
+                              </div>
+                            )}
                           </div>
                         );
                       })()}
