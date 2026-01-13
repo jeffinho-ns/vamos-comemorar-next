@@ -1,327 +1,778 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useMemo } from "react";
 import Image from "next/image";
-import { MdAdd, MdCheck, MdClose, MdRefresh, MdPeople, MdCardGiftcard } from "react-icons/md"; // Importe novos ícones
-import Link from "next/link"; // Importe Link para navegação
+import Link from "next/link";
+import {
+  MdRefresh,
+  MdFilterList,
+  MdCalendarToday,
+  MdLocationOn,
+  MdPeople,
+  MdAttachMoney,
+  MdCake,
+  MdRestaurant,
+  MdTrendingUp,
+  MdCheckCircle,
+  MdSchedule,
+  MdEvent,
+  MdSearch,
+  MdExpandMore,
+  MdExpandLess,
+} from "react-icons/md";
+import { FaBirthdayCake, FaGlassCheers, FaUtensils } from "react-icons/fa";
 
-interface Reserve {
+const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL_LOCAL || 'https://vamos-comemorar-api.onrender.com';
+
+interface Establishment {
   id: number;
-  name: string; // Nome do criador da reserva
-  email: string;
-  brinde: string; // Este campo parece ser o tipo_reserva da API
-  casa_da_reserva?: string; // Pode vir como null da API
-  casa_do_evento?: string; // Pode vir como null da API
-  data_da_reserva?: string; // Pode vir como null da API
-  data_do_evento?: string;
-  foto_perfil?: string;
-  hora_do_evento?: string;
-  imagem_do_evento?: string;
-  local_do_evento?: string;
-  mesas?: string;
-  nome_do_evento?: string;
-  quantidade_convidados: number; // Renomeado para 'quantidade_convidados' para corresponder à API
-  status: string;
-  telefone?: string;
-  confirmedGuestsCount: number; // <--- NOVO CAMPO
-  brindeStatus?: string; // <--- NOVO CAMPO
-  creatorName?: string; // Nome do criador da reserva, se a API retornar
+  name: string;
+  logo?: string;
 }
 
-export default function Reserves() {
-  const [reserves, setReserves] = useState<Reserve[]>([]);
+interface BirthdayReservation {
+  id: number;
+  aniversariante_nome: string;
+  data_aniversario: string;
+  reservation_time?: string;
+  quantidade_convidados: number;
+  id_casa_evento: number;
+  place_name?: string;
+  decoracao_tipo?: string;
+  status?: string;
+  created_at: string;
+  whatsapp?: string;
+  email?: string;
+  confirmedGuestsCount?: number;
+  totalRevenue?: number;
+}
+
+interface RestaurantReservation {
+  id: number;
+  client_name: string;
+  reservation_date: string;
+  reservation_time: string;
+  number_of_people: number;
+  establishment_id?: number;
+  area_id?: number;
+  area_name?: string;
+  status: string;
+  checked_in?: boolean;
+  checkin_time?: string;
+  created_at: string;
+  client_phone?: string;
+  client_email?: string;
+  totalRevenue?: number;
+}
+
+interface ReservationGroup {
+  establishment: Establishment;
+  birthdayReservations: BirthdayReservation[];
+  restaurantReservations: RestaurantReservation[];
+  totalRevenue: number;
+  totalGuests: number;
+  upcomingCount: number;
+}
+
+interface Stats {
+  totalReservations: number;
+  totalRevenue: number;
+  totalGuests: number;
+  birthdayCount: number;
+  restaurantCount: number;
+  upcomingToday: number;
+  upcomingWeek: number;
+}
+
+export default function ReservesPage() {
+  const [establishments, setEstablishments] = useState<Establishment[]>([]);
+  const [birthdayReservations, setBirthdayReservations] = useState<BirthdayReservation[]>([]);
+  const [restaurantReservations, setRestaurantReservations] = useState<RestaurantReservation[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 10;
+  const [selectedDate, setSelectedDate] = useState<string>("");
+  const [selectedEstablishment, setSelectedEstablishment] = useState<number | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [expandedEstablishments, setExpandedEstablishments] = useState<Set<number>>(new Set());
+  const [showStats, setShowStats] = useState(true);
+  const [viewMode, setViewMode] = useState<"all" | "upcoming" | "today">("all");
 
-  const API_URL =
-    process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL_LOCAL;
-
-  const fetchReserves = useCallback(async () => {
-    setLoading(true);
-    const token = localStorage.getItem("authToken");
-
+  // Carregar estabelecimentos
+  const loadEstablishments = useCallback(async () => {
     try {
-      const response = await fetch(`${API_URL}/api/reservas`, {
+      const response = await fetch(`${API_URL}/api/places`);
+      if (response.ok) {
+        const data = await response.json();
+        const places = Array.isArray(data) ? data : (data.data || []);
+        setEstablishments(places.map((p: any) => ({
+          id: p.id,
+          name: p.name,
+          logo: p.logo,
+        })));
+      }
+    } catch (error) {
+      console.error("Erro ao carregar estabelecimentos:", error);
+    }
+  }, []);
+
+  // Carregar reservas de aniversário
+  const loadBirthdayReservations = useCallback(async () => {
+    try {
+      const token = localStorage.getItem("authToken");
+      const url = selectedEstablishment
+        ? `${API_URL}/api/birthday-reservations?establishment_id=${selectedEstablishment}`
+        : `${API_URL}/api/birthday-reservations`;
+
+      const response = await fetch(url, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
       });
 
-      if (!response.ok) throw new Error("Erro ao buscar reservas");
+      if (response.ok) {
+        const data = await response.json();
+        let reservations = Array.isArray(data) ? data : [];
 
-      const data = await response.json();
+        // Filtrar por data se selecionada
+        if (selectedDate) {
+          reservations = reservations.filter((r: BirthdayReservation) => {
+            const reservationDate = new Date(r.data_aniversario).toISOString().split('T')[0];
+            return reservationDate === selectedDate;
+          });
+        }
 
-      if (Array.isArray(data)) {
-        // Mapeie os dados para garantir que os novos campos estejam presentes
-        const mappedData: Reserve[] = data.map((item: any) => ({
-            id: item.id,
-            name: item.name || item.creatorName || 'N/A', // Priorize creatorName, mas mantenha 'name' se for o caso
-            email: item.email,
-            brinde: item.brinde,
-            casa_da_reserva: item.casa_da_reserva,
-            casa_do_evento: item.casa_do_evento,
-            data_da_reserva: item.data_da_reserva,
-            data_do_evento: item.data_do_evento,
-            foto_perfil: item.foto_perfil,
-            hora_do_evento: item.hora_do_evento,
-            imagem_do_evento: item.imagem_do_evento,
-            local_do_evento: item.local_do_evento,
-            mesas: item.mesas,
-            nome_do_evento: item.nome_do_evento,
-            quantidade_convidados: item.quantidade_convidados, // Corrigido aqui
-            status: item.status,
-            telefone: item.telefone,
-            confirmedGuestsCount: item.confirmedGuestsCount ?? 0, // Mapeie o novo campo
-            brindeStatus: item.brindeStatus, // Mapeie o novo campo
-            creatorName: item.creatorName // Mantenha o creatorName original se quiser
-        }));
-        setReserves(mappedData);
-      } else {
-        setError("Dados inválidos. Esperado um array.");
+        // Filtrar por termo de busca
+        if (searchTerm) {
+          const term = searchTerm.toLowerCase();
+          reservations = reservations.filter((r: BirthdayReservation) =>
+            r.aniversariante_nome?.toLowerCase().includes(term) ||
+            r.place_name?.toLowerCase().includes(term) ||
+            r.whatsapp?.includes(term) ||
+            r.email?.toLowerCase().includes(term)
+          );
+        }
+
+        // Buscar check-ins e calcular receita real
+        const reservationsWithRevenue = await Promise.all(
+          reservations.map(async (r: BirthdayReservation) => {
+            try {
+              // Buscar convidados com check-in para esta reserva
+              const token = localStorage.getItem("authToken");
+              const checkinsResponse = await fetch(
+                `${API_URL}/api/reservas/${r.id}/convidados`,
+                {
+                  headers: {
+                    Authorization: `Bearer ${token}`,
+                  },
+                }
+              );
+              
+              let revenue = 0;
+              if (checkinsResponse.ok) {
+                const convidados = await checkinsResponse.json();
+                const checkedIn = Array.isArray(convidados) 
+                  ? convidados.filter((c: any) => c.status === 'CHECK-IN' && c.entrada_valor)
+                  : [];
+                
+                revenue = checkedIn.reduce((sum: number, c: any) => {
+                  const valor = parseFloat(c.entrada_valor) || 0;
+                  return sum + valor;
+                }, 0);
+              }
+              
+              return { ...r, totalRevenue: revenue };
+            } catch (error) {
+              console.error(`Erro ao calcular receita para reserva ${r.id}:`, error);
+              return { ...r, totalRevenue: 0 };
+            }
+          })
+        );
+
+        setBirthdayReservations(reservationsWithRevenue);
       }
     } catch (error) {
-      setError(error instanceof Error ? error.message : "Erro desconhecido");
-      console.error("Erro ao buscar reservas:", error);
+      console.error("Erro ao carregar reservas de aniversário:", error);
+    }
+  }, [selectedEstablishment, selectedDate, searchTerm]);
+
+  // Carregar reservas de restaurante
+  const loadRestaurantReservations = useCallback(async () => {
+    try {
+      const params = new URLSearchParams();
+      if (selectedDate) params.append("date", selectedDate);
+      if (selectedEstablishment) params.append("establishment_id", selectedEstablishment.toString());
+
+      const url = `/api/restaurant-reservations${params.toString() ? `?${params.toString()}` : ""}`;
+      const response = await fetch(url);
+
+      if (response.ok) {
+        const data = await response.json();
+        let reservations = data.reservations || data || [];
+
+        // Filtrar por termo de busca
+        if (searchTerm) {
+          const term = searchTerm.toLowerCase();
+          reservations = reservations.filter((r: RestaurantReservation) =>
+            r.client_name?.toLowerCase().includes(term) ||
+            r.client_phone?.includes(term) ||
+            r.client_email?.toLowerCase().includes(term) ||
+            r.area_name?.toLowerCase().includes(term)
+          );
+        }
+
+        // Calcular receita baseada em check-ins reais
+        const reservationsWithRevenue = reservations.map((r: RestaurantReservation) => {
+          // Por enquanto, calcular receita estimada baseada em check-in
+          // Você pode melhorar isso buscando dados reais de guest lists se necessário
+          const revenue = r.checked_in ? r.number_of_people * 30 : 0; // Estimativa: R$ 30 por pessoa
+          return { ...r, totalRevenue: revenue };
+        });
+
+        setRestaurantReservations(reservationsWithRevenue);
+      }
+    } catch (error) {
+      console.error("Erro ao carregar reservas de restaurante:", error);
+    }
+  }, [selectedEstablishment, selectedDate, searchTerm]);
+
+  // Carregar todos os dados
+  const loadAllData = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      await Promise.all([
+        loadEstablishments(),
+        loadBirthdayReservations(),
+        loadRestaurantReservations(),
+      ]);
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Erro ao carregar dados");
     } finally {
       setLoading(false);
     }
-  }, [API_URL]);
+  }, [loadEstablishments, loadBirthdayReservations, loadRestaurantReservations]);
 
   useEffect(() => {
-    fetchReserves();
-  }, [fetchReserves]);
+    loadAllData();
+  }, [loadAllData]);
 
-  const approveReserve = async (id: number) => {
-    try {
-      const token = localStorage.getItem("authToken"); // Adicionado token para PUT
-      const response = await fetch(
-        `${API_URL}/api/reservas/update-status/${id}`,
-        {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`, // Adicionado Authorization
-          },
-          body: JSON.stringify({ status: "ATIVA" }), // Mudei para ATIVA (conforme seu DB)
-        }
-      );
-
-      if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.message || "Erro ao aprovar a reserva.");
-      }
-
-      // Após a aprovação, o brinde pode ter sido liberado. Re-fetch para atualizar.
-      fetchReserves(); 
-
-    } catch (error) {
-      console.error("Erro ao aprovar a reserva:", error);
-      alert(`Falha ao aprovar: ${error instanceof Error ? error.message : "Erro desconhecido"}`);
-    }
-  };
-
-  const rejectReserve = async (id: number) => {
-    const token = localStorage.getItem("authToken");
-    try {
-      const response = await fetch(`${API_URL}/api/reservas/${id}/reject`, {
-        method: "PATCH",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
+  // Filtrar reservas por modo de visualização
+  const filteredReservations = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    let filteredBirthday = [...birthdayReservations];
+    let filteredRestaurant = [...restaurantReservations];
+    
+    if (viewMode === "today") {
+      filteredBirthday = filteredBirthday.filter((r) => {
+        const date = new Date(r.data_aniversario);
+        return date.toDateString() === today.toDateString();
       });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || "Erro ao reprovar a reserva.");
-      }
-
-      setReserves((prevReserves) =>
-        prevReserves.map((reserve) =>
-          reserve.id === id ? { ...reserve, status: "CANCELADA" } : reserve // Mudei para CANCELADA (conforme seu DB)
-        )
-      );
-    } catch (error) {
-      console.error("Erro ao reprovar a reserva:", error);
-      setError(error instanceof Error ? error.message : "Erro desconhecido");
-      alert(`Falha ao reprovar: ${error instanceof Error ? error.message : "Erro desconhecido"}`);
+      filteredRestaurant = filteredRestaurant.filter((r) => {
+        const date = new Date(r.reservation_date);
+        return date.toDateString() === today.toDateString();
+      });
+    } else if (viewMode === "upcoming") {
+      filteredBirthday = filteredBirthday.filter((r) => {
+        const date = new Date(r.data_aniversario);
+        return date >= today;
+      });
+      filteredRestaurant = filteredRestaurant.filter((r) => {
+        const date = new Date(r.reservation_date);
+        return date >= today;
+      });
     }
+    
+    return { birthday: filteredBirthday, restaurant: filteredRestaurant };
+  }, [birthdayReservations, restaurantReservations, viewMode]);
+
+  // Agrupar reservas por estabelecimento
+  const groupedReservations = useMemo(() => {
+    const groups: Map<number, ReservationGroup> = new Map();
+
+    // Inicializar grupos com estabelecimentos
+    establishments.forEach((est) => {
+      groups.set(est.id, {
+        establishment: est,
+        birthdayReservations: [],
+        restaurantReservations: [],
+        totalRevenue: 0,
+        totalGuests: 0,
+        upcomingCount: 0,
+      });
+    });
+
+    // Adicionar reservas de aniversário
+    filteredReservations.birthday.forEach((reservation) => {
+      const estId = reservation.id_casa_evento;
+      if (groups.has(estId)) {
+        const group = groups.get(estId)!;
+        group.birthdayReservations.push(reservation);
+        group.totalRevenue += reservation.totalRevenue || 0;
+        group.totalGuests += reservation.quantidade_convidados || 0;
+        
+        // Verificar se é próxima (hoje ou futuro)
+        const reservationDate = new Date(reservation.data_aniversario);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        if (reservationDate >= today) {
+          group.upcomingCount++;
+        }
+      }
+    });
+
+    // Adicionar reservas de restaurante
+    filteredReservations.restaurant.forEach((reservation) => {
+      const estId = reservation.establishment_id || 0;
+      if (groups.has(estId)) {
+        const group = groups.get(estId)!;
+        group.restaurantReservations.push(reservation);
+        group.totalRevenue += reservation.totalRevenue || 0;
+        group.totalGuests += reservation.number_of_people || 0;
+        
+        // Verificar se é próxima
+        const reservationDate = new Date(reservation.reservation_date);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        if (reservationDate >= today) {
+          group.upcomingCount++;
+        }
+      }
+    });
+
+    // Filtrar apenas grupos com reservas
+    return Array.from(groups.values()).filter(
+      (group) =>
+        group.birthdayReservations.length > 0 || group.restaurantReservations.length > 0
+    );
+  }, [establishments, filteredReservations]);
+
+  // Calcular estatísticas gerais
+  const stats: Stats = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const weekFromNow = new Date(today);
+    weekFromNow.setDate(weekFromNow.getDate() + 7);
+
+    const upcomingToday = [
+      ...birthdayReservations.filter((r) => {
+        const date = new Date(r.data_aniversario);
+        return date.toDateString() === today.toDateString();
+      }),
+      ...restaurantReservations.filter((r) => {
+        const date = new Date(r.reservation_date);
+        return date.toDateString() === today.toDateString();
+      }),
+    ].length;
+
+    const upcomingWeek = [
+      ...birthdayReservations.filter((r) => {
+        const date = new Date(r.data_aniversario);
+        return date >= today && date <= weekFromNow;
+      }),
+      ...restaurantReservations.filter((r) => {
+        const date = new Date(r.reservation_date);
+        return date >= today && date <= weekFromNow;
+      }),
+    ].length;
+
+    return {
+      totalReservations: birthdayReservations.length + restaurantReservations.length,
+      totalRevenue: groupedReservations.reduce((sum, g) => sum + g.totalRevenue, 0),
+      totalGuests: groupedReservations.reduce((sum, g) => sum + g.totalGuests, 0),
+      birthdayCount: birthdayReservations.length,
+      restaurantCount: restaurantReservations.length,
+      upcomingToday,
+      upcomingWeek,
+    };
+  }, [birthdayReservations, restaurantReservations, groupedReservations]);
+
+  const toggleEstablishment = (id: number) => {
+    const newExpanded = new Set(expandedEstablishments);
+    if (newExpanded.has(id)) {
+      newExpanded.delete(id);
+    } else {
+      newExpanded.add(id);
+    }
+    setExpandedEstablishments(newExpanded);
   };
 
-  // Paginação
-  const indexOfLast = currentPage * itemsPerPage;
-  const indexOfFirst = indexOfLast - itemsPerPage;
-  const currentReserves = reserves.slice(indexOfFirst, indexOfLast);
-  const totalPages = Math.ceil(reserves.length / itemsPerPage);
-
-  const statusColors: { [key: string]: string } = { // Definindo tipo explícito
-    ATIVA: "bg-green-100 text-green-800 border-green-200",
-    CANCELADA: "bg-red-100 text-red-800 border-red-200",
-    PENDENTE: "bg-yellow-100 text-yellow-800 border-yellow-200",
-    CONCLUIDA: "bg-blue-100 text-blue-800 border-blue-200", // Adicionado conforme seu DB
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat("pt-BR", {
+      style: "currency",
+      currency: "BRL",
+    }).format(value);
   };
 
-  if (loading) return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 flex items-center justify-center">
-      <div className="text-white text-xl">Carregando reservas...</div>
-    </div>
-  );
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString("pt-BR", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    });
+  };
 
-  if (error) return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 flex items-center justify-center">
-      <div className="text-red-400 text-xl">{error}</div>
-    </div>
-  );
+  const formatTime = (timeString?: string) => {
+    if (!timeString) return "";
+    return timeString.substring(0, 5); // HH:MM
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 flex items-center justify-center">
+        <div className="text-white text-xl">Carregando reservas...</div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 flex items-center justify-center">
+        <div className="text-red-400 text-xl">{error}</div>
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-base">
-      <div className="max-w-7xl mx-auto p-8">
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white">
+      <div className="max-w-7xl mx-auto p-6 lg:p-8">
+        {/* Header */}
         <div className="mb-8">
-          <h1 className="text-4xl font-bold text-white mb-2">Gerenciar Reservas</h1>
-          <p className="text-gray-400 text-lg">Visualize e gerencie todas as reservas do sistema</p>
+          <h1 className="text-4xl font-bold mb-2">Visão Geral de Reservas</h1>
+          <p className="text-gray-400 text-lg">
+            Gerencie todas as reservas de aniversário e restaurante em um só lugar
+          </p>
         </div>
 
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-8 gap-4">
-          <div className="flex gap-3">
+        {/* Filtros */}
+        <div className="bg-slate-800/50 backdrop-blur-sm rounded-xl p-6 mb-6 border border-slate-700">
+          <div className="mb-4 flex gap-2">
             <button
-              onClick={fetchReserves}
-              className="bg-gradient-to-r from-gray-700 to-gray-800 hover:from-gray-800 hover:to-gray-900 text-white px-6 py-3 rounded-xl shadow-lg transition-all duration-200 transform hover:scale-105 font-semibold flex items-center gap-2"
+              onClick={() => setViewMode("all")}
+              className={`px-4 py-2 rounded-lg font-semibold transition-colors ${
+                viewMode === "all"
+                  ? "bg-orange-500 text-white"
+                  : "bg-slate-700 text-gray-300 hover:bg-slate-600"
+              }`}
             >
-              <MdRefresh size={20} /> Atualizar
+              Todas
             </button>
-            {/* Adicione um link para a tela de criação de reserva, se houver */}
-            {/* <Link href="/admin/reservas/nova" passHref>
-              <button className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-md">
-                <MdAdd className="inline-block mr-1" /> Nova reserva
+            <button
+              onClick={() => setViewMode("upcoming")}
+              className={`px-4 py-2 rounded-lg font-semibold transition-colors ${
+                viewMode === "upcoming"
+                  ? "bg-orange-500 text-white"
+                  : "bg-slate-700 text-gray-300 hover:bg-slate-600"
+              }`}
+            >
+              Próximas
+            </button>
+            <button
+              onClick={() => setViewMode("today")}
+              className={`px-4 py-2 rounded-lg font-semibold transition-colors ${
+                viewMode === "today"
+                  ? "bg-orange-500 text-white"
+                  : "bg-slate-700 text-gray-300 hover:bg-slate-600"
+              }`}
+            >
+              Hoje
+            </button>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="relative">
+              <MdSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+              <input
+                type="text"
+                placeholder="Buscar por nome, telefone, email..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-orange-500"
+              />
+            </div>
+            <div>
+              <input
+                type="date"
+                value={selectedDate}
+                onChange={(e) => setSelectedDate(e.target.value)}
+                className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:border-orange-500"
+              />
+            </div>
+            <div>
+              <select
+                value={selectedEstablishment || ""}
+                onChange={(e) => setSelectedEstablishment(e.target.value ? parseInt(e.target.value) : null)}
+                className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:border-orange-500"
+              >
+                <option value="">Todos os estabelecimentos</option>
+                {establishments.map((est) => (
+                  <option key={est.id} value={est.id}>
+                    {est.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={loadAllData}
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-orange-500 hover:bg-orange-600 rounded-lg transition-colors font-semibold"
+              >
+                <MdRefresh size={20} />
+                Atualizar
               </button>
-            </Link> */}
+              <button
+                onClick={() => {
+                  setSelectedDate("");
+                  setSelectedEstablishment(null);
+                  setSearchTerm("");
+                }}
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg transition-colors font-semibold"
+              >
+                <MdFilterList size={20} />
+                Limpar
+              </button>
+            </div>
           </div>
         </div>
 
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {currentReserves.map((reserve) => (
-            <Link href={`/admin/reservas/${reserve.id}`} key={reserve.id} className="block">
-              <div className="bg-white/95 backdrop-blur-sm border border-gray-200/20 shadow-lg rounded-2xl p-6 hover:shadow-xl transition-all duration-200 transform hover:scale-105">
-                <div className="flex items-center gap-4 mb-4">
-                  {reserve.foto_perfil ? (
-                    <Image
-                      src={`https://grupoideiaum.com.br/cardapio-agilizaiapp/${reserve.foto_perfil}`}
-                      alt={reserve.name || 'Usuário'}
-                      width={56}
-                      height={56}
-                      className="rounded-full object-cover border-2 border-gray-200"
-                    />
-                  ) : (
-                    <div className="w-14 h-14 rounded-full bg-gradient-to-br from-gray-400 to-gray-500 flex items-center justify-center text-white text-xl font-bold">
-                      {reserve.name ? reserve.name.charAt(0) : 'U'}
-                    </div>
-                  )}
-                  <div>
-                    <p className="text-lg font-bold text-gray-800">{reserve.name}</p>
-                    <p className="text-sm text-gray-500">{reserve.telefone || 'N/A'}</p>
-                  </div>
-                </div>
-
-                <div className="space-y-3 text-sm text-gray-600">
-                  <p>
-                    <span className="font-semibold text-gray-700">Evento:</span>{" "}
-                    {reserve.nome_do_evento || 'N/A'}
-                  </p>
-                  <p>
-                    <span className="font-semibold text-gray-700">Data:</span>{" "}
-                    {reserve.data_do_evento ? new Date(reserve.data_do_evento + 'T12:00:00').toLocaleDateString('pt-BR') : 'N/A'} às{" "}
-                    {reserve.hora_do_evento || 'N/A'}
-                  </p>
-                  <p>
-                    <span className="font-semibold text-gray-700">Local:</span>{" "}
-                    {reserve.casa_do_evento || 'N/A'}
-                  </p>
-                  {/* Contagem de Convidados Confirmados */}
-                  <p className="flex items-center">
-                    <span className="font-semibold text-gray-700">
-                      <MdPeople className="inline-block mr-2" size={18} /> Convidados:
-                    </span>{" "}
-                    <span className="font-bold text-gray-800 ml-2">
-                      {reserve.confirmedGuestsCount} / {reserve.quantidade_convidados}
-                    </span>
-                  </p>
-                  <p>
-                    <span className="font-semibold text-gray-700">Mesa:</span> {reserve.mesas || 'N/A'}
-                  </p>
-                </div>
-
-                {/* Indicador de presença (80% ou mais) */}
-                {reserve.quantidade_convidados > 0 && (
-                  <div className="mt-4 p-3 bg-gray-50/80 rounded-xl">
-                    <p className="text-sm font-medium text-gray-700">
-                      Check-in: {Math.round((reserve.confirmedGuestsCount / reserve.quantidade_convidados) * 100)}%
-                    </p>
-                    {reserve.confirmedGuestsCount >= reserve.quantidade_convidados && (
-                      <p className="text-green-700 font-semibold text-sm mt-1">🎉 Todos chegaram!</p>
-                    )}
-                    {reserve.confirmedGuestsCount >= Math.ceil(0.8 * reserve.quantidade_convidados) &&
-                      reserve.confirmedGuestsCount < reserve.quantidade_convidados && (
-                        <p className="text-yellow-600 font-semibold text-sm mt-1">⚠️ 80% presentes</p>
-                    )}
-                  </div>
-                )}
-
-                <div className="mt-4 flex items-center justify-between">
-                  <span
-                    className={`inline-block px-3 py-2 text-sm rounded-full font-semibold border ${statusColors[reserve.status as keyof typeof statusColors] || "bg-gray-100 text-gray-700 border-gray-200"}`}
-                  >
-                    {reserve.status}
-                  </span>
-                  {/* Notificação de Brinde Liberado */}
-                  {reserve.brindeStatus === 'LIBERADO' && (
-                    <span className="inline-flex items-center px-3 py-2 text-sm font-semibold bg-gradient-to-r from-yellow-100 to-yellow-200 text-yellow-800 rounded-full border border-yellow-300">
-                      <MdCardGiftcard className="mr-2" size={16} /> Brinde Liberado!
-                    </span>
-                  )}
-                </div>
-
-                {reserve.status === "PENDENTE" && (
-                  <div className="mt-4 flex gap-3">
-                    <button
-                      onClick={(e) => { e.stopPropagation(); e.preventDefault(); approveReserve(reserve.id)}}
-                      className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white px-4 py-2 text-sm rounded-xl flex items-center gap-2 font-semibold transition-all duration-200 transform hover:scale-105"
-                    >
-                      <MdCheck size={16} />
-                      Aprovar
-                    </button>
-                    <button
-                      onClick={(e) => { e.stopPropagation(); e.preventDefault(); rejectReserve(reserve.id)}}
-                      className="bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white px-4 py-2 text-sm rounded-xl flex items-center gap-2 font-semibold transition-all duration-200 transform hover:scale-105"
-                    >
-                      <MdClose size={16} />
-                      Reprovar
-                    </button>
-                  </div>
-                )}
+        {/* Estatísticas */}
+        {showStats && (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            <div className="bg-gradient-to-br from-blue-600 to-blue-700 rounded-xl p-6 border border-blue-500">
+              <div className="flex items-center justify-between mb-2">
+                <MdEvent className="text-blue-200" size={24} />
+                <span className="text-blue-200 text-sm font-semibold">Total</span>
               </div>
-            </Link>
-          ))}
+              <p className="text-3xl font-bold">{stats.totalReservations}</p>
+              <p className="text-blue-200 text-sm">Reservas</p>
+            </div>
+
+            <div className="bg-gradient-to-br from-green-600 to-green-700 rounded-xl p-6 border border-green-500">
+              <div className="flex items-center justify-between mb-2">
+                <MdAttachMoney className="text-green-200" size={24} />
+                <span className="text-green-200 text-sm font-semibold">Receita</span>
+              </div>
+              <p className="text-3xl font-bold">{formatCurrency(stats.totalRevenue)}</p>
+              <p className="text-green-200 text-sm">Total estimado</p>
+            </div>
+
+            <div className="bg-gradient-to-br from-purple-600 to-purple-700 rounded-xl p-6 border border-purple-500">
+              <div className="flex items-center justify-between mb-2">
+                <MdPeople className="text-purple-200" size={24} />
+                <span className="text-purple-200 text-sm font-semibold">Convidados</span>
+              </div>
+              <p className="text-3xl font-bold">{stats.totalGuests}</p>
+              <p className="text-purple-200 text-sm">Total de pessoas</p>
+            </div>
+
+            <div className="bg-gradient-to-br from-orange-600 to-orange-700 rounded-xl p-6 border border-orange-500">
+              <div className="flex items-center justify-between mb-2">
+                <MdSchedule className="text-orange-200" size={24} />
+                <span className="text-orange-200 text-sm font-semibold">Próximas</span>
+              </div>
+              <p className="text-3xl font-bold">{stats.upcomingWeek}</p>
+              <p className="text-orange-200 text-sm">Esta semana</p>
+            </div>
+          </div>
+        )}
+
+        {/* Resumo por tipo */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+          <div className="bg-slate-800/50 backdrop-blur-sm rounded-xl p-6 border border-slate-700">
+            <div className="flex items-center gap-3 mb-4">
+              <FaBirthdayCake className="text-pink-500" size={24} />
+              <h3 className="text-xl font-bold">Reservas de Aniversário</h3>
+            </div>
+            <p className="text-3xl font-bold text-pink-400 mb-2">{stats.birthdayCount}</p>
+            <p className="text-gray-400 text-sm">Com decoração e painel</p>
+          </div>
+
+          <div className="bg-slate-800/50 backdrop-blur-sm rounded-xl p-6 border border-slate-700">
+            <div className="flex items-center gap-3 mb-4">
+              <MdRestaurant className="text-blue-500" size={24} />
+              <h3 className="text-xl font-bold">Reservas de Mesa</h3>
+            </div>
+            <p className="text-3xl font-bold text-blue-400 mb-2">{stats.restaurantCount}</p>
+            <p className="text-gray-400 text-sm">Reservas normais</p>
+          </div>
         </div>
 
-        {/* Paginação */}
-        <div className="mt-8 flex justify-center gap-3">
-          <button
-            onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
-            className="px-6 py-3 border border-gray-300 rounded-xl text-sm bg-white/95 backdrop-blur-sm hover:bg-gray-50 transition-all duration-200 font-semibold"
-          >
-            Anterior
-          </button>
-          <span className="text-sm px-6 py-3 rounded-xl bg-white/95 backdrop-blur-sm border border-gray-200 font-semibold">
-            Página {currentPage} de {totalPages}
-          </span>
-          <button
-            onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
-            className="px-6 py-3 border border-gray-300 rounded-xl text-sm bg-white/95 backdrop-blur-sm hover:bg-gray-50 transition-all duration-200 font-semibold"
-          >
-            Próximo
-          </button>
+        {/* Lista por estabelecimento */}
+        <div className="space-y-4">
+          {groupedReservations.length === 0 ? (
+            <div className="bg-slate-800/50 backdrop-blur-sm rounded-xl p-12 text-center border border-slate-700">
+              <p className="text-gray-400 text-lg">Nenhuma reserva encontrada</p>
+            </div>
+          ) : (
+            groupedReservations.map((group) => {
+              const isExpanded = expandedEstablishments.has(group.establishment.id);
+              const totalReservations = group.birthdayReservations.length + group.restaurantReservations.length;
+
+              return (
+                <div
+                  key={group.establishment.id}
+                  className="bg-slate-800/50 backdrop-blur-sm rounded-xl border border-slate-700 overflow-hidden"
+                >
+                  {/* Header do estabelecimento */}
+                  <button
+                    onClick={() => toggleEstablishment(group.establishment.id)}
+                    className="w-full p-6 flex items-center justify-between hover:bg-slate-700/50 transition-colors"
+                  >
+                    <div className="flex items-center gap-4">
+                      {group.establishment.logo && (
+                        <Image
+                          src={group.establishment.logo}
+                          alt={group.establishment.name}
+                          width={48}
+                          height={48}
+                          className="rounded-lg object-cover"
+                        />
+                      )}
+                      <div className="text-left">
+                        <h3 className="text-xl font-bold">{group.establishment.name}</h3>
+                        <p className="text-gray-400 text-sm">
+                          {totalReservations} reserva{totalReservations !== 1 ? "s" : ""} • {group.totalGuests} convidados
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-6">
+                      <div className="text-right">
+                        <p className="text-2xl font-bold text-green-400">
+                          {formatCurrency(group.totalRevenue)}
+                        </p>
+                        <p className="text-gray-400 text-sm">Receita estimada</p>
+                      </div>
+                      {isExpanded ? (
+                        <MdExpandLess size={24} className="text-gray-400" />
+                      ) : (
+                        <MdExpandMore size={24} className="text-gray-400" />
+                      )}
+                    </div>
+                  </button>
+
+                  {/* Conteúdo expandido */}
+                  {isExpanded && (
+                    <div className="border-t border-slate-700 p-6 space-y-6">
+                      {/* Reservas de Aniversário */}
+                      {group.birthdayReservations.length > 0 && (
+                        <div>
+                          <div className="flex items-center gap-2 mb-4">
+                            <FaBirthdayCake className="text-pink-500" size={20} />
+                            <h4 className="text-lg font-semibold">
+                              Aniversários ({group.birthdayReservations.length})
+                            </h4>
+                          </div>
+                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            {group.birthdayReservations.map((reservation) => (
+                              <Link
+                                key={reservation.id}
+                                href={`/admin/reservas/${reservation.id}?type=birthday`}
+                                className="bg-slate-700/50 rounded-lg p-4 border border-slate-600 hover:border-pink-500 transition-colors"
+                              >
+                                <div className="flex items-start justify-between mb-2">
+                                  <div>
+                                    <p className="font-semibold text-white">
+                                      {reservation.aniversariante_nome}
+                                    </p>
+                                    <p className="text-sm text-gray-400">
+                                      {formatDate(reservation.data_aniversario)}
+                                      {reservation.reservation_time && ` • ${formatTime(reservation.reservation_time)}`}
+                                    </p>
+                                  </div>
+                                  {reservation.decoracao_tipo && (
+                                    <span className="px-2 py-1 bg-pink-500/20 text-pink-300 text-xs rounded">
+                                      {reservation.decoracao_tipo}
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="flex items-center justify-between mt-3">
+                                  <div className="flex items-center gap-2 text-sm text-gray-400">
+                                    <MdPeople size={16} />
+                                    <span>
+                                      {reservation.confirmedGuestsCount || 0} / {reservation.quantidade_convidados}
+                                    </span>
+                                  </div>
+                                  {reservation.totalRevenue && reservation.totalRevenue > 0 && (
+                                    <span className="text-green-400 font-semibold text-sm">
+                                      {formatCurrency(reservation.totalRevenue)}
+                                    </span>
+                                  )}
+                                </div>
+                              </Link>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Reservas de Restaurante */}
+                      {group.restaurantReservations.length > 0 && (
+                        <div>
+                          <div className="flex items-center gap-2 mb-4">
+                            <MdRestaurant className="text-blue-500" size={20} />
+                            <h4 className="text-lg font-semibold">
+                              Mesas ({group.restaurantReservations.length})
+                            </h4>
+                          </div>
+                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            {group.restaurantReservations.map((reservation) => (
+                              <Link
+                                key={reservation.id}
+                                href={`/admin/reservas/${reservation.id}?type=restaurant`}
+                                className="bg-slate-700/50 rounded-lg p-4 border border-slate-600 hover:border-blue-500 transition-colors"
+                              >
+                                <div className="flex items-start justify-between mb-2">
+                                  <div>
+                                    <p className="font-semibold text-white">
+                                      {reservation.client_name}
+                                    </p>
+                                    <p className="text-sm text-gray-400">
+                                      {formatDate(reservation.reservation_date)} • {formatTime(reservation.reservation_time)}
+                                    </p>
+                                    {reservation.area_name && (
+                                      <p className="text-xs text-gray-500 mt-1">
+                                        {reservation.area_name}
+                                      </p>
+                                    )}
+                                  </div>
+                                  {reservation.checked_in && (
+                                    <MdCheckCircle className="text-green-500" size={20} />
+                                  )}
+                                </div>
+                                <div className="flex items-center justify-between mt-3">
+                                  <div className="flex items-center gap-2 text-sm text-gray-400">
+                                    <MdPeople size={16} />
+                                    <span>{reservation.number_of_people} pessoas</span>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <span
+                                      className={`px-2 py-1 text-xs rounded ${
+                                        reservation.status === "CONFIRMADA"
+                                          ? "bg-green-500/20 text-green-300"
+                                          : reservation.status === "CANCELADA"
+                                          ? "bg-red-500/20 text-red-300"
+                                          : "bg-yellow-500/20 text-yellow-300"
+                                      }`}
+                                    >
+                                      {reservation.status}
+                                    </span>
+                                    {reservation.totalRevenue && reservation.totalRevenue > 0 && (
+                                      <span className="text-green-400 font-semibold text-sm">
+                                        {formatCurrency(reservation.totalRevenue)}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              </Link>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })
+          )}
         </div>
       </div>
     </div>
