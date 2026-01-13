@@ -55,7 +55,42 @@ export default function ListasEspeciais({ establishment }: ListasEspeciaisProps)
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('pt-BR');
+    // Corrigir problema de timezone: usar apenas a data sem hora
+    if (!dateString) return '';
+    
+    try {
+      // Se a data contém 'T' (formato ISO com hora), extrair apenas a parte da data
+      if (dateString.includes('T')) {
+        const dateOnly = dateString.split('T')[0];
+        const [year, month, day] = dateOnly.split('-');
+        if (year && month && day) {
+          return `${day}/${month}/${year}`;
+        }
+      }
+      
+      // Se já está no formato YYYY-MM-DD, formatar diretamente
+      if (dateString.match(/^\d{4}-\d{2}-\d{2}/)) {
+        const [year, month, day] = dateString.split('-');
+        if (year && month && day) {
+          return `${day}/${month}/${year}`;
+        }
+      }
+      
+      // Fallback: tentar usar Date mas ajustar para timezone local
+      const date = new Date(dateString);
+      if (!isNaN(date.getTime())) {
+        // Usar métodos locais para evitar problemas de timezone
+        const day = String(date.getDate()).padStart(2, '0');
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const year = date.getFullYear();
+        return `${day}/${month}/${year}`;
+      }
+      
+      return dateString; // Retornar original se não conseguir formatar
+    } catch (error) {
+      console.error('Erro ao formatar data:', error);
+      return dateString;
+    }
   };
 
   const getStatusColor = (status: string) => {

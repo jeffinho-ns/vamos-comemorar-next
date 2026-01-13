@@ -698,18 +698,34 @@ export default function BirthdayDetailsModal({ reservation, isOpen, onClose }: B
               'Decoração Grande 6': 320.00,
             };
 
-            // Calcular valor total (mesmo cálculo usado no email)
+            // Calcular valor total (mesmo cálculo usado no email - EXATAMENTE IGUAL)
             let total = 0;
+            
+            // Debug: log dos dados da reserva
+            console.log('🔍 [Modal] Dados da reserva para cálculo:', {
+              decoracao_tipo: reservation.decoracao_tipo,
+              decoracao_preco: (reservation as any).decoracao_preco,
+              bebidas_completas: (reservation as any).bebidas_completas,
+              comidas_completas: (reservation as any).comidas_completas,
+              menuItems_bebidas: menuItems.bebidas,
+              menuItems_comidas: menuItems.comidas,
+              bebidasItems: bebidasItems
+            });
             
             // Valor da decoração (usar preço salvo no banco se disponível, senão usar mapeamento)
             const decoracaoPreco = (reservation as any).decoracao_preco;
-            if (decoracaoPreco) {
-              total += parseFloat(String(decoracaoPreco));
+            if (decoracaoPreco !== null && decoracaoPreco !== undefined && decoracaoPreco !== '') {
+              const preco = parseFloat(String(decoracaoPreco));
+              if (!isNaN(preco)) {
+                total += preco;
+                console.log('💰 [Modal] Decoração (do banco):', preco);
+              }
             } else if (reservation.decoracao_tipo && decorationPrices[reservation.decoracao_tipo]) {
               total += decorationPrices[reservation.decoracao_tipo];
+              console.log('💰 [Modal] Decoração (mapeamento):', decorationPrices[reservation.decoracao_tipo]);
             }
 
-            // Tentar usar dados completos salvos no banco primeiro
+            // Tentar usar dados completos salvos no banco primeiro (PRIORIDADE MÁXIMA)
             const bebidasCompletas = (reservation as any).bebidas_completas;
             const comidasCompletas = (reservation as any).comidas_completas;
             
@@ -720,24 +736,32 @@ export default function BirthdayDetailsModal({ reservation, isOpen, onClose }: B
                 try {
                   bebidas = JSON.parse(bebidasCompletas);
                 } catch (e) {
-                  console.error('Erro ao fazer parse de bebidas_completas:', e);
+                  console.error('❌ [Modal] Erro ao fazer parse de bebidas_completas:', e);
                   bebidas = [];
                 }
               }
               
-              if (Array.isArray(bebidas)) {
+              if (Array.isArray(bebidas) && bebidas.length > 0) {
+                console.log('🍺 [Modal] Usando bebidas_completas do banco:', bebidas);
                 bebidas.forEach((b: any) => {
                   const price = parseFloat(String(b.price || b.preco || 0)) || 0;
                   const quantity = parseInt(String(b.quantity || b.quantidade || 0)) || 0;
-                  total += price * quantity;
+                  const subtotal = price * quantity;
+                  total += subtotal;
+                  console.log(`   - ${b.name || b.nome}: ${quantity}x R$ ${price.toFixed(2)} = R$ ${subtotal.toFixed(2)}`);
                 });
               }
             } else {
-              // Fallback: usar preços do cardápio carregados
+              // Fallback: usar preços do cardápio carregados (apenas se não houver dados salvos)
+              console.log('⚠️ [Modal] bebidas_completas não encontrado, usando menuItems.bebidas');
               menuItems.bebidas.forEach(item => {
                 const itemPrice = parseFloat(String(item.preco)) || 0;
                 const itemQuantity = parseInt(String(item.quantidade)) || 0;
-                total += itemPrice * itemQuantity;
+                const subtotal = itemPrice * itemQuantity;
+                total += subtotal;
+                if (subtotal > 0) {
+                  console.log(`   - ${item.nome}: ${itemQuantity}x R$ ${itemPrice.toFixed(2)} = R$ ${subtotal.toFixed(2)}`);
+                }
               });
             }
 
@@ -748,24 +772,32 @@ export default function BirthdayDetailsModal({ reservation, isOpen, onClose }: B
                 try {
                   comidas = JSON.parse(comidasCompletas);
                 } catch (e) {
-                  console.error('Erro ao fazer parse de comidas_completas:', e);
+                  console.error('❌ [Modal] Erro ao fazer parse de comidas_completas:', e);
                   comidas = [];
                 }
               }
               
-              if (Array.isArray(comidas)) {
+              if (Array.isArray(comidas) && comidas.length > 0) {
+                console.log('🍕 [Modal] Usando comidas_completas do banco:', comidas);
                 comidas.forEach((c: any) => {
                   const price = parseFloat(String(c.price || c.preco || 0)) || 0;
                   const quantity = parseInt(String(c.quantity || c.quantidade || 0)) || 0;
-                  total += price * quantity;
+                  const subtotal = price * quantity;
+                  total += subtotal;
+                  console.log(`   - ${c.name || c.nome}: ${quantity}x R$ ${price.toFixed(2)} = R$ ${subtotal.toFixed(2)}`);
                 });
               }
             } else {
-              // Fallback: usar preços do cardápio carregados
+              // Fallback: usar preços do cardápio carregados (apenas se não houver dados salvos)
+              console.log('⚠️ [Modal] comidas_completas não encontrado, usando menuItems.comidas');
               menuItems.comidas.forEach(item => {
                 const itemPrice = parseFloat(String(item.preco)) || 0;
                 const itemQuantity = parseInt(String(item.quantidade)) || 0;
-                total += itemPrice * itemQuantity;
+                const subtotal = itemPrice * itemQuantity;
+                total += subtotal;
+                if (subtotal > 0) {
+                  console.log(`   - ${item.nome}: ${itemQuantity}x R$ ${itemPrice.toFixed(2)} = R$ ${subtotal.toFixed(2)}`);
+                }
               });
             }
 
@@ -780,8 +812,14 @@ export default function BirthdayDetailsModal({ reservation, isOpen, onClose }: B
               };
               const price = specialPrices[item.nome] || 0;
               const quantity = parseInt(String(item.quantidade)) || 0;
-              total += price * quantity;
+              const subtotal = price * quantity;
+              total += subtotal;
+              if (subtotal > 0) {
+                console.log(`🍻 [Modal] Bebida especial: ${item.nome} - ${quantity}x R$ ${price.toFixed(2)} = R$ ${subtotal.toFixed(2)}`);
+              }
             });
+
+            console.log('✅ [Modal] Valor total calculado: R$', total.toFixed(2));
 
             return (
               <div className="bg-gradient-to-r from-orange-500/10 to-red-500/10 border-2 border-orange-500/30 rounded-xl p-6">
