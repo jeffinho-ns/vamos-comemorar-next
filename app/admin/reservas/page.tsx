@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState, useMemo } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import SafeImage from "../../components/SafeImage";
 import {
   MdRefresh,
   MdFilterList,
@@ -104,11 +105,23 @@ export default function ReservesPage() {
       if (response.ok) {
         const data = await response.json();
         const places = Array.isArray(data) ? data : (data.data || []);
-        setEstablishments(places.map((p: any) => ({
-          id: p.id,
-          name: p.name,
-          logo: p.logo,
-        })));
+        setEstablishments(places.map((p: any) => {
+          // Formatar URL do logo corretamente
+          let logoUrl = null;
+          if (p.logo) {
+            if (p.logo.startsWith('http://') || p.logo.startsWith('https://')) {
+              logoUrl = p.logo;
+            } else {
+              logoUrl = `${API_URL}/uploads/${p.logo}`;
+            }
+          }
+          
+          return {
+            id: Number(p.id) || 0,
+            name: p.name || 'Sem nome',
+            logo: logoUrl,
+          };
+        }).filter((e: Establishment) => e.id > 0));
       }
     } catch (error) {
       console.error("Erro ao carregar estabelecimentos:", error);
@@ -175,8 +188,11 @@ export default function ReservesPage() {
                   : [];
                 
                 revenue = checkedIn.reduce((sum: number, c: any) => {
-                  const valor = parseFloat(c.entrada_valor) || 0;
-                  return sum + valor;
+                  if (!c.entrada_valor) return sum;
+                  const valor = typeof c.entrada_valor === 'number' 
+                    ? c.entrada_valor 
+                    : parseFloat(String(c.entrada_valor).replace(/[^\d.,]/g, '').replace(',', '.'));
+                  return sum + (isNaN(valor) ? 0 : Math.max(0, valor));
                 }, 0);
               }
               
@@ -222,10 +238,9 @@ export default function ReservesPage() {
 
         // Calcular receita baseada em check-ins reais
         const reservationsWithRevenue = reservations.map((r: RestaurantReservation) => {
-          // Por enquanto, calcular receita estimada baseada em check-in
-          // Você pode melhorar isso buscando dados reais de guest lists se necessário
-          const revenue = r.checked_in ? r.number_of_people * 30 : 0; // Estimativa: R$ 30 por pessoa
-          return { ...r, totalRevenue: revenue };
+          // Por enquanto, não calcular receita estimada para reservas de restaurante
+          // A receita real deve vir dos check-ins dos guests
+          return { ...r, totalRevenue: 0 };
         });
 
         setRestaurantReservations(reservationsWithRevenue);
@@ -305,38 +320,54 @@ export default function ReservesPage() {
 
     // Adicionar reservas de aniversário
     filteredReservations.birthday.forEach((reservation) => {
-      const estId = reservation.id_casa_evento;
-      if (groups.has(estId)) {
+      const estId = Number(reservation.id_casa_evento) || 0;
+      if (estId > 0 && groups.has(estId)) {
         const group = groups.get(estId)!;
         group.birthdayReservations.push(reservation);
-        group.totalRevenue += reservation.totalRevenue || 0;
-        group.totalGuests += reservation.quantidade_convidados || 0;
+        const revenue = Number(reservation.totalRevenue) || 0;
+        const guests = Number(reservation.quantidade_convidados) || 0;
+        group.totalRevenue += isNaN(revenue) ? 0 : revenue;
+        group.totalGuests += isNaN(guests) ? 0 : guests;
         
         // Verificar se é próxima (hoje ou futuro)
-        const reservationDate = new Date(reservation.data_aniversario);
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        if (reservationDate >= today) {
-          group.upcomingCount++;
+        try {
+          const reservationDate = new Date(reservation.data_aniversario);
+          if (!isNaN(reservationDate.getTime())) {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            if (reservationDate >= today) {
+              group.upcomingCount++;
+            }
+          }
+        } catch (e) {
+          // Ignorar erros de data
         }
       }
     });
 
     // Adicionar reservas de restaurante
     filteredReservations.restaurant.forEach((reservation) => {
-      const estId = reservation.establishment_id || 0;
-      if (groups.has(estId)) {
+      const estId = Number(reservation.establishment_id) || 0;
+      if (estId > 0 && groups.has(estId)) {
         const group = groups.get(estId)!;
         group.restaurantReservations.push(reservation);
-        group.totalRevenue += reservation.totalRevenue || 0;
-        group.totalGuests += reservation.number_of_people || 0;
+        const revenue = Number(reservation.totalRevenue) || 0;
+        const guests = Number(reservation.number_of_people) || 0;
+        group.totalRevenue += isNaN(revenue) ? 0 : revenue;
+        group.totalGuests += isNaN(guests) ? 0 : guests;
         
         // Verificar se é próxima
-        const reservationDate = new Date(reservation.reservation_date);
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        if (reservationDate >= today) {
-          group.upcomingCount++;
+        try {
+          const reservationDate = new Date(reservation.reservation_date);
+          if (!isNaN(reservationDate.getTime())) {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            if (reservationDate >= today) {
+              group.upcomingCount++;
+            }
+          }
+        } catch (e) {
+          // Ignorar erros de data
         }
       }
     });
@@ -377,14 +408,24 @@ export default function ReservesPage() {
       }),
     ].length;
 
+    const totalRevenue = groupedReservations.reduce((sum, g) => {
+      const revenue = Number(g.totalRevenue) || 0;
+      return sum + (isNaN(revenue) ? 0 : revenue);
+    }, 0);
+    
+    const totalGuests = groupedReservations.reduce((sum, g) => {
+      const guests = Number(g.totalGuests) || 0;
+      return sum + (isNaN(guests) ? 0 : guests);
+    }, 0);
+
     return {
       totalReservations: birthdayReservations.length + restaurantReservations.length,
-      totalRevenue: groupedReservations.reduce((sum, g) => sum + g.totalRevenue, 0),
-      totalGuests: groupedReservations.reduce((sum, g) => sum + g.totalGuests, 0),
+      totalRevenue: Math.max(0, totalRevenue),
+      totalGuests: Math.max(0, totalGuests),
       birthdayCount: birthdayReservations.length,
       restaurantCount: restaurantReservations.length,
-      upcomingToday,
-      upcomingWeek,
+      upcomingToday: Math.max(0, upcomingToday),
+      upcomingWeek: Math.max(0, upcomingWeek),
     };
   }, [birthdayReservations, restaurantReservations, groupedReservations]);
 
@@ -399,10 +440,14 @@ export default function ReservesPage() {
   };
 
   const formatCurrency = (value: number) => {
+    const numValue = Number(value) || 0;
+    if (isNaN(numValue) || numValue < 0) return "R$ 0,00";
     return new Intl.NumberFormat("pt-BR", {
       style: "currency",
       currency: "BRL",
-    }).format(value);
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(numValue);
   };
 
   const formatDate = (dateString: string) => {
@@ -619,26 +664,33 @@ export default function ReservesPage() {
                     className="w-full p-6 flex items-center justify-between hover:bg-slate-700/50 transition-colors"
                   >
                     <div className="flex items-center gap-4">
-                      {group.establishment.logo && (
-                        <Image
-                          src={group.establishment.logo}
-                          alt={group.establishment.name}
-                          width={48}
-                          height={48}
-                          className="rounded-lg object-cover"
-                        />
+                      {group.establishment.logo ? (
+                        <div className="relative w-12 h-12 flex-shrink-0">
+                          <SafeImage
+                            src={group.establishment.logo}
+                            alt={group.establishment.name}
+                            fill
+                            sizes="48px"
+                            className="rounded-lg object-cover"
+                            unoptimized={true}
+                          />
+                        </div>
+                      ) : (
+                        <div className="w-12 h-12 flex-shrink-0 bg-slate-700 rounded-lg flex items-center justify-center">
+                          <MdLocationOn className="text-gray-400" size={24} />
+                        </div>
                       )}
                       <div className="text-left">
                         <h3 className="text-xl font-bold">{group.establishment.name}</h3>
                         <p className="text-gray-400 text-sm">
-                          {totalReservations} reserva{totalReservations !== 1 ? "s" : ""} • {group.totalGuests} convidados
+                          {totalReservations} reserva{totalReservations !== 1 ? "s" : ""} • {Math.max(0, Number(group.totalGuests) || 0)} convidados
                         </p>
                       </div>
                     </div>
                     <div className="flex items-center gap-6">
                       <div className="text-right">
                         <p className="text-2xl font-bold text-green-400">
-                          {formatCurrency(group.totalRevenue)}
+                          {formatCurrency(Math.max(0, Number(group.totalRevenue) || 0))}
                         </p>
                         <p className="text-gray-400 text-sm">Receita estimada</p>
                       </div>
@@ -689,14 +741,17 @@ export default function ReservesPage() {
                                   <div className="flex items-center gap-2 text-sm text-gray-400">
                                     <MdPeople size={16} />
                                     <span>
-                                      {reservation.confirmedGuestsCount || 0} / {reservation.quantidade_convidados}
+                                      {Math.max(0, Number(reservation.confirmedGuestsCount) || 0)} / {Math.max(0, Number(reservation.quantidade_convidados) || 0)}
                                     </span>
                                   </div>
-                                  {reservation.totalRevenue && reservation.totalRevenue > 0 && (
-                                    <span className="text-green-400 font-semibold text-sm">
-                                      {formatCurrency(reservation.totalRevenue)}
-                                    </span>
-                                  )}
+                                  {(() => {
+                                    const revenue = Number(reservation.totalRevenue) || 0;
+                                    return revenue > 0 ? (
+                                      <span className="text-green-400 font-semibold text-sm">
+                                        {formatCurrency(revenue)}
+                                      </span>
+                                    ) : null;
+                                  })()}
                                 </div>
                               </Link>
                             ))}
@@ -755,11 +810,14 @@ export default function ReservesPage() {
                                     >
                                       {reservation.status}
                                     </span>
-                                    {reservation.totalRevenue && reservation.totalRevenue > 0 && (
-                                      <span className="text-green-400 font-semibold text-sm">
-                                        {formatCurrency(reservation.totalRevenue)}
-                                      </span>
-                                    )}
+                                    {(() => {
+                                      const revenue = Number(reservation.totalRevenue) || 0;
+                                      return revenue > 0 ? (
+                                        <span className="text-green-400 font-semibold text-sm">
+                                          {formatCurrency(revenue)}
+                                        </span>
+                                      ) : null;
+                                    })()}
                                   </div>
                                 </div>
                               </Link>
