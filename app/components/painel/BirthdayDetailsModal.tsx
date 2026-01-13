@@ -16,7 +16,52 @@ export default function BirthdayDetailsModal({ reservation, isOpen, onClose }: B
   if (!isOpen || !reservation) return null;
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('pt-BR');
+    // Corrigir problema de timezone: usar apenas a data sem hora
+    if (!dateString) return '';
+    
+    try {
+      // Se a data contém 'T' (formato ISO com hora), extrair apenas a parte da data
+      if (dateString.includes('T')) {
+        const dateOnly = dateString.split('T')[0];
+        const [year, month, day] = dateOnly.split('-');
+        if (year && month && day) {
+          return `${day}/${month}/${year}`;
+        }
+      }
+      
+      // Se já está no formato YYYY-MM-DD, formatar diretamente
+      if (dateString.match(/^\d{4}-\d{2}-\d{2}/)) {
+        const [year, month, day] = dateString.split('-');
+        if (year && month && day) {
+          return `${day}/${month}/${year}`;
+        }
+      }
+      
+      // Fallback: tentar usar Date mas ajustar para timezone local
+      const date = new Date(dateString);
+      if (!isNaN(date.getTime())) {
+        // Usar métodos locais para evitar problemas de timezone
+        const day = String(date.getDate()).padStart(2, '0');
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const year = date.getFullYear();
+        return `${day}/${month}/${year}`;
+      }
+      
+      return dateString; // Retornar original se não conseguir formatar
+    } catch (error) {
+      console.error('Erro ao formatar data:', error);
+      return dateString;
+    }
+  };
+
+  // Função para formatar valores em reais com vírgula
+  const formatCurrency = (value: number): string => {
+    return new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    }).format(value);
   };
 
   const isValidImageUrl = (url: string): boolean => {
@@ -552,12 +597,17 @@ export default function BirthdayDetailsModal({ reservation, isOpen, onClose }: B
                           )}
                           <div className="flex items-center justify-between mt-2">
                             <p className="text-green-600 font-bold">
-                              {item.preco > 0 ? `R$ ${item.preco.toFixed(2)}` : 'Preço não disponível'}
+                              {item.preco > 0 ? formatCurrency(item.preco) : 'Preço não disponível'}
                             </p>
                             <p className="text-gray-600 text-sm">
                               Qtd: <span className="font-semibold">{item.quantidade}</span>
                             </p>
                           </div>
+                          {item.preco > 0 && item.quantidade > 0 && (
+                            <p className="text-xs text-gray-500 mt-1">
+                              Subtotal: {formatCurrency(item.preco * item.quantidade)}
+                            </p>
+                          )}
                         </div>
                       </div>
                     ))}
@@ -591,12 +641,17 @@ export default function BirthdayDetailsModal({ reservation, isOpen, onClose }: B
                           )}
                           <div className="flex items-center justify-between mt-2">
                             <p className="text-green-600 font-bold">
-                              {item.preco > 0 ? `R$ ${item.preco.toFixed(2)}` : 'Preço não disponível'}
+                              {item.preco > 0 ? formatCurrency(item.preco) : 'Preço não disponível'}
                             </p>
                             <p className="text-gray-600 text-sm">
                               Qtd: <span className="font-semibold">{item.quantidade}</span>
                             </p>
                           </div>
+                          {item.preco > 0 && item.quantidade > 0 && (
+                            <p className="text-xs text-gray-500 mt-1">
+                              Subtotal: {formatCurrency(item.preco * item.quantidade)}
+                            </p>
+                          )}
                         </div>
                       </div>
                     ))}
@@ -633,37 +688,89 @@ export default function BirthdayDetailsModal({ reservation, isOpen, onClose }: B
 
           {/* Valor Total da Reserva */}
           {(() => {
-            // Preços de decoração (mesmos da página de reserva)
+            // Preços de decoração (mesmos usados no email - deve corresponder exatamente ao backend)
             const decorationPrices: Record<string, number> = {
-              'Decoração Pequena 1': 200.0,
-              'Decoração Pequena 2': 220.0,
-              'Decoração Media 3': 250.0,
-              'Decoração Media 4': 270.0,
-              'Decoração Grande 5': 300.0,
-              'Decoração Grande 6': 320.0,
+              'Decoração Pequena 1': 200.00,
+              'Decoração Pequena 2': 220.00,
+              'Decoração Media 3': 250.00,
+              'Decoração Media 4': 270.00,
+              'Decoração Grande 5': 300.00,
+              'Decoração Grande 6': 320.00,
             };
 
-            // Calcular valor total
+            // Calcular valor total (mesmo cálculo usado no email)
             let total = 0;
             
-            // Valor da decoração
-            if (reservation.decoracao_tipo) {
-              total += decorationPrices[reservation.decoracao_tipo] || 0;
+            // Valor da decoração (usar preço salvo no banco se disponível, senão usar mapeamento)
+            const decoracaoPreco = (reservation as any).decoracao_preco;
+            if (decoracaoPreco) {
+              total += parseFloat(String(decoracaoPreco));
+            } else if (reservation.decoracao_tipo && decorationPrices[reservation.decoracao_tipo]) {
+              total += decorationPrices[reservation.decoracao_tipo];
             }
 
-            // Valor das bebidas do bar
-            menuItems.bebidas.forEach(item => {
-              total += item.preco * item.quantidade;
-            });
+            // Tentar usar dados completos salvos no banco primeiro
+            const bebidasCompletas = (reservation as any).bebidas_completas;
+            const comidasCompletas = (reservation as any).comidas_completas;
+            
+            if (bebidasCompletas) {
+              // Se bebidas_completas está como string JSON, fazer parse
+              let bebidas = bebidasCompletas;
+              if (typeof bebidasCompletas === 'string') {
+                try {
+                  bebidas = JSON.parse(bebidasCompletas);
+                } catch (e) {
+                  console.error('Erro ao fazer parse de bebidas_completas:', e);
+                  bebidas = [];
+                }
+              }
+              
+              if (Array.isArray(bebidas)) {
+                bebidas.forEach((b: any) => {
+                  const price = parseFloat(String(b.price || b.preco || 0)) || 0;
+                  const quantity = parseInt(String(b.quantity || b.quantidade || 0)) || 0;
+                  total += price * quantity;
+                });
+              }
+            } else {
+              // Fallback: usar preços do cardápio carregados
+              menuItems.bebidas.forEach(item => {
+                const itemPrice = parseFloat(String(item.preco)) || 0;
+                const itemQuantity = parseInt(String(item.quantidade)) || 0;
+                total += itemPrice * itemQuantity;
+              });
+            }
 
-            // Valor das porções do bar
-            menuItems.comidas.forEach(item => {
-              total += item.preco * item.quantidade;
-            });
+            if (comidasCompletas) {
+              // Se comidas_completas está como string JSON, fazer parse
+              let comidas = comidasCompletas;
+              if (typeof comidasCompletas === 'string') {
+                try {
+                  comidas = JSON.parse(comidasCompletas);
+                } catch (e) {
+                  console.error('Erro ao fazer parse de comidas_completas:', e);
+                  comidas = [];
+                }
+              }
+              
+              if (Array.isArray(comidas)) {
+                comidas.forEach((c: any) => {
+                  const price = parseFloat(String(c.price || c.preco || 0)) || 0;
+                  const quantity = parseInt(String(c.quantity || c.quantidade || 0)) || 0;
+                  total += price * quantity;
+                });
+              }
+            } else {
+              // Fallback: usar preços do cardápio carregados
+              menuItems.comidas.forEach(item => {
+                const itemPrice = parseFloat(String(item.preco)) || 0;
+                const itemQuantity = parseInt(String(item.quantidade)) || 0;
+                total += itemPrice * itemQuantity;
+              });
+            }
 
-            // Valor das bebidas especiais (se houver preços)
+            // Valor das bebidas especiais (preços fixos conhecidos)
             bebidasItems.forEach(item => {
-              // Preços conhecidos das bebidas especiais
               const specialPrices: Record<string, number> = {
                 'Balde Budweiser': 50.0,
                 'Balde Corona': 55.0,
@@ -672,7 +779,8 @@ export default function BirthdayDetailsModal({ reservation, isOpen, onClose }: B
                 'Licor Rufus': 45.0,
               };
               const price = specialPrices[item.nome] || 0;
-              total += price * item.quantidade;
+              const quantity = parseInt(String(item.quantidade)) || 0;
+              total += price * quantity;
             });
 
             return (
@@ -682,7 +790,7 @@ export default function BirthdayDetailsModal({ reservation, isOpen, onClose }: B
                   Valor Total da Reserva
                 </h3>
                 <p className="text-4xl font-bold text-orange-600 mb-2">
-                  R$ {total.toFixed(2)}
+                  {formatCurrency(total)}
                 </p>
                 <p className="text-sm text-gray-600 italic">
                   Este valor será adicionado à comanda no estabelecimento.

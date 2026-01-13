@@ -13,10 +13,14 @@ export interface BirthdayReservation {
   place_name?: string;
   user_name?: string;
   decoracao_tipo: string;
+  decoracao_preco?: number | string;
+  decoracao_imagem?: string;
   painel_personalizado: boolean;
   painel_tema?: string;
   painel_frase?: string;
   painel_estoque_imagem_url?: string;
+  bebidas_completas?: any[] | string;
+  comidas_completas?: any[] | string;
   bebida_balde_budweiser?: number;
   bebida_balde_corona?: number;
   bebida_balde_heineken?: number;
