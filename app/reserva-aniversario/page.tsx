@@ -68,6 +68,7 @@ interface DecorationOption {
 }
 
 interface BeverageOption {
+  id?: number;
   name: string;
   price: number;
   category: string;
@@ -83,6 +84,7 @@ interface GiftOption {
 }
 
 interface FoodOption {
+  id?: number;
   name: string;
   price: number;
   category: string;
@@ -635,6 +637,7 @@ export default function ReservaAniversarioPage() {
 
       // 9. Converter para BeverageOption e FoodOption
       const formattedBeverages: BeverageOption[] = beveragesWithBday.map((item: any) => ({
+        id: item.id || undefined,
         name: item.name || 'Bebida sem nome',
         price: parseFloat(item.price) || 0,
         category: item.category || 'Bebida',
@@ -643,6 +646,7 @@ export default function ReservaAniversarioPage() {
       }));
 
       const formattedFoods: FoodOption[] = foodsWithBday.map((item: any) => ({
+        id: item.id || undefined,
         name: item.name || 'Porção sem nome',
         price: parseFloat(item.price) || 0,
         category: item.category || 'Comida',
@@ -838,12 +842,22 @@ export default function ReservaAniversarioPage() {
     setShowConfirmationModal(false);
     setIsLoading(true);
     try {
-      // Mapear bebidas selecionadas do cardápio dinâmico
+      // Mapear bebidas selecionadas do cardápio dinâmico com dados completos
       const bebidasMap: Record<string, number> = {};
+      const bebidasCompletas: Array<{id?: number, name: string, price: number, quantity: number}> = [];
       const selectedBeverageEntries = Object.entries(selectedBeverages).filter(([_, qty]) => qty > 0);
       selectedBeverageEntries.forEach(([beverageName, quantity], index) => {
         if (index < 10) {
+          const beverage = beverageOptions.find(b => b.name === beverageName);
           bebidasMap[`item_bar_bebida_${index + 1}`] = quantity;
+          if (beverage) {
+            bebidasCompletas.push({
+              id: beverage.id,
+              name: beverage.name,
+              price: beverage.price,
+              quantity: quantity
+            });
+          }
         }
       });
       // Preencher campos restantes com 0 para manter compatibilidade com API
@@ -851,12 +865,22 @@ export default function ReservaAniversarioPage() {
         bebidasMap[`item_bar_bebida_${i}`] = 0;
       }
 
-      // Mapear comidas selecionadas do cardápio dinâmico
+      // Mapear comidas selecionadas do cardápio dinâmico com dados completos
       const comidasMap: Record<string, number> = {};
+      const comidasCompletas: Array<{id?: number, name: string, price: number, quantity: number}> = [];
       const selectedFoodEntries = Object.entries(selectedFoods).filter(([_, qty]) => qty > 0);
       selectedFoodEntries.forEach(([foodName, quantity], index) => {
         if (index < 10) {
+          const food = foodOptions.find(f => f.name === foodName);
           comidasMap[`item_bar_comida_${index + 1}`] = quantity;
+          if (food) {
+            comidasCompletas.push({
+              id: food.id,
+              name: food.name,
+              price: food.price,
+              quantity: quantity
+            });
+          }
         }
       });
       // Preencher campos restantes com 0 para manter compatibilidade com API
@@ -907,10 +931,16 @@ export default function ReservaAniversarioPage() {
           ? `${formData.horario}:00` 
           : formData.horario, // Adicionar horário
         decoracao_tipo: selectedDecoration!.name,
+        decoracao_preco: selectedDecoration!.price,
+        decoracao_imagem: selectedDecoration!.image,
         painel_personalizado: selectedPainelOption === 'personalizado',
         painel_tema: selectedPainelOption === 'personalizado' ? formData.painelTema : undefined,
         painel_frase: selectedPainelOption === 'personalizado' ? formData.painelFrase : undefined,
         painel_estoque_imagem_url: selectedPainelOption === 'estoque' ? selectedPainelImage : undefined,
+        // Dados completos dos itens para emails
+        bebidas_completas: bebidasCompletas,
+        comidas_completas: comidasCompletas,
+        // Manter compatibilidade com API antiga
         ...bebidasMap,
         ...comidasMap,
         lista_presentes: selectedGifts.map(gift => gift.name),
