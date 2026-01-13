@@ -6,7 +6,7 @@ import Image from 'next/image';
 import SafeImage from '../components/SafeImage';
 import {
   FaBirthdayCake, FaPalette, FaGift, FaGlassCheers, FaUtensils, FaInfoCircle, FaExclamationTriangle,
-  FaCheck, FaUser, FaImage, FaPlus, FaMinus, FaArrowLeft, FaArrowRight
+  FaCheck, FaUser, FaImage, FaPlus, FaMinus, FaArrowLeft, FaArrowRight, FaTimes
 } from 'react-icons/fa';
 import { MdAccessTime, MdLocationOn } from 'react-icons/md';
 import { BirthdayService } from '../services/birthdayService';
@@ -134,6 +134,10 @@ export default function ReservaAniversarioPage() {
   const [beverageOptions, setBeverageOptions] = useState<BeverageOption[]>([]);
   const [foodOptions, setFoodOptions] = useState<FoodOption[]>([]);
   const [menuLoading, setMenuLoading] = useState(false);
+
+  // Estados para modais
+  const [selectedDecorationImage, setSelectedDecorationImage] = useState<string | null>(null);
+  const [showConfirmationModal, setShowConfirmationModal] = useState(false);
 
   // (Suas opções de decoração, painel, bebidas, etc. permanecem as mesmas)
   const decorationOptions: DecorationOption[] = [
@@ -822,12 +826,16 @@ export default function ReservaAniversarioPage() {
     return total;
   };
 
-  const handleSubmit = async () => {
+  const handleConfirmReservation = () => {
     if (!selectedDecoration || !formData.barSelecionado || !formData.dataAniversario || !formData.areaPreferida || !formData.horario) {
       alert('Por favor, preencha todos os campos obrigatórios (Estabelecimento, Data, Área e Horário)');
       return;
     }
+    setShowConfirmationModal(true);
+  };
 
+  const handleSubmit = async () => {
+    setShowConfirmationModal(false);
     setIsLoading(true);
     try {
       // Mapear bebidas selecionadas do cardápio dinâmico
@@ -898,7 +906,7 @@ export default function ReservaAniversarioPage() {
         reservation_time: formData.horario.includes(':') && formData.horario.split(':').length === 2 
           ? `${formData.horario}:00` 
           : formData.horario, // Adicionar horário
-        decoracao_tipo: selectedDecoration.name,
+        decoracao_tipo: selectedDecoration!.name,
         painel_personalizado: selectedPainelOption === 'personalizado',
         painel_tema: selectedPainelOption === 'personalizado' ? formData.painelTema : undefined,
         painel_frase: selectedPainelOption === 'personalizado' ? formData.painelFrase : undefined,
@@ -1284,32 +1292,42 @@ export default function ReservaAniversarioPage() {
               {decorationOptions.map((option, index) => (
                 <div
                   key={index}
-                  onClick={() => setSelectedDecoration(option)}
-                  className={`bg-slate-800 rounded-xl p-6 cursor-pointer border-2 transition-all hover:shadow-lg ${
+                  className={`bg-slate-800 rounded-xl p-6 border-2 transition-all hover:shadow-lg ${
                     selectedDecoration?.name === option.name
                       ? 'border-orange-500 bg-orange-500 bg-opacity-10'
                       : 'border-slate-700 hover:border-orange-400'
                   }`}
                 >
-                  <div className="h-32 relative overflow-hidden rounded-lg mb-4">
+                  <div 
+                    className="h-32 relative overflow-hidden rounded-lg mb-4 cursor-pointer group"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedDecorationImage(option.image);
+                    }}
+                  >
                     <SafeImage
                       src={option.image}
                       alt={option.name}
                       fill
                       sizes="(max-width: 768px) 100vw, 50vw"
-                      className="object-cover transition-transform hover:scale-105"
+                      className="object-cover transition-transform group-hover:scale-105"
                       unoptimized={true}
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent"></div>
-                  </div>
-                  <h3 className="text-lg font-bold text-white mb-2">{option.name}</h3>
-                  <p className="text-2xl font-bold text-orange-500 mb-2">R$ {option.price.toFixed(2)}</p>
-                  <p className="text-slate-300 text-sm">{option.description}</p>
-                  {selectedDecoration?.name === option.name && (
-                    <div className="mt-4 flex items-center justify-center">
-                      <FaCheck className="text-orange-500 text-xl" />
+                    <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/30">
+                      <FaImage className="text-white text-2xl" />
                     </div>
-                  )}
+                  </div>
+                  <div onClick={() => setSelectedDecoration(option)} className="cursor-pointer">
+                    <h3 className="text-lg font-bold text-white mb-2">{option.name}</h3>
+                    <p className="text-2xl font-bold text-orange-500 mb-2">R$ {option.price.toFixed(2)}</p>
+                    <p className="text-slate-300 text-sm">{option.description}</p>
+                    {selectedDecoration?.name === option.name && (
+                      <div className="mt-4 flex items-center justify-center">
+                        <FaCheck className="text-orange-500 text-xl" />
+                      </div>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
@@ -1689,7 +1707,7 @@ export default function ReservaAniversarioPage() {
           {currentSectionIndex === sections.length - 1 ? (
             // Na última etapa, mostra o botão de confirmar
             <button
-              onClick={handleSubmit}
+              onClick={handleConfirmReservation}
               disabled={isLoading || !selectedDecoration || !formData.barSelecionado || !formData.dataAniversario || !formData.areaPreferida || !formData.horario}
               className="px-8 py-3 bg-orange-500 hover:bg-orange-600 disabled:bg-slate-600 text-white font-bold rounded-lg transition-colors disabled:cursor-not-allowed"
             >
@@ -1707,6 +1725,222 @@ export default function ReservaAniversarioPage() {
           )}
         </div>
       </div>
+
+      {/* Modal de Imagem de Decoração */}
+      {selectedDecorationImage && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4"
+          onClick={() => setSelectedDecorationImage(null)}
+        >
+          <div className="relative max-w-4xl max-h-[90vh] w-full">
+            <button
+              onClick={() => setSelectedDecorationImage(null)}
+              className="absolute top-4 right-4 z-10 bg-slate-800 hover:bg-slate-700 text-white rounded-full p-3 transition-colors"
+            >
+              <FaTimes className="text-xl" />
+            </button>
+            <div className="relative w-full h-[90vh] rounded-lg overflow-hidden">
+              <SafeImage
+                src={selectedDecorationImage}
+                alt="Decoração completa"
+                fill
+                sizes="100vw"
+                className="object-contain"
+                unoptimized={true}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Confirmação */}
+      {showConfirmationModal && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
+          onClick={() => setShowConfirmationModal(false)}
+        >
+          <div 
+            className="bg-slate-800 rounded-xl p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto border-2 border-orange-500"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-3xl font-bold text-white">Confirmar Reserva</h2>
+              <button
+                onClick={() => setShowConfirmationModal(false)}
+                className="text-slate-400 hover:text-white transition-colors"
+              >
+                <FaTimes className="text-2xl" />
+              </button>
+            </div>
+
+            <div className="space-y-6">
+              {/* Dados Pessoais */}
+              <div className="bg-slate-700 rounded-lg p-4">
+                <h3 className="text-xl font-bold text-orange-500 mb-3">Dados Pessoais</h3>
+                <div className="space-y-2 text-white">
+                  <p><span className="font-semibold">Aniversariante:</span> {formData.aniversarianteNome || 'Não informado'}</p>
+                  <p><span className="font-semibold">Data:</span> {formData.dataAniversario ? new Date(formData.dataAniversario).toLocaleDateString('pt-BR') : 'Não informado'}</p>
+                  <p><span className="font-semibold">Convidados:</span> {formData.quantidadeConvidados}</p>
+                  {formData.whatsapp && <p><span className="font-semibold">WhatsApp:</span> {formData.whatsapp}</p>}
+                  {formData.email && <p><span className="font-semibold">E-mail:</span> {formData.email}</p>}
+                </div>
+              </div>
+
+              {/* Estabelecimento */}
+              <div className="bg-slate-700 rounded-lg p-4">
+                <h3 className="text-xl font-bold text-orange-500 mb-3">Estabelecimento</h3>
+                <div className="space-y-2 text-white">
+                  <p><span className="font-semibold">Bar:</span> {selectedEstablishment?.name || formData.barSelecionado || 'Não selecionado'}</p>
+                  <p><span className="font-semibold">Área:</span> {
+                    isHighline 
+                      ? highlineSubareas.find(s => s.key === selectedSubareaKey)?.label || formData.areaPreferida
+                      : isSeuJustino
+                      ? seuJustinoSubareas.find(s => s.key === selectedSubareaKey)?.label || formData.areaPreferida
+                      : areas.find(a => String(a.id) === formData.areaPreferida)?.name || formData.areaPreferida || 'Não selecionada'
+                  }</p>
+                  <p><span className="font-semibold">Horário:</span> {formData.horario || 'Não selecionado'}</p>
+                </div>
+              </div>
+
+              {/* Decoração */}
+              {selectedDecoration && (
+                <div className="bg-slate-700 rounded-lg p-4">
+                  <h3 className="text-xl font-bold text-orange-500 mb-3">Decoração</h3>
+                  <div className="space-y-2 text-white">
+                    <p><span className="font-semibold">Tipo:</span> {selectedDecoration.name}</p>
+                    <p><span className="font-semibold">Valor:</span> R$ {selectedDecoration.price.toFixed(2)}</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Painel */}
+              <div className="bg-slate-700 rounded-lg p-4">
+                <h3 className="text-xl font-bold text-orange-500 mb-3">Painel</h3>
+                <div className="space-y-2 text-white">
+                  {selectedPainelOption === 'estoque' && (
+                    <>
+                      <p><span className="font-semibold">Tipo:</span> Painel do Estoque</p>
+                      {selectedPainelImage && (
+                        <div className="mt-2 w-24 h-24 relative rounded-lg overflow-hidden">
+                          <SafeImage
+                            src={selectedPainelImage}
+                            alt="Painel selecionado"
+                            fill
+                            sizes="96px"
+                            className="object-cover"
+                            unoptimized={true}
+                          />
+                        </div>
+                      )}
+                    </>
+                  )}
+                  {selectedPainelOption === 'personalizado' && (
+                    <>
+                      <p><span className="font-semibold">Tipo:</span> Painel Personalizado</p>
+                      {formData.painelTema && <p><span className="font-semibold">Tema:</span> {formData.painelTema}</p>}
+                      {formData.painelFrase && <p><span className="font-semibold">Frase:</span> {formData.painelFrase}</p>}
+                    </>
+                  )}
+                  {!selectedPainelOption && <p className="text-slate-400">Nenhum painel selecionado</p>}
+                </div>
+              </div>
+
+              {/* Bebidas */}
+              {Object.keys(selectedBeverages).filter(name => selectedBeverages[name] > 0).length > 0 && (
+                <div className="bg-slate-700 rounded-lg p-4">
+                  <h3 className="text-xl font-bold text-orange-500 mb-3">Bebidas</h3>
+                  <div className="space-y-2 text-white">
+                    {Object.entries(selectedBeverages)
+                      .filter(([_, qty]) => qty > 0)
+                      .map(([name, qty]) => {
+                        const beverage = beverageOptions.find(b => b.name === name);
+                        return (
+                          <p key={name}>
+                            <span className="font-semibold">{name}:</span> {qty}x - R$ {beverage ? (beverage.price * qty).toFixed(2) : '0.00'}
+                          </p>
+                        );
+                      })}
+                  </div>
+                </div>
+              )}
+
+              {/* Comidas */}
+              {Object.keys(selectedFoods).filter(name => selectedFoods[name] > 0).length > 0 && (
+                <div className="bg-slate-700 rounded-lg p-4">
+                  <h3 className="text-xl font-bold text-orange-500 mb-3">Porções</h3>
+                  <div className="space-y-2 text-white">
+                    {Object.entries(selectedFoods)
+                      .filter(([_, qty]) => qty > 0)
+                      .map(([name, qty]) => {
+                        const food = foodOptions.find(f => f.name === name);
+                        return (
+                          <p key={name}>
+                            <span className="font-semibold">{name}:</span> {qty}x - R$ {food ? (food.price * qty).toFixed(2) : '0.00'}
+                          </p>
+                        );
+                      })}
+                  </div>
+                </div>
+              )}
+
+              {/* Presentes */}
+              {selectedGifts.length > 0 && (
+                <div className="bg-slate-700 rounded-lg p-4">
+                  <h3 className="text-xl font-bold text-orange-500 mb-3">Lista de Presentes</h3>
+                  <div className="space-y-2 text-white">
+                    <p>{selectedGifts.length} presente(s) selecionado(s)</p>
+                    <ul className="list-disc pl-5 text-sm">
+                      {selectedGifts.slice(0, 5).map((gift, idx) => (
+                        <li key={idx}>{gift.name}</li>
+                      ))}
+                      {selectedGifts.length > 5 && <li className="text-slate-400">... e mais {selectedGifts.length - 5}</li>}
+                    </ul>
+                  </div>
+                </div>
+              )}
+
+              {/* Valor Total */}
+              <div className="bg-orange-500 bg-opacity-20 border-2 border-orange-500 rounded-lg p-4">
+                <h3 className="text-2xl font-bold text-orange-500 mb-2 text-center">Valor Total</h3>
+                <p className="text-4xl font-bold text-white text-center mb-4">
+                  R$ {calculateTotal().toFixed(2)}
+                </p>
+              </div>
+
+              {/* Lembrete Importante */}
+              <div className="bg-yellow-500 bg-opacity-20 border-2 border-yellow-500 rounded-lg p-4">
+                <div className="flex items-start space-x-3">
+                  <FaExclamationTriangle className="text-yellow-500 text-2xl mt-1 flex-shrink-0" />
+                  <div>
+                    <h4 className="text-yellow-400 font-bold text-lg mb-2">⚠️ Lembrete Importante</h4>
+                    <p className="text-yellow-200">
+                      Este valor será adicionado à sua comanda no ato do check-in pela recepcionista. 
+                      Certifique-se de que todas as informações estão corretas antes de confirmar.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Botões */}
+              <div className="flex space-x-4">
+                <button
+                  onClick={() => setShowConfirmationModal(false)}
+                  className="flex-1 px-6 py-3 bg-slate-700 hover:bg-slate-600 text-white font-medium rounded-lg transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleSubmit}
+                  disabled={isLoading}
+                  className="flex-1 px-6 py-3 bg-orange-500 hover:bg-orange-600 disabled:bg-slate-600 text-white font-bold rounded-lg transition-colors disabled:cursor-not-allowed"
+                >
+                  {isLoading ? 'Processando...' : 'Confirmar e Finalizar'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
