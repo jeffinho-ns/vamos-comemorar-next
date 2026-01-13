@@ -152,6 +152,85 @@ export default function BirthdayDetailsModal({ reservation, isOpen, onClose }: B
 
     const loadMenuItems = async () => {
       setMenuLoading(true);
+      
+      // PRIORIDADE 1: Se temos bebidas_completas e comidas_completas salvos, usar diretamente
+      const bebidasCompletas = (reservation as any).bebidas_completas;
+      const comidasCompletas = (reservation as any).comidas_completas;
+      
+      if (bebidasCompletas || comidasCompletas) {
+        console.log('✅ [Modal] Usando dados completos salvos do banco');
+        
+        let bebidas = [];
+        let comidas = [];
+        
+        if (bebidasCompletas) {
+          if (typeof bebidasCompletas === 'string') {
+            try {
+              bebidas = JSON.parse(bebidasCompletas);
+            } catch (e) {
+              console.error('Erro ao fazer parse de bebidas_completas:', e);
+            }
+          } else if (Array.isArray(bebidasCompletas)) {
+            bebidas = bebidasCompletas;
+          }
+        }
+        
+        if (comidasCompletas) {
+          if (typeof comidasCompletas === 'string') {
+            try {
+              comidas = JSON.parse(comidasCompletas);
+            } catch (e) {
+              console.error('Erro ao fazer parse de comidas_completas:', e);
+            }
+          } else if (Array.isArray(comidasCompletas)) {
+            comidas = comidasCompletas;
+          }
+        }
+        
+        // Formatar para o formato esperado pelo modal
+        const bebidasFormatadas = bebidas
+          .filter((b: any) => {
+            const qty = parseInt(String(b.quantity || b.quantidade || 0)) || 0;
+            return qty > 0; // Filtrar apenas itens com quantidade > 0
+          })
+          .map((b: any) => ({
+            nome: b.name || b.nome || 'Bebida',
+            quantidade: parseInt(String(b.quantity || b.quantidade || 0)) || 0,
+            preco: parseFloat(String(b.price || b.preco || 0)) || 0,
+            imagem: b.imageUrl || b.imagem || null,
+            descricao: b.description || b.descricao || ''
+          }));
+        
+        const comidasFormatadas = comidas
+          .filter((c: any) => {
+            const qty = parseInt(String(c.quantity || c.quantidade || 0)) || 0;
+            return qty > 0; // Filtrar apenas itens com quantidade > 0
+          })
+          .map((c: any) => ({
+            nome: c.name || c.nome || 'Porção',
+            quantidade: parseInt(String(c.quantity || c.quantidade || 0)) || 0,
+            preco: parseFloat(String(c.price || c.preco || 0)) || 0,
+            imagem: c.imageUrl || c.imagem || null,
+            descricao: c.description || c.descricao || ''
+          }));
+        
+        console.log('📋 [Modal] Itens formatados:', {
+          bebidas: bebidasFormatadas.length,
+          comidas: comidasFormatadas.length,
+          bebidas_detalhes: bebidasFormatadas,
+          comidas_detalhes: comidasFormatadas
+        });
+        
+        setMenuItems({
+          bebidas: bebidasFormatadas,
+          comidas: comidasFormatadas
+        });
+        setMenuLoading(false);
+        return;
+      }
+      
+      // PRIORIDADE 2: Fallback - buscar do cardápio (apenas se não houver dados salvos)
+      console.log('⚠️ [Modal] Dados completos não encontrados, buscando do cardápio...');
       try {
         const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL_LOCAL || 'https://vamos-comemorar-api.onrender.com';
         const API_BASE_URL = `${API_URL}/api/cardapio`;
