@@ -724,6 +724,9 @@ export default function ReservationDetailsModal({
                 console.log('💰 [ReservationDetailsModal] Calculando valor total para reserva de aniversário:', {
                   birthdayReservationId: birthdayReservation.id,
                   decoracaoTipo: birthdayReservation.decoracao_tipo,
+                  decoracaoPreco: (birthdayReservation as any).decoracao_preco,
+                  bebidasCompletas: (birthdayReservation as any).bebidas_completas,
+                  comidasCompletas: (birthdayReservation as any).comidas_completas,
                   menuItemsBebidas: menuItems.bebidas.length,
                   menuItemsComidas: menuItems.comidas.length,
                   menuLoading
@@ -746,28 +749,100 @@ export default function ReservationDetailsModal({
                 let comidasValue = 0;
                 let especiaisValue = 0;
                 
-                // Valor da decoração
-                if (birthdayReservation.decoracao_tipo) {
-                  decoValue = decorationPrices[birthdayReservation.decoracao_tipo] || 0;
+                // Valor da decoração (usar preço salvo no banco se disponível, senão usar mapeamento)
+                const decoracaoPreco = (birthdayReservation as any).decoracao_preco;
+                if (decoracaoPreco !== null && decoracaoPreco !== undefined && decoracaoPreco !== '') {
+                  const preco = parseFloat(String(decoracaoPreco));
+                  if (!isNaN(preco)) {
+                    decoValue = preco;
+                    total += decoValue;
+                    console.log('💰 [ReservationDetailsModal] Decoração (do banco):', preco);
+                  }
+                } else if (birthdayReservation.decoracao_tipo && decorationPrices[birthdayReservation.decoracao_tipo]) {
+                  decoValue = decorationPrices[birthdayReservation.decoracao_tipo];
                   total += decoValue;
-                  console.log('💰 [ReservationDetailsModal] Decoração:', birthdayReservation.decoracao_tipo, '=', decoValue);
+                  console.log('💰 [ReservationDetailsModal] Decoração (mapeamento):', decoValue);
                 }
 
-                // Valor das bebidas do bar (com preços reais do cardápio)
-                menuItems.bebidas.forEach(item => {
-                  const itemValue = item.preco * item.quantidade;
-                  bebidasValue += itemValue;
-                  total += itemValue;
-                  console.log('💰 [ReservationDetailsModal] Bebida:', item.nome, 'Qtd:', item.quantidade, 'Preço:', item.preco, 'Total:', itemValue);
-                });
+                // Tentar usar dados completos salvos no banco primeiro (PRIORIDADE MÁXIMA)
+                const bebidasCompletas = (birthdayReservation as any).bebidas_completas;
+                const comidasCompletas = (birthdayReservation as any).comidas_completas;
+                
+                if (bebidasCompletas) {
+                  // Se bebidas_completas está como string JSON, fazer parse
+                  let bebidas = bebidasCompletas;
+                  if (typeof bebidasCompletas === 'string') {
+                    try {
+                      bebidas = JSON.parse(bebidasCompletas);
+                    } catch (e) {
+                      console.error('❌ [ReservationDetailsModal] Erro ao fazer parse de bebidas_completas:', e);
+                      bebidas = [];
+                    }
+                  }
+                  
+                  if (Array.isArray(bebidas) && bebidas.length > 0) {
+                    console.log('🍺 [ReservationDetailsModal] Usando bebidas_completas do banco:', bebidas);
+                    bebidas.forEach((b: any) => {
+                      const price = parseFloat(String(b.price || b.preco || 0)) || 0;
+                      const quantity = parseInt(String(b.quantity || b.quantidade || 0)) || 0;
+                      const subtotal = price * quantity;
+                      bebidasValue += subtotal;
+                      total += subtotal;
+                      console.log(`   - ${b.name || b.nome}: ${quantity}x R$ ${price.toFixed(2)} = R$ ${subtotal.toFixed(2)}`);
+                    });
+                  }
+                } else {
+                  // Fallback: usar preços do cardápio carregados (apenas se não houver dados salvos)
+                  console.log('⚠️ [ReservationDetailsModal] bebidas_completas não encontrado, usando menuItems.bebidas');
+                  menuItems.bebidas.forEach(item => {
+                    const itemPrice = parseFloat(String(item.preco)) || 0;
+                    const itemQuantity = parseInt(String(item.quantidade)) || 0;
+                    const subtotal = itemPrice * itemQuantity;
+                    bebidasValue += subtotal;
+                    total += subtotal;
+                    if (subtotal > 0) {
+                      console.log(`   - ${item.nome}: ${itemQuantity}x R$ ${itemPrice.toFixed(2)} = R$ ${subtotal.toFixed(2)}`);
+                    }
+                  });
+                }
 
-                // Valor das porções do bar (com preços reais do cardápio)
-                menuItems.comidas.forEach(item => {
-                  const itemValue = item.preco * item.quantidade;
-                  comidasValue += itemValue;
-                  total += itemValue;
-                  console.log('💰 [ReservationDetailsModal] Porção:', item.nome, 'Qtd:', item.quantidade, 'Preço:', item.preco, 'Total:', itemValue);
-                });
+                if (comidasCompletas) {
+                  // Se comidas_completas está como string JSON, fazer parse
+                  let comidas = comidasCompletas;
+                  if (typeof comidasCompletas === 'string') {
+                    try {
+                      comidas = JSON.parse(comidasCompletas);
+                    } catch (e) {
+                      console.error('❌ [ReservationDetailsModal] Erro ao fazer parse de comidas_completas:', e);
+                      comidas = [];
+                    }
+                  }
+                  
+                  if (Array.isArray(comidas) && comidas.length > 0) {
+                    console.log('🍕 [ReservationDetailsModal] Usando comidas_completas do banco:', comidas);
+                    comidas.forEach((c: any) => {
+                      const price = parseFloat(String(c.price || c.preco || 0)) || 0;
+                      const quantity = parseInt(String(c.quantity || c.quantidade || 0)) || 0;
+                      const subtotal = price * quantity;
+                      comidasValue += subtotal;
+                      total += subtotal;
+                      console.log(`   - ${c.name || c.nome}: ${quantity}x R$ ${price.toFixed(2)} = R$ ${subtotal.toFixed(2)}`);
+                    });
+                  }
+                } else {
+                  // Fallback: usar preços do cardápio carregados (apenas se não houver dados salvos)
+                  console.log('⚠️ [ReservationDetailsModal] comidas_completas não encontrado, usando menuItems.comidas');
+                  menuItems.comidas.forEach(item => {
+                    const itemPrice = parseFloat(String(item.preco)) || 0;
+                    const itemQuantity = parseInt(String(item.quantidade)) || 0;
+                    const subtotal = itemPrice * itemQuantity;
+                    comidasValue += subtotal;
+                    total += subtotal;
+                    if (subtotal > 0) {
+                      console.log(`   - ${item.nome}: ${itemQuantity}x R$ ${itemPrice.toFixed(2)} = R$ ${subtotal.toFixed(2)}`);
+                    }
+                  });
+                }
 
                 // Valor das bebidas especiais (se houver preços)
                 const bebidasEspeciaisMap: Record<string, { nome: string; preco: number }> = {
