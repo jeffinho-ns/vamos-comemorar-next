@@ -70,6 +70,22 @@ export default function TabletCheckInsPage() {
     promoterGuests: {},
     gifts: {}
   });
+  
+  // Estado para reservas adicionais buscadas diretamente da API
+  const [reservasAdicionaisAPI, setReservasAdicionaisAPI] = useState<Array<{
+    id: number;
+    client_name: string;
+    reservation_date: string;
+    reservation_time: string;
+    number_of_people: number;
+    table_number?: string;
+    area_name?: string;
+    checked_in: boolean;
+    checkin_time?: string;
+    status?: string;
+    origin?: string;
+  }>>([]);
+  const [loadingReservasAdicionais, setLoadingReservasAdicionais] = useState(false);
 
   // Estados para modal de check-in
   const [entradaModalOpen, setEntradaModalOpen] = useState(false);
@@ -594,6 +610,55 @@ export default function TabletCheckInsPage() {
       .trim();
   }, []);
 
+  // Função para obter a subárea correta baseada no número da mesa (Highline)
+  const getHighlineSubareaName = useCallback((tableNumber?: string | number): string | null => {
+    if (!tableNumber) return null;
+    const n = String(tableNumber).padStart(2, '0');
+    
+    const subareaMap: Record<string, string> = {
+      '05': 'Área Deck - Frente',
+      '06': 'Área Deck - Frente',
+      '07': 'Área Deck - Frente',
+      '08': 'Área Deck - Frente',
+      '01': 'Área Deck - Esquerdo',
+      '02': 'Área Deck - Esquerdo',
+      '03': 'Área Deck - Esquerdo',
+      '04': 'Área Deck - Esquerdo',
+      '09': 'Área Deck - Direito',
+      '10': 'Área Deck - Direito',
+      '11': 'Área Deck - Direito',
+      '12': 'Área Deck - Direito',
+      '15': 'Área Bar',
+      '16': 'Área Bar',
+      '17': 'Área Bar',
+      '50': 'Área Rooftop - Direito',
+      '51': 'Área Rooftop - Direito',
+      '52': 'Área Rooftop - Direito',
+      '53': 'Área Rooftop - Direito',
+      '54': 'Área Rooftop - Direito',
+      '55': 'Área Rooftop - Direito',
+      '70': 'Área Rooftop - Bistrô',
+      '71': 'Área Rooftop - Bistrô',
+      '72': 'Área Rooftop - Bistrô',
+      '73': 'Área Rooftop - Bistrô',
+      '44': 'Área Rooftop - Centro',
+      '45': 'Área Rooftop - Centro',
+      '46': 'Área Rooftop - Centro',
+      '47': 'Área Rooftop - Centro',
+      '60': 'Área Rooftop - Esquerdo',
+      '61': 'Área Rooftop - Esquerdo',
+      '62': 'Área Rooftop - Esquerdo',
+      '63': 'Área Rooftop - Esquerdo',
+      '64': 'Área Rooftop - Esquerdo',
+      '65': 'Área Rooftop - Esquerdo',
+      '40': 'Área Rooftop - Vista',
+      '41': 'Área Rooftop - Vista',
+      '42': 'Área Rooftop - Vista'
+    };
+    
+    return subareaMap[n] || null;
+  }, []);
+
   // Filtrar eventos do estabelecimento selecionado (usando useMemo para evitar recálculos)
   const selectedEstablishmentName = useMemo(() => 
     estabelecimentoSelecionado
@@ -637,6 +702,44 @@ export default function TabletCheckInsPage() {
           };
         }
 
+        // Buscar área correta: primeiro tenta mapear pela mesa, depois busca na reserva oficial
+        let areaName = null;
+        
+        // 1. Tentar obter subárea pelo número da mesa (mais preciso)
+        if (gl.table_number) {
+          const subareaName = getHighlineSubareaName(gl.table_number);
+          if (subareaName) {
+            areaName = subareaName;
+          }
+        }
+        
+        // 2. Se não encontrou pela mesa, buscar na reserva de restaurante relacionada
+        if (!areaName && gl.reservation_id) {
+          const relatedReservation = loadedData.reservations.find((r: any) => {
+            const reservationId = r.id || r.reservation_id;
+            return Number(reservationId) === Number(gl.reservation_id);
+          });
+          
+          if (relatedReservation?.area_name) {
+            // Se a área da reserva é uma área principal (Rooftop, Deck, etc), tentar mapear pela mesa
+            if (gl.table_number) {
+              const subareaName = getHighlineSubareaName(gl.table_number);
+              if (subareaName) {
+                areaName = subareaName;
+              } else {
+                areaName = relatedReservation.area_name;
+              }
+            } else {
+              areaName = relatedReservation.area_name;
+            }
+          }
+        }
+        
+        // 3. Fallback: usar área da guest list apenas se não encontrou em nenhum lugar
+        if (!areaName) {
+          areaName = gl.area_name || null;
+        }
+
         results.push({
           type: 'owner',
           name: gl.owner_name,
@@ -648,7 +751,7 @@ export default function TabletCheckInsPage() {
             date: gl.reservation_date,
             time: gl.reservation_time,
             table: gl.table_number?.toString(),
-            area: gl.area_name,
+            area: areaName,
             totalGuests: gl.total_guests || 0,
             checkedInGuests: gl.guests_checked_in || 0,
             eventType: gl.event_type || 'outros'
@@ -662,6 +765,44 @@ export default function TabletCheckInsPage() {
       for (const guest of guests) {
         const guestName = guest.name?.toLowerCase() || '';
         if (guestName.includes(searchLower)) {
+          // Buscar área correta: primeiro tenta mapear pela mesa, depois busca na reserva oficial
+          let areaName = null;
+          
+          // 1. Tentar obter subárea pelo número da mesa (mais preciso)
+          if (gl.table_number) {
+            const subareaName = getHighlineSubareaName(gl.table_number);
+            if (subareaName) {
+              areaName = subareaName;
+            }
+          }
+          
+          // 2. Se não encontrou pela mesa, buscar na reserva de restaurante relacionada
+          if (!areaName && gl.reservation_id) {
+            const relatedReservation = loadedData.reservations.find((r: any) => {
+              const reservationId = r.id || r.reservation_id;
+              return Number(reservationId) === Number(gl.reservation_id);
+            });
+            
+            if (relatedReservation?.area_name) {
+              // Se a área da reserva é uma área principal (Rooftop, Deck, etc), tentar mapear pela mesa
+              if (gl.table_number) {
+                const subareaName = getHighlineSubareaName(gl.table_number);
+                if (subareaName) {
+                  areaName = subareaName;
+                } else {
+                  areaName = relatedReservation.area_name;
+                }
+              } else {
+                areaName = relatedReservation.area_name;
+              }
+            }
+          }
+          
+          // 3. Fallback: usar área da guest list apenas se não encontrou em nenhum lugar
+          if (!areaName) {
+            areaName = gl.area_name || null;
+          }
+
           results.push({
             type: 'guest',
             name: guest.name,
@@ -676,10 +817,74 @@ export default function TabletCheckInsPage() {
               date: gl.reservation_date,
               time: gl.reservation_time,
               table: gl.table_number?.toString(),
-              area: gl.area_name,
+              area: areaName,
               totalGuests: gl.total_guests || 0,
               checkedInGuests: gl.guests_checked_in || 0,
               eventType: gl.event_type || 'outros'
+            },
+            giftInfo: { remainingCheckins: 0, hasGift: false },
+          });
+        }
+      }
+    }
+
+    // Buscar em reservas de restaurante sem guest list (reservas simples)
+    // Verificar reservas que têm guest_list_id null ou undefined
+    for (const reservation of loadedData.reservations) {
+      // Verificar se esta reserva não tem guest list associada
+      // guest_list_id será null/undefined para reservas sem guest list
+      const hasGuestList = reservation.guest_list_id != null || 
+        loadedData.guestLists.some((gl: any) => 
+          (gl.reservation_id && Number(gl.reservation_id) === Number(reservation.id)) ||
+          (gl.reservation_id && Number(gl.reservation_id) === Number(reservation.reservation_id))
+        );
+      
+      if (!hasGuestList) {
+        // Buscar nome em múltiplos campos possíveis
+        const clientName = (reservation.client_name || reservation.responsavel || reservation.owner_name || '').toLowerCase();
+        const origin = (reservation.origin || reservation.origem || '').toLowerCase();
+        
+        // Debug: log para verificar se está encontrando a reserva
+        if (clientName.includes('luis') || clientName.includes('felipe') || clientName.includes('martins')) {
+          console.log('🔍 [TABLET] Reserva encontrada:', {
+            id: reservation.id,
+            reservation_id: reservation.reservation_id,
+            client_name: reservation.client_name,
+            responsavel: reservation.responsavel,
+            guest_list_id: reservation.guest_list_id,
+            clientName,
+            searchLower,
+            match: clientName.includes(searchLower)
+          });
+        }
+        
+        if (clientName.includes(searchLower) || origin.includes(searchLower)) {
+          // Buscar área correta
+          let areaName = null;
+          if (reservation.table_number) {
+            const subareaName = getHighlineSubareaName(reservation.table_number);
+            if (subareaName) {
+              areaName = subareaName;
+            }
+          }
+          if (!areaName && reservation.area_name) {
+            areaName = reservation.area_name;
+          }
+
+          results.push({
+            type: 'owner',
+            name: reservation.client_name || reservation.responsavel || 'Sem nome',
+            reservationId: reservation.id || reservation.reservation_id,
+            checkedIn: reservation.checked_in === true || reservation.checked_in === 1,
+            reservation: {
+              id: reservation.id || reservation.reservation_id,
+              date: reservation.reservation_date,
+              time: reservation.reservation_time,
+              table: reservation.table_number?.toString(),
+              area: areaName,
+              totalGuests: reservation.number_of_people || 0,
+              checkedInGuests: reservation.convidados_checkin || 0,
+              eventType: 'outros'
             },
             giftInfo: { remainingCheckins: 0, hasGift: false },
           });
@@ -754,8 +959,157 @@ export default function TabletCheckInsPage() {
       }
     }
 
+    // Adicionar reservas da API se disponíveis
+    if (reservasAdicionaisAPI.length > 0 && term.trim().length >= 2) {
+      const searchLower = term.toLowerCase().trim();
+      
+      reservasAdicionaisAPI.forEach(r => {
+        const nomeCompleto = (r.client_name || '').toLowerCase();
+        const origem = (r.origin || '').toLowerCase();
+        
+        if (nomeCompleto.includes(searchLower) || origem.includes(searchLower)) {
+          // Verificar se já não está nos resultados
+          const jaExiste = results.some(res => 
+            res.type === 'owner' && res.reservationId === r.id
+          );
+          
+          if (!jaExiste) {
+            // Buscar área correta
+            let areaName = null;
+            if (r.table_number) {
+              const subareaName = getHighlineSubareaName(r.table_number);
+              if (subareaName) {
+                areaName = subareaName;
+              }
+            }
+            if (!areaName && r.area_name) {
+              areaName = r.area_name;
+            }
+
+            results.push({
+              type: 'owner',
+              name: r.client_name || 'Sem nome',
+              reservationId: r.id,
+              checkedIn: Boolean(r.checked_in),
+              reservation: {
+                id: r.id,
+                date: r.reservation_date,
+                time: r.reservation_time,
+                table: r.table_number?.toString(),
+                area: areaName ?? undefined,
+                totalGuests: r.number_of_people || 0,
+                checkedInGuests: 0,
+                eventType: 'outros'
+              },
+              giftInfo: { remainingCheckins: 0, hasGift: false },
+            });
+          }
+        }
+      });
+    }
+
     setResults(results);
-  }, [loadedData]);
+  }, [loadedData, getHighlineSubareaName, reservasAdicionaisAPI]);
+
+  // Ref para evitar múltiplas buscas simultâneas
+  const buscandoReservasAdicionaisRef = useRef(false);
+
+  // Buscar reservas adicionais diretamente da API quando houver busca
+  useEffect(() => {
+    if (!searchTerm.trim() || !estabelecimentoSelecionado || !eventoSelecionado) {
+      setReservasAdicionaisAPI([]);
+      return;
+    }
+
+    // Evitar múltiplas buscas simultâneas
+    if (buscandoReservasAdicionaisRef.current) {
+      return;
+    }
+
+    const buscarReservasAdicionais = async () => {
+      buscandoReservasAdicionaisRef.current = true;
+      setLoadingReservasAdicionais(true);
+      try {
+        const token = localStorage.getItem('authToken');
+        const headers: HeadersInit = {
+          'Content-Type': 'application/json',
+        };
+        if (token) {
+          headers['Authorization'] = `Bearer ${token}`;
+        }
+
+        // Buscar evento para pegar a data
+        const eventoRes = await fetch(`${API_URL}/api/v1/eventos/${eventoSelecionado}`, { headers });
+        if (!eventoRes.ok) {
+          setReservasAdicionaisAPI([]);
+          return;
+        }
+        const eventoData = await eventoRes.json();
+        const evento = eventoData.evento || eventoData;
+        const dataEvento = evento.data_evento?.split('T')[0] || evento.data_evento;
+        
+        if (!dataEvento) {
+          setReservasAdicionaisAPI([]);
+          return;
+        }
+
+        const url = `${API_URL}/api/restaurant-reservations?establishment_id=${estabelecimentoSelecionado}&date=${dataEvento}`;
+        
+        const response = await fetch(url, { headers });
+        if (response.ok) {
+          const data = await response.json();
+          const todasReservas = data.reservations || [];
+          
+          // Filtrar apenas reservas sem guest list (verificar se não têm guest_list associada)
+          // E que não estão já em loadedData.reservations
+          const idsJaIncluidos = new Set(loadedData.reservations.map((r: any) => r.id || r.reservation_id));
+          const reservasSemGuestList = todasReservas.filter((r: any) => {
+            // Verificar se não está já incluída
+            if (idsJaIncluidos.has(r.id)) return false;
+            
+            // Verificar se não tem guest list (verificar se não está em guestLists)
+            const temGuestList = loadedData.guestLists.some((gl: any) => 
+              (gl.reservation_id && Number(gl.reservation_id) === Number(r.id))
+            );
+            return !temGuestList;
+          });
+
+          setReservasAdicionaisAPI(reservasSemGuestList);
+          
+          if (reservasSemGuestList.length > 0) {
+            console.log(`✅ [TABLET API] ${reservasSemGuestList.length} reservas adicionais encontradas sem guest list`);
+            // Debug específico para Luis Felipe Martins
+            const luisFelipe = reservasSemGuestList.find((r: any) => 
+              (r.client_name && r.client_name.toLowerCase().includes('luis')) ||
+              (r.client_name && r.client_name.toLowerCase().includes('felipe')) ||
+              (r.client_name && r.client_name.toLowerCase().includes('martins'))
+            );
+            if (luisFelipe) {
+              console.log('🎯 [TABLET API] Reserva Luis Felipe Martins encontrada:', {
+                id: luisFelipe.id,
+                client_name: luisFelipe.client_name,
+                data: luisFelipe.reservation_date
+              });
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Erro ao buscar reservas adicionais no tablet:', error);
+        setReservasAdicionaisAPI([]);
+      } finally {
+        setLoadingReservasAdicionais(false);
+        buscandoReservasAdicionaisRef.current = false;
+      }
+    };
+
+    // Debounce da busca API
+    const timeoutId = setTimeout(buscarReservasAdicionais, 500);
+    return () => {
+      clearTimeout(timeoutId);
+      buscandoReservasAdicionaisRef.current = false;
+    };
+  }, [searchTerm, estabelecimentoSelecionado, eventoSelecionado, loadedData.reservations.length, loadedData.guestLists.length]);
+
 
   const handleInputChange = (value: string) => {
     setSearchTerm(value);
@@ -771,21 +1125,73 @@ export default function TabletCheckInsPage() {
         guestListId: result.guestListId,
         nome: result.name
       });
-    } else if (result.type === 'owner' && result.guestListId) {
-      setConvidadoParaCheckIn({
-        tipo: 'owner',
-        guestListId: result.guestListId,
-        reservationId: result.reservationId,
-        nome: result.name
-      });
+      setEntradaModalOpen(true);
+    } else if (result.type === 'owner') {
+      // Verificar se é owner de guest list ou reserva sem guest list
+      if (result.guestListId) {
+        // É owner de guest list
+        setConvidadoParaCheckIn({
+          tipo: 'owner',
+          guestListId: result.guestListId,
+          reservationId: result.reservationId,
+          nome: result.name
+        });
+        setEntradaModalOpen(true);
+      } else if (result.reservationId) {
+        // É reserva sem guest list - fazer check-in direto
+        handleReservaSemGuestListCheckIn(result.reservationId, result.name);
+      }
     } else if (result.type === 'promoter_guest' && result.id) {
       setConvidadoParaCheckIn({
         tipo: 'promoter_guest',
         id: result.id,
         nome: result.name
       });
+      setEntradaModalOpen(true);
     }
-    setEntradaModalOpen(true);
+  };
+
+  // Handler para check-in de reserva sem guest list
+  const handleReservaSemGuestListCheckIn = async (reservationId: number, nome: string) => {
+    try {
+      const token = localStorage.getItem('authToken');
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+      };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
+      const response = await fetch(`${API_URL}/api/restaurant-reservations/${reservationId}/checkin`, {
+        method: 'POST',
+        headers
+      });
+
+      if (response.ok) {
+        alert(`✅ Check-in de ${nome} confirmado!`);
+        // Atualizar estado local
+        setLoadedData(prev => ({
+          ...prev,
+          reservations: prev.reservations.map((r: any) => 
+            (r.id === reservationId || r.reservation_id === reservationId)
+              ? { ...r, checked_in: true, checkin_time: new Date().toISOString() }
+              : r
+          )
+        }));
+        // Atualizar resultados
+        setResults(prev => prev.map(r => 
+          (r.type === 'owner' && r.reservationId === reservationId)
+            ? { ...r, checkedIn: true }
+            : r
+        ));
+      } else {
+        const errorData = await response.json();
+        alert('❌ Erro ao fazer check-in: ' + (errorData?.error || 'Erro desconhecido'));
+      }
+    } catch (error) {
+      console.error('Erro no check-in:', error);
+      alert('❌ Erro ao fazer check-in');
+    }
   };
 
   // Função que realmente faz o check-in após seleção do status

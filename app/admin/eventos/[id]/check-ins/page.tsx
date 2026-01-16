@@ -32,6 +32,7 @@ import { WithPermission } from '../../../../components/WithPermission/WithPermis
 import EntradaStatusModal, { EntradaTipo } from '../../../../components/EntradaStatusModal';
 import BirthdayDetailsModal from '../../../../components/painel/BirthdayDetailsModal';
 import { BirthdayReservation } from '../../../../services/birthdayService';
+import { Reservation } from '@/app/types/reservation';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.agilizaiapp.com.br';
 
@@ -128,6 +129,13 @@ interface ReservaRestaurante {
   convidados_checkin: number;
   table_number?: string | number;
   area_name?: string;
+  guest_list_id?: number | null; // Para identificar se tem guest list ou não
+  // Campos alternativos que podem vir do backend
+  client_name?: string;
+  origin?: string;
+  status?: string;
+  notes?: string;
+  admin_notes?: string;
 }
 
 interface ConvidadoReservaRestaurante {
@@ -230,19 +238,83 @@ export default function EventoCheckInsPage() {
     return () => clearTimeout(timer);
   }, [searchTerm]);
   
-  // Estados para organização e filtros (mobile/tablet)
-  const [sortBy, setSortBy] = useState<'nome' | 'status' | 'tipo' | 'hora'>('nome');
-  const [filterStatus, setFilterStatus] = useState<'todos' | 'pendente' | 'checkin'>('todos');
-  const [showFilters, setShowFilters] = useState(false);
-  const [viewMode, setViewMode] = useState<'compact' | 'detailed'>('compact');
+  // Estado para modal de planilha
+  const [planilhaModalOpen, setPlanilhaModalOpen] = useState(false);
+  // Estados para Planilha (estilo restaurant-reservations)
+  const [planilhaReservas, setPlanilhaReservas] = useState<Reservation[]>([]);
+  const [planilhaLoading, setPlanilhaLoading] = useState(false);
+  const [sheetFilters, setSheetFilters] = useState<{ date?: string; search?: string; name?: string; phone?: string; event?: string; table?: string; status?: string }>({});
+  const [todasMesasAreas, setTodasMesasAreas] = useState<Map<string, Array<{ area_id: number; area_name: string; table_number: string }>>>(new Map());
+  
+  // Funções auxiliares para a planilha
+  const formatDate = (dateString: string, fallbackDate?: string) => {
+    // Se tiver data de fallback (do filtro), usar ela se a data original for inválida
+    if (fallbackDate) {
+      try {
+        const fallback = new Date(fallbackDate + 'T12:00:00');
+        if (!isNaN(fallback.getTime())) {
+          const formatted = fallback.toLocaleDateString('pt-BR');
+          // Se a data original não for válida, retornar o fallback formatado
+          if (!dateString || dateString.trim() === '') return formatted;
+          try {
+            const date = new Date(dateString + 'T12:00:00');
+            if (isNaN(date.getTime())) return formatted;
+            return date.toLocaleDateString('pt-BR');
+          } catch {
+            return formatted;
+          }
+        }
+      } catch {}
+    }
+    
+    if (!dateString || dateString.trim() === '') {
+      return fallbackDate ? new Date(fallbackDate + 'T12:00:00').toLocaleDateString('pt-BR') : 'Data não informada';
+    }
+    try {
+      const date = new Date(dateString + 'T12:00:00');
+      if (isNaN(date.getTime())) {
+        return fallbackDate ? new Date(fallbackDate + 'T12:00:00').toLocaleDateString('pt-BR') : 'Data inválida';
+      }
+      return date.toLocaleDateString('pt-BR');
+    } catch (error) {
+      return fallbackDate ? new Date(fallbackDate + 'T12:00:00').toLocaleDateString('pt-BR') : 'Data inválida';
+    }
+  };
+
+  const formatTime = (timeString?: string) => {
+    if (!timeString || timeString.trim() === '') return '';
+    try {
+      return timeString.slice(0, 5);
+    } catch (error) {
+      return '';
+    }
+  };
+  
+  // Estado para reservas adicionais buscadas diretamente da API
+  const [reservasAdicionaisAPI, setReservasAdicionaisAPI] = useState<Array<{
+    id: number;
+    client_name: string;
+    reservation_date: string;
+    reservation_time: string;
+    number_of_people: number;
+    table_number?: string;
+    area_name?: string;
+    checked_in: boolean;
+    checkin_time?: string;
+    status?: string;
+    origin?: string;
+    guest_list_id?: null;
+  }>>([]);
+  const [loadingReservasAdicionais, setLoadingReservasAdicionais] = useState(false);
   
   // Estados para modal de status de entrada
   const [entradaModalOpen, setEntradaModalOpen] = useState(false);
   const [convidadoParaCheckIn, setConvidadoParaCheckIn] = useState<{
-    tipo: 'reserva' | 'promoter' | 'guest_list';
+    tipo: 'reserva' | 'promoter' | 'guest_list' | 'restaurante';
     id: number;
     nome: string;
     guestListId?: number; // Para guest lists
+    reservationId?: number; // Para reservas sem guest list
   } | null>(null);
   const [arrecadacao, setArrecadacao] = useState<{
     totalGeral: number;
@@ -856,6 +928,106 @@ export default function EventoCheckInsPage() {
     loadCheckInData();
   }, [loadCheckInData]);
 
+  // Carregar reservas quando o modal de planilha abrir (igual à página restaurant-reservations)
+  useEffect(() => {
+    if (!planilhaModalOpen || !evento || !eventoId) {
+      setPlanilhaReservas([]);
+      return;
+    }
+
+    const carregarPlanilhaReservas = async () => {
+      setPlanilhaLoading(true);
+      try {
+        const token = localStorage.getItem('authToken');
+        const headers: HeadersInit = {
+          'Content-Type': 'application/json',
+        };
+        if (token) {
+          headers['Authorization'] = `Bearer ${token}`;
+        }
+
+        // Inicializar filtros com a data do evento quando modal abrir
+        const dataEvento = evento.data_evento?.split('T')[0] || evento.data_evento;
+        setSheetFilters(prev => ({ ...prev, date: dataEvento }));
+
+        // Buscar reservas normais e grandes (igual à página restaurant-reservations)
+        const normalReservationsPromise = fetch(
+          `${API_URL}/api/restaurant-reservations?establishment_id=${evento.establishment_id}`,
+          { headers }
+        ).then(res => res.ok ? res.json() : { reservations: [] });
+
+        const largeReservationsPromise = fetch(
+          `${API_URL}/api/large-reservations?establishment_id=${evento.establishment_id}`,
+          { headers }
+        ).then(res => res.ok ? res.json() : { reservations: [] });
+
+        const [normalData, largeData] = await Promise.all([
+          normalReservationsPromise,
+          largeReservationsPromise
+        ]);
+
+        const allReservations = [
+          ...(normalData.reservations || []),
+          ...(largeData.reservations || [])
+        ] as Reservation[];
+
+        setPlanilhaReservas(allReservations);
+
+        // Buscar todas as áreas e mesas para mostrar mesas sem reserva
+        const getAreaKeyFromAreaName = (areaName: string): string | null => {
+          const name = areaName.toLowerCase();
+          if (name.includes('roof') || name.includes('rooftop')) return 'rooftop';
+          if (name.includes('deck')) return 'deck';
+          if (name.includes('bar')) return 'bar';
+          if (name.includes('balada')) return 'balada';
+          return null;
+        };
+
+        const areasRes = await fetch(`${API_URL}/api/restaurant-areas`, { headers });
+        if (areasRes.ok) {
+          const areasData = await areasRes.json();
+          const areas = areasData.areas || [];
+          const mesasMap = new Map<string, Array<{ area_id: number; area_name: string; table_number: string }>>();
+
+          // Buscar todas as mesas de cada área para a data do evento
+          for (const area of areas) {
+            try {
+              const tablesRes = await fetch(
+                `${API_URL}/api/restaurant-tables/${area.id}/availability?date=${dataEvento}${evento.establishment_id ? `&establishment_id=${evento.establishment_id}` : ''}`,
+                { headers }
+              );
+              if (tablesRes.ok) {
+                const tablesData = await tablesRes.json();
+                const tables = tablesData.tables || [];
+                // Usar o nome da área como chave (nome único do banco)
+                // Criar uma chave única usando area_id para garantir precisão
+                const areaKeyUnique = `area_${area.id}`;
+                mesasMap.set(areaKeyUnique, tables.map((t: any) => ({
+                  area_id: area.id,
+                  area_name: area.name,
+                  table_number: t.table_number?.toString() || t.table_number
+                })));
+              }
+            } catch (err) {
+              console.error(`Erro ao carregar mesas da área ${area.name}:`, err);
+            }
+          }
+
+          setTodasMesasAreas(mesasMap);
+        }
+
+        console.log(`✅ [PLANILHA] ${allReservations.length} reservas carregadas`);
+      } catch (error) {
+        console.error('❌ Erro ao carregar planilha:', error);
+        setPlanilhaReservas([]);
+      } finally {
+        setPlanilhaLoading(false);
+      }
+    };
+
+    carregarPlanilhaReservas();
+  }, [planilhaModalOpen, evento, eventoId]);
+
   // Função para calcular arrecadação
   const calcularArrecadacao = useCallback((
     convidadosReservas: ConvidadoReserva[],
@@ -1025,6 +1197,24 @@ export default function EventoCheckInsPage() {
             entrada_valor: valor
           })
         });
+      } else if (convidadoParaCheckIn.tipo === 'restaurante' && convidadoParaCheckIn.reservationId) {
+        // Check-in de reserva de restaurante sem guest list
+        response = await fetch(`${API_URL}/api/restaurant-reservations/${convidadoParaCheckIn.reservationId}/checkin`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          }
+        });
+        
+        // Atualizar estado local após check-in bem-sucedido
+        if (response.ok) {
+          setReservasRestaurante(prev => prev.map(r => 
+            r.id === convidadoParaCheckIn.reservationId
+              ? { ...r, checked_in: true, checkin_time: new Date().toISOString() }
+              : r
+          ));
+        }
       } else {
         // Check-in de convidado de promoter
         response = await fetch(`${API_URL}/api/v1/eventos/checkin/${convidadoParaCheckIn.id}`, {
@@ -1042,12 +1232,29 @@ export default function EventoCheckInsPage() {
       }
 
       if (response.ok) {
-        const tipoTexto = tipo === 'VIP' ? 'VIP (grátis)' : tipo === 'SECO' ? `SECO (R$ ${valor.toFixed(2)})` : `CONSUMA (R$ ${valor.toFixed(2)})`;
-        toast.success(`✅ Check-in de ${convidadoParaCheckIn.nome} confirmado! Status: ${tipoTexto}`, {
+        const tipoTexto = convidadoParaCheckIn.tipo === 'restaurante' 
+          ? 'Check-in confirmado' 
+          : tipo === 'VIP' 
+            ? 'VIP (grátis)' 
+            : tipo === 'SECO' 
+              ? `SECO (R$ ${valor.toFixed(2)})` 
+              : `CONSUMA (R$ ${valor.toFixed(2)})`;
+        toast.success(`✅ Check-in de ${convidadoParaCheckIn.nome} confirmado! ${convidadoParaCheckIn.tipo !== 'restaurante' ? `Status: ${tipoTexto}` : ''}`, {
           position: "top-center",
           autoClose: 3000,
         });
         setEntradaModalOpen(false);
+        
+        // Atualizar estado local para reservas sem guest list
+        if (convidadoParaCheckIn.tipo === 'restaurante' && convidadoParaCheckIn.reservationId) {
+          setReservasRestaurante(prev => prev.map(r => 
+            r.id === convidadoParaCheckIn.reservationId
+              ? { ...r, checked_in: true, checkin_time: new Date().toISOString() }
+              : r
+          ));
+          // Recarregar dados para atualizar a busca
+          loadCheckInData();
+        }
         
         // Se for guest list, atualizar o estado local também
         if (convidadoParaCheckIn.tipo === 'guest_list' && convidadoParaCheckIn.guestListId) {
@@ -1463,8 +1670,9 @@ export default function EventoCheckInsPage() {
       documento?: string;
       entrada_tipo?: EntradaTipo;
       entrada_valor?: number;
-      convidado?: ConvidadoReserva | ConvidadoPromoter | ConvidadoReservaRestaurante | GuestItem;
+      convidado?: ConvidadoReserva | ConvidadoPromoter | ConvidadoReservaRestaurante | GuestItem | undefined;
       guestListId?: number;
+      reservationId?: number; // Para reservas sem guest list
     }> = [];
 
     // Adicionar convidados de reservas
@@ -1567,46 +1775,153 @@ export default function EventoCheckInsPage() {
       }
     });
 
-    // Aplicar filtros
-    let filtered = resultados;
-    
-    if (filterStatus !== 'todos') {
-      filtered = filtered.filter(r => {
-        const isCheckedIn = r.status === 'CHECK-IN' || r.status === 'Check-in';
-        return filterStatus === 'checkin' ? isCheckedIn : !isCheckedIn;
-      });
+    // Adicionar reservas de restaurante sem guest list (reservas simples)
+    const searchLower = debouncedSearchTerm.toLowerCase();
+    // Buscar reservas sem guest list (guest_list_id é null ou undefined)
+    reservasRestaurante.forEach(r => {
+      // Verificar se esta reserva não tem guest list associada
+      // guest_list_id será null/undefined para reservas sem guest list
+      const hasGuestList = r.guest_list_id != null; // Usar != para verificar null e undefined
+      
+      if (!hasGuestList) {
+        const reserva = r as any; // Type assertion para acessar campos opcionais
+        // Buscar nome em múltiplos campos possíveis
+        const nomeCompleto = (r.responsavel || reserva.client_name || reserva.owner_name || '').toLowerCase();
+        const origem = (r.origem || reserva.origin || '').toLowerCase();
+        
+        // Debug: log para verificar se está encontrando a reserva
+        if (nomeCompleto.includes('luis') || nomeCompleto.includes('felipe') || nomeCompleto.includes('martins')) {
+          console.log('🔍 [BUSCA] Reserva encontrada:', {
+            id: r.id,
+            responsavel: r.responsavel,
+            client_name: reserva.client_name,
+            guest_list_id: r.guest_list_id,
+            nomeCompleto,
+            searchLower,
+            match: nomeCompleto.includes(searchLower)
+          });
+        }
+        
+        if (nomeCompleto.includes(searchLower) || origem.includes(searchLower)) {
+          resultados.push({
+            tipo: 'restaurante',
+            id: r.id,
+            nome: r.responsavel || reserva.client_name || reserva.owner_name || 'Sem nome',
+            origem: r.origem || reserva.origin || 'Reserva',
+            responsavel: r.responsavel || reserva.client_name || reserva.owner_name || 'Cliente',
+            status: r.checked_in ? 'CHECK-IN' : 'Pendente',
+            data_checkin: r.checkin_time,
+            telefone: undefined,
+            convidado: undefined // Reserva sem guest list não tem convidado
+          });
+        }
+      }
+    });
+
+    return resultados;
+  }, [debouncedSearchTerm, filteredConvidadosReservas, filteredConvidadosPromoters, filteredConvidadosReservasRestaurante, guestsByList, guestListsRestaurante, reservasRestaurante, cachedStringCompare]);
+
+  // Ref para evitar múltiplas buscas simultâneas
+  const buscandoReservasAdicionaisRef = useRef(false);
+
+  // Buscar reservas adicionais diretamente da API quando houver busca
+  useEffect(() => {
+    if (!debouncedSearchTerm.trim() || !evento) {
+      setReservasAdicionaisAPI([]);
+      return;
     }
+
+    // Evitar múltiplas buscas simultâneas
+    if (buscandoReservasAdicionaisRef.current) {
+      return;
+    }
+
+    const buscarReservasAdicionais = async () => {
+      buscandoReservasAdicionaisRef.current = true;
+      setLoadingReservasAdicionais(true);
+      try {
+        const token = localStorage.getItem('authToken');
+        const headers: HeadersInit = {
+          'Content-Type': 'application/json',
+        };
+        if (token) {
+          headers['Authorization'] = `Bearer ${token}`;
+        }
+
+        const dataEvento = evento.data_evento?.split('T')[0] || evento.data_evento;
+        const url = `${API_URL}/api/restaurant-reservations?establishment_id=${evento.establishment_id}&date=${dataEvento}`;
+        
+        const response = await fetch(url, { headers });
+        if (response.ok) {
+          const data = await response.json();
+          const todasReservas = data.reservations || [];
+          
+          // Filtrar apenas reservas que não estão já em reservasRestaurante
+          // Se não está em reservasRestaurante, provavelmente não tem guest list ou não foi incluída no endpoint de check-ins
+          const idsJaIncluidos = new Set(reservasRestaurante.map(r => r.id));
+          const reservasSemGuestList = todasReservas.filter((r: any) => {
+            // Verificar se não está já incluída em reservasRestaurante
+            return !idsJaIncluidos.has(r.id);
+          });
+
+          setReservasAdicionaisAPI(reservasSemGuestList);
+          
+          if (reservasSemGuestList.length > 0) {
+            console.log(`✅ [BUSCA API] ${reservasSemGuestList.length} reservas adicionais encontradas (não estavam em check-ins consolidados)`);
+          }
+        }
+      } catch (error) {
+        console.error('Erro ao buscar reservas adicionais:', error);
+        setReservasAdicionaisAPI([]);
+      } finally {
+        setLoadingReservasAdicionais(false);
+        buscandoReservasAdicionaisRef.current = false;
+      }
+    };
+
+    // Debounce da busca API
+    const timeoutId = setTimeout(buscarReservasAdicionais, 500);
+    return () => {
+      clearTimeout(timeoutId);
+      buscandoReservasAdicionaisRef.current = false;
+    };
+  }, [debouncedSearchTerm, evento?.establishment_id, evento?.data_evento]);
+
+  // Adicionar reservas da API aos resultados
+  const resultadosCompletos = useMemo(() => {
+    const resultados = [...resultadosBuscaUnificados];
+    const searchLower = debouncedSearchTerm.toLowerCase();
     
-    // Aplicar ordenação (padrão: alfabética por nome) - OTIMIZADO com cache
-    const sorted = [...filtered].sort((a, b) => {
-      switch (sortBy) {
-        case 'nome':
-          return cachedStringCompare(a.nome, b.nome);
-        case 'status':
-          const statusA = a.status === 'CHECK-IN' || a.status === 'Check-in' ? 1 : 0;
-          const statusB = b.status === 'CHECK-IN' || b.status === 'Check-in' ? 1 : 0;
-          if (statusA !== statusB) return statusB - statusA; // Check-in primeiro
-          // Se mesmo status, ordenar alfabeticamente
-          return cachedStringCompare(a.nome, b.nome);
-        case 'tipo':
-          const tipoCompare = cachedStringCompare(a.tipo, b.tipo);
-          if (tipoCompare !== 0) return tipoCompare;
-          // Se mesmo tipo, ordenar alfabeticamente
-          return cachedStringCompare(a.nome, b.nome);
-        case 'hora':
-          const horaA = a.data_checkin ? new Date(a.data_checkin).getTime() : 0;
-          const horaB = b.data_checkin ? new Date(b.data_checkin).getTime() : 0;
-          if (horaA !== horaB) return horaB - horaA; // Mais recente primeiro
-          // Se mesma hora, ordenar alfabeticamente
-          return cachedStringCompare(a.nome, b.nome);
-        default:
-          // Padrão: ordenação alfabética
-          return cachedStringCompare(a.nome, b.nome);
+    // Adicionar reservas encontradas na API adicional
+    reservasAdicionaisAPI.forEach(r => {
+      const nomeCompleto = (r.client_name || '').toLowerCase();
+      const origem = (r.origin || '').toLowerCase();
+      
+      if (nomeCompleto.includes(searchLower) || origem.includes(searchLower)) {
+        // Verificar se já não está nos resultados
+        const jaExiste = resultados.some(res => res.id === r.id && res.tipo === 'restaurante');
+        if (!jaExiste) {
+          resultados.push({
+            tipo: 'restaurante',
+            id: r.id,
+            nome: r.client_name || 'Sem nome',
+            origem: r.origin || 'Reserva',
+            responsavel: r.client_name || 'Cliente',
+            status: r.checked_in ? 'CHECK-IN' : 'Pendente',
+            data_checkin: r.checkin_time,
+            telefone: undefined,
+            convidado: undefined,
+            reservationId: r.id
+          });
+        }
       }
     });
     
-    return sorted;
-  }, [debouncedSearchTerm, filteredConvidadosReservas, filteredConvidadosPromoters, filteredConvidadosReservasRestaurante, guestsByList, guestListsRestaurante, filterStatus, sortBy, cachedStringCompare]);
+    // Ordenar alfabeticamente por nome
+    return resultados.sort((a, b) => {
+      return cachedStringCompare(a.nome, b.nome);
+    });
+  }, [resultadosBuscaUnificados, reservasAdicionaisAPI, debouncedSearchTerm, cachedStringCompare]);
 
   // Ordenar listas e convidados alfabeticamente (otimizado)
   const sortedGuestListsRestaurante = useMemo(() => {
@@ -1795,18 +2110,14 @@ export default function EventoCheckInsPage() {
                 )}
               </div>
 
-              {/* Botões de ação rápida */}
+              {/* Botões de ação rápida - Mobile */}
               <div className="flex gap-2">
                 <button
-                  onClick={() => setShowFilters(!showFilters)}
-                  className={`flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg transition-colors text-sm font-medium ${
-                    showFilters 
-                      ? 'bg-green-600 text-white' 
-                      : 'bg-white/10 text-gray-300 hover:bg-white/20'
-                  }`}
+                  onClick={() => setPlanilhaModalOpen(true)}
+                  className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg transition-colors text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white"
                 >
-                  <MdViewList size={18} />
-                  <span>Filtros</span>
+                  <MdDescription size={18} />
+                  <span>Planilha</span>
                 </button>
                 <button
                   onClick={loadCheckInData}
@@ -1815,50 +2126,121 @@ export default function EventoCheckInsPage() {
                 >
                   <MdRefresh className={loading ? 'animate-spin' : ''} size={18} />
                 </button>
-                <button
-                  onClick={() => setViewMode(viewMode === 'compact' ? 'detailed' : 'compact')}
-                  className="flex items-center justify-center gap-2 px-3 py-2.5 bg-white/10 text-gray-300 hover:bg-white/20 rounded-lg transition-colors text-sm"
-                >
-                  <MdViewModule size={18} />
-                </button>
               </div>
 
-              {/* Filtros expandidos (mobile) */}
-              {showFilters && (
-                <div className="bg-white/10 rounded-lg p-3 space-y-3 border border-white/20">
-                  <div>
-                    <label className="block text-xs font-medium text-gray-300 mb-1.5">Status</label>
-                    <div className="flex gap-2">
-                      {(['todos', 'pendente', 'checkin'] as const).map((status) => (
-                        <button
-                          key={status}
-                          onClick={() => setFilterStatus(status)}
-                          className={`flex-1 px-3 py-2 rounded-lg text-xs font-medium transition-colors ${
-                            filterStatus === status
-                              ? 'bg-green-600 text-white'
-                              : 'bg-white/10 text-gray-300 hover:bg-white/20'
-                          }`}
-                        >
-                          {status === 'todos' ? 'Todos' : status === 'pendente' ? 'Pendentes' : 'Check-in'}
-                        </button>
-                      ))}
+              {/* Estatísticas de pessoas - Apenas mobile */}
+              <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4 border border-white/20 space-y-3">
+                <h3 className="text-sm font-semibold text-white mb-3">Estatísticas de Pessoas</h3>
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="bg-white/5 rounded-lg p-3 border border-white/10">
+                    <div className="text-xs text-gray-400 mb-1">Na Lista</div>
+                    <div className="text-lg font-bold text-white">
+                      {(() => {
+                        const nomesUnicos = new Set<string>();
+                        convidadosReservas.forEach(c => {
+                          if (c.nome && c.nome.trim()) {
+                            nomesUnicos.add(c.nome.trim().toLowerCase());
+                          }
+                        });
+                        convidadosReservasRestaurante.forEach(c => {
+                          if (c.nome && c.nome.trim()) {
+                            nomesUnicos.add(c.nome.trim().toLowerCase());
+                          }
+                        });
+                        Object.values(guestsByList).flat().forEach(g => {
+                          const nome = (g.name || '').trim();
+                          if (nome) {
+                            nomesUnicos.add(nome.toLowerCase());
+                          }
+                        });
+                        convidadosPromoters.forEach(c => {
+                          if (c.nome && c.nome.trim()) {
+                            nomesUnicos.add(c.nome.trim().toLowerCase());
+                          }
+                        });
+                        return nomesUnicos.size;
+                      })()}
                     </div>
                   </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-300 mb-1.5">Ordenar por</label>
-                    <select
-                      value={sortBy}
-                      onChange={(e) => setSortBy(e.target.value as any)}
-                      className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                    >
-                      <option value="nome">Nome</option>
-                      <option value="status">Status</option>
-                      <option value="tipo">Tipo</option>
-                      <option value="hora">Horário</option>
-                    </select>
+                  <div className="bg-white/5 rounded-lg p-3 border border-white/10">
+                    <div className="text-xs text-gray-400 mb-1">Check-in</div>
+                    <div className="text-lg font-bold text-green-400">
+                      {(() => {
+                        const nomesCheckin = new Set<string>();
+                        convidadosReservas.forEach(c => {
+                          if (c.nome && c.nome.trim() && c.status === 'CHECK-IN') {
+                            nomesCheckin.add(c.nome.trim().toLowerCase());
+                          }
+                        });
+                        convidadosReservasRestaurante.forEach(c => {
+                          if (c.nome && c.nome.trim() && (c.status_checkin === 1 || c.status_checkin === true)) {
+                            nomesCheckin.add(c.nome.trim().toLowerCase());
+                          }
+                        });
+                        Object.values(guestsByList).flat().forEach(g => {
+                          const nome = (g.name || '').trim();
+                          if (nome && (g.checked_in === 1 || g.checked_in === true)) {
+                            nomesCheckin.add(nome.toLowerCase());
+                          }
+                        });
+                        convidadosPromoters.forEach(c => {
+                          if (c.nome && c.nome.trim() && c.status_checkin === 'Check-in') {
+                            nomesCheckin.add(c.nome.trim().toLowerCase());
+                          }
+                        });
+                        return nomesCheckin.size;
+                      })()}
+                    </div>
+                  </div>
+                  <div className="bg-white/5 rounded-lg p-3 border border-white/10">
+                    <div className="text-xs text-gray-400 mb-1">Vão para Casa</div>
+                    <div className="text-lg font-bold text-blue-400">
+                      {(() => {
+                        const nomesUnicos = new Set<string>();
+                        const nomesCheckin = new Set<string>();
+                        convidadosReservas.forEach(c => {
+                          if (c.nome && c.nome.trim()) {
+                            const nomeNorm = c.nome.trim().toLowerCase();
+                            nomesUnicos.add(nomeNorm);
+                            if (c.status === 'CHECK-IN') {
+                              nomesCheckin.add(nomeNorm);
+                            }
+                          }
+                        });
+                        convidadosReservasRestaurante.forEach(c => {
+                          if (c.nome && c.nome.trim()) {
+                            const nomeNorm = c.nome.trim().toLowerCase();
+                            nomesUnicos.add(nomeNorm);
+                            if (c.status_checkin === 1 || c.status_checkin === true) {
+                              nomesCheckin.add(nomeNorm);
+                            }
+                          }
+                        });
+                        Object.values(guestsByList).flat().forEach(g => {
+                          const nome = (g.name || '').trim();
+                          if (nome) {
+                            const nomeNorm = nome.toLowerCase();
+                            nomesUnicos.add(nomeNorm);
+                            if (g.checked_in === 1 || g.checked_in === true) {
+                              nomesCheckin.add(nomeNorm);
+                            }
+                          }
+                        });
+                        convidadosPromoters.forEach(c => {
+                          if (c.nome && c.nome.trim()) {
+                            const nomeNorm = c.nome.trim().toLowerCase();
+                            nomesUnicos.add(nomeNorm);
+                            if (c.status_checkin === 'Check-in') {
+                              nomesCheckin.add(nomeNorm);
+                            }
+                          }
+                        });
+                        return nomesUnicos.size - nomesCheckin.size;
+                      })()}
+                    </div>
                   </div>
                 </div>
-              )}
+              </div>
 
               {/* Tabs mobile - scroll horizontal */}
               <div className="flex gap-2 overflow-x-auto pb-2 -mb-2 scrollbar-hide">
@@ -1929,15 +2311,24 @@ export default function EventoCheckInsPage() {
                 </div>
               </div>
 
-              {/* Botão recarregar */}
-              <button
-                onClick={loadCheckInData}
-                disabled={loading}
-                className="flex items-center justify-center gap-2 px-4 md:px-6 py-2.5 md:py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors disabled:opacity-50 font-semibold text-sm md:text-base"
-              >
-                <MdRefresh className={loading ? 'animate-spin' : ''} size={18} />
-                <span>Atualizar</span>
-              </button>
+              {/* Botões de ação */}
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setPlanilhaModalOpen(true)}
+                  className="flex items-center justify-center gap-2 px-4 md:px-6 py-2.5 md:py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-semibold text-sm md:text-base"
+                >
+                  <MdDescription size={18} />
+                  <span>Planilha</span>
+                </button>
+                <button
+                  onClick={loadCheckInData}
+                  disabled={loading}
+                  className="flex items-center justify-center gap-2 px-4 md:px-6 py-2.5 md:py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors disabled:opacity-50 font-semibold text-sm md:text-base"
+                >
+                  <MdRefresh className={loading ? 'animate-spin' : ''} size={18} />
+                  <span>Atualizar</span>
+                </button>
+              </div>
             </div>
 
             {/* Tabs Desktop */}
@@ -2147,13 +2538,13 @@ export default function EventoCheckInsPage() {
           {!loading && (
             <div className="space-y-6">
               {/* Resultados Unificados de Busca */}
-              {searchTerm.trim() && resultadosBuscaUnificados.length > 0 && (
+              {searchTerm.trim() && resultadosCompletos.length > 0 && (
                 <section className="bg-gradient-to-r from-blue-600/20 to-purple-600/20 backdrop-blur-sm rounded-lg shadow-sm p-3 md:p-6 border border-blue-500/50">
                   <div className="flex items-center justify-between mb-3 md:mb-4">
                     <h2 className="text-base md:text-xl font-bold text-white flex items-center gap-2">
                       <MdSearch size={18} className="md:w-6 md:h-6 text-blue-400" />
-                      <span className="hidden md:inline">Resultados: "{searchTerm}" ({resultadosBuscaUnificados.length})</span>
-                      <span className="md:hidden">Busca: {resultadosBuscaUnificados.length} resultado{resultadosBuscaUnificados.length !== 1 ? 's' : ''}</span>
+                      <span className="hidden md:inline">Resultados: "{searchTerm}" ({resultadosCompletos.length})</span>
+                      <span className="md:hidden">Busca: {resultadosCompletos.length} resultado{resultadosCompletos.length !== 1 ? 's' : ''}</span>
                     </h2>
                   </div>
                   {/* Mobile/Tablet: Lista simples em linhas */}
@@ -2211,8 +2602,17 @@ export default function EventoCheckInsPage() {
                                   handleConvidadoReservaCheckIn(resultado.convidado as ConvidadoReserva);
                                 } else if (resultado.tipo === 'promoter' && resultado.convidado) {
                                   handleConvidadoPromoterCheckIn(resultado.convidado as ConvidadoPromoter);
-                                } else if (resultado.tipo === 'restaurante' && resultado.convidado) {
-                                  handleConvidadoReservaRestauranteCheckIn(resultado.convidado as ConvidadoReservaRestaurante);
+                                } else if (resultado.tipo === 'restaurante') {
+                                  // Verificar se é convidado de reserva ou reserva sem guest list
+                                  if (resultado.convidado) {
+                                    handleConvidadoReservaRestauranteCheckIn(resultado.convidado as ConvidadoReservaRestaurante);
+                                  } else {
+                                    // É uma reserva sem guest list - fazer check-in direto
+                                    const reserva = reservasRestaurante.find(r => r.id === resultado.id);
+                                    if (reserva) {
+                                      handleReservaRestauranteCheckIn(reserva);
+                                    }
+                                  }
                                 } else if (resultado.tipo === 'guest_list' && resultado.guestListId) {
                                   handleGuestCheckIn(resultado.guestListId, resultado.id, resultado.nome);
                                 }
@@ -2300,8 +2700,17 @@ export default function EventoCheckInsPage() {
                                   handleConvidadoReservaCheckIn(resultado.convidado as ConvidadoReserva);
                                 } else if (resultado.tipo === 'promoter' && resultado.convidado) {
                                   handleConvidadoPromoterCheckIn(resultado.convidado as ConvidadoPromoter);
-                                } else if (resultado.tipo === 'restaurante' && resultado.convidado) {
-                                  handleConvidadoReservaRestauranteCheckIn(resultado.convidado as ConvidadoReservaRestaurante);
+                                } else if (resultado.tipo === 'restaurante') {
+                                  // Verificar se é convidado de reserva ou reserva sem guest list
+                                  if (resultado.convidado) {
+                                    handleConvidadoReservaRestauranteCheckIn(resultado.convidado as ConvidadoReservaRestaurante);
+                                  } else {
+                                    // É uma reserva sem guest list - fazer check-in direto
+                                    const reserva = reservasRestaurante.find(r => r.id === resultado.id);
+                                    if (reserva) {
+                                      handleReservaRestauranteCheckIn(reserva);
+                                    }
+                                  }
                                 } else if (resultado.tipo === 'guest_list' && resultado.guestListId) {
                                   handleGuestCheckIn(resultado.guestListId, resultado.id, resultado.nome);
                                 }
@@ -2343,7 +2752,7 @@ export default function EventoCheckInsPage() {
               )}
 
               {/* Mensagem quando busca não encontra resultados */}
-              {searchTerm.trim() && resultadosBuscaUnificados.length === 0 && (
+              {searchTerm.trim() && resultadosCompletos.length === 0 && !loadingReservasAdicionais && (
                 <section className="bg-white/10 backdrop-blur-sm rounded-lg shadow-sm p-6 border border-white/20">
                   <div className="text-center py-8 text-gray-400">
                     <MdSearch size={48} className="mx-auto mb-4 opacity-50" />
@@ -3737,6 +4146,654 @@ export default function EventoCheckInsPage() {
             setSelectedBirthdayReservation(null);
           }}
         />
+
+        {/* Modal de Planilha */}
+        {planilhaModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+            <div className="bg-gray-900 rounded-lg shadow-2xl w-full max-w-[95vw] lg:max-w-6xl max-h-[95vh] flex flex-col border border-gray-700">
+              {/* Header do Modal */}
+              <div className="flex items-center justify-between p-3 sm:p-4 border-b border-gray-700">
+                <h2 className="text-lg sm:text-xl font-bold text-white flex items-center gap-2">
+                  <MdDescription size={20} className="sm:w-6 sm:h-6" />
+                  <span className="hidden sm:inline">Planilha de Reservas - Áreas e Mesas</span>
+                  <span className="sm:hidden">Planilha</span>
+                </h2>
+                <button
+                  onClick={() => setPlanilhaModalOpen(false)}
+                  className="p-2 hover:bg-gray-800 rounded-lg transition-colors"
+                >
+                  <MdClose size={20} className="sm:w-6 sm:h-6 text-gray-400" />
+                </button>
+              </div>
+
+              {/* Conteúdo da Planilha */}
+              <div className="flex-1 overflow-auto p-2 sm:p-4 bg-white">
+                {planilhaLoading ? (
+                  <div className="flex items-center justify-center py-12">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-400"></div>
+                    <p className="ml-3 text-gray-700">Carregando reservas...</p>
+                  </div>
+                ) : (
+                  <div className="space-y-8">
+                    {/* Filtros superiores (globais) */}
+                    <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-3 sm:gap-4 mb-4">
+                      <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 w-full md:w-auto">
+                        <div className="flex-1 sm:flex-none">
+                          <label className="block text-xs sm:text-sm text-gray-600 mb-1 font-medium">Data</label>
+                          <input
+                            type="date"
+                            value={sheetFilters.date || ''}
+                            onChange={(e) => setSheetFilters(prev => ({ ...prev, date: e.target.value }))}
+                            className="w-full px-2 sm:px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+                          />
+                        </div>
+                        <div className="flex-1">
+                          <label className="block text-xs sm:text-sm text-gray-600 mb-1 font-medium">Buscar</label>
+                          <input
+                            type="text"
+                            placeholder="Nome, telefone, evento..."
+                            value={sheetFilters.search || ''}
+                            onChange={(e) => setSheetFilters(prev => ({ ...prev, search: e.target.value }))}
+                            className="w-full px-2 sm:px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+                          />
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => {
+                            const dataEvento = evento?.data_evento?.split('T')[0] || evento?.data_evento || '';
+                            setSheetFilters({ date: dataEvento });
+                          }}
+                          className="px-3 sm:px-4 py-2 text-xs sm:text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium"
+                        >
+                          Resetar
+                        </button>
+                      </div>
+                    </div>
+
+                    {(() => {
+                      // Subáreas específicas do Highline (igual ReservationModal)
+                      const highlineSubareas = [
+                        { key: 'deck-frente', area_id: 2, label: 'Área Deck - Frente', tableNumbers: ['05','06','07','08'] },
+                        { key: 'deck-esquerdo', area_id: 2, label: 'Área Deck - Esquerdo', tableNumbers: ['01','02','03','04'] },
+                        { key: 'deck-direito', area_id: 2, label: 'Área Deck - Direito', tableNumbers: ['09','10','11','12'] },
+                        { key: 'bar', area_id: 2, label: 'Área Bar', tableNumbers: ['15','16','17'] },
+                        { key: 'roof-direito', area_id: 5, label: 'Área Rooftop - Direito', tableNumbers: ['50','51','52','53','54','55'] },
+                        { key: 'roof-bistro', area_id: 5, label: 'Área Rooftop - Bistrô', tableNumbers: ['70','71','72','73'] },
+                        { key: 'roof-centro', area_id: 5, label: 'Área Rooftop - Centro', tableNumbers: ['44','45','46','47'] },
+                        { key: 'roof-esquerdo', area_id: 5, label: 'Área Rooftop - Esquerdo', tableNumbers: ['60','61','62','63','64','65'] },
+                        { key: 'roof-vista', area_id: 5, label: 'Área Rooftop - Vista', tableNumbers: ['40','41','42'] },
+                      ];
+
+                      // Funções auxiliares
+                      const formatTime = (t?: string) => {
+                        if (!t || t.trim() === '') return '';
+                        try {
+                          return t.slice(0, 5);
+                        } catch (error) {
+                          return '';
+                        }
+                      };
+                      
+                      const matchesFilters = (r: Reservation) => {
+                        if (sheetFilters.date) {
+                          let d = '';
+                          if (r.reservation_date) {
+                            try {
+                              const dateStr = String(r.reservation_date).trim();
+                              if (dateStr && dateStr !== 'null' && dateStr !== 'undefined') {
+                                let date;
+                                if (dateStr.includes('T')) {
+                                  date = new Date(dateStr);
+                                } else {
+                                  date = new Date(dateStr + 'T12:00:00');
+                                }
+                                if (!isNaN(date.getTime())) {
+                                  d = date.toISOString().split('T')[0];
+                                }
+                              }
+                            } catch (error) {
+                              console.error('Error in filter date conversion:', r.reservation_date, error);
+                            }
+                          }
+                          if (d !== sheetFilters.date) return false;
+                        }
+                        if (sheetFilters.search) {
+                          const q = sheetFilters.search.toLowerCase();
+                          const hay = `${r.client_name || ''} ${r.client_phone || ''} ${(r as any).event_name || ''}`.toLowerCase();
+                          if (!hay.includes(q)) return false;
+                        }
+                        if (sheetFilters.name && !(`${r.client_name || ''}`.toLowerCase().includes(sheetFilters.name.toLowerCase()))) return false;
+                        if (sheetFilters.phone && !(`${r.client_phone || ''}`.toLowerCase().includes(sheetFilters.phone.toLowerCase()))) return false;
+                        if (sheetFilters.event && !(`${(r as any).event_name || ''}`.toLowerCase().includes(sheetFilters.event.toLowerCase()))) return false;
+                        if (sheetFilters.table && !(`${(r as any).table_number || ''}`.toString().toLowerCase().includes(sheetFilters.table.toLowerCase()))) return false;
+                        if (sheetFilters.status && !(r.status || '').toLowerCase().includes(sheetFilters.status.toLowerCase())) return false;
+                        return true;
+                      };
+
+                      // Função para categorizar área/mesa usando subáreas (igual ReservationModal)
+                      const getCategoryFromMesa = (mesa: { area_id: number; area_name: string; table_number: string }): string => {
+                        const tableNum = mesa.table_number.trim();
+                        
+                        // Usar subáreas do Highline para categorizar (mesma lógica do modal)
+                        const subarea = highlineSubareas.find(sub => sub.tableNumbers.includes(tableNum));
+                        if (subarea) {
+                          // Categorizar pela subárea
+                          if (subarea.key.startsWith('deck-')) return 'deck';
+                          if (subarea.key === 'bar') return 'bar';
+                          if (subarea.key.startsWith('roof-')) return 'rooftop';
+                        }
+                        
+                        // Fallback: categorização por número da mesa
+                        if (['40','41','42','44','45','46','47','60','61','62','63','64','65','50','51','52','53','54','55','56','70','71','72','73'].includes(tableNum)) {
+                          return 'rooftop';
+                        }
+                        if (['01','02','03','04','05','06','07','08','09','10','11','12'].includes(tableNum)) {
+                          return 'deck';
+                        }
+                        if (['15','16','17'].includes(tableNum)) {
+                          return 'bar';
+                        }
+                        
+                        // Fallback: categorização por area_id
+                        if (mesa.area_id === 5) return 'rooftop';
+                        if (mesa.area_id === 2) {
+                          // area_id 2 pode ser Deck ou Bar - determinar pelo número da mesa
+                          return 'deck'; // Padrão para area_id 2 (Deck), Bar é apenas mesas 15-17
+                        }
+                        
+                        return 'other';
+                      };
+
+                      // Agrupar áreas do banco em categorias principais: Deck, Bar Central, Rooftop
+                      const areaSectionsMap = new Map<string, Array<{ area_id: number; area_name: string; table_number: string }>>();
+                      
+                      // Processar todas as áreas do mapa de mesas e agrupar por categoria
+                      todasMesasAreas.forEach((mesas, areaKey) => {
+                        mesas.forEach(mesa => {
+                          const category = getCategoryFromMesa(mesa);
+                          
+                          // Adicionar mesas à categoria correspondente
+                          if (!areaSectionsMap.has(category)) {
+                            areaSectionsMap.set(category, []);
+                          }
+                          areaSectionsMap.get(category)!.push(mesa);
+                        });
+                      });
+
+                      // Criar seções padronizadas: Deck, Bar Central, Rooftop
+                      // Sempre mostrar todas as categorias, mesmo que vazias (mas depois filtrar apenas as que têm mesas)
+                      const areaSections: Array<{ key: string; title: string; area_ids: number[]; area_names: string[] }> = [
+                        { key: 'deck', title: 'Deck', area_ids: [], area_names: [] },
+                        { key: 'bar', title: 'Bar Central', area_ids: [], area_names: [] },
+                        { key: 'rooftop', title: 'Rooftop', area_ids: [], area_names: [] },
+                      ];
+
+                      // Função para categorizar reserva pela área usando subáreas (igual ReservationModal)
+                      const getAreaKeyFromReservation = (r: Reservation): string => {
+                        const tableNum = String((r as any).table_number || '').trim();
+                        
+                        // Usar subáreas do Highline para categorizar (mesma lógica do modal)
+                        const subarea = highlineSubareas.find(sub => sub.tableNumbers.includes(tableNum));
+                        if (subarea) {
+                          // Categorizar pela subárea
+                          if (subarea.key.startsWith('deck-')) return 'deck';
+                          if (subarea.key === 'bar') return 'bar';
+                          if (subarea.key.startsWith('roof-')) return 'rooftop';
+                        }
+                        
+                        // Fallback: categorização por número da mesa
+                        if (['40','41','42','44','45','46','47','60','61','62','63','64','65','50','51','52','53','54','55','56','70','71','72','73'].includes(tableNum)) return 'rooftop';
+                        if (['01','02','03','04','05','06','07','08','09','10','11','12'].includes(tableNum)) return 'deck';
+                        if (['15','16','17'].includes(tableNum)) return 'bar';
+                        
+                        // Fallback por nome da área
+                        const areaName = (r as any).area_name?.toLowerCase() || '';
+                        if (areaName.includes('roof') || areaName.includes('rooftop') || areaName.includes('terraço')) return 'rooftop';
+                        if (areaName.includes('deck')) return 'deck';
+                        if (areaName.includes('bar') || areaName.includes('central')) return 'bar';
+                        if (areaName.includes('balada')) return 'balada';
+                        
+                        return 'deck'; // Fallback padrão
+                      };
+
+                      // Preencher area_ids e area_names para cada categoria
+                      areaSections.forEach(section => {
+                        const mesasCategoria = areaSectionsMap.get(section.key) || [];
+                        const uniqueAreaIds = Array.from(new Set(mesasCategoria.map(m => m.area_id)));
+                        const uniqueAreaNames = Array.from(new Set(mesasCategoria.map(m => m.area_name)));
+                        section.area_ids = uniqueAreaIds;
+                        section.area_names = uniqueAreaNames;
+                      });
+
+                      // Mostrar apenas seções que têm mesas OU que têm reservas do dia
+                      const reservasPorCategoria = new Map<string, number>();
+                      planilhaReservas.forEach(r => {
+                        const categoria = getAreaKeyFromReservation(r);
+                        reservasPorCategoria.set(categoria, (reservasPorCategoria.get(categoria) || 0) + 1);
+                      });
+                      
+                      // Filtrar: mostrar seção se tiver mesas OU se tiver reservas
+                      const areaSectionsFiltered = areaSections.filter(s => 
+                        s.area_ids.length > 0 || (reservasPorCategoria.get(s.key) || 0) > 0
+                      );
+
+                      const getAreaKeyFromAreaNameLocal = (areaName: string): string | null => {
+                        const name = areaName.toLowerCase();
+                        if (name.includes('roof') || name.includes('rooftop')) return 'rooftop';
+                        if (name.includes('deck')) return 'deck';
+                        if (name.includes('bar')) return 'bar';
+                        if (name.includes('balada')) return 'balada';
+                        return null;
+                      };
+
+                      const displayTableLabel = (tableNum?: string | number, areaKey?: string) => {
+                        const n = String(tableNum || '').padStart(2,'0');
+                        if (areaKey === 'deck') {
+                          if (['01','02','03','04'].includes(n)) return `Lounge ${parseInt(n,10)}`;
+                          if (['05','06','07','08'].includes(n)) return `Lounge ${parseInt(n,10)}`;
+                          if (['09','10','11','12'].includes(n)) return `Mesa ${n}`;
+                        }
+                        if (areaKey === 'bar') {
+                          if (['15','16','17'].includes(n)) return `Mesa ${n}`;
+                          if (['11','12','13','14'].includes(n)) return `Bistrô ESPERA ${n}`;
+                        }
+                        if (areaKey === 'rooftop') {
+                          if (['40','41','42'].includes(n)) return `Lounge ${n}`;
+                          if (['44','45','46','47'].includes(n)) return `Lounge Central ${n}`;
+                          if (['60','61','62','63','64','65'].includes(n)) return `Bangalô ${n}`;
+                          if (['50','51','52','53','54','55','56'].includes(n)) return `Mesa ${n}`;
+                          if (['70','71','72','73'].includes(n)) return `Bistrô ${n}`;
+                        }
+                        return tableNum ? `Mesa ${n}` : '';
+                      };
+
+                      const SectionTable = ({ sectionKey, title, area_ids, area_names }: { sectionKey: string; title: string; area_ids: number[]; area_names: string[] }) => {
+                        // Determinar quais números de mesa pertencem a esta categoria (baseado nas subáreas)
+                        const tableNumbersPermitidos = new Set<string>();
+                        
+                        // Buscar todas as subáreas desta categoria
+                        highlineSubareas.forEach(subarea => {
+                          if (sectionKey === 'deck' && subarea.key.startsWith('deck-')) {
+                            subarea.tableNumbers.forEach(tn => tableNumbersPermitidos.add(tn));
+                          } else if (sectionKey === 'bar' && subarea.key === 'bar') {
+                            subarea.tableNumbers.forEach(tn => tableNumbersPermitidos.add(tn));
+                          } else if (sectionKey === 'rooftop' && subarea.key.startsWith('roof-')) {
+                            subarea.tableNumbers.forEach(tn => tableNumbersPermitidos.add(tn));
+                          }
+                        });
+                        
+                        // Buscar TODAS as mesas desta categoria (filtrando pelos números corretos)
+                        const mesasArea: Array<{ area_id: number; area_name: string; table_number: string }> = [];
+                        
+                        // Coletar apenas as mesas que pertencem a esta categoria (baseado no número da mesa)
+                        todasMesasAreas.forEach((mesas, areaKey) => {
+                          mesas.forEach(mesa => {
+                            const tableNum = mesa.table_number.trim();
+                            // Incluir APENAS se o número da mesa estiver na lista permitida desta categoria
+                            if (tableNumbersPermitidos.has(tableNum)) {
+                              // Evitar duplicatas
+                              if (!mesasArea.find(m => m.area_id === mesa.area_id && m.table_number === mesa.table_number)) {
+                                mesasArea.push(mesa);
+                              }
+                            }
+                          });
+                        });
+                        
+                        // Reservas filtradas para esta seção (filtradas por categoria)
+                        const reservasFiltradas = planilhaReservas
+                          .filter(r => matchesFilters(r))
+                          .filter(r => getAreaKeyFromReservation(r) === sectionKey) // Filtrar pela categoria (deck, bar, rooftop)
+                          .sort((a,b) => (a.reservation_time || '').localeCompare(b.reservation_time || ''));
+
+                        // Mapear reservas por número da mesa (processar múltiplas mesas separadas por vírgula)
+                        const reservasPorMesa = new Map<string, Reservation>();
+                        reservasFiltradas.forEach(r => {
+                          const tableNumStr = String((r as any).table_number || '').trim();
+                          
+                          // Verificar se tem múltiplas mesas (separadas por vírgula)
+                          if (tableNumStr.includes(',')) {
+                            // Dividir por vírgula e adicionar a reserva para cada mesa
+                            const tableNumbers = tableNumStr.split(',').map(t => t.trim()).filter(t => t);
+                            tableNumbers.forEach(tableNum => {
+                              // Adicionar a reserva para cada mesa individual
+                              reservasPorMesa.set(tableNum, r);
+                            });
+                          } else {
+                            // Mesa única
+                            reservasPorMesa.set(tableNumStr, r);
+                          }
+                        });
+
+                        // Criar linhas: TODAS as mesas da área (fixas do banco), mudando apenas a cor
+                        const rowsWithEmpty: Array<{ reservation?: Reservation; table_number: string; is_empty: boolean }> = [];
+                        
+                        // Adicionar TODAS as mesas da área do banco (fixas)
+                        mesasArea.forEach(mesa => {
+                          const tableNum = mesa.table_number.trim(); // Número exato do banco
+                          const reserva = reservasPorMesa.get(tableNum);
+                          if (reserva && matchesFilters(reserva)) {
+                            // Mesa RESERVADA - passa no filtro
+                            rowsWithEmpty.push({ reservation: reserva, table_number: tableNum, is_empty: false });
+                          } else {
+                            // Mesa SEM RESERVA - sempre mostrar
+                            rowsWithEmpty.push({ reservation: undefined, table_number: tableNum, is_empty: true });
+                          }
+                        });
+
+                        // Ordenar: por número da mesa (numérico quando possível)
+                        rowsWithEmpty.sort((a, b) => {
+                          const numA = parseInt(a.table_number) || 0;
+                          const numB = parseInt(b.table_number) || 0;
+                          if (numA !== 0 && numB !== 0) {
+                            return numA - numB;
+                          }
+                          // Se não for numérico, ordenar como string
+                          return a.table_number.localeCompare(b.table_number);
+                        });
+
+                        return (
+                          <div>
+                            <div className="mb-3 flex items-center justify-between">
+                              <h3 className="text-lg font-semibold text-gray-800">{title}</h3>
+                              <div className="flex items-center gap-3 text-xs">
+                                <div className="flex items-center gap-1.5">
+                                  <span className="w-3 h-3 rounded-full bg-green-500"></span>
+                                  <span className="text-gray-600">Disponível</span>
+                                </div>
+                                <div className="flex items-center gap-1.5">
+                                  <span className="w-3 h-3 rounded-full bg-blue-500"></span>
+                                  <span className="text-gray-600">Reservada</span>
+                                </div>
+                              </div>
+                            </div>
+                            <div className="overflow-x-auto border border-gray-300 rounded-lg shadow-sm">
+                              <table className="min-w-full table-fixed border-collapse">
+                                <thead className="bg-gray-100 sticky top-0 z-10 shadow-sm">
+                                  <tr className="text-[11px] uppercase text-gray-700 font-bold">
+                                    <th className="w-10 border border-gray-300 px-2 py-2 text-left">#</th>
+                                    <th className="border border-gray-300 px-2 py-2 text-left">Data de Entrada</th>
+                                    <th className="border border-gray-300 px-2 py-2 text-left hidden sm:table-cell">Evento</th>
+                                    <th className="border border-gray-300 px-2 py-2 text-left">Nome / Status</th>
+                                    <th className="border border-gray-300 px-2 py-2 text-left font-bold">Mesa</th>
+                                    <th className="border border-gray-300 px-2 py-2 text-left hidden md:table-cell">Telefone</th>
+                                    <th className="border border-gray-300 px-2 py-2 text-left hidden lg:table-cell">Observação</th>
+                                    <th className="border border-gray-300 px-2 py-2 text-left hidden xl:table-cell">Limite por mesa</th>
+                                    <th className="border border-gray-300 px-2 py-2 text-left">Pessoas</th>
+                                    <th className="border border-gray-300 px-2 py-2 text-left">Status</th>
+                                  </tr>
+                                  <tr className="bg-gray-50 text-[12px]">
+                                    <th className="w-10 border border-gray-300 px-2 py-1 text-gray-400 font-normal">&nbsp;</th>
+                                    <th className="border border-gray-300 px-2 py-1 text-gray-600">
+                                      <input type="date" value={sheetFilters.date || ''} onChange={(e)=>setSheetFilters(p=>({...p, date:e.target.value}))} className="w-full text-xs border-gray-200 rounded px-1 py-1" />
+                                    </th>
+                                    <th className="border border-gray-300 px-2 py-1 hidden sm:table-cell">
+                                      <input placeholder="Filtrar evento" value={sheetFilters.event || ''} onChange={(e)=>setSheetFilters(p=>({...p, event:e.target.value}))} className="w-full text-xs border-gray-200 rounded px-1 py-0.5" />
+                                    </th>
+                                    <th className="border border-gray-300 px-2 py-1">
+                                      <input placeholder="Filtrar nome" value={sheetFilters.name || ''} onChange={(e)=>setSheetFilters(p=>({...p, name:e.target.value}))} className="w-full text-xs border-gray-200 rounded px-1 py-0.5" />
+                                    </th>
+                                    <th className="border border-gray-300 px-2 py-1">
+                                      <input placeholder="Filtrar mesa" value={sheetFilters.table || ''} onChange={(e)=>setSheetFilters(p=>({...p, table:e.target.value}))} className="w-full text-xs border-gray-200 rounded px-1 py-0.5" />
+                                    </th>
+                                    <th className="border border-gray-300 px-2 py-1 hidden md:table-cell">
+                                      <input placeholder="Filtrar telefone" value={sheetFilters.phone || ''} onChange={(e)=>setSheetFilters(p=>({...p, phone:e.target.value}))} className="w-full text-xs border-gray-200 rounded px-1 py-0.5" />
+                                    </th>
+                                    <th className="border border-gray-300 px-2 py-1 hidden lg:table-cell">
+                                      <input placeholder="Filtrar observação" value={sheetFilters.search || ''} onChange={(e)=>setSheetFilters(p=>({...p, search:e.target.value}))} className="w-full text-xs border-gray-200 rounded px-1 py-0.5" />
+                                    </th>
+                                    <th className="border border-gray-300 px-2 py-1 text-gray-400 font-normal hidden xl:table-cell">&nbsp;</th>
+                                    <th className="border border-gray-300 px-2 py-1 text-gray-400 font-normal">&nbsp;</th>
+                                    <th className="border border-gray-300 px-2 py-1">
+                                      <input placeholder="status" value={sheetFilters.status || ''} onChange={(e)=>setSheetFilters(p=>({...p, status:e.target.value}))} className="w-full text-xs border-gray-200 rounded px-1 py-0.5" />
+                                    </th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {rowsWithEmpty.map((row, idx) => {
+                                    const r = row.reservation;
+                                    const isEmpty = row.is_empty;
+                                    
+                                    // Criar key única: combinar ID da reserva com número da mesa para evitar duplicatas
+                                    const uniqueKey = r 
+                                      ? `reservation-${r.id}-table-${row.table_number}-${sectionKey}` 
+                                      : `empty-table-${row.table_number}-${sectionKey}-${idx}`;
+                                    
+                                    return (
+                                      <tr 
+                                        key={uniqueKey} 
+                                        className={`${
+                                          isEmpty 
+                                            ? 'bg-green-50 hover:bg-green-100 border-l-4 border-l-green-500' 
+                                            : 'bg-white hover:bg-yellow-50 border-l-4 border-l-blue-500'
+                                        } transition-colors`}
+                                      >
+                                        <td className="border border-gray-300 px-2 py-2 text-[12px] text-gray-500">{idx + 1}</td>
+                                        <td className="border border-gray-300 px-2 py-2 text-sm text-gray-700 whitespace-nowrap">
+                                          {isEmpty ? (
+                                            <div className="flex items-center gap-1">
+                                              <span className="w-2 h-2 rounded-full bg-green-500 flex-shrink-0"></span>
+                                              <span>{sheetFilters.date ? formatDate(sheetFilters.date) : '-'}</span>
+                                            </div>
+                                          ) : (
+                                            <div className="flex items-center gap-1">
+                                              <span className="w-2 h-2 rounded-full bg-blue-500 flex-shrink-0"></span>
+                                              <span>{formatDate(r!.reservation_date, sheetFilters.date) + ' ' + formatTime(r!.reservation_time)}</span>
+                                            </div>
+                                          )}
+                                        </td>
+                                        <td className="border border-gray-300 px-2 py-2 text-sm text-gray-700 hidden sm:table-cell">
+                                          {isEmpty ? (
+                                            <span className="text-gray-400 italic">-</span>
+                                          ) : (
+                                            (r as any).event_name || '-'
+                                          )}
+                                        </td>
+                                        <td className="border border-gray-300 px-2 py-2 text-sm font-medium">
+                                          {isEmpty ? (
+                                            <span className="text-green-700 font-bold text-base flex items-center gap-1">
+                                              <span className="text-lg">✨</span>
+                                              <span>DISPONÍVEL</span>
+                                            </span>
+                                          ) : (
+                                            <span className="text-gray-800">{r!.client_name}</span>
+                                          )}
+                                        </td>
+                                        <td className={`border border-gray-300 px-2 py-2 text-base font-bold ${
+                                          isEmpty 
+                                            ? 'text-green-700 bg-green-100' 
+                                            : 'text-blue-700 bg-blue-50'
+                                        } text-center`}>
+                                          {displayTableLabel(row.table_number, sectionKey)}
+                                        </td>
+                                        <td className="border border-gray-300 px-2 py-2 text-sm text-gray-700 whitespace-nowrap hidden md:table-cell">
+                                          {isEmpty ? (
+                                            <span className="text-gray-400">-</span>
+                                          ) : (
+                                            r!.client_phone || '-'
+                                          )}
+                                        </td>
+                                        <td className="border border-gray-300 px-2 py-2 text-sm text-gray-700 hidden lg:table-cell">
+                                          {isEmpty ? (
+                                            <span className="text-gray-400">-</span>
+                                          ) : (
+                                            r!.notes || '-'
+                                          )}
+                                        </td>
+                                        <td className="border border-gray-300 px-2 py-2 text-sm text-gray-700 text-center hidden xl:table-cell">
+                                          -
+                                        </td>
+                                        <td className="border border-gray-300 px-2 py-2 text-sm text-gray-700 text-center font-medium">
+                                          {isEmpty ? (
+                                            <span className="text-gray-400">-</span>
+                                          ) : (
+                                            <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded font-bold">{r!.number_of_people}</span>
+                                          )}
+                                        </td>
+                                        <td className="border border-gray-300 px-2 py-2 text-sm whitespace-nowrap">
+                                          {isEmpty ? (
+                                            <span className="px-3 py-1.5 rounded-full text-xs font-bold bg-green-500 text-white border-2 border-green-600 shadow-md flex items-center justify-center gap-1.5 min-w-[100px]">
+                                              <span className="text-base">✓</span>
+                                              <span>DISPONÍVEL</span>
+                                            </span>
+                                          ) : (
+                                            <span className={`px-2 py-1 rounded text-xs font-medium ${((r!.status as any) === 'confirmed' || (r!.status as any) === 'CONFIRMADA') ? 'bg-blue-100 text-blue-800 border border-blue-300' : 'bg-yellow-100 text-yellow-800 border border-yellow-300'}`}>
+                                              {((r!.status as any) === 'confirmed' || (r!.status as any) === 'CONFIRMADA') ? 'Confirmado' : ((r!.status as any) as string) || 'Pendente'}
+                                            </span>
+                                          )}
+                                        </td>
+                                      </tr>
+                                    );
+                                  })}
+                                  {rowsWithEmpty.length === 0 && (
+                                    <tr>
+                                      <td colSpan={10} className="px-3 py-6 text-sm text-gray-500 text-center border border-gray-300 bg-gray-50">
+                                        <div className="flex flex-col items-center gap-2">
+                                          <span>📋 Sem reservas para os filtros selecionados.</span>
+                                          <span className="text-xs text-gray-400">Tente ajustar os filtros ou verificar outra data.</span>
+                                        </div>
+                                      </td>
+                                    </tr>
+                                  )}
+                                </tbody>
+                              </table>
+                            </div>
+                            {/* Ajuda de mesas por seção - Mostrar mesas reais do banco */}
+                            {rowsWithEmpty.length > 0 && (
+                              <p className="text-xs text-gray-500 mt-2">
+                                Mesas: {rowsWithEmpty.map(r => r.table_number).join(', ')} ({rowsWithEmpty.length} {rowsWithEmpty.length === 1 ? 'mesa' : 'mesas'})
+                              </p>
+                            )}
+                          </div>
+                        );
+                      };
+
+                      // Calcular resumo do dia - APENAS reservas do dia filtrado (ignorar outros filtros para o total)
+                      // Filtrar reservas do dia e remover duplicatas (uma reserva pode aparecer em múltiplas mesas)
+                      const reservasDoDia = sheetFilters.date 
+                        ? planilhaReservas.filter(r => {
+                            if (!r.reservation_date) return false;
+                            try {
+                              const dateStr = String(r.reservation_date).trim();
+                              if (!dateStr || dateStr === 'null' || dateStr === 'undefined') return false;
+                              let date;
+                              if (dateStr.includes('T')) {
+                                date = new Date(dateStr);
+                              } else {
+                                date = new Date(dateStr + 'T12:00:00');
+                              }
+                              if (isNaN(date.getTime())) return false;
+                              const d = date.toISOString().split('T')[0];
+                              return d === sheetFilters.date;
+                            } catch {
+                              return false;
+                            }
+                          })
+                        : [];
+                      
+                      // Remover duplicatas usando Set com IDs únicos (uma reserva com múltiplas mesas conta apenas uma vez)
+                      const reservasUnicas = Array.from(new Map(reservasDoDia.map(r => [r.id, r])).values());
+                      const totalReservations = reservasUnicas.length;
+                      // Garantir que number_of_people seja convertido para número (pode vir como string)
+                      const totalPeople = reservasUnicas.reduce((sum, r) => {
+                        const peopleCount = typeof r.number_of_people === 'number' 
+                          ? r.number_of_people 
+                          : parseInt(String(r.number_of_people || '0'), 10) || 0;
+                        return sum + peopleCount;
+                      }, 0);
+
+                      return (
+                        <div className="space-y-6">
+                          {/* Resumo do Dia */}
+                          {sheetFilters.date && (
+                            <div className="bg-gradient-to-r from-yellow-50 to-orange-50 border-2 border-yellow-300 rounded-lg p-4 sm:p-6 shadow-md">
+                              <h3 className="text-base sm:text-xl font-bold text-gray-800 mb-3 sm:mb-4 flex items-center gap-2">
+                                <span className="text-lg sm:text-xl">📊</span>
+                                <span className="hidden sm:inline">Resumo do Dia - </span>
+                                <span className="sm:hidden">Dia - </span>
+                                {(() => {
+                                  const date = new Date(sheetFilters.date + 'T12:00:00');
+                                  return date.toLocaleDateString('pt-BR', { 
+                                    day: 'numeric',
+                                    month: 'short',
+                                    year: 'numeric'
+                                  });
+                                })()}
+                              </h3>
+                              <div className="grid grid-cols-2 gap-3 sm:gap-4">
+                                <div className="bg-white rounded-lg p-3 sm:p-4 shadow-sm border border-yellow-200">
+                                  <div className="flex items-center justify-between">
+                                    <div className="flex-1">
+                                      <p className="text-xs sm:text-sm text-gray-600 font-medium">Reservas</p>
+                                      <p className="text-2xl sm:text-4xl font-bold text-yellow-600 mt-1 sm:mt-2">{totalReservations}</p>
+                                    </div>
+                                    <div className="bg-yellow-100 p-2 sm:p-3 rounded-full hidden sm:block">
+                                      <MdRestaurant className="text-yellow-600 text-xl sm:text-3xl" />
+                                    </div>
+                                  </div>
+                                </div>
+                                <div className="bg-white rounded-lg p-3 sm:p-4 shadow-sm border border-orange-200">
+                                  <div className="flex items-center justify-between">
+                                    <div className="flex-1">
+                                      <p className="text-xs sm:text-sm text-gray-600 font-medium">Pessoas</p>
+                                      <p className="text-2xl sm:text-4xl font-bold text-orange-600 mt-1 sm:mt-2">{totalPeople}</p>
+                                    </div>
+                                    <div className="bg-orange-100 p-2 sm:p-3 rounded-full hidden sm:block">
+                                      <MdGroups className="text-orange-600 text-xl sm:text-3xl" />
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                              {totalReservations > 0 && (
+                                <div className="mt-3 sm:mt-4 pt-3 sm:pt-4 border-t border-yellow-200">
+                                  <p className="text-xs sm:text-sm text-gray-600">
+                                    <span className="font-semibold">Média:</span> {(totalPeople / totalReservations).toFixed(1)} pessoas/reserva
+                                  </p>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                          
+                          {/* Resumo Geral (quando não há filtro de data) */}
+                          {!sheetFilters.date && totalReservations > 0 && (
+                            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 shadow-sm">
+                              <p className="text-sm text-blue-800">
+                                <span className="font-semibold">💡 Dica:</span> Selecione uma data acima para ver o resumo detalhado do dia.
+                                <span className="ml-2">Atualmente mostrando {totalReservations} reserva(s) com {totalPeople} pessoa(s) no total.</span>
+                              </p>
+                            </div>
+                          )}
+
+                          <div className="space-y-10">
+                            {areaSectionsFiltered.map(s => (
+                              <SectionTable 
+                                key={s.key} 
+                                sectionKey={s.key} 
+                                title={s.title} 
+                                area_ids={s.area_ids}
+                                area_names={s.area_names}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })()}
+                  </div>
+                )}
+              </div>
+
+              {/* Footer do Modal */}
+              <div className="p-4 border-t border-gray-700 flex justify-end">
+                <button
+                  onClick={() => setPlanilhaModalOpen(false)}
+                  className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors font-medium"
+                >
+                  Fechar
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
         
         {/* Toast Container para notificações não-bloqueantes */}
         <ToastContainer
