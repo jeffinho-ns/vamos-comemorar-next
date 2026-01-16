@@ -134,7 +134,7 @@ export default function DecoracaoAniversarioPage() {
               <h3 className="text-xl sm:text-2xl font-bold text-white mb-4">⚠️ Informação Importante</h3>
               <p className="text-white text-base sm:text-lg">
                 A decoração é um <strong>ALUGUEL</strong> - você não pode levar os painéis e bandejas,
-                apenas os brindes. O valor será adicionado à sua comanda no bar.
+                apenas os brindes. O valor deverá ser pago online e antecipadamente antes da data do evento.
               </p>
             </div>
 
@@ -278,9 +278,10 @@ export default function DecoracaoAniversarioPage() {
                     <span className="text-white font-bold text-sm">3</span>
                   </div>
                   <div>
-                    <h4 className="text-lg font-semibold text-white mb-2">Cobrança na Comanda</h4>
+                    <h4 className="text-lg font-semibold text-white mb-2">Pagamento Online e Antecipado</h4>
                     <p className="text-slate-300">
-                      Todo o valor será adicionado à sua comanda no bar, facilitando o pagamento.
+                      Todo o valor deverá ser pago online e antecipadamente antes da data do evento. 
+                      O pagamento não será realizado na comanda no ato do check-in.
                     </p>
                   </div>
                 </div>

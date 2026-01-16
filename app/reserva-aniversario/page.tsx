@@ -106,6 +106,8 @@ export default function ReservaAniversarioPage() {
   // Estados para modais
   const [selectedDecorationImage, setSelectedDecorationImage] = useState<string | null>(null);
   const [showConfirmationModal, setShowConfirmationModal] = useState(false);
+  const [showErrorModal, setShowErrorModal] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
 
   // (Suas opções de decoração, painel, bebidas, etc. permanecem as mesmas)
   const decorationOptions: DecorationOption[] = [
@@ -408,6 +410,23 @@ export default function ReservaAniversarioPage() {
     return true;
   };
 
+  // Função para verificar se há pelo menos 5 dias de antecedência para reserva com decoração
+  // Esta validação só se aplica quando há decoração selecionada
+  const hasMinimumDaysAdvance = () => {
+    // Se não há decoração selecionada, não precisa validar (retorna true)
+    if (!selectedDecoration) return true;
+    
+    // Se há decoração, valida os 5 dias de antecedência
+    if (!formData.dataAniversario) return false;
+    const selectedDate = new Date(formData.dataAniversario + 'T00:00:00');
+    const now = new Date();
+    // Resetar horas para comparar apenas as datas
+    now.setHours(0, 0, 0, 0);
+    selectedDate.setHours(0, 0, 0, 0);
+    const difference = Math.ceil((selectedDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+    return difference >= 5;
+  };
+
   const calculateTotal = () => {
     let total = 0;
     if (selectedDecoration) {
@@ -417,10 +436,26 @@ export default function ReservaAniversarioPage() {
   };
 
   const handleConfirmReservation = () => {
+    // Verificar campos obrigatórios
     if (!selectedDecoration || !formData.barSelecionado || !formData.dataAniversario || !formData.areaPreferida || !formData.horario) {
-      alert('Por favor, preencha todos os campos obrigatórios (Estabelecimento, Data, Área e Horário)');
+      setErrorMessage('Por favor, preencha todos os campos obrigatórios:\n\n• Estabelecimento\n• Data do aniversário\n• Área preferida\n• Horário\n• Decoração');
+      setShowErrorModal(true);
       return;
     }
+    
+    // Validação crucial: 5 dias de antecedência obrigatórios para reserva com decoração
+    if (!hasMinimumDaysAdvance()) {
+      const selectedDate = new Date(formData.dataAniversario + 'T00:00:00');
+      const now = new Date();
+      now.setHours(0, 0, 0, 0);
+      selectedDate.setHours(0, 0, 0, 0);
+      const difference = Math.ceil((selectedDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+      
+      setErrorMessage(`❌ ATENÇÃO: REGRA DE ANTECEDÊNCIA\n\nReservas com decoração exigem no mínimo 5 dias de antecedência da data do aniversário.\n\n• Data selecionada: ${new Date(formData.dataAniversario).toLocaleDateString('pt-BR')}\n• Dias de antecedência: ${difference} dia(s)\n• Dias necessários: 5 dias\n\nPor favor, selecione uma data futura com pelo menos 5 dias de antecedência para poder finalizar sua reserva.`);
+      setShowErrorModal(true);
+      return;
+    }
+    
     setShowConfirmationModal(true);
   };
 
@@ -428,6 +463,13 @@ export default function ReservaAniversarioPage() {
       setShowConfirmationModal(false);
       setIsLoading(true);
       try {
+        // Validação crucial: 5 dias de antecedência obrigatórios para reserva com decoração
+        if (!hasMinimumDaysAdvance()) {
+          alert('❌ ATENÇÃO: Reservas com decoração exigem no mínimo 5 dias de antecedência da data do aniversário. Por favor, selecione uma data futura com pelo menos 5 dias de antecedência.');
+          setIsLoading(false);
+          return;
+        }
+
         // Criar mapas vazios para manter compatibilidade com API
         const bebidasMap: Record<string, number> = {};
         const comidasMap: Record<string, number> = {};
@@ -663,6 +705,23 @@ export default function ReservaAniversarioPage() {
                   })}
                   className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-3 text-white focus:border-orange-500 focus:outline-none"
                 />
+                {formData.dataAniversario && selectedDecoration && !hasMinimumDaysAdvance() && (
+                  <WarningWidget
+                    text="⚠️ ATENÇÃO: Reservas com decoração exigem no mínimo 5 dias de antecedência da data do aniversário. Por favor, selecione uma data futura com pelo menos 5 dias de antecedência."
+                    title="Antecedência Mínima"
+                    message="Reservas com decoração exigem no mínimo 5 dias de antecedência."
+                  />
+                )}
+                {formData.dataAniversario && selectedDecoration && hasMinimumDaysAdvance() && (
+                  <div className="mt-2 bg-green-500 bg-opacity-10 border border-green-500 border-opacity-30 rounded-lg p-3">
+                    <div className="flex items-start space-x-3">
+                      <FaCheck className="text-green-500 text-xl mt-1 flex-shrink-0" />
+                      <p className="text-green-400 text-sm font-semibold">
+                        ✓ Data válida! A reserva pode ser finalizada (mínimo de 5 dias de antecedência atendido).
+                      </p>
+                    </div>
+                  </div>
+                )}
               </div>
               <div>
                 <label className="block text-white font-medium mb-2">Estabelecimento *</label>
@@ -848,10 +907,16 @@ export default function ReservaAniversarioPage() {
           <div className="space-y-6">
             <h2 className="text-3xl font-bold text-white mb-6">Escolha sua Decoração ✨</h2>
             
+            <WarningWidget
+              text="⚠️ REGRA IMPORTANTE: Reservas com decoração exigem no mínimo 5 dias de antecedência da data do aniversário. Certifique-se de que a data selecionada tenha pelo menos 5 dias de antecedência."
+              title="Antecedência Mínima Obrigatória"
+              message="Reservas com decoração exigem no mínimo 5 dias de antecedência."
+            />
+            
             <InfoWidget
-              text="💡 A decoração é um aluguel, não pode levar os painéis e bandejas para casa apenas os brindes que estiverem. O valor de cada opção está em cada card e será adicionado à sua comanda."
+              text="💡 A decoração é um aluguel, não pode levar os painéis e bandejas para casa apenas os brindes que estiverem. O valor de cada opção está em cada card e deverá ser pago online e antecipadamente."
               title="Informação sobre Decoração"
-              message="A decoração é um aluguel, não pode levar os painéis e bandejas para casa apenas os brindes que estiverem. O valor de cada opção está em cada card e será adicionado à sua comanda."
+              message="A decoração é um aluguel, não pode levar os painéis e bandejas para casa apenas os brindes que estiverem. O valor de cada opção está em cada card e deverá ser pago online e antecipadamente."
             />
 
             <div className="grid md:grid-cols-2 gap-6">
@@ -1067,7 +1132,7 @@ export default function ReservaAniversarioPage() {
             R$ {calculateTotal().toFixed(2)}
           </p>
           <p className="text-white text-center text-sm">
-            Este valor será adicionado à sua comanda no bar selecionado.
+            Este valor deverá ser pago online e antecipadamente antes da data do evento.
           </p>
         </div>
 
@@ -1085,7 +1150,7 @@ export default function ReservaAniversarioPage() {
             // Na última etapa, mostra o botão de confirmar
             <button
               onClick={handleConfirmReservation}
-              disabled={isLoading || !selectedDecoration || !formData.barSelecionado || !formData.dataAniversario || !formData.areaPreferida || !formData.horario}
+              disabled={isLoading}
               className="px-8 py-3 bg-orange-500 hover:bg-orange-600 disabled:bg-slate-600 text-white font-bold rounded-lg transition-colors disabled:cursor-not-allowed"
             >
               {isLoading ? 'Processando...' : 'CONFIRMAR RESERVA'}
@@ -1254,7 +1319,8 @@ export default function ReservaAniversarioPage() {
                   <div>
                     <h4 className="text-yellow-400 font-bold text-lg mb-2">⚠️ Lembrete Importante</h4>
                     <p className="text-yellow-200">
-                      Este valor será adicionado à sua comanda no ato do check-in pela recepcionista. 
+                      Este valor deverá ser pago online e antecipadamente antes da data do evento. 
+                      O pagamento não será realizado na comanda no ato do check-in. 
                       Certifique-se de que todas as informações estão corretas antes de confirmar.
                     </p>
                   </div>
@@ -1275,6 +1341,69 @@ export default function ReservaAniversarioPage() {
                   className="flex-1 px-6 py-3 bg-orange-500 hover:bg-orange-600 disabled:bg-slate-600 text-white font-bold rounded-lg transition-colors disabled:cursor-not-allowed"
                 >
                   {isLoading ? 'Processando...' : 'Confirmar e Finalizar'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Erro */}
+      {showErrorModal && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
+          onClick={() => setShowErrorModal(false)}
+        >
+          <div 
+            className="bg-slate-800 rounded-xl p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto border-2 border-red-500"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-3xl font-bold text-red-500">⚠️ Não é possível finalizar a reserva</h2>
+              <button
+                onClick={() => setShowErrorModal(false)}
+                className="text-slate-400 hover:text-white transition-colors"
+              >
+                <FaTimes className="text-2xl" />
+              </button>
+            </div>
+
+            <div className="space-y-6">
+              <div className="bg-red-500 bg-opacity-20 border-2 border-red-500 rounded-lg p-4">
+                <div className="flex items-start space-x-3">
+                  <FaExclamationTriangle className="text-red-500 text-2xl mt-1 flex-shrink-0" />
+                  <div className="flex-1">
+                    <p className="text-red-200 whitespace-pre-line text-base leading-relaxed">
+                      {errorMessage}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-slate-700 rounded-lg p-4">
+                <h4 className="text-lg font-bold text-white mb-3">📋 O que fazer:</h4>
+                <ul className="space-y-2 text-white text-sm">
+                  <li className="flex items-start">
+                    <span className="text-orange-500 mr-2">•</span>
+                    <span>Verifique se todos os campos obrigatórios estão preenchidos</span>
+                  </li>
+                  <li className="flex items-start">
+                    <span className="text-orange-500 mr-2">•</span>
+                    <span>Se você selecionou uma decoração, certifique-se de que a data do aniversário tenha pelo menos 5 dias de antecedência</span>
+                  </li>
+                  <li className="flex items-start">
+                    <span className="text-orange-500 mr-2">•</span>
+                    <span>Selecione uma data futura que atenda aos requisitos</span>
+                  </li>
+                </ul>
+              </div>
+
+              <div className="flex justify-end">
+                <button
+                  onClick={() => setShowErrorModal(false)}
+                  className="px-6 py-3 bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-lg transition-colors"
+                >
+                  Entendi, vou corrigir
                 </button>
               </div>
             </div>
