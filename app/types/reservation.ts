@@ -3,6 +3,7 @@ export interface Reservation {
   client_name: string;
   client_phone?: string;
   client_email?: string;
+  data_nascimento_cliente?: string;
   reservation_date: string;
   reservation_time: string;
   number_of_people: number;

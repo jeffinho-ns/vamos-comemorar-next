@@ -213,15 +213,37 @@ export default function ReservationModal({
         const tableNumberStr = String(reservation.table_number || '');
         const hasMultipleTables = tableNumberStr.includes(',');
         
+        // Formatar data de nascimento se existir (formato pode ser YYYY-MM-DD ou ISO string)
+        let formattedBirthDate = '';
+        if (reservation.data_nascimento_cliente) {
+          const birthDate = new Date(reservation.data_nascimento_cliente);
+          if (!isNaN(birthDate.getTime())) {
+            formattedBirthDate = birthDate.toISOString().split('T')[0];
+          } else if (String(reservation.data_nascimento_cliente).match(/^\d{4}-\d{2}-\d{2}$/)) {
+            formattedBirthDate = reservation.data_nascimento_cliente;
+          }
+        }
+        
+        // Formatar data da reserva se existir
+        let formattedReservationDate = '';
+        if (reservation.reservation_date) {
+          const resDate = new Date(reservation.reservation_date);
+          if (!isNaN(resDate.getTime())) {
+            formattedReservationDate = resDate.toISOString().split('T')[0];
+          } else if (String(reservation.reservation_date).match(/^\d{4}-\d{2}-\d{2}$/)) {
+            formattedReservationDate = reservation.reservation_date;
+          }
+        }
+        
         setFormData({
           client_name: reservation.client_name || '',
           client_phone: reservation.client_phone || '',
           client_email: reservation.client_email || '',
-          data_nascimento_cliente: reservation.data_nascimento_cliente || '',
-          reservation_date: reservation.reservation_date || '',
+          data_nascimento_cliente: formattedBirthDate,
+          reservation_date: formattedReservationDate || reservation.reservation_date || '',
           reservation_time: reservation.reservation_time || '',
           number_of_people: reservation.number_of_people || 1,
-          area_id: reservation.area_id || '',
+          area_id: reservation.area_id ? String(reservation.area_id) : '',
           table_number: hasMultipleTables ? '' : tableNumberStr, // Se múltiplas, limpar campo único
           status: reservation.status || 'NOVA',
           origin: reservation.origin || 'PESSOAL',
@@ -1055,7 +1077,7 @@ export default function ReservationModal({
                   </label>
                   
                   {/* Checkbox para permitir múltiplas mesas (apenas admin) */}
-                  {isAdmin && (tables.length > 0 || (isSeuJustino && selectedSubareaKey) || (isHighline && selectedSubareaKey)) && (
+                  {isAdmin && (formData.area_id || selectedSubareaKey || tables.length > 0 || reservation?.table_number) && (
                     <div className="mb-2">
                       <label className="flex items-center gap-2 cursor-pointer text-gray-300 text-sm">
                         <input
@@ -1072,6 +1094,11 @@ export default function ReservationModal({
                         />
                         <span>Reservar múltiplas mesas (apenas admin)</span>
                       </label>
+                      {reservation?.table_number && reservation.table_number.includes(',') && (
+                        <p className="text-xs text-blue-400 mt-1">
+                          Mesas atualmente selecionadas: {reservation.table_number}
+                        </p>
+                      )}
                     </div>
                   )}
                   
@@ -1126,65 +1153,113 @@ export default function ReservationModal({
                         })()}
                       </div>
                       {selectedTables.length > 0 && (
-                        <p className="text-xs text-green-400">
-                          ✓ {selectedTables.length} mesa{selectedTables.length > 1 ? 's' : ''} selecionada{selectedTables.length > 1 ? 's' : ''}: {selectedTables.join(', ')}
-                        </p>
+                        <div className="mt-2 p-2 bg-green-900/20 border border-green-600/40 rounded">
+                          <p className="text-xs text-green-400 font-medium mb-1">
+                            ✓ {selectedTables.length} mesa{selectedTables.length > 1 ? 's' : ''} selecionada{selectedTables.length > 1 ? 's' : ''}
+                          </p>
+                          <p className="text-xs text-green-300">
+                            Mesas: {selectedTables.join(', ')}
+                          </p>
+                        </div>
+                      )}
+                      {!allowMultipleTables && reservation?.table_number && reservation.table_number.includes(',') && (
+                        <div className="mt-2 p-2 bg-blue-900/20 border border-blue-600/40 rounded">
+                          <p className="text-xs text-blue-400 font-medium mb-1">
+                            ℹ️ Esta reserva possui múltiplas mesas
+                          </p>
+                          <p className="text-xs text-blue-300">
+                            Mesas: {reservation.table_number}
+                          </p>
+                          <p className="text-xs text-gray-400 mt-1">
+                            Marque "Reservar múltiplas mesas" para editar a seleção
+                          </p>
+                        </div>
                       )}
                     </div>
                   ) : (tables.length > 0 || (isSeuJustino && selectedSubareaKey) || (isHighline && selectedSubareaKey)) ? (
-                    <select
-                      value={formData.table_number}
-                      onChange={(e) => handleInputChange('table_number', e.target.value)}
-                      className={`w-full px-3 py-2 bg-gray-700 border rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-orange-500 ${
-                        errors.table_number ? 'border-red-500' : 'border-gray-600'
-                      }`}
-                    >
-                      <option value="">Selecione uma mesa (opcional)</option>
-                      {(() => {
-                        // Se for Seu Justino ou Highline com subárea selecionada, mas não houver mesas da API, usar mesas da subárea
-                        if ((isSeuJustino || isHighline) && selectedSubareaKey && tables.length === 0) {
-                          const sub = isSeuJustino 
-                            ? seuJustinoSubareas.find(s => s.key === selectedSubareaKey)
-                            : highlineSubareas.find(s => s.key === selectedSubareaKey);
-                          if (sub) {
-                            return sub.tableNumbers.map((tableNum) => (
-                              <option key={tableNum} value={tableNum}>
-                                Mesa {tableNum} • {isSeuJustino && (sub as any).capacity ? `${(sub as any).capacity} lugares` : '4 lugares'}
+                    <>
+                      <select
+                        value={formData.table_number}
+                        onChange={(e) => handleInputChange('table_number', e.target.value)}
+                        className={`w-full px-3 py-2 bg-gray-700 border rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-orange-500 ${
+                          errors.table_number ? 'border-red-500' : 'border-gray-600'
+                        }`}
+                      >
+                        <option value="">Selecione uma mesa (opcional)</option>
+                        {(() => {
+                          // Se for Seu Justino ou Highline com subárea selecionada, mas não houver mesas da API, usar mesas da subárea
+                          if ((isSeuJustino || isHighline) && selectedSubareaKey && tables.length === 0) {
+                            const sub = isSeuJustino 
+                              ? seuJustinoSubareas.find(s => s.key === selectedSubareaKey)
+                              : highlineSubareas.find(s => s.key === selectedSubareaKey);
+                            if (sub) {
+                              return sub.tableNumbers.map((tableNum) => (
+                                <option key={tableNum} value={tableNum}>
+                                  Mesa {tableNum} • {isSeuJustino && (sub as any).capacity ? `${(sub as any).capacity} lugares` : '4 lugares'}
+                                </option>
+                              ));
+                            }
+                          }
+                          // Caso contrário, usar mesas da API
+                          return tables
+                            .filter(t => {
+                              // Para reservas grandes (4+), mostra todas as mesas não reservadas
+                              // Para reservas normais, filtra por capacidade
+                              if (formData.number_of_people >= 4) {
+                                return !t.is_reserved;
+                              }
+                              return !t.is_reserved && t.capacity >= formData.number_of_people;
+                            })
+                            .map(t => (
+                              <option key={t.id} value={t.table_number}>
+                                Mesa {t.table_number} • {t.capacity} lugares{t.table_type ? ` • ${t.table_type}` : ''}
                               </option>
                             ));
-                          }
-                        }
-                        // Caso contrário, usar mesas da API
-                        return tables
-                          .filter(t => {
-                            // Para reservas grandes (4+), mostra todas as mesas não reservadas
-                            // Para reservas normais, filtra por capacidade
-                            if (formData.number_of_people >= 4) {
-                              return !t.is_reserved;
-                            }
-                            return !t.is_reserved && t.capacity >= formData.number_of_people;
-                          })
-                          .map(t => (
-                            <option key={t.id} value={t.table_number}>
-                              Mesa {t.table_number} • {t.capacity} lugares{t.table_type ? ` • ${t.table_type}` : ''}
-                            </option>
-                          ));
-                      })()}
-                    </select>
+                        })()}
+                      </select>
+                      {reservation?.table_number && reservation.table_number.includes(',') && !allowMultipleTables && (
+                        <div className="mt-2 p-2 bg-blue-900/20 border border-blue-600/40 rounded">
+                          <p className="text-xs text-blue-400 font-medium mb-1">
+                            ℹ️ Esta reserva possui múltiplas mesas
+                          </p>
+                          <p className="text-xs text-blue-300">
+                            Mesas: {reservation.table_number}
+                          </p>
+                          <p className="text-xs text-gray-400 mt-1">
+                            Marque "Reservar múltiplas mesas" acima para editar a seleção
+                          </p>
+                        </div>
+                      )}
+                    </>
                   ) : (
-                    <input
-                      type="text"
-                      value={formData.table_number}
-                      onChange={(e) => handleInputChange('table_number', e.target.value)}
-                      className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-500"
-                      placeholder="Ex: Mesa 5 (opcional para reserva grande)"
-                    />
+                    <>
+                      <input
+                        type="text"
+                        value={formData.table_number}
+                        onChange={(e) => handleInputChange('table_number', e.target.value)}
+                        className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-500"
+                        placeholder="Ex: Mesa 5 (opcional para reserva grande)"
+                      />
+                      {reservation?.table_number && reservation.table_number.includes(',') && !allowMultipleTables && (
+                        <div className="mt-2 p-2 bg-blue-900/20 border border-blue-600/40 rounded">
+                          <p className="text-xs text-blue-400 font-medium mb-1">
+                            ℹ️ Esta reserva possui múltiplas mesas
+                          </p>
+                          <p className="text-xs text-blue-300">
+                            Mesas: {reservation.table_number}
+                          </p>
+                          <p className="text-xs text-gray-400 mt-1">
+                            Marque "Reservar múltiplas mesas" acima para editar a seleção
+                          </p>
+                        </div>
+                      )}
+                    </>
                   )}
                   {errors.table_number && (
                     <p className="text-red-500 text-sm mt-1">{errors.table_number}</p>
                   )}
                   
-                  {formData.number_of_people >= 4 && !allowMultipleTables && (
+                  {formData.number_of_people >= 4 && !allowMultipleTables && !reservation?.table_number?.includes(',') && (
                     <p className="text-xs text-gray-400 mt-1">
                       💡 Para reservas grandes, você pode selecionar uma mesa principal ou deixar em branco
                     </p>
