@@ -940,8 +940,10 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
             <h3
               className={`mb-1 line-clamp-2 ${
                 isCleanStyle
-                  ? 'font-serif text-[1rem] font-semibold tracking-[0.12em] text-[#2b241a]'
-                  : 'text-base sm:text-lg font-semibold text-gray-800'
+                  ? 'font-serif text-[1.1rem] font-bold tracking-[0.12em] text-[#2b241a]'
+                  : isReservaRooftop
+                    ? 'text-lg sm:text-xl font-bold text-gray-900'
+                    : 'text-base sm:text-lg font-semibold text-gray-800'
               }`}
             >
               {item.name}
@@ -989,9 +991,9 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
               </div>
             )}
             {isReservaRooftop && (
-              <div className="mb-2 text-right">
-                <p className="font-serif text-[#2b241a] text-sm tracking-[0.25em] font-extralight">
-                  {formatPrice(item.price).replace('R$', '').trim()}
+              <div className="mb-2">
+                <p className="font-semibold text-base sm:text-lg text-gray-900">
+                  {formatPrice(item.price)}
                 </p>
               </div>
             )}
@@ -1782,14 +1784,18 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
                           
                           <div className="flex-1">
                               <div className="flex items-start justify-between mb-2">
-                                <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 flex-1">
+                                <h2 className={`flex-1 ${
+                                  isReservaRooftop 
+                                    ? 'text-3xl sm:text-4xl font-bold text-gray-900' 
+                                    : 'text-2xl sm:text-3xl font-bold text-gray-900'
+                                }`}>
                                     {selectedItem.name}
                                 </h2>
                               </div>
                               {isReservaRooftop ? (
-                                <div className="text-right mb-4">
-                                  <p className="font-serif text-[#2b241a] text-sm tracking-[0.25em] font-extralight">
-                                    {formatPrice(selectedItem.price).replace('R$', '').trim()}
+                                <div className="mb-4">
+                                  <p className="text-xl sm:text-2xl font-semibold text-gray-900">
+                                    {formatPrice(selectedItem.price)}
                                   </p>
                                 </div>
                               ) : (
