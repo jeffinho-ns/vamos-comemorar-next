@@ -991,8 +991,8 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
               </div>
             )}
             {isReservaRooftop && (
-              <div className="mb-2">
-                <p className="font-semibold text-base sm:text-lg text-gray-900">
+              <div className="mb-2 text-right">
+                <p className="font-serif text-[#2b241a] text-sm tracking-[0.25em] font-extralight">
                   {formatPrice(item.price)}
                 </p>
               </div>
@@ -1793,8 +1793,8 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
                                 </h2>
                               </div>
                               {isReservaRooftop ? (
-                                <div className="mb-4">
-                                  <p className="text-xl sm:text-2xl font-semibold text-gray-900">
+                                <div className="text-right mb-4">
+                                  <p className="font-serif text-[#2b241a] text-sm tracking-[0.25em] font-extralight">
                                     {formatPrice(selectedItem.price)}
                                   </p>
                                 </div>
