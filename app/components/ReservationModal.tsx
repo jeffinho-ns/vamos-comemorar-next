@@ -15,7 +15,8 @@ import {
   MdNote,
   MdSave,
   MdCancel,
-  MdEvent
+  MdEvent,
+  MdElectricBolt
 } from 'react-icons/md';
 import { FaWhatsapp } from 'react-icons/fa'; // <-- 1. IMPORTAÇÃO ADICIONADA
 import { useUserPermissions } from '@/app/hooks/useUserPermissions';
@@ -312,6 +313,46 @@ export default function ReservationModal({
         if (res.ok) {
           const data = await res.json();
           let fetched: RestaurantTable[] = Array.isArray(data.tables) ? data.tables : [];
+          
+          // A. LÓGICA DE TRAVAMENTO "GIRO ÚNICO" NO DECK (EXCLUSIVO HIGHLINE)
+          // Se for Highline e área Deck (area_id = 2), aplicar travamento de mesas
+          if (isHighline && Number(formData.area_id) === 2) {
+            // Buscar todas as reservas confirmadas da data para o Deck (area_id = 2)
+            // Isso garante que qualquer mesa com reserva em qualquer horário apareça como reservada
+            try {
+              const reservationsRes = await fetch(
+                `${API_URL}/api/restaurant-reservations?reservation_date=${formData.reservation_date}&area_id=${formData.area_id}&status=CONFIRMADA${establishment?.id ? `&establishment_id=${establishment.id}` : ''}`
+              );
+              if (reservationsRes.ok) {
+                const reservationsData = await reservationsRes.json();
+                const confirmedReservations = Array.isArray(reservationsData.reservations) 
+                  ? reservationsData.reservations 
+                  : [];
+                
+                // Criar um Set com os números das mesas que têm reserva confirmada em qualquer horário
+                const reservedTableNumbers = new Set<string>();
+                confirmedReservations.forEach((reservation: any) => {
+                  if (reservation.table_number) {
+                    // Mesas podem ser múltiplas (separadas por vírgula)
+                    const tables = String(reservation.table_number).split(',');
+                    tables.forEach((table: string) => {
+                      reservedTableNumbers.add(table.trim());
+                    });
+                  }
+                });
+                
+                // Marcar todas as mesas com reserva confirmada como is_reserved: true
+                fetched = fetched.map(table => ({
+                  ...table,
+                  is_reserved: reservedTableNumbers.has(String(table.table_number)) || table.is_reserved
+                }));
+              }
+            } catch (err) {
+              console.error('Erro ao buscar reservas confirmadas para travamento:', err);
+              // Em caso de erro, manter a lógica original por segurança
+            }
+          }
+          
           if (isHighline && selectedSubareaKey) {
             const sub = highlineSubareas.find(s => s.key === selectedSubareaKey);
             if (sub) {
@@ -407,7 +448,7 @@ export default function ReservationModal({
       }
     };
     loadTables();
-  }, [formData.area_id, formData.reservation_date, selectedSubareaKey, isHighline, isSeuJustino]);
+  }, [formData.area_id, formData.reservation_date, selectedSubareaKey, isHighline, isSeuJustino, establishment?.id]);
 
   // Buscar eventos disponíveis para a data selecionada
   useEffect(() => {
@@ -752,6 +793,100 @@ export default function ReservationModal({
     setFormData(prev => ({ ...prev, [field]: value }));
     if (errors[field]) {
       setErrors(prev => ({ ...prev, [field]: '' }));
+    }
+  };
+
+  // C. FUNÇÃO DE LIBERAÇÃO MANUAL (APENAS ADMIN, EXCLUSIVO HIGHLINE DECK)
+  const handleForceReleaseTable = async (tableNumber: string) => {
+    // Validação de segurança: apenas admin, Highline e Deck (area_id = 2)
+    if (!isAdmin || !isHighline || Number(formData.area_id) !== 2) {
+      alert('Operação não permitida.');
+      return;
+    }
+
+    // Confirmação do usuário
+    const confirmed = confirm('Deseja liberar esta mesa manualmente para venda imediata?');
+    if (!confirmed) {
+      return;
+    }
+
+    if (!formData.reservation_date || !tableNumber) {
+      alert('Data ou número da mesa não informado.');
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('authToken');
+      const res = await fetch(
+        `${API_URL}/api/restaurant-tables/${tableNumber}/force-available?date=${formData.reservation_date}&area_id=${formData.area_id}`,
+        {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { Authorization: `Bearer ${token}` } : {})
+          }
+        }
+      );
+
+      if (res.ok) {
+        // Recarregar mesas após liberação
+        const loadTablesRes = await fetch(
+          `${API_URL}/api/restaurant-tables/${formData.area_id}/availability?date=${formData.reservation_date}`
+        );
+        if (loadTablesRes.ok) {
+          const data = await loadTablesRes.json();
+          let fetched: RestaurantTable[] = Array.isArray(data.tables) ? data.tables : [];
+          
+          // Reaplicar travamento de mesas
+          if (isHighline && Number(formData.area_id) === 2) {
+            try {
+              const reservationsRes = await fetch(
+                `${API_URL}/api/restaurant-reservations?reservation_date=${formData.reservation_date}&area_id=${formData.area_id}&status=CONFIRMADA${establishment?.id ? `&establishment_id=${establishment.id}` : ''}`
+              );
+              if (reservationsRes.ok) {
+                const reservationsData = await reservationsRes.json();
+                const confirmedReservations = Array.isArray(reservationsData.reservations) 
+                  ? reservationsData.reservations 
+                  : [];
+                
+                const reservedTableNumbers = new Set<string>();
+                confirmedReservations.forEach((reservation: any) => {
+                  if (reservation.table_number) {
+                    const tables = String(reservation.table_number).split(',');
+                    tables.forEach((table: string) => {
+                      reservedTableNumbers.add(table.trim());
+                    });
+                  }
+                });
+                
+                fetched = fetched.map(table => ({
+                  ...table,
+                  is_reserved: reservedTableNumbers.has(String(table.table_number)) || table.is_reserved
+                }));
+              }
+            } catch (err) {
+              console.error('Erro ao buscar reservas confirmadas:', err);
+            }
+          }
+          
+          if (isHighline && selectedSubareaKey) {
+            const sub = highlineSubareas.find(s => s.key === selectedSubareaKey);
+            if (sub) {
+              fetched = fetched.filter(t => sub.tableNumbers.includes(String(t.table_number)));
+            }
+          }
+          
+          setTables(fetched);
+        }
+        
+        alert('Mesa liberada com sucesso!');
+      } else {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Erro ao liberar mesa');
+      }
+    } catch (error: any) {
+      console.error('Erro ao liberar mesa:', error);
+      alert(`Erro ao liberar mesa: ${error.message || 'Erro desconhecido'}`);
     }
   };
 
@@ -1217,6 +1352,36 @@ export default function ReservationModal({
                             ));
                         })()}
                       </select>
+                      
+                      {/* B. BOTÃO DE LIBERAÇÃO MANUAL (APENAS ADMIN, EXCLUSIVO HIGHLINE DECK) */}
+                      {isAdmin && isHighline && Number(formData.area_id) === 2 && tables.some(t => t.is_reserved) && (
+                        <div className="mt-3 p-3 bg-yellow-900/20 border border-yellow-600/40 rounded">
+                          <p className="text-xs text-yellow-400 font-medium mb-2">
+                            ⚡ Liberação Manual de Mesas (Deck - Highline)
+                          </p>
+                          <div className="space-y-2 max-h-32 overflow-y-auto">
+                            {tables
+                              .filter(t => t.is_reserved)
+                              .map(t => (
+                                <div key={t.id} className="flex items-center justify-between p-2 bg-gray-700/50 rounded">
+                                  <span className="text-white text-sm">
+                                    Mesa {t.table_number} • {t.capacity} lugares
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleForceReleaseTable(t.table_number)}
+                                    className="flex items-center gap-1 px-2 py-1 bg-yellow-600 hover:bg-yellow-700 text-white text-xs rounded transition-colors"
+                                    title="Liberar mesa manualmente"
+                                  >
+                                    <MdElectricBolt size={14} />
+                                    Liberar
+                                  </button>
+                                </div>
+                              ))}
+                          </div>
+                        </div>
+                      )}
+                      
                       {reservation?.table_number && reservation.table_number.includes(',') && !allowMultipleTables && (
                         <div className="mt-2 p-2 bg-blue-900/20 border border-blue-600/40 rounded">
                           <p className="text-xs text-blue-400 font-medium mb-1">
