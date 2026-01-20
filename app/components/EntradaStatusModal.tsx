@@ -28,10 +28,10 @@ const EntradaStatusModal: React.FC<EntradaStatusModalProps> = ({
     const hora = horaAtual.getHours();
     const minutos = horaAtual.getMinutes();
     
-    // Até 22:00h (inclusive) - VIP automático (sem opção de escolha)
+    // Até 22:20h (inclusive) - VIP automático (sem opção de escolha)
     // IMPORTANTE: Apenas durante o dia (não inclui madrugada 00:00-06:00)
-    // VIP válido: 06:00 até 22:00 (inclusive)
-    if ((hora >= 6 && hora < 22) || (hora === 22 && minutos === 0)) {
+    // VIP válido: 06:00 até 22:20 (inclusive) - tolerância de 20min para quem está na fila
+    if ((hora >= 6 && hora < 22) || (hora === 22 && minutos <= 20)) {
       return {
         modoAutomatico: true,
         tipoAutomatico: 'VIP' as EntradaTipo,
@@ -43,13 +43,13 @@ const EntradaStatusModal: React.FC<EntradaStatusModalProps> = ({
       };
     }
     
-    // Após 22:00h até 00:30h - Apenas SECO ou CONSOME (valores menores)
-    // Entre 22:00h (exclusivo) e 00:30h (inclusive)
-    if ((hora === 22 && minutos > 0) || (hora > 22 && hora < 24) || (hora === 0 && minutos <= 30)) {
+    // Após 22:20h até 00:30h - Apenas SECO ou CONSOME (valores menores)
+    // Entre 22:20h (exclusivo) e 00:30h (inclusive)
+    if ((hora === 22 && minutos > 20) || (hora > 22 && hora < 24) || (hora === 0 && minutos <= 30)) {
       return {
         modoAutomatico: false,
         tipoAutomatico: null,
-        mostraVIP: false, // VIP inativo após 22:00h
+        mostraVIP: false, // VIP inativo após 22:20h
         mostraSeco: true,
         mostraConsuma: true,
         valorSeco: 40,
@@ -147,7 +147,7 @@ const EntradaStatusModal: React.FC<EntradaStatusModalProps> = ({
                     <div className="flex-1">
                       <div className="font-semibold text-lg text-gray-900">VIP</div>
                       <div className="text-sm text-gray-600 mt-1">
-                        Entrada automática VIP (até 22:00h)
+                        Entrada automática VIP (até 22:20h)
                       </div>
                       <div className="text-green-600 font-bold text-lg mt-2">R$ 0,00</div>
                     </div>
@@ -156,7 +156,7 @@ const EntradaStatusModal: React.FC<EntradaStatusModalProps> = ({
               </div>
             )}
 
-            {/* Modo Manual (após 22:00h) */}
+            {/* Modo Manual (após 22:20h) */}
             {!opcoes.modoAutomatico && (
               <div className="space-y-3 mb-6">
                 {/* Opção SECO */}
