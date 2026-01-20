@@ -42,22 +42,32 @@ export default function DetalhesOperacionaisPage() {
   }, []);
 
   useEffect(() => {
-    // Se o usuário está restrito a um único estabelecimento, seleciona automaticamente
-    if (!establishmentPermissions.isLoading && establishmentPermissions.isRestrictedToSingleEstablishment()) {
-      const defaultId = establishmentPermissions.getDefaultEstablishmentId();
-      if (defaultId && !selectedEstablishment && establishments.length > 0) {
-        // Encontrar o estabelecimento correspondente
-        const est = establishments.find(e => {
-          const estId = typeof e.id === 'string' ? parseInt(e.id) : e.id;
-          return estId === defaultId;
-        });
-        if (est) {
-          const estId = typeof est.id === 'string' ? parseInt(est.id) : est.id;
-          setSelectedEstablishment(estId);
+    // Selecionar automaticamente se houver apenas um estabelecimento ou se estiver restrito
+    if (!establishmentPermissions.isLoading && establishments.length > 0) {
+      const filteredEstabs = establishmentPermissions.getFilteredEstablishments(establishments);
+      
+      if (filteredEstabs.length === 1 && !selectedEstablishment) {
+        // Sempre selecionar se há apenas um disponível
+        const estId = typeof filteredEstabs[0].id === 'string' ? parseInt(filteredEstabs[0].id) : filteredEstabs[0].id;
+        setSelectedEstablishment(estId);
+        console.log(`✅ [DETALHES OPERACIONAIS] Estabelecimento único selecionado automaticamente: ${estId} - ${filteredEstabs[0].name}`);
+      } else if (establishmentPermissions.isRestrictedToSingleEstablishment() && !selectedEstablishment) {
+        const defaultId = establishmentPermissions.getDefaultEstablishmentId();
+        if (defaultId) {
+          // Encontrar o estabelecimento correspondente
+          const est = filteredEstabs.find(e => {
+            const estId = typeof e.id === 'string' ? parseInt(e.id) : e.id;
+            return estId === defaultId;
+          });
+          if (est) {
+            const estId = typeof est.id === 'string' ? parseInt(est.id) : est.id;
+            setSelectedEstablishment(estId);
+            console.log(`✅ [DETALHES OPERACIONAIS] Estabelecimento selecionado via permissões: ${estId} - ${est.name}`);
+          }
         }
       }
     }
-  }, [establishmentPermissions.isLoading, establishments.length]);
+  }, [establishmentPermissions.isLoading, establishments.length, establishmentPermissions.isRestrictedToSingleEstablishment, establishmentPermissions.getDefaultEstablishmentId]);
 
   useEffect(() => {
     fetchDetails();
@@ -255,29 +265,26 @@ export default function DetalhesOperacionaisPage() {
                 <MdBusiness className="inline mr-2" />
                 Estabelecimento
               </label>
-              <select
-                value={selectedEstablishment || ''}
-                onChange={(e) => setSelectedEstablishment(e.target.value ? parseInt(e.target.value) : null)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
-                disabled={establishmentPermissions.isRestrictedToSingleEstablishment()}
-              >
-                {establishmentPermissions.isRestrictedToSingleEstablishment() ? (
-                  establishmentPermissions.getFilteredEstablishments(establishments).map((est) => (
+              {(establishmentPermissions.isRestrictedToSingleEstablishment() || establishmentPermissions.getFilteredEstablishments(establishments).length === 1) && selectedEstablishment ? (
+                <div className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50">
+                  <span className="text-gray-800 font-semibold">
+                    {establishmentPermissions.getFilteredEstablishments(establishments).find(est => (typeof est.id === 'string' ? parseInt(est.id) : est.id) === selectedEstablishment)?.name || 'Carregando...'}
+                  </span>
+                </div>
+              ) : (
+                <select
+                  value={selectedEstablishment || ''}
+                  onChange={(e) => setSelectedEstablishment(e.target.value ? parseInt(e.target.value) : null)}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+                >
+                  <option value="">Todos</option>
+                  {establishmentPermissions.getFilteredEstablishments(establishments).map((est) => (
                     <option key={est.id} value={typeof est.id === 'string' ? parseInt(est.id) : est.id}>
                       {est.name}
                     </option>
-                  ))
-                ) : (
-                  <>
-                    <option value="">Todos</option>
-                    {establishmentPermissions.getFilteredEstablishments(establishments).map((est) => (
-                      <option key={est.id} value={typeof est.id === 'string' ? parseInt(est.id) : est.id}>
-                        {est.name}
-                      </option>
-                    ))}
-                  </>
-                )}
-              </select>
+                  ))}
+                </select>
+              )}
             </div>
 
             {/* Filtro de Data */}

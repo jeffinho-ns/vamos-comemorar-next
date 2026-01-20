@@ -277,14 +277,42 @@ export function useEstablishmentPermissions() {
 
   // Retorna o primeiro estabelecimento permitido (útil para seleção automática)
   const getDefaultEstablishmentId = (): number | null => {
-    if (!userConfig || userConfig.establishmentIds.length === 0) return null;
-    return userConfig.establishmentIds[0];
+    // Verificar primeiro userConfig
+    if (userConfig && userConfig.establishmentIds.length > 0) {
+      return userConfig.establishmentIds[0];
+    }
+    
+    // Se não tem userConfig, verificar permissões ativas
+    if (permissions.length > 0 && permissions.some(p => p.is_active)) {
+      const allowedIds = Array.from(new Set(
+        permissions
+          .filter(p => p.is_active)
+          .map(p => p.establishment_id)
+      ));
+      return allowedIds.length > 0 ? allowedIds[0] : null;
+    }
+    
+    return null;
   };
 
   // Verifica se o usuário está restrito a um único estabelecimento
   const isRestrictedToSingleEstablishment = (): boolean => {
-    if (!userConfig) return false;
-    return userConfig.establishmentIds.length === 1;
+    // Verificar primeiro userConfig
+    if (userConfig && userConfig.establishmentIds.length === 1) {
+      return true;
+    }
+    
+    // Se não tem userConfig, verificar permissões ativas
+    if (permissions.length > 0 && permissions.some(p => p.is_active)) {
+      const allowedIds = Array.from(new Set(
+        permissions
+          .filter(p => p.is_active)
+          .map(p => p.establishment_id)
+      ));
+      return allowedIds.length === 1;
+    }
+    
+    return false;
   };
 
   return {

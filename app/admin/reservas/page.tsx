@@ -20,6 +20,9 @@ import {
   MdSearch,
   MdExpandMore,
   MdExpandLess,
+  MdPrint,
+  MdDateRange,
+  MdTrendingDown,
 } from "react-icons/md";
 import { FaBirthdayCake, FaGlassCheers, FaUtensils } from "react-icons/fa";
 
@@ -85,6 +88,34 @@ interface Stats {
   upcomingWeek: number;
 }
 
+interface EventRevenue {
+  evento_id: number;
+  nome: string;
+  data_evento: string;
+  establishment_id: number;
+  establishment_name: string;
+  totalCheckIns: number;
+  totalRevenue: number;
+  revenueByType: {
+    seco: number;
+    consuma: number;
+    vip: number;
+  };
+}
+
+interface PeriodFilter {
+  type: "today" | "week" | "month" | "custom" | "all";
+  startDate?: string;
+  endDate?: string;
+}
+
+interface RevenueByPeriod {
+  day: number;
+  week: number;
+  month: number;
+  total: number;
+}
+
 export default function ReservesPage() {
   const [establishments, setEstablishments] = useState<Establishment[]>([]);
   const [birthdayReservations, setBirthdayReservations] = useState<BirthdayReservation[]>([]);
@@ -97,6 +128,11 @@ export default function ReservesPage() {
   const [expandedEstablishments, setExpandedEstablishments] = useState<Set<number>>(new Set());
   const [showStats, setShowStats] = useState(true);
   const [viewMode, setViewMode] = useState<"all" | "upcoming" | "today">("all");
+  const [periodFilter, setPeriodFilter] = useState<PeriodFilter>({ type: "all" });
+  const [eventRevenues, setEventRevenues] = useState<EventRevenue[]>([]);
+  const [loadingEvents, setLoadingEvents] = useState(false);
+  const [revenueByPeriod, setRevenueByPeriod] = useState<Record<number, RevenueByPeriod>>({});
+  const [showEventRevenues, setShowEventRevenues] = useState<Record<number, boolean>>({});
 
   // Carregar estabelecimentos
   const loadEstablishments = useCallback(async () => {
@@ -165,44 +201,12 @@ export default function ReservesPage() {
           );
         }
 
-        // Buscar check-ins e calcular receita real
-        const reservationsWithRevenue = await Promise.all(
-          reservations.map(async (r: BirthdayReservation) => {
-            try {
-              // Buscar convidados com check-in para esta reserva
-              const token = localStorage.getItem("authToken");
-              const checkinsResponse = await fetch(
-                `${API_URL}/api/reservas/${r.id}/convidados`,
-                {
-                  headers: {
-                    Authorization: `Bearer ${token}`,
-                  },
-                }
-              );
-              
-              let revenue = 0;
-              if (checkinsResponse.ok) {
-                const convidados = await checkinsResponse.json();
-                const checkedIn = Array.isArray(convidados) 
-                  ? convidados.filter((c: any) => c.status === 'CHECK-IN' && c.entrada_valor)
-                  : [];
-                
-                revenue = checkedIn.reduce((sum: number, c: any) => {
-                  if (!c.entrada_valor) return sum;
-                  const valor = typeof c.entrada_valor === 'number' 
-                    ? c.entrada_valor 
-                    : parseFloat(String(c.entrada_valor).replace(/[^\d.,]/g, '').replace(',', '.'));
-                  return sum + (isNaN(valor) ? 0 : Math.max(0, valor));
-                }, 0);
-              }
-              
-              return { ...r, totalRevenue: revenue };
-            } catch (error) {
-              console.error(`Erro ao calcular receita para reserva ${r.id}:`, error);
-              return { ...r, totalRevenue: 0 };
-            }
-          })
-        );
+        // Receita das reservas de aniversário é calculada através dos eventos
+        // Não buscar individualmente para evitar 404s - os valores vêm dos eventos
+        const reservationsWithRevenue = reservations.map((r: BirthdayReservation) => ({
+          ...r,
+          totalRevenue: 0 // Receita será calculada através dos eventos, não individualmente
+        }));
 
         setBirthdayReservations(reservationsWithRevenue);
       }
@@ -250,6 +254,273 @@ export default function ReservesPage() {
     }
   }, [selectedEstablishment, selectedDate, searchTerm]);
 
+  // Carregar faturamento dos eventos por estabelecimento
+  const loadEventRevenues = useCallback(async () => {
+    setLoadingEvents(true);
+    try {
+      const token = localStorage.getItem("authToken");
+      if (!token) return;
+
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const todayStr = today.toISOString().split('T')[0];
+
+      // Buscar todos os eventos passados e futuros por estabelecimento
+      const eventsByEstablishment: Record<number, EventRevenue[]> = {};
+      const revenueByPeriodData: Record<number, RevenueByPeriod> = {};
+
+      for (const establishment of establishments) {
+        if (!establishment.id) continue;
+
+        try {
+          // Buscar TODOS os eventos do estabelecimento (passados e futuros)
+          // Não aplicar filtro de data aqui, queremos todos os eventos
+          const eventsRes = await fetch(
+            `${API_URL}/api/v1/eventos?establishment_id=${establishment.id}`,
+            {
+              headers: {
+                Authorization: `Bearer ${token}`,
+              },
+            }
+          );
+          
+          console.log(`🔍 Buscando eventos do estabelecimento ${establishment.name} (ID: ${establishment.id})`);
+
+          if (eventsRes.ok) {
+            const eventsData = await eventsRes.json();
+            const eventos = Array.isArray(eventsData.eventos) ? eventsData.eventos : [];
+            
+            console.log(`✅ Encontrados ${eventos.length} eventos para ${establishment.name}`);
+
+            // Processar cada evento para obter faturamento
+            const establishmentRevenues: EventRevenue[] = [];
+
+            for (const evento of eventos) {
+              try {
+                // Buscar check-ins consolidados do evento
+                // Buscar TODOS os eventos, passados e futuros, para calcular receita completa
+                console.log(`🔍 Buscando check-ins para evento ${evento.evento_id}: ${evento.nome} (${evento.data_evento || 'sem data'})`);
+                const checkinsRes = await fetch(
+                  `${API_URL}/api/v1/eventos/${evento.evento_id}/checkins`,
+                  {
+                    headers: {
+                      Authorization: `Bearer ${token}`,
+                    },
+                  }
+                );
+
+                if (checkinsRes.ok) {
+                  console.log(`📊 Processando evento: ${evento.nome} (${evento.data_evento || 'sem data'})`);
+                  const checkinsData = await checkinsRes.json();
+                  const dados = checkinsData.dados || {};
+                  const estatisticas = checkinsData.estatisticas || {};
+                  
+                  console.log(`✅ Evento ${evento.nome} - Dados recebidos:`, {
+                    convidadosReservas: dados.convidadosReservas?.length || 0,
+                    convidadosReservasRestaurante: dados.convidadosReservasRestaurante?.length || 0,
+                    guestListsRestaurante: dados.guestListsRestaurante?.length || 0,
+                    convidadosPromoters: dados.convidadosPromoters?.length || 0,
+                  });
+
+                  // Helper para converter entrada_valor para número
+                  const toNumber = (value: any): number => {
+                    if (typeof value === 'number') return Math.max(0, value);
+                    if (!value) return 0;
+                    const str = String(value).replace(/[^\d.,]/g, '').replace(',', '.');
+                    const parsed = parseFloat(str);
+                    return isNaN(parsed) ? 0 : Math.max(0, parsed);
+                  };
+
+                  // Calcular faturamento baseado nos check-ins
+                  let totalRevenue = 0;
+                  const revenueByType = { seco: 0, consuma: 0, vip: 0 };
+
+                  // Calcular de convidados de reservas
+                  const convidadosReservas = dados.convidadosReservas || [];
+                  convidadosReservas.forEach((c: any) => {
+                    if (c.status === 'CHECK-IN' && c.entrada_valor) {
+                      const valor = toNumber(c.entrada_valor);
+                      totalRevenue += valor;
+                      if (c.entrada_tipo === 'SECO') revenueByType.seco += valor;
+                      else if (c.entrada_tipo === 'CONSUMA') revenueByType.consuma += valor;
+                    }
+                  });
+
+                  // Calcular de convidados de restaurante
+                  const convidadosReservasRestaurante = dados.convidadosReservasRestaurante || [];
+                  convidadosReservasRestaurante.forEach((c: any) => {
+                    const isCheckedIn = c.status_checkin === 1 || c.status_checkin === true || c.status_checkin === 'Check-in' || c.checked_in === 1 || c.checked_in === true;
+                    if (isCheckedIn && c.entrada_valor) {
+                      const valor = toNumber(c.entrada_valor);
+                      totalRevenue += valor;
+                      if (c.entrada_tipo === 'SECO' || c.entrada_tipo === 'seco') revenueByType.seco += valor;
+                      else if (c.entrada_tipo === 'CONSUMA' || c.entrada_tipo === 'consuma') revenueByType.consuma += valor;
+                    }
+                  });
+
+                  // Calcular de convidados de promoters
+                  const convidadosPromoters = dados.convidadosPromoters || [];
+                  convidadosPromoters.forEach((c: any) => {
+                    if ((c.status_checkin === 'Check-in' || c.status_checkin === 'CHECK-IN') && c.entrada_valor) {
+                      const valor = toNumber(c.entrada_valor);
+                      totalRevenue += valor;
+                      if (c.entrada_tipo === 'SECO') revenueByType.seco += valor;
+                      else if (c.entrada_tipo === 'CONSUMA') revenueByType.consuma += valor;
+                    }
+                  });
+
+                  // Calcular de guest lists de restaurante
+                  // Precisamos buscar os guests individualmente de cada guest list
+                  const guestListsRestaurante = dados.guestListsRestaurante || [];
+                  let totalGuestsRevenue = 0;
+                  let guestsProcessed = 0;
+                  let guestsWithRevenue = 0;
+                  
+                  // Tentar buscar guests da resposta ou fazer requisições adicionais
+                  for (const gl of guestListsRestaurante) {
+                    try {
+                      // Tentar buscar guests desta guest list
+                      const guestsRes = await fetch(
+                        `${API_URL}/api/admin/guest-lists/${gl.guest_list_id}/guests`,
+                        {
+                          headers: {
+                            Authorization: `Bearer ${token}`,
+                          },
+                        }
+                      );
+
+                      if (guestsRes.ok) {
+                        const guestsData = await guestsRes.json();
+                        const guests = Array.isArray(guestsData.guests) ? guestsData.guests : [];
+                        guestsProcessed += guests.length;
+                        
+                        guests.forEach((g: any) => {
+                          const isCheckedIn = g.checked_in === 1 || g.checked_in === true || g.checked_in === 'Check-in';
+                          if (isCheckedIn && g.entrada_valor) {
+                            const valor = toNumber(g.entrada_valor);
+                            totalRevenue += valor;
+                            totalGuestsRevenue += valor;
+                            guestsWithRevenue++;
+                            if (g.entrada_tipo === 'SECO' || g.entrada_tipo === 'seco') revenueByType.seco += valor;
+                            else if (g.entrada_tipo === 'CONSUMA' || g.entrada_tipo === 'consuma') revenueByType.consuma += valor;
+                            else if (g.entrada_tipo === 'VIP' || g.entrada_tipo === 'vip') revenueByType.vip += valor;
+                          }
+                        });
+                      } else {
+                        console.warn(`⚠️ Erro ao buscar guests da guest list ${gl.guest_list_id}: ${guestsRes.status} ${guestsRes.statusText}`);
+                      }
+                    } catch (err) {
+                      console.warn(`Erro ao buscar guests da guest list ${gl.guest_list_id}:`, err);
+                    }
+                  }
+                  
+                  if (guestListsRestaurante.length > 0) {
+                    console.log(`  💰 Guest Lists: ${guestListsRestaurante.length} listas, ${guestsProcessed} guests processados, ${guestsWithRevenue} com receita (R$ ${totalGuestsRevenue.toFixed(2)})`);
+                  }
+
+                  const totalCheckIns = estatisticas.checkinGeral || 0;
+
+                  // Debug log para verificar o cálculo
+                  const checkedInRestaurante = convidadosReservasRestaurante.filter((c: any) => {
+                    const isCheckedIn = c.status_checkin === 1 || c.status_checkin === true || c.status_checkin === 'Check-in' || c.checked_in === 1 || c.checked_in === true;
+                    return isCheckedIn && c.entrada_valor;
+                  });
+                  const convidadosRestauranteRevenue = checkedInRestaurante.reduce((sum: number, c: any) => sum + toNumber(c.entrada_valor), 0);
+                  
+                  console.log(`📊 [${evento.nome}] Faturamento calculado:`, {
+                    totalRevenue,
+                    revenueByType,
+                    totalCheckIns,
+                    data_evento: evento.data_evento,
+                    convidadosReservas: convidadosReservas.length,
+                    convidadosReservasRestaurante: convidadosReservasRestaurante.length,
+                    checkedInRestaurante: checkedInRestaurante.length,
+                    convidadosRestauranteRevenue,
+                    guestsWithRevenue,
+                    totalGuestsRevenue,
+                    convidadosPromoters: convidadosPromoters.length,
+                    guestListsRestaurante: guestListsRestaurante.length,
+                  });
+
+                  establishmentRevenues.push({
+                    evento_id: evento.evento_id,
+                    nome: evento.nome || 'Sem nome',
+                    data_evento: evento.data_evento || '',
+                    establishment_id: establishment.id,
+                    establishment_name: establishment.name,
+                    totalCheckIns,
+                    totalRevenue,
+                    revenueByType,
+                  });
+                }
+              } catch (err) {
+                console.error(`Erro ao buscar check-ins do evento ${evento.evento_id}:`, err);
+              }
+            }
+
+            eventsByEstablishment[establishment.id] = establishmentRevenues;
+
+            // Calcular faturamento por período
+            const todayDate = new Date();
+            todayDate.setHours(0, 0, 0, 0);
+            const weekAgo = new Date(todayDate);
+            weekAgo.setDate(weekAgo.getDate() - 7);
+            const monthAgo = new Date(todayDate);
+            monthAgo.setMonth(monthAgo.getMonth() - 1);
+
+            let revenueDay = 0;
+            let revenueWeek = 0;
+            let revenueMonth = 0;
+            let revenueTotal = 0;
+
+            establishmentRevenues.forEach((er) => {
+              revenueTotal += er.totalRevenue;
+              
+              if (er.data_evento) {
+                const eventDate = new Date(er.data_evento);
+                eventDate.setHours(0, 0, 0, 0);
+
+                if (eventDate.getTime() === todayDate.getTime()) {
+                  revenueDay += er.totalRevenue;
+                }
+
+                if (eventDate >= weekAgo) {
+                  revenueWeek += er.totalRevenue;
+                }
+
+                if (eventDate >= monthAgo) {
+                  revenueMonth += er.totalRevenue;
+                }
+              }
+            });
+
+            revenueByPeriodData[establishment.id] = {
+              day: revenueDay,
+              week: revenueWeek,
+              month: revenueMonth,
+              total: revenueTotal,
+            };
+          }
+        } catch (err) {
+          console.error(`Erro ao buscar eventos do estabelecimento ${establishment.id}:`, err);
+        }
+      }
+
+      // Flatten eventsByEstablishment para array
+      const allEventRevenues: EventRevenue[] = [];
+      Object.values(eventsByEstablishment).forEach((revenues) => {
+        allEventRevenues.push(...revenues);
+      });
+
+      setEventRevenues(allEventRevenues);
+      setRevenueByPeriod(revenueByPeriodData);
+    } catch (error) {
+      console.error("Erro ao carregar faturamento dos eventos:", error);
+    } finally {
+      setLoadingEvents(false);
+    }
+  }, [establishments]);
+
   // Carregar todos os dados
   const loadAllData = useCallback(async () => {
     setLoading(true);
@@ -270,6 +541,19 @@ export default function ReservesPage() {
   useEffect(() => {
     loadAllData();
   }, [loadAllData]);
+
+  useEffect(() => {
+    if (establishments.length > 0) {
+      console.log('🔄 Carregando faturamento dos eventos...');
+      loadEventRevenues();
+    }
+  }, [establishments, loadEventRevenues]);
+
+  // Recarregar eventos quando o filtro de período mudar
+  useEffect(() => {
+    // Não precisa recarregar, apenas filtrar os eventos já carregados
+    console.log('📅 Filtro de período alterado:', periodFilter);
+  }, [periodFilter]);
 
   // Filtrar reservas por modo de visualização
   const filteredReservations = useMemo(() => {
@@ -463,6 +747,284 @@ export default function ReservesPage() {
     return timeString.substring(0, 5); // HH:MM
   };
 
+  // Função para imprimir relatório
+  const printReport = (establishmentId?: number, period?: "day" | "week" | "month" | "all" | "custom") => {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      alert('Por favor, permita pop-ups para imprimir o relatório');
+      return;
+    }
+
+    const today = new Date();
+    let periodText = "Todos os Períodos";
+    if (period === "day") {
+      periodText = "Hoje";
+    } else if (period === "week") {
+      periodText = "Esta Semana";
+    } else if (period === "month") {
+      periodText = "Este Mês";
+    } else if (period === "custom" && periodFilter.startDate && periodFilter.endDate) {
+      periodText = `${formatDate(periodFilter.startDate)} - ${formatDate(periodFilter.endDate)}`;
+    }
+
+    let filteredEventRevenues = eventRevenues;
+    if (establishmentId) {
+      filteredEventRevenues = eventRevenues.filter(er => er.establishment_id === establishmentId);
+    }
+
+    // Filtrar por período se necessário
+    if (period && period !== "all") {
+      const todayDate = new Date();
+      todayDate.setHours(0, 0, 0, 0);
+      let startDate: Date;
+      let endDate: Date | null = null;
+
+      if (period === "day") {
+        startDate = new Date(todayDate);
+        endDate = new Date(todayDate);
+        endDate.setHours(23, 59, 59, 999);
+      } else if (period === "week") {
+        startDate = new Date(todayDate);
+        startDate.setDate(startDate.getDate() - 7);
+      } else if (period === "month") {
+        startDate = new Date(todayDate);
+        startDate.setMonth(startDate.getMonth() - 1);
+      } else if (period === "custom" && periodFilter.startDate && periodFilter.endDate) {
+        startDate = new Date(periodFilter.startDate);
+        startDate.setHours(0, 0, 0, 0);
+        endDate = new Date(periodFilter.endDate);
+        endDate.setHours(23, 59, 59, 999);
+      } else {
+        startDate = new Date(todayDate);
+      }
+
+      filteredEventRevenues = filteredEventRevenues.filter(er => {
+        if (!er.data_evento) return false;
+        const eventDate = new Date(er.data_evento);
+        eventDate.setHours(0, 0, 0, 0);
+        const isAfterStart = eventDate >= startDate;
+        const isBeforeEnd = endDate ? eventDate <= endDate : true;
+        return isAfterStart && isBeforeEnd;
+      });
+    }
+
+    // Agrupar por estabelecimento
+    const revenuesByEst: Record<number, EventRevenue[]> = {};
+    filteredEventRevenues.forEach(er => {
+      if (!revenuesByEst[er.establishment_id]) {
+        revenuesByEst[er.establishment_id] = [];
+      }
+      revenuesByEst[er.establishment_id].push(er);
+    });
+
+    // Calcular totais
+    const totalRevenue = filteredEventRevenues.reduce((sum, er) => sum + er.totalRevenue, 0);
+    const totalCheckIns = filteredEventRevenues.reduce((sum, er) => sum + er.totalCheckIns, 0);
+
+    let htmlContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8">
+        <title>Relatório de Faturamento - ${periodText}</title>
+        <style>
+          @media print {
+            @page { margin: 2cm; }
+          }
+          body { 
+            font-family: Arial, sans-serif; 
+            margin: 20px; 
+            color: #333;
+          }
+          h1 { 
+            color: #f97316; 
+            border-bottom: 3px solid #f97316; 
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+          }
+          h2 {
+            color: #555;
+            margin-top: 30px;
+            margin-bottom: 15px;
+            border-bottom: 2px solid #ddd;
+            padding-bottom: 5px;
+          }
+          .header {
+            margin-bottom: 30px;
+          }
+          .totals {
+            background: #f9fafb;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 30px;
+          }
+          .totals h3 {
+            margin-top: 0;
+            color: #f97316;
+          }
+          .totals-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            margin-top: 15px;
+          }
+          .total-item {
+            padding: 15px;
+            background: white;
+            border-radius: 6px;
+            border-left: 4px solid #f97316;
+          }
+          .total-label {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 5px;
+          }
+          .total-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #10b981;
+          }
+          .establishment {
+            margin-bottom: 40px;
+            page-break-inside: avoid;
+          }
+          .establishment-header {
+            background: #f97316;
+            color: white;
+            padding: 15px;
+            border-radius: 6px 6px 0 0;
+            font-size: 18px;
+            font-weight: bold;
+          }
+          .event-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+          }
+          .event-table th {
+            background: #f3f4f6;
+            padding: 12px;
+            text-align: left;
+            border-bottom: 2px solid #e5e7eb;
+            font-weight: bold;
+          }
+          .event-table td {
+            padding: 10px 12px;
+            border-bottom: 1px solid #e5e7eb;
+          }
+          .event-table tr:hover {
+            background: #f9fafb;
+          }
+          .revenue {
+            color: #10b981;
+            font-weight: bold;
+          }
+          .checkins {
+            color: #3b82f6;
+            font-weight: bold;
+          }
+          .period-badge {
+            display: inline-block;
+            background: #eff6ff;
+            color: #1e40af;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 12px;
+            margin-left: 10px;
+          }
+          @media print {
+            .no-print { display: none; }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <h1>Relatório de Faturamento por Estabelecimento</h1>
+          <p><strong>Período:</strong> ${periodText} <span class="period-badge">${today.toLocaleDateString('pt-BR')}</span></p>
+        </div>
+
+        <div class="totals">
+          <h3>Resumo Geral</h3>
+          <div class="totals-grid">
+            <div class="total-item">
+              <div class="total-label">Total Faturado</div>
+              <div class="total-value">${formatCurrency(totalRevenue)}</div>
+            </div>
+            <div class="total-item">
+              <div class="total-label">Total de Check-ins</div>
+              <div class="total-value">${totalCheckIns}</div>
+            </div>
+          </div>
+        </div>
+    `;
+
+    // Adicionar dados por estabelecimento
+    Object.entries(revenuesByEst).forEach(([estId, events]) => {
+      const establishment = establishments.find(e => e.id === Number(estId));
+      if (!establishment) return;
+
+      const estTotalRevenue = events.reduce((sum, e) => sum + e.totalRevenue, 0);
+      const estTotalCheckIns = events.reduce((sum, e) => sum + e.totalCheckIns, 0);
+
+      htmlContent += `
+        <div class="establishment">
+          <div class="establishment-header">
+            ${establishment.name}
+          </div>
+          <div style="padding: 15px; background: white; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 6px 6px;">
+            <p><strong>Total do Estabelecimento:</strong> <span class="revenue">${formatCurrency(estTotalRevenue)}</span> • <span class="checkins">${estTotalCheckIns} check-ins</span></p>
+            
+            <table class="event-table">
+              <thead>
+                <tr>
+                  <th>Evento</th>
+                  <th>Data</th>
+                  <th>Check-ins</th>
+                  <th>SECO</th>
+                  <th>CONSUMA</th>
+                  <th>Total</th>
+                </tr>
+              </thead>
+              <tbody>
+      `;
+
+      events.forEach(event => {
+        htmlContent += `
+          <tr>
+            <td>${event.nome}</td>
+            <td>${event.data_evento ? formatDate(event.data_evento) : 'N/A'}</td>
+            <td class="checkins">${event.totalCheckIns}</td>
+            <td>${formatCurrency(event.revenueByType.seco)}</td>
+            <td>${formatCurrency(event.revenueByType.consuma)}</td>
+            <td class="revenue">${formatCurrency(event.totalRevenue)}</td>
+          </tr>
+        `;
+      });
+
+      htmlContent += `
+              </tbody>
+            </table>
+          </div>
+        </div>
+      `;
+    });
+
+    htmlContent += `
+      </body>
+      </html>
+    `;
+
+    printWindow.document.write(htmlContent);
+    printWindow.document.close();
+
+    printWindow.onload = () => {
+      setTimeout(() => {
+        printWindow.print();
+      }, 250);
+    };
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 flex items-center justify-center">
@@ -492,7 +1054,7 @@ export default function ReservesPage() {
 
         {/* Filtros */}
         <div className="bg-slate-800/50 backdrop-blur-sm rounded-xl p-6 mb-6 border border-slate-700">
-          <div className="mb-4 flex gap-2">
+          <div className="mb-4 flex flex-wrap gap-2">
             <button
               onClick={() => setViewMode("all")}
               className={`px-4 py-2 rounded-lg font-semibold transition-colors ${
@@ -523,6 +1085,86 @@ export default function ReservesPage() {
             >
               Hoje
             </button>
+          </div>
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-300 mb-2">
+              <MdDateRange className="inline mr-2" size={20} />
+              Filtro por Período
+            </label>
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={() => setPeriodFilter({ type: "all" })}
+                className={`px-4 py-2 rounded-lg font-semibold transition-colors ${
+                  periodFilter.type === "all"
+                    ? "bg-green-600 text-white"
+                    : "bg-slate-700 text-gray-300 hover:bg-slate-600"
+                }`}
+              >
+                Todos os Períodos
+              </button>
+              <button
+                onClick={() => setPeriodFilter({ type: "today" })}
+                className={`px-4 py-2 rounded-lg font-semibold transition-colors ${
+                  periodFilter.type === "today"
+                    ? "bg-green-600 text-white"
+                    : "bg-slate-700 text-gray-300 hover:bg-slate-600"
+                }`}
+              >
+                Hoje
+              </button>
+              <button
+                onClick={() => setPeriodFilter({ type: "week" })}
+                className={`px-4 py-2 rounded-lg font-semibold transition-colors ${
+                  periodFilter.type === "week"
+                    ? "bg-green-600 text-white"
+                    : "bg-slate-700 text-gray-300 hover:bg-slate-600"
+                }`}
+              >
+                Esta Semana
+              </button>
+              <button
+                onClick={() => setPeriodFilter({ type: "month" })}
+                className={`px-4 py-2 rounded-lg font-semibold transition-colors ${
+                  periodFilter.type === "month"
+                    ? "bg-green-600 text-white"
+                    : "bg-slate-700 text-gray-300 hover:bg-slate-600"
+                }`}
+              >
+                Este Mês
+              </button>
+              <button
+                onClick={() => setPeriodFilter({ type: "custom" })}
+                className={`px-4 py-2 rounded-lg font-semibold transition-colors ${
+                  periodFilter.type === "custom"
+                    ? "bg-green-600 text-white"
+                    : "bg-slate-700 text-gray-300 hover:bg-slate-600"
+                }`}
+              >
+                Personalizado
+              </button>
+            </div>
+            {periodFilter.type === "custom" && (
+              <div className="mt-4 grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm text-gray-400 mb-1">Data Inicial</label>
+                  <input
+                    type="date"
+                    value={periodFilter.startDate || ""}
+                    onChange={(e) => setPeriodFilter({ ...periodFilter, startDate: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:border-green-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm text-gray-400 mb-1">Data Final</label>
+                  <input
+                    type="date"
+                    value={periodFilter.endDate || ""}
+                    onChange={(e) => setPeriodFilter({ ...periodFilter, endDate: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:border-green-500"
+                  />
+                </div>
+              </div>
+            )}
           </div>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="relative">
@@ -641,6 +1283,289 @@ export default function ReservesPage() {
             <p className="text-gray-400 text-sm">Reservas normais</p>
           </div>
         </div>
+
+        {/* Faturamento por Período */}
+        {establishments.length > 0 && (
+          <div className="mb-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-2xl font-bold flex items-center gap-2">
+                <MdAttachMoney className="text-green-500" size={28} />
+                Faturamento por Período
+              </h2>
+              <button
+                onClick={() => printReport(undefined, "all")}
+                className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg transition-colors font-semibold"
+              >
+                <MdPrint size={20} />
+                Imprimir Relatório Completo
+              </button>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {establishments.map((est) => {
+                const periodData = revenueByPeriod[est.id] || { day: 0, week: 0, month: 0, total: 0 };
+                return (
+                  <div key={est.id} className="bg-slate-800/50 backdrop-blur-sm rounded-xl p-6 border border-slate-700">
+                    <div className="flex items-center gap-3 mb-4">
+                      {est.logo ? (
+                        <div className="relative w-10 h-10 flex-shrink-0">
+                          <SafeImage
+                            src={est.logo}
+                            alt={est.name}
+                            fill
+                            sizes="40px"
+                            className="rounded-lg object-cover"
+                            unoptimized={true}
+                          />
+                        </div>
+                      ) : (
+                        <MdLocationOn className="text-gray-400" size={24} />
+                      )}
+                      <h3 className="text-lg font-bold">{est.name}</h3>
+                    </div>
+                    <div className="space-y-3 mb-4">
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-400 text-sm">Hoje</span>
+                        <span className="text-green-400 font-semibold">{formatCurrency(periodData.day)}</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-400 text-sm">Esta Semana</span>
+                        <span className="text-green-400 font-semibold">{formatCurrency(periodData.week)}</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-400 text-sm">Este Mês</span>
+                        <span className="text-green-400 font-semibold">{formatCurrency(periodData.month)}</span>
+                      </div>
+                      <div className="border-t border-slate-700 pt-3 flex justify-between items-center">
+                        <span className="text-gray-300 font-semibold">Total</span>
+                        <span className="text-green-300 font-bold text-lg">{formatCurrency(periodData.total)}</span>
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => printReport(est.id, "day")}
+                        className="flex-1 px-3 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors text-xs font-semibold"
+                        title="Imprimir relatório de hoje"
+                      >
+                        <MdPrint size={14} className="inline mr-1" />
+                        Hoje
+                      </button>
+                      <button
+                        onClick={() => printReport(est.id, "week")}
+                        className="flex-1 px-3 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors text-xs font-semibold"
+                        title="Imprimir relatório da semana"
+                      >
+                        <MdPrint size={14} className="inline mr-1" />
+                        Semana
+                      </button>
+                      <button
+                        onClick={() => printReport(est.id, "month")}
+                        className="flex-1 px-3 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors text-xs font-semibold"
+                        title="Imprimir relatório do mês"
+                      >
+                        <MdPrint size={14} className="inline mr-1" />
+                        Mês
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Faturamento dos Eventos por Estabelecimento */}
+        {establishments.length > 0 && (
+          <div className="mb-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-2xl font-bold flex items-center gap-2">
+                <MdEvent className="text-orange-500" size={28} />
+                Faturamento dos Eventos
+              </h2>
+              {loadingEvents && (
+                <span className="text-gray-400 text-sm">Carregando eventos...</span>
+              )}
+            </div>
+            <div className="space-y-4">
+              {establishments.map((est) => {
+                // Filtrar eventos por período se necessário
+                let estEvents = eventRevenues.filter(er => er.establishment_id === est.id);
+                
+                if (periodFilter.type && periodFilter.type !== "all") {
+                  const todayDate = new Date();
+                  todayDate.setHours(0, 0, 0, 0);
+                  let startDate: Date;
+                  let endDate: Date | null = null;
+
+                  if (periodFilter.type === "today") {
+                    startDate = new Date(todayDate);
+                    endDate = new Date(todayDate);
+                    endDate.setHours(23, 59, 59, 999);
+                  } else if (periodFilter.type === "week") {
+                    startDate = new Date(todayDate);
+                    startDate.setDate(startDate.getDate() - 7);
+                  } else if (periodFilter.type === "month") {
+                    startDate = new Date(todayDate);
+                    startDate.setMonth(startDate.getMonth() - 1);
+                  } else if (periodFilter.type === "custom" && periodFilter.startDate && periodFilter.endDate) {
+                    startDate = new Date(periodFilter.startDate);
+                    startDate.setHours(0, 0, 0, 0);
+                    endDate = new Date(periodFilter.endDate);
+                    endDate.setHours(23, 59, 59, 999);
+                  } else {
+                    startDate = new Date(0); // Todos os eventos
+                  }
+
+                  estEvents = estEvents.filter(er => {
+                    if (!er.data_evento) return false;
+                    const eventDate = new Date(er.data_evento);
+                    eventDate.setHours(0, 0, 0, 0);
+                    const isAfterStart = eventDate >= startDate;
+                    const isBeforeEnd = endDate ? eventDate <= endDate : true;
+                    return isAfterStart && isBeforeEnd;
+                  });
+                }
+                const estTotalRevenue = estEvents.reduce((sum, e) => sum + e.totalRevenue, 0);
+                const estTotalCheckIns = estEvents.reduce((sum, e) => sum + e.totalCheckIns, 0);
+                const isExpanded = showEventRevenues[est.id];
+
+                if (estEvents.length === 0) return null;
+
+                return (
+                  <div key={est.id} className="bg-slate-800/50 backdrop-blur-sm rounded-xl border border-slate-700 overflow-hidden">
+                    <button
+                      onClick={() => setShowEventRevenues(prev => ({ ...prev, [est.id]: !prev[est.id] }))}
+                      className="w-full p-6 flex items-center justify-between hover:bg-slate-700/50 transition-colors"
+                    >
+                      <div className="flex items-center gap-4">
+                        {est.logo ? (
+                          <div className="relative w-12 h-12 flex-shrink-0">
+                            <SafeImage
+                              src={est.logo}
+                              alt={est.name}
+                              fill
+                              sizes="48px"
+                              className="rounded-lg object-cover"
+                              unoptimized={true}
+                            />
+                          </div>
+                        ) : (
+                          <div className="w-12 h-12 flex-shrink-0 bg-slate-700 rounded-lg flex items-center justify-center">
+                            <MdLocationOn className="text-gray-400" size={24} />
+                          </div>
+                        )}
+                        <div className="text-left">
+                          <h3 className="text-xl font-bold">{est.name}</h3>
+                          <p className="text-gray-400 text-sm">
+                            {estEvents.length} evento{estEvents.length !== 1 ? "s" : ""} • {estTotalCheckIns} check-ins
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-6">
+                        <div className="text-right">
+                          <p className="text-2xl font-bold text-green-400">
+                            {formatCurrency(estTotalRevenue)}
+                          </p>
+                          <p className="text-gray-400 text-sm">Total faturado</p>
+                        </div>
+                        {isExpanded ? (
+                          <MdExpandLess size={24} className="text-gray-400" />
+                        ) : (
+                          <MdExpandMore size={24} className="text-gray-400" />
+                        )}
+                      </div>
+                    </button>
+
+                    {isExpanded && (
+                      <div className="border-t border-slate-700 p-6 space-y-4">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                          <button
+                            onClick={() => printReport(est.id, "day")}
+                            className="flex items-center justify-center gap-2 px-4 py-3 bg-green-600 hover:bg-green-700 rounded-lg transition-colors font-semibold"
+                          >
+                            <MdPrint size={20} />
+                            Imprimir Relatório - Hoje
+                          </button>
+                          <button
+                            onClick={() => printReport(est.id, "week")}
+                            className="flex items-center justify-center gap-2 px-4 py-3 bg-green-600 hover:bg-green-700 rounded-lg transition-colors font-semibold"
+                          >
+                            <MdPrint size={20} />
+                            Imprimir Relatório - Semana
+                          </button>
+                          <button
+                            onClick={() => printReport(est.id, "month")}
+                            className="flex items-center justify-center gap-2 px-4 py-3 bg-green-600 hover:bg-green-700 rounded-lg transition-colors font-semibold"
+                          >
+                            <MdPrint size={20} />
+                            Imprimir Relatório - Mês
+                          </button>
+                        </div>
+                        <div className="overflow-x-auto">
+                          <table className="w-full">
+                            <thead>
+                              <tr className="border-b border-slate-700">
+                                <th className="text-left py-3 px-4 text-gray-300">Evento</th>
+                                <th className="text-left py-3 px-4 text-gray-300">Data</th>
+                                <th className="text-right py-3 px-4 text-gray-300">Check-ins</th>
+                                <th className="text-right py-3 px-4 text-gray-300">SECO</th>
+                                <th className="text-right py-3 px-4 text-gray-300">CONSUMA</th>
+                                <th className="text-right py-3 px-4 text-gray-300">Total</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {estEvents.map((event) => (
+                                <tr key={event.evento_id} className="border-b border-slate-700/50 hover:bg-slate-700/30">
+                                  <td className="py-3 px-4">
+                                    <Link
+                                      href={`/admin/eventos/${event.evento_id}/check-ins`}
+                                      className="text-white hover:text-orange-400 transition-colors font-medium"
+                                    >
+                                      {event.nome}
+                                    </Link>
+                                  </td>
+                                  <td className="py-3 px-4 text-gray-400">
+                                    {event.data_evento ? formatDate(event.data_evento) : 'N/A'}
+                                  </td>
+                                  <td className="py-3 px-4 text-right text-blue-400 font-semibold">
+                                    {event.totalCheckIns}
+                                  </td>
+                                  <td className="py-3 px-4 text-right text-green-400">
+                                    {formatCurrency(event.revenueByType.seco)}
+                                  </td>
+                                  <td className="py-3 px-4 text-right text-green-400">
+                                    {formatCurrency(event.revenueByType.consuma)}
+                                  </td>
+                                  <td className="py-3 px-4 text-right text-green-300 font-bold">
+                                    {formatCurrency(event.totalRevenue)}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                            <tfoot>
+                              <tr className="border-t-2 border-slate-600 bg-slate-700/30">
+                                <td colSpan={2} className="py-3 px-4 font-bold text-white">Total</td>
+                                <td className="py-3 px-4 text-right font-bold text-blue-400">{estTotalCheckIns}</td>
+                                <td className="py-3 px-4 text-right font-bold text-green-400">
+                                  {formatCurrency(estEvents.reduce((sum, e) => sum + e.revenueByType.seco, 0))}
+                                </td>
+                                <td className="py-3 px-4 text-right font-bold text-green-400">
+                                  {formatCurrency(estEvents.reduce((sum, e) => sum + e.revenueByType.consuma, 0))}
+                                </td>
+                                <td className="py-3 px-4 text-right font-bold text-green-300 text-lg">
+                                  {formatCurrency(estTotalRevenue)}
+                                </td>
+                              </tr>
+                            </tfoot>
+                          </table>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* Lista por estabelecimento */}
         <div className="space-y-4">

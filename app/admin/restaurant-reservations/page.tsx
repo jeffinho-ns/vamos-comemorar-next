@@ -65,10 +65,15 @@ type TabType = 'reservations' | 'walk-ins' | 'waitlist' | 'guest-lists' | 'repor
 export default function RestaurantReservationsPage() {
   const establishmentPermissions = useEstablishmentPermissions();
   const [selectedEstablishment, setSelectedEstablishment] = useState<Establishment | null>(null);
-  const [establishments, setEstablishments] = useState<Establishment[]>([]);
+  const [allEstablishments, setAllEstablishments] = useState<Establishment[]>([]); // Lista completa (antes do filtro)
+  const [establishments, setEstablishments] = useState<Establishment[]>([]); // Lista filtrada
   const [activeTab, setActiveTab] = useState<TabType>('reservations');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  
+  // Refs para evitar loops infinitos
+  const hasFilteredRef = useRef(false);
+  const hasSelectedRef = useRef(false);
 
   const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL_LOCAL || 'https://vamos-comemorar-api.onrender.com';
 
@@ -110,17 +115,55 @@ export default function RestaurantReservationsPage() {
         setError("Dados de estabelecimentos inválidos.");
       }
       
-      // Filtrar estabelecimentos baseado nas permissões do usuário
-      const filteredEstablishments = establishmentPermissions.getFilteredEstablishments(formattedEstablishments);
-      setEstablishments(filteredEstablishments);
+      // Armazenar lista completa
+      setAllEstablishments(formattedEstablishments);
       
-      // Se o usuário está restrito a um único estabelecimento, seleciona automaticamente
-      if (establishmentPermissions.isRestrictedToSingleEstablishment() && filteredEstablishments.length > 0) {
-        const defaultId = establishmentPermissions.getDefaultEstablishmentId();
-        if (defaultId && !selectedEstablishment) {
-          const defaultEst = filteredEstablishments.find(est => est.id === defaultId);
-          if (defaultEst) {
-            setSelectedEstablishment(defaultEst);
+      // Filtrar estabelecimentos baseado nas permissões do usuário
+      // IMPORTANTE: Só filtrar se as permissões já foram carregadas
+      let filteredEstablishments: Establishment[] = [];
+      if (!establishmentPermissions.isLoading) {
+        filteredEstablishments = establishmentPermissions.getFilteredEstablishments(formattedEstablishments);
+        console.log(`📋 [RESTAURANT RESERVATIONS] Estabelecimentos filtrados: ${filteredEstablishments.length} de ${formattedEstablishments.length}`, filteredEstablishments.map(e => ({ id: e.id, name: e.name })));
+        setEstablishments(filteredEstablishments);
+      } else {
+        // Se as permissões ainda não foram carregadas, usar todos temporariamente (será filtrado depois)
+        filteredEstablishments = formattedEstablishments;
+        setEstablishments(filteredEstablishments);
+        console.log(`⚠️ [RESTAURANT RESERVATIONS] Permissões ainda não carregadas, usando todos os estabelecimentos temporariamente`);
+      }
+      
+      // Selecionar automaticamente se houver apenas um estabelecimento ou se estiver restrito
+      // Mas apenas se as permissões já foram carregadas e ainda não foi selecionado
+      if (!establishmentPermissions.isLoading && !hasSelectedRef.current) {
+        if (filteredEstablishments.length === 1) {
+          // Sempre selecionar se há apenas um disponível
+          const estabelecimentoUnico = filteredEstablishments[0];
+          setSelectedEstablishment(estabelecimentoUnico);
+          hasSelectedRef.current = true;
+          console.log(`✅ [RESTAURANT RESERVATIONS] Estabelecimento único selecionado automaticamente: ${estabelecimentoUnico.id} - ${estabelecimentoUnico.name}`);
+        } else if (establishmentPermissions.isRestrictedToSingleEstablishment() && filteredEstablishments.length > 0) {
+          const defaultId = establishmentPermissions.getDefaultEstablishmentId();
+          console.log(`🔍 [RESTAURANT RESERVATIONS] Usuário restrito detectado. Default ID: ${defaultId}, Estabelecimentos disponíveis:`, filteredEstablishments.map(e => ({ id: e.id, name: e.name })));
+          
+          if (defaultId) {
+            const defaultEst = filteredEstablishments.find(est => est.id === defaultId);
+            if (defaultEst) {
+              setSelectedEstablishment(defaultEst);
+              hasSelectedRef.current = true;
+              console.log(`✅ [RESTAURANT RESERVATIONS] Estabelecimento selecionado via permissões: ${defaultId} - ${defaultEst.name}`);
+            } else {
+              console.warn(`⚠️ [RESTAURANT RESERVATIONS] ID ${defaultId} não encontrado na lista filtrada. Usando primeiro disponível.`);
+              if (filteredEstablishments.length > 0) {
+                setSelectedEstablishment(filteredEstablishments[0]);
+                hasSelectedRef.current = true;
+                console.log(`✅ [RESTAURANT RESERVATIONS] Estabelecimento selecionado (fallback): ${filteredEstablishments[0].id} - ${filteredEstablishments[0].name}`);
+              }
+            }
+          } else if (filteredEstablishments.length > 0) {
+            // Fallback: selecionar o primeiro se não houver defaultId
+            setSelectedEstablishment(filteredEstablishments[0]);
+            hasSelectedRef.current = true;
+            console.log(`✅ [RESTAURANT RESERVATIONS] Estabelecimento selecionado (fallback sem defaultId): ${filteredEstablishments[0].id} - ${filteredEstablishments[0].name}`);
           }
         }
       }
@@ -170,28 +213,60 @@ export default function RestaurantReservationsPage() {
     }
   }, [API_URL]);
 
+  // Ref para evitar múltiplas chamadas
+  const hasFetchedRef = useRef(false);
+  
   useEffect(() => {
-    fetchEstablishments();
-  }, [fetchEstablishments]);
-
-  // Carregar dados imediatamente quando um estabelecimento é selecionado
-  useEffect(() => {
-    if (selectedEstablishment) {
-      loadEstablishmentData();
+    // Aguardar o hook carregar as permissões antes de buscar estabelecimentos
+    if (!establishmentPermissions.isLoading && !hasFetchedRef.current) {
+      hasFetchedRef.current = true;
+      fetchEstablishments();
     }
-  }, [selectedEstablishment]);
+  }, [establishmentPermissions.isLoading]);
 
-  // Atualizar dados em tempo real
+  // Efeito adicional para refiltrar estabelecimentos quando permissões forem carregadas
   useEffect(() => {
-    if (selectedEstablishment) {
-      const interval = setInterval(() => {
-        loadEstablishmentData();
-      }, 30000); // Atualizar a cada 30 segundos
-
-      return () => clearInterval(interval);
+    // Só executar uma vez quando as permissões carregarem e houver estabelecimentos
+    if (!establishmentPermissions.isLoading && allEstablishments.length > 0 && !hasFilteredRef.current) {
+      // Refiltrar estabelecimentos agora que as permissões estão carregadas
+      const filteredEstabs = establishmentPermissions.getFilteredEstablishments(allEstablishments);
+      console.log(`🔄 [RESTAURANT RESERVATIONS] Refiltrando estabelecimentos após permissões carregarem: ${filteredEstabs.length} de ${allEstablishments.length}`, filteredEstabs.map(e => ({ id: e.id, name: e.name })));
+      
+      // Atualizar lista de estabelecimentos filtrados
+      setEstablishments(filteredEstabs);
+      hasFilteredRef.current = true;
+      
+      // Selecionar automaticamente se ainda não houver seleção
+      if (!selectedEstablishment && !hasSelectedRef.current) {
+        const isRestricted = establishmentPermissions.isRestrictedToSingleEstablishment();
+        const hasOnlyOne = filteredEstabs.length === 1;
+        
+        console.log(`🔍 [RESTAURANT RESERVATIONS] useEffect seleção - isRestricted: ${isRestricted}, hasOnlyOne: ${hasOnlyOne}`);
+        
+        if (isRestricted || hasOnlyOne) {
+          const defaultId = establishmentPermissions.getDefaultEstablishmentId();
+          console.log(`🔍 [RESTAURANT RESERVATIONS] Default ID das permissões: ${defaultId}`);
+          
+          if (defaultId) {
+            const estabelecimentoEncontrado = filteredEstabs.find(e => e.id === defaultId);
+            if (estabelecimentoEncontrado) {
+              setSelectedEstablishment(estabelecimentoEncontrado);
+              hasSelectedRef.current = true;
+              console.log(`✅ [RESTAURANT RESERVATIONS] Estabelecimento selecionado via useEffect: ${defaultId} - ${estabelecimentoEncontrado.name}`);
+            } else if (hasOnlyOne && filteredEstabs.length > 0) {
+              setSelectedEstablishment(filteredEstabs[0]);
+              hasSelectedRef.current = true;
+              console.log(`✅ [RESTAURANT RESERVATIONS] Estabelecimento selecionado (único disponível): ${filteredEstabs[0].id} - ${filteredEstabs[0].name}`);
+            }
+          } else if (hasOnlyOne && filteredEstabs.length > 0) {
+            setSelectedEstablishment(filteredEstabs[0]);
+            hasSelectedRef.current = true;
+            console.log(`✅ [RESTAURANT RESERVATIONS] Estabelecimento selecionado (único disponível, fallback): ${filteredEstabs[0].id} - ${filteredEstabs[0].name}`);
+          }
+        }
+      }
     }
-    return undefined;
-  }, [selectedEstablishment]);
+  }, [establishmentPermissions.isLoading, allEstablishments.length]);
   
   // Estados para Reservas
   const [reservations, setReservations] = useState<Reservation[]>([]);
@@ -348,11 +423,21 @@ export default function RestaurantReservationsPage() {
   };
 
   const loadEstablishmentData = useCallback(async () => {
-    if (!selectedEstablishment) return;
+    if (!selectedEstablishment) {
+      console.warn(`⚠️ [RESTAURANT RESERVATIONS] loadEstablishmentData chamado mas nenhum estabelecimento selecionado`);
+      return;
+    }
+    
+    console.log(`🔄 [RESTAURANT RESERVATIONS] loadEstablishmentData iniciado para: ${selectedEstablishment.id} - ${selectedEstablishment.name}`);
     
     // ### INÍCIO DA CORREÇÃO ###
     // Pega o token de autenticação no início da função
     const token = localStorage.getItem("authToken");
+    
+    if (!token) {
+      console.error(`❌ [RESTAURANT RESERVATIONS] Token de autenticação não encontrado`);
+      return;
+    }
 
     // Cria um objeto de cabeçalhos para ser reutilizado em todas as chamadas
     const authHeaders = {
@@ -441,6 +526,43 @@ export default function RestaurantReservationsPage() {
       setWaitlist([]);
     }
   }, [selectedEstablishment, API_URL]);
+
+  // Carregar dados imediatamente quando um estabelecimento é selecionado
+  useEffect(() => {
+    if (selectedEstablishment) {
+      if (loadEstablishmentData) {
+        console.log(`🔄 [RESTAURANT RESERVATIONS] Estabelecimento selecionado detectado: ${selectedEstablishment.id} - ${selectedEstablishment.name}`);
+        console.log(`🔄 [RESTAURANT RESERVATIONS] Iniciando carregamento de dados...`);
+        loadEstablishmentData();
+      } else {
+        console.warn(`⚠️ [RESTAURANT RESERVATIONS] Estabelecimento selecionado mas loadEstablishmentData ainda não está disponível. Aguardando...`);
+      }
+    }
+  }, [selectedEstablishment, loadEstablishmentData]);
+  
+  // Efeito adicional para garantir carregamento quando loadEstablishmentData for criado
+  useEffect(() => {
+    if (selectedEstablishment && loadEstablishmentData && !loading) {
+      console.log(`🔄 [RESTAURANT RESERVATIONS] loadEstablishmentData disponível, verificando se precisa carregar dados...`);
+      // Verificar se já há dados carregados (se não houver, carregar)
+      if (reservations.length === 0 && walkIns.length === 0 && waitlist.length === 0) {
+        console.log(`🔄 [RESTAURANT RESERVATIONS] Nenhum dado carregado ainda, iniciando carregamento...`);
+        loadEstablishmentData();
+      }
+    }
+  }, [loadEstablishmentData, loading]);
+
+  // Atualizar dados em tempo real
+  useEffect(() => {
+    if (selectedEstablishment) {
+      const interval = setInterval(() => {
+        loadEstablishmentData();
+      }, 30000); // Atualizar a cada 30 segundos
+
+      return () => clearInterval(interval);
+    }
+    return undefined;
+  }, [selectedEstablishment, loadEstablishmentData]);
 
   // Handlers para Reservas
   const handleDateSelect = (date: Date, dateReservations: Reservation[]) => {
@@ -926,7 +1048,7 @@ export default function RestaurantReservationsPage() {
         </div>
 
         {/* Seleção de Estabelecimento */}
-        {!selectedEstablishment ? (
+        {!selectedEstablishment && !loading && !establishmentPermissions.isRestrictedToSingleEstablishment() && establishments.length > 1 ? (
           <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-2xl border border-gray-200/20 p-6 mb-8">
             <h2 className="text-2xl font-bold text-gray-800 mb-6">Selecione o Estabelecimento</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 admin-grid-4">
@@ -953,7 +1075,7 @@ export default function RestaurantReservationsPage() {
               ))}
             </div>
           </div>
-        ) : (
+        ) : selectedEstablishment ? (
           <>
             {/* Estabelecimento Selecionado */}
             <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-2xl border border-gray-200/20 p-6 mb-8">
@@ -971,12 +1093,15 @@ export default function RestaurantReservationsPage() {
                     <p className="text-gray-600">{selectedEstablishment.address}</p>
                   </div>
                 </div>
-                <button
-                  onClick={() => setSelectedEstablishment(null)}
-                  className="text-gray-400 hover:text-gray-600 transition-colors"
-                >
-                  <MdClose size={24} />
-                </button>
+                {/* Só mostrar botão de fechar se não estiver restrito a um único estabelecimento */}
+                {!establishmentPermissions.isRestrictedToSingleEstablishment() && establishments.length > 1 && (
+                  <button
+                    onClick={() => setSelectedEstablishment(null)}
+                    className="text-gray-400 hover:text-gray-600 transition-colors"
+                  >
+                    <MdClose size={24} />
+                  </button>
+                )}
               </div>
             </div>
 
@@ -2539,7 +2664,7 @@ export default function RestaurantReservationsPage() {
               )}
             </div>
           </>
-        )}
+        ) : null}
 
         {/* Modais */}
         {showModal && (

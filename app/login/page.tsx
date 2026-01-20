@@ -136,7 +136,9 @@ export default function Login() {
           'analista@pracinha.com',
           'gerente@highlinebar.com.br',
           'regianebrunno@gmail.com',
-          'franciely.mendes@ideiaum.com.br'
+          'franciely.mendes@ideiaum.com.br',
+          'recepcao@seujustino.com.br',
+          'recepcao@pracinhadoseujustino.com.br'
         ];
         
         const userEmail = emailCpf.toLowerCase().trim();
@@ -152,7 +154,8 @@ export default function Login() {
             router.push('/admin');
             break;
           case 'gerente':
-            router.push('/gerente');
+            // Gerentes também vão para /admin (não existe /gerente)
+            router.push('/admin');
             break;
           case 'recepção':
             router.push('/admin');

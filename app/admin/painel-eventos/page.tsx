@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { MdDashboard, MdEvent, MdBookOnline, MdShoppingCart, MdList, MdStar, MdSecurity, MdAssessment, MdSettings } from "react-icons/md";
+import { useEstablishmentPermissions } from "@/app/hooks/useEstablishmentPermissions";
 
 // Componentes do painel (serão criados em seguida)
 import ResumoEventos from "../../components/painel/ResumoEventos";
@@ -34,6 +35,7 @@ const menuItems = [
 ];
 
 export default function PainelEventos() {
+  const establishmentPermissions = useEstablishmentPermissions();
   const [selectedEstablishment, setSelectedEstablishment] = useState<Establishment | null>(null);
   const [activeMenu, setActiveMenu] = useState<string>("resumo");
   const [establishments, setEstablishments] = useState<Establishment[]>([]);
@@ -70,7 +72,25 @@ export default function PainelEventos() {
 
         console.log("Estabelecimentos formatados (places):", formattedEstablishments);
         console.log("High Line presente?", formattedEstablishments.find(e => (e.name || '').toLowerCase().includes('high')));
-        setEstablishments(formattedEstablishments);
+        
+        // Filtrar estabelecimentos baseado nas permissões do usuário
+        const filteredEstablishments = establishmentPermissions.getFilteredEstablishments(formattedEstablishments);
+        setEstablishments(filteredEstablishments);
+        
+        // Selecionar automaticamente se houver apenas um estabelecimento
+        if (filteredEstablishments.length === 1 && !selectedEstablishment) {
+          setSelectedEstablishment(filteredEstablishments[0]);
+          console.log(`✅ [PAINEL EVENTOS] Estabelecimento único selecionado automaticamente: ${filteredEstablishments[0].id} - ${filteredEstablishments[0].name}`);
+        } else if (establishmentPermissions.isRestrictedToSingleEstablishment() && filteredEstablishments.length > 0 && !selectedEstablishment) {
+          const defaultId = establishmentPermissions.getDefaultEstablishmentId();
+          if (defaultId) {
+            const defaultEst = filteredEstablishments.find(est => est.id === defaultId);
+            if (defaultEst) {
+              setSelectedEstablishment(defaultEst);
+              console.log(`✅ [PAINEL EVENTOS] Estabelecimento selecionado via permissões: ${defaultId} - ${defaultEst.name}`);
+            }
+          }
+        }
       } else if (data.data && Array.isArray(data.data)) {
         const formattedEstablishments: Establishment[] = data.data.map((place: any) => ({
           id: place.id,
@@ -78,7 +98,25 @@ export default function PainelEventos() {
           logo: place.logo ? `${API_URL}/uploads/${place.logo}` : "/assets/default-logo.png",
           address: place.street ? `${place.street}, ${place.number || ''}`.trim() : "Endereço não informado"
         }));
-        setEstablishments(formattedEstablishments);
+        
+        // Filtrar estabelecimentos baseado nas permissões do usuário
+        const filteredEstablishments = establishmentPermissions.getFilteredEstablishments(formattedEstablishments);
+        setEstablishments(filteredEstablishments);
+        
+        // Selecionar automaticamente se houver apenas um estabelecimento
+        if (filteredEstablishments.length === 1 && !selectedEstablishment) {
+          setSelectedEstablishment(filteredEstablishments[0]);
+          console.log(`✅ [PAINEL EVENTOS] Estabelecimento único selecionado automaticamente: ${filteredEstablishments[0].id} - ${filteredEstablishments[0].name}`);
+        } else if (establishmentPermissions.isRestrictedToSingleEstablishment() && filteredEstablishments.length > 0 && !selectedEstablishment) {
+          const defaultId = establishmentPermissions.getDefaultEstablishmentId();
+          if (defaultId) {
+            const defaultEst = filteredEstablishments.find(est => est.id === defaultId);
+            if (defaultEst) {
+              setSelectedEstablishment(defaultEst);
+              console.log(`✅ [PAINEL EVENTOS] Estabelecimento selecionado via permissões: ${defaultId} - ${defaultEst.name}`);
+            }
+          }
+        }
       } else {
         setError("Dados de estabelecimentos inválidos.");
       }
@@ -91,21 +129,51 @@ export default function PainelEventos() {
       console.error("Erro ao buscar estabelecimentos:", error);
       
       // Fallback com IDs de places corretos
-      setEstablishments([
+      const fallbackEstablishments = [
         { id: 7, name: "High Line", logo: "/assets/highline/highlinelogo.png", address: "Rua Girassol, 144 - Vila Madalena" },
         { id: 1, name: "Seu Justino", logo: "/assets/justino/justinologo.png", address: "Rua Azevedo Soares, 940 - Tatuapé" },
         { id: 4, name: "Oh Freguês", logo: "/assets/ohfregues/logoOhfregues.png", address: "Largo da Matriz de Nossa Senhora do Ó, 145 - Freguesia do Ó" },
         { id: 8, name: "Pracinha do Seu Justino", logo: "/assets/pracinha/logo-pracinha.png", address: "Rua das Flores, 123 - Centro" },
         { id: 5, name: "Reserva Rooftop", logo: "/assets/reserva-rooftop/logo-reserva-rooftop.png", address: "Em frente ao portão 2 - Rua Marc Chagal, Parque - Jardim das Perdizes" }
-      ]);
-    } finally {
-      setLoading(false);
-    }
-  }, [API_URL]);
+      ];
+      
+      // Filtrar estabelecimentos baseado nas permissões do usuário
+      const filteredFallback = establishmentPermissions.getFilteredEstablishments(fallbackEstablishments);
+      setEstablishments(filteredFallback);
+      
+      // Selecionar automaticamente se houver apenas um estabelecimento
+      if (filteredFallback.length === 1 && !selectedEstablishment) {
+        setSelectedEstablishment(filteredFallback[0]);
+      }
+      } finally {
+        setLoading(false);
+      }
+    }, [API_URL, establishmentPermissions]);
 
   useEffect(() => {
-    fetchEstablishments();
-  }, [fetchEstablishments]);
+    if (!establishmentPermissions.isLoading) {
+      fetchEstablishments();
+    }
+  }, [fetchEstablishments, establishmentPermissions.isLoading]);
+
+  // Efeito adicional para garantir seleção quando estabelecimentos forem carregados
+  useEffect(() => {
+    if (!establishmentPermissions.isLoading && establishments.length > 0 && !selectedEstablishment) {
+      const isRestricted = establishmentPermissions.isRestrictedToSingleEstablishment();
+      const hasOnlyOne = establishments.length === 1;
+      
+      if (isRestricted || hasOnlyOne) {
+        const defaultId = establishmentPermissions.getDefaultEstablishmentId() || establishments[0]?.id;
+        if (defaultId) {
+          const defaultEst = establishments.find(est => est.id === defaultId);
+          if (defaultEst) {
+            setSelectedEstablishment(defaultEst);
+            console.log(`✅ [PAINEL EVENTOS] Estabelecimento selecionado via useEffect: ${defaultId} - ${defaultEst.name}`);
+          }
+        }
+      }
+    }
+  }, [establishmentPermissions.isLoading, establishments.length, establishmentPermissions.isRestrictedToSingleEstablishment, establishmentPermissions.getDefaultEstablishmentId]);
 
   const handleEstablishmentSelect = (establishment: Establishment) => {
     setSelectedEstablishment(establishment);
@@ -160,32 +228,49 @@ export default function PainelEventos() {
         </div>
 
         {/* Seleção de Estabelecimento */}
-        <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-2xl border border-gray-200/20 p-6 mb-8">
-          <h2 className="text-2xl font-bold text-gray-800 mb-6">Selecione o Estabelecimento</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {establishments.map((establishment) => (
-              <button
-                key={establishment.id}
-                onClick={() => handleEstablishmentSelect(establishment)}
-                className={`p-4 rounded-xl border-2 transition-all duration-200 hover:shadow-lg ${
-                  selectedEstablishment?.id === establishment.id
-                    ? 'border-yellow-500 bg-yellow-50 shadow-lg'
-                    : 'border-gray-200 bg-white hover:border-gray-300'
-                }`}
-              >
-                <div className="text-center">
-                  <div className="w-16 h-16 mx-auto mb-3 bg-gray-100 rounded-full flex items-center justify-center">
-                    <span className="text-2xl font-bold text-gray-600">
-                      {establishment.name.charAt(0)}
-                    </span>
-                  </div>
-                  <h3 className="font-semibold text-gray-800 mb-1">{establishment.name}</h3>
-                  <p className="text-sm text-gray-500">{establishment.address}</p>
-                </div>
-              </button>
-            ))}
+        {(establishmentPermissions.isRestrictedToSingleEstablishment() || establishments.length === 1) && selectedEstablishment ? (
+          <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-2xl border border-gray-200/20 p-6 mb-8">
+            <h2 className="text-2xl font-bold text-gray-800 mb-4">Estabelecimento</h2>
+            <div className="flex items-center gap-4">
+              <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center">
+                <span className="text-2xl font-bold text-gray-600">
+                  {selectedEstablishment.name.charAt(0)}
+                </span>
+              </div>
+              <div>
+                <h3 className="text-xl font-semibold text-gray-800">{selectedEstablishment.name}</h3>
+                <p className="text-sm text-gray-500">{selectedEstablishment.address}</p>
+              </div>
+            </div>
           </div>
-        </div>
+        ) : establishments.length > 1 ? (
+          <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-2xl border border-gray-200/20 p-6 mb-8">
+            <h2 className="text-2xl font-bold text-gray-800 mb-6">Selecione o Estabelecimento</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {establishments.map((establishment) => (
+                <button
+                  key={establishment.id}
+                  onClick={() => handleEstablishmentSelect(establishment)}
+                  className={`p-4 rounded-xl border-2 transition-all duration-200 hover:shadow-lg ${
+                    selectedEstablishment?.id === establishment.id
+                      ? 'border-yellow-500 bg-yellow-50 shadow-lg'
+                      : 'border-gray-200 bg-white hover:border-gray-300'
+                  }`}
+                >
+                  <div className="text-center">
+                    <div className="w-16 h-16 mx-auto mb-3 bg-gray-100 rounded-full flex items-center justify-center">
+                      <span className="text-2xl font-bold text-gray-600">
+                        {establishment.name.charAt(0)}
+                      </span>
+                    </div>
+                    <h3 className="font-semibold text-gray-800 mb-1">{establishment.name}</h3>
+                    <p className="text-sm text-gray-500">{establishment.address}</p>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : null}
 
         {/* Indicador do Estabelecimento Selecionado */}
         {selectedEstablishment && (

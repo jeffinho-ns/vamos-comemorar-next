@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import {
@@ -69,6 +69,9 @@ export default function CheckInsGeralPage() {
   const [estabelecimentos, setEstabelecimentos] = useState<{ id: number; nome: string }[]>([]);
   const [eventos, setEventos] = useState<EventoLista[]>([]);
   const [estabelecimentoSelecionado, setEstabelecimentoSelecionado] = useState<number | null>(null);
+  
+  // Usar ref para evitar chamadas múltiplas
+  const hasLoadedRef = useRef(false);
 
   // Normalizador de nomes para deduplicação (remove acentos, espaços extras e corrige typos conhecidos)
   const normalize = (name: string): string => {
@@ -99,10 +102,16 @@ export default function CheckInsGeralPage() {
         data_evento: e.data_evento || null,
         dia_da_semana: e.dia_da_semana ?? null,
         tipo_evento: e.tipo_evento,
-        establishment_id: e.establishment_id,
+        establishment_id: Number(e.establishment_id) || Number(e.id_place) || 0, // Garantir que seja número
         establishment_name: e.establishment_name || e.casa_do_evento || 'Estabelecimento',
         horario_funcionamento: e.horario_funcionamento || e.hora_do_evento || null
       }));
+      
+      console.log(`📋 [CHECKINS] Eventos carregados: ${listaEventos.length}`);
+      listaEventos.forEach(e => {
+        console.log(`   📅 Evento: "${e.nome}" - Establishment ID: ${e.establishment_id} (tipo: ${typeof e.establishment_id}), Nome: "${e.establishment_name}"`);
+      });
+      
       setEventos(listaEventos);
 
       // Monta mapa nome->id (dos eventos) para garantir que seleção use o id correto
@@ -135,20 +144,30 @@ export default function CheckInsGeralPage() {
       const addItem = (id: number, nome: string, source: string) => {
         const key = normalize(nome);
         if (!key) return;
-        // Priorizar o ID original do estabelecimento (não o eventId que pode estar incorreto)
-        // O eventId é usado apenas para garantir que eventos estejam associados ao estabelecimento correto
-        const finalId = id; // Usar sempre o ID do estabelecimento
-        if (!merged.has(key)) {
-          merged.set(key, { id: Number(finalId), nome: nome.replace(/Jutino/gi, 'Justino') });
-          console.log(`📍 [ESTAB] Adicionando: ${nome} (ID: ${finalId}, source: ${source})`);
+        // Usar uma chave única que inclui o ID para evitar conflitos
+        // Mesmo se os nomes normalizados forem iguais, IDs diferentes devem ser mantidos
+        const uniqueKey = `${key}_${id}`;
+        if (!merged.has(uniqueKey)) {
+          merged.set(uniqueKey, { id: Number(id), nome: nome.replace(/Jutino/gi, 'Justino') });
+          console.log(`📍 [ESTAB] Adicionando: ${nome} (ID: ${id}, source: ${source}, key: ${uniqueKey})`);
+        } else {
+          console.log(`⚠️ [ESTAB] Estabelecimento já existe (mesmo nome normalizado e ID): ${nome} (ID: ${id})`);
         }
       };
 
       bars.forEach(b => addItem(Number(b.id), b.name, 'bars'));
       places.forEach(p => addItem(Number(p.id), p.name, 'places'));
 
+      // Remover duplicatas por ID (manter o primeiro encontrado, priorizar places sobre bars)
+      const uniqueById = new Map<number, { id: number; nome: string }>();
+      Array.from(merged.values()).forEach(est => {
+        if (!uniqueById.has(est.id)) {
+          uniqueById.set(est.id, est);
+        }
+      });
+      
       // Ordena
-      const lista = Array.from(merged.values()).sort((a, b) => a.nome.localeCompare(b.nome));
+      const lista = Array.from(uniqueById.values()).sort((a, b) => a.nome.localeCompare(b.nome));
       
       console.log(`📋 [CHECKINS] Total de estabelecimentos antes do filtro: ${lista.length}`, 
         lista.map(e => ({ id: e.id, nome: e.nome }))
@@ -163,11 +182,34 @@ export default function CheckInsGeralPage() {
       
       setEstabelecimentos(filteredLista);
       
-      // Se o usuário está restrito a um único estabelecimento, seleciona automaticamente
-      if (establishmentPermissions.isRestrictedToSingleEstablishment() && filteredLista.length > 0) {
+      // Sempre selecionar automaticamente se houver apenas um estabelecimento disponível
+      // Mas apenas se ainda não foi selecionado para evitar loops
+      if (filteredLista.length === 1 && estabelecimentoSelecionado !== filteredLista[0].id) {
+        const defaultId = filteredLista[0].id;
+        setEstabelecimentoSelecionado(defaultId);
+        console.log(`✅ [CHECKINS] Estabelecimento único selecionado automaticamente: ${defaultId} - ${filteredLista[0].nome}`);
+      } else if (establishmentPermissions.isRestrictedToSingleEstablishment() && filteredLista.length > 0) {
+        // Se está restrito a um único estabelecimento, usar o ID das permissões
         const defaultId = establishmentPermissions.getDefaultEstablishmentId();
-        if (defaultId && !estabelecimentoSelecionado) {
-          setEstabelecimentoSelecionado(defaultId);
+        console.log(`🔍 [CHECKINS] Usuário restrito detectado. Default ID das permissões: ${defaultId}, Estabelecimentos filtrados:`, filteredLista.map(e => ({ id: e.id, nome: e.nome })));
+        
+        if (defaultId) {
+          // Verificar se o ID das permissões está na lista filtrada
+          const estabelecimentoCorreto = filteredLista.find(est => est.id === defaultId);
+          if (estabelecimentoCorreto) {
+            if (estabelecimentoSelecionado !== defaultId) {
+              setEstabelecimentoSelecionado(defaultId);
+              console.log(`✅ [CHECKINS] Estabelecimento selecionado via permissões: ${defaultId} - ${estabelecimentoCorreto.nome}`);
+            } else {
+              console.log(`✅ [CHECKINS] Estabelecimento já estava selecionado: ${defaultId} - ${estabelecimentoCorreto.nome}`);
+            }
+          } else {
+            console.warn(`⚠️ [CHECKINS] ID das permissões (${defaultId}) não encontrado na lista filtrada. Usando primeiro da lista.`);
+            if (filteredLista.length > 0 && estabelecimentoSelecionado !== filteredLista[0].id) {
+              setEstabelecimentoSelecionado(filteredLista[0].id);
+              console.log(`✅ [CHECKINS] Estabelecimento selecionado (fallback): ${filteredLista[0].id} - ${filteredLista[0].nome}`);
+            }
+          }
         }
       }
     } catch (err) {
@@ -175,25 +217,110 @@ export default function CheckInsGeralPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [establishmentPermissions.getFilteredEstablishments, establishmentPermissions.isRestrictedToSingleEstablishment, establishmentPermissions.getDefaultEstablishmentId]);
 
   useEffect(() => {
     // Aguardar o hook carregar as permissões antes de carregar estabelecimentos
-    if (!establishmentPermissions.isLoading) {
+    // Executar apenas uma vez quando as permissões estiverem carregadas
+    if (!establishmentPermissions.isLoading && !hasLoadedRef.current) {
+      hasLoadedRef.current = true;
       carregarTudo();
     }
-  }, [carregarTudo, establishmentPermissions.isLoading]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [establishmentPermissions.isLoading]);
+
+  // Efeito adicional para garantir seleção quando estabelecimentos forem carregados
+  useEffect(() => {
+    if (!establishmentPermissions.isLoading && estabelecimentos.length > 0 && !estabelecimentoSelecionado) {
+      const isRestricted = establishmentPermissions.isRestrictedToSingleEstablishment();
+      const hasOnlyOne = estabelecimentos.length === 1;
+      
+      console.log(`🔍 [CHECKINS] useEffect seleção - isRestricted: ${isRestricted}, hasOnlyOne: ${hasOnlyOne}, estabelecimentos disponíveis:`, estabelecimentos.map(e => ({ id: e.id, nome: e.nome })));
+      
+      // Selecionar automaticamente se estiver restrito ou houver apenas um estabelecimento
+      if (isRestricted || hasOnlyOne) {
+        const defaultId = establishmentPermissions.getDefaultEstablishmentId() || estabelecimentos[0]?.id;
+        console.log(`🔍 [CHECKINS] Default ID das permissões: ${establishmentPermissions.getDefaultEstablishmentId()}, usando: ${defaultId}`);
+        
+        if (defaultId) {
+          // Verificar se o ID está na lista de estabelecimentos
+          const estabelecimentoEncontrado = estabelecimentos.find(e => e.id === defaultId);
+          if (estabelecimentoEncontrado) {
+            setEstabelecimentoSelecionado(defaultId);
+            console.log(`✅ [CHECKINS] Estabelecimento selecionado automaticamente via useEffect: ${defaultId} - ${estabelecimentoEncontrado.nome}`);
+            console.log(`📋 [CHECKINS] Total de eventos carregados para filtrar: ${eventos.length}`);
+          } else {
+            // Se o ID não estiver na lista, usar o primeiro disponível
+            if (estabelecimentos.length > 0) {
+              const primeiroId = estabelecimentos[0].id;
+              setEstabelecimentoSelecionado(primeiroId);
+              console.log(`⚠️ [CHECKINS] ID ${defaultId} não encontrado na lista. Usando primeiro disponível: ${primeiroId} - ${estabelecimentos[0].nome}`);
+            }
+          }
+        }
+      }
+    }
+  }, [establishmentPermissions.isLoading, estabelecimentos.length, estabelecimentoSelecionado, establishmentPermissions.isRestrictedToSingleEstablishment, establishmentPermissions.getDefaultEstablishmentId, eventos.length]);
+
+  // Recarregar eventos quando o estabelecimento selecionado mudar
+  // Não recarregar tudo, apenas garantir que os eventos sejam filtrados corretamente
+  // Os eventos já foram carregados em carregarTudo(), só precisam ser filtrados
 
   // Seleção robusta: por id OU por nome normalizado (cobre casos com id_place incorreto/NULL)
   const selectedEstablishmentName = estabelecimentoSelecionado
     ? (estabelecimentos.find(est => est.id === estabelecimentoSelecionado)?.nome || '')
     : '';
+  
   const eventosDoEstabelecimento = eventos.filter(e => {
-    if (!estabelecimentoSelecionado) return false;
-    const idMatch = e.establishment_id === estabelecimentoSelecionado;
-    const nameMatch = normalize(e.establishment_name) === normalize(selectedEstablishmentName);
-    return idMatch || nameMatch;
+    if (!estabelecimentoSelecionado) {
+      console.log(`🚫 [CHECKINS] Evento ${e.nome} filtrado: estabelecimento não selecionado`);
+      return false;
+    }
+    
+    // Comparação por ID (converter para número para garantir)
+    const eventoId = Number(e.establishment_id);
+    const selecionadoId = Number(estabelecimentoSelecionado);
+    const idMatch = eventoId === selecionadoId;
+    
+    // Comparação por nome (apenas exata, não partial)
+    const eventoNome = normalize(e.establishment_name || '');
+    const selecionadoNome = normalize(selectedEstablishmentName || '');
+    const nameMatch = eventoNome === selecionadoNome && eventoNome !== '';
+    
+    // Apenas incluir se ID match OU nome match exato (não partial)
+    const shouldInclude = idMatch || nameMatch;
+    
+    if (shouldInclude) {
+      console.log(`✅ [CHECKINS] Evento "${e.nome}" incluído para estabelecimento ${selecionadoId} (${selectedEstablishmentName}) - ID match: ${idMatch}, Name match: ${nameMatch}`);
+      console.log(`   📍 Evento establishment_id: ${eventoId}, establishment_name: "${e.establishment_name}"`);
+    } else {
+      console.log(`🚫 [CHECKINS] Evento "${e.nome}" filtrado:`);
+      console.log(`   📍 Evento - ID: ${eventoId}, nome: "${e.establishment_name}"`);
+      console.log(`   📍 Selecionado - ID: ${selecionadoId}, nome: "${selectedEstablishmentName}"`);
+    }
+    
+    return shouldInclude;
   });
+  
+  console.log(`📊 [CHECKINS] Estatísticas Finais:`);
+  console.log(`   - Total de eventos carregados da API: ${eventos.length}`);
+  console.log(`   - Estabelecimento selecionado: ID ${estabelecimentoSelecionado} (${selectedEstablishmentName})`);
+  console.log(`   - Estabelecimentos disponíveis:`, estabelecimentos.map(e => ({ id: e.id, nome: e.nome })));
+  console.log(`   - Eventos filtrados para este estabelecimento: ${eventosDoEstabelecimento.length}`);
+  if (eventosDoEstabelecimento.length > 0) {
+    console.log(`   ✅ Eventos encontrados:`, eventosDoEstabelecimento.map(e => ({
+      nome: e.nome,
+      establishment_id: e.establishment_id,
+      establishment_name: e.establishment_name
+    })));
+  } else if (estabelecimentoSelecionado) {
+    console.warn(`   ⚠️ NENHUM evento encontrado para o estabelecimento ID ${estabelecimentoSelecionado} (${selectedEstablishmentName})`);
+    console.log(`   📋 Verificando todos os eventos carregados:`, eventos.map(e => ({
+      nome: e.nome,
+      establishment_id: e.establishment_id,
+      establishment_name: e.establishment_name
+    })));
+  }
 
   const gruposPorDia = (() => {
     const grupos: { [chave: string]: EventoLista[] } = {};
@@ -244,28 +371,31 @@ export default function CheckInsGeralPage() {
         <div className="bg-white/5 backdrop-blur-sm border-b border-white/10 sticky top-0 z-30">
           <div className="max-w-7xl mx-auto p-4">
             <div className="flex flex-col md:flex-row gap-4 items-center">
-              <div className="w-full md:w-1/2">
-                <label className="block text-sm text-gray-300 mb-2">Estabelecimento</label>
-                <select
-                  className="w-full bg-white/10 border border-white/20 rounded-lg text-white px-3 py-3"
-                  value={estabelecimentoSelecionado ?? ''}
-                  onChange={(e) => setEstabelecimentoSelecionado(e.target.value ? Number(e.target.value) : null)}
-                  disabled={establishmentPermissions.isRestrictedToSingleEstablishment()}
-                >
-                  {establishmentPermissions.isRestrictedToSingleEstablishment() ? (
-                    estabelecimentos.map(est => (
+              {/* Ocultar o seletor se houver apenas um estabelecimento ou se estiver restrito */}
+              {(establishmentPermissions.isRestrictedToSingleEstablishment() || estabelecimentos.length === 1) && estabelecimentos.length > 0 ? (
+                <div className="w-full md:w-1/2">
+                  <label className="block text-sm text-gray-300 mb-2">Estabelecimento</label>
+                  <div className="w-full bg-white/10 border border-white/20 rounded-lg text-white px-3 py-3">
+                    <span className="font-semibold">
+                      {estabelecimentos.find(est => est.id === estabelecimentoSelecionado)?.nome || estabelecimentos[0]?.nome || 'Carregando...'}
+                    </span>
+                  </div>
+                </div>
+              ) : estabelecimentos.length > 1 ? (
+                <div className="w-full md:w-1/2">
+                  <label className="block text-sm text-gray-300 mb-2">Estabelecimento</label>
+                  <select
+                    className="w-full bg-white/10 border border-white/20 rounded-lg text-white px-3 py-3"
+                    value={estabelecimentoSelecionado ?? ''}
+                    onChange={(e) => setEstabelecimentoSelecionado(e.target.value ? Number(e.target.value) : null)}
+                  >
+                    <option value="" className="text-black">Selecione...</option>
+                    {estabelecimentos.map(est => (
                       <option key={est.id} value={est.id} className="text-black">{est.nome}</option>
-                    ))
-                  ) : (
-                    <>
-                      <option value="" className="text-black">Selecione...</option>
-                      {estabelecimentos.map(est => (
-                        <option key={est.id} value={est.id} className="text-black">{est.nome}</option>
-                      ))}
-                    </>
-                  )}
-                </select>
-              </div>
+                    ))}
+                  </select>
+                </div>
+              ) : null}
               <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
                 <button
                   onClick={() => router.push('/admin/checkins/tablet')}

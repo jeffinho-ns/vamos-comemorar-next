@@ -69,6 +69,18 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         { href: "/admin/qrcode", label: "Scanner QR Code", icon: MdQrCodeScanner },
         { href: "/admin/reservas", label: "Reservas", icon: MdEditCalendar },
       ];
+    } else if (userRole === 'gerente') {
+      // Gerente - acesso às páginas administrativas restritas aos seus estabelecimentos
+      return [
+        { href: "/admin", label: "Dashboard", icon: MdDashboard },
+        { href: "/admin/restaurant-reservations", label: "Sistema de Reservas", icon: MdRestaurant },
+        { href: "/admin/detalhes-operacionais", label: "Detalhes Operacionais do Evento", icon: MdInfo },
+        { href: "/admin/painel-eventos", label: "Painel de Eventos", icon: MdBusiness },
+        { href: "/admin/eventos/dashboard", label: "Dashboard de Eventos", icon: MdEvent },
+        { href: "/admin/checkins", label: "Check-ins", icon: MdCheckCircle },
+        { href: "/admin/qrcode", label: "Scanner QR Code", icon: MdQrCodeScanner },
+        { href: "/admin/reservas", label: "Reservas", icon: MdEditCalendar },
+      ];
     } else if (userRole === 'admin') {
       // Administrador pode ver tudo
       return [
@@ -104,6 +116,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     }
     if (userRole === 'recepção') {
       return "Admin - Recepção";
+    }
+    if (userRole === 'gerente') {
+      return "Admin - Gerente";
     }
     return activeLink ? activeLink.label : "Admin";
   };
@@ -152,7 +167,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <div className="flex items-center gap-2">
             <div className={`w-3 h-3 rounded-full ${
               userRole === 'admin' ? 'bg-blue-500' : 
-              userRole === 'promoter' ? 'bg-green-500' : 'bg-gray-500'
+              userRole === 'promoter' ? 'bg-green-500' :
+              userRole === 'gerente' ? 'bg-yellow-500' :
+              userRole === 'recepção' ? 'bg-purple-500' : 'bg-gray-500'
             }`}></div>
             <span className="text-sm text-gray-300 capitalize">{userRole}</span>
           </div>

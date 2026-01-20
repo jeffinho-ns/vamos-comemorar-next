@@ -119,13 +119,18 @@ export default function EventosDashboard() {
       const filteredEstablishments = establishmentPermissions.getFilteredEstablishments(formatted) as Establishment[];
       setEstablishments(filteredEstablishments);
       
-      // Se o usuário está restrito a um único estabelecimento, seleciona automaticamente
-      if (establishmentPermissions.isRestrictedToSingleEstablishment() && filteredEstablishments.length > 0) {
+      // Selecionar automaticamente se houver apenas um estabelecimento ou se estiver restrito
+      if (filteredEstablishments.length === 1) {
+        // Sempre selecionar se há apenas um disponível
+        setSelectedEstablishment(filteredEstablishments[0]);
+        console.log(`✅ [EVENTOS DASHBOARD] Estabelecimento único selecionado automaticamente: ${filteredEstablishments[0].id} - ${filteredEstablishments[0].name}`);
+      } else if (establishmentPermissions.isRestrictedToSingleEstablishment() && filteredEstablishments.length > 0) {
         const defaultId = establishmentPermissions.getDefaultEstablishmentId();
-        if (defaultId && !selectedEstablishment) {
+        if (defaultId) {
           const defaultEst = filteredEstablishments.find(est => est.id === defaultId);
           if (defaultEst) {
             setSelectedEstablishment(defaultEst);
+            console.log(`✅ [EVENTOS DASHBOARD] Estabelecimento selecionado via permissões: ${defaultId} - ${defaultEst.name}`);
           }
         }
       }
@@ -374,50 +379,53 @@ export default function EventosDashboard() {
       {/* Main Content */}
       <div className="max-w-7xl mx-auto p-6">
         {/* Seletor de Estabelecimento */}
-        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-          <div className="flex items-center justify-between mb-3">
-            <label className="block text-sm font-medium text-gray-700">
-              <MdBusiness className="inline mr-2" size={20} />
-              Filtrar por Estabelecimento
-            </label>
-            {selectedEstablishment && (
-              <span className="px-3 py-1 bg-green-100 text-green-700 text-xs rounded-full">
-                Filtrado: {selectedEstablishment.name}
+        {(establishmentPermissions.isRestrictedToSingleEstablishment() || establishments.length === 1) && selectedEstablishment ? (
+          <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+            <div className="flex items-center justify-between">
+              <label className="block text-sm font-medium text-gray-700">
+                <MdBusiness className="inline mr-2" size={20} />
+                Estabelecimento
+              </label>
+              <span className="px-3 py-1 bg-green-100 text-green-700 text-xs rounded-full font-semibold">
+                {selectedEstablishment.name}
               </span>
-            )}
-            {!selectedEstablishment && (
-              <span className="px-3 py-1 bg-blue-100 text-blue-700 text-xs rounded-full">
-                📊 Mostrando Todos os Estabelecimentos
-              </span>
-            )}
+            </div>
           </div>
-          <select
-            value={selectedEstablishment?.id || ''}
-            onChange={(e) => {
-              const estab = establishments.find(est => est.id === parseInt(e.target.value));
-              setSelectedEstablishment(estab || null);
-            }}
-            className="w-full md:w-96 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-base"
-            disabled={establishmentPermissions.isRestrictedToSingleEstablishment()}
-          >
-            {establishmentPermissions.isRestrictedToSingleEstablishment() ? (
-              establishments.map((est) => (
+        ) : establishments.length > 1 ? (
+          <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+            <div className="flex items-center justify-between mb-3">
+              <label className="block text-sm font-medium text-gray-700">
+                <MdBusiness className="inline mr-2" size={20} />
+                Filtrar por Estabelecimento
+              </label>
+              {selectedEstablishment && (
+                <span className="px-3 py-1 bg-green-100 text-green-700 text-xs rounded-full">
+                  Filtrado: {selectedEstablishment.name}
+                </span>
+              )}
+              {!selectedEstablishment && (
+                <span className="px-3 py-1 bg-blue-100 text-blue-700 text-xs rounded-full">
+                  📊 Mostrando Todos os Estabelecimentos
+                </span>
+              )}
+            </div>
+            <select
+              value={selectedEstablishment?.id || ''}
+              onChange={(e) => {
+                const estab = establishments.find(est => est.id === parseInt(e.target.value));
+                setSelectedEstablishment(estab || null);
+              }}
+              className="w-full md:w-96 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-base"
+            >
+              <option value="">🏢 Todos os estabelecimentos</option>
+              {establishments.map((est) => (
                 <option key={est.id} value={est.id}>
                   {est.name}
                 </option>
-              ))
-            ) : (
-              <>
-                <option value="">🏢 Todos os estabelecimentos</option>
-                {establishments.map((est) => (
-                  <option key={est.id} value={est.id}>
-                    {est.name}
-                  </option>
-                ))}
-              </>
-            )}
-          </select>
-        </div>
+              ))}
+            </select>
+          </div>
+        ) : null}
 
         {/* Error State */}
         {error && (

@@ -44,22 +44,25 @@ export function middleware(request: NextRequest) {
     // Rotas estritamente administrativas (apenas admin)
     '/admin/commodities': ['admin'],
     '/admin/enterprise': ['admin'],
-    '/admin/eventos': ['admin'],
     '/admin/gifts': ['admin'],
-    '/admin/painel-eventos': ['admin'],
     '/admin/users': ['admin'],
     '/admin/workdays': ['admin'],
     '/admin/places': ['admin'],
     '/admin/tables': ['admin'],
     
+    // Rotas que gerentes podem acessar
+    '/admin/eventos': ['admin', 'gerente'],
+    '/admin/painel-eventos': ['admin', 'gerente'],
+    '/admin/eventos/dashboard': ['admin', 'gerente'],
+    
     // Outras rotas internas controladas
-    '/admin/cardapio': ['admin', 'promoter', 'recepção'],
-    '/admin/events': ['admin', 'promoter', 'recepção'],
-    '/admin/reservas': ['admin', 'promoter', 'recepção'],
-    '/admin/qrcode': ['admin', 'promoter', 'recepção'],
-    '/admin/checkins': ['admin', 'promoter', 'recepção'],
-    '/admin/restaurant-reservations': ['admin', 'promoter', 'recepção'],
-    '/admin/detalhes-operacionais': ['admin', 'recepção'],
+    '/admin/cardapio': ['admin', 'promoter', 'recepção', 'gerente'],
+    '/admin/events': ['admin', 'promoter', 'recepção', 'gerente'],
+    '/admin/reservas': ['admin', 'promoter', 'recepção', 'gerente'],
+    '/admin/qrcode': ['admin', 'promoter', 'recepção', 'gerente'],
+    '/admin/checkins': ['admin', 'promoter', 'recepção', 'gerente'],
+    '/admin/restaurant-reservations': ['admin', 'promoter', 'recepção', 'gerente'],
+    '/admin/detalhes-operacionais': ['admin', 'recepção', 'gerente'],
   };
 
   // Verifica se a rota está definida nas permissões de rota
