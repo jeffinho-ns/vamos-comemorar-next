@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { MdDashboard, MdEvent, MdBookOnline, MdShoppingCart, MdList, MdStar, MdSecurity, MdAssessment, MdSettings } from "react-icons/md";
 import { useEstablishmentPermissions } from "@/app/hooks/useEstablishmentPermissions";
 
@@ -41,10 +41,53 @@ export default function PainelEventos() {
   const [establishments, setEstablishments] = useState<Establishment[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const hasSelectedRef = useRef(false); // Ref para evitar seleção múltipla
 
   const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL_LOCAL || 'http://localhost:3001';
 
+  // Memoizar valores das permissões para evitar re-renders infinitos
+  const allowedEstablishmentIds = useMemo(() => {
+    // Priorizar userConfig se existir
+    if (establishmentPermissions.userConfig && establishmentPermissions.userConfig.establishmentIds.length > 0) {
+      return establishmentPermissions.userConfig.establishmentIds;
+    }
+    // Se não tem userConfig, usar permissões ativas
+    if (establishmentPermissions.permissions.length > 0) {
+      const activeIds = Array.from(new Set(
+        establishmentPermissions.permissions
+          .filter(p => p.is_active)
+          .map(p => p.establishment_id)
+      ));
+      return activeIds.length > 0 ? activeIds : null;
+    }
+    return null; // null significa acesso a todos
+  }, [
+    JSON.stringify(establishmentPermissions.userConfig?.establishmentIds || []),
+    JSON.stringify(establishmentPermissions.permissions.map(p => ({ id: p.establishment_id, active: p.is_active })))
+  ]);
+
+  const isRestricted = useMemo(() => {
+    return allowedEstablishmentIds !== null && allowedEstablishmentIds.length === 1;
+  }, [allowedEstablishmentIds]);
+
+  const defaultEstablishmentId = useMemo(() => {
+    return allowedEstablishmentIds && allowedEstablishmentIds.length > 0 ? allowedEstablishmentIds[0] : null;
+  }, [allowedEstablishmentIds]);
+
+  // Função para filtrar estabelecimentos baseado nas permissões
+  const filterEstablishments = useCallback((establishmentsList: Establishment[]): Establishment[] => {
+    if (!allowedEstablishmentIds) {
+      return establishmentsList; // Sem restrições, retorna todos
+    }
+    return establishmentsList.filter((est) => {
+      const estId = typeof est.id === 'string' ? parseInt(est.id, 10) : Number(est.id);
+      return allowedEstablishmentIds.includes(estId);
+    });
+  }, [allowedEstablishmentIds]);
+
   const fetchEstablishments = useCallback(async () => {
+    if (hasSelectedRef.current) return; // Evita múltiplas chamadas
+    
     setLoading(true);
     const token = localStorage.getItem("authToken");
     console.log("API_URL sendo usada:", API_URL);
@@ -62,63 +105,49 @@ export default function PainelEventos() {
       const data = await response.json();
       console.log("Dados recebidos da API (places):", data);
       
+      let formattedEstablishments: Establishment[] = [];
+      
       if (Array.isArray(data)) {
-        const formattedEstablishments: Establishment[] = data.map((place: any) => ({
+        formattedEstablishments = data.map((place: any) => ({
           id: place.id,
           name: place.name || "Sem nome",
           logo: place.logo ? `${API_URL}/uploads/${place.logo}` : "/assets/default-logo.png",
           address: place.street ? `${place.street}, ${place.number || ''}`.trim() : "Endereço não informado"
         }));
-
-        console.log("Estabelecimentos formatados (places):", formattedEstablishments);
-        console.log("High Line presente?", formattedEstablishments.find(e => (e.name || '').toLowerCase().includes('high')));
-        
-        // Filtrar estabelecimentos baseado nas permissões do usuário
-        const filteredEstablishments = establishmentPermissions.getFilteredEstablishments(formattedEstablishments);
-        setEstablishments(filteredEstablishments);
-        
-        // Selecionar automaticamente se houver apenas um estabelecimento
-        if (filteredEstablishments.length === 1 && !selectedEstablishment) {
-          setSelectedEstablishment(filteredEstablishments[0]);
-          console.log(`✅ [PAINEL EVENTOS] Estabelecimento único selecionado automaticamente: ${filteredEstablishments[0].id} - ${filteredEstablishments[0].name}`);
-        } else if (establishmentPermissions.isRestrictedToSingleEstablishment() && filteredEstablishments.length > 0 && !selectedEstablishment) {
-          const defaultId = establishmentPermissions.getDefaultEstablishmentId();
-          if (defaultId) {
-            const defaultEst = filteredEstablishments.find(est => est.id === defaultId);
-            if (defaultEst) {
-              setSelectedEstablishment(defaultEst);
-              console.log(`✅ [PAINEL EVENTOS] Estabelecimento selecionado via permissões: ${defaultId} - ${defaultEst.name}`);
-            }
-          }
-        }
       } else if (data.data && Array.isArray(data.data)) {
-        const formattedEstablishments: Establishment[] = data.data.map((place: any) => ({
+        formattedEstablishments = data.data.map((place: any) => ({
           id: place.id,
           name: place.name || "Sem nome",
           logo: place.logo ? `${API_URL}/uploads/${place.logo}` : "/assets/default-logo.png",
           address: place.street ? `${place.street}, ${place.number || ''}`.trim() : "Endereço não informado"
         }));
-        
-        // Filtrar estabelecimentos baseado nas permissões do usuário
-        const filteredEstablishments = establishmentPermissions.getFilteredEstablishments(formattedEstablishments);
-        setEstablishments(filteredEstablishments);
-        
-        // Selecionar automaticamente se houver apenas um estabelecimento
-        if (filteredEstablishments.length === 1 && !selectedEstablishment) {
-          setSelectedEstablishment(filteredEstablishments[0]);
-          console.log(`✅ [PAINEL EVENTOS] Estabelecimento único selecionado automaticamente: ${filteredEstablishments[0].id} - ${filteredEstablishments[0].name}`);
-        } else if (establishmentPermissions.isRestrictedToSingleEstablishment() && filteredEstablishments.length > 0 && !selectedEstablishment) {
-          const defaultId = establishmentPermissions.getDefaultEstablishmentId();
-          if (defaultId) {
-            const defaultEst = filteredEstablishments.find(est => est.id === defaultId);
-            if (defaultEst) {
-              setSelectedEstablishment(defaultEst);
-              console.log(`✅ [PAINEL EVENTOS] Estabelecimento selecionado via permissões: ${defaultId} - ${defaultEst.name}`);
-            }
-          }
-        }
       } else {
         setError("Dados de estabelecimentos inválidos.");
+        setLoading(false);
+        return;
+      }
+
+      console.log("Estabelecimentos formatados (places):", formattedEstablishments);
+      
+      // Filtrar estabelecimentos baseado nas permissões do usuário
+      const filteredEstablishments = filterEstablishments(formattedEstablishments);
+      console.log("Estabelecimentos filtrados:", filteredEstablishments);
+      setEstablishments(filteredEstablishments);
+      
+      // Selecionar automaticamente se houver apenas um estabelecimento ou se restrito
+      if (filteredEstablishments.length > 0 && !hasSelectedRef.current) {
+        if (filteredEstablishments.length === 1) {
+          setSelectedEstablishment(filteredEstablishments[0]);
+          hasSelectedRef.current = true;
+          console.log(`✅ [PAINEL EVENTOS] Estabelecimento único selecionado automaticamente: ${filteredEstablishments[0].id} - ${filteredEstablishments[0].name}`);
+        } else if (isRestricted && defaultEstablishmentId) {
+          const defaultEst = filteredEstablishments.find(est => est.id === defaultEstablishmentId);
+          if (defaultEst) {
+            setSelectedEstablishment(defaultEst);
+            hasSelectedRef.current = true;
+            console.log(`✅ [PAINEL EVENTOS] Estabelecimento selecionado via permissões: ${defaultEstablishmentId} - ${defaultEst.name}`);
+          }
+        }
       }
     } catch (error) {
       if (error instanceof Error) {
@@ -138,42 +167,42 @@ export default function PainelEventos() {
       ];
       
       // Filtrar estabelecimentos baseado nas permissões do usuário
-      const filteredFallback = establishmentPermissions.getFilteredEstablishments(fallbackEstablishments);
+      const filteredFallback = filterEstablishments(fallbackEstablishments);
       setEstablishments(filteredFallback);
       
       // Selecionar automaticamente se houver apenas um estabelecimento
-      if (filteredFallback.length === 1 && !selectedEstablishment) {
+      if (!hasSelectedRef.current && filteredFallback.length === 1) {
         setSelectedEstablishment(filteredFallback[0]);
+        hasSelectedRef.current = true;
       }
-      } finally {
-        setLoading(false);
-      }
-    }, [API_URL, establishmentPermissions]);
+    } finally {
+      setLoading(false);
+    }
+  }, [API_URL, filterEstablishments, isRestricted, defaultEstablishmentId]);
 
   useEffect(() => {
-    if (!establishmentPermissions.isLoading) {
+    if (!establishmentPermissions.isLoading && !hasSelectedRef.current) {
       fetchEstablishments();
     }
-  }, [fetchEstablishments, establishmentPermissions.isLoading]);
+  }, [establishmentPermissions.isLoading, fetchEstablishments]);
 
   // Efeito adicional para garantir seleção quando estabelecimentos forem carregados
   useEffect(() => {
-    if (!establishmentPermissions.isLoading && establishments.length > 0 && !selectedEstablishment) {
-      const isRestricted = establishmentPermissions.isRestrictedToSingleEstablishment();
-      const hasOnlyOne = establishments.length === 1;
-      
-      if (isRestricted || hasOnlyOne) {
-        const defaultId = establishmentPermissions.getDefaultEstablishmentId() || establishments[0]?.id;
-        if (defaultId) {
-          const defaultEst = establishments.find(est => est.id === defaultId);
-          if (defaultEst) {
-            setSelectedEstablishment(defaultEst);
-            console.log(`✅ [PAINEL EVENTOS] Estabelecimento selecionado via useEffect: ${defaultId} - ${defaultEst.name}`);
-          }
+    if (!establishmentPermissions.isLoading && establishments.length > 0 && !selectedEstablishment && !hasSelectedRef.current) {
+      if (establishments.length === 1) {
+        setSelectedEstablishment(establishments[0]);
+        hasSelectedRef.current = true;
+        console.log(`✅ [PAINEL EVENTOS] Estabelecimento único selecionado via useEffect: ${establishments[0].id} - ${establishments[0].name}`);
+      } else if (isRestricted && defaultEstablishmentId) {
+        const defaultEst = establishments.find(est => est.id === defaultEstablishmentId);
+        if (defaultEst) {
+          setSelectedEstablishment(defaultEst);
+          hasSelectedRef.current = true;
+          console.log(`✅ [PAINEL EVENTOS] Estabelecimento selecionado via useEffect: ${defaultEstablishmentId} - ${defaultEst.name}`);
         }
       }
     }
-  }, [establishmentPermissions.isLoading, establishments.length, establishmentPermissions.isRestrictedToSingleEstablishment, establishmentPermissions.getDefaultEstablishmentId]);
+  }, [establishmentPermissions.isLoading, establishments.length, selectedEstablishment, isRestricted, defaultEstablishmentId]);
 
   const handleEstablishmentSelect = (establishment: Establishment) => {
     setSelectedEstablishment(establishment);
