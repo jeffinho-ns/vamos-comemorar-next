@@ -2757,6 +2757,7 @@ export default function RestaurantReservationsPage() {
                   evento_id: reservationData.evento_id || null,
                   send_email: reservationData.send_email !== undefined ? reservationData.send_email : true,
                   send_whatsapp: reservationData.send_whatsapp !== undefined ? reservationData.send_whatsapp : true,
+                  blocks_entire_area: reservationData.blocks_entire_area || false,
                 };
                 
                 // Remover campos undefined

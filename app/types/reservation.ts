@@ -19,6 +19,7 @@ export interface Reservation {
   created_by_name?: string;
   created_at?: string;
   updated_at?: string;
+  blocks_entire_area?: boolean; // Indica se esta reserva bloqueia toda a área
 }
 
 export interface ReservationFormData {

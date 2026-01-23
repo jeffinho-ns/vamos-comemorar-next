@@ -105,6 +105,9 @@ export default function ReservationModal({
   // Estados para vinculação de evento
   const [eventosDisponiveis, setEventosDisponiveis] = useState<any[]>([]);
   const [eventoSelecionado, setEventoSelecionado] = useState<string>('');
+  
+  // Estado para bloquear toda a área (apenas admin)
+  const [blocksEntireArea, setBlocksEntireArea] = useState(false);
 
   const highlineSubareas = [
     { key: 'deck-frente', area_id: 2, label: 'Área Deck - Frente', tableNumbers: ['05','06','07','08'] },
@@ -251,6 +254,9 @@ export default function ReservationModal({
           notes: reservation.notes || ''
         });
         
+        // Carregar blocks_entire_area se existir
+        setBlocksEntireArea(reservation.blocks_entire_area === true || reservation.blocks_entire_area === 1);
+        
         // Se tem múltiplas mesas, parsear e habilitar modo múltiplo
         if (hasMultipleTables && isAdmin) {
           const tablesArray = tableNumberStr.split(',').map(t => t.trim()).filter(t => t);
@@ -294,6 +300,8 @@ export default function ReservationModal({
         // Liga as notificações por padrão ao criar
         setSendEmailConfirmation(true);
         setSendWhatsAppConfirmation(true);
+        // Resetar bloqueio de área
+        setBlocksEntireArea(false);
         setSelectedSubareaKey('');
       }
       setSelectedTables([]);
@@ -710,6 +718,7 @@ export default function ReservationModal({
       evento_id: eventoSelecionado || null,
       send_email: sendEmailConfirmation,
       send_whatsapp: sendWhatsAppConfirmation,
+      blocks_entire_area: blocksEntireArea && isAdmin, // Apenas admin pode bloquear área completa
     };
     
     // Remover campos undefined para evitar problemas na serialização JSON
@@ -1509,6 +1518,48 @@ export default function ReservationModal({
                   placeholder="Observações adicionais sobre a reserva..."
                 />
               </div>
+
+              {/* Opção para bloquear toda a área (apenas admin) */}
+              {isAdmin && formData.area_id && formData.reservation_date && (
+                <div className="p-4 bg-red-900/20 border-2 border-red-600/50 rounded-lg">
+                  <label className="flex items-start gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={blocksEntireArea}
+                      onChange={(e) => {
+                        const checked = e.target.checked;
+                        if (checked) {
+                          // Confirmar ação importante
+                          if (!confirm('⚠️ ATENÇÃO: Esta opção bloqueará TODAS as mesas da área selecionada para esta data.\n\nNenhuma outra reserva poderá ser criada na mesma área e data.\n\nDeseja continuar?')) {
+                            return;
+                          }
+                        }
+                        setBlocksEntireArea(checked);
+                      }}
+                      className="mt-1 w-5 h-5 bg-gray-600 border-gray-500 rounded text-red-500 focus:ring-red-600"
+                    />
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <MdTableBar className="text-red-400" size={20} />
+                        <span className="text-sm font-semibold text-red-300">
+                          Bloquear Toda a Área para Esta Data
+                        </span>
+                      </div>
+                      <p className="text-xs text-red-200">
+                        Quando marcado, esta reserva ocupará <strong>todas as mesas</strong> da área selecionada para o dia {formData.reservation_date}. 
+                        Nenhuma outra reserva poderá ser criada na mesma área e data, independente da mesa.
+                      </p>
+                      {blocksEntireArea && (
+                        <div className="mt-2 p-2 bg-red-800/30 border border-red-500/50 rounded">
+                          <p className="text-xs text-red-100 font-medium">
+                            ⚠️ Área será completamente bloqueada para esta data
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </label>
+                </div>
+              )}
 
               {/* 5. CHECKBOXES DE NOTIFICAÇÃO ADICIONADOS AO FORMULÁRIO */}
               <div className="pt-4 border-t border-gray-700">

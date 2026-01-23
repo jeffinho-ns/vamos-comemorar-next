@@ -28,6 +28,7 @@ interface SearchResult {
     totalGuests: number;
     checkedInGuests: number;
     eventType?: string; // aniversario, despedida, etc
+    blocks_entire_area?: boolean; // Indica se esta reserva bloqueia toda a área
   };
   giftInfo?: {
     remainingCheckins: number;
@@ -84,6 +85,7 @@ export default function TabletCheckInsPage() {
     checkin_time?: string;
     status?: string;
     origin?: string;
+    blocks_entire_area?: boolean;
   }>>([]);
   const [loadingReservasAdicionais, setLoadingReservasAdicionais] = useState(false);
 
@@ -999,7 +1001,8 @@ export default function TabletCheckInsPage() {
                 area: areaName ?? undefined,
                 totalGuests: r.number_of_people || 0,
                 checkedInGuests: 0,
-                eventType: 'outros'
+                eventType: 'outros',
+                blocks_entire_area: r.blocks_entire_area === true || (typeof r.blocks_entire_area === 'number' && r.blocks_entire_area === 1)
               },
               giftInfo: { remainingCheckins: 0, hasGift: false },
             });
@@ -1650,6 +1653,19 @@ export default function TabletCheckInsPage() {
                                           <MdTableBar size={16} className="text-amber-400" />
                                           <span className="font-bold">{result.reservation.table}</span> {result.reservation.area && <span className="text-amber-200">({result.reservation.area})</span>}
                                         </p>
+                                      </div>
+                                    )}
+                                    {result.reservation?.blocks_entire_area && (
+                                      <div className="col-span-2">
+                                        <div className="p-3 sm:p-4 bg-red-900/40 border-2 border-red-500/70 rounded-lg">
+                                          <div className="flex items-center gap-2 mb-1">
+                                            <MdTableBar className="text-red-400" size={20} />
+                                            <strong className="text-red-200 text-sm sm:text-base">⚠️ ÁREA COMPLETAMENTE BLOQUEADA</strong>
+                                          </div>
+                                          <p className="text-red-200 text-xs sm:text-sm">
+                                            Esta reserva está ocupando <strong>todas as mesas</strong> da área <strong>{result.reservation.area || 'Rooftop'}</strong> para este dia.
+                                          </p>
+                                        </div>
                                       </div>
                                     )}
                                   </div>
