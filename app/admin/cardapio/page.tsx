@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Image from 'next/image';
 import {
@@ -18,6 +18,9 @@ import {
   MdRestore,
   MdDeleteOutline,
   MdEvent,
+  MdViewModule,
+  MdViewList,
+  MdContentCopy,
 } from 'react-icons/md';
 import { useUserPermissions } from '../../hooks/useUserPermissions';
 import ImageCropModal from '../../components/ImageCropModal';
@@ -240,8 +243,18 @@ const getValidImageUrl = (filename?: string | null): string => {
     return PLACEHOLDER_IMAGE_URL;
   }
 
-  // Preview local (upload) ou data URL
+  // Preview local (upload) ou data URL - manter blob URLs para renderização especial
   if (trimmed.startsWith('blob:') || trimmed.startsWith('data:')) {
+    // Verificar se o blob URL ainda é válido (não foi revogado)
+    if (trimmed.startsWith('blob:')) {
+      try {
+        // Tentar criar um objeto URL para verificar se ainda é válido
+        // Se falhar, retornar placeholder
+        return trimmed;
+      } catch {
+        return PLACEHOLDER_IMAGE_URL;
+      }
+    }
     return trimmed;
   }
   
@@ -348,6 +361,14 @@ export default function CardapioAdminPage() {
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedItems, setSelectedItems] = useState<Array<string | number>>([]);
+  
+  // Novos estados para filtros e visualização
+  const [filterCategoryId, setFilterCategoryId] = useState<string>('');
+  const [filterSubCategory, setFilterSubCategory] = useState<string>('');
+  const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'paused' | 'inactive'>('all');
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [editingPriceId, setEditingPriceId] = useState<string | number | null>(null);
+  const [editingPriceValue, setEditingPriceValue] = useState<string>('');
 
   const [quickEditData, setQuickEditData] = useState<{
     barId: string | number;
@@ -2573,12 +2594,196 @@ export default function CardapioAdminPage() {
       }
 
       alert('Itens excluídos com sucesso!');
+      setSelectedItems([]);
       await fetchData();
     } catch (err) {
       console.error(err);
       alert(`Erro ao excluir itens: ${err instanceof Error ? err.message : 'Erro desconhecido'}`);
     }
   }, [selectedItems, fetchData]);
+
+  // Função para duplicar item
+  const handleDuplicateItem = useCallback(async (item: MenuItem) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/items`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: `${item.name} (Cópia)`,
+          description: item.description,
+          price: item.price,
+          imageUrl: item.imageUrl,
+          categoryId: item.categoryId,
+          barId: item.barId,
+          subCategory: item.subCategory || item.subCategoryName || '',
+          toppings: item.toppings || [],
+          order: item.order,
+          seals: item.seals || [],
+          visible: item.visible !== undefined ? item.visible : 1,
+        }),
+      });
+
+      if (response.ok) {
+        alert('Item duplicado com sucesso!');
+        await fetchData();
+      } else {
+        throw new Error('Falha ao duplicar item.');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Erro ao duplicar item.');
+    }
+  }, [fetchData]);
+
+  // Função para atualização rápida de preço
+  const handleQuickPriceUpdate = useCallback(async (itemId: string | number, newPrice: number) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/items/${itemId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ price: newPrice }),
+      });
+
+      if (response.ok) {
+        setMenuData((prev) => ({
+          ...prev,
+          items: prev.items.map((item) =>
+            item.id === itemId ? { ...item, price: newPrice } : item
+          ),
+        }));
+      } else {
+        throw new Error('Falha ao atualizar preço.');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Erro ao atualizar preço.');
+    }
+  }, []);
+
+  // Ações em massa
+  const handleBulkChangeCategory = useCallback(async (newCategoryId: string) => {
+    if (!newCategoryId || selectedItems.length === 0) return;
+    
+    if (!confirm(`Alterar categoria de ${selectedItems.length} item(s) selecionado(s)?`)) {
+      return;
+    }
+
+    try {
+      const updatePromises = selectedItems.map((itemId) =>
+        fetch(`${API_BASE_URL}/items/${itemId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ categoryId: newCategoryId }),
+        })
+      );
+      const results = await Promise.all(updatePromises);
+      const failed = results.filter((res) => !res.ok);
+      
+      if (failed.length > 0) {
+        throw new Error(`Falha ao atualizar ${failed.length} item(s).`);
+      }
+
+      alert('Categorias alteradas com sucesso!');
+      setSelectedItems([]);
+      await fetchData();
+    } catch (err) {
+      console.error(err);
+      alert(`Erro ao alterar categorias: ${err instanceof Error ? err.message : 'Erro desconhecido'}`);
+    }
+  }, [selectedItems, fetchData]);
+
+  const handleBulkToggleVisibility = useCallback(async () => {
+    if (selectedItems.length === 0) return;
+
+    const itemsToToggle = menuData.items.filter((item) => selectedItems.includes(item.id));
+    const allPaused = itemsToToggle.every(
+      (item) => item.visible === 0 || item.visible === false
+    );
+    const newVisible = !allPaused;
+
+    if (!confirm(`${newVisible ? 'Ativar' : 'Pausar'} ${selectedItems.length} item(s) selecionado(s)?`)) {
+      return;
+    }
+
+    try {
+      const updatePromises = selectedItems.map((itemId) =>
+        fetch(`${API_BASE_URL}/items/${itemId}/visibility`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ visible: newVisible }),
+        })
+      );
+      const results = await Promise.all(updatePromises);
+      const failed = results.filter((res) => !res.ok);
+      
+      if (failed.length > 0) {
+        throw new Error(`Falha ao atualizar ${failed.length} item(s).`);
+      }
+
+      alert(`Itens ${newVisible ? 'ativados' : 'pausados'} com sucesso!`);
+      setSelectedItems([]);
+      await fetchData();
+    } catch (err) {
+      console.error(err);
+      alert(`Erro ao ${newVisible ? 'ativar' : 'pausar'} itens: ${err instanceof Error ? err.message : 'Erro desconhecido'}`);
+    }
+  }, [selectedItems, menuData.items, fetchData]);
+
+  // Filtros inteligentes com useMemo
+  const filteredSubCategories = useMemo(() => {
+    if (!filterCategoryId) return [];
+    
+    const itemsInCategory = menuData.items.filter(
+      (item) => String(item.categoryId) === filterCategoryId
+    );
+    
+    const uniqueSubCategories = new Set<string>();
+    itemsInCategory.forEach((item) => {
+      const subCat = item.subCategory || item.subCategoryName;
+      if (subCat && subCat.trim() !== '') {
+        uniqueSubCategories.add(subCat.trim());
+      }
+    });
+    
+    return Array.from(uniqueSubCategories).sort();
+  }, [filterCategoryId, menuData.items]);
+
+  // Resetar subcategoria quando categoria mudar
+  useEffect(() => {
+    if (filterCategoryId) {
+      setFilterSubCategory('');
+    }
+  }, [filterCategoryId]);
+
+  // Filtragem de itens com useMemo
+  const filteredItems = useMemo(() => {
+    return menuData.items.filter((item) => {
+      // Filtro de busca por texto
+      const matchesSearch = !searchTerm || 
+        item.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        item.description?.toLowerCase().includes(searchTerm.toLowerCase());
+
+      // Filtro de categoria
+      const matchesCategory = !filterCategoryId || 
+        String(item.categoryId) === filterCategoryId;
+
+      // Filtro de subcategoria
+      const matchesSubCategory = !filterSubCategory ||
+        (item.subCategory || item.subCategoryName || '').trim() === filterSubCategory;
+
+      // Filtro de status
+      let matchesStatus = true;
+      if (filterStatus === 'active') {
+        matchesStatus = item.visible === 1 || item.visible === true || item.visible === undefined || item.visible === null;
+      } else if (filterStatus === 'paused') {
+        matchesStatus = item.visible === 0 || item.visible === false;
+      } else if (filterStatus === 'inactive') {
+        matchesStatus = item.visible === 0 || item.visible === false;
+      }
+
+      return matchesSearch && matchesCategory && matchesSubCategory && matchesStatus;
+    });
+  }, [menuData.items, searchTerm, filterCategoryId, filterSubCategory, filterStatus]);
 
   if (loading) return <div className="p-8 text-center">Carregando...</div>;
   if (error) return <div className="p-8 text-center text-red-500">{error}</div>;
@@ -2970,15 +3175,6 @@ export default function CardapioAdminPage() {
                         className="w-full rounded-lg border border-gray-300 py-2 pl-10 pr-4 focus:outline-none focus:ring-2 focus:ring-blue-500"
                       />
                     </div>
-                    {selectedItems.length > 0 && (
-                      <button
-                        onClick={handleBulkDelete}
-                        className="flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-white hover:bg-red-700"
-                      >
-                        <MdDelete className="h-5 w-5" />
-                        Excluir Selecionados ({selectedItems.length})
-                      </button>
-                    )}
                     <button
                       onClick={openTrashModal}
                       className="flex items-center gap-2 rounded-lg bg-gray-600 px-4 py-2 text-white hover:bg-gray-700"
@@ -3008,14 +3204,134 @@ export default function CardapioAdminPage() {
                   </div>
                 </div>
 
+                {/* Filtros Inteligentes */}
+                <div className="mb-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <div>
+                    <label className="mb-1 block text-sm font-medium text-gray-700">Categoria</label>
+                    <select
+                      value={filterCategoryId}
+                      onChange={(e) => setFilterCategoryId(e.target.value)}
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="">Todas as categorias</option>
+                      {menuData.categories.map((cat) => (
+                        <option key={cat.id} value={String(cat.id)}>
+                          {cat.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-sm font-medium text-gray-700">Subcategoria</label>
+                    <select
+                      value={filterSubCategory}
+                      onChange={(e) => setFilterSubCategory(e.target.value)}
+                      disabled={!filterCategoryId}
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                    >
+                      <option value="">Todas as subcategorias</option>
+                      {filteredSubCategories.map((subCat) => (
+                        <option key={subCat} value={subCat}>
+                          {subCat}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-sm font-medium text-gray-700">Status</label>
+                    <select
+                      value={filterStatus}
+                      onChange={(e) => setFilterStatus(e.target.value as any)}
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="all">Todos</option>
+                      <option value="active">Ativo</option>
+                      <option value="paused">Pausado</option>
+                      <option value="inactive">Inativo</option>
+                    </select>
+                  </div>
+                  <div className="flex items-end">
+                    <div className="flex gap-2 w-full">
+                      <button
+                        onClick={() => setViewMode('grid')}
+                        className={`flex-1 flex items-center justify-center gap-2 rounded-lg px-4 py-2 transition-colors ${
+                          viewMode === 'grid'
+                            ? 'bg-blue-600 text-white'
+                            : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                        }`}
+                        title="Visualização em grade"
+                      >
+                        <MdViewModule className="h-5 w-5" />
+                        <span className="hidden sm:inline">Grade</span>
+                      </button>
+                      <button
+                        onClick={() => setViewMode('list')}
+                        className={`flex-1 flex items-center justify-center gap-2 rounded-lg px-4 py-2 transition-colors ${
+                          viewMode === 'list'
+                            ? 'bg-blue-600 text-white'
+                            : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                        }`}
+                        title="Visualização em lista"
+                      >
+                        <MdViewList className="h-5 w-5" />
+                        <span className="hidden sm:inline">Lista</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Floating Toolbar para Ações em Massa */}
+                {selectedItems.length > 0 && (
+                  <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-white rounded-lg shadow-2xl border border-gray-200 p-4 flex items-center gap-3">
+                    <span className="text-sm font-medium text-gray-700">
+                      {selectedItems.length} item(s) selecionado(s)
+                    </span>
+                    <div className="flex gap-2">
+                      <select
+                        onChange={(e) => {
+                          if (e.target.value) {
+                            handleBulkChangeCategory(e.target.value);
+                            e.target.value = '';
+                          }
+                        }}
+                        className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        defaultValue=""
+                      >
+                        <option value="" disabled>Alterar Categoria</option>
+                        {menuData.categories.map((cat) => (
+                          <option key={cat.id} value={String(cat.id)}>
+                            {cat.name}
+                          </option>
+                        ))}
+                      </select>
+                      <button
+                        onClick={handleBulkToggleVisibility}
+                        className="flex items-center gap-2 rounded-lg bg-yellow-600 px-4 py-1.5 text-sm text-white hover:bg-yellow-700"
+                      >
+                        <MdPause className="h-4 w-4" />
+                        Pausar/Ativar
+                      </button>
+                      <button
+                        onClick={handleBulkDelete}
+                        className="flex items-center gap-2 rounded-lg bg-red-600 px-4 py-1.5 text-sm text-white hover:bg-red-700"
+                      >
+                        <MdDelete className="h-4 w-4" />
+                        Excluir
+                      </button>
+                      <button
+                        onClick={() => setSelectedItems([])}
+                        className="flex items-center gap-2 rounded-lg bg-gray-600 px-4 py-1.5 text-sm text-white hover:bg-gray-700"
+                      >
+                        <MdClose className="h-4 w-4" />
+                        Cancelar
+                      </button>
+                    </div>
+                  </div>
+                )}
+
                 {/* Agrupamento de itens por bar */}
                 {menuData.bars.map((bar) => {
-                  const itemsForBar = menuData.items.filter(
-                    (item) =>
-                      item.barId === bar.id &&
-                      (item.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                        item.description?.toLowerCase().includes(searchTerm.toLowerCase())),
-                  );
+                  const itemsForBar = filteredItems.filter((item) => item.barId === bar.id);
                   if (itemsForBar.length === 0) return null;
 
                   const isAllSelectedInBar = itemsForBar.every((item) =>
@@ -3056,118 +3372,315 @@ export default function CardapioAdminPage() {
                           </span>
                         </div>
                       </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6 admin-grid-4">
-                        {itemsForBar.map((item) => {
-                          const category = menuData.categories.find(
-                            (c) => c.id === item.categoryId,
-                          );
-                          return (
-                            <div
-                              key={item.id}
-                              className={`relative overflow-hidden rounded-lg bg-white shadow-md ${
-                                item.visible === 0 || item.visible === false ? 'opacity-60' : ''
-                              }`}
-                            >
-                              {/* Badge de pausado */}
-                              {(item.visible === 0 || item.visible === false) && (
-                                <div className="absolute left-0 top-0 z-20 rounded-br-lg bg-yellow-500 px-3 py-1">
-                                  <span className="text-xs font-bold text-white">PAUSADO</span>
+                      {viewMode === 'grid' ? (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6 admin-grid-4">
+                          {itemsForBar.map((item) => {
+                            const category = menuData.categories.find(
+                              (c) => c.id === item.categoryId,
+                            );
+                            return (
+                              <div
+                                key={item.id}
+                                className={`relative overflow-hidden rounded-lg bg-white shadow-md ${
+                                  item.visible === 0 || item.visible === false ? 'opacity-60' : ''
+                                }`}
+                              >
+                                {/* Badge de pausado */}
+                                {(item.visible === 0 || item.visible === false) && (
+                                  <div className="absolute left-0 top-0 z-20 rounded-br-lg bg-yellow-500 px-3 py-1">
+                                    <span className="text-xs font-bold text-white">PAUSADO</span>
+                                  </div>
+                                )}
+                                <div className="absolute left-2 top-2 z-10">
+                                  <input
+                                    type="checkbox"
+                                    className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                    checked={selectedItems.includes(item.id)}
+                                    onChange={(e) => handleSelectItem(item.id, e.target.checked)}
+                                  />
                                 </div>
-                              )}
-                              <div className="absolute left-2 top-2 z-10">
-                                <input
-                                  type="checkbox"
-                                  className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                                  checked={selectedItems.includes(item.id)}
-                                  onChange={(e) => handleSelectItem(item.id, e.target.checked)}
-                                />
-                              </div>
-                              <div className="relative h-48">
-                                <Image
-                                  src={getValidImageUrl(item.imageUrl)}
-                                  alt={item.name}
-                                  fill
-                                  sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                                  className="object-cover"
-                                  unoptimized={item.imageUrl?.includes('cloudinary.com') || item.imageUrl?.startsWith('blob:') || false}
-                                  onError={(e) => {
-                                    console.error('❌ Erro ao carregar imagem do item:', item.name, item.imageUrl);
-                                    const target = e.currentTarget;
-                                    // Tentar usar a URL diretamente se for Cloudinary
-                                    if (item.imageUrl?.includes('cloudinary.com') && target.src !== item.imageUrl) {
-                                      target.src = item.imageUrl;
+                                <div className="relative h-48">
+                                  {(() => {
+                                    const imageUrl = getValidImageUrl(item.imageUrl);
+                                    const isBlob = imageUrl.startsWith('blob:');
+                                    
+                                    if (isBlob) {
+                                      return (
+                                        <img
+                                          src={imageUrl}
+                                          alt={item.name}
+                                          className="absolute inset-0 w-full h-full object-cover"
+                                          onError={(e) => {
+                                            console.error('❌ Erro ao carregar imagem blob do item:', item.name, item.imageUrl);
+                                            const target = e.currentTarget;
+                                            target.src = PLACEHOLDER_IMAGE_URL;
+                                          }}
+                                        />
+                                      );
                                     }
-                                  }}
-                                />
-                                <div className="absolute right-2 top-2 flex gap-1">
-                                  {(isAdmin ||
-                                    (isPromoter && canManageBar(Number(item.barId)))) && (
-                                    <>
-                                      {/* Botão Pausar/Ativar */}
+                                    
+                                    return (
+                                      <Image
+                                        src={imageUrl}
+                                        alt={item.name}
+                                        fill
+                                        sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                                        className="object-cover"
+                                        unoptimized={item.imageUrl?.includes('cloudinary.com') || false}
+                                        onError={(e) => {
+                                          console.error('❌ Erro ao carregar imagem do item:', item.name, item.imageUrl);
+                                          const target = e.currentTarget;
+                                          if (item.imageUrl?.includes('cloudinary.com') && target.src !== item.imageUrl) {
+                                            target.src = item.imageUrl;
+                                          } else {
+                                            target.src = PLACEHOLDER_IMAGE_URL;
+                                          }
+                                        }}
+                                      />
+                                    );
+                                  })()}
+                                  <div className="absolute right-2 top-2 flex gap-1">
+                                    {(isAdmin ||
+                                      (isPromoter && canManageBar(Number(item.barId)))) && (
+                                      <>
+                                        <button
+                                          onClick={() => handleToggleItemVisibility(item.id, item.visible)}
+                                          className={`rounded-full p-2 text-white hover:opacity-90 ${
+                                            item.visible === 1 || item.visible === true || item.visible === undefined || item.visible === null
+                                              ? 'bg-yellow-600 hover:bg-yellow-700'
+                                              : 'bg-green-600 hover:bg-green-700'
+                                          }`}
+                                          title={
+                                            item.visible === 1 || item.visible === true || item.visible === undefined || item.visible === null
+                                              ? 'Pausar item'
+                                              : 'Ativar item'
+                                          }
+                                        >
+                                          {item.visible === 1 || item.visible === true || item.visible === undefined || item.visible === null ? (
+                                            <MdPause className="h-4 w-4" />
+                                          ) : (
+                                            <MdPlayArrow className="h-4 w-4" />
+                                          )}
+                                        </button>
+                                        <button
+                                          onClick={() => handleEditItem(item)}
+                                          className="rounded-full bg-blue-600 p-2 text-white hover:bg-blue-700"
+                                          title="Editar item"
+                                        >
+                                          <MdEdit className="h-4 w-4" />
+                                        </button>
+                                        <button
+                                          onClick={() => handleDuplicateItem(item)}
+                                          className="rounded-full bg-purple-600 p-2 text-white hover:bg-purple-700"
+                                          title="Duplicar item"
+                                        >
+                                          <MdContentCopy className="h-4 w-4" />
+                                        </button>
+                                        <button
+                                          onClick={() => handleDeleteItem(item.id)}
+                                          className="rounded-full bg-red-600 p-2 text-white hover:bg-red-700"
+                                          title="Excluir item"
+                                        >
+                                          <MdDelete className="h-4 w-4" />
+                                        </button>
+                                      </>
+                                    )}
+                                  </div>
+                                  <div className="absolute bottom-2 left-2 rounded-full bg-white px-2 py-1 shadow-md">
+                                    <span className="text-sm font-bold text-green-600">
+                                      {formatPrice(item.price)}
+                                    </span>
+                                  </div>
+                                </div>
+                                <div className="p-4">
+                                  <h3 className="mb-2 line-clamp-2 text-lg font-semibold text-gray-900">
+                                    {item.name}
+                                  </h3>
+                                  <p className="mb-2 line-clamp-2 text-sm text-gray-600">
+                                    {item.description}
+                                  </p>
+                                  {renderItemSeals(item.seals || [])}
+                                  <div className="text-xs text-gray-500">
+                                    <p>Categoria: {category?.name}</p>
+                                    {(item.subCategory || item.subCategoryName) && (
+                                      <p>Sub-categoria: {item.subCategory || item.subCategoryName}</p>
+                                    )}
+                                    {item.toppings?.length > 0 && (
+                                      <p>{item.toppings.length} adicionais</p>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <div className="overflow-x-auto">
+                          <table className="min-w-full bg-white border border-gray-200 rounded-lg">
+                            <thead className="bg-gray-50">
+                              <tr>
+                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                  <input
+                                    type="checkbox"
+                                    className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                    checked={itemsForBar.every((item) => selectedItems.includes(item.id))}
+                                    onChange={(e) => {
+                                      if (e.target.checked) {
+                                        setSelectedItems((prev) => [
+                                          ...new Set([...prev, ...itemsForBar.map((i) => i.id)]),
+                                        ]);
+                                      } else {
+                                        setSelectedItems((prev) =>
+                                          prev.filter((id) => !itemsForBar.map((i) => i.id).includes(id))
+                                        );
+                                      }
+                                    }}
+                                  />
+                                </th>
+                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nome</th>
+                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Categoria</th>
+                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Preço</th>
+                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ações</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-200">
+                              {itemsForBar.map((item) => {
+                                const category = menuData.categories.find(
+                                  (c) => c.id === item.categoryId,
+                                );
+                                const isPaused = item.visible === 0 || item.visible === false;
+                                const isEditingPrice = editingPriceId === item.id;
+                                
+                                return (
+                                  <tr
+                                    key={item.id}
+                                    className={`hover:bg-gray-50 ${isPaused ? 'opacity-60' : ''}`}
+                                  >
+                                    <td className="px-4 py-3 whitespace-nowrap">
+                                      <input
+                                        type="checkbox"
+                                        className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                        checked={selectedItems.includes(item.id)}
+                                        onChange={(e) => handleSelectItem(item.id, e.target.checked)}
+                                      />
+                                    </td>
+                                    <td className="px-4 py-3">
+                                      <div className="text-sm font-medium text-gray-900">{item.name}</div>
+                                      {item.description && (
+                                        <div className="text-xs text-gray-500 line-clamp-1">{item.description}</div>
+                                      )}
+                                    </td>
+                                    <td className="px-4 py-3 whitespace-nowrap">
+                                      <div className="text-sm text-gray-900">{category?.name || '-'}</div>
+                                      {(item.subCategory || item.subCategoryName) && (
+                                        <div className="text-xs text-gray-500">{item.subCategory || item.subCategoryName}</div>
+                                      )}
+                                    </td>
+                                    <td className="px-4 py-3 whitespace-nowrap">
+                                      {isEditingPrice ? (
+                                        <div className="flex items-center gap-2">
+                                          <input
+                                            type="number"
+                                            step="0.01"
+                                            min="0"
+                                            value={editingPriceValue}
+                                            onChange={(e) => setEditingPriceValue(e.target.value)}
+                                            onBlur={() => {
+                                              const newPrice = parseFloat(editingPriceValue);
+                                              if (!isNaN(newPrice) && newPrice >= 0) {
+                                                handleQuickPriceUpdate(item.id, newPrice);
+                                              }
+                                              setEditingPriceId(null);
+                                              setEditingPriceValue('');
+                                            }}
+                                            onKeyDown={(e) => {
+                                              if (e.key === 'Enter') {
+                                                const newPrice = parseFloat(editingPriceValue);
+                                                if (!isNaN(newPrice) && newPrice >= 0) {
+                                                  handleQuickPriceUpdate(item.id, newPrice);
+                                                }
+                                                setEditingPriceId(null);
+                                                setEditingPriceValue('');
+                                              } else if (e.key === 'Escape') {
+                                                setEditingPriceId(null);
+                                                setEditingPriceValue('');
+                                              }
+                                            }}
+                                            className="w-24 rounded border border-gray-300 px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                            autoFocus
+                                          />
+                                        </div>
+                                      ) : (
+                                        <button
+                                          onClick={() => {
+                                            setEditingPriceId(item.id);
+                                            setEditingPriceValue(item.price.toString());
+                                          }}
+                                          className="text-sm font-medium text-green-600 hover:text-green-700 hover:underline"
+                                        >
+                                          {formatPrice(item.price)}
+                                        </button>
+                                      )}
+                                    </td>
+                                    <td className="px-4 py-3 whitespace-nowrap">
                                       <button
                                         onClick={() => handleToggleItemVisibility(item.id, item.visible)}
-                                        className={`rounded-full p-2 text-white hover:opacity-90 ${
-                                          item.visible === 1 || item.visible === true || item.visible === undefined || item.visible === null
-                                            ? 'bg-yellow-600 hover:bg-yellow-700'
-                                            : 'bg-green-600 hover:bg-green-700'
+                                        className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-medium ${
+                                          isPaused
+                                            ? 'bg-yellow-100 text-yellow-800 hover:bg-yellow-200'
+                                            : 'bg-green-100 text-green-800 hover:bg-green-200'
                                         }`}
-                                        title={
-                                          item.visible === 1 || item.visible === true || item.visible === undefined || item.visible === null
-                                            ? 'Pausar item'
-                                            : 'Ativar item'
-                                        }
                                       >
-                                        {item.visible === 1 || item.visible === true || item.visible === undefined || item.visible === null ? (
-                                          <MdPause className="h-4 w-4" />
+                                        {isPaused ? (
+                                          <>
+                                            <MdPause className="h-3 w-3" />
+                                            Pausado
+                                          </>
                                         ) : (
-                                          <MdPlayArrow className="h-4 w-4" />
+                                          <>
+                                            <MdPlayArrow className="h-3 w-3" />
+                                            Ativo
+                                          </>
                                         )}
                                       </button>
-                                      <button
-                                        onClick={() => handleEditItem(item)}
-                                        className="rounded-full bg-blue-600 p-2 text-white hover:bg-blue-700"
-                                        title="Editar item"
-                                      >
-                                        <MdEdit className="h-4 w-4" />
-                                      </button>
-                                      <button
-                                        onClick={() => handleDeleteItem(item.id)}
-                                        className="rounded-full bg-red-600 p-2 text-white hover:bg-red-700"
-                                        title="Excluir item"
-                                      >
-                                        <MdDelete className="h-4 w-4" />
-                                      </button>
-                                    </>
-                                  )}
-                                </div>
-                                <div className="absolute bottom-2 left-2 rounded-full bg-white px-2 py-1 shadow-md">
-                                  <span className="text-sm font-bold text-green-600">
-                                    {formatPrice(item.price)}
-                                  </span>
-                                </div>
-                              </div>
-                              <div className="p-4">
-                                <h3 className="mb-2 line-clamp-2 text-lg font-semibold text-gray-900">
-                                  {item.name}
-                                </h3>
-                                <p className="mb-2 line-clamp-2 text-sm text-gray-600">
-                                  {item.description}
-                                </p>
-                                {renderItemSeals(item.seals || [])}
-                                <div className="text-xs text-gray-500">
-                                  <p>Categoria: {category?.name}</p>
-                                  {(item.subCategory || item.subCategoryName) && (
-                                    <p>Sub-categoria: {item.subCategory || item.subCategoryName}</p>
-                                  )}
-                                  {item.toppings?.length > 0 && (
-                                    <p>{item.toppings.length} adicionais</p>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
+                                    </td>
+                                    <td className="px-4 py-3 whitespace-nowrap">
+                                      <div className="flex items-center gap-2">
+                                        {(isAdmin || (isPromoter && canManageBar(Number(item.barId)))) && (
+                                          <>
+                                            <button
+                                              onClick={() => handleEditItem(item)}
+                                              className="rounded bg-blue-600 p-1.5 text-white hover:bg-blue-700"
+                                              title="Editar item"
+                                            >
+                                              <MdEdit className="h-4 w-4" />
+                                            </button>
+                                            <button
+                                              onClick={() => handleDuplicateItem(item)}
+                                              className="rounded bg-purple-600 p-1.5 text-white hover:bg-purple-700"
+                                              title="Duplicar item"
+                                            >
+                                              <MdContentCopy className="h-4 w-4" />
+                                            </button>
+                                            <button
+                                              onClick={() => handleDeleteItem(item.id)}
+                                              className="rounded bg-red-600 p-1.5 text-white hover:bg-red-700"
+                                              title="Excluir item"
+                                            >
+                                              <MdDelete className="h-4 w-4" />
+                                            </button>
+                                          </>
+                                        )}
+                                      </div>
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
                     </div>
                   );
                 })}
@@ -4868,22 +5381,45 @@ export default function CardapioAdminPage() {
                         }`}
                       >
                         <div className="relative h-32">
-                          <Image
-                            src={getValidImageUrl(item.imageUrl)}
-                            alt={item.name}
-                            fill
-                            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                            className="object-cover opacity-60"
-                            unoptimized={item.imageUrl?.includes('cloudinary.com') || item.imageUrl?.startsWith('blob:') || false}
-                            onError={(e) => {
-                              console.error('❌ Erro ao carregar imagem do item na lixeira:', item.name, item.imageUrl);
-                              const target = e.currentTarget;
-                              // Tentar usar a URL diretamente se for Cloudinary
-                              if (item.imageUrl?.includes('cloudinary.com') && target.src !== item.imageUrl) {
-                                target.src = item.imageUrl;
-                              }
-                            }}
-                          />
+                          {(() => {
+                            const imageUrl = getValidImageUrl(item.imageUrl);
+                            const isBlob = imageUrl.startsWith('blob:');
+                            
+                            if (isBlob) {
+                              return (
+                                <img
+                                  src={imageUrl}
+                                  alt={item.name}
+                                  className="absolute inset-0 w-full h-full object-cover opacity-60"
+                                  onError={(e) => {
+                                    console.error('❌ Erro ao carregar imagem blob do item na lixeira:', item.name, item.imageUrl);
+                                    const target = e.currentTarget;
+                                    target.src = PLACEHOLDER_IMAGE_URL;
+                                  }}
+                                />
+                              );
+                            }
+                            
+                            return (
+                              <Image
+                                src={imageUrl}
+                                alt={item.name}
+                                fill
+                                sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                                className="object-cover opacity-60"
+                                unoptimized={item.imageUrl?.includes('cloudinary.com') || false}
+                                onError={(e) => {
+                                  console.error('❌ Erro ao carregar imagem do item na lixeira:', item.name, item.imageUrl);
+                                  const target = e.currentTarget;
+                                  if (item.imageUrl?.includes('cloudinary.com') && target.src !== item.imageUrl) {
+                                    target.src = item.imageUrl;
+                                  } else {
+                                    target.src = PLACEHOLDER_IMAGE_URL;
+                                  }
+                                }}
+                              />
+                            );
+                          })()}
                           {isExpiringSoon && (
                             <div className="absolute top-2 left-2 bg-orange-500 text-white text-xs px-2 py-1 rounded-full">
                               Expirando em {Math.ceil(daysRemaining)} dia(s)
