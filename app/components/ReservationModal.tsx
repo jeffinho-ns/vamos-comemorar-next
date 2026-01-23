@@ -108,6 +108,9 @@ export default function ReservationModal({
   
   // Estado para bloquear toda a área (apenas admin)
   const [blocksEntireArea, setBlocksEntireArea] = useState(false);
+  
+  // Estado para armazenar áreas bloqueadas para a data selecionada
+  const [blockedAreas, setBlockedAreas] = useState<Set<number>>(new Set());
 
   const highlineSubareas = [
     { key: 'deck-frente', area_id: 2, label: 'Área Deck - Frente', tableNumbers: ['05','06','07','08'] },
@@ -1195,21 +1198,32 @@ export default function ReservationModal({
                   >
                     <option value="">Selecione uma área</option>
                     {isHighline
-                      ? highlineSubareas.map(s => (
-                          <option key={s.key} value={s.key}>{s.label}</option>
-                        ))
+                      ? highlineSubareas
+                          .filter(s => !blockedAreas.has(s.area_id))
+                          .map(s => (
+                            <option key={s.key} value={s.key}>{s.label}</option>
+                          ))
                       : isSeuJustino
-                      ? seuJustinoSubareas.map(s => (
-                          <option key={s.key} value={s.key}>{s.label}</option>
-                        ))
-                      : areas.map((area) => (
-                          <option key={area.id} value={area.id}>
-                            {area.name}
-                          </option>
-                        ))}
+                      ? seuJustinoSubareas
+                          .filter(s => !blockedAreas.has(s.area_id))
+                          .map(s => (
+                            <option key={s.key} value={s.key}>{s.label}</option>
+                          ))
+                      : areas
+                          .filter(area => !blockedAreas.has(area.id))
+                          .map((area) => (
+                            <option key={area.id} value={area.id}>
+                              {area.name}
+                            </option>
+                          ))}
                   </select>
                   {errors.area_id && (
                     <p className="text-red-500 text-sm mt-1">{errors.area_id}</p>
+                  )}
+                  {blockedAreas.size > 0 && (
+                    <p className="text-xs text-amber-400 mt-1">
+                      ⚠️ Algumas áreas estão bloqueadas para esta data e não estão disponíveis para reserva.
+                    </p>
                   )}
                 </div>
 
