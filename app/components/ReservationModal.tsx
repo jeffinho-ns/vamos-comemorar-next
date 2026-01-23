@@ -461,6 +461,43 @@ export default function ReservationModal({
     loadTables();
   }, [formData.area_id, formData.reservation_date, selectedSubareaKey, isHighline, isSeuJustino, establishment?.id]);
 
+  // Buscar áreas bloqueadas para a data selecionada
+  useEffect(() => {
+    const loadBlockedAreas = async () => {
+      if (!formData.reservation_date) {
+        setBlockedAreas(new Set());
+        return;
+      }
+      try {
+        const res = await fetch(
+          `${API_URL}/api/restaurant-reservations?reservation_date=${formData.reservation_date}&include_cancelled=false`
+        );
+        if (res.ok) {
+          const data = await res.json();
+          const reservations = Array.isArray(data.reservations) ? data.reservations : [];
+          
+          // Filtrar reservas que bloqueiam toda a área
+          const blockedAreaIds = new Set<number>();
+          reservations.forEach((reservation: any) => {
+            if (reservation.blocks_entire_area === true || reservation.blocks_entire_area === 1) {
+              if (reservation.area_id) {
+                blockedAreaIds.add(Number(reservation.area_id));
+              }
+            }
+          });
+          
+          setBlockedAreas(blockedAreaIds);
+        } else {
+          setBlockedAreas(new Set());
+        }
+      } catch (e) {
+        console.error('Erro ao carregar áreas bloqueadas:', e);
+        setBlockedAreas(new Set());
+      }
+    };
+    loadBlockedAreas();
+  }, [formData.reservation_date]);
+
   // Buscar eventos disponíveis para a data selecionada
   useEffect(() => {
     const loadEventos = async () => {
