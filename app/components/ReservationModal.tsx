@@ -468,19 +468,46 @@ export default function ReservationModal({
         setBlockedAreas(new Set());
         return;
       }
+      
+      // Garantir que a data está no formato correto (YYYY-MM-DD)
+      const selectedDate = formData.reservation_date;
+      if (!selectedDate || !/^\d{4}-\d{2}-\d{2}$/.test(selectedDate)) {
+        setBlockedAreas(new Set());
+        return;
+      }
+      
       try {
         const res = await fetch(
-          `${API_URL}/api/restaurant-reservations?reservation_date=${formData.reservation_date}&include_cancelled=false`
+          `${API_URL}/api/restaurant-reservations?reservation_date=${selectedDate}&include_cancelled=false`
         );
         if (res.ok) {
           const data = await res.json();
           const reservations = Array.isArray(data.reservations) ? data.reservations : [];
           
-          // Filtrar reservas que bloqueiam toda a área
+          // Filtrar reservas que bloqueiam toda a área E que são para a data específica
           const blockedAreaIds = new Set<number>();
           reservations.forEach((reservation: any) => {
+            // Verificar se a reserva bloqueia toda a área
             if (reservation.blocks_entire_area === true || reservation.blocks_entire_area === 1) {
-              if (reservation.area_id) {
+              // Verificar se a data da reserva corresponde à data selecionada
+              let reservationDate = '';
+              if (reservation.reservation_date) {
+                if (typeof reservation.reservation_date === 'string') {
+                  // Se já está no formato YYYY-MM-DD, usar diretamente
+                  if (/^\d{4}-\d{2}-\d{2}$/.test(reservation.reservation_date)) {
+                    reservationDate = reservation.reservation_date;
+                  } else {
+                    // Se for uma data ISO, converter para YYYY-MM-DD
+                    const date = new Date(reservation.reservation_date);
+                    if (!isNaN(date.getTime())) {
+                      reservationDate = date.toISOString().split('T')[0];
+                    }
+                  }
+                }
+              }
+              
+              // Só adicionar se a data da reserva corresponder à data selecionada
+              if (reservationDate === selectedDate && reservation.area_id) {
                 blockedAreaIds.add(Number(reservation.area_id));
               }
             }
