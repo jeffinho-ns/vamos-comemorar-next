@@ -138,7 +138,10 @@ export default function Login() {
           'regianebrunno@gmail.com',
           'franciely.mendes@ideiaum.com.br',
           'recepcao@seujustino.com.br',
-          'recepcao@pracinhadoseujustino.com.br'
+          'recepcao@pracinhadoseujustino.com.br',
+          'caixasjm@seujustino.com.br',
+          'gerente.sjm@seujustino.com.br',
+          'subgerente.sjm@seujustino.com.br'
         ];
         
         const userEmail = emailCpf.toLowerCase().trim();
