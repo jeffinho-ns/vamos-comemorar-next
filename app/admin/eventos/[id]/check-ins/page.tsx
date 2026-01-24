@@ -4294,6 +4294,7 @@ export default function EventoCheckInsPage() {
                       const establishmentName = (evento?.establishment_name || '').toLowerCase();
                       const isSeuJustinoPlanilha = (establishmentName.includes('seu justino') && !establishmentName.includes('pracinha')) || evento?.establishment_id === 1;
 
+                      // Highline: mesma fórmula — subáreas com tableNumbers; sections Deck, Bar, Rooftop
                       const highlineSubareas = [
                         { key: 'deck-frente', area_id: 2, label: 'Área Deck - Frente', tableNumbers: ['05','06','07','08'] },
                         { key: 'deck-esquerdo', area_id: 2, label: 'Área Deck - Esquerdo', tableNumbers: ['01','02','03','04'] },
@@ -4306,6 +4307,7 @@ export default function EventoCheckInsPage() {
                         { key: 'roof-vista', area_id: 5, label: 'Área Rooftop - Vista', tableNumbers: ['40','41','42'] },
                       ];
 
+                      // Seu Justino: mesma fórmula do Highline — subáreas + sections Lounge, Quintal (sem "other")
                       const seuJustinoSubareas = [
                         { key: 'lounge-aquario-spaten', area_id: 1, label: 'Lounge Aquario Spaten', tableNumbers: ['210'] },
                         { key: 'lounge-aquario-tv', area_id: 1, label: 'Lounge Aquario TV', tableNumbers: ['208'] },
@@ -4369,21 +4371,20 @@ export default function EventoCheckInsPage() {
                         const tableNum = mesa.table_number.trim();
                         const subarea = subareas.find((sub: { tableNumbers: string[] }) => sub.tableNumbers.includes(tableNum));
                         if (subarea) {
+                          const k = (subarea as { key: string }).key;
                           if (isSeuJustinoPlanilha) {
-                            if ((subarea as { key: string }).key.startsWith('lounge')) return 'lounge';
-                            if ((subarea as { key: string }).key.startsWith('quintal')) return 'quintal';
-                            return 'other';
+                            if (k.startsWith('lounge')) return 'lounge';
+                            if (k.startsWith('quintal')) return 'quintal';
+                            return mesa.area_id === 1 ? 'lounge' : 'quintal';
                           }
-                          if ((subarea as { key: string }).key.startsWith('deck-')) return 'deck';
-                          if ((subarea as { key: string }).key === 'bar') return 'bar';
-                          if ((subarea as { key: string }).key.startsWith('roof-')) return 'rooftop';
+                          if (k.startsWith('deck-')) return 'deck';
+                          if (k === 'bar') return 'bar';
+                          if (k.startsWith('roof-')) return 'rooftop';
                         }
                         if (isSeuJustinoPlanilha) {
                           if (['200','202','204','206','208','210'].includes(tableNum)) return 'lounge';
                           if (['20','22','24','26','28','29','30','32','34','36','38','39','40','42','44','46','48','50','52','54','56','58','60','62','64'].includes(tableNum)) return 'quintal';
-                          if (mesa.area_id === 1) return 'lounge';
-                          if (mesa.area_id === 2) return 'quintal';
-                          return 'other';
+                          return mesa.area_id === 1 ? 'lounge' : 'quintal';
                         }
                         if (['40','41','42','44','45','46','47','60','61','62','63','64','65','50','51','52','53','54','55','56','70','71','72','73'].includes(tableNum)) return 'rooftop';
                         if (['01','02','03','04','05','06','07','08','09','10','11','12'].includes(tableNum)) return 'deck';
@@ -4413,7 +4414,6 @@ export default function EventoCheckInsPage() {
                         ? [
                             { key: 'lounge', title: 'Lounge', area_ids: [], area_names: [] },
                             { key: 'quintal', title: 'Quintal', area_ids: [], area_names: [] },
-                            { key: 'other', title: 'Outros', area_ids: [], area_names: [] },
                           ]
                         : [
                             { key: 'deck', title: 'Deck', area_ids: [], area_names: [] },
@@ -4422,14 +4422,14 @@ export default function EventoCheckInsPage() {
                           ];
 
                       const getAreaKeyFromReservation = (r: Reservation): string => {
-                        const tableNum = String((r as any).table_number || '').trim();
+                        const tableNum = String((r as any).table_number ?? '').trim();
                         const subarea = subareas.find((sub: { tableNumbers: string[] }) => sub.tableNumbers.includes(tableNum));
                         if (subarea) {
                           const k = (subarea as { key: string }).key;
                           if (isSeuJustinoPlanilha) {
                             if (k.startsWith('lounge')) return 'lounge';
                             if (k.startsWith('quintal')) return 'quintal';
-                            return 'other';
+                            return (r as any).area_id === 1 ? 'lounge' : 'quintal';
                           }
                           if (k.startsWith('deck-')) return 'deck';
                           if (k === 'bar') return 'bar';
@@ -4438,18 +4438,18 @@ export default function EventoCheckInsPage() {
                         if (isSeuJustinoPlanilha) {
                           if (['200','202','204','206','208','210'].includes(tableNum)) return 'lounge';
                           if (['20','22','24','26','28','29','30','32','34','36','38','39','40','42','44','46','48','50','52','54','56','58','60','62','64'].includes(tableNum)) return 'quintal';
-                          const areaName = (r as any).area_name?.toLowerCase() || '';
-                          if (areaName.includes('lounge') || areaName.includes('bar')) return 'lounge';
-                          if (areaName.includes('quintal')) return 'quintal';
-                          return 'other';
+                          const an = (r as any).area_name?.toLowerCase() || '';
+                          if (an.includes('lounge') || an.includes('bar')) return 'lounge';
+                          if (an.includes('quintal') || an.includes('descoberta')) return 'quintal';
+                          return (r as any).area_id === 1 ? 'lounge' : 'quintal';
                         }
                         if (['40','41','42','44','45','46','47','60','61','62','63','64','65','50','51','52','53','54','55','56','70','71','72','73'].includes(tableNum)) return 'rooftop';
                         if (['01','02','03','04','05','06','07','08','09','10','11','12'].includes(tableNum)) return 'deck';
                         if (['15','16','17'].includes(tableNum)) return 'bar';
-                        const areaName = (r as any).area_name?.toLowerCase() || '';
-                        if (areaName.includes('roof') || areaName.includes('rooftop') || areaName.includes('terraço')) return 'rooftop';
-                        if (areaName.includes('deck')) return 'deck';
-                        if (areaName.includes('bar') || areaName.includes('central')) return 'bar';
+                        const an = (r as any).area_name?.toLowerCase() || '';
+                        if (an.includes('roof') || an.includes('rooftop') || an.includes('terraço')) return 'rooftop';
+                        if (an.includes('deck')) return 'deck';
+                        if (an.includes('bar') || an.includes('central')) return 'bar';
                         return 'deck';
                       };
 
@@ -4518,8 +4518,6 @@ export default function EventoCheckInsPage() {
                               subarea.tableNumbers.forEach(tn => tableNumbersPermitidos.add(tn));
                             } else if (sectionKey === 'quintal' && subarea.key.startsWith('quintal')) {
                               subarea.tableNumbers.forEach(tn => tableNumbersPermitidos.add(tn));
-                            } else if (sectionKey === 'other') {
-                              // other: mesas não mapeadas
                             }
                           } else {
                             if (sectionKey === 'deck' && subarea.key.startsWith('deck-')) {
@@ -4573,8 +4571,10 @@ export default function EventoCheckInsPage() {
                         });
 
                         const rowsWithEmpty: Array<{ reservation?: Reservation; table_number: string; is_empty: boolean }> = [];
+                        const tablesSeen = new Set<string>();
                         mesasArea.forEach(mesa => {
                           const tableNum = mesa.table_number.trim();
+                          tablesSeen.add(tableNum);
                           const list = reservasPorMesa.get(tableNum) || [];
                           const valid = list.filter(r => matchesFilters(r));
                           if (valid.length > 0) {
@@ -4584,6 +4584,19 @@ export default function EventoCheckInsPage() {
                           } else {
                             rowsWithEmpty.push({ reservation: undefined, table_number: tableNum, is_empty: true });
                           }
+                        });
+                        reservasPorMesa.forEach((list, tableNum) => {
+                          if (tablesSeen.has(tableNum)) return;
+                          const valid = list.filter(r => matchesFilters(r));
+                          if (valid.length === 0) return;
+                          valid.forEach(reserva => {
+                            rowsWithEmpty.push({ reservation: reserva, table_number: tableNum, is_empty: false });
+                          });
+                          tablesSeen.add(tableNum);
+                        });
+                        tableNumbersPermitidos.forEach(tn => {
+                          if (tablesSeen.has(tn)) return;
+                          rowsWithEmpty.push({ reservation: undefined, table_number: tn, is_empty: true });
                         });
 
                         // Ordenar: por número da mesa (numérico quando possível)
@@ -4763,10 +4776,13 @@ export default function EventoCheckInsPage() {
                                 </tbody>
                               </table>
                             </div>
-                            {/* Ajuda de mesas por seção - Mostrar mesas reais do banco */}
                             {rowsWithEmpty.length > 0 && (
                               <p className="text-xs text-gray-500 mt-2">
-                                Mesas: {rowsWithEmpty.map(r => r.table_number).join(', ')} ({rowsWithEmpty.length} {rowsWithEmpty.length === 1 ? 'mesa' : 'mesas'})
+                                {isSeuJustinoPlanilha
+                                  ? (sectionKey === 'lounge' ? 'Mesas: Lounge Bar 200–202, Lounge Palco 204–206, Aquário TV 208, Aquário Spaten 210' : 'Mesas: Quintal Lateral Esq. 20–29, Central Esq. 30–39, Central Dir. 40–48, Lateral Dir. 50–64')
+                                  : (sectionKey === 'deck' ? 'Mesas: Lounge 1–8, Mesa 09–12' : sectionKey === 'bar' ? 'Mesas: Bistrô 15–17' : 'Mesas: Lounge 40–42, Lounge Central 44–47, Bangalô 60–65, Mesa 50–56, Bistrô 70–73')
+                                }
+                                {' '}({rowsWithEmpty.length} {rowsWithEmpty.length === 1 ? 'mesa' : 'mesas'})
                               </p>
                             )}
                           </div>
