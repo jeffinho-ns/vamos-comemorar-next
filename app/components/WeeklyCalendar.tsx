@@ -25,6 +25,7 @@ interface WeeklyCalendarProps {
   onEditReservation: (reservation: Reservation) => void;
   onDeleteReservation: (reservation: Reservation) => void;
   onStatusChange: (reservation: Reservation, newStatus: string) => void;
+  establishment?: { id?: number; name?: string; logo?: string; address?: string } | null;
 }
 
 interface TimeSlot {
@@ -62,8 +63,61 @@ export default function WeeklyCalendar({
   onAddReservation,
   onEditReservation,
   onDeleteReservation,
-  onStatusChange
+  onStatusChange,
+  establishment
 }: WeeklyCalendarProps) {
+  // Função helper para mapear mesa -> área do Seu Justino
+  const getSeuJustinoAreaName = (tableNumber?: string | number, areaName?: string, areaId?: number): string => {
+    const isSeuJustino = establishment && (
+      (establishment.name || '').toLowerCase().includes('seu justino') && 
+      !(establishment.name || '').toLowerCase().includes('pracinha')
+    );
+    
+    if (!isSeuJustino) return areaName || '';
+    if (!tableNumber && !areaName && !areaId) return areaName || '';
+    
+    const tableNum = String(tableNumber || '').trim();
+    const seuJustinoSubareas = [
+      { key: 'lounge-aquario-spaten', area_id: 1, label: 'Lounge Aquario Spaten', tableNumbers: ['210'] },
+      { key: 'lounge-aquario-tv', area_id: 1, label: 'Lounge Aquario TV', tableNumbers: ['208'] },
+      { key: 'lounge-palco', area_id: 1, label: 'Lounge Palco', tableNumbers: ['204','206'] },
+      { key: 'lounge-bar', area_id: 1, label: 'Lounge Bar', tableNumbers: ['200','202'] },
+      { key: 'quintal-lateral-esquerdo', area_id: 2, label: 'Quintal Lateral Esquerdo', tableNumbers: ['20','22','24','26','28','29'] },
+      { key: 'quintal-central-esquerdo', area_id: 2, label: 'Quintal Central Esquerdo', tableNumbers: ['30','32','34','36','38','39'] },
+      { key: 'quintal-central-direito', area_id: 2, label: 'Quintal Central Direito', tableNumbers: ['40','42','44','46','48'] },
+      { key: 'quintal-lateral-direito', area_id: 2, label: 'Quintal Lateral Direito', tableNumbers: ['50','52','54','56','58','60','62','64'] },
+    ];
+    
+    if (tableNum) {
+      const tableNumbers = tableNum.includes(',') ? tableNum.split(',').map(t => t.trim()) : [tableNum];
+      for (const tn of tableNumbers) {
+        const subarea = seuJustinoSubareas.find(sub => sub.tableNumbers.includes(tn));
+        if (subarea) return subarea.label;
+      }
+    }
+    
+    if (areaName && !areaName.toLowerCase().includes('área coberta') && !areaName.toLowerCase().includes('área descoberta')) {
+      return areaName;
+    }
+    
+    if (areaName && (areaName.toLowerCase().includes('coberta') || areaName.toLowerCase().includes('descoberta'))) {
+      if (areaId === 1 && tableNum) {
+        const tableNumbers = tableNum.includes(',') ? tableNum.split(',').map(t => t.trim()) : [tableNum];
+        for (const tn of tableNumbers) {
+          const subarea = seuJustinoSubareas.find(sub => sub.tableNumbers.includes(tn) && sub.area_id === 1);
+          if (subarea) return subarea.label;
+        }
+      } else if (areaId === 2 && tableNum) {
+        const tableNumbers = tableNum.includes(',') ? tableNum.split(',').map(t => t.trim()) : [tableNum];
+        for (const tn of tableNumbers) {
+          const subarea = seuJustinoSubareas.find(sub => sub.tableNumbers.includes(tn) && sub.area_id === 2);
+          if (subarea) return subarea.label;
+        }
+      }
+    }
+    
+    return areaName || '';
+  };
   const [currentWeek, setCurrentWeek] = useState(new Date());
   const [viewMode, setViewMode] = useState<'grid' | 'detailed'>('grid');
   const [showEmptySlots, setShowEmptySlots] = useState(true);
@@ -534,7 +588,7 @@ export default function WeeklyCalendar({
                               
                               <div className="flex items-center gap-1 text-gray-600">
                                 <MdRestaurant size={12} className="text-green-500" />
-                                <span className="truncate font-medium">{reservation.area_name}</span>
+                                <span className="truncate font-medium">{getSeuJustinoAreaName((reservation as any).table_number, reservation.area_name, (reservation as any).area_id)}</span>
                               </div>
                               
                               {reservation.table_number && (
@@ -689,7 +743,7 @@ export default function WeeklyCalendar({
                                 
                                 <div className="flex items-center gap-2">
                                   <MdRestaurant size={14} />
-                                  <span>{reservation.area_name}</span>
+                                  <span>{getSeuJustinoAreaName((reservation as any).table_number, reservation.area_name, (reservation as any).area_id)}</span>
                                 </div>
                                 
                                 {reservation.table_number && (

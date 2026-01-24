@@ -129,7 +129,7 @@ export default function ReservationModal({
     { key: 'lounge-aquario-spaten', area_id: 1, label: 'Lounge Aquario Spaten', tableNumbers: ['210'], capacity: 8 },
     { key: 'lounge-aquario-tv', area_id: 1, label: 'Lounge Aquario TV', tableNumbers: ['208'], capacity: 10 },
     { key: 'lounge-palco', area_id: 1, label: 'Lounge Palco', tableNumbers: ['204','206'], capacity: 6 },
-    { key: 'lounge-bar', area_id: 1, label: 'Lounges Bar', tableNumbers: ['200','202'], capacity: 6 },
+      { key: 'lounge-bar', area_id: 1, label: 'Lounge Bar', tableNumbers: ['200','202'], capacity: 6 },
     { key: 'quintal-lateral-esquerdo', area_id: 2, label: 'Quintal Lateral Esquerdo', tableNumbers: ['20','22','24','26','28','29'], capacity: 6 },
     { key: 'quintal-central-esquerdo', area_id: 2, label: 'Quintal Central Esquerdo', tableNumbers: ['30','32','34','36','38','39'], capacity: 4 },
     { key: 'quintal-central-direito', area_id: 2, label: 'Quintal Central Direito', tableNumbers: ['40','42','44','46','48'], capacity: 4 },
@@ -210,6 +210,15 @@ export default function ReservationModal({
       const endMin = eh * 60 + (isNaN(em) ? 0 : em);
       return value >= startMin && value <= endMin;
     });
+  };
+
+  // Função para determinar o giro de uma reserva (apenas para Seu Justino aos sábados)
+  const getGiroFromTime = (timeStr: string): '1º Giro' | '2º Giro' | null => {
+    if (!isSeuJustino || !timeStr) return null;
+    const [hours] = timeStr.split(':').map(Number);
+    if (hours >= 12 && hours < 15) return '1º Giro';
+    if (hours >= 20 && hours < 23) return '2º Giro';
+    return null;
   };
 
   // 3. USEEFFECT ATUALIZADO PARA CONTROLAR O PADRÃO DOS CHECKBOXES
@@ -850,6 +859,56 @@ export default function ReservationModal({
       if (!payload.client_name || typeof payload.client_name !== 'string' || payload.client_name.trim() === '') {
         console.error('❌ [ReservationModal] ERRO CRÍTICO: client_name inválido no payload final:', payload);
         throw new Error('Nome do cliente é obrigatório e não pode estar vazio.');
+      }
+      
+      // Verificar se mesa está ocupada no mesmo giro (apenas para Seu Justino aos sábados)
+      if (isSeuJustino && finalTableNumber && formData.reservation_date && reservation_time) {
+        const reservationDate = new Date(formData.reservation_date);
+        const isSaturday = reservationDate.getDay() === 6; // 6 = Sábado
+        
+        if (isSaturday) {
+          try {
+            // Buscar reservas existentes para a mesma mesa, data e verificar giro
+            const checkReservationsResponse = await fetch(
+              `${API_URL}/api/restaurant-reservations?reservation_date=${formData.reservation_date}&table_number=${finalTableNumber}&status=CONFIRMADA${establishment?.id ? `&establishment_id=${establishment.id}` : ''}`
+            );
+            
+            if (checkReservationsResponse.ok) {
+              const checkData = await checkReservationsResponse.json();
+              const existingReservations = Array.isArray(checkData.reservations) ? checkData.reservations : [];
+              
+              // Verificar se há reserva no mesmo giro
+              const giro = getGiroFromTime(reservation_time);
+              const hasConflict = existingReservations.some((r: any) => {
+                if (r.status === 'CANCELADA' || r.status === 'canceled' || r.status === 'completed') return false;
+                const rGiro = getGiroFromTime(r.reservation_time || '');
+                return giro && rGiro && giro === rGiro;
+              });
+              
+              if (hasConflict) {
+                const addToWaitlist = confirm(
+                  `⚠️ A Mesa ${finalTableNumber} já está ocupada no ${giro} (${formData.reservation_date}).\n\n` +
+                  `Deseja adicionar este cliente à Lista de Espera?`
+                );
+                
+                if (addToWaitlist) {
+                  // Fechar modal de reserva e retornar um sinal para abrir lista de espera
+                  onClose();
+                  // Lançar um evento customizado ou retornar um código especial
+                  // Por enquanto, apenas fechar e deixar o admin adicionar manualmente
+                  alert('Por favor, adicione o cliente à Lista de Espera através da aba "Lista de Espera".');
+                  return;
+                } else {
+                  // Usuário escolheu continuar mesmo assim (admin pode forçar)
+                  console.log('Admin escolheu continuar mesmo com conflito de giro');
+                }
+              }
+            }
+          } catch (checkError) {
+            console.error('Erro ao verificar conflitos de giro:', checkError);
+            // Continuar mesmo se houver erro na verificação
+          }
+        }
       }
       
       await onSave(payload);

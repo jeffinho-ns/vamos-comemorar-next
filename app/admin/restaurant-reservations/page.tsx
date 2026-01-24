@@ -279,6 +279,7 @@ export default function RestaurantReservationsPage() {
   const [viewMode, setViewMode] = useState<'calendar' | 'list' | 'weekly' | 'sheet'>('calendar');
   const [sheetFilters, setSheetFilters] = useState<{ date?: string; search?: string; name?: string; phone?: string; event?: string; table?: string; status?: string }>({});
   const [searchTerm, setSearchTerm] = useState('');
+  const [giroFilter, setGiroFilter] = useState<'all' | '1º Giro' | '2º Giro'>('all');
   const [showModal, setShowModal] = useState(false);
   const [editingReservation, setEditingReservation] = useState<Reservation | null>(null);
 
@@ -310,7 +311,7 @@ export default function RestaurantReservationsPage() {
     owner_checked_in?: boolean;
     owner_checkin_time?: string;
   };
-  type GuestItem = { id: number; name: string; whatsapp?: string; checked_in?: boolean; checkin_time?: string };
+  type GuestItem = { id: number; name: string; whatsapp?: string; checked_in?: boolean; checkin_time?: string; checked_out?: boolean; checkout_time?: string };
   const [guestLists, setGuestLists] = useState<GuestListItem[]>([]);
   const [expandedGuestListId, setExpandedGuestListId] = useState<number | null>(null);
   const [guestsByList, setGuestsByList] = useState<Record<number, GuestItem[]>>({});
@@ -763,10 +764,9 @@ export default function RestaurantReservationsPage() {
             r.id === reservation.id ? { ...r, status: 'completed' as any } : r
           )
         );
-        alert(`Check-out realizado para ${reservation.client_name}!`);
         
-        // Após check-out, verificar lista de espera
-        await releaseTableAndCheckWaitlist(reservation);
+        // Após check-out, verificar lista de espera e mostrar popup de confirmação
+        await releaseTableAndCheckWaitlistWithConfirmation(reservation);
       } else {
         const errorData = await response.json();
         console.error('Erro ao fazer check-out:', errorData);
@@ -816,6 +816,117 @@ export default function RestaurantReservationsPage() {
     const entryTime = new Date(createdAt);
     const diffInMinutes = Math.floor((now.getTime() - entryTime.getTime()) / (1000 * 60));
     return Math.max(0, diffInMinutes);
+  };
+
+  // Função auxiliar para detectar se é Seu Justino
+  const isSeuJustino = selectedEstablishment && (
+    (selectedEstablishment.name || '').toLowerCase().includes('seu justino') && 
+    !(selectedEstablishment.name || '').toLowerCase().includes('pracinha')
+  );
+
+  // Função helper para mapear mesa -> área do Seu Justino
+  const getSeuJustinoAreaName = useCallback((tableNumber?: string | number, areaName?: string, areaId?: number): string => {
+    if (!isSeuJustino) return areaName || '';
+    if (!tableNumber && !areaName && !areaId) return areaName || '';
+    
+    const tableNum = String(tableNumber || '').trim();
+    
+    // Mapeamento de mesas para áreas do Seu Justino
+    const seuJustinoSubareas = [
+      { key: 'lounge-aquario-spaten', area_id: 1, label: 'Lounge Aquario Spaten', tableNumbers: ['210'] },
+      { key: 'lounge-aquario-tv', area_id: 1, label: 'Lounge Aquario TV', tableNumbers: ['208'] },
+      { key: 'lounge-palco', area_id: 1, label: 'Lounge Palco', tableNumbers: ['204','206'] },
+      { key: 'lounge-bar', area_id: 1, label: 'Lounge Bar', tableNumbers: ['200','202'] },
+      { key: 'quintal-lateral-esquerdo', area_id: 2, label: 'Quintal Lateral Esquerdo', tableNumbers: ['20','22','24','26','28','29'] },
+      { key: 'quintal-central-esquerdo', area_id: 2, label: 'Quintal Central Esquerdo', tableNumbers: ['30','32','34','36','38','39'] },
+      { key: 'quintal-central-direito', area_id: 2, label: 'Quintal Central Direito', tableNumbers: ['40','42','44','46','48'] },
+      { key: 'quintal-lateral-direito', area_id: 2, label: 'Quintal Lateral Direito', tableNumbers: ['50','52','54','56','58','60','62','64'] },
+    ];
+    
+    // Se temos número da mesa, buscar pela mesa (suporta múltiplas mesas separadas por vírgula)
+    if (tableNum) {
+      const tableNumbers = tableNum.includes(',') ? tableNum.split(',').map(t => t.trim()) : [tableNum];
+      for (const tn of tableNumbers) {
+        const subarea = seuJustinoSubareas.find(sub => sub.tableNumbers.includes(tn));
+        if (subarea) {
+          return subarea.label;
+        }
+      }
+    }
+    
+    // Se não encontrou pela mesa, verificar se area_name já está correto
+    if (areaName) {
+      const normalizedAreaName = areaName.toLowerCase();
+      // Se já é uma das áreas corretas, retornar como está
+      if (seuJustinoSubareas.some(sub => sub.label.toLowerCase() === normalizedAreaName)) {
+        return areaName;
+      }
+      // Se contém "coberta" ou "descoberta", mapear baseado no area_id
+      if (normalizedAreaName.includes('coberta') || normalizedAreaName.includes('descoberta')) {
+        if (areaId === 1) {
+          // Área 1 = Lounge, mas não sabemos qual subárea, então retornar genérico ou tentar pela mesa
+          if (tableNum) {
+            const tableNumbers = tableNum.includes(',') ? tableNum.split(',').map(t => t.trim()) : [tableNum];
+            for (const tn of tableNumbers) {
+              const subarea = seuJustinoSubareas.find(sub => sub.tableNumbers.includes(tn) && sub.area_id === 1);
+              if (subarea) return subarea.label;
+            }
+          }
+          return 'Lounge'; // Fallback genérico
+        } else if (areaId === 2) {
+          // Área 2 = Quintal, mas não sabemos qual subárea, então retornar genérico ou tentar pela mesa
+          if (tableNum) {
+            const tableNumbers = tableNum.includes(',') ? tableNum.split(',').map(t => t.trim()) : [tableNum];
+            for (const tn of tableNumbers) {
+              const subarea = seuJustinoSubareas.find(sub => sub.tableNumbers.includes(tn) && sub.area_id === 2);
+              if (subarea) return subarea.label;
+            }
+          }
+          return 'Quintal'; // Fallback genérico
+        }
+      }
+    }
+    
+    // Fallback: retornar area_name original ou vazio
+    return areaName || '';
+  }, [isSeuJustino]);
+
+  // Função para determinar o giro de uma reserva (apenas para Seu Justino aos sábados)
+  const getGiroFromTime = (timeStr: string): '1º Giro' | '2º Giro' | null => {
+    if (!isSeuJustino || !timeStr) return null;
+    const [hours] = timeStr.split(':').map(Number);
+    if (hours >= 12 && hours < 15) return '1º Giro';
+    if (hours >= 20 && hours < 23) return '2º Giro';
+    return null;
+  };
+
+  // Função para verificar se duas reservas estão no mesmo giro
+  const isSameGiro = (time1: string, time2: string): boolean => {
+    const giro1 = getGiroFromTime(time1);
+    const giro2 = getGiroFromTime(time2);
+    if (!giro1 || !giro2) return false;
+    return giro1 === giro2;
+  };
+
+  // Função para verificar se uma mesa está ocupada no mesmo giro
+  const isTableOccupiedInSameGiro = (tableNumber: string, reservationDate: string, reservationTime: string): boolean => {
+    if (!isSeuJustino) return false;
+    const giro = getGiroFromTime(reservationTime);
+    if (!giro) return false;
+
+    return reservations.some(r => {
+      const rStatus = String(r.status || '').toUpperCase();
+      if (rStatus === 'CANCELADA' || rStatus === 'CANCELED' || rStatus === 'COMPLETED') return false;
+      if (r.table_number !== tableNumber) return false;
+      
+      // Verificar se é a mesma data
+      const rDate = new Date(r.reservation_date).toISOString().split('T')[0];
+      const targetDate = new Date(reservationDate).toISOString().split('T')[0];
+      if (rDate !== targetDate) return false;
+
+      // Verificar se está no mesmo giro
+      return isSameGiro(r.reservation_time || '', reservationTime);
+    });
   };
 
   // Handlers para Walk-ins
@@ -935,6 +1046,59 @@ export default function RestaurantReservationsPage() {
     }
   };
 
+  // Função para fazer check-out de um convidado
+  const handleGuestCheckOut = async (guestListId: number, guestId: number, guestName: string) => {
+    try {
+      const token = localStorage.getItem('authToken');
+      const response = await fetch(`${API_URL}/api/admin/guests/${guestId}/checkout`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        
+        // Atualizar o estado local imediatamente
+        setGuestsByList(prev => ({
+          ...prev,
+          [guestListId]: (prev[guestListId] || []).map(guest => 
+            guest.id === guestId 
+              ? { 
+                  ...guest, 
+                  checked_in: false, 
+                  checked_out: true, 
+                  checkout_time: data.guest?.checkout_time || new Date().toISOString() 
+                }
+              : guest
+          )
+        }));
+
+        // Atualizar contador de check-ins (diminuir)
+        setCheckInStatus(prev => ({
+          ...prev,
+          [guestListId]: {
+            ...prev[guestListId],
+            guestsCheckedIn: Math.max(0, (prev[guestListId]?.guestsCheckedIn || 1) - 1)
+          }
+        }));
+
+        // Recarregar dados para garantir sincronização
+        await loadEstablishmentData();
+        
+        alert(`✅ Check-out de ${guestName} confirmado!`);
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        alert('❌ Erro ao fazer check-out do convidado: ' + (errorData.error || 'Erro desconhecido'));
+      }
+    } catch (error) {
+      console.error('Erro no check-out do convidado:', error);
+      alert('❌ Erro ao fazer check-out do convidado');
+    }
+  };
+
   const handleCallCustomer = (entry: WaitlistEntry) => {
     setWaitlist(prev => 
       prev.map(w => 
@@ -1013,6 +1177,210 @@ export default function RestaurantReservationsPage() {
     }
   };
 
+  // Nova função aprimorada para liberar mesa com popup de confirmação e conversão automática
+  const releaseTableAndCheckWaitlistWithConfirmation = async (reservation: Reservation) => {
+    try {
+      const tableNumber = (reservation as any).table_number || '';
+      const dateString = (() => {
+        if (reservation?.reservation_date) {
+          try {
+            const dateStr = String(reservation.reservation_date).trim();
+            if (!dateStr || dateStr === 'null' || dateStr === 'undefined') return '';
+            const date = dateStr.includes('T') ? new Date(dateStr) : new Date(dateStr + 'T12:00:00');
+            if (isNaN(date.getTime())) return '';
+            return date.toISOString().split('T')[0];
+          } catch {
+            return '';
+          }
+        }
+        if (selectedDate) return selectedDate.toISOString().split('T')[0];
+        return new Date().toISOString().split('T')[0];
+      })();
+      const reservationTime = reservation?.reservation_time || '';
+
+      // Buscar clientes na lista de espera (mesmo estabelecimento, mesma data, horário compatível ou sem horário específico)
+      const waitingEntries = waitlist.filter(entry => {
+        if (entry.status !== 'AGUARDANDO') return false;
+        if (entry.establishment_id == null || Number(entry.establishment_id) !== Number(selectedEstablishment?.id)) return false;
+        if (entry.preferred_date !== dateString) return false;
+        
+        // Se tiver horário preferido, verificar se está no mesmo giro (para Seu Justino) ou horário compatível
+        if (entry.preferred_time) {
+          if (isSeuJustino) {
+            // Para Seu Justino, verificar se está no mesmo giro
+            return isSameGiro(entry.preferred_time, reservationTime);
+          } else {
+            // Para outros estabelecimentos, verificar se o horário é próximo (dentro de 1 hora)
+            const entryTime = entry.preferred_time.split(':').map(Number);
+            const resTime = reservationTime.split(':').map(Number);
+            const entryMinutes = entryTime[0] * 60 + entryTime[1];
+            const resMinutes = resTime[0] * 60 + resTime[1];
+            return Math.abs(entryMinutes - resMinutes) <= 60;
+          }
+        }
+        // Se não tiver horário preferido, considerar compatível
+        return true;
+      });
+
+      if (waitingEntries.length > 0) {
+        // Encontrar a entrada mais antiga (menor position)
+        const oldestEntry = waitingEntries.reduce((oldest, current) => 
+          current.position < oldest.position ? current : oldest
+        );
+        
+        // Mostrar popup de confirmação
+        const confirmed = confirm(
+          `Mesa ${tableNumber} disponível.\n\n` +
+          `Deseja alocar o próximo cliente da lista (${oldestEntry.client_name}) nesta mesa?\n\n` +
+          `Cliente: ${oldestEntry.client_name}\n` +
+          `Pessoas: ${oldestEntry.number_of_people}\n` +
+          `Horário preferido: ${oldestEntry.preferred_time || 'Qualquer horário'}`
+        );
+
+        if (confirmed) {
+          // Converter entrada da lista de espera em reserva ativa
+          try {
+            const token = localStorage.getItem('authToken');
+            const reservationPayload = {
+              client_name: oldestEntry.client_name,
+              client_phone: oldestEntry.client_phone || null,
+              client_email: oldestEntry.client_email || null,
+              reservation_date: dateString,
+              reservation_time: oldestEntry.preferred_time || reservationTime,
+              number_of_people: oldestEntry.number_of_people,
+              area_id: (oldestEntry as any).preferred_area_id || reservation.area_id,
+              table_number: tableNumber,
+              status: 'CONFIRMADA',
+              origin: 'LISTA_ESPERA',
+              notes: `Convertido da lista de espera (ID: ${oldestEntry.id})`,
+              establishment_id: selectedEstablishment?.id,
+              created_by: 1
+            };
+
+            const createReservationResponse = await fetch(`${API_URL}/api/restaurant-reservations`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                ...(token ? { Authorization: `Bearer ${token}` } : {})
+              },
+              body: JSON.stringify(reservationPayload)
+            });
+
+            if (createReservationResponse.ok) {
+              const newReservation = await createReservationResponse.json();
+              
+              // Atualizar status da lista de espera para ATENDIDO
+              const updateWaitlistResponse = await fetch(`${API_URL}/api/waitlist/${oldestEntry.id}`, {
+                method: 'PUT',
+                headers: {
+                  'Content-Type': 'application/json',
+                  ...(token ? { Authorization: `Bearer ${token}` } : {})
+                },
+                body: JSON.stringify({
+                  status: 'ATENDIDO'
+                }),
+              });
+
+              if (updateWaitlistResponse.ok) {
+                // Atualizar estados locais
+                setWaitlist(prev => 
+                  prev.map(w => 
+                    w.id === oldestEntry.id ? { ...w, status: 'ATENDIDO' as any } : w
+                  )
+                );
+                
+                // Recarregar reservas para incluir a nova
+                await loadEstablishmentData();
+                
+                alert(`✅ Cliente ${oldestEntry.client_name} alocado na Mesa ${tableNumber} com sucesso!`);
+              } else {
+                console.error('Erro ao atualizar status da lista de espera');
+                alert(`⚠️ Reserva criada, mas houve erro ao atualizar a lista de espera.`);
+              }
+            } else {
+              const errorData = await createReservationResponse.json().catch(() => ({}));
+              throw new Error(errorData.error || 'Erro ao criar reserva');
+            }
+          } catch (error: any) {
+            console.error('Erro ao converter lista de espera em reserva:', error);
+            alert(`Erro ao alocar cliente: ${error?.message || 'Erro desconhecido'}`);
+          }
+        }
+      } else {
+        console.log('Lista de espera vazia - mesa disponível para novas reservas');
+      }
+    } catch (error) {
+      console.error('Erro ao verificar lista de espera:', error);
+    }
+  };
+
+  // Função para alocar cliente da lista de espera em uma mesa específica
+  const handleAllocateWaitlistToTable = async (entry: WaitlistEntry, tableNumber: string, areaId?: number) => {
+    try {
+      const token = localStorage.getItem('authToken');
+      const dateString = entry.preferred_date || new Date().toISOString().split('T')[0];
+      const reservationTime = entry.preferred_time || '12:00:00';
+
+      const reservationPayload = {
+        client_name: entry.client_name,
+        client_phone: entry.client_phone || null,
+        client_email: entry.client_email || null,
+        reservation_date: dateString,
+        reservation_time: reservationTime,
+        number_of_people: entry.number_of_people,
+        area_id: areaId || (entry as any).preferred_area_id || 1,
+        table_number: tableNumber,
+        status: 'CONFIRMADA',
+        origin: 'LISTA_ESPERA',
+        notes: `Alocado da lista de espera (ID: ${entry.id})`,
+        establishment_id: selectedEstablishment?.id,
+        created_by: 1
+      };
+
+      const createReservationResponse = await fetch(`${API_URL}/api/restaurant-reservations`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {})
+        },
+        body: JSON.stringify(reservationPayload)
+      });
+
+      if (createReservationResponse.ok) {
+        // Atualizar status da lista de espera para ATENDIDO
+        const updateWaitlistResponse = await fetch(`${API_URL}/api/waitlist/${entry.id}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { Authorization: `Bearer ${token}` } : {})
+          },
+          body: JSON.stringify({
+            status: 'ATENDIDO'
+          }),
+        });
+
+        if (updateWaitlistResponse.ok) {
+          setWaitlist(prev => 
+            prev.map(w => 
+              w.id === entry.id ? { ...w, status: 'ATENDIDO' as any } : w
+            )
+          );
+          
+          await loadEstablishmentData();
+          alert(`✅ Cliente ${entry.client_name} alocado na Mesa ${tableNumber} com sucesso!`);
+        } else {
+          alert(`⚠️ Reserva criada, mas houve erro ao atualizar a lista de espera.`);
+        }
+      } else {
+        const errorData = await createReservationResponse.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Erro ao criar reserva');
+      }
+    } catch (error: any) {
+      console.error('Erro ao alocar cliente da lista de espera:', error);
+      alert(`Erro ao alocar cliente: ${error?.message || 'Erro desconhecido'}`);
+    }
+  };
+
   const tabs = [
     { id: 'reservations', label: 'Reservas', icon: MdRestaurant },
     { id: 'walk-ins', label: 'Passantes', icon: MdPeople },
@@ -1026,6 +1394,21 @@ export default function RestaurantReservationsPage() {
     const matchesSearch = reservation.client_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          reservation.client_phone?.includes(searchTerm) ||
                          reservation.client_email?.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    // Filtro por giro (apenas para Seu Justino aos sábados)
+    if (isSeuJustino && giroFilter !== 'all') {
+      const reservationDate = new Date(reservation.reservation_date);
+      const isSaturday = reservationDate.getDay() === 6; // 6 = Sábado
+      
+      if (isSaturday) {
+        const giro = getGiroFromTime(reservation.reservation_time || '');
+        if (giro !== giroFilter) return false;
+      } else {
+        // Se não for sábado, não aplicar filtro de giro (só existe giro aos sábados)
+        // Não precisa fazer nada aqui, pois giro será null e não vai filtrar
+      }
+    }
+    
     return matchesSearch;
   });
 
@@ -1202,6 +1585,42 @@ export default function RestaurantReservationsPage() {
                         </button>
                       </div>
                       
+                      {/* Filtros de Giro (apenas para Seu Justino) */}
+                      {isSeuJustino && (
+                        <div className="flex bg-orange-100 rounded-lg p-1 border border-orange-300">
+                          <button
+                            onClick={() => setGiroFilter('all')}
+                            className={`px-4 py-2 rounded-md transition-colors text-sm ${
+                              giroFilter === 'all'
+                                ? 'bg-orange-500 text-white shadow-sm font-medium'
+                                : 'text-orange-700 hover:text-orange-900'
+                            }`}
+                          >
+                            Todos os Giros
+                          </button>
+                          <button
+                            onClick={() => setGiroFilter('1º Giro')}
+                            className={`px-4 py-2 rounded-md transition-colors text-sm ${
+                              giroFilter === '1º Giro'
+                                ? 'bg-orange-500 text-white shadow-sm font-medium'
+                                : 'text-orange-700 hover:text-orange-900'
+                            }`}
+                          >
+                            1º Giro (12h-15h)
+                          </button>
+                          <button
+                            onClick={() => setGiroFilter('2º Giro')}
+                            className={`px-4 py-2 rounded-md transition-colors text-sm ${
+                              giroFilter === '2º Giro'
+                                ? 'bg-orange-500 text-white shadow-sm font-medium'
+                                : 'text-orange-700 hover:text-orange-900'
+                            }`}
+                          >
+                            2º Giro (20h-23h)
+                          </button>
+                        </div>
+                      )}
+                      
                       {/* Indicador de Ocupação */}
                       {selectedDate && (
                         <div className="bg-blue-50 rounded-lg p-3 border border-blue-200">
@@ -1299,6 +1718,7 @@ export default function RestaurantReservationsPage() {
                     <div className="mb-8">
                       <WeeklyCalendar
                         reservations={reservations}
+                        establishment={selectedEstablishment}
                         onAddReservation={async (date, time) => {
                           setSelectedDate(date);
                           setSelectedTime(time);
@@ -1362,7 +1782,7 @@ export default function RestaurantReservationsPage() {
                             </div>
                             <div className="flex items-center gap-2">
                               <MdRestaurant className="text-gray-400" />
-                              <span>{reservation.area_name}</span>
+                              <span>{getSeuJustinoAreaName(reservation.table_number, reservation.area_name, reservation.area_id)}</span>
                             </div>
                             {reservation.client_phone && (
                               <div className="flex items-center gap-2">
@@ -2242,11 +2662,13 @@ export default function RestaurantReservationsPage() {
                                 <td className="px-4 py-2 text-sm text-gray-600">{g.whatsapp || '-'}</td>
                                 <td className="px-4 py-2 text-sm">
                                   <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                                    g.checked_in
+                                    g.checked_out
+                                      ? 'bg-gray-100 text-gray-600 border border-gray-300'
+                                      : g.checked_in
                                       ? 'bg-green-100 text-green-700 border border-green-300'
                                       : 'bg-gray-100 text-gray-600 border border-gray-300'
                                   }`}>
-                                    {g.checked_in ? '✅ Presente' : '⏳ Aguardando'}
+                                    {g.checked_out ? '🚪 Saída' : g.checked_in ? '✅ Presente' : '⏳ Aguardando'}
                                   </span>
                                 </td>
                                 <td className="px-4 py-2 text-right">
@@ -2262,6 +2684,22 @@ export default function RestaurantReservationsPage() {
                                         className="px-3 py-1 text-xs bg-green-100 hover:bg-green-200 text-green-700 rounded border border-green-300"
                                       >
                                         📋 Check-in
+                                      </button>
+                                    )}
+                                    {g.checked_in && !g.checked_out && (
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.preventDefault();
+                                          e.stopPropagation();
+                                          if (confirm(`Confirmar check-out de ${g.name}?`)) {
+                                            handleGuestCheckOut(gl.guest_list_id, g.id, g.name);
+                                          }
+                                        }}
+                                        className="px-3 py-1 text-xs bg-orange-100 hover:bg-orange-200 text-orange-700 rounded border border-orange-300"
+                                        title="Registrar saída do convidado"
+                                      >
+                                        🚪 Check-out
                                       </button>
                                     )}
                                     <button
@@ -2556,6 +2994,20 @@ export default function RestaurantReservationsPage() {
                             >
                               <MdCall />
                               Chamar
+                            </button>
+                            <button
+                              onClick={async () => {
+                                const tableNumber = prompt(`Alocar ${entry.client_name} em qual mesa?\n\nDigite o número da mesa:`);
+                                if (tableNumber && tableNumber.trim()) {
+                                  const areaId = prompt(`Qual a área da mesa ${tableNumber}?\n\nDigite o ID da área (ou deixe em branco para usar a área padrão):`);
+                                  await handleAllocateWaitlistToTable(entry, tableNumber.trim(), areaId ? parseInt(areaId) : undefined);
+                                }
+                              }}
+                              className="flex items-center gap-1 px-3 py-1 bg-purple-500 hover:bg-purple-600 text-white text-sm rounded transition-colors"
+                              title="Alocar cliente em uma mesa específica"
+                            >
+                              <MdChair />
+                              Alocar em Mesa
                             </button>
                             <button
                               onClick={() => handleEditWaitlistEntry(entry)}
@@ -2993,11 +3445,19 @@ export default function RestaurantReservationsPage() {
             }}
             onSave={async (entryData) => {
               try {
+                const token = localStorage.getItem('authToken');
                 const preferredDate = entryData.preferred_date || (selectedDate ? selectedDate.toISOString().split('T')[0] : undefined);
-                const response = await fetch(`${API_URL}/api/waitlist`, {
-                  method: 'POST',
+                const isEditing = editingWaitlistEntry?.id;
+                const url = isEditing 
+                  ? `${API_URL}/api/waitlist/${editingWaitlistEntry.id}`
+                  : `${API_URL}/api/waitlist`;
+                const method = isEditing ? 'PUT' : 'POST';
+                
+                const response = await fetch(url, {
+                  method,
                   headers: {
                     'Content-Type': 'application/json',
+                    ...(token ? { Authorization: `Bearer ${token}` } : {})
                   },
                   body: JSON.stringify({
                     ...entryData,
@@ -3007,9 +3467,16 @@ export default function RestaurantReservationsPage() {
                 });
 
                 if (response.ok) {
-                  const newEntry = await response.json();
-                  setWaitlist(prev => [...prev, newEntry.waitlistEntry]);
-                  console.log('Entrada na lista salva com sucesso:', newEntry);
+                  const result = await response.json();
+                  if (isEditing) {
+                    setWaitlist(prev => prev.map(w => w.id === editingWaitlistEntry.id ? result.waitlistEntry : w));
+                    console.log('Entrada na lista atualizada com sucesso:', result);
+                  } else {
+                    setWaitlist(prev => [...prev, result.waitlistEntry]);
+                    console.log('Entrada na lista salva com sucesso:', result);
+                  }
+                  // Recarregar dados do estabelecimento (inclui lista de espera)
+                  await loadEstablishmentData();
                 } else {
                   const errorData = await response.json();
                   console.error('Erro ao salvar entrada na lista:', errorData);
@@ -3022,8 +3489,35 @@ export default function RestaurantReservationsPage() {
               setShowWaitlistModal(false);
               setEditingWaitlistEntry(null);
             }}
+            onCreateReservation={async (reservationData) => {
+              try {
+                const token = localStorage.getItem('authToken');
+                const response = await fetch(`${API_URL}/api/restaurant-reservations`, {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    ...(token ? { Authorization: `Bearer ${token}` } : {})
+                  },
+                  body: JSON.stringify(reservationData),
+                });
+
+                if (response.ok) {
+                  const newReservation = await response.json();
+                  console.log('Reserva criada com sucesso:', newReservation);
+                  await loadEstablishmentData(); // Recarregar reservas
+                } else {
+                  const errorData = await response.json();
+                  throw new Error(errorData.error || 'Erro ao criar reserva');
+                }
+              } catch (error: any) {
+                console.error('Erro ao criar reserva:', error);
+                throw error;
+              }
+            }}
             entry={editingWaitlistEntry}
             defaultDate={selectedDate ? selectedDate.toISOString().split('T')[0] : ''}
+            areas={areas}
+            establishment={selectedEstablishment}
           />
         )}
 

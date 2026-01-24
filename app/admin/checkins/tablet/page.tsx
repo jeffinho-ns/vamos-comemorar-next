@@ -18,6 +18,8 @@ interface SearchResult {
   reservationId?: number;
   promoterId?: number;
   checkedIn?: boolean;
+  checkedOut?: boolean;
+  checkoutTime?: string;
   ownerName?: string; // Nome do dono da reserva (para convidados)
   reservation?: {
     id: number;
@@ -83,6 +85,8 @@ export default function TabletCheckInsPage() {
     area_name?: string;
     checked_in: boolean;
     checkin_time?: string;
+    checked_out?: boolean;
+    checkout_time?: string;
     status?: string;
     origin?: string;
     blocks_entire_area?: boolean;
@@ -612,6 +616,35 @@ export default function TabletCheckInsPage() {
       .trim();
   }, []);
 
+  // Função para obter a subárea correta baseada no número da mesa (Seu Justino)
+  const getSeuJustinoSubareaName = useCallback((tableNumber?: string | number): string | null => {
+    if (!tableNumber) return null;
+    const n = String(tableNumber).trim();
+    // Suporta múltiplas mesas separadas por vírgula
+    const tableNumbers = n.includes(',') ? n.split(',').map(t => t.trim()) : [n];
+    
+    // Mapeamento de mesas para áreas do Seu Justino
+    const seuJustinoSubareas = [
+      { key: 'lounge-aquario-spaten', area_id: 1, label: 'Lounge Aquario Spaten', tableNumbers: ['210'] },
+      { key: 'lounge-aquario-tv', area_id: 1, label: 'Lounge Aquario TV', tableNumbers: ['208'] },
+      { key: 'lounge-palco', area_id: 1, label: 'Lounge Palco', tableNumbers: ['204','206'] },
+      { key: 'lounge-bar', area_id: 1, label: 'Lounge Bar', tableNumbers: ['200','202'] },
+      { key: 'quintal-lateral-esquerdo', area_id: 2, label: 'Quintal Lateral Esquerdo', tableNumbers: ['20','22','24','26','28','29'] },
+      { key: 'quintal-central-esquerdo', area_id: 2, label: 'Quintal Central Esquerdo', tableNumbers: ['30','32','34','36','38','39'] },
+      { key: 'quintal-central-direito', area_id: 2, label: 'Quintal Central Direito', tableNumbers: ['40','42','44','46','48'] },
+      { key: 'quintal-lateral-direito', area_id: 2, label: 'Quintal Lateral Direito', tableNumbers: ['50','52','54','56','58','60','62','64'] },
+    ];
+    
+    for (const tn of tableNumbers) {
+      const subarea = seuJustinoSubareas.find(sub => sub.tableNumbers.includes(tn));
+      if (subarea) {
+        return subarea.label;
+      }
+    }
+    
+    return null;
+  }, []);
+
   // Função para obter a subárea correta baseada no número da mesa (Highline)
   const getHighlineSubareaName = useCallback((tableNumber?: string | number): string | null => {
     if (!tableNumber) return null;
@@ -707,40 +740,58 @@ export default function TabletCheckInsPage() {
         // Buscar área correta: primeiro tenta mapear pela mesa, depois busca na reserva oficial
         let areaName = null;
         
-        // 1. Tentar obter subárea pelo número da mesa (mais preciso)
-        if (gl.table_number) {
-          const subareaName = getHighlineSubareaName(gl.table_number);
-          if (subareaName) {
-            areaName = subareaName;
-          }
-        }
-        
-        // 2. Se não encontrou pela mesa, buscar na reserva de restaurante relacionada
-        if (!areaName && gl.reservation_id) {
-          const relatedReservation = loadedData.reservations.find((r: any) => {
-            const reservationId = r.id || r.reservation_id;
-            return Number(reservationId) === Number(gl.reservation_id);
-          });
+          // Detectar se é Seu Justino
+          const isSeuJustinoTablet = estabelecimentoSelecionado && (
+            estabelecimentos.find(est => est.id === estabelecimentoSelecionado)?.nome?.toLowerCase().includes('seu justino') &&
+            !estabelecimentos.find(est => est.id === estabelecimentoSelecionado)?.nome?.toLowerCase().includes('pracinha')
+          );
           
-          if (relatedReservation?.area_name) {
-            // Se a área da reserva é uma área principal (Rooftop, Deck, etc), tentar mapear pela mesa
-            if (gl.table_number) {
-              const subareaName = getHighlineSubareaName(gl.table_number);
-              if (subareaName) {
-                areaName = subareaName;
+          // 1. Tentar obter subárea pelo número da mesa (mais preciso)
+          if (gl.table_number) {
+            const subareaName = isSeuJustinoTablet 
+              ? getSeuJustinoSubareaName(gl.table_number)
+              : getHighlineSubareaName(gl.table_number);
+            if (subareaName) {
+              areaName = subareaName;
+            }
+          }
+          
+          // 2. Se não encontrou pela mesa, buscar na reserva de restaurante relacionada
+          if (!areaName && gl.reservation_id) {
+            const relatedReservation = loadedData.reservations.find((r: any) => {
+              const reservationId = r.id || r.reservation_id;
+              return Number(reservationId) === Number(gl.reservation_id);
+            });
+            
+            if (relatedReservation?.area_name) {
+              // Se a área da reserva é uma área principal (Rooftop, Deck, etc), tentar mapear pela mesa
+              if (gl.table_number) {
+                const subareaName = isSeuJustinoTablet 
+                  ? getSeuJustinoSubareaName(gl.table_number)
+                  : getHighlineSubareaName(gl.table_number);
+                if (subareaName) {
+                  areaName = subareaName;
+                } else {
+                  // Se não encontrou pela mesa, usar função helper para mapear área correta
+                  areaName = isSeuJustinoTablet
+                    ? getSeuJustinoSubareaName(gl.table_number) || relatedReservation.area_name
+                    : relatedReservation.area_name;
+                }
               } else {
                 areaName = relatedReservation.area_name;
               }
-            } else {
-              areaName = relatedReservation.area_name;
             }
           }
-        }
-        
-        // 3. Fallback: usar área da guest list apenas se não encontrou em nenhum lugar
-        if (!areaName) {
-          areaName = gl.area_name || null;
-        }
+          
+          // 3. Fallback: usar área da guest list apenas se não encontrou em nenhum lugar
+          if (!areaName) {
+            // Se for Seu Justino e tiver mesa, tentar mapear
+            if (isSeuJustinoTablet && gl.table_number) {
+              areaName = getSeuJustinoSubareaName(gl.table_number) || gl.area_name || null;
+            } else {
+              areaName = gl.area_name || null;
+            }
+          }
 
         results.push({
           type: 'owner',
@@ -770,9 +821,17 @@ export default function TabletCheckInsPage() {
           // Buscar área correta: primeiro tenta mapear pela mesa, depois busca na reserva oficial
           let areaName = null;
           
+          // Detectar se é Seu Justino
+          const isSeuJustinoTablet = estabelecimentoSelecionado && (
+            estabelecimentos.find(est => est.id === estabelecimentoSelecionado)?.nome?.toLowerCase().includes('seu justino') &&
+            !estabelecimentos.find(est => est.id === estabelecimentoSelecionado)?.nome?.toLowerCase().includes('pracinha')
+          );
+          
           // 1. Tentar obter subárea pelo número da mesa (mais preciso)
           if (gl.table_number) {
-            const subareaName = getHighlineSubareaName(gl.table_number);
+            const subareaName = isSeuJustinoTablet 
+              ? getSeuJustinoSubareaName(gl.table_number)
+              : getHighlineSubareaName(gl.table_number);
             if (subareaName) {
               areaName = subareaName;
             }
@@ -788,11 +847,16 @@ export default function TabletCheckInsPage() {
             if (relatedReservation?.area_name) {
               // Se a área da reserva é uma área principal (Rooftop, Deck, etc), tentar mapear pela mesa
               if (gl.table_number) {
-                const subareaName = getHighlineSubareaName(gl.table_number);
+                const subareaName = isSeuJustinoTablet 
+                  ? getSeuJustinoSubareaName(gl.table_number)
+                  : getHighlineSubareaName(gl.table_number);
                 if (subareaName) {
                   areaName = subareaName;
                 } else {
-                  areaName = relatedReservation.area_name;
+                  // Se não encontrou pela mesa, usar função helper para mapear área correta
+                  areaName = isSeuJustinoTablet
+                    ? getSeuJustinoSubareaName(gl.table_number) || relatedReservation.area_name
+                    : relatedReservation.area_name;
                 }
               } else {
                 areaName = relatedReservation.area_name;
@@ -802,7 +866,12 @@ export default function TabletCheckInsPage() {
           
           // 3. Fallback: usar área da guest list apenas se não encontrou em nenhum lugar
           if (!areaName) {
-            areaName = gl.area_name || null;
+            // Se for Seu Justino e tiver mesa, tentar mapear
+            if (isSeuJustinoTablet && gl.table_number) {
+              areaName = getSeuJustinoSubareaName(gl.table_number) || gl.area_name || null;
+            } else {
+              areaName = gl.area_name || null;
+            }
           }
 
           results.push({
@@ -814,6 +883,8 @@ export default function TabletCheckInsPage() {
             reservationId: gl.reservation_id,
             ownerName: gl.owner_name, // Nome do dono da reserva
             checkedIn: guest.checked_in === true || guest.checked_in === 1,
+            checkedOut: guest.checked_out === true || guest.checked_out === 1,
+            checkoutTime: guest.checkout_time,
             reservation: {
               id: gl.reservation_id,
               date: gl.reservation_date,
@@ -861,16 +932,29 @@ export default function TabletCheckInsPage() {
         }
         
         if (clientName.includes(searchLower) || origin.includes(searchLower)) {
+          // Detectar se é Seu Justino
+          const isSeuJustinoTablet = estabelecimentoSelecionado && (
+            estabelecimentos.find(est => est.id === estabelecimentoSelecionado)?.nome?.toLowerCase().includes('seu justino') &&
+            !estabelecimentos.find(est => est.id === estabelecimentoSelecionado)?.nome?.toLowerCase().includes('pracinha')
+          );
+          
           // Buscar área correta
           let areaName = null;
           if (reservation.table_number) {
-            const subareaName = getHighlineSubareaName(reservation.table_number);
+            const subareaName = isSeuJustinoTablet 
+              ? getSeuJustinoSubareaName(reservation.table_number)
+              : getHighlineSubareaName(reservation.table_number);
             if (subareaName) {
               areaName = subareaName;
             }
           }
           if (!areaName && reservation.area_name) {
-            areaName = reservation.area_name;
+            // Se for Seu Justino e tiver mesa, tentar mapear
+            if (isSeuJustinoTablet && reservation.table_number) {
+              areaName = getSeuJustinoSubareaName(reservation.table_number) || reservation.area_name;
+            } else {
+              areaName = reservation.area_name;
+            }
           }
 
           results.push({
@@ -878,6 +962,8 @@ export default function TabletCheckInsPage() {
             name: reservation.client_name || reservation.responsavel || 'Sem nome',
             reservationId: reservation.id || reservation.reservation_id,
             checkedIn: reservation.checked_in === true || reservation.checked_in === 1,
+            checkedOut: reservation.checked_out === true || reservation.checked_out === 1,
+            checkoutTime: reservation.checkout_time,
             reservation: {
               id: reservation.id || reservation.reservation_id,
               date: reservation.reservation_date,
@@ -976,23 +1062,38 @@ export default function TabletCheckInsPage() {
           );
           
           if (!jaExiste) {
+            // Detectar se é Seu Justino
+            const isSeuJustinoTablet = estabelecimentoSelecionado && (
+              estabelecimentos.find(est => est.id === estabelecimentoSelecionado)?.nome?.toLowerCase().includes('seu justino') &&
+              !estabelecimentos.find(est => est.id === estabelecimentoSelecionado)?.nome?.toLowerCase().includes('pracinha')
+            );
+            
             // Buscar área correta
             let areaName = null;
             if (r.table_number) {
-              const subareaName = getHighlineSubareaName(r.table_number);
+              const subareaName = isSeuJustinoTablet 
+                ? getSeuJustinoSubareaName(r.table_number)
+                : getHighlineSubareaName(r.table_number);
               if (subareaName) {
                 areaName = subareaName;
               }
             }
             if (!areaName && r.area_name) {
-              areaName = r.area_name;
+              // Se for Seu Justino e tiver mesa, tentar mapear
+              if (isSeuJustinoTablet && r.table_number) {
+                areaName = getSeuJustinoSubareaName(r.table_number) || r.area_name;
+              } else {
+                areaName = r.area_name;
+              }
             }
 
             results.push({
               type: 'owner',
               name: r.client_name || 'Sem nome',
               reservationId: r.id,
-              checkedIn: Boolean(r.checked_in),
+            checkedIn: Boolean(r.checked_in),
+            checkedOut: Boolean((r as any).checked_out),
+            checkoutTime: (r as any).checkout_time,
               reservation: {
                 id: r.id,
                 date: r.reservation_date,
@@ -1012,7 +1113,7 @@ export default function TabletCheckInsPage() {
     }
 
     setResults(results);
-  }, [loadedData, getHighlineSubareaName, reservasAdicionaisAPI]);
+  }, [loadedData, getHighlineSubareaName, getSeuJustinoSubareaName, reservasAdicionaisAPI, estabelecimentoSelecionado, estabelecimentos]);
 
   // Ref para evitar múltiplas buscas simultâneas
   const buscandoReservasAdicionaisRef = useRef(false);
@@ -1296,6 +1397,105 @@ export default function TabletCheckInsPage() {
     }
   };
 
+  // Função para fazer check-out de um convidado
+  const handleGuestCheckOut = async (guestId: number, guestName: string) => {
+    if (!confirm(`Confirmar check-out de ${guestName}?`)) return;
+    
+    try {
+      const token = localStorage.getItem('authToken');
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+      };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
+      const response = await fetch(`${API_URL}/api/admin/guests/${guestId}/checkout`, {
+        method: 'POST',
+        headers
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        alert(`✅ Check-out de ${guestName} confirmado!`);
+        
+        // Atualizar estado local
+        setLoadedData(prev => {
+          const updatedGuests = { ...prev.guests };
+          for (const guestListId in updatedGuests) {
+            updatedGuests[guestListId] = updatedGuests[guestListId].map((g: any) =>
+              g.id === guestId
+                ? { ...g, checked_in: false, checked_out: true, checkout_time: data.guest?.checkout_time || new Date().toISOString() }
+                : g
+            );
+          }
+          return { ...prev, guests: updatedGuests };
+        });
+        
+        // Atualizar resultados
+        setResults(prev => prev.map(r =>
+          (r.type === 'guest' && r.guestId === guestId)
+            ? { ...r, checkedIn: false, checkedOut: true, checkoutTime: data.guest?.checkout_time }
+            : r
+        ));
+      } else {
+        const errorData = await response.json();
+        alert('❌ Erro ao fazer check-out: ' + (errorData?.error || 'Erro desconhecido'));
+      }
+    } catch (error) {
+      console.error('Erro no check-out:', error);
+      alert('❌ Erro ao fazer check-out');
+    }
+  };
+
+  // Função para fazer check-out do dono
+  const handleOwnerCheckOut = async (guestListId: number, ownerName: string) => {
+    if (!confirm(`Confirmar check-out de ${ownerName}?`)) return;
+    
+    try {
+      const token = localStorage.getItem('authToken');
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+      };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
+      const response = await fetch(`${API_URL}/api/admin/guest-lists/${guestListId}/owner-checkout`, {
+        method: 'POST',
+        headers
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        alert(`✅ Check-out de ${ownerName} confirmado!`);
+        
+        // Atualizar estado local
+        setLoadedData(prev => ({
+          ...prev,
+          guestLists: prev.guestLists.map(gl =>
+            (gl.guest_list_id || gl.id) === guestListId
+              ? { ...gl, owner_checked_in: 0, owner_checked_out: 1, owner_checkout_time: data.guestList?.owner_checkout_time || new Date().toISOString() }
+              : gl
+          )
+        }));
+        
+        // Atualizar resultados
+        setResults(prev => prev.map(r =>
+          (r.type === 'owner' && r.guestListId === guestListId)
+            ? { ...r, checkedIn: false, checkedOut: true, checkoutTime: data.guestList?.owner_checkout_time }
+            : r
+        ));
+      } else {
+        const errorData = await response.json();
+        alert('❌ Erro ao fazer check-out: ' + (errorData?.error || 'Erro desconhecido'));
+      }
+    } catch (error) {
+      console.error('Erro no check-out:', error);
+      alert('❌ Erro ao fazer check-out');
+    }
+  };
+
   const getEventTypeLabel = (eventType?: string) => {
     if (!eventType) return null;
     const types: { [key: string]: { label: string; icon: any; color: string } } = {
@@ -1427,16 +1627,18 @@ export default function TabletCheckInsPage() {
                       >
                         <div className="flex items-start gap-3 sm:gap-4">
                           <div className={`p-2 sm:p-4 rounded-full flex-shrink-0 ${
-                            result.checkedIn 
+                            result.checkedOut
+                              ? 'bg-gray-500/20'
+                              : result.checkedIn 
                               ? 'bg-green-500/20' 
                               : isOwner 
                                 ? 'bg-purple-500/20' 
                                 : 'bg-blue-500/20'
                           }`}>
                             {result.type === 'promoter' || result.type === 'promoter_guest' ? (
-                              <MdEvent className={result.checkedIn ? 'text-green-400' : 'text-blue-400'} size={24} />
+                              <MdEvent className={result.checkedOut ? 'text-gray-400' : result.checkedIn ? 'text-green-400' : 'text-blue-400'} size={24} />
                             ) : (
-                              <MdPerson className={result.checkedIn ? 'text-green-400' : isOwner ? 'text-purple-400' : 'text-blue-400'} size={24} />
+                              <MdPerson className={result.checkedOut ? 'text-gray-400' : result.checkedIn ? 'text-green-400' : isOwner ? 'text-purple-400' : 'text-blue-400'} size={24} />
                             )}
                           </div>
                           <div className="flex-1 min-w-0">
@@ -1551,8 +1753,8 @@ export default function TabletCheckInsPage() {
                                 )}
                               </div>
                               
-                              <div className="flex-shrink-0">
-                                {!result.checkedIn && (result.type === 'guest' || result.type === 'owner' || result.type === 'promoter_guest') && (
+                              <div className="flex-shrink-0 flex flex-col gap-2">
+                                {!result.checkedIn && !result.checkedOut && (result.type === 'guest' || result.type === 'owner' || result.type === 'promoter_guest') && (
                                   <button
                                     onClick={() => handleCheckInClick(result)}
                                     className="w-full sm:w-auto px-4 sm:px-5 py-2 sm:py-2.5 bg-green-500 hover:bg-green-600 text-white rounded-lg flex items-center justify-center gap-2 transition-all shadow-md hover:shadow-lg font-semibold text-sm sm:text-base"
@@ -1561,7 +1763,38 @@ export default function TabletCheckInsPage() {
                                     Check-in
                                   </button>
                                 )}
-                                {result.checkedIn && (
+                                {result.checkedIn && !result.checkedOut && (result.type === 'guest' || result.type === 'owner') && (
+                                  <>
+                                    <span className="w-full sm:w-auto px-4 sm:px-5 py-2 sm:py-2.5 bg-green-500/20 text-green-300 rounded-lg flex items-center justify-center gap-2 font-semibold text-sm sm:text-base">
+                                      <MdCheckCircle size={18} />
+                                      Check-in realizado
+                                    </span>
+                                    <button
+                                      onClick={() => {
+                                        if (result.type === 'guest' && result.guestId) {
+                                          handleGuestCheckOut(result.guestId, result.name);
+                                        } else if (result.type === 'owner' && result.guestListId) {
+                                          handleOwnerCheckOut(result.guestListId, result.name);
+                                        }
+                                      }}
+                                      className="w-full sm:w-auto px-4 sm:px-5 py-2 sm:py-2.5 bg-orange-500 hover:bg-orange-600 text-white rounded-lg flex items-center justify-center gap-2 transition-all shadow-md hover:shadow-lg font-semibold text-sm sm:text-base"
+                                      title="Registrar saída"
+                                    >
+                                      🚪 Check-out
+                                    </button>
+                                  </>
+                                )}
+                                {result.checkedOut && (
+                                  <span className="w-full sm:w-auto px-4 sm:px-5 py-2 sm:py-2.5 bg-gray-500/20 text-gray-300 rounded-lg flex items-center justify-center gap-2 font-semibold text-sm sm:text-base">
+                                    🚪 Saída registrada
+                                    {result.checkoutTime && (
+                                      <span className="text-xs text-gray-400">
+                                        {new Date(result.checkoutTime).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                                      </span>
+                                    )}
+                                  </span>
+                                )}
+                                {result.checkedIn && result.type === 'promoter_guest' && (
                                   <span className="w-full sm:w-auto px-4 sm:px-5 py-2 sm:py-2.5 bg-green-500/20 text-green-300 rounded-lg flex items-center justify-center gap-2 font-semibold text-sm sm:text-base">
                                     <MdCheckCircle size={18} />
                                     Check-in realizado

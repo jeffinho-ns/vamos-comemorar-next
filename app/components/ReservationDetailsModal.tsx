@@ -501,26 +501,52 @@ export default function ReservationDetailsModal({
   // Mapeia mesas do Seu Justino para subáreas específicas
   const getSeuJustinoSubareaLabel = (tableNumber?: string | number) => {
     if (!tableNumber) return null;
-    const n = String(tableNumber);
+    const n = String(tableNumber).trim();
+    // Suporta múltiplas mesas separadas por vírgula
+    const tableNumbers = n.includes(',') ? n.split(',').map(t => t.trim()) : [n];
+    
     // Lounge (area_id 1)
-    if (['200','202'].includes(n)) return 'Lounge Bar';
-    if (['204','206'].includes(n)) return 'Lounge Palco';
-    if (['208'].includes(n)) return 'Lounge Aquário TV';
-    if (['210'].includes(n)) return 'Lounge Aquário Spaten';
+    if (tableNumbers.some(t => ['200','202'].includes(t))) return 'Lounge Bar';
+    if (tableNumbers.some(t => ['204','206'].includes(t))) return 'Lounge Palco';
+    if (tableNumbers.some(t => ['208'].includes(t))) return 'Lounge Aquario TV';
+    if (tableNumbers.some(t => ['210'].includes(t))) return 'Lounge Aquario Spaten';
     // Quintal (area_id 2)
-    if (['20','22','24','26','28','29'].includes(n)) return 'Quintal Lateral Esquerdo';
-    if (['30','32','34','36','38','39'].includes(n)) return 'Quintal Central Esquerdo';
-    if (['40','42','44','46','48'].includes(n)) return 'Quintal Central Direito';
-    if (['50','52','54','56','58','60','62','64'].includes(n)) return 'Quintal Lateral Direito';
+    if (tableNumbers.some(t => ['20','22','24','26','28','29'].includes(t))) return 'Quintal Lateral Esquerdo';
+    if (tableNumbers.some(t => ['30','32','34','36','38','39'].includes(t))) return 'Quintal Central Esquerdo';
+    if (tableNumbers.some(t => ['40','42','44','46','48'].includes(t))) return 'Quintal Central Direito';
+    if (tableNumbers.some(t => ['50','52','54','56','58','60','62','64'].includes(t))) return 'Quintal Lateral Direito';
     return null;
   };
 
   // Determina o nome da área baseado no número da mesa
-  const getSubareaLabel = (tableNumber?: string | number) => {
-    return getHighlineSubareaLabel(tableNumber) || getSeuJustinoSubareaLabel(tableNumber);
+  const getSubareaLabel = (tableNumber?: string | number, areaName?: string, areaId?: number) => {
+    // Primeiro tentar pelo Seu Justino (mais específico)
+    const seuJustinoArea = getSeuJustinoSubareaLabel(tableNumber);
+    if (seuJustinoArea) return seuJustinoArea;
+    
+    // Depois tentar Highline
+    const highlineArea = getHighlineSubareaLabel(tableNumber);
+    if (highlineArea) return highlineArea;
+    
+    // Se não encontrou pela mesa, verificar se area_name já está correto (não é "Área Coberta" ou "Área Descoberta")
+    if (areaName && !areaName.toLowerCase().includes('área coberta') && !areaName.toLowerCase().includes('área descoberta')) {
+      return areaName;
+    }
+    
+    // Fallback: retornar area_name original
+    return areaName || null;
   };
 
-  const derivedAreaName = getSubareaLabel((reservation as any).table_number) || reservation.area_name;
+  // Detectar se é Seu Justino baseado no establishment_id ou nome
+  const isSeuJustino = (reservation as any).establishment_id === 1 || 
+    ((reservation as any).establishment_name?.toLowerCase().includes('seu justino') &&
+     !(reservation as any).establishment_name?.toLowerCase().includes('pracinha'));
+  
+  const derivedAreaName = getSubareaLabel(
+    (reservation as any).table_number, 
+    reservation.area_name, 
+    (reservation as any).area_id
+  ) || reservation.area_name;
 
   const getStatusColor = (status: string) => {
     switch (status) {

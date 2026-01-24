@@ -127,7 +127,80 @@ export default function ReservationsDayModal({
                         
                         <div className="flex items-center gap-2">
                           <MdLocationOn className="text-gray-400" />
-                          <span>{reservation.area_name}</span>
+                          <span>{(() => {
+                            // Função helper para mapear mesa -> área do Seu Justino
+                            const getSeuJustinoAreaName = (tableNumber?: string | number, areaName?: string, areaId?: number): string => {
+                              if (!tableNumber && !areaName && !areaId) return areaName || '';
+                              
+                              const tableNum = String(tableNumber || '').trim();
+                              
+                              // Mapeamento de mesas para áreas do Seu Justino
+                              const seuJustinoSubareas = [
+                                { key: 'lounge-aquario-spaten', area_id: 1, label: 'Lounge Aquario Spaten', tableNumbers: ['210'] },
+                                { key: 'lounge-aquario-tv', area_id: 1, label: 'Lounge Aquario TV', tableNumbers: ['208'] },
+                                { key: 'lounge-palco', area_id: 1, label: 'Lounge Palco', tableNumbers: ['204','206'] },
+                                { key: 'lounge-bar', area_id: 1, label: 'Lounge Bar', tableNumbers: ['200','202'] },
+                                { key: 'quintal-lateral-esquerdo', area_id: 2, label: 'Quintal Lateral Esquerdo', tableNumbers: ['20','22','24','26','28','29'] },
+                                { key: 'quintal-central-esquerdo', area_id: 2, label: 'Quintal Central Esquerdo', tableNumbers: ['30','32','34','36','38','39'] },
+                                { key: 'quintal-central-direito', area_id: 2, label: 'Quintal Central Direito', tableNumbers: ['40','42','44','46','48'] },
+                                { key: 'quintal-lateral-direito', area_id: 2, label: 'Quintal Lateral Direito', tableNumbers: ['50','52','54','56','58','60','62','64'] },
+                              ];
+                              
+                              // Se temos número da mesa, buscar pela mesa (suporta múltiplas mesas separadas por vírgula)
+                              if (tableNum) {
+                                const tableNumbers = tableNum.includes(',') ? tableNum.split(',').map(t => t.trim()) : [tableNum];
+                                for (const tn of tableNumbers) {
+                                  const subarea = seuJustinoSubareas.find(sub => sub.tableNumbers.includes(tn));
+                                  if (subarea) {
+                                    return subarea.label;
+                                  }
+                                }
+                              }
+                              
+                              // Se não encontrou pela mesa, verificar se area_name já está correto
+                              if (areaName) {
+                                const normalizedAreaName = areaName.toLowerCase();
+                                // Se já é uma das áreas corretas, retornar como está
+                                if (seuJustinoSubareas.some(sub => sub.label.toLowerCase() === normalizedAreaName)) {
+                                  return areaName;
+                                }
+                                // Se contém "coberta" ou "descoberta", mapear baseado no area_id
+                                if (normalizedAreaName.includes('coberta') || normalizedAreaName.includes('descoberta')) {
+                                  if (areaId === 1) {
+                                    // Área 1 = Lounge, mas não sabemos qual subárea, então retornar genérico ou tentar pela mesa
+                                    if (tableNum) {
+                                      const tableNumbers = tableNum.includes(',') ? tableNum.split(',').map(t => t.trim()) : [tableNum];
+                                      for (const tn of tableNumbers) {
+                                        const subarea = seuJustinoSubareas.find(sub => sub.tableNumbers.includes(tn) && sub.area_id === 1);
+                                        if (subarea) return subarea.label;
+                                      }
+                                    }
+                                    return 'Lounge'; // Fallback genérico
+                                  } else if (areaId === 2) {
+                                    // Área 2 = Quintal, mas não sabemos qual subárea, então retornar genérico ou tentar pela mesa
+                                    if (tableNum) {
+                                      const tableNumbers = tableNum.includes(',') ? tableNum.split(',').map(t => t.trim()) : [tableNum];
+                                      for (const tn of tableNumbers) {
+                                        const subarea = seuJustinoSubareas.find(sub => sub.tableNumbers.includes(tn) && sub.area_id === 2);
+                                        if (subarea) return subarea.label;
+                                      }
+                                    }
+                                    return 'Quintal'; // Fallback genérico
+                                  }
+                                }
+                              }
+                              
+                              // Fallback: retornar area_name original ou vazio
+                              return areaName || '';
+                            };
+                            
+                            const isSeuJustinoDayModal = (reservation as any).establishment_id === 1 || 
+                              (reservation as any).establishment_name?.toLowerCase().includes('seu justino');
+                            
+                            return isSeuJustinoDayModal && (reservation as any).table_number
+                              ? getSeuJustinoAreaName((reservation as any).table_number, reservation.area_name, (reservation as any).area_id)
+                              : reservation.area_name;
+                          })()}</span>
                         </div>
 
                                                 {reservation.client_phone && (

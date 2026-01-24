@@ -60,6 +60,7 @@ interface RestaurantReservation {
   establishment_id?: number;
   area_id?: number;
   area_name?: string;
+  table_number?: string;
   status: string;
   checked_in?: boolean;
   checkin_time?: string;
@@ -1708,11 +1709,67 @@ export default function ReservesPage() {
                                     <p className="text-sm text-gray-400">
                                       {formatDate(reservation.reservation_date)} • {formatTime(reservation.reservation_time)}
                                     </p>
-                                    {reservation.area_name && (
-                                      <p className="text-xs text-gray-500 mt-1">
-                                        {reservation.area_name}
-                                      </p>
-                                    )}
+                                    {(() => {
+                                      // Função helper para mapear mesa -> área do Seu Justino
+                                      const getSeuJustinoAreaName = (tableNumber?: string | number, areaName?: string, areaId?: number): string => {
+                                        if (!tableNumber && !areaName && !areaId) return areaName || '';
+                                        
+                                        const tableNum = String(tableNumber || '').trim();
+                                        const seuJustinoSubareas = [
+                                          { key: 'lounge-aquario-spaten', area_id: 1, label: 'Lounge Aquario Spaten', tableNumbers: ['210'] },
+                                          { key: 'lounge-aquario-tv', area_id: 1, label: 'Lounge Aquario TV', tableNumbers: ['208'] },
+                                          { key: 'lounge-palco', area_id: 1, label: 'Lounge Palco', tableNumbers: ['204','206'] },
+                                          { key: 'lounge-bar', area_id: 1, label: 'Lounge Bar', tableNumbers: ['200','202'] },
+                                          { key: 'quintal-lateral-esquerdo', area_id: 2, label: 'Quintal Lateral Esquerdo', tableNumbers: ['20','22','24','26','28','29'] },
+                                          { key: 'quintal-central-esquerdo', area_id: 2, label: 'Quintal Central Esquerdo', tableNumbers: ['30','32','34','36','38','39'] },
+                                          { key: 'quintal-central-direito', area_id: 2, label: 'Quintal Central Direito', tableNumbers: ['40','42','44','46','48'] },
+                                          { key: 'quintal-lateral-direito', area_id: 2, label: 'Quintal Lateral Direito', tableNumbers: ['50','52','54','56','58','60','62','64'] },
+                                        ];
+                                        
+                                        if (tableNum) {
+                                          const tableNumbers = tableNum.includes(',') ? tableNum.split(',').map(t => t.trim()) : [tableNum];
+                                          for (const tn of tableNumbers) {
+                                            const subarea = seuJustinoSubareas.find(sub => sub.tableNumbers.includes(tn));
+                                            if (subarea) return subarea.label;
+                                          }
+                                        }
+                                        
+                                        if (areaName && !areaName.toLowerCase().includes('área coberta') && !areaName.toLowerCase().includes('área descoberta')) {
+                                          return areaName;
+                                        }
+                                        
+                                        if (areaName && (areaName.toLowerCase().includes('coberta') || areaName.toLowerCase().includes('descoberta'))) {
+                                          if (areaId === 1 && tableNum) {
+                                            const tableNumbers = tableNum.includes(',') ? tableNum.split(',').map(t => t.trim()) : [tableNum];
+                                            for (const tn of tableNumbers) {
+                                              const subarea = seuJustinoSubareas.find(sub => sub.tableNumbers.includes(tn) && sub.area_id === 1);
+                                              if (subarea) return subarea.label;
+                                            }
+                                          } else if (areaId === 2 && tableNum) {
+                                            const tableNumbers = tableNum.includes(',') ? tableNum.split(',').map(t => t.trim()) : [tableNum];
+                                            for (const tn of tableNumbers) {
+                                              const subarea = seuJustinoSubareas.find(sub => sub.tableNumbers.includes(tn) && sub.area_id === 2);
+                                              if (subarea) return subarea.label;
+                                            }
+                                          }
+                                        }
+                                        
+                                        return areaName || '';
+                                      };
+                                      
+                                      const isSeuJustinoReservas = reservation.establishment_id === 1 || 
+                                        ((reservation as any).establishment_name || '').toLowerCase().includes('seu justino');
+                                      
+                                      const finalAreaName = isSeuJustinoReservas && reservation.table_number
+                                        ? getSeuJustinoAreaName(reservation.table_number, reservation.area_name, reservation.area_id)
+                                        : (reservation.area_name || '');
+                                      
+                                      return finalAreaName ? (
+                                        <p className="text-xs text-gray-500 mt-1">
+                                          {finalAreaName}
+                                        </p>
+                                      ) : null;
+                                    })()}
                                   </div>
                                   {reservation.checked_in && (
                                     <MdCheckCircle className="text-green-500" size={20} />
