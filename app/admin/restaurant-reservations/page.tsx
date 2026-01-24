@@ -310,6 +310,8 @@ export default function RestaurantReservationsPage() {
     shareable_link_token: string;
     owner_checked_in?: boolean;
     owner_checkin_time?: string;
+    owner_checked_out?: boolean;
+    owner_checkout_time?: string;
   };
   type GuestItem = { id: number; name: string; whatsapp?: string; checked_in?: boolean; checkin_time?: string; checked_out?: boolean; checkout_time?: string };
   const [guestLists, setGuestLists] = useState<GuestListItem[]>([]);
@@ -1027,7 +1029,14 @@ export default function RestaurantReservationsPage() {
             ownerCheckedOut: true
           }
         }));
-        alert(`✅ Check-out de ${ownerName} confirmado!`);
+
+        // Após check-out, verificar lista de espera e liberar mesa automaticamente
+        const guestList = guestLists.find(gl => gl.guest_list_id === guestListId);
+        if (guestList) {
+          await releaseTableAndCheckWaitlistWithConfirmation(guestList as any);
+        }
+
+        alert(`✅ Check-out de ${ownerName} confirmado! Mesa liberada para outros clientes.`);
         // Recarregar dados para garantir sincronização
         await loadEstablishmentData();
       } else {
@@ -2420,7 +2429,7 @@ export default function RestaurantReservationsPage() {
               const listUrl = `https://agilizaiapp.com.br/lista/${gl.shareable_link_token}`;
 
               return (
-                <div key={gl.guest_list_id} className="border rounded-lg">
+                <div key={gl.guest_list_id} className={`border rounded-lg ${checkInStatus[gl.guest_list_id]?.ownerCheckedOut ? 'border-green-300 bg-green-50/30' : 'border-gray-200'}`}>
                   <div
                     onClick={async () => {
                       setExpandedGuestListId(expandedGuestListId === gl.guest_list_id ? null : gl.guest_list_id);
@@ -2478,14 +2487,19 @@ export default function RestaurantReservationsPage() {
                   >
                     <div>
                       <div className="flex items-center gap-2">
-                        <span className="font-semibold text-gray-800">{gl.owner_name}</span>
+                        <span className={`font-semibold ${checkInStatus[gl.guest_list_id]?.ownerCheckedOut ? 'text-gray-600' : 'text-gray-800'}`}>{gl.owner_name}</span>
                         <span className={`text-xs px-2 py-0.5 rounded-full ${
-                          gl.reservation_type === 'large' 
-                            ? 'bg-orange-100 text-orange-700' 
+                          gl.reservation_type === 'large'
+                            ? 'bg-orange-100 text-orange-700'
                             : 'bg-blue-100 text-blue-700'
                         }`}>
                           {gl.reservation_type === 'large' ? 'Reserva Grande' : 'Reserva Normal'}
                         </span>
+                        {checkInStatus[gl.guest_list_id]?.ownerCheckedOut && (
+                          <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-medium">
+                            ✅ FINALIZADO
+                          </span>
+                        )}
                       </div>
                       <div className="text-sm text-gray-600">
                         {gl.reservation_date ? new Date(gl.reservation_date + 'T12:00:00').toLocaleDateString('pt-BR') : 'Data não informada'} {gl.event_type ? `• ${gl.event_type}` : ''}
@@ -2531,15 +2545,16 @@ export default function RestaurantReservationsPage() {
                           <button
                             className="px-3 py-1 text-xs rounded-full transition-colors font-medium bg-gray-100 text-gray-700 border border-gray-300"
                             disabled
+                            title={`Check-out realizado - Mesa liberada`}
                           >
-                            🚪 Dono Saída
+                            🚪 Finalizado
                           </button>
                         )}
                       </div>
                       
                       {/* INÍCIO DA ALTERAÇÃO: Exibição do Link */}
                       <div className="mt-2 flex items-center gap-2">
-                        <a 
+                        <a
                           href={listUrl}
                           target="_blank"
                           rel="noopener noreferrer"
@@ -2548,7 +2563,7 @@ export default function RestaurantReservationsPage() {
                         >
                           Acessar Link da Lista
                         </a>
-                        <button 
+                        <button
                           onClick={(e) => {
                             e.stopPropagation(); // Evita que o clique no botão expanda/recolha
                             navigator.clipboard.writeText(listUrl);
@@ -2559,6 +2574,26 @@ export default function RestaurantReservationsPage() {
                           (Copiar)
                         </button>
                       </div>
+
+                      {/* Informações de Check-in/Check-out */}
+                      {(checkInStatus[gl.guest_list_id]?.ownerCheckedIn || checkInStatus[gl.guest_list_id]?.ownerCheckedOut) && (
+                        <div className="mt-2 space-y-1">
+                          {checkInStatus[gl.guest_list_id]?.ownerCheckedIn && (
+                            <div className="text-xs text-green-600">
+                              ✅ Entrada: {gl.owner_checkin_time ? new Date(gl.owner_checkin_time).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : 'Horário não registrado'}
+                            </div>
+                          )}
+                          {checkInStatus[gl.guest_list_id]?.ownerCheckedOut && (
+                            <div className="text-xs text-gray-600">
+                              🚪 Saída: {(() => {
+                                const checkoutTime = gl.owner_checkout_time || (checkInStatus[gl.guest_list_id] as any)?.ownerCheckoutTime;
+                                return checkoutTime ? new Date(checkoutTime).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : 'Horário não registrado';
+                              })()}
+                            </div>
+                          )}
+                        </div>
+                      )}
+
                       {/* FIM DA ALTERAÇÃO */}
 
                     </div>

@@ -1670,14 +1670,18 @@ export default function EventoCheckInsPage() {
         const now = data.guestList?.owner_checkout_time || new Date().toISOString();
         setCheckInStatus(prev => ({
           ...prev,
-          [guestListId]: { 
-            ...prev[guestListId], 
+          [guestListId]: {
+            ...prev[guestListId],
             ownerCheckedIn: false,
-            ownerCheckedOut: true 
+            ownerCheckedOut: true
           }
         }));
         setOwnerCheckOutTimeMap(prev => ({ ...prev, [guestListId]: now }));
-        toast.success(`✅ Check-out de ${ownerName} confirmado!`, {
+
+        // Após check-out, liberar mesa automaticamente
+        // A mesa será liberada automaticamente quando o dono faz check-out
+
+        toast.success(`✅ Check-out de ${ownerName} confirmado! Mesa liberada.`, {
           position: "top-center",
           autoClose: 3000,
         });
@@ -1699,6 +1703,7 @@ export default function EventoCheckInsPage() {
       checkInInProgressRef.current[key] = false;
     }
   }, [loadCheckInData]);
+
 
   const handleGuestCheckIn = useCallback((guestListId: number, guestId: number, guestName: string, e?: React.MouseEvent) => {
     e?.preventDefault();
