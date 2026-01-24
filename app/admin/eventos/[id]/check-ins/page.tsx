@@ -27,7 +27,9 @@ import {
   MdViewList,
   MdViewModule,
   MdAttachMoney,
+  MdDownload,
 } from 'react-icons/md';
+import * as XLSX from 'xlsx';
 import { WithPermission } from '../../../../components/WithPermission/WithPermission';
 import EntradaStatusModal, { EntradaTipo } from '../../../../components/EntradaStatusModal';
 import BirthdayDetailsModal from '../../../../components/painel/BirthdayDetailsModal';
@@ -338,6 +340,7 @@ export default function EventoCheckInsPage() {
   const [guestsByList, setGuestsByList] = useState<Record<number, GuestItem[]>>({});
   const [guestSearch, setGuestSearch] = useState<Record<number, string>>({});
   const [checkInStatus, setCheckInStatus] = useState<Record<number, { ownerCheckedIn: boolean; guestsCheckedIn: number; totalGuests: number }>>({});
+  const [ownerCheckInTimeMap, setOwnerCheckInTimeMap] = useState<Record<number, string>>({});
   const [promoters, setPromoters] = useState<Promoter[]>([]);
   const [convidadosPromoters, setConvidadosPromoters] = useState<ConvidadoPromoter[]>([]);
   const [camarotes, setCamarotes] = useState<Camarote[]>([]);
@@ -928,10 +931,14 @@ export default function EventoCheckInsPage() {
     loadCheckInData();
   }, [loadCheckInData]);
 
-  // Carregar reservas quando o modal de planilha abrir (igual à página restaurant-reservations)
   useEffect(() => {
     if (!planilhaModalOpen || !evento || !eventoId) {
       setPlanilhaReservas([]);
+      return;
+    }
+    const dataEvento = evento.data_evento?.split('T')[0] || evento.data_evento || '';
+    if (!sheetFilters.date) {
+      setSheetFilters(prev => ({ ...prev, date: dataEvento }));
       return;
     }
 
@@ -946,18 +953,15 @@ export default function EventoCheckInsPage() {
           headers['Authorization'] = `Bearer ${token}`;
         }
 
-        // Inicializar filtros com a data do evento quando modal abrir
-        const dataEvento = evento.data_evento?.split('T')[0] || evento.data_evento;
-        setSheetFilters(prev => ({ ...prev, date: dataEvento }));
-
-        // Buscar reservas normais e grandes (igual à página restaurant-reservations)
+        const dateToUse = sheetFilters.date || dataEvento;
+        const dateParam = dateToUse ? `&date=${encodeURIComponent(dateToUse)}` : '';
         const normalReservationsPromise = fetch(
-          `${API_URL}/api/restaurant-reservations?establishment_id=${evento.establishment_id}`,
+          `${API_URL}/api/restaurant-reservations?establishment_id=${evento.establishment_id}${dateParam}`,
           { headers }
         ).then(res => res.ok ? res.json() : { reservations: [] });
 
         const largeReservationsPromise = fetch(
-          `${API_URL}/api/large-reservations?establishment_id=${evento.establishment_id}`,
+          `${API_URL}/api/large-reservations?establishment_id=${evento.establishment_id}${dateParam}`,
           { headers }
         ).then(res => res.ok ? res.json() : { reservations: [] });
 
@@ -989,11 +993,10 @@ export default function EventoCheckInsPage() {
           const areas = areasData.areas || [];
           const mesasMap = new Map<string, Array<{ area_id: number; area_name: string; table_number: string }>>();
 
-          // Buscar todas as mesas de cada área para a data do evento
           for (const area of areas) {
             try {
               const tablesRes = await fetch(
-                `${API_URL}/api/restaurant-tables/${area.id}/availability?date=${dataEvento}${evento.establishment_id ? `&establishment_id=${evento.establishment_id}` : ''}`,
+                `${API_URL}/api/restaurant-tables/${area.id}/availability?date=${dateToUse}${evento.establishment_id ? `&establishment_id=${evento.establishment_id}` : ''}`,
                 { headers }
               );
               if (tablesRes.ok) {
@@ -1026,7 +1029,63 @@ export default function EventoCheckInsPage() {
     };
 
     carregarPlanilhaReservas();
-  }, [planilhaModalOpen, evento, eventoId]);
+  }, [planilhaModalOpen, evento, eventoId, sheetFilters.date]);
+
+  const handleExportPlanilhaExcel = useCallback(() => {
+    const matches = (r: Reservation) => {
+      if (sheetFilters.date) {
+        let d = '';
+        try {
+          const dateStr = String(r.reservation_date || '').trim();
+          if (dateStr && dateStr !== 'null' && dateStr !== 'undefined') {
+            const dt = dateStr.includes('T') ? new Date(dateStr) : new Date(dateStr + 'T12:00:00');
+            if (!isNaN(dt.getTime())) d = dt.toISOString().split('T')[0];
+          }
+        } catch { /* ignore */ }
+        if (d !== sheetFilters.date) return false;
+      }
+      if (sheetFilters.search) {
+        const q = sheetFilters.search.toLowerCase();
+        const hay = `${(r as any).client_name || ''} ${(r as any).client_phone || ''} ${(r as any).event_name || ''}`.toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      if (sheetFilters.name && !(`${(r as any).client_name || ''}`.toLowerCase().includes((sheetFilters.name || '').toLowerCase()))) return false;
+      if (sheetFilters.phone && !(`${(r as any).client_phone || ''}`.toLowerCase().includes((sheetFilters.phone || '').toLowerCase()))) return false;
+      if (sheetFilters.event && !(`${(r as any).event_name || ''}`.toLowerCase().includes((sheetFilters.event || '').toLowerCase()))) return false;
+      if (sheetFilters.table && !(`${(r as any).table_number || ''}`.toString().toLowerCase().includes((sheetFilters.table || '').toLowerCase()))) return false;
+      if (sheetFilters.status && !((r as any).status || '').toLowerCase().includes((sheetFilters.status || '').toLowerCase())) return false;
+      return true;
+    };
+    const formatDate = (dateStr?: string) => {
+      if (!dateStr) return '';
+      try {
+        const d = new Date(dateStr + 'T12:00:00');
+        return isNaN(d.getTime()) ? '' : d.toLocaleDateString('pt-BR');
+      } catch { return ''; }
+    };
+    const formatTime = (t?: string) => (t && t.trim() ? String(t).slice(0, 5) : '');
+    const filtered = planilhaReservas.filter(matches);
+    const headers = ['Data', 'Hora', 'Nome', 'Mesa', 'Área', 'Telefone', 'Pessoas', 'Status', 'Observação'];
+    const rows = filtered.map(r => [
+      formatDate(String((r as any).reservation_date || '').split('T')[0]),
+      formatTime((r as any).reservation_time),
+      (r as any).client_name || '',
+      (r as any).table_number != null ? String((r as any).table_number) : '',
+      (r as any).area_name || '',
+      (r as any).client_phone || '',
+      typeof (r as any).number_of_people === 'number' ? (r as any).number_of_people : parseInt(String((r as any).number_of_people || '0'), 10) || 0,
+      (r as any).status || '',
+      (r as any).notes || (r as any).admin_notes || ''
+    ]);
+    const aoa = [headers, ...rows];
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Reservas');
+    const dateLabel = sheetFilters.date ? `_${sheetFilters.date}` : '';
+    const est = evento?.establishment_name || 'estabelecimento';
+    const safe = est.replace(/[^a-z0-9]/gi, '_').slice(0, 30);
+    XLSX.writeFile(wb, `planilha_reservas${dateLabel}_${safe}.xlsx`);
+  }, [planilhaReservas, sheetFilters, evento]);
 
   // Função para calcular arrecadação
   const calcularArrecadacao = useCallback((
@@ -1482,10 +1541,12 @@ export default function EventoCheckInsPage() {
       });
 
       if (response.ok) {
+        const now = new Date().toISOString();
         setCheckInStatus(prev => ({
           ...prev,
           [guestListId]: { ...prev[guestListId], ownerCheckedIn: true }
         }));
+        setOwnerCheckInTimeMap(prev => ({ ...prev, [guestListId]: now }));
         toast.success(`✅ Check-in de ${ownerName} confirmado!`, {
           position: "top-center",
           autoClose: 3000,
@@ -1989,34 +2050,28 @@ export default function EventoCheckInsPage() {
   }, [promoters, debouncedSearchTerm, filterBySearch, cachedStringCompare]);
 
   const reservasMetrics = useMemo(() => {
-    // Contar convidados (não reservas)
+    // Pessoas em reservas de mesa (convidados)
     const totalConvidadosReservas = convidadosReservas.length;
     const checkinConvidadosReservas = convidadosReservas.filter((c) => c.status === 'CHECK-IN').length;
 
-    // CORREÇÃO: Contar apenas convidados individuais, não total_guests das listas
-    // Prioridade: 1) convidadosReservasRestaurante, 2) guestsByList (guests carregados), 3) checkInStatus.totalGuests
+    // Pessoas em reservas restaurante (guest lists + convidados): incluir dono da lista em cada lista
     let totalConvidadosRestaurante = 0;
     let checkinConvidadosRestaurante = 0;
 
     if (convidadosReservasRestaurante.length > 0) {
-      // Se temos lista de convidados individuais, usar ela (mais confiável)
       totalConvidadosRestaurante = convidadosReservasRestaurante.length;
       checkinConvidadosRestaurante = convidadosReservasRestaurante.filter(
         (c) => c.status_checkin === 1 || c.status_checkin === true
       ).length;
     } else {
-      // Caso contrário, usar guests carregados ou checkInStatus
       const guestsLoaded = Object.values(guestsByList).reduce((sum, guests) => sum + guests.length, 0);
       const guestsCheckedInLoaded = Object.values(guestsByList).reduce((sum, guests) => 
         sum + guests.filter(g => g.checked_in === 1 || g.checked_in === true).length, 0
       );
-      
-      // Se temos guests carregados, usar eles
       if (guestsLoaded > 0) {
         totalConvidadosRestaurante = guestsLoaded;
         checkinConvidadosRestaurante = guestsCheckedInLoaded;
       } else {
-        // Caso contrário, usar checkInStatus (que pode ter totalGuests do backend)
         guestListsRestaurante.forEach(gl => {
           const status = checkInStatus[gl.guest_list_id];
           if (status && status.totalGuests > 0) {
@@ -2027,11 +2082,26 @@ export default function EventoCheckInsPage() {
       }
     }
 
+    // Dono da lista: +1 pessoa por guest list, check-in se dono presente
+    guestListsRestaurante.forEach(gl => {
+      totalConvidadosRestaurante += 1;
+      if (checkInStatus[gl.guest_list_id]?.ownerCheckedIn || gl.owner_checked_in === 1) {
+        checkinConvidadosRestaurante += 1;
+      }
+    });
+
+    const reservasSemLista = reservasRestaurante.filter(r => r.guest_list_id == null);
+    reservasSemLista.forEach(r => {
+      totalConvidadosRestaurante += 1;
+      if (r.checked_in) checkinConvidadosRestaurante += 1;
+    });
+
     return {
       total: totalConvidadosReservas + totalConvidadosRestaurante,
-      checkins: checkinConvidadosReservas + checkinConvidadosRestaurante
+      checkins: checkinConvidadosReservas + checkinConvidadosRestaurante,
+      numReservas: reservasMesa.length + reservasRestaurante.length
     };
-  }, [convidadosReservas, convidadosReservasRestaurante, guestListsRestaurante, guestsByList, checkInStatus]);
+  }, [convidadosReservas, convidadosReservasRestaurante, guestListsRestaurante, guestsByList, checkInStatus, reservasMesa, reservasRestaurante]);
 
   const promoterMetrics = useMemo(() => {
     const total = convidadosPromoters.length;
@@ -2384,117 +2454,97 @@ export default function EventoCheckInsPage() {
               <div className="text-sm text-gray-300 mb-1">Total Geral</div>
               <div className="text-2xl font-bold text-white" style={{ fontVariantNumeric: 'normal' }}>
                 {(() => {
-                  // Contar apenas nomes únicos de pessoas (sem duplicatas)
                   const nomesUnicos = new Set<string>();
                   const nomesCheckin = new Set<string>();
-                  
-                  // Adicionar nomes de convidados de reservas
                   convidadosReservas.forEach(c => {
                     if (c.nome && c.nome.trim()) {
-                      const nomeNormalizado = c.nome.trim().toLowerCase();
-                      nomesUnicos.add(nomeNormalizado);
-                      if (c.status === 'CHECK-IN') {
-                        nomesCheckin.add(nomeNormalizado);
-                      }
+                      const n = c.nome.trim().toLowerCase();
+                      nomesUnicos.add(n);
+                      if (c.status === 'CHECK-IN') nomesCheckin.add(n);
                     }
                   });
-                  
-                  // Adicionar nomes de convidados de restaurante
                   convidadosReservasRestaurante.forEach(c => {
                     if (c.nome && c.nome.trim()) {
-                      const nomeNormalizado = c.nome.trim().toLowerCase();
-                      nomesUnicos.add(nomeNormalizado);
-                      if (c.status_checkin === 1 || c.status_checkin === true) {
-                        nomesCheckin.add(nomeNormalizado);
-                      }
+                      const n = c.nome.trim().toLowerCase();
+                      nomesUnicos.add(n);
+                      if (c.status_checkin === 1 || c.status_checkin === true) nomesCheckin.add(n);
                     }
                   });
-                  
-                  // Adicionar nomes de guests das guest lists (se carregados)
                   Object.values(guestsByList).flat().forEach(g => {
                     const nome = (g.name || '').trim();
                     if (nome) {
-                      const nomeNormalizado = nome.toLowerCase();
-                      nomesUnicos.add(nomeNormalizado);
-                      if (g.checked_in === 1 || g.checked_in === true) {
-                        nomesCheckin.add(nomeNormalizado);
-                      }
+                      const n = nome.toLowerCase();
+                      nomesUnicos.add(n);
+                      if (g.checked_in === 1 || g.checked_in === true) nomesCheckin.add(n);
                     }
                   });
-                  
-                  // Adicionar nomes de convidados de promoters
+                  guestListsRestaurante.forEach(gl => {
+                    const owner = (gl.owner_name || '').trim();
+                    if (owner) {
+                      const n = owner.toLowerCase();
+                      nomesUnicos.add(n);
+                      if (checkInStatus[gl.guest_list_id]?.ownerCheckedIn || gl.owner_checked_in === 1) nomesCheckin.add(n);
+                    }
+                  });
                   convidadosPromoters.forEach(c => {
                     if (c.nome && c.nome.trim()) {
-                      const nomeNormalizado = c.nome.trim().toLowerCase();
-                      nomesUnicos.add(nomeNormalizado);
-                      if (c.status_checkin === 'Check-in') {
-                        nomesCheckin.add(nomeNormalizado);
-                      }
+                      const n = c.nome.trim().toLowerCase();
+                      nomesUnicos.add(n);
+                      if (c.status_checkin === 'Check-in') nomesCheckin.add(n);
                     }
                   });
-                  
-                  // Nota: Camarotes não têm lista de nomes individuais, apenas total_convidados
-                  // Por isso não adicionamos nomes de camarotes aqui
-                  // O total de camarotes já está sendo considerado separadamente nas métricas
-                  
-                  const total = nomesUnicos.size;
-                  const checkins = nomesCheckin.size;
+                  const camTotal = camarotes.reduce((s, c) => s + (c.total_convidados || 0), 0);
+                  const camCheckin = camarotes.reduce((s, c) => s + (c.convidados_checkin || 0), 0);
+                  const total = nomesUnicos.size + camTotal;
+                  const checkins = nomesCheckin.size + camCheckin;
                   return `${checkins}/${total}`;
                 })()}
               </div>
               <div className="text-xs text-gray-400 mt-1">
                 {(() => {
-                  // Mesmo cálculo para porcentagem
                   const nomesUnicos = new Set<string>();
                   const nomesCheckin = new Set<string>();
-                  
                   convidadosReservas.forEach(c => {
                     if (c.nome && c.nome.trim()) {
-                      const nomeNormalizado = c.nome.trim().toLowerCase();
-                      nomesUnicos.add(nomeNormalizado);
-                      if (c.status === 'CHECK-IN') {
-                        nomesCheckin.add(nomeNormalizado);
-                      }
+                      const n = c.nome.trim().toLowerCase();
+                      nomesUnicos.add(n);
+                      if (c.status === 'CHECK-IN') nomesCheckin.add(n);
                     }
                   });
-                  
                   convidadosReservasRestaurante.forEach(c => {
                     if (c.nome && c.nome.trim()) {
-                      const nomeNormalizado = c.nome.trim().toLowerCase();
-                      nomesUnicos.add(nomeNormalizado);
-                      if (c.status_checkin === 1 || c.status_checkin === true) {
-                        nomesCheckin.add(nomeNormalizado);
-                      }
+                      const n = c.nome.trim().toLowerCase();
+                      nomesUnicos.add(n);
+                      if (c.status_checkin === 1 || c.status_checkin === true) nomesCheckin.add(n);
                     }
                   });
-                  
                   Object.values(guestsByList).flat().forEach(g => {
                     const nome = (g.name || '').trim();
                     if (nome) {
-                      const nomeNormalizado = nome.toLowerCase();
-                      nomesUnicos.add(nomeNormalizado);
-                      if (g.checked_in === 1 || g.checked_in === true) {
-                        nomesCheckin.add(nomeNormalizado);
-                      }
+                      const n = nome.toLowerCase();
+                      nomesUnicos.add(n);
+                      if (g.checked_in === 1 || g.checked_in === true) nomesCheckin.add(n);
                     }
                   });
-                  
+                  guestListsRestaurante.forEach(gl => {
+                    const owner = (gl.owner_name || '').trim();
+                    if (owner) {
+                      const n = owner.toLowerCase();
+                      nomesUnicos.add(n);
+                      if (checkInStatus[gl.guest_list_id]?.ownerCheckedIn || gl.owner_checked_in === 1) nomesCheckin.add(n);
+                    }
+                  });
                   convidadosPromoters.forEach(c => {
                     if (c.nome && c.nome.trim()) {
-                      const nomeNormalizado = c.nome.trim().toLowerCase();
-                      nomesUnicos.add(nomeNormalizado);
-                      if (c.status_checkin === 'Check-in') {
-                        nomesCheckin.add(nomeNormalizado);
-                      }
+                      const n = c.nome.trim().toLowerCase();
+                      nomesUnicos.add(n);
+                      if (c.status_checkin === 'Check-in') nomesCheckin.add(n);
                     }
                   });
-                  
-                  // Nota: Camarotes não têm lista de nomes individuais, apenas total_convidados
-                  // Por isso não adicionamos nomes de camarotes aqui
-                  // O total de camarotes já está sendo considerado separadamente nas métricas
-                  
-                  const total = nomesUnicos.size;
-                  const checkins = nomesCheckin.size;
+                  const camTotal = camarotes.reduce((s, c) => s + (c.total_convidados || 0), 0);
+                  const camCheckin = camarotes.reduce((s, c) => s + (c.convidados_checkin || 0), 0);
+                  const total = nomesUnicos.size + camTotal;
+                  const checkins = nomesCheckin.size + camCheckin;
                   return total > 0 ? `${Math.round((checkins / total) * 100)}%` : '0%';
                 })()}
               </div>
@@ -2505,7 +2555,7 @@ export default function EventoCheckInsPage() {
                 {Number(reservasMetrics.checkins)}/{Number(reservasMetrics.total)}
               </div>
               <div className="text-xs text-gray-400 mt-1">
-                {reservasMesa.length + reservasRestaurante.length} reserva{(reservasMesa.length + reservasRestaurante.length) !== 1 ? 's' : ''}
+                {reservasMetrics.numReservas} reserva{reservasMetrics.numReservas !== 1 ? 's' : ''}
               </div>
             </div>
             <div className="bg-white/10 backdrop-blur-sm rounded-lg shadow p-4 border border-purple-500/50">
@@ -3213,7 +3263,21 @@ export default function EventoCheckInsPage() {
                                           : 'bg-blue-100 text-blue-700 hover:bg-blue-200 border border-blue-300'
                                       }`}
                                     >
-                                      {checkInStatus[gl.guest_list_id]?.ownerCheckedIn || gl.owner_checked_in === 1 ? '✅ Dono Presente' : '📋 Check-in Dono'}
+                                      {checkInStatus[gl.guest_list_id]?.ownerCheckedIn || gl.owner_checked_in === 1
+                                        ? (() => {
+                                            const t = gl.owner_checkin_time || ownerCheckInTimeMap[gl.guest_list_id];
+                                            return (
+                                              <>
+                                                ✅ Dono Presente
+                                                {t && (
+                                                  <span className="ml-1 text-gray-500 font-normal">
+                                                    {new Date(t).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                                                  </span>
+                                                )}
+                                              </>
+                                            );
+                                          })()
+                                        : '📋 Check-in Dono'}
                                     </button>
                                   </div>
                                   
@@ -3320,7 +3384,9 @@ export default function EventoCheckInsPage() {
                                           ? 'bg-green-100 text-green-700'
                                           : 'bg-gray-100 text-gray-600'
                                       }`}>
-                                        Dono: {(checkInStatus[gl.guest_list_id]?.ownerCheckedIn || gl.owner_checked_in === 1) ? '✅ Presente' : '⏳ Aguardando'}
+                                        Dono: {(checkInStatus[gl.guest_list_id]?.ownerCheckedIn || gl.owner_checked_in === 1)
+                                          ? `✅ Presente${(gl.owner_checkin_time || ownerCheckInTimeMap[gl.guest_list_id]) ? ` ${new Date(gl.owner_checkin_time || ownerCheckInTimeMap[gl.guest_list_id]!).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}` : ''}`
+                                          : '⏳ Aguardando'}
                                       </span>
                                       <span className="px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-700">
                                         Convidados: {checkInStatus[gl.guest_list_id]?.guestsCheckedIn || 0} / {(guestsByList[gl.guest_list_id] || []).length || 0}
@@ -3408,7 +3474,7 @@ export default function EventoCheckInsPage() {
                                                       ? 'bg-green-100 text-green-700 border border-green-300'
                                                       : 'bg-gray-100 text-gray-600 border border-gray-300'
                                                   }`}>
-                                                    {isCheckedIn ? '✅ Presente' : '⏳ Aguardando'}
+                                                    {isCheckedIn ? `✅ Presente${g.checkin_time ? ` ${new Date(g.checkin_time).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}` : ''}` : '⏳ Aguardando'}
                                                   </span>
                                                   {isCheckedIn && g.entrada_tipo && (
                                                     <div className={`mt-1 text-xs px-2 py-0.5 rounded-full inline-block ${
@@ -3509,7 +3575,7 @@ export default function EventoCheckInsPage() {
                                                 <div className="w-4 h-4 rounded-full border-2 border-gray-400 flex-shrink-0" />
                                               )}
                                               <div className="flex-1 min-w-0">
-                                                <div className="flex items-center gap-2">
+                                                <div className="flex items-center gap-2 flex-wrap">
                                                   <span className="font-medium text-white text-sm truncate">{g.name}</span>
                                                   {g.entrada_tipo && isCheckedIn && (
                                                     <span className={`text-xs px-1.5 py-0.5 rounded ${
@@ -3520,6 +3586,11 @@ export default function EventoCheckInsPage() {
                                                         : 'bg-purple-500/30 text-purple-200'
                                                     }`}>
                                                       {g.entrada_tipo}
+                                                    </span>
+                                                  )}
+                                                  {isCheckedIn && g.checkin_time && (
+                                                    <span className="text-xs text-gray-500 font-normal">
+                                                      {new Date(g.checkin_time).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
                                                     </span>
                                                   )}
                                                 </div>
@@ -4198,7 +4269,7 @@ export default function EventoCheckInsPage() {
                           />
                         </div>
                       </div>
-                      <div className="flex gap-2">
+                      <div className="flex gap-2 flex-wrap">
                         <button
                           onClick={() => {
                             const dataEvento = evento?.data_evento?.split('T')[0] || evento?.data_evento || '';
@@ -4208,11 +4279,21 @@ export default function EventoCheckInsPage() {
                         >
                           Resetar
                         </button>
+                        <button
+                          type="button"
+                          onClick={handleExportPlanilhaExcel}
+                          className="px-3 sm:px-4 py-2 text-xs sm:text-sm bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium flex items-center gap-1.5"
+                        >
+                          <MdDownload size={16} />
+                          Baixar Excel
+                        </button>
                       </div>
                     </div>
 
                     {(() => {
-                      // Subáreas específicas do Highline (igual ReservationModal)
+                      const establishmentName = (evento?.establishment_name || '').toLowerCase();
+                      const isSeuJustinoPlanilha = (establishmentName.includes('seu justino') && !establishmentName.includes('pracinha')) || evento?.establishment_id === 1;
+
                       const highlineSubareas = [
                         { key: 'deck-frente', area_id: 2, label: 'Área Deck - Frente', tableNumbers: ['05','06','07','08'] },
                         { key: 'deck-esquerdo', area_id: 2, label: 'Área Deck - Esquerdo', tableNumbers: ['01','02','03','04'] },
@@ -4224,6 +4305,19 @@ export default function EventoCheckInsPage() {
                         { key: 'roof-esquerdo', area_id: 5, label: 'Área Rooftop - Esquerdo', tableNumbers: ['60','61','62','63','64','65'] },
                         { key: 'roof-vista', area_id: 5, label: 'Área Rooftop - Vista', tableNumbers: ['40','41','42'] },
                       ];
+
+                      const seuJustinoSubareas = [
+                        { key: 'lounge-aquario-spaten', area_id: 1, label: 'Lounge Aquario Spaten', tableNumbers: ['210'] },
+                        { key: 'lounge-aquario-tv', area_id: 1, label: 'Lounge Aquario TV', tableNumbers: ['208'] },
+                        { key: 'lounge-palco', area_id: 1, label: 'Lounge Palco', tableNumbers: ['204','206'] },
+                        { key: 'lounge-bar', area_id: 1, label: 'Lounges Bar', tableNumbers: ['200','202'] },
+                        { key: 'quintal-lateral-esquerdo', area_id: 2, label: 'Quintal Lateral Esquerdo', tableNumbers: ['20','22','24','26','28','29'] },
+                        { key: 'quintal-central-esquerdo', area_id: 2, label: 'Quintal Central Esquerdo', tableNumbers: ['30','32','34','36','38','39'] },
+                        { key: 'quintal-central-direito', area_id: 2, label: 'Quintal Central Direito', tableNumbers: ['40','42','44','46','48'] },
+                        { key: 'quintal-lateral-direito', area_id: 2, label: 'Quintal Lateral Direito', tableNumbers: ['50','52','54','56','58','60','62','64'] },
+                      ];
+
+                      const subareas = isSeuJustinoPlanilha ? seuJustinoSubareas : highlineSubareas;
 
                       // Funções auxiliares
                       const formatTime = (t?: string) => {
@@ -4271,37 +4365,31 @@ export default function EventoCheckInsPage() {
                         return true;
                       };
 
-                      // Função para categorizar área/mesa usando subáreas (igual ReservationModal)
                       const getCategoryFromMesa = (mesa: { area_id: number; area_name: string; table_number: string }): string => {
                         const tableNum = mesa.table_number.trim();
-                        
-                        // Usar subáreas do Highline para categorizar (mesma lógica do modal)
-                        const subarea = highlineSubareas.find(sub => sub.tableNumbers.includes(tableNum));
+                        const subarea = subareas.find((sub: { tableNumbers: string[] }) => sub.tableNumbers.includes(tableNum));
                         if (subarea) {
-                          // Categorizar pela subárea
-                          if (subarea.key.startsWith('deck-')) return 'deck';
-                          if (subarea.key === 'bar') return 'bar';
-                          if (subarea.key.startsWith('roof-')) return 'rooftop';
+                          if (isSeuJustinoPlanilha) {
+                            if ((subarea as { key: string }).key.startsWith('lounge')) return 'lounge';
+                            if ((subarea as { key: string }).key.startsWith('quintal')) return 'quintal';
+                            return 'other';
+                          }
+                          if ((subarea as { key: string }).key.startsWith('deck-')) return 'deck';
+                          if ((subarea as { key: string }).key === 'bar') return 'bar';
+                          if ((subarea as { key: string }).key.startsWith('roof-')) return 'rooftop';
                         }
-                        
-                        // Fallback: categorização por número da mesa
-                        if (['40','41','42','44','45','46','47','60','61','62','63','64','65','50','51','52','53','54','55','56','70','71','72','73'].includes(tableNum)) {
-                          return 'rooftop';
+                        if (isSeuJustinoPlanilha) {
+                          if (['200','202','204','206','208','210'].includes(tableNum)) return 'lounge';
+                          if (['20','22','24','26','28','29','30','32','34','36','38','39','40','42','44','46','48','50','52','54','56','58','60','62','64'].includes(tableNum)) return 'quintal';
+                          if (mesa.area_id === 1) return 'lounge';
+                          if (mesa.area_id === 2) return 'quintal';
+                          return 'other';
                         }
-                        if (['01','02','03','04','05','06','07','08','09','10','11','12'].includes(tableNum)) {
-                          return 'deck';
-                        }
-                        if (['15','16','17'].includes(tableNum)) {
-                          return 'bar';
-                        }
-                        
-                        // Fallback: categorização por area_id
+                        if (['40','41','42','44','45','46','47','60','61','62','63','64','65','50','51','52','53','54','55','56','70','71','72','73'].includes(tableNum)) return 'rooftop';
+                        if (['01','02','03','04','05','06','07','08','09','10','11','12'].includes(tableNum)) return 'deck';
+                        if (['15','16','17'].includes(tableNum)) return 'bar';
                         if (mesa.area_id === 5) return 'rooftop';
-                        if (mesa.area_id === 2) {
-                          // area_id 2 pode ser Deck ou Bar - determinar pelo número da mesa
-                          return 'deck'; // Padrão para area_id 2 (Deck), Bar é apenas mesas 15-17
-                        }
-                        
+                        if (mesa.area_id === 2) return 'deck';
                         return 'other';
                       };
 
@@ -4321,40 +4409,48 @@ export default function EventoCheckInsPage() {
                         });
                       });
 
-                      // Criar seções padronizadas: Deck, Bar Central, Rooftop
-                      // Sempre mostrar todas as categorias, mesmo que vazias (mas depois filtrar apenas as que têm mesas)
-                      const areaSections: Array<{ key: string; title: string; area_ids: number[]; area_names: string[] }> = [
-                        { key: 'deck', title: 'Deck', area_ids: [], area_names: [] },
-                        { key: 'bar', title: 'Bar Central', area_ids: [], area_names: [] },
-                        { key: 'rooftop', title: 'Rooftop', area_ids: [], area_names: [] },
-                      ];
+                      const areaSections: Array<{ key: string; title: string; area_ids: number[]; area_names: string[] }> = isSeuJustinoPlanilha
+                        ? [
+                            { key: 'lounge', title: 'Lounge', area_ids: [], area_names: [] },
+                            { key: 'quintal', title: 'Quintal', area_ids: [], area_names: [] },
+                            { key: 'other', title: 'Outros', area_ids: [], area_names: [] },
+                          ]
+                        : [
+                            { key: 'deck', title: 'Deck', area_ids: [], area_names: [] },
+                            { key: 'bar', title: 'Bar Central', area_ids: [], area_names: [] },
+                            { key: 'rooftop', title: 'Rooftop', area_ids: [], area_names: [] },
+                          ];
 
-                      // Função para categorizar reserva pela área usando subáreas (igual ReservationModal)
                       const getAreaKeyFromReservation = (r: Reservation): string => {
                         const tableNum = String((r as any).table_number || '').trim();
-                        
-                        // Usar subáreas do Highline para categorizar (mesma lógica do modal)
-                        const subarea = highlineSubareas.find(sub => sub.tableNumbers.includes(tableNum));
+                        const subarea = subareas.find((sub: { tableNumbers: string[] }) => sub.tableNumbers.includes(tableNum));
                         if (subarea) {
-                          // Categorizar pela subárea
-                          if (subarea.key.startsWith('deck-')) return 'deck';
-                          if (subarea.key === 'bar') return 'bar';
-                          if (subarea.key.startsWith('roof-')) return 'rooftop';
+                          const k = (subarea as { key: string }).key;
+                          if (isSeuJustinoPlanilha) {
+                            if (k.startsWith('lounge')) return 'lounge';
+                            if (k.startsWith('quintal')) return 'quintal';
+                            return 'other';
+                          }
+                          if (k.startsWith('deck-')) return 'deck';
+                          if (k === 'bar') return 'bar';
+                          if (k.startsWith('roof-')) return 'rooftop';
                         }
-                        
-                        // Fallback: categorização por número da mesa
+                        if (isSeuJustinoPlanilha) {
+                          if (['200','202','204','206','208','210'].includes(tableNum)) return 'lounge';
+                          if (['20','22','24','26','28','29','30','32','34','36','38','39','40','42','44','46','48','50','52','54','56','58','60','62','64'].includes(tableNum)) return 'quintal';
+                          const areaName = (r as any).area_name?.toLowerCase() || '';
+                          if (areaName.includes('lounge') || areaName.includes('bar')) return 'lounge';
+                          if (areaName.includes('quintal')) return 'quintal';
+                          return 'other';
+                        }
                         if (['40','41','42','44','45','46','47','60','61','62','63','64','65','50','51','52','53','54','55','56','70','71','72','73'].includes(tableNum)) return 'rooftop';
                         if (['01','02','03','04','05','06','07','08','09','10','11','12'].includes(tableNum)) return 'deck';
                         if (['15','16','17'].includes(tableNum)) return 'bar';
-                        
-                        // Fallback por nome da área
                         const areaName = (r as any).area_name?.toLowerCase() || '';
                         if (areaName.includes('roof') || areaName.includes('rooftop') || areaName.includes('terraço')) return 'rooftop';
                         if (areaName.includes('deck')) return 'deck';
                         if (areaName.includes('bar') || areaName.includes('central')) return 'bar';
-                        if (areaName.includes('balada')) return 'balada';
-                        
-                        return 'deck'; // Fallback padrão
+                        return 'deck';
                       };
 
                       // Preencher area_ids e area_names para cada categoria
@@ -4388,7 +4484,13 @@ export default function EventoCheckInsPage() {
                       };
 
                       const displayTableLabel = (tableNum?: string | number, areaKey?: string) => {
-                        const n = String(tableNum || '').padStart(2,'0');
+                        const raw = String(tableNum || '').trim();
+                        const n = raw.padStart(2, '0');
+                        if (isSeuJustinoPlanilha) {
+                          if (areaKey === 'lounge') return raw ? `Lounge ${raw}` : '';
+                          if (areaKey === 'quintal') return raw ? `Mesa ${raw}` : '';
+                          return raw ? `Mesa ${raw}` : '';
+                        }
                         if (areaKey === 'deck') {
                           if (['01','02','03','04'].includes(n)) return `Lounge ${parseInt(n,10)}`;
                           if (['05','06','07','08'].includes(n)) return `Lounge ${parseInt(n,10)}`;
@@ -4409,17 +4511,24 @@ export default function EventoCheckInsPage() {
                       };
 
                       const SectionTable = ({ sectionKey, title, area_ids, area_names }: { sectionKey: string; title: string; area_ids: number[]; area_names: string[] }) => {
-                        // Determinar quais números de mesa pertencem a esta categoria (baseado nas subáreas)
                         const tableNumbersPermitidos = new Set<string>();
-                        
-                        // Buscar todas as subáreas desta categoria
-                        highlineSubareas.forEach(subarea => {
-                          if (sectionKey === 'deck' && subarea.key.startsWith('deck-')) {
-                            subarea.tableNumbers.forEach(tn => tableNumbersPermitidos.add(tn));
-                          } else if (sectionKey === 'bar' && subarea.key === 'bar') {
-                            subarea.tableNumbers.forEach(tn => tableNumbersPermitidos.add(tn));
-                          } else if (sectionKey === 'rooftop' && subarea.key.startsWith('roof-')) {
-                            subarea.tableNumbers.forEach(tn => tableNumbersPermitidos.add(tn));
+                        subareas.forEach((subarea: { key: string; tableNumbers: string[] }) => {
+                          if (isSeuJustinoPlanilha) {
+                            if (sectionKey === 'lounge' && subarea.key.startsWith('lounge')) {
+                              subarea.tableNumbers.forEach(tn => tableNumbersPermitidos.add(tn));
+                            } else if (sectionKey === 'quintal' && subarea.key.startsWith('quintal')) {
+                              subarea.tableNumbers.forEach(tn => tableNumbersPermitidos.add(tn));
+                            } else if (sectionKey === 'other') {
+                              // other: mesas não mapeadas
+                            }
+                          } else {
+                            if (sectionKey === 'deck' && subarea.key.startsWith('deck-')) {
+                              subarea.tableNumbers.forEach(tn => tableNumbersPermitidos.add(tn));
+                            } else if (sectionKey === 'bar' && subarea.key === 'bar') {
+                              subarea.tableNumbers.forEach(tn => tableNumbersPermitidos.add(tn));
+                            } else if (sectionKey === 'rooftop' && subarea.key.startsWith('roof-')) {
+                              subarea.tableNumbers.forEach(tn => tableNumbersPermitidos.add(tn));
+                            }
                           }
                         });
                         
@@ -4446,37 +4555,33 @@ export default function EventoCheckInsPage() {
                           .filter(r => getAreaKeyFromReservation(r) === sectionKey) // Filtrar pela categoria (deck, bar, rooftop)
                           .sort((a,b) => (a.reservation_time || '').localeCompare(b.reservation_time || ''));
 
-                        // Mapear reservas por número da mesa (processar múltiplas mesas separadas por vírgula)
-                        const reservasPorMesa = new Map<string, Reservation>();
+                        // Mapear reservas por número da mesa; permitir múltiplas reservas na mesma mesa
+                        const reservasPorMesa = new Map<string, Reservation[]>();
                         reservasFiltradas.forEach(r => {
-                          const tableNumStr = String((r as any).table_number || '').trim();
-                          
-                          // Verificar se tem múltiplas mesas (separadas por vírgula)
+                          const tableNumStr = String((r as any).table_number ?? '').trim();
+                          const add = (key: string) => {
+                            if (!key) return;
+                            const arr = reservasPorMesa.get(key) || [];
+                            arr.push(r);
+                            reservasPorMesa.set(key, arr);
+                          };
                           if (tableNumStr.includes(',')) {
-                            // Dividir por vírgula e adicionar a reserva para cada mesa
-                            const tableNumbers = tableNumStr.split(',').map(t => t.trim()).filter(t => t);
-                            tableNumbers.forEach(tableNum => {
-                              // Adicionar a reserva para cada mesa individual
-                              reservasPorMesa.set(tableNum, r);
-                            });
+                            tableNumStr.split(',').map(t => t.trim()).filter(Boolean).forEach(add);
                           } else {
-                            // Mesa única
-                            reservasPorMesa.set(tableNumStr, r);
+                            add(tableNumStr);
                           }
                         });
 
-                        // Criar linhas: TODAS as mesas da área (fixas do banco), mudando apenas a cor
                         const rowsWithEmpty: Array<{ reservation?: Reservation; table_number: string; is_empty: boolean }> = [];
-                        
-                        // Adicionar TODAS as mesas da área do banco (fixas)
                         mesasArea.forEach(mesa => {
-                          const tableNum = mesa.table_number.trim(); // Número exato do banco
-                          const reserva = reservasPorMesa.get(tableNum);
-                          if (reserva && matchesFilters(reserva)) {
-                            // Mesa RESERVADA - passa no filtro
-                            rowsWithEmpty.push({ reservation: reserva, table_number: tableNum, is_empty: false });
+                          const tableNum = mesa.table_number.trim();
+                          const list = reservasPorMesa.get(tableNum) || [];
+                          const valid = list.filter(r => matchesFilters(r));
+                          if (valid.length > 0) {
+                            valid.forEach(reserva => {
+                              rowsWithEmpty.push({ reservation: reserva, table_number: tableNum, is_empty: false });
+                            });
                           } else {
-                            // Mesa SEM RESERVA - sempre mostrar
                             rowsWithEmpty.push({ reservation: undefined, table_number: tableNum, is_empty: true });
                           }
                         });
