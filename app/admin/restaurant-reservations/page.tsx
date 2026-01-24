@@ -323,7 +323,7 @@ export default function RestaurantReservationsPage() {
   const [ownerSearchTerm, setOwnerSearchTerm] = useState<string>(''); // Termo de busca pelo nome do dono
   
   // Estados para check-in
-  const [checkInStatus, setCheckInStatus] = useState<Record<number, { ownerCheckedIn: boolean; guestsCheckedIn: number; totalGuests: number }>>({});
+  const [checkInStatus, setCheckInStatus] = useState<Record<number, { ownerCheckedIn: boolean; ownerCheckedOut?: boolean; guestsCheckedIn: number; totalGuests: number }>>({});
   
   // Ref para rastrear o último mês carregado e evitar loops
   const lastLoadedMonthRef = useRef<string>('');
@@ -1001,6 +1001,42 @@ export default function RestaurantReservationsPage() {
     } catch (error) {
       console.error('Erro no check-in do dono:', error);
       alert('❌ Erro ao fazer check-in do dono da lista');
+    }
+  };
+
+  const handleOwnerCheckOut = async (guestListId: number, ownerName: string) => {
+    try {
+      if (!confirm(`Confirmar check-out de ${ownerName}?`)) return;
+
+      const token = localStorage.getItem('authToken');
+      const response = await fetch(`${API_URL}/api/admin/guest-lists/${guestListId}/owner-checkout`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setCheckInStatus(prev => ({
+          ...prev,
+          [guestListId]: {
+            ...prev[guestListId],
+            ownerCheckedIn: false,
+            ownerCheckedOut: true
+          }
+        }));
+        alert(`✅ Check-out de ${ownerName} confirmado!`);
+        // Recarregar dados para garantir sincronização
+        await loadEstablishmentData();
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        alert('❌ Erro ao fazer check-out do dono: ' + (errorData.error || 'Erro desconhecido'));
+      }
+    } catch (error) {
+      console.error('Erro no check-out do dono:', error);
+      alert('❌ Erro ao fazer check-out do dono');
     }
   };
 
@@ -2458,21 +2494,47 @@ export default function RestaurantReservationsPage() {
                         Criado por: {gl.created_by_name}
                       </div>
                       
-                      {/* Check-in do dono da lista */}
+                      {/* Check-in/Check-out do dono da lista */}
                       <div className="mt-2 flex items-center gap-2">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleOwnerCheckIn(gl.guest_list_id, gl.owner_name);
-                          }}
-                          className={`px-3 py-1 text-xs rounded-full transition-colors font-medium ${
-                            checkInStatus[gl.guest_list_id]?.ownerCheckedIn
-                              ? 'bg-green-100 text-green-700 border border-green-300'
-                              : 'bg-blue-100 text-blue-700 hover:bg-blue-200 border border-blue-300'
-                          }`}
-                        >
-                          {checkInStatus[gl.guest_list_id]?.ownerCheckedIn ? '✅ Dono Presente' : '📋 Check-in Dono'}
-                        </button>
+                        {!checkInStatus[gl.guest_list_id]?.ownerCheckedIn && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleOwnerCheckIn(gl.guest_list_id, gl.owner_name);
+                            }}
+                            className="px-3 py-1 text-xs rounded-full transition-colors font-medium bg-blue-100 text-blue-700 hover:bg-blue-200 border border-blue-300"
+                          >
+                            📋 Check-in Dono
+                          </button>
+                        )}
+                        {checkInStatus[gl.guest_list_id]?.ownerCheckedIn && !checkInStatus[gl.guest_list_id]?.ownerCheckedOut && (
+                          <>
+                            <button
+                              className="px-3 py-1 text-xs rounded-full transition-colors font-medium bg-green-100 text-green-700 border border-green-300"
+                              disabled
+                            >
+                              ✅ Dono Presente
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleOwnerCheckOut(gl.guest_list_id, gl.owner_name);
+                              }}
+                              className="px-3 py-1 text-xs rounded-full transition-colors font-medium bg-orange-100 text-orange-700 hover:bg-orange-200 border border-orange-300"
+                              title="Registrar saída do dono"
+                            >
+                              🚪 Check-out Dono
+                            </button>
+                          </>
+                        )}
+                        {checkInStatus[gl.guest_list_id]?.ownerCheckedOut && (
+                          <button
+                            className="px-3 py-1 text-xs rounded-full transition-colors font-medium bg-gray-100 text-gray-700 border border-gray-300"
+                            disabled
+                          >
+                            🚪 Dono Saída
+                          </button>
+                        )}
                       </div>
                       
                       {/* INÍCIO DA ALTERAÇÃO: Exibição do Link */}
