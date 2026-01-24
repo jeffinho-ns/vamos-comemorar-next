@@ -7,11 +7,17 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status');
+    const establishmentId = searchParams.get('establishment_id');
+    const date = searchParams.get('date');
+    const preferredTime = searchParams.get('preferred_time');
 
     let url = `${API_BASE_URL}/api/waitlist`;
     const params = new URLSearchParams();
     
     if (status) params.append('status', status);
+    if (establishmentId) params.append('establishment_id', establishmentId);
+    if (date) params.append('date', date);
+    if (preferredTime) params.append('preferred_time', preferredTime);
     
     if (params.toString()) {
       url += `?${params.toString()}`;

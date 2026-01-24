@@ -19,15 +19,18 @@ interface WaitlistModalProps {
   onClose: () => void;
   onSave: (waitlistEntry: any) => void;
   entry?: any;
+  defaultDate?: string;
 }
 
 export default function WaitlistModal({ 
   isOpen, 
   onClose, 
   onSave, 
-  entry
+  entry,
+  defaultDate
 }: WaitlistModalProps) {
   const [formData, setFormData] = useState({
+    preferred_date: '',
     client_name: '',
     client_phone: '',
     client_email: '',
@@ -44,6 +47,7 @@ export default function WaitlistModal({
     if (isOpen) {
       if (entry) {
         setFormData({
+          preferred_date: entry.preferred_date || '',
           client_name: entry.client_name || '',
           client_phone: entry.client_phone || '',
           client_email: entry.client_email || '',
@@ -55,6 +59,7 @@ export default function WaitlistModal({
       } else {
         // Reset form for new waitlist entry
         setFormData({
+          preferred_date: defaultDate || '',
           client_name: '',
           client_phone: '',
           client_email: '',
@@ -66,13 +71,17 @@ export default function WaitlistModal({
       }
       setErrors({});
     }
-  }, [isOpen, entry]);
+  }, [isOpen, entry, defaultDate]);
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
 
     if (!formData.client_name.trim()) {
       newErrors.client_name = 'Nome do cliente é obrigatório';
+    }
+
+    if (!formData.preferred_date) {
+      newErrors.preferred_date = 'Data preferida é obrigatória';
     }
 
     if (formData.number_of_people < 1) {
@@ -202,6 +211,23 @@ export default function WaitlistModal({
 
               {/* Waitlist Details */}
               <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    <MdAccessTime className="inline mr-2" />
+                    Data Preferida
+                  </label>
+                  <input
+                    type="date"
+                    value={formData.preferred_date}
+                    onChange={(e) => handleInputChange('preferred_date', e.target.value)}
+                    className={`w-full px-3 py-2 bg-gray-700 border rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-yellow-500 ${
+                      errors.preferred_date ? 'border-red-500' : 'border-gray-600'
+                    }`}
+                  />
+                  {errors.preferred_date && (
+                    <p className="text-red-500 text-sm mt-1">{errors.preferred_date}</p>
+                  )}
+                </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-2">
                     <MdAccessTime className="inline mr-2" />

@@ -39,10 +39,12 @@ interface WalkIn {
 
 interface WaitlistEntry {
   id: number;
+  establishment_id?: number;
   client_name: string;
   client_phone?: string;
   client_email?: string;
   number_of_people: number;
+  preferred_date?: string;
   preferred_time?: string;
   status: 'AGUARDANDO' | 'CHAMADO' | 'ATENDIDO' | 'CANCELADO';
   position: number;
@@ -495,8 +497,10 @@ export default function RestaurantReservationsPage() {
         setWalkIns([]);
       }
 
-      // 4. Carregar Waitlist (com autenticação)
-      const waitlistResponse = await fetch(`${API_URL}/api/waitlist`, { headers: authHeaders });
+      // 4. Carregar Waitlist (por estabelecimento — cada um tem sua própria fila)
+      const waitlistUrl = new URL(`${API_URL}/api/waitlist`);
+      waitlistUrl.searchParams.set('establishment_id', String(selectedEstablishment.id));
+      const waitlistResponse = await fetch(waitlistUrl.toString(), { headers: authHeaders });
       if (waitlistResponse.ok) {
         const waitlistData = await waitlistResponse.json();
         setWaitlist(waitlistData.waitlist || []);
@@ -572,29 +576,24 @@ export default function RestaurantReservationsPage() {
   const handleAddReservation = async (date: Date) => {
     setSelectedDate(date);
     setEditingReservation(null);
-    
-    // Carregar áreas se ainda não foram carregadas
     await loadAreas();
-    
-    // Verificar capacidade e fila de espera antes de permitir nova reserva
+    // Só checa capacidade aqui (sem hora). Trava por lista de espera é feita no submit, com dia+hora.
     const canMakeReservation = await checkCapacityAndWaitlist(date);
-    
     if (!canMakeReservation) {
-      // Se não pode fazer reserva, redirecionar para lista de espera
       handleAddWaitlistEntry();
       return;
     }
-    
     setShowModal(true);
   };
 
-  // Função para verificar capacidade e fila de espera
-  const checkCapacityAndWaitlist = async (date: Date, newReservationPeople?: number): Promise<boolean> => {
+  // Verifica capacidade e, se time for informado, trava só para aquele dia+hora (lista de espera por estabelecimento)
+  const checkCapacityAndWaitlist = async (
+    date: Date,
+    newReservationPeople?: number,
+    reservationTime?: string
+  ): Promise<boolean> => {
     try {
-      // Calcular capacidade total do restaurante
       const totalCapacity = areas.reduce((sum, area) => sum + area.capacity_dinner, 0);
-      
-      // Filtrar reservas ativas para a data selecionada
       const dateString = date.toISOString().split('T')[0];
       const activeReservations = reservations.filter(reservation => {
         const reservationDate = (() => {
@@ -602,49 +601,48 @@ export default function RestaurantReservationsPage() {
           try {
             const dateStr = String(reservation.reservation_date).trim();
             if (!dateStr || dateStr === 'null' || dateStr === 'undefined') return '';
-            
-            let date;
-            if (dateStr.includes('T')) {
-              date = new Date(dateStr);
-            } else {
-              date = new Date(dateStr + 'T12:00:00');
-            }
-            
-            if (isNaN(date.getTime())) return '';
-            return date.toISOString().split('T')[0];
-          } catch (error) {
-            console.error('Error converting reservation date:', reservation.reservation_date, error);
+            const d = dateStr.includes('T') ? new Date(dateStr) : new Date(dateStr + 'T12:00:00');
+            if (isNaN(d.getTime())) return '';
+            return d.toISOString().split('T')[0];
+          } catch {
             return '';
           }
         })();
-        return reservationDate === dateString && 
-               (reservation.status === 'confirmed' || reservation.status === 'checked-in');
+        return reservationDate === dateString &&
+          (reservation.status === 'confirmed' || reservation.status === 'checked-in');
       });
-      
-      // Somar pessoas das reservas ativas
-      const totalPeopleReserved = activeReservations.reduce((sum, reservation) => 
-        sum + reservation.number_of_people, 0
-      );
-      
-      // Adicionar pessoas da nova reserva se fornecida
-      const totalWithNewReservation = totalPeopleReserved + (newReservationPeople || 0);
-      
-      // Verificar se há pessoas na lista de espera
-      const hasWaitlistEntries = waitlist.some(entry => entry.status === 'AGUARDANDO');
-      
-      // Se há fila de espera ou capacidade seria excedida, não permitir nova reserva
-      if (hasWaitlistEntries || totalWithNewReservation > totalCapacity) {
-        const message = hasWaitlistEntries 
-          ? 'Há clientes na lista de espera! Por favor, utilize a lista de espera.'
-          : `Capacidade insuficiente! Restam ${totalCapacity - totalPeopleReserved} lugares disponíveis.`;
-        alert(message);
+      const totalPeopleReserved = activeReservations.reduce((sum, r) => sum + r.number_of_people, 0);
+      const totalWithNew = totalPeopleReserved + (newReservationPeople || 0);
+
+      // Trava por waitlist apenas para o mesmo estabelecimento + mesmo dia + mesma hora
+      let hasWaitlistEntries = false;
+      if (reservationTime && String(reservationTime).trim()) {
+        const t = String(reservationTime).trim();
+        const hhmm = t.length >= 5 ? t.substring(0, 5) : t;
+        hasWaitlistEntries = waitlist.some(entry => {
+          if (entry.status !== 'AGUARDANDO') return false;
+          const eid = entry.establishment_id;
+          const matchEst = eid != null && Number(eid) === Number(selectedEstablishment?.id);
+          if (!matchEst) return false;
+          if (entry.preferred_date !== dateString) return false;
+          const pt = (entry.preferred_time || '').trim();
+          if (!pt) return false;
+          const ptHhmm = pt.length >= 5 ? pt.substring(0, 5) : pt;
+          return ptHhmm === hhmm || pt === t || pt === hhmm || pt === (hhmm + ':00');
+        });
+      }
+
+      if (hasWaitlistEntries || totalWithNew > totalCapacity) {
+        const msg = hasWaitlistEntries
+          ? 'Há clientes na lista de espera para este dia e horário. Utilize a lista de espera ou escolha outro horário.'
+          : `Capacidade insuficiente. Restam ${totalCapacity - totalPeopleReserved} lugares.`;
+        alert(msg);
         return false;
       }
-      
       return true;
     } catch (error) {
       console.error('Erro ao verificar capacidade:', error);
-      return true; // Em caso de erro, permitir reserva
+      return true;
     }
   };
 
@@ -768,7 +766,7 @@ export default function RestaurantReservationsPage() {
         alert(`Check-out realizado para ${reservation.client_name}!`);
         
         // Após check-out, verificar lista de espera
-        await releaseTableAndCheckWaitlist();
+        await releaseTableAndCheckWaitlist(reservation);
       } else {
         const errorData = await response.json();
         console.error('Erro ao fazer check-out:', errorData);
@@ -946,10 +944,37 @@ export default function RestaurantReservationsPage() {
   };
 
   // Função para liberar mesa e verificar lista de espera
-  const releaseTableAndCheckWaitlist = async () => {
+  const releaseTableAndCheckWaitlist = async (reservation?: Reservation) => {
     try {
-      // Buscar entradas na lista de espera com status AGUARDANDO
-      const waitingEntries = waitlist.filter(entry => entry.status === 'AGUARDANDO');
+      const dateString = (() => {
+        if (reservation?.reservation_date) {
+          try {
+            const dateStr = String(reservation.reservation_date).trim();
+            if (!dateStr || dateStr === 'null' || dateStr === 'undefined') return '';
+            const date = dateStr.includes('T') ? new Date(dateStr) : new Date(dateStr + 'T12:00:00');
+            if (isNaN(date.getTime())) return '';
+            return date.toISOString().split('T')[0];
+          } catch {
+            return '';
+          }
+        }
+        if (selectedDate) return selectedDate.toISOString().split('T')[0];
+        return new Date().toISOString().split('T')[0];
+      })();
+      const reservationTime = reservation?.reservation_time || '';
+
+      // Lista de espera por estabelecimento: só este estab, mesmo dia+hora
+      const t = String(reservationTime).trim();
+      const hhmm = t.length >= 5 ? t.substring(0, 5) : t;
+      const waitingEntries = waitlist.filter(entry => {
+        if (entry.status !== 'AGUARDANDO') return false;
+        if (entry.establishment_id == null || Number(entry.establishment_id) !== Number(selectedEstablishment?.id)) return false;
+        if (entry.preferred_date !== dateString) return false;
+        const pt = (entry.preferred_time || '').trim();
+        if (!pt) return false;
+        const ptHhmm = pt.length >= 5 ? pt.substring(0, 5) : pt;
+        return ptHhmm === hhmm || pt === t || pt === hhmm || pt === (hhmm + ':00');
+      });
       
       if (waitingEntries.length > 0) {
         // Encontrar a entrada mais antiga (menor position)
@@ -1278,20 +1303,13 @@ export default function RestaurantReservationsPage() {
                           setSelectedDate(date);
                           setSelectedTime(time);
                           setEditingReservation(null);
-                          
-                          // Carregar áreas se ainda não foram carregadas
                           await loadAreas();
-                          
-                          // Verificar capacidade e fila de espera antes de permitir nova reserva
-                          const canMakeReservation = await checkCapacityAndWaitlist(date);
-                          
+                          // Com horário: checa capacidade + trava por lista de espera só neste dia+hora
+                          const canMakeReservation = await checkCapacityAndWaitlist(date, undefined, time ?? undefined);
                           if (!canMakeReservation) {
-                            // Se não pode fazer reserva, redirecionar para lista de espera
                             handleAddWaitlistEntry();
                             return;
                           }
-                          
-                          // Armazenar o horário selecionado para usar no modal
                           setShowModal(true);
                         }}
                         onEditReservation={handleEditReservation}
@@ -2517,7 +2535,7 @@ export default function RestaurantReservationsPage() {
                             <div>
                               <h4 className="font-semibold text-gray-800">{entry.client_name}</h4>
                               <p className="text-sm text-gray-500">
-                                {entry.number_of_people} pessoas • Preferência: {entry.preferred_time || 'Qualquer horário'}
+                                {entry.number_of_people} pessoas • Data: {entry.preferred_date ? formatDate(entry.preferred_date) : 'Data não informada'} • Preferência: {entry.preferred_time || 'Qualquer horário'}
                               </p>
                               <p className="text-xs text-gray-400">
                                 Entrou na fila: {new Date(entry.created_at).toLocaleTimeString('pt-BR', { 
@@ -2737,6 +2755,17 @@ export default function RestaurantReservationsPage() {
                 // Validar formato da data
                 if (!reservationData.reservation_date || !/^\d{4}-\d{2}-\d{2}$/.test(reservationData.reservation_date)) {
                   throw new Error(`Formato de data inválido: ${reservationData.reservation_date}. Use YYYY-MM-DD`);
+                }
+
+                // Nova reserva: checar capacidade e lista de espera para este dia+hora (trava só esse slot)
+                if (!isEditing) {
+                  const resDate = new Date(reservationData.reservation_date + 'T12:00:00');
+                  const ok = await checkCapacityAndWaitlist(
+                    resDate,
+                    Number(reservationData.number_of_people) || 1,
+                    reservation_time
+                  );
+                  if (!ok) return;
                 }
 
                 const requestBody = {
@@ -2964,6 +2993,7 @@ export default function RestaurantReservationsPage() {
             }}
             onSave={async (entryData) => {
               try {
+                const preferredDate = entryData.preferred_date || (selectedDate ? selectedDate.toISOString().split('T')[0] : undefined);
                 const response = await fetch(`${API_URL}/api/waitlist`, {
                   method: 'POST',
                   headers: {
@@ -2971,6 +3001,7 @@ export default function RestaurantReservationsPage() {
                   },
                   body: JSON.stringify({
                     ...entryData,
+                    preferred_date: preferredDate,
                     establishment_id: selectedEstablishment?.id
                   }),
                 });
@@ -2992,6 +3023,7 @@ export default function RestaurantReservationsPage() {
               setEditingWaitlistEntry(null);
             }}
             entry={editingWaitlistEntry}
+            defaultDate={selectedDate ? selectedDate.toISOString().split('T')[0] : ''}
           />
         )}
 
