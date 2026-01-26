@@ -771,6 +771,18 @@ export default function EventoCheckInsPage() {
         // Não precisamos mais buscar via API admin/guest-lists
         const guestLists = data.dados.guestListsRestaurante || [];
         
+        console.log('🔍 [DEBUG] Dados recebidos:', {
+          guestListsCount: guestLists.length,
+          establishment_id: data.evento?.establishment_id,
+          data_evento: data.evento?.data_evento,
+          evento_id: eventoId,
+          guestLists: guestLists.slice(0, 3).map(gl => ({
+            id: gl.guest_list_id,
+            owner_name: gl.owner_name,
+            reservation_id: gl.reservation_id
+          }))
+        });
+        
         // Usar diretamente os dados do backend (que são a fonte da verdade)
         // O backend agora retorna owner_checked_out e owner_checkout_time corretamente
         setGuestListsRestaurante(guestLists);
@@ -2627,10 +2639,18 @@ export default function EventoCheckInsPage() {
 
   // Ordenar listas e convidados alfabeticamente (otimizado)
   const sortedGuestListsRestaurante = useMemo(() => {
-    return [...guestListsRestaurante].sort((a, b) => 
+    const sorted = [...guestListsRestaurante].sort((a, b) => 
       cachedStringCompare(a.owner_name || '', b.owner_name || '')
     );
-  }, [guestListsRestaurante, cachedStringCompare]);
+    console.log('🔍 [DEBUG] sortedGuestListsRestaurante:', {
+      total: sorted.length,
+      guestListsRestauranteLength: guestListsRestaurante.length,
+      selectedTab,
+      searchTerm: searchTerm.trim(),
+      willRender: (selectedTab === 'todos' || selectedTab === 'reservas') && !searchTerm.trim()
+    });
+    return sorted;
+  }, [guestListsRestaurante, cachedStringCompare, selectedTab, searchTerm]);
 
   const sortedReservasMesa = useMemo(() => {
     return [...reservasMesa].sort((a, b) => 
