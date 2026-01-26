@@ -771,9 +771,35 @@ export default function EventoCheckInsPage() {
         // Não precisamos mais buscar via API admin/guest-lists
         const guestLists = data.dados.guestListsRestaurante || [];
         
-        // Sempre atualizar com todas as guest lists retornadas pelo backend
-        // O backend deve retornar todas as guest lists, incluindo as concluídas
-        setGuestListsRestaurante(guestLists);
+        // Mesclar guest lists: preservar dados atualizados localmente e adicionar novas do backend
+        setGuestListsRestaurante(prev => {
+          const updated = [...guestLists];
+          // Preservar guest lists concluídas do estado anterior que podem não estar no backend ainda
+          prev.forEach(existingGl => {
+            if (existingGl.owner_checked_out === 1) {
+              const existsInNew = guestLists.some((gl: GuestListRestaurante) => gl.guest_list_id === existingGl.guest_list_id);
+              if (!existsInNew) {
+                // Adicionar guest list concluída que não está no backend ainda
+                updated.push(existingGl);
+              } else {
+                // Mesclar dados: manter dados atualizados localmente se mais recentes
+                const newGl = guestLists.find((gl: GuestListRestaurante) => gl.guest_list_id === existingGl.guest_list_id);
+                if (newGl) {
+                  const existingIndex = updated.findIndex(gl => gl.guest_list_id === existingGl.guest_list_id);
+                  if (existingIndex >= 0) {
+                    // Preservar owner_checkout_time se existir no estado anterior
+                    updated[existingIndex] = {
+                      ...newGl,
+                      owner_checked_out: existingGl.owner_checked_out || newGl.owner_checked_out,
+                      owner_checkout_time: existingGl.owner_checkout_time || newGl.owner_checkout_time
+                    };
+                  }
+                }
+              }
+            }
+          });
+          return updated;
+        });
         
         // Preservar guests que já foram carregados e têm dados de check-out
         // Isso evita perder dados durante o recarregamento
@@ -785,7 +811,7 @@ export default function EventoCheckInsPage() {
             const existingGuests = updated[guestListId] || [];
             // Verificar se esta guest list ainda existe nas novas guest lists
             const stillExists = guestLists.some((gl: GuestListRestaurante) => gl.guest_list_id === guestListId);
-            // Se não existe mais, remover (caso raro)
+            // Se não existe mais, remover apenas se não tiver check-out (caso raro)
             if (!stillExists && existingGuests.every(g => !(g.checked_out === 1 || g.checked_out === true))) {
               delete updated[guestListId];
             }
@@ -1951,11 +1977,9 @@ export default function EventoCheckInsPage() {
           autoClose: 3000,
         });
         
-        // Recarregar dados após um pequeno delay para garantir que o backend foi atualizado
-        // mas manter o estado local atualizado primeiro
-        setTimeout(() => {
-          loadCheckInData();
-        }, 500);
+        // Não recarregar dados imediatamente - o estado já foi atualizado
+        // O useEffect que reconstrói o histórico vai cuidar disso automaticamente
+        // Os dados já estão atualizados no estado local e serão preservados
       } else {
         const errorData = await response.json().catch(() => ({}));
         toast.error(`❌ Erro ao fazer check-out: ${errorData.error || 'Erro desconhecido'}`, {
@@ -2041,10 +2065,9 @@ export default function EventoCheckInsPage() {
           position: "top-center",
           autoClose: 3000,
         });
-        // Recarregar dados após um pequeno delay para garantir que o backend foi atualizado
-        setTimeout(() => {
-          loadCheckInData();
-        }, 500);
+        // Não recarregar dados imediatamente - o estado já foi atualizado otimisticamente
+        // O useEffect que reconstrói o histórico vai cuidar disso automaticamente
+        // Os dados já estão atualizados no estado local e serão preservados
       } else {
         // Reverter atualização otimista em caso de erro
         setGuestsByList(prev => {
