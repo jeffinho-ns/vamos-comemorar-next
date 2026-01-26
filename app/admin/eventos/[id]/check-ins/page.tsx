@@ -791,10 +791,6 @@ export default function EventoCheckInsPage() {
           return updated;
         });
         
-        // Limpar guests antigos - serão recarregados abaixo com dados atualizados do backend
-        // Isso garante que sempre usamos os dados mais recentes do backend
-        setGuestsByList({});
-        
         // Buscar reservas de aniversário relacionadas às guest lists com event_type='aniversario'
         const birthdayReservationsMap: Record<number, BirthdayReservation> = {};
         const aniversarioGuestLists = guestLists.filter((gl: GuestListRestaurante) => gl.event_type === 'aniversario');
