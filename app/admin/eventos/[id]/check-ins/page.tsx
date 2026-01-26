@@ -761,13 +761,6 @@ export default function EventoCheckInsPage() {
       if (response.ok) {
         const data = await response.json();
         
-        console.log('📊 [loadCheckInData] Dados recebidos do backend:', {
-          reservasMesa: (data.dados.reservasMesa || []).length,
-          reservasRestaurante: (data.dados.reservasRestaurante || []).length,
-          guestListsRestaurante: (data.dados.guestListsRestaurante || []).length,
-          evento: data.evento?.nome
-        });
-        
         setEvento(data.evento);
         setReservasMesa(data.dados.reservasMesa || []);
         setConvidadosReservas(data.dados.convidadosReservas || []);
@@ -777,8 +770,6 @@ export default function EventoCheckInsPage() {
         // O backend agora vincula automaticamente reservas ao evento e retorna os dados corretos
         // Não precisamos mais buscar via API admin/guest-lists
         const guestLists = data.dados.guestListsRestaurante || [];
-        
-        console.log('📋 [loadCheckInData] Guest lists encontradas:', guestLists.length);
         
         // Usar diretamente os dados do backend (que são a fonte da verdade)
         // O backend agora retorna owner_checked_out e owner_checkout_time corretamente
