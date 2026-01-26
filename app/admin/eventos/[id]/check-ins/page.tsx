@@ -771,53 +771,29 @@ export default function EventoCheckInsPage() {
         // Não precisamos mais buscar via API admin/guest-lists
         const guestLists = data.dados.guestListsRestaurante || [];
         
-        // Mesclar guest lists: preservar dados atualizados localmente e adicionar novas do backend
-        setGuestListsRestaurante(prev => {
-          const updated = [...guestLists];
-          // Preservar guest lists concluídas do estado anterior que podem não estar no backend ainda
-          prev.forEach(existingGl => {
-            if (existingGl.owner_checked_out === 1) {
-              const existsInNew = guestLists.some((gl: GuestListRestaurante) => gl.guest_list_id === existingGl.guest_list_id);
-              if (!existsInNew) {
-                // Adicionar guest list concluída que não está no backend ainda
-                updated.push(existingGl);
-              } else {
-                // Mesclar dados: manter dados atualizados localmente se mais recentes
-                const newGl = guestLists.find((gl: GuestListRestaurante) => gl.guest_list_id === existingGl.guest_list_id);
-                if (newGl) {
-                  const existingIndex = updated.findIndex(gl => gl.guest_list_id === existingGl.guest_list_id);
-                  if (existingIndex >= 0) {
-                    // Preservar owner_checkout_time se existir no estado anterior
-                    updated[existingIndex] = {
-                      ...newGl,
-                      owner_checked_out: existingGl.owner_checked_out || newGl.owner_checked_out,
-                      owner_checkout_time: existingGl.owner_checkout_time || newGl.owner_checkout_time
-                    };
-                  }
-                }
-              }
-            }
+        // Usar diretamente os dados do backend (que são a fonte da verdade)
+        // O backend agora retorna owner_checked_out e owner_checkout_time corretamente
+        setGuestListsRestaurante(guestLists);
+        
+        // Atualizar checkInStatus diretamente a partir dos dados das guest lists
+        // Isso garante que o status de check-out seja exibido corretamente
+        setCheckInStatus(prev => {
+          const updated = { ...prev };
+          guestLists.forEach((gl: GuestListRestaurante) => {
+            updated[gl.guest_list_id] = {
+              ...updated[gl.guest_list_id],
+              ownerCheckedIn: gl.owner_checked_in === 1,
+              ownerCheckedOut: gl.owner_checked_out === 1,
+              guestsCheckedIn: gl.guests_checked_in || 0,
+              totalGuests: gl.total_guests || 0
+            };
           });
           return updated;
         });
         
-        // Preservar guests que já foram carregados e têm dados de check-out
-        // Isso evita perder dados durante o recarregamento
-        setGuestsByList(prev => {
-          const updated = { ...prev };
-          // Manter guests existentes que têm check-out até que novos dados sejam carregados
-          Object.keys(updated).forEach(guestListIdStr => {
-            const guestListId = Number(guestListIdStr);
-            const existingGuests = updated[guestListId] || [];
-            // Verificar se esta guest list ainda existe nas novas guest lists
-            const stillExists = guestLists.some((gl: GuestListRestaurante) => gl.guest_list_id === guestListId);
-            // Se não existe mais, remover apenas se não tiver check-out (caso raro)
-            if (!stillExists && existingGuests.every(g => !(g.checked_out === 1 || g.checked_out === true))) {
-              delete updated[guestListId];
-            }
-          });
-          return updated;
-        });
+        // Limpar guests antigos - serão recarregados abaixo com dados atualizados do backend
+        // Isso garante que sempre usamos os dados mais recentes do backend
+        setGuestsByList({});
         
         // Buscar reservas de aniversário relacionadas às guest lists com event_type='aniversario'
         const birthdayReservationsMap: Record<number, BirthdayReservation> = {};
