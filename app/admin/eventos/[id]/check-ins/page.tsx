@@ -1849,6 +1849,24 @@ export default function EventoCheckInsPage() {
     if (checkInInProgressRef.current[key]) return;
     checkInInProgressRef.current[key] = true;
     
+    // Atualização otimista do estado - marcar como checked_out imediatamente
+    setGuestsByList(prev => {
+      const updated = { ...prev };
+      if (updated[guestListId]) {
+        updated[guestListId] = updated[guestListId].map(guest => {
+          if (guest.id === guestId) {
+            return {
+              ...guest,
+              checked_out: 1,
+              checkout_time: new Date().toISOString()
+            };
+          }
+          return guest;
+        });
+      }
+      return updated;
+    });
+    
     try {
       const token = localStorage.getItem('authToken');
       const response = await fetch(`${API_URL}/api/admin/guests/${guestId}/checkout`, {
@@ -1864,8 +1882,28 @@ export default function EventoCheckInsPage() {
           position: "top-center",
           autoClose: 3000,
         });
-        loadCheckInData();
+        // Recarregar dados após um pequeno delay para garantir que o backend foi atualizado
+        setTimeout(() => {
+          loadCheckInData();
+        }, 500);
       } else {
+        // Reverter atualização otimista em caso de erro
+        setGuestsByList(prev => {
+          const updated = { ...prev };
+          if (updated[guestListId]) {
+            updated[guestListId] = updated[guestListId].map(guest => {
+              if (guest.id === guestId) {
+                return {
+                  ...guest,
+                  checked_out: 0,
+                  checkout_time: undefined
+                };
+              }
+              return guest;
+            });
+          }
+          return updated;
+        });
         const errorData = await response.json().catch(() => ({}));
         toast.error(`❌ Erro ao fazer check-out: ${errorData.error || 'Erro desconhecido'}`, {
           position: "top-center",
@@ -1873,6 +1911,23 @@ export default function EventoCheckInsPage() {
         });
       }
     } catch (error) {
+      // Reverter atualização otimista em caso de erro
+      setGuestsByList(prev => {
+        const updated = { ...prev };
+        if (updated[guestListId]) {
+          updated[guestListId] = updated[guestListId].map(guest => {
+            if (guest.id === guestId) {
+              return {
+                ...guest,
+                checked_out: 0,
+                checkout_time: undefined
+              };
+            }
+            return guest;
+          });
+        }
+        return updated;
+      });
       console.error('Erro no check-out do convidado:', error);
       toast.error('❌ Erro ao fazer check-out do convidado', {
         position: "top-center",
