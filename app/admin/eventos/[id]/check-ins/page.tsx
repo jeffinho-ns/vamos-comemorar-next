@@ -771,23 +771,26 @@ export default function EventoCheckInsPage() {
         // Não precisamos mais buscar via API admin/guest-lists
         const guestLists = data.dados.guestListsRestaurante || [];
         
-        // Preservar reservas concluídas do estado anterior - não substituir por novas cargas
-        setGuestListsRestaurante(prev => {
-          // Identificar reservas concluídas do estado anterior (que têm owner_checked_out = 1)
-          const concluidasPreservadas = prev.filter(gl => 
-            gl.owner_checked_out === 1 || checkInStatus[gl.guest_list_id]?.ownerCheckedOut
-          );
-          
-          // IDs das reservas concluídas para evitar duplicatas
-          const concluidasIds = new Set(concluidasPreservadas.map(gl => gl.guest_list_id));
-          
-          // Adicionar novas reservas que não estão concluídas
-          const novasReservas = guestLists.filter((gl: GuestListRestaurante) => 
-            !concluidasIds.has(gl.guest_list_id)
-          );
-          
-          // Combinar: novas reservas + reservas concluídas preservadas
-          return [...novasReservas, ...concluidasPreservadas];
+        // Sempre atualizar com todas as guest lists retornadas pelo backend
+        // O backend deve retornar todas as guest lists, incluindo as concluídas
+        setGuestListsRestaurante(guestLists);
+        
+        // Preservar guests que já foram carregados e têm dados de check-out
+        // Isso evita perder dados durante o recarregamento
+        setGuestsByList(prev => {
+          const updated = { ...prev };
+          // Manter guests existentes que têm check-out até que novos dados sejam carregados
+          Object.keys(updated).forEach(guestListIdStr => {
+            const guestListId = Number(guestListIdStr);
+            const existingGuests = updated[guestListId] || [];
+            // Verificar se esta guest list ainda existe nas novas guest lists
+            const stillExists = guestLists.some((gl: GuestListRestaurante) => gl.guest_list_id === guestListId);
+            // Se não existe mais, remover (caso raro)
+            if (!stillExists && existingGuests.every(g => !(g.checked_out === 1 || g.checked_out === true))) {
+              delete updated[guestListId];
+            }
+          });
+          return updated;
         });
         
         // Buscar reservas de aniversário relacionadas às guest lists com event_type='aniversario'
@@ -1023,6 +1026,80 @@ export default function EventoCheckInsPage() {
           
           // Carregar em background sem bloquear a UI
           loadAllGiftsAndStatus();
+        }
+        
+        // Carregar todos os guests automaticamente para preservar dados de check-in/check-out
+        if (guestLists.length > 0) {
+          const loadAllGuests = async () => {
+            const token = localStorage.getItem('authToken');
+            
+            // Carregar guests em paralelo para todas as guest lists
+            const promises = guestLists.map(async (gl: GuestListRestaurante) => {
+              try {
+                const guestsRes = await fetch(`${API_URL}/api/admin/guest-lists/${gl.guest_list_id}/guests`, {
+                  headers: { Authorization: `Bearer ${token}` }
+                });
+                
+                if (guestsRes.ok) {
+                  const guestsData = await guestsRes.json();
+                  const guests = guestsData.guests || [];
+                  
+                  // Ordenar convidados alfabeticamente por nome
+                  const sortedGuests = [...guests].sort((a, b) => 
+                    (a.name || '').localeCompare(b.name || '', 'pt-BR', { sensitivity: 'base' })
+                  );
+                  
+                  return {
+                    guestListId: gl.guest_list_id,
+                    guests: sortedGuests
+                  };
+                } else {
+                  console.error(`Erro ao carregar guests para lista ${gl.guest_list_id}:`, guestsRes.status);
+                  return {
+                    guestListId: gl.guest_list_id,
+                    guests: []
+                  };
+                }
+              } catch (error) {
+                console.error(`Erro ao carregar guests para lista ${gl.guest_list_id}:`, error);
+                return {
+                  guestListId: gl.guest_list_id,
+                  guests: []
+                };
+              }
+            });
+            
+            const results = await Promise.all(promises);
+            
+            // Atualizar estado de guests, sempre usando dados do backend (que são a fonte da verdade)
+            // O backend já retorna os dados de check-out corretos
+            setGuestsByList(prev => {
+              const updated = { ...prev };
+              results.forEach(result => {
+                // Sempre usar os dados do backend como fonte da verdade
+                // O backend já retorna checked_out, checkout_time, checked_in, checkin_time corretos
+                updated[result.guestListId] = result.guests;
+              });
+              return updated;
+            });
+            
+            // Atualizar totalGuests no checkInStatus
+            setCheckInStatus(prev => {
+              const updated = { ...prev };
+              results.forEach(result => {
+                if (result.guests.length > 0) {
+                  updated[result.guestListId] = {
+                    ...updated[result.guestListId],
+                    totalGuests: result.guests.length
+                  };
+                }
+              });
+              return updated;
+            });
+          };
+          
+          // Carregar em background sem bloquear a UI
+          loadAllGuests();
         }
         
         // A arrecadação será calculada automaticamente pelo useEffect quando os estados mudarem
