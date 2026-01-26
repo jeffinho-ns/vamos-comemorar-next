@@ -413,6 +413,18 @@ export default function EventoCheckInsPage() {
   const [ownerCheckInTimeMap, setOwnerCheckInTimeMap] = useState<Record<number, string>>({});
   const [ownerCheckOutTimeMap, setOwnerCheckOutTimeMap] = useState<Record<number, string>>({});
   
+  // Função auxiliar para verificar se owner_checked_out é verdadeiro (aceita 1, true, ou qualquer valor truthy)
+  const isOwnerCheckedOut = (value: number | boolean | undefined | null | string): boolean => {
+    if (value === null || value === undefined) return false;
+    return value === 1 || value === true || value === '1' || Boolean(value);
+  };
+  
+  // Função auxiliar para verificar se owner_checked_in é verdadeiro
+  const isOwnerCheckedIn = (value: number | boolean | undefined | null): boolean => {
+    if (value === null || value === undefined) return false;
+    return value === 1 || value === true || Boolean(value);
+  };
+  
   // Histórico de reservas concluídas (check-in + check-out completos)
   interface ReservaConcluida {
     guest_list_id: number;
@@ -771,17 +783,25 @@ export default function EventoCheckInsPage() {
         // Não precisamos mais buscar via API admin/guest-lists
         const guestLists = data.dados.guestListsRestaurante || [];
         
-        console.log('🔍 [DEBUG] Dados recebidos:', {
-          guestListsCount: guestLists.length,
+        console.log('🔍 [DEBUG CHECK-INS] Dados recebidos:', {
+          evento_id: eventoId,
           establishment_id: data.evento?.establishment_id,
           data_evento: data.evento?.data_evento,
-          evento_id: eventoId,
-          guestLists: guestLists.slice(0, 3).map(gl => ({
-            id: gl.guest_list_id,
-            owner_name: gl.owner_name,
-            reservation_id: gl.reservation_id
-          }))
+          guestListsCount: guestLists.length,
+          guestListsRestauranteFromBackend: data.dados.guestListsRestaurante?.length || 0,
+          reservasRestauranteCount: data.dados.reservasRestaurante?.length || 0,
+          sampleGuestList: guestLists[0] || null,
+          allKeys: Object.keys(data.dados || {}),
+          fullData: data.dados
         });
+        
+        // Se não recebeu dados mas deveria ter, logar erro
+        if (data.evento?.establishment_id && data.evento?.data_evento && guestLists.length === 0) {
+          console.warn('⚠️ [WARNING] Evento tem establishment_id e data_evento mas não retornou guest lists!', {
+            establishment_id: data.evento.establishment_id,
+            data_evento: data.evento.data_evento
+          });
+        }
         
         // Usar diretamente os dados do backend (que são a fonte da verdade)
         // O backend agora retorna owner_checked_out e owner_checkout_time corretamente
@@ -794,8 +814,8 @@ export default function EventoCheckInsPage() {
           guestLists.forEach((gl: GuestListRestaurante) => {
             updated[gl.guest_list_id] = {
               ...updated[gl.guest_list_id],
-              ownerCheckedIn: gl.owner_checked_in === 1,
-              ownerCheckedOut: gl.owner_checked_out === 1,
+              ownerCheckedIn: isOwnerCheckedIn(gl.owner_checked_in),
+              ownerCheckedOut: isOwnerCheckedOut(gl.owner_checked_out),
               guestsCheckedIn: gl.guests_checked_in || 0,
               totalGuests: gl.total_guests || 0
             };
@@ -1083,12 +1103,18 @@ export default function EventoCheckInsPage() {
             
             // Atualizar estado de guests, sempre usando dados do backend (que são a fonte da verdade)
             // O backend já retorna os dados de check-out corretos
+            // Garantir que checked_out seja sempre 1 ou 0 para consistência
             setGuestsByList(prev => {
               const updated = { ...prev };
               results.forEach(result => {
                 // Sempre usar os dados do backend como fonte da verdade
                 // O backend já retorna checked_out, checkout_time, checked_in, checkin_time corretos
-                updated[result.guestListId] = result.guests;
+                // Normalizar checked_out para garantir que seja sempre 1 ou 0
+                updated[result.guestListId] = result.guests.map((g: any) => ({
+                  ...g,
+                  checked_out: g.checked_out === true || g.checked_out === 1 ? 1 : 0,
+                  checked_in: g.checked_in === true || g.checked_in === 1 ? 1 : 0
+                }));
               });
               return updated;
             });
@@ -1114,7 +1140,7 @@ export default function EventoCheckInsPage() {
               
               // Buscar todas as guest lists concluídas
               const guestListsConcluidas = guestLists.filter((gl: GuestListRestaurante) => 
-                gl.owner_checked_out === 1 && gl.owner_checkin_time && gl.owner_checkout_time
+                isOwnerCheckedOut(gl.owner_checked_out) && gl.owner_checkin_time && gl.owner_checkout_time
               );
               
               // Para cada guest list concluída, construir o objeto de histórico
@@ -1687,8 +1713,7 @@ export default function EventoCheckInsPage() {
               ? { ...r, checked_in: true, checkin_time: new Date().toISOString() }
               : r
           ));
-          // Recarregar dados para atualizar a busca
-          loadCheckInData();
+          // Não recarregar - atualização otimista já foi feita acima
         }
         
         // Se for guest list, atualizar o estado local também
@@ -1754,7 +1779,7 @@ export default function EventoCheckInsPage() {
         }
         
         setConvidadoParaCheckIn(null);
-        loadCheckInData();
+        // Não recarregar - atualização otimista já foi feita acima
       } else {
         const errorData = await response.json();
         toast.error(`❌ ${errorData.message || errorData.error || 'Erro ao fazer check-in'}`, {
@@ -1796,11 +1821,17 @@ export default function EventoCheckInsPage() {
       });
 
       if (response.ok) {
+        // Atualização otimista - atualizar estado local imediatamente
+        setCamarotes(prev => prev.map(c => 
+          c.id === camarote.id 
+            ? { ...c, checked_in: true, checkin_time: new Date().toISOString() }
+            : c
+        ));
         toast.success(`✅ Check-in de ${camarote.responsavel} confirmado!`, {
           position: "top-center",
           autoClose: 3000,
         });
-        loadCheckInData();
+        // Não recarregar - atualização otimista já foi feita
       } else {
         toast.error('❌ Erro ao fazer check-in', {
           position: "top-center",
@@ -1816,7 +1847,7 @@ export default function EventoCheckInsPage() {
     } finally {
       checkInInProgressRef.current[key] = false;
     }
-  }, [loadCheckInData]);
+  }, []);
 
   const handleReservaRestauranteCheckIn = useCallback(async (reserva: ReservaRestaurante, e?: React.MouseEvent) => {
     e?.preventDefault();
@@ -1837,11 +1868,17 @@ export default function EventoCheckInsPage() {
       });
 
       if (response.ok) {
+        // Atualização otimista - atualizar estado local imediatamente
+        setReservasRestaurante(prev => prev.map(r => 
+          r.id === reserva.id 
+            ? { ...r, checked_in: true, checkin_time: new Date().toISOString() }
+            : r
+        ));
         toast.success(`✅ Check-in de ${reserva.responsavel} confirmado!`, {
           position: "top-center",
           autoClose: 3000,
         });
-        loadCheckInData();
+        // Não recarregar - atualização otimista já foi feita
       } else {
         toast.error('❌ Erro ao fazer check-in', {
           position: "top-center",
@@ -1857,7 +1894,7 @@ export default function EventoCheckInsPage() {
     } finally {
       checkInInProgressRef.current[key] = false;
     }
-  }, [loadCheckInData]);
+  }, []);
 
   const handleConvidadoReservaRestauranteCheckIn = useCallback(async (convidado: ConvidadoReservaRestaurante, e?: React.MouseEvent) => {
     e?.preventDefault();
@@ -1878,11 +1915,44 @@ export default function EventoCheckInsPage() {
       });
 
       if (response.ok) {
+        // Atualização otimista - atualizar estado local imediatamente
+        // Buscar a guest list correspondente através dos convidados de reservas restaurante
+        // Os convidados de reservas restaurante não têm guestListId direto, então precisamos buscar pela reserva
+        const guestListId = Object.keys(guestsByList).find(listId => 
+          guestsByList[Number(listId)]?.some(g => g.id === convidado.id)
+        );
+        
+        if (guestListId) {
+          setGuestsByList(prev => {
+            const updated = { ...prev };
+            if (updated[Number(guestListId)]) {
+              updated[Number(guestListId)] = updated[Number(guestListId)].map(g => 
+                g.id === convidado.id 
+                  ? { ...g, checked_in: 1, checkin_time: new Date().toISOString() }
+                  : g
+              );
+            }
+            return updated;
+          });
+          
+          // Atualizar contador de check-ins
+          setCheckInStatus(prev => {
+            const current = prev[Number(guestListId)] || { ownerCheckedIn: false, guestsCheckedIn: 0, totalGuests: 0 };
+            return {
+              ...prev,
+              [Number(guestListId)]: {
+                ...current,
+                guestsCheckedIn: current.guestsCheckedIn + 1
+              }
+            };
+          });
+        }
+        
         toast.success(`✅ Check-in de ${convidado.nome} confirmado!`, {
           position: "top-center",
           autoClose: 3000,
         });
-        loadCheckInData();
+        // Não recarregar - atualização otimista já foi feita
       } else {
         toast.error('❌ Erro ao fazer check-in', {
           position: "top-center",
@@ -1898,7 +1968,7 @@ export default function EventoCheckInsPage() {
     } finally {
       checkInInProgressRef.current[key] = false;
     }
-  }, [loadCheckInData]);
+  }, []);
 
   // Funções para guest lists (replicando Sistema de Reservas)
   const handleOwnerCheckIn = useCallback(async (guestListId: number, ownerName: string, e?: React.MouseEvent) => {
@@ -1918,16 +1988,25 @@ export default function EventoCheckInsPage() {
 
       if (response.ok) {
         const now = new Date().toISOString();
+        // Atualização otimista - atualizar estado local imediatamente
         setCheckInStatus(prev => ({
           ...prev,
           [guestListId]: { ...prev[guestListId], ownerCheckedIn: true }
         }));
         setOwnerCheckInTimeMap(prev => ({ ...prev, [guestListId]: now }));
+        
+        // Atualizar também a lista de guestListsRestaurante
+        setGuestListsRestaurante(prev => prev.map(gl => 
+          gl.guest_list_id === guestListId 
+            ? { ...gl, owner_checked_in: 1, owner_checkin_time: now }
+            : gl
+        ));
+        
         toast.success(`✅ Check-in de ${ownerName} confirmado!`, {
           position: "top-center",
           autoClose: 3000,
         });
-        loadCheckInData();
+        // Não recarregar - atualização otimista já foi feita
       } else {
         toast.error('❌ Erro ao fazer check-in do dono', {
           position: "top-center",
@@ -1943,7 +2022,7 @@ export default function EventoCheckInsPage() {
     } finally {
       checkInInProgressRef.current[key] = false;
     }
-  }, [loadCheckInData]);
+  }, []);
 
   // Função para fazer check-out do dono
   const handleOwnerCheckOut = useCallback(async (guestListId: number, ownerName: string, e?: React.MouseEvent) => {
@@ -2070,7 +2149,7 @@ export default function EventoCheckInsPage() {
     } finally {
       checkInInProgressRef.current[key] = false;
     }
-  }, [loadCheckInData, guestListsRestaurante]);
+  }, [guestListsRestaurante]);
 
 
   const handleGuestCheckIn = useCallback((guestListId: number, guestId: number, guestName: string, e?: React.MouseEvent) => {
@@ -2194,7 +2273,7 @@ export default function EventoCheckInsPage() {
         checkInInProgressRef.current[key] = false;
       }, 500);
     }
-  }, [loadCheckInData]);
+  }, []);
 
   // Função para fazer check-out de um convidado de reserva restaurante
   const handleConvidadoReservaRestauranteCheckOut = useCallback(async (convidado: ConvidadoReservaRestaurante, e?: React.MouseEvent) => {
@@ -2240,7 +2319,7 @@ export default function EventoCheckInsPage() {
         checkInInProgressRef.current[key] = false;
       }, 500);
     }
-  }, [loadCheckInData]);
+  }, []);
 
   // Filtrar por busca (otimizado com cache de lowercase)
   const searchTermLower = useMemo(() => debouncedSearchTerm.toLowerCase().trim(), [debouncedSearchTerm]);
@@ -2476,7 +2555,7 @@ export default function EventoCheckInsPage() {
               nome: g.name || 'Sem nome',
               origem: guestList ? guestList.owner_name : 'Lista de Aniversário',
               responsavel: guestList ? guestList.owner_name : 'Aniversário',
-              status: (g.checked_in === 1 || g.checked_in === true) ? 'CHECK-IN' : 'Pendente',
+              status: (g.checked_out === 1 || g.checked_out === true) ? 'CHECK-OUT' : (g.checked_in === 1 || g.checked_in === true) ? 'CHECK-IN' : 'Pendente',
               data_checkin: g.checkin_time,
               telefone: g.whatsapp,
               entrada_tipo: g.entrada_tipo,
@@ -2643,11 +2722,12 @@ export default function EventoCheckInsPage() {
       cachedStringCompare(a.owner_name || '', b.owner_name || '')
     );
     console.log('🔍 [DEBUG] sortedGuestListsRestaurante:', {
-      total: sorted.length,
       guestListsRestauranteLength: guestListsRestaurante.length,
+      sortedLength: sorted.length,
       selectedTab,
       searchTerm: searchTerm.trim(),
-      willRender: (selectedTab === 'todos' || selectedTab === 'reservas') && !searchTerm.trim()
+      willRender: (selectedTab === 'todos' || selectedTab === 'reservas') && !searchTerm.trim(),
+      firstItem: sorted[0] || null
     });
     return sorted;
   }, [guestListsRestaurante, cachedStringCompare, selectedTab, searchTerm]);
@@ -3616,40 +3696,65 @@ export default function EventoCheckInsPage() {
                     
                   
                   <div className="space-y-2 md:space-y-3">
-                    {sortedGuestListsRestaurante.length === 0 ? (
-                      <div className="text-center py-8 text-gray-400">
-                        Nenhuma lista de convidados encontrada para este evento.
-                      </div>
-                    ) : (
-                      sortedGuestListsRestaurante
-                        // Os dados já vêm filtrados do backend por establishment_id e data_evento
-                        // Apenas aplicar filtro de busca textual
-                        .filter(gl => filterBySearch(gl.owner_name) || filterBySearch(gl.origin))
-                        .filter(gl => {
-                          // Se a reserva está concluída, verificar se há nova reserva para a mesma mesa
-                          const isConcluida = gl.owner_checked_out === 1 || checkInStatus[gl.guest_list_id]?.ownerCheckedOut;
-                          
-                          if (isConcluida) {
-                            // Verificar se há uma nova reserva (não concluída) para a mesma mesa no mesmo horário
-                            const hasNovaReserva = sortedGuestListsRestaurante.some(otherGl => 
-                              otherGl.guest_list_id !== gl.guest_list_id &&
-                              otherGl.table_number === gl.table_number &&
-                              otherGl.reservation_time === gl.reservation_time &&
-                              otherGl.owner_checked_out !== 1 &&
-                              !checkInStatus[otherGl.guest_list_id]?.ownerCheckedOut
-                            );
-                            
-                            // Se há nova reserva, não mostrar a concluída
-                            return !hasNovaReserva;
-                          }
-                          
-                          return true;
-                        })
-                        .map((gl) => {
-                        const listUrl = `https://agilizaiapp.com.br/lista/${gl.shareable_link_token}`;
+                    {(() => {
+                      console.log('🔍 [DEBUG RENDER] Iniciando filtro:', {
+                        sortedGuestListsRestauranteLength: sortedGuestListsRestaurante.length,
+                        searchTerm: searchTerm.trim(),
+                        checkInStatusKeys: Object.keys(checkInStatus)
+                      });
+                      
+                      // Primeiro, aplicar filtro de busca textual se houver
+                      let filtered = sortedGuestListsRestaurante;
+                      if (searchTerm.trim()) {
+                        filtered = filtered.filter((gl: GuestListRestaurante) => 
+                          filterBySearch(gl.owner_name) || filterBySearch(gl.origin)
+                        );
+                      }
+                      
+                      // Depois, aplicar filtro de reservas concluídas
+                      filtered = filtered.filter((gl: GuestListRestaurante) => {
+                        // Se a reserva está concluída, verificar se há nova reserva para a mesma mesa
+                        const isConcluida = isOwnerCheckedOut(gl.owner_checked_out) || checkInStatus[gl.guest_list_id]?.ownerCheckedOut;
                         
+                        if (isConcluida) {
+                          // Verificar se há uma nova reserva (não concluída) para a mesma mesa no mesmo horário
+                          const hasNovaReserva = sortedGuestListsRestaurante.some((otherGl: GuestListRestaurante) => 
+                            otherGl.guest_list_id !== gl.guest_list_id &&
+                            otherGl.table_number === gl.table_number &&
+                            otherGl.reservation_time === gl.reservation_time &&
+                            otherGl.owner_checked_out !== 1 &&
+                            !checkInStatus[otherGl.guest_list_id]?.ownerCheckedOut
+                          );
+                          
+                          // Se há nova reserva, não mostrar a concluída
+                          return !hasNovaReserva;
+                        }
+                        
+                        return true;
+                      });
+                      
+                      console.log('🔍 [DEBUG RENDER] Após filtros:', {
+                        filteredLength: filtered.length,
+                        firstFiltered: filtered[0] || null
+                      });
+                      
+                      if (filtered.length === 0) {
                         return (
-                          <div key={gl.guest_list_id} className="border rounded-lg border-white/20 bg-white/5 overflow-hidden">
+                          <div key="empty" className="text-center py-8 text-gray-400">
+                            {guestListsRestaurante.length === 0 
+                              ? 'Nenhuma lista de convidados encontrada para este evento.'
+                              : 'Nenhuma lista corresponde aos filtros aplicados.'}
+                          </div>
+                        );
+                      }
+                      
+                      return (
+                        <>
+                          {filtered.map((gl: GuestListRestaurante) => {
+                            const listUrl = `https://agilizaiapp.com.br/lista/${gl.shareable_link_token}`;
+                            
+                            return (
+                              <div key={gl.guest_list_id} className="border rounded-lg border-white/20 bg-white/5 overflow-hidden">
                             <div
                               onClick={async () => {
                                 const willExpand = expandedGuestListId !== gl.guest_list_id;
@@ -3710,10 +3815,18 @@ export default function EventoCheckInsPage() {
                                         const totalGuestsToUse = currentGuests.length > 0 
                                           ? currentGuests.length 
                                           : (checkinData.checkin_status?.total_guests || 0);
+                                        
+                                        // Usar owner_checked_out do endpoint checkin-status (fonte da verdade)
+                                        // Se não estiver disponível, usar do guestListsRestaurante ou do estado anterior
+                                        const ownerCheckedOutFromEndpoint = isOwnerCheckedOut(checkinData.checkin_status?.owner_checked_out);
+                                        const ownerCheckedOutFromGuestList = isOwnerCheckedOut(gl.owner_checked_out);
+                                        const currentStatus = checkInStatus[gl.guest_list_id];
+                                        
                                         setCheckInStatus(prev => ({
                                           ...prev,
                                           [gl.guest_list_id]: {
                                             ownerCheckedIn: checkinData.checkin_status.owner_checked_in || false,
+                                            ownerCheckedOut: ownerCheckedOutFromEndpoint || ownerCheckedOutFromGuestList || currentStatus?.ownerCheckedOut || false,
                                             guestsCheckedIn: checkinData.checkin_status.guests_checked_in || 0,
                                             totalGuests: totalGuestsToUse
                                           }
@@ -3721,10 +3834,16 @@ export default function EventoCheckInsPage() {
                                       } else {
                                         // Calcular do guestsData se disponível
                                         const guestsCheckedIn = guestsData ? guestsData.guests.filter((g: GuestItem) => g.checked_in === 1 || g.checked_in === true).length : 0;
+                                        
+                                        // Preservar ownerCheckedOut do estado anterior ou usar do backend (gl.owner_checked_out)
+                                        const currentStatus = checkInStatus[gl.guest_list_id];
+                                        const ownerCheckedOutFromBackend = isOwnerCheckedOut(gl.owner_checked_out);
+                                        
                                         setCheckInStatus(prev => ({
                                           ...prev,
                                           [gl.guest_list_id]: {
-                                            ownerCheckedIn: gl.owner_checked_in === 1,
+                                            ownerCheckedIn: isOwnerCheckedIn(gl.owner_checked_in),
+                                            ownerCheckedOut: currentStatus?.ownerCheckedOut ?? ownerCheckedOutFromBackend,
                                             guestsCheckedIn: guestsCheckedIn,
                                             totalGuests: guestsData ? guestsData.guests.length : 0
                                           }
@@ -3754,7 +3873,7 @@ export default function EventoCheckInsPage() {
                                 }
                               }}
                               className={`w-full text-left px-3 md:px-4 py-2.5 md:py-3 flex items-center justify-between cursor-pointer ${
-                                (checkInStatus[gl.guest_list_id]?.ownerCheckedOut || gl.owner_checked_out === 1)
+                                (checkInStatus[gl.guest_list_id]?.ownerCheckedOut || isOwnerCheckedOut(gl.owner_checked_out))
                                   ? 'bg-white/2 hover:bg-white/5 opacity-60'
                                   : 'bg-white/5 hover:bg-white/10'
                               }`}
@@ -3762,7 +3881,7 @@ export default function EventoCheckInsPage() {
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2 flex-wrap">
                                   <span className={`font-semibold text-sm md:text-base truncate ${
-                                    (checkInStatus[gl.guest_list_id]?.ownerCheckedOut || gl.owner_checked_out === 1)
+                                    (checkInStatus[gl.guest_list_id]?.ownerCheckedOut || isOwnerCheckedOut(gl.owner_checked_out))
                                       ? 'text-gray-400 line-through'
                                       : 'text-white'
                                   }`}>
@@ -4066,7 +4185,7 @@ export default function EventoCheckInsPage() {
                                         📋 Check-in Dono
                                       </button>
                                     )}
-                                    {(checkInStatus[gl.guest_list_id]?.ownerCheckedIn || gl.owner_checked_in === 1) && !(checkInStatus[gl.guest_list_id]?.ownerCheckedOut || gl.owner_checked_out === 1) && (
+                                    {(checkInStatus[gl.guest_list_id]?.ownerCheckedIn || gl.owner_checked_in === 1) && !(checkInStatus[gl.guest_list_id]?.ownerCheckedOut || isOwnerCheckedOut(gl.owner_checked_out)) && (
                                       <div className="flex flex-col gap-1">
                                         <div className="flex gap-2">
                                           <button
@@ -4101,7 +4220,7 @@ export default function EventoCheckInsPage() {
                                         })()}
                                       </div>
                                     )}
-                                    {(checkInStatus[gl.guest_list_id]?.ownerCheckedOut || gl.owner_checked_out === 1) && (
+                                    {(checkInStatus[gl.guest_list_id]?.ownerCheckedOut || isOwnerCheckedOut(gl.owner_checked_out)) && (
                                       <div className="flex flex-col gap-1">
                                         <span className="px-2 md:px-3 py-1 text-xs rounded-full font-medium bg-gray-100 text-gray-600 border border-gray-300">
                                           ✅ Concluído
@@ -4330,13 +4449,13 @@ export default function EventoCheckInsPage() {
                                               <tr 
                                                 key={g.id} 
                                                 className={`hover:bg-white/10 ${
-                                                  (checkInStatus[gl.guest_list_id]?.ownerCheckedOut || gl.owner_checked_out === 1) || isCheckedOut
+                                                  (checkInStatus[gl.guest_list_id]?.ownerCheckedOut || isOwnerCheckedOut(gl.owner_checked_out)) || isCheckedOut
                                                     ? 'opacity-60'
                                                     : ''
                                                 }`}
                                               >
                                                 <td className={`px-4 py-2 text-sm ${
-                                                  (checkInStatus[gl.guest_list_id]?.ownerCheckedOut || gl.owner_checked_out === 1) || isCheckedOut
+                                                  (checkInStatus[gl.guest_list_id]?.ownerCheckedOut || isOwnerCheckedOut(gl.owner_checked_out)) || isCheckedOut
                                                     ? 'text-gray-400 line-through'
                                                     : 'text-white'
                                                 }`}>
@@ -4346,7 +4465,7 @@ export default function EventoCheckInsPage() {
                                                 <td className="px-4 py-2 text-sm">
                                                   {(() => {
                                                     // Verificar se o dono já fez check-out
-                                                    const ownerCheckedOut = checkInStatus[gl.guest_list_id]?.ownerCheckedOut || gl.owner_checked_out === 1;
+                                                    const ownerCheckedOut = checkInStatus[gl.guest_list_id]?.ownerCheckedOut || isOwnerCheckedOut(gl.owner_checked_out);
                                                     
                                                     // Se o dono fez check-out ou o convidado fez check-out, mostrar como concluído
                                                     if (ownerCheckedOut || isCheckedOut) {
@@ -4407,7 +4526,7 @@ export default function EventoCheckInsPage() {
                                                 <td className="px-4 py-2 text-right">
                                                   {(() => {
                                                     // Verificar se o dono já fez check-out - se sim, bloquear todos os botões
-                                                    const ownerCheckedOut = checkInStatus[gl.guest_list_id]?.ownerCheckedOut || gl.owner_checked_out === 1;
+                                                    const ownerCheckedOut = checkInStatus[gl.guest_list_id]?.ownerCheckedOut || isOwnerCheckedOut(gl.owner_checked_out);
                                                     
                                                     // Se o dono fez check-out ou o convidado fez check-out, não mostrar botões
                                                     if (ownerCheckedOut || isCheckedOut) {
@@ -4515,7 +4634,7 @@ export default function EventoCheckInsPage() {
                                             key={g.id} 
                                             className={`flex items-center justify-between gap-2 px-3 py-2 ${
                                               (() => {
-                                                const ownerCheckedOut = checkInStatus[gl.guest_list_id]?.ownerCheckedOut || gl.owner_checked_out === 1;
+                                                const ownerCheckedOut = checkInStatus[gl.guest_list_id]?.ownerCheckedOut || isOwnerCheckedOut(gl.owner_checked_out);
                                                 return ownerCheckedOut || isCheckedOut 
                                                   ? 'opacity-60 bg-gray-900/10' 
                                                   : isCheckedIn 
@@ -4526,7 +4645,7 @@ export default function EventoCheckInsPage() {
                                           >
                                             <div className="flex items-center gap-2 flex-1 min-w-0">
                                               {(() => {
-                                                const ownerCheckedOut = checkInStatus[gl.guest_list_id]?.ownerCheckedOut || gl.owner_checked_out === 1;
+                                                const ownerCheckedOut = checkInStatus[gl.guest_list_id]?.ownerCheckedOut || isOwnerCheckedOut(gl.owner_checked_out);
                                                 if (ownerCheckedOut || isCheckedOut) {
                                                   return <MdClose size={18} className="text-gray-400 flex-shrink-0" />;
                                                 } else if (isCheckedIn) {
@@ -4539,14 +4658,14 @@ export default function EventoCheckInsPage() {
                                                 <div className="flex items-center gap-2 flex-wrap">
                                                   <span className={`font-medium text-sm truncate ${
                                                     (() => {
-                                                      const ownerCheckedOut = checkInStatus[gl.guest_list_id]?.ownerCheckedOut || gl.owner_checked_out === 1;
+                                                      const ownerCheckedOut = checkInStatus[gl.guest_list_id]?.ownerCheckedOut || isOwnerCheckedOut(gl.owner_checked_out);
                                                       return ownerCheckedOut || isCheckedOut ? 'text-gray-400 line-through' : 'text-white';
                                                     })()
                                                   }`}>
                                                     {g.name}
                                                   </span>
                                                   {(() => {
-                                                    const ownerCheckedOut = checkInStatus[gl.guest_list_id]?.ownerCheckedOut || gl.owner_checked_out === 1;
+                                                    const ownerCheckedOut = checkInStatus[gl.guest_list_id]?.ownerCheckedOut || isOwnerCheckedOut(gl.owner_checked_out);
                                                     if (ownerCheckedOut || isCheckedOut) {
                                                       return (
                                                         <span className="text-xs px-1.5 py-0.5 rounded bg-gray-500/30 text-gray-200">
@@ -4586,7 +4705,7 @@ export default function EventoCheckInsPage() {
                                             </div>
                                             {(() => {
                                               // Verificar se o dono já fez check-out - se sim, bloquear todos os botões
-                                              const ownerCheckedOut = checkInStatus[gl.guest_list_id]?.ownerCheckedOut || gl.owner_checked_out === 1;
+                                              const ownerCheckedOut = checkInStatus[gl.guest_list_id]?.ownerCheckedOut || isOwnerCheckedOut(gl.owner_checked_out);
                                               
                                               // Se o dono fez check-out ou o convidado fez check-out, não mostrar botões
                                               if (ownerCheckedOut || isCheckedOut) {
@@ -4634,9 +4753,11 @@ export default function EventoCheckInsPage() {
                               </div>
                             )}
                           </div>
-                        );
-                      })
-                    )}
+                            );
+                          })}
+                        </>
+                      );
+                    })()}
                   </div>
                 </section>
               )}
