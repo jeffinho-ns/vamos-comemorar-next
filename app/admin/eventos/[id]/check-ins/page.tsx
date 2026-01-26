@@ -4032,22 +4032,16 @@ export default function EventoCheckInsPage() {
                                                     // Se o dono fez check-out ou o convidado fez check-out, mostrar como concluído
                                                     if (ownerCheckedOut || isCheckedOut) {
                                                       return (
-                                                        <div className="flex flex-col gap-1">
-                                                          <span className="px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600 border border-gray-300">
+                                                        <div className="flex items-center gap-2 flex-wrap">
+                                                          <span className="px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600 border border-gray-300 whitespace-nowrap">
                                                             ✅ Concluído
                                                           </span>
                                                           {/* Exibir horários de entrada e saída lado a lado */}
                                                           {(hasCheckinTime || hasCheckoutTime) && (
-                                                            <span className="text-xs text-gray-400 font-mono">
+                                                            <span className="text-xs text-gray-400 font-mono whitespace-nowrap">
                                                               {hasCheckinTime && `E: ${checkinTimeFormatted}`}
                                                               {hasCheckinTime && hasCheckoutTime && ' | '}
                                                               {hasCheckoutTime && `S: ${checkoutTimeFormatted}`}
-                                                            </span>
-                                                          )}
-                                                          {/* Se o dono fez check-out mas o convidado não, mostrar apenas entrada */}
-                                                          {ownerCheckedOut && !hasCheckoutTime && hasCheckinTime && (
-                                                            <span className="text-xs text-gray-400 font-mono">
-                                                              E: {checkinTimeFormatted}
                                                             </span>
                                                           )}
                                                         </div>
@@ -4056,8 +4050,8 @@ export default function EventoCheckInsPage() {
                                                     
                                                     // Status normal quando dono não fez check-out
                                                     return (
-                                                      <div className="flex flex-col gap-1">
-                                                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                                      <div className="flex items-center gap-2 flex-wrap">
+                                                        <span className={`px-2 py-1 rounded-full text-xs font-medium whitespace-nowrap ${
                                                           isCheckedIn
                                                             ? 'bg-green-100 text-green-700 border border-green-300'
                                                             : 'bg-gray-100 text-gray-600 border border-gray-300'
@@ -4066,12 +4060,12 @@ export default function EventoCheckInsPage() {
                                                         </span>
                                                         {/* Exibir horário de entrada quando presente */}
                                                         {hasCheckinTime && (
-                                                          <span className="text-xs text-gray-400 font-mono">
+                                                          <span className="text-xs text-gray-400 font-mono whitespace-nowrap">
                                                             E: {checkinTimeFormatted}
                                                           </span>
                                                         )}
                                                         {isCheckedIn && g.entrada_tipo && (
-                                                          <div className={`mt-1 text-xs px-2 py-0.5 rounded-full inline-block ${
+                                                          <span className={`text-xs px-2 py-0.5 rounded-full whitespace-nowrap ${
                                                             g.entrada_tipo === 'VIP'
                                                               ? 'bg-green-100 text-green-700'
                                                               : g.entrada_tipo === 'SECO'
@@ -4085,7 +4079,7 @@ export default function EventoCheckInsPage() {
                                                                 : parseFloat(String(g.entrada_valor));
                                                               return !isNaN(valor) ? ` - R$ ${valor.toFixed(2)}` : '';
                                                             })()}
-                                                          </div>
+                                                          </span>
                                                         )}
                                                       </div>
                                                     );
