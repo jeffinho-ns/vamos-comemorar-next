@@ -1096,6 +1096,47 @@ export default function EventoCheckInsPage() {
               });
               return updated;
             });
+            
+            // Carregar histórico de reservas concluídas a partir das guest lists com owner_checked_out = 1
+            // Usar os dados já carregados anteriormente
+            const loadHistoricoConcluidas = () => {
+              const concluidas: ReservaConcluida[] = [];
+              
+              // Buscar todas as guest lists concluídas
+              const guestListsConcluidas = guestLists.filter((gl: GuestListRestaurante) => 
+                gl.owner_checked_out === 1 && gl.owner_checkin_time && gl.owner_checkout_time
+              );
+              
+              // Para cada guest list concluída, construir o objeto de histórico
+              guestListsConcluidas.forEach((gl: GuestListRestaurante) => {
+                const guests = results.find(r => r.guestListId === gl.guest_list_id)?.guests || [];
+                
+                // Usar dados da guest list diretamente (já tem table_number e area_name se disponíveis)
+                const reservaConcluida: ReservaConcluida = {
+                  guest_list_id: gl.guest_list_id,
+                  owner_name: gl.owner_name,
+                  reservation_id: gl.reservation_id,
+                  table_number: (gl as any).table_number || undefined,
+                  area_name: (gl as any).area_name || undefined,
+                  checkin_time: gl.owner_checkin_time || '',
+                  checkout_time: gl.owner_checkout_time || '',
+                  guests: guests.map((g: GuestItem) => ({
+                    id: g.id,
+                    name: g.name || '',
+                    checkin_time: g.checkin_time,
+                    checkout_time: g.checkout_time
+                  }))
+                };
+                
+                concluidas.push(reservaConcluida);
+              });
+              
+              // Atualizar histórico
+              setHistoricoReservasConcluidas(concluidas);
+            };
+            
+            // Carregar histórico após guests serem carregados
+            loadHistoricoConcluidas();
           };
           
           // Carregar em background sem bloquear a UI
@@ -1116,6 +1157,47 @@ export default function EventoCheckInsPage() {
   useEffect(() => {
     loadCheckInData();
   }, [loadCheckInData]);
+
+  // Reconstruir histórico de reservas concluídas sempre que guest lists ou guests mudarem
+  useEffect(() => {
+    if (guestListsRestaurante.length === 0) {
+      setHistoricoReservasConcluidas([]);
+      return;
+    }
+
+    // Buscar todas as guest lists concluídas
+    const guestListsConcluidas = guestListsRestaurante.filter((gl: GuestListRestaurante) => 
+      gl.owner_checked_out === 1 && gl.owner_checkin_time && gl.owner_checkout_time
+    );
+
+    if (guestListsConcluidas.length === 0) {
+      setHistoricoReservasConcluidas([]);
+      return;
+    }
+
+    // Construir histórico a partir dos dados atuais
+    const concluidas: ReservaConcluida[] = guestListsConcluidas.map((gl: GuestListRestaurante) => {
+      const guests = guestsByList[gl.guest_list_id] || [];
+      
+      return {
+        guest_list_id: gl.guest_list_id,
+        owner_name: gl.owner_name,
+        reservation_id: gl.reservation_id,
+        table_number: (gl as any).table_number || undefined,
+        area_name: (gl as any).area_name || undefined,
+        checkin_time: gl.owner_checkin_time || '',
+        checkout_time: gl.owner_checkout_time || '',
+        guests: guests.map((g: GuestItem) => ({
+          id: g.id,
+          name: g.name || '',
+          checkin_time: g.checkin_time,
+          checkout_time: g.checkout_time
+        }))
+      };
+    });
+
+    setHistoricoReservasConcluidas(concluidas);
+  }, [guestListsRestaurante, guestsByList]);
 
   useEffect(() => {
     if (!planilhaModalOpen || !evento || !eventoId) {
