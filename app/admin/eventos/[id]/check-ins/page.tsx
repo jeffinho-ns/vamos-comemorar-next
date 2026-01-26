@@ -1184,46 +1184,136 @@ export default function EventoCheckInsPage() {
     loadCheckInData();
   }, [loadCheckInData]);
 
-  // Reconstruir histórico de reservas concluídas sempre que guest lists ou guests mudarem
+  // Carregar histórico de reservas concluídas da tabela checkouts
   useEffect(() => {
-    if (guestListsRestaurante.length === 0) {
-      setHistoricoReservasConcluidas([]);
+    if (!eventoId || !evento) {
       return;
     }
 
-    // Buscar todas as guest lists concluídas
-    const guestListsConcluidas = guestListsRestaurante.filter((gl: GuestListRestaurante) => 
-      gl.owner_checked_out === 1 && gl.owner_checkin_time && gl.owner_checkout_time
-    );
+    const loadCheckoutsFromTable = async () => {
+      try {
+        const token = localStorage.getItem('authToken');
+        const headers: HeadersInit = {
+          'Content-Type': 'application/json',
+        };
+        if (token) {
+          headers['Authorization'] = `Bearer ${token}`;
+        }
 
-    if (guestListsConcluidas.length === 0) {
-      setHistoricoReservasConcluidas([]);
-      return;
-    }
+        // Buscar check-outs da tabela checkouts
+        const checkoutsRes = await fetch(
+          `${API_URL}/api/admin/checkouts?evento_id=${eventoId}`,
+          { headers }
+        );
 
-    // Construir histórico a partir dos dados atuais
-    const concluidas: ReservaConcluida[] = guestListsConcluidas.map((gl: GuestListRestaurante) => {
-      const guests = guestsByList[gl.guest_list_id] || [];
-      
-      return {
-        guest_list_id: gl.guest_list_id,
-        owner_name: gl.owner_name,
-        reservation_id: gl.reservation_id,
-        table_number: (gl as any).table_number || undefined,
-        area_name: (gl as any).area_name || undefined,
-        checkin_time: gl.owner_checkin_time || '',
-        checkout_time: gl.owner_checkout_time || '',
-        guests: guests.map((g: GuestItem) => ({
-          id: g.id,
-          name: g.name || '',
-          checkin_time: g.checkin_time,
-          checkout_time: g.checkout_time
-        }))
-      };
-    });
+        if (checkoutsRes.ok) {
+          const checkoutsData = await checkoutsRes.json();
+          const checkouts = checkoutsData.checkouts || [];
 
-    setHistoricoReservasConcluidas(concluidas);
-  }, [guestListsRestaurante, guestsByList]);
+          // Agrupar check-outs por guest_list_id (owner check-outs)
+          const ownerCheckouts = checkouts.filter((c: any) => c.checkout_type === 'owner');
+          const guestCheckouts = checkouts.filter((c: any) => c.checkout_type === 'guest');
+
+          // Construir histórico a partir dos check-outs da tabela
+          const historico: ReservaConcluida[] = ownerCheckouts.map((checkout: any) => {
+            // Buscar guests que fizeram check-out desta guest list
+            const guestsFromCheckout = guestCheckouts
+              .filter((gc: any) => gc.guest_list_id === checkout.guest_list_id)
+              .map((gc: any) => ({
+                id: gc.entity_id,
+                name: gc.name,
+                checkin_time: gc.checkin_time,
+                checkout_time: gc.checkout_time
+              }));
+
+            return {
+              guest_list_id: checkout.guest_list_id,
+              owner_name: checkout.name,
+              reservation_id: checkout.reservation_id || 0,
+              table_number: checkout.table_number,
+              area_name: checkout.area_name,
+              checkin_time: checkout.checkin_time || '',
+              checkout_time: checkout.checkout_time || '',
+              guests: guestsFromCheckout
+            };
+          });
+
+          setHistoricoReservasConcluidas(historico);
+        } else {
+          // Fallback: usar método antigo se a tabela não existir ainda
+          if (guestListsRestaurante.length === 0) {
+            setHistoricoReservasConcluidas([]);
+            return;
+          }
+
+          const guestListsConcluidas = guestListsRestaurante.filter((gl: GuestListRestaurante) => 
+            gl.owner_checked_out === 1 && gl.owner_checkin_time && gl.owner_checkout_time
+          );
+
+          if (guestListsConcluidas.length === 0) {
+            setHistoricoReservasConcluidas([]);
+            return;
+          }
+
+          const concluidas: ReservaConcluida[] = guestListsConcluidas.map((gl: GuestListRestaurante) => {
+            const guests = guestsByList[gl.guest_list_id] || [];
+            
+            return {
+              guest_list_id: gl.guest_list_id,
+              owner_name: gl.owner_name,
+              reservation_id: gl.reservation_id,
+              table_number: (gl as any).table_number || undefined,
+              area_name: (gl as any).area_name || undefined,
+              checkin_time: gl.owner_checkin_time || '',
+              checkout_time: gl.owner_checkout_time || '',
+              guests: guests.map((g: GuestItem) => ({
+                id: g.id,
+                name: g.name || '',
+                checkin_time: g.checkin_time,
+                checkout_time: g.checkout_time
+              }))
+            };
+          });
+
+          setHistoricoReservasConcluidas(concluidas);
+        }
+      } catch (error) {
+        console.error('Erro ao carregar check-outs da tabela:', error);
+        // Fallback para método antigo em caso de erro
+        if (guestListsRestaurante.length > 0) {
+          const guestListsConcluidas = guestListsRestaurante.filter((gl: GuestListRestaurante) => 
+            gl.owner_checked_out === 1 && gl.owner_checkin_time && gl.owner_checkout_time
+          );
+
+          if (guestListsConcluidas.length > 0) {
+            const concluidas: ReservaConcluida[] = guestListsConcluidas.map((gl: GuestListRestaurante) => {
+              const guests = guestsByList[gl.guest_list_id] || [];
+              
+              return {
+                guest_list_id: gl.guest_list_id,
+                owner_name: gl.owner_name,
+                reservation_id: gl.reservation_id,
+                table_number: (gl as any).table_number || undefined,
+                area_name: (gl as any).area_name || undefined,
+                checkin_time: gl.owner_checkin_time || '',
+                checkout_time: gl.owner_checkout_time || '',
+                guests: guests.map((g: GuestItem) => ({
+                  id: g.id,
+                  name: g.name || '',
+                  checkin_time: g.checkin_time,
+                  checkout_time: g.checkout_time
+                }))
+              };
+            });
+
+            setHistoricoReservasConcluidas(concluidas);
+          }
+        }
+      }
+    };
+
+    loadCheckoutsFromTable();
+  }, [eventoId, evento, guestListsRestaurante, guestsByList]);
 
   useEffect(() => {
     if (!planilhaModalOpen || !evento || !eventoId) {
