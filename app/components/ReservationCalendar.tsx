@@ -74,10 +74,15 @@ export default function ReservationCalendar({
     else if (['40','41','42','01','02','03','04'].includes(n)) cap = 8;
     else if (['60','61','62','63','64','65'].includes(n)) cap = 10;
 
+    // Para reservas com Mesa Bistrô, usar cor diferenciada (roxo/violeta)
+    const hasBistroTable = reservation.has_bistro_table === true;
+    
     // Para reservas grandes, usar cor diferenciada
     const isLargeReservation = reservation.number_of_people > 15 || reservation.origin === 'CLIENTE' && reservation.number_of_people >= 16;
     
-    const cls = isLargeReservation
+    const cls = hasBistroTable
+      ? 'bg-purple-200 text-purple-900 border-purple-400 font-semibold' // Cor especial para Mesa Bistrô
+      : isLargeReservation
       ? 'bg-yellow-100 text-yellow-800 border-yellow-200' // Cor especial para reservas grandes
       : cap === 2
       ? 'bg-blue-100 text-blue-800 border-blue-200'
@@ -96,7 +101,7 @@ export default function ReservationCalendar({
         <span>{reservation.reservation_time}</span>
         {reservation.table_number ? (
           <span className={`px-1 py-0.5 rounded border ${cls}`}>
-            Mesa {reservation.table_number}{cap ? ` • ${cap}p` : ''}
+            {hasBistroTable ? '🍽️ ' : ''}Mesa {reservation.table_number}{cap ? ` • ${cap}p` : ''}
           </span>
         ) : isLargeReservation ? (
           <span className={`px-1 py-0.5 rounded border ${cls}`}>

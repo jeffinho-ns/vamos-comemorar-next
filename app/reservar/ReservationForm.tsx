@@ -446,7 +446,15 @@ export default function ReservationForm() {
       const [eh, em] = w.end.split(':').map(Number);
       const startMin = sh * 60 + (isNaN(sm) ? 0 : sm);
       const endMin = eh * 60 + (isNaN(em) ? 0 : em);
-      return value >= startMin && value <= endMin;
+      
+      // Se o horário de fim é menor que o de início, significa que cruza a meia-noite
+      if (endMin < startMin) {
+        // Horário válido se estiver após o início OU antes do fim (no próximo dia)
+        return value >= startMin || value <= endMin;
+      } else {
+        // Horário normal (dentro do mesmo dia)
+        return value >= startMin && value <= endMin;
+      }
     });
   };
 
@@ -895,18 +903,17 @@ const handleSubmit = async (e: React.FormEvent) => {
     const weekday = date.getDay(); // 0=Dom, 1=Seg, 2=Ter, 3=Qua, 4=Qui, 5=Sex, 6=Sáb
     const windows: Array<{ start: string; end: string; label: string }> = [];
 
-    // Terça a sexta (2, 3, 4, 5): 18h às 21h
-    if (weekday >= 2 && weekday <= 5) {
-      windows.push({ start: '18:00', end: '21:00', label: 'Terça a Sexta: 18:00–21:00' });
+    // Terça a Quinta (2, 3, 4): 18:00 às 01:00 (próximo dia)
+    if (weekday >= 2 && weekday <= 4) {
+      windows.push({ start: '18:00', end: '01:00', label: 'Terça a Quinta: 18:00–01:00' });
     }
-    // Sábado (6): 12h às 15h (primeiro giro) e 20h às 23h (segundo giro)
-    else if (weekday === 6) {
-      windows.push({ start: '12:00', end: '15:00', label: 'Sábado - Primeiro Giro: 12:00–15:00' });
-      windows.push({ start: '20:00', end: '23:00', label: 'Sábado - Segundo Giro: 20:00–23:00' });
+    // Sexta e Sábado (5, 6): 18:00 às 03:30 (próximo dia)
+    else if (weekday === 5 || weekday === 6) {
+      windows.push({ start: '18:00', end: '03:30', label: 'Sexta e Sábado: 18:00–03:30' });
     }
-    // Domingo (0): 12h às 15h
+    // Domingo (0): 12:00 às 21:00
     else if (weekday === 0) {
-      windows.push({ start: '12:00', end: '15:00', label: 'Domingo: 12:00–15:00' });
+      windows.push({ start: '12:00', end: '21:00', label: 'Domingo: 12:00–21:00' });
     }
 
     return windows;

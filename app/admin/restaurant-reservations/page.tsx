@@ -893,12 +893,14 @@ export default function RestaurantReservationsPage() {
     return areaName || '';
   }, [isSeuJustino]);
 
-  // Função para determinar o giro de uma reserva (apenas para Seu Justino aos sábados)
+  // Função para determinar o giro de uma reserva (apenas para Seu Justino)
   const getGiroFromTime = (timeStr: string): '1º Giro' | '2º Giro' | null => {
     if (!isSeuJustino || !timeStr) return null;
     const [hours] = timeStr.split(':').map(Number);
-    if (hours >= 12 && hours < 15) return '1º Giro';
-    if (hours >= 20 && hours < 23) return '2º Giro';
+    // 1º Giro: horário de início anterior às 20:00
+    if (hours < 20) return '1º Giro';
+    // 2º Giro: horário de início 20:00 ou posterior
+    if (hours >= 20) return '2º Giro';
     return null;
   };
 
@@ -1297,9 +1299,10 @@ export default function RestaurantReservationsPage() {
               table_number: tableNumber,
               status: 'CONFIRMADA',
               origin: 'LISTA_ESPERA',
-              notes: `Convertido da lista de espera (ID: ${oldestEntry.id})`,
+              notes: `Convertido da lista de espera (ID: ${oldestEntry.id})${(oldestEntry as any).has_bistro_table ? ' - Mesa Bistrô' : ''} - Tipo de Entrada: VIP`,
               establishment_id: selectedEstablishment?.id,
-              created_by: 1
+              created_by: 1,
+              has_bistro_table: (oldestEntry as any).has_bistro_table || false
             };
 
             const createReservationResponse = await fetch(`${API_URL}/api/restaurant-reservations`, {
@@ -1312,7 +1315,29 @@ export default function RestaurantReservationsPage() {
             });
 
             if (createReservationResponse.ok) {
-              const newReservation = await createReservationResponse.json();
+              const newReservationData = await createReservationResponse.json();
+              const reservationId = newReservationData.reservation?.id || newReservationData.id;
+              
+              // Fazer check-in automático da reserva
+              if (reservationId) {
+                try {
+                  const checkInResponse = await fetch(`${API_URL}/api/restaurant-reservations/${reservationId}/checkin`, {
+                    method: 'POST',
+                    headers: {
+                      'Content-Type': 'application/json',
+                      ...(token ? { Authorization: `Bearer ${token}` } : {})
+                    }
+                  });
+                  
+                  if (checkInResponse.ok) {
+                    console.log(`✅ Check-in automático realizado para reserva ${reservationId}`);
+                  } else {
+                    console.warn(`⚠️ Reserva criada mas check-in automático falhou para reserva ${reservationId}`);
+                  }
+                } catch (checkInError) {
+                  console.error('Erro ao fazer check-in automático:', checkInError);
+                }
+              }
               
               // Atualizar status da lista de espera para ATENDIDO
               const updateWaitlistResponse = await fetch(`${API_URL}/api/waitlist/${oldestEntry.id}`, {
@@ -1337,7 +1362,7 @@ export default function RestaurantReservationsPage() {
                 // Recarregar reservas para incluir a nova
                 await loadEstablishmentData();
                 
-                alert(`✅ Cliente ${oldestEntry.client_name} alocado na Mesa ${tableNumber} com sucesso!`);
+                alert(`✅ Cliente ${oldestEntry.client_name} alocado na Mesa ${tableNumber} com sucesso! Check-in automático realizado.`);
               } else {
                 console.error('Erro ao atualizar status da lista de espera');
                 alert(`⚠️ Reserva criada, mas houve erro ao atualizar a lista de espera.`);
@@ -1377,9 +1402,10 @@ export default function RestaurantReservationsPage() {
         table_number: tableNumber,
         status: 'CONFIRMADA',
         origin: 'LISTA_ESPERA',
-        notes: `Alocado da lista de espera (ID: ${entry.id})`,
+        notes: `Alocado da lista de espera (ID: ${entry.id})${(entry as any).has_bistro_table ? ' - Mesa Bistrô' : ''} - Tipo de Entrada: VIP`,
         establishment_id: selectedEstablishment?.id,
-        created_by: 1
+        created_by: 1,
+        has_bistro_table: (entry as any).has_bistro_table || false
       };
 
       const createReservationResponse = await fetch(`${API_URL}/api/restaurant-reservations`, {
@@ -1392,6 +1418,30 @@ export default function RestaurantReservationsPage() {
       });
 
       if (createReservationResponse.ok) {
+        const newReservationData = await createReservationResponse.json();
+        const reservationId = newReservationData.reservation?.id || newReservationData.id;
+        
+        // Fazer check-in automático da reserva
+        if (reservationId) {
+          try {
+            const checkInResponse = await fetch(`${API_URL}/api/restaurant-reservations/${reservationId}/checkin`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                ...(token ? { Authorization: `Bearer ${token}` } : {})
+              }
+            });
+            
+            if (checkInResponse.ok) {
+              console.log(`✅ Check-in automático realizado para reserva ${reservationId}`);
+            } else {
+              console.warn(`⚠️ Reserva criada mas check-in automático falhou para reserva ${reservationId}`);
+            }
+          } catch (checkInError) {
+            console.error('Erro ao fazer check-in automático:', checkInError);
+          }
+        }
+        
         // Atualizar status da lista de espera para ATENDIDO
         const updateWaitlistResponse = await fetch(`${API_URL}/api/waitlist/${entry.id}`, {
           method: 'PUT',
@@ -1412,7 +1462,7 @@ export default function RestaurantReservationsPage() {
           );
           
           await loadEstablishmentData();
-          alert(`✅ Cliente ${entry.client_name} alocado na Mesa ${tableNumber} com sucesso!`);
+          alert(`✅ Cliente ${entry.client_name} alocado na Mesa ${tableNumber} com sucesso! Check-in automático realizado. Tipo de Entrada: VIP.`);
         } else {
           alert(`⚠️ Reserva criada, mas houve erro ao atualizar a lista de espera.`);
         }
@@ -1440,18 +1490,10 @@ export default function RestaurantReservationsPage() {
                          reservation.client_phone?.includes(searchTerm) ||
                          reservation.client_email?.toLowerCase().includes(searchTerm.toLowerCase());
     
-    // Filtro por giro (apenas para Seu Justino aos sábados)
+    // Filtro por giro (apenas para Seu Justino)
     if (isSeuJustino && giroFilter !== 'all') {
-      const reservationDate = new Date(reservation.reservation_date);
-      const isSaturday = reservationDate.getDay() === 6; // 6 = Sábado
-      
-      if (isSaturday) {
-        const giro = getGiroFromTime(reservation.reservation_time || '');
-        if (giro !== giroFilter) return false;
-      } else {
-        // Se não for sábado, não aplicar filtro de giro (só existe giro aos sábados)
-        // Não precisa fazer nada aqui, pois giro será null e não vai filtrar
-      }
+      const giro = getGiroFromTime(reservation.reservation_time || '');
+      if (giro !== giroFilter) return false;
     }
     
     return matchesSearch;
@@ -1651,7 +1693,7 @@ export default function RestaurantReservationsPage() {
                                 : 'text-orange-700 hover:text-orange-900'
                             }`}
                           >
-                            1º Giro (12h-15h)
+                            1º Giro (&lt; 20:00)
                           </button>
                           <button
                             onClick={() => setGiroFilter('2º Giro')}
@@ -1661,7 +1703,7 @@ export default function RestaurantReservationsPage() {
                                 : 'text-orange-700 hover:text-orange-900'
                             }`}
                           >
-                            2º Giro (20h-23h)
+                            2º Giro (≥ 20:00)
                           </button>
                         </div>
                       )}
@@ -1743,7 +1785,7 @@ export default function RestaurantReservationsPage() {
                     <div className="mb-8">
                       <ReservationCalendar
                         establishment={selectedEstablishment}
-                        reservations={reservations}
+                        reservations={filteredReservations}
                         onDateSelect={handleDateSelect}
                         onAddReservation={handleAddReservation}
                         onEditReservation={handleEditReservation}
@@ -1762,7 +1804,7 @@ export default function RestaurantReservationsPage() {
                   {viewMode === 'weekly' && (
                     <div className="mb-8">
                       <WeeklyCalendar
-                        reservations={reservations}
+                        reservations={filteredReservations}
                         establishment={selectedEstablishment}
                         onAddReservation={async (date, time) => {
                           setSelectedDate(date);

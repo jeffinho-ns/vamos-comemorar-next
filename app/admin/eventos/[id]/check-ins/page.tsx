@@ -3866,14 +3866,25 @@ export default function EventoCheckInsPage() {
                           animate={false}
                           style={{ touchAction: 'manipulation' }}
                           className={`border rounded-lg p-3 ${
-                            reserva.convidados_checkin > 0
+                            (reserva as any).has_bistro_table === true
+                              ? reserva.convidados_checkin > 0
+                                ? 'bg-purple-900/30 border-purple-500/60'
+                                : 'bg-purple-900/20 border-purple-400/50 hover:border-purple-500/70'
+                              : reserva.convidados_checkin > 0
                               ? 'bg-blue-900/20 border-blue-500/40'
                               : 'bg-white/5 border-white/20 hover:border-blue-400/50'
                           }`}
                         >
                         <div className="flex items-start justify-between mb-2">
                           <div className="flex-1 min-w-0">
-                            <h3 className="font-bold text-base text-white truncate">{reserva.responsavel}</h3>
+                            <div className="flex items-center gap-2">
+                              <h3 className="font-bold text-base text-white truncate">{reserva.responsavel}</h3>
+                              {(reserva as any).has_bistro_table === true ? (
+                                <span className="px-2 py-0.5 bg-purple-500/80 text-white text-xs rounded-full font-semibold flex items-center gap-1">
+                                  🍽️ Bistrô
+                                </span>
+                              ) : null}
+                            </div>
                             <div className="text-xs text-gray-300 space-y-0.5 mt-1">
                               <div className="text-xs text-gray-400 truncate">Origem: {reserva.origem || '—'}</div>
                               <div className="flex items-center gap-1">

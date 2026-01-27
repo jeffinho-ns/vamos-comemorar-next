@@ -17,6 +17,7 @@ interface Reservation {
   notes?: string;
   table_number?: string;
   establishment_id?: number;
+  has_bistro_table?: boolean; // Indica se a reserva está ocupando uma Mesa Bistrô
 }
 
 interface WeeklyCalendarProps {
@@ -558,7 +559,9 @@ export default function WeeklyCalendar({
                             initial={{ opacity: 0, scale: 0.9 }}
                             animate={{ opacity: 1, scale: 1 }}
                             className={`p-2 rounded-lg border-2 text-xs cursor-pointer hover:shadow-lg transition-all duration-200 ${
-                              reservation.notes && reservation.notes.includes('🎂') 
+                              reservation.has_bistro_table === true
+                                ? 'bg-gradient-to-r from-purple-100 to-purple-200 border-purple-400 hover:border-purple-500'
+                                : reservation.notes && reservation.notes.includes('🎂') 
                                 ? 'bg-gradient-to-r from-pink-50 to-yellow-50 border-pink-300 hover:border-pink-400' 
                                 : 'bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200 hover:border-blue-400'
                             }`}
@@ -567,9 +570,11 @@ export default function WeeklyCalendar({
                             {/* Cabeçalho da reserva */}
                             <div className="flex items-center justify-between mb-2">
                               <div className="flex items-center gap-1 flex-1 min-w-0">
-                                {reservation.notes && reservation.notes.includes('🎂') && (
+                                {reservation.has_bistro_table === true ? (
+                                  <span className="text-sm flex-shrink-0">🍽️</span>
+                                ) : reservation.notes && reservation.notes.includes('🎂') ? (
                                   <span className="text-lg flex-shrink-0">🎂</span>
-                                )}
+                                ) : null}
                                 <span className="font-bold text-gray-800 truncate text-xs">
                                   {reservation.client_name}
                                 </span>

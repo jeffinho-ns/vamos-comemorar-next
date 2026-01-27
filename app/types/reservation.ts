@@ -20,6 +20,7 @@ export interface Reservation {
   created_at?: string;
   updated_at?: string;
   blocks_entire_area?: boolean; // Indica se esta reserva bloqueia toda a área
+  has_bistro_table?: boolean; // Indica se a reserva está ocupando uma Mesa Bistrô
 }
 
 export interface ReservationFormData {

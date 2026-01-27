@@ -61,7 +61,8 @@ export default function WaitlistModal({
     preferred_area_id: '',
     preferred_table_number: '',
     status: 'AGUARDANDO',
-    notes: ''
+    notes: '',
+    has_bistro_table: false
   });
 
   const [loading, setLoading] = useState(false);
@@ -98,6 +99,9 @@ export default function WaitlistModal({
   const isSeuJustino = establishment && (
     (establishment.name || '').toLowerCase().includes('seu justino') && 
     !(establishment.name || '').toLowerCase().includes('pracinha')
+  );
+  const isPracinha = establishment && (
+    (establishment.name || '').toLowerCase().includes('pracinha')
   );
 
   // Função helper para mapear mesa -> área do Seu Justino (para exibição)
@@ -139,7 +143,8 @@ export default function WaitlistModal({
           preferred_area_id: preferredAreaId,
           preferred_table_number: entry.preferred_table_number || '',
           status: entry.status || 'AGUARDANDO',
-          notes: entry.notes || ''
+          notes: entry.notes || '',
+          has_bistro_table: entry.has_bistro_table || false
         });
 
         // Se for Seu Justino ou Highline, tentar encontrar a subárea baseada na mesa ou área
@@ -172,7 +177,8 @@ export default function WaitlistModal({
           preferred_area_id: '',
           preferred_table_number: '',
           status: 'AGUARDANDO',
-          notes: ''
+          notes: '',
+          has_bistro_table: false
         });
         setSelectedSubareaKey('');
       }
@@ -691,6 +697,33 @@ export default function WaitlistModal({
                   </select>
                 </div>
               </div>
+
+              {/* Campo Mesa Bistrô (apenas para Seu Justino e Pracinha) */}
+              {(isSeuJustino || isPracinha) && (
+                <div className="p-4 bg-purple-900/20 border-2 border-purple-600/50 rounded-lg">
+                  <label className="flex items-start gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={formData.has_bistro_table}
+                      onChange={(e) => handleInputChange('has_bistro_table', e.target.checked)}
+                      className="mt-1 w-5 h-5 bg-gray-600 border-gray-500 rounded text-purple-500 focus:ring-purple-600"
+                    />
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <MdTableBar className="text-purple-400" size={20} />
+                        <span className="text-sm font-semibold text-purple-300">
+                          Cliente já está ocupando uma Mesa Bistrô
+                        </span>
+                      </div>
+                      <p className="text-xs text-purple-200">
+                        {isSeuJustino 
+                          ? 'Limite de 40 Mesas Bistrô para o Seu Justino.'
+                          : 'Limite de 20 Mesas Bistrô para o Pracinha do Seu Justino.'}
+                      </p>
+                    </div>
+                  </label>
+                </div>
+              )}
 
               {/* Notes */}
               <div>
