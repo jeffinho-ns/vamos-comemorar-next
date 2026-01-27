@@ -28,6 +28,7 @@ interface WaitlistModalProps {
   areas?: Array<{ id: number; name: string }>;
   establishment?: { id: number; name: string } | null;
   onCreateReservation?: (reservationData: any) => Promise<void>; // Nova prop para criar reserva quando mesa estiver disponível
+  waitlistEntries?: Array<{ has_bistro_table?: boolean; establishment_id?: number }>; // Entradas da lista de espera para contagem de mesas bistrô
 }
 
 interface RestaurantTable {
@@ -49,7 +50,8 @@ export default function WaitlistModal({
   defaultDate,
   areas = [],
   establishment = null,
-  onCreateReservation
+  onCreateReservation,
+  waitlistEntries = []
 }: WaitlistModalProps) {
   const [formData, setFormData] = useState({
     preferred_date: '',
@@ -100,9 +102,15 @@ export default function WaitlistModal({
     (establishment.name || '').toLowerCase().includes('seu justino') && 
     !(establishment.name || '').toLowerCase().includes('pracinha')
   );
-  const isPracinha = establishment && (
-    (establishment.name || '').toLowerCase().includes('pracinha')
-  );
+  const isPracinha = establishment && (establishment.name || '').toLowerCase().includes('pracinha');
+  
+  // Contar mesas bistrô ocupadas na lista de espera
+  const bistroTableCount = waitlistEntries.filter(entry => 
+    entry.has_bistro_table === true && 
+    entry.establishment_id === establishment?.id
+  ).length;
+  
+  const maxBistroTables = isSeuJustino ? 40 : isPracinha ? 20 : 0;
 
   // Função helper para mapear mesa -> área do Seu Justino (para exibição)
   const getSeuJustinoAreaName = (tableNumber?: string | number, areaName?: string, areaId?: number): string => {
@@ -225,23 +233,45 @@ export default function WaitlistModal({
           }
 
           // Verificar disponibilidade no horário específico (se informado)
-          if (formData.preferred_time) {
+          // Buscar TODAS as reservas (não apenas CONFIRMADA) para considerar reservas criadas pelo calendário
+          if (formData.preferred_time || formData.preferred_date) {
             try {
+              // Buscar todas as reservas do dia na área, excluindo apenas canceladas e finalizadas
               const reservationsRes = await fetch(
-                `${API_URL}/api/restaurant-reservations?reservation_date=${formData.preferred_date}&area_id=${formData.preferred_area_id}&status=CONFIRMADA${establishment?.id ? `&establishment_id=${establishment.id}` : ''}`
+                `${API_URL}/api/restaurant-reservations?reservation_date=${formData.preferred_date}&area_id=${formData.preferred_area_id}${establishment?.id ? `&establishment_id=${establishment.id}` : ''}`
               );
               if (reservationsRes.ok) {
                 const reservationsData = await reservationsRes.json();
-                const confirmedReservations = Array.isArray(reservationsData.reservations) 
+                const allReservations = Array.isArray(reservationsData.reservations) 
                   ? reservationsData.reservations 
                   : [];
                 
+                // Filtrar apenas reservas que ocupam a mesa (excluir canceladas e finalizadas)
+                const activeReservations = allReservations.filter((reservation: any) => {
+                  const status = String(reservation.status || '').toUpperCase();
+                  return status !== 'CANCELADA' && 
+                         status !== 'CANCELED' && 
+                         status !== 'COMPLETED' &&
+                         status !== 'FINALIZADA';
+                });
+                
                 // Verificar quais mesas estão reservadas no horário específico
+                // Considera sobreposição de horários (reservas duram aproximadamente 2 horas)
                 const reservedTableNumbers = new Set<string>();
-                confirmedReservations.forEach((reservation: any) => {
+                
+                // Função auxiliar para verificar sobreposição de horários
+                const hasTimeOverlap = (time1: string, time2: string) => {
+                  const [h1, m1] = time1.split(':').map(Number);
+                  const [h2, m2] = time2.split(':').map(Number);
+                  const minutes1 = h1 * 60 + (isNaN(m1) ? 0 : m1);
+                  const minutes2 = h2 * 60 + (isNaN(m2) ? 0 : m2);
+                  const diff = Math.abs(minutes1 - minutes2);
+                  return diff < 120; // 2 horas em minutos
+                };
+                
+                activeReservations.forEach((reservation: any) => {
                   if (reservation.table_number) {
                     // Se não tiver horário preferido, considerar todas as reservas do dia
-                    // Se tiver horário, verificar se está no mesmo horário
                     if (!formData.preferred_time) {
                       // Sem horário: considerar todas as mesas reservadas como indisponíveis
                       const tables = String(reservation.table_number).split(',');
@@ -249,12 +279,12 @@ export default function WaitlistModal({
                         reservedTableNumbers.add(table.trim());
                       });
                     } else if (reservation.reservation_time) {
-                      // Comparar horários (considerar apenas hora:minuto)
+                      // Comparar horários considerando sobreposição (2 horas)
                       const reservationTime = String(reservation.reservation_time).substring(0, 5);
                       const preferredTime = String(formData.preferred_time).substring(0, 5);
                       
-                      // Se o horário for o mesmo, considerar ocupada
-                      if (reservationTime === preferredTime) {
+                      // Se houver sobreposição de horários, considerar ocupada
+                      if (hasTimeOverlap(reservationTime, preferredTime)) {
                         const tables = String(reservation.table_number).split(',');
                         tables.forEach((table: string) => {
                           reservedTableNumbers.add(table.trim());
@@ -352,22 +382,31 @@ export default function WaitlistModal({
 
       if (isTableAvailable && onCreateReservation && formData.preferred_area_id && formData.preferred_table_number && formData.preferred_time) {
         // Mesa disponível → criar RESERVA NORMAL
+        // Garantir formato correto do horário (HH:MM)
+        let formattedTime = formData.preferred_time;
+        if (formattedTime && formattedTime.includes(':')) {
+          const parts = formattedTime.split(':');
+          if (parts.length === 2) {
+            // Formato HH:MM (sem segundos)
+            formattedTime = `${parts[0].padStart(2, '0')}:${parts[1].padStart(2, '0')}`;
+          }
+        }
+        
         const reservationData = {
           client_name: formData.client_name,
           client_phone: formData.client_phone || null,
           client_email: formData.client_email || null,
           reservation_date: formData.preferred_date,
-          reservation_time: formData.preferred_time.includes(':') && formData.preferred_time.split(':').length === 2 
-            ? `${formData.preferred_time}:00` 
-            : formData.preferred_time,
+          reservation_time: formattedTime,
           number_of_people: formData.number_of_people,
           area_id: Number(formData.preferred_area_id),
           table_number: formData.preferred_table_number,
           status: 'CONFIRMADA',
-          origin: 'LISTA_ESPERA',
+          origin: 'PESSOAL', // Mudado de 'LISTA_ESPERA' para 'PESSOAL' para evitar validações restritivas
           notes: formData.notes || null,
           establishment_id: establishment?.id,
-          created_by: 1
+          created_by: 1,
+          has_bistro_table: formData.has_bistro_table || false
         };
 
         await onCreateReservation(reservationData);
@@ -717,9 +756,14 @@ export default function WaitlistModal({
                       </div>
                       <p className="text-xs text-purple-200">
                         {isSeuJustino 
-                          ? 'Limite de 40 Mesas Bistrô para o Seu Justino.'
-                          : 'Limite de 20 Mesas Bistrô para o Pracinha do Seu Justino.'}
+                          ? `Limite de 40 Mesas Bistrô para o Seu Justino. (${bistroTableCount}/${maxBistroTables} ocupadas)`
+                          : `Limite de 20 Mesas Bistrô para o Pracinha do Seu Justino. (${bistroTableCount}/${maxBistroTables} ocupadas)`}
                       </p>
+                      {bistroTableCount >= maxBistroTables && (
+                        <p className="text-xs text-red-400 font-semibold mt-1">
+                          ⚠️ Limite de mesas bistrô atingido!
+                        </p>
+                      )}
                     </div>
                   </label>
                 </div>

@@ -3668,6 +3668,7 @@ export default function RestaurantReservationsPage() {
             defaultDate={selectedDate ? selectedDate.toISOString().split('T')[0] : ''}
             areas={areas}
             establishment={selectedEstablishment}
+            waitlistEntries={waitlist}
           />
         )}
 
