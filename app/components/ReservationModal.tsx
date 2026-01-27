@@ -100,7 +100,7 @@ export default function ReservationModal({
   const [sendWhatsAppConfirmation, setSendWhatsAppConfirmation] = useState(true);
   
   // NOVO: Estado para tipo de evento (para reservas grandes)
-  const [eventType, setEventType] = useState<'aniversario' | 'despedida' | 'outros' | ''>('');
+  const [eventType, setEventType] = useState<'aniversario' | 'despedida' | 'outros' | 'lista_sexta' | ''>('');
   
   // Estados para vinculação de evento
   const [eventosDisponiveis, setEventosDisponiveis] = useState<any[]>([]);
@@ -294,7 +294,35 @@ export default function ReservationModal({
             setSelectedSubareaKey(foundSubarea.key);
           }
         }
+
+        // Reserva Grande: carregar event_type da lista de convidados para exibir no select
+        if (reservation.id && (reservation.number_of_people || 0) >= 4) {
+          (async () => {
+            try {
+              const token = typeof window !== 'undefined' ? localStorage.getItem('authToken') : null;
+              const res = await fetch(`${API_URL}/api/restaurant-reservations/${reservation.id}/guest-list`, {
+                headers: token ? { Authorization: `Bearer ${token}` } : {}
+              });
+              if (res.ok) {
+                const data = await res.json();
+                const et = data.guest_list?.event_type;
+                if (et === 'aniversario' || et === 'despedida' || et === 'outros' || et === 'lista_sexta') {
+                  setEventType(et);
+                } else {
+                  setEventType('');
+                }
+              } else {
+                setEventType('');
+              }
+            } catch {
+              setEventType('');
+            }
+          })();
+        } else {
+          setEventType('');
+        }
       } else { // Modo de Criação
+        setEventType('');
         setFormData({
           client_name: '',
           client_phone: '',
@@ -814,25 +842,23 @@ export default function ReservationModal({
       establishment_id: payload.establishment_id
     });
 
-    // Adicionar event_type automaticamente baseado nos critérios
+    // Adicionar event_type para Reserva Grande (prioridade: seleção do usuário > regras automáticas > outros)
     if (formData.number_of_people >= 4) {
-      const reservationDate = new Date(`${formData.reservation_date}T00:00:00`);
-      const dayOfWeek = reservationDate.getDay(); // Domingo = 0, Sexta = 5, Sábado = 6
-      const isWeekend = dayOfWeek === 5 || dayOfWeek === 6; // Sexta ou Sábado
-      const isHighLine = establishment?.id === 1;
-      
-      if (isWeekend && isHighLine) {
-        // Aniversário no HighLine (sexta/sábado)
-        payload.event_type = 'aniversario';
-      } else if (dayOfWeek === 5) {
-        // Sexta-feira para reservas grandes
-        payload.event_type = 'lista_sexta';
-      } else if (eventType) {
-        // Usar tipo selecionado pelo usuário
+      if (eventType) {
         payload.event_type = eventType;
-      } else {
-        // Reserva grande em outros dias
-        payload.event_type = 'despedida';
+      } else if (!reservation) {
+        // Só aplicar regras automáticas ao criar; ao editar, não enviar = preservar valor atual
+        const reservationDate = new Date(`${formData.reservation_date}T00:00:00`);
+        const dayOfWeek = reservationDate.getDay();
+        const isWeekend = dayOfWeek === 5 || dayOfWeek === 6;
+        const isHighLine = establishment?.id === 1;
+        if (isWeekend && isHighLine) {
+          payload.event_type = 'aniversario';
+        } else if (dayOfWeek === 5) {
+          payload.event_type = 'lista_sexta';
+        } else {
+          payload.event_type = 'outros';
+        }
       }
     }
 
@@ -1172,12 +1198,13 @@ export default function ReservationModal({
                         </label>
                         <select
                           value={eventType}
-                          onChange={(e) => setEventType(e.target.value as 'aniversario' | 'despedida' | 'outros' | '')}
+                          onChange={(e) => setEventType(e.target.value as 'aniversario' | 'despedida' | 'outros' | 'lista_sexta' | '')}
                           className="w-full px-2 py-1 text-sm bg-white border border-orange-300 rounded text-orange-900 focus:outline-none focus:ring-2 focus:ring-orange-500"
                         >
                           <option value="">Selecione (opcional)</option>
                           <option value="aniversario">Aniversário</option>
                           <option value="despedida">Despedida</option>
+                          <option value="lista_sexta">Lista Sexta</option>
                           <option value="outros">Outros</option>
                         </select>
                       </div>

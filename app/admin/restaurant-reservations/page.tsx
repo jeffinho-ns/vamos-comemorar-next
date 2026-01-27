@@ -3317,7 +3317,7 @@ export default function RestaurantReservationsPage() {
                   if (!ok) return;
                 }
 
-                const requestBody = {
+                const requestBody: Record<string, unknown> = {
                   client_name: client_name,
                   client_phone: reservationData.client_phone?.trim() || null,
                   client_email: reservationData.client_email?.trim() || null,
@@ -3337,6 +3337,15 @@ export default function RestaurantReservationsPage() {
                   send_whatsapp: reservationData.send_whatsapp !== undefined ? reservationData.send_whatsapp : true,
                   blocks_entire_area: reservationData.blocks_entire_area || false,
                 };
+                const nPeople = Number(reservationData.number_of_people) || 0;
+                if (nPeople >= 4) {
+                  const et = reservationData.event_type != null ? String(reservationData.event_type).trim() : '';
+                  if (isEditing) {
+                    if (et !== '') requestBody.event_type = reservationData.event_type;
+                  } else {
+                    requestBody.event_type = et !== '' ? reservationData.event_type : 'outros';
+                  }
+                }
                 
                 // Remover campos undefined
                 Object.keys(requestBody).forEach(key => {
@@ -3353,7 +3362,7 @@ export default function RestaurantReservationsPage() {
                   hasMultipleTables: String(requestBody.table_number || '').includes(',')
                 });
                 console.log('🔍 Validação dos campos obrigatórios:', {
-                  client_name: !!requestBody.client_name && requestBody.client_name.trim() !== '',
+                  client_name: !!requestBody.client_name && String(requestBody.client_name || '').trim() !== '',
                   reservation_date: !!requestBody.reservation_date,
                   reservation_time: !!requestBody.reservation_time,
                   area_id: requestBody.area_id,
@@ -3368,7 +3377,7 @@ export default function RestaurantReservationsPage() {
                 
                 // Validação final antes de enviar
                 // Validação crítica do client_name
-                if (!requestBody.client_name || typeof requestBody.client_name !== 'string' || requestBody.client_name.trim() === '') {
+                if (!requestBody.client_name || typeof requestBody.client_name !== 'string' || String(requestBody.client_name).trim() === '') {
                   console.error('❌ [restaurant-reservations] client_name inválido ou ausente:', {
                     client_name: requestBody.client_name,
                     type: typeof requestBody.client_name,

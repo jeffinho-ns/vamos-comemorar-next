@@ -28,6 +28,8 @@ import {
   MdViewModule,
   MdAttachMoney,
   MdDownload,
+  MdCardGiftcard,
+  MdCake,
 } from 'react-icons/md';
 import * as XLSX from 'xlsx';
 import { WithPermission } from '../../../../components/WithPermission/WithPermission';
@@ -210,6 +212,48 @@ interface Estatisticas {
   checkinCamarotes: number;
   totalGeral: number;
   checkinGeral: number;
+}
+
+/** Resultado de busca no formato do modo tablet (mesma UI que /admin/checkins/tablet) */
+interface SearchResultTablet {
+  type: 'guest' | 'owner' | 'promoter' | 'promoter_guest';
+  name: string;
+  id?: number;
+  guestId?: number;
+  guestListId?: number;
+  reservationId?: number;
+  promoterId?: number;
+  checkedIn?: boolean;
+  checkedOut?: boolean;
+  checkoutTime?: string;
+  ownerName?: string;
+  reservation?: {
+    id: number;
+    date: string;
+    time: string;
+    table?: string;
+    area?: string;
+    totalGuests: number;
+    checkedInGuests: number;
+    eventType?: string;
+    blocks_entire_area?: boolean;
+  };
+  giftInfo?: {
+    remainingCheckins: number;
+    giftDescription?: string;
+    hasGift: boolean;
+  };
+  promoterInfo?: {
+    id: number;
+    name: string;
+    totalCheckins: number;
+  };
+  /** Reserva completa (para check-in direto quando owner sem guest list) */
+  reservaRestaurante?: ReservaRestaurante;
+  /** Convidado promoter (para check-in via modal) */
+  convidadoPromoter?: ConvidadoPromoter;
+  /** Indica se owner é reserva da API adicional (não está em reservasRestaurante) */
+  fromReservasAdicionaisAPI?: boolean;
 }
 
 export default function EventoCheckInsPage() {
@@ -1896,6 +1940,41 @@ export default function EventoCheckInsPage() {
     }
   }, []);
 
+  /** Check-in de reserva sem guest list vinda da API adicional (mesmo fluxo do modo tablet) */
+  const handleReservaSemGuestListCheckIn = useCallback(async (reservationId: number, nome: string, e?: React.MouseEvent) => {
+    e?.preventDefault();
+    e?.stopPropagation();
+    const key = `reserva-api-${reservationId}`;
+    if (checkInInProgressRef.current[key]) return;
+    checkInInProgressRef.current[key] = true;
+    try {
+      const token = localStorage.getItem('authToken');
+      const response = await fetch(`${API_URL}/api/restaurant-reservations/${reservationId}/checkin`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      if (response.ok) {
+        setReservasAdicionaisAPI(prev => prev.map(r =>
+          r.id === reservationId
+            ? { ...r, checked_in: true, checkin_time: new Date().toISOString() }
+            : r
+        ));
+        toast.success(`✅ Check-in de ${nome} confirmado!`, { position: 'top-center', autoClose: 3000 });
+      } else {
+        const err = await response.json().catch(() => ({}));
+        toast.error(`❌ Erro ao fazer check-in: ${err?.error || 'Erro desconhecido'}`, { position: 'top-center', autoClose: 4000 });
+      }
+    } catch (error) {
+      console.error('Erro check-in reserva API:', error);
+      toast.error('❌ Erro ao fazer check-in', { position: 'top-center', autoClose: 4000 });
+    } finally {
+      checkInInProgressRef.current[key] = false;
+    }
+  }, []);
+
   const handleConvidadoReservaRestauranteCheckIn = useCallback(async (convidado: ConvidadoReservaRestaurante, e?: React.MouseEvent) => {
     e?.preventDefault();
     e?.stopPropagation();
@@ -2716,6 +2795,224 @@ export default function EventoCheckInsPage() {
     });
   }, [resultadosBuscaUnificados, reservasAdicionaisAPI, debouncedSearchTerm, cachedStringCompare]);
 
+  /** Resultados de busca no formato do modo tablet (mesma UI que /admin/checkins/tablet) */
+  const resultsTabletStyle = useMemo((): SearchResultTablet[] => {
+    const term = debouncedSearchTerm.trim();
+    if (term.length < 2) return [];
+
+    const searchLower = term.toLowerCase();
+    const results: SearchResultTablet[] = [];
+    const isSeuJustino = evento?.establishment_name?.toLowerCase().includes('seu justino') &&
+      !evento?.establishment_name?.toLowerCase().includes('pracinha');
+
+    const areaFor = (table?: string | number, area?: string, areaId?: number) => {
+      if (isSeuJustino && table) return getSeuJustinoAreaName(table, area, areaId);
+      return area || undefined;
+    };
+
+    // Owners (guest lists)
+    for (const gl of guestListsRestaurante) {
+      const ownerName = (gl.owner_name || '').toLowerCase();
+      if (!ownerName.includes(searchLower)) continue;
+
+      const guestListId = gl.guest_list_id ?? (gl as any).id;
+      const guests = guestsByList[guestListId] || [];
+      const guestsCheckedIn = checkInStatus[guestListId]?.guestsCheckedIn ?? gl.guests_checked_in ?? 0;
+      const totalGuests = (guestsByList[guestListId] || []).length || gl.total_guests || 0;
+      const activeRule = giftRules.filter(r => r.status === 'ATIVA').sort((a, b) => a.checkins_necessarios - b.checkins_necessarios)[0];
+      let giftInfo: { remainingCheckins: number; giftDescription?: string; hasGift: boolean } = { remainingCheckins: 0, hasGift: false };
+      if (activeRule) {
+        const needed = activeRule.checkins_necessarios || 0;
+        giftInfo = {
+          remainingCheckins: Math.max(0, needed - guestsCheckedIn),
+          giftDescription: activeRule.descricao,
+          hasGift: guestsCheckedIn >= needed,
+        };
+      }
+
+      const ownerCheckedIn = !!(checkInStatus[guestListId]?.ownerCheckedIn || gl.owner_checked_in === 1);
+      const ownerCheckedOut = !!(checkInStatus[guestListId]?.ownerCheckedOut || isOwnerCheckedOut(gl.owner_checked_out));
+
+      results.push({
+        type: 'owner',
+        name: gl.owner_name || 'Sem nome',
+        guestListId,
+        reservationId: gl.reservation_id,
+        checkedIn: ownerCheckedIn,
+        checkedOut: ownerCheckedOut,
+        checkoutTime: gl.owner_checkout_time || ownerCheckOutTimeMap[guestListId],
+        reservation: {
+          id: gl.reservation_id,
+          date: gl.reservation_date || '',
+          time: gl.reservation_time || '',
+          table: gl.table_number != null ? String(gl.table_number) : undefined,
+          area: areaFor(gl.table_number, gl.area_name),
+          totalGuests,
+          checkedInGuests: guestsCheckedIn,
+          eventType: gl.event_type || 'outros',
+        },
+        giftInfo,
+      });
+    }
+
+    // Guests (guest lists)
+    for (const [listIdStr, guests] of Object.entries(guestsByList)) {
+      const listId = Number(listIdStr);
+      const gl = guestListsRestaurante.find(g => {
+        const gid = g.guest_list_id ?? (g as any).id;
+        return gid != null && Number(gid) === listId;
+      });
+      for (const g of guests) {
+        const nome = (g.name || '').toLowerCase();
+        const whatsapp = (g.whatsapp || '').toLowerCase();
+        if (!nome.includes(searchLower) && !whatsapp.includes(searchLower)) continue;
+
+        const checkedIn = g.checked_in === 1 || g.checked_in === true;
+        const checkedOut = g.checked_out === 1 || g.checked_out === true;
+
+        results.push({
+          type: 'guest',
+          name: g.name || 'Sem nome',
+          id: g.id,
+          guestId: g.id,
+          guestListId: listId,
+          reservationId: gl?.reservation_id,
+          ownerName: gl?.owner_name,
+          checkedIn,
+          checkedOut,
+          checkoutTime: g.checkout_time,
+          reservation: gl ? {
+            id: gl.reservation_id,
+            date: gl.reservation_date || '',
+            time: gl.reservation_time || '',
+            table: gl.table_number != null ? String(gl.table_number) : undefined,
+            area: areaFor(gl.table_number, gl.area_name),
+            totalGuests: gl.total_guests || 0,
+            checkedInGuests: gl.guests_checked_in || 0,
+            eventType: gl.event_type || 'outros',
+          } : undefined,
+        });
+      }
+    }
+
+    // Reservas restaurante sem guest list
+    for (const r of reservasRestaurante) {
+      if (r.guest_list_id != null) continue;
+      const nome = (r.responsavel || (r as any).client_name || '').toLowerCase();
+      const origem = (r.origem || (r as any).origin || '').toLowerCase();
+      if (!nome.includes(searchLower) && !origem.includes(searchLower)) continue;
+
+      results.push({
+        type: 'owner',
+        name: r.responsavel || (r as any).client_name || 'Sem nome',
+        reservationId: r.id,
+        checkedIn: !!r.checked_in,
+        checkedOut: !!(r as any).checked_out,
+        checkoutTime: (r as any).checkout_time,
+        reservation: {
+          id: r.id,
+          date: r.reservation_date || '',
+          time: r.reservation_time || '',
+          table: r.table_number != null ? String(r.table_number) : undefined,
+          area: areaFor(r.table_number, r.area_name),
+          totalGuests: r.number_of_people || 0,
+          checkedInGuests: (r as any).convidados_checkin || 0,
+          eventType: 'outros',
+        },
+        reservaRestaurante: r,
+        fromReservasAdicionaisAPI: false,
+      });
+    }
+
+    // Reservas API adicional
+    const idsInResults = new Set(results.filter(x => x.type === 'owner' && x.reservationId).map(x => x.reservationId));
+    for (const r of reservasAdicionaisAPI) {
+      if (idsInResults.has(r.id)) continue;
+      const nome = (r.client_name || '').toLowerCase();
+      const origem = (r.origin || '').toLowerCase();
+      if (!nome.includes(searchLower) && !origem.includes(searchLower)) continue;
+
+      results.push({
+        type: 'owner',
+        name: r.client_name || 'Sem nome',
+        reservationId: r.id,
+        checkedIn: !!r.checked_in,
+        checkedOut: false,
+        checkoutTime: undefined,
+        reservation: {
+          id: r.id,
+          date: r.reservation_date || '',
+          time: r.reservation_time || '',
+          table: r.table_number ?? undefined,
+          area: areaFor(r.table_number, r.area_name),
+          totalGuests: r.number_of_people || 0,
+          checkedInGuests: 0,
+          eventType: 'outros',
+        },
+        fromReservasAdicionaisAPI: true,
+      });
+      idsInResults.add(r.id);
+    }
+
+    // Promoters
+    for (const p of promoters) {
+      const nome = (p.nome || '').toLowerCase();
+      if (!nome.includes(searchLower)) continue;
+      results.push({
+        type: 'promoter',
+        name: p.nome || 'Sem nome',
+        promoterId: p.id,
+        promoterInfo: {
+          id: p.id,
+          name: p.nome || '',
+          totalCheckins: p.convidados_checkin || 0,
+        },
+      });
+    }
+
+    // Promoter guests
+    const validPromoters = convidadosPromoters.filter(c => isValidPromoterGuest(c));
+    for (const c of validPromoters) {
+      const nome = (c.nome || '').toLowerCase();
+      const tel = (c.telefone || '').toLowerCase();
+      const resp = (c.responsavel || '').toLowerCase();
+      const orig = (c.origem || '').toLowerCase();
+      if (!nome.includes(searchLower) && !tel.includes(searchLower) && !resp.includes(searchLower) && !orig.includes(searchLower)) continue;
+
+      const prom = promoters.find(pr => Number(pr.id) === Number(c.promoter_id));
+      results.push({
+        type: 'promoter_guest',
+        name: c.nome || 'Sem nome',
+        id: c.id,
+        promoterId: c.promoter_id,
+        checkedIn: c.status_checkin === 'Check-in',
+        promoterInfo: {
+          id: c.promoter_id,
+          name: prom?.nome || 'Promoter',
+          totalCheckins: prom?.convidados_checkin || 0,
+        },
+        convidadoPromoter: c,
+      });
+    }
+
+    return results.sort((a, b) => cachedStringCompare(a.name, b.name));
+  }, [
+    debouncedSearchTerm,
+    guestListsRestaurante,
+    guestsByList,
+    reservasRestaurante,
+    reservasAdicionaisAPI,
+    promoters,
+    convidadosPromoters,
+    giftRules,
+    checkInStatus,
+    ownerCheckOutTimeMap,
+    evento?.establishment_name,
+    getSeuJustinoAreaName,
+    cachedStringCompare,
+    isValidPromoterGuest,
+  ]);
+
   // Ordenar listas e convidados alfabeticamente (otimizado)
   const sortedGuestListsRestaurante = useMemo(() => {
     const sorted = [...guestListsRestaurante].sort((a, b) => 
@@ -2854,6 +3151,16 @@ export default function EventoCheckInsPage() {
     };
   }, [convidadosPromoters]);
 
+  const getEventTypeLabel = useCallback((eventType?: string) => {
+    if (!eventType) return null;
+    const types: Record<string, { label: string; icon: typeof MdCake; color: string }> = {
+      aniversario: { label: 'Aniversário', icon: MdCake, color: 'text-pink-600' },
+      despedida: { label: 'Despedida', icon: MdGroups, color: 'text-purple-600' },
+      lista_sexta: { label: 'Lista Sexta', icon: MdEvent, color: 'text-blue-600' },
+    };
+    return types[eventType.toLowerCase()] || null;
+  }, []);
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900" style={{ touchAction: 'manipulation' }}>
         {/* Header */}
@@ -2905,7 +3212,7 @@ export default function EventoCheckInsPage() {
                 <MdSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
                 <input
                   type="text"
-                  placeholder="Buscar nome, telefone, responsável..."
+                  placeholder="Digite o nome do convidado, dono da reserva, promoter ou convidado do promoter..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="w-full pl-10 pr-10 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:ring-2 focus:ring-green-500 focus:border-transparent text-base"
@@ -3106,7 +3413,7 @@ export default function EventoCheckInsPage() {
                   <MdSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
                   <input
                     type="text"
-                    placeholder="Buscar por nome, telefone..."
+                    placeholder="Digite o nome do convidado, dono da reserva, promoter ou convidado do promoter..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className="w-full pl-9 md:pl-10 pr-9 md:pr-10 py-2.5 md:py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm md:text-base"
@@ -3328,307 +3635,220 @@ export default function EventoCheckInsPage() {
 
           {!loading && (
             <div className="space-y-6">
-              {/* Resultados Unificados de Busca */}
-              {searchTerm.trim() && resultadosCompletos.length > 0 && (
-                <section className="bg-gradient-to-r from-blue-600/20 to-purple-600/20 backdrop-blur-sm rounded-lg shadow-sm p-3 md:p-6 border border-blue-500/50">
-                  <div className="flex items-center justify-between mb-3 md:mb-4">
-                    <h2 className="text-base md:text-xl font-bold text-white flex items-center gap-2">
-                      <MdSearch size={18} className="md:w-6 md:h-6 text-blue-400" />
-                      <span className="hidden md:inline">Resultados: "{searchTerm}" ({resultadosCompletos.length})</span>
-                      <span className="md:hidden">Busca: {resultadosCompletos.length} resultado{resultadosCompletos.length !== 1 ? 's' : ''}</span>
-                    </h2>
-                  </div>
-                  {/* Mobile/Tablet: Lista simples em linhas */}
-                  <div className="md:hidden divide-y divide-white/10">
-                    {resultadosBuscaUnificados.map(resultado => {
-                      const isCheckedIn = resultado.status === 'CHECK-IN' || resultado.status === 'Check-in';
-                      const isCheckedOut = resultado.status === 'CHECK-OUT' || resultado.status === 'Check-out';
-                      return (
-                        <div
-                          key={`${resultado.tipo}-${resultado.id}`}
-                          className={`flex items-center justify-between gap-2 px-3 py-2.5 ${
-                            isCheckedIn ? 'bg-green-900/10' : 'hover:bg-white/5'
-                          }`}
-                        >
-                          <div className="flex items-center gap-2 flex-1 min-w-0">
-                            {isCheckedIn ? (
-                              <MdCheckCircle size={18} className="text-green-400 flex-shrink-0" />
-                            ) : (
-                              <div className="w-4 h-4 rounded-full border-2 border-gray-400 flex-shrink-0" />
-                            )}
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2">
-                                <span className="font-medium text-white text-sm truncate">{resultado.nome}</span>
-                                <span className={`text-xs px-1.5 py-0.5 rounded ${
-                                  resultado.tipo === 'reserva' 
-                                    ? 'bg-blue-500/30 text-blue-200'
-                                    : resultado.tipo === 'promoter'
-                                    ? 'bg-purple-500/30 text-purple-200'
-                                    : resultado.tipo === 'guest_list'
-                                    ? 'bg-green-500/30 text-green-200'
-                                    : 'bg-orange-500/30 text-orange-200'
-                                }`}>
-                                  {resultado.tipo === 'reserva' ? '📋' : resultado.tipo === 'promoter' ? '⭐' : resultado.tipo === 'guest_list' ? '🎂' : '🍽️'}
-                                </span>
-                                {resultado.entrada_tipo && isCheckedIn && (
-                                  <span className={`text-xs px-1.5 py-0.5 rounded ${
-                                    resultado.entrada_tipo === 'VIP'
-                                      ? 'bg-green-500/30 text-green-200'
-                                      : resultado.entrada_tipo === 'SECO'
-                                      ? 'bg-blue-500/30 text-blue-200'
-                                      : 'bg-purple-500/30 text-purple-200'
-                                  }`}>
-                                    {resultado.entrada_tipo}
-                                  </span>
+              {/* Busca - mesmo resultado e comportamento do modo tablet (/admin/checkins/tablet) */}
+              {searchTerm.trim().length > 0 && (
+                <>
+                  {searchTerm.trim().length < 2 && (
+                    <section className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl shadow-lg p-6 sm:p-8 text-center text-gray-400">
+                      <MdSearch size={40} className="mx-auto mb-4 text-gray-500" />
+                      <p className="text-base sm:text-lg">Digite pelo menos 2 caracteres para buscar</p>
+                    </section>
+                  )}
+                  {searchTerm.trim().length >= 2 && resultsTabletStyle.length > 0 && (
+                    <section className="space-y-3 sm:space-y-4">
+                      {resultsTabletStyle.map((result, index) => {
+                        const eventTypeInfo = getEventTypeLabel(result.reservation?.eventType);
+                        const isOwner = result.type === 'owner';
+                        const handleCheckInClick = () => {
+                          if (result.type === 'guest' && result.guestId != null && result.guestListId != null) {
+                            handleGuestCheckIn(result.guestListId, result.guestId, result.name);
+                          } else if (result.type === 'owner' && result.guestListId != null) {
+                            handleOwnerCheckIn(result.guestListId, result.name);
+                          } else if (result.type === 'owner' && result.reservaRestaurante) {
+                            handleReservaRestauranteCheckIn(result.reservaRestaurante);
+                          } else if (result.type === 'owner' && result.fromReservasAdicionaisAPI && result.reservationId != null) {
+                            handleReservaSemGuestListCheckIn(result.reservationId, result.name);
+                          } else if (result.type === 'promoter_guest' && result.convidadoPromoter) {
+                            handleConvidadoPromoterCheckIn(result.convidadoPromoter);
+                          }
+                        };
+                        return (
+                          <div
+                            key={`${result.type}-${result.id ?? result.guestListId ?? result.reservationId ?? index}`}
+                            className={`bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl shadow-lg p-4 sm:p-6 border-l-4 transition-all hover:shadow-xl ${
+                              result.checkedIn
+                                ? 'border-l-green-500 bg-green-900/20'
+                                : isOwner
+                                  ? 'border-l-purple-500 bg-purple-900/20'
+                                  : 'border-l-blue-500'
+                            }`}
+                          >
+                            <div className="flex items-start gap-3 sm:gap-4">
+                              <div className={`p-2 sm:p-4 rounded-full flex-shrink-0 ${
+                                result.checkedOut ? 'bg-gray-500/20' : result.checkedIn ? 'bg-green-500/20' : isOwner ? 'bg-purple-500/20' : 'bg-blue-500/20'
+                              }`}>
+                                {(result.type === 'promoter' || result.type === 'promoter_guest') ? (
+                                  <MdEvent className={result.checkedOut ? 'text-gray-400' : result.checkedIn ? 'text-green-400' : 'text-blue-400'} size={24} />
+                                ) : (
+                                  <MdPerson className={result.checkedOut ? 'text-gray-400' : result.checkedIn ? 'text-green-400' : isOwner ? 'text-purple-400' : 'text-blue-400'} size={24} />
                                 )}
                               </div>
-                              <div className="text-xs text-gray-400 truncate mt-0.5">
-                                {resultado.telefone || resultado.origem}
+                              <div className="flex-1 min-w-0">
+                                <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-3">
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-2">
+                                      <h3 className={`text-xl sm:text-2xl font-bold truncate ${isOwner ? 'text-purple-300' : 'text-white'}`}>{result.name}</h3>
+                                      {isOwner && (
+                                        <span className="px-2 sm:px-3 py-1 bg-purple-500/30 text-purple-200 rounded-full text-xs sm:text-sm font-semibold flex items-center gap-1 flex-shrink-0">
+                                          <MdPerson size={14} /> DONO DA RESERVA
+                                        </span>
+                                      )}
+                                      {eventTypeInfo && (
+                                        <span className={`px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm font-semibold flex items-center gap-1 ${eventTypeInfo.color} bg-opacity-20 flex-shrink-0`}>
+                                          <eventTypeInfo.icon size={14} /> {eventTypeInfo.label}
+                                        </span>
+                                      )}
+                                    </div>
+                                    {result.type === 'guest' && result.ownerName && (
+                                      <p className="text-gray-300 mb-2 text-sm sm:text-base">
+                                        <strong className="text-gray-200">Convidado de:</strong> {result.ownerName}
+                                      </p>
+                                    )}
+                                  </div>
+                                  <div className="flex-shrink-0 flex flex-col gap-2">
+                                    {!result.checkedIn && !result.checkedOut && (result.type === 'guest' || result.type === 'owner' || result.type === 'promoter_guest') && (
+                                      <button onClick={handleCheckInClick} className="w-full sm:w-auto px-4 sm:px-5 py-2 sm:py-2.5 bg-green-500 hover:bg-green-600 text-white rounded-lg flex items-center justify-center gap-2 transition-all shadow-md hover:shadow-lg font-semibold text-sm sm:text-base">
+                                        <MdCheckCircle size={18} /> Check-in
+                                      </button>
+                                    )}
+                                    {result.checkedIn && !result.checkedOut && (result.type === 'guest' || result.type === 'owner') && (
+                                      <>
+                                        <span className="w-full sm:w-auto px-4 sm:px-5 py-2 sm:py-2.5 bg-green-500/20 text-green-300 rounded-lg flex items-center justify-center gap-2 font-semibold text-sm sm:text-base">
+                                          <MdCheckCircle size={18} /> Check-in realizado
+                                        </span>
+                                        {(result.type === 'guest' || (result.type === 'owner' && result.guestListId != null)) && (
+                                          <button
+                                            onClick={() => {
+                                              if (result.type === 'guest' && result.guestId != null && result.guestListId != null) {
+                                                handleGuestCheckOut(result.guestListId, result.guestId, result.name);
+                                              } else if (result.type === 'owner' && result.guestListId != null) {
+                                                handleOwnerCheckOut(result.guestListId, result.name);
+                                              }
+                                            }}
+                                            className="w-full sm:w-auto px-4 sm:px-5 py-2 sm:py-2.5 bg-orange-500 hover:bg-orange-600 text-white rounded-lg flex items-center justify-center gap-2 transition-all shadow-md hover:shadow-lg font-semibold text-sm sm:text-base"
+                                            title="Registrar saída"
+                                          >
+                                            🚪 Check-out
+                                          </button>
+                                        )}
+                                      </>
+                                    )}
+                                    {result.checkedOut && (
+                                      <span className="w-full sm:w-auto px-4 sm:px-5 py-2 sm:py-2.5 bg-gray-500/20 text-gray-300 rounded-lg flex items-center justify-center gap-2 font-semibold text-sm sm:text-base">
+                                        🚪 Saída registrada
+                                        {result.checkoutTime && <span className="text-xs text-gray-400">{new Date(result.checkoutTime).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</span>}
+                                      </span>
+                                    )}
+                                    {result.checkedIn && result.type === 'promoter_guest' && (
+                                      <span className="w-full sm:w-auto px-4 sm:px-5 py-2 sm:py-2.5 bg-green-500/20 text-green-300 rounded-lg flex items-center justify-center gap-2 font-semibold text-sm sm:text-base">
+                                        <MdCheckCircle size={18} /> Check-in realizado
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                                {result.type === 'guest' && (
+                                  <div className="space-y-2 text-gray-300 bg-white/5 p-3 sm:p-4 rounded-lg">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                      <div>
+                                        <p className="text-xs sm:text-sm text-gray-400">Data da Reserva</p>
+                                        <p className="font-semibold text-sm sm:text-base text-white">
+                                          {(() => {
+                                            const dateStr = result.reservation?.date;
+                                            if (!dateStr) return 'Data não informada';
+                                            try {
+                                              const datePart = (String(dateStr).split('T')[0] || String(dateStr).split(' ')[0] || '').trim();
+                                              if (!datePart || datePart.length < 10) return 'Data não informada';
+                                              const d = new Date(datePart + 'T12:00:00');
+                                              return isNaN(d.getTime()) ? 'Data não informada' : d.toLocaleDateString('pt-BR');
+                                            } catch {
+                                              return 'Data não informada';
+                                            }
+                                          })()} às {result.reservation?.time ?? '—'}
+                                        </p>
+                                      </div>
+                                      {result.reservation?.table && (
+                                        <div>
+                                          <p className="text-xs sm:text-sm text-gray-400">Mesa</p>
+                                          <p className="font-semibold flex items-center gap-1 text-sm sm:text-base text-amber-300 bg-amber-500/20 px-2 py-1 rounded-md">
+                                            <MdTableBar size={16} className="text-amber-400" />
+                                            <span className="font-bold">{result.reservation.table}</span>
+                                          </p>
+                                        </div>
+                                      )}
+                                    </div>
+                                    <div>
+                                      <p className="text-xs sm:text-sm text-gray-400">Lista de Reserva</p>
+                                      <p className="font-semibold text-sm sm:text-base">ID: {result.reservation?.id ?? '—'}</p>
+                                    </div>
+                                  </div>
+                                )}
+                                {result.type === 'owner' && result.reservation && (
+                                  <div className="space-y-2 text-gray-300 bg-white/5 p-3 sm:p-4 rounded-lg">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                      <div>
+                                        <p className="text-xs sm:text-sm text-gray-400">Data da Reserva</p>
+                                        <p className="font-semibold text-sm sm:text-base text-white">
+                                          {result.reservation.date ? (() => {
+                                            const d = new Date(result.reservation.date + 'T12:00:00');
+                                            return isNaN(d.getTime()) ? '—' : d.toLocaleDateString('pt-BR');
+                                          })() : '—'} às {result.reservation.time || '—'}
+                                        </p>
+                                      </div>
+                                      {result.reservation.table && (
+                                        <div>
+                                          <p className="text-xs sm:text-sm text-gray-400">Mesa</p>
+                                          <p className="font-semibold flex items-center gap-1 text-sm sm:text-base text-amber-300 bg-amber-500/20 px-2 py-1 rounded-md">
+                                            <MdTableBar size={16} className="text-amber-400" />
+                                            <span className="font-bold">{result.reservation.table}</span>
+                                          </p>
+                                        </div>
+                                      )}
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-3">
+                                      <div><p className="text-xs text-gray-400">Total</p><p className="font-semibold">{result.reservation.totalGuests}</p></div>
+                                      <div><p className="text-xs text-gray-400">Check-ins</p><p className="font-semibold text-green-400">{result.reservation.checkedInGuests}</p></div>
+                                    </div>
+                                  </div>
+                                )}
+                                {result.type === 'owner' && result.giftInfo && (
+                                  result.giftInfo.hasGift ? (
+                                    <div className="p-3 sm:p-4 bg-gradient-to-r from-yellow-900/30 to-yellow-800/30 border-2 border-yellow-500/50 rounded-lg mt-2">
+                                      <div className="flex items-center gap-2"><MdCardGiftcard className="text-yellow-400" size={20} /><strong className="text-yellow-200">🎁 Brinde Disponível!</strong></div>
+                                      <p className="text-yellow-200 font-semibold text-sm sm:text-base mt-1">{result.giftInfo.giftDescription}</p>
+                                    </div>
+                                  ) : result.giftInfo.remainingCheckins > 0 ? (
+                                    <div className="p-3 sm:p-4 bg-blue-900/30 border-2 border-blue-500/50 rounded-lg mt-2">
+                                      <div className="flex items-center gap-2"><MdPending className="text-blue-400" size={20} /><strong className="text-blue-200 text-sm sm:text-base">Check-ins para Brinde</strong></div>
+                                      <p className="text-blue-200 font-semibold text-sm sm:text-base mt-1">Faltam <span className="text-xl sm:text-2xl text-blue-400">{result.giftInfo.remainingCheckins}</span> check-in(s) para ganhar o brinde</p>
+                                    </div>
+                                  ) : null
+                                )}
+                                {result.type === 'promoter' && result.promoterInfo && (
+                                  <div className="bg-white/5 p-3 sm:p-4 rounded-lg mt-2">
+                                    <p className="text-gray-300 text-sm sm:text-base"><strong>Total de check-ins:</strong> <span className="text-green-400 font-semibold">{result.promoterInfo.totalCheckins}</span></p>
+                                  </div>
+                                )}
+                                {result.type === 'promoter_guest' && result.promoterInfo && (
+                                  <div className="bg-white/5 p-3 sm:p-4 rounded-lg mt-2">
+                                    <p className="text-gray-300 text-sm sm:text-base"><strong>Promoter:</strong> <span className="text-purple-300 font-semibold">{result.promoterInfo.name}</span></p>
+                                    <p className="text-gray-300 mt-1 text-sm sm:text-base"><strong>Total de check-ins do promoter:</strong> <span className="text-green-400 font-semibold">{result.promoterInfo.totalCheckins}</span></p>
+                                  </div>
+                                )}
                               </div>
                             </div>
                           </div>
-                          {!isCheckedIn && !isCheckedOut && (
-                            <button
-                              onClick={() => {
-                                if (resultado.tipo === 'reserva' && resultado.convidado) {
-                                  handleConvidadoReservaCheckIn(resultado.convidado as ConvidadoReserva);
-                                } else if (resultado.tipo === 'promoter' && resultado.convidado) {
-                                  handleConvidadoPromoterCheckIn(resultado.convidado as ConvidadoPromoter);
-                                } else if (resultado.tipo === 'restaurante') {
-                                  // Verificar se é convidado de reserva ou reserva sem guest list
-                                  if (resultado.convidado) {
-                                    handleConvidadoReservaRestauranteCheckIn(resultado.convidado as ConvidadoReservaRestaurante);
-                                  } else {
-                                    // É uma reserva sem guest list - fazer check-in direto
-                                    const reserva = reservasRestaurante.find(r => r.id === resultado.id);
-                                    if (reserva) {
-                                      handleReservaRestauranteCheckIn(reserva);
-                                    }
-                                  }
-                                } else if (resultado.tipo === 'guest_list' && resultado.guestListId) {
-                                  handleGuestCheckIn(resultado.guestListId, resultado.id, resultado.nome);
-                                }
-                              }}
-                              className="px-3 py-1.5 text-xs bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors touch-manipulation font-medium flex-shrink-0"
-                            >
-                              Check-in
-                            </button>
-                          )}
-                          {isCheckedIn && !isCheckedOut && resultado.tipo === 'guest_list' && resultado.guestListId && (
-                            <button
-                              onClick={() => {
-                                handleGuestCheckOut(resultado.guestListId!, resultado.id, resultado.nome);
-                              }}
-                              className="px-3 py-1.5 text-xs bg-orange-600 hover:bg-orange-700 text-white rounded-lg transition-colors touch-manipulation font-medium flex-shrink-0"
-                              title="Registrar saída do convidado"
-                            >
-                              Check-out
-                            </button>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                  {/* Desktop: Grid original */}
-                  <div className="hidden md:grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-3 md:gap-4">
-                    {resultadosBuscaUnificados.map(resultado => {
-                      const isCheckedIn = resultado.status === 'CHECK-IN' || resultado.status === 'Check-in';
-                      const isCheckedOut = resultado.status === 'CHECK-OUT' || resultado.status === 'Check-out';
-                      const getBorderClass = () => {
-                        if (isCheckedOut) return 'bg-gray-900/30 border-gray-500/50';
-                        if (isCheckedIn) return 'bg-green-900/30 border-green-500/50';
-                        if (resultado.tipo === 'reserva') return 'bg-white/5 border-blue-500/30 hover:border-blue-400/50';
-                        if (resultado.tipo === 'promoter') return 'bg-white/5 border-purple-500/30 hover:border-purple-400/50';
-                        if (resultado.tipo === 'guest_list') return 'bg-white/5 border-green-500/30 hover:border-green-400/50';
-                        return 'bg-white/5 border-orange-500/30 hover:border-orange-400/50';
-                      };
-                      const getButtonClass = () => {
-                        if (resultado.tipo === 'reserva') return 'bg-blue-600 hover:bg-blue-700';
-                        if (resultado.tipo === 'promoter') return 'bg-purple-600 hover:bg-purple-700';
-                        if (resultado.tipo === 'guest_list') return 'bg-green-600 hover:bg-green-700';
-                        return 'bg-orange-600 hover:bg-orange-700';
-                      };
-                      
-                      return (
-                        <motion.div
-                          key={`${resultado.tipo}-${resultado.id}`}
-                          initial={isMobile ? false : { opacity: 0, y: 20 }}
-                          animate={isMobile ? false : { opacity: 1, y: 0 }}
-                          transition={isMobile ? undefined : { duration: 0.2 }}
-                          className={`border rounded-lg p-3 ${getBorderClass()} ${isCheckedOut ? 'opacity-60' : ''}`}
-                          style={{ touchAction: 'manipulation' }}
-                        >
-                          <div className="flex items-start justify-between mb-2">
-                            <div className="flex-1 min-w-0">
-                              <h3 className={`font-bold text-base truncate ${isCheckedOut ? 'text-gray-400 line-through' : 'text-white'}`}>
-                                {resultado.nome}
-                              </h3>
-                              <div className="text-xs text-gray-300 space-y-0.5 mt-1">
-                                <div className={`text-xs px-2 py-0.5 rounded-full inline-block font-medium ${
-                                  resultado.tipo === 'reserva' 
-                                    ? 'bg-blue-100 text-blue-700'
-                                    : resultado.tipo === 'promoter'
-                                    ? 'bg-purple-100 text-purple-700'
-                                    : resultado.tipo === 'guest_list'
-                                    ? 'bg-green-100 text-green-700'
-                                    : 'bg-orange-100 text-orange-700'
-                                }`}>
-                                  {resultado.tipo === 'reserva' ? '📋 Reserva' : resultado.tipo === 'promoter' ? '⭐ Promoter' : resultado.tipo === 'guest_list' ? '🎂 Aniversário' : '🍽️ Restaurante'}
-                                </div>
-                                <div className="text-xs text-gray-400 truncate mt-1">
-                                  <strong>Lista:</strong> {resultado.origem}
-                                </div>
-                                <div className="text-xs text-gray-400 truncate">
-                                  <strong>Responsável:</strong> {resultado.responsavel}
-                                </div>
-                                {resultado.email && (
-                                  <div className="flex items-center gap-1 truncate">
-                                    <MdEmail size={12} />
-                                    <span className="truncate text-xs">{resultado.email}</span>
-                                  </div>
-                                )}
-                                {resultado.telefone && (
-                                  <div className="flex items-center gap-1 truncate">
-                                    <MdPhone size={12} />
-                                    <span className="truncate text-xs">{resultado.telefone}</span>
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                            {isCheckedOut && (
-                              <MdClose size={24} className="text-gray-400 flex-shrink-0 ml-2" />
-                            )}
-                            {isCheckedIn && !isCheckedOut && (
-                              <MdCheckCircle size={24} className="text-green-400 flex-shrink-0 ml-2" />
-                            )}
-                          </div>
-
-                          {!isCheckedIn && !isCheckedOut ? (
-                            <button
-                              onClick={() => {
-                                if (resultado.tipo === 'reserva' && resultado.convidado) {
-                                  handleConvidadoReservaCheckIn(resultado.convidado as ConvidadoReserva);
-                                } else if (resultado.tipo === 'promoter' && resultado.convidado) {
-                                  handleConvidadoPromoterCheckIn(resultado.convidado as ConvidadoPromoter);
-                                } else if (resultado.tipo === 'restaurante') {
-                                  // Verificar se é convidado de reserva ou reserva sem guest list
-                                  if (resultado.convidado) {
-                                    handleConvidadoReservaRestauranteCheckIn(resultado.convidado as ConvidadoReservaRestaurante);
-                                  } else {
-                                    // É uma reserva sem guest list - fazer check-in direto
-                                    const reserva = reservasRestaurante.find(r => r.id === resultado.id);
-                                    if (reserva) {
-                                      handleReservaRestauranteCheckIn(reserva);
-                                    }
-                                  }
-                                } else if (resultado.tipo === 'guest_list' && resultado.guestListId) {
-                                  handleGuestCheckIn(resultado.guestListId, resultado.id, resultado.nome);
-                                }
-                              }}
-                              className={`w-full ${getButtonClass()} text-white font-medium py-2 rounded-lg transition-colors flex items-center justify-center gap-1.5 text-sm touch-manipulation`}
-                            >
-                              <MdCheckCircle size={16} />
-                              Check-in
-                            </button>
-                          ) : isCheckedIn && !isCheckedOut && resultado.tipo === 'guest_list' && resultado.guestListId ? (
-                            <div className="space-y-2">
-                              <div className="text-center space-y-1">
-                                <div className="text-xs text-green-400 font-medium">
-                                  ✅ {resultado.data_checkin ? new Date(resultado.data_checkin).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : ''}
-                                </div>
-                                {resultado.entrada_tipo && (
-                                  <div className={`text-xs px-2 py-0.5 rounded-full inline-block font-medium ${
-                                    resultado.entrada_tipo === 'VIP'
-                                      ? 'bg-green-100 text-green-700'
-                                      : resultado.entrada_tipo === 'SECO'
-                                      ? 'bg-blue-100 text-blue-700'
-                                      : 'bg-purple-100 text-purple-700'
-                                  }`}>
-                                    {resultado.entrada_tipo}
-                                    {resultado.entrada_valor && (() => {
-                                      const valor = typeof resultado.entrada_valor === 'number' 
-                                        ? resultado.entrada_valor 
-                                        : parseFloat(String(resultado.entrada_valor));
-                                      return !isNaN(valor) ? ` R$ ${valor.toFixed(2)}` : '';
-                                    })()}
-                                  </div>
-                                )}
-                              </div>
-                              <button
-                                onClick={() => {
-                                  handleGuestCheckOut(resultado.guestListId!, resultado.id, resultado.nome);
-                                }}
-                                className="w-full bg-orange-600 hover:bg-orange-700 text-white font-medium py-2 rounded-lg transition-colors flex items-center justify-center gap-1.5 text-sm touch-manipulation"
-                                title="Registrar saída do convidado"
-                              >
-                                <MdClose size={16} />
-                                Check-out
-                              </button>
-                            </div>
-                          ) : (
-                            <div className="text-center space-y-1">
-                              {isCheckedOut ? (
-                                <>
-                                  <div className="text-xs text-gray-400 font-medium">
-                                    🚪 Saída
-                                  </div>
-                                  {/* Exibir horários de entrada e saída lado a lado */}
-                                  {(resultado.data_checkin || resultado.data_checkout) && (
-                                    <div className="text-xs text-gray-500 font-mono">
-                                      {resultado.data_checkin && `E: ${new Date(resultado.data_checkin).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`}
-                                      {resultado.data_checkin && resultado.data_checkout && ' | '}
-                                      {resultado.data_checkout && `S: ${new Date(resultado.data_checkout).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`}
-                                    </div>
-                                  )}
-                                </>
-                              ) : (
-                                <>
-                                  <div className="text-xs text-green-400 font-medium">
-                                    ✅ Presente
-                                  </div>
-                                  {/* Exibir horário de entrada quando presente */}
-                                  {resultado.data_checkin && (
-                                    <div className="text-xs text-gray-500 font-mono">
-                                      E: {new Date(resultado.data_checkin).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
-                                    </div>
-                                  )}
-                                  {resultado.entrada_tipo && (
-                                    <div className={`text-xs px-2 py-0.5 rounded-full inline-block font-medium ${
-                                      resultado.entrada_tipo === 'VIP'
-                                        ? 'bg-green-100 text-green-700'
-                                        : resultado.entrada_tipo === 'SECO'
-                                        ? 'bg-blue-100 text-blue-700'
-                                        : 'bg-purple-100 text-purple-700'
-                                    }`}>
-                                      {resultado.entrada_tipo}
-                                      {resultado.entrada_valor && (() => {
-                                        const valor = typeof resultado.entrada_valor === 'number' 
-                                          ? resultado.entrada_valor 
-                                          : parseFloat(String(resultado.entrada_valor));
-                                        return !isNaN(valor) ? ` R$ ${valor.toFixed(2)}` : '';
-                                      })()}
-                                    </div>
-                                  )}
-                                </>
-                              )}
-                            </div>
-                          )}
-                        </motion.div>
-                      );
-                    })}
-                  </div>
-                </section>
-              )}
-
-              {/* Mensagem quando busca não encontra resultados */}
-              {searchTerm.trim() && resultadosCompletos.length === 0 && !loadingReservasAdicionais && (
-                <section className="bg-white/10 backdrop-blur-sm rounded-lg shadow-sm p-6 border border-white/20">
-                  <div className="text-center py-8 text-gray-400">
-                    <MdSearch size={48} className="mx-auto mb-4 opacity-50" />
-                    <p className="text-lg">Nenhum resultado encontrado para "{searchTerm}"</p>
-                    <p className="text-sm mt-2">Tente buscar por nome, telefone ou responsável</p>
-                  </div>
-                </section>
+                        );
+                      })}
+                    </section>
+                  )}
+                  {searchTerm.trim().length >= 2 && resultsTabletStyle.length === 0 && !loadingReservasAdicionais && (
+                    <section className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl shadow-lg p-6 sm:p-8 text-center text-gray-400">
+                      <MdSearch size={40} className="mx-auto mb-4 text-gray-500" />
+                      <p className="text-base sm:text-lg">Nenhum resultado encontrado para &quot;{searchTerm}&quot;</p>
+                      <p className="text-sm mt-2">Tente buscar por nome, telefone ou responsável</p>
+                    </section>
+                  )}
+                </>
               )}
 
               {/* Reservas de Mesa */}
