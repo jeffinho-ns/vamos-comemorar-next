@@ -824,6 +824,21 @@ export default function ReservationModal({
       send_whatsapp: sendWhatsAppConfirmation,
       blocks_entire_area: blocksEntireArea && isAdmin, // Apenas admin pode bloquear área completa
     };
+
+    // Área exibida ao cliente (email, etc.): subárea (ex. Lounge Aquário TV) ou nome da área
+    let areaDisplayName: string | null = null;
+    if (isHighline || isSeuJustino) {
+      if (selectedSubareaKey) {
+        const sub = isHighline
+          ? highlineSubareas.find(s => s.key === selectedSubareaKey)
+          : seuJustinoSubareas.find(s => s.key === selectedSubareaKey);
+        if (sub?.label) areaDisplayName = sub.label;
+      }
+    } else if (areas.length && formData.area_id) {
+      const ar = areas.find((a: { id: number }) => Number(a.id) === Number(formData.area_id));
+      if (ar && (ar as { name?: string }).name) areaDisplayName = (ar as { name: string }).name;
+    }
+    if (areaDisplayName) payload.area_display_name = areaDisplayName;
     
     // Remover campos undefined para evitar problemas na serialização JSON
     Object.keys(payload).forEach(key => {

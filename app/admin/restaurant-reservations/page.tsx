@@ -3337,6 +3337,8 @@ export default function RestaurantReservationsPage() {
                   send_whatsapp: reservationData.send_whatsapp !== undefined ? reservationData.send_whatsapp : true,
                   blocks_entire_area: reservationData.blocks_entire_area || false,
                 };
+                const adn = reservationData.area_display_name != null ? String(reservationData.area_display_name).trim() : '';
+                if (adn !== '') requestBody.area_display_name = adn;
                 const nPeople = Number(reservationData.number_of_people) || 0;
                 if (nPeople >= 4) {
                   const et = reservationData.event_type != null ? String(reservationData.event_type).trim() : '';

@@ -749,6 +749,21 @@ const handleSubmit = async (e: React.FormEvent) => {
     delete payload.table_number;
   }
 
+  // 3.1 Área exibida ao cliente (email): subárea (ex. Lounge Aquário TV) ou nome da área
+  let areaDisplayName: string | null = null;
+  if (isHighline || isSeuJustino) {
+    if (selectedSubareaKey) {
+      const sub = isHighline
+        ? highlineSubareas.find(s => s.key === selectedSubareaKey)
+        : seuJustinoSubareas.find(s => s.key === selectedSubareaKey);
+      if (sub?.label) areaDisplayName = sub.label;
+    }
+  } else if (areas.length && reservationData.area_id) {
+    const ar = areas.find((a: { id: number }) => Number(a.id) === Number(reservationData.area_id));
+    if (ar && (ar as { name?: string }).name) areaDisplayName = (ar as { name: string }).name;
+  }
+  if (areaDisplayName) payload.area_display_name = areaDisplayName;
+
   // 4. Lógica para reservas grandes (11+ pessoas vão para large-reservations, 4-10 vão para restaurant-reservations)
   const isLargeGroup = payload.number_of_people >= 11; // CORRIGIDO: apenas 11+ pessoas vão para large-reservations
   const isMediumGroup = payload.number_of_people >= 4 && payload.number_of_people < 11; // 4-10 pessoas
