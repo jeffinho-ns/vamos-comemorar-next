@@ -190,7 +190,15 @@ export default function GuestListPublicPage() {
           Você está na lista de convidados de {ownerName}
         </h1>
         {reservationDate && (
-          <p className="text-gray-600 mb-6 text-sm">Data do evento: {reservationDate ? new Date(reservationDate + 'T12:00:00').toLocaleDateString('pt-BR') : 'Data não informada'}</p>
+          <p className="text-gray-600 mb-6 text-sm">
+            Data do evento: {(() => {
+              if (!reservationDate) return 'Data não informada';
+              const datePart = (String(reservationDate).split('T')[0] || String(reservationDate).split(' ')[0] || '').trim();
+              if (!datePart) return 'Data não informada';
+              const d = new Date(datePart + 'T12:00:00');
+              return isNaN(d.getTime()) ? 'Data não informada' : d.toLocaleDateString('pt-BR');
+            })()}
+          </p>
         )}
 
         {/* Seção de QR Code e Progresso */}
