@@ -398,6 +398,7 @@ export default function RestaurantReservationsPage() {
 
   const loadAreas = async () => {
     if (areas.length > 0) return; // Já carregadas
+    if (!selectedEstablishment?.id) return;
     
     // Dados mock sempre disponíveis
     const mockAreas = [
@@ -409,7 +410,7 @@ export default function RestaurantReservationsPage() {
     ];
     
     try {
-      const areasResponse = await fetch(`${API_URL}/api/restaurant-areas`);
+      const areasResponse = await fetch(`${API_URL}/api/restaurant-areas?establishment_id=${selectedEstablishment.id}`);
       if (areasResponse.ok) {
         const areasData = await areasResponse.json();
         if (areasData.success && areasData.areas && areasData.areas.length > 0) {
@@ -460,7 +461,7 @@ export default function RestaurantReservationsPage() {
 
     try {
       // 1. Carregar Áreas (com autenticação)
-      const areasResponse = await fetch(`${API_URL}/api/restaurant-areas`, { headers: authHeaders });
+      const areasResponse = await fetch(`${API_URL}/api/restaurant-areas?establishment_id=${selectedEstablishment.id}`, { headers: authHeaders });
       if (areasResponse.ok) {
         const areasData = await areasResponse.json();
         setAreas(areasData.areas || []);

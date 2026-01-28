@@ -355,7 +355,7 @@ export default function ReservationForm() {
 
   const loadAreas = async (establishmentId: number) => {
     try {
-      const response = await fetch(`${API_URL}/api/restaurant-areas`);
+      const response = await fetch(`${API_URL}/api/restaurant-areas?establishment_id=${establishmentId}`);
       if (response.ok) {
         const data = await response.json();
         setAreas(data.areas || []);
