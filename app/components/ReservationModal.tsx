@@ -366,10 +366,29 @@ export default function ReservationModal({
         return;
       }
       try {
-        const res = await fetch(`${API_URL}/api/restaurant-tables/${formData.area_id}/availability?date=${formData.reservation_date}`);
+        const estIdForTables = establishment?.id ? Number(establishment.id) : null;
+        const res = await fetch(
+          `${API_URL}/api/restaurant-tables/${formData.area_id}/availability?date=${formData.reservation_date}${estIdForTables ? `&establishment_id=${estIdForTables}` : ''}`
+        );
         if (res.ok) {
           const data = await res.json();
           let fetched: RestaurantTable[] = Array.isArray(data.tables) ? data.tables : [];
+
+          // REGRA "2º GIRO" (SÁBADO 15:00–21:00) — Seu Justino (1) e Pracinha (8)
+          // Neste período, o salão fica bloqueado: todas as mesas devem aparecer indisponíveis
+          // e a reserva deve seguir como "Espera Antecipada (Bistrô)".
+          const isSecondGiroSaturday = (() => {
+            const estId = establishment?.id ? Number(establishment.id) : null;
+            if (estId !== 1 && estId !== 8) return false;
+            if (!formData.reservation_date || !formData.reservation_time) return false;
+            const d = new Date(`${formData.reservation_date}T00:00:00`);
+            if (d.getDay() !== 6) return false; // sábado
+            const t = String(formData.reservation_time).slice(0, 5);
+            const [h, m] = t.split(':').map(Number);
+            if (Number.isNaN(h)) return false;
+            const minutes = h * 60 + (Number.isNaN(m) ? 0 : m);
+            return minutes >= 15 * 60 && minutes < 21 * 60;
+          })();
           
           // A. LÓGICA DE TRAVAMENTO "GIRO ÚNICO" NO DECK (EXCLUSIVO HIGHLINE)
           // Se for Highline e área Deck (area_id = 2), aplicar travamento de mesas
@@ -480,15 +499,24 @@ export default function ReservationModal({
                   }
                 });
                 
-                // Marcar mesas como reservadas
+                // IMPORTANTE: Para Seu Justino/Pracinha, a disponibilidade é por SOBREPOSIÇÃO DE HORÁRIO.
+                // Não podemos "herdar" `table.is_reserved` do endpoint de availability, pois ele bloqueia o dia todo.
                 fetched = fetched.map(table => ({
                   ...table,
-                  is_reserved: reservedTableNumbers.has(String(table.table_number)) || table.is_reserved
+                  is_reserved: reservedTableNumbers.has(String(table.table_number))
                 }));
               }
             } catch (err) {
               console.error('Erro ao verificar disponibilidade:', err);
             }
+          }
+
+          // Aplicar travamento total do 2º giro (Sábado 15–21) para Justino/Pracinha
+          if (isSecondGiroSaturday) {
+            fetched = fetched.map(t => ({ ...t, is_reserved: true }));
+            // Garantir que não fique nenhuma mesa selecionada
+            if (formData.table_number) handleInputChange('table_number', '');
+            if (selectedTables.length) setSelectedTables([]);
           }
           
           setTables(fetched);
@@ -518,7 +546,14 @@ export default function ReservationModal({
                 capacity: 4,
                 is_reserved: false
               }));
-              setTables(virtualTables);
+              // 2º giro: marcar tudo indisponível mesmo nas mesas virtuais
+              const estId = establishment?.id ? Number(establishment.id) : null;
+              const d = formData.reservation_date ? new Date(`${formData.reservation_date}T00:00:00`) : null;
+              const t = String(formData.reservation_time || '').slice(0, 5);
+              const [hh, mm] = t.split(':').map(Number);
+              const minutes = (Number.isNaN(hh) ? 0 : hh * 60) + (Number.isNaN(mm) ? 0 : mm);
+              const isSecondGiro = (estId === 1 || estId === 8) && d && d.getDay() === 6 && minutes >= 15 * 60 && minutes < 21 * 60;
+              setTables(isSecondGiro ? virtualTables.map(v => ({ ...v, is_reserved: true })) : virtualTables);
             } else {
               setTables([]);
             }
@@ -723,13 +758,26 @@ export default function ReservationModal({
     const isLargeReservation = formData.number_of_people >= 4;
     const hasOptions = tables && tables.length > 0;
     const hasCompatible = tables.some(t => !t.is_reserved && t.capacity >= formData.number_of_people);
+
+    // 2º giro (Sábado 15–21) para Justino/Pracinha: NÃO exigir mesa (vai para espera antecipada/bistrô)
+    const isSecondGiroSaturday = (() => {
+      const estId = establishment?.id ? Number(establishment.id) : null;
+      if (estId !== 1 && estId !== 8) return false;
+      if (!formData.reservation_date || !formData.reservation_time) return false;
+      const d = new Date(`${formData.reservation_date}T00:00:00`);
+      if (d.getDay() !== 6) return false;
+      const t = String(formData.reservation_time).slice(0, 5);
+      const [h, m] = t.split(':').map(Number);
+      const minutes = (Number.isNaN(h) ? 0 : h * 60) + (Number.isNaN(m) ? 0 : m);
+      return minutes >= 15 * 60 && minutes < 21 * 60;
+    })();
     
     // Se múltiplas mesas estão habilitadas, validar se pelo menos uma foi selecionada
     if (allowMultipleTables && isAdmin) {
-      if (selectedTables.length === 0 && hasOptions && hasCompatible) {
+      if (!isSecondGiroSaturday && selectedTables.length === 0 && hasOptions && hasCompatible) {
         newErrors.table_number = 'Selecione pelo menos uma mesa disponível';
       }
-    } else if (!isLargeReservation && hasOptions && hasCompatible && !formData.table_number && selectedTables.length === 0) {
+    } else if (!isSecondGiroSaturday && !isLargeReservation && hasOptions && hasCompatible && !formData.table_number && selectedTables.length === 0) {
       newErrors.table_number = 'Selecione uma mesa disponível';
     }
 
@@ -980,7 +1028,9 @@ export default function ReservationModal({
       send_email: sendEmailConfirmation,
       send_whatsapp: sendWhatsAppConfirmation,
       blocks_entire_area: blocksEntireArea && isAdmin, // Apenas admin pode bloquear área completa
-      espera_antecipada: isEsperaAntecipadaModal
+      espera_antecipada: isEsperaAntecipadaModal,
+      // Para espera antecipada, registrar como bistrô (fila)
+      has_bistro_table: isEsperaAntecipadaModal
     };
 
     // Área exibida ao cliente (email, etc.): subárea (ex. Lounge Aquário TV) ou nome da área
