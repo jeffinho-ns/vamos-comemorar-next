@@ -42,7 +42,8 @@ export default function GuestListPublicPage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`${API_URL}/api/guest-list/${token}`);
+      // Cache-bust para sempre receber dados atualizados (ex.: backfill de qr_code_token)
+      const res = await fetch(`${API_URL}/api/guest-list/${token}?t=${Date.now()}`);
       if (!res.ok) {
         const txt = await res.text();
         setError(res.status === 410 ? 'Este link expirou.' : 'Não foi possível carregar a lista.');

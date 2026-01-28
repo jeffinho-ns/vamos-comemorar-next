@@ -177,3 +177,27 @@ Na tela de check-ins do evento o que existe é lista manual, botões de check-in
 ```
 
 Se quiser, no próximo passo podemos mapear como a página `/admin/eventos/[id]/check-ins` (ou a versão tablet) se inscreve no Socket `guest_list_${id}` para refletir esse check-in em tempo real, ou conferir se há algum link “Abrir scanner” a partir dessa tela.
+
+---
+
+## 7. Troubleshooting: “Ver QR Code” não aparece / página continua sem botão
+
+Se você fez deploy e a página da lista continua **sem nenhum botão “Ver QR Code”** e **nenhum convidado com QR**:
+
+1. **Migração no banco de produção**  
+   As colunas `qr_code_token` e `is_owner` precisam existir na tabela `guests`. No servidor da API (ou com a conexão do banco de produção):
+   ```bash
+   cd vamos-comemorar-api
+   node scripts/run_guests_qr_code_token_migration.js
+   ```
+   Ou rode o SQL em `migrations/add_guests_qr_code_token_postgresql.sql` direto no PostgreSQL.
+
+2. **Deploy do backend com o backfill novo**  
+   O backfill que **preenche `qr_code_token` para todos os convidados** que ainda não têm (não só o dono) está em `routes/guestListPublic.js`. Garanta que o deploy atual usa essa versão (commit com “Backfill qr_code_token para qualquer convidado”).
+
+3. **Atualizar a página sem cache**  
+   Abra o link da lista e faça um **hard refresh** (Ctrl+Shift+R ou Cmd+Shift+R). A página passou a usar `?t=Date.now()` na chamada para evitar cache e sempre buscar os dados atualizados.
+
+4. **Conferir a resposta da API**  
+   No DevTools (F12) → aba Network → recarregue a lista → clique na requisição `guest-list/TOKEN` → em Response, veja se `guestList.guests[]` traz `qr_code_token` preenchido para cada convidado.  
+   Se vier tudo `null`, o backfill não está rodando (migração não aplicada ou backend antigo em produção).
