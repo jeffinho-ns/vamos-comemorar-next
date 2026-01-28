@@ -433,6 +433,64 @@ export default function ReservationModal({
               }
             }
           }
+          
+          // Verificar disponibilidade de mesas para Seu Justino e Pracinha (considerando horário)
+          if ((isSeuJustino || isPracinha) && formData.reservation_time && formData.reservation_date && formData.area_id) {
+            try {
+              const reservationsRes = await fetch(
+                `${API_URL}/api/restaurant-reservations?reservation_date=${formData.reservation_date}&area_id=${formData.area_id}${establishment?.id ? `&establishment_id=${establishment.id}` : ''}`
+              );
+              if (reservationsRes.ok) {
+                const reservationsData = await reservationsRes.json();
+                const allReservations = Array.isArray(reservationsData.reservations) 
+                  ? reservationsData.reservations 
+                  : [];
+                
+                // Filtrar apenas reservas que ocupam a mesa (excluir canceladas e finalizadas)
+                const activeReservations = allReservations.filter((reservation: any) => {
+                  const status = String(reservation.status || '').toUpperCase();
+                  return status !== 'CANCELADA' && 
+                         status !== 'CANCELED' && 
+                         status !== 'COMPLETED' &&
+                         status !== 'FINALIZADA';
+                });
+                
+                // Função auxiliar para verificar sobreposição de horários
+                const hasTimeOverlap = (time1: string, time2: string) => {
+                  const [h1, m1] = time1.split(':').map(Number);
+                  const [h2, m2] = time2.split(':').map(Number);
+                  const minutes1 = h1 * 60 + (isNaN(m1) ? 0 : m1);
+                  const minutes2 = h2 * 60 + (isNaN(m2) ? 0 : m2);
+                  const diff = Math.abs(minutes1 - minutes2);
+                  return diff < 120; // 2 horas em minutos
+                };
+                
+                const reservedTableNumbers = new Set<string>();
+                activeReservations.forEach((reservation: any) => {
+                  if (reservation.table_number && reservation.reservation_time) {
+                    const reservationTime = String(reservation.reservation_time).substring(0, 5);
+                    const selectedTime = String(formData.reservation_time).substring(0, 5);
+                    
+                    if (hasTimeOverlap(reservationTime, selectedTime)) {
+                      const tables = String(reservation.table_number).split(',');
+                      tables.forEach((table: string) => {
+                        reservedTableNumbers.add(table.trim());
+                      });
+                    }
+                  }
+                });
+                
+                // Marcar mesas como reservadas
+                fetched = fetched.map(table => ({
+                  ...table,
+                  is_reserved: reservedTableNumbers.has(String(table.table_number)) || table.is_reserved
+                }));
+              }
+            } catch (err) {
+              console.error('Erro ao verificar disponibilidade:', err);
+            }
+          }
+          
           setTables(fetched);
         } else {
           // Se a API falhar mas houver subárea selecionada (Seu Justino ou Highline), criar mesas virtuais
@@ -776,6 +834,71 @@ export default function ReservationModal({
       throw new Error('Área é obrigatória para criar a reserva');
     }
     const area_id = Number(finalAreaId);
+    
+    // Validação de mesa ocupada para Seu Justino e Pracinha
+    if ((isSeuJustino || isPracinha) && finalTableNumber && formData.reservation_time && formData.reservation_date) {
+      try {
+        const reservationsRes = await fetch(
+          `${API_URL}/api/restaurant-reservations?reservation_date=${formData.reservation_date}&area_id=${area_id}${establishment?.id ? `&establishment_id=${establishment.id}` : ''}`
+        );
+        if (reservationsRes.ok) {
+          const reservationsData = await reservationsRes.json();
+          const allReservations = Array.isArray(reservationsData.reservations) 
+            ? reservationsData.reservations 
+            : [];
+          
+          const activeReservations = allReservations.filter((reservation: any) => {
+            const status = String(reservation.status || '').toUpperCase();
+            return status !== 'CANCELADA' && 
+                   status !== 'CANCELED' && 
+                   status !== 'COMPLETED' &&
+                   status !== 'FINALIZADA';
+          });
+          
+          const hasTimeOverlap = (time1: string, time2: string) => {
+            const [h1, m1] = time1.split(':').map(Number);
+            const [h2, m2] = time2.split(':').map(Number);
+            const minutes1 = h1 * 60 + (isNaN(m1) ? 0 : m1);
+            const minutes2 = h2 * 60 + (isNaN(m2) ? 0 : m2);
+            const diff = Math.abs(minutes1 - minutes2);
+            return diff < 120;
+          };
+          
+          const selectedTime = String(formData.reservation_time).substring(0, 5);
+          const tableNumbers = finalTableNumber.split(',').map(t => t.trim());
+          
+          const isTableOccupied = tableNumbers.some(tableNum => {
+            return activeReservations.some((reservation: any) => {
+              if (!reservation.table_number || !reservation.reservation_time) return false;
+              const reservationTables = String(reservation.table_number).split(',').map(t => t.trim());
+              const reservationTime = String(reservation.reservation_time).substring(0, 5);
+              return reservationTables.includes(tableNum) && hasTimeOverlap(reservationTime, selectedTime);
+            });
+          });
+          
+          if (isTableOccupied) {
+            const shouldAddToWaitlist = confirm(
+              `⚠️ A mesa ${finalTableNumber} já está reservada para este horário.\n\n` +
+              `Deseja adicionar este cliente à Lista de Espera?`
+            );
+            if (shouldAddToWaitlist) {
+              // Fechar modal de reserva e abrir modal de lista de espera
+              setLoading(false);
+              onClose();
+              // Disparar evento ou callback para abrir lista de espera
+              // Por enquanto, apenas alerta
+              alert('Por favor, adicione o cliente à Lista de Espera através da aba "Lista de Espera".');
+              return;
+            } else {
+              setLoading(false);
+              return;
+            }
+          }
+        }
+      } catch (err) {
+        console.error('Erro ao verificar disponibilidade:', err);
+      }
+    }
     
     if (isNaN(area_id) || area_id <= 0) {
       throw new Error('Área inválida. Selecione uma área válida.');
@@ -1533,6 +1656,28 @@ export default function ReservationModal({
                             }
                           }
                           // Caso contrário, usar mesas da API
+                          // Para Seu Justino e Pracinha, mostrar todas as mesas mas indicar disponibilidade
+                          if ((isSeuJustino || isPracinha) && formData.reservation_time) {
+                            return tables
+                              .filter(t => {
+                                // Para reservas grandes (4+), mostra todas as mesas
+                                if (formData.number_of_people >= 4) {
+                                  return true; // Mostrar todas, mas marcar ocupadas
+                                }
+                                return t.capacity >= formData.number_of_people;
+                              })
+                              .map(t => (
+                                <option 
+                                  key={t.id} 
+                                  value={t.table_number}
+                                  disabled={t.is_reserved}
+                                  style={{ color: t.is_reserved ? '#ef4444' : '#ffffff' }}
+                                >
+                                  Mesa {t.table_number} • {t.capacity} lugares {t.is_reserved ? '🔴 (Indisponível)' : '🟢 (Disponível)'}
+                                </option>
+                              ));
+                          }
+                          
                           return tables
                             .filter(t => {
                               // Para reservas grandes (4+), mostra todas as mesas não reservadas
@@ -1549,6 +1694,30 @@ export default function ReservationModal({
                             ));
                         })()}
                       </select>
+                      
+                      {/* Indicador de disponibilidade para Seu Justino e Pracinha */}
+                      {(isSeuJustino || isPracinha) && formData.table_number && formData.reservation_time && (() => {
+                        const selectedTable = tables.find(t => String(t.table_number) === formData.table_number);
+                        if (selectedTable?.is_reserved) {
+                          return (
+                            <div className="mt-2 p-3 bg-red-900/20 border-2 border-red-600/50 rounded-lg">
+                              <p className="text-sm text-red-400 font-semibold mb-1">
+                                ⚠️ Mesa {formData.table_number} indisponível neste horário
+                              </p>
+                              <p className="text-xs text-red-300">
+                                Esta mesa já está reservada para este horário. Por favor, adicione o cliente à Lista de Espera.
+                              </p>
+                            </div>
+                          );
+                        } else if (selectedTable) {
+                          return (
+                            <p className="mt-2 text-xs text-green-400">
+                              ✅ Mesa {formData.table_number} disponível para este horário
+                            </p>
+                          );
+                        }
+                        return null;
+                      })()}
                       
                       {/* B. BOTÃO DE LIBERAÇÃO MANUAL (APENAS ADMIN, EXCLUSIVO HIGHLINE DECK) */}
                       {isAdmin && isHighline && Number(formData.area_id) === 2 && tables.some(t => t.is_reserved) && (

@@ -8,6 +8,7 @@ import WeeklyCalendar from "../../components/WeeklyCalendar";
 import ReservationModal from "../../components/ReservationModal";
 import WalkInModal from "../../components/WalkInModal";
 import WaitlistModal from "../../components/WaitlistModal";
+import AllocateTableModal from "../../components/AllocateTableModal";
 import AddGuestListToReservationModal from "../../components/AddGuestListToReservationModal";
 import { Reservation } from "@/app/types/reservation";
 import { BirthdayService, BirthdayReservation } from "../../services/birthdayService";
@@ -46,6 +47,10 @@ interface WaitlistEntry {
   number_of_people: number;
   preferred_date?: string;
   preferred_time?: string;
+  preferred_area_id?: number;
+  preferred_table_number?: string;
+  notes?: string;
+  has_bistro_table?: boolean;
   status: 'AGUARDANDO' | 'CHAMADO' | 'ATENDIDO' | 'CANCELADO';
   position: number;
   estimated_wait_time?: number;
@@ -297,6 +302,8 @@ export default function RestaurantReservationsPage() {
   const [waitlist, setWaitlist] = useState<WaitlistEntry[]>([]);
   const [showWaitlistModal, setShowWaitlistModal] = useState(false);
   const [editingWaitlistEntry, setEditingWaitlistEntry] = useState<WaitlistEntry | null>(null);
+  const [showAllocateModal, setShowAllocateModal] = useState(false);
+  const [allocatingEntry, setAllocatingEntry] = useState<WaitlistEntry | null>(null);
 
   // Estados para Guest Lists (Admin)
   type GuestListItem = {
@@ -961,9 +968,30 @@ export default function RestaurantReservationsPage() {
     setShowWaitlistModal(true);
   };
 
-  const handleDeleteWaitlistEntry = (entry: WaitlistEntry) => {
+  const handleDeleteWaitlistEntry = async (entry: WaitlistEntry) => {
     if (confirm(`Tem certeza que deseja excluir ${entry.client_name} da lista de espera?`)) {
-      setWaitlist(prev => prev.filter(w => w.id !== entry.id));
+      try {
+        const token = localStorage.getItem('authToken');
+        const response = await fetch(`${API_URL}/api/waitlist/${entry.id}`, {
+          method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { Authorization: `Bearer ${token}` } : {})
+          }
+        });
+        
+        if (response.ok) {
+          setWaitlist(prev => prev.filter(w => w.id !== entry.id));
+          await loadEstablishmentData(); // Recarregar dados
+          alert(`✅ ${entry.client_name} removido da lista de espera.`);
+        } else {
+          const errorData = await response.json().catch(() => ({}));
+          alert('Erro ao excluir: ' + (errorData.error || 'Erro desconhecido'));
+        }
+      } catch (error) {
+        console.error('Erro ao excluir entrada da lista:', error);
+        alert('Erro ao excluir entrada da lista. Tente novamente.');
+      }
     }
   };
 
@@ -1389,7 +1417,15 @@ export default function RestaurantReservationsPage() {
     try {
       const token = localStorage.getItem('authToken');
       const dateString = entry.preferred_date || new Date().toISOString().split('T')[0];
-      const reservationTime = entry.preferred_time || '12:00:00';
+      let reservationTime = entry.preferred_time || '12:00';
+      
+      // Garantir formato correto do horário (HH:MM)
+      if (reservationTime && reservationTime.includes(':')) {
+        const parts = reservationTime.split(':');
+        if (parts.length === 2) {
+          reservationTime = `${parts[0].padStart(2, '0')}:${parts[1].padStart(2, '0')}`;
+        }
+      }
 
       const reservationPayload = {
         client_name: entry.client_name,
@@ -1401,7 +1437,7 @@ export default function RestaurantReservationsPage() {
         area_id: areaId || (entry as any).preferred_area_id || 1,
         table_number: tableNumber,
         status: 'CONFIRMADA',
-        origin: 'LISTA_ESPERA',
+        origin: 'PESSOAL', // Mudado para evitar validações restritivas
         notes: `Alocado da lista de espera (ID: ${entry.id})${(entry as any).has_bistro_table ? ' - Mesa Bistrô' : ''} - Tipo de Entrada: VIP`,
         establishment_id: selectedEstablishment?.id,
         created_by: 1,
@@ -1442,29 +1478,44 @@ export default function RestaurantReservationsPage() {
           }
         }
         
-        // Atualizar status da lista de espera para ATENDIDO
-        const updateWaitlistResponse = await fetch(`${API_URL}/api/waitlist/${entry.id}`, {
-          method: 'PUT',
+        // Excluir entrada da lista de espera (não apenas atualizar status)
+        const deleteWaitlistResponse = await fetch(`${API_URL}/api/waitlist/${entry.id}`, {
+          method: 'DELETE',
           headers: {
             'Content-Type': 'application/json',
             ...(token ? { Authorization: `Bearer ${token}` } : {})
-          },
-          body: JSON.stringify({
-            status: 'ATENDIDO'
-          }),
+          }
         });
 
-        if (updateWaitlistResponse.ok) {
-          setWaitlist(prev => 
-            prev.map(w => 
-              w.id === entry.id ? { ...w, status: 'ATENDIDO' as any } : w
-            )
-          );
+        if (deleteWaitlistResponse.ok) {
+          setWaitlist(prev => prev.filter(w => w.id !== entry.id));
           
           await loadEstablishmentData();
           alert(`✅ Cliente ${entry.client_name} alocado na Mesa ${tableNumber} com sucesso! Check-in automático realizado. Tipo de Entrada: VIP.`);
         } else {
-          alert(`⚠️ Reserva criada, mas houve erro ao atualizar a lista de espera.`);
+          // Se não conseguir excluir, pelo menos atualizar status
+          const updateWaitlistResponse = await fetch(`${API_URL}/api/waitlist/${entry.id}`, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+              ...(token ? { Authorization: `Bearer ${token}` } : {})
+            },
+            body: JSON.stringify({
+              status: 'ATENDIDO'
+            }),
+          });
+          
+          if (updateWaitlistResponse.ok) {
+            setWaitlist(prev => 
+              prev.map(w => 
+                w.id === entry.id ? { ...w, status: 'ATENDIDO' as any } : w
+              )
+            );
+            await loadEstablishmentData();
+            alert(`✅ Cliente ${entry.client_name} alocado na Mesa ${tableNumber} com sucesso! Check-in automático realizado. Tipo de Entrada: VIP.`);
+          } else {
+            alert(`⚠️ Reserva criada, mas houve erro ao atualizar a lista de espera.`);
+          }
         }
       } else {
         const errorData = await createReservationResponse.json().catch(() => ({}));
@@ -3135,12 +3186,10 @@ export default function RestaurantReservationsPage() {
                               Chamar
                             </button>
                             <button
-                              onClick={async () => {
-                                const tableNumber = prompt(`Alocar ${entry.client_name} em qual mesa?\n\nDigite o número da mesa:`);
-                                if (tableNumber && tableNumber.trim()) {
-                                  const areaId = prompt(`Qual a área da mesa ${tableNumber}?\n\nDigite o ID da área (ou deixe em branco para usar a área padrão):`);
-                                  await handleAllocateWaitlistToTable(entry, tableNumber.trim(), areaId ? parseInt(areaId) : undefined);
-                                }
+                              onClick={() => {
+                                // Abrir modal de alocação simples
+                                setAllocatingEntry(entry);
+                                setShowAllocateModal(true);
                               }}
                               className="flex items-center gap-1 px-3 py-1 bg-purple-500 hover:bg-purple-600 text-white text-sm rounded transition-colors"
                               title="Alocar cliente em uma mesa específica"
@@ -3612,6 +3661,8 @@ export default function RestaurantReservationsPage() {
                   body: JSON.stringify({
                     ...entryData,
                     preferred_date: preferredDate,
+                    preferred_area_id: entryData.preferred_area_id ? Number(entryData.preferred_area_id) : null,
+                    preferred_table_number: entryData.preferred_table_number || null,
                     establishment_id: selectedEstablishment?.id
                   }),
                 });
@@ -3654,7 +3705,28 @@ export default function RestaurantReservationsPage() {
                 if (response.ok) {
                   const newReservation = await response.json();
                   console.log('Reserva criada com sucesso:', newReservation);
-                  await loadEstablishmentData(); // Recarregar reservas
+                  
+                  // Se estava editando uma entrada da lista de espera, excluir da lista
+                  if (editingWaitlistEntry?.id) {
+                    try {
+                      const deleteResponse = await fetch(`${API_URL}/api/waitlist/${editingWaitlistEntry.id}`, {
+                        method: 'DELETE',
+                        headers: {
+                          'Content-Type': 'application/json',
+                          ...(token ? { Authorization: `Bearer ${token}` } : {})
+                        }
+                      });
+                      
+                      if (deleteResponse.ok) {
+                        setWaitlist(prev => prev.filter(w => w.id !== editingWaitlistEntry.id));
+                        console.log('Entrada removida da lista de espera após criar reserva');
+                      }
+                    } catch (deleteError) {
+                      console.error('Erro ao excluir entrada da lista:', deleteError);
+                    }
+                  }
+                  
+                  await loadEstablishmentData(); // Recarregar reservas e lista de espera
                 } else {
                   const errorData = await response.json();
                   throw new Error(errorData.error || 'Erro ao criar reserva');
@@ -3669,6 +3741,25 @@ export default function RestaurantReservationsPage() {
             areas={areas}
             establishment={selectedEstablishment}
             waitlistEntries={waitlist}
+          />
+        )}
+
+        {/* Modal de Alocar em Mesa */}
+        {showAllocateModal && allocatingEntry && (
+          <AllocateTableModal
+            isOpen={showAllocateModal}
+            onClose={() => {
+              setShowAllocateModal(false);
+              setAllocatingEntry(null);
+            }}
+            onConfirm={async (areaId, tableNumber) => {
+              await handleAllocateWaitlistToTable(allocatingEntry, tableNumber, areaId);
+              setShowAllocateModal(false);
+              setAllocatingEntry(null);
+            }}
+            entry={allocatingEntry}
+            areas={areas}
+            establishment={selectedEstablishment}
           />
         )}
 

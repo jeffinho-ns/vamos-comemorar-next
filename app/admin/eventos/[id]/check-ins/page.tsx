@@ -3029,6 +3029,13 @@ export default function EventoCheckInsPage() {
     return sorted;
   }, [guestListsRestaurante, cachedStringCompare, selectedTab, searchTerm]);
 
+  // Reservas sem guest list (ex.: 2 pessoas) — exibidas na mesma seção para check-in
+  const reservasSemGuestListSorted = useMemo(() => {
+    return [...reservasRestaurante.filter(r => r.guest_list_id == null)].sort((a, b) =>
+      cachedStringCompare(a.responsavel || '', b.responsavel || '')
+    );
+  }, [reservasRestaurante, cachedStringCompare]);
+
   const sortedReservasMesa = useMemo(() => {
     return [...reservasMesa].sort((a, b) => 
       cachedStringCompare(a.responsavel || '', b.responsavel || '')
@@ -3916,7 +3923,7 @@ export default function EventoCheckInsPage() {
                     <div className="mb-4">
   <h2 className="text-lg md:text-xl font-bold text-white flex items-center gap-2">
     <MdRestaurant size={20} className="md:w-6 md:h-6 text-green-400" />
-        <span className="truncate">Listas de Convidados e Reservas ({guestListsRestaurante.length})</span>
+        <span className="truncate">Listas de Convidados e Reservas ({guestListsRestaurante.length + reservasSemGuestListSorted.length})</span>
   </h2>
   
   {/* Descrição adicionada aqui */}
@@ -3964,17 +3971,25 @@ export default function EventoCheckInsPage() {
                         return true;
                       });
                       
+                      // Reservas sem guest list (ex.: 2 pessoas) — filtradas por busca
+                      const filteredReservasSemGuestList = searchTerm.trim()
+                        ? reservasSemGuestListSorted.filter((r: ReservaRestaurante) =>
+                            filterBySearch(r.responsavel) || filterBySearch(r.origem || '')
+                          )
+                        : reservasSemGuestListSorted;
+
                       console.log('🔍 [DEBUG RENDER] Após filtros:', {
                         filteredLength: filtered.length,
+                        filteredReservasSemGuestListLength: filteredReservasSemGuestList.length,
                         firstFiltered: filtered[0] || null
                       });
                       
-                      if (filtered.length === 0) {
+                      if (filtered.length === 0 && filteredReservasSemGuestList.length === 0) {
                         return (
                           <div key="empty" className="text-center py-8 text-gray-400">
-                            {guestListsRestaurante.length === 0 
-                              ? 'Nenhuma lista de convidados encontrada para este evento.'
-                              : 'Nenhuma lista corresponde aos filtros aplicados.'}
+                            {guestListsRestaurante.length === 0 && reservasSemGuestListSorted.length === 0
+                              ? 'Nenhuma lista de convidados nem reserva sem lista encontrada para este evento.'
+                              : 'Nenhuma lista ou reserva corresponde aos filtros aplicados.'}
                           </div>
                         );
                       }
@@ -4986,6 +5001,43 @@ export default function EventoCheckInsPage() {
                           </div>
                             );
                           })}
+                        {filteredReservasSemGuestList.length > 0 && (
+                          <>
+                            <div className="text-sm text-gray-400 mt-4 mb-2 pt-2 border-t border-white/10">
+                              Reservas sem lista de convidados ({filteredReservasSemGuestList.length})
+                            </div>
+                            {filteredReservasSemGuestList.map((r: ReservaRestaurante) => (
+                              <div key={`reserva-sem-lista-${r.id}`} className="border rounded-lg border-white/20 bg-white/5 overflow-hidden">
+                                <div className="w-full text-left px-3 md:px-4 py-2.5 md:py-3 flex items-center justify-between gap-2">
+                                  <div className="flex-1 min-w-0">
+                                    <div className="font-semibold text-sm md:text-base text-white truncate">{r.responsavel || (r as any).client_name || '—'}</div>
+                                    <div className="text-xs md:text-sm text-gray-300 mt-0.5">
+                                      {r.reservation_time || '—'}
+                                      {r.number_of_people != null ? ` • ${r.number_of_people} pessoa(s)` : ''}
+                                      {(r.table_number != null && String(r.table_number).trim() !== '') ? ` • Mesa ${r.table_number}` : ''}
+                                      {r.area_name ? ` • ${r.area_name}` : ''}
+                                    </div>
+                                  </div>
+                                  <div className="flex-shrink-0">
+                                    {r.checked_in ? (
+                                      <span className="px-3 py-1.5 text-xs rounded-full bg-green-900/40 text-green-200 font-medium flex items-center gap-1">
+                                        <MdCheckCircle size={16} /> Check-in realizado
+                                      </span>
+                                    ) : (
+                                      <button
+                                        type="button"
+                                        onClick={(e) => handleReservaRestauranteCheckIn(r, e)}
+                                        className="px-3 py-1.5 text-xs font-medium rounded-lg bg-green-600 hover:bg-green-700 text-white flex items-center gap-1"
+                                      >
+                                        <MdCheckCircle size={16} /> Check-in
+                                      </button>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </>
+                        )}
                         </>
                       );
                     })()}

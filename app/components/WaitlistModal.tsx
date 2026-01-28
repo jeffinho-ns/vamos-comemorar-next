@@ -114,86 +114,135 @@ export default function WaitlistModal({
 
   // Função helper para mapear mesa -> área do Seu Justino (para exibição)
   const getSeuJustinoAreaName = (tableNumber?: string | number, areaName?: string, areaId?: number): string => {
-    if (!isSeuJustino) return areaName || '';
-    if (!tableNumber && !areaName && !areaId) return areaName || '';
+    if (!isSeuJustino && !isHighline) {
+      // Para outros estabelecimentos, retornar o nome da área diretamente
+      return areaName || '';
+    }
     
     const tableNum = String(tableNumber || '').trim();
     
+    // Primeiro tentar encontrar pela mesa (mais específico)
     if (tableNum) {
       const tableNumbers = tableNum.includes(',') ? tableNum.split(',').map(t => t.trim()) : [tableNum];
+      const subareas = isSeuJustino ? seuJustinoSubareas : highlineSubareas;
       for (const tn of tableNumbers) {
-        const subarea = seuJustinoSubareas.find(sub => sub.tableNumbers.includes(tn));
+        const subarea = subareas.find(sub => sub.tableNumbers.includes(tn));
         if (subarea) {
           return subarea.label;
         }
       }
     }
     
+    // Se não encontrou pela mesa, tentar pela área_id
+    if (areaId) {
+      const subareas = isSeuJustino ? seuJustinoSubareas : highlineSubareas;
+      const subarea = subareas.find(sub => sub.area_id === Number(areaId));
+      if (subarea) {
+        return subarea.label;
+      }
+    }
+    
+    // Fallback: retornar o nome da área se não for genérico
     if (areaName && !areaName.toLowerCase().includes('área coberta') && !areaName.toLowerCase().includes('área descoberta')) {
       return areaName;
     }
     
+    // Último fallback: retornar nome da área ou string vazia
     return areaName || '';
   };
 
+  // Carregar dados quando o modal abrir ou quando entry mudar
   useEffect(() => {
-    if (isOpen) {
-      if (entry) {
-        // Modo de edição - carregar dados existentes
-        const preferredAreaId = entry.preferred_area_id ? String(entry.preferred_area_id) : '';
-        setFormData({
-          preferred_date: entry.preferred_date || '',
-          client_name: entry.client_name || '',
-          client_phone: entry.client_phone || '',
-          client_email: entry.client_email || '',
-          number_of_people: entry.number_of_people || 1,
-          preferred_time: entry.preferred_time || '',
-          preferred_area_id: preferredAreaId,
-          preferred_table_number: entry.preferred_table_number || '',
-          status: entry.status || 'AGUARDANDO',
-          notes: entry.notes || '',
-          has_bistro_table: entry.has_bistro_table || false
-        });
+    if (isOpen && entry) {
+      // Modo de edição - carregar dados existentes
+      const preferredAreaId = entry.preferred_area_id ? String(entry.preferred_area_id) : '';
+      const preferredDate = entry.preferred_date || defaultDate || '';
+      const preferredTime = entry.preferred_time || '';
+      const preferredTableNumber = entry.preferred_table_number || '';
+      
+      console.log('🔍 [WaitlistModal] Carregando dados da entrada:', {
+        entryId: entry.id,
+        entry,
+        preferredAreaId,
+        preferredDate,
+        preferredTime,
+        preferredTableNumber,
+        hasPreferredArea: !!entry.preferred_area_id,
+        hasPreferredDate: !!entry.preferred_date,
+        hasPreferredTable: !!entry.preferred_table_number
+      });
+      
+      // Atualizar formData com os valores da entrada
+      setFormData(prev => ({
+        ...prev,
+        preferred_date: preferredDate,
+        preferred_time: preferredTime,
+        preferred_area_id: preferredAreaId,
+        preferred_table_number: preferredTableNumber,
+        client_name: entry.client_name || prev.client_name,
+        client_phone: entry.client_phone || prev.client_phone,
+        client_email: entry.client_email || prev.client_email,
+        number_of_people: entry.number_of_people || prev.number_of_people,
+        status: entry.status || prev.status,
+        notes: entry.notes || prev.notes,
+        has_bistro_table: entry.has_bistro_table !== undefined ? entry.has_bistro_table : prev.has_bistro_table
+      }));
 
-        // Se for Seu Justino ou Highline, tentar encontrar a subárea baseada na mesa ou área
-        if ((isSeuJustino || isHighline) && entry.preferred_area_id) {
-          if (entry.preferred_table_number) {
-            const tableNum = String(entry.preferred_table_number).trim();
-            const subareas = isSeuJustino ? seuJustinoSubareas : highlineSubareas;
-            const foundSubarea = subareas.find(sub => sub.tableNumbers.includes(tableNum));
-            if (foundSubarea) {
-              setSelectedSubareaKey(foundSubarea.key);
-            }
-          } else if (entry.preferred_area_id) {
-            // Se não tiver mesa mas tiver área, tentar encontrar subárea pela área
-            const subareas = isSeuJustino ? seuJustinoSubareas : highlineSubareas;
-            const foundSubarea = subareas.find(sub => sub.area_id === Number(entry.preferred_area_id));
-            if (foundSubarea) {
-              setSelectedSubareaKey(foundSubarea.key);
-            }
-          }
+      // Se for Seu Justino ou Highline, tentar encontrar a subárea baseada na mesa ou área
+      if ((isSeuJustino || isHighline) && entry.preferred_area_id) {
+        let foundSubarea = null;
+        
+        if (entry.preferred_table_number) {
+          const tableNum = String(entry.preferred_table_number).trim();
+          const subareas = isSeuJustino ? seuJustinoSubareas : highlineSubareas;
+          foundSubarea = subareas.find(sub => sub.tableNumbers.includes(tableNum));
+          console.log('🔍 [WaitlistModal] Buscando subárea pela mesa:', tableNum, foundSubarea ? `encontrada: ${foundSubarea.key}` : 'não encontrada');
         }
+        
+        // Se não encontrou pela mesa, tentar pela área
+        if (!foundSubarea && entry.preferred_area_id) {
+          const subareas = isSeuJustino ? seuJustinoSubareas : highlineSubareas;
+          foundSubarea = subareas.find(sub => sub.area_id === Number(entry.preferred_area_id));
+          console.log('🔍 [WaitlistModal] Buscando subárea pela área_id:', entry.preferred_area_id, foundSubarea ? `encontrada: ${foundSubarea.key}` : 'não encontrada');
+        }
+        
+        if (foundSubarea) {
+          setSelectedSubareaKey(foundSubarea.key);
+          console.log('✅ [WaitlistModal] Subárea encontrada:', foundSubarea.key, foundSubarea.label);
+        } else {
+          console.warn('⚠️ [WaitlistModal] Subárea não encontrada para área_id:', entry.preferred_area_id);
+          setSelectedSubareaKey('');
+        }
+      } else if (!isSeuJustino && !isHighline && entry.preferred_area_id) {
+        // Para outros estabelecimentos, garantir que o valor seja exibido
+        console.log('✅ [WaitlistModal] Área carregada (não Seu Justino/Highline):', entry.preferred_area_id);
       } else {
-        // Modo de criação
-        setFormData({
-          preferred_date: defaultDate || '',
-          client_name: '',
-          client_phone: '',
-          client_email: '',
-          number_of_people: 1,
-          preferred_time: '',
-          preferred_area_id: '',
-          preferred_table_number: '',
-          status: 'AGUARDANDO',
-          notes: '',
-          has_bistro_table: false
-        });
         setSelectedSubareaKey('');
       }
+    } else if (isOpen && !entry) {
+      // Modo de criação
+      setFormData({
+        preferred_date: defaultDate || '',
+        client_name: '',
+        client_phone: '',
+        client_email: '',
+        number_of_people: 1,
+        preferred_time: '',
+        preferred_area_id: '',
+        preferred_table_number: '',
+        status: 'AGUARDANDO',
+        notes: '',
+        has_bistro_table: false
+      });
+      setSelectedSubareaKey('');
+    }
+    
+    // Limpar mesas e erros quando abrir/fechar
+    if (isOpen) {
       setTables([]);
       setErrors({});
     }
-  }, [isOpen, entry, defaultDate, isSeuJustino, isHighline]);
+  }, [isOpen, entry?.id, entry?.preferred_area_id, entry?.preferred_table_number, entry?.preferred_date, defaultDate, isSeuJustino, isHighline]);
 
   // Carregar mesas (TODAS - disponíveis e indisponíveis)
   useEffect(() => {
@@ -346,7 +395,7 @@ export default function WaitlistModal({
       }
     };
     loadTables();
-  }, [formData.preferred_area_id, formData.preferred_date, formData.preferred_time, selectedSubareaKey, isHighline, isSeuJustino, establishment?.id]);
+  }, [formData.preferred_area_id, formData.preferred_date, formData.preferred_time, selectedSubareaKey, isHighline, isSeuJustino, establishment?.id, isPracinha]);
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
@@ -414,10 +463,19 @@ export default function WaitlistModal({
         onClose();
       } else {
         // Mesa indisponível, sem mesa selecionada, sem horário ou sem área → criar LISTA DE ESPERA
-        await onSave({
+        const waitlistData = {
           ...formData,
+          preferred_date: formData.preferred_date || '',
           preferred_area_id: formData.preferred_area_id ? Number(formData.preferred_area_id) : null,
-        });
+          preferred_table_number: formData.preferred_table_number || null,
+          preferred_time: formData.preferred_time || null,
+          notes: formData.notes || null,
+          has_bistro_table: formData.has_bistro_table || false
+        };
+        
+        console.log('📤 [WaitlistModal] Enviando dados para lista de espera:', waitlistData);
+        
+        await onSave(waitlistData);
         if (formData.preferred_table_number && formData.preferred_time && !isTableAvailable) {
           alert('⚠️ Mesa indisponível no horário selecionado. Cliente adicionado à Lista de Espera.');
         }
@@ -469,25 +527,57 @@ export default function WaitlistModal({
                 )}
                 {entry && (
                   <div className="mt-2 text-xs text-gray-300 space-y-1">
-                    {entry.preferred_area_id && (
+                    {(entry.preferred_area_id || formData.preferred_area_id) && (
                       <div className="flex items-center gap-2">
                         <MdLocationOn size={14} />
                         <span>Área: {(() => {
-                          const area = areas.find(a => a.id === entry.preferred_area_id);
-                          return area ? getSeuJustinoAreaName(entry.preferred_table_number, area.name, entry.preferred_area_id) : '—';
+                          const areaId = Number(entry.preferred_area_id || formData.preferred_area_id);
+                          const tableNumber = entry.preferred_table_number || formData.preferred_table_number;
+                          const area = areas.find(a => Number(a.id) === areaId);
+                          if (area) {
+                            const areaName = getSeuJustinoAreaName(tableNumber, area.name, areaId);
+                            return areaName || area.name || '—';
+                          }
+                          // Se não encontrou a área, tentar pela mesa diretamente
+                          if (tableNumber && isSeuJustino) {
+                            const areaName = getSeuJustinoAreaName(tableNumber, '', areaId);
+                            if (areaName) return areaName;
+                          }
+                          return '—';
                         })()}</span>
                       </div>
                     )}
-                    {entry.preferred_table_number && (
+                    {(entry.preferred_table_number || formData.preferred_table_number) && (
                       <div className="flex items-center gap-2">
                         <MdTableBar size={14} />
-                        <span>Mesa: {entry.preferred_table_number}</span>
+                        <span>Mesa: {entry.preferred_table_number || formData.preferred_table_number}</span>
                       </div>
                     )}
-                    {entry.preferred_date && (
+                    {(entry.preferred_date || formData.preferred_date) && (
                       <div className="flex items-center gap-2">
                         <MdCalendarToday size={14} />
-                        <span>Data: {new Date(entry.preferred_date + 'T12:00:00').toLocaleDateString('pt-BR')}</span>
+                        <span>Data: {(() => {
+                          const dateStr = entry.preferred_date || formData.preferred_date;
+                          if (!dateStr) return '—';
+                          try {
+                            // Se já está no formato YYYY-MM-DD, usar diretamente
+                            if (dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
+                              const date = new Date(dateStr + 'T12:00:00');
+                              if (!isNaN(date.getTime())) {
+                                return date.toLocaleDateString('pt-BR');
+                              }
+                            }
+                            // Tentar parsear como está
+                            const date = new Date(dateStr);
+                            if (!isNaN(date.getTime())) {
+                              return date.toLocaleDateString('pt-BR');
+                            }
+                            return '—';
+                          } catch (e) {
+                            console.error('Erro ao formatar data:', e, dateStr);
+                            return '—';
+                          }
+                        })()}</span>
                       </div>
                     )}
                   </div>
@@ -578,10 +668,13 @@ export default function WaitlistModal({
                   <label className="block text-sm font-medium text-gray-300 mb-2">
                     <MdCalendarToday className="inline mr-2" />
                     Data Preferida *
+                    {entry && entry.preferred_date && (
+                      <span className="ml-2 text-xs text-green-400">✓ Carregado: {entry.preferred_date}</span>
+                    )}
                   </label>
                   <input
                     type="date"
-                    value={formData.preferred_date}
+                    value={formData.preferred_date || ''}
                     onChange={(e) => handleInputChange('preferred_date', e.target.value)}
                     className={`w-full px-3 py-2 bg-gray-700 border rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-yellow-500 ${
                       errors.preferred_date ? 'border-red-500' : 'border-gray-600'
@@ -612,9 +705,12 @@ export default function WaitlistModal({
                   <label className="block text-sm font-medium text-gray-300 mb-2">
                     <MdLocationOn className="inline mr-2" />
                     Área
+                    {entry && entry.preferred_area_id && (
+                      <span className="ml-2 text-xs text-green-400">✓ Carregado: ID {entry.preferred_area_id}</span>
+                    )}
                   </label>
                   <select
-                    value={(isHighline || isSeuJustino) ? selectedSubareaKey : formData.preferred_area_id}
+                    value={(isHighline || isSeuJustino) ? selectedSubareaKey : (formData.preferred_area_id || '')}
                     onChange={(e) => {
                       if (isHighline || isSeuJustino) {
                         const key = e.target.value;
@@ -641,11 +737,30 @@ export default function WaitlistModal({
                           <option key={s.key} value={s.key}>{s.label}</option>
                         ))
                       : areas.map((area) => (
-                          <option key={area.id} value={area.id}>
+                          <option key={area.id} value={String(area.id)}>
                             {area.name}
                           </option>
                         ))}
                   </select>
+                  {/* Mostrar informações carregadas quando em modo de edição */}
+                  {entry && (
+                    <div className="mt-2 p-2 bg-blue-900/20 border border-blue-600/40 rounded text-xs">
+                      <p className="text-blue-300 font-semibold mb-1">📋 Informações Carregadas da Entrada:</p>
+                      <div className="space-y-1 text-blue-200">
+                        <div>Data: <span className="font-medium">{entry.preferred_date || 'Não informado'}</span></div>
+                        <div>Área ID: <span className="font-medium">{entry.preferred_area_id || 'Não informado'}</span></div>
+                        <div>Mesa: <span className="font-medium">{entry.preferred_table_number || 'Não informado'}</span></div>
+                        <div>Horário: <span className="font-medium">{entry.preferred_time || 'Não informado'}</span></div>
+                      </div>
+                      <p className="text-blue-300 font-semibold mt-2 mb-1">📝 Valores no Formulário:</p>
+                      <div className="space-y-1 text-blue-200">
+                        <div>Data: <span className="font-medium">{formData.preferred_date || 'Vazio'}</span></div>
+                        <div>Área ID: <span className="font-medium">{formData.preferred_area_id || 'Vazio'}</span></div>
+                        <div>Mesa: <span className="font-medium">{formData.preferred_table_number || 'Vazio'}</span></div>
+                        <div>Subárea Key: <span className="font-medium">{selectedSubareaKey || 'Vazio'}</span></div>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Mesa - mostrar todas (disponíveis e indisponíveis) */}
@@ -653,10 +768,13 @@ export default function WaitlistModal({
                   <label className="block text-sm font-medium text-gray-300 mb-2">
                     <MdTableBar className="inline mr-2" />
                     Mesa
+                    {entry && entry.preferred_table_number && (
+                      <span className="ml-2 text-xs text-green-400">✓ Carregado: {entry.preferred_table_number}</span>
+                    )}
                   </label>
                   {tables.length > 0 || (isSeuJustino && selectedSubareaKey) || (isHighline && selectedSubareaKey) ? (
                     <select
-                      value={formData.preferred_table_number}
+                      value={formData.preferred_table_number || ''}
                       onChange={(e) => handleInputChange('preferred_table_number', e.target.value)}
                       className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-yellow-500"
                     >
@@ -690,7 +808,7 @@ export default function WaitlistModal({
                   ) : formData.preferred_area_id ? (
                     <input
                       type="text"
-                      value={formData.preferred_table_number}
+                      value={formData.preferred_table_number || ''}
                       onChange={(e) => handleInputChange('preferred_table_number', e.target.value)}
                       className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-yellow-500"
                       placeholder="Ex: Mesa 10"
@@ -698,7 +816,7 @@ export default function WaitlistModal({
                   ) : (
                     <input
                       type="text"
-                      value={formData.preferred_table_number}
+                      value={formData.preferred_table_number || ''}
                       onChange={(e) => handleInputChange('preferred_table_number', e.target.value)}
                       className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-yellow-500"
                       placeholder="Selecione uma área primeiro"
