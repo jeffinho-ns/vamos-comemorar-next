@@ -842,7 +842,8 @@ const handleSubmit = async (e: React.FormEvent) => {
         : seuJustinoSubareas.find(s => s.key === selectedSubareaKey);
       if (sub?.label) areaDisplayName = sub.label;
     }
-  } else if (isReservaRooftop && selectedSubareaKey) {
+  } else if (isReservaRooftop && !isPracinha && selectedSubareaKey) {
+    // Reserva Rooftop usa subáreas, mas Pracinha NÃO
     const sub = rooftopSubareas.find(s => s.key === selectedSubareaKey);
     if (sub?.label) areaDisplayName = sub.label;
   } else if (areas.length && reservationData.area_id) {
@@ -1998,7 +1999,8 @@ const handleSubmit = async (e: React.FormEvent) => {
                         handleInputChange('area_id', sub ? String(sub.area_id) : '');
                         handleInputChange('table_number', '');
                         handleInputChange('reservation_time', '');
-                      } else if (isReservaRooftop) {
+                      } else if (isReservaRooftop && !isPracinha) {
+                        // Reserva Rooftop usa subáreas, mas Pracinha NÃO
                         const key = e.target.value;
                         setSelectedSubareaKey(key);
                         const sub = rooftopSubareas.find(s => s.key === key);
@@ -2007,6 +2009,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                         handleInputChange('table_number', '');
                         handleInputChange('reservation_time', '');
                       } else {
+                        // Pracinha e outros estabelecimentos usam áreas normais
                         handleInputChange('area_id', e.target.value);
                         handleInputChange('table_number', '');
                         handleInputChange('reservation_time', '');
@@ -2025,7 +2028,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                       ? seuJustinoSubareas.map((s) => (
                           <option key={s.key} value={s.key}>{s.label}</option>
                         ))
-                      : isReservaRooftop
+                      : (isReservaRooftop && !isPracinha)
                       ? rooftopSubareas.map((s) => (
                           <option key={s.key} value={s.key}>{s.label}</option>
                         ))
@@ -2418,7 +2421,7 @@ const handleSubmit = async (e: React.FormEvent) => {
               ? highlineSubareas.find(s => s.area_id.toString() === reservationData.area_id)?.label
               : isSeuJustino
               ? seuJustinoSubareas.find(s => s.area_id.toString() === reservationData.area_id)?.label
-              : isReservaRooftop
+              : (isReservaRooftop && !isPracinha)
               ? rooftopSubareas.find(s => s.key === selectedSubareaKey)?.label || areas.find(a => a.id.toString() === reservationData.area_id)?.name
               : areas.find(a => a.id.toString() === reservationData.area_id)?.name
             }
