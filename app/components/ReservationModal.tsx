@@ -393,10 +393,11 @@ export default function ReservationModal({
           // IMPORTANTE (Justino/Pracinha):
           // O endpoint /restaurant-tables/:areaId/availability marca `is_reserved` para o DIA TODO
           // (se existir qualquer reserva na mesa no dia). Para Justino/Pracinha, precisamos
-          // sempre calcular por SOBREPOSIÇÃO DE HORÁRIO no frontend. Então:
-          // - Se ainda NÃO há horário selecionado, exibir TODAS como disponíveis (is_reserved=false)
-          // - Quando houver horário, recalculamos abaixo por overlap.
-          if ((isSeuJustino || isPracinha) && (!formData.reservation_time || String(formData.reservation_time).trim() === '')) {
+          // SEMPRE calcular por SOBREPOSIÇÃO DE HORÁRIO no frontend e NUNCA herdar is_reserved do endpoint.
+          // - SEMPRE começar com TODAS disponíveis (is_reserved=false)
+          // - Só marcar como indisponível se houver reserva ativa com overlap de horário
+          if (isSeuJustino || isPracinha) {
+            // SEMPRE resetar is_reserved para false inicialmente
             fetched = fetched.map(t => ({ ...t, is_reserved: false }));
           }
           
@@ -464,6 +465,8 @@ export default function ReservationModal({
           }
           
           // Verificar disponibilidade de mesas para Seu Justino e Pracinha (considerando horário)
+          // IMPORTANTE: Só marca como indisponível se houver reserva ATIVA com OVERLAP de horário
+          // Se não tem horário selecionado OU não há reserva ativa com overlap, todas ficam disponíveis
           if ((isSeuJustino || isPracinha) && formData.reservation_time && formData.reservation_date && formData.area_id) {
             try {
               const reservationsRes = await fetch(
@@ -497,12 +500,14 @@ export default function ReservationModal({
                   return diff < 120; // 2 horas em minutos
                 };
                 
+                // Criar Set apenas com mesas que têm reserva ATIVA com OVERLAP de horário
                 const reservedTableNumbers = new Set<string>();
                 activeReservations.forEach((reservation: any) => {
                   if (reservation.table_number && reservation.reservation_time) {
                     const reservationTime = String(reservation.reservation_time).substring(0, 5);
                     const selectedTime = String(formData.reservation_time).substring(0, 5);
                     
+                    // Só marca como reservada se houver overlap de horário
                     if (hasTimeOverlap(reservationTime, selectedTime)) {
                       const tables = String(reservation.table_number).split(',');
                       tables.forEach((table: string) => {
@@ -512,15 +517,19 @@ export default function ReservationModal({
                   }
                 });
                 
-                // IMPORTANTE: Para Seu Justino/Pracinha, a disponibilidade é por SOBREPOSIÇÃO DE HORÁRIO.
-                // Não podemos "herdar" `table.is_reserved` do endpoint de availability, pois ele bloqueia o dia todo.
+                // IMPORTANTE: Para Seu Justino/Pracinha, SEMPRE começar com todas disponíveis
+                // e só marcar como indisponível se estiver no Set de mesas com overlap
                 fetched = fetched.map(table => ({
                   ...table,
-                  is_reserved: reservedTableNumbers.has(String(table.table_number))
+                  is_reserved: reservedTableNumbers.has(String(table.table_number)) // Só true se houver overlap
                 }));
               }
             } catch (err) {
               console.error('Erro ao verificar disponibilidade:', err);
+              // Em caso de erro, manter todas como disponíveis (não bloquear por segurança)
+              if (isSeuJustino || isPracinha) {
+                fetched = fetched.map(t => ({ ...t, is_reserved: false }));
+              }
             }
           }
 
