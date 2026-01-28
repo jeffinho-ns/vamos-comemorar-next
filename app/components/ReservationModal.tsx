@@ -389,6 +389,16 @@ export default function ReservationModal({
             const minutes = h * 60 + (Number.isNaN(m) ? 0 : m);
             return minutes >= 15 * 60 && minutes < 21 * 60;
           })();
+
+          // IMPORTANTE (Justino/Pracinha):
+          // O endpoint /restaurant-tables/:areaId/availability marca `is_reserved` para o DIA TODO
+          // (se existir qualquer reserva na mesa no dia). Para Justino/Pracinha, precisamos
+          // sempre calcular por SOBREPOSIÇÃO DE HORÁRIO no frontend. Então:
+          // - Se ainda NÃO há horário selecionado, exibir TODAS como disponíveis (is_reserved=false)
+          // - Quando houver horário, recalculamos abaixo por overlap.
+          if ((isSeuJustino || isPracinha) && (!formData.reservation_time || String(formData.reservation_time).trim() === '')) {
+            fetched = fetched.map(t => ({ ...t, is_reserved: false }));
+          }
           
           // A. LÓGICA DE TRAVAMENTO "GIRO ÚNICO" NO DECK (EXCLUSIVO HIGHLINE)
           // Se for Highline e área Deck (area_id = 2), aplicar travamento de mesas
