@@ -6,7 +6,15 @@ import { QRCodeSVG } from "qrcode.react";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL_LOCAL || 'https://vamos-comemorar-api.onrender.com';
 
-type Guest = { id: number; name: string; status: string; checked_in?: boolean; checkin_time?: string };
+type Guest = {
+  id: number;
+  name: string;
+  status: string;
+  checked_in?: boolean;
+  checkin_time?: string;
+  qr_code_token?: string | null;
+  is_owner?: boolean;
+};
 
 export default function GuestListPublicPage() {
   const params = useParams<{ token: string }>();
@@ -25,6 +33,7 @@ export default function GuestListPublicPage() {
   const [bulkFeedback, setBulkFeedback] = useState<{ added: number; skipped: number; errors: string[] }>({ added: 0, skipped: 0, errors: [] });
   const [bulkError, setBulkError] = useState<string | null>(null);
   const [checkInUrl, setCheckInUrl] = useState<string>("");
+  const [qrModalGuest, setQrModalGuest] = useState<Guest | null>(null);
 
   const token = params?.token;
 
@@ -63,9 +72,9 @@ export default function GuestListPublicPage() {
 
   const shareUrl = typeof window !== 'undefined' ? window.location.href : '';
 
-  // Calcular progresso de check-ins
+  // Calcular progresso de check-ins (compatível com CHECK-IN e CHECKED_IN)
   const checkedInCount = useMemo(() => {
-    return guests.filter(g => g.checked_in === true || g.status === 'CHECK-IN').length;
+    return guests.filter(g => g.checked_in === true || g.status === 'CHECK-IN' || g.status === 'CHECKED_IN').length;
   }, [guests]);
 
   const totalGuests = guests.length;
@@ -300,33 +309,82 @@ export default function GuestListPublicPage() {
               <tr>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nome</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">QR Code</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {guests.map((g) => (
                 <tr key={g.id}>
-                  <td className="px-4 py-3 text-sm text-gray-900">{g.name}</td>
+                  <td className="px-4 py-3 text-sm text-gray-900">
+                    {g.name}
+                    {g.is_owner && <span className="ml-1 text-xs text-amber-600">(dono da reserva)</span>}
+                  </td>
                   <td className="px-4 py-3 text-sm">
-                    {g.checked_in === true || g.status === 'CHECK-IN' ? (
+                    {g.checked_in === true || g.status === 'CHECK-IN' || g.status === 'CHECKED_IN' ? (
                       <span className="inline-flex items-center px-2.5 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
                         ✅ Check-in Realizado
                       </span>
                     ) : (
                       <span className="inline-flex items-center px-2.5 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800">
-                        Confirmado
+                        Pendente
                       </span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3 text-sm">
+                    {g.qr_code_token ? (
+                      <button
+                        type="button"
+                        onClick={() => setQrModalGuest(g)}
+                        className="inline-flex items-center px-3 py-1.5 rounded text-xs font-medium bg-orange-100 text-orange-800 hover:bg-orange-200 transition-colors"
+                      >
+                        Ver QR Code
+                      </button>
+                    ) : (
+                      <span className="text-gray-400 text-xs">—</span>
                     )}
                   </td>
                 </tr>
               ))}
               {guests.length === 0 && (
                 <tr>
-                  <td className="px-4 py-6 text-sm text-gray-500" colSpan={2}>Nenhum convidado cadastrado ainda.</td>
+                  <td className="px-4 py-6 text-sm text-gray-500" colSpan={3}>Nenhum convidado cadastrado ainda.</td>
                 </tr>
               )}
             </tbody>
           </table>
         </div>
+
+        {/* Modal QR Code individual do convidado */}
+        {qrModalGuest && qrModalGuest.qr_code_token && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4" onClick={() => setQrModalGuest(null)}>
+            <div className="bg-white rounded-2xl shadow-xl p-6 max-w-sm w-full text-center" onClick={(e) => e.stopPropagation()}>
+              <h3 className="text-lg font-semibold text-gray-900 mb-1">{qrModalGuest.name}</h3>
+              <p className="text-sm text-gray-600 mb-4">
+                {qrModalGuest.checked_in || qrModalGuest.status === 'CHECK-IN' || qrModalGuest.status === 'CHECKED_IN'
+                  ? 'Check-in realizado'
+                  : 'Pendente'}
+              </p>
+              <div className="bg-white p-4 rounded-lg border border-gray-200 inline-block mb-4">
+                <QRCodeSVG
+                  value={qrModalGuest.qr_code_token}
+                  size={220}
+                  level="H"
+                  includeMargin={true}
+                />
+              </div>
+              <p className="text-xs text-gray-500 mb-4">
+                Apresente este QR Code na recepção para fazer check-in.
+              </p>
+              <button
+                type="button"
+                onClick={() => setQrModalGuest(null)}
+                className="w-full px-4 py-2 bg-gray-700 hover:bg-gray-800 text-white rounded font-medium transition-colors"
+              >
+                Fechar
+              </button>
+            </div>
+          </div>
+        )}
 
         <div className="mt-6 flex flex-col md:flex-row gap-3 md:items-center">
           <input readOnly value={shareUrl} className="flex-1 px-3 py-2 border rounded" />

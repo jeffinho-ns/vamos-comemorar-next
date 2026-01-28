@@ -178,6 +178,7 @@ export default function ReservationForm() {
   const [promoterEvents, setPromoterEvents] = useState<PromoterEvent[]>([]);
   const [promoterEventsLoading, setPromoterEventsLoading] = useState(false);
   const [promoterEventsError, setPromoterEventsError] = useState<string | null>(null);
+  const [isWalkIn, setIsWalkIn] = useState<boolean>(false);
 
   // Carregar estabelecimentos da API
   useEffect(() => {
@@ -623,6 +624,16 @@ export default function ReservationForm() {
     loadUpcomingEvents();
   }, []);
 
+  // Walk-in: preencher Data e Hora com o momento atual quando "Está no Estabelecimento?" = SIM
+  useEffect(() => {
+    if (isWalkIn) {
+      const now = new Date();
+      const date = now.toISOString().split('T')[0];
+      const time = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+      setReservationData((prev) => ({ ...prev, reservation_date: date, reservation_time: time }));
+    }
+  }, [isWalkIn]);
+
   const handleEstablishmentSelect = (establishment: Establishment) => {
     setSelectedEstablishment(establishment);
     loadAreas(establishment.id);
@@ -660,41 +671,44 @@ export default function ReservationForm() {
       }
     }
 
-    if (!reservationData.reservation_date) {
-      newErrors.reservation_date = 'Data é obrigatória';
-    }
-
-    if (!reservationData.reservation_time) {
-      newErrors.reservation_time = 'Horário é obrigatório';
-    }
-
-    if (
-      reservationData.reservation_time &&
-      availableTimeSlots.length > 0 &&
-      !availableTimeSlots.includes(reservationData.reservation_time)
-    ) {
-      newErrors.reservation_time = 'Escolha um horário disponível na lista.';
-    }
-
-    // Regra de horário de funcionamento do Highline
-    if (isHighline) {
-      const windows = getHighlineTimeWindows(reservationData.reservation_date, selectedSubareaKey);
-      const hasWindows = windows.length > 0;
-      if (!hasWindows) {
-        newErrors.reservation_time = 'Reservas fechadas para o dia selecionado no Highline.';
-      } else if (reservationData.reservation_time && !isTimeWithinWindows(reservationData.reservation_time, windows)) {
-        newErrors.reservation_time = 'Horário fora do funcionamento. Consulte os horários disponíveis abaixo.';
+    // Walk-in: não validar Data/Hora nem janelas de horário (preenchidos automaticamente)
+    if (!isWalkIn) {
+      if (!reservationData.reservation_date) {
+        newErrors.reservation_date = 'Data é obrigatória';
       }
-    }
 
-    // Regra de horário de funcionamento do Seu Justino e Pracinha do Seu Justino
-    if (isSeuJustino || isPracinha) {
-      const windows = getSeuJustinoTimeWindows(reservationData.reservation_date);
-      const hasWindows = windows.length > 0;
-      if (!hasWindows) {
-        newErrors.reservation_time = 'Reservas fechadas para o dia selecionado.';
-      } else if (reservationData.reservation_time && !isTimeWithinWindows(reservationData.reservation_time, windows)) {
-        newErrors.reservation_time = 'Horário fora do funcionamento. Consulte os horários disponíveis abaixo.';
+      if (!reservationData.reservation_time) {
+        newErrors.reservation_time = 'Horário é obrigatório';
+      }
+
+      if (
+        reservationData.reservation_time &&
+        availableTimeSlots.length > 0 &&
+        !availableTimeSlots.includes(reservationData.reservation_time)
+      ) {
+        newErrors.reservation_time = 'Escolha um horário disponível na lista.';
+      }
+
+      // Regra de horário de funcionamento do Highline
+      if (isHighline) {
+        const windows = getHighlineTimeWindows(reservationData.reservation_date, selectedSubareaKey);
+        const hasWindows = windows.length > 0;
+        if (!hasWindows) {
+          newErrors.reservation_time = 'Reservas fechadas para o dia selecionado no Highline.';
+        } else if (reservationData.reservation_time && !isTimeWithinWindows(reservationData.reservation_time, windows)) {
+          newErrors.reservation_time = 'Horário fora do funcionamento. Consulte os horários disponíveis abaixo.';
+        }
+      }
+
+      // Regra de horário de funcionamento do Seu Justino e Pracinha do Seu Justino
+      if (isSeuJustino || isPracinha) {
+        const windows = getSeuJustinoTimeWindows(reservationData.reservation_date);
+        const hasWindows = windows.length > 0;
+        if (!hasWindows) {
+          newErrors.reservation_time = 'Reservas fechadas para o dia selecionado.';
+        } else if (reservationData.reservation_time && !isTimeWithinWindows(reservationData.reservation_time, windows)) {
+          newErrors.reservation_time = 'Horário fora do funcionamento. Consulte os horários disponíveis abaixo.';
+        }
       }
     }
 
@@ -724,6 +738,45 @@ const handleSubmit = async (e: React.FormEvent) => {
   }
 
   setLoading(true);
+
+  // Walk-in: enviar para /api/waitlist e exibir mensagem de fila de espera
+  if (isWalkIn && selectedEstablishment?.id) {
+    try {
+      const now = new Date();
+      const preferredDate = now.toISOString().split('T')[0];
+      const preferredTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+      const waitlistPayload = {
+        establishment_id: selectedEstablishment.id,
+        client_name: reservationData.client_name.trim(),
+        client_phone: reservationData.client_phone.trim(),
+        client_email: reservationData.client_email?.trim() || null,
+        number_of_people: Number(reservationData.number_of_people),
+        preferred_date: preferredDate,
+        preferred_area_id: reservationData.area_id ? Number(reservationData.area_id) : null,
+        preferred_time: preferredTime,
+        has_bistro_table: true,
+        status: 'AGUARDANDO',
+      };
+      const response = await fetch(`${API_URL}/api/waitlist`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(waitlistPayload),
+      });
+      if (response.ok) {
+        setStep('confirmation');
+        setLoading(false);
+        return;
+      }
+      const errData = await response.json().catch(() => ({}));
+      alert(errData.error || 'Erro ao entrar na fila de espera. Tente novamente.');
+    } catch (err) {
+      console.error('Erro walk-in:', err);
+      alert('Erro ao entrar na fila de espera. Verifique sua conexão e tente novamente.');
+    } finally {
+      setLoading(false);
+    }
+    return;
+  }
 
   // 1. Unifica a preparação do payload para TODAS as reservas
   const payload: any = {
@@ -1810,6 +1863,35 @@ const handleSubmit = async (e: React.FormEvent) => {
                 </div>
               </div>
 
+              {/* Está no Estabelecimento? — Walk-in (fila de espera) */}
+              <div className="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Está no Estabelecimento?
+                </label>
+                <div className="flex gap-4">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="isWalkIn"
+                      checked={!isWalkIn}
+                      onChange={() => setIsWalkIn(false)}
+                      className="w-4 h-4 text-orange-500"
+                    />
+                    <span>NÃO</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="isWalkIn"
+                      checked={isWalkIn}
+                      onChange={() => setIsWalkIn(true)}
+                      className="w-4 h-4 text-orange-500"
+                    />
+                    <span>SIM</span>
+                  </label>
+                </div>
+              </div>
+
               {/* Reservation Details */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
@@ -1822,13 +1904,17 @@ const handleSubmit = async (e: React.FormEvent) => {
                       max={getMaxDate()}
                       value={reservationData.reservation_date}
                       onChange={(e) => {
-                        handleInputChange('reservation_date', e.target.value);
-                        handleInputChange('table_number', ''); // Adicione esta linha
-                        handleInputChange('reservation_time', '');
+                        if (!isWalkIn) {
+                          handleInputChange('reservation_date', e.target.value);
+                          handleInputChange('table_number', '');
+                          handleInputChange('reservation_time', '');
+                        }
                       }}
+                      disabled={isWalkIn}
+                      readOnly={isWalkIn}
                       className={`w-full px-3 sm:px-4 py-2 sm:py-3 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent text-sm sm:text-base ${
                         errors.reservation_date ? 'border-red-500' : 'border-gray-300'
-                      }`}
+                      } ${isWalkIn ? 'bg-gray-100' : ''}`}
                     />
                   {errors.reservation_date && (
                     <p className="text-red-500 text-sm mt-1">{errors.reservation_date}</p>
@@ -1930,14 +2016,16 @@ const handleSubmit = async (e: React.FormEvent) => {
                   </label>
                   <select
                     value={reservationData.reservation_time}
-                    onChange={(e) => handleInputChange('reservation_time', e.target.value)}
-                    disabled={availableTimeSlots.length === 0}
+                    onChange={(e) => !isWalkIn && handleInputChange('reservation_time', e.target.value)}
+                    disabled={isWalkIn || availableTimeSlots.length === 0}
                     className={`w-full px-3 sm:px-4 py-2 sm:py-3 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent text-sm sm:text-base ${
                       errors.reservation_time ? 'border-red-500' : 'border-gray-300'
-                    } ${availableTimeSlots.length === 0 ? 'bg-gray-100 text-gray-500' : ''}`}
+                    } ${(isWalkIn || availableTimeSlots.length === 0) ? 'bg-gray-100 text-gray-500' : ''}`}
                   >
                     <option value="">
-                      {availableTimeSlots.length === 0
+                      {isWalkIn
+                        ? 'Preenchido automaticamente (walk-in)'
+                        : availableTimeSlots.length === 0
                         ? 'Selecione a área e a data para ver os horários'
                         : 'Selecione um horário disponível'}
                     </option>
@@ -2196,12 +2284,20 @@ const handleSubmit = async (e: React.FormEvent) => {
     </div>
 
     <h2 className="text-2xl sm:text-3xl font-bold text-gray-800 mb-3 sm:mb-4">
-      Reserva Confirmada!
+      {isWalkIn ? 'Você está na fila de espera!' : 'Reserva Confirmada!'}
     </h2>
 
-    <p className="text-gray-600 mb-4 sm:mb-6 text-sm sm:text-base px-2">
-      Sua reserva foi realizada com sucesso. Você receberá uma confirmação por telefone ou email.
-    </p>
+    {isWalkIn ? (
+      <div className="mb-6 p-4 bg-amber-50 border-2 border-amber-300 rounded-lg text-amber-900">
+        <p className="font-medium text-base">
+          Você está na fila de espera e foi alocado em um Bistrô. Aguarde o chamado da recepção.
+        </p>
+      </div>
+    ) : (
+      <p className="text-gray-600 mb-4 sm:mb-6 text-sm sm:text-base px-2">
+        Sua reserva foi realizada com sucesso. Você receberá uma confirmação por telefone ou email.
+      </p>
+    )}
 
     {/* 🎂 MENSAGEM ESPECIAL PARA ANIVERSÁRIOS E RESERVAS GRANDES */}
     {birthdayGuestListCreated && (
@@ -2348,6 +2444,7 @@ const handleSubmit = async (e: React.FormEvent) => {
         onClick={() => {
           setStep('establishment');
           setSelectedEstablishment(null);
+          setIsWalkIn(false);
           // Resetar o estado para a forma inicial completa
           setReservationData({
             client_name: '',
