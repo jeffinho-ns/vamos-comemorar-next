@@ -71,12 +71,12 @@ interface PromoterEvent {
 }
 
 // 🎂 FUNÇÃO PARA DETECTAR E CRIAR LISTA DE CONVIDADOS PARA ANIVERSÁRIOS E RESERVAS GRANDES
-const detectAndCreateBirthdayGuestList = async (reservationId: number, payload: any): Promise<boolean> => {
+const detectAndCreateBirthdayGuestList = async (reservationId: number, payload: any, establishmentName?: string): Promise<boolean> => {
   try {
     // NOVA REGRA: Reservas de aniversário OU reservas grandes criam lista automaticamente
     // Critérios para reserva de aniversário:
     // 1. Nos dois dias de funcionamento (sexta ou sábado)
-    // 2. Estabelecimento HighLine (ID 1)
+    // 2. Estabelecimento HighLine ou Reserva Rooftop (paridade de funcionalidades)
     // 3. Qualquer quantidade de pessoas (para garantir benefícios)
     
     // Critérios para reserva grande:
@@ -88,11 +88,13 @@ const detectAndCreateBirthdayGuestList = async (reservationId: number, payload: 
     const dayOfWeek = reservationDate.getDay(); // Domingo = 0, Sexta = 5, Sábado = 6
     const isWeekend = dayOfWeek === 5 || dayOfWeek === 6; // Sexta ou Sábado
     const isHighLine = payload.establishment_id === 1;
+    const nameLower = (establishmentName || '').toLowerCase();
+    const isReservaRooftop = nameLower.includes('reserva rooftop') || nameLower.includes('rooftop');
     const isLargeGroup = payload.number_of_people >= 4;
     
-    // Criar lista para aniversário (HighLine + fim de semana) OU reserva grande (4+ pessoas)
-    if ((isWeekend && isHighLine) || isLargeGroup) {
-      const eventType = isWeekend && isHighLine ? 'aniversario' : 'despedida';
+    // Criar lista para aniversário (HighLine ou Reserva Rooftop + fim de semana) OU reserva grande (4+ pessoas)
+    if ((isWeekend && (isHighLine || isReservaRooftop)) || isLargeGroup) {
+      const eventType = isWeekend && (isHighLine || isReservaRooftop) ? 'aniversario' : 'despedida';
       console.log(`🎂 Detectada ${eventType}! Criando lista de convidados automaticamente...`);
       
       // Determinar o tipo de reserva baseado no número de pessoas
@@ -409,6 +411,27 @@ export default function ReservationForm() {
 
   const isPracinha = selectedEstablishment && (
     (selectedEstablishment.name || '').toLowerCase().includes('pracinha')
+  );
+
+  // Subáreas do Reserva Rooftop (nomes batem com restaurant_areas após migração add_reserva_rooftop_areas_postgresql)
+  const rooftopSubareas = [
+    { key: 'corredor', label: 'Corredor', areaName: 'Reserva Rooftop - Corredor' },
+    { key: 'lg1', label: 'LG 1', areaName: 'Reserva Rooftop - LG 1' },
+    { key: 'lg2', label: 'LG 2', areaName: 'Reserva Rooftop - LG 2' },
+    { key: 'lg3', label: 'LG 3', areaName: 'Reserva Rooftop - LG 3' },
+    { key: 'gramado1', label: 'Gramado 1 (Área de Sofás)', areaName: 'Reserva Rooftop - Gramado 1' },
+    { key: 'gramado2', label: 'Gramado 2 (Área de Giro/Fila)', areaName: 'Reserva Rooftop - Gramado 2' },
+    { key: 'parrilha', label: 'Parrilha', areaName: 'Reserva Rooftop - Parrilha' },
+    { key: 'redario', label: 'Redário', areaName: 'Reserva Rooftop - Redário' },
+    { key: 'pq1', label: 'PQ 1', areaName: 'Reserva Rooftop - PQ 1' },
+    { key: 'pq2', label: 'PQ 2', areaName: 'Reserva Rooftop - PQ 2' },
+    { key: 'pq3', label: 'PQ 3', areaName: 'Reserva Rooftop - PQ 3' },
+    { key: 'pq4', label: 'PQ 4', areaName: 'Reserva Rooftop - PQ 4' },
+  ];
+
+  const isReservaRooftop = selectedEstablishment && (
+    (selectedEstablishment.name || '').toLowerCase().includes('reserva rooftop') ||
+    (selectedEstablishment.name || '').toLowerCase().includes('rooftop')
   );
 
   // Janelas de horário para o Highline (Sexta e Sábado)
@@ -819,6 +842,9 @@ const handleSubmit = async (e: React.FormEvent) => {
         : seuJustinoSubareas.find(s => s.key === selectedSubareaKey);
       if (sub?.label) areaDisplayName = sub.label;
     }
+  } else if (isReservaRooftop && selectedSubareaKey) {
+    const sub = rooftopSubareas.find(s => s.key === selectedSubareaKey);
+    if (sub?.label) areaDisplayName = sub.label;
   } else if (areas.length && reservationData.area_id) {
     const ar = areas.find((a: { id: number }) => Number(a.id) === Number(reservationData.area_id));
     if (ar && (ar as { name?: string }).name) areaDisplayName = (ar as { name: string }).name;
@@ -877,7 +903,7 @@ const handleSubmit = async (e: React.FormEvent) => {
       
       // 🎂 NOVA FUNCIONALIDADE: Detectar reserva de aniversário e criar lista automaticamente
       const reservationId = result.reservation?.id || result.id;
-      const isBirthdayReservation = await detectAndCreateBirthdayGuestList(reservationId, payload);
+      const isBirthdayReservation = await detectAndCreateBirthdayGuestList(reservationId, payload, selectedEstablishment?.name);
       setBirthdayGuestListCreated(isBirthdayReservation);
       
       // Armazena o ID e o link da lista de convidados (se houver)
@@ -1926,7 +1952,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                     Área Preferida *
                   </label>
                   <select
-                    value={(isHighline || isSeuJustino) ? selectedSubareaKey : reservationData.area_id}
+                    value={(isHighline || isSeuJustino || isReservaRooftop) ? selectedSubareaKey : reservationData.area_id}
                     onChange={(e) => {
                       if (isHighline || isSeuJustino) {
                         const key = e.target.value;
@@ -1935,6 +1961,14 @@ const handleSubmit = async (e: React.FormEvent) => {
                           ? highlineSubareas.find(s => s.key === key)
                           : seuJustinoSubareas.find(s => s.key === key);
                         handleInputChange('area_id', sub ? String(sub.area_id) : '');
+                        handleInputChange('table_number', '');
+                        handleInputChange('reservation_time', '');
+                      } else if (isReservaRooftop) {
+                        const key = e.target.value;
+                        setSelectedSubareaKey(key);
+                        const sub = rooftopSubareas.find(s => s.key === key);
+                        const area = sub ? areas.find((a: { name?: string }) => (a.name || '') === sub.areaName) : null;
+                        handleInputChange('area_id', area ? String(area.id) : '');
                         handleInputChange('table_number', '');
                         handleInputChange('reservation_time', '');
                       } else {
@@ -1954,6 +1988,10 @@ const handleSubmit = async (e: React.FormEvent) => {
                         ))
                       : isSeuJustino
                       ? seuJustinoSubareas.map((s) => (
+                          <option key={s.key} value={s.key}>{s.label}</option>
+                        ))
+                      : isReservaRooftop
+                      ? rooftopSubareas.map((s) => (
                           <option key={s.key} value={s.key}>{s.label}</option>
                         ))
                       : areas.map((area) => (
@@ -2290,7 +2328,7 @@ const handleSubmit = async (e: React.FormEvent) => {
     {isWalkIn ? (
       <div className="mb-6 p-4 bg-amber-50 border-2 border-amber-300 rounded-lg text-amber-900">
         <p className="font-medium text-base">
-          Você está na fila de espera e foi alocado em um Bistrô. Aguarde o chamado da recepção.
+          Confirmado! Você está em um de nossos bistrôs na fila de espera.
         </p>
       </div>
     ) : (
@@ -2345,6 +2383,8 @@ const handleSubmit = async (e: React.FormEvent) => {
               ? highlineSubareas.find(s => s.area_id.toString() === reservationData.area_id)?.label
               : isSeuJustino
               ? seuJustinoSubareas.find(s => s.area_id.toString() === reservationData.area_id)?.label
+              : isReservaRooftop
+              ? rooftopSubareas.find(s => s.key === selectedSubareaKey)?.label || areas.find(a => a.id.toString() === reservationData.area_id)?.name
               : areas.find(a => a.id.toString() === reservationData.area_id)?.name
             }
           </span>

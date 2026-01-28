@@ -45,7 +45,10 @@ export default function QRCodeScanner() {
         setApiResponseData(data as CheckinResponse);
         setIsModalOpen(true);
       } else {
-        setValidationMessage(`${response.status === 409 ? '⚠️' : '❌'} ${data.message || 'Erro desconhecido'}`);
+        const msg = response.status === 409 && (data as { checkin_time_formatted?: string }).checkin_time_formatted
+          ? `ALERTA: Este cliente já entrou às ${(data as { checkin_time_formatted: string }).checkin_time_formatted}.`
+          : (data as { message?: string }).message || 'Erro desconhecido';
+        setValidationMessage(`${response.status === 409 ? '⚠️ ' : '❌ '}${msg}`);
       }
     } catch (error) {
       setValidationMessage("❌ Erro de comunicação com o servidor.");
