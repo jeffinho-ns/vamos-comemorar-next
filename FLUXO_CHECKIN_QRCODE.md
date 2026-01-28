@@ -176,11 +176,23 @@ Na tela de check-ins do evento o que existe é lista manual, botões de check-in
     |                               | "Acesso Permitido!"             |
 ```
 
-Se quiser, no próximo passo podemos mapear como a página `/admin/eventos/[id]/check-ins` (ou a versão tablet) se inscreve no Socket `guest_list_${id}` para refletir esse check-in em tempo real, ou conferir se há algum link “Abrir scanner” a partir dessa tela.
+
 
 ---
 
-## 7. Troubleshooting: “Ver QR Code” não aparece / página continua sem botão
+## 7. Atualização em tempo real nas páginas de check-in
+
+Quando um check-in é validado na página **Scanner QR Code** (`/admin/qrcode`), as telas de check-in do evento passam a refletir o check-in **sem precisar recarregar**.
+
+- **Backend:** Ao registrar check-in por QR de convidado, a API emite `io.to('guest_list_' + guest_list_id).emit('convidado_checkin', { convidadoId, nome, status, guest_list_id })`. O servidor aceita o evento `join_guest_list` e faz `socket.join('guest_list_' + guestListId)`.
+- **Páginas que atualizam em tempo real:** `/admin/eventos/[id]/check-ins` (desktop) e `/admin/eventos/[id]/check-ins/tablet`. Conectam ao Socket (`NEXT_PUBLIC_SOCKET_URL`), emitem `join_guest_list` para cada lista do evento, escutam `convidado_checkin` e atualizam o convidado como check-in na hora.
+- **Variáveis:** `NEXT_PUBLIC_API_URL` e `NEXT_PUBLIC_SOCKET_URL` devem apontar para o mesmo host da API (ex.: `https://vamos-comemorar-api.onrender.com`), sem `/api` no final. Ver `config/production.env.example`.
+
+As páginas de check-in precisam estar abertas **antes** do scan para receber o evento em tempo real.
+
+---
+
+## 8. Troubleshooting: "Ver QR Code" não aparece / página continua sem botão
 
 Se você fez deploy e a página da lista continua **sem nenhum botão “Ver QR Code”** e **nenhum convidado com QR**:
 

@@ -3,7 +3,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import jsQR from "jsqr";
 import { io, Socket } from "socket.io-client";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://vamos-comemorar-api.onrender.com/api";
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://vamos-comemorar-api.onrender.com";
 const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL || "https://vamos-comemorar-api.onrender.com";
 
 interface CheckinResponse {

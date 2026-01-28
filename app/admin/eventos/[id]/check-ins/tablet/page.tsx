@@ -4,8 +4,10 @@ import { useState, useCallback, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import { MdSearch, MdPerson, MdCardGiftcard, MdEvent, MdCheckCircle } from 'react-icons/md';
 import { WithPermission } from '../../../../../components/WithPermission/WithPermission';
+import { io } from 'socket.io-client';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.agilizaiapp.com.br';
+const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL || 'https://vamos-comemorar-api.onrender.com';
 
 interface SearchResult {
   type: 'guest' | 'owner' | 'promoter' | 'promoter_guest';
@@ -146,6 +148,38 @@ export default function EventoTabletCheckInsPage() {
 
     carregarTodosDados();
   }, [eventoId]);
+
+  // Socket.IO: atualização em tempo real quando check-in é feito via /admin/qrcode
+  const guestListIdsKey = (loadedData.guestLists || []).map((g: any) => g.guest_list_id ?? g.id).filter(Boolean).sort().join(',');
+  useEffect(() => {
+    const lists = loadedData.guestLists || [];
+    if (!lists.length || !guestListIdsKey) return;
+    const socket = io(SOCKET_URL, { transports: ['websocket'] });
+    lists.forEach((gl: { guest_list_id?: number; id?: number }) => {
+      const id = gl.guest_list_id ?? gl.id;
+      if (id != null) socket.emit('join_guest_list', id);
+    });
+    const onConvidadoCheckin = (data: { convidadoId?: number; nome?: string; guest_list_id?: number }) => {
+      const listId = data.guest_list_id;
+      const convidadoId = data.convidadoId;
+      if (listId == null || convidadoId == null) return;
+      const now = new Date().toISOString();
+      setLoadedData((prev) => {
+        const guests = (prev.guests || {}) as { [k: number]: any[] };
+        const list = guests[listId] || [];
+        const nextGuests = { ...guests, [listId]: list.map((g: any) => (g.id === convidadoId ? { ...g, checked_in: true, checkin_time: now } : g)) };
+        const nextLists = (prev.guestLists || []).map((gl: any) =>
+          (gl.guest_list_id ?? gl.id) === listId ? { ...gl, guests_checked_in: (gl.guests_checked_in || 0) + 1 } : gl
+        );
+        return { ...prev, guests: nextGuests, guestLists: nextLists };
+      });
+    };
+    socket.on('convidado_checkin', onConvidadoCheckin);
+    return () => {
+      socket.off('convidado_checkin', onConvidadoCheckin);
+      socket.disconnect();
+    };
+  }, [guestListIdsKey]);
 
   // Busca instantânea nos dados já carregados
   const handleSearch = useCallback((term: string) => {

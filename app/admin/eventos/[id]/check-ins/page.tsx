@@ -37,8 +37,10 @@ import EntradaStatusModal, { EntradaTipo } from '../../../../components/EntradaS
 import BirthdayDetailsModal from '../../../../components/painel/BirthdayDetailsModal';
 import { BirthdayReservation } from '../../../../services/birthdayService';
 import { Reservation } from '@/app/types/reservation';
+import { io } from 'socket.io-client';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.agilizaiapp.com.br';
+const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL || 'https://vamos-comemorar-api.onrender.com';
 
 // Tipos
 interface EventoInfo {
@@ -1379,6 +1381,39 @@ export default function EventoCheckInsPage() {
 
     loadCheckoutsFromTable();
   }, [eventoId, evento, guestListsRestaurante, guestsByList]);
+
+  // Socket.IO: atualização em tempo real quando um check-in é feito via /admin/qrcode (QR do convidado)
+  useEffect(() => {
+    if (!guestListsRestaurante.length) return;
+    const socket = io(SOCKET_URL, { transports: ['websocket'] });
+    guestListsRestaurante.forEach((gl) => {
+      const id = gl.guest_list_id ?? (gl as { id?: number }).id;
+      if (id != null) socket.emit('join_guest_list', id);
+    });
+    const onConvidadoCheckin = (data: { convidadoId?: number; nome?: string; guest_list_id?: number }) => {
+      const listId = data.guest_list_id;
+      const convidadoId = data.convidadoId;
+      if (listId == null || convidadoId == null) return;
+      const now = new Date().toISOString();
+      setGuestsByList((prev) => {
+        const list = prev[listId] || [];
+        const next = list.map((g) =>
+          g.id === convidadoId ? { ...g, checked_in: true, checkin_time: now } : g
+        );
+        return { ...prev, [listId]: next };
+      });
+      setCheckInStatus((prev) => {
+        const cur = prev[listId] || { ownerCheckedIn: false, guestsCheckedIn: 0, totalGuests: 0 };
+        return { ...prev, [listId]: { ...cur, guestsCheckedIn: cur.guestsCheckedIn + 1 } };
+      });
+      toast.success(`Check-in em tempo real: ${data.nome || 'Convidado'}`);
+    };
+    socket.on('convidado_checkin', onConvidadoCheckin);
+    return () => {
+      socket.off('convidado_checkin', onConvidadoCheckin);
+      socket.disconnect();
+    };
+  }, [guestListsRestaurante]);
 
   useEffect(() => {
     if (!planilhaModalOpen || !evento || !eventoId) {
