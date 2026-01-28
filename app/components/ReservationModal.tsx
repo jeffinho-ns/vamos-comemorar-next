@@ -475,13 +475,16 @@ export default function ReservationModal({
                   ? reservationsData.reservations 
                   : [];
                 
-                // Filtrar apenas reservas que ocupam a mesa (excluir canceladas e finalizadas)
+                // Filtrar apenas reservas que ocupam a mesa (excluir canceladas/finalizadas em qualquer variação)
                 const activeReservations = allReservations.filter((reservation: any) => {
-                  const status = String(reservation.status || '').toUpperCase();
-                  return status !== 'CANCELADA' && 
-                         status !== 'CANCELED' && 
-                         status !== 'COMPLETED' &&
-                         status !== 'FINALIZADA';
+                  const status = String(reservation.status || '').trim().toLowerCase();
+                  // Status que NÃO bloqueiam mesa
+                  const nonBlocking = new Set([
+                    'cancelada', 'cancelled', 'canceled',
+                    'completed', 'concluida', 'concluída', 'finalizada', 'finalized',
+                    'no_show', 'no-show'
+                  ]);
+                  return !nonBlocking.has(status);
                 });
                 
                 // Função auxiliar para verificar sobreposição de horários
@@ -906,11 +909,13 @@ export default function ReservationModal({
             : [];
           
           const activeReservations = allReservations.filter((reservation: any) => {
-            const status = String(reservation.status || '').toUpperCase();
-            return status !== 'CANCELADA' && 
-                   status !== 'CANCELED' && 
-                   status !== 'COMPLETED' &&
-                   status !== 'FINALIZADA';
+            const status = String(reservation.status || '').trim().toLowerCase();
+            const nonBlocking = new Set([
+              'cancelada', 'cancelled', 'canceled',
+              'completed', 'concluida', 'concluída', 'finalizada', 'finalized',
+              'no_show', 'no-show'
+            ]);
+            return !nonBlocking.has(status);
           });
           
           const hasTimeOverlap = (time1: string, time2: string) => {
