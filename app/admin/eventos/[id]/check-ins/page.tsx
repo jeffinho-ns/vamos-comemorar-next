@@ -1567,7 +1567,14 @@ export default function EventoCheckInsPage() {
       (r as any).client_phone || '',
       typeof (r as any).number_of_people === 'number' ? (r as any).number_of_people : parseInt(String((r as any).number_of_people || '0'), 10) || 0,
       (r as any).status || '',
-      (r as any).notes || (r as any).admin_notes || ''
+      (() => {
+        const notes = (r as any).notes || (r as any).admin_notes || '';
+        // Destacar espera antecipada se existir
+        if (notes.includes('ESPERA ANTECIPADA')) {
+          return `⏳ ESPERA ANTECIPADA (Bistrô)${notes.replace(/ESPERA ANTECIPADA.*?\)/g, '').trim() ? ' | ' + notes.replace(/ESPERA ANTECIPADA.*?\)/g, '').trim() : ''}`;
+        }
+        return notes;
+      })()
     ]);
     const aoa = [headers, ...rows];
     const ws = XLSX.utils.aoa_to_sheet(aoa);

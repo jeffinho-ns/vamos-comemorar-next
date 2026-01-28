@@ -306,7 +306,11 @@ export default function ReservationCalendar({
     );
   };
 
-  const getStatusColor = (status: string) => {
+  const getStatusColor = (status: string, notes?: string) => {
+    // Verificar se é espera antecipada primeiro
+    if (notes && notes.includes('ESPERA ANTECIPADA')) {
+      return 'bg-orange-100 text-orange-800';
+    }
     switch (status) {
       case 'confirmed': return 'bg-green-100 text-green-800';
       case 'pending': return 'bg-yellow-100 text-yellow-800';
@@ -416,15 +420,24 @@ export default function ReservationCalendar({
                 )}
 
                 {/* Lista de Reservas (máximo 2 visíveis) */}
-                {day.reservations.slice(0, 2).map((reservation) => (
+                {day.reservations.slice(0, 2).map((reservation) => {
+                  const isEsperaAntecipada = reservation.notes && reservation.notes.includes('ESPERA ANTECIPADA');
+                  return (
                   <div
                     key={reservation.id}
-                    className={`text-xs p-1 rounded ${getStatusColor(reservation.status)}`}
+                    className={`text-xs p-1 rounded ${getStatusColor(reservation.status, reservation.notes)}`}
                   >
-                    <div className="font-medium truncate">{reservation.client_name}</div>
+                    <div className="font-medium truncate">
+                      {isEsperaAntecipada && <span className="mr-1">⏳</span>}
+                      {reservation.client_name}
+                    </div>
                     <ReservationBadge reservation={reservation} />
+                    {isEsperaAntecipada && (
+                      <div className="text-xs font-bold text-orange-700 mt-1">ESPERA ANTECIPADA</div>
+                    )}
                   </div>
-                ))}
+                  );
+                })}
                 
                 {/* Indicadores de Aniversário */}
                 {day.birthdayReservations.length > 0 && (

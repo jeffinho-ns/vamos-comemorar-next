@@ -936,6 +936,31 @@ export default function ReservationModal({
       throw new Error('Número de pessoas deve ser maior que 0');
     }
 
+    // REGRA DE SÁBADO: Verificar se é sábado entre 15h-21h para Seu Justino ou Pracinha
+    const isSeuJustinoId = establishment_id === 1;
+    const isPracinhaId = establishment_id === 8;
+    let isEsperaAntecipadaModal = false;
+    let finalTableNumberModal: string | undefined = finalTableNumber;
+    let finalNotesModal = finalNotes;
+    
+    if ((isSeuJustinoId || isPracinhaId) && formData.reservation_date && reservation_time) {
+      const reservationDate = new Date(`${formData.reservation_date}T00:00:00`);
+      const dayOfWeek = reservationDate.getDay(); // Domingo = 0, Sábado = 6
+      const [hours, minutes] = reservation_time.split(':').map(Number);
+      const reservationHour = hours + (isNaN(minutes) ? 0 : minutes / 60);
+      
+      // Sábado (6) entre 15h e 21h
+      if (dayOfWeek === 6 && reservationHour >= 15 && reservationHour < 21) {
+        isEsperaAntecipadaModal = true;
+        // Adicionar nota se não existir
+        if (!finalNotesModal || !finalNotesModal.includes('ESPERA ANTECIPADA')) {
+          finalNotesModal = (finalNotesModal ? finalNotesModal + ' | ' : '') + 'ESPERA ANTECIPADA (Bistrô)';
+        }
+        // Não atribuir mesa para espera antecipada (não desconta da contagem)
+        finalTableNumberModal = undefined;
+      }
+    }
+
     const payload: any = {
       client_name: client_name,
       client_phone: formData.client_phone?.trim() || null,
@@ -945,16 +970,17 @@ export default function ReservationModal({
       reservation_time: reservation_time,
       number_of_people: number_of_people,
       area_id: area_id,
-      table_number: finalTableNumber || null,
+      table_number: finalTableNumberModal || undefined,
       status: formData.status || 'NOVA',
       origin: 'PESSOAL', // Sempre 'PESSOAL' para reservas criadas por admin (permite mesas virtuais)
-      notes: finalNotes || null,
+      notes: finalNotesModal || null,
       created_by: 1, // ID do usuário admin padrão
       establishment_id: establishment_id,
       evento_id: eventoSelecionado || null,
       send_email: sendEmailConfirmation,
       send_whatsapp: sendWhatsAppConfirmation,
       blocks_entire_area: blocksEntireArea && isAdmin, // Apenas admin pode bloquear área completa
+      espera_antecipada: isEsperaAntecipadaModal
     };
 
     // Área exibida ao cliente (email, etc.): subárea (ex. Lounge Aquário TV) ou nome da área

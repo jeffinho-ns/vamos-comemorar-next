@@ -553,13 +553,17 @@ export default function WeeklyCalendar({
                       
                       {/* Reservas para este horário */}
                       <div className="space-y-1">
-                        {day.timeSlots[timeIndex]?.reservations.map((reservation) => (
+                        {day.timeSlots[timeIndex]?.reservations.map((reservation) => {
+                          const isEsperaAntecipada = reservation.notes && reservation.notes.includes('ESPERA ANTECIPADA');
+                          return (
                           <motion.div
                             key={reservation.id}
                             initial={{ opacity: 0, scale: 0.9 }}
                             animate={{ opacity: 1, scale: 1 }}
                             className={`p-2 rounded-lg border-2 text-xs cursor-pointer hover:shadow-lg transition-all duration-200 ${
-                              reservation.has_bistro_table === true
+                              isEsperaAntecipada
+                                ? 'bg-gradient-to-r from-orange-100 to-orange-200 border-orange-400 hover:border-orange-500'
+                                : reservation.has_bistro_table === true
                                 ? 'bg-gradient-to-r from-purple-100 to-purple-200 border-purple-400 hover:border-purple-500'
                                 : reservation.notes && reservation.notes.includes('🎂') 
                                 ? 'bg-gradient-to-r from-pink-50 to-yellow-50 border-pink-300 hover:border-pink-400' 
@@ -633,7 +637,8 @@ export default function WeeklyCalendar({
                               </button>
                             </div>
                           </motion.div>
-                        ))}
+                          );
+                        })}
                       </div>
                     </div>
                   ))}

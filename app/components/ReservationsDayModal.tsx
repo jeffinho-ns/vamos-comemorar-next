@@ -20,7 +20,11 @@ export default function ReservationsDayModal({
   reservations,
   onReservationClick
 }: ReservationsDayModalProps) {
-  const getStatusColor = (status: string) => {
+  const getStatusColor = (status: string, notes?: string) => {
+    // Verificar se é espera antecipada primeiro
+    if (notes && notes.includes('ESPERA ANTECIPADA')) {
+      return 'bg-orange-100 text-orange-800 border-orange-200';
+    }
     switch (status) {
       case 'confirmed': return 'bg-green-100 text-green-800 border-green-200';
       case 'pending': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
@@ -29,7 +33,11 @@ export default function ReservationsDayModal({
     }
   };
 
-  const getStatusText = (status: string) => {
+  const getStatusText = (status: string, notes?: string) => {
+    // Verificar se é espera antecipada primeiro
+    if (notes && notes.includes('ESPERA ANTECIPADA')) {
+      return 'ESPERA ANTECIPADA';
+    }
     switch (status) {
       case 'confirmed': return 'Confirmada';
       case 'pending': return 'Pendente';
@@ -114,9 +122,14 @@ export default function ReservationsDayModal({
                             </div>
                           </div>
                         </div>
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium border ${getStatusColor(reservation.status)}`}>
-                          {getStatusText(reservation.status)}
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium border ${getStatusColor(reservation.status, (reservation as any).notes)}`}>
+                          {getStatusText(reservation.status, (reservation as any).notes)}
                         </span>
+                        {(reservation as any).notes && (reservation as any).notes.includes('ESPERA ANTECIPADA') && (
+                          <div className="mt-1 text-xs text-orange-700 font-medium">
+                            ⏳ ESPERA ANTECIPADA (Bistrô)
+                          </div>
+                        )}
                       </div>
 
                       <div className="space-y-2 text-sm text-gray-600">

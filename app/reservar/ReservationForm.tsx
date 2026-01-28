@@ -851,6 +851,41 @@ const handleSubmit = async (e: React.FormEvent) => {
   }
   if (areaDisplayName) payload.area_display_name = areaDisplayName;
 
+  // 3.2 REGRA DE SÁBADO: Verificar se é sábado entre 15h-21h para Seu Justino ou Pracinha
+  const isSeuJustinoId = selectedEstablishment?.id === 1;
+  const isPracinhaId = selectedEstablishment?.id === 8;
+  let isEsperaAntecipada = false;
+  
+  if ((isSeuJustinoId || isPracinhaId) && reservationData.reservation_date && reservationData.reservation_time) {
+    const reservationDate = new Date(`${reservationData.reservation_date}T00:00:00`);
+    const dayOfWeek = reservationDate.getDay(); // Domingo = 0, Sábado = 6
+    const [hours, minutes] = reservationData.reservation_time.split(':').map(Number);
+    const reservationHour = hours + (minutes || 0) / 60;
+    
+    // Sábado (6) entre 15h e 21h
+    if (dayOfWeek === 6 && reservationHour >= 15 && reservationHour < 21) {
+      isEsperaAntecipada = true;
+      // Adicionar flag e nota no payload
+      payload.espera_antecipada = true;
+      payload.notes = (payload.notes ? payload.notes + ' | ' : '') + 'ESPERA ANTECIPADA (Bistrô)';
+      // Não atribuir mesa (remover table_number se existir)
+      delete payload.table_number;
+      
+      // Avisar o usuário
+      const userConfirmed = window.confirm(
+        '⚠️ ATENÇÃO: Este horário está no período de "Giro" de mesas.\n\n' +
+        'Sua reserva será convertida automaticamente para "Reserva em Espera Antecipada (Bistrô)".\n\n' +
+        'Você será atendido conforme a disponibilidade de mesas no momento da chegada.\n\n' +
+        'Deseja continuar com a reserva?'
+      );
+      
+      if (!userConfirmed) {
+        setLoading(false);
+        return;
+      }
+    }
+  }
+
   // 4. Lógica para reservas grandes (11+ pessoas vão para large-reservations, 4-10 vão para restaurant-reservations)
   const isLargeGroup = payload.number_of_people >= 11; // CORRIGIDO: apenas 11+ pessoas vão para large-reservations
   const isMediumGroup = payload.number_of_people >= 4 && payload.number_of_people < 11; // 4-10 pessoas
