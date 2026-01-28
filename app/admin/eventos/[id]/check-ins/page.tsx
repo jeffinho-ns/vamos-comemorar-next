@@ -129,6 +129,8 @@ interface ReservaRestaurante {
   number_of_people: number;
   checked_in: boolean;
   checkin_time?: string;
+  checked_out?: boolean | number;
+  checkout_time?: string;
   total_convidados: number;
   convidados_checkin: number;
   table_number?: string | number;
@@ -1264,13 +1266,11 @@ export default function EventoCheckInsPage() {
           const checkoutsData = await checkoutsRes.json();
           const checkouts = checkoutsData.checkouts || [];
 
-          // Agrupar check-outs por guest_list_id (owner check-outs)
           const ownerCheckouts = checkouts.filter((c: any) => c.checkout_type === 'owner');
           const guestCheckouts = checkouts.filter((c: any) => c.checkout_type === 'guest');
+          const reservationCheckouts = checkouts.filter((c: any) => c.checkout_type === 'reservation' && c.entity_type === 'restaurant_reservation');
 
-          // Construir histórico a partir dos check-outs da tabela
           const historico: ReservaConcluida[] = ownerCheckouts.map((checkout: any) => {
-            // Buscar guests que fizeram check-out desta guest list
             const guestsFromCheckout = guestCheckouts
               .filter((gc: any) => gc.guest_list_id === checkout.guest_list_id)
               .map((gc: any) => ({
@@ -1292,7 +1292,18 @@ export default function EventoCheckInsPage() {
             };
           });
 
-          setHistoricoReservasConcluidas(historico);
+          const historicoReservas = reservationCheckouts.map((c: any) => ({
+            guest_list_id: 0,
+            owner_name: c.name || '',
+            reservation_id: c.reservation_id ?? c.entity_id ?? 0,
+            table_number: c.table_number,
+            area_name: c.area_name,
+            checkin_time: c.checkin_time || '',
+            checkout_time: c.checkout_time || '',
+            guests: [] as { id: number; name: string; checkin_time?: string; checkout_time?: string }[]
+          }));
+
+          setHistoricoReservasConcluidas([...historico, ...historicoReservas]);
         } else {
           // Fallback: usar método antigo se a tabela não existir ainda
           if (guestListsRestaurante.length === 0) {
@@ -1939,6 +1950,67 @@ export default function EventoCheckInsPage() {
       checkInInProgressRef.current[key] = false;
     }
   }, []);
+
+  const handleReservaRestauranteCheckOut = useCallback(async (reserva: ReservaRestaurante, e?: React.MouseEvent) => {
+    e?.preventDefault();
+    e?.stopPropagation();
+    const key = `reserva-restaurante-checkout-${reserva.id}`;
+    if (checkInInProgressRef.current[key]) return;
+    checkInInProgressRef.current[key] = true;
+    try {
+      const token = localStorage.getItem('authToken');
+      const body: { evento_id?: number } = {};
+      const eid = params?.id ? Number(params.id) : NaN;
+      if (!isNaN(eid)) body.evento_id = eid;
+      const response = await fetch(`${API_URL}/api/restaurant-reservations/${reserva.id}/checkout`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: Object.keys(body).length ? JSON.stringify(body) : undefined,
+      });
+      if (response.ok) {
+        const data = await response.json();
+        const checkoutTime = data.reservation?.checkout_time || new Date().toISOString();
+        setReservasRestaurante(prev => prev.map(r =>
+          r.id === reserva.id
+            ? { ...r, checked_out: true, checkout_time: checkoutTime }
+            : r
+        ));
+        setHistoricoReservasConcluidas(prev => {
+          const entry: ReservaConcluida = {
+            guest_list_id: 0,
+            owner_name: reserva.responsavel || (reserva as any).client_name || '',
+            reservation_id: reserva.id,
+            table_number: reserva.table_number,
+            area_name: reserva.area_name,
+            checkin_time: reserva.checkin_time || '',
+            checkout_time: checkoutTime,
+            guests: [],
+          };
+          const exists = prev.some(h => h.guest_list_id === 0 && h.reservation_id === reserva.id);
+          if (exists) return prev.map(h => (h.guest_list_id === 0 && h.reservation_id === reserva.id) ? entry : h);
+          return [...prev, entry];
+        });
+        toast.success(`Check-out de ${reserva.responsavel || (reserva as any).client_name} confirmado!`, {
+          position: 'top-center',
+          autoClose: 3000,
+        });
+      } else {
+        const err = await response.json().catch(() => ({}));
+        toast.error(`Erro ao fazer check-out: ${err.error || 'Erro desconhecido'}`, {
+          position: 'top-center',
+          autoClose: 4000,
+        });
+      }
+    } catch (error) {
+      console.error('Erro no check-out da reserva:', error);
+      toast.error('Erro ao fazer check-out', { position: 'top-center', autoClose: 4000 });
+    } finally {
+      checkInInProgressRef.current[key] = false;
+    }
+  }, [params?.id]);
 
   /** Check-in de reserva sem guest list vinda da API adicional (mesmo fluxo do modo tablet) */
   const handleReservaSemGuestListCheckIn = useCallback(async (reservationId: number, nome: string, e?: React.MouseEvent) => {
@@ -5006,7 +5078,10 @@ export default function EventoCheckInsPage() {
                             <div className="text-sm text-gray-400 mt-4 mb-2 pt-2 border-t border-white/10">
                               Reservas sem lista de convidados ({filteredReservasSemGuestList.length})
                             </div>
-                            {filteredReservasSemGuestList.map((r: ReservaRestaurante) => (
+                            {filteredReservasSemGuestList.map((r: ReservaRestaurante) => {
+                              const checkedOut = r.checked_out === true || r.checked_out === 1 || !!r.checkout_time;
+                              const fmt = (t: string | undefined) => (t ? new Date(t).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '');
+                              return (
                               <div key={`reserva-sem-lista-${r.id}`} className="border rounded-lg border-white/20 bg-white/5 overflow-hidden">
                                 <div className="w-full text-left px-3 md:px-4 py-2.5 md:py-3 flex items-center justify-between gap-2">
                                   <div className="flex-1 min-w-0">
@@ -5018,12 +5093,8 @@ export default function EventoCheckInsPage() {
                                       {r.area_name ? ` • ${r.area_name}` : ''}
                                     </div>
                                   </div>
-                                  <div className="flex-shrink-0">
-                                    {r.checked_in ? (
-                                      <span className="px-3 py-1.5 text-xs rounded-full bg-green-900/40 text-green-200 font-medium flex items-center gap-1">
-                                        <MdCheckCircle size={16} /> Check-in realizado
-                                      </span>
-                                    ) : (
+                                  <div className="flex-shrink-0 flex flex-col items-end gap-1">
+                                    {!r.checked_in && (
                                       <button
                                         type="button"
                                         onClick={(e) => handleReservaRestauranteCheckIn(r, e)}
@@ -5032,10 +5103,46 @@ export default function EventoCheckInsPage() {
                                         <MdCheckCircle size={16} /> Check-in
                                       </button>
                                     )}
+                                    {r.checked_in && !checkedOut && (
+                                      <>
+                                        <div className="flex gap-2 flex-wrap justify-end">
+                                          <span className="px-2 md:px-3 py-1 text-xs rounded-full font-medium bg-green-100 text-green-700 border border-green-300" style={{ touchAction: 'manipulation' }}>
+                                            ✅ Presente
+                                          </span>
+                                          <button
+                                            type="button"
+                                            onClick={(e) => handleReservaRestauranteCheckOut(r, e)}
+                                            className="px-2 md:px-3 py-1 text-xs rounded-full font-medium touch-manipulation bg-orange-100 text-orange-700 hover:bg-orange-200 border border-orange-300"
+                                            title="Registrar saída"
+                                          >
+                                            🚪 Check-out
+                                          </button>
+                                        </div>
+                                        {r.checkin_time && (
+                                          <span className="text-xs text-gray-400 font-mono px-2">
+                                            E: {fmt(r.checkin_time)}
+                                          </span>
+                                        )}
+                                      </>
+                                    )}
+                                    {r.checked_in && checkedOut && (
+                                      <div className="flex flex-col gap-0.5 items-end">
+                                        <span className="px-2 md:px-3 py-1 text-xs rounded-full font-medium bg-gray-100 text-gray-600 border border-gray-300">
+                                          ✅ Concluído
+                                        </span>
+                                        {(r.checkin_time || r.checkout_time) && (
+                                          <span className="text-xs text-gray-400 font-mono px-2">
+                                            {r.checkin_time && `E: ${fmt(r.checkin_time)}`}
+                                            {r.checkin_time && r.checkout_time && ' | '}
+                                            {r.checkout_time && `S: ${fmt(r.checkout_time)}`}
+                                          </span>
+                                        )}
+                                      </div>
+                                    )}
                                   </div>
                                 </div>
                               </div>
-                            ))}
+                            ); })}
                           </>
                         )}
                         </>
@@ -6381,7 +6488,7 @@ export default function EventoCheckInsPage() {
                   
                   return (
                     <div
-                      key={reserva.guest_list_id}
+                      key={reserva.guest_list_id ? `gl-${reserva.guest_list_id}` : `res-${reserva.reservation_id}`}
                       className="bg-white/5 border border-white/20 rounded-lg p-4 opacity-70"
                     >
                       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
