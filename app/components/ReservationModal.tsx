@@ -818,20 +818,27 @@ export default function ReservationModal({
     const hasCompatible = tables.some(t => !t.is_reserved && t.capacity >= formData.number_of_people);
 
     // 2º giro (BISTRÔ) para Justino/Pracinha: NÃO exigir mesa (vai para espera antecipada/bistrô)
+    const estIdForValidation = establishment?.id ? Number(establishment.id) : null;
+    const isJustinoOrPracinhaForValidation = estIdForValidation === 1 || estIdForValidation === 8;
     const isSecondGiroBistro = isSecondGiroBistroJustinoPracinha(
       formData.reservation_date,
       formData.reservation_time,
-      establishment?.id ? Number(establishment.id) : null
+      estIdForValidation
     );
     
-    // Se múltiplas mesas estão habilitadas, validar se pelo menos uma foi selecionada
-    if (allowMultipleTables && isAdmin) {
-      if (!isSecondGiroBistro && selectedTables.length === 0 && hasOptions && hasCompatible) {
-        newErrors.table_number = 'Selecione pelo menos uma mesa disponível';
+    // REGRA ABSOLUTA: Para Justino/Pracinha, mesa é SEMPRE opcional (nunca exigir)
+    // Mesmo que haja overlap, o cliente pode prosseguir (será convertido para Espera Antecipada)
+    if (!isJustinoOrPracinhaForValidation) {
+      // Se múltiplas mesas estão habilitadas, validar se pelo menos uma foi selecionada (apenas para outros estabelecimentos)
+      if (allowMultipleTables && isAdmin) {
+        if (!isSecondGiroBistro && selectedTables.length === 0 && hasOptions && hasCompatible) {
+          newErrors.table_number = 'Selecione pelo menos uma mesa disponível';
+        }
+      } else if (!isSecondGiroBistro && !isLargeReservation && hasOptions && hasCompatible && !formData.table_number && selectedTables.length === 0) {
+        newErrors.table_number = 'Selecione uma mesa disponível';
       }
-    } else if (!isSecondGiroBistro && !isLargeReservation && hasOptions && hasCompatible && !formData.table_number && selectedTables.length === 0) {
-      newErrors.table_number = 'Selecione uma mesa disponível';
     }
+    // Para Justino/Pracinha: NUNCA exigir mesa (mesa é sempre opcional)
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -1831,12 +1838,12 @@ export default function ReservationModal({
                                 <option 
                                   key={t.id} 
                                   value={t.table_number}
-                                  disabled={t.is_reserved && !(t as any).is_second_giro}
+                                  disabled={false} // REGRA ABSOLUTA: Sempre permitir seleção para Justino/Pracinha
                                   style={{ 
                                     color: (t as any).is_second_giro 
                                       ? '#f59e0b' // laranja para 2º giro
                                       : t.is_reserved 
-                                        ? '#ef4444' // vermelho para indisponível
+                                        ? '#ef4444' // vermelho para indisponível (mas ainda selecionável)
                                         : '#ffffff' // branco para disponível
                                   }}
                                 >
@@ -1844,17 +1851,28 @@ export default function ReservationModal({
                                     (t as any).is_second_giro 
                                       ? '🟡 (2º Giro - Espera Antecipada)' 
                                       : t.is_reserved 
-                                        ? '🔴 (Indisponível)' 
+                                        ? '🔴 (Indisponível - Pode reservar)' 
                                         : '🟢 (Disponível)'
                                   }
                                 </option>
                               ));
                           }
                           
+                          // REGRA ABSOLUTA: Para Justino/Pracinha, mostrar TODAS as mesas (não filtrar por is_reserved)
+                          const estIdForFilter = establishment?.id ? Number(establishment.id) : null;
+                          const isJustinoOrPracinhaForFilter = estIdForFilter === 1 || estIdForFilter === 8;
+                          
                           return tables
                             .filter(t => {
-                              // Para reservas grandes (4+), mostra todas as mesas não reservadas
-                              // Para reservas normais, filtra por capacidade
+                              // Para Justino/Pracinha: mostrar TODAS as mesas (mesmo indisponíveis)
+                              if (isJustinoOrPracinhaForFilter) {
+                                // Filtrar apenas por capacidade se necessário
+                                if (formData.number_of_people >= 4) {
+                                  return true; // Mostrar todas para reservas grandes
+                                }
+                                return t.capacity >= formData.number_of_people;
+                              }
+                              // Para outros estabelecimentos: filtrar por disponibilidade
                               if (formData.number_of_people >= 4) {
                                 return !t.is_reserved;
                               }
@@ -1864,7 +1882,7 @@ export default function ReservationModal({
                               <option 
                                 key={t.id} 
                                 value={t.table_number}
-                                disabled={(t as any).is_second_giro ? false : t.is_reserved}
+                                disabled={isJustinoOrPracinhaForFilter ? false : ((t as any).is_second_giro ? false : t.is_reserved)} // Sempre permitir para Justino/Pracinha
                                 style={{ 
                                   color: (t as any).is_second_giro 
                                     ? '#f59e0b' 
