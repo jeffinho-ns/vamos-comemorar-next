@@ -415,18 +415,18 @@ export default function ReservationForm() {
 
   // Subáreas do Reserva Rooftop (nomes batem com restaurant_areas após migração add_reserva_rooftop_areas_postgresql)
   const rooftopSubareas = [
-    { key: 'corredor', label: 'Corredor', areaName: 'Reserva Rooftop - Corredor' },
-    { key: 'lg1', label: 'LG 1', areaName: 'Reserva Rooftop - LG 1' },
-    { key: 'lg2', label: 'LG 2', areaName: 'Reserva Rooftop - LG 2' },
-    { key: 'lg3', label: 'LG 3', areaName: 'Reserva Rooftop - LG 3' },
+    { key: 'corredor', label: 'Reserva Rooftop - Corredor', areaName: 'Reserva Rooftop - Corredor' },
+    { key: 'lg1', label: 'Reserva Rooftop - LG 1', areaName: 'Reserva Rooftop - LG 1' },
+    { key: 'lg2', label: 'Reserva Rooftop - LG 2', areaName: 'Reserva Rooftop - LG 2' },
+    { key: 'lg3', label: 'Reserva Rooftop - LG 3', areaName: 'Reserva Rooftop - LG 3' },
     { key: 'gramado1', label: 'Gramado 1 (Área de Sofás)', areaName: 'Reserva Rooftop - Gramado 1' },
     { key: 'gramado2', label: 'Gramado 2 (Área de Giro/Fila)', areaName: 'Reserva Rooftop - Gramado 2' },
-    { key: 'parrilha', label: 'Parrilha', areaName: 'Reserva Rooftop - Parrilha' },
-    { key: 'redario', label: 'Redário', areaName: 'Reserva Rooftop - Redário' },
-    { key: 'pq1', label: 'PQ 1', areaName: 'Reserva Rooftop - PQ 1' },
-    { key: 'pq2', label: 'PQ 2', areaName: 'Reserva Rooftop - PQ 2' },
-    { key: 'pq3', label: 'PQ 3', areaName: 'Reserva Rooftop - PQ 3' },
-    { key: 'pq4', label: 'PQ 4', areaName: 'Reserva Rooftop - PQ 4' },
+    { key: 'parrilha', label: 'Reserva Rooftop - Parrilha', areaName: 'Reserva Rooftop - Parrilha' },
+    { key: 'redario', label: 'Reserva Rooftop - Redário', areaName: 'Reserva Rooftop - Redário' },
+    { key: 'pq1', label: 'Reserva Rooftop - PQ 1', areaName: 'Reserva Rooftop - PQ 1' },
+    { key: 'pq2', label: 'Reserva Rooftop - PQ 2', areaName: 'Reserva Rooftop - PQ 2' },
+    { key: 'pq3', label: 'Reserva Rooftop - PQ 3', areaName: 'Reserva Rooftop - PQ 3' },
+    { key: 'pq4', label: 'Reserva Rooftop - PQ 4', areaName: 'Reserva Rooftop - PQ 4' },
   ];
 
   const isReservaRooftop = selectedEstablishment && (
