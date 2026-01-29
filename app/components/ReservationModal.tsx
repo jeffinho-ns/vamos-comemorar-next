@@ -219,15 +219,43 @@ export default function ReservationModal({
     });
   };
 
-  // Função para determinar o giro de uma reserva (apenas para Seu Justino)
-  const getGiroFromTime = (timeStr: string): '1º Giro' | '2º Giro' | null => {
-    if (!isSeuJustino || !timeStr) return null;
-    const [hours] = timeStr.split(':').map(Number);
-    // 1º Giro: horário de início anterior às 20:00
-    if (hours < 20) return '1º Giro';
-    // 2º Giro: horário de início 20:00 ou posterior
-    if (hours >= 20) return '2º Giro';
-    return null;
+  // 2º GIRO (BISTRÔ) — REGRA NOVA (APENAS Seu Justino ID 1 e Pracinha ID 8)
+  // - Terça a Sexta: 1º giro 18:00–21:00 | 2º giro a partir de 21:00 (inclui madrugada, ex. 01:00)
+  // - Sábado: 1º giro 12:00–15:00 | 2º giro a partir de 15:00 (inclui madrugada)
+  // - Domingo: 1º giro 12:00–15:00 | 2º giro a partir de 15:00
+  const isSecondGiroBistroJustinoPracinha = (dateStr?: string, timeStr?: string, establishmentId?: number | null) => {
+    const estId = establishmentId != null ? Number(establishmentId) : null;
+    if (estId !== 1 && estId !== 8) return false;
+    if (!dateStr || !timeStr) return false;
+
+    const d = new Date(`${dateStr}T00:00:00`);
+    if (Number.isNaN(d.getTime())) return false;
+    const weekday = d.getDay(); // 0=Dom, 2=Ter, 3=Qua, 4=Qui, 5=Sex, 6=Sáb
+
+    const t = String(timeStr).slice(0, 5);
+    const [hh, mm] = t.split(':').map(Number);
+    if (Number.isNaN(hh)) return false;
+    let minutes = hh * 60 + (Number.isNaN(mm) ? 0 : mm);
+
+    // Se cruza meia-noite (horários tipo 00:30, 01:00 etc), tratamos como continuação do "após 21h/15h"
+    // do mesmo dia de operação. Ex: Sexta 01:00 => 25:00 (>= 21:00) => 2º giro.
+    if (minutes < 6 * 60) minutes += 24 * 60;
+
+    // Terça (2) a Sexta (5): 2º giro após 21:00
+    if (weekday >= 2 && weekday <= 5) return minutes >= 21 * 60;
+    // Sábado (6): 2º giro após 15:00
+    if (weekday === 6) return minutes >= 15 * 60;
+    // Domingo (0): 2º giro após 15:00
+    if (weekday === 0) return minutes >= 15 * 60;
+    return false;
+  };
+
+  // Função para determinar o giro (1º/2º) com base na regra nova
+  const getGiroFromTime = (dateStr: string, timeStr: string): '1º Giro' | '2º Giro' | null => {
+    if (!(isSeuJustino || isPracinha) || !dateStr || !timeStr) return null;
+    const estId = establishment?.id ? Number(establishment.id) : null;
+    if (estId !== 1 && estId !== 8) return null;
+    return isSecondGiroBistroJustinoPracinha(dateStr, timeStr, estId) ? '2º Giro' : '1º Giro';
   };
 
   // 3. USEEFFECT ATUALIZADO PARA CONTROLAR O PADRÃO DOS CHECKBOXES
@@ -374,21 +402,14 @@ export default function ReservationModal({
           const data = await res.json();
           let fetched: RestaurantTable[] = Array.isArray(data.tables) ? data.tables : [];
 
-          // REGRA "2º GIRO" (SÁBADO 15:00–21:00) — Seu Justino (1) e Pracinha (8)
+          // 2º GIRO (BISTRÔ) — REGRA NOVA (apenas Justino/Pracinha)
           // Neste período, o salão fica bloqueado: todas as mesas devem aparecer indisponíveis
           // e a reserva deve seguir como "Espera Antecipada (Bistrô)".
-          const isSecondGiroSaturday = (() => {
-            const estId = establishment?.id ? Number(establishment.id) : null;
-            if (estId !== 1 && estId !== 8) return false;
-            if (!formData.reservation_date || !formData.reservation_time) return false;
-            const d = new Date(`${formData.reservation_date}T00:00:00`);
-            if (d.getDay() !== 6) return false; // sábado
-            const t = String(formData.reservation_time).slice(0, 5);
-            const [h, m] = t.split(':').map(Number);
-            if (Number.isNaN(h)) return false;
-            const minutes = h * 60 + (Number.isNaN(m) ? 0 : m);
-            return minutes >= 15 * 60 && minutes < 21 * 60;
-          })();
+          const isSecondGiroBistro = isSecondGiroBistroJustinoPracinha(
+            formData.reservation_date,
+            formData.reservation_time,
+            establishment?.id ? Number(establishment.id) : null
+          );
 
           // CRÍTICO (Justino/Pracinha - RESTAURANTES):
           // Estes estabelecimentos são RESTAURANTES, não baladas. As reservas são por algumas horas
@@ -543,8 +564,8 @@ export default function ReservationModal({
             }
           }
 
-          // Aplicar travamento total do 2º giro (Sábado 15–21) para Justino/Pracinha
-          if (isSecondGiroSaturday) {
+          // Aplicar travamento total do 2º giro (BISTRÔ) para Justino/Pracinha
+          if (isSecondGiroBistro) {
             fetched = fetched.map(t => ({ ...t, is_reserved: true }));
             // Garantir que não fique nenhuma mesa selecionada
             if (formData.table_number) handleInputChange('table_number', '');
@@ -630,7 +651,7 @@ export default function ReservationModal({
       }
     };
     loadTables();
-  }, [formData.area_id, formData.reservation_date, selectedSubareaKey, isHighline, isSeuJustino, establishment?.id]);
+  }, [formData.area_id, formData.reservation_date, formData.reservation_time, selectedSubareaKey, isHighline, isSeuJustino, isPracinha, establishment?.id]);
 
   // Buscar áreas bloqueadas para a data selecionada
   useEffect(() => {
@@ -791,25 +812,19 @@ export default function ReservationModal({
     const hasOptions = tables && tables.length > 0;
     const hasCompatible = tables.some(t => !t.is_reserved && t.capacity >= formData.number_of_people);
 
-    // 2º giro (Sábado 15–21) para Justino/Pracinha: NÃO exigir mesa (vai para espera antecipada/bistrô)
-    const isSecondGiroSaturday = (() => {
-      const estId = establishment?.id ? Number(establishment.id) : null;
-      if (estId !== 1 && estId !== 8) return false;
-      if (!formData.reservation_date || !formData.reservation_time) return false;
-      const d = new Date(`${formData.reservation_date}T00:00:00`);
-      if (d.getDay() !== 6) return false;
-      const t = String(formData.reservation_time).slice(0, 5);
-      const [h, m] = t.split(':').map(Number);
-      const minutes = (Number.isNaN(h) ? 0 : h * 60) + (Number.isNaN(m) ? 0 : m);
-      return minutes >= 15 * 60 && minutes < 21 * 60;
-    })();
+    // 2º giro (BISTRÔ) para Justino/Pracinha: NÃO exigir mesa (vai para espera antecipada/bistrô)
+    const isSecondGiroBistro = isSecondGiroBistroJustinoPracinha(
+      formData.reservation_date,
+      formData.reservation_time,
+      establishment?.id ? Number(establishment.id) : null
+    );
     
     // Se múltiplas mesas estão habilitadas, validar se pelo menos uma foi selecionada
     if (allowMultipleTables && isAdmin) {
-      if (!isSecondGiroSaturday && selectedTables.length === 0 && hasOptions && hasCompatible) {
+      if (!isSecondGiroBistro && selectedTables.length === 0 && hasOptions && hasCompatible) {
         newErrors.table_number = 'Selecione pelo menos uma mesa disponível';
       }
-    } else if (!isSecondGiroSaturday && !isLargeReservation && hasOptions && hasCompatible && !formData.table_number && selectedTables.length === 0) {
+    } else if (!isSecondGiroBistro && !isLargeReservation && hasOptions && hasCompatible && !formData.table_number && selectedTables.length === 0) {
       newErrors.table_number = 'Selecione uma mesa disponível';
     }
 
@@ -1018,7 +1033,7 @@ export default function ReservationModal({
       throw new Error('Número de pessoas deve ser maior que 0');
     }
 
-    // REGRA DE SÁBADO: Verificar se é sábado entre 15h-21h para Seu Justino ou Pracinha
+    // REGRA NOVA 2º GIRO (BISTRÔ): Justino (1) e Pracinha (8)
     const isSeuJustinoId = establishment_id === 1;
     const isPracinhaId = establishment_id === 8;
     let isEsperaAntecipadaModal = false;
@@ -1026,13 +1041,12 @@ export default function ReservationModal({
     let finalNotesModal = finalNotes;
     
     if ((isSeuJustinoId || isPracinhaId) && formData.reservation_date && reservation_time) {
-      const reservationDate = new Date(`${formData.reservation_date}T00:00:00`);
-      const dayOfWeek = reservationDate.getDay(); // Domingo = 0, Sábado = 6
-      const [hours, minutes] = reservation_time.split(':').map(Number);
-      const reservationHour = hours + (isNaN(minutes) ? 0 : minutes / 60);
-      
-      // Sábado (6) entre 15h e 21h
-      if (dayOfWeek === 6 && reservationHour >= 15 && reservationHour < 21) {
+      const isSecondGiroBistro = isSecondGiroBistroJustinoPracinha(
+        formData.reservation_date,
+        reservation_time,
+        establishment_id
+      );
+      if (isSecondGiroBistro) {
         isEsperaAntecipadaModal = true;
         // Adicionar nota se não existir
         if (!finalNotesModal || !finalNotesModal.includes('ESPERA ANTECIPADA')) {
@@ -1161,10 +1175,10 @@ export default function ReservationModal({
               const existingReservations = Array.isArray(checkData.reservations) ? checkData.reservations : [];
               
               // Verificar se há reserva no mesmo giro
-              const giro = getGiroFromTime(reservation_time);
+              const giro = getGiroFromTime(formData.reservation_date, reservation_time);
               const hasConflict = existingReservations.some((r: any) => {
                 if (r.status === 'CANCELADA' || r.status === 'canceled' || r.status === 'completed') return false;
-                const rGiro = getGiroFromTime(r.reservation_time || '');
+                const rGiro = getGiroFromTime(formData.reservation_date, r.reservation_time || '');
                 return giro && rGiro && giro === rGiro;
               });
               
