@@ -402,23 +402,24 @@ export default function ReservationModal({
           const data = await res.json();
           let fetched: RestaurantTable[] = Array.isArray(data.tables) ? data.tables : [];
 
-          // 2º GIRO (BISTRÔ) — REGRA NOVA (apenas Justino/Pracinha)
-          // Neste período, o salão fica bloqueado: todas as mesas devem aparecer indisponíveis
-          // e a reserva deve seguir como "Espera Antecipada (Bistrô)".
-          const isSecondGiroBistro = isSecondGiroBistroJustinoPracinha(
-            formData.reservation_date,
-            formData.reservation_time,
-            establishment?.id ? Number(establishment.id) : null
-          );
-
-          // A. LÓGICA DE TRAVAMENTO "GIRO ÚNICO" NO DECK (EXCLUSIVO HIGHLINE - BALADA)
-          // Highline é uma BALADA, não restaurante. As mesas são bloqueadas para o DIA TODO
-          // quando há uma reserva confirmada, independente do horário.
-          // Se for Highline e área Deck (area_id = 2), aplicar travamento de mesas
-          if (isHighline && Number(formData.area_id) === 2) {
-            // Buscar todas as reservas confirmadas da data para o Deck (area_id = 2)
-            // Isso garante que qualquer mesa com reserva em qualquer horário apareça como reservada
-            // (bloqueio do dia todo, correto para baladas)
+          // CRÍTICO: LÓGICAS INDEPENDENTES POR ESTABELECIMENTO
+          // Cada estabelecimento tem sua própria lógica e NÃO deve interferir nos outros
+          
+          const estId = establishment?.id ? Number(establishment.id) : null;
+          const isJustinoOrPracinha = estId === 1 || estId === 8;
+          
+          // 1. PRIMEIRO: Para Justino/Pracinha, SEMPRE resetar is_reserved ANTES de qualquer coisa
+          // Isso garante que o valor do endpoint (que bloqueia dia todo) seja ignorado
+          // IMPORTANTE: Este reset deve acontecer SEMPRE, independente de qualquer outra condição
+          if (isJustinoOrPracinha) {
+            fetched = fetched.map(t => ({ ...t, is_reserved: false }));
+            console.log(`[DEBUG] Reset is_reserved para Justino/Pracinha (ID: ${estId}). Total mesas: ${fetched.length}`);
+          }
+          
+          // 2. LÓGICA DO HIGHLINE (APENAS para Highline, NUNCA interfere em Justino/Pracinha)
+          if (isHighline && !isJustinoOrPracinha && Number(formData.area_id) === 2) {
+            // Highline é uma BALADA, não restaurante. As mesas são bloqueadas para o DIA TODO
+            // quando há uma reserva confirmada, independente do horário.
             try {
               const reservationsRes = await fetch(
                 `${API_URL}/api/restaurant-reservations?reservation_date=${formData.reservation_date}&area_id=${formData.area_id}&status=CONFIRMADA${establishment?.id ? `&establishment_id=${establishment.id}` : ''}`
@@ -442,37 +443,33 @@ export default function ReservationModal({
                 });
                 
                 // Marcar todas as mesas com reserva confirmada como is_reserved: true
+                // IMPORTANTE: Não usar || table.is_reserved para evitar herdar valores do endpoint
                 fetched = fetched.map(table => ({
                   ...table,
-                  is_reserved: reservedTableNumbers.has(String(table.table_number)) || table.is_reserved
+                  is_reserved: reservedTableNumbers.has(String(table.table_number))
                 }));
               }
             } catch (err) {
               console.error('Erro ao buscar reservas confirmadas para travamento:', err);
-              // Em caso de erro, manter a lógica original por segurança
             }
           }
-
-          // CRÍTICO (Justino/Pracinha - RESTAURANTES):
-          // Estes estabelecimentos são RESTAURANTES, não baladas. As reservas são por algumas horas
-          // (geralmente 2h de ocupação), NÃO para o dia todo. Portanto:
-          // - DEVEMOS SEMPRE IGNORAR o is_reserved do endpoint (que bloqueia dia todo)
-          // - Calcular disponibilidade APENAS por OVERLAP DE HORÁRIO com reservas ATIVAS
-          // - IMPORTANTE: Resetar DEPOIS da lógica do Highline para não ser sobrescrito
-          if (isSeuJustino || isPracinha) {
-            // SEMPRE resetar is_reserved para false - IGNORAR completamente o valor do endpoint
-            // (que bloqueia o dia todo, incorreto para restaurantes)
-            fetched = fetched.map(t => ({ ...t, is_reserved: false }));
-          }
           
-          if (isHighline && selectedSubareaKey) {
+          // 3. 2º GIRO (BISTRÔ) — REGRA NOVA (apenas Justino/Pracinha)
+          const isSecondGiroBistro = isSecondGiroBistroJustinoPracinha(
+            formData.reservation_date,
+            formData.reservation_time,
+            estId
+          );
+          
+          // 5. Filtrar por subárea (lógicas independentes)
+          if (isHighline && !isJustinoOrPracinha && selectedSubareaKey) {
             const sub = highlineSubareas.find(s => s.key === selectedSubareaKey);
             if (sub) {
               fetched = fetched.filter(t => sub.tableNumbers.includes(String(t.table_number)));
             }
           }
           // Se for Seu Justino e houver subárea selecionada, filtra pelas mesas da subárea
-          if (isSeuJustino && selectedSubareaKey) {
+          if (isSeuJustino && !isHighline && selectedSubareaKey) {
             const sub = seuJustinoSubareas.find(s => s.key === selectedSubareaKey);
             if (sub) {
               fetched = fetched.filter(t => sub.tableNumbers.includes(String(t.table_number)));
@@ -489,11 +486,12 @@ export default function ReservationModal({
             }
           }
           
-          // Verificar disponibilidade de mesas para Seu Justino e Pracinha (RESTAURANTES)
+          // 4. Verificar disponibilidade de mesas para Seu Justino e Pracinha (RESTAURANTES)
           // IMPORTANTE: Estes são RESTAURANTES, não baladas. Reservas são por algumas horas (geralmente 2h).
           // Só marca como indisponível se houver reserva ATIVA com OVERLAP de horário (dentro de 2h).
           // Se não tem horário selecionado OU não há reserva ativa com overlap, todas ficam disponíveis.
-          if ((isSeuJustino || isPracinha) && formData.reservation_time && formData.reservation_date && formData.area_id) {
+          // CRÍTICO: Esta lógica só roda para Justino/Pracinha e é completamente independente do Highline
+          if (isJustinoOrPracinha && formData.reservation_time && formData.reservation_date && formData.area_id) {
             try {
               const reservationsRes = await fetch(
                 `${API_URL}/api/restaurant-reservations?reservation_date=${formData.reservation_date}&area_id=${formData.area_id}${establishment?.id ? `&establishment_id=${establishment.id}` : ''}`
@@ -549,10 +547,13 @@ export default function ReservationModal({
                 
                 // IMPORTANTE: Para Seu Justino/Pracinha, SEMPRE começar com todas disponíveis
                 // e só marcar como indisponível se estiver no Set de mesas com overlap
+                // NÃO usar || table.is_reserved para evitar herdar valores do endpoint ou outras lógicas
                 fetched = fetched.map(table => ({
                   ...table,
                   is_reserved: reservedTableNumbers.has(String(table.table_number)) // Só true se houver overlap
                 }));
+                
+                console.log(`[DEBUG] Justino/Pracinha - Reservas ativas: ${activeReservations.length}, Mesas com overlap: ${reservedTableNumbers.size}, Mesas disponíveis: ${fetched.filter(t => !t.is_reserved).length}`);
               }
             } catch (err) {
               console.error('Erro ao verificar disponibilidade:', err);
@@ -1273,8 +1274,11 @@ export default function ReservationModal({
           const data = await loadTablesRes.json();
           let fetched: RestaurantTable[] = Array.isArray(data.tables) ? data.tables : [];
           
-          // Reaplicar travamento de mesas
-          if (isHighline && Number(formData.area_id) === 2) {
+          // Reaplicar travamento de mesas (APENAS Highline, nunca Justino/Pracinha)
+          const estIdForRelease = establishment?.id ? Number(establishment.id) : null;
+          const isJustinoOrPracinhaForRelease = estIdForRelease === 1 || estIdForRelease === 8;
+          
+          if (isHighline && !isJustinoOrPracinhaForRelease && Number(formData.area_id) === 2) {
             try {
               const reservationsRes = await fetch(
                 `${API_URL}/api/restaurant-reservations?reservation_date=${formData.reservation_date}&area_id=${formData.area_id}&status=CONFIRMADA${establishment?.id ? `&establishment_id=${establishment.id}` : ''}`
@@ -1295,9 +1299,10 @@ export default function ReservationModal({
                   }
                 });
                 
+                // IMPORTANTE: Não usar || table.is_reserved para evitar herdar valores
                 fetched = fetched.map(table => ({
                   ...table,
-                  is_reserved: reservedTableNumbers.has(String(table.table_number)) || table.is_reserved
+                  is_reserved: reservedTableNumbers.has(String(table.table_number))
                 }));
               }
             } catch (err) {
