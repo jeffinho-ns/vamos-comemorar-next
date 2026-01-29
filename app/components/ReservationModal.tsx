@@ -390,14 +390,14 @@ export default function ReservationModal({
             return minutes >= 15 * 60 && minutes < 21 * 60;
           })();
 
-          // IMPORTANTE (Justino/Pracinha):
-          // O endpoint /restaurant-tables/:areaId/availability marca `is_reserved` para o DIA TODO
-          // (se existir qualquer reserva na mesa no dia). Para Justino/Pracinha, precisamos
-          // SEMPRE calcular por SOBREPOSIÇÃO DE HORÁRIO no frontend e NUNCA herdar is_reserved do endpoint.
-          // - SEMPRE começar com TODAS disponíveis (is_reserved=false)
-          // - Só marcar como indisponível se houver reserva ativa com overlap de horário
+          // CRÍTICO (Justino/Pracinha):
+          // O endpoint /restaurant-tables/:areaId/availability pode retornar is_reserved=true
+          // baseado em reservas do dia todo. Para Justino/Pracinha, DEVEMOS SEMPRE IGNORAR isso
+          // e calcular disponibilidade APENAS por overlap de horário com reservas ATIVAS.
+          // - PRIMEIRA COISA: Resetar TODAS para is_reserved=false (ignorar endpoint)
+          // - Depois, só marcar como indisponível se houver reserva ATIVA com overlap
           if (isSeuJustino || isPracinha) {
-            // SEMPRE resetar is_reserved para false inicialmente
+            // SEMPRE resetar is_reserved para false - IGNORAR completamente o valor do endpoint
             fetched = fetched.map(t => ({ ...t, is_reserved: false }));
           }
           
@@ -479,14 +479,18 @@ export default function ReservationModal({
                   : [];
                 
                 // Filtrar apenas reservas que ocupam a mesa (excluir canceladas/finalizadas em qualquer variação)
+                // CRÍTICO: Só considerar reservas que realmente bloqueiam a mesa
                 const activeReservations = allReservations.filter((reservation: any) => {
                   const status = String(reservation.status || '').trim().toLowerCase();
-                  // Status que NÃO bloqueiam mesa
+                  // Status que NÃO bloqueiam mesa (lista completa)
                   const nonBlocking = new Set([
-                    'cancelada', 'cancelled', 'canceled',
-                    'completed', 'concluida', 'concluída', 'finalizada', 'finalized',
-                    'no_show', 'no-show'
+                    'cancelada', 'cancelled', 'canceled', 'cancel',
+                    'completed', 'concluida', 'concluída', 'concluido', 'concluído',
+                    'finalizada', 'finalized', 'finalizado', 'finalizado',
+                    'no_show', 'no-show', 'no show',
+                    'espera antecipada' // Espera antecipada não bloqueia mesa física
                   ]);
+                  // Só retorna true se NÃO estiver na lista de não-bloqueantes
                   return !nonBlocking.has(status);
                 });
                 
