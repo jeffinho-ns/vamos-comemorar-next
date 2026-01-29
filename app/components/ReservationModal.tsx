@@ -390,22 +390,27 @@ export default function ReservationModal({
             return minutes >= 15 * 60 && minutes < 21 * 60;
           })();
 
-          // CRÍTICO (Justino/Pracinha):
-          // O endpoint /restaurant-tables/:areaId/availability pode retornar is_reserved=true
-          // baseado em reservas do dia todo. Para Justino/Pracinha, DEVEMOS SEMPRE IGNORAR isso
-          // e calcular disponibilidade APENAS por overlap de horário com reservas ATIVAS.
+          // CRÍTICO (Justino/Pracinha - RESTAURANTES):
+          // Estes estabelecimentos são RESTAURANTES, não baladas. As reservas são por algumas horas
+          // (geralmente 2h de ocupação), NÃO para o dia todo. Portanto:
+          // - DEVEMOS SEMPRE IGNORAR o is_reserved do endpoint (que bloqueia dia todo)
+          // - Calcular disponibilidade APENAS por OVERLAP DE HORÁRIO com reservas ATIVAS
           // - PRIMEIRA COISA: Resetar TODAS para is_reserved=false (ignorar endpoint)
-          // - Depois, só marcar como indisponível se houver reserva ATIVA com overlap
+          // - Depois, só marcar como indisponível se houver reserva ATIVA com overlap de horário
           if (isSeuJustino || isPracinha) {
             // SEMPRE resetar is_reserved para false - IGNORAR completamente o valor do endpoint
+            // (que bloqueia o dia todo, incorreto para restaurantes)
             fetched = fetched.map(t => ({ ...t, is_reserved: false }));
           }
           
-          // A. LÓGICA DE TRAVAMENTO "GIRO ÚNICO" NO DECK (EXCLUSIVO HIGHLINE)
+          // A. LÓGICA DE TRAVAMENTO "GIRO ÚNICO" NO DECK (EXCLUSIVO HIGHLINE - BALADA)
+          // Highline é uma BALADA, não restaurante. As mesas são bloqueadas para o DIA TODO
+          // quando há uma reserva confirmada, independente do horário.
           // Se for Highline e área Deck (area_id = 2), aplicar travamento de mesas
           if (isHighline && Number(formData.area_id) === 2) {
             // Buscar todas as reservas confirmadas da data para o Deck (area_id = 2)
             // Isso garante que qualquer mesa com reserva em qualquer horário apareça como reservada
+            // (bloqueio do dia todo, correto para baladas)
             try {
               const reservationsRes = await fetch(
                 `${API_URL}/api/restaurant-reservations?reservation_date=${formData.reservation_date}&area_id=${formData.area_id}&status=CONFIRMADA${establishment?.id ? `&establishment_id=${establishment.id}` : ''}`
@@ -464,9 +469,10 @@ export default function ReservationModal({
             }
           }
           
-          // Verificar disponibilidade de mesas para Seu Justino e Pracinha (considerando horário)
-          // IMPORTANTE: Só marca como indisponível se houver reserva ATIVA com OVERLAP de horário
-          // Se não tem horário selecionado OU não há reserva ativa com overlap, todas ficam disponíveis
+          // Verificar disponibilidade de mesas para Seu Justino e Pracinha (RESTAURANTES)
+          // IMPORTANTE: Estes são RESTAURANTES, não baladas. Reservas são por algumas horas (geralmente 2h).
+          // Só marca como indisponível se houver reserva ATIVA com OVERLAP de horário (dentro de 2h).
+          // Se não tem horário selecionado OU não há reserva ativa com overlap, todas ficam disponíveis.
           if ((isSeuJustino || isPracinha) && formData.reservation_time && formData.reservation_date && formData.area_id) {
             try {
               const reservationsRes = await fetch(
