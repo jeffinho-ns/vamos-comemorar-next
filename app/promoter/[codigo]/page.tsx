@@ -255,6 +255,12 @@ export default function PromoterPublicPage() {
   };
 
   const shareUrl = typeof window !== 'undefined' ? window.location.href : '';
+  const isCarnaval = params?.codigo === 'highlinepromo';
+
+  // Degradê Carnaval (Saváh): tons de verde escuro e médio mesclados
+  const bgGradient = isCarnaval
+    ? 'bg-gradient-to-br from-[#1E503F] via-[#245642] to-[#2d6a4f]'
+    : 'bg-gradient-to-br from-purple-900 via-purple-800 to-pink-800';
 
   const copyToClipboard = () => {
     navigator.clipboard.writeText(shareUrl);
@@ -268,7 +274,7 @@ export default function PromoterPublicPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-900 via-purple-800 to-pink-800 flex items-center justify-center">
+      <div className={`min-h-screen ${bgGradient} flex items-center justify-center`}>
         <div className="text-center">
           <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-white mx-auto"></div>
           <p className="mt-4 text-white text-lg font-medium">Carregando...</p>
@@ -279,7 +285,7 @@ export default function PromoterPublicPage() {
 
   if (error || !promoter) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-900 via-purple-800 to-pink-800 flex items-center justify-center p-4">
+      <div className={`min-h-screen ${bgGradient} flex items-center justify-center p-4`}>
         <motion.div
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
@@ -300,7 +306,7 @@ export default function PromoterPublicPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-900 via-purple-800 to-pink-800">
+    <div className={`min-h-screen ${bgGradient}`}>
       {/* Header com foto do promoter */}
       <div className="relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-b from-black/50 to-transparent"></div>
@@ -326,7 +332,7 @@ export default function PromoterPublicPage() {
                 initial={{ scale: 0 }}
                 animate={{ scale: 1 }}
                 transition={{ type: "spring", stiffness: 200 }}
-                className="w-32 h-32 rounded-full border-4 border-white shadow-2xl mx-auto mb-6 bg-gradient-to-br from-purple-400 to-pink-400 flex items-center justify-center"
+                className={`w-32 h-32 rounded-full border-4 border-white shadow-2xl mx-auto mb-6 flex items-center justify-center ${isCarnaval ? 'bg-gradient-to-br from-[#1E503F] via-[#245642] to-[#2d6a4f]' : 'bg-gradient-to-br from-purple-400 to-pink-400'}`}
               >
                 <MdPerson className="text-white text-6xl" />
               </motion.div>
@@ -338,7 +344,7 @@ export default function PromoterPublicPage() {
             </h1>
             
             {promoter.apelido && (
-              <p className="text-xl text-purple-200 mb-4">{promoter.nome}</p>
+              <p className={`text-xl mb-4 ${isCarnaval ? 'text-amber-100' : 'text-purple-200'}`}>{promoter.nome}</p>
             )}
 
             {/* Instagram */}
@@ -347,7 +353,7 @@ export default function PromoterPublicPage() {
                 href={`https://instagram.com/${promoter.instagram}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 text-purple-200 hover:text-white transition-colors mb-6"
+                className={`inline-flex items-center gap-2 hover:text-white transition-colors mb-6 ${isCarnaval ? 'text-amber-100' : 'text-purple-200'}`}
               >
                 <MdCamera size={20} />
                 @{promoter.instagram}
@@ -356,7 +362,7 @@ export default function PromoterPublicPage() {
 
             {/* Estabelecimento */}
             {promoter.establishment_name && (
-              <div className="flex items-center justify-center gap-2 text-purple-100 mt-4">
+              <div className={`flex items-center justify-center gap-2 mt-4 ${isCarnaval ? 'text-amber-100' : 'text-purple-100'}`}>
                 <MdNightlife size={24} />
                 <span className="text-lg font-semibold">{promoter.establishment_name}</span>
               </div>
@@ -366,12 +372,12 @@ export default function PromoterPublicPage() {
             <div className="flex items-center justify-center gap-8 mt-8">
               <div className="text-center">
                 <div className="text-3xl font-bold text-white">{stats.total_convidados}</div>
-                <div className="text-sm text-purple-200">Convidados</div>
+                <div className={`text-sm ${isCarnaval ? 'text-amber-100' : 'text-purple-200'}`}>Convidados</div>
               </div>
-              <div className="h-12 w-px bg-purple-400"></div>
+              <div className={`h-12 w-px ${isCarnaval ? 'bg-amber-400' : 'bg-purple-400'}`}></div>
               <div className="text-center">
                 <div className="text-3xl font-bold text-white">{stats.total_confirmados}</div>
-                <div className="text-sm text-purple-200">Confirmados</div>
+                <div className={`text-sm ${isCarnaval ? 'text-amber-100' : 'text-purple-200'}`}>Confirmados</div>
               </div>
             </div>
           </motion.div>
@@ -666,7 +672,7 @@ export default function PromoterPublicPage() {
 
       {/* Footer */}
       <div className="max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
-        <div className="text-center text-purple-200 text-sm">
+        <div className={`text-center text-sm ${isCarnaval ? 'text-amber-100' : 'text-purple-200'}`}>
           <p>Powered by Agilizaiapp</p>
         </div>
       </div>

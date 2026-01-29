@@ -1745,7 +1745,7 @@ export default function RestaurantReservationsPage() {
                                 : 'text-orange-700 hover:text-orange-900'
                             }`}
                           >
-                            1º Giro (&lt; 20:00)
+                            1º Giro
                           </button>
                           <button
                             onClick={() => setGiroFilter('2º Giro')}
@@ -1755,7 +1755,7 @@ export default function RestaurantReservationsPage() {
                                 : 'text-orange-700 hover:text-orange-900'
                             }`}
                           >
-                            2º Giro (≥ 20:00)
+                            2º Giro
                           </button>
                         </div>
                       )}
