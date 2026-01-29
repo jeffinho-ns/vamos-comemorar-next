@@ -411,19 +411,6 @@ export default function ReservationModal({
             establishment?.id ? Number(establishment.id) : null
           );
 
-          // CRÍTICO (Justino/Pracinha - RESTAURANTES):
-          // Estes estabelecimentos são RESTAURANTES, não baladas. As reservas são por algumas horas
-          // (geralmente 2h de ocupação), NÃO para o dia todo. Portanto:
-          // - DEVEMOS SEMPRE IGNORAR o is_reserved do endpoint (que bloqueia dia todo)
-          // - Calcular disponibilidade APENAS por OVERLAP DE HORÁRIO com reservas ATIVAS
-          // - PRIMEIRA COISA: Resetar TODAS para is_reserved=false (ignorar endpoint)
-          // - Depois, só marcar como indisponível se houver reserva ATIVA com overlap de horário
-          if (isSeuJustino || isPracinha) {
-            // SEMPRE resetar is_reserved para false - IGNORAR completamente o valor do endpoint
-            // (que bloqueia o dia todo, incorreto para restaurantes)
-            fetched = fetched.map(t => ({ ...t, is_reserved: false }));
-          }
-          
           // A. LÓGICA DE TRAVAMENTO "GIRO ÚNICO" NO DECK (EXCLUSIVO HIGHLINE - BALADA)
           // Highline é uma BALADA, não restaurante. As mesas são bloqueadas para o DIA TODO
           // quando há uma reserva confirmada, independente do horário.
@@ -464,6 +451,18 @@ export default function ReservationModal({
               console.error('Erro ao buscar reservas confirmadas para travamento:', err);
               // Em caso de erro, manter a lógica original por segurança
             }
+          }
+
+          // CRÍTICO (Justino/Pracinha - RESTAURANTES):
+          // Estes estabelecimentos são RESTAURANTES, não baladas. As reservas são por algumas horas
+          // (geralmente 2h de ocupação), NÃO para o dia todo. Portanto:
+          // - DEVEMOS SEMPRE IGNORAR o is_reserved do endpoint (que bloqueia dia todo)
+          // - Calcular disponibilidade APENAS por OVERLAP DE HORÁRIO com reservas ATIVAS
+          // - IMPORTANTE: Resetar DEPOIS da lógica do Highline para não ser sobrescrito
+          if (isSeuJustino || isPracinha) {
+            // SEMPRE resetar is_reserved para false - IGNORAR completamente o valor do endpoint
+            // (que bloqueia o dia todo, incorreto para restaurantes)
+            fetched = fetched.map(t => ({ ...t, is_reserved: false }));
           }
           
           if (isHighline && selectedSubareaKey) {
@@ -564,10 +563,15 @@ export default function ReservationModal({
             }
           }
 
-          // Aplicar travamento total do 2º giro (BISTRÔ) para Justino/Pracinha
+          // 2º GIRO (BISTRÔ) para Justino/Pracinha: Mesas aparecem DISPONÍVEIS mas com aviso visual
+          // A reserva será convertida automaticamente para "Espera Antecipada (Bistrô)" no submit
           if (isSecondGiroBistro) {
-            fetched = fetched.map(t => ({ ...t, is_reserved: true }));
-            // Garantir que não fique nenhuma mesa selecionada
+            fetched = fetched.map(t => ({ 
+              ...t, 
+              is_reserved: false, // Mostrar como disponível
+              is_second_giro: true // Flag para aviso visual
+            }));
+            // Garantir que não fique nenhuma mesa selecionada (mesmo disponível, não deve selecionar)
             if (formData.table_number) handleInputChange('table_number', '');
             if (selectedTables.length) setSelectedTables([]);
           }
@@ -1559,6 +1563,13 @@ export default function ReservationModal({
                     <div className="mt-2 text-xs text-gray-300">
                       {(() => {
                         const windows = getSeuJustinoTimeWindows(formData.reservation_date);
+                        const estId = establishment?.id ? Number(establishment.id) : null;
+                        const isSecondGiroBistro = isSecondGiroBistroJustinoPracinha(
+                          formData.reservation_date,
+                          formData.reservation_time,
+                          estId
+                        );
+                        
                         if (windows.length === 0) {
                           return (
                             <div className="p-2 bg-red-900/20 border border-red-600/40 rounded">
@@ -1579,6 +1590,14 @@ export default function ReservationModal({
                                 <li key={i}>{w.label}</li>
                               ))}
                             </ul>
+                            {isSecondGiroBistro && formData.reservation_time && (
+                              <div className="mt-2 p-2 bg-orange-900/30 border border-orange-600/50 rounded">
+                                <div className="text-orange-300 font-semibold">🟡 2º Giro (Bistrô)</div>
+                                <div className="text-orange-200 text-xs mt-1">
+                                  As mesas aparecerão como disponíveis, mas a reserva será automaticamente convertida para <strong>"Espera Antecipada (Bistrô)"</strong> ao salvar.
+                                </div>
+                              </div>
+                            )}
                             {isAdmin && (
                               <div className="mt-2 text-amber-300 font-medium">
                                 ⚠️ Admin: Você pode criar reservas fora do horário disponível.
@@ -1703,6 +1722,8 @@ export default function ReservationModal({
                             }
                           } else {
                             availableTables = tables.filter(t => {
+                              // No 2º giro, todas as mesas aparecem disponíveis (mas com aviso visual)
+                              if ((t as any).is_second_giro) return true;
                               if (formData.number_of_people >= 4) {
                                 return !t.is_reserved;
                               }
@@ -1726,6 +1747,17 @@ export default function ReservationModal({
                               />
                               <span className="text-white text-sm">
                                 Mesa {t.table_number} • {t.capacity} lugares{t.table_type ? ` • ${t.table_type}` : ''}
+                                {(t as any).is_second_giro && (
+                                  <span className="ml-2 text-orange-400 text-xs font-semibold">
+                                    🟡 2º Giro (Espera Antecipada)
+                                  </span>
+                                )}
+                                {!((t as any).is_second_giro) && t.is_reserved && (
+                                  <span className="ml-2 text-red-400 text-xs">🔴 Indisponível</span>
+                                )}
+                                {!((t as any).is_second_giro) && !t.is_reserved && (
+                                  <span className="ml-2 text-green-400 text-xs">🟢 Disponível</span>
+                                )}
                               </span>
                             </label>
                           ));
@@ -1794,10 +1826,22 @@ export default function ReservationModal({
                                 <option 
                                   key={t.id} 
                                   value={t.table_number}
-                                  disabled={t.is_reserved}
-                                  style={{ color: t.is_reserved ? '#ef4444' : '#ffffff' }}
+                                  disabled={t.is_reserved && !(t as any).is_second_giro}
+                                  style={{ 
+                                    color: (t as any).is_second_giro 
+                                      ? '#f59e0b' // laranja para 2º giro
+                                      : t.is_reserved 
+                                        ? '#ef4444' // vermelho para indisponível
+                                        : '#ffffff' // branco para disponível
+                                  }}
                                 >
-                                  Mesa {t.table_number} • {t.capacity} lugares {t.is_reserved ? '🔴 (Indisponível)' : '🟢 (Disponível)'}
+                                  Mesa {t.table_number} • {t.capacity} lugares {
+                                    (t as any).is_second_giro 
+                                      ? '🟡 (2º Giro - Espera Antecipada)' 
+                                      : t.is_reserved 
+                                        ? '🔴 (Indisponível)' 
+                                        : '🟢 (Disponível)'
+                                  }
                                 </option>
                               ));
                           }
@@ -1812,8 +1856,22 @@ export default function ReservationModal({
                               return !t.is_reserved && t.capacity >= formData.number_of_people;
                             })
                             .map(t => (
-                              <option key={t.id} value={t.table_number}>
+                              <option 
+                                key={t.id} 
+                                value={t.table_number}
+                                disabled={(t as any).is_second_giro ? false : t.is_reserved}
+                                style={{ 
+                                  color: (t as any).is_second_giro 
+                                    ? '#f59e0b' 
+                                    : t.is_reserved 
+                                      ? '#ef4444' 
+                                      : '#ffffff'
+                                }}
+                              >
                                 Mesa {t.table_number} • {t.capacity} lugares{t.table_type ? ` • ${t.table_type}` : ''}
+                                {(t as any).is_second_giro && ' 🟡 (2º Giro)'}
+                                {!((t as any).is_second_giro) && t.is_reserved && ' 🔴 (Indisponível)'}
+                                {!((t as any).is_second_giro) && !t.is_reserved && ' 🟢 (Disponível)'}
                               </option>
                             ));
                         })()}
