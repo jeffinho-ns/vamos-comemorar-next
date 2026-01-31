@@ -37,6 +37,12 @@ import EntradaStatusModal, {
   EntradaTipo,
 } from "../../../../components/EntradaStatusModal";
 import BirthdayDetailsModal from "../../../../components/painel/BirthdayDetailsModal";
+import {
+  computeReservasMetrics,
+  computePromoterMetrics,
+  computeTotalGeralMetrics,
+  computeCamarotesMetrics,
+} from "./checkInsMetrics";
 import { BirthdayReservation } from "../../../../services/birthdayService";
 import { Reservation } from "@/app/types/reservation";
 import { io } from "socket.io-client";
@@ -4099,93 +4105,43 @@ export default function EventoCheckInsPage() {
     );
   }, [promoters, debouncedSearchTerm, filterBySearch, cachedStringCompare]);
 
-  const reservasMetrics = useMemo(() => {
-    // Pessoas em reservas de mesa (convidados)
-    const totalConvidadosReservas = convidadosReservas.length;
-    const checkinConvidadosReservas = convidadosReservas.filter(
-      (c) => c.status === "CHECK-IN",
-    ).length;
+  const reservasMetrics = useMemo(
+    () =>
+      computeReservasMetrics({
+        convidadosReservas,
+        convidadosReservasRestaurante,
+        guestListsRestaurante,
+        guestsByList,
+        checkInStatus,
+        reservasMesa,
+        reservasRestaurante,
+      }),
+    [
+      convidadosReservas,
+      convidadosReservasRestaurante,
+      guestListsRestaurante,
+      guestsByList,
+      checkInStatus,
+      reservasMesa,
+      reservasRestaurante,
+    ],
+  );
 
-    // Pessoas em reservas restaurante (guest lists + convidados): incluir dono da lista em cada lista
-    let totalConvidadosRestaurante = 0;
-    let checkinConvidadosRestaurante = 0;
+  const promoterMetrics = useMemo(
+    () => computePromoterMetrics(convidadosPromoters),
+    [convidadosPromoters],
+  );
 
-    if (convidadosReservasRestaurante.length > 0) {
-      totalConvidadosRestaurante = convidadosReservasRestaurante.length;
-      checkinConvidadosRestaurante = convidadosReservasRestaurante.filter(
-        (c) => c.status_checkin === 1 || c.status_checkin === true,
-      ).length;
-    } else {
-      const guestsLoaded = Object.values(guestsByList).reduce(
-        (sum, guests) => sum + guests.length,
-        0,
-      );
-      const guestsCheckedInLoaded = Object.values(guestsByList).reduce(
-        (sum, guests) =>
-          sum +
-          guests.filter((g) => g.checked_in === 1 || g.checked_in === true)
-            .length,
-        0,
-      );
-      if (guestsLoaded > 0) {
-        totalConvidadosRestaurante = guestsLoaded;
-        checkinConvidadosRestaurante = guestsCheckedInLoaded;
-      } else {
-        guestListsRestaurante.forEach((gl) => {
-          const status = checkInStatus[gl.guest_list_id];
-          if (status && status.totalGuests > 0) {
-            totalConvidadosRestaurante += status.totalGuests;
-            checkinConvidadosRestaurante += status.guestsCheckedIn || 0;
-          }
-        });
-      }
-    }
+  const totalGeralMetrics = useMemo(
+    () =>
+      computeTotalGeralMetrics(reservasMetrics, promoterMetrics, camarotes),
+    [reservasMetrics, promoterMetrics, camarotes],
+  );
 
-    // Dono da lista: +1 pessoa por guest list, check-in se dono presente
-    guestListsRestaurante.forEach((gl) => {
-      totalConvidadosRestaurante += 1;
-      if (
-        checkInStatus[gl.guest_list_id]?.ownerCheckedIn ||
-        gl.owner_checked_in === 1
-      ) {
-        checkinConvidadosRestaurante += 1;
-      }
-    });
-
-    const reservasSemLista = reservasRestaurante.filter(
-      (r) => r.guest_list_id == null,
-    );
-    reservasSemLista.forEach((r) => {
-      totalConvidadosRestaurante += 1;
-      if (r.checked_in) checkinConvidadosRestaurante += 1;
-    });
-
-    return {
-      total: totalConvidadosReservas + totalConvidadosRestaurante,
-      checkins: checkinConvidadosReservas + checkinConvidadosRestaurante,
-      numReservas: reservasMesa.length + reservasRestaurante.length,
-    };
-  }, [
-    convidadosReservas,
-    convidadosReservasRestaurante,
-    guestListsRestaurante,
-    guestsByList,
-    checkInStatus,
-    reservasMesa,
-    reservasRestaurante,
-  ]);
-
-  const promoterMetrics = useMemo(() => {
-    const total = convidadosPromoters.length;
-    const checkins = convidadosPromoters.filter(
-      (c) => c.status_checkin === "Check-in",
-    ).length;
-
-    return {
-      total,
-      checkins,
-    };
-  }, [convidadosPromoters]);
+  const camarotesMetrics = useMemo(
+    () => computeCamarotesMetrics(camarotes),
+    [camarotes],
+  );
 
   const getEventTypeLabel = useCallback((eventType?: string) => {
     if (!eventType) return null;
@@ -4609,130 +4565,12 @@ export default function EventoCheckInsPage() {
               className="text-2xl font-bold text-white"
               style={{ fontVariantNumeric: "normal" }}
             >
-              {(() => {
-                const nomesUnicos = new Set<string>();
-                const nomesCheckin = new Set<string>();
-                convidadosReservas.forEach((c) => {
-                  if (c.nome && c.nome.trim()) {
-                    const n = c.nome.trim().toLowerCase();
-                    nomesUnicos.add(n);
-                    if (c.status === "CHECK-IN") nomesCheckin.add(n);
-                  }
-                });
-                convidadosReservasRestaurante.forEach((c) => {
-                  if (c.nome && c.nome.trim()) {
-                    const n = c.nome.trim().toLowerCase();
-                    nomesUnicos.add(n);
-                    if (c.status_checkin === 1 || c.status_checkin === true)
-                      nomesCheckin.add(n);
-                  }
-                });
-                Object.values(guestsByList)
-                  .flat()
-                  .forEach((g) => {
-                    const nome = (g.name || "").trim();
-                    if (nome) {
-                      const n = nome.toLowerCase();
-                      nomesUnicos.add(n);
-                      if (g.checked_in === 1 || g.checked_in === true)
-                        nomesCheckin.add(n);
-                    }
-                  });
-                guestListsRestaurante.forEach((gl) => {
-                  const owner = (gl.owner_name || "").trim();
-                  if (owner) {
-                    const n = owner.toLowerCase();
-                    nomesUnicos.add(n);
-                    if (
-                      checkInStatus[gl.guest_list_id]?.ownerCheckedIn ||
-                      gl.owner_checked_in === 1
-                    )
-                      nomesCheckin.add(n);
-                  }
-                });
-                convidadosPromoters.forEach((c) => {
-                  if (c.nome && c.nome.trim()) {
-                    const n = c.nome.trim().toLowerCase();
-                    nomesUnicos.add(n);
-                    if (c.status_checkin === "Check-in") nomesCheckin.add(n);
-                  }
-                });
-                const camTotal = camarotes.reduce(
-                  (s, c) => s + (c.total_convidados || 0),
-                  0,
-                );
-                const camCheckin = camarotes.reduce(
-                  (s, c) => s + (c.convidados_checkin || 0),
-                  0,
-                );
-                const total = nomesUnicos.size + camTotal;
-                const checkins = nomesCheckin.size + camCheckin;
-                return `${checkins}/${total}`;
-              })()}
+              {Number(totalGeralMetrics.checkins)}/{Number(totalGeralMetrics.total)}
             </div>
             <div className="text-xs text-gray-400 mt-1">
-              {(() => {
-                const nomesUnicos = new Set<string>();
-                const nomesCheckin = new Set<string>();
-                convidadosReservas.forEach((c) => {
-                  if (c.nome && c.nome.trim()) {
-                    const n = c.nome.trim().toLowerCase();
-                    nomesUnicos.add(n);
-                    if (c.status === "CHECK-IN") nomesCheckin.add(n);
-                  }
-                });
-                convidadosReservasRestaurante.forEach((c) => {
-                  if (c.nome && c.nome.trim()) {
-                    const n = c.nome.trim().toLowerCase();
-                    nomesUnicos.add(n);
-                    if (c.status_checkin === 1 || c.status_checkin === true)
-                      nomesCheckin.add(n);
-                  }
-                });
-                Object.values(guestsByList)
-                  .flat()
-                  .forEach((g) => {
-                    const nome = (g.name || "").trim();
-                    if (nome) {
-                      const n = nome.toLowerCase();
-                      nomesUnicos.add(n);
-                      if (g.checked_in === 1 || g.checked_in === true)
-                        nomesCheckin.add(n);
-                    }
-                  });
-                guestListsRestaurante.forEach((gl) => {
-                  const owner = (gl.owner_name || "").trim();
-                  if (owner) {
-                    const n = owner.toLowerCase();
-                    nomesUnicos.add(n);
-                    if (
-                      checkInStatus[gl.guest_list_id]?.ownerCheckedIn ||
-                      gl.owner_checked_in === 1
-                    )
-                      nomesCheckin.add(n);
-                  }
-                });
-                convidadosPromoters.forEach((c) => {
-                  if (c.nome && c.nome.trim()) {
-                    const n = c.nome.trim().toLowerCase();
-                    nomesUnicos.add(n);
-                    if (c.status_checkin === "Check-in") nomesCheckin.add(n);
-                  }
-                });
-                const camTotal = camarotes.reduce(
-                  (s, c) => s + (c.total_convidados || 0),
-                  0,
-                );
-                const camCheckin = camarotes.reduce(
-                  (s, c) => s + (c.convidados_checkin || 0),
-                  0,
-                );
-                const total = nomesUnicos.size + camTotal;
-                const checkins = nomesCheckin.size + camCheckin;
-                return total > 0
-                  ? `${Math.round((checkins / total) * 100)}%`
-                  : "0%";
-              })()}
+              {Number(totalGeralMetrics.total) > 0
+                ? `${Math.round((Number(totalGeralMetrics.checkins) / Number(totalGeralMetrics.total)) * 100)}%`
+                : "0%"}
             </div>
           </div>
           <div className="bg-white/10 backdrop-blur-sm rounded-lg shadow p-4 border border-blue-500/50">
@@ -4741,7 +4579,7 @@ export default function EventoCheckInsPage() {
               className="text-2xl font-bold text-white"
               style={{ fontVariantNumeric: "normal" }}
             >
-              {Number(reservasMetrics.checkins)}/{Number(reservasMetrics.total)}
+              {Number(reservasMetrics.checkins)}/{Number(reservasMetrics.numReservas)}
             </div>
             <div className="text-xs text-gray-400 mt-1">
               {reservasMetrics.numReservas} reserva
@@ -4763,21 +4601,7 @@ export default function EventoCheckInsPage() {
               className="text-2xl font-bold text-white"
               style={{ fontVariantNumeric: "normal" }}
             >
-              {(() => {
-                const checkins = Number(
-                  camarotes.reduce(
-                    (sum, c) => sum + (c.convidados_checkin || 0),
-                    0,
-                  ),
-                );
-                const total = Number(
-                  camarotes.reduce(
-                    (sum, c) => sum + (c.total_convidados || 0),
-                    0,
-                  ),
-                );
-                return `${checkins}/${total}`;
-              })()}
+              {Number(camarotesMetrics.checkins)}/{Number(camarotesMetrics.total)}
             </div>
           </div>
         </div>
