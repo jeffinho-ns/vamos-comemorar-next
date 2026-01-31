@@ -40,7 +40,6 @@ import BirthdayDetailsModal from "../../../../components/painel/BirthdayDetailsM
 import { BirthdayReservation } from "../../../../services/birthdayService";
 import { Reservation } from "@/app/types/reservation";
 import { io } from "socket.io-client";
-import { isNameInVIPList } from "../../../../config/promoter-vip-lists";
 
 const API_URL =
   process.env.NEXT_PUBLIC_API_URL || "https://api.agilizaiapp.com.br";
@@ -2176,15 +2175,12 @@ export default function EventoCheckInsPage() {
 
       checkInInProgressRef.current[key] = true;
 
-      // Verificar se o convidado pertence à promoter rafacolelho@highlinebar.com.br
-      // e se o nome está na lista VIP (APENAS essa promoter tem direito de dar VIP a noite toda)
+      // Todos os convidados da promoter Rafa Coelho (rafacolelho@highlinebar.com.br) têm entrada VIP a noite toda
       const promoter = promoters.find((p) => p.id === convidado.promoter_id);
-      
       const isRafacolelho = promoter?.email?.toLowerCase() === 'rafacolelho@highlinebar.com.br';
-      const isInVIPList = promoter?.email && isNameInVIPList(promoter.email, convidado.nome);
 
-      if (isRafacolelho && isInVIPList) {
-        // Nome está na lista VIP da promoter rafacolelho@highlinebar.com.br - fazer check-in automático como VIP
+      if (isRafacolelho) {
+        // Check-in automático como VIP (sem abrir modal SECO/CONSOME)
         try {
           const token = localStorage.getItem("authToken");
           const response = await fetch(
@@ -2205,7 +2201,7 @@ export default function EventoCheckInsPage() {
 
           if (response.ok) {
             toast.success(
-              `✅ Check-in VIP automático de ${convidado.nome} confirmado! (lista VIP)`,
+              `✅ Check-in VIP automático de ${convidado.nome} confirmado! (entrada VIP a noite toda)`,
               {
                 position: "top-center",
                 autoClose: 3000,
