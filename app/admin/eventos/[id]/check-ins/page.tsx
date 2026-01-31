@@ -2070,7 +2070,7 @@ export default function EventoCheckInsPage() {
 
           // Acumular por promoter
           if (c.promoter_id) {
-            const promoter = promotersList.find((p) => p.id === c.promoter_id);
+            const promoter = promotersList.find((p) => Number(p.id) === Number(c.promoter_id));
             if (promoter) {
               if (!porPromoter[c.promoter_id]) {
                 porPromoter[c.promoter_id] = { nome: promoter.nome, total: 0 };
@@ -2175,9 +2175,12 @@ export default function EventoCheckInsPage() {
 
       checkInInProgressRef.current[key] = true;
 
-      // Todos os convidados da promoter Rafa Coelho (rafacolelho@highlinebar.com.br) têm entrada VIP a noite toda
-      const promoter = promoters.find((p) => p.id === convidado.promoter_id);
-      const isRafacolelho = promoter?.email?.toLowerCase() === 'rafacolelho@highlinebar.com.br';
+      // Convidados da "Lista de Rafa Coelho" ou promoter Rafa Coelho têm entrada VIP a noite toda
+      const promoter = promoters.find((p) => Number(p.id) === Number(convidado.promoter_id));
+      const isRafacolelho =
+        promoter?.email?.toLowerCase() === "rafacolelho@highlinebar.com.br" ||
+        (promoter?.nome && promoter.nome.toLowerCase().includes("rafa coelho")) ||
+        (convidado.origem && convidado.origem.toLowerCase().includes("lista de rafa coelho"));
 
       if (isRafacolelho) {
         // Check-in automático como VIP (sem abrir modal SECO/CONSOME)
@@ -7664,6 +7667,20 @@ export default function EventoCheckInsPage() {
                                   <div className="truncate">
                                     Promoter: {convidado.responsavel}
                                   </div>
+                                  {(() => {
+                                    const promoterForGuest = promoters.find((p) => Number(p.id) === Number(convidado.promoter_id));
+                                    const isRafaList =
+                                      promoterForGuest?.email?.toLowerCase() === "rafacolelho@highlinebar.com.br" ||
+                                      (promoterForGuest?.nome && promoterForGuest.nome.toLowerCase().includes("rafa coelho")) ||
+                                      (convidado.origem && convidado.origem.toLowerCase().includes("lista de rafa coelho"));
+                                    return isRafaList ? (
+                                      <div className="mt-1">
+                                        <span className="text-xs px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-medium">
+                                          Entrada VIP a noite toda
+                                        </span>
+                                      </div>
+                                    ) : null;
+                                  })()}
                                   {convidado.telefone && (
                                     <div className="flex items-center gap-1 truncate">
                                       <MdPhone size={12} />
@@ -7700,7 +7717,14 @@ export default function EventoCheckInsPage() {
                                 className="w-full bg-purple-600 hover:bg-purple-700 text-white font-medium py-2 rounded-lg transition-colors flex items-center justify-center gap-1.5 text-sm touch-manipulation"
                               >
                                 <MdCheckCircle size={16} />
-                                Check-in
+                                {(() => {
+                                  const promoterForGuest = promoters.find((p) => Number(p.id) === Number(convidado.promoter_id));
+                                  const isRafaList =
+                                    promoterForGuest?.email?.toLowerCase() === "rafacolelho@highlinebar.com.br" ||
+                                    (promoterForGuest?.nome && promoterForGuest.nome.toLowerCase().includes("rafa coelho")) ||
+                                    (convidado.origem && convidado.origem.toLowerCase().includes("lista de rafa coelho"));
+                                  return isRafaList ? "Check-in (VIP)" : "Check-in";
+                                })()}
                               </button>
                             ) : convidado.status_checkin === "Check-in" ? (
                               <div className="text-center space-y-1">
@@ -7792,7 +7816,7 @@ export default function EventoCheckInsPage() {
                                   />
                                 )}
                               </div>
-                              <div className="flex items-center gap-2">
+                              <div className="flex items-center gap-2 flex-wrap">
                                 <h3 className="font-semibold text-lg text-white">
                                   {convidado.nome}
                                 </h3>
@@ -7803,6 +7827,18 @@ export default function EventoCheckInsPage() {
                                     title="VIP"
                                   />
                                 )}
+                                {(() => {
+                                  const promoterForGuest = promoters.find((p) => Number(p.id) === Number(convidado.promoter_id));
+                                  const isRafaList =
+                                    promoterForGuest?.email?.toLowerCase() === "rafacolelho@highlinebar.com.br" ||
+                                    (promoterForGuest?.nome && promoterForGuest.nome.toLowerCase().includes("rafa coelho")) ||
+                                    (convidado.origem && convidado.origem.toLowerCase().includes("lista de rafa coelho"));
+                                  return isRafaList ? (
+                                    <span className="text-xs px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-medium">
+                                      Entrada VIP a noite toda
+                                    </span>
+                                  ) : null;
+                                })()}
                               </div>
                             </div>
                             {convidado.status_checkin === "Pendente" && (
@@ -7815,7 +7851,14 @@ export default function EventoCheckInsPage() {
                                 className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded-lg transition-colors flex items-center gap-2 touch-manipulation"
                               >
                                 <MdCheckCircle size={18} />
-                                Check-in
+                                {(() => {
+                                  const promoterForGuest = promoters.find((p) => Number(p.id) === Number(convidado.promoter_id));
+                                  const isRafaList =
+                                    promoterForGuest?.email?.toLowerCase() === "rafacolelho@highlinebar.com.br" ||
+                                    (promoterForGuest?.nome && promoterForGuest.nome.toLowerCase().includes("rafa coelho")) ||
+                                    (convidado.origem && convidado.origem.toLowerCase().includes("lista de rafa coelho"));
+                                  return isRafaList ? "Check-in (VIP)" : "Check-in";
+                                })()}
                               </button>
                             )}
                             {convidado.status_checkin === "Check-in" && (
