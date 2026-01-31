@@ -31,7 +31,7 @@ import {
   MdCardGiftcard,
   MdCake,
 } from "react-icons/md";
-import * as XLSX from "xlsx";
+import * as XLSX from "xlsx-js-style";
 import { WithPermission } from "../../../../components/WithPermission/WithPermission";
 import EntradaStatusModal, {
   EntradaTipo,
@@ -1964,6 +1964,13 @@ export default function EventoCheckInsPage() {
         return false;
       return true;
     };
+
+    const normalizeTableId = (value: string) => {
+      const digits = String(value || "").replace(/[^0-9]/g, "");
+      if (!digits) return "";
+      return String(parseInt(digits, 10));
+    };
+
     const formatDate = (dateStr?: string) => {
       if (!dateStr) return "";
       try {
@@ -1973,63 +1980,566 @@ export default function EventoCheckInsPage() {
         return "";
       }
     };
+
     const formatTime = (t?: string) =>
       t && t.trim() ? String(t).slice(0, 5) : "";
+
+    const exportDate =
+      sheetFilters.date || evento?.data_evento?.split("T")[0] || "";
+    const dayLabel = (() => {
+      if (!exportDate) return "";
+      try {
+        const d = new Date(exportDate + "T12:00:00");
+        if (isNaN(d.getTime())) return "";
+        return String(d.getDate()).padStart(2, "0");
+      } catch {
+        return "";
+      }
+    })();
+
     const filtered = planilhaReservas.filter(matches);
-    const headers = [
-      "Data",
-      "Hora",
-      "Nome",
-      "Mesa",
-      "Área",
-      "Telefone",
-      "Pessoas",
-      "Status",
-      "Observação",
+    const reservationsByTable = new Map<string, Reservation[]>();
+    const uniqueReservations = new Map<number, Reservation>();
+
+    filtered.forEach((r) => {
+      if (typeof r.id === "number") {
+        uniqueReservations.set(r.id, r);
+      }
+      const rawTables = String((r as any).table_number || "");
+      if (!rawTables) return;
+      rawTables
+        .split(",")
+        .map((t) => t.trim())
+        .filter(Boolean)
+        .forEach((t) => {
+          const id = normalizeTableId(t);
+          if (!id) return;
+          const list = reservationsByTable.get(id) || [];
+          list.push(r);
+          reservationsByTable.set(id, list);
+        });
+    });
+
+    const pickReservation = (tableId?: string) => {
+      if (!tableId) return undefined;
+      const list = reservationsByTable.get(tableId);
+      if (!list || list.length === 0) return undefined;
+      const sorted = [...list].sort((a, b) =>
+        (a.reservation_time || "").localeCompare(b.reservation_time || ""),
+      );
+      return sorted[0];
+    };
+
+    type LayoutRow = {
+      tableId?: string;
+      label: string;
+      limit?: number;
+      highlight?: "socios";
+      defaultName?: string;
+      defaultObs?: string;
+      showAvailable?: boolean;
+    };
+    type LayoutSection = {
+      key: string;
+      title: string;
+      color: string;
+      rows: LayoutRow[];
+    };
+
+    const layoutSections: LayoutSection[] = [
+      {
+        key: "deck",
+        title: "DECK",
+        color: "C6E0B4",
+        rows: [
+          { tableId: "1", label: "Lounge 1", limit: 6 },
+          { tableId: "2", label: "Lounge 2", limit: 6 },
+          { tableId: "3", label: "Lounge 3", limit: 6 },
+          { tableId: "4", label: "Lounge 4", limit: 6 },
+          { tableId: "5", label: "Mesa 05", limit: 6 },
+          { tableId: "6", label: "Mesa 06", limit: 6 },
+          { tableId: "7", label: "Mesa 07", limit: 6 },
+          { tableId: "8", label: "Mesa 08", limit: 6 },
+        ],
+      },
+      {
+        key: "bar",
+        title: "BAR CENTRAL",
+        color: "EAD1DC",
+        rows: [
+          { tableId: "11", label: "Bistrô ESPERA 11", limit: 2 },
+          { tableId: "12", label: "Bistrô ESPERA 12", limit: 2 },
+          { tableId: "13", label: "Bistrô ESPERA 13", limit: 2 },
+          { tableId: "14", label: "Bistrô ESPERA 14", limit: 2 },
+        ],
+      },
+      {
+        key: "balada",
+        title: "BALADA",
+        color: "BDD7EE",
+        rows: [
+          { tableId: "30", label: "Camarote 30", limit: 6 },
+          { tableId: "20", label: "Bistrô 20", limit: 4 },
+          { tableId: "31", label: "Camarote 31", limit: 6 },
+          { tableId: "21", label: "Bistrô 21", limit: 4 },
+          { tableId: "32", label: "Camarote 32", limit: 6 },
+          { tableId: "22", label: "Bistrô 22", limit: 4 },
+          { tableId: "33", label: "Camarote 33", limit: 8 },
+          { tableId: "23", label: "Bistrô 23", limit: 4 },
+          { tableId: "24", label: "Bistrô 24", limit: 4 },
+          { tableId: "25", label: "Bistrô 25", limit: 4 },
+          { tableId: "26", label: "Bistrô 26", limit: 4 },
+          { tableId: "27", label: "Bistrô 27", limit: 4 },
+          {
+            tableId: "34",
+            label: "Camarote 34",
+            limit: 8,
+            highlight: "socios",
+            defaultName: "Socios",
+            defaultObs: "Socios",
+          },
+          { tableId: "35", label: "Camarote 35", limit: 8 },
+        ],
+      },
+      {
+        key: "rooftop",
+        title: "ROOFTOP",
+        color: "C9C1E8",
+        rows: [
+          { tableId: "40", label: "Lounge 40", limit: 6 },
+          { tableId: "41", label: "Lounge 41", limit: 6 },
+          { tableId: "42", label: "Lounge 42", limit: 6 },
+          { tableId: "44", label: "Lounge Central 44", limit: 6 },
+          { tableId: "45", label: "Lounge Central 45", limit: 6 },
+          { tableId: "46", label: "Lounge Central 46", limit: 6 },
+          { tableId: "47", label: "Lounge Central 47", limit: 6 },
+          { tableId: "60", label: "Bangalô 60", limit: 8 },
+          { tableId: "61", label: "Bangalô 61", limit: 8 },
+          { tableId: "62", label: "Bangalô 62", limit: 8 },
+          { tableId: "63", label: "Bangalô 63", limit: 8 },
+          { tableId: "64", label: "Bangalô 64", limit: 8 },
+          { tableId: "65", label: "Bangalô 65", limit: 8 },
+          { tableId: "50", label: "Mesa 50", limit: 2 },
+          { tableId: "51", label: "Mesa 51", limit: 2 },
+          { tableId: "52", label: "Mesa 52", limit: 2 },
+          { tableId: "53", label: "Mesa 53", limit: 2 },
+          { tableId: "54", label: "Mesa 54", limit: 2 },
+          { tableId: "55", label: "Mesa 55", limit: 2 },
+          { tableId: "56", label: "Mesa 56", limit: 2 },
+          { tableId: "70", label: "Bistrô 70", limit: 2 },
+          { tableId: "71", label: "Bistrô 71", limit: 2 },
+          { tableId: "72", label: "Bistrô 72", limit: 2 },
+          { tableId: "73", label: "Bistrô 73", limit: 2 },
+        ],
+      },
+      {
+        key: "rotativo",
+        title: "ROTATIVO",
+        color: "F8D7B5",
+        rows: [
+          ...Array.from({ length: 8 }, () => ({
+            label: "Bistrô de Espera",
+            limit: 0,
+            showAvailable: false,
+          })),
+          ...Array.from({ length: 7 }, () => ({
+            label: "Lista de Espera",
+            limit: 0,
+            showAvailable: false,
+          })),
+        ],
+      },
     ];
-    const rows = filtered.map((r) => [
-      formatDate(String((r as any).reservation_date || "").split("T")[0]),
-      formatTime((r as any).reservation_time),
-      (r as any).client_name || "",
-      (r as any).table_number != null ? String((r as any).table_number) : "",
-      (() => {
-        const establishmentName = (
-          evento?.establishment_name || ""
-        ).toLowerCase();
-        const isSeuJustinoCheckIns =
-          evento?.establishment_id === 1 ||
-          (establishmentName.includes("seu justino") &&
-            !establishmentName.includes("pracinha"));
-        const isPracinhaJustino =
-          establishmentName.includes("pracinha") &&
-          establishmentName.includes("seu justino");
-        return isSeuJustinoCheckIns || isPracinhaJustino
-          ? getSeuJustinoAreaName(
-              (r as any).table_number,
-              (r as any).area_name,
-              (r as any).area_id,
-            )
-          : (r as any).area_name || "";
-      })(),
-      (r as any).client_phone || "",
-      typeof (r as any).number_of_people === "number"
-        ? (r as any).number_of_people
-        : parseInt(String((r as any).number_of_people || "0"), 10) || 0,
-      (r as any).status || "",
-      (() => {
-        const notes = (r as any).notes || (r as any).admin_notes || "";
-        // Destacar espera antecipada se existir
-        if (notes.includes("ESPERA ANTECIPADA")) {
-          return `⏳ ESPERA ANTECIPADA (Bistrô)${notes.replace(/ESPERA ANTECIPADA.*?\)/g, "").trim() ? " | " + notes.replace(/ESPERA ANTECIPADA.*?\)/g, "").trim() : ""}`;
+
+    const totalCapacity = layoutSections.reduce((sum, section) => {
+      return (
+        sum +
+        section.rows.reduce((acc, row) => acc + (row.limit || 0), 0)
+      );
+    }, 0);
+    const occupiedPeople = Array.from(uniqueReservations.values()).reduce(
+      (sum, r) => {
+        const count =
+          typeof (r as any).number_of_people === "number"
+            ? (r as any).number_of_people
+            : parseInt(String((r as any).number_of_people || "0"), 10) || 0;
+        return sum + count;
+      },
+      0,
+    );
+    const availablePeople =
+      totalCapacity > 0 ? Math.max(0, totalCapacity - occupiedPeople) : 0;
+
+    type RowMeta = {
+      type: "title" | "header" | "columnHeader" | "data" | "separator";
+      isEmpty?: boolean;
+      highlight?: "socios";
+      sectionKey?: string;
+      showAvailable?: boolean;
+    };
+
+    const columnCount = 11;
+    const sheetData: Array<Array<string | number>> = [];
+    const rowMeta: RowMeta[] = [];
+    const sectionRanges: Array<{ start: number; end: number; color: string }> =
+      [];
+
+    const pushRow = (row: Array<string | number>, meta: RowMeta) => {
+      const padded = Array(columnCount).fill("");
+      row.forEach((value, idx) => {
+        padded[idx] = value ?? "";
+      });
+      sheetData.push(padded);
+      rowMeta.push(meta);
+    };
+
+    const obsText =
+      "Observacao: Liberar a entrada apenas para maiores de 18 anos, sendo obrigatorio a apresentacao de um documento com foto ou documento Digital.";
+
+    pushRow([dayLabel], { type: "title" });
+
+    const row2 = Array(columnCount).fill("");
+    row2[1] = "PORTARIA";
+    row2[3] = obsText;
+    row2[8] = "LUGARES";
+    row2[10] = "QUEBRA";
+    pushRow(row2, { type: "header" });
+
+    const row3 = Array(columnCount).fill("");
+    row3[1] = "FEMININO";
+    row3[2] = "MASCULINO";
+    row3[8] = "Disponivel";
+    row3[9] = "Ocupado";
+    pushRow(row3, { type: "header" });
+
+    const row4 = Array(columnCount).fill("");
+    row4[1] = "Sujeito a Alteracao";
+    if (totalCapacity > 0) {
+      row4[8] = availablePeople;
+      row4[9] = occupiedPeople;
+    }
+    pushRow(row4, { type: "header" });
+
+    const row5 = Array(columnCount).fill("");
+    row5[1] = "DATA DE ENTRADA";
+    row5[2] = "Evento";
+    row5[3] = "Nome";
+    row5[4] = "MESAS";
+    row5[5] = "TEL";
+    row5[6] = "OBSERVACAO";
+    row5[7] = "LIMITE";
+    row5[8] = "Pessoas";
+    row5[9] = "PRESENCA";
+    pushRow(row5, { type: "columnHeader" });
+
+    layoutSections.forEach((section, sectionIndex) => {
+      if (sectionIndex > 0) {
+        pushRow([], { type: "separator" });
+      }
+      const startRow = sheetData.length + 1;
+      section.rows.forEach((def) => {
+        const reservation = pickReservation(def.tableId);
+        const isEmpty = !reservation;
+
+        const dateValue = isEmpty
+          ? exportDate
+            ? formatDate(exportDate)
+            : ""
+          : (() => {
+              const datePart = String(
+                (reservation as any).reservation_date || "",
+              )
+                .split("T")[0]
+                .trim();
+              const formattedDate = formatDate(datePart || exportDate);
+              const formattedTime = formatTime(
+                (reservation as any).reservation_time,
+              );
+              return formattedTime
+                ? `${formattedDate} ${formattedTime}`
+                : formattedDate;
+            })();
+
+        const eventValue = reservation
+          ? (reservation as any).event_name || ""
+          : "";
+
+        const showAvailable = def.showAvailable !== false;
+        let nameValue = reservation
+          ? (reservation as any).client_name || ""
+          : def.defaultName || "";
+        if (!reservation && !def.defaultName && showAvailable) {
+          nameValue = "DISPONIVEL";
         }
-        return notes;
-      })(),
-    ]);
-    const aoa = [headers, ...rows];
-    const ws = XLSX.utils.aoa_to_sheet(aoa);
+
+        const phoneValue = reservation
+          ? (reservation as any).client_phone || ""
+          : "";
+
+        const notesValue = reservation
+          ? (reservation as any).notes ||
+            (reservation as any).admin_notes ||
+            ""
+          : def.defaultObs || "";
+
+        const peopleValue = reservation
+          ? typeof (reservation as any).number_of_people === "number"
+            ? (reservation as any).number_of_people
+            : parseInt(String((reservation as any).number_of_people || "0"), 10) ||
+              ""
+          : "";
+
+        const presenceValue =
+          !reservation && !def.defaultName && showAvailable ? "DISPONIVEL" : "";
+
+        const dataRow = Array(columnCount).fill("");
+        dataRow[1] = dateValue;
+        dataRow[2] = eventValue;
+        dataRow[3] = nameValue;
+        dataRow[4] = def.label;
+        dataRow[5] = phoneValue;
+        dataRow[6] = notesValue;
+        dataRow[7] = typeof def.limit === "number" ? def.limit : "";
+        dataRow[8] = peopleValue;
+        dataRow[9] = presenceValue;
+        pushRow(dataRow, {
+          type: "data",
+          isEmpty,
+          highlight: def.highlight,
+          sectionKey: section.key,
+          showAvailable,
+        });
+      });
+      const endRow = sheetData.length;
+      sectionRanges.push({ start: startRow, end: endRow, color: section.color });
+      sheetData[startRow - 1][0] = section.title;
+    });
+
+    const ws = XLSX.utils.aoa_to_sheet(sheetData);
+    const merges: XLSX.Range[] = [
+      { s: { r: 0, c: 0 }, e: { r: 0, c: 10 } },
+      { s: { r: 1, c: 1 }, e: { r: 1, c: 2 } },
+      { s: { r: 1, c: 3 }, e: { r: 3, c: 7 } },
+      { s: { r: 1, c: 8 }, e: { r: 1, c: 9 } },
+      { s: { r: 1, c: 10 }, e: { r: 2, c: 10 } },
+      { s: { r: 3, c: 1 }, e: { r: 3, c: 2 } },
+    ];
+
+    sectionRanges.forEach((range) => {
+      merges.push({
+        s: { r: range.start - 1, c: 0 },
+        e: { r: range.end - 1, c: 0 },
+      });
+    });
+
+    ws["!merges"] = merges;
+    ws["!cols"] = [
+      { wch: 4 },
+      { wch: 16 },
+      { wch: 18 },
+      { wch: 28 },
+      { wch: 16 },
+      { wch: 16 },
+      { wch: 32 },
+      { wch: 8 },
+      { wch: 8 },
+      { wch: 10 },
+      { wch: 8 },
+    ];
+
+    ws["!rows"] = rowMeta.map((meta) => {
+      if (meta.type === "separator") return { hpt: 6 };
+      if (meta.type === "title") return { hpt: 18 };
+      if (meta.type === "header") return { hpt: 20 };
+      if (meta.type === "columnHeader") return { hpt: 20 };
+      return { hpt: 18 };
+    });
+
+    const border = {
+      top: { style: "thin", color: { rgb: "000000" } },
+      bottom: { style: "thin", color: { rgb: "000000" } },
+      left: { style: "thin", color: { rgb: "000000" } },
+      right: { style: "thin", color: { rgb: "000000" } },
+    };
+
+    const styles = {
+      topBar: {
+        font: { bold: true, color: { rgb: "000000" } },
+        alignment: { horizontal: "center", vertical: "center" },
+        fill: { patternType: "solid", fgColor: { rgb: "F4B183" } },
+        border,
+      },
+      headerBlock: {
+        font: { bold: true, size: 10 },
+        alignment: { horizontal: "center", vertical: "center", wrapText: true },
+        fill: { patternType: "solid", fgColor: { rgb: "E7E6E6" } },
+        border,
+      },
+      headerSub: {
+        font: { bold: true, size: 9 },
+        alignment: { horizontal: "center", vertical: "center", wrapText: true },
+        fill: { patternType: "solid", fgColor: { rgb: "F2F2F2" } },
+        border,
+      },
+      observation: {
+        font: { size: 9 },
+        alignment: { horizontal: "center", vertical: "center", wrapText: true },
+        fill: { patternType: "solid", fgColor: { rgb: "FFF2CC" } },
+        border,
+      },
+      columnHeader: {
+        font: { bold: true, size: 9 },
+        alignment: { horizontal: "center", vertical: "center", wrapText: true },
+        fill: { patternType: "solid", fgColor: { rgb: "FCE4D6" } },
+        border,
+      },
+      dataLeft: {
+        alignment: { horizontal: "left", vertical: "center", wrapText: true },
+        border,
+      },
+      dataCenter: {
+        alignment: { horizontal: "center", vertical: "center", wrapText: true },
+        border,
+      },
+      mesaReserved: {
+        alignment: { horizontal: "center", vertical: "center", wrapText: true },
+        fill: { patternType: "solid", fgColor: { rgb: "D9E1F2" } },
+        font: { bold: true, color: { rgb: "1F4E79" } },
+        border,
+      },
+      mesaAvailable: {
+        alignment: { horizontal: "center", vertical: "center" },
+        fill: { patternType: "solid", fgColor: { rgb: "C6EFCE" } },
+        font: { bold: true, color: { rgb: "000000" } },
+        border,
+      },
+      available: {
+        alignment: { horizontal: "center", vertical: "center" },
+        fill: { patternType: "solid", fgColor: { rgb: "C6EFCE" } },
+        font: { bold: true, color: { rgb: "006100" } },
+        border,
+      },
+      sociosRow: {
+        alignment: { horizontal: "center", vertical: "center", wrapText: true },
+        fill: { patternType: "solid", fgColor: { rgb: "00E5FF" } },
+        font: { bold: true, color: { rgb: "000000" } },
+        border,
+      },
+      quebra: {
+        alignment: { horizontal: "center", vertical: "center" },
+        fill: { patternType: "solid", fgColor: { rgb: "FF0000" } },
+        font: { bold: true, color: { rgb: "FFFFFF" } },
+        border,
+      },
+      sectionLabel: (color: string) => ({
+        alignment: {
+          horizontal: "center",
+          vertical: "center",
+          textRotation: 90,
+          wrapText: true,
+        },
+        fill: { patternType: "solid", fgColor: { rgb: color } },
+        font: { bold: true, color: { rgb: "000000" } },
+        border,
+      }),
+      separator: {
+        fill: { patternType: "solid", fgColor: { rgb: "000000" } },
+        border,
+      },
+    };
+
+    const setCellStyle = (
+      row: number,
+      col: number,
+      style: Record<string, any>,
+    ) => {
+      const addr = XLSX.utils.encode_cell({ r: row - 1, c: col });
+      const cell = ws[addr] || { t: "s", v: "" };
+      cell.s = style;
+      ws[addr] = cell;
+    };
+
+    const setRangeStyle = (
+      rowStart: number,
+      rowEnd: number,
+      colStart: number,
+      colEnd: number,
+      style: Record<string, any>,
+    ) => {
+      for (let r = rowStart; r <= rowEnd; r += 1) {
+        for (let c = colStart; c <= colEnd; c += 1) {
+          setCellStyle(r, c, style);
+        }
+      }
+    };
+
+    setRangeStyle(1, 1, 0, 10, styles.topBar);
+    setRangeStyle(2, 2, 1, 2, styles.headerBlock);
+    setRangeStyle(2, 4, 3, 7, styles.observation);
+    setRangeStyle(2, 2, 8, 9, styles.headerBlock);
+    setRangeStyle(2, 3, 10, 10, styles.quebra);
+    setRangeStyle(3, 3, 1, 2, styles.headerSub);
+    setRangeStyle(3, 3, 8, 9, styles.headerSub);
+    setRangeStyle(4, 4, 1, 2, styles.headerSub);
+    setRangeStyle(4, 4, 8, 9, styles.headerSub);
+    setRangeStyle(2, 4, 0, 0, styles.headerSub);
+    setRangeStyle(4, 4, 10, 10, styles.headerSub);
+    setRangeStyle(5, 5, 0, 10, styles.columnHeader);
+
+    rowMeta.forEach((meta, idx) => {
+      const rowNumber = idx + 1;
+      if (rowNumber <= 5) return;
+      if (meta.type === "separator") {
+        setRangeStyle(rowNumber, rowNumber, 0, 10, styles.separator);
+        return;
+      }
+      if (meta.type !== "data") return;
+      const isEmpty = !!meta.isEmpty;
+      const isAvailableRow = isEmpty && meta.showAvailable !== false;
+      const isSocios = meta.highlight === "socios";
+
+      setCellStyle(rowNumber, 0, styles.dataCenter);
+      setCellStyle(rowNumber, 1, styles.dataCenter);
+      setCellStyle(rowNumber, 2, styles.dataLeft);
+      setCellStyle(rowNumber, 3, styles.dataLeft);
+      setCellStyle(
+        rowNumber,
+        4,
+        isAvailableRow
+          ? styles.mesaAvailable
+          : isEmpty
+            ? styles.dataCenter
+            : styles.mesaReserved,
+      );
+      setCellStyle(rowNumber, 5, styles.dataCenter);
+      setCellStyle(rowNumber, 6, styles.dataLeft);
+      setCellStyle(rowNumber, 7, styles.dataCenter);
+      setCellStyle(rowNumber, 8, styles.dataCenter);
+      setCellStyle(
+        rowNumber,
+        9,
+        isAvailableRow ? styles.available : styles.dataCenter,
+      );
+      setCellStyle(rowNumber, 10, styles.dataCenter);
+
+      if (isAvailableRow) {
+        setCellStyle(rowNumber, 3, styles.available);
+      }
+
+      if (isSocios) {
+        for (let c = 1; c <= 9; c += 1) {
+          setCellStyle(rowNumber, c, styles.sociosRow);
+        }
+      }
+    });
+
+    sectionRanges.forEach((range) => {
+      setCellStyle(range.start, 0, styles.sectionLabel(range.color));
+    });
+
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Reservas");
-    const dateLabel = sheetFilters.date ? `_${sheetFilters.date}` : "";
+    const dateLabel = exportDate ? `_${exportDate}` : "";
     const est = evento?.establishment_name || "estabelecimento";
     const safe = est.replace(/[^a-z0-9]/gi, "_").slice(0, 30);
     XLSX.writeFile(wb, `planilha_reservas${dateLabel}_${safe}.xlsx`);
