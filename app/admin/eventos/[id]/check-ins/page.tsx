@@ -2095,8 +2095,8 @@ export default function EventoCheckInsPage() {
             label: "Camarote 34",
             limit: 8,
             highlight: "socios",
-            defaultName: "Socios",
-            defaultObs: "Socios",
+            defaultName: "Sócios",
+            defaultObs: "Sócios",
           },
           { tableId: "35", label: "Camarote 35", limit: 8 },
         ],
@@ -2138,12 +2138,12 @@ export default function EventoCheckInsPage() {
         color: "F8D7B5",
         rows: [
           ...Array.from({ length: 8 }, () => ({
-            label: "Bistrô de Espera",
+            label: "BISTRÔ DE ESPERA",
             limit: 0,
             showAvailable: false,
           })),
           ...Array.from({ length: 7 }, () => ({
-            label: "Lista de Espera",
+            label: "LISTA DE ESPERA",
             limit: 0,
             showAvailable: false,
           })),
@@ -2194,7 +2194,7 @@ export default function EventoCheckInsPage() {
     };
 
     const obsText =
-      "Observacao: Liberar a entrada apenas para maiores de 18 anos, sendo obrigatorio a apresentacao de um documento com foto ou documento Digital.";
+      "Observação: Liberar a entrada apenas para maiores de 18 anos, sendo obrigatório a apresentação de um documento com foto ou documento Digital.";
 
     pushRow([dayLabel], { type: "title" });
 
@@ -2208,16 +2208,17 @@ export default function EventoCheckInsPage() {
     const row3 = Array(columnCount).fill("");
     row3[1] = "FEMININO";
     row3[2] = "MASCULINO";
-    row3[8] = "Disponivel";
+    row3[8] = "Disponível";
     row3[9] = "Ocupado";
     pushRow(row3, { type: "header" });
 
     const row4 = Array(columnCount).fill("");
-    row4[1] = "Sujeito a Alteracao";
+    row4[1] = "Sujeito a Alteração";
     if (totalCapacity > 0) {
       row4[8] = availablePeople;
       row4[9] = occupiedPeople;
     }
+    row4[10] = 0;
     pushRow(row4, { type: "header" });
 
     const row5 = Array(columnCount).fill("");
@@ -2226,10 +2227,10 @@ export default function EventoCheckInsPage() {
     row5[3] = "Nome";
     row5[4] = "MESAS";
     row5[5] = "TEL";
-    row5[6] = "OBSERVACAO";
+    row5[6] = "OBSERVAÇÃO";
     row5[7] = "LIMITE";
     row5[8] = "Pessoas";
-    row5[9] = "PRESENCA";
+    row5[9] = "PRESENÇA";
     pushRow(row5, { type: "columnHeader" });
 
     layoutSections.forEach((section, sectionIndex) => {
@@ -2242,9 +2243,7 @@ export default function EventoCheckInsPage() {
         const isEmpty = !reservation;
 
         const dateValue = isEmpty
-          ? exportDate
-            ? formatDate(exportDate)
-            : ""
+          ? ""
           : (() => {
               const datePart = String(
                 (reservation as any).reservation_date || "",
@@ -2269,7 +2268,7 @@ export default function EventoCheckInsPage() {
           ? (reservation as any).client_name || ""
           : def.defaultName || "";
         if (!reservation && !def.defaultName && showAvailable) {
-          nameValue = "DISPONIVEL";
+          nameValue = "";
         }
 
         const phoneValue = reservation
@@ -2290,7 +2289,7 @@ export default function EventoCheckInsPage() {
           : "";
 
         const presenceValue =
-          !reservation && !def.defaultName && showAvailable ? "DISPONIVEL" : "";
+          !reservation && !def.defaultName && showAvailable ? "" : "";
 
         const dataRow = Array(columnCount).fill("");
         dataRow[1] = dateValue;
@@ -2364,7 +2363,7 @@ export default function EventoCheckInsPage() {
 
     const styles = {
       topBar: {
-        font: { bold: true, color: { rgb: "000000" } },
+        font: { bold: true, size: 12, color: { rgb: "000000" } },
         alignment: { horizontal: "center", vertical: "center" },
         fill: { patternType: "solid", fgColor: { rgb: "F4B183" } },
         border,
@@ -2394,35 +2393,24 @@ export default function EventoCheckInsPage() {
         border,
       },
       dataLeft: {
+        font: { size: 9 },
         alignment: { horizontal: "left", vertical: "center", wrapText: true },
         border,
       },
       dataCenter: {
+        font: { size: 9 },
         alignment: { horizontal: "center", vertical: "center", wrapText: true },
         border,
       },
-      mesaReserved: {
+      mesaCell: {
         alignment: { horizontal: "center", vertical: "center", wrapText: true },
-        fill: { patternType: "solid", fgColor: { rgb: "D9E1F2" } },
-        font: { bold: true, color: { rgb: "1F4E79" } },
-        border,
-      },
-      mesaAvailable: {
-        alignment: { horizontal: "center", vertical: "center" },
-        fill: { patternType: "solid", fgColor: { rgb: "C6EFCE" } },
-        font: { bold: true, color: { rgb: "000000" } },
-        border,
-      },
-      available: {
-        alignment: { horizontal: "center", vertical: "center" },
-        fill: { patternType: "solid", fgColor: { rgb: "C6EFCE" } },
-        font: { bold: true, color: { rgb: "006100" } },
+        font: { bold: true, size: 9, color: { rgb: "000000" } },
         border,
       },
       sociosRow: {
         alignment: { horizontal: "center", vertical: "center", wrapText: true },
         fill: { patternType: "solid", fgColor: { rgb: "00E5FF" } },
-        font: { bold: true, color: { rgb: "000000" } },
+        font: { bold: true, size: 9, color: { rgb: "000000" } },
         border,
       },
       quebra: {
@@ -2439,7 +2427,7 @@ export default function EventoCheckInsPage() {
           wrapText: true,
         },
         fill: { patternType: "solid", fgColor: { rgb: color } },
-        font: { bold: true, color: { rgb: "000000" } },
+        font: { bold: true, size: 10, color: { rgb: "000000" } },
         border,
       }),
       separator: {
@@ -2494,37 +2482,19 @@ export default function EventoCheckInsPage() {
         return;
       }
       if (meta.type !== "data") return;
-      const isEmpty = !!meta.isEmpty;
-      const isAvailableRow = isEmpty && meta.showAvailable !== false;
       const isSocios = meta.highlight === "socios";
 
       setCellStyle(rowNumber, 0, styles.dataCenter);
       setCellStyle(rowNumber, 1, styles.dataCenter);
       setCellStyle(rowNumber, 2, styles.dataLeft);
       setCellStyle(rowNumber, 3, styles.dataLeft);
-      setCellStyle(
-        rowNumber,
-        4,
-        isAvailableRow
-          ? styles.mesaAvailable
-          : isEmpty
-            ? styles.dataCenter
-            : styles.mesaReserved,
-      );
+      setCellStyle(rowNumber, 4, styles.mesaCell);
       setCellStyle(rowNumber, 5, styles.dataCenter);
       setCellStyle(rowNumber, 6, styles.dataLeft);
       setCellStyle(rowNumber, 7, styles.dataCenter);
       setCellStyle(rowNumber, 8, styles.dataCenter);
-      setCellStyle(
-        rowNumber,
-        9,
-        isAvailableRow ? styles.available : styles.dataCenter,
-      );
+      setCellStyle(rowNumber, 9, styles.dataCenter);
       setCellStyle(rowNumber, 10, styles.dataCenter);
-
-      if (isAvailableRow) {
-        setCellStyle(rowNumber, 3, styles.available);
-      }
 
       if (isSocios) {
         for (let c = 1; c <= 9; c += 1) {
