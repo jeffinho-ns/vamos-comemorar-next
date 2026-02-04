@@ -145,6 +145,29 @@ export default function ReservationModal({
     (establishment.name || '').toLowerCase().includes('pracinha')
   );
 
+  const normalizeEstablishmentName = (name?: string | null) => (name || '').toLowerCase().trim();
+
+  const matchesSelectedEstablishment = (reservation: any): boolean => {
+    if (!establishment) return true;
+    const selectedId = Number(establishment.id);
+    const reservationId = reservation?.establishment_id;
+    if (reservationId != null && !Number.isNaN(Number(reservationId))) {
+      return Number(reservationId) === selectedId;
+    }
+    const selectedName = normalizeEstablishmentName(establishment.name);
+    const reservationName = normalizeEstablishmentName(
+      reservation?.establishment_name || reservation?.place_name || reservation?.establishment
+    );
+    if (!selectedName || !reservationName) return false;
+    const selectedIsJustino = selectedName.includes('seu justino') && !selectedName.includes('pracinha');
+    const selectedIsPracinha = selectedName.includes('pracinha');
+    const reservationIsJustino = reservationName.includes('seu justino') && !reservationName.includes('pracinha');
+    const reservationIsPracinha = reservationName.includes('pracinha');
+    if (selectedIsJustino) return reservationIsJustino;
+    if (selectedIsPracinha) return reservationIsPracinha;
+    return reservationName.includes(selectedName) || selectedName.includes(reservationName);
+  };
+
   const getMaxBirthdate = () => {
     const d = new Date();
     d.setFullYear(d.getFullYear() - 18);
@@ -422,24 +445,11 @@ export default function ReservationModal({
                 `${API_URL}/api/restaurant-reservations?reservation_date=${formData.reservation_date}&area_id=${formData.area_id}&status=CONFIRMADA${establishment?.id ? `&establishment_id=${establishment.id}` : ''}`
               );
               if (reservationsRes.ok) {
-                const reservationsData = await reservationsRes.json();
-                const confirmedReservations = Array.isArray(reservationsData.reservations) 
-                  ? reservationsData.reservations 
-                  : [];
-                const establishmentId = establishment?.id ? Number(establishment.id) : null;
-                const reservationsForEstablishment = establishmentId
-                  ? confirmedReservations.filter((reservation: any) => {
-                      if (reservation.establishment_id == null) return true;
-                      return Number(reservation.establishment_id) === establishmentId;
-                    })
-                  : confirmedReservations;
-                const establishmentId = establishment?.id ? Number(establishment.id) : null;
-                const reservationsForEstablishment = establishmentId
-                  ? confirmedReservations.filter((reservation: any) => {
-                      if (reservation.establishment_id == null) return true;
-                      return Number(reservation.establishment_id) === establishmentId;
-                    })
-                  : confirmedReservations;
+              const reservationsData = await reservationsRes.json();
+              const confirmedReservations = Array.isArray(reservationsData.reservations) 
+                ? reservationsData.reservations 
+                : [];
+              const reservationsForEstablishment = confirmedReservations.filter(matchesSelectedEstablishment);
                 
                 // Criar um Set com os números das mesas que têm reserva confirmada em qualquer horário
                 const reservedTableNumbers = new Set<string>();
@@ -511,13 +521,7 @@ export default function ReservationModal({
                 const allReservations = Array.isArray(reservationsData.reservations)
                   ? reservationsData.reservations
                   : [];
-                const establishmentId = establishment?.id ? Number(establishment.id) : null;
-                const reservationsForEstablishment = establishmentId
-                  ? allReservations.filter((reservation: any) => {
-                      if (reservation.establishment_id == null) return true;
-                      return Number(reservation.establishment_id) === establishmentId;
-                    })
-                  : allReservations;
+                const reservationsForEstablishment = allReservations.filter(matchesSelectedEstablishment);
                 
                 // Filtrar apenas reservas que ocupam a mesa (excluir canceladas/finalizadas em qualquer variação)
                 // CRÍTICO: Só considerar reservas que realmente bloqueiam a mesa
@@ -693,12 +697,7 @@ export default function ReservationModal({
         if (res.ok) {
           const data = await res.json();
           const reservations = Array.isArray(data.reservations) ? data.reservations : [];
-          const reservationsForEstablishment = establishmentId
-            ? reservations.filter((reservation: any) => {
-                if (reservation.establishment_id == null) return true;
-                return Number(reservation.establishment_id) === establishmentId;
-              })
-            : reservations;
+          const reservationsForEstablishment = reservations.filter(matchesSelectedEstablishment);
           
           // Filtrar reservas que bloqueiam toda a área E que são para a data específica
           const blockedAreaIds = new Set<number>();
@@ -970,13 +969,7 @@ export default function ReservationModal({
           const allReservations = Array.isArray(reservationsData.reservations)
             ? reservationsData.reservations
             : [];
-          const establishmentId = establishment?.id ? Number(establishment.id) : null;
-          const reservationsForEstablishment = establishmentId
-            ? allReservations.filter((reservation: any) => {
-                if (reservation.establishment_id == null) return true;
-                return Number(reservation.establishment_id) === establishmentId;
-              })
-            : allReservations;
+          const reservationsForEstablishment = allReservations.filter(matchesSelectedEstablishment);
           
           const activeReservations = reservationsForEstablishment.filter((reservation: any) => {
             const status = String(reservation.status || '').trim().toLowerCase();
@@ -1209,13 +1202,7 @@ export default function ReservationModal({
             if (checkReservationsResponse.ok) {
               const checkData = await checkReservationsResponse.json();
               const existingReservations = Array.isArray(checkData.reservations) ? checkData.reservations : [];
-              const establishmentId = establishment?.id ? Number(establishment.id) : null;
-              const reservationsForEstablishment = establishmentId
-                ? existingReservations.filter((reservation: any) => {
-                    if (reservation.establishment_id == null) return true;
-                    return Number(reservation.establishment_id) === establishmentId;
-                  })
-                : existingReservations;
+              const reservationsForEstablishment = existingReservations.filter(matchesSelectedEstablishment);
               
               // Verificar se há reserva no mesmo giro
               const giro = getGiroFromTime(formData.reservation_date, reservation_time);
@@ -1325,6 +1312,7 @@ export default function ReservationModal({
                 const confirmedReservations = Array.isArray(reservationsData.reservations) 
                   ? reservationsData.reservations 
                   : [];
+                const reservationsForEstablishment = confirmedReservations.filter(matchesSelectedEstablishment);
                 
                 const reservedTableNumbers = new Set<string>();
                 reservationsForEstablishment.forEach((reservation: any) => {

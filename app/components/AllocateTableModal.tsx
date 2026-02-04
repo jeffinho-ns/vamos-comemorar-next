@@ -48,6 +48,27 @@ export default function AllocateTableModal({
     !(establishment.name || '').toLowerCase().includes('pracinha')
   );
   const isPracinha = establishment && (establishment.name || '').toLowerCase().includes('pracinha');
+  const normalizeEstablishmentName = (name?: string | null) => (name || '').toLowerCase().trim();
+  const matchesSelectedEstablishment = (reservation: any): boolean => {
+    if (!establishment) return true;
+    const selectedId = Number(establishment.id);
+    const reservationId = reservation?.establishment_id;
+    if (reservationId != null && !Number.isNaN(Number(reservationId))) {
+      return Number(reservationId) === selectedId;
+    }
+    const selectedName = normalizeEstablishmentName(establishment.name);
+    const reservationName = normalizeEstablishmentName(
+      reservation?.establishment_name || reservation?.place_name || reservation?.establishment
+    );
+    if (!selectedName || !reservationName) return false;
+    const selectedIsJustino = selectedName.includes('seu justino') && !selectedName.includes('pracinha');
+    const selectedIsPracinha = selectedName.includes('pracinha');
+    const reservationIsJustino = reservationName.includes('seu justino') && !reservationName.includes('pracinha');
+    const reservationIsPracinha = reservationName.includes('pracinha');
+    if (selectedIsJustino) return reservationIsJustino;
+    if (selectedIsPracinha) return reservationIsPracinha;
+    return reservationName.includes(selectedName) || selectedName.includes(reservationName);
+  };
 
   // Subáreas específicas do Seu Justino
   const seuJustinoSubareas = [
@@ -127,13 +148,7 @@ export default function AllocateTableModal({
                 const allReservations = Array.isArray(reservationsData.reservations) 
                   ? reservationsData.reservations 
                   : [];
-                const establishmentId = establishment?.id ? Number(establishment.id) : null;
-                const reservationsForEstablishment = establishmentId
-                  ? allReservations.filter((reservation: any) => {
-                      if (reservation.establishment_id == null) return true;
-                      return Number(reservation.establishment_id) === establishmentId;
-                    })
-                  : allReservations;
+                const reservationsForEstablishment = allReservations.filter(matchesSelectedEstablishment);
                 
                 const activeReservations = reservationsForEstablishment.filter((reservation: any) => {
                   const status = String(reservation.status || '').toUpperCase();
