@@ -1757,8 +1757,9 @@ export default function ReservesPage() {
                                         return areaName || '';
                                       };
                                       
-                                      const isSeuJustinoReservas = reservation.establishment_id === 1 || 
-                                        ((reservation as any).establishment_name || '').toLowerCase().includes('seu justino');
+                                      const establishmentName = ((reservation as any).establishment_name || '').toLowerCase();
+                                      const isSeuJustinoReservas = establishmentName.includes('seu justino') &&
+                                        !establishmentName.includes('pracinha');
                                       
                                       const finalAreaName = isSeuJustinoReservas && reservation.table_number
                                         ? getSeuJustinoAreaName(reservation.table_number, reservation.area_name, reservation.area_id)

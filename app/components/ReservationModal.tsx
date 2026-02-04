@@ -219,13 +219,12 @@ export default function ReservationModal({
     });
   };
 
-  // 2º GIRO (BISTRÔ) — REGRA NOVA (APENAS Seu Justino ID 1 e Pracinha ID 8)
+  // 2º GIRO (BISTRÔ) — REGRA NOVA (apenas Seu Justino e Pracinha)
   // - Terça a Sexta: 1º giro 18:00–21:00 | 2º giro a partir de 21:00 (inclui madrugada, ex. 01:00)
   // - Sábado: 1º giro 12:00–15:00 | 2º giro a partir de 15:00 (inclui madrugada)
   // - Domingo: 1º giro 12:00–15:00 | 2º giro a partir de 15:00
-  const isSecondGiroBistroJustinoPracinha = (dateStr?: string, timeStr?: string, establishmentId?: number | null) => {
-    const estId = establishmentId != null ? Number(establishmentId) : null;
-    if (estId !== 1 && estId !== 8) return false;
+  const isSecondGiroBistroJustinoPracinha = (dateStr?: string, timeStr?: string) => {
+    if (!(isSeuJustino || isPracinha)) return false;
     if (!dateStr || !timeStr) return false;
 
     const d = new Date(`${dateStr}T00:00:00`);
@@ -253,9 +252,7 @@ export default function ReservationModal({
   // Função para determinar o giro (1º/2º) com base na regra nova
   const getGiroFromTime = (dateStr: string, timeStr: string): '1º Giro' | '2º Giro' | null => {
     if (!(isSeuJustino || isPracinha) || !dateStr || !timeStr) return null;
-    const estId = establishment?.id ? Number(establishment.id) : null;
-    if (estId !== 1 && estId !== 8) return null;
-    return isSecondGiroBistroJustinoPracinha(dateStr, timeStr, estId) ? '2º Giro' : '1º Giro';
+    return isSecondGiroBistroJustinoPracinha(dateStr, timeStr) ? '2º Giro' : '1º Giro';
   };
 
   // 3. USEEFFECT ATUALIZADO PARA CONTROLAR O PADRÃO DOS CHECKBOXES
@@ -429,10 +426,24 @@ export default function ReservationModal({
                 const confirmedReservations = Array.isArray(reservationsData.reservations) 
                   ? reservationsData.reservations 
                   : [];
+                const establishmentId = establishment?.id ? Number(establishment.id) : null;
+                const reservationsForEstablishment = establishmentId
+                  ? confirmedReservations.filter((reservation: any) => {
+                      if (reservation.establishment_id == null) return true;
+                      return Number(reservation.establishment_id) === establishmentId;
+                    })
+                  : confirmedReservations;
+                const establishmentId = establishment?.id ? Number(establishment.id) : null;
+                const reservationsForEstablishment = establishmentId
+                  ? confirmedReservations.filter((reservation: any) => {
+                      if (reservation.establishment_id == null) return true;
+                      return Number(reservation.establishment_id) === establishmentId;
+                    })
+                  : confirmedReservations;
                 
                 // Criar um Set com os números das mesas que têm reserva confirmada em qualquer horário
                 const reservedTableNumbers = new Set<string>();
-                confirmedReservations.forEach((reservation: any) => {
+                reservationsForEstablishment.forEach((reservation: any) => {
                   if (reservation.table_number) {
                     // Mesas podem ser múltiplas (separadas por vírgula)
                     const tables = String(reservation.table_number).split(',');
@@ -457,8 +468,7 @@ export default function ReservationModal({
           // 3. 2º GIRO (BISTRÔ) — REGRA NOVA (apenas Justino/Pracinha)
           const isSecondGiroBistro = isSecondGiroBistroJustinoPracinha(
             formData.reservation_date,
-            formData.reservation_time,
-            estId
+            formData.reservation_time
           );
           
           // 5. Filtrar por subárea (lógicas independentes)
@@ -612,13 +622,8 @@ export default function ReservationModal({
                 is_reserved: false
               }));
               // 2º giro: marcar tudo indisponível mesmo nas mesas virtuais
-              const estId = establishment?.id ? Number(establishment.id) : null;
-              const d = formData.reservation_date ? new Date(`${formData.reservation_date}T00:00:00`) : null;
-              const t = String(formData.reservation_time || '').slice(0, 5);
-              const [hh, mm] = t.split(':').map(Number);
-              const minutes = (Number.isNaN(hh) ? 0 : hh * 60) + (Number.isNaN(mm) ? 0 : mm);
-              const isSecondGiro = (estId === 1 || estId === 8) && d && d.getDay() === 6 && minutes >= 15 * 60 && minutes < 21 * 60;
-              setTables(isSecondGiro ? virtualTables.map(v => ({ ...v, is_reserved: true })) : virtualTables);
+              // Highline não usa regra de 2º giro
+              setTables(virtualTables);
             } else {
               setTables([]);
             }
@@ -681,16 +686,23 @@ export default function ReservationModal({
       }
       
       try {
+        const establishmentId = establishment?.id ? Number(establishment.id) : null;
         const res = await fetch(
-          `${API_URL}/api/restaurant-reservations?reservation_date=${selectedDate}&include_cancelled=false`
+          `${API_URL}/api/restaurant-reservations?reservation_date=${selectedDate}&include_cancelled=false${establishmentId ? `&establishment_id=${establishmentId}` : ''}`
         );
         if (res.ok) {
           const data = await res.json();
           const reservations = Array.isArray(data.reservations) ? data.reservations : [];
+          const reservationsForEstablishment = establishmentId
+            ? reservations.filter((reservation: any) => {
+                if (reservation.establishment_id == null) return true;
+                return Number(reservation.establishment_id) === establishmentId;
+              })
+            : reservations;
           
           // Filtrar reservas que bloqueiam toda a área E que são para a data específica
           const blockedAreaIds = new Set<number>();
-          reservations.forEach((reservation: any) => {
+          reservationsForEstablishment.forEach((reservation: any) => {
             // Verificar se a reserva bloqueia toda a área
             if (reservation.blocks_entire_area === true || reservation.blocks_entire_area === 1) {
               // Verificar se a data da reserva corresponde à data selecionada
@@ -825,12 +837,10 @@ export default function ReservationModal({
     const hasCompatible = tables.some(t => !t.is_reserved && t.capacity >= formData.number_of_people);
 
     // 2º giro (BISTRÔ) para Justino/Pracinha: NÃO exigir mesa (vai para espera antecipada/bistrô)
-    const estIdForValidation = establishment?.id ? Number(establishment.id) : null;
     const isJustinoOrPracinhaForValidation = isSeuJustino || isPracinha;
     const isSecondGiroBistro = isSecondGiroBistroJustinoPracinha(
       formData.reservation_date,
-      formData.reservation_time,
-      estIdForValidation
+      formData.reservation_time
     );
     
     // REGRA ABSOLUTA: Para Justino/Pracinha, mesa é SEMPRE opcional (nunca exigir)
@@ -1061,18 +1071,16 @@ export default function ReservationModal({
       throw new Error('Número de pessoas deve ser maior que 0');
     }
 
-    // REGRA NOVA 2º GIRO (BISTRÔ): Justino (1) e Pracinha (8)
-    const isSeuJustinoId = establishment_id === 1;
-    const isPracinhaId = establishment_id === 8;
+    // REGRA NOVA 2º GIRO (BISTRÔ): Seu Justino e Pracinha
+    const isJustinoOrPracinhaModal = isSeuJustino || isPracinha;
     let isEsperaAntecipadaModal = false;
     let finalTableNumberModal: string | undefined = finalTableNumber;
     let finalNotesModal = finalNotes;
     
-    if ((isSeuJustinoId || isPracinhaId) && formData.reservation_date && reservation_time) {
+    if (isJustinoOrPracinhaModal && formData.reservation_date && reservation_time) {
       const isSecondGiroBistro = isSecondGiroBistroJustinoPracinha(
         formData.reservation_date,
-        reservation_time,
-        establishment_id
+        reservation_time
       );
       if (isSecondGiroBistro) {
         isEsperaAntecipadaModal = true;
@@ -1201,10 +1209,17 @@ export default function ReservationModal({
             if (checkReservationsResponse.ok) {
               const checkData = await checkReservationsResponse.json();
               const existingReservations = Array.isArray(checkData.reservations) ? checkData.reservations : [];
+              const establishmentId = establishment?.id ? Number(establishment.id) : null;
+              const reservationsForEstablishment = establishmentId
+                ? existingReservations.filter((reservation: any) => {
+                    if (reservation.establishment_id == null) return true;
+                    return Number(reservation.establishment_id) === establishmentId;
+                  })
+                : existingReservations;
               
               // Verificar se há reserva no mesmo giro
               const giro = getGiroFromTime(formData.reservation_date, reservation_time);
-              const hasConflict = existingReservations.some((r: any) => {
+              const hasConflict = reservationsForEstablishment.some((r: any) => {
                 if (r.status === 'CANCELADA' || r.status === 'canceled' || r.status === 'completed') return false;
                 const rGiro = getGiroFromTime(formData.reservation_date, r.reservation_time || '');
                 return giro && rGiro && giro === rGiro;
@@ -1312,7 +1327,7 @@ export default function ReservationModal({
                   : [];
                 
                 const reservedTableNumbers = new Set<string>();
-                confirmedReservations.forEach((reservation: any) => {
+                reservationsForEstablishment.forEach((reservation: any) => {
                   if (reservation.table_number) {
                     const tables = String(reservation.table_number).split(',');
                     tables.forEach((table: string) => {
@@ -1590,11 +1605,9 @@ export default function ReservationModal({
                     <div className="mt-2 text-xs text-gray-300">
                       {(() => {
                         const windows = getSeuJustinoTimeWindows(formData.reservation_date);
-                        const estId = establishment?.id ? Number(establishment.id) : null;
                         const isSecondGiroBistro = isSecondGiroBistroJustinoPracinha(
                           formData.reservation_date,
-                          formData.reservation_time,
-                          estId
+                          formData.reservation_time
                         );
                         
                         if (windows.length === 0) {

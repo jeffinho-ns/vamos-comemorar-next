@@ -537,11 +537,6 @@ export default function ReservationDetailsModal({
     return areaName || null;
   };
 
-  // Detectar se é Seu Justino baseado no establishment_id ou nome
-  const isSeuJustino = (reservation as any).establishment_id === 1 || 
-    ((reservation as any).establishment_name?.toLowerCase().includes('seu justino') &&
-     !(reservation as any).establishment_name?.toLowerCase().includes('pracinha'));
-  
   const derivedAreaName = getSubareaLabel(
     (reservation as any).table_number, 
     reservation.area_name, 

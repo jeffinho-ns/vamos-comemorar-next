@@ -87,8 +87,8 @@ const detectAndCreateBirthdayGuestList = async (reservationId: number, payload: 
     const reservationDate = new Date(`${payload.reservation_date}T00:00:00`);
     const dayOfWeek = reservationDate.getDay(); // Domingo = 0, Sexta = 5, Sábado = 6
     const isWeekend = dayOfWeek === 5 || dayOfWeek === 6; // Sexta ou Sábado
-    const isHighLine = payload.establishment_id === 1;
     const nameLower = (establishmentName || '').toLowerCase();
+    const isHighLine = nameLower.includes('high');
     const isReservaRooftop = nameLower.includes('reserva rooftop') || nameLower.includes('rooftop');
     const isLargeGroup = payload.number_of_people >= 4;
     
@@ -910,7 +910,8 @@ const handleSubmit = async (e: React.FormEvent) => {
     const reservationDate = new Date(`${reservationData.reservation_date}T00:00:00`);
     const dayOfWeek = reservationDate.getDay(); // Domingo = 0, Sexta = 5, Sábado = 6
     const isWeekend = dayOfWeek === 5 || dayOfWeek === 6; // Sexta ou Sábado
-    const isHighLine = payload.establishment_id === 1;
+    const establishmentName = (selectedEstablishment?.name || '').toLowerCase();
+    const isHighLine = establishmentName.includes('high');
 
     // Priorizar o tipo selecionado pelo usuário quando disponível (Highline com mais de 5 pessoas)
     if (isHighLine && payload.number_of_people > 5 && eventType) {

@@ -127,10 +127,19 @@ export default function AllocateTableModal({
                 const allReservations = Array.isArray(reservationsData.reservations) 
                   ? reservationsData.reservations 
                   : [];
+                const establishmentId = establishment?.id ? Number(establishment.id) : null;
+                const reservationsForEstablishment = establishmentId
+                  ? allReservations.filter((reservation: any) => {
+                      if (reservation.establishment_id == null) return true;
+                      return Number(reservation.establishment_id) === establishmentId;
+                    })
+                  : allReservations;
                 
-                const activeReservations = allReservations.filter((reservation: any) => {
+                const activeReservations = reservationsForEstablishment.filter((reservation: any) => {
                   const status = String(reservation.status || '').toUpperCase();
                   return status !== 'CANCELADA' && 
+                         status !== 'CANCELADO' &&
+                         status !== 'CANCEL' &&
                          status !== 'CANCELED' && 
                          status !== 'COMPLETED' &&
                          status !== 'FINALIZADA';
@@ -160,10 +169,16 @@ export default function AllocateTableModal({
                   }
                 });
                 
-                fetched = fetched.map(table => ({
-                  ...table,
-                  is_reserved: reservedTableNumbers.has(String(table.table_number)) || table.is_reserved
-                }));
+                fetched = fetched.map(table => {
+                  const isReservedByOverlap = reservedTableNumbers.has(String(table.table_number));
+                  const shouldIgnoreEndpointReserved = isSeuJustino || isPracinha;
+                  return {
+                    ...table,
+                    is_reserved: shouldIgnoreEndpointReserved
+                      ? isReservedByOverlap
+                      : (isReservedByOverlap || table.is_reserved)
+                  };
+                });
               }
             } catch (err) {
               console.error('Erro ao verificar disponibilidade:', err);

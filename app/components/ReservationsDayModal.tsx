@@ -207,8 +207,9 @@ export default function ReservationsDayModal({
                               return areaName || '';
                             };
                             
-                            const isSeuJustinoDayModal = (reservation as any).establishment_id === 1 || 
-                              (reservation as any).establishment_name?.toLowerCase().includes('seu justino');
+                            const establishmentName = ((reservation as any).establishment_name || '').toLowerCase();
+                            const isSeuJustinoDayModal = establishmentName.includes('seu justino') &&
+                              !establishmentName.includes('pracinha');
                             
                             return isSeuJustinoDayModal && (reservation as any).table_number
                               ? getSeuJustinoAreaName((reservation as any).table_number, reservation.area_name, (reservation as any).area_id)
