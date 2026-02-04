@@ -1,9 +1,17 @@
-'use client';
+"use client";
 
-import React, { useState, useCallback, useEffect, useRef } from 'react';
-import Cropper from 'react-easy-crop';
-import { motion } from 'framer-motion';
-import { MdClose, MdCheck, MdZoomIn, MdZoomOut, MdRotateRight, MdFilter, MdAspectRatio } from 'react-icons/md';
+import React, { useState, useCallback, useEffect, useRef } from "react";
+import Cropper from "react-easy-crop";
+import { motion } from "framer-motion";
+import {
+  MdClose,
+  MdCheck,
+  MdZoomIn,
+  MdZoomOut,
+  MdRotateRight,
+  MdFilter,
+  MdAspectRatio,
+} from "react-icons/md";
 
 interface ImageCropModalProps {
   isOpen: boolean;
@@ -34,46 +42,53 @@ export default function ImageCropModal({
   const [crop, setCrop] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
   const [rotation, setRotation] = useState(0);
-  const [croppedAreaPixels, setCroppedAreaPixels] = useState<CropArea | null>(null);
+  const [croppedAreaPixels, setCroppedAreaPixels] = useState<CropArea | null>(
+    null,
+  );
   const [isProcessing, setIsProcessing] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
-  const [filter, setFilter] = useState<string>('none');
+  const [filter, setFilter] = useState<string>("none");
   const [brightness, setBrightness] = useState(100);
   const [contrast, setContrast] = useState(100);
   const [saturation, setSaturation] = useState(100);
   const [outputWidth, setOutputWidth] = useState<number | null>(null);
   const [outputHeight, setOutputHeight] = useState<number | null>(null);
   const [imageLoaded, setImageLoaded] = useState(false);
-  const [processedImageSrc, setProcessedImageSrc] = useState<string>('');
+  const [processedImageSrc, setProcessedImageSrc] = useState<string>("");
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Converter blob URL para data URL se necessário
   useEffect(() => {
     if (isOpen && imageSrc) {
-      console.log('🔄 Processando imagem:', { imageSrc, isBlob: imageSrc.startsWith('blob:') });
-      
-      if (imageSrc.startsWith('blob:')) {
+      console.log("🔄 Processando imagem:", {
+        imageSrc,
+        isBlob: imageSrc.startsWith("blob:"),
+      });
+
+      if (imageSrc.startsWith("blob:")) {
         // Converter blob URL para data URL
         fetch(imageSrc)
-          .then(res => res.blob())
-          .then(blob => {
+          .then((res) => res.blob())
+          .then((blob) => {
             return new Promise<string>((resolve, reject) => {
               const reader = new FileReader();
               reader.onloadend = () => {
                 const dataUrl = reader.result as string;
-                console.log('✅ Blob convertido para data URL:', { dataUrl: dataUrl.substring(0, 50) + '...' });
+                console.log("✅ Blob convertido para data URL:", {
+                  dataUrl: dataUrl.substring(0, 50) + "...",
+                });
                 resolve(dataUrl);
               };
               reader.onerror = reject;
               reader.readAsDataURL(blob);
             });
           })
-          .then(dataUrl => {
+          .then((dataUrl) => {
             setProcessedImageSrc(dataUrl);
-            console.log('✅ ProcessedImageSrc definido');
+            console.log("✅ ProcessedImageSrc definido");
           })
-          .catch(error => {
-            console.error('❌ Erro ao converter blob para data URL:', error);
+          .catch((error) => {
+            console.error("❌ Erro ao converter blob para data URL:", error);
             // Fallback: usar blob URL diretamente
             setProcessedImageSrc(imageSrc);
           });
@@ -81,14 +96,17 @@ export default function ImageCropModal({
         setProcessedImageSrc(imageSrc);
       }
     } else if (!isOpen) {
-      setProcessedImageSrc('');
+      setProcessedImageSrc("");
     }
   }, [isOpen, imageSrc]);
 
   // Resetar estado quando uma nova imagem é carregada
   useEffect(() => {
     if (isOpen && processedImageSrc) {
-      console.log('🔄 Iniciando carregamento da imagem no modal:', processedImageSrc);
+      console.log(
+        "🔄 Iniciando carregamento da imagem no modal:",
+        processedImageSrc,
+      );
       setImageLoaded(false);
       setCrop({ x: 0, y: 0 });
       setZoom(1);
@@ -100,41 +118,44 @@ export default function ImageCropModal({
       setBrightness(100);
       setContrast(100);
       setSaturation(100);
-      setFilter('none');
-      
+      setFilter("none");
+
       // Verificar se a imagem carrega corretamente
       const img = new Image();
       // Só definir crossOrigin para URLs externas, não para data URLs ou blob URLs
-      if (!processedImageSrc.startsWith('blob:') && !processedImageSrc.startsWith('data:')) {
-        img.crossOrigin = 'anonymous';
+      if (
+        !processedImageSrc.startsWith("blob:") &&
+        !processedImageSrc.startsWith("data:")
+      ) {
+        img.crossOrigin = "anonymous";
       }
       img.onload = () => {
-        console.log('✅ Imagem carregada com sucesso:', {
-          src: processedImageSrc.substring(0, 50) + '...',
+        console.log("✅ Imagem carregada com sucesso:", {
+          src: processedImageSrc.substring(0, 50) + "...",
           width: img.width,
           height: img.height,
           naturalWidth: img.naturalWidth,
           naturalHeight: img.naturalHeight,
           complete: img.complete,
-          isBlob: processedImageSrc.startsWith('blob:'),
-          isDataUrl: processedImageSrc.startsWith('data:')
+          isBlob: processedImageSrc.startsWith("blob:"),
+          isDataUrl: processedImageSrc.startsWith("data:"),
         });
         // Aguardar um frame para garantir que o DOM está pronto
         requestAnimationFrame(() => {
           setImageLoaded(true);
-          console.log('✅ Estado imageLoaded definido como true');
+          console.log("✅ Estado imageLoaded definido como true");
         });
       };
       img.onerror = (error) => {
-        console.error('❌ Erro ao carregar imagem no modal de crop:', {
+        console.error("❌ Erro ao carregar imagem no modal de crop:", {
           error,
-          src: processedImageSrc.substring(0, 50) + '...',
+          src: processedImageSrc.substring(0, 50) + "...",
           type: typeof processedImageSrc,
-          isBlob: processedImageSrc.startsWith('blob:'),
-          isDataUrl: processedImageSrc.startsWith('data:')
+          isBlob: processedImageSrc.startsWith("blob:"),
+          isDataUrl: processedImageSrc.startsWith("data:"),
         });
         setImageLoaded(false);
-        alert('Erro ao carregar a imagem. Por favor, tente novamente.');
+        alert("Erro ao carregar a imagem. Por favor, tente novamente.");
       };
       img.src = processedImageSrc;
     } else if (!isOpen) {
@@ -147,19 +168,19 @@ export default function ImageCropModal({
   // Calcular área de crop quando imagem estiver carregada
   useEffect(() => {
     if (isOpen && imageLoaded && processedImageSrc && !croppedAreaPixels) {
-      console.log('🔄 Calculando área de crop inicial...');
-      
+      console.log("🔄 Calculando área de crop inicial...");
+
       const img = new Image();
       img.onload = () => {
         const imgWidth = img.naturalWidth || img.width;
         const imgHeight = img.naturalHeight || img.height;
-        
+
         // Calcular o crop inicial baseado no aspect ratio
         let cropWidth: number;
         let cropHeight: number;
         let cropX = 0;
         let cropY = 0;
-        
+
         if (aspectRatio === 1) {
           // Quadrado: usar a menor dimensão
           const size = Math.min(imgWidth, imgHeight);
@@ -182,22 +203,33 @@ export default function ImageCropModal({
             cropY = (imgHeight - cropHeight) / 2;
           }
         }
-        
+
         const initialCrop: CropArea = {
           x: cropX,
           y: cropY,
           width: cropWidth,
-          height: cropHeight
+          height: cropHeight,
         };
-        
-        console.log('📐 Área de crop inicial calculada manualmente:', initialCrop);
-        
+
+        console.log(
+          "📐 Área de crop inicial calculada manualmente:",
+          initialCrop,
+        );
+
         // Validar antes de definir
-        if (!isNaN(cropWidth) && !isNaN(cropHeight) && cropWidth > 0 && cropHeight > 0) {
-          console.log('✅ Definindo croppedAreaPixels com valores válidos');
+        if (
+          !isNaN(cropWidth) &&
+          !isNaN(cropHeight) &&
+          cropWidth > 0 &&
+          cropHeight > 0
+        ) {
+          console.log("✅ Definindo croppedAreaPixels com valores válidos");
           setCroppedAreaPixels(initialCrop);
         } else {
-          console.error('❌ Valores de crop inválidos calculados:', initialCrop);
+          console.error(
+            "❌ Valores de crop inválidos calculados:",
+            initialCrop,
+          );
         }
       };
       img.src = processedImageSrc;
@@ -218,135 +250,163 @@ export default function ImageCropModal({
 
   const onCropCompleteCallback = useCallback(
     (croppedArea: CropArea, croppedAreaPixels: CropArea) => {
-      console.log('📐 Área de crop atualizada pelo Cropper:', {
+      console.log("📐 Área de crop atualizada pelo Cropper:", {
         croppedArea,
         croppedAreaPixels,
         width: croppedAreaPixels.width,
         height: croppedAreaPixels.height,
         x: croppedAreaPixels.x,
         y: croppedAreaPixels.y,
-        isValid: !isNaN(croppedAreaPixels.width) && !isNaN(croppedAreaPixels.height) && 
-                 croppedAreaPixels.width > 0 && croppedAreaPixels.height > 0
+        isValid:
+          !isNaN(croppedAreaPixels.width) &&
+          !isNaN(croppedAreaPixels.height) &&
+          croppedAreaPixels.width > 0 &&
+          croppedAreaPixels.height > 0,
       });
-      
+
       // Ignorar valores NaN ou inválidos do Cropper
       // O Cropper pode retornar NaN quando ainda está calculando ou quando o container não tem dimensões
-      if (croppedAreaPixels && 
-          !isNaN(croppedAreaPixels.width) && 
-          !isNaN(croppedAreaPixels.height) &&
-          !isNaN(croppedAreaPixels.x) &&
-          !isNaN(croppedAreaPixels.y) &&
-          croppedAreaPixels.width > 0 && 
-          croppedAreaPixels.height > 0) {
+      if (
+        croppedAreaPixels &&
+        !isNaN(croppedAreaPixels.width) &&
+        !isNaN(croppedAreaPixels.height) &&
+        !isNaN(croppedAreaPixels.x) &&
+        !isNaN(croppedAreaPixels.y) &&
+        croppedAreaPixels.width > 0 &&
+        croppedAreaPixels.height > 0
+      ) {
         setCroppedAreaPixels(croppedAreaPixels);
       } else {
-        console.warn('⚠️ croppedAreaPixels inválido recebido do Cropper (ignorando):', croppedAreaPixels);
+        console.warn(
+          "⚠️ croppedAreaPixels inválido recebido do Cropper (ignorando):",
+          croppedAreaPixels,
+        );
         // Não atualizar o estado com valores inválidos
         // O cálculo manual no useEffect já vai definir valores válidos
       }
     },
-    []
+    [],
   );
 
   const createImage = (url: string): Promise<HTMLImageElement> =>
     new Promise((resolve, reject) => {
       const image = new Image();
-      image.addEventListener('load', () => resolve(image));
-      image.addEventListener('error', (error) => reject(error));
+      image.addEventListener("load", () => resolve(image));
+      image.addEventListener("error", (error) => reject(error));
       image.src = url;
     });
 
   // Aplicar filtros na imagem usando canvas
-  const applyFilters = useCallback((imageData: ImageData, brightness: number, contrast: number, saturation: number, filter: string): ImageData => {
-    const data = imageData.data;
-    const brightnessFactor = brightness / 100;
-    const contrastFactor = (contrast / 100) * 255;
-    const saturationFactor = saturation / 100;
+  const applyFilters = useCallback(
+    (
+      imageData: ImageData,
+      brightness: number,
+      contrast: number,
+      saturation: number,
+      filter: string,
+    ): ImageData => {
+      const data = imageData.data;
+      const brightnessFactor = brightness / 100;
+      const contrastFactor = (contrast / 100) * 255;
+      const saturationFactor = saturation / 100;
 
-    for (let i = 0; i < data.length; i += 4) {
-      let r = data[i];
-      let g = data[i + 1];
-      let b = data[i + 2];
+      for (let i = 0; i < data.length; i += 4) {
+        let r = data[i];
+        let g = data[i + 1];
+        let b = data[i + 2];
 
-      // Aplicar brilho
-      r = Math.max(0, Math.min(255, r * brightnessFactor));
-      g = Math.max(0, Math.min(255, g * brightnessFactor));
-      b = Math.max(0, Math.min(255, b * brightnessFactor));
+        // Aplicar brilho
+        r = Math.max(0, Math.min(255, r * brightnessFactor));
+        g = Math.max(0, Math.min(255, g * brightnessFactor));
+        b = Math.max(0, Math.min(255, b * brightnessFactor));
 
-      // Aplicar contraste
-      r = Math.max(0, Math.min(255, ((r - 128) * contrastFactor / 128) + 128));
-      g = Math.max(0, Math.min(255, ((g - 128) * contrastFactor / 128) + 128));
-      b = Math.max(0, Math.min(255, ((b - 128) * contrastFactor / 128) + 128));
+        // Aplicar contraste
+        r = Math.max(
+          0,
+          Math.min(255, ((r - 128) * contrastFactor) / 128 + 128),
+        );
+        g = Math.max(
+          0,
+          Math.min(255, ((g - 128) * contrastFactor) / 128 + 128),
+        );
+        b = Math.max(
+          0,
+          Math.min(255, ((b - 128) * contrastFactor) / 128 + 128),
+        );
 
-      // Aplicar saturação
-      const gray = 0.299 * r + 0.587 * g + 0.114 * b;
-      r = Math.max(0, Math.min(255, gray + (r - gray) * saturationFactor));
-      g = Math.max(0, Math.min(255, gray + (g - gray) * saturationFactor));
-      b = Math.max(0, Math.min(255, gray + (b - gray) * saturationFactor));
+        // Aplicar saturação
+        const gray = 0.299 * r + 0.587 * g + 0.114 * b;
+        r = Math.max(0, Math.min(255, gray + (r - gray) * saturationFactor));
+        g = Math.max(0, Math.min(255, gray + (g - gray) * saturationFactor));
+        b = Math.max(0, Math.min(255, gray + (b - gray) * saturationFactor));
 
-      // Aplicar filtros pré-definidos
-      switch (filter) {
-        case 'grayscale':
-          const grayValue = 0.299 * r + 0.587 * g + 0.114 * b;
-          r = g = b = grayValue;
-          break;
-        case 'sepia':
-          r = Math.min(255, (r * 0.393) + (g * 0.769) + (b * 0.189));
-          g = Math.min(255, (r * 0.349) + (g * 0.686) + (b * 0.168));
-          b = Math.min(255, (r * 0.272) + (g * 0.534) + (b * 0.131));
-          break;
-        case 'vintage':
-          r = Math.min(255, r * 1.1);
-          g = Math.min(255, g * 0.95);
-          b = Math.min(255, b * 0.9);
-          break;
-        case 'cool':
-          r = Math.max(0, r * 0.9);
-          g = Math.min(255, g * 1.05);
-          b = Math.min(255, b * 1.1);
-          break;
-        case 'warm':
-          r = Math.min(255, r * 1.1);
-          g = Math.min(255, g * 1.05);
-          b = Math.max(0, b * 0.9);
-          break;
+        // Aplicar filtros pré-definidos
+        switch (filter) {
+          case "grayscale":
+            const grayValue = 0.299 * r + 0.587 * g + 0.114 * b;
+            r = g = b = grayValue;
+            break;
+          case "sepia":
+            r = Math.min(255, r * 0.393 + g * 0.769 + b * 0.189);
+            g = Math.min(255, r * 0.349 + g * 0.686 + b * 0.168);
+            b = Math.min(255, r * 0.272 + g * 0.534 + b * 0.131);
+            break;
+          case "vintage":
+            r = Math.min(255, r * 1.1);
+            g = Math.min(255, g * 0.95);
+            b = Math.min(255, b * 0.9);
+            break;
+          case "cool":
+            r = Math.max(0, r * 0.9);
+            g = Math.min(255, g * 1.05);
+            b = Math.min(255, b * 1.1);
+            break;
+          case "warm":
+            r = Math.min(255, r * 1.1);
+            g = Math.min(255, g * 1.05);
+            b = Math.max(0, b * 0.9);
+            break;
+        }
+
+        data[i] = r;
+        data[i + 1] = g;
+        data[i + 2] = b;
       }
 
-      data[i] = r;
-      data[i + 1] = g;
-      data[i + 2] = b;
-    }
-
-    return imageData;
-  }, []);
+      return imageData;
+    },
+    [],
+  );
 
   const getCroppedImg = async (
     imageSrc: string,
     pixelCrop: CropArea,
     rotation = 0,
     targetWidth?: number,
-    targetHeight?: number
+    targetHeight?: number,
   ): Promise<Blob> => {
-    console.log('🎨 Iniciando getCroppedImg:', {
-      imageSrc: imageSrc.substring(0, 50) + '...',
+    console.log("🎨 Iniciando getCroppedImg:", {
+      imageSrc: imageSrc.substring(0, 50) + "...",
       pixelCrop,
       rotation,
       targetWidth,
-      targetHeight
+      targetHeight,
     });
 
     let image: HTMLImageElement;
     try {
       image = await createImage(imageSrc);
-      console.log('✅ Imagem criada:', {
+      console.log("✅ Imagem criada:", {
         width: image.width,
         height: image.height,
         naturalWidth: image.naturalWidth,
-        naturalHeight: image.naturalHeight
+        naturalHeight: image.naturalHeight,
       });
     } catch (error) {
-      console.error('❌ Erro ao criar imagem:', error);
-      throw new Error(`Erro ao carregar a imagem: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
+      console.error("❌ Erro ao criar imagem:", error);
+      throw new Error(
+        `Erro ao carregar a imagem: ${error instanceof Error ? error.message : "Erro desconhecido"}`,
+      );
     }
 
     // Usar dimensões naturais da imagem
@@ -355,24 +415,30 @@ export default function ImageCropModal({
 
     // Validar pixelCrop
     if (!pixelCrop || pixelCrop.width <= 0 || pixelCrop.height <= 0) {
-      throw new Error('Área de crop inválida');
+      throw new Error("Área de crop inválida");
     }
 
     const finalWidth = targetWidth || Math.round(pixelCrop.width);
     const finalHeight = targetHeight || Math.round(pixelCrop.height);
 
     // Validar que o crop está dentro dos limites
-    const cropX = Math.max(0, Math.min(pixelCrop.x, imageWidth - pixelCrop.width));
-    const cropY = Math.max(0, Math.min(pixelCrop.y, imageHeight - pixelCrop.height));
+    const cropX = Math.max(
+      0,
+      Math.min(pixelCrop.x, imageWidth - pixelCrop.width),
+    );
+    const cropY = Math.max(
+      0,
+      Math.min(pixelCrop.y, imageHeight - pixelCrop.height),
+    );
     const cropWidth = Math.min(pixelCrop.width, imageWidth - cropX);
     const cropHeight = Math.min(pixelCrop.height, imageHeight - cropY);
 
     // Primeiro: fazer o crop da imagem original
-    const croppedCanvas = document.createElement('canvas');
+    const croppedCanvas = document.createElement("canvas");
     croppedCanvas.width = cropWidth;
     croppedCanvas.height = cropHeight;
-    const croppedCtx = croppedCanvas.getContext('2d');
-    if (!croppedCtx) throw new Error('No 2d context');
+    const croppedCtx = croppedCanvas.getContext("2d");
+    if (!croppedCtx) throw new Error("No 2d context");
 
     // Fazer o crop da área selecionada
     croppedCtx.drawImage(
@@ -384,7 +450,7 @@ export default function ImageCropModal({
       0,
       0,
       cropWidth,
-      cropHeight
+      cropHeight,
     );
 
     // Obter dados da imagem recortada para aplicar filtros
@@ -394,17 +460,34 @@ export default function ImageCropModal({
     const hasBrightnessChange = brightness !== 100;
     const hasContrastChange = contrast !== 100;
     const hasSaturationChange = saturation !== 100;
-    const hasFilterChange = filter !== 'none';
-    const hasAnyFilterChange = hasBrightnessChange || hasContrastChange || hasSaturationChange || hasFilterChange;
+    const hasFilterChange = filter !== "none";
+    const hasAnyFilterChange =
+      hasBrightnessChange ||
+      hasContrastChange ||
+      hasSaturationChange ||
+      hasFilterChange;
 
     if (hasAnyFilterChange) {
-      console.log('🎨 Aplicando filtros:', { brightness, contrast, saturation, filter });
+      console.log("🎨 Aplicando filtros:", {
+        brightness,
+        contrast,
+        saturation,
+        filter,
+      });
       // Aplicar filtros apenas se houver alterações
-      imageData = applyFilters(imageData, brightness, contrast, saturation, filter);
+      imageData = applyFilters(
+        imageData,
+        brightness,
+        contrast,
+        saturation,
+        filter,
+      );
       // Aplicar filtros de volta no canvas
       croppedCtx.putImageData(imageData, 0, 0);
     } else {
-      console.log('✅ Nenhuma alteração de filtros detectada, mantendo imagem original');
+      console.log(
+        "✅ Nenhuma alteração de filtros detectada, mantendo imagem original",
+      );
       // Não aplicar filtros, manter imagem original
     }
 
@@ -413,11 +496,11 @@ export default function ImageCropModal({
       const maxSize = Math.max(cropWidth, cropHeight);
       const safeArea = 2 * ((maxSize / 2) * Math.sqrt(2));
 
-      const rotatedCanvas = document.createElement('canvas');
+      const rotatedCanvas = document.createElement("canvas");
       rotatedCanvas.width = safeArea;
       rotatedCanvas.height = safeArea;
-      const rotatedCtx = rotatedCanvas.getContext('2d');
-      if (!rotatedCtx) throw new Error('No 2d context');
+      const rotatedCtx = rotatedCanvas.getContext("2d");
+      if (!rotatedCtx) throw new Error("No 2d context");
 
       // Centralizar e rotacionar
       rotatedCtx.translate(safeArea / 2, safeArea / 2);
@@ -428,13 +511,22 @@ export default function ImageCropModal({
       rotatedCtx.drawImage(croppedCanvas, 0, 0);
 
       // Fazer crop do resultado rotacionado (remover áreas transparentes)
-      const rotatedImageData = rotatedCtx.getImageData(0, 0, safeArea, safeArea);
+      const rotatedImageData = rotatedCtx.getImageData(
+        0,
+        0,
+        safeArea,
+        safeArea,
+      );
       // Encontrar bounding box da imagem rotacionada
-      let minX = safeArea, minY = safeArea, maxX = 0, maxY = 0;
+      let minX = safeArea,
+        minY = safeArea,
+        maxX = 0,
+        maxY = 0;
       for (let y = 0; y < safeArea; y++) {
         for (let x = 0; x < safeArea; x++) {
           const idx = (y * safeArea + x) * 4;
-          if (rotatedImageData.data[idx + 3] > 0) { // alpha > 0
+          if (rotatedImageData.data[idx + 3] > 0) {
+            // alpha > 0
             minX = Math.min(minX, x);
             minY = Math.min(minY, y);
             maxX = Math.max(maxX, x);
@@ -444,11 +536,11 @@ export default function ImageCropModal({
       }
 
       // Canvas final
-      const finalCanvas = document.createElement('canvas');
+      const finalCanvas = document.createElement("canvas");
       finalCanvas.width = finalWidth;
       finalCanvas.height = finalHeight;
-      const finalCtx = finalCanvas.getContext('2d');
-      if (!finalCtx) throw new Error('No 2d context');
+      const finalCtx = finalCanvas.getContext("2d");
+      if (!finalCtx) throw new Error("No 2d context");
 
       // Fazer crop e redimensionar
       const rotatedWidth = maxX - minX + 1;
@@ -462,93 +554,113 @@ export default function ImageCropModal({
         0,
         0,
         finalWidth,
-        finalHeight
+        finalHeight,
       );
 
       // Converter para blob
       return new Promise((resolve, reject) => {
-        finalCanvas.toBlob((blob) => {
-          if (!blob) {
-            reject(new Error('Canvas is empty'));
-            return;
-          }
-          console.log('✅ Imagem recortada e rotacionada criada:', {
-            blobSize: blob.size,
-            finalWidth,
-            finalHeight
-          });
-          resolve(blob);
-        }, 'image/jpeg', 0.95);
+        finalCanvas.toBlob(
+          (blob) => {
+            if (!blob) {
+              reject(new Error("Canvas is empty"));
+              return;
+            }
+            console.log("✅ Imagem recortada e rotacionada criada:", {
+              blobSize: blob.size,
+              finalWidth,
+              finalHeight,
+            });
+            resolve(blob);
+          },
+          "image/jpeg",
+          0.95,
+        );
       });
     } else {
       // Sem rotação: apenas redimensionar se necessário
-      const finalCanvas = document.createElement('canvas');
+      const finalCanvas = document.createElement("canvas");
       finalCanvas.width = finalWidth;
       finalCanvas.height = finalHeight;
-      const finalCtx = finalCanvas.getContext('2d');
-      if (!finalCtx) throw new Error('No 2d context');
+      const finalCtx = finalCanvas.getContext("2d");
+      if (!finalCtx) throw new Error("No 2d context");
 
-      finalCtx.drawImage(croppedCanvas, 0, 0, cropWidth, cropHeight, 0, 0, finalWidth, finalHeight);
+      finalCtx.drawImage(
+        croppedCanvas,
+        0,
+        0,
+        cropWidth,
+        cropHeight,
+        0,
+        0,
+        finalWidth,
+        finalHeight,
+      );
 
       // Converter para blob
       return new Promise((resolve, reject) => {
-        finalCanvas.toBlob((blob) => {
-          if (!blob) {
-            reject(new Error('Canvas is empty'));
-            return;
-          }
-          console.log('✅ Imagem recortada criada:', {
-            blobSize: blob.size,
-            finalWidth,
-            finalHeight
-          });
-          resolve(blob);
-        }, 'image/jpeg', 0.95);
+        finalCanvas.toBlob(
+          (blob) => {
+            if (!blob) {
+              reject(new Error("Canvas is empty"));
+              return;
+            }
+            console.log("✅ Imagem recortada criada:", {
+              blobSize: blob.size,
+              finalWidth,
+              finalHeight,
+            });
+            resolve(blob);
+          },
+          "image/jpeg",
+          0.95,
+        );
       });
     }
   };
 
   // Tamanhos pré-definidos
   const presetSizes = [
-    { label: 'Original', width: null, height: null },
-    { label: 'Pequeno (300x300)', width: 300, height: 300 },
-    { label: 'Médio (500x500)', width: 500, height: 500 },
-    { label: 'Grande (800x800)', width: 800, height: 800 },
-    { label: 'HD (1024x1024)', width: 1024, height: 1024 },
+    { label: "Original", width: null, height: null },
+    { label: "Pequeno (300x300)", width: 300, height: 300 },
+    { label: "Médio (500x500)", width: 500, height: 500 },
+    { label: "Grande (800x800)", width: 800, height: 800 },
+    { label: "HD (1024x1024)", width: 1024, height: 1024 },
   ];
 
   const handleSave = async () => {
-    console.log('💾 Iniciando salvamento da imagem...', {
+    console.log("💾 Iniciando salvamento da imagem...", {
       hasCroppedAreaPixels: !!croppedAreaPixels,
       croppedAreaPixels,
       imageSrc,
       rotation,
       outputWidth,
       outputHeight,
-      imageLoaded
+      imageLoaded,
     });
 
     if (!imageLoaded) {
-      console.warn('⚠️ Imagem ainda não carregou');
-      alert('Por favor, aguarde a imagem carregar completamente.');
+      console.warn("⚠️ Imagem ainda não carregou");
+      alert("Por favor, aguarde a imagem carregar completamente.");
       return;
     }
 
     if (!croppedAreaPixels) {
-      console.warn('⚠️ croppedAreaPixels não está definido, tentando calcular...');
-      
+      console.warn(
+        "⚠️ croppedAreaPixels não está definido, tentando calcular...",
+      );
+
       // Tentar calcular novamente se não estiver definido
       if (imageSrc) {
         const img = new Image();
         img.onload = () => {
           const imgWidth = img.naturalWidth || img.width;
           const imgHeight = img.naturalHeight || img.height;
-          
+
           let cropWidth: number;
           let cropHeight: number;
           let cropX = 0;
           let cropY = 0;
-          
+
           if (aspectRatio === 1) {
             const size = Math.min(imgWidth, imgHeight);
             cropWidth = size;
@@ -567,17 +679,20 @@ export default function ImageCropModal({
               cropY = (imgHeight - cropHeight) / 2;
             }
           }
-          
+
           const calculatedCrop: CropArea = {
             x: cropX,
             y: cropY,
             width: cropWidth,
-            height: cropHeight
+            height: cropHeight,
           };
-          
-          console.log('📐 Área de crop calculada no handleSave:', calculatedCrop);
+
+          console.log(
+            "📐 Área de crop calculada no handleSave:",
+            calculatedCrop,
+          );
           setCroppedAreaPixels(calculatedCrop);
-          
+
           // Tentar salvar novamente após definir croppedAreaPixels
           setTimeout(() => {
             handleSave();
@@ -586,14 +701,16 @@ export default function ImageCropModal({
         img.src = imageSrc;
         return;
       }
-      
-      alert('Por favor, ajuste a imagem antes de salvar. Aguarde a imagem carregar completamente.');
+
+      alert(
+        "Por favor, ajuste a imagem antes de salvar. Aguarde a imagem carregar completamente.",
+      );
       return;
     }
 
     if (!imageSrc) {
-      console.error('❌ imageSrc não está definido');
-      alert('Erro: Nenhuma imagem foi fornecida.');
+      console.error("❌ imageSrc não está definido");
+      alert("Erro: Nenhuma imagem foi fornecida.");
       return;
     }
 
@@ -601,35 +718,36 @@ export default function ImageCropModal({
     try {
       const finalWidth = outputWidth || croppedAreaPixels.width;
       const finalHeight = outputHeight || croppedAreaPixels.height;
-      
-      console.log('🔄 Processando imagem com dimensões:', {
+
+      console.log("🔄 Processando imagem com dimensões:", {
         finalWidth,
         finalHeight,
-        originalCrop: croppedAreaPixels
+        originalCrop: croppedAreaPixels,
       });
-      
+
       const croppedImage = await getCroppedImg(
-        imageSrc, 
-        croppedAreaPixels, 
+        imageSrc,
+        croppedAreaPixels,
         rotation,
         finalWidth,
-        finalHeight
+        finalHeight,
       );
-      
-      console.log('✅ Imagem processada com sucesso:', {
+
+      console.log("✅ Imagem processada com sucesso:", {
         blobSize: croppedImage.size,
-        blobType: croppedImage.type
+        blobType: croppedImage.type,
       });
-      
+
       onCropComplete(croppedImage);
       onClose();
     } catch (error) {
-      console.error('❌ Erro ao processar imagem:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
-      console.error('Detalhes do erro:', {
+      console.error("❌ Erro ao processar imagem:", error);
+      const errorMessage =
+        error instanceof Error ? error.message : "Erro desconhecido";
+      console.error("Detalhes do erro:", {
         errorMessage,
-        errorName: error instanceof Error ? error.name : 'Unknown',
-        stack: error instanceof Error ? error.stack : 'No stack'
+        errorName: error instanceof Error ? error.name : "Unknown",
+        stack: error instanceof Error ? error.stack : "No stack",
       });
       alert(`Erro ao processar a imagem: ${errorMessage}. Tente novamente.`);
     } finally {
@@ -641,7 +759,7 @@ export default function ImageCropModal({
     setBrightness(100);
     setContrast(100);
     setSaturation(100);
-    setFilter('none');
+    setFilter("none");
   };
 
   if (!isOpen) return null;
@@ -660,33 +778,57 @@ export default function ImageCropModal({
         exit={{ scale: 0.9, opacity: 0 }}
         className="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col"
         onClick={(e) => e.stopPropagation()}
-        style={{ display: 'flex', flexDirection: 'column' }}
+        style={{ display: "flex", flexDirection: "column" }}
       >
-        {/* Header */}
-        <div className="p-6 border-b border-gray-200 flex items-center justify-between">
-          <h2 className="text-xl font-bold text-gray-900">
-            Recortar Imagem {aspectRatio === 1 ? '(Quadrado Obrigatório)' : ''}
-          </h2>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
-          >
-            <MdClose className="w-6 h-6" />
-          </button>
+        {/* HEADER FIXO COM BOTÃO SALVAR NO TOPO */}
+        <div className="p-4 sm:p-6 border-b border-gray-200 flex items-center justify-between bg-white sticky top-0 z-50">
+          <div className="flex flex-col">
+            <h2 className="text-lg sm:text-xl font-bold text-gray-900 leading-tight">
+              Recortar Imagem
+            </h2>
+            {aspectRatio === 1 && (
+              <span className="text-[10px] text-blue-600 font-bold uppercase">
+                Quadrado Obrigatório
+              </span>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2">
+            {/* BOTÃO SALVAR FLUTUANTE/FIXO NO TOPO */}
+            <button
+              onClick={handleSave}
+              disabled={isProcessing || !imageLoaded}
+              className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-bold text-white hover:bg-blue-700 disabled:opacity-50 shadow-lg transition-all active:scale-95"
+            >
+              {isProcessing ? (
+                <span className="animate-spin">⏳</span>
+              ) : (
+                <MdCheck className="h-5 w-5" />
+              )}
+              <span>{isProcessing ? "Processando..." : "Salvar"}</span>
+            </button>
+
+            <button
+              onClick={onClose}
+              className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
+            >
+              <MdClose className="w-6 h-6" />
+            </button>
+          </div>
         </div>
 
         {/* Crop Area */}
-        <div 
+        <div
           ref={containerRef}
-          className="relative bg-gray-900" 
-          style={{ 
-            width: '100%', 
-            height: '500px',
-            minHeight: '500px',
-            maxHeight: '500px',
-            overflow: 'hidden',
+          className="relative bg-gray-900"
+          style={{
+            width: "100%",
+            height: "500px",
+            minHeight: "500px",
+            maxHeight: "500px",
+            overflow: "hidden",
             flexShrink: 0,
-            position: 'relative'
+            position: "relative",
           }}
         >
           {!imageSrc ? (
@@ -703,11 +845,11 @@ export default function ImageCropModal({
               </div>
             </div>
           ) : processedImageSrc && imageLoaded ? (
-            <div 
+            <div
               style={{
-                width: '100%',
-                height: '100%',
-                position: 'absolute',
+                width: "100%",
+                height: "100%",
+                position: "absolute",
                 top: 0,
                 left: 0,
                 right: 0,
@@ -715,15 +857,15 @@ export default function ImageCropModal({
               }}
             >
               {(() => {
-                console.log('🎨 Renderizando Cropper:', {
-                  processedImageSrc: processedImageSrc.substring(0, 50) + '...',
+                console.log("🎨 Renderizando Cropper:", {
+                  processedImageSrc: processedImageSrc.substring(0, 50) + "...",
                   imageLoaded,
                   hasImage: !!processedImageSrc,
-                  isBlob: processedImageSrc?.startsWith('blob:'),
-                  isDataUrl: processedImageSrc?.startsWith('data:'),
+                  isBlob: processedImageSrc?.startsWith("blob:"),
+                  isDataUrl: processedImageSrc?.startsWith("data:"),
                   crop,
                   zoom,
-                  aspectRatio
+                  aspectRatio,
                 });
                 return (
                   <Cropper
@@ -738,26 +880,31 @@ export default function ImageCropModal({
                     onCropComplete={onCropCompleteCallback}
                     minZoom={minZoom}
                     maxZoom={maxZoom}
-                    cropShape={aspectRatio === 1 ? 'rect' : 'rect'}
+                    cropShape={aspectRatio === 1 ? "rect" : "rect"}
                     showGrid={true}
                     style={{
                       containerStyle: {
-                        width: '100%',
-                        height: '100%',
-                        position: 'relative',
-                        backgroundColor: '#111827',
+                        width: "100%",
+                        height: "100%",
+                        position: "relative",
+                        backgroundColor: "#111827",
                       },
                       cropAreaStyle: {
-                        border: '2px solid #fff',
+                        border: "2px solid #fff",
                       },
                       mediaStyle: {
                         filter: `brightness(${brightness}%) contrast(${contrast}%) saturate(${saturation}%) ${
-                          filter === 'grayscale' ? 'grayscale(100%)' :
-                          filter === 'sepia' ? 'sepia(100%)' :
-                          filter === 'vintage' ? 'sepia(30%) contrast(110%) brightness(105%)' :
-                          filter === 'cool' ? 'sepia(0%) hue-rotate(180deg)' :
-                          filter === 'warm' ? 'sepia(20%) hue-rotate(-20deg)' :
-                          ''
+                          filter === "grayscale"
+                            ? "grayscale(100%)"
+                            : filter === "sepia"
+                              ? "sepia(100%)"
+                              : filter === "vintage"
+                                ? "sepia(30%) contrast(110%) brightness(105%)"
+                                : filter === "cool"
+                                  ? "sepia(0%) hue-rotate(180deg)"
+                                  : filter === "warm"
+                                    ? "sepia(20%) hue-rotate(-20deg)"
+                                    : ""
                         }`,
                       },
                     }}
@@ -769,7 +916,10 @@ export default function ImageCropModal({
         </div>
 
         {/* Controls */}
-        <div className="p-6 border-t border-gray-200 space-y-4 overflow-y-auto flex-shrink-0" style={{ maxHeight: '40vh' }}>
+        <div
+          className="p-6 border-t border-gray-200 space-y-4 overflow-y-auto flex-shrink-0"
+          style={{ maxHeight: "40vh" }}
+        >
           {/* Zoom Control */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -841,7 +991,7 @@ export default function ImageCropModal({
               className="flex items-center gap-2 text-sm font-medium text-gray-700 hover:text-gray-900"
             >
               <MdFilter className="h-5 w-5" />
-              {showFilters ? 'Ocultar' : 'Mostrar'} Filtros e Ajustes
+              {showFilters ? "Ocultar" : "Mostrar"} Filtros e Ajustes
             </button>
             <button
               type="button"
@@ -910,12 +1060,12 @@ export default function ImageCropModal({
                 </label>
                 <div className="grid grid-cols-3 gap-2">
                   {[
-                    { value: 'none', label: 'Nenhum' },
-                    { value: 'grayscale', label: 'Preto e Branco' },
-                    { value: 'sepia', label: 'Sépia' },
-                    { value: 'vintage', label: 'Vintage' },
-                    { value: 'cool', label: 'Frio' },
-                    { value: 'warm', label: 'Quente' },
+                    { value: "none", label: "Nenhum" },
+                    { value: "grayscale", label: "Preto e Branco" },
+                    { value: "sepia", label: "Sépia" },
+                    { value: "vintage", label: "Vintage" },
+                    { value: "cool", label: "Frio" },
+                    { value: "warm", label: "Quente" },
                   ].map((f) => (
                     <button
                       key={f.value}
@@ -923,8 +1073,8 @@ export default function ImageCropModal({
                       onClick={() => setFilter(f.value)}
                       className={`px-3 py-2 rounded-md text-xs font-medium transition-colors ${
                         filter === f.value
-                          ? 'bg-blue-600 text-white'
-                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                          ? "bg-blue-600 text-white"
+                          : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                       }`}
                     >
                       {f.label}
@@ -940,13 +1090,17 @@ export default function ImageCropModal({
                   Tamanho de Saída
                 </label>
                 <select
-                  value={outputWidth && outputHeight ? `${outputWidth}x${outputHeight}` : 'original'}
+                  value={
+                    outputWidth && outputHeight
+                      ? `${outputWidth}x${outputHeight}`
+                      : "original"
+                  }
                   onChange={(e) => {
-                    if (e.target.value === 'original') {
+                    if (e.target.value === "original") {
                       setOutputWidth(null);
                       setOutputHeight(null);
                     } else {
-                      const [w, h] = e.target.value.split('x').map(Number);
+                      const [w, h] = e.target.value.split("x").map(Number);
                       setOutputWidth(w);
                       setOutputHeight(h);
                     }
@@ -956,7 +1110,11 @@ export default function ImageCropModal({
                   {presetSizes.map((size) => (
                     <option
                       key={size.label}
-                      value={size.width && size.height ? `${size.width}x${size.height}` : 'original'}
+                      value={
+                        size.width && size.height
+                          ? `${size.width}x${size.height}`
+                          : "original"
+                      }
                     >
                       {size.label}
                     </option>
@@ -998,4 +1156,3 @@ export default function ImageCropModal({
     </motion.div>
   );
 }
-
