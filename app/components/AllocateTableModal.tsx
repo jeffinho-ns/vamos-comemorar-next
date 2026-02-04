@@ -70,6 +70,14 @@ export default function AllocateTableModal({
     return reservationName.includes(selectedName) || selectedName.includes(reservationName);
   };
 
+  const normalizeReservationDate = (dateStr?: string | null) => {
+    if (!dateStr) return null;
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return dateStr;
+    const d = new Date(dateStr);
+    if (Number.isNaN(d.getTime())) return null;
+    return d.toISOString().split('T')[0];
+  };
+
   // Subáreas específicas do Seu Justino
   const seuJustinoSubareas = [
     { key: 'lounge-aquario-spaten', area_id: 1, label: 'Lounge Aquario Spaten', tableNumbers: ['210'], capacity: 8 },
@@ -149,8 +157,12 @@ export default function AllocateTableModal({
                   ? reservationsData.reservations 
                   : [];
                 const reservationsForEstablishment = allReservations.filter(matchesSelectedEstablishment);
+                const reservationsForDate = reservationsForEstablishment.filter(
+                  (reservation: any) =>
+                    normalizeReservationDate(reservation.reservation_date) === entry.preferred_date
+                );
                 
-                const activeReservations = reservationsForEstablishment.filter((reservation: any) => {
+                const activeReservations = reservationsForDate.filter((reservation: any) => {
                   const status = String(reservation.status || '').toUpperCase();
                   return status !== 'CANCELADA' && 
                          status !== 'CANCELADO' &&

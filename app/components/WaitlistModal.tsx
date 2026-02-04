@@ -124,6 +124,14 @@ export default function WaitlistModal({
     if (selectedIsPracinha) return reservationIsPracinha;
     return reservationName.includes(selectedName) || selectedName.includes(reservationName);
   };
+
+  const normalizeReservationDate = (dateStr?: string | null) => {
+    if (!dateStr) return null;
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return dateStr;
+    const d = new Date(dateStr);
+    if (Number.isNaN(d.getTime())) return null;
+    return d.toISOString().split('T')[0];
+  };
   
   // Contar mesas bistrô ocupadas na lista de espera
   const bistroTableCount = waitlistEntries.filter(entry => 
@@ -316,9 +324,13 @@ export default function WaitlistModal({
                   ? reservationsData.reservations 
                   : [];
                 const reservationsForEstablishment = allReservations.filter(matchesSelectedEstablishment);
+                const reservationsForDate = reservationsForEstablishment.filter(
+                  (reservation: any) =>
+                    normalizeReservationDate(reservation.reservation_date) === formData.preferred_date
+                );
                 
                 // Filtrar apenas reservas que ocupam a mesa (excluir canceladas e finalizadas)
-                const activeReservations = reservationsForEstablishment.filter((reservation: any) => {
+                const activeReservations = reservationsForDate.filter((reservation: any) => {
                   const status = String(reservation.status || '').toUpperCase();
                   return status !== 'CANCELADA' && 
                          status !== 'CANCELADO' &&

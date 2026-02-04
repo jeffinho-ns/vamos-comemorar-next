@@ -168,6 +168,14 @@ export default function ReservationModal({
     return reservationName.includes(selectedName) || selectedName.includes(reservationName);
   };
 
+  const normalizeReservationDate = (dateStr?: string | null) => {
+    if (!dateStr) return null;
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return dateStr;
+    const d = new Date(dateStr);
+    if (Number.isNaN(d.getTime())) return null;
+    return d.toISOString().split('T')[0];
+  };
+
   const getMaxBirthdate = () => {
     const d = new Date();
     d.setFullYear(d.getFullYear() - 18);
@@ -450,10 +458,14 @@ export default function ReservationModal({
                 ? reservationsData.reservations 
                 : [];
               const reservationsForEstablishment = confirmedReservations.filter(matchesSelectedEstablishment);
+              const reservationsForDate = reservationsForEstablishment.filter(
+                (reservation: any) =>
+                  normalizeReservationDate(reservation.reservation_date) === formData.reservation_date
+              );
                 
                 // Criar um Set com os números das mesas que têm reserva confirmada em qualquer horário
                 const reservedTableNumbers = new Set<string>();
-                reservationsForEstablishment.forEach((reservation: any) => {
+              reservationsForDate.forEach((reservation: any) => {
                   if (reservation.table_number) {
                     // Mesas podem ser múltiplas (separadas por vírgula)
                     const tables = String(reservation.table_number).split(',');
@@ -522,10 +534,14 @@ export default function ReservationModal({
                   ? reservationsData.reservations
                   : [];
                 const reservationsForEstablishment = allReservations.filter(matchesSelectedEstablishment);
+                const reservationsForDate = reservationsForEstablishment.filter(
+                  (reservation: any) =>
+                    normalizeReservationDate(reservation.reservation_date) === formData.reservation_date
+                );
                 
                 // Filtrar apenas reservas que ocupam a mesa (excluir canceladas/finalizadas em qualquer variação)
                 // CRÍTICO: Só considerar reservas que realmente bloqueiam a mesa
-                const activeReservations = reservationsForEstablishment.filter((reservation: any) => {
+                const activeReservations = reservationsForDate.filter((reservation: any) => {
                   const status = String(reservation.status || '').trim().toLowerCase();
                   // Status que NÃO bloqueiam mesa (lista completa)
                   const nonBlocking = new Set([
@@ -970,8 +986,12 @@ export default function ReservationModal({
             ? reservationsData.reservations
             : [];
           const reservationsForEstablishment = allReservations.filter(matchesSelectedEstablishment);
+          const reservationsForDate = reservationsForEstablishment.filter(
+            (reservation: any) =>
+              normalizeReservationDate(reservation.reservation_date) === formData.reservation_date
+          );
           
-          const activeReservations = reservationsForEstablishment.filter((reservation: any) => {
+          const activeReservations = reservationsForDate.filter((reservation: any) => {
             const status = String(reservation.status || '').trim().toLowerCase();
             const nonBlocking = new Set([
               'cancelada', 'cancelado', 'cancelled', 'canceled', 'cancel',
@@ -1203,10 +1223,14 @@ export default function ReservationModal({
               const checkData = await checkReservationsResponse.json();
               const existingReservations = Array.isArray(checkData.reservations) ? checkData.reservations : [];
               const reservationsForEstablishment = existingReservations.filter(matchesSelectedEstablishment);
+              const reservationsForDate = reservationsForEstablishment.filter(
+                (reservation: any) =>
+                  normalizeReservationDate(reservation.reservation_date) === formData.reservation_date
+              );
               
               // Verificar se há reserva no mesmo giro
               const giro = getGiroFromTime(formData.reservation_date, reservation_time);
-              const hasConflict = reservationsForEstablishment.some((r: any) => {
+              const hasConflict = reservationsForDate.some((r: any) => {
                 if (r.status === 'CANCELADA' || r.status === 'canceled' || r.status === 'completed') return false;
                 const rGiro = getGiroFromTime(formData.reservation_date, r.reservation_time || '');
                 return giro && rGiro && giro === rGiro;
@@ -1313,9 +1337,13 @@ export default function ReservationModal({
                   ? reservationsData.reservations 
                   : [];
                 const reservationsForEstablishment = confirmedReservations.filter(matchesSelectedEstablishment);
+                const reservationsForDate = reservationsForEstablishment.filter(
+                  (reservation: any) =>
+                    normalizeReservationDate(reservation.reservation_date) === formData.reservation_date
+                );
                 
                 const reservedTableNumbers = new Set<string>();
-                reservationsForEstablishment.forEach((reservation: any) => {
+                reservationsForDate.forEach((reservation: any) => {
                   if (reservation.table_number) {
                     const tables = String(reservation.table_number).split(',');
                     tables.forEach((table: string) => {
