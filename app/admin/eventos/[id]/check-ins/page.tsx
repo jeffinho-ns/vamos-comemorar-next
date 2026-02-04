@@ -277,6 +277,8 @@ interface SearchResultTablet {
   convidadoPromoter?: ConvidadoPromoter;
   /** Indica se owner é reserva da API adicional (não está em reservasRestaurante) */
   fromReservasAdicionaisAPI?: boolean;
+  /** Observações da reserva */
+  notes?: string;
 }
 
 export default function EventoCheckInsPage() {
@@ -541,6 +543,8 @@ export default function EventoCheckInsPage() {
       status?: string;
       origin?: string;
       guest_list_id?: null;
+      notes?: string;
+      admin_notes?: string;
     }>
   >([]);
   const [loadingReservasAdicionais, setLoadingReservasAdicionais] =
@@ -1056,17 +1060,48 @@ export default function EventoCheckInsPage() {
         // Não precisamos mais buscar via API admin/guest-lists
         const guestLists = data.dados.guestListsRestaurante || [];
 
+        // Debug: verificar campos de notes nas guest lists e reservas
+        const sampleGL = guestLists[0];
+        const sampleReserva = data.dados.reservasRestaurante?.[0];
+        
         console.log("🔍 [DEBUG CHECK-INS] Dados recebidos:", {
           evento_id: eventoId,
           establishment_id: data.evento?.establishment_id,
           data_evento: data.evento?.data_evento,
           guestListsCount: guestLists.length,
-          guestListsRestauranteFromBackend:
-            data.dados.guestListsRestaurante?.length || 0,
           reservasRestauranteCount: data.dados.reservasRestaurante?.length || 0,
-          sampleGuestList: guestLists[0] || null,
-          allKeys: Object.keys(data.dados || {}),
-          fullData: data.dados,
+        });
+        
+        console.log("🔍 [DEBUG CHECK-INS] Sample Guest List:", {
+          ownerName: sampleGL?.owner_name,
+          guestListId: sampleGL?.guest_list_id,
+          reservationId: sampleGL?.reservation_id,
+          notes: sampleGL?.notes,
+          admin_notes: sampleGL?.admin_notes,
+          observacao: (sampleGL as any)?.observacao,
+          allKeys: sampleGL ? Object.keys(sampleGL) : [],
+        });
+        
+        console.log("🔍 [DEBUG CHECK-INS] Sample Reserva:", {
+          id: sampleReserva?.id,
+          responsavel: sampleReserva?.responsavel,
+          notes: sampleReserva?.notes,
+          admin_notes: sampleReserva?.admin_notes,
+          observacao: (sampleReserva as any)?.observacao,
+          allKeys: sampleReserva ? Object.keys(sampleReserva) : [],
+        });
+        
+        // Verificar todas as guest lists que têm notes
+        const guestListsComNotes = guestLists.filter((gl: any) => 
+          gl.notes || gl.admin_notes || gl.observacao || gl.observação
+        );
+        console.log("🔍 [DEBUG CHECK-INS] Guest Lists com notes:", {
+          total: guestListsComNotes.length,
+          exemplos: guestListsComNotes.slice(0, 3).map((gl: any) => ({
+            owner: gl.owner_name,
+            notes: gl.notes,
+            admin_notes: gl.admin_notes,
+          })),
         });
 
         // Se não recebeu dados mas deveria ter, logar erro
@@ -1837,10 +1872,12 @@ export default function EventoCheckInsPage() {
         if (areasRes.ok) {
           const areasData = await areasRes.json();
           areas.push(
-            ...(areasData.areas || []).map((a: { id: number; name: string }) => ({
-              id: a.id,
-              name: a.name,
-            })),
+            ...(areasData.areas || []).map(
+              (a: { id: number; name: string }) => ({
+                id: a.id,
+                name: a.name,
+              }),
+            ),
           );
         }
         setPlanilhaAreas(areas);
@@ -1865,8 +1902,7 @@ export default function EventoCheckInsPage() {
         ]);
 
         const normalList = normalData.reservations || [];
-        const largeList =
-          largeData.reservations || largeData.data || [];
+        const largeList = largeData.reservations || largeData.data || [];
         const rawList = [
           ...normalList,
           ...(Array.isArray(largeList) ? largeList : []),
@@ -1887,9 +1923,7 @@ export default function EventoCheckInsPage() {
             (item.area_id != null ? areaIdToNameMap[item.area_id] : "") ??
             "",
           table_number:
-            item.table_number != null
-              ? item.table_number
-              : item.mesa ?? "",
+            item.table_number != null ? item.table_number : (item.mesa ?? ""),
         })) as Reservation[];
 
         setPlanilhaReservas(allReservations);
@@ -1930,7 +1964,8 @@ export default function EventoCheckInsPage() {
                     area_id: area.id,
                     area_name: area.name,
                     table_number: t.table_number?.toString() || t.table_number,
-                    capacity: typeof t.capacity === "number" ? t.capacity : undefined,
+                    capacity:
+                      typeof t.capacity === "number" ? t.capacity : undefined,
                   })),
                 );
               }
@@ -2103,7 +2138,9 @@ export default function EventoCheckInsPage() {
 
           // Acumular por promoter
           if (c.promoter_id) {
-            const promoter = promotersList.find((p) => Number(p.id) === Number(c.promoter_id));
+            const promoter = promotersList.find(
+              (p) => Number(p.id) === Number(c.promoter_id),
+            );
             if (promoter) {
               if (!porPromoter[c.promoter_id]) {
                 porPromoter[c.promoter_id] = { nome: promoter.nome, total: 0 };
@@ -2209,11 +2246,15 @@ export default function EventoCheckInsPage() {
       checkInInProgressRef.current[key] = true;
 
       // Convidados da "Lista de Rafa Coelho" ou promoter Rafa Coelho têm entrada VIP a noite toda
-      const promoter = promoters.find((p) => Number(p.id) === Number(convidado.promoter_id));
+      const promoter = promoters.find(
+        (p) => Number(p.id) === Number(convidado.promoter_id),
+      );
       const isRafacolelho =
         promoter?.email?.toLowerCase() === "rafacolelho@highlinebar.com.br" ||
-        (promoter?.nome && promoter.nome.toLowerCase().includes("rafa coelho")) ||
-        (convidado.origem && convidado.origem.toLowerCase().includes("lista de rafa coelho"));
+        (promoter?.nome &&
+          promoter.nome.toLowerCase().includes("rafa coelho")) ||
+        (convidado.origem &&
+          convidado.origem.toLowerCase().includes("lista de rafa coelho"));
 
       if (isRafacolelho) {
         // Check-in automático como VIP (sem abrir modal SECO/CONSOME)
@@ -3840,6 +3881,76 @@ export default function EventoCheckInsPage() {
         isOwnerCheckedOut(gl.owner_checked_out)
       );
 
+      // Buscar observações da reserva (pode estar em notes ou admin_notes)
+      // Primeiro tenta na guest list, depois busca na reserva relacionada se disponível
+      let notes =
+        gl.notes ||
+        gl.admin_notes ||
+        (gl as any).observacao ||
+        (gl as any).observação ||
+        "";
+      
+      // Debug: verificar se encontrou notes na guest list
+      if (gl.owner_name && gl.owner_name.toLowerCase().includes("carlos")) {
+        console.log("🔍 [DEBUG NOTES] Buscando notes para owner:", {
+          ownerName: gl.owner_name,
+          guestListId: gl.guest_list_id,
+          reservationId: gl.reservation_id,
+          notesFromGL: gl.notes,
+          adminNotesFromGL: gl.admin_notes,
+          observacaoFromGL: (gl as any).observacao,
+          notesFound: !!notes,
+        });
+      }
+      
+      // Se não encontrou nas guest lists, tenta buscar na reserva relacionada
+      if (!notes && gl.reservation_id) {
+        const reservaRelacionada = reservasRestaurante.find(
+          (r) => r.id === gl.reservation_id
+        );
+        if (reservaRelacionada) {
+          notes =
+            reservaRelacionada.notes ||
+            reservaRelacionada.admin_notes ||
+            (reservaRelacionada as any).observacao ||
+            (reservaRelacionada as any).observação ||
+            "";
+          
+          // Debug: verificar se encontrou notes na reserva relacionada
+          if (gl.owner_name && gl.owner_name.toLowerCase().includes("carlos")) {
+            console.log("🔍 [DEBUG NOTES] Buscando notes na reserva relacionada:", {
+              reservationId: gl.reservation_id,
+              reservaEncontrada: !!reservaRelacionada,
+              notesFromReserva: reservaRelacionada.notes,
+              adminNotesFromReserva: reservaRelacionada.admin_notes,
+              notesFound: !!notes,
+            });
+          }
+        }
+      }
+      
+      // Debug final
+      if (gl.owner_name && gl.owner_name.toLowerCase().includes("carlos")) {
+        console.log("🔍 [DEBUG NOTES] Resultado final:", {
+          ownerName: gl.owner_name,
+          notesFinal: notes,
+          notesLength: notes?.length || 0,
+        });
+      }
+
+      const resultNotes = notes.trim() || undefined;
+      
+      // Debug: log para todos os resultados (não apenas Carlos)
+      if (resultNotes) {
+        console.log("🔍 [DEBUG NOTES] Adicionando notes ao resultado:", {
+          ownerName: gl.owner_name,
+          guestListId,
+          reservationId: gl.reservation_id,
+          notes: resultNotes,
+          notesLength: resultNotes.length,
+        });
+      }
+      
       results.push({
         type: "owner",
         name: gl.owner_name || "Sem nome",
@@ -3860,6 +3971,7 @@ export default function EventoCheckInsPage() {
           eventType: gl.event_type || "outros",
         },
         giftInfo,
+        notes: resultNotes,
       });
     }
 
@@ -3879,6 +3991,42 @@ export default function EventoCheckInsPage() {
         const checkedIn = g.checked_in === 1 || g.checked_in === true;
         const checkedOut = g.checked_out === 1 || g.checked_out === true;
 
+        // Buscar observações da reserva (pode estar em notes ou admin_notes)
+        // Primeiro tenta na guest list, depois busca na reserva relacionada se disponível
+        let notes =
+          gl?.notes ||
+          gl?.admin_notes ||
+          (gl as any)?.observacao ||
+          (gl as any)?.observação ||
+          "";
+        
+        // Se não encontrou nas guest lists, tenta buscar na reserva relacionada
+        if (!notes && gl?.reservation_id) {
+          const reservaRelacionada = reservasRestaurante.find(
+            (r) => r.id === gl.reservation_id
+          );
+          if (reservaRelacionada) {
+            notes =
+              reservaRelacionada.notes ||
+              reservaRelacionada.admin_notes ||
+              (reservaRelacionada as any).observacao ||
+              (reservaRelacionada as any).observação ||
+              "";
+          }
+        }
+
+        const guestNotes = notes.trim() || undefined;
+        
+        // Debug: log para guests com notes
+        if (guestNotes) {
+          console.log("🔍 [DEBUG NOTES] Adicionando notes ao guest:", {
+            guestName: g.name,
+            ownerName: gl?.owner_name,
+            guestListId: listId,
+            notes: guestNotes,
+          });
+        }
+        
         results.push({
           type: "guest",
           name: g.name || "Sem nome",
@@ -3903,6 +4051,7 @@ export default function EventoCheckInsPage() {
                 eventType: gl.event_type || "outros",
               }
             : undefined,
+          notes: guestNotes,
         });
       }
     }
@@ -3918,6 +4067,14 @@ export default function EventoCheckInsPage() {
       const origem = (r.origem || (r as any).origin || "").toLowerCase();
       if (!nome.includes(searchLower) && !origem.includes(searchLower))
         continue;
+
+      // Buscar observações da reserva
+      const notes =
+        r.notes ||
+        r.admin_notes ||
+        (r as any).observacao ||
+        (r as any).observação ||
+        "";
 
       results.push({
         type: "owner",
@@ -3938,6 +4095,7 @@ export default function EventoCheckInsPage() {
         },
         reservaRestaurante: r,
         fromReservasAdicionaisAPI: false,
+        notes: notes.trim() || undefined,
       });
     }
 
@@ -3953,6 +4111,14 @@ export default function EventoCheckInsPage() {
       const origem = (r.origin || "").toLowerCase();
       if (!nome.includes(searchLower) && !origem.includes(searchLower))
         continue;
+
+      // Buscar observações da reserva
+      const notes =
+        r.notes ||
+        r.admin_notes ||
+        (r as any).observacao ||
+        (r as any).observação ||
+        "";
 
       results.push({
         type: "owner",
@@ -3972,6 +4138,7 @@ export default function EventoCheckInsPage() {
           eventType: "outros",
         },
         fromReservasAdicionaisAPI: true,
+        notes: notes.trim() || undefined,
       });
       idsInResults.add(r.id);
     }
@@ -4160,8 +4327,7 @@ export default function EventoCheckInsPage() {
   );
 
   const totalGeralMetrics = useMemo(
-    () =>
-      computeTotalGeralMetrics(reservasMetrics, promoterMetrics, camarotes),
+    () => computeTotalGeralMetrics(reservasMetrics, promoterMetrics, camarotes),
     [reservasMetrics, promoterMetrics, camarotes],
   );
 
@@ -4592,7 +4758,8 @@ export default function EventoCheckInsPage() {
               className="text-2xl font-bold text-white"
               style={{ fontVariantNumeric: "normal" }}
             >
-              {Number(totalGeralMetrics.checkins)}/{Number(totalGeralMetrics.total)}
+              {Number(totalGeralMetrics.checkins)}/
+              {Number(totalGeralMetrics.total)}
             </div>
             <div className="text-xs text-gray-400 mt-1">
               {Number(totalGeralMetrics.total) > 0
@@ -4606,7 +4773,8 @@ export default function EventoCheckInsPage() {
               className="text-2xl font-bold text-white"
               style={{ fontVariantNumeric: "normal" }}
             >
-              {Number(reservasMetrics.checkins)}/{Number(reservasMetrics.numReservas)}
+              {Number(reservasMetrics.checkins)}/
+              {Number(reservasMetrics.numReservas)}
             </div>
             <div className="text-xs text-gray-400 mt-1">
               {reservasMetrics.numReservas} reserva
@@ -4628,7 +4796,8 @@ export default function EventoCheckInsPage() {
               className="text-2xl font-bold text-white"
               style={{ fontVariantNumeric: "normal" }}
             >
-              {Number(camarotesMetrics.checkins)}/{Number(camarotesMetrics.total)}
+              {Number(camarotesMetrics.checkins)}/
+              {Number(camarotesMetrics.total)}
             </div>
           </div>
         </div>
@@ -4926,6 +5095,27 @@ export default function EventoCheckInsPage() {
                                         </div>
                                       )}
                                     </div>
+                                    {(() => {
+                                      // Debug: verificar se notes está presente
+                                      console.log("🔍 [DEBUG RENDER GUEST] Verificando notes:", {
+                                        type: result.type,
+                                        name: result.name,
+                                        hasNotes: !!result.notes,
+                                        notes: result.notes,
+                                        notesType: typeof result.notes,
+                                      });
+                                      return result.notes ? (
+                                        <div className="mt-2">
+                                          <p className="text-xs sm:text-sm text-gray-400 mb-1 flex items-center gap-1">
+                                            <MdDescription size={14} />
+                                            Observação da Reserva
+                                          </p>
+                                          <p className="font-semibold text-sm sm:text-base text-cyan-300 bg-cyan-500/20 px-3 py-2 rounded-md whitespace-pre-wrap border border-cyan-500/30">
+                                            {result.notes}
+                                          </p>
+                                        </div>
+                                      ) : null;
+                                    })()}
                                     <div>
                                       <p className="text-xs sm:text-sm text-gray-400">
                                         Lista de Reserva
@@ -4936,6 +5126,7 @@ export default function EventoCheckInsPage() {
                                     </div>
                                   </div>
                                 )}
+
                                 {result.type === "owner" &&
                                   result.reservation && (
                                     <div className="space-y-2 text-gray-300 bg-white/5 p-3 sm:p-4 rounded-lg">
@@ -4978,6 +5169,17 @@ export default function EventoCheckInsPage() {
                                           </div>
                                         )}
                                       </div>
+                                      {result.notes && (
+                                        <div className="mt-2">
+                                          <p className="text-xs sm:text-sm text-gray-400 mb-1 flex items-center gap-1">
+                                            <MdDescription size={14} />
+                                            Observação da Reserva
+                                          </p>
+                                          <p className="font-semibold text-sm sm:text-base text-cyan-300 bg-cyan-500/20 px-3 py-2 rounded-md whitespace-pre-wrap border border-cyan-500/30">
+                                            {result.notes}
+                                          </p>
+                                        </div>
+                                      )}
                                       <div className="grid grid-cols-2 gap-3">
                                         <div>
                                           <p className="text-xs text-gray-400">
@@ -7519,11 +7721,22 @@ export default function EventoCheckInsPage() {
                                     Promoter: {convidado.responsavel}
                                   </div>
                                   {(() => {
-                                    const promoterForGuest = promoters.find((p) => Number(p.id) === Number(convidado.promoter_id));
+                                    const promoterForGuest = promoters.find(
+                                      (p) =>
+                                        Number(p.id) ===
+                                        Number(convidado.promoter_id),
+                                    );
                                     const isRafaList =
-                                      promoterForGuest?.email?.toLowerCase() === "rafacolelho@highlinebar.com.br" ||
-                                      (promoterForGuest?.nome && promoterForGuest.nome.toLowerCase().includes("rafa coelho")) ||
-                                      (convidado.origem && convidado.origem.toLowerCase().includes("lista de rafa coelho"));
+                                      promoterForGuest?.email?.toLowerCase() ===
+                                        "rafacolelho@highlinebar.com.br" ||
+                                      (promoterForGuest?.nome &&
+                                        promoterForGuest.nome
+                                          .toLowerCase()
+                                          .includes("rafa coelho")) ||
+                                      (convidado.origem &&
+                                        convidado.origem
+                                          .toLowerCase()
+                                          .includes("lista de rafa coelho"));
                                     return isRafaList ? (
                                       <div className="mt-1">
                                         <span className="text-xs px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-medium">
@@ -7569,12 +7782,25 @@ export default function EventoCheckInsPage() {
                               >
                                 <MdCheckCircle size={16} />
                                 {(() => {
-                                  const promoterForGuest = promoters.find((p) => Number(p.id) === Number(convidado.promoter_id));
+                                  const promoterForGuest = promoters.find(
+                                    (p) =>
+                                      Number(p.id) ===
+                                      Number(convidado.promoter_id),
+                                  );
                                   const isRafaList =
-                                    promoterForGuest?.email?.toLowerCase() === "rafacolelho@highlinebar.com.br" ||
-                                    (promoterForGuest?.nome && promoterForGuest.nome.toLowerCase().includes("rafa coelho")) ||
-                                    (convidado.origem && convidado.origem.toLowerCase().includes("lista de rafa coelho"));
-                                  return isRafaList ? "Check-in (VIP)" : "Check-in";
+                                    promoterForGuest?.email?.toLowerCase() ===
+                                      "rafacolelho@highlinebar.com.br" ||
+                                    (promoterForGuest?.nome &&
+                                      promoterForGuest.nome
+                                        .toLowerCase()
+                                        .includes("rafa coelho")) ||
+                                    (convidado.origem &&
+                                      convidado.origem
+                                        .toLowerCase()
+                                        .includes("lista de rafa coelho"));
+                                  return isRafaList
+                                    ? "Check-in (VIP)"
+                                    : "Check-in";
                                 })()}
                               </button>
                             ) : convidado.status_checkin === "Check-in" ? (
@@ -7679,11 +7905,22 @@ export default function EventoCheckInsPage() {
                                   />
                                 )}
                                 {(() => {
-                                  const promoterForGuest = promoters.find((p) => Number(p.id) === Number(convidado.promoter_id));
+                                  const promoterForGuest = promoters.find(
+                                    (p) =>
+                                      Number(p.id) ===
+                                      Number(convidado.promoter_id),
+                                  );
                                   const isRafaList =
-                                    promoterForGuest?.email?.toLowerCase() === "rafacolelho@highlinebar.com.br" ||
-                                    (promoterForGuest?.nome && promoterForGuest.nome.toLowerCase().includes("rafa coelho")) ||
-                                    (convidado.origem && convidado.origem.toLowerCase().includes("lista de rafa coelho"));
+                                    promoterForGuest?.email?.toLowerCase() ===
+                                      "rafacolelho@highlinebar.com.br" ||
+                                    (promoterForGuest?.nome &&
+                                      promoterForGuest.nome
+                                        .toLowerCase()
+                                        .includes("rafa coelho")) ||
+                                    (convidado.origem &&
+                                      convidado.origem
+                                        .toLowerCase()
+                                        .includes("lista de rafa coelho"));
                                   return isRafaList ? (
                                     <span className="text-xs px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-medium">
                                       Entrada VIP a noite toda
@@ -7703,12 +7940,25 @@ export default function EventoCheckInsPage() {
                               >
                                 <MdCheckCircle size={18} />
                                 {(() => {
-                                  const promoterForGuest = promoters.find((p) => Number(p.id) === Number(convidado.promoter_id));
+                                  const promoterForGuest = promoters.find(
+                                    (p) =>
+                                      Number(p.id) ===
+                                      Number(convidado.promoter_id),
+                                  );
                                   const isRafaList =
-                                    promoterForGuest?.email?.toLowerCase() === "rafacolelho@highlinebar.com.br" ||
-                                    (promoterForGuest?.nome && promoterForGuest.nome.toLowerCase().includes("rafa coelho")) ||
-                                    (convidado.origem && convidado.origem.toLowerCase().includes("lista de rafa coelho"));
-                                  return isRafaList ? "Check-in (VIP)" : "Check-in";
+                                    promoterForGuest?.email?.toLowerCase() ===
+                                      "rafacolelho@highlinebar.com.br" ||
+                                    (promoterForGuest?.nome &&
+                                      promoterForGuest.nome
+                                        .toLowerCase()
+                                        .includes("rafa coelho")) ||
+                                    (convidado.origem &&
+                                      convidado.origem
+                                        .toLowerCase()
+                                        .includes("lista de rafa coelho"));
+                                  return isRafaList
+                                    ? "Check-in (VIP)"
+                                    : "Check-in";
                                 })()}
                               </button>
                             )}
@@ -8145,14 +8395,22 @@ export default function EventoCheckInsPage() {
                       evento?.data_evento ||
                       "";
                     const getReservationDate = (r: Reservation) => {
-                      const dateStr = String((r as any).reservation_date || "").trim();
-                      if (!dateStr || dateStr === "null" || dateStr === "undefined")
+                      const dateStr = String(
+                        (r as any).reservation_date || "",
+                      ).trim();
+                      if (
+                        !dateStr ||
+                        dateStr === "null" ||
+                        dateStr === "undefined"
+                      )
                         return "";
                       try {
                         const dt = dateStr.includes("T")
                           ? new Date(dateStr)
                           : new Date(dateStr + "T12:00:00");
-                        return isNaN(dt.getTime()) ? "" : dt.toISOString().split("T")[0];
+                        return isNaN(dt.getTime())
+                          ? ""
+                          : dt.toISOString().split("T")[0];
                       } catch {
                         return "";
                       }
@@ -8188,16 +8446,25 @@ export default function EventoCheckInsPage() {
                         ""
                       );
                     };
-                    const getReservationTableNumber = (r: Reservation): string =>
-                      String((r as any).table_number ?? (r as any).mesa ?? "").trim();
+                    const getReservationTableNumber = (
+                      r: Reservation,
+                    ): string =>
+                      String(
+                        (r as any).table_number ?? (r as any).mesa ?? "",
+                      ).trim();
 
-                    const getReservationTableNumbers = (r: Reservation): string[] => {
+                    const getReservationTableNumbers = (
+                      r: Reservation,
+                    ): string[] => {
                       const a = r as any;
                       const single = getReservationTableNumber(r);
                       if (single) {
-                        const multi = a.selected_tables ?? a.table_numbers ?? a.tables;
+                        const multi =
+                          a.selected_tables ?? a.table_numbers ?? a.tables;
                         if (Array.isArray(multi) && multi.length > 0)
-                          return multi.map((t: any) => String(t ?? "").trim()).filter(Boolean);
+                          return multi
+                            .map((t: any) => String(t ?? "").trim())
+                            .filter(Boolean);
                         return [single];
                       }
                       return [];
@@ -8232,8 +8499,10 @@ export default function EventoCheckInsPage() {
                           mesaNumInt === rTableNumInt
                         )
                           return true;
-                        if (rTableNorm && mesaNorm.includes(rTableNorm)) return true;
-                        if (rTableNorm && rTableNorm.includes(mesaNorm)) return true;
+                        if (rTableNorm && mesaNorm.includes(rTableNorm))
+                          return true;
+                        if (rTableNorm && rTableNorm.includes(mesaNorm))
+                          return true;
                       }
                       return false;
                     };
@@ -8249,11 +8518,18 @@ export default function EventoCheckInsPage() {
                         ? parseInt(mesaNumStr, 10)
                         : NaN;
                       return reservasDoEvento.filter((r) =>
-                        reservationMatchesMesa(r, areaNorm, mesaNorm, mesaNumInt),
+                        reservationMatchesMesa(
+                          r,
+                          areaNorm,
+                          mesaNorm,
+                          mesaNumInt,
+                        ),
                       );
                     };
 
-                    const getReservationsAreaOnly = (areaName: string): Reservation[] => {
+                    const getReservationsAreaOnly = (
+                      areaName: string,
+                    ): Reservation[] => {
                       const areaNorm = normalize(areaName);
                       return reservasDoEvento.filter((r) => {
                         const rArea = normalize(getReservationAreaName(r));
@@ -8279,15 +8555,22 @@ export default function EventoCheckInsPage() {
                       }
                       return "";
                     };
-                    const getReservationNumber = (r: Reservation | null): number => {
+                    const getReservationNumber = (
+                      r: Reservation | null,
+                    ): number => {
                       if (!r) return 0;
                       const v = (r as any).number_of_people;
                       if (typeof v === "number" && !isNaN(v)) return v;
                       const n = parseInt(String(v || "0"), 10);
                       return isNaN(n) ? 0 : n;
                     };
-                    const getReservationCheckedIn = (r: Reservation | null): boolean =>
-                      !!(r && ((r as any).checked_in || (r as any).checkin_time));
+                    const getReservationCheckedIn = (
+                      r: Reservation | null,
+                    ): boolean =>
+                      !!(
+                        r &&
+                        ((r as any).checked_in || (r as any).checkin_time)
+                      );
                     const getReservationsField = (
                       list: Reservation[],
                       separator: string,
@@ -8298,10 +8581,13 @@ export default function EventoCheckInsPage() {
                         .filter(Boolean);
                       return [...new Set(parts)].join(separator);
                     };
-                    const getReservationsNumber = (list: Reservation[]): number =>
+                    const getReservationsNumber = (
+                      list: Reservation[],
+                    ): number =>
                       list.reduce((s, r) => s + getReservationNumber(r), 0);
-                    const getReservationsCheckedIn = (list: Reservation[]): boolean =>
-                      list.some((r) => getReservationCheckedIn(r));
+                    const getReservationsCheckedIn = (
+                      list: Reservation[],
+                    ): boolean => list.some((r) => getReservationCheckedIn(r));
 
                     const reservasDoDia = reservasDoEvento;
                     const reservasUnicas = Array.from(
@@ -8312,7 +8598,8 @@ export default function EventoCheckInsPage() {
                       const peopleCount =
                         typeof r.number_of_people === "number"
                           ? r.number_of_people
-                          : parseInt(String(r.number_of_people || "0"), 10) || 0;
+                          : parseInt(String(r.number_of_people || "0"), 10) ||
+                            0;
                       return sum + peopleCount;
                     }, 0);
 
@@ -8382,10 +8669,14 @@ export default function EventoCheckInsPage() {
                           <div className="bg-gradient-to-r from-yellow-50 to-orange-50 border-2 border-yellow-300 rounded-lg p-4 sm:p-6 shadow-md">
                             <h3 className="text-base sm:text-xl font-bold text-gray-800 mb-3 sm:mb-4 flex items-center gap-2">
                               <span className="text-lg sm:text-xl">📊</span>
-                              <span className="hidden sm:inline">Resumo do Dia - </span>
+                              <span className="hidden sm:inline">
+                                Resumo do Dia -{" "}
+                              </span>
                               <span className="sm:hidden">Dia - </span>
                               {(() => {
-                                const date = new Date(sheetFilters.date + "T12:00:00");
+                                const date = new Date(
+                                  sheetFilters.date + "T12:00:00",
+                                );
                                 return date.toLocaleDateString("pt-BR", {
                                   day: "numeric",
                                   month: "short",
@@ -8395,13 +8686,17 @@ export default function EventoCheckInsPage() {
                             </h3>
                             <div className="grid grid-cols-2 gap-3 sm:gap-4">
                               <div className="bg-white rounded-lg p-3 sm:p-4 shadow-sm border border-yellow-200">
-                                <p className="text-xs sm:text-sm text-gray-600 font-medium">Reservas</p>
+                                <p className="text-xs sm:text-sm text-gray-600 font-medium">
+                                  Reservas
+                                </p>
                                 <p className="text-2xl sm:text-4xl font-bold text-yellow-600 mt-1 sm:mt-2">
                                   {totalReservations}
                                 </p>
                               </div>
                               <div className="bg-white rounded-lg p-3 sm:p-4 shadow-sm border border-orange-200">
-                                <p className="text-xs sm:text-sm text-gray-600 font-medium">Pessoas</p>
+                                <p className="text-xs sm:text-sm text-gray-600 font-medium">
+                                  Pessoas
+                                </p>
                                 <p className="text-2xl sm:text-4xl font-bold text-orange-600 mt-1 sm:mt-2">
                                   {totalPeople}
                                 </p>
@@ -8411,7 +8706,8 @@ export default function EventoCheckInsPage() {
                               <div className="mt-3 sm:mt-4 pt-3 sm:pt-4 border-t border-yellow-200">
                                 <p className="text-xs sm:text-sm text-gray-600">
                                   <span className="font-semibold">Média:</span>{" "}
-                                  {(totalPeople / totalReservations).toFixed(1)} pessoas/reserva
+                                  {(totalPeople / totalReservations).toFixed(1)}{" "}
+                                  pessoas/reserva
                                 </p>
                               </div>
                             )}
@@ -8421,8 +8717,9 @@ export default function EventoCheckInsPage() {
                         {!sheetFilters.date && totalReservations > 0 && (
                           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 shadow-sm">
                             <p className="text-sm text-blue-800">
-                              <span className="font-semibold">💡 Dica:</span> Selecione uma data acima
-                              para ver o resumo do dia. Mostrando {totalReservations} reserva(s),{" "}
+                              <span className="font-semibold">💡 Dica:</span>{" "}
+                              Selecione uma data acima para ver o resumo do dia.
+                              Mostrando {totalReservations} reserva(s),{" "}
                               {totalPeople} pessoa(s).
                             </p>
                           </div>
@@ -8432,17 +8729,39 @@ export default function EventoCheckInsPage() {
                           <table className="min-w-full border-collapse text-sm">
                             <thead className="bg-gray-200">
                               <tr>
-                                <th className="border border-gray-300 px-2 py-2 text-center font-bold w-20">ÁREA</th>
-                                <th className="border border-gray-300 px-2 py-2 text-left font-bold w-24">DATA</th>
-                                <th className="border border-gray-300 px-2 py-2 text-left font-bold w-20">Evento</th>
-                                <th className="border border-gray-300 px-2 py-2 text-left font-bold w-20">Sujeito</th>
-                                <th className="border border-gray-300 px-2 py-2 text-left font-bold min-w-[100px]">Nome</th>
-                                <th className="border border-gray-300 px-2 py-2 text-left font-bold w-28">MESAS</th>
-                                <th className="border border-gray-300 px-2 py-2 text-left font-bold w-24">TEL</th>
-                                <th className="border border-gray-300 px-2 py-2 text-left font-bold min-w-[80px]">OBSERVAÇÃO</th>
-                                <th className="border border-gray-300 px-2 py-2 text-center font-bold w-14">LIMITE</th>
-                                <th className="border border-gray-300 px-2 py-2 text-center font-bold w-14">PESSOAS</th>
-                                <th className="border border-gray-300 px-2 py-2 text-center font-bold w-16">PRESENÇA</th>
+                                <th className="border border-gray-300 px-2 py-2 text-center font-bold w-20">
+                                  ÁREA
+                                </th>
+                                <th className="border border-gray-300 px-2 py-2 text-left font-bold w-24">
+                                  DATA
+                                </th>
+                                <th className="border border-gray-300 px-2 py-2 text-left font-bold w-20">
+                                  Evento
+                                </th>
+                                <th className="border border-gray-300 px-2 py-2 text-left font-bold w-20">
+                                  Sujeito
+                                </th>
+                                <th className="border border-gray-300 px-2 py-2 text-left font-bold min-w-[100px]">
+                                  Nome
+                                </th>
+                                <th className="border border-gray-300 px-2 py-2 text-left font-bold w-28">
+                                  MESAS
+                                </th>
+                                <th className="border border-gray-300 px-2 py-2 text-left font-bold w-24">
+                                  TEL
+                                </th>
+                                <th className="border border-gray-300 px-2 py-2 text-left font-bold min-w-[80px]">
+                                  OBSERVAÇÃO
+                                </th>
+                                <th className="border border-gray-300 px-2 py-2 text-center font-bold w-14">
+                                  LIMITE
+                                </th>
+                                <th className="border border-gray-300 px-2 py-2 text-center font-bold w-14">
+                                  PESSOAS
+                                </th>
+                                <th className="border border-gray-300 px-2 py-2 text-center font-bold w-16">
+                                  PRESENÇA
+                                </th>
                               </tr>
                             </thead>
                             <tbody>
@@ -8458,7 +8777,8 @@ export default function EventoCheckInsPage() {
                                   );
                                 }
                                 const isAreaOnly =
-                                  "isAreaOnly" in row && row.isAreaOnly === true;
+                                  "isAreaOnly" in row &&
+                                  row.isAreaOnly === true;
                                 const list = isAreaOnly
                                   ? getReservationsAreaOnly(row.areaName)
                                   : getReservationsForRow(
@@ -8472,10 +8792,10 @@ export default function EventoCheckInsPage() {
                                 const areaCellBg = isAreaOnly
                                   ? "#E65100"
                                   : `#${row.areaColorDark}`;
-                                const areaCellFg = isAreaOnly
-                                  ? "#FFF"
-                                  : "#FFF";
-                                const formatReservationDate = (dateStr?: string) => {
+                                const areaCellFg = isAreaOnly ? "#FFF" : "#FFF";
+                                const formatReservationDate = (
+                                  dateStr?: string,
+                                ) => {
                                   if (!dateStr) return "";
                                   try {
                                     const d = String(dateStr).split("T")[0];
@@ -8522,7 +8842,11 @@ export default function EventoCheckInsPage() {
                                         writingMode: "vertical-rl",
                                         textOrientation: "mixed",
                                       }}
-                                      title={isAreaOnly ? "Reserva só com área (sem mesa definida)" : undefined}
+                                      title={
+                                        isAreaOnly
+                                          ? "Reserva só com área (sem mesa definida)"
+                                          : undefined
+                                      }
                                     >
                                       {isAreaOnly
                                         ? `${row.areaName} (sem mesa)`
@@ -8606,7 +8930,8 @@ export default function EventoCheckInsPage() {
                           </table>
                         </div>
                         <p className="text-xs text-gray-500">
-                          Pré-visualização da planilha. Dia: {eventDate || "—"}. Match por área + mesa (normalizado).
+                          Pré-visualização da planilha. Dia: {eventDate || "—"}.
+                          Match por área + mesa (normalizado).
                         </p>
                       </div>
                     );
