@@ -498,17 +498,24 @@ export default function ReservationModal({
               );
               if (reservationsRes.ok) {
                 const reservationsData = await reservationsRes.json();
-                const allReservations = Array.isArray(reservationsData.reservations) 
-                  ? reservationsData.reservations 
+                const allReservations = Array.isArray(reservationsData.reservations)
+                  ? reservationsData.reservations
                   : [];
+                const establishmentId = establishment?.id ? Number(establishment.id) : null;
+                const reservationsForEstablishment = establishmentId
+                  ? allReservations.filter((reservation: any) => {
+                      if (reservation.establishment_id == null) return true;
+                      return Number(reservation.establishment_id) === establishmentId;
+                    })
+                  : allReservations;
                 
                 // Filtrar apenas reservas que ocupam a mesa (excluir canceladas/finalizadas em qualquer variação)
                 // CRÍTICO: Só considerar reservas que realmente bloqueiam a mesa
-                const activeReservations = allReservations.filter((reservation: any) => {
+                const activeReservations = reservationsForEstablishment.filter((reservation: any) => {
                   const status = String(reservation.status || '').trim().toLowerCase();
                   // Status que NÃO bloqueiam mesa (lista completa)
                   const nonBlocking = new Set([
-                    'cancelada', 'cancelled', 'canceled', 'cancel',
+                    'cancelada', 'cancelado', 'cancelled', 'canceled', 'cancel',
                     'completed', 'concluida', 'concluída', 'concluido', 'concluído',
                     'finalizada', 'finalized', 'finalizado', 'finalizado',
                     'no_show', 'no-show', 'no show',
@@ -950,16 +957,25 @@ export default function ReservationModal({
         );
         if (reservationsRes.ok) {
           const reservationsData = await reservationsRes.json();
-          const allReservations = Array.isArray(reservationsData.reservations) 
-            ? reservationsData.reservations 
+          const allReservations = Array.isArray(reservationsData.reservations)
+            ? reservationsData.reservations
             : [];
+          const establishmentId = establishment?.id ? Number(establishment.id) : null;
+          const reservationsForEstablishment = establishmentId
+            ? allReservations.filter((reservation: any) => {
+                if (reservation.establishment_id == null) return true;
+                return Number(reservation.establishment_id) === establishmentId;
+              })
+            : allReservations;
           
-          const activeReservations = allReservations.filter((reservation: any) => {
+          const activeReservations = reservationsForEstablishment.filter((reservation: any) => {
             const status = String(reservation.status || '').trim().toLowerCase();
             const nonBlocking = new Set([
-              'cancelada', 'cancelled', 'canceled',
-              'completed', 'concluida', 'concluída', 'finalizada', 'finalized',
-              'no_show', 'no-show'
+              'cancelada', 'cancelado', 'cancelled', 'canceled', 'cancel',
+              'completed', 'concluida', 'concluída', 'concluido', 'concluído',
+              'finalizada', 'finalized', 'finalizado',
+              'no_show', 'no-show', 'no show',
+              'espera antecipada'
             ]);
             return !nonBlocking.has(status);
           });
