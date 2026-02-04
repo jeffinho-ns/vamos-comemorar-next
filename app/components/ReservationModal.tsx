@@ -406,7 +406,7 @@ export default function ReservationModal({
           // Cada estabelecimento tem sua própria lógica e NÃO deve interferir nos outros
           
           const estId = establishment?.id ? Number(establishment.id) : null;
-          const isJustinoOrPracinha = estId === 1 || estId === 8;
+          const isJustinoOrPracinha = isSeuJustino || isPracinha;
           
           // 1. PRIMEIRO: Para Justino/Pracinha, SEMPRE resetar is_reserved ANTES de qualquer coisa
           // Isso garante que o valor do endpoint (que bloqueia dia todo) seja ignorado
@@ -819,7 +819,7 @@ export default function ReservationModal({
 
     // 2º giro (BISTRÔ) para Justino/Pracinha: NÃO exigir mesa (vai para espera antecipada/bistrô)
     const estIdForValidation = establishment?.id ? Number(establishment.id) : null;
-    const isJustinoOrPracinhaForValidation = estIdForValidation === 1 || estIdForValidation === 8;
+    const isJustinoOrPracinhaForValidation = isSeuJustino || isPracinha;
     const isSecondGiroBistro = isSecondGiroBistroJustinoPracinha(
       formData.reservation_date,
       formData.reservation_time,
@@ -1282,8 +1282,7 @@ export default function ReservationModal({
           let fetched: RestaurantTable[] = Array.isArray(data.tables) ? data.tables : [];
           
           // Reaplicar travamento de mesas (APENAS Highline, nunca Justino/Pracinha)
-          const estIdForRelease = establishment?.id ? Number(establishment.id) : null;
-          const isJustinoOrPracinhaForRelease = estIdForRelease === 1 || estIdForRelease === 8;
+          const isJustinoOrPracinhaForRelease = isSeuJustino || isPracinha;
           
           if (isHighline && !isJustinoOrPracinhaForRelease && Number(formData.area_id) === 2) {
             try {
@@ -1859,8 +1858,7 @@ export default function ReservationModal({
                           }
                           
                           // REGRA ABSOLUTA: Para Justino/Pracinha, mostrar TODAS as mesas (não filtrar por is_reserved)
-                          const estIdForFilter = establishment?.id ? Number(establishment.id) : null;
-                          const isJustinoOrPracinhaForFilter = estIdForFilter === 1 || estIdForFilter === 8;
+                          const isJustinoOrPracinhaForFilter = isSeuJustino || isPracinha;
                           
                           return tables
                             .filter(t => {
