@@ -123,67 +123,17 @@ export default function EventsPage() {
 
   // Formata o campo do dia do evento (trata tipos e convenções 0..6 ou 1..7)
   const formatEventDay = (event: EventDataApi) => {
-    if (String(event.tipo_evento).trim() === "unico") {
-      if (!event.data_do_evento) return "Data não definida";
-      try {
-        const dateWithTime =
-          event.data_do_evento.includes("T") ||
-          event.data_do_evento.includes(" ")
-            ? event.data_do_evento
-            : event.data_do_evento + "T12:00:00";
-        return new Date(dateWithTime).toLocaleDateString("pt-BR");
-      } catch (error) {
-        console.error("Erro ao formatar data:", event.data_do_evento, error);
-        return "Data inválida";
-      }
+    if (!event.data_do_evento) return "Data não definida";
+    try {
+      const dateWithTime =
+        event.data_do_evento.includes("T") || event.data_do_evento.includes(" ")
+          ? event.data_do_evento
+          : event.data_do_evento + "T12:00:00";
+      return new Date(dateWithTime).toLocaleDateString("pt-BR");
+    } catch (error) {
+      console.error("Erro ao formatar data:", event.data_do_evento, error);
+      return "Data inválida";
     }
-
-    const names = [
-      "Domingo",
-      "Segunda-feira",
-      "Terça-feira",
-      "Quarta-feira",
-      "Quinta-feira",
-      "Sexta-feira",
-      "Sábado",
-    ];
-    const raw = event.dia_da_semana;
-    // Se não tiver dia_da_semana, tentar derivar de data_do_evento
-    if (raw === undefined || raw === null || String(raw).trim() === "") {
-      if (event.data_do_evento) {
-        try {
-          const d = new Date(event.data_do_evento);
-          if (!Number.isNaN(d.getTime())) {
-            return ` ${names[d.getDay()]}`;
-          }
-        } catch (err) {
-          // ignore
-        }
-      }
-      return "Dia não definido";
-    }
-
-    const n = Number(String(raw).trim());
-    if (Number.isNaN(n)) {
-      // tentar extrair número de string (ex: "Dia 2")
-      const m = String(raw).match(/(\d+)/);
-      if (m) {
-        const nn = Number(m[1]);
-        if (!Number.isNaN(nn)) {
-          // mapear 1..7 -> 0..6
-          const idx2 = nn >= 1 && nn <= 7 ? nn - 1 : nn;
-          if (idx2 >= 0 && idx2 <= 6) return `Toda ${names[idx2]}`;
-        }
-      }
-      return "Dia não definido";
-    }
-
-    // Aceita tanto 0..6 quanto 1..7 (mapeando 1->0, 7->6)
-    let idx = n;
-    if (n >= 1 && n <= 7) idx = n - 1;
-    if (idx < 0 || idx > 6) return "Dia não definido";
-
-    return `Toda ${names[idx]}`;
   };
 
   const handlePreviousPage = () => {
