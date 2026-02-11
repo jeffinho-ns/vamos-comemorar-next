@@ -591,7 +591,7 @@ export default function ReservationDetailsModal({
   const statusActionButtonBaseClass =
     "w-full h-11 flex items-center justify-center gap-2 px-4 py-2 text-white rounded-lg transition-colors text-sm font-medium";
   const footerActionButtonBaseClass =
-    "w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2 text-white rounded-lg transition-colors";
+    "h-9 flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs sm:text-sm leading-none text-white rounded-lg transition-colors whitespace-nowrap";
 
   return (
     <AnimatePresence>
@@ -1040,8 +1040,8 @@ export default function ReservationDetailsModal({
             </div>
 
             {/* Footer */}
-            <div className="p-6 border-t border-gray-200">
-              <div className="flex flex-wrap gap-2">
+            <div className="p-4 sm:p-5 border-t border-gray-200">
+              <div className="flex flex-wrap items-center gap-2">
                 {onEdit && (
                   <button
                     onClick={() => onEdit(reservation)}
@@ -1083,12 +1083,9 @@ export default function ReservationDetailsModal({
                     Excluir
                   </button>
                 )}
-              </div>
-
-              <div className="flex justify-end mt-3">
                 <button
                   onClick={onClose}
-                  className={`${footerActionButtonBaseClass} bg-gray-500 hover:bg-gray-600 sm:w-auto`}
+                  className={`${footerActionButtonBaseClass} bg-gray-500 hover:bg-gray-600 sm:ml-auto`}
                 >
                   Fechar
                 </button>
