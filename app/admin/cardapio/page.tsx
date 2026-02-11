@@ -21,6 +21,8 @@ import {
   MdViewModule,
   MdViewList,
   MdContentCopy,
+  MdKeyboardArrowDown,
+  MdKeyboardArrowUp,
 } from 'react-icons/md';
 import { useUserPermissions } from '../../hooks/useUserPermissions';
 import ImageCropModal from '../../components/ImageCropModal';
@@ -369,6 +371,10 @@ export default function CardapioAdminPage() {
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [editingPriceId, setEditingPriceId] = useState<string | number | null>(null);
   const [editingPriceValue, setEditingPriceValue] = useState<string>('');
+  
+  // Estados para controlar expansão de categorias e subcategorias na visualização em lista
+  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
+  const [expandedSubCategories, setExpandedSubCategories] = useState<Set<string>>(new Set());
 
   const [quickEditData, setQuickEditData] = useState<{
     barId: string | number;
@@ -2785,6 +2791,61 @@ export default function CardapioAdminPage() {
     });
   }, [menuData.items, searchTerm, filterCategoryId, filterSubCategory, filterStatus]);
 
+  // Funções para controlar expansão de categorias e subcategorias
+  const toggleCategory = useCallback((categoryKey: string) => {
+    setExpandedCategories((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(categoryKey)) {
+        newSet.delete(categoryKey);
+      } else {
+        newSet.add(categoryKey);
+      }
+      return newSet;
+    });
+  }, []);
+
+  const toggleSubCategory = useCallback((subCategoryKey: string) => {
+    setExpandedSubCategories((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(subCategoryKey)) {
+        newSet.delete(subCategoryKey);
+      } else {
+        newSet.add(subCategoryKey);
+      }
+      return newSet;
+    });
+  }, []);
+
+  const expandAllCategories = useCallback((itemsForBar: MenuItem[]) => {
+    const categoryKeys = new Set<string>();
+    itemsForBar.forEach((item) => {
+      const categoryKey = `${item.barId}-${item.categoryId}`;
+      categoryKeys.add(categoryKey);
+    });
+    setExpandedCategories(categoryKeys);
+  }, []);
+
+  const collapseAllCategories = useCallback(() => {
+    setExpandedCategories(new Set());
+    setExpandedSubCategories(new Set());
+  }, []);
+
+  const expandAllSubCategories = useCallback((itemsForBar: MenuItem[]) => {
+    const subCategoryKeys = new Set<string>();
+    itemsForBar.forEach((item) => {
+      const subCategory = item.subCategory || item.subCategoryName;
+      if (subCategory) {
+        const subCategoryKey = `${item.barId}-${item.categoryId}-${subCategory}`;
+        subCategoryKeys.add(subCategoryKey);
+      }
+    });
+    setExpandedSubCategories(subCategoryKeys);
+  }, []);
+
+  const collapseAllSubCategories = useCallback(() => {
+    setExpandedSubCategories(new Set());
+  }, []);
+
   if (loading) return <div className="p-8 text-center">Carregando...</div>;
   if (error) return <div className="p-8 text-center text-red-500">{error}</div>;
 
@@ -3515,170 +3576,472 @@ export default function CardapioAdminPage() {
                           })}
                         </div>
                       ) : (
-                        <div className="overflow-x-auto">
-                          <table className="min-w-full bg-white border border-gray-200 rounded-lg">
-                            <thead className="bg-gray-50">
-                              <tr>
-                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                  <input
-                                    type="checkbox"
-                                    className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                                    checked={itemsForBar.every((item) => selectedItems.includes(item.id))}
-                                    onChange={(e) => {
-                                      if (e.target.checked) {
-                                        setSelectedItems((prev) => [
-                                          ...new Set([...prev, ...itemsForBar.map((i) => i.id)]),
-                                        ]);
-                                      } else {
-                                        setSelectedItems((prev) =>
-                                          prev.filter((id) => !itemsForBar.map((i) => i.id).includes(id))
-                                        );
-                                      }
-                                    }}
-                                  />
-                                </th>
-                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nome</th>
-                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Categoria</th>
-                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Preço</th>
-                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ações</th>
-                              </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-200">
-                              {itemsForBar.map((item) => {
-                                const category = menuData.categories.find(
-                                  (c) => c.id === item.categoryId,
-                                );
-                                const isPaused = item.visible === 0 || item.visible === false;
-                                const isEditingPrice = editingPriceId === item.id;
+                        <div className="space-y-4">
+                          {/* Botões de controle de expansão */}
+                          <div className="flex items-center justify-end gap-2 mb-4">
+                            <button
+                              onClick={() => expandAllCategories(itemsForBar)}
+                              className="flex items-center gap-1 px-3 py-1.5 text-sm text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                              title="Expandir todas as categorias"
+                            >
+                              <MdKeyboardArrowDown className="h-4 w-4" />
+                              Expandir Todas
+                            </button>
+                            <button
+                              onClick={collapseAllCategories}
+                              className="flex items-center gap-1 px-3 py-1.5 text-sm text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                              title="Recolher todas as categorias"
+                            >
+                              <MdKeyboardArrowUp className="h-4 w-4" />
+                              Recolher Todas
+                            </button>
+                          </div>
+
+                          {/* Agrupar itens por categoria */}
+                          {(() => {
+                            // Agrupar itens por categoria
+                            const itemsByCategory = new Map<string, MenuItem[]>();
+                            itemsForBar.forEach((item) => {
+                              const category = menuData.categories.find((c) => c.id === item.categoryId);
+                              const categoryName = category?.name || 'Sem Categoria';
+                              const categoryKey = `${bar.id}-${item.categoryId}`;
+                              
+                              if (!itemsByCategory.has(categoryKey)) {
+                                itemsByCategory.set(categoryKey, []);
+                              }
+                              itemsByCategory.get(categoryKey)!.push(item);
+                            });
+
+                            return Array.from(itemsByCategory.entries()).map(([categoryKey, categoryItems]) => {
+                              const category = menuData.categories.find(
+                                (c) => c.id === categoryItems[0].categoryId
+                              );
+                              const categoryName = category?.name || 'Sem Categoria';
+                              const isCategoryExpanded = expandedCategories.has(categoryKey);
+                              
+                              // Agrupar itens da categoria por subcategoria
+                              const itemsBySubCategory = new Map<string, MenuItem[]>();
+                              categoryItems.forEach((item) => {
+                                const subCategory = item.subCategory || item.subCategoryName || 'Sem Subcategoria';
+                                const subCategoryKey = `${categoryKey}-${subCategory}`;
                                 
-                                return (
-                                  <tr
-                                    key={item.id}
-                                    className={`hover:bg-gray-50 ${isPaused ? 'opacity-60' : ''}`}
+                                if (!itemsBySubCategory.has(subCategoryKey)) {
+                                  itemsBySubCategory.set(subCategoryKey, []);
+                                }
+                                itemsBySubCategory.get(subCategoryKey)!.push(item);
+                              });
+
+                              const subCategories = Array.from(itemsBySubCategory.entries());
+                              const hasSubCategories = subCategories.length > 1 || (subCategories.length === 1 && subCategories[0][0] !== `${categoryKey}-Sem Subcategoria`);
+
+                              return (
+                                <div key={categoryKey} className="border border-gray-200 rounded-lg overflow-hidden bg-white">
+                                  {/* Cabeçalho da Categoria */}
+                                  <button
+                                    onClick={() => toggleCategory(categoryKey)}
+                                    className="w-full flex items-center justify-between px-4 py-3 bg-gray-50 hover:bg-gray-100 transition-colors"
                                   >
-                                    <td className="px-4 py-3 whitespace-nowrap">
+                                    <div className="flex items-center gap-3">
+                                      {isCategoryExpanded ? (
+                                        <MdKeyboardArrowUp className="h-5 w-5 text-gray-600" />
+                                      ) : (
+                                        <MdKeyboardArrowDown className="h-5 w-5 text-gray-600" />
+                                      )}
+                                      <span className="font-semibold text-gray-900">{categoryName}</span>
+                                      <span className="text-sm text-gray-500">({categoryItems.length} item{categoryItems.length !== 1 ? 's' : ''})</span>
+                                    </div>
+                                    <div className="flex items-center gap-2">
                                       <input
                                         type="checkbox"
                                         className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                                        checked={selectedItems.includes(item.id)}
-                                        onChange={(e) => handleSelectItem(item.id, e.target.checked)}
+                                        checked={categoryItems.every((item) => selectedItems.includes(item.id))}
+                                        onChange={(e) => {
+                                          e.stopPropagation();
+                                          if (e.target.checked) {
+                                            setSelectedItems((prev) => [
+                                              ...new Set([...prev, ...categoryItems.map((i) => i.id)]),
+                                            ]);
+                                          } else {
+                                            setSelectedItems((prev) =>
+                                              prev.filter((id) => !categoryItems.map((i) => i.id).includes(id))
+                                            );
+                                          }
+                                        }}
+                                        onClick={(e) => e.stopPropagation()}
                                       />
-                                    </td>
-                                    <td className="px-4 py-3">
-                                      <div className="text-sm font-medium text-gray-900">{item.name}</div>
-                                      {item.description && (
-                                        <div className="text-xs text-gray-500 line-clamp-1">{item.description}</div>
-                                      )}
-                                    </td>
-                                    <td className="px-4 py-3 whitespace-nowrap">
-                                      <div className="text-sm text-gray-900">{category?.name || '-'}</div>
-                                      {(item.subCategory || item.subCategoryName) && (
-                                        <div className="text-xs text-gray-500">{item.subCategory || item.subCategoryName}</div>
-                                      )}
-                                    </td>
-                                    <td className="px-4 py-3 whitespace-nowrap">
-                                      {isEditingPrice ? (
-                                        <div className="flex items-center gap-2">
-                                          <input
-                                            type="number"
-                                            step="0.01"
-                                            min="0"
-                                            value={editingPriceValue}
-                                            onChange={(e) => setEditingPriceValue(e.target.value)}
-                                            onBlur={() => {
-                                              const newPrice = parseFloat(editingPriceValue);
-                                              if (!isNaN(newPrice) && newPrice >= 0) {
-                                                handleQuickPriceUpdate(item.id, newPrice);
-                                              }
-                                              setEditingPriceId(null);
-                                              setEditingPriceValue('');
-                                            }}
-                                            onKeyDown={(e) => {
-                                              if (e.key === 'Enter') {
-                                                const newPrice = parseFloat(editingPriceValue);
-                                                if (!isNaN(newPrice) && newPrice >= 0) {
-                                                  handleQuickPriceUpdate(item.id, newPrice);
-                                                }
-                                                setEditingPriceId(null);
-                                                setEditingPriceValue('');
-                                              } else if (e.key === 'Escape') {
-                                                setEditingPriceId(null);
-                                                setEditingPriceValue('');
-                                              }
-                                            }}
-                                            className="w-24 rounded border border-gray-300 px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                            autoFocus
-                                          />
-                                        </div>
+                                    </div>
+                                  </button>
+
+                                  {/* Conteúdo da Categoria (Subcategorias e Itens) */}
+                                  {isCategoryExpanded && (
+                                    <div className="divide-y divide-gray-100">
+                                      {hasSubCategories ? (
+                                        // Renderizar subcategorias
+                                        subCategories.map(([subCategoryKey, subCategoryItems]) => {
+                                          const subCategory = subCategoryItems[0].subCategory || subCategoryItems[0].subCategoryName || 'Sem Subcategoria';
+                                          const isSubCategoryExpanded = expandedSubCategories.has(subCategoryKey);
+
+                                          return (
+                                            <div key={subCategoryKey} className="bg-white">
+                                              {/* Cabeçalho da Subcategoria */}
+                                              <button
+                                                onClick={() => toggleSubCategory(subCategoryKey)}
+                                                className="w-full flex items-center justify-between px-6 py-2.5 bg-gray-50 hover:bg-gray-100 transition-colors"
+                                              >
+                                                <div className="flex items-center gap-3">
+                                                  {isSubCategoryExpanded ? (
+                                                    <MdKeyboardArrowUp className="h-4 w-4 text-gray-500" />
+                                                  ) : (
+                                                    <MdKeyboardArrowDown className="h-4 w-4 text-gray-500" />
+                                                  )}
+                                                  <span className="text-sm font-medium text-gray-700">{subCategory}</span>
+                                                  <span className="text-xs text-gray-500">({subCategoryItems.length} item{subCategoryItems.length !== 1 ? 's' : ''})</span>
+                                                </div>
+                                                <input
+                                                  type="checkbox"
+                                                  className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                                  checked={subCategoryItems.every((item) => selectedItems.includes(item.id))}
+                                                  onChange={(e) => {
+                                                    e.stopPropagation();
+                                                    if (e.target.checked) {
+                                                      setSelectedItems((prev) => [
+                                                        ...new Set([...prev, ...subCategoryItems.map((i) => i.id)]),
+                                                      ]);
+                                                    } else {
+                                                      setSelectedItems((prev) =>
+                                                        prev.filter((id) => !subCategoryItems.map((i) => i.id).includes(id))
+                                                      );
+                                                    }
+                                                  }}
+                                                  onClick={(e) => e.stopPropagation()}
+                                                />
+                                              </button>
+
+                                              {/* Itens da Subcategoria */}
+                                              {isSubCategoryExpanded && (
+                                                <div className="overflow-x-auto">
+                                                  <table className="min-w-full">
+                                                    <thead className="bg-gray-50">
+                                                      <tr>
+                                                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-12">
+                                                          <input
+                                                            type="checkbox"
+                                                            className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                                            checked={subCategoryItems.every((item) => selectedItems.includes(item.id))}
+                                                            onChange={(e) => {
+                                                              if (e.target.checked) {
+                                                                setSelectedItems((prev) => [
+                                                                  ...new Set([...prev, ...subCategoryItems.map((i) => i.id)]),
+                                                                ]);
+                                                              } else {
+                                                                setSelectedItems((prev) =>
+                                                                  prev.filter((id) => !subCategoryItems.map((i) => i.id).includes(id))
+                                                                );
+                                                              }
+                                                            }}
+                                                          />
+                                                        </th>
+                                                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nome</th>
+                                                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Preço</th>
+                                                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ações</th>
+                                                      </tr>
+                                                    </thead>
+                                                    <tbody className="divide-y divide-gray-200 bg-white">
+                                                      {subCategoryItems.map((item) => {
+                                                        const isPaused = item.visible === 0 || item.visible === false;
+                                                        const isEditingPrice = editingPriceId === item.id;
+                                                        
+                                                        return (
+                                                          <tr
+                                                            key={item.id}
+                                                            className={`hover:bg-gray-50 ${isPaused ? 'opacity-60' : ''}`}
+                                                          >
+                                                            <td className="px-4 py-3 whitespace-nowrap">
+                                                              <input
+                                                                type="checkbox"
+                                                                className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                                                checked={selectedItems.includes(item.id)}
+                                                                onChange={(e) => handleSelectItem(item.id, e.target.checked)}
+                                                              />
+                                                            </td>
+                                                            <td className="px-4 py-3">
+                                                              <div className="text-sm font-medium text-gray-900">{item.name}</div>
+                                                              {item.description && (
+                                                                <div className="text-xs text-gray-500 line-clamp-1">{item.description}</div>
+                                                              )}
+                                                            </td>
+                                                            <td className="px-4 py-3 whitespace-nowrap">
+                                                              {isEditingPrice ? (
+                                                                <div className="flex items-center gap-2">
+                                                                  <input
+                                                                    type="number"
+                                                                    step="0.01"
+                                                                    min="0"
+                                                                    value={editingPriceValue}
+                                                                    onChange={(e) => setEditingPriceValue(e.target.value)}
+                                                                    onBlur={() => {
+                                                                      const newPrice = parseFloat(editingPriceValue);
+                                                                      if (!isNaN(newPrice) && newPrice >= 0) {
+                                                                        handleQuickPriceUpdate(item.id, newPrice);
+                                                                      }
+                                                                      setEditingPriceId(null);
+                                                                      setEditingPriceValue('');
+                                                                    }}
+                                                                    onKeyDown={(e) => {
+                                                                      if (e.key === 'Enter') {
+                                                                        const newPrice = parseFloat(editingPriceValue);
+                                                                        if (!isNaN(newPrice) && newPrice >= 0) {
+                                                                          handleQuickPriceUpdate(item.id, newPrice);
+                                                                        }
+                                                                        setEditingPriceId(null);
+                                                                        setEditingPriceValue('');
+                                                                      } else if (e.key === 'Escape') {
+                                                                        setEditingPriceId(null);
+                                                                        setEditingPriceValue('');
+                                                                      }
+                                                                    }}
+                                                                    className="w-24 rounded border border-gray-300 px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                                    autoFocus
+                                                                  />
+                                                                </div>
+                                                              ) : (
+                                                                <button
+                                                                  onClick={() => {
+                                                                    setEditingPriceId(item.id);
+                                                                    setEditingPriceValue(item.price.toString());
+                                                                  }}
+                                                                  className="text-sm font-medium text-green-600 hover:text-green-700 hover:underline"
+                                                                >
+                                                                  {formatPrice(item.price)}
+                                                                </button>
+                                                              )}
+                                                            </td>
+                                                            <td className="px-4 py-3 whitespace-nowrap">
+                                                              <button
+                                                                onClick={() => handleToggleItemVisibility(item.id, item.visible)}
+                                                                className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-medium ${
+                                                                  isPaused
+                                                                    ? 'bg-yellow-100 text-yellow-800 hover:bg-yellow-200'
+                                                                    : 'bg-green-100 text-green-800 hover:bg-green-200'
+                                                                }`}
+                                                              >
+                                                                {isPaused ? (
+                                                                  <>
+                                                                    <MdPause className="h-3 w-3" />
+                                                                    Pausado
+                                                                  </>
+                                                                ) : (
+                                                                  <>
+                                                                    <MdPlayArrow className="h-3 w-3" />
+                                                                    Ativo
+                                                                  </>
+                                                                )}
+                                                              </button>
+                                                            </td>
+                                                            <td className="px-4 py-3 whitespace-nowrap">
+                                                              <div className="flex items-center gap-2">
+                                                                {(isAdmin || (isPromoter && canManageBar(Number(item.barId)))) && (
+                                                                  <>
+                                                                    <button
+                                                                      onClick={() => handleEditItem(item)}
+                                                                      className="rounded bg-blue-600 p-1.5 text-white hover:bg-blue-700"
+                                                                      title="Editar item"
+                                                                    >
+                                                                      <MdEdit className="h-4 w-4" />
+                                                                    </button>
+                                                                    <button
+                                                                      onClick={() => handleDuplicateItem(item)}
+                                                                      className="rounded bg-purple-600 p-1.5 text-white hover:bg-purple-700"
+                                                                      title="Duplicar item"
+                                                                    >
+                                                                      <MdContentCopy className="h-4 w-4" />
+                                                                    </button>
+                                                                    <button
+                                                                      onClick={() => handleDeleteItem(item.id)}
+                                                                      className="rounded bg-red-600 p-1.5 text-white hover:bg-red-700"
+                                                                      title="Excluir item"
+                                                                    >
+                                                                      <MdDelete className="h-4 w-4" />
+                                                                    </button>
+                                                                  </>
+                                                                )}
+                                                              </div>
+                                                            </td>
+                                                          </tr>
+                                                        );
+                                                      })}
+                                                    </tbody>
+                                                  </table>
+                                                </div>
+                                              )}
+                                            </div>
+                                          );
+                                        })
                                       ) : (
-                                        <button
-                                          onClick={() => {
-                                            setEditingPriceId(item.id);
-                                            setEditingPriceValue(item.price.toString());
-                                          }}
-                                          className="text-sm font-medium text-green-600 hover:text-green-700 hover:underline"
-                                        >
-                                          {formatPrice(item.price)}
-                                        </button>
+                                        // Se não há subcategorias, renderizar itens diretamente
+                                        <div className="overflow-x-auto">
+                                          <table className="min-w-full">
+                                            <thead className="bg-gray-50">
+                                              <tr>
+                                                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-12">
+                                                  <input
+                                                    type="checkbox"
+                                                    className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                                    checked={categoryItems.every((item) => selectedItems.includes(item.id))}
+                                                    onChange={(e) => {
+                                                      if (e.target.checked) {
+                                                        setSelectedItems((prev) => [
+                                                          ...new Set([...prev, ...categoryItems.map((i) => i.id)]),
+                                                        ]);
+                                                      } else {
+                                                        setSelectedItems((prev) =>
+                                                          prev.filter((id) => !categoryItems.map((i) => i.id).includes(id))
+                                                        );
+                                                      }
+                                                    }}
+                                                  />
+                                                </th>
+                                                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nome</th>
+                                                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Preço</th>
+                                                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ações</th>
+                                              </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-gray-200 bg-white">
+                                              {categoryItems.map((item) => {
+                                                const isPaused = item.visible === 0 || item.visible === false;
+                                                const isEditingPrice = editingPriceId === item.id;
+                                                
+                                                return (
+                                                  <tr
+                                                    key={item.id}
+                                                    className={`hover:bg-gray-50 ${isPaused ? 'opacity-60' : ''}`}
+                                                  >
+                                                    <td className="px-4 py-3 whitespace-nowrap">
+                                                      <input
+                                                        type="checkbox"
+                                                        className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                                        checked={selectedItems.includes(item.id)}
+                                                        onChange={(e) => handleSelectItem(item.id, e.target.checked)}
+                                                      />
+                                                    </td>
+                                                    <td className="px-4 py-3">
+                                                      <div className="text-sm font-medium text-gray-900">{item.name}</div>
+                                                      {item.description && (
+                                                        <div className="text-xs text-gray-500 line-clamp-1">{item.description}</div>
+                                                      )}
+                                                    </td>
+                                                    <td className="px-4 py-3 whitespace-nowrap">
+                                                      {isEditingPrice ? (
+                                                        <div className="flex items-center gap-2">
+                                                          <input
+                                                            type="number"
+                                                            step="0.01"
+                                                            min="0"
+                                                            value={editingPriceValue}
+                                                            onChange={(e) => setEditingPriceValue(e.target.value)}
+                                                            onBlur={() => {
+                                                              const newPrice = parseFloat(editingPriceValue);
+                                                              if (!isNaN(newPrice) && newPrice >= 0) {
+                                                                handleQuickPriceUpdate(item.id, newPrice);
+                                                              }
+                                                              setEditingPriceId(null);
+                                                              setEditingPriceValue('');
+                                                            }}
+                                                            onKeyDown={(e) => {
+                                                              if (e.key === 'Enter') {
+                                                                const newPrice = parseFloat(editingPriceValue);
+                                                                if (!isNaN(newPrice) && newPrice >= 0) {
+                                                                  handleQuickPriceUpdate(item.id, newPrice);
+                                                                }
+                                                                setEditingPriceId(null);
+                                                                setEditingPriceValue('');
+                                                              } else if (e.key === 'Escape') {
+                                                                setEditingPriceId(null);
+                                                                setEditingPriceValue('');
+                                                              }
+                                                            }}
+                                                            className="w-24 rounded border border-gray-300 px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                            autoFocus
+                                                          />
+                                                        </div>
+                                                      ) : (
+                                                        <button
+                                                          onClick={() => {
+                                                            setEditingPriceId(item.id);
+                                                            setEditingPriceValue(item.price.toString());
+                                                          }}
+                                                          className="text-sm font-medium text-green-600 hover:text-green-700 hover:underline"
+                                                        >
+                                                          {formatPrice(item.price)}
+                                                        </button>
+                                                      )}
+                                                    </td>
+                                                    <td className="px-4 py-3 whitespace-nowrap">
+                                                      <button
+                                                        onClick={() => handleToggleItemVisibility(item.id, item.visible)}
+                                                        className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-medium ${
+                                                          isPaused
+                                                            ? 'bg-yellow-100 text-yellow-800 hover:bg-yellow-200'
+                                                            : 'bg-green-100 text-green-800 hover:bg-green-200'
+                                                        }`}
+                                                      >
+                                                        {isPaused ? (
+                                                          <>
+                                                            <MdPause className="h-3 w-3" />
+                                                            Pausado
+                                                          </>
+                                                        ) : (
+                                                          <>
+                                                            <MdPlayArrow className="h-3 w-3" />
+                                                            Ativo
+                                                          </>
+                                                        )}
+                                                      </button>
+                                                    </td>
+                                                    <td className="px-4 py-3 whitespace-nowrap">
+                                                      <div className="flex items-center gap-2">
+                                                        {(isAdmin || (isPromoter && canManageBar(Number(item.barId)))) && (
+                                                          <>
+                                                            <button
+                                                              onClick={() => handleEditItem(item)}
+                                                              className="rounded bg-blue-600 p-1.5 text-white hover:bg-blue-700"
+                                                              title="Editar item"
+                                                            >
+                                                              <MdEdit className="h-4 w-4" />
+                                                            </button>
+                                                            <button
+                                                              onClick={() => handleDuplicateItem(item)}
+                                                              className="rounded bg-purple-600 p-1.5 text-white hover:bg-purple-700"
+                                                              title="Duplicar item"
+                                                            >
+                                                              <MdContentCopy className="h-4 w-4" />
+                                                            </button>
+                                                            <button
+                                                              onClick={() => handleDeleteItem(item.id)}
+                                                              className="rounded bg-red-600 p-1.5 text-white hover:bg-red-700"
+                                                              title="Excluir item"
+                                                            >
+                                                              <MdDelete className="h-4 w-4" />
+                                                            </button>
+                                                          </>
+                                                        )}
+                                                      </div>
+                                                    </td>
+                                                  </tr>
+                                                );
+                                              })}
+                                            </tbody>
+                                          </table>
+                                        </div>
                                       )}
-                                    </td>
-                                    <td className="px-4 py-3 whitespace-nowrap">
-                                      <button
-                                        onClick={() => handleToggleItemVisibility(item.id, item.visible)}
-                                        className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-medium ${
-                                          isPaused
-                                            ? 'bg-yellow-100 text-yellow-800 hover:bg-yellow-200'
-                                            : 'bg-green-100 text-green-800 hover:bg-green-200'
-                                        }`}
-                                      >
-                                        {isPaused ? (
-                                          <>
-                                            <MdPause className="h-3 w-3" />
-                                            Pausado
-                                          </>
-                                        ) : (
-                                          <>
-                                            <MdPlayArrow className="h-3 w-3" />
-                                            Ativo
-                                          </>
-                                        )}
-                                      </button>
-                                    </td>
-                                    <td className="px-4 py-3 whitespace-nowrap">
-                                      <div className="flex items-center gap-2">
-                                        {(isAdmin || (isPromoter && canManageBar(Number(item.barId)))) && (
-                                          <>
-                                            <button
-                                              onClick={() => handleEditItem(item)}
-                                              className="rounded bg-blue-600 p-1.5 text-white hover:bg-blue-700"
-                                              title="Editar item"
-                                            >
-                                              <MdEdit className="h-4 w-4" />
-                                            </button>
-                                            <button
-                                              onClick={() => handleDuplicateItem(item)}
-                                              className="rounded bg-purple-600 p-1.5 text-white hover:bg-purple-700"
-                                              title="Duplicar item"
-                                            >
-                                              <MdContentCopy className="h-4 w-4" />
-                                            </button>
-                                            <button
-                                              onClick={() => handleDeleteItem(item.id)}
-                                              className="rounded bg-red-600 p-1.5 text-white hover:bg-red-700"
-                                              title="Excluir item"
-                                            >
-                                              <MdDelete className="h-4 w-4" />
-                                            </button>
-                                          </>
-                                        )}
-                                      </div>
-                                    </td>
-                                  </tr>
-                                );
-                              })}
-                            </tbody>
-                          </table>
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            });
+                          })()}
                         </div>
                       )}
                     </div>
