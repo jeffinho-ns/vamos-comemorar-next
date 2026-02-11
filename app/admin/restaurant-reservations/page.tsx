@@ -31,6 +31,12 @@ import {
   BirthdayReservation,
 } from "../../services/birthdayService";
 import { useEstablishmentPermissions } from "@/app/hooks/useEstablishmentPermissions";
+import {
+  getReservationStatusColor,
+  getReservationStatusText,
+  isReservationStatus,
+  isReservationStatusOneOf,
+} from "@/app/utils/reservationStatus";
 
 interface Establishment {
   id: number;
@@ -858,8 +864,7 @@ export default function RestaurantReservationsPage() {
         })();
         return (
           reservationDate === dateString &&
-          (reservation.status === "confirmed" ||
-            reservation.status === "checked-in")
+          isReservationStatusOneOf(reservation.status, ["confirmed", "seated"])
         );
       });
       const totalPeopleReserved = activeReservations.reduce(
@@ -1118,6 +1123,18 @@ export default function RestaurantReservationsPage() {
     selectedEstablishment &&
     (selectedEstablishment.name || "").toLowerCase().includes("seu justino") &&
     !(selectedEstablishment.name || "").toLowerCase().includes("pracinha");
+
+  const isReservaRooftop =
+    selectedEstablishment &&
+    (selectedEstablishment.name || "")
+      .toLowerCase()
+      .includes("reserva rooftop");
+
+  const isConfirmedReservationStatus = (status?: string | null) =>
+    isReservationStatus(status, "confirmed");
+
+  const isSeatedReservationStatus = (status?: string | null) =>
+    isReservationStatus(status, "seated");
 
   // Função helper para mapear mesa -> área do Seu Justino
   const getSeuJustinoAreaName = useCallback(
@@ -2345,8 +2362,10 @@ export default function RestaurantReservationsPage() {
                                       })();
                                       return (
                                         reservationDate === dateString &&
-                                        (reservation.status === "confirmed" ||
-                                          reservation.status === "checked-in")
+                                        isReservationStatusOneOf(
+                                          reservation.status,
+                                          ["confirmed", "seated"],
+                                        )
                                       );
                                     });
                                   const totalPeopleReserved =
@@ -2486,26 +2505,14 @@ export default function RestaurantReservationsPage() {
                             </div>
                             <span
                               className={`px-2 py-1 rounded-full text-xs font-medium flex-shrink-0 ${
-                                reservation.status === "confirmed"
-                                  ? "bg-green-100 text-green-800"
-                                  : reservation.status === "checked-in"
-                                    ? "bg-blue-100 text-blue-800"
-                                    : reservation.status === "completed"
-                                      ? "bg-gray-100 text-gray-800"
-                                      : reservation.status === "pending"
-                                        ? "bg-yellow-100 text-yellow-800"
-                                        : "bg-red-100 text-red-800"
+                                getReservationStatusColor(reservation.status, {
+                                  isReservaRooftop: Boolean(isReservaRooftop),
+                                })
                               }`}
                             >
-                              {reservation.status === "confirmed"
-                                ? "Confirmada"
-                                : reservation.status === "checked-in"
-                                  ? "Check-in"
-                                  : reservation.status === "completed"
-                                    ? "Finalizada"
-                                    : reservation.status === "pending"
-                                      ? "Pendente"
-                                      : "Cancelada"}
+                              {getReservationStatusText(reservation.status, {
+                                isReservaRooftop: Boolean(isReservaRooftop),
+                              })}
                             </span>
                           </div>
                           <div className="space-y-1 text-sm text-gray-600">
@@ -2533,7 +2540,7 @@ export default function RestaurantReservationsPage() {
                             )}
                           </div>
                           <div className="flex flex-col sm:flex-row gap-2 mt-3">
-                            {reservation.status === "confirmed" && (
+                            {isConfirmedReservationStatus(reservation.status) && (
                               <button
                                 onClick={() => handleCheckIn(reservation)}
                                 className="flex-1 px-3 py-1 bg-green-500 hover:bg-green-600 text-white text-sm rounded transition-colors"
@@ -2541,7 +2548,7 @@ export default function RestaurantReservationsPage() {
                                 Check-in
                               </button>
                             )}
-                            {reservation.status === "checked-in" && (
+                            {isSeatedReservationStatus(reservation.status) && (
                               <button
                                 onClick={() => handleCheckOut(reservation)}
                                 className="flex-1 px-3 py-1 bg-orange-500 hover:bg-orange-600 text-white text-sm rounded transition-colors"
@@ -3146,14 +3153,18 @@ export default function RestaurantReservationsPage() {
                                             onClick={() =>
                                               handleStatusChange(
                                                 r,
-                                                r.status === "confirmed"
+                                                isConfirmedReservationStatus(
+                                                  r.status,
+                                                )
                                                   ? "pending"
                                                   : "confirmed",
                                               )
                                             }
-                                            className={`px-2 py-1 rounded text-xs font-medium ${r.status === "confirmed" ? "bg-green-100 text-green-800 border border-green-200" : "bg-gray-100 text-gray-700 border border-gray-200"}`}
+                                            className={`px-2 py-1 rounded text-xs font-medium ${isConfirmedReservationStatus(r.status) ? "bg-green-100 text-green-800 border border-green-200" : "bg-gray-100 text-gray-700 border border-gray-200"}`}
                                           >
-                                            {r.status === "confirmed"
+                                            {isConfirmedReservationStatus(
+                                              r.status,
+                                            )
                                               ? "Confirmado"
                                               : "Pendente"}
                                           </button>

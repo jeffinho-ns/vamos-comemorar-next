@@ -4,12 +4,17 @@ import { motion, AnimatePresence } from "framer-motion";
 import { MdClose, MdPerson, MdPhone, MdEmail, MdPeople, MdLocationOn, MdNote } from "react-icons/md";
 
 import { Reservation } from '@/app/types/reservation';
+import {
+  getReservationStatusColor,
+  getReservationStatusText,
+} from "@/app/utils/reservationStatus";
 
 interface ReservationsDayModalProps {
   isOpen: boolean;
   onClose: () => void;
   date: Date;
   reservations: Reservation[];
+  isReservaRooftop?: boolean;
   onReservationClick: (reservation: Reservation) => void;
 }
 
@@ -18,6 +23,7 @@ export default function ReservationsDayModal({
   onClose,
   date,
   reservations,
+  isReservaRooftop = false,
   onReservationClick
 }: ReservationsDayModalProps) {
   const getStatusColor = (status: string, notes?: string) => {
@@ -25,12 +31,7 @@ export default function ReservationsDayModal({
     if (notes && notes.includes('ESPERA ANTECIPADA')) {
       return 'bg-orange-100 text-orange-800 border-orange-200';
     }
-    switch (status) {
-      case 'confirmed': return 'bg-green-100 text-green-800 border-green-200';
-      case 'pending': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-      case 'cancelled': return 'bg-red-100 text-red-800 border-red-200';
-      default: return 'bg-gray-100 text-gray-800 border-gray-200';
-    }
+    return getReservationStatusColor(status, { withBorder: true, isReservaRooftop });
   };
 
   const getStatusText = (status: string, notes?: string) => {
@@ -38,12 +39,7 @@ export default function ReservationsDayModal({
     if (notes && notes.includes('ESPERA ANTECIPADA')) {
       return 'ESPERA ANTECIPADA';
     }
-    switch (status) {
-      case 'confirmed': return 'Confirmada';
-      case 'pending': return 'Pendente';
-      case 'cancelled': return 'Cancelada';
-      default: return status;
-    }
+    return getReservationStatusText(status, { isReservaRooftop });
   };
 
   const formatDate = (date: Date) => {
