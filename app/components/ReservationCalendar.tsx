@@ -56,6 +56,7 @@ export default function ReservationCalendar({
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [selectedReservation, setSelectedReservation] = useState<Reservation | null>(null);
   const [selectedDayReservations, setSelectedDayReservations] = useState<Reservation[]>([]);
+  const isReservaRooftop = (establishment?.name || '').toLowerCase().includes('reserva rooftop');
 
   // Total de mesas por estabelecimento (Highline = 36, Seu Justino = 29)
   const getTotalTablesForEstablishment = () => {
@@ -483,6 +484,7 @@ export default function ReservationCalendar({
       isOpen={showDetailsModal}
       onClose={handleCloseDetailsModal}
       reservation={selectedReservation}
+      isReservaRooftop={isReservaRooftop}
       onEdit={onEditReservation ? handleEditReservation : undefined}
       onDelete={onDeleteReservation ? handleDeleteReservation : undefined}
       onStatusChange={onStatusChange ? handleStatusChange : undefined}

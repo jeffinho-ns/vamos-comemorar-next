@@ -32,6 +32,7 @@ interface ReservationDetailsModalProps {
   isOpen: boolean;
   onClose: () => void;
   reservation: Reservation | null;
+  isReservaRooftop?: boolean;
   onEdit?: (reservation: Reservation) => void;
   onDelete?: (reservation: Reservation) => void;
   onStatusChange?: (reservation: Reservation, newStatus: string) => void;
@@ -42,6 +43,7 @@ export default function ReservationDetailsModal({
   isOpen,
   onClose,
   reservation,
+  isReservaRooftop = false,
   onEdit,
   onDelete,
   onStatusChange,
@@ -543,10 +545,52 @@ export default function ReservationDetailsModal({
     (reservation as any).area_id
   ) || reservation.area_name;
 
+  const normalizeRooftopStatus = (status: string) => {
+    const normalized = String(status || '')
+      .trim()
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[_\s]+/g, '-');
+
+    if (normalized === 'nova' || normalized === 'new') return 'new';
+    if (normalized === 'confirmada' || normalized === 'confirmed') return 'confirmed';
+    if (
+      normalized === 'cancelada' ||
+      normalized === 'cancelled' ||
+      normalized === 'canceled' ||
+      normalized === 'cancel'
+    ) {
+      return 'cancelled';
+    }
+    if (
+      normalized === 'sentada' ||
+      normalized === 'checked-in' ||
+      normalized === 'checkedin' ||
+      normalized === 'check-in' ||
+      normalized === 'checkin'
+    ) {
+      return 'seated';
+    }
+    if (normalized === 'pendente' || normalized === 'pending') return 'pending';
+
+    return normalized;
+  };
+
   const getStatusColor = (status: string, notes?: string) => {
     // Verificar se é espera antecipada primeiro
     if (notes && notes.includes('ESPERA ANTECIPADA')) {
       return 'bg-orange-100 text-orange-800 border-orange-200';
+    }
+    if (isReservaRooftop) {
+      switch (normalizeRooftopStatus(status)) {
+        case 'new': return 'bg-sky-100 text-sky-800 border-sky-200';
+        case 'confirmed': return 'bg-green-100 text-green-800 border-green-200';
+        case 'cancelled': return 'bg-red-100 text-red-800 border-red-200';
+        case 'seated': return 'bg-indigo-100 text-indigo-800 border-indigo-200';
+        case 'pending': return 'bg-amber-100 text-amber-800 border-amber-200';
+        default: return 'bg-gray-100 text-gray-800 border-gray-200';
+      }
     }
     switch (status) {
       case 'confirmed': return 'bg-green-100 text-green-800 border-green-200';
@@ -560,6 +604,16 @@ export default function ReservationDetailsModal({
     // Verificar se é espera antecipada primeiro
     if (notes && notes.includes('ESPERA ANTECIPADA')) {
       return 'ESPERA ANTECIPADA';
+    }
+    if (isReservaRooftop) {
+      switch (normalizeRooftopStatus(status)) {
+        case 'new': return 'Reserva nova';
+        case 'confirmed': return 'Reserva confirmada';
+        case 'cancelled': return 'Reserva cancelada';
+        case 'seated': return 'Reserva sentada';
+        case 'pending': return 'Reserva pendente';
+        default: return status;
+      }
     }
     switch (status) {
       case 'confirmed': return 'Confirmada';
@@ -945,34 +999,90 @@ export default function ReservationDetailsModal({
                   Ações de Status
                 </h3>
                 <div className="flex flex-wrap gap-2">
-                  {reservation.status !== 'confirmed' && (
-                    <button
-                      onClick={() => handleStatusChange('confirmed')}
-                      className="flex items-center gap-2 px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg transition-colors"
-                    >
-                      <MdCheckCircle />
-                      Confirmar
-                    </button>
-                  )}
-                  
-                  {reservation.status !== 'pending' && (
-                    <button
-                      onClick={() => handleStatusChange('pending')}
-                      className="flex items-center gap-2 px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-white rounded-lg transition-colors"
-                    >
-                      <MdAccessTime />
-                      Marcar como Pendente
-                    </button>
-                  )}
-                  
-                  {reservation.status !== 'cancelled' && (
-                    <button
-                      onClick={() => handleStatusChange('cancelled')}
-                      className="flex items-center gap-2 px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-colors"
-                    >
-                      <MdCancel />
-                      Cancelar
-                    </button>
+                  {isReservaRooftop ? (
+                    <>
+                      {normalizeRooftopStatus(reservation.status) !== 'new' && (
+                        <button
+                          onClick={() => handleStatusChange('NOVA')}
+                          className="flex items-center gap-2 px-4 py-2 bg-sky-500 hover:bg-sky-600 text-white rounded-lg transition-colors"
+                        >
+                          <MdCalendarToday />
+                          Reserva nova
+                        </button>
+                      )}
+
+                      {normalizeRooftopStatus(reservation.status) !== 'confirmed' && (
+                        <button
+                          onClick={() => handleStatusChange('confirmed')}
+                          className="flex items-center gap-2 px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg transition-colors"
+                        >
+                          <MdCheckCircle />
+                          Reserva confirmada
+                        </button>
+                      )}
+
+                      {normalizeRooftopStatus(reservation.status) !== 'cancelled' && (
+                        <button
+                          onClick={() => handleStatusChange('cancelled')}
+                          className="flex items-center gap-2 px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-colors"
+                        >
+                          <MdCancel />
+                          Reserva cancelada
+                        </button>
+                      )}
+
+                      {normalizeRooftopStatus(reservation.status) !== 'seated' && (
+                        <button
+                          onClick={() => handleStatusChange('checked-in')}
+                          className="flex items-center gap-2 px-4 py-2 bg-indigo-500 hover:bg-indigo-600 text-white rounded-lg transition-colors"
+                        >
+                          <MdPerson />
+                          Reserva sentada
+                        </button>
+                      )}
+
+                      {normalizeRooftopStatus(reservation.status) !== 'pending' && (
+                        <button
+                          onClick={() => handleStatusChange('pending')}
+                          className="flex items-center gap-2 px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg transition-colors"
+                        >
+                          <MdAccessTime />
+                          Reserva pendente
+                        </button>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      {reservation.status !== 'confirmed' && (
+                        <button
+                          onClick={() => handleStatusChange('confirmed')}
+                          className="flex items-center gap-2 px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg transition-colors"
+                        >
+                          <MdCheckCircle />
+                          Confirmar
+                        </button>
+                      )}
+
+                      {reservation.status !== 'pending' && (
+                        <button
+                          onClick={() => handleStatusChange('pending')}
+                          className="flex items-center gap-2 px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-white rounded-lg transition-colors"
+                        >
+                          <MdAccessTime />
+                          Marcar como Pendente
+                        </button>
+                      )}
+
+                      {reservation.status !== 'cancelled' && (
+                        <button
+                          onClick={() => handleStatusChange('cancelled')}
+                          className="flex items-center gap-2 px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-colors"
+                        >
+                          <MdCancel />
+                          Cancelar
+                        </button>
+                      )}
+                    </>
                   )}
                 </div>
               </div>
