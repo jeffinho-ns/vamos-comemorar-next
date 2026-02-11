@@ -588,6 +588,11 @@ export default function ReservationDetailsModal({
     }
   };
 
+  const statusActionButtonBaseClass =
+    "w-full h-11 flex items-center justify-center gap-2 px-4 py-2 text-white rounded-lg transition-colors text-sm font-medium";
+  const footerActionButtonBaseClass =
+    "w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2 text-white rounded-lg transition-colors";
+
   return (
     <AnimatePresence>
       {isOpen && (
@@ -944,13 +949,13 @@ export default function ReservationDetailsModal({
                 <h3 className="text-lg font-semibold text-gray-800 mb-4">
                   Ações de Status
                 </h3>
-                <div className="flex flex-wrap gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
                   {isReservaRooftop ? (
                     <>
                       {!isReservationStatus(reservation.status, 'new') && (
                         <button
                           onClick={() => handleStatusChange('NOVA')}
-                          className="flex items-center gap-2 px-4 py-2 bg-sky-500 hover:bg-sky-600 text-white rounded-lg transition-colors"
+                          className={`${statusActionButtonBaseClass} bg-sky-500 hover:bg-sky-600`}
                         >
                           <MdCalendarToday />
                           Reserva nova
@@ -960,7 +965,7 @@ export default function ReservationDetailsModal({
                       {!isReservationStatus(reservation.status, 'confirmed') && (
                         <button
                           onClick={() => handleStatusChange('confirmed')}
-                          className="flex items-center gap-2 px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg transition-colors"
+                          className={`${statusActionButtonBaseClass} bg-green-500 hover:bg-green-600`}
                         >
                           <MdCheckCircle />
                           Reserva confirmada
@@ -970,7 +975,7 @@ export default function ReservationDetailsModal({
                       {!isReservationStatus(reservation.status, 'cancelled') && (
                         <button
                           onClick={() => handleStatusChange('cancelled')}
-                          className="flex items-center gap-2 px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-colors"
+                          className={`${statusActionButtonBaseClass} bg-red-500 hover:bg-red-600`}
                         >
                           <MdCancel />
                           Reserva cancelada
@@ -980,7 +985,7 @@ export default function ReservationDetailsModal({
                       {!isReservationStatus(reservation.status, 'seated') && (
                         <button
                           onClick={() => handleStatusChange('checked-in')}
-                          className="flex items-center gap-2 px-4 py-2 bg-indigo-500 hover:bg-indigo-600 text-white rounded-lg transition-colors"
+                          className={`${statusActionButtonBaseClass} bg-indigo-500 hover:bg-indigo-600`}
                         >
                           <MdPerson />
                           Reserva sentada
@@ -990,7 +995,7 @@ export default function ReservationDetailsModal({
                       {!isReservationStatus(reservation.status, 'pending') && (
                         <button
                           onClick={() => handleStatusChange('pending')}
-                          className="flex items-center gap-2 px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg transition-colors"
+                          className={`${statusActionButtonBaseClass} bg-amber-500 hover:bg-amber-600`}
                         >
                           <MdAccessTime />
                           Reserva pendente
@@ -1002,7 +1007,7 @@ export default function ReservationDetailsModal({
                       {!isReservationStatus(reservation.status, 'confirmed') && (
                         <button
                           onClick={() => handleStatusChange('confirmed')}
-                          className="flex items-center gap-2 px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg transition-colors"
+                          className={`${statusActionButtonBaseClass} bg-green-500 hover:bg-green-600`}
                         >
                           <MdCheckCircle />
                           Confirmar
@@ -1012,7 +1017,7 @@ export default function ReservationDetailsModal({
                       {!isReservationStatus(reservation.status, 'pending') && (
                         <button
                           onClick={() => handleStatusChange('pending')}
-                          className="flex items-center gap-2 px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-white rounded-lg transition-colors"
+                          className={`${statusActionButtonBaseClass} bg-yellow-500 hover:bg-yellow-600`}
                         >
                           <MdAccessTime />
                           Marcar como Pendente
@@ -1022,7 +1027,7 @@ export default function ReservationDetailsModal({
                       {!isReservationStatus(reservation.status, 'cancelled') && (
                         <button
                           onClick={() => handleStatusChange('cancelled')}
-                          className="flex items-center gap-2 px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-colors"
+                          className={`${statusActionButtonBaseClass} bg-red-500 hover:bg-red-600`}
                         >
                           <MdCancel />
                           Cancelar
@@ -1035,12 +1040,12 @@ export default function ReservationDetailsModal({
             </div>
 
             {/* Footer */}
-            <div className="flex justify-between p-6 border-t border-gray-200">
-              <div className="flex gap-2 flex-wrap">
+            <div className="p-6 border-t border-gray-200">
+              <div className="flex flex-wrap gap-2">
                 {onEdit && (
                   <button
                     onClick={() => onEdit(reservation)}
-                    className="flex items-center gap-2 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors"
+                    className={`${footerActionButtonBaseClass} bg-blue-500 hover:bg-blue-600`}
                   >
                     <MdEdit />
                     Editar
@@ -1050,7 +1055,7 @@ export default function ReservationDetailsModal({
                 {onAddGuestList && (
                   <button
                     onClick={() => onAddGuestList(reservation)}
-                    className="flex items-center gap-2 px-4 py-2 bg-purple-500 hover:bg-purple-600 text-white rounded-lg transition-colors"
+                    className={`${footerActionButtonBaseClass} bg-purple-500 hover:bg-purple-600`}
                     title="Adicionar lista de convidados a esta reserva"
                   >
                     <MdPlaylistAdd />
@@ -1061,7 +1066,7 @@ export default function ReservationDetailsModal({
                 {reservation.establishment_id && (
                   <button
                     onClick={() => setShowLinkEventModal(true)}
-                    className="flex items-center gap-2 px-4 py-2 bg-indigo-500 hover:bg-indigo-600 text-white rounded-lg transition-colors"
+                    className={`${footerActionButtonBaseClass} bg-indigo-500 hover:bg-indigo-600`}
                     title="Vincular esta reserva a um evento e copiar a lista de convidados"
                   >
                     <MdEvent />
@@ -1072,20 +1077,22 @@ export default function ReservationDetailsModal({
                 {onDelete && (
                   <button
                     onClick={() => onDelete(reservation)}
-                    className="flex items-center gap-2 px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-colors"
+                    className={`${footerActionButtonBaseClass} bg-red-500 hover:bg-red-600`}
                   >
                     <MdDelete />
                     Excluir
                   </button>
                 )}
               </div>
-              
-              <button
-                onClick={onClose}
-                className="px-6 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded-lg transition-colors"
-              >
-                Fechar
-              </button>
+
+              <div className="flex justify-end mt-3">
+                <button
+                  onClick={onClose}
+                  className={`${footerActionButtonBaseClass} bg-gray-500 hover:bg-gray-600 sm:w-auto`}
+                >
+                  Fechar
+                </button>
+              </div>
             </div>
           </motion.div>
         </motion.div>
