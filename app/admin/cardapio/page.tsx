@@ -82,7 +82,7 @@ interface MenuCategoryForm {
   name: string;
   barId: string;
   order: number;
-  subCategories: { name: string; order: number }[]; // Adicionado para gerenciar sub-categorias
+  subCategories: { id?: string | number; name: string; order: number }[]; // Adicionado para gerenciar sub-categorias
 }
 
 interface BarForm {
@@ -438,6 +438,7 @@ export default function CardapioAdminPage() {
 
   const [newTopping, setNewTopping] = useState({ name: '', price: '' });
   const [imageIndexVersion, setImageIndexVersion] = useState(0);
+  const [availableSubCategories, setAvailableSubCategories] = useState<Array<{ name: string; order: number }>>([]);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -905,6 +906,7 @@ export default function CardapioAdminPage() {
       seals: [],
     });
     setNewTopping({ name: '', price: '' });
+    setAvailableSubCategories([]);
   }, []);
 
   const handleOpenQuickEditModal = async (barId: string | number, categoryId: string | number) => {
@@ -1823,8 +1825,60 @@ export default function CardapioAdminPage() {
         const savedCategory = await response.json();
         const categoryId = editingCategory ? editingCategory.id : savedCategory.id;
 
+        // Salvar subcategorias usando a API
         if (categoryForm.subCategories.length > 0) {
-          console.log('ℹ️ Sub-categorias serão aplicadas automaticamente aos itens desta categoria');
+          console.log('🔄 Salvando subcategorias:', categoryForm.subCategories);
+          
+          // Filtrar apenas subcategorias com nome válido
+          const validSubCategories = categoryForm.subCategories.filter(
+            (sub) => sub.name && sub.name.trim() !== ''
+          );
+
+          for (const subCategory of validSubCategories) {
+            try {
+              // Se a subcategoria já tem ID, ela já existe no banco - não precisa criar novamente
+              if (subCategory.id) {
+                console.log(`ℹ️ Subcategoria "${subCategory.name}" já existe (ID: ${subCategory.id})`);
+                continue;
+              }
+
+              // Verificar se a subcategoria já existe (por nome)
+              const checkResponse = await fetch(
+                `${API_BASE_URL}/subcategories/category/${categoryId}`
+              );
+              
+              if (checkResponse.ok) {
+                const existingSubCategories = await checkResponse.json();
+                const exists = existingSubCategories.some(
+                  (sub: any) => sub.name === subCategory.name.trim()
+                );
+
+                if (!exists) {
+                  // Criar nova subcategoria
+                  const createResponse = await fetch(`${API_BASE_URL}/subcategories`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      name: subCategory.name.trim(),
+                      categoryId: categoryId,
+                      barId: categoryForm.barId,
+                      order: subCategory.order || 0,
+                    }),
+                  });
+
+                  if (createResponse.ok) {
+                    console.log(`✅ Subcategoria "${subCategory.name}" criada com sucesso`);
+                  } else {
+                    console.error(`❌ Erro ao criar subcategoria "${subCategory.name}"`);
+                  }
+                } else {
+                  console.log(`ℹ️ Subcategoria "${subCategory.name}" já existe`);
+                }
+              }
+            } catch (subError) {
+              console.error(`❌ Erro ao salvar subcategoria "${subCategory.name}":`, subError);
+            }
+          }
         }
 
         console.log('✅ Categoria e sub-categorias salvas com sucesso');
@@ -1998,23 +2052,56 @@ export default function CardapioAdminPage() {
   }, []);
 
   const handleEditCategory = useCallback(
-    (category: MenuCategory) => {
+    async (category: MenuCategory) => {
       setEditingCategory(category);
 
-      const categorySubCategories = menuData.items
-        .filter(
-          (item) =>
-            item.categoryId === category.id &&
-            item.subCategoryName &&
-            item.subCategoryName.trim() !== '',
-        )
-        .reduce((acc: any[], item) => {
-          const existing = acc.find((sub) => sub.name === item.subCategoryName);
-          if (!existing) {
-            acc.push({ name: item.subCategoryName, order: 0 });
-          }
-          return acc;
-        }, []);
+      // Carregar subcategorias da API
+      let categorySubCategories: { id?: string | number; name: string; order: number }[] = [];
+      
+      try {
+        const response = await fetch(`${API_BASE_URL}/subcategories/category/${category.id}`);
+        if (response.ok) {
+          const apiSubCategories = await response.json();
+          categorySubCategories = apiSubCategories.map((sub: any) => ({
+            id: sub.id, // Salvar o ID para poder excluir depois
+            name: sub.name,
+            order: sub.order || 0,
+          }));
+        } else {
+          // Fallback: extrair dos itens locais
+          categorySubCategories = menuData.items
+            .filter(
+              (item) =>
+                item.categoryId === category.id &&
+                item.subCategoryName &&
+                item.subCategoryName.trim() !== '',
+            )
+            .reduce((acc: any[], item) => {
+              const existing = acc.find((sub) => sub.name === item.subCategoryName);
+              if (!existing) {
+                acc.push({ name: item.subCategoryName, order: 0 });
+              }
+              return acc;
+            }, []);
+        }
+      } catch (error) {
+        console.error('❌ Erro ao carregar subcategorias:', error);
+        // Fallback: extrair dos itens locais
+        categorySubCategories = menuData.items
+          .filter(
+            (item) =>
+              item.categoryId === category.id &&
+              item.subCategoryName &&
+              item.subCategoryName.trim() !== '',
+          )
+          .reduce((acc: any[], item) => {
+            const existing = acc.find((sub) => sub.name === item.subCategoryName);
+            if (!existing) {
+              acc.push({ name: item.subCategoryName, order: 0 });
+            }
+            return acc;
+          }, []);
+      }
 
       setCategoryForm({
         name: category.name,
@@ -2027,7 +2114,7 @@ export default function CardapioAdminPage() {
     [menuData.items],
   );
 
-  const handleEditItem = useCallback((item: MenuItem) => {
+  const handleEditItem = useCallback(async (item: MenuItem) => {
     setEditingItem(item);
     setItemForm({
       name: item.name,
@@ -2041,6 +2128,30 @@ export default function CardapioAdminPage() {
       order: item.order,
       seals: item.seals || [],
     });
+    
+    // Carregar subcategorias da categoria selecionada
+    if (item.categoryId) {
+      try {
+        const response = await fetch(`${API_BASE_URL}/subcategories/category/${item.categoryId}`);
+        if (response.ok) {
+          const subCategories = await response.json();
+          setAvailableSubCategories(
+            subCategories.map((sub: any) => ({
+              name: sub.name,
+              order: sub.order || 0,
+            })).sort((a: any, b: any) => a.order - b.order)
+          );
+        } else {
+          setAvailableSubCategories([]);
+        }
+      } catch (error) {
+        console.error('❌ Erro ao carregar subcategorias:', error);
+        setAvailableSubCategories([]);
+      }
+    } else {
+      setAvailableSubCategories([]);
+    }
+    
     setShowItemModal(true);
   }, []);
 
@@ -2760,6 +2871,37 @@ export default function CardapioAdminPage() {
       setFilterSubCategory('');
     }
   }, [filterCategoryId]);
+
+  // Carregar subcategorias quando categoria for selecionada no modal de item
+  useEffect(() => {
+    const loadSubCategories = async () => {
+      if (itemForm.categoryId) {
+        try {
+          const response = await fetch(`${API_BASE_URL}/subcategories/category/${itemForm.categoryId}`);
+          if (response.ok) {
+            const subCategories = await response.json();
+            setAvailableSubCategories(
+              subCategories.map((sub: any) => ({
+                name: sub.name,
+                order: sub.order || 0,
+              })).sort((a: any, b: any) => a.order - b.order)
+            );
+          } else {
+            setAvailableSubCategories([]);
+          }
+        } catch (error) {
+          console.error('❌ Erro ao carregar subcategorias:', error);
+          setAvailableSubCategories([]);
+        }
+      } else {
+        setAvailableSubCategories([]);
+        // Limpar subcategoria selecionada quando não há categoria
+        setItemForm((prev) => ({ ...prev, subCategory: '' }));
+      }
+    };
+
+    loadSubCategories();
+  }, [itemForm.categoryId]);
 
   // Filtragem de itens com useMemo
   const filteredItems = useMemo(() => {
@@ -4802,13 +4944,45 @@ export default function CardapioAdminPage() {
                     />
                     <button
                       type="button"
-                      onClick={() => {
-                        const newSubCategories = categoryForm.subCategories.filter(
-                          (_, i) => i !== index,
-                        );
-                        setCategoryForm((prev) => ({ ...prev, subCategories: newSubCategories }));
+                      onClick={async () => {
+                        const subCategoryToRemove = categoryForm.subCategories[index];
+                        
+                        // Se a subcategoria tem ID (já existe no banco), excluir via API
+                        if (subCategoryToRemove.id) {
+                          if (!confirm(`Tem certeza que deseja excluir a subcategoria "${subCategoryToRemove.name}"?\n\n⚠️ Esta ação não pode ser desfeita.`)) {
+                            return;
+                          }
+                          
+                          try {
+                            const response = await fetch(`${API_BASE_URL}/subcategories/${subCategoryToRemove.id}`, {
+                              method: 'DELETE',
+                            });
+                            
+                            if (response.ok) {
+                              // Remover do estado local
+                              const newSubCategories = categoryForm.subCategories.filter(
+                                (_, i) => i !== index,
+                              );
+                              setCategoryForm((prev) => ({ ...prev, subCategories: newSubCategories }));
+                              alert('Subcategoria excluída com sucesso!');
+                            } else {
+                              const errorData = await response.json();
+                              alert(`Erro ao excluir subcategoria: ${errorData.error || 'Erro desconhecido'}`);
+                            }
+                          } catch (error) {
+                            console.error('❌ Erro ao excluir subcategoria:', error);
+                            alert('Erro ao excluir subcategoria. Tente novamente.');
+                          }
+                        } else {
+                          // Se não tem ID (é nova e ainda não foi salva), apenas remover do estado local
+                          const newSubCategories = categoryForm.subCategories.filter(
+                            (_, i) => i !== index,
+                          );
+                          setCategoryForm((prev) => ({ ...prev, subCategories: newSubCategories }));
+                        }
                       }}
                       className="px-2 py-2 text-red-600 hover:text-red-800"
+                      title={categoryForm.subCategories[index].id ? 'Excluir subcategoria do banco de dados' : 'Remover subcategoria (ainda não salva)'}
                     >
                       <MdDelete className="h-4 w-4" />
                     </button>
@@ -4931,17 +5105,27 @@ export default function CardapioAdminPage() {
                 <label className="mb-1 block text-sm font-medium text-gray-700">
                   Sub-categoria
                 </label>
-                <input
-                  type="text"
+                <select
                   value={itemForm.subCategory}
                   onChange={(e) =>
                     setItemForm((prev) => ({ ...prev, subCategory: e.target.value }))
                   }
-                  placeholder="Ex: Hambúrgueres, Caipirinhas, Porções..."
-                  className="w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
+                  disabled={!itemForm.categoryId}
+                  className="w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                >
+                  <option value="">Selecione uma sub-categoria (opcional)</option>
+                  {availableSubCategories.map((subCategory) => (
+                    <option key={subCategory.name} value={subCategory.name}>
+                      {subCategory.name}
+                    </option>
+                  ))}
+                </select>
                 <p className="mt-1 text-xs text-gray-500">
-                  Digite uma sub-categoria para organizar melhor seus itens
+                  {itemForm.categoryId 
+                    ? availableSubCategories.length > 0 
+                      ? 'Selecione uma sub-categoria da lista ou deixe em branco'
+                      : 'Nenhuma sub-categoria disponível para esta categoria. Crie subcategorias na aba Categorias.'
+                    : 'Selecione uma categoria primeiro'}
                 </p>
               </div>
             </div>
