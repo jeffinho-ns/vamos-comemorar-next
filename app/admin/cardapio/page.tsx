@@ -76,6 +76,7 @@ interface MenuItemForm {
   toppings: Topping[];
   order: number;
   seals: string[]; // IDs dos selos selecionados
+  isPriceOnRequest?: boolean; // Indica se o preço é "Sob Consulta"
 }
 
 interface MenuCategoryForm {
@@ -128,6 +129,7 @@ interface MenuItem {
   order: number;
   seals?: string[]; // IDs dos selos selecionados
   visible?: number | boolean; // Indica se o item está visível (1 ou true = visível, 0 ou false = oculto)
+  isPriceOnRequest?: boolean; // Indica se o preço é "Sob Consulta"
 }
 
 // **CORREÇÃO**: Interface Bar atualizada para incluir os campos sociais
@@ -434,6 +436,7 @@ export default function CardapioAdminPage() {
     toppings: [],
     order: 0,
     seals: [],
+    isPriceOnRequest: false,
   });
 
   const [newTopping, setNewTopping] = useState({ name: '', price: '' });
@@ -680,7 +683,10 @@ export default function CardapioAdminPage() {
     };
   }, []);
 
-  const formatPrice = useCallback((price: number) => {
+  const formatPrice = useCallback((price: number, isPriceOnRequest?: boolean) => {
+    if (isPriceOnRequest || price === -1 || price === null || price === undefined) {
+      return 'Sob Consulta';
+    }
     return new Intl.NumberFormat('pt-BR', {
       style: 'currency',
       currency: 'BRL',
@@ -1924,8 +1930,9 @@ export default function CardapioAdminPage() {
         return;
       }
 
-      if (!itemForm.price || parseFloat(itemForm.price) <= 0) {
-        alert('Preço deve ser maior que zero');
+      // Se "Sob Consulta" estiver marcado, não validar o preço
+      if (!itemForm.isPriceOnRequest && (!itemForm.price || parseFloat(itemForm.price) <= 0)) {
+        alert('Preço deve ser maior que zero ou marque "Sob Consulta"');
         return;
       }
 
@@ -1945,9 +1952,12 @@ export default function CardapioAdminPage() {
 
       const method = editingItem ? 'PUT' : 'POST';
 
+      // Se "Sob Consulta" estiver marcado, salvar preço como -1
+      const finalPrice = itemForm.isPriceOnRequest ? -1 : parseFloat(itemForm.price);
+
       const itemData = {
         ...itemForm,
-        price: parseFloat(itemForm.price),
+        price: finalPrice,
         order: parseInt(itemForm.order.toString()) || 0,
       };
 
@@ -2116,10 +2126,12 @@ export default function CardapioAdminPage() {
 
   const handleEditItem = useCallback(async (item: MenuItem) => {
     setEditingItem(item);
+    // Verificar se o preço é -1 (Sob Consulta)
+    const isPriceOnRequest = item.price === -1 || item.isPriceOnRequest === true;
     setItemForm({
       name: item.name,
       description: item.description,
-      price: item.price.toString(),
+      price: isPriceOnRequest ? '' : item.price.toString(),
       imageUrl: item.imageUrl,
       categoryId: item.categoryId?.toString() || '',
       barId: item.barId?.toString() || '',
@@ -2127,6 +2139,7 @@ export default function CardapioAdminPage() {
       toppings: item.toppings || [],
       order: item.order,
       seals: item.seals || [],
+      isPriceOnRequest: isPriceOnRequest,
     });
     
     // Carregar subcategorias da categoria selecionada
@@ -3691,7 +3704,7 @@ export default function CardapioAdminPage() {
                                   </div>
                                   <div className="absolute bottom-2 left-2 rounded-full bg-white px-2 py-1 shadow-md">
                                     <span className="text-sm font-bold text-green-600">
-                                      {formatPrice(item.price)}
+                                      {formatPrice(item.price, item.isPriceOnRequest)}
                                     </span>
                                   </div>
                                 </div>
@@ -3951,11 +3964,12 @@ export default function CardapioAdminPage() {
                                                                 <button
                                                                   onClick={() => {
                                                                     setEditingPriceId(item.id);
-                                                                    setEditingPriceValue(item.price.toString());
+                                                                    // Se for "Sob Consulta", iniciar com campo vazio
+                                                                    setEditingPriceValue(item.isPriceOnRequest || item.price === -1 ? '' : item.price.toString());
                                                                   }}
                                                                   className="text-sm font-medium text-green-600 hover:text-green-700 hover:underline"
                                                                 >
-                                                                  {formatPrice(item.price)}
+                                                                  {formatPrice(item.price, item.isPriceOnRequest)}
                                                                 </button>
                                                               )}
                                                             </td>
@@ -4112,11 +4126,12 @@ export default function CardapioAdminPage() {
                                                         <button
                                                           onClick={() => {
                                                             setEditingPriceId(item.id);
-                                                            setEditingPriceValue(item.price.toString());
+                                                            // Se for "Sob Consulta", iniciar com campo vazio
+                                                            setEditingPriceValue(item.isPriceOnRequest || item.price === -1 ? '' : item.price.toString());
                                                           }}
                                                           className="text-sm font-medium text-green-600 hover:text-green-700 hover:underline"
                                                         >
-                                                          {formatPrice(item.price)}
+                                                          {formatPrice(item.price, item.isPriceOnRequest)}
                                                         </button>
                                                       )}
                                                     </td>
@@ -5032,14 +5047,32 @@ export default function CardapioAdminPage() {
               </div>
               <div>
                 <label className="mb-1 block text-sm font-medium text-gray-700">Preço</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={itemForm.price}
-                  onChange={(e) => setItemForm((prev) => ({ ...prev, price: e.target.value }))}
-                  className="w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
+                <div className="flex items-center gap-3">
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={itemForm.price}
+                    onChange={(e) => setItemForm((prev) => ({ ...prev, price: e.target.value }))}
+                    disabled={itemForm.isPriceOnRequest}
+                    className="flex-1 rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                  />
+                  <label className="flex items-center gap-2 whitespace-nowrap cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={itemForm.isPriceOnRequest || false}
+                      onChange={(e) => {
+                        setItemForm((prev) => ({
+                          ...prev,
+                          isPriceOnRequest: e.target.checked,
+                          price: e.target.checked ? '' : prev.price,
+                        }));
+                      }}
+                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                    />
+                    <span className="text-sm text-gray-700">Sob Consulta</span>
+                  </label>
+                </div>
               </div>
             </div>
 

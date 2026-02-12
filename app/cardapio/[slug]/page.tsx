@@ -90,6 +90,7 @@ interface MenuItem {
   order: number;
   seals?: string[];
   visible?: boolean | number | null;
+  isPriceOnRequest?: boolean; // Indica se o preço é "Sob Consulta"
 }
 
 interface MenuCategory {
@@ -471,7 +472,10 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
   }, [selectedBar]);
 
 
-  const formatPrice = useCallback((price: number) => {
+  const formatPrice = useCallback((price: number, isPriceOnRequest?: boolean) => {
+    if (isPriceOnRequest || price === -1 || price === null || price === undefined) {
+      return 'Sob Consulta';
+    }
     return new Intl.NumberFormat('pt-BR', {
       style: 'currency',
       currency: 'BRL',
@@ -832,7 +836,7 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
     selectedBar: Bar | null;
     menuCategories: GroupedCategory[];
     slug: string;
-    formatPrice: (price: number) => string;
+    formatPrice: (price: number, isPriceOnRequest?: boolean) => string;
     trackMenuItemView: (itemName: string, itemId: string | number, establishmentName: string, establishmentSlug: string, category: string, price: number, pageLocation: string) => void;
     getValidImageUrl: (filename?: string | null) => string;
     renderWineSeal: (sealId: string, type: 'card' | 'modal') => JSX.Element | null;
@@ -956,7 +960,7 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
                     : 'text-sm sm:text-base text-gray-700'
                 }`}
               >
-                {formatPrice(item.price)}
+                {formatPrice(item.price, item.isPriceOnRequest)}
               </p>
             )}
             <p
@@ -993,7 +997,7 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
             {isReservaRooftop && (
               <div className="mb-2 text-right">
                 <p className="font-serif text-[#2b241a] text-sm tracking-[0.25em] font-extralight">
-                  {formatPrice(item.price)}
+                  {formatPrice(item.price, item.isPriceOnRequest)}
                 </p>
               </div>
             )}
@@ -1795,12 +1799,12 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
                               {isReservaRooftop ? (
                                 <div className="text-right mb-4">
                                   <p className="font-serif text-[#2b241a] text-sm tracking-[0.25em] font-extralight">
-                                    {formatPrice(selectedItem.price)}
+                                    {formatPrice(selectedItem.price, selectedItem.isPriceOnRequest)}
                                   </p>
                                 </div>
                               ) : (
                                 <p className="text-xl sm:text-2xl font-semibold text-green-600 mb-4">
-                                    {formatPrice(selectedItem.price)}
+                                    {formatPrice(selectedItem.price, selectedItem.isPriceOnRequest)}
                                 </p>
                               )}
                               <p className="text-sm sm:text-base text-gray-700 mb-6 leading-relaxed">
