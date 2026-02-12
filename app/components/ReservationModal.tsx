@@ -975,7 +975,8 @@ export default function ReservationModal({
     const area_id = Number(finalAreaId);
     
     // Validação de mesa ocupada para Seu Justino e Pracinha
-    if ((isSeuJustino || isPracinha) && finalTableNumber && formData.reservation_time && formData.reservation_date) {
+    // IMPORTANTE: Não verificar disponibilidade quando está EDITANDO uma reserva existente
+    if (!reservation && (isSeuJustino || isPracinha) && finalTableNumber && formData.reservation_time && formData.reservation_date) {
       try {
         const reservationsRes = await fetch(
           `${API_URL}/api/restaurant-reservations?reservation_date=${formData.reservation_date}&area_id=${area_id}${establishment?.id ? `&establishment_id=${establishment.id}` : ''}`
@@ -1024,7 +1025,9 @@ export default function ReservationModal({
             });
           });
           
-          if (isTableOccupied) {
+          // IMPORTANTE: Não verificar disponibilidade quando está EDITANDO uma reserva existente
+          // O modal de edição serve para atualizar dados da reserva já criada
+          if (!reservation && isTableOccupied) {
             const shouldAddToWaitlist = confirm(
               `⚠️ A mesa ${finalTableNumber} já está reservada para este horário.\n\n` +
               `Deseja adicionar este cliente à Lista de Espera?`
@@ -1208,7 +1211,9 @@ export default function ReservationModal({
       }
       
       // Verificar se mesa está ocupada no mesmo giro (apenas para Seu Justino aos sábados)
-      if (isSeuJustino && finalTableNumber && formData.reservation_date && reservation_time) {
+      // IMPORTANTE: Não verificar conflitos quando está EDITANDO uma reserva existente
+      // O modal de edição serve para atualizar dados da reserva já criada, não para verificar disponibilidade novamente
+      if (!reservation && isSeuJustino && finalTableNumber && formData.reservation_date && reservation_time) {
         const reservationDate = new Date(formData.reservation_date);
         const isSaturday = reservationDate.getDay() === 6; // 6 = Sábado
         
@@ -1944,7 +1949,8 @@ export default function ReservationModal({
                       </select>
                       
                       {/* Indicador de disponibilidade para Seu Justino e Pracinha */}
-                      {(isSeuJustino || isPracinha) && formData.table_number && formData.reservation_time && (() => {
+                      {/* IMPORTANTE: Não mostrar indicador de disponibilidade quando está EDITANDO uma reserva existente */}
+                      {!reservation && (isSeuJustino || isPracinha) && formData.table_number && formData.reservation_time && (() => {
                         const selectedTable = tables.find(t => String(t.table_number) === formData.table_number);
                         if (selectedTable?.is_reserved) {
                           return (
