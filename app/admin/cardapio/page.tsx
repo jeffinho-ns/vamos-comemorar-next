@@ -684,13 +684,14 @@ export default function CardapioAdminPage() {
   }, []);
 
   const formatPrice = useCallback((price: number, isPriceOnRequest?: boolean) => {
-    if (isPriceOnRequest || price === -1 || price === null || price === undefined) {
+    const normalizedPrice = Number(price);
+    if (isPriceOnRequest || normalizedPrice === -1 || price === null || price === undefined) {
       return 'Sob Consulta';
     }
     return new Intl.NumberFormat('pt-BR', {
       style: 'currency',
       currency: 'BRL',
-    }).format(price);
+    }).format(normalizedPrice);
   }, []);
 
   const handleAddTopping = useCallback(() => {
@@ -2127,7 +2128,7 @@ export default function CardapioAdminPage() {
   const handleEditItem = useCallback(async (item: MenuItem) => {
     setEditingItem(item);
     // Verificar se o preço é -1 (Sob Consulta)
-    const isPriceOnRequest = item.price === -1 || item.isPriceOnRequest === true;
+    const isPriceOnRequest = Number(item.price) === -1 || item.isPriceOnRequest === true;
     setItemForm({
       name: item.name,
       description: item.description,
@@ -3965,7 +3966,7 @@ export default function CardapioAdminPage() {
                                                                   onClick={() => {
                                                                     setEditingPriceId(item.id);
                                                                     // Se for "Sob Consulta", iniciar com campo vazio
-                                                                    setEditingPriceValue(item.isPriceOnRequest || item.price === -1 ? '' : item.price.toString());
+                                                                    setEditingPriceValue(item.isPriceOnRequest || Number(item.price) === -1 ? '' : item.price.toString());
                                                                   }}
                                                                   className="text-sm font-medium text-green-600 hover:text-green-700 hover:underline"
                                                                 >
@@ -4127,7 +4128,7 @@ export default function CardapioAdminPage() {
                                                           onClick={() => {
                                                             setEditingPriceId(item.id);
                                                             // Se for "Sob Consulta", iniciar com campo vazio
-                                                            setEditingPriceValue(item.isPriceOnRequest || item.price === -1 ? '' : item.price.toString());
+                                                            setEditingPriceValue(item.isPriceOnRequest || Number(item.price) === -1 ? '' : item.price.toString());
                                                           }}
                                                           className="text-sm font-medium text-green-600 hover:text-green-700 hover:underline"
                                                         >
@@ -5047,7 +5048,7 @@ export default function CardapioAdminPage() {
               </div>
               <div>
                 <label className="mb-1 block text-sm font-medium text-gray-700">Preço</label>
-                <div className="flex items-center gap-3">
+                <div className="space-y-2">
                   <input
                     type="number"
                     step="0.01"
@@ -5055,9 +5056,9 @@ export default function CardapioAdminPage() {
                     value={itemForm.price}
                     onChange={(e) => setItemForm((prev) => ({ ...prev, price: e.target.value }))}
                     disabled={itemForm.isPriceOnRequest}
-                    className="flex-1 rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                    className="w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed disabled:bg-gray-100"
                   />
-                  <label className="flex items-center gap-2 whitespace-nowrap cursor-pointer">
+                  <label className="inline-flex cursor-pointer items-center gap-2">
                     <input
                       type="checkbox"
                       checked={itemForm.isPriceOnRequest || false}
@@ -5086,7 +5087,7 @@ export default function CardapioAdminPage() {
               />
             </div>
 
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 admin-form-grid">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-[minmax(0,1fr)_140px] admin-form-grid">
               <div>
                 <label className="mb-1 block text-sm font-medium text-gray-700">
                   Nome do arquivo da imagem do item
@@ -5135,31 +5136,16 @@ export default function CardapioAdminPage() {
               </div>
 
               <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">
-                  Sub-categoria
-                </label>
-                <select
-                  value={itemForm.subCategory}
+                <label className="mb-1 block text-sm font-medium text-gray-700">Ordem</label>
+                <input
+                  type="number"
+                  min="0"
+                  value={itemForm.order}
                   onChange={(e) =>
-                    setItemForm((prev) => ({ ...prev, subCategory: e.target.value }))
+                    setItemForm((prev) => ({ ...prev, order: parseInt(e.target.value) }))
                   }
-                  disabled={!itemForm.categoryId}
-                  className="w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
-                >
-                  <option value="">Selecione uma sub-categoria (opcional)</option>
-                  {availableSubCategories.map((subCategory) => (
-                    <option key={subCategory.name} value={subCategory.name}>
-                      {subCategory.name}
-                    </option>
-                  ))}
-                </select>
-                <p className="mt-1 text-xs text-gray-500">
-                  {itemForm.categoryId 
-                    ? availableSubCategories.length > 0 
-                      ? 'Selecione uma sub-categoria da lista ou deixe em branco'
-                      : 'Nenhuma sub-categoria disponível para esta categoria. Crie subcategorias na aba Categorias.'
-                    : 'Selecione uma categoria primeiro'}
-                </p>
+                  className="w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
               </div>
             </div>
 
@@ -5205,14 +5191,27 @@ export default function CardapioAdminPage() {
             </div>
 
             <div>
-              <label className="mb-1 block text-sm font-medium text-gray-700">Ordem</label>
-              <input
-                type="number"
-                min="0"
-                value={itemForm.order}
-                onChange={(e) => setItemForm((prev) => ({ ...prev, order: parseInt(e.target.value) }))}
-                className="w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
+              <label className="mb-1 block text-sm font-medium text-gray-700">Subcategoria</label>
+              <select
+                value={itemForm.subCategory}
+                onChange={(e) => setItemForm((prev) => ({ ...prev, subCategory: e.target.value }))}
+                disabled={!itemForm.categoryId}
+                className="w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed disabled:bg-gray-100"
+              >
+                <option value="">Selecione uma sub-categoria (opcional)</option>
+                {availableSubCategories.map((subCategory) => (
+                  <option key={subCategory.name} value={subCategory.name}>
+                    {subCategory.name}
+                  </option>
+                ))}
+              </select>
+              <p className="mt-1 text-xs text-gray-500">
+                {itemForm.categoryId
+                  ? availableSubCategories.length > 0
+                    ? 'Selecione uma sub-categoria da lista ou deixe em branco'
+                    : 'Nenhuma sub-categoria disponível para esta categoria. Crie subcategorias na aba Categorias.'
+                  : 'Selecione uma categoria primeiro'}
+              </p>
             </div>
 
             {/* Toppings */}

@@ -473,13 +473,14 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
 
 
   const formatPrice = useCallback((price: number, isPriceOnRequest?: boolean) => {
-    if (isPriceOnRequest || price === -1 || price === null || price === undefined) {
+    const normalizedPrice = Number(price);
+    if (isPriceOnRequest || normalizedPrice === -1 || price === null || price === undefined) {
       return 'Sob Consulta';
     }
     return new Intl.NumberFormat('pt-BR', {
       style: 'currency',
       currency: 'BRL',
-    }).format(price);
+    }).format(normalizedPrice);
   }, []);
 
   const currentCategory = useMemo(() => 
