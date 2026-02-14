@@ -272,10 +272,39 @@ export default function PromoterDashboardPage() {
     }
   }, [API_URL]);
   
-  // Estado para armazenar check-ins por evento
-  const [checkinsPorEvento, setCheckinsPorEvento] = useState<{ [eventoId: number]: number }>({});
+  // Estado para armazenar check-ins por evento (chave: evento_id|data_evento)
+  const [checkinsPorEvento, setCheckinsPorEvento] = useState<Record<string, number>>({});
   
-  // Carregar brindes quando eventos mudarem
+  // Carregar check-ins reais do promoter (endpoint público - não precisa de token)
+  const loadCheckins = useCallback(async () => {
+    if (!params?.codigo) return;
+    try {
+      const response = await fetch(`${API_URL}/api/promoter/${params.codigo}/checkins`);
+      if (response.ok) {
+        const data = await response.json();
+        const porChave = data.checkins_por_evento || {};
+        // Também popular a partir do array eventos (fallback para garantir todas as chaves)
+        const merged: Record<string, number> = { ...porChave };
+        (data.eventos || []).forEach((ev: { evento_id: number; data_evento?: string; checkins?: number }) => {
+          const chave = `${ev.evento_id}|${(ev.data_evento || "").trim()}`;
+          if (ev.checkins !== undefined && ev.checkins !== null) {
+            merged[chave] = Number(ev.checkins);
+          }
+        });
+        setCheckinsPorEvento(merged);
+      }
+    } catch (err) {
+      console.error("Erro ao carregar check-ins:", err);
+    }
+  }, [params?.codigo]);
+
+  // Carregar brindes e check-ins quando eventos/promoter mudarem
+  useEffect(() => {
+    if (params?.codigo) {
+      loadCheckins();
+    }
+  }, [params?.codigo, loadCheckins, eventos.length, promoter?.id]);
+
   useEffect(() => {
     if (eventos.length > 0 && promoter?.id) {
       eventos.forEach(evento => {
@@ -286,12 +315,38 @@ export default function PromoterDashboardPage() {
     }
   }, [eventos, promoter?.id, loadPromoterGifts]);
 
+  // Atualizar check-ins a cada 30 segundos para manter contagem em tempo real
+  useEffect(() => {
+    const interval = setInterval(loadCheckins, 30000);
+    return () => clearInterval(interval);
+  }, [loadCheckins]);
+
+  // Eventos reais do promoter (prioridade para tipo unico; se vazio, usa todos)
+  const eventosUnicosReais = useMemo(() => {
+    const unicos = eventos.filter(
+      (e) => e.tipo_evento === "unico" || e.tipo_evento === null || e.tipo_evento === undefined
+    );
+    return unicos.length > 0 ? unicos : eventos;
+  }, [eventos]);
+
+  // Chave única para cada evento: evento_id|data_evento (normalizado YYYY-MM-DD)
+  const getEventoChave = (ev: Evento) => {
+    let data = (ev.data_evento || "").toString().trim();
+    if (data && data.includes("T")) data = data.split("T")[0];
+    if (data && data.includes("/")) {
+      const [d, m, y] = data.split("/");
+      if (d && m && y) data = `${y}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`;
+    }
+    return `${ev.evento_id}|${data}`;
+  };
+
   // Função para obter dados de brindes por evento
   const getPromoterGiftsForEvent = useMemo(() => {
-    return (eventoId: number) => {
-      const checkinsCount = checkinsPorEvento[eventoId] || 0;
-      const liberados = promoterGifts[eventoId] || [];
-      const regras = promoterGiftRules[eventoId] || [];
+    return (ev: Evento) => {
+      const chave = getEventoChave(ev);
+      const checkinsCount = checkinsPorEvento[chave] ?? checkinsPorEvento[String(ev.evento_id)] ?? 0;
+      const liberados = promoterGifts[ev.evento_id] || [];
+      const regras = promoterGiftRules[ev.evento_id] || [];
       
       // Separar regras em liberadas e em progresso
       const regrasLiberadas = regras.filter(r => r.liberado === true);
@@ -316,17 +371,24 @@ export default function PromoterDashboardPage() {
     return 'beneficio';
   };
 
+  // Evento selecionado (para obter nome e dados) - definido antes de eventoAtual
+  const eventoSelecionado = useMemo(() => {
+    if (selectedEvento === "todos") return null;
+    return eventos.find((e) => getEventoChave(e) === selectedEvento);
+  }, [selectedEvento, eventos]);
+
   // Obter dados do evento selecionado (ou primeiro evento)
   const eventoAtual = useMemo(() => {
-    if (selectedEvento === 'todos' && eventos.length > 0) {
-      return eventos[0];
+    if (selectedEvento === 'todos' && eventosUnicosReais.length > 0) {
+      return eventosUnicosReais[0];
     }
-    return eventos.find(e => String(e.evento_id) === selectedEvento) || eventos[0];
-  }, [selectedEvento, eventos]);
+    const sel = eventos.find((e) => getEventoChave(e) === selectedEvento);
+    return sel || eventosUnicosReais[0];
+  }, [selectedEvento, eventos, eventosUnicosReais]);
 
   const giftsData = useMemo(() => {
     if (!eventoAtual) return { checkinsCount: 0, liberados: [], emProgresso: [], regras: [] };
-    return getPromoterGiftsForEvent(eventoAtual.evento_id);
+    return getPromoterGiftsForEvent(eventoAtual);
   }, [eventoAtual, getPromoterGiftsForEvent]);
   
   // Separar brindes por tipo (usando regras ao invés de liberados)
@@ -349,14 +411,21 @@ export default function PromoterDashboardPage() {
     loadConvidados();
   }, [loadPromoterData, loadEventos, loadConvidados]);
 
+  // Resetar seleção se o evento selecionado não existir mais
+  useEffect(() => {
+    if (selectedEvento !== "todos" && eventosUnicosReais.length > 0) {
+      const existe = eventosUnicosReais.some((e) => getEventoChave(e) === selectedEvento);
+      if (!existe) setSelectedEvento("todos");
+    }
+  }, [selectedEvento, eventosUnicosReais]);
+
   useEffect(() => {
     let guests = [...convidados];
 
-    if (selectedEvento !== "todos") {
+    if (selectedEvento !== "todos" && eventoSelecionado?.nome_do_evento) {
+      const nomeEvento = eventoSelecionado.nome_do_evento.toLowerCase();
       guests = guests.filter(
-        (guest) =>
-          (guest.evento_nome || "").toLowerCase() ===
-          selectedEvento.toLowerCase(),
+        (guest) => (guest.evento_nome || "").toLowerCase() === nomeEvento,
       );
     }
 
@@ -371,7 +440,7 @@ export default function PromoterDashboardPage() {
     }
 
     setFilteredGuests(guests);
-  }, [convidados, searchTerm, selectedEvento]);
+  }, [convidados, searchTerm, selectedEvento, eventoSelecionado]);
 
   const handleAddSingleGuest = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -489,10 +558,28 @@ export default function PromoterDashboardPage() {
     URL.revokeObjectURL(url);
   };
 
-  const convidadosConfirmados = useMemo(
-    () => convidados.filter((guest) => guest.status === "confirmado").length,
-    [convidados],
-  );
+  // Check-ins reais do evento selecionado
+  const checkinsNoEventoSelecionado = useMemo(() => {
+    if (selectedEvento === "todos") {
+      return Object.values(checkinsPorEvento).reduce((sum, n) => sum + n, 0);
+    }
+    let count = checkinsPorEvento[selectedEvento];
+    if (count !== undefined && count !== null) return count;
+    // Fallback: buscar por evento_id se a chave exata não bater
+    const [eventoId] = selectedEvento.split("|");
+    const chaveAlternativa = Object.keys(checkinsPorEvento).find((k) => k.startsWith(`${eventoId}|`));
+    return chaveAlternativa ? checkinsPorEvento[chaveAlternativa] : 0;
+  }, [selectedEvento, checkinsPorEvento]);
+
+  // Convidados no evento selecionado (para calcular % comparecimento)
+  const convidadosNoEventoSelecionado = useMemo(() => {
+    if (selectedEvento === "todos") return convidados.length;
+    if (!eventoSelecionado?.nome_do_evento) return 0;
+    const nomeEvento = (eventoSelecionado.nome_do_evento || "").toLowerCase();
+    return convidados.filter(
+      (g) => (g.evento_nome || "").toLowerCase() === nomeEvento
+    ).length;
+  }, [selectedEvento, convidados, eventoSelecionado]);
 
   const convidadosPorEvento = useMemo(() => {
     const mapa = new Map<string, number>();
@@ -506,9 +593,9 @@ export default function PromoterDashboardPage() {
     }));
   }, [convidados]);
 
-  const conversaoPercentual =
-    convidados.length > 0
-      ? Math.round((convidadosConfirmados / convidados.length) * 100)
+  const taxaComparecimento =
+    convidadosNoEventoSelecionado > 0
+      ? Math.round((checkinsNoEventoSelecionado / convidadosNoEventoSelecionado) * 100)
       : 0;
 
   const canAccessDashboard = useMemo(() => {
@@ -616,45 +703,75 @@ export default function PromoterDashboardPage() {
           </div>
         </header>
 
+        {/* Seletor de evento para estatísticas e check-ins - apenas eventos reais atrelados ao promoter */}
+        <div className="mb-6 flex flex-wrap items-center gap-3">
+          <span className="text-sm text-white/70">Mostrar dados de:</span>
+          <select
+            value={selectedEvento}
+            onChange={(e) => setSelectedEvento(e.target.value)}
+            className="rounded-xl bg-white/10 border border-white/10 px-4 py-2.5 text-white font-medium focus:outline-none focus:ring-2 focus:ring-purple-400 min-w-[200px]"
+          >
+            <option value="todos">Todos os eventos</option>
+            {eventosUnicosReais.map((ev) => {
+              const chave = getEventoChave(ev);
+              const dataFormatada = ev.data_evento
+                ? new Date(ev.data_evento + "T12:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" })
+                : "";
+              return (
+                <option key={chave} value={chave}>
+                  {ev.nome_do_evento || "Evento"} {dataFormatada ? `(${dataFormatada})` : ""}
+                </option>
+              );
+            })}
+          </select>
+          <button
+            onClick={() => loadCheckins()}
+            className="text-xs text-purple-300 hover:text-purple-200 transition-colors"
+            title="Atualizar contagem de check-ins"
+          >
+            Atualizar check-ins
+          </button>
+        </div>
+
         <section className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-10">
           <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
             <p className="text-xs uppercase tracking-[0.18em] text-purple-200">
               Convidados totais
             </p>
-            <p className="text-3xl font-bold mt-2">{convidados.length}</p>
+            <p className="text-3xl font-bold mt-2">{selectedEvento === "todos" ? convidados.length : convidadosNoEventoSelecionado}</p>
             <p className="text-xs text-white/60 mt-1">
-              Atualizado em tempo real a cada novo cadastro.
+              {selectedEvento === "todos" ? "Total da sua lista." : "Neste evento."}
             </p>
           </div>
           <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
             <p className="text-xs uppercase tracking-[0.18em] text-purple-200">
-              Confirmados
+              Check-ins
             </p>
             <p className="text-3xl font-bold mt-2 text-emerald-300">
-              {convidadosConfirmados}
+              {checkinsNoEventoSelecionado}
             </p>
             <p className="text-xs text-white/60 mt-1">
-              {conversaoPercentual}% de confirmação geral.
+              {selectedEvento === "todos" ? "Total de entradas nos eventos." : "Presentes no evento selecionado."}
             </p>
           </div>
           <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
             <p className="text-xs uppercase tracking-[0.18em] text-purple-200">
-              Próximos eventos
+              Eventos atrelados
             </p>
-            <p className="text-3xl font-bold mt-2">{eventos.length}</p>
+            <p className="text-3xl font-bold mt-2">{eventosUnicosReais.length}</p>
             <p className="text-xs text-white/60 mt-1">
-              Eventos ativos associados à sua lista.
+              Eventos reais que você está vinculado.
             </p>
           </div>
           <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
             <p className="text-xs uppercase tracking-[0.18em] text-purple-200">
-              Desempenho
+              Comparecimento
             </p>
             <p className="text-3xl font-bold mt-2">
-              {convidados.length > 0 ? `${conversaoPercentual}%` : "—"}
+              {convidadosNoEventoSelecionado > 0 ? `${taxaComparecimento}%` : "—"}
             </p>
             <p className="text-xs text-white/60 mt-1">
-              Taxa de confirmação geral da lista.
+              Taxa de comparecimento {selectedEvento === "todos" ? "geral." : "no evento."}
             </p>
           </div>
         </section>
@@ -894,12 +1011,19 @@ export default function PromoterDashboardPage() {
                       onChange={(e) => setSelectedEvento(e.target.value)}
                       className="rounded-2xl bg-white/10 border border-white/10 px-4 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"
                     >
-                      <option value="todos">Todos os eventos</option>
-                      {convidadosPorEvento.map((evento) => (
-                        <option key={evento.nome} value={evento.nome}>
-                          {evento.nome} ({evento.total})
-                        </option>
-                      ))}
+                      <option value="todos">Todos os convidados</option>
+                      {eventosUnicosReais.map((ev) => {
+                        const chave = getEventoChave(ev);
+                        const totalEv = convidadosPorEvento.find((e) => (e.nome || "").toLowerCase() === (ev.nome_do_evento || "").toLowerCase())?.total ?? 0;
+                        const dataFormatada = ev.data_evento
+                          ? new Date(ev.data_evento + "T12:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" })
+                          : "";
+                        return (
+                          <option key={chave} value={chave}>
+                            {ev.nome_do_evento || "Evento"} {dataFormatada ? `(${dataFormatada})` : ""} — {totalEv} convidados
+                          </option>
+                        );
+                      })}
                     </select>
                   </div>
                 </div>
