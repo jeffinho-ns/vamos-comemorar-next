@@ -77,7 +77,6 @@ export default function RooftopFluxoPage() {
   }, [
     establishments,
     establishmentPermissions,
-    establishmentPermissions.isLoading,
   ]);
 
   useEffect(() => {
