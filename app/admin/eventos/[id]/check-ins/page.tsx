@@ -54,6 +54,13 @@ import {
 import { BirthdayReservation } from "../../../../services/birthdayService";
 import { Reservation } from "@/app/types/reservation";
 import { io } from "socket.io-client";
+import RooftopUnifiedStatsHeader from "@/app/components/checkins/RooftopUnifiedStatsHeader";
+import {
+  computeRooftopUnifiedMetrics,
+  getRooftopSubareaName,
+  getTodayDateKey,
+  isReservaRooftopEstablishment,
+} from "@/app/utils/rooftopCheckins";
 
 const API_URL =
   process.env.NEXT_PUBLIC_API_URL || "https://api.agilizaiapp.com.br";
@@ -3832,6 +3839,9 @@ export default function EventoCheckInsPage() {
     const isSeuJustino =
       evento?.establishment_name?.toLowerCase().includes("seu justino") &&
       !evento?.establishment_name?.toLowerCase().includes("pracinha");
+    const isRooftop = isReservaRooftopEstablishment(
+      evento?.establishment_name,
+    );
 
     const areaFor = (
       table?: string | number,
@@ -3840,6 +3850,7 @@ export default function EventoCheckInsPage() {
     ) => {
       if (isSeuJustino && table)
         return getSeuJustinoAreaName(table, area, areaId);
+      if (isRooftop) return getRooftopSubareaName(table, area) || area || undefined;
       return area || undefined;
     };
 
@@ -4336,6 +4347,29 @@ export default function EventoCheckInsPage() {
     [camarotes],
   );
 
+  const isReservaRooftopEvent = useMemo(
+    () => isReservaRooftopEstablishment(evento?.establishment_name),
+    [evento?.establishment_name],
+  );
+
+  const rooftopTodayMetrics = useMemo(() => {
+    if (!isReservaRooftopEvent) {
+      return {
+        areasBreakdown: [],
+        areaPeopleTotal: 0,
+        reservationsCheckedIn: 0,
+        reservationsTotal: 0,
+        totalPeopleExpected: 0,
+      };
+    }
+
+    return computeRooftopUnifiedMetrics({
+      reservations: reservasRestaurante,
+      guestLists: guestListsRestaurante,
+      dateKey: getTodayDateKey(),
+    });
+  }, [isReservaRooftopEvent, reservasRestaurante, guestListsRestaurante]);
+
   const getEventTypeLabel = useCallback((eventType?: string) => {
     if (!eventType) return null;
     const types: Record<
@@ -4419,6 +4453,18 @@ export default function EventoCheckInsPage() {
       {/* Barra de filtros */}
       <div className="bg-white/5 backdrop-blur-sm border-b border-white/10 sticky top-0 z-30">
         <div className="max-w-7xl mx-auto p-3 md:p-4">
+          {isReservaRooftopEvent && (
+            <RooftopUnifiedStatsHeader
+              className="mb-3 md:mb-4"
+              areaPeopleTotal={rooftopTodayMetrics.areaPeopleTotal}
+              areasBreakdown={rooftopTodayMetrics.areasBreakdown}
+              reservationsCheckedIn={rooftopTodayMetrics.reservationsCheckedIn}
+              reservationsTotal={rooftopTodayMetrics.reservationsTotal}
+              totalPeopleExpected={rooftopTodayMetrics.totalPeopleExpected}
+              loading={loading}
+            />
+          )}
+
           {/* Mobile: Layout simplificado */}
           <div className="md:hidden space-y-3">
             {/* Busca rápida */}
@@ -4749,59 +4795,63 @@ export default function EventoCheckInsPage() {
         </div>
       </div>
 
-      {/* Estatísticas - Ocultas em mobile/tablet, visíveis em desktop/notebook */}
-      <div className="hidden md:block max-w-7xl mx-auto p-3 md:p-4">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-4 md:mb-6">
-          <div className="bg-white/10 backdrop-blur-sm rounded-lg shadow p-4 border border-white/20">
-            <div className="text-sm text-gray-300 mb-1">Total Geral</div>
-            <div
-              className="text-2xl font-bold text-white"
-              style={{ fontVariantNumeric: "normal" }}
-            >
-              {Number(totalGeralMetrics.checkins)}/
-              {Number(totalGeralMetrics.total)}
-            </div>
-            <div className="text-xs text-gray-400 mt-1">
-              {Number(totalGeralMetrics.total) > 0
-                ? `${Math.round((Number(totalGeralMetrics.checkins) / Number(totalGeralMetrics.total)) * 100)}%`
-                : "0%"}
+      {!isReservaRooftopEvent && (
+        <>
+          {/* Estatísticas - Ocultas em mobile/tablet, visíveis em desktop/notebook */}
+          <div className="hidden md:block max-w-7xl mx-auto p-3 md:p-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-4 md:mb-6">
+              <div className="bg-white/10 backdrop-blur-sm rounded-lg shadow p-4 border border-white/20">
+                <div className="text-sm text-gray-300 mb-1">Total Geral</div>
+                <div
+                  className="text-2xl font-bold text-white"
+                  style={{ fontVariantNumeric: "normal" }}
+                >
+                  {Number(totalGeralMetrics.checkins)}/
+                  {Number(totalGeralMetrics.total)}
+                </div>
+                <div className="text-xs text-gray-400 mt-1">
+                  {Number(totalGeralMetrics.total) > 0
+                    ? `${Math.round((Number(totalGeralMetrics.checkins) / Number(totalGeralMetrics.total)) * 100)}%`
+                    : "0%"}
+                </div>
+              </div>
+              <div className="bg-white/10 backdrop-blur-sm rounded-lg shadow p-4 border border-blue-500/50">
+                <div className="text-sm text-gray-300 mb-1">Reservas</div>
+                <div
+                  className="text-2xl font-bold text-white"
+                  style={{ fontVariantNumeric: "normal" }}
+                >
+                  {Number(reservasMetrics.checkins)}/
+                  {Number(reservasMetrics.numReservas)}
+                </div>
+                <div className="text-xs text-gray-400 mt-1">
+                  {reservasMetrics.numReservas} reserva
+                  {reservasMetrics.numReservas !== 1 ? "s" : ""}
+                </div>
+              </div>
+              <div className="bg-white/10 backdrop-blur-sm rounded-lg shadow p-4 border border-purple-500/50">
+                <div className="text-sm text-gray-300 mb-1">Promoters</div>
+                <div
+                  className="text-2xl font-bold text-white"
+                  style={{ fontVariantNumeric: "normal" }}
+                >
+                  {Number(promoterMetrics.checkins)}/{Number(promoterMetrics.total)}
+                </div>
+              </div>
+              <div className="bg-white/10 backdrop-blur-sm rounded-lg shadow p-4 border border-orange-500/50">
+                <div className="text-sm text-gray-300 mb-1">Camarotes</div>
+                <div
+                  className="text-2xl font-bold text-white"
+                  style={{ fontVariantNumeric: "normal" }}
+                >
+                  {Number(camarotesMetrics.checkins)}/
+                  {Number(camarotesMetrics.total)}
+                </div>
+              </div>
             </div>
           </div>
-          <div className="bg-white/10 backdrop-blur-sm rounded-lg shadow p-4 border border-blue-500/50">
-            <div className="text-sm text-gray-300 mb-1">Reservas</div>
-            <div
-              className="text-2xl font-bold text-white"
-              style={{ fontVariantNumeric: "normal" }}
-            >
-              {Number(reservasMetrics.checkins)}/
-              {Number(reservasMetrics.numReservas)}
-            </div>
-            <div className="text-xs text-gray-400 mt-1">
-              {reservasMetrics.numReservas} reserva
-              {reservasMetrics.numReservas !== 1 ? "s" : ""}
-            </div>
-          </div>
-          <div className="bg-white/10 backdrop-blur-sm rounded-lg shadow p-4 border border-purple-500/50">
-            <div className="text-sm text-gray-300 mb-1">Promoters</div>
-            <div
-              className="text-2xl font-bold text-white"
-              style={{ fontVariantNumeric: "normal" }}
-            >
-              {Number(promoterMetrics.checkins)}/{Number(promoterMetrics.total)}
-            </div>
-          </div>
-          <div className="bg-white/10 backdrop-blur-sm rounded-lg shadow p-4 border border-orange-500/50">
-            <div className="text-sm text-gray-300 mb-1">Camarotes</div>
-            <div
-              className="text-2xl font-bold text-white"
-              style={{ fontVariantNumeric: "normal" }}
-            >
-              {Number(camarotesMetrics.checkins)}/
-              {Number(camarotesMetrics.total)}
-            </div>
-          </div>
-        </div>
-      </div>
+        </>
+      )}
 
       <div className="max-w-7xl mx-auto p-3 md:p-4">
         {loading && (

@@ -406,6 +406,14 @@ export default function CheckInsGeralPage() {
                   <span className="sm:hidden">Tablet</span>
                 </button>
                 <button
+                  onClick={() => router.push('/admin/checkins/rooftop-fluxo')}
+                  className="flex items-center justify-center gap-2 px-4 sm:px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition-colors font-semibold text-sm sm:text-base"
+                >
+                  <MdGroups size={20} />
+                  <span className="hidden sm:inline">Fluxo Rooftop</span>
+                  <span className="sm:hidden">Fluxo</span>
+                </button>
+                <button
                   onClick={carregarTudo}
                   disabled={loading}
                   className="flex items-center justify-center gap-2 px-4 sm:px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-50 font-semibold text-sm sm:text-base"
