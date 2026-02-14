@@ -75,7 +75,7 @@ export default function RooftopUnifiedStatsHeader({
                 />
               </span>
             </div>
-            <div className="mt-0.5 hidden text-xs text-sky-200/80 md:mt-1 md:block">Pessoas presentes</div>
+            <div className="mt-0.5 hidden text-xs text-sky-200/80 md:mt-1 md:block">Previsto por área</div>
           </button>
 
           <AnimatePresence>

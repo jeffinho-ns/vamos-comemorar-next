@@ -10,6 +10,8 @@ export interface RooftopReservationLike {
   guest_list_id?: number | null;
   client_name?: string | null;
   responsavel?: string | null;
+  /** Observações da reserva (notes, admin_notes, observacao) para a segunda recepção */
+  notes?: string | null;
 }
 
 export interface RooftopGuestListLike {
@@ -25,6 +27,8 @@ export interface RooftopGuestListLike {
   total_guests?: number | null;
   table_number?: string | number | null;
   area_name?: string | null;
+  /** Observações da lista/reserva (notes, admin_notes, observacao) para a segunda recepção */
+  notes?: string | null;
 }
 
 export interface RooftopGuestLike {
@@ -59,6 +63,8 @@ export interface RooftopFlowQueueItem {
   guest_list_id?: number;
   /** Para integração com backend de condução (reservation_id da reserva associada) */
   reservation_id?: number;
+  /** Observações para a segunda recepção (visível no card da fila) */
+  observacoes?: string | null;
 }
 
 const HIGHLINE_SUBAREA_BY_TABLE: Record<string, string> = {
@@ -111,6 +117,20 @@ export const toBoolean = (value: unknown): boolean => {
   }
   return false;
 };
+
+/** Retorna observações para a segunda recepção (notes, admin_notes, observacao) de gl ou reserva */
+function getObservacoes(
+  gl?: RooftopGuestListLike | null,
+  reservation?: RooftopReservationLike | null,
+): string | undefined {
+  const g = gl as { notes?: string; admin_notes?: string; observacao?: string; observação?: string } | undefined;
+  const r = reservation as { notes?: string; admin_notes?: string; observacao?: string; observação?: string } | undefined;
+  const fromGl = g ? (g.notes ?? g.admin_notes ?? g.observacao ?? g.observação ?? "") : "";
+  const fromRes = r ? (r.notes ?? r.admin_notes ?? r.observacao ?? r.observação ?? "") : "";
+  const raw = (typeof fromGl === "string" ? fromGl : "") || (typeof fromRes === "string" ? fromRes : "");
+  const trimmed = raw.trim();
+  return trimmed || undefined;
+}
 
 export const getTodayDateKey = (): string => {
   const now = new Date();
@@ -276,7 +296,8 @@ export const computeRooftopUnifiedMetrics = (params: {
     }
   });
 
-  const areasMap = new Map<string, number>();
+  const areasMapPresent = new Map<string, number>();
+  const areasMapExpected = new Map<string, number>();
   const reservationsHandledByGuestList = new Set<number>();
 
   guestListsToday.forEach((gl) => {
@@ -286,18 +307,22 @@ export const computeRooftopUnifiedMetrics = (params: {
         ? reservationById.get(reservationId)
         : undefined;
 
-    const ownerPresent =
-      toBoolean(gl.owner_checked_in) && !toBoolean(gl.owner_checked_out) ? 1 : 0;
-    const guestsPresent = Math.max(parseIntSafe(gl.guests_checked_in), 0);
-    const peoplePresent = ownerPresent + guestsPresent;
-    if (peoplePresent <= 0) return;
-
     const subarea =
       getRooftopSubareaName(
         gl.table_number ?? reservation?.table_number,
         gl.area_name ?? reservation?.area_name,
       ) || "Sem subarea";
-    addToAreaCount(areasMap, subarea, peoplePresent);
+
+    const ownerPresent =
+      toBoolean(gl.owner_checked_in) && !toBoolean(gl.owner_checked_out) ? 1 : 0;
+    const guestsPresent = Math.max(parseIntSafe(gl.guests_checked_in), 0);
+    const peoplePresent = ownerPresent + guestsPresent;
+    const peopleExpected = 1 + Math.max(parseIntSafe(gl.total_guests), 0);
+
+    addToAreaCount(areasMapExpected, subarea, peopleExpected);
+    if (peoplePresent > 0) {
+      addToAreaCount(areasMapPresent, subarea, peoplePresent);
+    }
 
     if (reservationId) {
       reservationsHandledByGuestList.add(reservationId);
@@ -305,22 +330,29 @@ export const computeRooftopUnifiedMetrics = (params: {
   });
 
   reservationsToday.forEach((reservation) => {
-    if (reservationsHandledByGuestList.has(Number(reservation.id))) return;
-    if (!toBoolean(reservation.checked_in) || toBoolean(reservation.checked_out)) return;
-
-    const peoplePresent = Math.max(parseIntSafe(reservation.number_of_people), 1);
+    const hasGuestList = reservationsHandledByGuestList.has(Number(reservation.id));
     const subarea =
       getRooftopSubareaName(reservation.table_number, reservation.area_name) ||
       "Sem subarea";
-    addToAreaCount(areasMap, subarea, peoplePresent);
+    const peopleExpected = Math.max(parseIntSafe(reservation.number_of_people), 1);
+
+    if (!hasGuestList) {
+      addToAreaCount(areasMapExpected, subarea, peopleExpected);
+    }
+
+    if (hasGuestList) return;
+    if (!toBoolean(reservation.checked_in) || toBoolean(reservation.checked_out)) return;
+
+    addToAreaCount(areasMapPresent, subarea, peopleExpected);
   });
 
-  const areasBreakdown = Array.from(areasMap.entries())
+  const areasBreakdown = Array.from(areasMapExpected.entries())
     .map(([name, people]) => ({ name, people }))
     .sort((a, b) => {
       if (b.people !== a.people) return b.people - a.people;
       return a.name.localeCompare(b.name, "pt-BR");
-    });
+    })
+    .filter((a) => a.people > 0);
 
   const areaPeopleTotal = areasBreakdown.reduce(
     (sum, item) => sum + item.people,
@@ -388,6 +420,7 @@ export const buildRooftopFlowQueue = (params: {
         gl.area_name ?? reservation?.area_name,
       ) || "Sem subarea";
 
+    const observacoes = getObservacoes(gl, reservation);
     const ownerId = `owner-${gl.guest_list_id}`;
     if (
       toBoolean(gl.owner_checked_in) &&
@@ -404,6 +437,7 @@ export const buildRooftopFlowQueue = (params: {
           String(gl.owner_checkin_time || reservation?.checkin_time || "") || undefined,
         guest_list_id: gl.guest_list_id,
         reservation_id: reservationId || undefined,
+        observacoes,
       });
     }
 
@@ -427,6 +461,7 @@ export const buildRooftopFlowQueue = (params: {
         checkinTime: String(guest.checkin_time || "") || undefined,
         guest_list_id: gl.guest_list_id,
         reservation_id: reservationId || undefined,
+        observacoes,
       });
     });
   });
@@ -446,6 +481,7 @@ export const buildRooftopFlowQueue = (params: {
       return;
     }
 
+    const observacoesRes = getObservacoes(null, reservation);
     queue.push({
       id: itemId,
       name: String(reservation.client_name || reservation.responsavel || "Cliente"),
@@ -456,6 +492,7 @@ export const buildRooftopFlowQueue = (params: {
         "Sem subarea",
       checkinTime: String(reservation.checkin_time || "") || undefined,
       reservation_id: reservationId,
+      observacoes: observacoesRes,
     });
   });
 

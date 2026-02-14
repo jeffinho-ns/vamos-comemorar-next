@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
+import { io } from "socket.io-client";
 import {
   MdCheckCircle,
   MdDirectionsWalk,
@@ -27,12 +28,14 @@ import {
   type RooftopGuestListLike,
   type RooftopReservationLike,
 } from "@/app/utils/rooftopCheckins";
+import { getApiUrl } from "@/app/config/api";
 
-const API_URL =
+const API_URL = getApiUrl();
+const SOCKET_URL =
+  process.env.NEXT_PUBLIC_SOCKET_URL ||
   process.env.NEXT_PUBLIC_API_URL ||
-  process.env.NEXT_PUBLIC_API_URL_LOCAL ||
-  "https://vamos-comemorar-api.onrender.com";
-const POLLING_INTERVAL_MS = 5_000;
+  getApiUrl();
+const POLLING_INTERVAL_MS = 3_000;
 
 export default function RooftopFluxoPage() {
   const establishmentPermissions = useEstablishmentPermissions();
@@ -94,15 +97,15 @@ export default function RooftopFluxoPage() {
   }, [rooftopEstablishment]);
 
   const loadTodayData = useCallback(
-    async (silent = false) => {
+    async (silent = false, userInitiated = false) => {
       if (!rooftopEstablishmentId) {
         setLoading(false);
         return;
       }
 
-      if (silent) {
+      if (silent && userInitiated) {
         setRefreshing(true);
-      } else {
+      } else if (!silent) {
         setLoading(true);
       }
 
@@ -115,34 +118,131 @@ export default function RooftopFluxoPage() {
           headers["Authorization"] = `Bearer ${token}`;
         }
 
-        const monthKey = todayDateKey.slice(0, 7);
-        const [reservationsRes, guestListsRes] = await Promise.all([
-          fetch(
-            `${API_URL}/api/restaurant-reservations?establishment_id=${rooftopEstablishmentId}&date=${todayDateKey}`,
-            { headers },
-          ),
-          fetch(
-            `${API_URL}/api/admin/guest-lists?month=${monthKey}&establishment_id=${rooftopEstablishmentId}`,
-            { headers },
-          ),
-        ]);
+        let reservationsToday: RooftopReservationLike[] = [];
+        let guestListsToday: RooftopGuestListLike[] = [];
 
-        if (!reservationsRes.ok) {
-          throw new Error("Nao foi possivel carregar as reservas do dia.");
+        type EventoRow = {
+          evento_id?: number;
+          id?: number;
+          establishment_id?: number;
+          id_place?: number;
+          establishment_name?: string | null;
+          data_evento?: string | null;
+        };
+        let eventos: EventoRow[] = [];
+        const eventosRes = await fetch(
+          `${API_URL}/api/v1/eventos?establishment_id=${rooftopEstablishmentId}`,
+          { headers },
+        );
+        if (eventosRes.ok) {
+          const eventosData = await eventosRes.json();
+          eventos = eventosData.eventos ?? eventosData.data ?? [];
+        }
+        let eventoHoje: EventoRow | undefined = eventos.find((e) =>
+          isSameDateKey(e.data_evento ?? null, todayDateKey),
+        );
+        if (!eventoHoje && eventos.length === 0) {
+          const todosRes = await fetch(`${API_URL}/api/v1/eventos`, { headers });
+          if (todosRes.ok) {
+            const todosData = await todosRes.json();
+            const todos: EventoRow[] = todosData.eventos ?? todosData.data ?? [];
+            eventoHoje = todos.find(
+              (e) =>
+                (Number(e.establishment_id ?? e.id_place ?? 0) === rooftopEstablishmentId ||
+                  isReservaRooftopEstablishment(e.establishment_name ?? null)) &&
+                isSameDateKey(e.data_evento ?? null, todayDateKey),
+            );
+          }
+        }
+        const eventoId = eventoHoje?.evento_id ?? eventoHoje?.id;
+
+        if (eventoId) {
+            const checkinsRes = await fetch(
+              `${API_URL}/api/v1/eventos/${eventoId}/checkins`,
+              { headers },
+            );
+            if (checkinsRes.ok) {
+              const checkinsData = await checkinsRes.json();
+              const rawReservas = checkinsData.dados?.reservasRestaurante ?? [];
+              const rawLists = checkinsData.dados?.guestListsRestaurante ?? [];
+
+              const pickNotes = (o: Record<string, unknown>) =>
+                (o.notes ?? o.admin_notes ?? o.observacao ?? (o as { observação?: string }).observação) as string | undefined;
+              reservationsToday = (Array.isArray(rawReservas) ? rawReservas : []).map(
+                (r: Record<string, unknown>) =>
+                  ({
+                    id: r.id,
+                    reservation_date: r.reservation_date,
+                    number_of_people: r.number_of_people,
+                    checked_in: r.checked_in,
+                    checked_out: r.checked_out,
+                    checkin_time: r.checkin_time,
+                    table_number: r.table_number,
+                    area_name: r.area_name,
+                    guest_list_id: r.guest_list_id,
+                    client_name: r.client_name ?? r.responsavel,
+                    responsavel: r.responsavel ?? r.client_name,
+                    notes: pickNotes(r),
+                  }) as RooftopReservationLike,
+              );
+              guestListsToday = (Array.isArray(rawLists) ? rawLists : []).map(
+                (gl: Record<string, unknown>) =>
+                  ({
+                    guest_list_id: gl.guest_list_id ?? gl.id,
+                    reservation_id: gl.reservation_id,
+                    reservation_date: gl.reservation_date,
+                    owner_name: gl.owner_name,
+                    owner_checked_in: gl.owner_checked_in,
+                    owner_checked_out: gl.owner_checked_out,
+                    owner_checkin_time: gl.owner_checkin_time,
+                    owner_checkout_time: gl.owner_checkout_time,
+                    guests_checked_in: gl.guests_checked_in,
+                    total_guests: gl.total_guests,
+                    table_number: gl.table_number,
+                    area_name: gl.area_name,
+                    notes: pickNotes(gl),
+                  }) as RooftopGuestListLike,
+              );
+            }
         }
 
-        const reservationsData = await reservationsRes.json();
-        const guestListsData = guestListsRes.ok ? await guestListsRes.json() : {};
+        if (reservationsToday.length === 0 && guestListsToday.length === 0) {
+          const monthKey = todayDateKey.slice(0, 7);
+          const [reservationsRes, guestListsRes] = await Promise.all([
+            fetch(
+              `${API_URL}/api/restaurant-reservations?establishment_id=${rooftopEstablishmentId}&date=${todayDateKey}`,
+              { headers },
+            ),
+            fetch(
+              `${API_URL}/api/admin/guest-lists?month=${monthKey}&establishment_id=${rooftopEstablishmentId}`,
+              { headers },
+            ),
+          ]);
 
-        const reservationsToday = (reservationsData.reservations || []).filter(
-          (reservation: RooftopReservationLike) =>
-            isSameDateKey(reservation.reservation_date, todayDateKey),
-        ) as RooftopReservationLike[];
+          if (!reservationsRes.ok) {
+            throw new Error("Nao foi possivel carregar as reservas do dia.");
+          }
 
-        const guestListsToday = (guestListsData.guestLists || []).filter(
-          (guestList: RooftopGuestListLike) =>
-            isSameDateKey(guestList.reservation_date, todayDateKey),
-        ) as RooftopGuestListLike[];
+          const reservationsData = await reservationsRes.json();
+          const guestListsData = guestListsRes.ok ? await guestListsRes.json() : {};
+          const rawReservations = reservationsData.reservations ?? reservationsData.data ?? [];
+          const rawGuestLists = guestListsData.guestLists ?? guestListsData.data ?? [];
+
+          reservationsToday = (Array.isArray(rawReservations) ? rawReservations : []).filter(
+            (r: RooftopReservationLike) => r && r.id != null && isSameDateKey(r.reservation_date, todayDateKey),
+          ) as RooftopReservationLike[];
+          if (reservationsToday.length === 0 && Array.isArray(rawReservations) && rawReservations.length > 0) {
+            reservationsToday = rawReservations as RooftopReservationLike[];
+          }
+
+          guestListsToday = (Array.isArray(rawGuestLists) ? rawGuestLists : []).filter(
+            (gl: RooftopGuestListLike) =>
+              gl && gl.guest_list_id != null && isSameDateKey(gl.reservation_date, todayDateKey),
+          ) as RooftopGuestListLike[];
+          if (guestListsToday.length === 0 && Array.isArray(rawGuestLists) && rawGuestLists.length > 0) {
+            guestListsToday = rawGuestLists as RooftopGuestListLike[];
+          }
+        }
 
         const listsWithCheckedGuests = guestListsToday.filter(
           (gl) => Number(gl.guests_checked_in || 0) > 0,
@@ -181,20 +281,27 @@ export default function RooftopFluxoPage() {
         }
 
         const signature = JSON.stringify({
-          r: reservationsToday.map((x) => ({ id: x.id, ci: x.checked_in, co: x.checked_out })),
-          g: guestListsToday.map((x) => ({
-            id: x.guest_list_id,
-            oci: x.owner_checked_in,
-            oco: x.owner_checked_out,
-            gci: x.guests_checked_in,
-          })),
+          r: reservationsToday
+            .slice()
+            .sort((a, b) => Number(a.id) - Number(b.id))
+            .map((x) => ({ id: x.id, ci: x.checked_in, co: x.checked_out })),
+          g: guestListsToday
+            .slice()
+            .sort((a, b) => (a.guest_list_id || 0) - (b.guest_list_id || 0))
+            .map((x) => ({
+              id: x.guest_list_id,
+              oci: x.owner_checked_in,
+              oco: x.owner_checked_out,
+              gci: x.guests_checked_in,
+            })),
           gbl: Object.keys(nextGuestsByList)
-            .sort()
+            .sort((a, b) => Number(a) - Number(b))
             .map((k) => [k, (nextGuestsByList[Number(k)] || []).map((u) => ({ id: u.id, ci: u.checked_in, co: u.checked_out }))]),
           c: conducedList.slice().sort(),
         });
 
         if (silent && signature === lastDataSignatureRef.current) {
+          if (userInitiated) setRefreshing(false);
           return;
         }
         lastDataSignatureRef.current = signature;
@@ -224,10 +331,30 @@ export default function RooftopFluxoPage() {
     if (!rooftopEstablishmentId) return;
     loadTodayData(false);
     const interval = setInterval(() => {
-      loadTodayData(true);
+      loadTodayData(true, false);
     }, POLLING_INTERVAL_MS);
     return () => clearInterval(interval);
   }, [rooftopEstablishmentId, loadTodayData]);
+
+  const loadTodayDataRef = useRef(loadTodayData);
+  loadTodayDataRef.current = loadTodayData;
+
+  useEffect(() => {
+    if (!rooftopEstablishmentId || !todayDateKey) return;
+    const socket = io(SOCKET_URL, { transports: ["websocket"] });
+    socket.emit("join_rooftop_flow", {
+      establishment_id: rooftopEstablishmentId,
+      flow_date: todayDateKey,
+    });
+    const onRefresh = () => {
+      loadTodayDataRef.current(true, false);
+    };
+    socket.on("rooftop_queue_refresh", onRefresh);
+    return () => {
+      socket.off("rooftop_queue_refresh", onRefresh);
+      socket.disconnect();
+    };
+  }, [rooftopEstablishmentId, todayDateKey]);
 
   const unifiedMetrics = useMemo(
     () =>
@@ -316,7 +443,7 @@ export default function RooftopFluxoPage() {
                   )}
                 </div>
                 <p className="mt-0.5 hidden text-sm text-gray-200 md:block">
-                  Fila em tempo real de clientes com check-in no térreo
+                  Fila em tempo real de clientes com check-in no térreo. As observações em cada card vêm da primeira recepção.
                 </p>
                 <p className="mt-0.5 hidden text-xs text-gray-300 md:block lg:text-sm">
                   {rooftopEstablishmentName || "Reserva Rooftop"} - Hoje (
@@ -326,7 +453,7 @@ export default function RooftopFluxoPage() {
 
               <button
                 type="button"
-                onClick={() => loadTodayData(true)}
+                onClick={() => loadTodayData(true, true)}
                 disabled={loading || refreshing || !canRenderQueue}
                 className="shrink-0 rounded-lg bg-green-600 p-2 text-white transition-colors hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-60 md:inline-flex md:items-center md:gap-2 md:rounded-lg md:px-4 md:py-3 md:text-sm md:font-semibold"
                 title="Atualizar agora"
@@ -427,6 +554,16 @@ export default function RooftopFluxoPage() {
                             </span>
                           )}
                         </div>
+                        {item.observacoes && (
+                          <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3">
+                            <p className="text-xs font-bold uppercase tracking-wide text-amber-800">
+                              Observações
+                            </p>
+                            <p className="mt-1 whitespace-pre-wrap text-sm text-amber-900">
+                              {item.observacoes}
+                            </p>
+                          </div>
+                        )}
                       </div>
 
                       <button
