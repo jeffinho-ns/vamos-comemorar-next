@@ -13,6 +13,11 @@ import RooftopUnifiedStatsHeader from "@/app/components/checkins/RooftopUnifiedS
 import { useEstablishments } from "@/app/hooks/useEstablishments";
 import { useEstablishmentPermissions } from "@/app/hooks/useEstablishmentPermissions";
 import {
+  buildConductionPayload,
+  confirmConduction,
+  getConducedIds,
+} from "@/app/services/rooftopConduction";
+import {
   buildRooftopFlowQueue,
   computeRooftopUnifiedMetrics,
   getTodayDateKey,
@@ -53,11 +58,8 @@ export default function RooftopFluxoPage() {
 
   const todayDateKey = getTodayDateKey();
   const [conducedIds, setConducedIds] = useState<Set<string>>(new Set());
-
-  const storageKey = useMemo(() => {
-    if (!rooftopEstablishmentId) return null;
-    return `rooftop-fluxo-conduzidos-${rooftopEstablishmentId}-${todayDateKey}`;
-  }, [rooftopEstablishmentId, todayDateKey]);
+  const [conductionError, setConductionError] = useState<string | null>(null);
+  const [conductionSuccessId, setConductionSuccessId] = useState<string | null>(null);
 
   useEffect(() => {
     if (establishmentPermissions.isLoading) return;
@@ -88,29 +90,6 @@ export default function RooftopFluxoPage() {
     setRooftopEstablishmentId(Number(rooftopEstablishment.id));
     setRooftopEstablishmentName(rooftopEstablishment.name);
   }, [rooftopEstablishment]);
-
-  useEffect(() => {
-    if (!storageKey) {
-      setConducedIds(new Set());
-      return;
-    }
-    try {
-      const stored = localStorage.getItem(storageKey);
-      const parsed = stored ? JSON.parse(stored) : [];
-      if (Array.isArray(parsed)) {
-        setConducedIds(new Set(parsed.filter((value) => typeof value === "string")));
-      } else {
-        setConducedIds(new Set());
-      }
-    } catch {
-      setConducedIds(new Set());
-    }
-  }, [storageKey]);
-
-  useEffect(() => {
-    if (!storageKey) return;
-    localStorage.setItem(storageKey, JSON.stringify(Array.from(conducedIds)));
-  }, [conducedIds, storageKey]);
 
   const loadTodayData = useCallback(
     async (silent = false) => {
@@ -193,6 +172,18 @@ export default function RooftopFluxoPage() {
         setGuestsByList(nextGuestsByList);
         setLastUpdatedAt(new Date());
         setError(null);
+        setConductionError(null);
+
+        try {
+          const ids = await getConducedIds(
+            API_URL,
+            rooftopEstablishmentId,
+            todayDateKey,
+          );
+          setConducedIds(new Set(ids));
+        } catch {
+          // Mantém estado anterior em caso de erro (ex.: backend indisponível)
+        }
       } catch (loadError) {
         const message =
           loadError instanceof Error
@@ -238,13 +229,44 @@ export default function RooftopFluxoPage() {
     [todayDateKey, reservations, guestLists, guestsByList, conducedIds],
   );
 
-  const handleConfirmConduction = useCallback((queueItemId: string) => {
-    setConducedIds((previous) => {
-      const next = new Set(previous);
-      next.add(queueItemId);
-      return next;
-    });
-  }, []);
+  const handleConfirmConduction = useCallback(
+    async (item: { id: string; guest_list_id?: number; reservation_id?: number }) => {
+      const queueItemId = item.id;
+      setConductionError(null);
+      setConductionSuccessId(null);
+
+      const previousIds = new Set(conducedIds);
+      setConducedIds((prev) => {
+        const next = new Set(prev);
+        next.add(queueItemId);
+        return next;
+      });
+
+      const payload = buildConductionPayload(
+        queueItemId,
+        rooftopEstablishmentId!,
+        todayDateKey,
+        item.guest_list_id,
+        item.reservation_id,
+      );
+
+      try {
+        await confirmConduction(API_URL, payload);
+        setConductionSuccessId(queueItemId);
+        setTimeout(() => setConductionSuccessId(null), 2000);
+      } catch (err) {
+        setConducedIds(previousIds);
+        setConductionError(
+          err instanceof Error ? err.message : "Erro ao confirmar condução.",
+        );
+      }
+    },
+    [
+      rooftopEstablishmentId,
+      todayDateKey,
+      conducedIds,
+    ],
+  );
 
   const canRenderQueue = rooftopEstablishmentId != null;
 
@@ -305,6 +327,12 @@ export default function RooftopFluxoPage() {
           {error && (
             <div className="mb-4 rounded-xl border border-red-500/40 bg-red-500/15 p-4 text-sm text-red-100">
               {error}
+            </div>
+          )}
+
+          {conductionError && (
+            <div className="mb-4 rounded-xl border border-red-500/40 bg-red-500/15 p-4 text-sm text-red-100">
+              {conductionError}
             </div>
           )}
 
@@ -379,11 +407,14 @@ export default function RooftopFluxoPage() {
 
                       <button
                         type="button"
-                        onClick={() => handleConfirmConduction(item.id)}
-                        className="inline-flex min-h-[52px] items-center justify-center gap-2 rounded-xl bg-green-600 px-5 py-3 text-base font-bold text-white transition-colors hover:bg-green-700 active:scale-[0.99] md:min-w-[260px]"
+                        onClick={() => handleConfirmConduction(item)}
+                        disabled={conductionSuccessId === item.id}
+                        className="inline-flex min-h-[52px] items-center justify-center gap-2 rounded-xl bg-green-600 px-5 py-3 text-base font-bold text-white transition-colors hover:bg-green-700 active:scale-[0.99] disabled:opacity-70 md:min-w-[260px]"
                       >
                         <MdDirectionsWalk size={20} />
-                        CONFIRMAR CONDUCAO
+                        {conductionSuccessId === item.id
+                          ? "Conduzido!"
+                          : "CONFIRMAR CONDUCAO"}
                       </button>
                     </div>
                   </motion.article>

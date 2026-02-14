@@ -55,6 +55,10 @@ export interface RooftopFlowQueueItem {
   tableLabel: string;
   subareaLabel: string;
   checkinTime?: string;
+  /** Para integração com backend de condução (owner/guest: guest_list_id; reservation_owner: não usa) */
+  guest_list_id?: number;
+  /** Para integração com backend de condução (reservation_id da reserva associada) */
+  reservation_id?: number;
 }
 
 const HIGHLINE_SUBAREA_BY_TABLE: Record<string, string> = {
@@ -398,6 +402,8 @@ export const buildRooftopFlowQueue = (params: {
         subareaLabel,
         checkinTime:
           String(gl.owner_checkin_time || reservation?.checkin_time || "") || undefined,
+        guest_list_id: gl.guest_list_id,
+        reservation_id: reservationId || undefined,
       });
     }
 
@@ -419,6 +425,8 @@ export const buildRooftopFlowQueue = (params: {
         tableLabel,
         subareaLabel,
         checkinTime: String(guest.checkin_time || "") || undefined,
+        guest_list_id: gl.guest_list_id,
+        reservation_id: reservationId || undefined,
       });
     });
   });
@@ -447,6 +455,7 @@ export const buildRooftopFlowQueue = (params: {
         getRooftopSubareaName(reservation.table_number, reservation.area_name) ||
         "Sem subarea",
       checkinTime: String(reservation.checkin_time || "") || undefined,
+      reservation_id: reservationId,
     });
   });
 
