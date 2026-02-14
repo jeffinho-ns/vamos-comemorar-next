@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import {
@@ -22,6 +22,7 @@ import {
 } from 'react-icons/md';
 import { WithPermission } from '../../components/WithPermission/WithPermission';
 import { useEstablishmentPermissions } from '@/app/hooks/useEstablishmentPermissions';
+import { isReservaRooftopEstablishment } from '@/app/utils/rooftopCheckins';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.agilizaiapp.com.br';
 
@@ -343,6 +344,15 @@ export default function CheckInsGeralPage() {
     return grupos;
   })();
 
+  const showFluxoRooftopButton = useMemo(() => {
+    const role = typeof window !== 'undefined' ? (localStorage.getItem('role') || '') : '';
+    const onlyRooftop =
+      estabelecimentos.length === 1 &&
+      estabelecimentos[0] &&
+      isReservaRooftopEstablishment(estabelecimentos[0].nome);
+    return role === 'admin' || onlyRooftop;
+  }, [estabelecimentos]);
+
   return (
     <WithPermission allowedRoles={["admin", "gerente", "hostess", "promoter", "recepção"]}>
       <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
@@ -405,14 +415,16 @@ export default function CheckInsGeralPage() {
                   <span className="hidden sm:inline">Modo Tablet</span>
                   <span className="sm:hidden">Tablet</span>
                 </button>
-                <button
-                  onClick={() => router.push('/admin/checkins/rooftop-fluxo')}
-                  className="flex items-center justify-center gap-2 px-4 sm:px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition-colors font-semibold text-sm sm:text-base"
-                >
-                  <MdGroups size={20} />
-                  <span className="hidden sm:inline">Fluxo Rooftop</span>
-                  <span className="sm:hidden">Fluxo</span>
-                </button>
+                {showFluxoRooftopButton && (
+                  <button
+                    onClick={() => router.push('/admin/checkins/rooftop-fluxo')}
+                    className="flex items-center justify-center gap-2 px-4 sm:px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition-colors font-semibold text-sm sm:text-base"
+                  >
+                    <MdGroups size={20} />
+                    <span className="hidden sm:inline">Fluxo Rooftop</span>
+                    <span className="sm:hidden">Fluxo</span>
+                  </button>
+                )}
                 <button
                   onClick={carregarTudo}
                   disabled={loading}
