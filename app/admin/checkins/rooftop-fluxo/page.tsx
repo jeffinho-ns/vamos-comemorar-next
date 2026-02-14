@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   MdCheckCircle,
@@ -32,7 +32,7 @@ const API_URL =
   process.env.NEXT_PUBLIC_API_URL ||
   process.env.NEXT_PUBLIC_API_URL_LOCAL ||
   "https://vamos-comemorar-api.onrender.com";
-const POLLING_INTERVAL_MS = 10_000;
+const POLLING_INTERVAL_MS = 5_000;
 
 export default function RooftopFluxoPage() {
   const establishmentPermissions = useEstablishmentPermissions();
@@ -60,6 +60,8 @@ export default function RooftopFluxoPage() {
   const [conducedIds, setConducedIds] = useState<Set<string>>(new Set());
   const [conductionError, setConductionError] = useState<string | null>(null);
   const [conductionSuccessId, setConductionSuccessId] = useState<string | null>(null);
+
+  const lastDataSignatureRef = useRef<string>("");
 
   useEffect(() => {
     if (establishmentPermissions.isLoading) return;
@@ -167,23 +169,43 @@ export default function RooftopFluxoPage() {
           nextGuestsByList[Number(guestListId)] = guests as RooftopGuestLike[];
         });
 
-        setReservations(reservationsToday);
-        setGuestLists(guestListsToday);
-        setGuestsByList(nextGuestsByList);
-        setLastUpdatedAt(new Date());
-        setError(null);
-        setConductionError(null);
-
+        let conducedList: string[] = [];
         try {
-          const ids = await getConducedIds(
+          conducedList = await getConducedIds(
             API_URL,
             rooftopEstablishmentId,
             todayDateKey,
           );
-          setConducedIds(new Set(ids));
         } catch {
           // Mantém estado anterior em caso de erro (ex.: backend indisponível)
         }
+
+        const signature = JSON.stringify({
+          r: reservationsToday.map((x) => ({ id: x.id, ci: x.checked_in, co: x.checked_out })),
+          g: guestListsToday.map((x) => ({
+            id: x.guest_list_id,
+            oci: x.owner_checked_in,
+            oco: x.owner_checked_out,
+            gci: x.guests_checked_in,
+          })),
+          gbl: Object.keys(nextGuestsByList)
+            .sort()
+            .map((k) => [k, (nextGuestsByList[Number(k)] || []).map((u) => ({ id: u.id, ci: u.checked_in, co: u.checked_out }))]),
+          c: conducedList.slice().sort(),
+        });
+
+        if (silent && signature === lastDataSignatureRef.current) {
+          return;
+        }
+        lastDataSignatureRef.current = signature;
+
+        setReservations(reservationsToday);
+        setGuestLists(guestListsToday);
+        setGuestsByList(nextGuestsByList);
+        setConducedIds(new Set(conducedList));
+        setLastUpdatedAt(new Date());
+        setError(null);
+        setConductionError(null);
       } catch (loadError) {
         const message =
           loadError instanceof Error
@@ -276,17 +298,28 @@ export default function RooftopFluxoPage() {
     >
       <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
         <div className="mx-auto w-full max-w-6xl px-3 py-3 md:px-4 md:py-5">
-          <div className="mb-4 rounded-xl border border-white/20 bg-white/10 p-4 text-white shadow-lg backdrop-blur-sm">
-            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-              <div>
-                <h1 className="text-xl font-bold md:text-3xl">
-                  Fluxo Rooftop - Recepcao 2
-                </h1>
-                <p className="mt-1 text-sm text-gray-200 md:text-base">
-                  Fila em tempo real de clientes com check-in no terreo
+          <div className="mb-2 rounded-lg border border-white/20 bg-white/10 p-2 text-white shadow-lg backdrop-blur-sm md:mb-4 md:rounded-xl md:p-4">
+            <div className="flex items-center justify-between gap-2 md:flex-row">
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h1 className="truncate text-sm font-semibold md:text-xl md:font-bold lg:text-3xl">
+                    Fluxo Rooftop - Recepção 2
+                  </h1>
+                  {lastUpdatedAt && (
+                    <span className="shrink-0 text-[10px] text-gray-400 md:text-xs md:text-gray-300">
+                      {lastUpdatedAt.toLocaleTimeString("pt-BR", {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                        second: "2-digit",
+                      })}
+                    </span>
+                  )}
+                </div>
+                <p className="mt-0.5 hidden text-sm text-gray-200 md:block">
+                  Fila em tempo real de clientes com check-in no térreo
                 </p>
-                <p className="mt-1 text-xs text-gray-300 md:text-sm">
-                  {rooftopEstablishmentName || "Reserva Rooftop"} - Dados de hoje (
+                <p className="mt-0.5 hidden text-xs text-gray-300 md:block lg:text-sm">
+                  {rooftopEstablishmentName || "Reserva Rooftop"} - Hoje (
                   {todayDateKey.split("-").reverse().join("/")})
                 </p>
               </div>
@@ -295,25 +328,16 @@ export default function RooftopFluxoPage() {
                 type="button"
                 onClick={() => loadTodayData(true)}
                 disabled={loading || refreshing || !canRenderQueue}
-                className="inline-flex items-center justify-center gap-2 rounded-lg bg-green-600 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-60"
+                className="shrink-0 rounded-lg bg-green-600 p-2 text-white transition-colors hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-60 md:inline-flex md:items-center md:gap-2 md:rounded-lg md:px-4 md:py-3 md:text-sm md:font-semibold"
+                title="Atualizar agora"
               >
-                <MdRefresh className={refreshing ? "animate-spin" : ""} size={18} />
-                Atualizar agora
+                <MdRefresh className={refreshing ? "animate-spin" : ""} size={20} />
+                <span className="hidden md:inline">Atualizar agora</span>
               </button>
             </div>
-            {lastUpdatedAt && (
-              <div className="mt-2 text-xs text-gray-300">
-                Ultima atualizacao:{" "}
-                {lastUpdatedAt.toLocaleTimeString("pt-BR", {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                  second: "2-digit",
-                })}
-              </div>
-            )}
           </div>
 
-          <div className="sticky top-0 z-30 mb-4">
+          <div className="sticky top-0 z-30 mb-2 md:mb-4">
             <RooftopUnifiedStatsHeader
               areaPeopleTotal={unifiedMetrics.areaPeopleTotal}
               areasBreakdown={unifiedMetrics.areasBreakdown}

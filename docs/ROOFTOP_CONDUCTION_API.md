@@ -3,6 +3,8 @@
 Contrato dos endpoints de persistência de "condução" da fila do Fluxo Rooftop (Reserva Rooftop).  
 Escopo: sincronização entre dispositivos/recepções; sem impacto em outros estabelecimentos.
 
+**Implementação backend:** `vamos-comemorar-api` — rotas em `routes/rooftopConduction.js`, tabela criada pela migração `migrations/create_rooftop_conduction_postgresql.sql`. Executar uma vez: `node scripts/run_rooftop_conduction_migration.js`.
+
 ## Base URL
 
 Mesma base da API existente (ex.: `https://vamos-comemorar-api.onrender.com`).
