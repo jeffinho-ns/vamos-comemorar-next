@@ -170,10 +170,16 @@ export default function ReservationModal({
 
   const normalizeReservationDate = (dateStr?: string | null) => {
     if (!dateStr) return null;
-    if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return dateStr;
-    const d = new Date(dateStr);
+    const trimmed = String(dateStr).trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return trimmed;
+    const d = new Date(trimmed);
     if (Number.isNaN(d.getTime())) return null;
-    return d.toISOString().split('T')[0];
+    // Usar data LOCAL para evitar deslocamento de timezone: reservas em 21/02 23:00 BRT (22/02 02:00 UTC)
+    // devem permanecer como 2026-02-21, não serem convertidas para 2026-02-22 via toISOString()
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
   };
 
   const getMaxBirthdate = () => {
@@ -1214,7 +1220,7 @@ export default function ReservationModal({
       // IMPORTANTE: Não verificar conflitos quando está EDITANDO uma reserva existente
       // O modal de edição serve para atualizar dados da reserva já criada, não para verificar disponibilidade novamente
       if (!reservation && isSeuJustino && finalTableNumber && formData.reservation_date && reservation_time) {
-        const reservationDate = new Date(formData.reservation_date);
+        const reservationDate = new Date(formData.reservation_date + 'T12:00:00');
         const isSaturday = reservationDate.getDay() === 6; // 6 = Sábado
         
         if (isSaturday) {
