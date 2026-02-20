@@ -255,264 +255,270 @@ export default function ReservesPage() {
     }
   }, [selectedEstablishment, selectedDate, searchTerm]);
 
-  // Carregar faturamento dos eventos por estabelecimento
+  // Helper para converter entrada_valor para número (extraído para reutilizar)
+  const toNumber = useCallback((value: any): number => {
+    if (typeof value === 'number') return Math.max(0, value);
+    if (!value) return 0;
+    const str = String(value).replace(/[^\d.,]/g, '').replace(',', '.');
+    const parsed = parseFloat(str);
+    return isNaN(parsed) ? 0 : Math.max(0, parsed);
+  }, []);
+
+  // Carregar faturamento dos eventos por estabelecimento - OTIMIZADO com requisições paralelas
   const loadEventRevenues = useCallback(async () => {
     setLoadingEvents(true);
     try {
       const token = localStorage.getItem("authToken");
-      if (!token) return;
-
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const todayStr = today.toISOString().split('T')[0];
-
-      // Buscar todos os eventos passados e futuros por estabelecimento
-      const eventsByEstablishment: Record<number, EventRevenue[]> = {};
-      const revenueByPeriodData: Record<number, RevenueByPeriod> = {};
-
-      for (const establishment of establishments) {
-        if (!establishment.id) continue;
-
-        try {
-          // Buscar TODOS os eventos do estabelecimento (passados e futuros)
-          // Não aplicar filtro de data aqui, queremos todos os eventos
-          const eventsRes = await fetch(
-            `${API_URL}/api/v1/eventos?establishment_id=${establishment.id}`,
-            {
-              headers: {
-                Authorization: `Bearer ${token}`,
-              },
-            }
-          );
-          
-          console.log(`🔍 Buscando eventos do estabelecimento ${establishment.name} (ID: ${establishment.id})`);
-
-          if (eventsRes.ok) {
-            const eventsData = await eventsRes.json();
-            const eventos = Array.isArray(eventsData.eventos) ? eventsData.eventos : [];
-            
-            console.log(`✅ Encontrados ${eventos.length} eventos para ${establishment.name}`);
-
-            // Processar cada evento para obter faturamento
-            const establishmentRevenues: EventRevenue[] = [];
-
-            for (const evento of eventos) {
-              try {
-                // Buscar check-ins consolidados do evento
-                // Buscar TODOS os eventos, passados e futuros, para calcular receita completa
-                console.log(`🔍 Buscando check-ins para evento ${evento.evento_id}: ${evento.nome} (${evento.data_evento || 'sem data'})`);
-                const checkinsRes = await fetch(
-                  `${API_URL}/api/v1/eventos/${evento.evento_id}/checkins`,
-                  {
-                    headers: {
-                      Authorization: `Bearer ${token}`,
-                    },
-                  }
-                );
-
-                if (checkinsRes.ok) {
-                  console.log(`📊 Processando evento: ${evento.nome} (${evento.data_evento || 'sem data'})`);
-                  const checkinsData = await checkinsRes.json();
-                  const dados = checkinsData.dados || {};
-                  const estatisticas = checkinsData.estatisticas || {};
-                  
-                  console.log(`✅ Evento ${evento.nome} - Dados recebidos:`, {
-                    convidadosReservas: dados.convidadosReservas?.length || 0,
-                    convidadosReservasRestaurante: dados.convidadosReservasRestaurante?.length || 0,
-                    guestListsRestaurante: dados.guestListsRestaurante?.length || 0,
-                    convidadosPromoters: dados.convidadosPromoters?.length || 0,
-                  });
-
-                  // Helper para converter entrada_valor para número
-                  const toNumber = (value: any): number => {
-                    if (typeof value === 'number') return Math.max(0, value);
-                    if (!value) return 0;
-                    const str = String(value).replace(/[^\d.,]/g, '').replace(',', '.');
-                    const parsed = parseFloat(str);
-                    return isNaN(parsed) ? 0 : Math.max(0, parsed);
-                  };
-
-                  // Calcular faturamento baseado nos check-ins
-                  let totalRevenue = 0;
-                  const revenueByType = { seco: 0, consuma: 0, vip: 0 };
-
-                  // Calcular de convidados de reservas
-                  const convidadosReservas = dados.convidadosReservas || [];
-                  convidadosReservas.forEach((c: any) => {
-                    if (c.status === 'CHECK-IN' && c.entrada_valor) {
-                      const valor = toNumber(c.entrada_valor);
-                      totalRevenue += valor;
-                      if (c.entrada_tipo === 'SECO') revenueByType.seco += valor;
-                      else if (c.entrada_tipo === 'CONSUMA') revenueByType.consuma += valor;
-                    }
-                  });
-
-                  // Calcular de convidados de restaurante
-                  const convidadosReservasRestaurante = dados.convidadosReservasRestaurante || [];
-                  convidadosReservasRestaurante.forEach((c: any) => {
-                    const isCheckedIn = c.status_checkin === 1 || c.status_checkin === true || c.status_checkin === 'Check-in' || c.checked_in === 1 || c.checked_in === true;
-                    if (isCheckedIn && c.entrada_valor) {
-                      const valor = toNumber(c.entrada_valor);
-                      totalRevenue += valor;
-                      if (c.entrada_tipo === 'SECO' || c.entrada_tipo === 'seco') revenueByType.seco += valor;
-                      else if (c.entrada_tipo === 'CONSUMA' || c.entrada_tipo === 'consuma') revenueByType.consuma += valor;
-                    }
-                  });
-
-                  // Calcular de convidados de promoters
-                  const convidadosPromoters = dados.convidadosPromoters || [];
-                  convidadosPromoters.forEach((c: any) => {
-                    if ((c.status_checkin === 'Check-in' || c.status_checkin === 'CHECK-IN') && c.entrada_valor) {
-                      const valor = toNumber(c.entrada_valor);
-                      totalRevenue += valor;
-                      if (c.entrada_tipo === 'SECO') revenueByType.seco += valor;
-                      else if (c.entrada_tipo === 'CONSUMA') revenueByType.consuma += valor;
-                    }
-                  });
-
-                  // Calcular de guest lists de restaurante
-                  // Precisamos buscar os guests individualmente de cada guest list
-                  const guestListsRestaurante = dados.guestListsRestaurante || [];
-                  let totalGuestsRevenue = 0;
-                  let guestsProcessed = 0;
-                  let guestsWithRevenue = 0;
-                  
-                  // Tentar buscar guests da resposta ou fazer requisições adicionais
-                  for (const gl of guestListsRestaurante) {
-                    try {
-                      // Tentar buscar guests desta guest list
-                      const guestsRes = await fetch(
-                        `${API_URL}/api/admin/guest-lists/${gl.guest_list_id}/guests`,
-                        {
-                          headers: {
-                            Authorization: `Bearer ${token}`,
-                          },
-                        }
-                      );
-
-                      if (guestsRes.ok) {
-                        const guestsData = await guestsRes.json();
-                        const guests = Array.isArray(guestsData.guests) ? guestsData.guests : [];
-                        guestsProcessed += guests.length;
-                        
-                        guests.forEach((g: any) => {
-                          const isCheckedIn = g.checked_in === 1 || g.checked_in === true || g.checked_in === 'Check-in';
-                          if (isCheckedIn && g.entrada_valor) {
-                            const valor = toNumber(g.entrada_valor);
-                            totalRevenue += valor;
-                            totalGuestsRevenue += valor;
-                            guestsWithRevenue++;
-                            if (g.entrada_tipo === 'SECO' || g.entrada_tipo === 'seco') revenueByType.seco += valor;
-                            else if (g.entrada_tipo === 'CONSUMA' || g.entrada_tipo === 'consuma') revenueByType.consuma += valor;
-                            else if (g.entrada_tipo === 'VIP' || g.entrada_tipo === 'vip') revenueByType.vip += valor;
-                          }
-                        });
-                      } else {
-                        console.warn(`⚠️ Erro ao buscar guests da guest list ${gl.guest_list_id}: ${guestsRes.status} ${guestsRes.statusText}`);
-                      }
-                    } catch (err) {
-                      console.warn(`Erro ao buscar guests da guest list ${gl.guest_list_id}:`, err);
-                    }
-                  }
-                  
-                  if (guestListsRestaurante.length > 0) {
-                    console.log(`  💰 Guest Lists: ${guestListsRestaurante.length} listas, ${guestsProcessed} guests processados, ${guestsWithRevenue} com receita (R$ ${totalGuestsRevenue.toFixed(2)})`);
-                  }
-
-                  const totalCheckIns = estatisticas.checkinGeral || 0;
-
-                  // Debug log para verificar o cálculo
-                  const checkedInRestaurante = convidadosReservasRestaurante.filter((c: any) => {
-                    const isCheckedIn = c.status_checkin === 1 || c.status_checkin === true || c.status_checkin === 'Check-in' || c.checked_in === 1 || c.checked_in === true;
-                    return isCheckedIn && c.entrada_valor;
-                  });
-                  const convidadosRestauranteRevenue = checkedInRestaurante.reduce((sum: number, c: any) => sum + toNumber(c.entrada_valor), 0);
-                  
-                  console.log(`📊 [${evento.nome}] Faturamento calculado:`, {
-                    totalRevenue,
-                    revenueByType,
-                    totalCheckIns,
-                    data_evento: evento.data_evento,
-                    convidadosReservas: convidadosReservas.length,
-                    convidadosReservasRestaurante: convidadosReservasRestaurante.length,
-                    checkedInRestaurante: checkedInRestaurante.length,
-                    convidadosRestauranteRevenue,
-                    guestsWithRevenue,
-                    totalGuestsRevenue,
-                    convidadosPromoters: convidadosPromoters.length,
-                    guestListsRestaurante: guestListsRestaurante.length,
-                  });
-
-                  establishmentRevenues.push({
-                    evento_id: evento.evento_id,
-                    nome: evento.nome || 'Sem nome',
-                    data_evento: evento.data_evento || '',
-                    establishment_id: establishment.id,
-                    establishment_name: establishment.name,
-                    totalCheckIns,
-                    totalRevenue,
-                    revenueByType,
-                  });
-                }
-              } catch (err) {
-                console.error(`Erro ao buscar check-ins do evento ${evento.evento_id}:`, err);
-              }
-            }
-
-            eventsByEstablishment[establishment.id] = establishmentRevenues;
-
-            // Calcular faturamento por período
-            const todayDate = new Date();
-            todayDate.setHours(0, 0, 0, 0);
-            const weekAgo = new Date(todayDate);
-            weekAgo.setDate(weekAgo.getDate() - 7);
-            const monthAgo = new Date(todayDate);
-            monthAgo.setMonth(monthAgo.getMonth() - 1);
-
-            let revenueDay = 0;
-            let revenueWeek = 0;
-            let revenueMonth = 0;
-            let revenueTotal = 0;
-
-            establishmentRevenues.forEach((er) => {
-              revenueTotal += er.totalRevenue;
-              
-              if (er.data_evento) {
-                const eventDate = new Date(er.data_evento);
-                eventDate.setHours(0, 0, 0, 0);
-
-                if (eventDate.getTime() === todayDate.getTime()) {
-                  revenueDay += er.totalRevenue;
-                }
-
-                if (eventDate >= weekAgo) {
-                  revenueWeek += er.totalRevenue;
-                }
-
-                if (eventDate >= monthAgo) {
-                  revenueMonth += er.totalRevenue;
-                }
-              }
-            });
-
-            revenueByPeriodData[establishment.id] = {
-              day: revenueDay,
-              week: revenueWeek,
-              month: revenueMonth,
-              total: revenueTotal,
-            };
-          }
-        } catch (err) {
-          console.error(`Erro ao buscar eventos do estabelecimento ${establishment.id}:`, err);
-        }
+      if (!token) {
+        setLoadingEvents(false);
+        return;
       }
 
-      // Flatten eventsByEstablishment para array
-      const allEventRevenues: EventRevenue[] = [];
-      Object.values(eventsByEstablishment).forEach((revenues) => {
-        allEventRevenues.push(...revenues);
+      const headers = { Authorization: `Bearer ${token}` };
+      const eventsByEstablishment: Record<number, EventRevenue[]> = {};
+      const revenueByPeriodData: Record<number, RevenueByPeriod> = {};
+      const validEstablishments = establishments.filter((e) => e.id);
+
+      if (validEstablishments.length === 0) {
+        setEventRevenues([]);
+        setRevenueByPeriod({});
+        setLoadingEvents(false);
+        return;
+      }
+
+      // ETAPA 1: Buscar eventos de TODOS os estabelecimentos em paralelo
+      const eventsResponses = await Promise.all(
+        validEstablishments.map((est) =>
+          fetch(`${API_URL}/api/v1/eventos?establishment_id=${est.id}`, { headers }).then(async (res) => ({
+            establishment: est,
+            data: res.ok ? await res.json() : { eventos: [] },
+          }))
+        )
+      );
+
+      // Montar lista de todos os (estabelecimento, evento) para buscar check-ins
+      type EstEvento = { est: Establishment; evento: any };
+      const allEstEventos: EstEvento[] = [];
+      for (const { establishment, data } of eventsResponses) {
+        const eventos = Array.isArray(data.eventos) ? data.eventos : [];
+        eventos.forEach((ev: any) => allEstEventos.push({ est: establishment, evento: ev }));
+      }
+
+      if (allEstEventos.length === 0) {
+        validEstablishments.forEach((est) => {
+          eventsByEstablishment[est.id] = [];
+          revenueByPeriodData[est.id] = { day: 0, week: 0, month: 0, total: 0 };
+        });
+        setEventRevenues([]);
+        setRevenueByPeriod(revenueByPeriodData);
+        setLoadingEvents(false);
+        return;
+      }
+
+      // ETAPA 2: Buscar check-ins de TODOS os eventos em paralelo
+      const checkinsResponses = await Promise.all(
+        allEstEventos.map(({ est, evento }) =>
+          fetch(`${API_URL}/api/v1/eventos/${evento.evento_id}/checkins`, { headers })
+            .then(async (res) => (res.ok ? { est, evento, data: await res.json() } : null))
+            .catch(() => null)
+        )
+      );
+
+      // Coletar guest lists únicas que precisam de requisição adicional
+      const processedCheckins: { est: Establishment; evento: any; dados: any; estatisticas: any; guestListsToFetch: any[] }[] = [];
+      const uniqueGuestListIds = new Set<number>();
+
+      for (const item of checkinsResponses) {
+        if (!item || !item.data) continue;
+        const rawDados = item.data.dados ?? item.data;
+        const dados = rawDados && typeof rawDados === "object" ? rawDados : {};
+        const estatisticas = item.data.estatisticas || {};
+        const guestListsRestaurante =
+          dados.guestListsRestaurante || dados.restaurant_guest_lists || [];
+
+        guestListsRestaurante.forEach((gl: any) => {
+          const listId = gl?.guest_list_id ?? gl?.id;
+          if (listId != null) uniqueGuestListIds.add(Number(listId));
+        });
+
+        processedCheckins.push({
+          est: item.est,
+          evento: item.evento,
+          dados,
+          estatisticas,
+          guestListsToFetch: guestListsRestaurante,
+        });
+      }
+
+      // ETAPA 3: Buscar guests de TODAS as guest lists em paralelo
+      const guestsByListId: Record<number, any[]> = {};
+      if (uniqueGuestListIds.size > 0) {
+        const guestsResponses = await Promise.all(
+          Array.from(uniqueGuestListIds).map((listId) =>
+            fetch(`${API_URL}/api/admin/guest-lists/${listId}/guests`, { headers })
+              .then(async (res) => {
+                if (!res.ok) return { listId, guests: [] };
+                const json = await res.json();
+                const guests =
+                  json.guests ?? json.data ?? (Array.isArray(json) ? json : []);
+                return { listId, guests: Array.isArray(guests) ? guests : [] };
+              })
+              .catch(() => ({ listId, guests: [] }))
+          )
+        );
+        guestsResponses.forEach((r: { listId: number; guests: any[] }) => {
+          guestsByListId[r.listId] = r.guests;
+        });
+      }
+
+      // ETAPA 4: Processar dados e calcular receita por evento
+      const toNum = (v: any) => toNumber(v);
+      for (const { est, evento, dados, estatisticas, guestListsToFetch } of processedCheckins) {
+        let totalRevenue = 0;
+        const revenueByType = { seco: 0, consuma: 0, vip: 0 };
+
+        const convidadosReservas =
+          dados.convidadosReservas || dados.convidados_reservas || [];
+        convidadosReservas.forEach((c: any) => {
+          if (c.status === 'CHECK-IN' && c.entrada_valor) {
+            const valor = toNum(c.entrada_valor);
+            totalRevenue += valor;
+            if (c.entrada_tipo === 'SECO') revenueByType.seco += valor;
+            else if (c.entrada_tipo === 'CONSUMA') revenueByType.consuma += valor;
+          }
+        });
+
+        const convidadosReservasRestaurante =
+          dados.convidadosReservasRestaurante ||
+          dados.convidados_reservas_restaurante ||
+          [];
+        convidadosReservasRestaurante.forEach((c: any) => {
+          const isCheckedIn =
+            c.status_checkin === 1 ||
+            c.status_checkin === true ||
+            c.status_checkin === 'Check-in' ||
+            c.checked_in === 1 ||
+            c.checked_in === true;
+          if (isCheckedIn && c.entrada_valor) {
+            const valor = toNum(c.entrada_valor);
+            totalRevenue += valor;
+            if (c.entrada_tipo === 'SECO' || c.entrada_tipo === 'seco') revenueByType.seco += valor;
+            else if (c.entrada_tipo === 'CONSUMA' || c.entrada_tipo === 'consuma')
+              revenueByType.consuma += valor;
+          }
+        });
+
+        const convidadosPromoters =
+          dados.convidadosPromoters || dados.convidados_promoters || [];
+        convidadosPromoters.forEach((c: any) => {
+          if (
+            (c.status_checkin === 'Check-in' || c.status_checkin === 'CHECK-IN') &&
+            c.entrada_valor
+          ) {
+            const valor = toNum(c.entrada_valor);
+            totalRevenue += valor;
+            if (c.entrada_tipo === 'SECO') revenueByType.seco += valor;
+            else if (c.entrada_tipo === 'CONSUMA') revenueByType.consuma += valor;
+          }
+        });
+
+        const guests = guestListsToFetch.flatMap((gl: any) => {
+          const listId = gl?.guest_list_id ?? gl?.id;
+          if (listId == null) return [];
+          const list = guestsByListId[Number(listId)] ?? guestsByListId[listId];
+          return Array.isArray(list) ? list : [];
+        });
+        let actualCheckIns = 0;
+        guests.forEach((g: any) => {
+          const isCheckedIn =
+            g.checked_in === 1 || g.checked_in === true || g.checked_in === 'Check-in';
+          if (isCheckedIn) actualCheckIns += 1;
+          if (isCheckedIn && g.entrada_valor) {
+            const valor = toNum(g.entrada_valor);
+            totalRevenue += valor;
+            if (g.entrada_tipo === 'SECO' || g.entrada_tipo === 'seco') revenueByType.seco += valor;
+            else if (g.entrada_tipo === 'CONSUMA' || g.entrada_tipo === 'consuma')
+              revenueByType.consuma += valor;
+            else if (g.entrada_tipo === 'VIP' || g.entrada_tipo === 'vip') revenueByType.vip += valor;
+          }
+        });
+
+        actualCheckIns += convidadosReservas.filter((c: any) => c.status === 'CHECK-IN').length;
+        actualCheckIns += convidadosReservasRestaurante.filter(
+          (c: any) =>
+            c.status_checkin === 1 ||
+            c.status_checkin === true ||
+            c.status_checkin === 'Check-in' ||
+            c.checked_in === 1 ||
+            c.checked_in === true
+        ).length;
+        actualCheckIns += convidadosPromoters.filter(
+          (c: any) => c.status_checkin === 'Check-in' || c.status_checkin === 'CHECK-IN'
+        ).length;
+
+        const rawCheckins =
+          estatisticas.checkinGeral ??
+          estatisticas.checkin_geral ??
+          (estatisticas as any).totalCheckIns ??
+          0;
+        const apiCheckIns = Math.max(0, Number(rawCheckins) || 0);
+        const totalCheckIns =
+          actualCheckIns > 0 ? actualCheckIns : Math.min(apiCheckIns, 9999);
+        const er: EventRevenue = {
+          evento_id: evento.evento_id,
+          nome: evento.nome || 'Sem nome',
+          data_evento: evento.data_evento || '',
+          establishment_id: est.id,
+          establishment_name: est.name,
+          totalCheckIns,
+          totalRevenue,
+          revenueByType,
+        };
+
+        if (!eventsByEstablishment[est.id]) eventsByEstablishment[est.id] = [];
+        eventsByEstablishment[est.id].push(er);
+      }
+
+      // Garantir que todos os estabelecimentos tenham entrada
+      validEstablishments.forEach((est) => {
+        if (!eventsByEstablishment[est.id]) eventsByEstablishment[est.id] = [];
       });
 
+      // Calcular faturamento por período por estabelecimento
+      const todayDate = new Date();
+      todayDate.setHours(0, 0, 0, 0);
+      const weekAgo = new Date(todayDate);
+      weekAgo.setDate(weekAgo.getDate() - 7);
+      const monthAgo = new Date(todayDate);
+      monthAgo.setMonth(monthAgo.getMonth() - 1);
+
+      for (const est of validEstablishments) {
+        const establishmentRevenues = eventsByEstablishment[est.id] || [];
+        let revenueDay = 0;
+        let revenueWeek = 0;
+        let revenueMonth = 0;
+        let revenueTotal = 0;
+
+        establishmentRevenues.forEach((er) => {
+          revenueTotal += er.totalRevenue;
+          if (er.data_evento) {
+            const eventDate = new Date(er.data_evento);
+            eventDate.setHours(0, 0, 0, 0);
+            if (eventDate.getTime() === todayDate.getTime()) revenueDay += er.totalRevenue;
+            if (eventDate >= weekAgo) revenueWeek += er.totalRevenue;
+            if (eventDate >= monthAgo) revenueMonth += er.totalRevenue;
+          }
+        });
+
+        revenueByPeriodData[est.id] = {
+          day: revenueDay,
+          week: revenueWeek,
+          month: revenueMonth,
+          total: revenueTotal,
+        };
+      }
+
+      const allEventRevenues = Object.values(eventsByEstablishment).flat();
       setEventRevenues(allEventRevenues);
       setRevenueByPeriod(revenueByPeriodData);
     } catch (error) {
@@ -520,7 +526,7 @@ export default function ReservesPage() {
     } finally {
       setLoadingEvents(false);
     }
-  }, [establishments]);
+  }, [establishments, toNumber]);
 
   // Carregar todos os dados
   const loadAllData = useCallback(async () => {
@@ -820,7 +826,7 @@ export default function ReservesPage() {
 
     // Calcular totais
     const totalRevenue = filteredEventRevenues.reduce((sum, er) => sum + er.totalRevenue, 0);
-    const totalCheckIns = filteredEventRevenues.reduce((sum, er) => sum + er.totalCheckIns, 0);
+    const totalCheckIns = filteredEventRevenues.reduce((sum, er) => sum + (Number(er.totalCheckIns) || 0), 0);
 
     let htmlContent = `
       <!DOCTYPE html>
@@ -966,7 +972,7 @@ export default function ReservesPage() {
       if (!establishment) return;
 
       const estTotalRevenue = events.reduce((sum, e) => sum + e.totalRevenue, 0);
-      const estTotalCheckIns = events.reduce((sum, e) => sum + e.totalCheckIns, 0);
+      const estTotalCheckIns = events.reduce((sum, e) => sum + (Number(e.totalCheckIns) || 0), 0);
 
       htmlContent += `
         <div class="establishment">
@@ -1426,7 +1432,7 @@ export default function ReservesPage() {
                   });
                 }
                 const estTotalRevenue = estEvents.reduce((sum, e) => sum + e.totalRevenue, 0);
-                const estTotalCheckIns = estEvents.reduce((sum, e) => sum + e.totalCheckIns, 0);
+                const estTotalCheckIns = estEvents.reduce((sum, e) => sum + (Number(e.totalCheckIns) || 0), 0);
                 const isExpanded = showEventRevenues[est.id];
 
                 if (estEvents.length === 0) return null;
@@ -1528,7 +1534,7 @@ export default function ReservesPage() {
                                     {event.data_evento ? formatDate(event.data_evento) : 'N/A'}
                                   </td>
                                   <td className="py-3 px-4 text-right text-blue-400 font-semibold">
-                                    {event.totalCheckIns}
+                                    {Number(event.totalCheckIns) || 0}
                                   </td>
                                   <td className="py-3 px-4 text-right text-green-400">
                                     {formatCurrency(event.revenueByType.seco)}
