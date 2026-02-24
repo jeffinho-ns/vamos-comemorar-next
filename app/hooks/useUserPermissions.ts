@@ -65,6 +65,15 @@ export function useUserPermissions() {
                 barName: 'Pracinha do Seu Justino',
                 barSlug: 'pracinha-do-seu-justino'
               };
+            } else if (userEmail === 'analista.mkt03@ideiaum.com.br') {
+              promoterBar = {
+                userId: 0,
+                userEmail: 'analista.mkt03@ideiaum.com.br',
+                userName: 'Helena',
+                barId: 8,
+                barName: 'Pracinha do Seu Justino',
+                barSlug: 'pracinha-do-seu-justino'
+              };
             } else if (userEmail === 'analista@seujustino.com') {
               promoterBar = {
                 userId: 59,

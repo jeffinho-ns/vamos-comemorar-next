@@ -427,16 +427,21 @@ function CreateUserModal({ onClose, onSuccess, establishments, apiUrl }: CreateU
           role,
         }),
       });
-      const errBody = await resUser.json().catch(() => ({}));
-      if (!resUser.ok) {
-        throw new Error(errBody.error || errBody.message || "Erro ao criar usuário");
+      const textRes = await resUser.text();
+      let userData: { userId?: number; id?: number; error?: string; message?: string } = {};
+      try {
+        userData = textRes ? JSON.parse(textRes) : {};
+      } catch {
+        userData = { error: textRes || resUser.statusText };
       }
-      const userData = errBody;
+      if (!resUser.ok) {
+        throw new Error(userData.error || userData.message || textRes || resUser.statusText || "Erro ao criar usuário");
+      }
       const userId = userData.userId ?? userData.id;
       if (!userId) throw new Error("Resposta da API sem ID do usuário");
 
       for (const estabId of establishmentIds) {
-        await fetch(`${apiUrl}/api/establishment-permissions`, {
+        const resPerm = await fetch(`${apiUrl}/api/establishment-permissions`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -450,6 +455,12 @@ function CreateUserModal({ onClose, onSuccess, establishments, apiUrl }: CreateU
             is_active: true,
           }),
         });
+        if (!resPerm.ok) {
+          const errPerm = await resPerm.text();
+          let errObj: { error?: string } = {};
+          try { errObj = errPerm ? JSON.parse(errPerm) : {}; } catch { errObj = { error: errPerm }; }
+          throw new Error(errObj.error || "Erro ao salvar permissão do estabelecimento");
+        }
       }
 
       alert("Usuário criado com sucesso!");

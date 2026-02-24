@@ -54,6 +54,14 @@ export const PROMOTER_BAR_MAPPINGS: PromoterBarMapping[] = [
     barSlug: "pracinha-do-seu-justino"
   },
   {
+    userId: 0, // ID da Helena (preenchido pelo script create-helena-pracinha-user.js)
+    userEmail: "analista.mkt03@ideiaum.com.br",
+    userName: "Helena",
+    barId: 4, // Mesmo bar do Pracinha do Seu Justino (cardápio)
+    barName: "Pracinha do Seu Justino",
+    barSlug: "pracinha-do-seu-justino"
+  },
+  {
     userId: 63, // ID real do usuário 'analista@reserva.com'
     userEmail: "analista@reserva.com",
     userName: "Analista Reserva Rooftop",
