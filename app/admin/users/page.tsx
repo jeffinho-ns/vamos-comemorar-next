@@ -15,7 +15,7 @@ const API_URL =
   process.env.NEXT_PUBLIC_API_URL_LOCAL ||
   "https://vamos-comemorar-api.onrender.com";
 
-type Role = "admin" | "gerente" | "atendente" | "usuario" | "cliente" | "promoter";
+type Role = "admin" | "gerente" | "atendente" | "usuario" | "cliente" | "promoter" | "recepcao";
 
 interface UserRow {
   id: number;
@@ -57,6 +57,7 @@ const ROLE_LABELS: Record<string, string> = {
   usuario: "Usuário",
   cliente: "Cliente",
   promoter: "Promoter",
+  recepcao: "Recepcionista",
 };
 
 export default function UsersPage() {
@@ -140,7 +141,7 @@ export default function UsersPage() {
 
   const hasAdminAccess = (user: UserRow) => {
     const role = (user.role || "").toLowerCase();
-    if (["admin", "gerente", "atendente"].includes(role)) return true;
+    if (["admin", "gerente", "atendente", "recepcao"].includes(role)) return true;
     return (permissionsByUser[user.id]?.length ?? 0) > 0;
   };
 
@@ -264,8 +265,9 @@ export default function UsersPage() {
                 )}
                 {filteredUsers.map((user) => {
                   const perms = permissionsByUser[user.id] || [];
-                  const role = (user.role || "usuario").toLowerCase();
-                  const isGerenteOuAtendente = role === "gerente" || role === "atendente";
+                  const roleRaw = (user.role || "usuario").toLowerCase();
+                  const role = roleRaw === "recepção" ? "recepcao" : roleRaw;
+                  const isGerenteOuAtendente = role === "gerente" || role === "atendente" || role === "recepcao";
                   const estabNames = perms
                     .filter((p) => p.is_active)
                     .map((p) => p.establishment_name || `#${p.establishment_id}`)
@@ -418,18 +420,18 @@ function CreateUserModal({ onClose, onSuccess, establishments, apiUrl }: CreateU
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
-          name,
-          email,
+          name: name.trim(),
+          email: email.trim().toLowerCase(),
           password,
-          telefone: telefone || undefined,
+          telefone: telefone.trim() || undefined,
           role,
         }),
       });
+      const errBody = await resUser.json().catch(() => ({}));
       if (!resUser.ok) {
-        const err = await resUser.json().catch(() => ({}));
-        throw new Error(err.error || err.message || "Erro ao criar usuário");
+        throw new Error(errBody.error || errBody.message || "Erro ao criar usuário");
       }
-      const userData = await resUser.json();
+      const userData = errBody;
       const userId = userData.userId ?? userData.id;
       if (!userId) throw new Error("Resposta da API sem ID do usuário");
 
@@ -459,7 +461,7 @@ function CreateUserModal({ onClose, onSuccess, establishments, apiUrl }: CreateU
     }
   };
 
-  const rolesForCreate: Role[] = ["usuario", "admin", "gerente", "atendente", "cliente"];
+  const rolesForCreate: Role[] = ["usuario", "admin", "gerente", "atendente", "recepcao", "cliente"];
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
@@ -620,13 +622,20 @@ function EditUserModal({
   onSuccess,
   apiUrl,
 }: EditUserModalProps) {
+  const normalizeRole = (r: string | undefined): Role => {
+    if (!r) return "usuario";
+    const s = String(r).toLowerCase();
+    if (s === "recepção" || s === "recepcao") return "recepcao";
+    if (["admin", "gerente", "atendente", "usuario", "cliente", "promoter"].includes(s)) return s as Role;
+    return "usuario";
+  };
   const [name, setName] = useState(user.name);
   const [email, setEmail] = useState(user.email);
   const [telefone, setTelefone] = useState(user.telefone || "");
   const [password, setPassword] = useState("");
-  const [role, setRole] = useState<Role>((user.role as Role) || "usuario");
+  const [role, setRole] = useState<Role>(normalizeRole(user.role));
   const [establishmentIds, setEstablishmentIds] = useState<number[]>(
-    permissions.map((p) => p.establishment_id).filter((id, i, a) => a.indexOf(id) === i)
+    () => permissions.map((p) => Number(p.establishment_id)).filter((id, i, a) => a.indexOf(id) === i)
   );
   const [perms, setPerms] = useState(() => {
     const first = permissions[0];
@@ -677,9 +686,9 @@ function EditUserModal({
     }
     try {
       const body: Record<string, unknown> = {
-        name,
-        email,
-        telefone: telefone || undefined,
+        name: name.trim(),
+        email: email.trim().toLowerCase(),
+        telefone: telefone.trim() || undefined,
         role,
       };
       if (password.trim()) body.password = password.trim();
@@ -693,13 +702,20 @@ function EditUserModal({
         body: JSON.stringify(body),
       });
       if (!resUser.ok) {
-        const err = await resUser.json().catch(() => ({}));
-        throw new Error(err.message || "Erro ao atualizar usuário");
+        const text = await resUser.text();
+        let err: { error?: string; message?: string } = {};
+        try {
+          err = text ? JSON.parse(text) : {};
+        } catch {
+          err = { error: text || resUser.statusText };
+        }
+        const msg = err.error || err.message || text || resUser.statusText || "Erro ao atualizar usuário";
+        throw new Error(msg);
       }
 
-      const existingEstabIds = permissions.map((p) => p.establishment_id);
-      const toAdd = establishmentIds.filter((id) => !existingEstabIds.includes(id));
-      const toRemove = permissions.filter((p) => !establishmentIds.includes(p.establishment_id));
+      const existingEstabIds = permissions.map((p) => Number(p.establishment_id));
+      const toAdd = establishmentIds.filter((id) => !existingEstabIds.includes(Number(id)));
+      const toRemove = permissions.filter((p) => !establishmentIds.includes(Number(p.establishment_id)));
 
       for (const perm of toRemove) {
         await fetch(`${apiUrl}/api/establishment-permissions/${perm.id}`, {
@@ -708,7 +724,7 @@ function EditUserModal({
         });
       }
       for (const estabId of toAdd) {
-        await fetch(`${apiUrl}/api/establishment-permissions`, {
+        const resPerm = await fetch(`${apiUrl}/api/establishment-permissions`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -722,8 +738,12 @@ function EditUserModal({
             is_active: true,
           }),
         });
+        if (!resPerm.ok) {
+          const errBody = await resPerm.json().catch(() => ({}));
+          throw new Error(errBody.error || errBody.message || "Erro ao salvar permissão");
+        }
       }
-      const toUpdate = permissions.filter((p) => establishmentIds.includes(p.establishment_id));
+      const toUpdate = permissions.filter((p) => establishmentIds.includes(Number(p.establishment_id)));
       for (const perm of toUpdate) {
         await fetch(`${apiUrl}/api/establishment-permissions/${perm.id}`, {
           method: "PUT",
@@ -744,7 +764,7 @@ function EditUserModal({
     }
   };
 
-  const allRoles: Role[] = ["admin", "gerente", "atendente", "usuario", "cliente", "promoter"];
+  const allRoles: Role[] = ["admin", "gerente", "atendente", "recepcao", "usuario", "cliente", "promoter"];
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
