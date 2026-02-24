@@ -411,6 +411,11 @@ export default function RestaurantReservationsPage() {
   const [allocatingEntry, setAllocatingEntry] = useState<WaitlistEntry | null>(
     null,
   );
+  // Filtro por dia na lista de espera: exibe apenas entradas do dia selecionado
+  const [waitlistDateFilter, setWaitlistDateFilter] = useState<string>(() => {
+    const d = new Date();
+    return d.toISOString().split("T")[0];
+  });
 
   // Estados para Guest Lists (Admin)
   type GuestListItem = {
@@ -841,21 +846,67 @@ export default function RestaurantReservationsPage() {
     reservationTime?: string,
   ): Promise<boolean> => {
     try {
-      const totalCapacity = areas.reduce(
-        (sum, area) => sum + area.capacity_dinner,
-        0,
-      );
       const dateString = date.toISOString().split("T")[0];
+      const establishmentName = (selectedEstablishment?.name ?? "").toLowerCase();
+
+      // Seu Justino (e similares): modelo por MESAS, não por capacidade total — não bloquear por capacidade
+      const isTableBasedEstablishment =
+        establishmentName.includes("justino") && !establishmentName.includes("pracinha");
+      if (isTableBasedEstablishment) {
+        let hasWaitlistEntries = false;
+        if (reservationTime && String(reservationTime).trim()) {
+          const t = String(reservationTime).trim();
+          const hhmm = t.length >= 5 ? t.substring(0, 5) : t;
+          hasWaitlistEntries = waitlist.some((entry) => {
+            if (entry.status !== "AGUARDANDO") return false;
+            // No Seu Justino, quem está na waitlist normalmente já tem bistrô para aguardar.
+            // Só bloqueia quando existir waitlist SEM bistrô para o mesmo dia/horário.
+            if (entry.has_bistro_table === true) return false;
+            const eid = entry.establishment_id;
+            if (eid == null || Number(eid) !== Number(selectedEstablishment?.id)) return false;
+            if (entry.preferred_date !== dateString) return false;
+            const pt = (entry.preferred_time || "").trim();
+            if (!pt) return false;
+            const ptHhmm = pt.length >= 5 ? pt.substring(0, 5) : pt;
+            return ptHhmm === hhmm || pt === t || pt === hhmm || pt === hhmm + ":00";
+          });
+        }
+        if (hasWaitlistEntries) {
+          alert(
+            "Há clientes na lista de espera para este dia e horário. Utilize a lista de espera ou escolha outro horário.",
+          );
+          return false;
+        }
+        return true;
+      }
+
+      // Demais estabelecimentos: checagem por capacidade numérica
+      let totalCapacity = Math.max(
+        0,
+        areas.reduce(
+          (sum, area) => sum + (Number(area.capacity_dinner ?? 0) || 0),
+          0,
+        ),
+      );
+      if (totalCapacity === 0 && areas.length > 0) {
+        totalCapacity = Math.max(
+          0,
+          areas.reduce(
+            (sum, area) => sum + (Number(area.capacity_lunch ?? 0) || 0),
+            0,
+          ),
+        );
+      }
+      if (totalCapacity === 0 && areas.length > 0) totalCapacity = 99999;
+      totalCapacity = Math.min(99999, totalCapacity);
+
       const activeReservations = reservations.filter((reservation) => {
         const reservationDate = (() => {
           if (!reservation.reservation_date) return "";
           try {
             const dateStr = String(reservation.reservation_date).trim();
-            if (!dateStr || dateStr === "null" || dateStr === "undefined")
-              return "";
-            const d = dateStr.includes("T")
-              ? new Date(dateStr)
-              : new Date(dateStr + "T12:00:00");
+            if (!dateStr || dateStr === "null" || dateStr === "undefined") return "";
+            const d = dateStr.includes("T") ? new Date(dateStr) : new Date(dateStr + "T12:00:00");
             if (isNaN(d.getTime())) return "";
             return d.toISOString().split("T")[0];
           } catch {
@@ -867,37 +918,41 @@ export default function RestaurantReservationsPage() {
           isReservationStatusOneOf(reservation.status, ["confirmed", "seated"])
         );
       });
-      const totalPeopleReserved = activeReservations.reduce(
-        (sum, r) => sum + r.number_of_people,
-        0,
-      );
-      const totalWithNew = totalPeopleReserved + (newReservationPeople || 0);
 
-      // Trava por waitlist apenas para o mesmo estabelecimento + mesmo dia + mesma hora
+      const totalPeopleReserved = Math.max(
+        0,
+        activeReservations.reduce(
+          (sum, r) => sum + Math.max(0, Number(r.number_of_people ?? 0) || 0),
+          0,
+        ),
+      );
+      const newPeople = Math.max(0, Number(newReservationPeople ?? 0) || 0);
+      const totalWithNew = totalPeopleReserved + newPeople;
+
       let hasWaitlistEntries = false;
       if (reservationTime && String(reservationTime).trim()) {
         const t = String(reservationTime).trim();
         const hhmm = t.length >= 5 ? t.substring(0, 5) : t;
         hasWaitlistEntries = waitlist.some((entry) => {
           if (entry.status !== "AGUARDANDO") return false;
+          // Só considera waitlist sem bistrô como bloqueio
+          if (entry.has_bistro_table === true) return false;
           const eid = entry.establishment_id;
-          const matchEst =
-            eid != null && Number(eid) === Number(selectedEstablishment?.id);
+          const matchEst = eid != null && Number(eid) === Number(selectedEstablishment?.id);
           if (!matchEst) return false;
           if (entry.preferred_date !== dateString) return false;
           const pt = (entry.preferred_time || "").trim();
           if (!pt) return false;
           const ptHhmm = pt.length >= 5 ? pt.substring(0, 5) : pt;
-          return (
-            ptHhmm === hhmm || pt === t || pt === hhmm || pt === hhmm + ":00"
-          );
+          return ptHhmm === hhmm || pt === t || pt === hhmm || pt === hhmm + ":00";
         });
       }
 
       if (hasWaitlistEntries || totalWithNew > totalCapacity) {
+        const available = Math.min(999999, Math.max(0, totalCapacity - totalPeopleReserved));
         const msg = hasWaitlistEntries
           ? "Há clientes na lista de espera para este dia e horário. Utilize a lista de espera ou escolha outro horário."
-          : `Capacidade insuficiente. Restam ${totalCapacity - totalPeopleReserved} lugares.`;
+          : `Capacidade insuficiente. Restam ${available} lugares.`;
         alert(msg);
         return false;
       }
@@ -2083,6 +2138,22 @@ export default function RestaurantReservationsPage() {
     (entry) => entry.status === "AGUARDANDO",
   );
 
+  // Lista de espera filtrada pelo dia selecionado (para direcionar quando a mesa liberar)
+  const normalizePreferredDate = (dateStr: string | undefined): string => {
+    if (!dateStr || typeof dateStr !== "string") return "";
+    const t = dateStr.trim();
+    if (!t) return "";
+    if (t.includes("T")) return t.split("T")[0];
+    if (/^\d{4}-\d{2}-\d{2}$/.test(t)) return t;
+    const d = new Date(t.includes("-") ? t : t.split("/").reverse().join("-"));
+    if (isNaN(d.getTime())) return "";
+    return d.toISOString().split("T")[0];
+  };
+  const waitlistForSelectedDay = activeWaitlist.filter((entry) => {
+    const entryDate = normalizePreferredDate(entry.preferred_date);
+    return entryDate === waitlistDateFilter;
+  });
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 flex items-center justify-center">
@@ -2315,10 +2386,24 @@ export default function RestaurantReservationsPage() {
                               </span>
                               <span className="text-blue-600 ml-1">
                                 {(() => {
-                                  const totalCapacity = areas.reduce(
-                                    (sum, area) => sum + area.capacity_dinner,
+                                  let totalCapacity = Math.max(
                                     0,
+                                    areas.reduce(
+                                      (sum, area) =>
+                                        sum + Number(area.capacity_dinner ?? 0) || 0,
+                                      0,
+                                    ),
                                   );
+                                  if (totalCapacity === 0 && areas.length > 0) {
+                                    totalCapacity = Math.max(
+                                      0,
+                                      areas.reduce(
+                                        (sum, area) =>
+                                          sum + Number(area.capacity_lunch ?? 0) || 0,
+                                        0,
+                                      ),
+                                    ) || 99999;
+                                  }
                                   const dateString = selectedDate
                                     .toISOString()
                                     .split("T")[0];
@@ -2368,12 +2453,14 @@ export default function RestaurantReservationsPage() {
                                         )
                                       );
                                     });
-                                  const totalPeopleReserved =
+                                  const totalPeopleReserved = Math.max(
+                                    0,
                                     activeReservations.reduce(
                                       (sum, reservation) =>
-                                        sum + reservation.number_of_people,
+                                        sum + Number(reservation.number_of_people ?? 0) || 0,
                                       0,
-                                    );
+                                    ),
+                                  );
                                   const occupancyPercentage =
                                     totalCapacity > 0
                                       ? Math.round(
@@ -4557,21 +4644,56 @@ export default function RestaurantReservationsPage() {
               {/* Aba de Lista de Espera */}
               {activeTab === "waitlist" && (
                 <div>
-                  <div className="flex items-center justify-between mb-6">
-                    <h3 className="text-xl font-semibold text-gray-800">
-                      Lista de Espera ({activeWaitlist.length})
-                    </h3>
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+                      <h3 className="text-xl font-semibold text-gray-800">
+                        Lista de Espera
+                      </h3>
+                      <div className="flex items-center gap-2">
+                        <label htmlFor="waitlist-date" className="text-sm font-medium text-gray-600">
+                          Dia:
+                        </label>
+                        <input
+                          id="waitlist-date"
+                          type="date"
+                          value={waitlistDateFilter}
+                          onChange={(e) => setWaitlistDateFilter(e.target.value)}
+                          className="rounded-lg border border-gray-300 px-3 py-2 text-gray-800 bg-white focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                        />
+                        <span className="text-sm text-gray-600">
+                          {waitlistForSelectedDay.length} {waitlistForSelectedDay.length === 1 ? "pessoa" : "pessoas"} na fila
+                        </span>
+                      </div>
+                    </div>
                     <button
                       onClick={handleAddWaitlistEntry}
-                      className="flex items-center gap-2 px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg transition-colors"
+                      className="flex items-center gap-2 px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg transition-colors shrink-0"
                     >
                       <MdAdd />
                       Adicionar à Lista
                     </button>
                   </div>
+                  <p className="text-sm text-gray-500 mb-4">
+                    Exibindo apenas a fila do dia selecionado. Use o campo &quot;Dia&quot; para ver quem está aguardando mesa naquela data e direcionar quando a mesa liberar.
+                  </p>
 
                   <div className="space-y-4">
-                    {activeWaitlist.map((entry) => (
+                    {waitlistForSelectedDay.length === 0 ? (
+                      <div className="text-center py-12 bg-gray-50 rounded-lg border border-gray-200">
+                        <MdSchedule className="mx-auto text-gray-400" size={48} />
+                        <p className="text-gray-600 mt-2">
+                          Nenhuma pessoa na fila de espera para{" "}
+                          {waitlistDateFilter
+                            ? new Date(waitlistDateFilter + "T12:00:00").toLocaleDateString("pt-BR", {
+                                day: "2-digit",
+                                month: "2-digit",
+                                year: "numeric",
+                              })
+                            : "este dia"}
+                        </p>
+                      </div>
+                    ) : (
+                    waitlistForSelectedDay.map((entry, index) => (
                       <motion.div
                         key={entry.id}
                         initial={{ opacity: 0, y: 20 }}
@@ -4582,7 +4704,7 @@ export default function RestaurantReservationsPage() {
                           <div className="flex items-center gap-4">
                             <div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center">
                               <span className="text-orange-600 font-bold text-sm">
-                                {entry.position}
+                                {index + 1}
                               </span>
                             </div>
                             <div>
@@ -4648,7 +4770,7 @@ export default function RestaurantReservationsPage() {
                           </div>
                         </div>
                       </motion.div>
-                    ))}
+                    )))}
                   </div>
                 </div>
               )}
