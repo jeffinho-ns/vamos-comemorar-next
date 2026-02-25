@@ -1151,10 +1151,17 @@ export default function CardapioAdminPage() {
         })),
       });
 
+      // Numerar por posição (0, 1, 2...) para exibir ordem correta no modal; originalOrder para detectar mudanças reais
+      const subCategoriesWithOrder = finalSubCategoriesToUse.map((s: any, i: number) => ({
+        ...s,
+        order: i,
+        originalOrder: s.originalOrder ?? s.order ?? i,
+      }));
+
       setQuickEditData({
         barId,
         categoryId,
-        subCategories: finalSubCategoriesToUse,
+        subCategories: subCategoriesWithOrder,
       });
       setShowQuickEditModal(true);
     } catch (error) {
@@ -1167,10 +1174,16 @@ export default function CardapioAdminPage() {
         subCategories: localSubCategories.map((s) => ({ name: s.name, count: s.count })),
       });
 
+      // Numerar por posição também no fallback (dados locais)
+      const localWithOrder = localSubCategories.map((s: any, i: number) => ({
+        ...s,
+        order: i,
+        originalOrder: s.originalOrder ?? s.order ?? i,
+      }));
       setQuickEditData({
         barId,
         categoryId,
-        subCategories: localSubCategories,
+        subCategories: localWithOrder,
       });
       setShowQuickEditModal(true);
     }
@@ -5595,15 +5608,12 @@ export default function CardapioAdminPage() {
                         className="flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                       />
 
-                      <input
-                        type="number"
-                        min="0"
-                        value={subCategory.order || 0}
-                        onChange={(e) =>
-                          updateSubCategoryInQuickEdit(index, 'order', parseInt(e.target.value) || 0)
-                        }
-                        className="w-20 rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
+                      <div className="flex flex-col items-center">
+                        <span className="mb-0.5 text-xs font-medium text-gray-500">Ordem</span>
+                        <div className="flex h-9 w-14 items-center justify-center rounded-md border border-gray-200 bg-gray-50 text-sm font-medium text-gray-700">
+                          {index + 1}
+                        </div>
+                      </div>
 
                       {/* Contador de itens */}
                       <div
