@@ -134,6 +134,7 @@ export default function Login() {
           'analista@reserva.com',
           'analista@seujustino.com',
           'analista@pracinha.com',
+          'analista.mkt03@ideiaum.com.br',
           'gerente@highlinebar.com.br',
           'regianebrunno@gmail.com',
           'franciely.mendes@ideiaum.com.br',

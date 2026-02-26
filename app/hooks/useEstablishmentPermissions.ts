@@ -79,7 +79,7 @@ export function useEstablishmentPermissions() {
           if (response.status === 404 || response.status === 403) {
             const role = localStorage.getItem('role') || '';
             // analista.mkt03@ideiaum.com.br: acesso apenas ao estabelecimento Pracinha do Seu Justino (place id 8)
-            if (role === 'promoter' && email === 'analista.mkt03@ideiaum.com.br') {
+            if ((role === 'promoter' || role === 'promoter-list') && email === 'analista.mkt03@ideiaum.com.br') {
               const config: UserEstablishmentConfig = {
                 userEmail: email,
                 establishmentIds: [8], // Pracinha do Seu Justino
@@ -139,7 +139,7 @@ export function useEstablishmentPermissions() {
           if (role === 'admin') {
             setUserConfig(null);
             setPermissions([]);
-          } else if (role === 'promoter' && email === 'analista.mkt03@ideiaum.com.br') {
+          } else if ((role === 'promoter' || role === 'promoter-list') && email === 'analista.mkt03@ideiaum.com.br') {
             const config: UserEstablishmentConfig = {
               userEmail: email,
               establishmentIds: [8], // Pracinha do Seu Justino
@@ -165,9 +165,27 @@ export function useEstablishmentPermissions() {
       } catch (error) {
         console.error('Erro ao carregar permissões:', error);
         setError(error instanceof Error ? error.message : 'Erro desconhecido');
-        // Em caso de erro, permite acesso total (fallback para admin)
-        setUserConfig(null);
-        setPermissions([]);
+        // Em caso de erro: aplicar fallback para analista.mkt03 (apenas Pracinha)
+        const role = localStorage.getItem('role') || '';
+        if ((role === 'promoter' || role === 'promoter-list') && (localStorage.getItem('userEmail') || '') === 'analista.mkt03@ideiaum.com.br') {
+          setUserConfig({
+            userEmail: 'analista.mkt03@ideiaum.com.br',
+            establishmentIds: [8],
+            permissions: {
+              canEditOS: false,
+              canEditOperationalDetail: false,
+              canViewOS: true,
+              canDownloadOS: true,
+              canViewOperationalDetail: true,
+              canCreateOS: false,
+              canCreateOperationalDetail: false,
+            },
+          });
+          setPermissions([]);
+        } else {
+          setUserConfig(null);
+          setPermissions([]);
+        }
       } finally {
         setIsLoading(false);
       }

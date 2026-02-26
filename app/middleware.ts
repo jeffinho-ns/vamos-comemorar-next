@@ -22,46 +22,41 @@ export function middleware(request: NextRequest) {
   const isPromoter = role === 'promoter';
   const isPromoterList = role === 'promoter-list';
 
-  // Promoters só podem acessar suas páginas dedicadas
+  // promoter-list: redirecionar para /promoter apenas se NÃO estiver acessando /admin (analista.mkt03 acessa /admin)
   if (isPromoterList) {
     const isPromoterRoute = url.startsWith('/promoter');
+    const isAdminRoute = url.startsWith('/admin');
 
-    if (!isPromoterRoute) {
+    if (!isPromoterRoute && !isAdminRoute) {
       const destino = promoterCodigo
         ? `/promoter/${promoterCodigo}/dashboard`
         : '/promoter';
 
-      console.log(`⛔ Promoter tentando acessar rota não permitida (${url}). Redirecionando para ${destino}`);
+      console.log(`⛔ Promoter-list tentando acessar rota não permitida (${url}). Redirecionando para ${destino}`);
       return NextResponse.redirect(new URL(destino, request.url));
     }
   }
 
-  // Define as permissões para as rotas específicas
+  // Define as permissões para as rotas específicas (promoter e promoter-list para analista.mkt03 - Pracinha)
   const routePermissions: Record<string, string[]> = {
-    // Rota principal do admin - permite admin, gerente e recepção
-    '/admin': ['admin', 'gerente', 'recepção', 'promoter'],
-    
-    // Rotas estritamente administrativas (apenas admin)
+    // Rota principal do admin
+    '/admin': ['admin', 'gerente', 'recepção', 'promoter', 'promoter-list'],
     '/admin/commodities': ['admin'],
     '/admin/enterprise': ['admin'],
     '/admin/gifts': ['admin'],
     '/admin/users': ['admin'],
-    '/admin/workdays': ['admin', 'promoter'],
+    '/admin/workdays': ['admin', 'promoter', 'promoter-list'],
     '/admin/places': ['admin'],
     '/admin/tables': ['admin'],
-    
-    // Rotas que gerentes e promoters (ex: analista.mkt03 - Pracinha) podem acessar
-    '/admin/eventos': ['admin', 'gerente', 'promoter'],
-    '/admin/painel-eventos': ['admin', 'gerente', 'promoter'],
-    '/admin/eventos/dashboard': ['admin', 'gerente', 'promoter'],
-    
-    // Outras rotas internas controladas
-    '/admin/cardapio': ['admin', 'promoter', 'recepção', 'gerente'],
-    '/admin/events': ['admin', 'promoter', 'recepção', 'gerente'],
-    '/admin/reservas': ['admin', 'promoter', 'recepção', 'gerente'],
-    '/admin/qrcode': ['admin', 'promoter', 'recepção', 'gerente'],
-    '/admin/checkins': ['admin', 'promoter', 'recepção', 'gerente'],
-    '/admin/restaurant-reservations': ['admin', 'promoter', 'recepção', 'gerente'],
+    '/admin/eventos': ['admin', 'gerente', 'promoter', 'promoter-list'],
+    '/admin/painel-eventos': ['admin', 'gerente', 'promoter', 'promoter-list'],
+    '/admin/eventos/dashboard': ['admin', 'gerente', 'promoter', 'promoter-list'],
+    '/admin/cardapio': ['admin', 'promoter', 'promoter-list', 'recepção', 'gerente'],
+    '/admin/events': ['admin', 'promoter', 'promoter-list', 'recepção', 'gerente'],
+    '/admin/reservas': ['admin', 'promoter', 'promoter-list', 'recepção', 'gerente'],
+    '/admin/qrcode': ['admin', 'promoter', 'promoter-list', 'recepção', 'gerente'],
+    '/admin/checkins': ['admin', 'promoter', 'promoter-list', 'recepção', 'gerente'],
+    '/admin/restaurant-reservations': ['admin', 'promoter', 'promoter-list', 'recepção', 'gerente'],
     '/admin/detalhes-operacionais': ['admin', 'recepção', 'gerente'],
   };
 

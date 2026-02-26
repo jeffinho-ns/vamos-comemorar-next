@@ -128,9 +128,9 @@ export function useUserPermissions() {
           promoterBar = getPromoterBar(parseInt(userId));
         }
 
-        // Definir permissões de acesso
-        const canAccessAdmin = isAdmin || role === 'promoter';
-        const canAccessCardapio = isAdmin || role === 'promoter';
+        // Definir permissões de acesso (promoter e promoter-list para analista.mkt03 - Pracinha)
+        const canAccessAdmin = isAdmin || role === 'promoter' || role === 'promoter-list';
+        const canAccessCardapio = isAdmin || role === 'promoter' || role === 'promoter-list';
 
         setPermissions({
           role,
@@ -158,8 +158,8 @@ export function useUserPermissions() {
   const canAccessRoute = (route: string): boolean => {
     if (permissions.isAdmin) return true;
     
-    if (permissions.role === 'promoter') {
-      // Promoters podem acessar rotas conforme perfil (ex: analista.mkt03 - apenas Pracinha)
+    if (permissions.role === 'promoter' || permissions.role === 'promoter-list') {
+      // Promoters/promoter-list podem acessar rotas conforme perfil (ex: analista.mkt03 - apenas Pracinha)
       const allowedRoutes = [
         '/admin/restaurant-reservations',
         '/admin/eventos/dashboard',
