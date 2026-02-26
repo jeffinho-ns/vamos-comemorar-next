@@ -428,6 +428,14 @@ export default function PromoterDashboardPage() {
     return { countM: m, countF: f };
   }, [convidados]);
 
+  // VIPs a exibir no card (respeitando evento selecionado)
+  const vipCountsDisplay = useMemo(() => {
+    const list = selectedEvento === "todos" ? convidados : convidados.filter((c) => c.evento_id === selectedEvento);
+    const m = list.filter((c) => c.vip_tipo === "M").length;
+    const f = list.filter((c) => c.vip_tipo === "F").length;
+    return { countM: m, countF: f };
+  }, [convidados, selectedEvento]);
+
   const isVipMLimitReached = vipLimits.vip_m_limit > 0 && vipCounts.countM >= vipLimits.vip_m_limit;
   const isVipFLimitReached = vipLimits.vip_f_limit > 0 && vipCounts.countF >= vipLimits.vip_f_limit;
   
@@ -837,6 +845,19 @@ export default function PromoterDashboardPage() {
             <p className="text-3xl font-bold mt-2">{selectedEvento === "todos" ? convidados.length : convidadosNoEventoSelecionado}</p>
             <p className="text-xs text-white/60 mt-1">
               {selectedEvento === "todos" ? "Total da sua lista." : "Neste evento."}
+            </p>
+          </div>
+          <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
+            <p className="text-xs uppercase tracking-[0.18em] text-purple-200">
+              Quantidade de VIPs
+            </p>
+            <p className="text-lg font-bold mt-2">
+              <span className="text-amber-300">{vipCountsDisplay.countF} femininos</span>
+              <span className="text-white/50 mx-2">·</span>
+              <span className="text-amber-300">{vipCountsDisplay.countM} masculinos</span>
+            </p>
+            <p className="text-xs text-white/60 mt-1">
+              VIPs adicionados {selectedEvento === "todos" ? "no total." : "neste evento."}
             </p>
           </div>
           <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
