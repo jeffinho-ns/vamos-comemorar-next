@@ -159,14 +159,21 @@ export function useUserPermissions() {
     if (permissions.isAdmin) return true;
     
     if (permissions.role === 'promoter') {
-      // Promoters podem acessar algumas funcionalidades específicas
+      // Promoters podem acessar rotas conforme perfil (ex: analista.mkt03 - apenas Pracinha)
       const allowedRoutes = [
+        '/admin/restaurant-reservations',
+        '/admin/eventos/dashboard',
+        '/admin/eventos/promoters',
+        '/admin/eventos/listas',
+        '/admin/painel-eventos',
+        '/admin/checkins',
+        '/admin/workdays',
         '/admin/cardapio',
-        '/admin/events', 
+        '/admin/qrcode',
+        '/admin/events',
         '/admin/reservas',
-        '/admin/qrcode'
       ];
-      return allowedRoutes.includes(route);
+      return allowedRoutes.includes(route) || allowedRoutes.some(r => route.startsWith(r + '/'));
     }
     
     return false;

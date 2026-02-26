@@ -75,10 +75,31 @@ export function useEstablishmentPermissions() {
         });
 
         if (!response.ok) {
-          // Se não tem permissões configuradas, permite acesso total (admin)
+          // Se não tem permissões configuradas, verificar fallback para promoter restrito a um estabelecimento
           if (response.status === 404 || response.status === 403) {
-            setUserConfig(null);
-            setPermissions([]);
+            const role = localStorage.getItem('role') || '';
+            // analista.mkt03@ideiaum.com.br: acesso apenas ao estabelecimento Pracinha do Seu Justino (place id 8)
+            if (role === 'promoter' && email === 'analista.mkt03@ideiaum.com.br') {
+              const config: UserEstablishmentConfig = {
+                userEmail: email,
+                establishmentIds: [8], // Pracinha do Seu Justino
+                permissions: {
+                  canEditOS: false,
+                  canEditOperationalDetail: false,
+                  canViewOS: true,
+                  canDownloadOS: true,
+                  canViewOperationalDetail: true,
+                  canCreateOS: false,
+                  canCreateOperationalDetail: false,
+                },
+              };
+              setUserConfig(config);
+              setPermissions([]);
+              console.log('✅ [PERMISSIONS] Fallback analista.mkt03: restrita ao estabelecimento Pracinha do Seu Justino (id 8)');
+            } else {
+              setUserConfig(null);
+              setPermissions([]);
+            }
             setIsLoading(false);
             return;
           }
@@ -113,15 +134,29 @@ export function useEstablishmentPermissions() {
           setUserConfig(config);
           console.log('✅ [PERMISSIONS] Config carregada:', config);
         } else {
-          // Se não tem permissões configuradas
+          // Se não tem permissões configuradas (API retornou success mas sem dados)
           const role = localStorage.getItem('role') || '';
           if (role === 'admin') {
-            // Admin sem permissões específicas vê todos
             setUserConfig(null);
             setPermissions([]);
+          } else if (role === 'promoter' && email === 'analista.mkt03@ideiaum.com.br') {
+            const config: UserEstablishmentConfig = {
+              userEmail: email,
+              establishmentIds: [8], // Pracinha do Seu Justino
+              permissions: {
+                canEditOS: false,
+                canEditOperationalDetail: false,
+                canViewOS: true,
+                canDownloadOS: true,
+                canViewOperationalDetail: true,
+                canCreateOS: false,
+                canCreateOperationalDetail: false,
+              },
+            };
+            setUserConfig(config);
+            setPermissions([]);
+            console.log('✅ [PERMISSIONS] Fallback analista.mkt03: restrita ao estabelecimento Pracinha do Seu Justino (id 8)');
           } else {
-            // Para outros roles, também permite ver todos se não houver permissões
-            // (o middleware já controla o acesso às rotas)
             setUserConfig(null);
             setPermissions([]);
             console.log('⚠️ [PERMISSIONS] Usuário sem permissões específicas configuradas');

@@ -46,14 +46,14 @@ export function middleware(request: NextRequest) {
     '/admin/enterprise': ['admin'],
     '/admin/gifts': ['admin'],
     '/admin/users': ['admin'],
-    '/admin/workdays': ['admin'],
+    '/admin/workdays': ['admin', 'promoter'],
     '/admin/places': ['admin'],
     '/admin/tables': ['admin'],
     
-    // Rotas que gerentes podem acessar
-    '/admin/eventos': ['admin', 'gerente'],
-    '/admin/painel-eventos': ['admin', 'gerente'],
-    '/admin/eventos/dashboard': ['admin', 'gerente'],
+    // Rotas que gerentes e promoters (ex: analista.mkt03 - Pracinha) podem acessar
+    '/admin/eventos': ['admin', 'gerente', 'promoter'],
+    '/admin/painel-eventos': ['admin', 'gerente', 'promoter'],
+    '/admin/eventos/dashboard': ['admin', 'gerente', 'promoter'],
     
     // Outras rotas internas controladas
     '/admin/cardapio': ['admin', 'promoter', 'recepção', 'gerente'],
