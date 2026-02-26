@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
-import { MdSearch, MdPerson, MdTableBar, MdCardGiftcard, MdCheckCircle, MdPending, MdStore, MdEvent, MdCake, MdGroups, MdAttachMoney } from 'react-icons/md';
+import { MdSearch, MdPerson, MdTableBar, MdCardGiftcard, MdCheckCircle, MdPending, MdStore, MdEvent, MdCake, MdGroups, MdAttachMoney, MdStar } from 'react-icons/md';
 import { WithPermission } from '../../../components/WithPermission/WithPermission';
 import { useEstablishmentPermissions } from '@/app/hooks/useEstablishmentPermissions';
 import EntradaStatusModal, { EntradaTipo } from '../../../components/EntradaStatusModal';
@@ -42,6 +42,8 @@ interface SearchResult {
     name: string;
     totalCheckins: number;
   };
+  /** Convidado de promoter com VIP a noite toda (vip_tipo M ou F) */
+  vipNoiteTuda?: boolean;
 }
 
 interface LoadedData {
@@ -95,7 +97,7 @@ export default function TabletCheckInsPage() {
 
   // Estados para modal de check-in
   const [entradaModalOpen, setEntradaModalOpen] = useState(false);
-  const [convidadoParaCheckIn, setConvidadoParaCheckIn] = useState<{ tipo: 'guest' | 'owner' | 'promoter_guest'; id?: number; guestId?: number; guestListId?: number; reservationId?: number; nome: string } | null>(null);
+  const [convidadoParaCheckIn, setConvidadoParaCheckIn] = useState<{ tipo: 'guest' | 'owner' | 'promoter_guest'; id?: number; guestId?: number; guestListId?: number; reservationId?: number; nome: string; /** Apenas para promoter_guest: true se tem direito a VIP a noite toda */ vipNoiteTuda?: boolean } | null>(null);
   
   // Estados para reservas de aniversário e itens do menu
   const [birthdayReservationsByReservationId, setBirthdayReservationsByReservationId] = useState<Record<number, BirthdayReservation>>({});
@@ -1032,6 +1034,8 @@ export default function TabletCheckInsPage() {
           }
         }
         
+        const vipRaw = guest.vip_tipo != null ? String(guest.vip_tipo).trim().toUpperCase() : '';
+        const vipNoiteTuda = vipRaw === 'M' || vipRaw === 'F';
         results.push({
           type: 'promoter_guest',
           name: guest.nome || guest.nome_convidado,
@@ -1043,6 +1047,7 @@ export default function TabletCheckInsPage() {
             name: promoterName,
             totalCheckins: promoter?.convidados_checkin || 0,
           },
+          vipNoiteTuda,
         });
       }
     }
@@ -1249,7 +1254,8 @@ export default function TabletCheckInsPage() {
       setConvidadoParaCheckIn({
         tipo: 'promoter_guest',
         id: result.id,
-        nome: result.name
+        nome: result.name,
+        vipNoiteTuda: result.vipNoiteTuda === true,
       });
       setEntradaModalOpen(true);
     }
@@ -1650,6 +1656,13 @@ export default function TabletCheckInsPage() {
                                   }`}>
                                     {result.name}
                                   </h3>
+                                  {result.type === 'promoter_guest' && result.vipNoiteTuda && (
+                                    <MdStar
+                                      size={20}
+                                      className="text-amber-400 flex-shrink-0"
+                                      title="VIP Noite Tuda"
+                                    />
+                                  )}
                                   {isOwner && (
                                     <>
                                       <span className="px-2 sm:px-3 py-1 bg-purple-500/30 text-purple-200 rounded-full text-xs sm:text-sm font-semibold flex items-center gap-1 flex-shrink-0">
@@ -1745,7 +1758,12 @@ export default function TabletCheckInsPage() {
                                     </span>
                                   )}
                                 </div>
-                                
+                                {result.type === 'promoter_guest' && result.vipNoiteTuda && (
+                                  <p className="text-amber-300 text-sm sm:text-base mb-2 flex items-center gap-1.5">
+                                    <MdStar size={16} className="text-amber-400 flex-shrink-0" />
+                                    Observação: VIP a noite toda — entrada R$ 0,00
+                                  </p>
+                                )}
                                 {result.type === 'guest' && result.ownerName && (
                                   <p className="text-gray-300 mb-2 text-sm sm:text-base">
                                     <strong className="text-gray-200">Convidado de:</strong> {result.ownerName}
@@ -1948,6 +1966,11 @@ export default function TabletCheckInsPage() {
 
                             {result.type === 'promoter_guest' && (
                               <div className="bg-white/5 p-3 sm:p-4 rounded-lg">
+                                {result.vipNoiteTuda && (
+                                  <p className="text-amber-300 text-sm sm:text-base font-semibold mb-2 flex items-center gap-1 pb-2 border-b border-amber-500/30">
+                                    Observação: VIP a noite toda — entrada R$ 0,00
+                                  </p>
+                                )}
                                 <p className="text-gray-300 text-sm sm:text-base">
                                   <strong>Promoter:</strong> <span className="text-purple-300 font-semibold">{result.promoterInfo?.name || 'Promoter não identificado'}</span>
                                 </p>
@@ -1992,6 +2015,7 @@ export default function TabletCheckInsPage() {
             onConfirm={handleConfirmarCheckIn}
             nomeConvidado={convidadoParaCheckIn.nome}
             horaAtual={new Date()}
+            showVipNoiteTudaOption={convidadoParaCheckIn.tipo === 'promoter_guest' && !!convidadoParaCheckIn.vipNoiteTuda}
           />
         )}
       </div>

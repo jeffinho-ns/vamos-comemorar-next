@@ -11,6 +11,8 @@ interface EntradaStatusModalProps {
   onConfirm: (tipo: EntradaTipo, valor: number) => void;
   nomeConvidado: string;
   horaAtual: Date;
+  /** Quando true (ex.: convidado de promoter), mostra opção "VIP a noite toda" mesmo após 22:20 */
+  showVipNoiteTudaOption?: boolean;
 }
 
 const EntradaStatusModal: React.FC<EntradaStatusModalProps> = ({
@@ -18,7 +20,8 @@ const EntradaStatusModal: React.FC<EntradaStatusModalProps> = ({
   onClose,
   onConfirm,
   nomeConvidado,
-  horaAtual
+  horaAtual,
+  showVipNoiteTudaOption = false,
 }) => {
   const [selectedTipo, setSelectedTipo] = React.useState<EntradaTipo | null>(null);
   const hasInitialized = React.useRef(false);
@@ -74,11 +77,11 @@ const EntradaStatusModal: React.FC<EntradaStatusModalProps> = ({
   React.useEffect(() => {
     if (isOpen && !hasInitialized.current) {
       // Primeira vez que o modal abre nesta sessão
-      if (opcoes.modoAutomatico && opcoes.tipoAutomatico) {
-        // Modo automático: já definir como VIP
+      if (opcoes.modoAutomatico && opcoes.tipoAutomatico && !showVipNoiteTudaOption) {
+        // Modo automático (e não é VIP noite tuda): já definir como VIP por horário
         setSelectedTipo(opcoes.tipoAutomatico);
       } else {
-        // Modo manual: deixar sem seleção para o usuário escolher
+        // Modo manual ou VIP noite tuda: deixar sem seleção para o usuário escolher
         setSelectedTipo(null);
       }
       hasInitialized.current = true;
@@ -91,17 +94,21 @@ const EntradaStatusModal: React.FC<EntradaStatusModalProps> = ({
   }, [isOpen]); // Apenas quando isOpen mudar
 
   const handleConfirm = () => {
-    if (opcoes.modoAutomatico && opcoes.tipoAutomatico) {
-      // Modo automático: confirmar VIP diretamente
+    // Se escolheu VIP a noite toda (lista promoter), confirmar como VIP R$ 0
+    if (selectedTipo === 'VIP') {
+      onConfirm('VIP', 0);
+    } else if (opcoes.modoAutomatico && opcoes.tipoAutomatico) {
+      // Modo automático (VIP por horário): confirmar VIP diretamente
       onConfirm(opcoes.tipoAutomatico, 0);
     } else if (selectedTipo) {
-      // Modo manual: usar o tipo selecionado
+      // Modo manual: usar o tipo selecionado (VIP a noite toda = valor 0)
       let valor = 0;
       if (selectedTipo === 'SECO') {
         valor = opcoes.valorSeco;
       } else if (selectedTipo === 'CONSUMA') {
         valor = opcoes.valorConsuma;
       }
+      // selectedTipo === 'VIP' → valor já é 0
       onConfirm(selectedTipo, valor);
     }
   };
@@ -138,8 +145,39 @@ const EntradaStatusModal: React.FC<EntradaStatusModalProps> = ({
               </p>
             </div>
 
-            {/* Modo Automático VIP (até 22:00h) */}
-            {opcoes.modoAutomatico && opcoes.tipoAutomatico === 'VIP' && (
+            {/* Opção VIP a noite toda (sempre visível quando o convidado tem direito) */}
+            {showVipNoiteTudaOption && (
+              <div className="mb-4">
+                <button
+                  type="button"
+                  onClick={() => setSelectedTipo('VIP')}
+                  className={`w-full p-4 border-2 rounded-lg text-left transition-all ${
+                    selectedTipo === 'VIP'
+                      ? 'border-amber-500 bg-amber-50'
+                      : 'border-amber-300 hover:border-amber-400 bg-amber-50/50'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <MdCheckCircle
+                        size={24}
+                        className={selectedTipo === 'VIP' ? 'text-amber-600' : 'text-amber-500'}
+                      />
+                      <div>
+                        <div className="font-semibold text-gray-900">VIP a noite toda</div>
+                        <div className="text-sm text-gray-600">Entrada VIP (lista promoter) — R$ 0,00</div>
+                      </div>
+                    </div>
+                    {selectedTipo === 'VIP' && (
+                      <span className="text-amber-600 font-bold">R$ 0,00</span>
+                    )}
+                  </div>
+                </button>
+              </div>
+            )}
+
+            {/* Modo Automático VIP por horário (até 22:20h) - só se não for VIP noite tuda */}
+            {opcoes.modoAutomatico && opcoes.tipoAutomatico === 'VIP' && !showVipNoiteTudaOption && (
               <div className="mb-6">
                 <div className="bg-green-50 border-2 border-green-500 rounded-lg p-4">
                   <div className="flex items-center gap-3">
@@ -214,6 +252,7 @@ const EntradaStatusModal: React.FC<EntradaStatusModalProps> = ({
                     </div>
                   </button>
                 )}
+
               </div>
             )}
 
@@ -233,7 +272,7 @@ const EntradaStatusModal: React.FC<EntradaStatusModalProps> = ({
                     : 'bg-gray-300 cursor-not-allowed'
                 }`}
               >
-                {opcoes.modoAutomatico ? 'Confirmar Check-in VIP' : 'Confirmar Check-in'}
+                {selectedTipo === 'VIP' ? 'Confirmar VIP a noite toda' : opcoes.modoAutomatico ? 'Confirmar Check-in VIP' : 'Confirmar Check-in'}
               </button>
             </div>
           </div>

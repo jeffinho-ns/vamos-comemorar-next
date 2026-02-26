@@ -288,6 +288,8 @@ interface SearchResultTablet {
   fromReservasAdicionaisAPI?: boolean;
   /** Observações da reserva */
   notes?: string;
+  /** Convidado promoter com direito a VIP a noite toda (vip_tipo M ou F) */
+  isVipNoiteTuda?: boolean;
 }
 
 export default function EventoCheckInsPage() {
@@ -567,6 +569,8 @@ export default function EventoCheckInsPage() {
     nome: string;
     guestListId?: number; // Para guest lists
     reservationId?: number; // Para reservas sem guest list
+    /** Apenas para promoter: true se tem direito a VIP a noite toda (vip_tipo M ou F) */
+    vipNoiteTuda?: boolean;
   } | null>(null);
   const [arrecadacao, setArrecadacao] = useState<{
     totalGeral: number;
@@ -1349,17 +1353,21 @@ export default function EventoCheckInsPage() {
             }
             return true;
           })
-          .map((c: any) => ({
-            ...c,
-            tipo: "convidado_promoter" as const,
-            status_checkin: c.status_checkin as
-              | "Pendente"
-              | "Check-in"
-              | "No-Show",
-            promoter_id: Number(c.promoter_id),
-            tipo_lista: c.tipo_lista || "Promoter",
-            vip_tipo: c.vip_tipo === "M" || c.vip_tipo === "F" ? c.vip_tipo : null,
-          }));
+          .map((c: any) => {
+            const vipRaw = c.vip_tipo != null ? String(c.vip_tipo).trim().toUpperCase() : "";
+            const vipTipo = vipRaw === "M" || vipRaw === "F" ? vipRaw : null;
+            return {
+              ...c,
+              tipo: "convidado_promoter" as const,
+              status_checkin: c.status_checkin as
+                | "Pendente"
+                | "Check-in"
+                | "No-Show",
+              promoter_id: Number(c.promoter_id),
+              tipo_lista: c.tipo_lista || "Promoter",
+              vip_tipo: vipTipo as "M" | "F" | null,
+            };
+          });
 
         setConvidadosPromoters(convidadosPromotersFiltrados);
         setCamarotes(data.dados.camarotes || []);
@@ -2248,83 +2256,29 @@ export default function EventoCheckInsPage() {
   );
 
   const handleConvidadoPromoterCheckIn = useCallback(
-    async (convidado: ConvidadoPromoter) => {
+    (convidado: ConvidadoPromoter, isVipNoiteTudaFromResult?: boolean) => {
       const key = `promoter-${convidado.id}`;
       if (checkInInProgressRef.current[key]) return;
 
       checkInInProgressRef.current[key] = true;
 
-      // VIP Noite Tuda: vip_tipo M ou F = entrada R$ 0 sempre (ignora faixas de horário)
+      // Opção VIP a noite toda: usar flag do resultado da busca quando vier da busca, senão do convidado
+      const vipRaw = convidado.vip_tipo != null ? String(convidado.vip_tipo).trim().toUpperCase() : "";
       const isVipNoiteTuda =
-        convidado.vip_tipo === "M" || convidado.vip_tipo === "F";
+        isVipNoiteTudaFromResult ?? (vipRaw === "M" || vipRaw === "F");
 
-      if (isVipNoiteTuda) {
-        // Check-in automático como VIP (sem abrir modal SECO/CONSOME)
-        try {
-          const token = localStorage.getItem("authToken");
-          const response = await fetch(
-            `${API_URL}/api/v1/eventos/checkin/${convidado.id}`,
-            {
-              method: "PUT",
-              headers: {
-                Authorization: `Bearer ${token}`,
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({
-                status_checkin: "Check-in",
-                entrada_tipo: "VIP",
-                entrada_valor: 0,
-              }),
-            },
-          );
-
-          if (response.ok) {
-            toast.success(
-              `✅ Check-in VIP automático de ${convidado.nome} confirmado! (entrada VIP a noite toda)`,
-              {
-                position: "top-center",
-                autoClose: 3000,
-              },
-            );
-
-            // Recarregar dados para atualizar a interface
-            loadCheckInData();
-          } else {
-            const errorData = await response.json().catch(() => ({}));
-            toast.error(
-              `❌ Erro ao fazer check-in VIP: ${errorData.error || "Erro desconhecido"}`,
-              {
-                position: "top-center",
-                autoClose: 4000,
-              },
-            );
-          }
-        } catch (error) {
-          console.error("Erro ao fazer check-in VIP automático:", error);
-          toast.error("❌ Erro ao fazer check-in VIP automático", {
-            position: "top-center",
-            autoClose: 4000,
-          });
-        } finally {
-          setTimeout(() => {
-            checkInInProgressRef.current[key] = false;
-          }, 500);
-        }
-        return;
-      }
-
-      // Convidado normal: abrir modal de entrada (regra de horário)
       setConvidadoParaCheckIn({
         tipo: "promoter",
         id: convidado.id,
         nome: convidado.nome,
+        vipNoiteTuda: isVipNoiteTuda,
       });
       setEntradaModalOpen(true);
       setTimeout(() => {
         checkInInProgressRef.current[key] = false;
       }, 500);
     },
-    [loadCheckInData],
+    [],
   );
 
   // Função que realmente faz o check-in após seleção do status
@@ -4185,6 +4139,8 @@ export default function EventoCheckInsPage() {
       const prom = promoters.find(
         (pr) => Number(pr.id) === Number(c.promoter_id),
       );
+      const vipRaw = c.vip_tipo != null ? String(c.vip_tipo).trim().toUpperCase() : "";
+      const isVipNoiteTuda = vipRaw === "M" || vipRaw === "F";
       results.push({
         type: "promoter_guest",
         name: c.nome || "Sem nome",
@@ -4197,6 +4153,7 @@ export default function EventoCheckInsPage() {
           totalCheckins: prom?.convidados_checkin || 0,
         },
         convidadoPromoter: c,
+        isVipNoiteTuda,
       });
     }
 
@@ -4921,6 +4878,7 @@ export default function EventoCheckInsPage() {
                           ) {
                             handleConvidadoPromoterCheckIn(
                               result.convidadoPromoter,
+                              result.isVipNoiteTuda,
                             );
                           }
                         };
@@ -4983,6 +4941,13 @@ export default function EventoCheckInsPage() {
                                       >
                                         {result.name}
                                       </h3>
+                                      {result.type === "promoter_guest" && result.isVipNoiteTuda && (
+                                        <MdStar
+                                          size={20}
+                                          className="text-amber-400 flex-shrink-0"
+                                          title="VIP Noite Tuda"
+                                        />
+                                      )}
                                       {isOwner && (
                                         <span className="px-2 sm:px-3 py-1 bg-purple-500/30 text-purple-200 rounded-full text-xs sm:text-sm font-semibold flex items-center gap-1 flex-shrink-0">
                                           <MdPerson size={14} /> DONO DA RESERVA
@@ -4997,6 +4962,12 @@ export default function EventoCheckInsPage() {
                                         </span>
                                       )}
                                     </div>
+                                    {result.type === "promoter_guest" && result.isVipNoiteTuda && (
+                                      <p className="text-amber-300 text-sm sm:text-base mb-2 flex items-center gap-1.5">
+                                        <MdStar size={16} className="text-amber-400 flex-shrink-0" />
+                                        Observação: VIP a noite toda — entrada R$ 0,00
+                                      </p>
+                                    )}
                                     {result.type === "guest" &&
                                       result.ownerName && (
                                         <p className="text-gray-300 mb-2 text-sm sm:text-base">
@@ -8270,6 +8241,7 @@ export default function EventoCheckInsPage() {
           onConfirm={handleConfirmarCheckIn}
           nomeConvidado={convidadoParaCheckIn.nome}
           horaAtual={new Date()}
+          showVipNoiteTudaOption={convidadoParaCheckIn.tipo === "promoter" && !!convidadoParaCheckIn.vipNoiteTuda}
         />
       )}
 
