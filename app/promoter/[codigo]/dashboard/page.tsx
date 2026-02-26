@@ -57,6 +57,7 @@ interface Evento {
   observacoes?: string | null;
 }
 
+/** vip_tipo: 'M' | 'F' = VIP Noite Tuda; null/undefined = convidado normal. Fallback seguro se API não retornar. */
 interface Convidado {
   id: number;
   nome: string;
@@ -65,6 +66,7 @@ interface Convidado {
   evento_data?: string;
   whatsapp?: string;
   criado_em?: string;
+  vip_tipo?: 'M' | 'F' | null;
 }
 
 export default function PromoterDashboardPage() {
@@ -94,13 +96,16 @@ export default function PromoterDashboardPage() {
     errors: string[];
   }>({ added: 0, skipped: 0, errors: [] });
   const [bulkError, setBulkError] = useState<string | null>(null);
-  const [singleGuest, setSingleGuest] = useState<{ nome: string; whatsapp: string; evento: string }>({
+  const [singleGuest, setSingleGuest] = useState<{ nome: string; whatsapp: string; evento: string; vip_tipo: '' | 'M' | 'F' }>({
     nome: "",
     whatsapp: "",
     evento: "",
+    vip_tipo: "",
   });
+  const [bulkVipTipo, setBulkVipTipo] = useState<'' | 'M' | 'F'>('');
   const [addingSingleGuest, setAddingSingleGuest] = useState(false);
   const [isGuestsListOpen, setIsGuestsListOpen] = useState(true);
+  const LIMITE_VIP_ALERT_MSG = "Limite atingido. Entre em contato com o administrador para aumentar sua cota.";
   
   // Estados para brindes de promoters
   interface PromoterGift {
@@ -226,7 +231,13 @@ export default function PromoterDashboardPage() {
       );
       if (response.ok) {
         const data = await response.json();
-        setConvidados(data.convidados || []);
+        const raw = data.convidados || [];
+        setConvidados(
+          raw.map((c: Convidado & { vip_tipo?: string }) => ({
+            ...c,
+            vip_tipo: c.vip_tipo === "M" || c.vip_tipo === "F" ? c.vip_tipo : null,
+          })),
+        );
       }
     } catch (err) {
       console.error("Erro ao carregar convidados do promoter:", err);
@@ -390,6 +401,35 @@ export default function PromoterDashboardPage() {
     if (!eventoAtual) return { checkinsCount: 0, liberados: [], emProgresso: [], regras: [] };
     return getPromoterGiftsForEvent(eventoAtual);
   }, [eventoAtual, getPromoterGiftsForEvent]);
+
+  // Limites VIP Noite Tuda (da regra do promoter). Fallback 0 se API não retornar.
+  const vipLimits = useMemo(() => {
+    const eventIds = Object.keys(promoterGiftRules);
+    for (const eid of eventIds) {
+      const rules = promoterGiftRules[Number(eid)] || [];
+      const rule = rules.find(
+        (r: { promoter_id?: number | null }) =>
+          r.promoter_id == null || Number(r.promoter_id) === Number(promoter?.id),
+      );
+      if (rule) {
+        return {
+          vip_m_limit: typeof (rule as { vip_m_limit?: number }).vip_m_limit === "number" ? (rule as { vip_m_limit: number }).vip_m_limit : 0,
+          vip_f_limit: typeof (rule as { vip_f_limit?: number }).vip_f_limit === "number" ? (rule as { vip_f_limit: number }).vip_f_limit : 0,
+        };
+      }
+    }
+    return { vip_m_limit: 0, vip_f_limit: 0 };
+  }, [promoter?.id, promoterGiftRules]);
+
+  // Contadores VIP (baseados nos convidados já salvos do promoter)
+  const vipCounts = useMemo(() => {
+    const m = convidados.filter((c) => c.vip_tipo === "M").length;
+    const f = convidados.filter((c) => c.vip_tipo === "F").length;
+    return { countM: m, countF: f };
+  }, [convidados]);
+
+  const isVipMLimitReached = vipLimits.vip_m_limit > 0 && vipCounts.countM >= vipLimits.vip_m_limit;
+  const isVipFLimitReached = vipLimits.vip_f_limit > 0 && vipCounts.countF >= vipLimits.vip_f_limit;
   
   // Separar brindes por tipo (usando regras ao invés de liberados)
   const brindesPorcentagemValor = useMemo(() => {
@@ -446,18 +486,31 @@ export default function PromoterDashboardPage() {
     e.preventDefault();
     if (!singleGuest.nome.trim()) return;
 
+    const vipTipo = singleGuest.vip_tipo === "M" || singleGuest.vip_tipo === "F" ? singleGuest.vip_tipo : null;
+    if (vipTipo === "M" && isVipMLimitReached) {
+      alert(LIMITE_VIP_ALERT_MSG);
+      return;
+    }
+    if (vipTipo === "F" && isVipFLimitReached) {
+      alert(LIMITE_VIP_ALERT_MSG);
+      return;
+    }
+
     setAddingSingleGuest(true);
     try {
+      const body: { nome: string; whatsapp: string; evento_id: string | null; vip_tipo?: "M" | "F" } = {
+        nome: singleGuest.nome.trim(),
+        whatsapp: singleGuest.whatsapp.trim(),
+        evento_id: singleGuest.evento || null,
+      };
+      if (vipTipo) body.vip_tipo = vipTipo;
+
       const response = await fetch(
         `${API_URL}/api/promoter/${params.codigo}/convidado`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            nome: singleGuest.nome.trim(),
-            whatsapp: singleGuest.whatsapp.trim(),
-            evento_id: singleGuest.evento || null,
-          }),
+          body: JSON.stringify(body),
         },
       );
 
@@ -468,7 +521,7 @@ export default function PromoterDashboardPage() {
         );
       }
 
-      setSingleGuest({ nome: "", whatsapp: "", evento: "" });
+      setSingleGuest({ nome: "", whatsapp: "", evento: "", vip_tipo: "" });
       await loadConvidados();
     } catch (err) {
       console.error(err);
@@ -480,11 +533,38 @@ export default function PromoterDashboardPage() {
 
   const handleBulkImport = async () => {
     if (parsedBulkEntries.length === 0) return;
+
+    const bulkVip = bulkVipTipo === "M" || bulkVipTipo === "F" ? bulkVipTipo : null;
+    if (bulkVip === "M" && vipLimits.vip_m_limit > 0) {
+      const cap = vipLimits.vip_m_limit - vipCounts.countM;
+      if (cap <= 0) {
+        alert(LIMITE_VIP_ALERT_MSG);
+        return;
+      }
+      if (parsedBulkEntries.length > cap) {
+        alert(`Limite VIP Masculino: só é possível adicionar mais ${cap} nome(s). ${LIMITE_VIP_ALERT_MSG}`);
+        return;
+      }
+    }
+    if (bulkVip === "F" && vipLimits.vip_f_limit > 0) {
+      const cap = vipLimits.vip_f_limit - vipCounts.countF;
+      if (cap <= 0) {
+        alert(LIMITE_VIP_ALERT_MSG);
+        return;
+      }
+      if (parsedBulkEntries.length > cap) {
+        alert(`Limite VIP Feminino: só é possível adicionar mais ${cap} nome(s). ${LIMITE_VIP_ALERT_MSG}`);
+        return;
+      }
+    }
+
     setBulkLoading(true);
     setBulkError(null);
     const errors: string[] = [];
     let added = 0;
     let skipped = 0;
+    let countM = vipCounts.countM;
+    let countF = vipCounts.countF;
 
     for (const entry of parsedBulkEntries) {
       const nome = entry.nome;
@@ -495,22 +575,38 @@ export default function PromoterDashboardPage() {
         continue;
       }
 
+      if (bulkVip === "M" && vipLimits.vip_m_limit > 0 && countM >= vipLimits.vip_m_limit) {
+        skipped += 1;
+        errors.push(`Limite VIP M atingido. Não adicionado: ${nome}.`);
+        continue;
+      }
+      if (bulkVip === "F" && vipLimits.vip_f_limit > 0 && countF >= vipLimits.vip_f_limit) {
+        skipped += 1;
+        errors.push(`Limite VIP F atingido. Não adicionado: ${nome}.`);
+        continue;
+      }
+
       try {
+        const body: { nome: string; whatsapp: string; evento_id: string | null; vip_tipo?: "M" | "F" } = {
+          nome,
+          whatsapp: "",
+          evento_id: bulkEventoId || null,
+        };
+        if (bulkVip) body.vip_tipo = bulkVip;
+
         const response = await fetch(
           `${API_URL}/api/promoter/${params.codigo}/convidado`,
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              nome,
-              whatsapp: "",
-              evento_id: bulkEventoId || null,
-            }),
+            body: JSON.stringify(body),
           },
         );
 
         if (response.ok) {
           added += 1;
+          if (bulkVip === "M") countM += 1;
+          if (bulkVip === "F") countF += 1;
         } else {
           skipped += 1;
           const data = await response.json().catch(() => null);
@@ -774,6 +870,32 @@ export default function PromoterDashboardPage() {
               Taxa de comparecimento {selectedEvento === "todos" ? "geral." : "no evento."}
             </p>
           </div>
+          {(vipLimits.vip_m_limit > 0 || vipLimits.vip_f_limit > 0) && (
+            <>
+              <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-5">
+                <p className="text-xs uppercase tracking-[0.18em] text-amber-200">
+                  VIPs Noite Tuda M
+                </p>
+                <p className="text-3xl font-bold mt-2 text-amber-300">
+                  {vipCounts.countM}/{vipLimits.vip_m_limit}
+                </p>
+                <p className="text-xs text-white/60 mt-1">
+                  {isVipMLimitReached ? "Limite atingido." : "Cota disponível."}
+                </p>
+              </div>
+              <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-5">
+                <p className="text-xs uppercase tracking-[0.18em] text-amber-200">
+                  VIPs Noite Tuda F
+                </p>
+                <p className="text-3xl font-bold mt-2 text-amber-300">
+                  {vipCounts.countF}/{vipLimits.vip_f_limit}
+                </p>
+                <p className="text-xs text-white/60 mt-1">
+                  {isVipFLimitReached ? "Limite atingido." : "Cota disponível."}
+                </p>
+              </div>
+            </>
+          )}
         </section>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -837,7 +959,38 @@ export default function PromoterDashboardPage() {
                   </div>
                 </div>
                 <div className="md:col-span-3 grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
-                  <div className="md:col-span-2">
+                  <div>
+                    <label className="text-xs uppercase tracking-[0.18em] text-purple-200">
+                      Tipo de entrada
+                    </label>
+                    <select
+                      value={singleGuest.vip_tipo}
+                      onChange={(e) => {
+                        const v = e.target.value as '' | 'M' | 'F';
+                        if (v === "M" && isVipMLimitReached) {
+                          alert(LIMITE_VIP_ALERT_MSG);
+                          return;
+                        }
+                        if (v === "F" && isVipFLimitReached) {
+                          alert(LIMITE_VIP_ALERT_MSG);
+                          return;
+                        }
+                        setSingleGuest((prev) => ({ ...prev, vip_tipo: v }));
+                      }}
+                      className="mt-2 w-full rounded-2xl bg-white/10 border border-white/10 px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-purple-400"
+                    >
+                      <option value="">Normal</option>
+                      <option value="M" disabled={isVipMLimitReached}>
+                        VIP Masculino {vipLimits.vip_m_limit > 0 ? `(${vipCounts.countM}/${vipLimits.vip_m_limit})` : ""}
+                        {isVipMLimitReached ? " — Limite atingido" : ""}
+                      </option>
+                      <option value="F" disabled={isVipFLimitReached}>
+                        VIP Feminino {vipLimits.vip_f_limit > 0 ? `(${vipCounts.countF}/${vipLimits.vip_f_limit})` : ""}
+                        {isVipFLimitReached ? " — Limite atingido" : ""}
+                      </option>
+                    </select>
+                  </div>
+                  <div>
                     <label className="text-xs uppercase tracking-[0.18em] text-purple-200">
                       Evento (opcional)
                     </label>
@@ -868,7 +1021,16 @@ export default function PromoterDashboardPage() {
                   </div>
                   <button
                     type="submit"
-                    disabled={addingSingleGuest}
+                    disabled={
+                      addingSingleGuest ||
+                      (singleGuest.vip_tipo === "M" && isVipMLimitReached) ||
+                      (singleGuest.vip_tipo === "F" && isVipFLimitReached)
+                    }
+                    title={
+                      (singleGuest.vip_tipo === "M" && isVipMLimitReached) || (singleGuest.vip_tipo === "F" && isVipFLimitReached)
+                        ? LIMITE_VIP_ALERT_MSG
+                        : undefined
+                    }
                     className="inline-flex items-center justify-center gap-2 px-4 py-3 rounded-2xl bg-purple-500 hover:bg-purple-600 transition font-semibold disabled:opacity-60 disabled:cursor-not-allowed"
                   >
                     <MdCheckCircle />
@@ -907,30 +1069,60 @@ export default function PromoterDashboardPage() {
                 <label className="block text-xs uppercase tracking-[0.18em] text-purple-200 mb-2">
                   Importar convidados em lote
                 </label>
-                <div className="mb-3">
-                  <select
-                    value={bulkEventoId}
-                    onChange={(e) => setBulkEventoId(e.target.value)}
-                    className="w-full rounded-2xl bg-slate-900/40 border border-white/20 px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-purple-300"
-                  >
-                    <option value="">Atribuir a um evento (opcional)</option>
-                    {eventos.map((evento) => (
-                      <option key={evento.evento_id} value={String(evento.evento_id)}>
-                        {evento.nome_do_evento} •{" "}
-                        {new Date(
-                          (evento.data_evento || "").includes("T")
-                            ? evento.data_evento || ""
-                            : evento.data_evento
-                            ? `${evento.data_evento}T12:00:00`
-                            : "",
-                        ).toLocaleDateString("pt-BR")}
+                <div className="mb-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs text-white/60 mb-1">Evento (opcional)</label>
+                    <select
+                      value={bulkEventoId}
+                      onChange={(e) => setBulkEventoId(e.target.value)}
+                      className="w-full rounded-2xl bg-slate-900/40 border border-white/20 px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-purple-300"
+                    >
+                      <option value="">Atribuir a um evento (opcional)</option>
+                      {eventos.map((evento) => (
+                        <option key={evento.evento_id} value={String(evento.evento_id)}>
+                          {evento.nome_do_evento} •{" "}
+                          {new Date(
+                            (evento.data_evento || "").includes("T")
+                              ? evento.data_evento || ""
+                              : evento.data_evento
+                              ? `${evento.data_evento}T12:00:00`
+                              : "",
+                          ).toLocaleDateString("pt-BR")}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs text-white/60 mb-1">Adicionar como</label>
+                    <select
+                      value={bulkVipTipo}
+                      onChange={(e) => {
+                        const v = e.target.value as '' | 'M' | 'F';
+                        if (v === "M" && isVipMLimitReached) {
+                          alert(LIMITE_VIP_ALERT_MSG);
+                          return;
+                        }
+                        if (v === "F" && isVipFLimitReached) {
+                          alert(LIMITE_VIP_ALERT_MSG);
+                          return;
+                        }
+                        setBulkVipTipo(v);
+                      }}
+                      className="w-full rounded-2xl bg-slate-900/40 border border-white/20 px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-purple-300"
+                    >
+                      <option value="">Normal</option>
+                      <option value="M" disabled={isVipMLimitReached}>
+                        VIP Masculino ({vipCounts.countM}/{vipLimits.vip_m_limit || "—"})
                       </option>
-                    ))}
-                  </select>
-                  <p className="mt-2 text-xs text-white/40">
-                    Se preferir, deixe em branco e atribua o evento mais tarde.
-                  </p>
+                      <option value="F" disabled={isVipFLimitReached}>
+                        VIP Feminino ({vipCounts.countF}/{vipLimits.vip_f_limit || "—"})
+                      </option>
+                    </select>
+                  </div>
                 </div>
+                <p className="mt-2 text-xs text-white/40">
+                  Se preferir, deixe evento em branco e atribua mais tarde. VIP: limite validado ao importar.
+                </p>
                 <div className="flex gap-3">
                   <textarea
                     value={bulkInput}

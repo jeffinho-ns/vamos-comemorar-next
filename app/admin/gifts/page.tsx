@@ -17,6 +17,10 @@ interface GiftRule {
   checkins_necessarios: number;
   status: 'ATIVA' | 'INATIVA';
   tipo_beneficiario: 'ANIVERSARIO' | 'PROMOTER';
+  /** Limite de VIP Noite Tuda Masculino (0 = sem limite). Fallback seguro se API não retornar. */
+  vip_m_limit?: number;
+  /** Limite de VIP Noite Tuda Feminino (0 = sem limite). Fallback seguro se API não retornar. */
+  vip_f_limit?: number;
   created_at?: string;
   updated_at?: string;
 }
@@ -57,11 +61,20 @@ export default function GiftsAdminPage() {
     status: 'ATIVA'
   });
   
-  const [promoterGiftRuleForm, setPromoterGiftRuleForm] = useState<{ descricao: string; checkins_necessarios: number; status: 'ATIVA' | 'INATIVA'; promoter_id: number | null }>({
+  const [promoterGiftRuleForm, setPromoterGiftRuleForm] = useState<{
+    descricao: string;
+    checkins_necessarios: number;
+    status: 'ATIVA' | 'INATIVA';
+    promoter_id: number | null;
+    vip_m_limit: number;
+    vip_f_limit: number;
+  }>({
     descricao: '',
     checkins_necessarios: 5,
     status: 'ATIVA',
-    promoter_id: null // null = regra geral para todos os promoters
+    promoter_id: null,
+    vip_m_limit: 0,
+    vip_f_limit: 0,
   });
   
   // Estados para promoters
@@ -212,7 +225,12 @@ export default function GiftsAdminPage() {
 
       if (response.ok) {
         const data = await response.json();
-        setPromoterGiftRules(data.rules || []);
+        const rules = (data.rules || []).map((r: GiftRule) => ({
+          ...r,
+          vip_m_limit: typeof r.vip_m_limit === 'number' ? r.vip_m_limit : 0,
+          vip_f_limit: typeof r.vip_f_limit === 'number' ? r.vip_f_limit : 0,
+        }));
+        setPromoterGiftRules(rules);
       } else {
         console.error('Erro ao carregar regras de brindes para promoters');
         setPromoterGiftRules([]);
@@ -554,7 +572,14 @@ export default function GiftsAdminPage() {
                 <button
                   onClick={() => {
                     setEditingPromoterGiftRule(null);
-                    setPromoterGiftRuleForm({ descricao: '', checkins_necessarios: 5, status: 'ATIVA', promoter_id: null });
+                    setPromoterGiftRuleForm({
+                      descricao: '',
+                      checkins_necessarios: 5,
+                      status: 'ATIVA',
+                      promoter_id: null,
+                      vip_m_limit: 0,
+                      vip_f_limit: 0,
+                    });
                     setShowPromoterGiftRuleModal(true);
                   }}
                   className="px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors flex items-center gap-2 shadow-md font-semibold"
@@ -604,6 +629,11 @@ export default function GiftsAdminPage() {
                               🌐 Regra geral (aplica-se a todos os promoters)
                             </p>
                           )}
+                          {((rule.vip_m_limit ?? 0) > 0 || (rule.vip_f_limit ?? 0) > 0) && (
+                            <p className="text-xs text-purple-600 mt-1 font-medium">
+                              🎟️ VIP Noite Tuda: M {rule.vip_m_limit ?? 0} / F {rule.vip_f_limit ?? 0}
+                            </p>
+                          )}
                         </div>
                         <div className="flex gap-2 ml-4">
                           <button
@@ -613,7 +643,9 @@ export default function GiftsAdminPage() {
                                 descricao: rule.descricao,
                                 checkins_necessarios: rule.checkins_necessarios,
                                 status: rule.status,
-                                promoter_id: rule.promoter_id || null
+                                promoter_id: rule.promoter_id || null,
+                                vip_m_limit: typeof rule.vip_m_limit === 'number' ? rule.vip_m_limit : 0,
+                                vip_f_limit: typeof rule.vip_f_limit === 'number' ? rule.vip_f_limit : 0,
                               });
                               setShowPromoterGiftRuleModal(true);
                             }}
@@ -847,7 +879,14 @@ export default function GiftsAdminPage() {
                   onClick={() => {
                     setShowPromoterGiftRuleModal(false);
                     setEditingPromoterGiftRule(null);
-                    setPromoterGiftRuleForm({ descricao: '', checkins_necessarios: 5, status: 'ATIVA', promoter_id: null });
+                    setPromoterGiftRuleForm({
+                      descricao: '',
+                      checkins_necessarios: 5,
+                      status: 'ATIVA',
+                      promoter_id: null,
+                      vip_m_limit: 0,
+                      vip_f_limit: 0,
+                    });
                   }}
                   className="text-gray-400 hover:text-gray-600"
                 >
@@ -876,7 +915,9 @@ export default function GiftsAdminPage() {
                       ...promoterGiftRuleForm,
                       establishment_id: selectedEstablishment?.id,
                       tipo_beneficiario: 'PROMOTER',
-                      promoter_id: promoterGiftRuleForm.promoter_id || null
+                      promoter_id: promoterGiftRuleForm.promoter_id || null,
+                      vip_m_limit: Number(promoterGiftRuleForm.vip_m_limit) || 0,
+                      vip_f_limit: Number(promoterGiftRuleForm.vip_f_limit) || 0,
                     })
                   });
 
@@ -886,7 +927,14 @@ export default function GiftsAdminPage() {
                     }
                     setShowPromoterGiftRuleModal(false);
                     setEditingPromoterGiftRule(null);
-                    setPromoterGiftRuleForm({ descricao: '', checkins_necessarios: 5, status: 'ATIVA', promoter_id: null });
+                    setPromoterGiftRuleForm({
+                      descricao: '',
+                      checkins_necessarios: 5,
+                      status: 'ATIVA',
+                      promoter_id: null,
+                      vip_m_limit: 0,
+                      vip_f_limit: 0,
+                    });
                   } else {
                     const errorData = await response.json();
                     alert('Erro: ' + (errorData.error || 'Erro desconhecido'));
@@ -923,6 +971,37 @@ export default function GiftsAdminPage() {
                   <p className="text-xs text-gray-500 mt-1">
                     Selecione um promoter específico ou deixe em branco para aplicar a todos os promoters do estabelecimento
                   </p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Limite VIP Masculino
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={promoterGiftRuleForm.vip_m_limit}
+                      onChange={(e) => setPromoterGiftRuleForm(prev => ({ ...prev, vip_m_limit: Math.max(0, parseInt(e.target.value, 10) || 0) }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                      placeholder="0"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">0 = sem cota VIP M</p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Limite VIP Feminino
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={promoterGiftRuleForm.vip_f_limit}
+                      onChange={(e) => setPromoterGiftRuleForm(prev => ({ ...prev, vip_f_limit: Math.max(0, parseInt(e.target.value, 10) || 0) }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                      placeholder="0"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">0 = sem cota VIP F</p>
+                  </div>
                 </div>
                 
                 <div>
@@ -982,7 +1061,14 @@ export default function GiftsAdminPage() {
                     onClick={() => {
                       setShowPromoterGiftRuleModal(false);
                       setEditingPromoterGiftRule(null);
-                      setPromoterGiftRuleForm({ descricao: '', checkins_necessarios: 5, status: 'ATIVA', promoter_id: null });
+                      setPromoterGiftRuleForm({
+                        descricao: '',
+                        checkins_necessarios: 5,
+                        status: 'ATIVA',
+                        promoter_id: null,
+                        vip_m_limit: 0,
+                        vip_f_limit: 0,
+                      });
                     }}
                     className="flex-1 px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded-lg transition-colors"
                   >

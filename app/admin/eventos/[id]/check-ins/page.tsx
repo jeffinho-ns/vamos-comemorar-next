@@ -119,6 +119,8 @@ interface ConvidadoPromoter {
   promoter_id: number;
   entrada_tipo?: EntradaTipo;
   entrada_valor?: number;
+  /** VIP Noite Tuda: 'M' | 'F' = entrada R$ 0 sempre. Fallback seguro se API não retornar. */
+  vip_tipo?: "M" | "F" | null;
 }
 
 interface Promoter {
@@ -1349,7 +1351,6 @@ export default function EventoCheckInsPage() {
           })
           .map((c: any) => ({
             ...c,
-            // Garantir que todos os campos obrigatórios estão presentes
             tipo: "convidado_promoter" as const,
             status_checkin: c.status_checkin as
               | "Pendente"
@@ -1357,6 +1358,7 @@ export default function EventoCheckInsPage() {
               | "No-Show",
             promoter_id: Number(c.promoter_id),
             tipo_lista: c.tipo_lista || "Promoter",
+            vip_tipo: c.vip_tipo === "M" || c.vip_tipo === "F" ? c.vip_tipo : null,
           }));
 
         setConvidadosPromoters(convidadosPromotersFiltrados);
@@ -2252,18 +2254,11 @@ export default function EventoCheckInsPage() {
 
       checkInInProgressRef.current[key] = true;
 
-      // Convidados da "Lista de Rafa Coelho" ou promoter Rafa Coelho têm entrada VIP a noite toda
-      const promoter = promoters.find(
-        (p) => Number(p.id) === Number(convidado.promoter_id),
-      );
-      const isRafacolelho =
-        promoter?.email?.toLowerCase() === "rafacolelho@highlinebar.com.br" ||
-        (promoter?.nome &&
-          promoter.nome.toLowerCase().includes("rafa coelho")) ||
-        (convidado.origem &&
-          convidado.origem.toLowerCase().includes("lista de rafa coelho"));
+      // VIP Noite Tuda: vip_tipo M ou F = entrada R$ 0 sempre (ignora faixas de horário)
+      const isVipNoiteTuda =
+        convidado.vip_tipo === "M" || convidado.vip_tipo === "F";
 
-      if (isRafacolelho) {
+      if (isVipNoiteTuda) {
         // Check-in automático como VIP (sem abrir modal SECO/CONSOME)
         try {
           const token = localStorage.getItem("authToken");
@@ -2318,7 +2313,7 @@ export default function EventoCheckInsPage() {
         return;
       }
 
-      // Se não estiver na lista VIP, abrir modal normalmente
+      // Convidado normal: abrir modal de entrada (regra de horário)
       setConvidadoParaCheckIn({
         tipo: "promoter",
         id: convidado.id,
@@ -2329,7 +2324,7 @@ export default function EventoCheckInsPage() {
         checkInInProgressRef.current[key] = false;
       }, 500);
     },
-    [promoters, loadCheckInData],
+    [loadCheckInData],
   );
 
   // Função que realmente faz o check-in após seleção do status
@@ -7657,6 +7652,8 @@ export default function EventoCheckInsPage() {
                         const isCheckedIn =
                           convidado.status_checkin === "Check-in";
                         const isNoShow = convidado.status_checkin === "No-Show";
+                        const isVipNoiteTuda =
+                          convidado.vip_tipo === "M" || convidado.vip_tipo === "F";
                         return (
                           <div
                             key={convidado.id}
@@ -7665,7 +7662,9 @@ export default function EventoCheckInsPage() {
                                 ? "bg-green-900/10"
                                 : isNoShow
                                   ? "bg-red-900/10"
-                                  : "hover:bg-white/5"
+                                  : isVipNoiteTuda
+                                    ? "bg-purple-900/20 border-l-4 border-amber-400/50"
+                                    : "hover:bg-white/5"
                             }`}
                           >
                             <div className="flex items-center gap-2 flex-1 min-w-0">
@@ -7687,10 +7686,11 @@ export default function EventoCheckInsPage() {
                                   <span className="font-medium text-white text-sm truncate">
                                     {convidado.nome}
                                   </span>
-                                  {convidado.is_vip && (
+                                  {(convidado.is_vip || isVipNoiteTuda) && (
                                     <MdStar
                                       size={14}
-                                      className="text-yellow-400 flex-shrink-0"
+                                      className="text-amber-400 flex-shrink-0"
+                                      title={isVipNoiteTuda ? "VIP Noite Tuda" : "VIP"}
                                     />
                                   )}
                                   {convidado.entrada_tipo && isCheckedIn && (
@@ -7732,7 +7732,10 @@ export default function EventoCheckInsPage() {
                     {/* Desktop: Visualização em Grade */}
                     {promoterGuestsViewMode === "grid" && (
                       <div className="hidden md:grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-3 md:gap-4">
-                        {sortedFilteredConvidadosPromoters.map((convidado) => (
+                        {sortedFilteredConvidadosPromoters.map((convidado) => {
+                          const isVipNoiteTuda =
+                            convidado.vip_tipo === "M" || convidado.vip_tipo === "F";
+                          return (
                           <motion.div
                             key={convidado.id}
                             initial={isMobile ? false : { opacity: 0, y: 20 }}
@@ -7746,8 +7749,10 @@ export default function EventoCheckInsPage() {
                                 ? "bg-green-900/30 border-green-500/50"
                                 : convidado.status_checkin === "No-Show"
                                   ? "bg-red-900/30 border-red-500/50"
-                                  : "bg-white/5 border-white/20 hover:border-purple-400/50"
-                            }`}
+                                  : isVipNoiteTuda
+                                    ? "bg-purple-900/20 border-purple-400/60 hover:border-purple-400/70"
+                                    : "bg-white/5 border-white/20 hover:border-purple-400/50"
+                            } ${isVipNoiteTuda ? "ring-1 ring-amber-400/40" : ""}`}
                           >
                             <div className="flex items-start justify-between mb-2">
                               <div className="flex-1 min-w-0">
@@ -7755,11 +7760,11 @@ export default function EventoCheckInsPage() {
                                   <h3 className="font-bold text-base text-white truncate">
                                     {convidado.nome}
                                   </h3>
-                                  {convidado.is_vip && (
+                                  {(convidado.is_vip || isVipNoiteTuda) && (
                                     <MdStar
                                       size={16}
-                                      className="text-yellow-400 flex-shrink-0"
-                                      title="VIP"
+                                      className="text-amber-400 flex-shrink-0"
+                                      title={isVipNoiteTuda ? "VIP Noite Tuda" : "VIP"}
                                     />
                                   )}
                                 </div>
@@ -7770,31 +7775,13 @@ export default function EventoCheckInsPage() {
                                   <div className="truncate">
                                     Promoter: {convidado.responsavel}
                                   </div>
-                                  {(() => {
-                                    const promoterForGuest = promoters.find(
-                                      (p) =>
-                                        Number(p.id) ===
-                                        Number(convidado.promoter_id),
-                                    );
-                                    const isRafaList =
-                                      promoterForGuest?.email?.toLowerCase() ===
-                                        "rafacolelho@highlinebar.com.br" ||
-                                      (promoterForGuest?.nome &&
-                                        promoterForGuest.nome
-                                          .toLowerCase()
-                                          .includes("rafa coelho")) ||
-                                      (convidado.origem &&
-                                        convidado.origem
-                                          .toLowerCase()
-                                          .includes("lista de rafa coelho"));
-                                    return isRafaList ? (
-                                      <div className="mt-1">
-                                        <span className="text-xs px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-medium">
-                                          Entrada VIP a noite toda
-                                        </span>
-                                      </div>
-                                    ) : null;
-                                  })()}
+                                  {isVipNoiteTuda && (
+                                    <div className="mt-1">
+                                      <span className="text-xs px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-medium">
+                                        Entrada VIP a noite toda
+                                      </span>
+                                    </div>
+                                  )}
                                   {convidado.telefone && (
                                     <div className="flex items-center gap-1 truncate">
                                       <MdPhone size={12} />
@@ -7831,27 +7818,7 @@ export default function EventoCheckInsPage() {
                                 className="w-full bg-purple-600 hover:bg-purple-700 text-white font-medium py-2 rounded-lg transition-colors flex items-center justify-center gap-1.5 text-sm touch-manipulation"
                               >
                                 <MdCheckCircle size={16} />
-                                {(() => {
-                                  const promoterForGuest = promoters.find(
-                                    (p) =>
-                                      Number(p.id) ===
-                                      Number(convidado.promoter_id),
-                                  );
-                                  const isRafaList =
-                                    promoterForGuest?.email?.toLowerCase() ===
-                                      "rafacolelho@highlinebar.com.br" ||
-                                    (promoterForGuest?.nome &&
-                                      promoterForGuest.nome
-                                        .toLowerCase()
-                                        .includes("rafa coelho")) ||
-                                    (convidado.origem &&
-                                      convidado.origem
-                                        .toLowerCase()
-                                        .includes("lista de rafa coelho"));
-                                  return isRafaList
-                                    ? "Check-in (VIP)"
-                                    : "Check-in";
-                                })()}
+                                {isVipNoiteTuda ? "Check-in (VIP)" : "Check-in"}
                               </button>
                             ) : convidado.status_checkin === "Check-in" ? (
                               <div className="text-center space-y-1">
@@ -7899,7 +7866,8 @@ export default function EventoCheckInsPage() {
                               </div>
                             )}
                           </motion.div>
-                        ))}
+                          );
+                        })}
                         {sortedFilteredConvidadosPromoters.length === 0 && (
                           <div className="col-span-full text-center py-8 text-gray-400">
                             Nenhum convidado de promoter encontrado
@@ -7911,7 +7879,10 @@ export default function EventoCheckInsPage() {
                     {/* Desktop: Visualização em Lista - Apenas nomes */}
                     {promoterGuestsViewMode === "list" && (
                       <div className="hidden md:block space-y-2">
-                        {sortedFilteredConvidadosPromoters.map((convidado) => (
+                        {sortedFilteredConvidadosPromoters.map((convidado) => {
+                          const isVipNoiteTuda =
+                            convidado.vip_tipo === "M" || convidado.vip_tipo === "F";
+                          return (
                           <motion.div
                             key={convidado.id}
                             initial={false}
@@ -7922,8 +7893,10 @@ export default function EventoCheckInsPage() {
                                 ? "bg-green-900/30 border-green-500/50"
                                 : convidado.status_checkin === "No-Show"
                                   ? "bg-red-900/30 border-red-500/50"
-                                  : "bg-white/5 border-white/20 hover:border-purple-400/50"
-                            }`}
+                                  : isVipNoiteTuda
+                                    ? "bg-purple-900/20 border-purple-400/60"
+                                    : "bg-white/5 border-white/20 hover:border-purple-400/50"
+                            } ${isVipNoiteTuda ? "ring-1 ring-amber-400/40" : ""}`}
                           >
                             <div className="flex items-center gap-3 flex-1">
                               <div className="flex items-center gap-2">
@@ -7947,36 +7920,18 @@ export default function EventoCheckInsPage() {
                                 <h3 className="font-semibold text-lg text-white">
                                   {convidado.nome}
                                 </h3>
-                                {convidado.is_vip && (
+                                {(convidado.is_vip || isVipNoiteTuda) && (
                                   <MdStar
                                     size={18}
-                                    className="text-yellow-400"
-                                    title="VIP"
+                                    className="text-amber-400"
+                                    title={isVipNoiteTuda ? "VIP Noite Tuda" : "VIP"}
                                   />
                                 )}
-                                {(() => {
-                                  const promoterForGuest = promoters.find(
-                                    (p) =>
-                                      Number(p.id) ===
-                                      Number(convidado.promoter_id),
-                                  );
-                                  const isRafaList =
-                                    promoterForGuest?.email?.toLowerCase() ===
-                                      "rafacolelho@highlinebar.com.br" ||
-                                    (promoterForGuest?.nome &&
-                                      promoterForGuest.nome
-                                        .toLowerCase()
-                                        .includes("rafa coelho")) ||
-                                    (convidado.origem &&
-                                      convidado.origem
-                                        .toLowerCase()
-                                        .includes("lista de rafa coelho"));
-                                  return isRafaList ? (
-                                    <span className="text-xs px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-medium">
-                                      Entrada VIP a noite toda
-                                    </span>
-                                  ) : null;
-                                })()}
+                                {isVipNoiteTuda && (
+                                  <span className="text-xs px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-medium">
+                                    Entrada VIP a noite toda
+                                  </span>
+                                )}
                               </div>
                             </div>
                             {convidado.status_checkin === "Pendente" && (
@@ -7989,27 +7944,7 @@ export default function EventoCheckInsPage() {
                                 className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded-lg transition-colors flex items-center gap-2 touch-manipulation"
                               >
                                 <MdCheckCircle size={18} />
-                                {(() => {
-                                  const promoterForGuest = promoters.find(
-                                    (p) =>
-                                      Number(p.id) ===
-                                      Number(convidado.promoter_id),
-                                  );
-                                  const isRafaList =
-                                    promoterForGuest?.email?.toLowerCase() ===
-                                      "rafacolelho@highlinebar.com.br" ||
-                                    (promoterForGuest?.nome &&
-                                      promoterForGuest.nome
-                                        .toLowerCase()
-                                        .includes("rafa coelho")) ||
-                                    (convidado.origem &&
-                                      convidado.origem
-                                        .toLowerCase()
-                                        .includes("lista de rafa coelho"));
-                                  return isRafaList
-                                    ? "Check-in (VIP)"
-                                    : "Check-in";
-                                })()}
+                                {isVipNoiteTuda ? "Check-in (VIP)" : "Check-in"}
                               </button>
                             )}
                             {convidado.status_checkin === "Check-in" && (
@@ -8056,8 +7991,9 @@ export default function EventoCheckInsPage() {
                               </div>
                             )}
                           </motion.div>
-                        ))}
-                        {filteredConvidadosPromoters.length === 0 && (
+                          );
+                        })}
+                        {sortedFilteredConvidadosPromoters.length === 0 && (
                           <div className="text-center py-8 text-gray-400">
                             Nenhum convidado de promoter encontrado
                           </div>
