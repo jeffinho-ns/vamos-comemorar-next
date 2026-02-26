@@ -891,32 +891,28 @@ export default function PromoterDashboardPage() {
               Taxa de comparecimento {selectedEvento === "todos" ? "geral." : "no evento."}
             </p>
           </div>
-          {(vipLimits.vip_m_limit > 0 || vipLimits.vip_f_limit > 0) && (
-            <>
-              <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-5">
-                <p className="text-xs uppercase tracking-[0.18em] text-amber-200">
-                  VIPs Noite Tuda M
-                </p>
-                <p className="text-3xl font-bold mt-2 text-amber-300">
-                  {vipCounts.countM}/{vipLimits.vip_m_limit}
-                </p>
-                <p className="text-xs text-white/60 mt-1">
-                  {isVipMLimitReached ? "Limite atingido." : "Cota disponível."}
-                </p>
-              </div>
-              <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-5">
-                <p className="text-xs uppercase tracking-[0.18em] text-amber-200">
-                  VIPs Noite Tuda F
-                </p>
-                <p className="text-3xl font-bold mt-2 text-amber-300">
-                  {vipCounts.countF}/{vipLimits.vip_f_limit}
-                </p>
-                <p className="text-xs text-white/60 mt-1">
-                  {isVipFLimitReached ? "Limite atingido." : "Cota disponível."}
-                </p>
-              </div>
-            </>
-          )}
+          <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-5">
+            <p className="text-xs uppercase tracking-[0.18em] text-amber-200">
+              VIPs Noite Tuda M
+            </p>
+            <p className="text-3xl font-bold mt-2 text-amber-300">
+              {vipLimits.vip_m_limit > 0 ? `${vipCounts.countM}/${vipLimits.vip_m_limit}` : `${vipCounts.countM} (sem cota)`}
+            </p>
+            <p className="text-xs text-white/60 mt-1">
+              {vipLimits.vip_m_limit > 0 ? (isVipMLimitReached ? "Limite atingido." : "Cota disponível.") : "Cota não definida."}
+            </p>
+          </div>
+          <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-5">
+            <p className="text-xs uppercase tracking-[0.18em] text-amber-200">
+              VIPs Noite Tuda F
+            </p>
+            <p className="text-3xl font-bold mt-2 text-amber-300">
+              {vipLimits.vip_f_limit > 0 ? `${vipCounts.countF}/${vipLimits.vip_f_limit}` : `${vipCounts.countF} (sem cota)`}
+            </p>
+            <p className="text-xs text-white/60 mt-1">
+              {vipLimits.vip_f_limit > 0 ? (isVipFLimitReached ? "Limite atingido." : "Cota disponível.") : "Cota não definida."}
+            </p>
+          </div>
         </section>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
