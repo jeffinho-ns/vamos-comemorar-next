@@ -62,6 +62,7 @@ interface Convidado {
   id: number;
   nome: string;
   status: string;
+  evento_id?: string | number | null;
   evento_nome?: string;
   evento_data?: string;
   whatsapp?: string;
