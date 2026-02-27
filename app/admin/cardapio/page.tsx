@@ -2843,7 +2843,8 @@ export default function CardapioAdminPage() {
     const allPaused = itemsToToggle.every(
       (item) => item.visible === 0 || item.visible === false
     );
-    const newVisible = !allPaused;
+    // Se todos estão pausados, vamos ATIVAR; caso contrário, vamos PAUSAR
+    const newVisible = allPaused ? true : false;
 
     if (!confirm(`${newVisible ? 'Ativar' : 'Pausar'} ${selectedItems.length} item(s) selecionado(s)?`)) {
       return;

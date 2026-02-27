@@ -1150,6 +1150,26 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
                   ? `${item.description.slice(0, 117)}...`
                   : item.description}
               </p>
+              {/* Adicionais (prévia no card) */}
+              {item.toppings && item.toppings.length > 0 && (
+                <div className="mt-1 space-y-0.5">
+                  {item.toppings.slice(0, 3).map((topping) => (
+                    <div
+                      key={topping.id}
+                      className={`flex items-center justify-between ${
+                        isCleanStyle ? "text-[0.7rem] text-[#7a6d5b]" : "text-[0.7rem] text-gray-500"
+                      }`}
+                    >
+                      <span className="truncate">
+                        {topping.name}
+                      </span>
+                      <span className="ml-2 font-medium">
+                        {formatPrice(topping.price)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
               {item.seals && item.seals.length > 0 && (
                 <div
                   className={`flex flex-wrap gap-1.5 ${isCleanStyle ? "gap-2" : ""}`}
