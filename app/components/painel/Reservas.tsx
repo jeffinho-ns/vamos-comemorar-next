@@ -142,7 +142,7 @@ export default function ReservasCamarote({ establishment }: { establishment: Est
   const [guests, setGuests] = useState<Guest[]>([]);
   const [newGuestName, setNewGuestName] = useState('');
 
-  const API_BASE_URL = 'https://vamos-comemorar-api.onrender.com';
+  const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL_LOCAL || 'https://vamos-comemorar-api.onrender.com';
 
   const getAuthToken = () => {
     const token = localStorage.getItem('authToken');
@@ -463,11 +463,10 @@ export default function ReservasCamarote({ establishment }: { establishment: Est
       console.log('🔄 Fechando sidebar e recarregando dados...');
       setShowSidebar(null);
       
-      // Aguardar um pouco antes de recarregar para garantir que a atualização foi processada
-      setTimeout(() => {
-        console.log('🔄 Recarregando dados após atualização...');
-        fetchReservas();
-      }, 500);
+      // Recarregar dados imediatamente e novamente após 800ms (garantir que DB commitou)
+      console.log('🔄 Recarregando dados após reserva...');
+      await fetchReservas();
+      setTimeout(() => fetchReservas(), 800);
     } catch (error) {
       console.error(`Erro ao ${method === 'POST' ? 'criar' : 'atualizar'} reserva:`, error);
       
