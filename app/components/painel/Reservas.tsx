@@ -209,31 +209,24 @@ export default function ReservasCamarote({ establishment }: { establishment: Est
       if (!response.ok) {
         const errorText = await response.text();
         console.error('❌ Falha ao carregar camarotes da API:', response.status, errorText);
-        console.log('🔄 Usando lista fixa como fallback');
+        if (response.status === 401) {
+          console.warn('Token expirado ou inválido. Faça login novamente.');
+        }
         setCamarotes(fixedList);
+        setLoading(false);
         return;
       }
 
       const apiCamarotes = await response.json();
-      console.log('✅ Camarotes carregados da API:', apiCamarotes);
-      
-      // Debug: verificar tipos de dados
-      if (apiCamarotes.length > 0) {
-        console.log('🔍 Debug - Tipos de dados do primeiro camarote:');
-        const primeiroCamarote = apiCamarotes[0];
-        console.log('  - valor_pago:', primeiroCamarote.valor_pago, 'tipo:', typeof primeiroCamarote.valor_pago);
-        console.log('  - valor_camarote:', primeiroCamarote.valor_camarote, 'tipo:', typeof primeiroCamarote.valor_camarote);
-        console.log('  - valor_consumacao:', primeiroCamarote.valor_consumacao, 'tipo:', typeof primeiroCamarote.valor_consumacao);
-        console.log('  - capacidade_maxima:', primeiroCamarote.capacidade_maxima, 'tipo:', typeof primeiroCamarote.capacidade_maxima);
-      }
-      
-      if (apiCamarotes.length === 0) {
-        console.log('⚠️ Nenhum camarote encontrado na API, usando lista fixa.');
+      if (!Array.isArray(apiCamarotes)) {
+        console.error('❌ API retornou formato inesperado:', apiCamarotes);
         setCamarotes(fixedList);
-      } else {
-        // Usar dados reais da API
-        setCamarotes(apiCamarotes);
+        setLoading(false);
+        return;
       }
+      console.log('✅ Camarotes carregados:', apiCamarotes.length, 'com reservas:', apiCamarotes.filter((c: Camarote) => c.reserva_camarote_id).length);
+      
+      setCamarotes(apiCamarotes.length > 0 ? apiCamarotes : fixedList);
 
     } catch (error) {
       console.error("❌ Erro ao carregar camarotes:", error);
