@@ -79,11 +79,16 @@ export default function ReservationCalendar({
     // Para reservas com Mesa Bistrô, usar cor diferenciada (roxo/violeta)
     const hasBistroTable = reservation.has_bistro_table === true;
     
+    // Para reservas de camarote (origin CAMAROTE), usar cor diferenciada (indigo/azul escuro)
+    const isCamaroteReservation = reservation.origin === 'CAMAROTE';
+    
     // Para reservas grandes, usar cor diferenciada
     const isLargeReservation = reservation.number_of_people > 15 || reservation.origin === 'CLIENTE' && reservation.number_of_people >= 16;
     
     const cls = hasBistroTable
       ? 'bg-purple-200 text-purple-900 border-purple-400 font-semibold' // Cor especial para Mesa Bistrô
+      : isCamaroteReservation
+      ? 'bg-indigo-200 text-indigo-900 border-indigo-400 font-semibold' // Cor especial para reserva de camarote
       : isLargeReservation
       ? 'bg-yellow-100 text-yellow-800 border-yellow-200' // Cor especial para reservas grandes
       : cap === 2
@@ -101,7 +106,11 @@ export default function ReservationCalendar({
     return (
       <div className="flex items-center gap-1 text-[10px] opacity-80">
         <span>{reservation.reservation_time}</span>
-        {reservation.table_number ? (
+        {isCamaroteReservation ? (
+          <span className={`px-1 py-0.5 rounded border ${cls}`}>
+            🏠 Camarote {reservation.table_number || ''}{reservation.number_of_people ? ` • ${reservation.number_of_people}p` : ''}
+          </span>
+        ) : reservation.table_number ? (
           <span className={`px-1 py-0.5 rounded border ${cls}`}>
             {hasBistroTable ? '🍽️ ' : ''}Mesa {reservation.table_number}{cap ? ` • ${cap}p` : ''}
           </span>

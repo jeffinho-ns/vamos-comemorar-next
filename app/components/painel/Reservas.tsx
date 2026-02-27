@@ -66,15 +66,15 @@ interface ReservationFormState {
   lista_convidados: Guest[];
 }
 
-// --- Dados Mockados (Estrutura Fixa) ---
+// --- Dados Mockados (Estrutura Fixa - fallback quando API falha) ---
 const fixedCamarotes: { [key: number]: Camarote[] } = {
-    7: [ // High Line (ID 7) - 6 camarotes
-        { id: 101, nome_camarote: "Highline-C1", capacidade_maxima: 10, status: 'disponivel', regras_especificas: "Regra padrão" },
-        { id: 102, nome_camarote: "Highline-C2", capacidade_maxima: 12, status: 'disponivel', regras_especificas: "Regra padrão" },
-        { id: 103, nome_camarote: "Highline-C3", capacidade_maxima: 8, status: 'disponivel', regras_especificas: "Regra padrão" },
-        { id: 104, nome_camarote: "Highline-C4", capacidade_maxima: 15, status: 'disponivel', regras_especificas: "Regra padrão" },
-        { id: 105, nome_camarote: "Highline-C5", capacidade_maxima: 20, status: 'disponivel', regras_especificas: "Regra padrão" },
-        { id: 106, nome_camarote: "Highline-C6", capacidade_maxima: 25, status: 'disponivel', regras_especificas: "Regra padrão" },
+    7: [ // High Line (ID 7) - apenas Highline Lounge 30 a 35
+        { id: 101, nome_camarote: "Highline Lounge 30", capacidade_maxima: 10, status: 'disponivel', regras_especificas: "Camarote Highline Lounge" },
+        { id: 102, nome_camarote: "Highline Lounge 31", capacidade_maxima: 10, status: 'disponivel', regras_especificas: "Camarote Highline Lounge" },
+        { id: 103, nome_camarote: "Highline Lounge 32", capacidade_maxima: 10, status: 'disponivel', regras_especificas: "Camarote Highline Lounge" },
+        { id: 104, nome_camarote: "Highline Lounge 33", capacidade_maxima: 10, status: 'disponivel', regras_especificas: "Camarote Highline Lounge" },
+        { id: 105, nome_camarote: "Highline Lounge 34", capacidade_maxima: 10, status: 'disponivel', regras_especificas: "Camarote Highline Lounge" },
+        { id: 106, nome_camarote: "Highline Lounge 35", capacidade_maxima: 10, status: 'disponivel', regras_especificas: "Camarote Highline Lounge" },
     ],
     1: [ // Seu Justino (ID 1) - 4 camarotes
         { id: 201, nome_camarote: "Justino-C1", capacidade_maxima: 10, status: 'disponivel', regras_especificas: "Regra padrão" },
@@ -459,7 +459,7 @@ export default function ReservasCamarote({ establishment }: { establishment: Est
         throw new Error(result.error || 'Erro ao processar reserva');
       }
       
-      alert(`Reserva ${showSidebar === 'edit' ? 'atualizada' : 'criada'} com sucesso!`);
+      alert(result.message || `Reserva ${showSidebar === 'edit' ? 'atualizada' : 'criada'} com sucesso!`);
       console.log('🔄 Fechando sidebar e recarregando dados...');
       setShowSidebar(null);
       
