@@ -22,6 +22,8 @@ interface Camarote {
   regras_especificas?: string;
   reserva_camarote_id?: number;
   nome_cliente?: string;
+  telefone?: string;
+  email?: string;
   entradas_unisex_free?: number;
   entradas_masculino_free?: number;
   entradas_feminino_free?: number;
@@ -534,9 +536,15 @@ export default function ReservasCamarote({ establishment }: { establishment: Est
     return camarote.status === 'disponivel' && !camarote.reserva_camarote_id;
   };
 
+  const hasActiveReservation = (camarote: Camarote): boolean => {
+    if (!camarote.reserva_camarote_id) return false;
+    if (camarote.status_reserva === 'disponivel' || camarote.status_reserva === 'cancelado') return false;
+    if (camarote.data_expiracao && isReservationExpired(camarote.data_expiracao)) return false;
+    return true;
+  };
+
   const isReservationActive = (camarote: Camarote): boolean => {
-    return Boolean(camarote.reserva_camarote_id) && camarote.status_reserva === 'reservado' && 
-           (!camarote.data_expiracao || !isReservationExpired(camarote.data_expiracao));
+    return hasActiveReservation(camarote);
   };
 
   // --- Renderização ---
@@ -559,41 +567,43 @@ export default function ReservasCamarote({ establishment }: { establishment: Est
                 </div>
                 <p className="text-sm text-gray-500 mb-4">Capacidade Máxima: {camarote.capacidade_maxima} pessoas</p>
 
-{camarote.reserva_camarote_id && (
-<div className="space-y-2 text-sm text-gray-600">
-<p className="flex items-center gap-2"><MdPeople className="text-gray-400" /> {camarote.nome_cliente}</p>
-
-{/* Detalhes dos valores - Ajuda a visualizar o que está vindo */}
+{hasActiveReservation(camarote) && (
+<div className="mt-3 p-4 bg-amber-50 border border-amber-200 rounded-lg space-y-2 text-sm text-gray-700">
+<p className="font-semibold text-amber-800">Dados da reserva</p>
+<p className="flex items-center gap-2"><MdPeople className="text-amber-600" /> {camarote.nome_cliente || 'Cliente'}</p>
+{camarote.telefone && (
+<p className="flex items-center gap-2"><MdPhone className="text-amber-600" /> {camarote.telefone}</p>
+)}
+{camarote.email && (
+<p className="flex items-center gap-2"><MdEmail className="text-amber-600" /> {camarote.email}</p>
+)}
 <div className="grid grid-cols-2 gap-2 text-xs">
-<p className="text-gray-500">
-Sinal: <span className="font-semibold text-gray-700">R$ {formatCurrency(camarote.valor_sinal)}</span>
+<p className="text-gray-600">
+Sinal: <span className="font-semibold">R$ {formatCurrency(camarote.valor_sinal)}</span>
 </p>
-<p className="text-gray-500">
-Pago: <span className="font-semibold text-gray-700">R$ {formatCurrency(camarote.valor_pago)}</span>
+<p className="text-gray-600">
+Pago: <span className="font-semibold">R$ {formatCurrency(camarote.valor_pago)}</span>
 </p>
 </div>
-
-{/* Valor Total - O cálculo mais robusto */}
-<p className="flex items-center gap-2 font-bold text-green-600">
+<p className="font-bold text-green-700">
 Valor Total: R$ {formatCurrency(
 (Number(camarote.valor_sinal) || 0) + (Number(camarote.valor_pago) || 0)
 )}
 </p>
-
 {camarote.data_reserva && (
-<p className="flex items-center gap-2"><MdCalendarToday className="text-gray-400" /> 
+<p className="flex items-center gap-2"><MdCalendarToday className="text-amber-600" /> 
 Reservado em: {formatDate(camarote.data_reserva)}
 </p>
 )}
 {camarote.data_expiracao && (
-<p className="flex items-center gap-2"><MdAccessTime className="text-gray-400" /> 
+<p className="flex items-center gap-2"><MdAccessTime className="text-amber-600" /> 
 Expira em: {formatDate(camarote.data_expiracao)}
 {isReservationExpired(camarote.data_expiracao) && (
 <span className="text-red-500 font-medium"> (EXPIRADO)</span>
 )}
- </p>
+</p>
 )}
- </div>
+</div>
 )}
               </div>
 
