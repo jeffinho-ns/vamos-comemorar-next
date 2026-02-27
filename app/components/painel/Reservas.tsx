@@ -143,6 +143,7 @@ export default function ReservasCamarote({ establishment }: { establishment: Est
   const [rulesData, setRulesData] = useState<{ capacidade_maxima?: number; regras_especificas?: string }>({});
   const [guests, setGuests] = useState<Guest[]>([]);
   const [newGuestName, setNewGuestName] = useState('');
+  const [confirmingCancel, setConfirmingCancel] = useState<boolean>(false);
 
   const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL_LOCAL || 'https://vamos-comemorar-api.onrender.com';
 
@@ -300,39 +301,57 @@ export default function ReservasCamarote({ establishment }: { establishment: Est
       let newDataExpiracao = '';
 
       if (action === 'postpone') {
+        // Adiar: mantém a reserva e apenas empurra a data de expiração
         newStatus = 'reservado';
         newDataExpiracao = addDaysToDate(new Date().toISOString().split('T')[0], 1);
-      } else if (action === 'cancel') {
-        newStatus = 'disponivel';
-        newDataExpiracao = '';
+
+        console.log(`🔧 Adiando reserva ID: ${selectedCamarote.reserva_camarote_id}`);
+
+        const response = await fetch(`${API_BASE_URL}/api/reservas/camarote/${selectedCamarote.reserva_camarote_id}`, {
+          method: 'PUT',
+          headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            status_reserva: newStatus,
+            data_expiracao: newDataExpiracao
+          }),
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('Erro na API (adiar):', response.status, errorText);
+          throw new Error(`Falha ao adiar reserva. Status: ${response.status}`);
+        }
+
+        const result = await response.json();
+        console.log('Resposta da API (adiar):', result);
+
+        alert('Reserva adiada com sucesso!');
+        setShowActionModal(false);
+        setConfirmingCancel(false);
+        await fetchReservas();
+        return;
       }
 
-      console.log(`🔧 Cancelando reserva ID: ${selectedCamarote.reserva_camarote_id}`);
-      console.log(`🔧 Novo status: ${newStatus}`);
+      // Cancelar: excluir definitivamente a reserva de camarote
+      console.log(`🗑 Cancelando e excluindo reserva ID: ${selectedCamarote.reserva_camarote_id}`);
 
-      const response = await fetch(`${API_BASE_URL}/api/reservas/camarote/${selectedCamarote.reserva_camarote_id}`, {
-        method: 'PUT',
+      const deleteResponse = await fetch(`${API_BASE_URL}/api/reservas/camarote/${selectedCamarote.reserva_camarote_id}`, {
+        method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          status_reserva: newStatus,
-          data_expiracao: newDataExpiracao
-        }),
       });
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Erro na API:', response.status, errorText);
-        throw new Error(`Falha ao ${action === 'postpone' ? 'adiar' : 'cancelar'} reserva. Status: ${response.status}`);
+      if (!deleteResponse.ok) {
+        const errorText = await deleteResponse.text();
+        console.error('Erro na API (excluir):', deleteResponse.status, errorText);
+        throw new Error(`Falha ao cancelar e excluir reserva. Status: ${deleteResponse.status}`);
       }
 
-      const result = await response.json();
-      console.log('Resposta da API:', result);
+      const deleteResult = await deleteResponse.json();
+      console.log('Resposta da API (excluir):', deleteResult);
 
-      alert(`Reserva ${action === 'postpone' ? 'adiada' : 'cancelada'} com sucesso!`);
+      alert('Reserva cancelada e excluída com sucesso! O camarote foi liberado.');
       setShowActionModal(false);
-      
-      // Recarregar dados da API imediatamente para garantir sincronização
-      console.log('🔄 Recarregando dados após cancelamento...');
+      setConfirmingCancel(false);
       await fetchReservas();
       
     } catch (error) {
@@ -855,12 +874,39 @@ Expira em: {formatDate(camarote.data_expiracao)}
                           <MdSchedule /> Adiar Reserva (1 dia)
                       </button>
                       
-                      <button 
-                          onClick={() => handleReservationAction('cancel')}
-                          className="w-full btn-action bg-red-500 hover:bg-red-600 flex items-center justify-center gap-2"
-                      >
-                          <MdCancel /> Cancelar Reserva
-                      </button>
+                      {!confirmingCancel && (
+                        <button 
+                            onClick={() => setConfirmingCancel(true)}
+                            className="w-full btn-action bg-red-500 hover:bg-red-600 flex items-center justify-center gap-2"
+                        >
+                            <MdCancel /> Cancelar Reserva
+                        </button>
+                      )}
+
+                      {confirmingCancel && (
+                        <div className="mt-4 p-4 rounded-lg border border-red-200 bg-red-50 text-sm text-red-800 space-y-3">
+                          <p className="font-semibold">
+                            Ao cancelar esta reserva, ela será <u>excluída</u> e o camarote ficará livre para uma nova reserva.
+                          </p>
+                          <p>Deseja realmente cancelar e excluir esta reserva?</p>
+                          <div className="flex gap-3 justify-end">
+                            <button
+                              type="button"
+                              onClick={() => setConfirmingCancel(false)}
+                              className="btn-action bg-gray-300 hover:bg-gray-400 text-gray-800"
+                            >
+                              Voltar
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleReservationAction('cancel')}
+                              className="btn-action bg-red-600 hover:bg-red-700 text-white"
+                            >
+                              Confirmar cancelamento e exclusão
+                            </button>
+                          </div>
+                        </div>
+                      )}
                   </div>
                   
                   <div className="flex justify-end pt-6">
