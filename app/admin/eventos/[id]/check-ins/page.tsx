@@ -5310,79 +5310,16 @@ export default function EventoCheckInsPage() {
               </>
             )}
 
-            {/* Reservas de Mesa */}
-            {(selectedTab === "todos" || selectedTab === "reservas") &&
+            {/* Reservas de Mesa
+                Observação: esta seção exibia apenas um resumo visual das reservas de mesa,
+                mas o fluxo principal de check-in já é feito nas seções abaixo.
+                Para evitar duplicidade de informação e elementos sem interação,
+                ela foi desativada. */}
+            {false &&
+              (selectedTab === "todos" || selectedTab === "reservas") &&
               reservasMesa.length > 0 && (
                 <section className="bg-white/10 backdrop-blur-sm rounded-lg shadow-sm p-4 md:p-6 border border-white/20">
-                  <h2 className="text-lg md:text-xl font-bold text-white mb-3 md:mb-4 flex items-center gap-2">
-                    <MdTableBar
-                      size={20}
-                      className="md:w-6 md:h-6 text-blue-400"
-                    />
-                    <span className="truncate">
-                      Reservas de Mesa ({reservasMesa.length})
-                    </span>
-                  </h2>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-3 md:gap-4">
-                    {sortedReservasMesa.map((reserva) => (
-                      <motion.div
-                        key={reserva.id}
-                        initial={false}
-                        animate={false}
-                        style={{ touchAction: "manipulation" }}
-                        className={`border rounded-lg p-3 ${
-                          (reserva as any).has_bistro_table === true
-                            ? reserva.convidados_checkin > 0
-                              ? "bg-purple-900/30 border-purple-500/60"
-                              : "bg-purple-900/20 border-purple-400/50 hover:border-purple-500/70"
-                            : reserva.convidados_checkin > 0
-                              ? "bg-blue-900/20 border-blue-500/40"
-                              : "bg-white/5 border-white/20 hover:border-blue-400/50"
-                        }`}
-                      >
-                        <div className="flex items-start justify-between mb-2">
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2">
-                              <h3 className="font-bold text-base text-white truncate">
-                                {reserva.responsavel}
-                              </h3>
-                              {(reserva as any).has_bistro_table === true ? (
-                                <span className="px-2 py-0.5 bg-purple-500/80 text-white text-xs rounded-full font-semibold flex items-center gap-1">
-                                  🍽️ Bistrô
-                                </span>
-                              ) : null}
-                            </div>
-                            <div className="text-xs text-gray-300 space-y-0.5 mt-1">
-                              <div className="text-xs text-gray-400 truncate">
-                                Origem: {reserva.origem || "—"}
-                              </div>
-                              <div className="flex items-center gap-1">
-                                <MdAccessTime size={12} />
-                                <span className="text-xs">
-                                  {reserva.data_reserva || "—"}
-                                </span>
-                              </div>
-                              <div className="flex items-center gap-1">
-                                <MdPerson size={12} />
-                                <span className="text-xs">
-                                  {reserva.quantidade_convidados ??
-                                    reserva.total_convidados ??
-                                    0}{" "}
-                                  pessoas
-                                </span>
-                              </div>
-                              {typeof reserva.total_convidados === "number" && (
-                                <div className="text-xs text-gray-400">
-                                  {reserva.convidados_checkin || 0}/
-                                  {reserva.total_convidados} presentes
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      </motion.div>
-                    ))}
-                  </div>
+                  {/* Seção desativada intencionalmente */}
                 </section>
               )}
 
