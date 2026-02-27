@@ -31,7 +31,7 @@ interface Camarote {
   valor_consumacao?: number;
   valor_pago?: number;
   valor_sinal?: number;
-  status_reserva?: 'pre-reservado' | 'reservado' | 'confirmado' | 'aguardando-aprovacao' | 'aguardando-cancelamento' | 'disponivel' | 'bloqueado';
+  status_reserva?: 'pre-reservado' | 'reservado' | 'confirmado' | 'aguardando-aprovacao' | 'aguardando-cancelamento' | 'disponivel' | 'bloqueado' | 'cancelado';
   data_reserva?: string; // Data da reserva
   data_expiracao?: string; // Data de expiração da reserva
 }
