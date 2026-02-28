@@ -440,6 +440,7 @@ export default function CardapioAdminPage() {
   });
 
   const [newTopping, setNewTopping] = useState({ name: '', price: '' });
+  const [editingToppingId, setEditingToppingId] = useState<string | null>(null);
   const [imageIndexVersion, setImageIndexVersion] = useState(0);
   const [availableSubCategories, setAvailableSubCategories] = useState<Array<{ name: string; order: number }>>([]);
 
@@ -695,26 +696,58 @@ export default function CardapioAdminPage() {
   }, []);
 
   const handleAddTopping = useCallback(() => {
-    if (newTopping.name && newTopping.price) {
+    if (!newTopping.name || !newTopping.price) return;
+
+    const priceNumber = parseFloat(newTopping.price);
+    if (Number.isNaN(priceNumber)) return;
+
+    setItemForm((prev: MenuItemForm) => {
+      // Editando um adicional existente
+      if (editingToppingId) {
+        return {
+          ...prev,
+          toppings: prev.toppings.map((t) =>
+            String(t.id) === editingToppingId
+              ? { ...t, name: newTopping.name, price: priceNumber }
+              : t,
+          ),
+        };
+      }
+
+      // Adicionando um novo adicional
       const topping: Topping = {
         id: Date.now().toString(),
         name: newTopping.name,
-        price: parseFloat(newTopping.price),
+        price: priceNumber,
       };
-      setItemForm((prev: MenuItemForm) => ({
+      return {
         ...prev,
         toppings: [...prev.toppings, topping],
-      }));
-      setNewTopping({ name: '', price: '' });
-    }
-  }, [newTopping]);
+      };
+    });
 
-  const handleRemoveTopping = useCallback((toppingId: string) => {
+    setNewTopping({ name: '', price: '' });
+    setEditingToppingId(null);
+  }, [newTopping, editingToppingId]);
+
+  const handleEditTopping = useCallback((topping: Topping) => {
+    setNewTopping({
+      name: topping.name,
+      price: topping.price != null ? String(topping.price) : '',
+    });
+    setEditingToppingId(String(topping.id));
+  }, []);
+
+  const handleRemoveTopping = useCallback((toppingId: string | number) => {
     setItemForm((prev: MenuItemForm) => ({
       ...prev,
-      toppings: prev.toppings.filter((t) => t.id !== toppingId),
+      toppings: prev.toppings.filter((t) => String(t.id) !== String(toppingId)),
     }));
-  }, []);
+    if (editingToppingId && String(toppingId) === editingToppingId) {
+      setEditingToppingId(null);
+      setNewTopping({ name: '', price: '' });
+    }
+  }, [editingToppingId]);
 
   // Funções para gerenciar selos customizados
   const handleAddCustomSeal = useCallback((type: 'food' | 'drink') => {
@@ -5239,7 +5272,15 @@ export default function CardapioAdminPage() {
                       +{formatPrice(topping.price)}
                     </span>
                     <button
-                      onClick={() => handleRemoveTopping(topping.id.toString())}
+                      type="button"
+                      onClick={() => handleEditTopping(topping)}
+                      className="text-blue-600 hover:text-blue-800 text-xs font-medium"
+                    >
+                      Editar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveTopping(topping.id)}
                       className="text-red-600 hover:text-red-800"
                     >
                       <MdClose className="h-4 w-4" />
