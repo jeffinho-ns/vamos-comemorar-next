@@ -127,7 +127,7 @@ export default function PromoterPublicPage() {
         const data = await eventosResponse.json();
         const todosEventos = data.eventos || [];
         
-        // Filtrar apenas eventos futuros (que ainda não passaram)
+        // Filtrar eventos ainda ativos (futuros, hoje, ou dia anterior na madrugada)
         const eventosFuturos = todosEventos.filter((evento: Evento) => {
           // Se for evento semanal, sempre mostrar
           if (evento.tipo_evento === 'semanal') {
@@ -140,24 +140,30 @@ export default function PromoterPublicPage() {
           }
           
           try {
-            // Verificar se o evento já passou
-          const dataEvento = evento.data_evento || '';
-          const eventDate = dataEvento.includes('T') || dataEvento.includes(' ')
+            const dataEvento = evento.data_evento || '';
+            const eventDate = dataEvento.includes('T') || dataEvento.includes(' ')
               ? dataEvento
               : dataEvento ? dataEvento + 'T23:59:59' : '';
             
             const eventDateObj = new Date(eventDate);
             const now = new Date();
             
-            // Comparar apenas a data, ignorando horas
             const eventDateOnly = new Date(eventDateObj.getFullYear(), eventDateObj.getMonth(), eventDateObj.getDate());
             const nowDateOnly = new Date(now.getFullYear(), now.getMonth(), now.getDate());
             
-            // Mostrar apenas eventos futuros (incluindo hoje)
-            return eventDateOnly >= nowDateOnly;
+            // Eventos futuros ou hoje
+            if (eventDateOnly >= nowDateOnly) return true;
+            
+            // Madrugada (00:00–05:59): evento do dia anterior ainda pode aceitar entradas
+            const hour = now.getHours();
+            const isMadrugada = hour >= 0 && hour < 6;
+            const yesterday = new Date(nowDateOnly);
+            yesterday.setDate(yesterday.getDate() - 1);
+            if (isMadrugada && eventDateOnly.getTime() === yesterday.getTime()) return true;
+            
+            return false;
           } catch (error) {
             console.error('Erro ao verificar data do evento:', error);
-            // Em caso de erro, mostrar o evento
             return true;
           }
         });
