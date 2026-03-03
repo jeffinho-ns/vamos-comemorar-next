@@ -885,7 +885,7 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
       return (
         <span
           key={sealId}
-          className={`${size === "modal" ? "px-3 py-1.5 text-sm" : "px-2.5 py-1 text-xs"} inline-flex items-center rounded-full font-semibold bg-white text-gray-800 border border-gray-300 shadow-sm`}
+          className={`${size === "modal" ? "px-3 py-1.5 text-sm" : "px-2.5 py-1 text-xs"} inline-flex items-center rounded-full font-semibold bg-white text-gray-800 shadow-sm`}
         >
           <span className="mr-1">{c.emoji}</span>
           País: {c.label}
@@ -918,7 +918,7 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
       return (
         <span
           key={sealId}
-          className={`${size === "modal" ? "px-3 py-1.5 text-sm" : "px-2.5 py-1 text-xs"} inline-flex items-center rounded-full font-semibold bg-white text-gray-800 border border-gray-300 shadow-sm`}
+          className={`${size === "modal" ? "px-3 py-1.5 text-sm" : "px-2.5 py-1 text-xs"} inline-flex items-center rounded-full font-semibold bg-white text-gray-800 shadow-sm`}
         >
           <span className="mr-1">🍇</span>
           Safra: {safra}
@@ -931,7 +931,7 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
       return (
         <span
           key={sealId}
-          className={`${size === "modal" ? "px-3 py-1.5 text-sm" : "px-2.5 py-1 text-xs"} inline-flex items-center rounded-full font-semibold bg-white text-gray-800 border border-gray-300 shadow-sm`}
+          className={`${size === "modal" ? "px-3 py-1.5 text-sm" : "px-2.5 py-1 text-xs"} inline-flex items-center rounded-full font-semibold bg-white text-gray-800 shadow-sm`}
         >
           <span className="mr-1">📍</span>
           Local: {local}
@@ -1170,11 +1170,12 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
                   ))}
                 </div>
               )}
+              {/* Selos (vinho + demais) - estilo badge como antes */}
               {item.seals && item.seals.length > 0 && (
                 <div
                   className={`flex flex-wrap gap-1.5 ${isCleanStyle ? "gap-2" : ""}`}
                 >
-                  {item.seals.slice(0, 2).map((sealId) => {
+                  {item.seals.map((sealId) => {
                     const wine = renderWineSeal(sealId, "card");
                     if (wine) return wine;
                     const seal = getSealById(sealId, selectedBar as BarFromAPI);
@@ -2122,7 +2123,7 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
                     {selectedItem.description}
                   </p>
 
-                  {/* Exibir selos no modal - Melhorado para mobile */}
+                  {/* Exibir selos no modal - vinho + demais */}
                   {renderModalSeals(selectedItem.seals || [])}
 
                   {selectedItem.toppings &&
