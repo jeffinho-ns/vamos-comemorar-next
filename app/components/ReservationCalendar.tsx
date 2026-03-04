@@ -59,11 +59,13 @@ export default function ReservationCalendar({
   const [selectedDayReservations, setSelectedDayReservations] = useState<Reservation[]>([]);
   const isReservaRooftop = (establishment?.name || '').toLowerCase().includes('reserva rooftop');
 
-  // Total de mesas por estabelecimento (Highline = 36, Seu Justino = 29)
+  // Total de mesas / slots de reserva por estabelecimento
+  // Highline = 36 mesas, Seu Justino = 29 mesas, Reserva Rooftop = 60 reservas/dia
   const getTotalTablesForEstablishment = () => {
     const name = (establishment?.name || '').toLowerCase();
     if (name.includes('high line') || name.includes('highline')) return 36;
     if (name.includes('seu justino') && !name.includes('pracinha')) return 29;
+    if (name.includes('reserva rooftop')) return 60;
     return 10;
   };
 
@@ -456,7 +458,10 @@ export default function ReservationCalendar({
                   <div className="flex items-center gap-1 text-xs">
                     <MdRestaurant className="text-green-500" />
                     <span className="text-green-600">
-                      {day.availableTables} mesa{day.availableTables !== 1 ? 's' : ''} disponível{day.availableTables !== 1 ? 'is' : ''}
+                      {day.availableTables}{' '}
+                      {isReservaRooftop
+                        ? `reserva${day.availableTables !== 1 ? 's' : ''} disponível${day.availableTables !== 1 ? 'is' : ''}`
+                        : `mesa${day.availableTables !== 1 ? 's' : ''} disponível${day.availableTables !== 1 ? 'is' : ''}`}
                     </span>
                   </div>
                 )}
