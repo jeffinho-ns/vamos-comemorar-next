@@ -48,6 +48,7 @@ export default function AllocateTableModal({
     !(establishment.name || '').toLowerCase().includes('pracinha')
   );
   const isPracinha = establishment && (establishment.name || '').toLowerCase().includes('pracinha');
+  const isReservaRooftop = establishment && (establishment.name || '').toLowerCase().includes('reserva rooftop');
   const normalizeEstablishmentName = (name?: string | null) => (name || '').toLowerCase().trim();
   const matchesSelectedEstablishment = (reservation: any): boolean => {
     if (!establishment) return true;
@@ -261,20 +262,23 @@ export default function AllocateTableModal({
   }, [selectedAreaId, entry.preferred_date, entry.preferred_time, isSeuJustino, isPracinha, establishment?.id]);
 
   const handleConfirm = async () => {
-    if (!selectedAreaId || !selectedTableNumber) {
-      alert('Por favor, selecione uma área e uma mesa.');
+    const tableNumber = selectedTableNumber.trim();
+    if (!selectedAreaId || !tableNumber) {
+      alert(isReservaRooftop ? 'Por favor, selecione uma área e informe o número da mesa.' : 'Por favor, selecione uma área e uma mesa.');
       return;
     }
     
-    const selectedTable = tables.find(t => String(t.table_number) === selectedTableNumber);
-    if (selectedTable?.is_reserved) {
-      alert('⚠️ Esta mesa está indisponível para este horário. Por favor, selecione outra mesa.');
-      return;
+    if (!isReservaRooftop) {
+      const selectedTable = tables.find(t => String(t.table_number) === selectedTableNumber);
+      if (selectedTable?.is_reserved) {
+        alert('⚠️ Esta mesa está indisponível para este horário. Por favor, selecione outra mesa.');
+        return;
+      }
     }
     
     setLoading(true);
     try {
-      await onConfirm(Number(selectedAreaId), selectedTableNumber);
+      await onConfirm(Number(selectedAreaId), tableNumber);
       onClose();
     } catch (error) {
       console.error('Erro ao alocar mesa:', error);
@@ -346,43 +350,55 @@ export default function AllocateTableModal({
                     <MdTableBar className="inline mr-2" />
                     Mesa *
                   </label>
-                  <select
-                    value={selectedTableNumber}
-                    onChange={(e) => setSelectedTableNumber(e.target.value)}
-                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
-                  >
-                    <option value="">Selecione uma mesa</option>
-                    {tables.map((table) => (
-                      <option 
-                        key={table.id} 
-                        value={table.table_number}
-                        disabled={table.is_reserved}
-                        style={{ color: table.is_reserved ? '#ef4444' : '#ffffff' }}
+                  {isReservaRooftop ? (
+                    <input
+                      type="text"
+                      value={selectedTableNumber}
+                      onChange={(e) => setSelectedTableNumber(e.target.value)}
+                      placeholder="Digite o número da mesa"
+                      className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    />
+                  ) : (
+                    <>
+                      <select
+                        value={selectedTableNumber}
+                        onChange={(e) => setSelectedTableNumber(e.target.value)}
+                        className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
                       >
-                        Mesa {table.table_number} {table.is_reserved ? '🔴 (Indisponível)' : '🟢 (Disponível)'}
-                      </option>
-                    ))}
-                  </select>
-                  
-                  {selectedTableNumber && (() => {
-                    const selectedTable = tables.find(t => String(t.table_number) === selectedTableNumber);
-                    if (selectedTable?.is_reserved) {
-                      return (
-                        <div className="mt-2 p-3 bg-red-900/20 border-2 border-red-600/50 rounded-lg">
-                          <p className="text-sm text-red-400 font-semibold">
-                            ⚠️ Mesa {selectedTableNumber} indisponível para este horário
-                          </p>
-                        </div>
-                      );
-                    } else if (selectedTable) {
-                      return (
-                        <p className="mt-2 text-xs text-green-400">
-                          ✅ Mesa {selectedTableNumber} disponível
-                        </p>
-                      );
-                    }
-                    return null;
-                  })()}
+                        <option value="">Selecione uma mesa</option>
+                        {tables.map((table) => (
+                          <option 
+                            key={table.id} 
+                            value={table.table_number}
+                            disabled={table.is_reserved}
+                            style={{ color: table.is_reserved ? '#ef4444' : '#ffffff' }}
+                          >
+                            Mesa {table.table_number} {table.is_reserved ? '🔴 (Indisponível)' : '🟢 (Disponível)'}
+                          </option>
+                        ))}
+                      </select>
+                      
+                      {selectedTableNumber && (() => {
+                        const selectedTable = tables.find(t => String(t.table_number) === selectedTableNumber);
+                        if (selectedTable?.is_reserved) {
+                          return (
+                            <div className="mt-2 p-3 bg-red-900/20 border-2 border-red-600/50 rounded-lg">
+                              <p className="text-sm text-red-400 font-semibold">
+                                ⚠️ Mesa {selectedTableNumber} indisponível para este horário
+                              </p>
+                            </div>
+                          );
+                        } else if (selectedTable) {
+                          return (
+                            <p className="mt-2 text-xs text-green-400">
+                              ✅ Mesa {selectedTableNumber} disponível
+                            </p>
+                          );
+                        }
+                        return null;
+                      })()}
+                    </>
+                  )}
                 </div>
               )}
 
@@ -391,7 +407,7 @@ export default function AllocateTableModal({
                 <button
                   type="button"
                   onClick={handleConfirm}
-                  disabled={!selectedAreaId || !selectedTableNumber || loading}
+                  disabled={!selectedAreaId || !selectedTableNumber.trim() || loading}
                   className="w-full px-6 py-3 bg-purple-500 hover:bg-purple-600 disabled:bg-gray-600 disabled:cursor-not-allowed text-white rounded-lg transition-colors flex items-center justify-center gap-2 font-semibold"
                 >
                   <MdCheck size={20} />

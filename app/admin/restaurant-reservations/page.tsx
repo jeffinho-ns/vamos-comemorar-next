@@ -4714,7 +4714,7 @@ export default function RestaurantReservationsPage() {
                               <p className="text-sm text-gray-500">
                                 {entry.number_of_people} pessoas • Data:{" "}
                                 {entry.preferred_date
-                                  ? formatDate(entry.preferred_date)
+                                  ? formatDate(normalizePreferredDate(entry.preferred_date))
                                   : "Data não informada"}{" "}
                                 • Preferência:{" "}
                                 {entry.preferred_time || "Qualquer horário"}
