@@ -229,27 +229,31 @@ export default function ReservationCalendar({
           });
         }
         
-        // Calcular mesas disponíveis baseado apenas em reservas ativas
-        // No Seu Justino, cada reserva pode ocupar uma ou mais mesas
-        // Mas para simplificar, vamos contar reservas ativas únicas por mesa
-        // Se uma reserva tem table_number, ela ocupa essa mesa
-        const occupiedTables = new Set<string>();
-        activeReservations.forEach(reservation => {
-          if (reservation.table_number) {
-            const tables = String(reservation.table_number).split(',').map(t => t.trim()).filter(t => t);
-            tables.forEach(table => occupiedTables.add(table));
-          } else {
-            // Se não tem mesa específica, conta como 1 mesa ocupada
-            occupiedTables.add(`reservation_${reservation.id}`);
-          }
-        });
-        
-        const availableTables = Math.max(0, totalTables - occupiedTables.size);
-        
-        // Debug: Log para o dia 28/02/2025
-        if (dayString === '2025-02-28' && establishment?.name?.toLowerCase().includes('seu justino')) {
-          console.log(`🔍 [DEBUG 28/02] Mesas ocupadas: ${occupiedTables.size}, Disponíveis: ${availableTables}, Total: ${totalTables}`);
+        // Calcular disponibilidade:
+        // - Para Reserva Rooftop: cada reserva ativa consome 1 slot (de 60 por dia)
+        // - Para os demais: manter lógica baseada em mesas ocupadas
+        let availableTables = totalTables;
+
+        if (isReservaRooftop) {
+          const activeCount = activeReservations.length;
+          availableTables = Math.max(0, totalTables - activeCount);
+        } else {
+          // No Seu Justino e outros, cada reserva pode ocupar uma ou mais mesas
+          // Contar reservas ativas únicas por mesa
+          const occupiedTables = new Set<string>();
+          activeReservations.forEach(reservation => {
+            if (reservation.table_number) {
+              const tables = String(reservation.table_number).split(',').map(t => t.trim()).filter(t => t);
+              tables.forEach(table => occupiedTables.add(table));
+            } else {
+              // Se não tem mesa específica, conta como 1 mesa ocupada
+              occupiedTables.add(`reservation_${reservation.id}`);
+            }
+          });
+          
+          availableTables = Math.max(0, totalTables - occupiedTables.size);
         }
+        
         return {
           ...day,
           reservations: dayReservations,
