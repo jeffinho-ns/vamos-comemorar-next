@@ -568,7 +568,8 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
         price === null ||
         price === undefined
       ) {
-        return "Sob Consulta";
+        // Quando o item está "Sob Consulta", não exibir texto algum
+        return "";
       }
       return new Intl.NumberFormat("pt-BR", {
         style: "currency",

@@ -1373,6 +1373,93 @@ export default function RestaurantReservationsPage() {
     });
   };
 
+  // Função para determinar o giro de uma reserva do Reserva Rooftop
+  // Regras:
+  // - Terça a Quinta: 18:00–22:30 → "2º Giro" (apenas jantar)
+  // - Sexta e Sábado:
+  //     • 12:00–16:00 → "1º Giro" (almoço)
+  //     • 17:00–22:30 → "2º Giro" (jantar)
+  // - Domingo:
+  //     • 12:00–16:00 → "1º Giro" (almoço)
+  //     • 17:00–20:30 → "2º Giro" (jantar)
+  const getRooftopGiroFromReservation = (
+    reservation: Reservation,
+  ): "1º Giro" | "2º Giro" | null => {
+    if (!isReservaRooftop) return null;
+
+    const rawDate = reservation.reservation_date;
+    const rawTime = reservation.reservation_time || "";
+    if (!rawDate || !rawTime) return null;
+
+    const dateStrRaw = String(rawDate).trim();
+    if (!dateStrRaw) return null;
+    const dateStr = dateStrRaw.includes("T")
+      ? dateStrRaw.split("T")[0]
+      : dateStrRaw;
+
+    const [hStr, mStr] = rawTime.split(":");
+    const h = Number(hStr);
+    const m = Number(mStr || "0");
+    if (Number.isNaN(h)) return null;
+    const minutes = h * 60 + (Number.isNaN(m) ? 0 : m);
+
+    const d = new Date(`${dateStr}T00:00:00`);
+    if (Number.isNaN(d.getTime())) return null;
+    const weekday = d.getDay(); // 0=Dom, 1=Seg, 2=Ter, 3=Qua, 4=Qui, 5=Sex, 6=Sáb
+
+    const twelve = 12 * 60;
+    const sixteen = 16 * 60;
+    const seventeen = 17 * 60;
+    const twenty = 20 * 60;
+    const twentyThirty = 20 * 60 + 30;
+    const twentyTwoThirty = 22 * 60 + 30;
+
+    // Terça a Quinta (2,3,4): apenas jantar 18:00–22:30 → 2º Giro
+    if (weekday >= 2 && weekday <= 4) {
+      if (minutes >= 18 * 60 && minutes <= twentyTwoThirty) {
+        return "2º Giro";
+      }
+      return null;
+    }
+
+    // Sexta (5) e Sábado (6)
+    if (weekday === 5 || weekday === 6) {
+      // 1º Giro (almoço): 12:00–16:00
+      if (minutes >= twelve && minutes <= sixteen) {
+        return "1º Giro";
+      }
+      // Janela morta: 16:01–16:59
+      if (minutes > sixteen && minutes < seventeen) {
+        return null;
+      }
+      // 2º Giro (jantar): 17:00–22:30
+      if (minutes >= seventeen && minutes <= twentyTwoThirty) {
+        return "2º Giro";
+      }
+      return null;
+    }
+
+    // Domingo (0)
+    if (weekday === 0) {
+      // 1º Giro (almoço): 12:00–16:00
+      if (minutes >= twelve && minutes <= sixteen) {
+        return "1º Giro";
+      }
+      // Janela morta: 16:01–16:59
+      if (minutes > sixteen && minutes < seventeen) {
+        return null;
+      }
+      // 2º Giro (jantar): 17:00–20:30
+      if (minutes >= seventeen && minutes <= twentyThirty) {
+        return "2º Giro";
+      }
+      return null;
+    }
+
+    // Segunda-feira (1) e qualquer outro dia não operam
+    return null;
+  };
+
   // Handlers para Walk-ins
   const handleAddWalkIn = () => {
     setEditingWalkIn(null);
@@ -2124,10 +2211,15 @@ export default function RestaurantReservationsPage() {
         ?.toLowerCase()
         .includes(searchTerm.toLowerCase());
 
-    // Filtro por giro (apenas para Seu Justino)
-    if (isSeuJustino && giroFilter !== "all") {
-      const giro = getGiroFromTime(reservation.reservation_time || "");
-      if (giro !== giroFilter) return false;
+    // Filtro por giro (Seu Justino e Reserva Rooftop)
+    if (giroFilter !== "all") {
+      if (isSeuJustino) {
+        const giro = getGiroFromTime(reservation.reservation_time || "");
+        if (giro !== giroFilter) return false;
+      } else if (isReservaRooftop) {
+        const giro = getRooftopGiroFromReservation(reservation);
+        if (giro !== giroFilter) return false;
+      }
     }
 
     return matchesSearch;
@@ -2339,8 +2431,8 @@ export default function RestaurantReservationsPage() {
                         </button>
                       </div>
 
-                      {/* Filtros de Giro (apenas para Seu Justino) */}
-                      {isSeuJustino && (
+                      {/* Filtros de Giro (Seu Justino e Reserva Rooftop) */}
+                      {(isSeuJustino || isReservaRooftop) && (
                         <div className="flex bg-orange-100 rounded-lg p-1 border border-orange-300">
                           <button
                             onClick={() => setGiroFilter("all")}
