@@ -1083,7 +1083,29 @@ const handleSubmit = async (e: React.FormEvent) => {
     }
 
     const windows = getDefaultTimeWindows(reservationData.reservation_date);
-    return windows.flatMap((window) => createSlotsFromWindow(window.start, window.end));
+    let slots = windows.flatMap((window) => createSlotsFromWindow(window.start, window.end));
+
+    // Reserva Rooftop: bloquear intervalo entre 1º e 2º giro (16:01–16:59)
+    if (isReservaRooftop && slots.length > 0) {
+      try {
+        const date = new Date(`${reservationData.reservation_date}T00:00:00`);
+        const weekday = date.getDay(); // 0=Dom, 5=Sex, 6=Sáb
+        const isGiroIntermediateDay = weekday === 0 || weekday === 5 || weekday === 6;
+
+        if (isGiroIntermediateDay) {
+          slots = slots.filter((slot) => {
+            const [h, m] = slot.split(':').map((v) => Number(v));
+            const minutes = h * 60 + (Number.isFinite(m) ? m : 0);
+            // Mantém tudo que NÃO estiver estritamente entre 16:01 e 16:59
+            return !(minutes > 16 * 60 && minutes < 17 * 60);
+          });
+        }
+      } catch {
+        // Em caso de erro de parse, mantém slots originais
+      }
+    }
+
+    return slots;
   };
 
   const formatEventDate = (dateStr?: string | null) => {

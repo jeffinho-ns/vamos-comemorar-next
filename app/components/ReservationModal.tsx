@@ -136,16 +136,20 @@ export default function ReservationModal({
     { key: 'quintal-lateral-direito', area_id: 2, label: 'Quintal Lateral Direito', tableNumbers: ['50','52','54','56','58','60','62','64'], capacity: 6 },
   ];
 
-  const isHighline = establishment && ((establishment.name || '').toLowerCase().includes('high'));
+  const normalizeEstablishmentName = (name?: string | null) => (name || '').toLowerCase().trim();
+
+  const isHighline = establishment && normalizeEstablishmentName(establishment.name).includes('high');
   const isSeuJustino = establishment && (
-    (establishment.name || '').toLowerCase().includes('seu justino') && 
-    !(establishment.name || '').toLowerCase().includes('pracinha')
+    normalizeEstablishmentName(establishment.name).includes('seu justino') && 
+    !normalizeEstablishmentName(establishment.name).includes('pracinha')
   );
   const isPracinha = establishment && (
-    (establishment.name || '').toLowerCase().includes('pracinha')
+    normalizeEstablishmentName(establishment.name).includes('pracinha')
   );
-
-  const normalizeEstablishmentName = (name?: string | null) => (name || '').toLowerCase().trim();
+  const isReservaRooftop = establishment && (
+    normalizeEstablishmentName(establishment.name).includes('reserva rooftop') ||
+    normalizeEstablishmentName(establishment.name).includes('rooftop')
+  );
 
   const matchesSelectedEstablishment = (reservation: any): boolean => {
     if (!establishment) return true;
@@ -937,6 +941,33 @@ export default function ReservationModal({
           }
         } else {
           finalNotes = observacaoForaHorario;
+        }
+      }
+
+      // Reserva Rooftop: observação específica para intervalo entre 1º e 2º giro (16:01–16:59)
+      if (isReservaRooftop) {
+        try {
+          const [hh, mm] = formData.reservation_time.split(':').map((v) => Number(v));
+          const minutes = hh * 60 + (Number.isFinite(mm) ? mm : 0);
+          const date = new Date(formData.reservation_date + 'T00:00:00');
+          const weekday = date.getDay(); // 0=Dom, 5=Sex, 6=Sáb
+          const isGiroIntermediateDay = weekday === 0 || weekday === 5 || weekday === 6;
+          const isIntermediateWindow = minutes > 16 * 60 && minutes < 17 * 60;
+
+          if (isGiroIntermediateDay && isIntermediateWindow) {
+            const observacaoGiroIntermediario =
+              'ADMIN autorizou esta reserva no intervalo entre o 1º e o 2º giro do Reserva Rooftop (16h01–16h59).';
+
+            if (finalNotes && finalNotes.trim()) {
+              if (!finalNotes.includes(observacaoGiroIntermediario)) {
+                finalNotes = `${observacaoGiroIntermediario}\n\n${finalNotes}`;
+              }
+            } else {
+              finalNotes = observacaoGiroIntermediario;
+            }
+          }
+        } catch {
+          // Em caso de erro de parse, não bloquear fluxo nem adicionar observação duplicada
         }
       }
     }
