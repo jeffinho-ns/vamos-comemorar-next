@@ -4300,8 +4300,10 @@ export default function EventoCheckInsPage() {
   );
 
   const isReservaRooftopEvent = useMemo(
-    () => isReservaRooftopEstablishment(evento?.establishment_name),
-    [evento?.establishment_name],
+    () =>
+      evento?.establishment_id === 9 ||
+      isReservaRooftopEstablishment(evento?.establishment_name),
+    [evento?.establishment_id, evento?.establishment_name],
   );
 
   const rooftopTodayMetrics = useMemo(() => {
@@ -4312,6 +4314,11 @@ export default function EventoCheckInsPage() {
         reservationsCheckedIn: 0,
         reservationsTotal: 0,
         totalPeopleExpected: 0,
+        giroMetrics: {
+          first: { areas: [], totalExpected: 0, totalPresent: 0 },
+          intermediate: { areas: [], totalExpected: 0, totalPresent: 0 },
+          second: { areas: [], totalExpected: 0, totalPresent: 0 },
+        },
       };
     }
 
@@ -4413,6 +4420,7 @@ export default function EventoCheckInsPage() {
               reservationsCheckedIn={rooftopTodayMetrics.reservationsCheckedIn}
               reservationsTotal={rooftopTodayMetrics.reservationsTotal}
               totalPeopleExpected={rooftopTodayMetrics.totalPeopleExpected}
+              giroMetrics={rooftopTodayMetrics.giroMetrics}
               loading={loading}
             />
           )}

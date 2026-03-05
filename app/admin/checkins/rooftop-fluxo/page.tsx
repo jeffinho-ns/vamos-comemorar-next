@@ -173,6 +173,7 @@ export default function RooftopFluxoPage() {
                   ({
                     id: r.id,
                     reservation_date: r.reservation_date,
+                    reservation_time: r.reservation_time as string | undefined,
                     number_of_people: r.number_of_people,
                     checked_in: r.checked_in,
                     checked_out: r.checked_out,
@@ -465,14 +466,17 @@ export default function RooftopFluxoPage() {
           </div>
 
           <div className="sticky top-0 z-30 mb-2 md:mb-4">
-            <RooftopUnifiedStatsHeader
-              areaPeopleTotal={unifiedMetrics.areaPeopleTotal}
-              areasBreakdown={unifiedMetrics.areasBreakdown}
-              reservationsCheckedIn={unifiedMetrics.reservationsCheckedIn}
-              reservationsTotal={unifiedMetrics.reservationsTotal}
-              totalPeopleExpected={unifiedMetrics.totalPeopleExpected}
-              loading={loading}
-            />
+            {canRenderQueue && (
+              <RooftopUnifiedStatsHeader
+                areaPeopleTotal={unifiedMetrics.areaPeopleTotal}
+                areasBreakdown={unifiedMetrics.areasBreakdown}
+                reservationsCheckedIn={unifiedMetrics.reservationsCheckedIn}
+                reservationsTotal={unifiedMetrics.reservationsTotal}
+                totalPeopleExpected={unifiedMetrics.totalPeopleExpected}
+                giroMetrics={unifiedMetrics.giroMetrics}
+                loading={loading}
+              />
+            )}
           </div>
 
           {error && (

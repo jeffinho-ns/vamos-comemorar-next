@@ -1,6 +1,7 @@
 export interface RooftopReservationLike {
   id: number;
   reservation_date?: string | null;
+  reservation_time?: string | null;
   number_of_people?: number | null;
   checked_in?: boolean | number | null;
   checked_out?: boolean | number | null;
@@ -18,6 +19,7 @@ export interface RooftopGuestListLike {
   guest_list_id: number;
   reservation_id?: number | null;
   reservation_date?: string | null;
+  reservation_time?: string | null;
   owner_name?: string | null;
   owner_checked_in?: boolean | number | null;
   owner_checked_out?: boolean | number | null;
@@ -44,12 +46,31 @@ export interface RooftopAreaCount {
   people: number;
 }
 
+export interface RooftopGiroAreaMetrics {
+  name: string;
+  expected: number;
+  present: number;
+}
+
+export interface RooftopGiroGroupMetrics {
+  areas: RooftopGiroAreaMetrics[];
+  totalExpected: number;
+  totalPresent: number;
+}
+
+export interface RooftopGiroMetrics {
+  first: RooftopGiroGroupMetrics;
+  intermediate: RooftopGiroGroupMetrics;
+  second: RooftopGiroGroupMetrics;
+}
+
 export interface RooftopUnifiedMetrics {
   areasBreakdown: RooftopAreaCount[];
   areaPeopleTotal: number;
   reservationsCheckedIn: number;
   reservationsTotal: number;
   totalPeopleExpected: number;
+  giroMetrics: RooftopGiroMetrics;
 }
 
 export interface RooftopFlowQueueItem {
@@ -230,6 +251,40 @@ const parseIntSafe = (value: unknown): number => {
   return Number.isFinite(parsed) ? parsed : 0;
 };
 
+type RooftopGiroKey = "first" | "intermediate" | "second";
+
+const parseTimeToMinutes = (value?: string | null): number | null => {
+  if (!value) return null;
+  const raw = String(value).trim();
+  if (!raw) return null;
+
+  // Tenta extrair no formato HH:MM a partir do início da string
+  const timePart = raw.slice(0, 5);
+  if (!/^\d{2}:\d{2}$/.test(timePart)) return null;
+
+  const [hh, mm] = timePart.split(":");
+  const hours = Number(hh);
+  const minutes = Number(mm);
+  if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return null;
+
+  return hours * 60 + minutes;
+};
+
+const getGiroBucketFromMinutes = (minutes: number | null): RooftopGiroKey | null => {
+  if (minutes == null) return null;
+
+  // Verde (1º Giro): até 16:00 (inclusive)
+  if (minutes <= 16 * 60) return "first";
+
+  // Lilás (2º Giro): a partir de 17:00 (inclusive)
+  if (minutes >= 17 * 60) return "second";
+
+  // Amarelo (Fluxo Intermediário): entre 16:01 e 16:59
+  if (minutes > 16 * 60 && minutes < 17 * 60) return "intermediate";
+
+  return null;
+};
+
 export const computeRooftopUnifiedMetrics = (params: {
   reservations: RooftopReservationLike[];
   guestLists: RooftopGuestListLike[];
@@ -300,6 +355,17 @@ export const computeRooftopUnifiedMetrics = (params: {
   const areasMapExpected = new Map<string, number>();
   const reservationsHandledByGuestList = new Set<number>();
 
+  const giroExpectedMaps: Record<RooftopGiroKey, Map<string, number>> = {
+    first: new Map<string, number>(),
+    intermediate: new Map<string, number>(),
+    second: new Map<string, number>(),
+  };
+  const giroPresentMaps: Record<RooftopGiroKey, Map<string, number>> = {
+    first: new Map<string, number>(),
+    intermediate: new Map<string, number>(),
+    second: new Map<string, number>(),
+  };
+
   guestListsToday.forEach((gl) => {
     const reservationId = parseIntSafe(gl.reservation_id);
     const reservation =
@@ -324,6 +390,28 @@ export const computeRooftopUnifiedMetrics = (params: {
       addToAreaCount(areasMapPresent, subarea, peoplePresent);
     }
 
+    // Giro (Previsto): baseado no horario da reserva, quando disponivel
+    const reservationTime =
+      (reservation as { reservation_time?: string | null } | undefined)?.reservation_time ??
+      (gl as { reservation_time?: string | null }).reservation_time ??
+      null;
+    const expectedMinutes = parseTimeToMinutes(reservationTime);
+    const expectedBucket = getGiroBucketFromMinutes(expectedMinutes);
+    if (expectedBucket) {
+      addToAreaCount(giroExpectedMaps[expectedBucket], subarea, peopleExpected);
+    }
+
+    // Giro (Realizado): baseado no horario de check-in do dono (ou da reserva)
+    const presentTime =
+      (gl.owner_checkin_time as string | undefined | null) ??
+      (reservation?.checkin_time as string | undefined | null) ??
+      null;
+    const presentMinutes = parseTimeToMinutes(presentTime);
+    const presentBucket = getGiroBucketFromMinutes(presentMinutes);
+    if (presentBucket && peoplePresent > 0) {
+      addToAreaCount(giroPresentMaps[presentBucket], subarea, peoplePresent);
+    }
+
     if (reservationId) {
       reservationsHandledByGuestList.add(reservationId);
     }
@@ -340,10 +428,27 @@ export const computeRooftopUnifiedMetrics = (params: {
       addToAreaCount(areasMapExpected, subarea, peopleExpected);
     }
 
+    const expectedMinutes = parseTimeToMinutes(
+      (reservation.reservation_time as string | undefined | null) ?? null,
+    );
+    const expectedBucket = getGiroBucketFromMinutes(expectedMinutes);
+    if (expectedBucket && !hasGuestList) {
+      addToAreaCount(giroExpectedMaps[expectedBucket], subarea, peopleExpected);
+    }
+
     if (hasGuestList) return;
     if (!toBoolean(reservation.checked_in) || toBoolean(reservation.checked_out)) return;
 
     addToAreaCount(areasMapPresent, subarea, peopleExpected);
+
+    const presentMinutes =
+      parseTimeToMinutes(
+        (reservation.checkin_time as string | undefined | null) ?? null,
+      ) ?? expectedMinutes;
+    const presentBucket = getGiroBucketFromMinutes(presentMinutes);
+    if (presentBucket) {
+      addToAreaCount(giroPresentMaps[presentBucket], subarea, peopleExpected);
+    }
   });
 
   const areasBreakdown = Array.from(areasMapExpected.entries())
@@ -359,12 +464,56 @@ export const computeRooftopUnifiedMetrics = (params: {
     0,
   );
 
+  const buildGiroGroup = (key: RooftopGiroKey): RooftopGiroGroupMetrics => {
+    const expectedMap = giroExpectedMaps[key];
+    const presentMap = giroPresentMaps[key];
+    const areaNames = new Set<string>([
+      ...expectedMap.keys(),
+      ...presentMap.keys(),
+    ]);
+
+    const areas: RooftopGiroAreaMetrics[] = Array.from(areaNames)
+      .map((name) => ({
+        name,
+        expected: Number(expectedMap.get(name) || 0),
+        present: Number(presentMap.get(name) || 0),
+      }))
+      .filter((item) => item.expected > 0 || item.present > 0)
+      .sort((a, b) => {
+        if (b.present !== a.present) return b.present - a.present;
+        if (b.expected !== a.expected) return b.expected - a.expected;
+        return a.name.localeCompare(b.name, "pt-BR");
+      });
+
+    const totalExpected = Array.from(expectedMap.values()).reduce(
+      (sum, val) => sum + val,
+      0,
+    );
+    const totalPresent = Array.from(presentMap.values()).reduce(
+      (sum, val) => sum + val,
+      0,
+    );
+
+    return {
+      areas,
+      totalExpected,
+      totalPresent,
+    };
+  };
+
+  const giroMetrics: RooftopGiroMetrics = {
+    first: buildGiroGroup("first"),
+    intermediate: buildGiroGroup("intermediate"),
+    second: buildGiroGroup("second"),
+  };
+
   return {
     areasBreakdown,
     areaPeopleTotal,
     reservationsCheckedIn,
     reservationsTotal,
     totalPeopleExpected,
+    giroMetrics,
   };
 };
 
