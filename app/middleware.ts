@@ -55,13 +55,15 @@ export function middleware(request: NextRequest) {
     '/admin/events': ['admin', 'promoter', 'promoter-list', 'recepção', 'gerente'],
     '/admin/reservas': ['admin', 'promoter', 'promoter-list', 'recepção', 'gerente'],
     '/admin/qrcode': ['admin', 'promoter', 'promoter-list', 'recepção', 'gerente'],
-    '/admin/checkins': ['admin', 'promoter', 'promoter-list', 'recepção', 'gerente'],
+    '/admin/checkins': ['admin', 'promoter', 'promoter-list', 'recepção', 'recepcao', 'atendente', 'gerente'],
     '/admin/restaurant-reservations': ['admin', 'promoter', 'promoter-list', 'recepção', 'gerente'],
     '/admin/detalhes-operacionais': ['admin', 'recepção', 'gerente'],
   };
 
-  // Verifica se a rota está definida nas permissões de rota
-  const matchedRoute = Object.keys(routePermissions).find(route => url.startsWith(route));
+  // Verifica a rota mais específica (maior prefixo que bate) para aplicar as permissões corretas
+  const matchedRoute = Object.keys(routePermissions)
+    .filter(route => url.startsWith(route))
+    .sort((a, b) => b.length - a.length)[0];
   const allowedRoles = matchedRoute ? routePermissions[matchedRoute] : null;
   
 
