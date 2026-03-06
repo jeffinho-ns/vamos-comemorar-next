@@ -545,23 +545,17 @@ export default function CardapioAdminPage() {
           })
         : [];
 
-      // Filtrar bares para promoters ou gerentes Seu Justino (só podem ver o seu bar)
+      // Filtrar bares para promoters ou analista restrito (só podem ver o seu bar)
       if (promoterBar) {
-        console.log('🔍 [PROMOTER] Filtrando bares para:', {
-          promoterBar,
-          promoterBarId: promoterBar.barId,
-          promoterBarIdType: typeof promoterBar.barId,
-          totalBars: barsData.length,
-          barsIds: barsData.map(b => ({ id: b.id, idType: typeof b.id, name: b.name }))
-        });
+        const promoterBarIdNum = Number(promoterBar.barId);
+        const promoterBarName = String(promoterBar.barName || '').toLowerCase();
         barsData = barsData.filter((bar) => {
           const barIdNum = Number(bar.id);
-          const promoterBarIdNum = Number(promoterBar.barId);
-          const match = barIdNum === promoterBarIdNum || String(bar.id) === String(promoterBar.barId);
-          console.log(`   Bar ${bar.id} (${bar.name}): ${barIdNum} === ${promoterBarIdNum}? ${match}`);
-          return match;
+          const barName = (bar.name || '').toLowerCase();
+          const matchById = barIdNum === promoterBarIdNum || String(bar.id) === String(promoterBar.barId);
+          const matchByName = promoterBarName && barName.includes(promoterBarName);
+          return matchById || matchByName;
         });
-        console.log('✅ [PROMOTER] Bares filtrados:', barsData.length, barsData.map(b => b.name));
       }
 
       let categoriesData = Array.isArray(categories) ? categories : [];
@@ -578,54 +572,29 @@ export default function CardapioAdminPage() {
           })
         : [];
 
-      // Filtrar categorias e itens para promoters ou gerentes Seu Justino (só podem ver os do seu bar)
-      if (promoterBar) {
-        console.log('🔍 [PROMOTER] Filtrando categorias e itens:', {
-          promoterBarId: promoterBar.barId,
-          promoterBarIdType: typeof promoterBar.barId,
-          totalCategories: categoriesData.length,
-          totalItems: itemsData.length,
-          sampleCategories: categoriesData.slice(0, 5).map(c => ({ 
-            id: c.id, 
-            barId: c.barId, 
-            barIdType: typeof c.barId, 
-            name: c.name,
-            comparison: `${Number(c.barId)} === ${Number(promoterBar.barId)}? ${Number(c.barId) === Number(promoterBar.barId)}`
-          })),
-          sampleItems: itemsData.slice(0, 5).map(i => ({ 
-            id: i.id, 
-            barId: i.barId, 
-            barIdType: typeof i.barId, 
-            name: i.name,
-            comparison: `${Number(i.barId)} === ${Number(promoterBar.barId)}? ${Number(i.barId) === Number(promoterBar.barId)}`
-          }))
+      // Filtrar categorias e itens pelos ids dos bares permitidos (barsData já filtrado acima)
+      if (promoterBar && barsData.length > 0) {
+        const allowedBarIds = new Set(barsData.map((b) => Number(b.id)));
+        categoriesData = categoriesData.filter((category) => {
+          const catBarId = Number(category.barId);
+          return allowedBarIds.has(catBarId);
         });
-        
-        const beforeCategoriesCount = categoriesData.length;
-        const beforeItemsCount = itemsData.length;
-        
-        categoriesData = categoriesData.filter(
-          (category) => {
-            const catBarIdNum = Number(category.barId);
-            const promoterBarIdNum = Number(promoterBar.barId);
-            const match = catBarIdNum === promoterBarIdNum || String(category.barId) === String(promoterBar.barId);
-            if (match) {
-              console.log(`   ✅ Categoria "${category.name}" (barId: ${category.barId}) MATCH com promoterBarId: ${promoterBar.barId}`);
-            }
-            return match;
-          }
-        );
         itemsData = itemsData.filter((item) => {
-          const itemBarIdNum = Number(item.barId);
-          const promoterBarIdNum = Number(promoterBar.barId);
-          const match = itemBarIdNum === promoterBarIdNum || String(item.barId) === String(promoterBar.barId);
-          return match;
+          const itemBarId = Number(item.barId);
+          return allowedBarIds.has(itemBarId);
         });
-        
-        console.log('✅ [PROMOTER] Resultado da filtragem:', {
-          categories: { antes: beforeCategoriesCount, depois: categoriesData.length, filtrados: categoriesData.map(c => c.name) },
-          items: { antes: beforeItemsCount, depois: itemsData.length }
-        });
+      } else if (promoterBar) {
+        const promoterBarIdNum = Number(promoterBar.barId);
+        categoriesData = categoriesData.filter(
+          (category) =>
+            Number(category.barId) === promoterBarIdNum ||
+            String(category.barId) === String(promoterBar.barId),
+        );
+        itemsData = itemsData.filter(
+          (item) =>
+            Number(item.barId) === promoterBarIdNum ||
+            String(item.barId) === String(promoterBar.barId),
+        );
       }
 
       console.log('💾 [FINAL] Dados que serão salvos no estado:', {
@@ -2218,20 +2187,22 @@ export default function CardapioAdminPage() {
   // Função para abrir modal de categoria para promoters
   const handleAddCategoryForPromoter = useCallback(() => {
     if (promoterBar) {
+      const effectiveBarId = menuData.bars[0]?.id ?? promoterBar.barId;
       setEditingCategory(null);
       setCategoryForm({
         name: '',
-        barId: promoterBar.barId.toString(),
+        barId: String(effectiveBarId),
         order: 0,
         subCategories: [],
       });
       setShowCategoryModal(true);
     }
-  }, [promoterBar]);
+  }, [promoterBar, menuData.bars]);
 
   // Função para abrir modal de item para promoters
   const handleAddItemForPromoter = useCallback(() => {
     if (promoterBar) {
+      const effectiveBarId = menuData.bars[0]?.id ?? promoterBar.barId;
       setEditingItem(null);
       setItemForm({
         name: '',
@@ -2239,7 +2210,7 @@ export default function CardapioAdminPage() {
         price: '',
         imageUrl: '',
         categoryId: '',
-        barId: promoterBar.barId.toString(),
+        barId: String(effectiveBarId),
         subCategory: '',
         toppings: [],
         order: 0,
@@ -2247,7 +2218,7 @@ export default function CardapioAdminPage() {
       });
       setShowItemModal(true);
     }
-  }, [promoterBar]);
+  }, [promoterBar, menuData.bars]);
 
   const handleDeleteBar = useCallback(
     async (barId: string | number) => {
@@ -3158,7 +3129,7 @@ export default function CardapioAdminPage() {
                   {promoterBar && (
                     <button
                       onClick={() => {
-                        const bar = menuData.bars.find((b) => Number(b.id) === Number(promoterBar.barId));
+                        const bar = menuData.bars[0] ?? menuData.bars.find((b) => Number(b.id) === Number(promoterBar.barId));
                         if (bar) {
                           handleEditBar(bar);
                         } else {
@@ -3193,7 +3164,7 @@ export default function CardapioAdminPage() {
                           unoptimized={true}
                         />
                         <div className="absolute right-2 top-2 flex gap-1">
-                          {(isAdmin || canManageBar(Number(bar.id))) && (
+                          {(isAdmin || canManageBar(Number(bar.id)) || (promoterBar && menuData.bars.some((b) => Number(b.id) === Number(bar.id)))) && (
                             <>
                               <button
                                 onClick={() => handleEditBar(bar)}
@@ -3273,7 +3244,7 @@ export default function CardapioAdminPage() {
                             <p className="text-sm text-gray-500">{bar.name}</p>
                           </div>
                           <div className="flex gap-1">
-                            {(isAdmin || canManageBar(Number(category.barId))) && (
+                            {(isAdmin || canManageBar(Number(category.barId)) || (promoterBar && menuData.bars.some((b) => Number(b.id) === Number(category.barId)))) && (
                               <>
                                 <button
                                   onClick={() => handleOpenQuickEditModal(bar.id, category.id)}
@@ -3703,7 +3674,7 @@ export default function CardapioAdminPage() {
                                     );
                                   })()}
                                   <div className="absolute right-2 top-2 flex gap-1">
-                                    {(isAdmin || canManageBar(Number(item.barId))) && (
+                                    {(isAdmin || canManageBar(Number(item.barId)) || (promoterBar && menuData.bars.some((b) => Number(b.id) === Number(item.barId)))) && (
                                       <>
                                         <button
                                           onClick={() => handleToggleItemVisibility(item.id, item.visible)}
@@ -4043,7 +4014,7 @@ export default function CardapioAdminPage() {
                                                             </td>
                                                             <td className="px-4 py-3 whitespace-nowrap">
                                                               <div className="flex items-center gap-2">
-                                                                {(isAdmin || canManageBar(Number(item.barId))) && (
+                                                                {(isAdmin || canManageBar(Number(item.barId)) || (promoterBar && menuData.bars.some((b) => Number(b.id) === Number(item.barId)))) && (
                                                                   <>
                                                                     <button
                                                                       onClick={() => handleEditItem(item)}
@@ -4205,7 +4176,7 @@ export default function CardapioAdminPage() {
                                                     </td>
                                                     <td className="px-4 py-3 whitespace-nowrap">
                                                       <div className="flex items-center gap-2">
-                                                        {(isAdmin || canManageBar(Number(item.barId))) && (
+                                                        {(isAdmin || canManageBar(Number(item.barId)) || (promoterBar && menuData.bars.some((b) => Number(b.id) === Number(item.barId)))) && (
                                                           <>
                                                             <button
                                                               onClick={() => handleEditItem(item)}

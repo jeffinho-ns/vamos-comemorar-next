@@ -35,10 +35,19 @@ export function useUserPermissions() {
         const cookies = document.cookie.split(';');
         const roleCookie = cookies.find(cookie => cookie.trim().startsWith('role='));
         const tokenCookie = cookies.find(cookie => cookie.trim().startsWith('authToken='));
+        const emailCookie = cookies.find(cookie => cookie.trim().startsWith('userEmail='));
 
-        // Buscar informações do localStorage
+        // Buscar informações do localStorage (cookie como fallback para userEmail)
         const userId = localStorage.getItem('userId');
-        const userEmail = localStorage.getItem('userEmail') || '';
+        let userEmail = localStorage.getItem('userEmail') || '';
+        if (!userEmail && emailCookie) {
+          try {
+            userEmail = decodeURIComponent((emailCookie.split('=').slice(1).join('=') || '').trim());
+          } catch {
+            userEmail = (emailCookie.split('=').slice(1).join('=') || '').trim();
+          }
+        }
+        userEmail = (userEmail || '').trim();
 
         const role = roleCookie ? roleCookie.split('=')[1] : '';
         
