@@ -31,6 +31,20 @@ import { getApiUrl } from "@/app/config/api";
 
 const API_URL = getApiUrl();
 const SOCKET_URL =
+
+/** Formata horário de check-in em horário de Brasília (America/Sao_Paulo). */
+function formatCheckinTimeBr(value: string): string {
+  const str = String(value || "").trim();
+  if (!str) return "";
+  const date = new Date(str);
+  if (Number.isNaN(date.getTime())) return str.slice(0, 5);
+  return date.toLocaleTimeString("pt-BR", {
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "America/Sao_Paulo",
+  });
+}
+
   process.env.NEXT_PUBLIC_SOCKET_URL ||
   process.env.NEXT_PUBLIC_API_URL ||
   getApiUrl();
@@ -562,10 +576,7 @@ export default function RooftopFluxoPage() {
                           {item.checkinTime && (
                             <span className="rounded-md bg-green-100 px-2 py-1 text-xs text-green-800">
                               Check-in{" "}
-                              {new Date(item.checkinTime).toLocaleTimeString("pt-BR", {
-                                hour: "2-digit",
-                                minute: "2-digit",
-                              })}
+                              {formatCheckinTimeBr(item.checkinTime)}
                             </span>
                           )}
                         </div>
