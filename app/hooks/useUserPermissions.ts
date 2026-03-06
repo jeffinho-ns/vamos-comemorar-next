@@ -48,10 +48,20 @@ export function useUserPermissions() {
         const isPromoterList = role === 'promoter-list';
         const isClient = role === 'cliente';
         
-        // Buscar informações do bar associado ao promoter
+        // Buscar informações do bar associado ao promoter (ou analista com acesso restrito ao cardápio)
         let promoterBar = null;
-        
-        if (isPromoter && userEmail) {
+
+        // analista.mkt03@ideiaum.com.br: acesso ao cardápio APENAS Pracinha do Seu Justino (barId 8)
+        if (userEmail && userEmail.toLowerCase() === 'analista.mkt03@ideiaum.com.br') {
+          promoterBar = {
+            userId: 0,
+            userEmail: 'analista.mkt03@ideiaum.com.br',
+            userName: 'Helena',
+            barId: 8,
+            barName: 'Pracinha do Seu Justino',
+            barSlug: 'pracinha-do-seu-justino',
+          };
+        } else if (isPromoter && userEmail) {
           promoterBar = getPromoterBarByEmail(userEmail);
           
           // SOLUÇÃO TEMPORÁRIA: Se não encontrou, usar mapeamento hardcoded
@@ -143,8 +153,9 @@ export function useUserPermissions() {
         }
 
         // Definir permissões de acesso (promoter e promoter-list para analista.mkt03 - Pracinha; gerentes SJM para cardápio)
-        const canAccessAdmin = isAdmin || role === 'promoter' || role === 'promoter-list';
-        const canAccessCardapio = isAdmin || role === 'promoter' || role === 'promoter-list' || isGerenteSeuJustinoCardapio;
+        const isAnalistaPracinha = userEmail && userEmail.toLowerCase() === 'analista.mkt03@ideiaum.com.br';
+        const canAccessAdmin = isAdmin || role === 'promoter' || role === 'promoter-list' || isAnalistaPracinha;
+        const canAccessCardapio = isAdmin || role === 'promoter' || role === 'promoter-list' || isGerenteSeuJustinoCardapio || isAnalistaPracinha;
 
         setPermissions({
           role,
@@ -171,6 +182,16 @@ export function useUserPermissions() {
   // Função para verificar se o usuário pode acessar uma rota específica
   const canAccessRoute = (route: string): boolean => {
     if (permissions.isAdmin) return true;
+
+    const isAnalistaPracinha = permissions.userEmail?.toLowerCase() === 'analista.mkt03@ideiaum.com.br';
+    if (isAnalistaPracinha) {
+      const allowedRoutes = [
+        '/admin/restaurant-reservations', '/admin/eventos/dashboard', '/admin/eventos/promoters',
+        '/admin/eventos/listas', '/admin/painel-eventos', '/admin/checkins', '/admin/workdays',
+        '/admin/cardapio', '/admin/qrcode', '/admin/events', '/admin/reservas',
+      ];
+      return allowedRoutes.includes(route) || allowedRoutes.some((r) => route.startsWith(r + '/'));
+    }
     
     if (permissions.role === 'promoter' || permissions.role === 'promoter-list') {
       // Promoters/promoter-list podem acessar rotas conforme perfil (ex: analista.mkt03 - apenas Pracinha)

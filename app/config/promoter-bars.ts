@@ -76,9 +76,12 @@ export function getPromoterBar(userId: number): PromoterBarMapping | null {
   return PROMOTER_BAR_MAPPINGS.find(mapping => mapping.userId === userId) || null;
 }
 
-// Função para buscar o bar associado a um promoter por email
+// Função para buscar o bar associado a um promoter por email (case-insensitive)
 export function getPromoterBarByEmail(email: string): PromoterBarMapping | null {
-  return PROMOTER_BAR_MAPPINGS.find(mapping => mapping.userEmail === email) || null;
+  const normalized = (email || '').trim().toLowerCase();
+  return PROMOTER_BAR_MAPPINGS.find(
+    (mapping) => (mapping.userEmail || '').trim().toLowerCase() === normalized,
+  ) || null;
 }
 
 // Função para verificar se um usuário é promoter de um bar específico
