@@ -58,8 +58,8 @@ import RooftopUnifiedStatsHeader from "@/app/components/checkins/RooftopUnifiedS
 import {
   computeRooftopUnifiedMetrics,
   getRooftopSubareaName,
-  getTodayDateKey,
   isReservaRooftopEstablishment,
+  toDateKey,
 } from "@/app/utils/rooftopCheckins";
 
 const API_URL =
@@ -4306,28 +4306,49 @@ export default function EventoCheckInsPage() {
     [evento?.establishment_id, evento?.establishment_name],
   );
 
-  const rooftopTodayMetrics = useMemo(() => {
-    if (!isReservaRooftopEvent) {
-      return {
-        areasBreakdown: [],
-        areaPeopleTotal: 0,
-        reservationsCheckedIn: 0,
-        reservationsTotal: 0,
-        totalPeopleExpected: 0,
-        giroMetrics: {
-          first: { areas: [], totalExpected: 0, totalPresent: 0 },
-          intermediate: { areas: [], totalExpected: 0, totalPresent: 0 },
-          second: { areas: [], totalExpected: 0, totalPresent: 0 },
-        },
-      };
+  const rooftopDatesWithReservations = useMemo(() => {
+    if (!isReservaRooftopEvent) return [];
+    const set = new Set<string>();
+    for (const r of reservasRestaurante) {
+      const key = toDateKey(r.reservation_date);
+      if (key) set.add(key);
     }
-
-    return computeRooftopUnifiedMetrics({
-      reservations: reservasRestaurante,
-      guestLists: guestListsRestaurante,
-      dateKey: getTodayDateKey(),
-    });
+    for (const gl of guestListsRestaurante) {
+      const key = toDateKey(gl.reservation_date);
+      if (key) set.add(key);
+    }
+    return Array.from(set).sort();
   }, [isReservaRooftopEvent, reservasRestaurante, guestListsRestaurante]);
+
+  const rooftopMetricsByDate = useMemo(() => {
+    if (!isReservaRooftopEvent) return [];
+    return rooftopDatesWithReservations.map((dateKey) => {
+      const metrics = computeRooftopUnifiedMetrics({
+        reservations: reservasRestaurante,
+        guestLists: guestListsRestaurante,
+        dateKey,
+      });
+      const label =
+        dateKey &&
+        (() => {
+          const d = new Date(`${dateKey}T12:00:00`);
+          return isNaN(d.getTime())
+            ? dateKey
+            : d.toLocaleDateString("pt-BR", {
+                weekday: "short",
+                day: "2-digit",
+                month: "short",
+                year: "numeric",
+              });
+        })();
+      return { dateKey, label, metrics };
+    });
+  }, [
+    isReservaRooftopEvent,
+    rooftopDatesWithReservations,
+    reservasRestaurante,
+    guestListsRestaurante,
+  ]);
 
   const getEventTypeLabel = useCallback((eventType?: string) => {
     if (!eventType) return null;
@@ -4412,18 +4433,22 @@ export default function EventoCheckInsPage() {
       {/* Barra de filtros */}
       <div className="bg-white/5 backdrop-blur-sm border-b border-white/10 sticky top-0 z-30">
         <div className="max-w-7xl mx-auto p-3 md:p-4">
-          {isReservaRooftopEvent && (
-            <RooftopUnifiedStatsHeader
-              className="mb-3 md:mb-4"
-              areaPeopleTotal={rooftopTodayMetrics.areaPeopleTotal}
-              areasBreakdown={rooftopTodayMetrics.areasBreakdown}
-              reservationsCheckedIn={rooftopTodayMetrics.reservationsCheckedIn}
-              reservationsTotal={rooftopTodayMetrics.reservationsTotal}
-              totalPeopleExpected={rooftopTodayMetrics.totalPeopleExpected}
-              giroMetrics={rooftopTodayMetrics.giroMetrics}
-              loading={loading}
-            />
-          )}
+          {isReservaRooftopEvent &&
+            rooftopMetricsByDate.map(({ dateKey, label, metrics }) => (
+              <div key={dateKey} className="mb-3 md:mb-4">
+                <p className="text-sm font-medium text-white/90 mb-2">{label}</p>
+                <RooftopUnifiedStatsHeader
+                  className="mb-3 md:mb-4"
+                  areaPeopleTotal={metrics.areaPeopleTotal}
+                  areasBreakdown={metrics.areasBreakdown}
+                  reservationsCheckedIn={metrics.reservationsCheckedIn}
+                  reservationsTotal={metrics.reservationsTotal}
+                  totalPeopleExpected={metrics.totalPeopleExpected}
+                  giroMetrics={metrics.giroMetrics}
+                  loading={loading}
+                />
+              </div>
+            ))}
 
           {/* Mobile: Layout simplificado */}
           <div className="md:hidden space-y-3">

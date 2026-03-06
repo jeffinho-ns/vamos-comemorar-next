@@ -47,6 +47,7 @@ interface PermissionRow {
   can_manage_reservations: boolean;
   can_manage_checkins: boolean;
   can_view_reports: boolean;
+  can_create_edit_reservations?: boolean;
   is_active: boolean;
 }
 
@@ -383,6 +384,7 @@ function CreateUserModal({ onClose, onSuccess, establishments, apiUrl }: CreateU
   const [establishmentIds, setEstablishmentIds] = useState<number[]>([]);
   const [perms, setPerms] = useState({
     can_manage_reservations: true,
+    can_create_edit_reservations: true,
     can_manage_checkins: true,
     can_view_reports: true,
     can_view_os: true,
@@ -571,6 +573,7 @@ function CreateUserModal({ onClose, onSuccess, establishments, apiUrl }: CreateU
             <div className="grid grid-cols-2 gap-2 text-sm">
               {[
                 { key: "can_manage_reservations", label: "Gerenciar reservas" },
+                { key: "can_create_edit_reservations", label: "Criar/editar reservas e lista de espera" },
                 { key: "can_manage_checkins", label: "Gerenciar check-ins" },
                 { key: "can_view_reports", label: "Ver relatórios" },
                 { key: "can_view_os", label: "Ver OS" },
@@ -653,6 +656,7 @@ function EditUserModal({
     return first
       ? {
           can_manage_reservations: first.can_manage_reservations,
+          can_create_edit_reservations: first.can_create_edit_reservations !== false,
           can_manage_checkins: first.can_manage_checkins,
           can_view_reports: first.can_view_reports,
           can_view_os: first.can_view_os,
@@ -665,6 +669,7 @@ function EditUserModal({
         }
       : {
           can_manage_reservations: true,
+          can_create_edit_reservations: true,
           can_manage_checkins: true,
           can_view_reports: true,
           can_view_os: true,

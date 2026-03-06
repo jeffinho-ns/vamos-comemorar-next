@@ -39,6 +39,8 @@ export interface PermissionData {
   can_manage_reservations: boolean;
   can_manage_checkins: boolean;
   can_view_reports: boolean;
+  /** Pode criar, editar e excluir reservas e lista de espera. Se false, apenas visualizar, check-in, check-out e alocar mesa. */
+  can_create_edit_reservations?: boolean;
   is_active: boolean;
 }
 
@@ -328,6 +330,17 @@ export function useEstablishmentPermissions() {
     return userConfig.permissions.canCreateOperationalDetail ?? false;
   };
 
+  // Verifica se o usuário pode criar, editar e excluir reservas e lista de espera (no Sistema de Reservas).
+  // Se false, pode apenas visualizar, fazer check-in, check-out e alocar mesa.
+  const canCreateEditReservations = (establishmentId?: number): boolean => {
+    if (!userConfig) return true; // Admin pode tudo
+    if (establishmentId) {
+      const perm = getPermissionForEstablishment(establishmentId);
+      return perm ? (perm.can_create_edit_reservations !== false) : false;
+    }
+    return permissions.some((p) => p.is_active && p.can_create_edit_reservations !== false);
+  };
+
   // Retorna o primeiro estabelecimento permitido (útil para seleção automática)
   const getDefaultEstablishmentId = (): number | null => {
     // Verificar primeiro userConfig
@@ -383,6 +396,7 @@ export function useEstablishmentPermissions() {
     canDownloadOS,
     canCreateOS,
     canCreateOperationalDetail,
+    canCreateEditReservations,
     getDefaultEstablishmentId,
     isRestrictedToSingleEstablishment,
   };

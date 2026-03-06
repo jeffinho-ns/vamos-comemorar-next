@@ -118,6 +118,10 @@ export default function RestaurantReservationsPage() {
     process.env.NEXT_PUBLIC_API_URL_LOCAL ||
     "https://vamos-comemorar-api.onrender.com";
 
+  const canCreateEditReservations = selectedEstablishment
+    ? establishmentPermissions.canCreateEditReservations(Number(selectedEstablishment.id))
+    : true;
+
   const fetchEstablishments = useCallback(async () => {
     setLoading(true);
     const token = localStorage.getItem("authToken");
@@ -2583,17 +2587,18 @@ export default function RestaurantReservationsPage() {
                           className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent w-full"
                         />
                       </div>
-                      <button
-                        onClick={async () => {
-                          // Carregar áreas se ainda não foram carregadas
-                          await loadAreas();
-                          setShowModal(true);
-                        }}
-                        className="flex items-center gap-2 px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-white rounded-lg transition-colors w-full sm:w-auto justify-center"
-                      >
-                        <MdAdd />
-                        Nova Reserva
-                      </button>
+                      {canCreateEditReservations && (
+                        <button
+                          onClick={async () => {
+                            await loadAreas();
+                            setShowModal(true);
+                          }}
+                          className="flex items-center gap-2 px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-white rounded-lg transition-colors w-full sm:w-auto justify-center"
+                        >
+                          <MdAdd />
+                          Nova Reserva
+                        </button>
+                      )}
                     </div>
                   </div>
 
@@ -2604,9 +2609,9 @@ export default function RestaurantReservationsPage() {
                         establishment={selectedEstablishment}
                         reservations={filteredReservations}
                         onDateSelect={handleDateSelect}
-                        onAddReservation={handleAddReservation}
-                        onEditReservation={handleEditReservation}
-                        onDeleteReservation={handleDeleteReservation}
+                        onAddReservation={canCreateEditReservations ? handleAddReservation : () => {}}
+                        onEditReservation={canCreateEditReservations ? handleEditReservation : undefined}
+                        onDeleteReservation={canCreateEditReservations ? handleDeleteReservation : undefined}
                         onStatusChange={handleStatusChange}
                         onAddGuestList={(reservation) => {
                           setSelectedReservationForGuestList(reservation);
@@ -2623,12 +2628,11 @@ export default function RestaurantReservationsPage() {
                       <WeeklyCalendar
                         reservations={filteredReservations}
                         establishment={selectedEstablishment}
-                        onAddReservation={async (date, time) => {
+                        onAddReservation={canCreateEditReservations ? async (date, time) => {
                           setSelectedDate(date);
                           setSelectedTime(time);
                           setEditingReservation(null);
                           await loadAreas();
-                          // Com horário: checa capacidade + trava por lista de espera só neste dia+hora
                           const canMakeReservation =
                             await checkCapacityAndWaitlist(
                               date,
@@ -2640,9 +2644,9 @@ export default function RestaurantReservationsPage() {
                             return;
                           }
                           setShowModal(true);
-                        }}
-                        onEditReservation={handleEditReservation}
-                        onDeleteReservation={handleDeleteReservation}
+                        } : () => {}}
+                        onEditReservation={canCreateEditReservations ? handleEditReservation : () => {}}
+                        onDeleteReservation={canCreateEditReservations ? handleDeleteReservation : () => {}}
                         onStatusChange={handleStatusChange}
                       />
                     </div>
@@ -2735,20 +2739,24 @@ export default function RestaurantReservationsPage() {
                                 Check-out
                               </button>
                             )}
-                            <button
-                              onClick={() => handleEditReservation(reservation)}
-                              className="flex-1 px-3 py-1 bg-blue-500 hover:bg-blue-600 text-white text-sm rounded transition-colors"
-                            >
-                              Editar
-                            </button>
-                            <button
-                              onClick={() =>
-                                handleDeleteReservation(reservation)
-                              }
-                              className="flex-1 px-3 py-1 bg-red-500 hover:bg-red-600 text-white text-sm rounded transition-colors"
-                            >
-                              Excluir
-                            </button>
+                            {canCreateEditReservations && (
+                              <>
+                                <button
+                                  onClick={() => handleEditReservation(reservation)}
+                                  className="flex-1 px-3 py-1 bg-blue-500 hover:bg-blue-600 text-white text-sm rounded transition-colors"
+                                >
+                                  Editar
+                                </button>
+                                <button
+                                  onClick={() =>
+                                    handleDeleteReservation(reservation)
+                                  }
+                                  className="flex-1 px-3 py-1 bg-red-500 hover:bg-red-600 text-white text-sm rounded transition-colors"
+                                >
+                                  Excluir
+                                </button>
+                              </>
+                            )}
                           </div>
                         </motion.div>
                       ))}
@@ -2802,15 +2810,17 @@ export default function RestaurantReservationsPage() {
                           >
                             Limpar Filtros
                           </button>
-                          <button
-                            onClick={async () => {
-                              await loadAreas();
-                              setShowModal(true);
-                            }}
-                            className="px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-white rounded-lg"
-                          >
-                            <MdAdd className="inline mr-1" /> Nova Reserva
-                          </button>
+                          {canCreateEditReservations && (
+                            <button
+                              onClick={async () => {
+                                await loadAreas();
+                                setShowModal(true);
+                              }}
+                              className="px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-white rounded-lg"
+                            >
+                              <MdAdd className="inline mr-1" /> Nova Reserva
+                            </button>
+                          )}
                         </div>
                       </div>
 
@@ -4659,13 +4669,15 @@ export default function RestaurantReservationsPage() {
                     <h3 className="text-xl font-semibold text-gray-800">
                       Passantes Ativos ({activeWalkIns.length})
                     </h3>
-                    <button
-                      onClick={handleAddWalkIn}
-                      className="flex items-center gap-2 px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg transition-colors"
-                    >
-                      <MdAdd />
-                      Novo Passante
-                    </button>
+                    {canCreateEditReservations && (
+                      <button
+                        onClick={handleAddWalkIn}
+                        className="flex items-center gap-2 px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg transition-colors"
+                      >
+                        <MdAdd />
+                        Novo Passante
+                      </button>
+                    )}
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
@@ -4714,18 +4726,22 @@ export default function RestaurantReservationsPage() {
                           )}
                         </div>
                         <div className="flex flex-col sm:flex-row gap-2 mt-3">
-                          <button
-                            onClick={() => handleEditWalkIn(walkIn)}
-                            className="flex-1 px-3 py-1 bg-blue-500 hover:bg-blue-600 text-white text-sm rounded transition-colors"
-                          >
-                            Editar
-                          </button>
-                          <button
-                            onClick={() => handleDeleteWalkIn(walkIn)}
-                            className="flex-1 px-3 py-1 bg-red-500 hover:bg-red-600 text-white text-sm rounded transition-colors"
-                          >
-                            Finalizar
-                          </button>
+                          {canCreateEditReservations && (
+                            <>
+                              <button
+                                onClick={() => handleEditWalkIn(walkIn)}
+                                className="flex-1 px-3 py-1 bg-blue-500 hover:bg-blue-600 text-white text-sm rounded transition-colors"
+                              >
+                                Editar
+                              </button>
+                              <button
+                                onClick={() => handleDeleteWalkIn(walkIn)}
+                                className="flex-1 px-3 py-1 bg-red-500 hover:bg-red-600 text-white text-sm rounded transition-colors"
+                              >
+                                Finalizar
+                              </button>
+                            </>
+                          )}
                         </div>
                       </motion.div>
                     ))}
@@ -4757,13 +4773,15 @@ export default function RestaurantReservationsPage() {
                         </span>
                       </div>
                     </div>
-                    <button
-                      onClick={handleAddWaitlistEntry}
-                      className="flex items-center gap-2 px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg transition-colors shrink-0"
-                    >
-                      <MdAdd />
-                      Adicionar à Lista
-                    </button>
+                    {canCreateEditReservations && (
+                      <button
+                        onClick={handleAddWaitlistEntry}
+                        className="flex items-center gap-2 px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg transition-colors shrink-0"
+                      >
+                        <MdAdd />
+                        Adicionar à Lista
+                      </button>
+                    )}
                   </div>
                   <p className="text-sm text-gray-500 mb-4">
                     Exibindo apenas a fila do dia selecionado. Use o campo &quot;Dia&quot; para ver quem está aguardando mesa naquela data e direcionar quando a mesa liberar.
@@ -4847,18 +4865,22 @@ export default function RestaurantReservationsPage() {
                               <MdChair />
                               Alocar em Mesa
                             </button>
-                            <button
-                              onClick={() => handleEditWaitlistEntry(entry)}
-                              className="px-3 py-1 bg-blue-500 hover:bg-blue-600 text-white text-sm rounded transition-colors"
-                            >
-                              Editar
-                            </button>
-                            <button
-                              onClick={() => handleDeleteWaitlistEntry(entry)}
-                              className="px-3 py-1 bg-red-500 hover:bg-red-600 text-white text-sm rounded transition-colors"
-                            >
-                              Remover
-                            </button>
+                            {canCreateEditReservations && (
+                              <>
+                                <button
+                                  onClick={() => handleEditWaitlistEntry(entry)}
+                                  className="px-3 py-1 bg-blue-500 hover:bg-blue-600 text-white text-sm rounded transition-colors"
+                                >
+                                  Editar
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteWaitlistEntry(entry)}
+                                  className="px-3 py-1 bg-red-500 hover:bg-red-600 text-white text-sm rounded transition-colors"
+                                >
+                                  Remover
+                                </button>
+                              </>
+                            )}
                           </div>
                         </div>
                       </motion.div>
