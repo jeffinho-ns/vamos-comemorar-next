@@ -5,6 +5,7 @@ export function middleware(request: NextRequest) {
   const token = request.cookies.get('authToken')?.value;
   const role = request.cookies.get('role')?.value;
   const promoterCodigo = request.cookies.get('promoterCodigo')?.value;
+  const userEmailCookie = request.cookies.get('userEmail')?.value;
   const url = request.nextUrl.pathname;
 
   // 🔍 DEBUG
@@ -17,6 +18,46 @@ export function middleware(request: NextRequest) {
   if (!token || !role) {
     console.log("🔁 Redirecionando para /login por falta de token ou role.");
     return NextResponse.redirect(new URL('/login', request.url));
+  }
+
+  // Helpers: normalização e extração do email do JWT (sem validar assinatura)
+  const safeDecodeURIComponent = (value: string) => {
+    try { return decodeURIComponent(value); } catch { return value; }
+  };
+  const normalizeEmail = (value: string | null | undefined) =>
+    (value ? safeDecodeURIComponent(value) : '').trim().toLowerCase();
+  const parseJwtEmail = (jwtToken: string): string | null => {
+    try {
+      const parts = jwtToken.split('.');
+      if (parts.length < 2) return null;
+      const payload = parts[1];
+      const base64 = payload.replace(/-/g, '+').replace(/_/g, '/');
+      const padded = base64 + '='.repeat((4 - (base64.length % 4)) % 4);
+      const json = JSON.parse(atob(padded));
+      const email = json?.email || json?.userEmail || null;
+      return typeof email === 'string' ? email : null;
+    } catch {
+      return null;
+    }
+  };
+
+  const userEmail =
+    normalizeEmail(userEmailCookie) ||
+    normalizeEmail(parseJwtEmail(token));
+
+  // Allowlist: liberar /admin/checkins/rooftop-fluxo para emails específicos do Reserva Rooftop
+  const rooftopFluxoAllowlist = new Set([
+    'recepcao@reservarooftop.com.br',
+    'gerente.maitre@reservarooftop.com.br',
+    'diego.gomes@reservarooftop.com.br',
+    'vbs14@hotmail.com',
+    'reservas@reservarooftop.com.br',
+    'coordenadora.reservas@ideiaum.com.br',
+    'analista.mkt02@ideiaum.com.br',
+  ]);
+  if (url.startsWith('/admin/checkins/rooftop-fluxo') && userEmail && rooftopFluxoAllowlist.has(userEmail)) {
+    console.log('✅ Acesso liberado por allowlist (rooftop-fluxo):', userEmail);
+    return NextResponse.next();
   }
 
   const isPromoter = role === 'promoter';
@@ -40,7 +81,7 @@ export function middleware(request: NextRequest) {
   // Define as permissões para as rotas específicas (promoter e promoter-list para analista.mkt03 - Pracinha)
   const routePermissions: Record<string, string[]> = {
     // Rota principal do admin
-    '/admin': ['admin', 'gerente', 'recepção', 'promoter', 'promoter-list'],
+    '/admin': ['admin', 'gerente', 'recepção', 'recepcao', 'atendente', 'promoter', 'promoter-list'],
     '/admin/commodities': ['admin'],
     '/admin/enterprise': ['admin'],
     '/admin/gifts': ['admin'],

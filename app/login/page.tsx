@@ -104,9 +104,12 @@ export default function Login() {
         if (data.nome) {
           localStorage.setItem("userName", data.nome);
         }
-        // Salvar email do usuário logado
+        // Salvar email do usuário logado (normalizado)
         if (emailCpf && emailCpf.includes('@')) {
-          localStorage.setItem("userEmail", emailCpf);
+          const normalizedEmail = emailCpf.toLowerCase().trim();
+          localStorage.setItem("userEmail", normalizedEmail);
+          // Cookie para o middleware (server-side) conseguir liberar rotas por e-mail
+          document.cookie = `userEmail=${encodeURIComponent(normalizedEmail)}; path=/`;
         }
         if (data.promoterId) {
           localStorage.setItem("promoterId", data.promoterId);

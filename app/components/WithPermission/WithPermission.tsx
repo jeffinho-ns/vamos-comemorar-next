@@ -6,9 +6,10 @@ import { useRouter } from "next/navigation";
 type WithPermissionProps = {
   children: ReactNode;
   allowedRoles: string[];
+  allowedEmails?: string[];
 };
 
-export function WithPermission({ children, allowedRoles }: WithPermissionProps) {
+export function WithPermission({ children, allowedRoles, allowedEmails }: WithPermissionProps) {
   const router = useRouter();
   const [isAuthorized, setIsAuthorized] = useState(false);
   const [checked, setChecked] = useState(false);
@@ -23,7 +24,23 @@ export function WithPermission({ children, allowedRoles }: WithPermissionProps) 
     }
     const roleDecoded = role ? (() => { try { return decodeURIComponent(role); } catch { return role; } })() : "";
 
-    if (roleDecoded && allowedRoles.includes(roleDecoded)) {
+    let userEmail = document.cookie
+      .split("; ")
+      .find((row) => row.startsWith("userEmail="))
+      ?.split("=")[1];
+    if (!userEmail && typeof window !== "undefined") {
+      userEmail = localStorage.getItem("userEmail") || "";
+    }
+    const emailDecoded = userEmail ? (() => { try { return decodeURIComponent(userEmail); } catch { return userEmail; } })() : "";
+    const emailNormalized = emailDecoded.trim().toLowerCase();
+
+    const roleAllowed = !!roleDecoded && allowedRoles.includes(roleDecoded);
+    const emailAllowed =
+      !!emailNormalized &&
+      Array.isArray(allowedEmails) &&
+      allowedEmails.map((e) => String(e).trim().toLowerCase()).includes(emailNormalized);
+
+    if (roleAllowed || emailAllowed) {
       setIsAuthorized(true);
     } else {
       router.replace("/acesso-negado");

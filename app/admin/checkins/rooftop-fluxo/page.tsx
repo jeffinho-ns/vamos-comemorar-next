@@ -423,6 +423,15 @@ export default function RooftopFluxoPage() {
   return (
     <WithPermission
       allowedRoles={["admin", "gerente", "hostess", "promoter", "recepção", "recepcao", "atendente"]}
+      allowedEmails={[
+        "recepcao@reservarooftop.com.br",
+        "gerente.maitre@reservarooftop.com.br",
+        "diego.gomes@reservarooftop.com.br",
+        "vbs14@hotmail.com",
+        "reservas@reservarooftop.com.br",
+        "coordenadora.reservas@ideiaum.com.br",
+        "analista.mkt02@ideiaum.com.br",
+      ]}
     >
       <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
         <div className="mx-auto w-full max-w-6xl px-3 py-3 md:px-4 md:py-5">
