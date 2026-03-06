@@ -9,7 +9,6 @@ import {
   MdRefresh,
   MdTableBar,
 } from "react-icons/md";
-import { WithPermission } from "@/app/components/WithPermission/WithPermission";
 import RooftopUnifiedStatsHeader from "@/app/components/checkins/RooftopUnifiedStatsHeader";
 import { useEstablishments } from "@/app/hooks/useEstablishments";
 import { useEstablishmentPermissions } from "@/app/hooks/useEstablishmentPermissions";
@@ -421,18 +420,6 @@ export default function RooftopFluxoPage() {
   const canRenderQueue = rooftopEstablishmentId != null;
 
   return (
-    <WithPermission
-      allowedRoles={["admin", "gerente", "hostess", "promoter", "recepção", "recepcao", "atendente"]}
-      allowedEmails={[
-        "recepcao@reservarooftop.com.br",
-        "gerente.maitre@reservarooftop.com.br",
-        "diego.gomes@reservarooftop.com.br",
-        "vbs14@hotmail.com",
-        "reservas@reservarooftop.com.br",
-        "coordenadora.reservas@ideiaum.com.br",
-        "analista.mkt02@ideiaum.com.br",
-      ]}
-    >
       <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
         <div className="mx-auto w-full max-w-6xl px-3 py-3 md:px-4 md:py-5">
           <div className="mb-2 rounded-lg border border-white/20 bg-white/10 p-2 text-white shadow-lg backdrop-blur-sm md:mb-4 md:rounded-xl md:p-4">
@@ -598,6 +585,5 @@ export default function RooftopFluxoPage() {
           )}
         </div>
       </div>
-    </WithPermission>
   );
 }

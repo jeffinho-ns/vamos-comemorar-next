@@ -34,7 +34,8 @@ export function WithPermission({ children, allowedRoles, allowedEmails }: WithPe
     const emailDecoded = userEmail ? (() => { try { return decodeURIComponent(userEmail); } catch { return userEmail; } })() : "";
     const emailNormalized = emailDecoded.trim().toLowerCase();
 
-    const roleAllowed = !!roleDecoded && allowedRoles.includes(roleDecoded);
+    const roleNorm = (roleDecoded || '').toLowerCase().trim();
+    const roleAllowed = !!roleNorm && allowedRoles.some((r) => (r || '').toLowerCase().trim() === roleNorm);
     const emailAllowed =
       !!emailNormalized &&
       Array.isArray(allowedEmails) &&
@@ -47,7 +48,7 @@ export function WithPermission({ children, allowedRoles, allowedEmails }: WithPe
     }
 
     setChecked(true);
-  }, [router, allowedRoles]);
+  }, [router, allowedRoles, allowedEmails]);
 
   if (!checked) return null; // Ou um loading se quiser
 

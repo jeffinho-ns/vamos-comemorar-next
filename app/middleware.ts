@@ -55,13 +55,17 @@ export function middleware(request: NextRequest) {
     'coordenadora.reservas@ideiaum.com.br',
     'analista.mkt02@ideiaum.com.br',
   ]);
-  if (url.startsWith('/admin/checkins/rooftop-fluxo') && userEmail && rooftopFluxoAllowlist.has(userEmail)) {
-    console.log('✅ Acesso liberado por allowlist (rooftop-fluxo):', userEmail);
+  // Liberar rooftop-fluxo: por email na allowlist OU por role de checkins
+  const _roleNorm = (role ? safeDecodeURIComponent(role) : role || '').toLowerCase().trim();
+  const isRooftopPath = url.startsWith('/admin/checkins/rooftop-fluxo');
+  const emailAllowed = !!userEmail && rooftopFluxoAllowlist.has(userEmail);
+  const roleAllowedForCheckins = ['admin', 'gerente', 'recepção', 'recepcao', 'atendente', 'promoter', 'promoter-list'].includes(_roleNorm);
+  if (isRooftopPath && (emailAllowed || roleAllowedForCheckins)) {
     return NextResponse.next();
   }
 
-  const isPromoter = role === 'promoter';
-  const isPromoterList = role === 'promoter-list';
+  const isPromoter = _roleNorm === 'promoter';
+  const isPromoterList = _roleNorm === 'promoter-list';
 
   // promoter-list: redirecionar para /promoter apenas se NÃO estiver acessando /admin (analista.mkt03 acessa /admin)
   if (isPromoterList) {
@@ -108,8 +112,8 @@ export function middleware(request: NextRequest) {
   const allowedRoles = matchedRoute ? routePermissions[matchedRoute] : null;
   
 
-  // Verifica se o papel do usuário tem permissão para acessar a rota
-  const roleAllowed = allowedRoles && allowedRoles.includes(role);
+  // Verifica se o papel do usuário tem permissão (comparação case-insensitive)
+  const roleAllowed = allowedRoles && allowedRoles.some((r) => (r || '').toLowerCase().trim() === _roleNorm);
 
   if (allowedRoles && !roleAllowed) {
     console.log("⛔ Acesso negado. Role:", role, "| URL:", url);

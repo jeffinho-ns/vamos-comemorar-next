@@ -34,6 +34,25 @@ const GERENTES_SEU_JUSTINO_CARDAPIO = [
   'subgerente.sjm@seujustino.com.br',
 ];
 
+// E-mails autorizados a acessar rooftop-fluxo (Reserva Rooftop) - recebem menu de recepção
+const ROOFTOP_FLUXO_EMAILS = new Set([
+  'recepcao@reservarooftop.com.br',
+  'gerente.maitre@reservarooftop.com.br',
+  'diego.gomes@reservarooftop.com.br',
+  'vbs14@hotmail.com',
+  'reservas@reservarooftop.com.br',
+  'coordenadora.reservas@ideiaum.com.br',
+  'analista.mkt02@ideiaum.com.br',
+]);
+const ROOFTOP_FLUXO_LINKS = [
+  { href: "/admin", label: "Dashboard", icon: MdDashboard },
+  { href: "/admin/checkins", label: "Check-ins", icon: MdCheckCircle },
+  { href: "/admin/restaurant-reservations", label: "Sistema de Reservas", icon: MdRestaurant },
+  { href: "/admin/detalhes-operacionais", label: "Detalhes Operacionais do Evento", icon: MdInfo },
+  { href: "/admin/qrcode", label: "Scanner QR Code", icon: MdQrCodeScanner },
+  { href: "/admin/reservas", label: "Reservas", icon: MdEditCalendar },
+];
+
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [userRole, setUserRole] = useState<string>('');
@@ -54,7 +73,17 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         role = localStorage.getItem('role') || '';
       }
       setUserRole(role);
-      const email = typeof window !== 'undefined' ? (localStorage.getItem('userEmail') || '').trim().toLowerCase() : '';
+      let email = '';
+      if (typeof window !== 'undefined') {
+        const emailCookie = cookies.find(cookie => cookie.trim().startsWith('userEmail='));
+        const emailFromCookie = emailCookie ? (emailCookie.split('=').slice(1).join('=') || '').trim() : '';
+        try {
+          email = (emailFromCookie ? decodeURIComponent(emailFromCookie) : '') || localStorage.getItem('userEmail') || '';
+        } catch {
+          email = localStorage.getItem('userEmail') || '';
+        }
+        email = email.trim().toLowerCase();
+      }
       setUserEmail(email);
       setIsLoading(false);
     };
@@ -63,9 +92,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }, []);
 
   const isAnalista = userEmail === ANALISTA_EMAIL;
+  const isRooftopFluxoEmail = userEmail && ROOFTOP_FLUXO_EMAILS.has(userEmail.toLowerCase().trim());
 
   // A lista de links da sua navegação baseada no role e no perfil (analista vs promoter)
   const getNavLinks = () => {
+    // Reserva Rooftop: e-mails autorizados ao rooftop-fluxo (prioridade)
+    if (isRooftopFluxoEmail) {
+      return ROOFTOP_FLUXO_LINKS;
+    }
     // Analista (ex: analista.mkt03) – perfil analista, acesso amplo ao estabelecimento Pracinha (não é promoter)
     if (isAnalista) {
       return [
@@ -161,7 +195,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     if (userRole === 'promoter' || userRole === 'promoter-list') {
       return "Painel Promoter";
     }
-    if (userRole === 'recepção' || userRole === 'recepcao' || userRole === 'atendente') {
+    if (isRooftopFluxoEmail || userRole === 'recepção' || userRole === 'recepcao' || userRole === 'atendente') {
       return "Admin - Recepção";
     }
     if (userRole === 'gerente') {
