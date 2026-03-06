@@ -422,7 +422,7 @@ export default function RooftopFluxoPage() {
 
   return (
     <WithPermission
-      allowedRoles={["admin", "gerente", "hostess", "promoter", "recepção"]}
+      allowedRoles={["admin", "gerente", "hostess", "promoter", "recepção", "recepcao", "atendente"]}
     >
       <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
         <div className="mx-auto w-full max-w-6xl px-3 py-3 md:px-4 md:py-5">

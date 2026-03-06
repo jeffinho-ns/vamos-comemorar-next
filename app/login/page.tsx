@@ -142,7 +142,15 @@ export default function Login() {
           'recepcao@pracinhadoseujustino.com.br',
           'caixasjm@seujustino.com.br',
           'gerente.sjm@seujustino.com.br',
-          'subgerente.sjm@seujustino.com.br'
+          'subgerente.sjm@seujustino.com.br',
+          // Reserva Rooftop - Grupo 1 (só validar) e Grupo 2 (acesso completo)
+          'recepcao@reservarooftop.com.br',
+          'gerente.maitre@reservarooftop.com.br',
+          'diego.gomes@reservarooftop.com.br',
+          'vbs14@hotmail.com',
+          'reservas@reservarooftop.com.br',
+          'coordenadora.reservas@ideiaum.com.br',
+          'analista.mkt02@ideiaum.com.br',
         ];
         
         const userEmail = emailCpf.toLowerCase().trim();
@@ -162,6 +170,9 @@ export default function Login() {
             router.push('/admin');
             break;
           case 'recepção':
+          case 'recepcao':
+          case 'atendente':
+            // Recepção/Atendente acessam o painel admin
             router.push('/admin');
             break;
           case 'promoter':

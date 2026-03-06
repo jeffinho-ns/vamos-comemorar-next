@@ -350,11 +350,12 @@ export default function CheckInsGeralPage() {
       estabelecimentos.length === 1 &&
       estabelecimentos[0] &&
       isReservaRooftopEstablishment(estabelecimentos[0].nome);
-    return role === 'admin' || onlyRooftop;
+    const rooftopRoles = ['admin', 'atendente', 'recepcao', 'recepção'];
+    return rooftopRoles.includes(role) || onlyRooftop;
   }, [estabelecimentos]);
 
   return (
-    <WithPermission allowedRoles={["admin", "gerente", "hostess", "promoter", "recepção"]}>
+    <WithPermission allowedRoles={["admin", "gerente", "hostess", "promoter", "recepção", "recepcao", "atendente"]}>
       <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
         {/* Header */}
         <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white p-6 shadow-lg">
