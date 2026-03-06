@@ -31,6 +31,10 @@ import { getApiUrl } from "@/app/config/api";
 
 const API_URL = getApiUrl();
 const SOCKET_URL =
+  process.env.NEXT_PUBLIC_SOCKET_URL ||
+  process.env.NEXT_PUBLIC_API_URL ||
+  getApiUrl();
+const POLLING_INTERVAL_MS = 3_000;
 
 /** Formata horário de check-in em horário de Brasília (America/Sao_Paulo). */
 function formatCheckinTimeBr(value: string): string {
@@ -44,11 +48,6 @@ function formatCheckinTimeBr(value: string): string {
     timeZone: "America/Sao_Paulo",
   });
 }
-
-  process.env.NEXT_PUBLIC_SOCKET_URL ||
-  process.env.NEXT_PUBLIC_API_URL ||
-  getApiUrl();
-const POLLING_INTERVAL_MS = 3_000;
 
 export default function RooftopFluxoPage() {
   const establishmentPermissions = useEstablishmentPermissions();

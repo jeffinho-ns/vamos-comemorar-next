@@ -153,7 +153,7 @@ export function useUserPermissions() {
         }
 
         // Definir permissões de acesso (promoter e promoter-list para analista.mkt03 - Pracinha; gerentes SJM para cardápio)
-        const isAnalistaPracinha = userEmail && userEmail.toLowerCase() === 'analista.mkt03@ideiaum.com.br';
+        const isAnalistaPracinha = !!(userEmail && userEmail.toLowerCase() === 'analista.mkt03@ideiaum.com.br');
         const canAccessAdmin = isAdmin || role === 'promoter' || role === 'promoter-list' || isAnalistaPracinha;
         const canAccessCardapio = isAdmin || role === 'promoter' || role === 'promoter-list' || isGerenteSeuJustinoCardapio || isAnalistaPracinha;
 
