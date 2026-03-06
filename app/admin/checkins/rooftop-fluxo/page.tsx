@@ -72,18 +72,33 @@ export default function RooftopFluxoPage() {
 
   const rooftopEstablishment = useMemo(() => {
     if (establishmentPermissions.isLoading) return null;
+
+    const ROOFTOP_ESTABLISHMENT_ID = 9;
+    const hasRooftopPermission =
+      establishmentPermissions.userConfig?.establishmentIds?.includes(
+        ROOFTOP_ESTABLISHMENT_ID,
+      ) ||
+      establishmentPermissions.permissions?.some(
+        (p) =>
+          p.is_active && p.establishment_id === ROOFTOP_ESTABLISHMENT_ID,
+      );
+
     const normalized = establishments
       .map((est) => ({ id: Number(est.id), name: est.name || "" }))
       .filter((est) => Number.isFinite(est.id));
 
     const allowed = establishmentPermissions.getFilteredEstablishments(normalized);
-    return (
-      allowed.find((est) => isReservaRooftopEstablishment(est.name)) || null
+    const found = allowed.find((est) =>
+      isReservaRooftopEstablishment(est.name),
     );
-  }, [
-    establishments,
-    establishmentPermissions,
-  ]);
+
+    if (found) return found;
+
+    if (hasRooftopPermission) {
+      return { id: ROOFTOP_ESTABLISHMENT_ID, name: "Reserva Rooftop" };
+    }
+    return null;
+  }, [establishments, establishmentPermissions]);
 
   useEffect(() => {
     if (!rooftopEstablishment) {

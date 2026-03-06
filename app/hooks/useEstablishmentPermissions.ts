@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { getApiUrl } from '../config/api';
 
 export interface EstablishmentPermission {
   establishmentId: number;
@@ -68,7 +69,7 @@ export function useEstablishmentPermissions() {
         }
 
         // Buscar permissões do backend
-        const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://vamos-comemorar-api.onrender.com';
+        const API_URL = getApiUrl();
         const response = await fetch(`${API_URL}/api/establishment-permissions/my-permissions`, {
           headers: {
             'Authorization': `Bearer ${token}`,
