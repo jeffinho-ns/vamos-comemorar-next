@@ -2572,14 +2572,26 @@ export default function EventoCheckInsPage() {
         if (!override) setConvidadoParaCheckIn(null);
         // Não recarregar - atualização otimista já foi feita acima
       } else {
-        const errorData = await response.json();
-        toast.error(
-          `❌ ${errorData.message || errorData.error || "Erro ao fazer check-in"}`,
-          {
+        const errorData = await response.json().catch(() => ({}));
+        const errMsg = String(errorData.message || errorData.error || "").toLowerCase();
+        const jaFezCheckin = errMsg.includes("já fez check-in") || errMsg.includes("ja fez check-in");
+        if (response.status === 400 && jaFezCheckin) {
+          toast.success("Check-in já estava confirmado.", {
             position: "top-center",
-            autoClose: 4000,
-          },
-        );
+            autoClose: 2000,
+          });
+          setEntradaModalOpen(false);
+          setConvidadoParaCheckIn(null);
+          loadCheckInData();
+        } else {
+          toast.error(
+            `❌ ${errorData.message || errorData.error || "Erro ao fazer check-in"}`,
+            {
+              position: "top-center",
+              autoClose: 4000,
+            },
+          );
+        }
       }
     } catch (error) {
       console.error("Erro:", error);
@@ -3518,12 +3530,14 @@ export default function EventoCheckInsPage() {
       reservations: reservasRestaurante,
       guestLists: guestListsRestaurante,
       dateKey: eventDateKey,
+      guestsByList: guestsByList as Record<number, { id: number; checked_in?: boolean; checkin_time?: string | null }[]>,
     });
   }, [
     isReservaRooftopEvent,
     eventDateKey,
     reservasRestaurante,
     guestListsRestaurante,
+    guestsByList,
   ]);
 
   // Normalizador para comparação de nomes de estabelecimentos

@@ -390,8 +390,9 @@ export default function RooftopFluxoPage() {
         reservations,
         guestLists,
         dateKey: todayDateKey,
+        guestsByList,
       }),
-    [reservations, guestLists, todayDateKey],
+    [reservations, guestLists, todayDateKey, guestsByList],
   );
 
   const queueItems = useMemo(

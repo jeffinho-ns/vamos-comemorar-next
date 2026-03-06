@@ -253,10 +253,11 @@ const parseIntSafe = (value: unknown): number => {
 
 type RooftopGiroKey = "first" | "intermediate" | "second";
 
+const TIMEZONE_SAO_PAULO = "America/Sao_Paulo";
+
 /**
  * Converte valor de tempo em "minutos desde meia-noite" para classificação no giro.
- * - Se for ISO timestamp (ex: 2025-03-05T19:30:00.000Z): usa hora LOCAL do dispositivo
- *   (recepção), pois o backend grava em UTC e o giro deve refletir o horário real do check-in.
+ * - Se for ISO timestamp: usa horário de São Paulo (America/Sao_Paulo) para consistência.
  * - Se for só "HH:MM": usa o valor literal (ex.: reservation_time).
  */
 const parseTimeToMinutes = (value?: string | null): number | null => {
@@ -270,7 +271,16 @@ const parseTimeToMinutes = (value?: string | null): number | null => {
   if (looksLikeIso) {
     const d = new Date(raw);
     if (Number.isNaN(d.getTime())) return null;
-    return d.getHours() * 60 + d.getMinutes();
+    const str = d.toLocaleTimeString("pt-BR", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+      timeZone: TIMEZONE_SAO_PAULO,
+    });
+    const parts = str.split(":");
+    const hours = Number(parts[0] ?? 0);
+    const minutes = Number(parts[1] ?? 0);
+    return hours * 60 + minutes;
   }
 
   const timePart = raw.slice(0, 5);
@@ -301,8 +311,10 @@ export const computeRooftopUnifiedMetrics = (params: {
   reservations: RooftopReservationLike[];
   guestLists: RooftopGuestListLike[];
   dateKey: string;
+  /** Convidados por lista: usado para obter o checkin_time mais antigo quando owner não fez check-in */
+  guestsByList?: Record<number, RooftopGuestLike[]>;
 }): RooftopUnifiedMetrics => {
-  const { reservations, guestLists, dateKey } = params;
+  const { reservations, guestLists, dateKey, guestsByList } = params;
   const reservationsToday = reservations.filter((r) =>
     isSameDateKey(r.reservation_date, dateKey),
   );
@@ -413,11 +425,23 @@ export const computeRooftopUnifiedMetrics = (params: {
       addToAreaCount(giroExpectedMaps[expectedBucket], subarea, peopleExpected);
     }
 
-    // Giro (Realizado): baseado no horario de check-in do dono (ou da reserva)
-    const presentTime =
+    // Giro (Realizado): horário do dono, da reserva ou do convidado mais antigo (se dono não fez check-in)
+    let presentTime: string | null =
       (gl.owner_checkin_time as string | undefined | null) ??
       (reservation?.checkin_time as string | undefined | null) ??
       null;
+    if (!presentTime && peoplePresent > 0 && guestsByList) {
+      const guests = guestsByList[gl.guest_list_id] || [];
+      const checkedInGuests = guests.filter((g) => toBoolean(g.checked_in) && g.checkin_time);
+      if (checkedInGuests.length > 0) {
+        const earliest = checkedInGuests.reduce((a, b) => {
+          const ta = (a.checkin_time || "") as string;
+          const tb = (b.checkin_time || "") as string;
+          return !tb || (ta && ta < tb) ? a : b;
+        });
+        presentTime = (earliest.checkin_time as string) || null;
+      }
+    }
     const presentMinutes = parseTimeToMinutes(presentTime);
     const presentBucket = getGiroBucketFromMinutes(presentMinutes);
     if (presentBucket && peoplePresent > 0) {
