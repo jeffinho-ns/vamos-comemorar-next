@@ -14,12 +14,16 @@ export function WithPermission({ children, allowedRoles }: WithPermissionProps) 
   const [checked, setChecked] = useState(false);
 
   useEffect(() => {
-    const role = document.cookie
+    let role = document.cookie
       .split("; ")
       .find((row) => row.startsWith("role="))
       ?.split("=")[1];
+    if (!role && typeof window !== "undefined") {
+      role = localStorage.getItem("role") || "";
+    }
+    const roleDecoded = role ? (() => { try { return decodeURIComponent(role); } catch { return role; } })() : "";
 
-    if (role && allowedRoles.includes(role)) {
+    if (roleDecoded && allowedRoles.includes(roleDecoded)) {
       setIsAuthorized(true);
     } else {
       router.replace("/acesso-negado");

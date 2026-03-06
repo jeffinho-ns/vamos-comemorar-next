@@ -93,8 +93,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         { href: "/admin/qrcode", label: "Scanner QR Code", icon: MdQrCodeScanner },
         { href: "/admin/checkins", label: "Check-ins", icon: MdCheckCircle },
       ];
-    } else if (userRole === 'recepção') {
-      // Recepção (recepcionista) - acesso restrito aos estabelecimentos configurados
+    } else if (userRole === 'recepção' || userRole === 'recepcao' || userRole === 'atendente') {
+      // Recepção/Atendente - acesso restrito aos estabelecimentos configurados (inclui Reserva Rooftop)
       return [
         { href: "/admin", label: "Dashboard", icon: MdDashboard },
         { href: "/admin/checkins", label: "Check-ins", icon: MdCheckCircle },
@@ -161,7 +161,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     if (userRole === 'promoter' || userRole === 'promoter-list') {
       return "Painel Promoter";
     }
-    if (userRole === 'recepção') {
+    if (userRole === 'recepção' || userRole === 'recepcao' || userRole === 'atendente') {
       return "Admin - Recepção";
     }
     if (userRole === 'gerente') {
@@ -217,7 +217,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               userRole === 'admin' ? 'bg-blue-500' : 
               (userRole === 'promoter' || userRole === 'promoter-list') ? 'bg-green-500' :
               userRole === 'gerente' ? 'bg-yellow-500' :
-              userRole === 'recepção' ? 'bg-purple-500' : 'bg-gray-500'
+              (userRole === 'recepção' || userRole === 'recepcao' || userRole === 'atendente') ? 'bg-purple-500' : 'bg-gray-500'
             }`}></div>
             <span className="text-sm text-gray-300 capitalize">{isAnalista ? 'Analista' : userRole}</span>
           </div>
