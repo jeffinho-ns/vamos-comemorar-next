@@ -253,20 +253,32 @@ const parseIntSafe = (value: unknown): number => {
 
 type RooftopGiroKey = "first" | "intermediate" | "second";
 
+/**
+ * Converte valor de tempo em "minutos desde meia-noite" para classificação no giro.
+ * - Se for ISO timestamp (ex: 2025-03-05T19:30:00.000Z): usa hora LOCAL do dispositivo
+ *   (recepção), pois o backend grava em UTC e o giro deve refletir o horário real do check-in.
+ * - Se for só "HH:MM": usa o valor literal (ex.: reservation_time).
+ */
 const parseTimeToMinutes = (value?: string | null): number | null => {
   if (!value) return null;
   const raw = String(value).trim();
   if (!raw) return null;
 
-  // Tenta extrair no formato HH:MM a partir do início da string
+  const tIndex = raw.indexOf("T");
+  const looksLikeIso = tIndex >= 0 || /^\d{4}-\d{2}-\d{2}/.test(raw);
+
+  if (looksLikeIso) {
+    const d = new Date(raw);
+    if (Number.isNaN(d.getTime())) return null;
+    return d.getHours() * 60 + d.getMinutes();
+  }
+
   const timePart = raw.slice(0, 5);
   if (!/^\d{2}:\d{2}$/.test(timePart)) return null;
-
   const [hh, mm] = timePart.split(":");
   const hours = Number(hh);
   const minutes = Number(mm);
   if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return null;
-
   return hours * 60 + minutes;
 };
 

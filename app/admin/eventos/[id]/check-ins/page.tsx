@@ -2235,6 +2235,11 @@ export default function EventoCheckInsPage() {
     calcularArrecadacao,
   ]);
 
+  // Ref para check-in direto (Reserva Rooftop) sem depender da ordem de declaração
+  const confirmarCheckInRef = useRef<
+    ((tipo: EntradaTipo, valor: number, override?: typeof convidadoParaCheckIn) => Promise<void>) | null
+  >(null);
+
   // Funções de check-in - Abre modal primeiro (memoizadas para evitar re-renderizações)
   const handleConvidadoReservaCheckIn = useCallback(
     (convidado: ConvidadoReserva) => {
@@ -2242,17 +2247,25 @@ export default function EventoCheckInsPage() {
       if (checkInInProgressRef.current[key]) return;
 
       checkInInProgressRef.current[key] = true;
-      setConvidadoParaCheckIn({
-        tipo: "reserva",
+      const payload = {
+        tipo: "reserva" as const,
         id: convidado.id,
         nome: convidado.nome,
-      });
-      setEntradaModalOpen(true);
+      };
+      const isRooftop =
+        evento?.establishment_id === 9 ||
+        isReservaRooftopEstablishment(evento?.establishment_name);
+      if (isRooftop && confirmarCheckInRef.current) {
+        confirmarCheckInRef.current("CONSUMA", 0, payload);
+      } else {
+        setConvidadoParaCheckIn(payload);
+        setEntradaModalOpen(true);
+      }
       setTimeout(() => {
         checkInInProgressRef.current[key] = false;
       }, 500);
     },
-    [],
+    [evento?.establishment_id, evento?.establishment_name],
   );
 
   const handleConvidadoPromoterCheckIn = useCallback(
@@ -2267,29 +2280,43 @@ export default function EventoCheckInsPage() {
       const isVipNoiteTuda =
         isVipNoiteTudaFromResult ?? (vipRaw === "M" || vipRaw === "F");
 
-      setConvidadoParaCheckIn({
-        tipo: "promoter",
+      const payload = {
+        tipo: "promoter" as const,
         id: convidado.id,
         nome: convidado.nome,
         vipNoiteTuda: isVipNoiteTuda,
-      });
-      setEntradaModalOpen(true);
+      };
+      const isRooftop =
+        evento?.establishment_id === 9 ||
+        isReservaRooftopEstablishment(evento?.establishment_name);
+      if (isRooftop && confirmarCheckInRef.current) {
+        confirmarCheckInRef.current("CONSUMA", 0, payload);
+      } else {
+        setConvidadoParaCheckIn(payload);
+        setEntradaModalOpen(true);
+      }
       setTimeout(() => {
         checkInInProgressRef.current[key] = false;
       }, 500);
     },
-    [],
+    [evento?.establishment_id, evento?.establishment_name],
   );
 
-  // Função que realmente faz o check-in após seleção do status
-  const handleConfirmarCheckIn = async (tipo: EntradaTipo, valor: number) => {
-    if (!convidadoParaCheckIn) return;
+  // Função que realmente faz o check-in após seleção do status.
+  // Para Reserva Rooftop pode ser chamada com override (sem abrir modal).
+  const handleConfirmarCheckIn = async (
+    tipo: EntradaTipo,
+    valor: number,
+    override?: typeof convidadoParaCheckIn,
+  ) => {
+    const data = override ?? convidadoParaCheckIn;
+    if (!data) return;
 
     try {
       const token = localStorage.getItem("authToken");
       let response;
 
-      if (convidadoParaCheckIn.tipo === "reserva") {
+      if (data.tipo === "reserva") {
         // Check-in de convidado de reserva
         response = await fetch(`${API_URL}/api/checkin`, {
           method: "POST",
@@ -2298,16 +2325,16 @@ export default function EventoCheckInsPage() {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            convidadoId: convidadoParaCheckIn.id,
+            convidadoId: data.id,
             eventId: eventoId,
             entrada_tipo: tipo,
             entrada_valor: valor,
           }),
         });
-      } else if (convidadoParaCheckIn.tipo === "guest_list") {
+      } else if (data.tipo === "guest_list") {
         // Check-in de convidado de guest list (reservas de restaurante)
         response = await fetch(
-          `${API_URL}/api/admin/guests/${convidadoParaCheckIn.id}/checkin`,
+          `${API_URL}/api/admin/guests/${data.id}/checkin`,
           {
             method: "POST",
             headers: {
@@ -2321,12 +2348,12 @@ export default function EventoCheckInsPage() {
           },
         );
       } else if (
-        convidadoParaCheckIn.tipo === "restaurante" &&
-        convidadoParaCheckIn.reservationId
+        data.tipo === "restaurante" &&
+        data.reservationId
       ) {
         // Check-in de reserva de restaurante sem guest list
         response = await fetch(
-          `${API_URL}/api/restaurant-reservations/${convidadoParaCheckIn.reservationId}/checkin`,
+          `${API_URL}/api/restaurant-reservations/${data.reservationId}/checkin`,
           {
             method: "POST",
             headers: {
@@ -2340,7 +2367,7 @@ export default function EventoCheckInsPage() {
         if (response.ok) {
           setReservasRestaurante((prev) =>
             prev.map((r) =>
-              r.id === convidadoParaCheckIn.reservationId
+              r.id === data.reservationId
                 ? {
                     ...r,
                     checked_in: true,
@@ -2353,7 +2380,7 @@ export default function EventoCheckInsPage() {
       } else {
         // Check-in de convidado de promoter
         response = await fetch(
-          `${API_URL}/api/v1/eventos/checkin/${convidadoParaCheckIn.id}`,
+          `${API_URL}/api/v1/eventos/checkin/${data.id}`,
           {
             method: "PUT",
             headers: {
@@ -2371,7 +2398,7 @@ export default function EventoCheckInsPage() {
 
       if (response.ok) {
         const tipoTexto =
-          convidadoParaCheckIn.tipo === "restaurante"
+          data.tipo === "restaurante"
             ? "Check-in confirmado"
             : tipo === "VIP"
               ? "VIP (grátis)"
@@ -2379,7 +2406,7 @@ export default function EventoCheckInsPage() {
                 ? `SECO (R$ ${valor.toFixed(2)})`
                 : `CONSUMA (R$ ${valor.toFixed(2)})`;
         toast.success(
-          `✅ Check-in de ${convidadoParaCheckIn.nome} confirmado! ${convidadoParaCheckIn.tipo !== "restaurante" ? `Status: ${tipoTexto}` : ""}`,
+          `✅ Check-in de ${data.nome} confirmado! ${data.tipo !== "restaurante" ? `Status: ${tipoTexto}` : ""}`,
           {
             position: "top-center",
             autoClose: 3000,
@@ -2389,12 +2416,12 @@ export default function EventoCheckInsPage() {
 
         // Atualizar estado local para reservas sem guest list
         if (
-          convidadoParaCheckIn.tipo === "restaurante" &&
-          convidadoParaCheckIn.reservationId
+          data.tipo === "restaurante" &&
+          data.reservationId
         ) {
           setReservasRestaurante((prev) =>
             prev.map((r) =>
-              r.id === convidadoParaCheckIn.reservationId
+              r.id === data.reservationId
                 ? {
                     ...r,
                     checked_in: true,
@@ -2408,20 +2435,23 @@ export default function EventoCheckInsPage() {
 
         // Se for guest list, atualizar o estado local também
         if (
-          convidadoParaCheckIn.tipo === "guest_list" &&
-          convidadoParaCheckIn.guestListId
+          data.tipo === "guest_list" &&
+          data.guestListId
         ) {
           const responseData = await response.json();
+          const savedCheckinTime =
+            (responseData.guest?.checkin_time as string | undefined) ||
+            new Date().toISOString();
           setGuestsByList((prev) => ({
             ...prev,
-            [convidadoParaCheckIn.guestListId!]: (
-              prev[convidadoParaCheckIn.guestListId!] || []
+            [data.guestListId!]: (
+              prev[data.guestListId!] || []
             ).map((g) =>
-              g.id === convidadoParaCheckIn.id
+              g.id === data.id
                 ? {
                     ...g,
                     checked_in: true,
-                    checkin_time: new Date().toISOString(),
+                    checkin_time: savedCheckinTime,
                     entrada_tipo: tipo,
                     entrada_valor: valor,
                   }
@@ -2431,24 +2461,74 @@ export default function EventoCheckInsPage() {
 
           // Atualizar contador de check-ins
           setCheckInStatus((prev) => {
-            const current = prev[convidadoParaCheckIn.guestListId!] || {
+            const current = prev[data.guestListId!] || {
               ownerCheckedIn: false,
               guestsCheckedIn: 0,
               totalGuests: 0,
             };
             return {
               ...prev,
-              [convidadoParaCheckIn.guestListId!]: {
+              [data.guestListId!]: {
                 ...current,
                 guestsCheckedIn: current.guestsCheckedIn + 1,
               },
             };
           });
 
+          // Se o convidado tem o mesmo nome do dono, marcar também o dono como check-in (evitar duplicidade)
+          const normalizeNameForCompare = (s: string) =>
+            (s || "")
+              .trim()
+              .toLowerCase()
+              .normalize("NFD")
+              .replace(/\p{Diacritic}/gu, "");
+          const guestListForOwner = guestListsRestaurante.find(
+            (gl) => gl.guest_list_id === data.guestListId,
+          );
+          if (
+            guestListForOwner &&
+            !guestListForOwner.owner_checked_in &&
+            normalizeNameForCompare(guestListForOwner.owner_name || "") ===
+              normalizeNameForCompare(data.nome || "")
+          ) {
+            try {
+              const ownerRes = await fetch(
+                `${API_URL}/api/admin/guest-lists/${data.guestListId}/owner-checkin`,
+                {
+                  method: "POST",
+                  headers: { Authorization: `Bearer ${token}` },
+                },
+              );
+              if (ownerRes.ok) {
+                const now = new Date().toISOString();
+                setCheckInStatus((prev) => ({
+                  ...prev,
+                  [data.guestListId!]: {
+                    ...prev[data.guestListId!],
+                    ownerCheckedIn: true,
+                  },
+                }));
+                setOwnerCheckInTimeMap((prev) => ({
+                  ...prev,
+                  [data.guestListId!]: now,
+                }));
+                setGuestListsRestaurante((prev) =>
+                  prev.map((gl) =>
+                    gl.guest_list_id === data.guestListId
+                      ? { ...gl, owner_checked_in: 1, owner_checkin_time: now }
+                      : gl,
+                  ),
+                );
+              }
+            } catch (_) {
+              // Ignorar falha do owner-checkin
+            }
+          }
+
           // Recarregar brindes para verificar se algum foi liberado
           try {
             const token = localStorage.getItem("authToken");
-            const guestListId = convidadoParaCheckIn.guestListId!;
+            const guestListId = data.guestListId!;
             const previousGifts = giftsByGuestList[guestListId] || [];
 
             const giftsRes = await fetch(
@@ -2489,7 +2569,7 @@ export default function EventoCheckInsPage() {
           }
         }
 
-        setConvidadoParaCheckIn(null);
+        if (!override) setConvidadoParaCheckIn(null);
         // Não recarregar - atualização otimista já foi feita acima
       } else {
         const errorData = await response.json();
@@ -2509,12 +2589,16 @@ export default function EventoCheckInsPage() {
       });
     } finally {
       // Limpar flag de progresso
-      if (convidadoParaCheckIn) {
-        const key = `${convidadoParaCheckIn.tipo}-${convidadoParaCheckIn.id}`;
+      if (data) {
+        const key = `${data.tipo}-${data.id}`;
         checkInInProgressRef.current[key] = false;
       }
     }
   };
+
+  useEffect(() => {
+    confirmarCheckInRef.current = handleConfirmarCheckIn;
+  });
 
   const handleCamaroteCheckIn = useCallback(
     async (camarote: Camarote, e?: React.MouseEvent) => {
@@ -2887,22 +2971,85 @@ export default function EventoCheckInsPage() {
         );
 
         if (response.ok) {
-          const now = new Date().toISOString();
-          // Atualização otimista - atualizar estado local imediatamente
+          const data = await response.json();
+          const savedTime =
+            (data.guestList?.owner_checkin_time as string | undefined) ||
+            new Date().toISOString();
           setCheckInStatus((prev) => ({
             ...prev,
             [guestListId]: { ...prev[guestListId], ownerCheckedIn: true },
           }));
-          setOwnerCheckInTimeMap((prev) => ({ ...prev, [guestListId]: now }));
+          setOwnerCheckInTimeMap((prev) => ({ ...prev, [guestListId]: savedTime }));
 
-          // Atualizar também a lista de guestListsRestaurante
           setGuestListsRestaurante((prev) =>
             prev.map((gl) =>
               gl.guest_list_id === guestListId
-                ? { ...gl, owner_checked_in: 1, owner_checkin_time: now }
+                ? { ...gl, owner_checked_in: 1, owner_checkin_time: savedTime }
                 : gl,
             ),
           );
+
+          // Se o dono também está na lista de convidados (mesmo nome), fazer check-in dele como convidado para evitar duplicidade
+          const normalizeForCompare = (s: string) =>
+            (s || "")
+              .trim()
+              .toLowerCase()
+              .normalize("NFD")
+              .replace(/\p{Diacritic}/gu, "");
+          const ownerNorm = normalizeForCompare(ownerName);
+          const guests = guestsByList[guestListId] || [];
+          const guestSameName = guests.find(
+            (g) => !g.checked_in && normalizeForCompare(g.name || "") === ownerNorm,
+          );
+          if (guestSameName) {
+            try {
+              const guestRes = await fetch(
+                `${API_URL}/api/admin/guests/${guestSameName.id}/checkin`,
+                {
+                  method: "POST",
+                  headers: {
+                    Authorization: `Bearer ${token}`,
+                    "Content-Type": "application/json",
+                  },
+                  body: JSON.stringify({
+                    entrada_tipo: "CONSUMA",
+                    entrada_valor: 0,
+                  }),
+                },
+              );
+              if (guestRes.ok) {
+                setGuestsByList((prev) => ({
+                  ...prev,
+                  [guestListId]: (prev[guestListId] || []).map((g) =>
+                    g.id === guestSameName.id
+                      ? {
+                          ...g,
+                          checked_in: true,
+                          checkin_time: new Date().toISOString(),
+                        }
+                      : g,
+                  ),
+                }));
+                setCheckInStatus((prev) => {
+                  const cur = prev[guestListId] || {
+                    ownerCheckedIn: true,
+                    guestsCheckedIn: 0,
+                    totalGuests: 0,
+                  };
+                  return {
+                    ...prev,
+                    [guestListId]: {
+                      ...cur,
+                      ownerCheckedIn: true,
+                      guestsCheckedIn: cur.guestsCheckedIn + 1,
+                    },
+                  };
+                });
+              }
+            } catch (_) {
+              // Ignorar falha do check-in do convidado com mesmo nome
+            }
+          }
 
           toast.success(`✅ Check-in de ${ownerName} confirmado!`, {
             position: "top-center",
@@ -2925,7 +3072,7 @@ export default function EventoCheckInsPage() {
         checkInInProgressRef.current[key] = false;
       }
     },
-    [],
+    [guestsByList],
   );
 
   // Função para fazer check-out do dono
@@ -3107,20 +3254,27 @@ export default function EventoCheckInsPage() {
       if (checkInInProgressRef.current[key]) return;
       checkInInProgressRef.current[key] = true;
 
-      // Abre o modal ao invés de fazer check-in direto
-      setConvidadoParaCheckIn({
-        tipo: "guest_list",
+      const payload = {
+        tipo: "guest_list" as const,
         id: guestId,
         nome: guestName,
         guestListId: guestListId,
-      });
-      setEntradaModalOpen(true);
+      };
+      const isRooftop =
+        evento?.establishment_id === 9 ||
+        isReservaRooftopEstablishment(evento?.establishment_name);
+      if (isRooftop && confirmarCheckInRef.current) {
+        confirmarCheckInRef.current("CONSUMA", 0, payload);
+      } else {
+        setConvidadoParaCheckIn(payload);
+        setEntradaModalOpen(true);
+      }
 
       setTimeout(() => {
         checkInInProgressRef.current[key] = false;
       }, 500);
     },
-    [],
+    [evento?.establishment_id, evento?.establishment_name],
   );
 
   // Função para fazer check-out de um convidado de guest list
@@ -3304,6 +3458,74 @@ export default function EventoCheckInsPage() {
     [searchTermLower],
   );
 
+  const isReservaRooftopEvent = useMemo(
+    () =>
+      evento?.establishment_id === 9 ||
+      isReservaRooftopEstablishment(evento?.establishment_name),
+    [evento?.establishment_id, evento?.establishment_name],
+  );
+
+  const eventDateKey = useMemo(() => {
+    const raw = evento?.data_evento || "";
+    const part = raw.split("T")[0]?.split(" ")[0] || "";
+    return toDateKey(part) || "";
+  }, [evento?.data_evento]);
+
+  // Para Reserva Rooftop o backend retorna vários dias; exibimos apenas o dia do evento.
+  const displayGuestListsRestaurante = useMemo(() => {
+    if (!isReservaRooftopEvent || !eventDateKey) return guestListsRestaurante;
+    return guestListsRestaurante.filter(
+      (gl) => toDateKey(gl.reservation_date) === eventDateKey,
+    );
+  }, [isReservaRooftopEvent, eventDateKey, guestListsRestaurante]);
+
+  const displayReservasRestaurante = useMemo(() => {
+    if (!isReservaRooftopEvent || !eventDateKey) return reservasRestaurante;
+    return reservasRestaurante.filter(
+      (r) => toDateKey(r.reservation_date) === eventDateKey,
+    );
+  }, [isReservaRooftopEvent, eventDateKey, reservasRestaurante]);
+
+  const displayConvidadosReservasRestaurante = useMemo(() => {
+    if (!isReservaRooftopEvent || !eventDateKey) return convidadosReservasRestaurante;
+    const reservaIds = new Set(displayReservasRestaurante.map((r) => r.id));
+    return convidadosReservasRestaurante.filter((c) =>
+      reservaIds.has(Number(c.reserva_id)),
+    );
+  }, [
+    isReservaRooftopEvent,
+    eventDateKey,
+    displayReservasRestaurante,
+    convidadosReservasRestaurante,
+  ]);
+
+  const rooftopMetricsEventDay = useMemo(() => {
+    if (!isReservaRooftopEvent || !eventDateKey) {
+      return {
+        areasBreakdown: [],
+        areaPeopleTotal: 0,
+        reservationsCheckedIn: 0,
+        reservationsTotal: 0,
+        totalPeopleExpected: 0,
+        giroMetrics: {
+          first: { areas: [], totalExpected: 0, totalPresent: 0 },
+          intermediate: { areas: [], totalExpected: 0, totalPresent: 0 },
+          second: { areas: [], totalExpected: 0, totalPresent: 0 },
+        },
+      };
+    }
+    return computeRooftopUnifiedMetrics({
+      reservations: reservasRestaurante,
+      guestLists: guestListsRestaurante,
+      dateKey: eventDateKey,
+    });
+  }, [
+    isReservaRooftopEvent,
+    eventDateKey,
+    reservasRestaurante,
+    guestListsRestaurante,
+  ]);
+
   // Normalizador para comparação de nomes de estabelecimentos
   const normalizeName = (name: string): string => {
     if (!name) return "";
@@ -3380,13 +3602,13 @@ export default function EventoCheckInsPage() {
 
   const filteredConvidadosReservasRestaurante = useMemo(() => {
     if (!debouncedSearchTerm.trim()) {
-      const sorted = [...convidadosReservasRestaurante].sort((a, b) =>
+      const sorted = [...displayConvidadosReservasRestaurante].sort((a, b) =>
         cachedStringCompare(a.nome || "", b.nome || ""),
       );
       return sorted;
     }
 
-    const filtered = convidadosReservasRestaurante.filter(
+    const filtered = displayConvidadosReservasRestaurante.filter(
       (c) =>
         filterBySearch(c.nome) ||
         filterBySearch(c.telefone || "") ||
@@ -3399,7 +3621,7 @@ export default function EventoCheckInsPage() {
       cachedStringCompare(a.nome || "", b.nome || ""),
     );
   }, [
-    convidadosReservasRestaurante,
+    displayConvidadosReservasRestaurante,
     debouncedSearchTerm,
     filterBySearch,
     cachedStringCompare,
@@ -3528,12 +3750,14 @@ export default function EventoCheckInsPage() {
 
     // Adicionar convidados de guest lists (listas de aniversário)
     Object.entries(guestsByList).forEach(([listId, guests]) => {
+      const guestListForDay = displayGuestListsRestaurante.find(
+        (gl) => gl.guest_list_id === Number(listId),
+      );
+      if (!guestListForDay) return; // só exibir convidados de listas do dia do evento (Reserva Rooftop)
       if (!searchTerm.trim()) {
         // Se não há busca, adiciona todos
         guests.forEach((g) => {
-          const guestList = guestListsRestaurante.find(
-            (gl) => gl.guest_list_id === Number(listId),
-          );
+          const guestList = guestListForDay;
           resultados.push({
             tipo: "guest_list",
             id: g.id,
@@ -3562,11 +3786,7 @@ export default function EventoCheckInsPage() {
           const whatsapp = (g.whatsapp || "").toLowerCase();
 
           if (nome.includes(searchLower) || whatsapp.includes(searchLower)) {
-            // Encontrar a guest list correspondente
-            const guestList = guestListsRestaurante.find(
-              (gl) => gl.guest_list_id === Number(listId),
-            );
-
+            const guestList = guestListForDay;
             resultados.push({
               tipo: "guest_list",
               id: g.id,
@@ -3594,7 +3814,7 @@ export default function EventoCheckInsPage() {
     // Adicionar reservas de restaurante sem guest list (reservas simples)
     const searchLower = debouncedSearchTerm.toLowerCase();
     // Buscar reservas sem guest list (guest_list_id é null ou undefined)
-    reservasRestaurante.forEach((r) => {
+    displayReservasRestaurante.forEach((r) => {
       // Verificar se esta reserva não tem guest list associada
       // guest_list_id será null/undefined para reservas sem guest list
       const hasGuestList = r.guest_list_id != null; // Usar != para verificar null e undefined
@@ -3661,8 +3881,8 @@ export default function EventoCheckInsPage() {
     filteredConvidadosPromoters,
     filteredConvidadosReservasRestaurante,
     guestsByList,
-    guestListsRestaurante,
-    reservasRestaurante,
+    displayGuestListsRestaurante,
+    displayReservasRestaurante,
     cachedStringCompare,
   ]);
 
@@ -3804,7 +4024,7 @@ export default function EventoCheckInsPage() {
     };
 
     // Owners (guest lists)
-    for (const gl of guestListsRestaurante) {
+    for (const gl of displayGuestListsRestaurante) {
       const ownerName = (gl.owner_name || "").toLowerCase();
       if (!ownerName.includes(searchLower)) continue;
 
@@ -3938,7 +4158,7 @@ export default function EventoCheckInsPage() {
     // Guests (guest lists)
     for (const [listIdStr, guests] of Object.entries(guestsByList)) {
       const listId = Number(listIdStr);
-      const gl = guestListsRestaurante.find((g) => {
+      const gl = displayGuestListsRestaurante.find((g) => {
         const gid = g.guest_list_id ?? (g as any).id;
         return gid != null && Number(gid) === listId;
       });
@@ -4017,7 +4237,7 @@ export default function EventoCheckInsPage() {
     }
 
     // Reservas restaurante sem guest list
-    for (const r of reservasRestaurante) {
+    for (const r of displayReservasRestaurante) {
       if (r.guest_list_id != null) continue;
       const nome = (
         r.responsavel ||
@@ -4160,9 +4380,9 @@ export default function EventoCheckInsPage() {
     return results.sort((a, b) => cachedStringCompare(a.name, b.name));
   }, [
     debouncedSearchTerm,
-    guestListsRestaurante,
+    displayGuestListsRestaurante,
     guestsByList,
-    reservasRestaurante,
+    displayReservasRestaurante,
     reservasAdicionaisAPI,
     promoters,
     convidadosPromoters,
@@ -4177,11 +4397,11 @@ export default function EventoCheckInsPage() {
 
   // Ordenar listas e convidados alfabeticamente (otimizado)
   const sortedGuestListsRestaurante = useMemo(() => {
-    const sorted = [...guestListsRestaurante].sort((a, b) =>
+    const sorted = [...displayGuestListsRestaurante].sort((a, b) =>
       cachedStringCompare(a.owner_name || "", b.owner_name || ""),
     );
     console.log("🔍 [DEBUG] sortedGuestListsRestaurante:", {
-      guestListsRestauranteLength: guestListsRestaurante.length,
+      guestListsRestauranteLength: displayGuestListsRestaurante.length,
       sortedLength: sorted.length,
       selectedTab,
       searchTerm: searchTerm.trim(),
@@ -4191,14 +4411,14 @@ export default function EventoCheckInsPage() {
       firstItem: sorted[0] || null,
     });
     return sorted;
-  }, [guestListsRestaurante, cachedStringCompare, selectedTab, searchTerm]);
+  }, [displayGuestListsRestaurante, cachedStringCompare, selectedTab, searchTerm]);
 
   // Reservas sem guest list (ex.: 2 pessoas) — exibidas na mesma seção para check-in
   const reservasSemGuestListSorted = useMemo(() => {
-    return [...reservasRestaurante.filter((r) => r.guest_list_id == null)].sort(
+    return [...displayReservasRestaurante.filter((r) => r.guest_list_id == null)].sort(
       (a, b) => cachedStringCompare(a.responsavel || "", b.responsavel || ""),
     );
-  }, [reservasRestaurante, cachedStringCompare]);
+  }, [displayReservasRestaurante, cachedStringCompare]);
 
   const sortedReservasMesa = useMemo(() => {
     return [...reservasMesa].sort((a, b) =>
@@ -4228,18 +4448,18 @@ export default function EventoCheckInsPage() {
 
   const filteredReservasRestaurante = useMemo(() => {
     if (!debouncedSearchTerm.trim()) {
-      return [...reservasRestaurante].sort((a, b) =>
+      return [...displayReservasRestaurante].sort((a, b) =>
         cachedStringCompare(a.responsavel || "", b.responsavel || ""),
       );
     }
-    const filtered = reservasRestaurante.filter(
+    const filtered = displayReservasRestaurante.filter(
       (r) => filterBySearch(r.responsavel) || filterBySearch(r.origem),
     );
     return filtered.sort((a, b) =>
       cachedStringCompare(a.responsavel || "", b.responsavel || ""),
     );
   }, [
-    reservasRestaurante,
+    displayReservasRestaurante,
     debouncedSearchTerm,
     filterBySearch,
     cachedStringCompare,
@@ -4266,21 +4486,21 @@ export default function EventoCheckInsPage() {
     () =>
       computeReservasMetrics({
         convidadosReservas,
-        convidadosReservasRestaurante,
-        guestListsRestaurante,
+        convidadosReservasRestaurante: displayConvidadosReservasRestaurante,
+        guestListsRestaurante: displayGuestListsRestaurante,
         guestsByList,
         checkInStatus,
         reservasMesa,
-        reservasRestaurante,
+        reservasRestaurante: displayReservasRestaurante,
       }),
     [
       convidadosReservas,
-      convidadosReservasRestaurante,
-      guestListsRestaurante,
+      displayConvidadosReservasRestaurante,
+      displayGuestListsRestaurante,
       guestsByList,
       checkInStatus,
       reservasMesa,
-      reservasRestaurante,
+      displayReservasRestaurante,
     ],
   );
 
@@ -4298,57 +4518,6 @@ export default function EventoCheckInsPage() {
     () => computeCamarotesMetrics(camarotes),
     [camarotes],
   );
-
-  const isReservaRooftopEvent = useMemo(
-    () =>
-      evento?.establishment_id === 9 ||
-      isReservaRooftopEstablishment(evento?.establishment_name),
-    [evento?.establishment_id, evento?.establishment_name],
-  );
-
-  const rooftopDatesWithReservations = useMemo(() => {
-    if (!isReservaRooftopEvent) return [];
-    const set = new Set<string>();
-    for (const r of reservasRestaurante) {
-      const key = toDateKey(r.reservation_date);
-      if (key) set.add(key);
-    }
-    for (const gl of guestListsRestaurante) {
-      const key = toDateKey(gl.reservation_date);
-      if (key) set.add(key);
-    }
-    return Array.from(set).sort();
-  }, [isReservaRooftopEvent, reservasRestaurante, guestListsRestaurante]);
-
-  const rooftopMetricsByDate = useMemo(() => {
-    if (!isReservaRooftopEvent) return [];
-    return rooftopDatesWithReservations.map((dateKey) => {
-      const metrics = computeRooftopUnifiedMetrics({
-        reservations: reservasRestaurante,
-        guestLists: guestListsRestaurante,
-        dateKey,
-      });
-      const label =
-        dateKey &&
-        (() => {
-          const d = new Date(`${dateKey}T12:00:00`);
-          return isNaN(d.getTime())
-            ? dateKey
-            : d.toLocaleDateString("pt-BR", {
-                weekday: "short",
-                day: "2-digit",
-                month: "short",
-                year: "numeric",
-              });
-        })();
-      return { dateKey, label, metrics };
-    });
-  }, [
-    isReservaRooftopEvent,
-    rooftopDatesWithReservations,
-    reservasRestaurante,
-    guestListsRestaurante,
-  ]);
 
   const getEventTypeLabel = useCallback((eventType?: string) => {
     if (!eventType) return null;
@@ -4433,22 +4602,18 @@ export default function EventoCheckInsPage() {
       {/* Barra de filtros */}
       <div className="bg-white/5 backdrop-blur-sm border-b border-white/10 sticky top-0 z-30">
         <div className="max-w-7xl mx-auto p-3 md:p-4">
-          {isReservaRooftopEvent &&
-            rooftopMetricsByDate.map(({ dateKey, label, metrics }) => (
-              <div key={dateKey} className="mb-3 md:mb-4">
-                <p className="text-sm font-medium text-white/90 mb-2">{label}</p>
-                <RooftopUnifiedStatsHeader
-                  className="mb-3 md:mb-4"
-                  areaPeopleTotal={metrics.areaPeopleTotal}
-                  areasBreakdown={metrics.areasBreakdown}
-                  reservationsCheckedIn={metrics.reservationsCheckedIn}
-                  reservationsTotal={metrics.reservationsTotal}
-                  totalPeopleExpected={metrics.totalPeopleExpected}
-                  giroMetrics={metrics.giroMetrics}
-                  loading={loading}
-                />
-              </div>
-            ))}
+          {isReservaRooftopEvent && (
+            <RooftopUnifiedStatsHeader
+              className="mb-3 md:mb-4"
+              areaPeopleTotal={rooftopMetricsEventDay.areaPeopleTotal}
+              areasBreakdown={rooftopMetricsEventDay.areasBreakdown}
+              reservationsCheckedIn={rooftopMetricsEventDay.reservationsCheckedIn}
+              reservationsTotal={rooftopMetricsEventDay.reservationsTotal}
+              totalPeopleExpected={rooftopMetricsEventDay.totalPeopleExpected}
+              giroMetrics={rooftopMetricsEventDay.giroMetrics}
+              loading={loading}
+            />
+          )}
 
           {/* Mobile: Layout simplificado */}
           <div className="md:hidden space-y-3">
@@ -4754,7 +4919,7 @@ export default function EventoCheckInsPage() {
                   : "bg-white/10 text-gray-300 hover:bg-white/20"
               }`}
             >
-              Reservas ({reservasMesa.length + reservasRestaurante.length})
+              Reservas ({reservasMesa.length + displayReservasRestaurante.length})
             </button>
             <button
               onClick={() => setSelectedTab("promoters")}
@@ -5368,7 +5533,7 @@ export default function EventoCheckInsPage() {
                       />
                       <span className="truncate">
                         Listas de Convidados e Reservas (
-                        {guestListsRestaurante.length +
+                        {displayGuestListsRestaurante.length +
                           reservasSemGuestListSorted.length}
                         )
                       </span>
@@ -5453,7 +5618,7 @@ export default function EventoCheckInsPage() {
                             key="empty"
                             className="text-center py-8 text-gray-400"
                           >
-                            {guestListsRestaurante.length === 0 &&
+                            {displayGuestListsRestaurante.length === 0 &&
                             reservasSemGuestListSorted.length === 0
                               ? "Nenhuma lista de convidados nem reserva sem lista encontrada para este evento."
                               : "Nenhuma lista ou reserva corresponde aos filtros aplicados."}
@@ -6311,8 +6476,23 @@ export default function EventoCheckInsPage() {
                                       </div>
                                     </div>
 
-                                    {/* Check-in do dono e Indicadores de Brinde */}
-                                    <div className="mt-2 space-y-2">
+                                    {/* Check-in do dono — oculto se já existir convidado com o mesmo nome (evita duplicidade) */}
+                                    {(() => {
+                                      const ownerNameNorm = (gl.owner_name || "")
+                                        .trim()
+                                        .toLowerCase()
+                                        .normalize("NFD")
+                                        .replace(/\p{Diacritic}/gu, "");
+                                      const listGuests = guestsByList[gl.guest_list_id] || [];
+                                      const hasGuestWithOwnerName = listGuests.some(
+                                        (g) =>
+                                          (g.name || "")
+                                            .trim()
+                                            .toLowerCase()
+                                            .normalize("NFD")
+                                            .replace(/\p{Diacritic}/gu, "") === ownerNameNorm,
+                                      );
+                                      return !hasGuestWithOwnerName ? (
                                       <div className="flex items-center gap-2 flex-wrap">
                                         {!(
                                           checkInStatus[gl.guest_list_id]
@@ -6446,7 +6626,9 @@ export default function EventoCheckInsPage() {
                                           </div>
                                         )}
                                       </div>
-
+                                    ) : null;
+                                    })()}
+                                    <div className="mt-2 space-y-2">
                                       {/* Indicadores de Progresso e Brindes */}
                                       {(() => {
                                         const guestsCheckedIn =
@@ -8200,8 +8382,8 @@ export default function EventoCheckInsPage() {
         )}
       </div>
 
-      {/* Modal de Status de Entrada */}
-      {convidadoParaCheckIn && (
+      {/* Modal de Status de Entrada — não exibido no Reserva Rooftop (check-in direto) */}
+      {convidadoParaCheckIn && !isReservaRooftopEvent && (
         <EntradaStatusModal
           isOpen={entradaModalOpen}
           onClose={() => {
