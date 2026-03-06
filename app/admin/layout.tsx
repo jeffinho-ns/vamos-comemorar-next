@@ -28,6 +28,12 @@ import UserMenu from "../components/UserMenu/UserMenu"; // Verifique o caminho
 // E-mail da analista com acesso restrito ao estabelecimento Pracinha do Seu Justino (menu próprio, não promoter)
 const ANALISTA_EMAIL = 'analista.mkt03@ideiaum.com.br';
 
+// Gerentes do Seu Justino que têm acesso ao Gerenciamento do Cardápio (apenas estabelecimento Seu Justino)
+const GERENTES_SEU_JUSTINO_CARDAPIO = [
+  'gerente.sjm@seujustino.com.br',
+  'subgerente.sjm@seujustino.com.br',
+];
+
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [userRole, setUserRole] = useState<string>('');
@@ -99,7 +105,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       ];
     } else if (userRole === 'gerente') {
       // Gerente - acesso às páginas administrativas restritas aos seus estabelecimentos
-      return [
+      const baseLinks = [
         { href: "/admin", label: "Dashboard", icon: MdDashboard },
         { href: "/admin/restaurant-reservations", label: "Sistema de Reservas", icon: MdRestaurant },
         { href: "/admin/detalhes-operacionais", label: "Detalhes Operacionais do Evento", icon: MdInfo },
@@ -109,6 +115,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         { href: "/admin/qrcode", label: "Scanner QR Code", icon: MdQrCodeScanner },
         { href: "/admin/reservas", label: "Reservas", icon: MdEditCalendar },
       ];
+      // Apenas gerente.sjm e subgerente.sjm do Seu Justino têm acesso ao Gerenciamento do Cardápio
+      const canAccessCardapio = GERENTES_SEU_JUSTINO_CARDAPIO.includes(userEmail);
+      if (canAccessCardapio) {
+        return [
+          ...baseLinks.slice(0, 2),
+          { href: "/admin/cardapio", label: "Cardápio", icon: MdRestaurant },
+          ...baseLinks.slice(2),
+        ];
+      }
+      return baseLinks;
     } else if (userRole === 'admin') {
       // Administrador pode ver tudo
       return [

@@ -545,8 +545,8 @@ export default function CardapioAdminPage() {
           })
         : [];
 
-      // Filtrar bares para promoters (só podem ver o seu bar)
-      if (isPromoter && promoterBar) {
+      // Filtrar bares para promoters ou gerentes Seu Justino (só podem ver o seu bar)
+      if (promoterBar) {
         console.log('🔍 [PROMOTER] Filtrando bares para:', {
           promoterBar,
           promoterBarId: promoterBar.barId,
@@ -578,8 +578,8 @@ export default function CardapioAdminPage() {
           })
         : [];
 
-      // Filtrar categorias e itens para promoters (só podem ver os do seu bar)
-      if (isPromoter && promoterBar) {
+      // Filtrar categorias e itens para promoters ou gerentes Seu Justino (só podem ver os do seu bar)
+      if (promoterBar) {
         console.log('🔍 [PROMOTER] Filtrando categorias e itens:', {
           promoterBarId: promoterBar.barId,
           promoterBarIdType: typeof promoterBar.barId,
@@ -3059,7 +3059,7 @@ export default function CardapioAdminPage() {
         <div className="mb-8">
           <h1 className="mb-2 text-2xl sm:text-3xl font-bold text-gray-900 admin-title">Gerenciamento do Cardápio</h1>
           <p className="text-sm sm:text-base text-gray-600 admin-subtitle">Gerencie estabelecimentos, categorias e itens do cardápio</p>
-          {isPromoter && promoterBar && (
+          {promoterBar && (
             <div className="mt-4 rounded-lg border border-green-200 bg-green-50 p-4">
               <div className="flex items-center gap-3">
                 <MdSecurity className="h-6 w-6 text-green-600" />
@@ -3114,8 +3114,8 @@ export default function CardapioAdminPage() {
             transition={{ duration: 0.3 }}
             className="space-y-8"
           >
-            {/* Banner para Promoters */}
-            {isPromoter && promoterBar && (
+            {/* Banner para Promoters / Gerentes com acesso restrito a um bar */}
+            {promoterBar && (
               <div className="rounded-lg border border-blue-200 bg-blue-50 p-4">
                 <div className="flex items-center gap-3">
                   <MdSecurity className="h-6 w-6 text-blue-600" />
@@ -3155,14 +3155,13 @@ export default function CardapioAdminPage() {
                       </>
                     )}
                   </div>
-                  {isPromoter && promoterBar && (
+                  {promoterBar && (
                     <button
                       onClick={() => {
                         const bar = menuData.bars.find((b) => Number(b.id) === Number(promoterBar.barId));
                         if (bar) {
                           handleEditBar(bar);
                         } else {
-                          // Se o bar não existe, criar novo (normalmente não acontece, mas pode ser útil)
                           setShowBarModal(true);
                         }
                       }}
@@ -3194,7 +3193,7 @@ export default function CardapioAdminPage() {
                           unoptimized={true}
                         />
                         <div className="absolute right-2 top-2 flex gap-1">
-                          {(isAdmin || (isPromoter && canManageBar(Number(bar.id)))) && (
+                          {(isAdmin || canManageBar(Number(bar.id))) && (
                             <>
                               <button
                                 onClick={() => handleEditBar(bar)}
@@ -3248,7 +3247,7 @@ export default function CardapioAdminPage() {
                       Adicionar Categoria
                     </button>
                   )}
-                  {isPromoter && promoterBar && (
+                  {promoterBar && (
                     <button
                       onClick={handleAddCategoryForPromoter}
                       className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
@@ -3274,7 +3273,7 @@ export default function CardapioAdminPage() {
                             <p className="text-sm text-gray-500">{bar.name}</p>
                           </div>
                           <div className="flex gap-1">
-                            {(isAdmin || (isPromoter && canManageBar(Number(category.barId)))) && (
+                            {(isAdmin || canManageBar(Number(category.barId))) && (
                               <>
                                 <button
                                   onClick={() => handleOpenQuickEditModal(bar.id, category.id)}
@@ -3456,7 +3455,7 @@ export default function CardapioAdminPage() {
                         Adicionar Item
                       </button>
                     )}
-                    {isPromoter && promoterBar && (
+                    {promoterBar && (
                       <button
                         onClick={handleAddItemForPromoter}
                         className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
@@ -3704,8 +3703,7 @@ export default function CardapioAdminPage() {
                                     );
                                   })()}
                                   <div className="absolute right-2 top-2 flex gap-1">
-                                    {(isAdmin ||
-                                      (isPromoter && canManageBar(Number(item.barId)))) && (
+                                    {(isAdmin || canManageBar(Number(item.barId))) && (
                                       <>
                                         <button
                                           onClick={() => handleToggleItemVisibility(item.id, item.visible)}
@@ -4045,7 +4043,7 @@ export default function CardapioAdminPage() {
                                                             </td>
                                                             <td className="px-4 py-3 whitespace-nowrap">
                                                               <div className="flex items-center gap-2">
-                                                                {(isAdmin || (isPromoter && canManageBar(Number(item.barId)))) && (
+                                                                {(isAdmin || canManageBar(Number(item.barId))) && (
                                                                   <>
                                                                     <button
                                                                       onClick={() => handleEditItem(item)}
@@ -4207,7 +4205,7 @@ export default function CardapioAdminPage() {
                                                     </td>
                                                     <td className="px-4 py-3 whitespace-nowrap">
                                                       <div className="flex items-center gap-2">
-                                                        {(isAdmin || (isPromoter && canManageBar(Number(item.barId)))) && (
+                                                        {(isAdmin || canManageBar(Number(item.barId))) && (
                                                           <>
                                                             <button
                                                               onClick={() => handleEditItem(item)}

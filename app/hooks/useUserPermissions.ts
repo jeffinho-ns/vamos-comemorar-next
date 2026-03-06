@@ -128,9 +128,23 @@ export function useUserPermissions() {
           promoterBar = getPromoterBar(parseInt(userId));
         }
 
-        // Definir permissões de acesso (promoter e promoter-list para analista.mkt03 - Pracinha)
+        // Gerentes do Seu Justino com acesso ao Gerenciamento do Cardápio (apenas bar Seu Justino, id 1)
+        const gerentesSeuJustinoCardapio = ['gerente.sjm@seujustino.com.br', 'subgerente.sjm@seujustino.com.br'];
+        const isGerenteSeuJustinoCardapio = role === 'gerente' && gerentesSeuJustinoCardapio.includes(userEmail);
+        if (isGerenteSeuJustinoCardapio && !promoterBar) {
+          promoterBar = {
+            userId: 0,
+            userEmail,
+            userName: 'Gerente Seu Justino',
+            barId: 1,
+            barName: 'Seu Justino',
+            barSlug: 'seu-justino',
+          };
+        }
+
+        // Definir permissões de acesso (promoter e promoter-list para analista.mkt03 - Pracinha; gerentes SJM para cardápio)
         const canAccessAdmin = isAdmin || role === 'promoter' || role === 'promoter-list';
-        const canAccessCardapio = isAdmin || role === 'promoter' || role === 'promoter-list';
+        const canAccessCardapio = isAdmin || role === 'promoter' || role === 'promoter-list' || isGerenteSeuJustinoCardapio;
 
         setPermissions({
           role,
@@ -182,13 +196,12 @@ export function useUserPermissions() {
   // Função para verificar se o usuário pode gerenciar um bar específico
   const canManageBar = (barId: number): boolean => {
     if (permissions.isAdmin) return true;
-    
-    if (permissions.isPromoter && permissions.promoterBar) {
+    // Promoter ou gerente Seu Justino (com promoterBar definido): apenas o bar associado
+    if (permissions.promoterBar) {
       const promoterBarId = Number(permissions.promoterBar.barId);
       const requestedBarId = Number(barId);
       return promoterBarId === requestedBarId;
     }
-    
     return false;
   };
 
