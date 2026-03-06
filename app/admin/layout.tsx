@@ -47,6 +47,7 @@ const ROOFTOP_FLUXO_EMAILS = new Set([
 const ROOFTOP_FLUXO_LINKS = [
   { href: "/admin", label: "Dashboard", icon: MdDashboard },
   { href: "/admin/checkins", label: "Check-ins", icon: MdCheckCircle },
+  { href: "/admin/checkins/rooftop-fluxo", label: "Fluxo Rooftop", icon: MdCheckCircle },
   { href: "/admin/restaurant-reservations", label: "Sistema de Reservas", icon: MdRestaurant },
   { href: "/admin/detalhes-operacionais", label: "Detalhes Operacionais do Evento", icon: MdInfo },
   { href: "/admin/qrcode", label: "Scanner QR Code", icon: MdQrCodeScanner },
@@ -185,7 +186,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     return [];
   };
 
-  const navLinks = getNavLinks();
+  let navLinks = getNavLinks();
+  // Quando está na página rooftop-fluxo, garantir links (evitar redirect para acesso-negado)
+  if (navLinks.length === 0 && pathname.startsWith('/admin/checkins/rooftop-fluxo')) {
+    navLinks = ROOFTOP_FLUXO_LINKS;
+  }
 
   const getActiveLabel = () => {
     const activeLink = navLinks.find(link => pathname.startsWith(link.href));
