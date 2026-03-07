@@ -68,6 +68,36 @@ const SOCKET_URL =
   process.env.NEXT_PUBLIC_SOCKET_URL ||
   "https://vamos-comemorar-api.onrender.com";
 
+/**
+ * Normaliza texto para busca: remove acentos, lowercase, colapsa espaços.
+ * Permite encontrar "josé" digitando "jose", "JOSÉ" digitando "josé", etc.
+ */
+function normalizeForSearch(s: string): string {
+  if (!s) return "";
+  return String(s)
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/**
+ * Verifica se o texto corresponde ao termo de busca (case-insensitive, sem acentos).
+ * Suporta múltiplas palavras: "maria silva" encontra "Maria da Silva".
+ */
+function textMatchesSearch(
+  searchTerm: string,
+  text: string | null | undefined,
+): boolean {
+  const normSearch = normalizeForSearch(searchTerm);
+  if (!normSearch) return true;
+  if (!text) return false;
+  const normText = normalizeForSearch(text);
+  const words = normSearch.split(/\s+/).filter(Boolean);
+  return words.every((word) => normText.includes(word));
+}
+
 // Tipos
 interface EventoInfo {
   evento_id: number;
@@ -3456,18 +3486,12 @@ export default function EventoCheckInsPage() {
     [],
   );
 
-  // Filtrar por busca (otimizado com cache de lowercase)
-  const searchTermLower = useMemo(
-    () => debouncedSearchTerm.toLowerCase().trim(),
-    [debouncedSearchTerm],
-  );
+  // Filtrar por busca (case-insensitive, sem acentos, múltiplas palavras)
   const filterBySearch = useCallback(
     (text: string | null | undefined) => {
-      if (!searchTermLower) return true;
-      if (!text) return false;
-      return text.toLowerCase().includes(searchTermLower);
+      return textMatchesSearch(debouncedSearchTerm, text);
     },
-    [searchTermLower],
+    [debouncedSearchTerm],
   );
 
   const isReservaRooftopEvent = useMemo(
@@ -3595,20 +3619,14 @@ export default function EventoCheckInsPage() {
       return validados;
     }
 
-    const searchLower = searchText.toLowerCase();
     const filtrados = validados.filter((c) => {
-      const nome = (c.nome || "").toLowerCase();
-      const telefone = (c.telefone || "").toLowerCase();
-      const responsavel = (c.responsavel || "").toLowerCase();
-      const origem = (c.origem || "").toLowerCase();
-
-      // Buscar principalmente pelo nome, mas também nos outros campos
-      return (
-        nome.includes(searchLower) ||
-        telefone.includes(searchLower) ||
-        responsavel.includes(searchLower) ||
-        origem.includes(searchLower)
-      );
+      if (textMatchesSearch(searchText, c.nome)) return true;
+      const telefoneDig = (c.telefone || "").replace(/\D/g, "");
+      const searchDig = normalizeForSearch(searchText).replace(/\D/g, "");
+      if (searchDig && telefoneDig.includes(searchDig)) return true;
+      if (textMatchesSearch(searchText, c.responsavel)) return true;
+      if (textMatchesSearch(searchText, c.origem)) return true;
+      return false;
     });
 
     return filtrados;
@@ -3641,40 +3659,24 @@ export default function EventoCheckInsPage() {
     cachedStringCompare,
   ]);
 
-  // Função de busca melhorada (busca em múltiplos campos)
+  // Função de busca melhorada (case-insensitive, sem acentos, múltiplos campos)
   const enhancedSearch = useCallback((term: string, item: any) => {
     if (!term.trim()) return true;
-    const searchLower = term.toLowerCase().trim();
 
-    // Busca em nome
-    const nome = (item.nome || item.name || "").toLowerCase();
-    if (nome.includes(searchLower)) return true;
+    if (textMatchesSearch(term, item.nome || item.name)) return true;
 
-    // Busca em telefone/whatsapp
     const telefone = (
       item.telefone ||
       item.whatsapp ||
       item.phone ||
       ""
     ).replace(/\D/g, "");
-    const searchNumbers = searchLower.replace(/\D/g, "");
-    if (telefone.includes(searchNumbers)) return true;
+    const searchNumbers = normalizeForSearch(term).replace(/\D/g, "");
+    if (searchNumbers && telefone.includes(searchNumbers)) return true;
 
-    // Busca em responsável
-    const responsavel = (
-      item.responsavel ||
-      item.responsible ||
-      ""
-    ).toLowerCase();
-    if (responsavel.includes(searchLower)) return true;
-
-    // Busca em origem
-    const origem = (item.origem || item.origin || "").toLowerCase();
-    if (origem.includes(searchLower)) return true;
-
-    // Busca em email
-    const email = (item.email || "").toLowerCase();
-    if (email.includes(searchLower)) return true;
+    if (textMatchesSearch(term, item.responsavel || item.responsible)) return true;
+    if (textMatchesSearch(term, item.origem || item.origin)) return true;
+    if (textMatchesSearch(term, item.email)) return true;
 
     return false;
   }, []);
@@ -3794,12 +3796,9 @@ export default function EventoCheckInsPage() {
           });
         });
       } else {
-        const searchLower = debouncedSearchTerm.toLowerCase();
         guests.forEach((g) => {
-          const nome = (g.name || "").toLowerCase();
-          const whatsapp = (g.whatsapp || "").toLowerCase();
-
-          if (nome.includes(searchLower) || whatsapp.includes(searchLower)) {
+          if (!textMatchesSearch(debouncedSearchTerm, g.name) &&
+              !textMatchesSearch(debouncedSearchTerm, g.whatsapp)) return;
             const guestList = guestListForDay;
             resultados.push({
               tipo: "guest_list",
@@ -3817,53 +3816,28 @@ export default function EventoCheckInsPage() {
               telefone: g.whatsapp,
               entrada_tipo: g.entrada_tipo,
               entrada_valor: g.entrada_valor,
-              convidado: g,
-              guestListId: Number(listId),
-            });
-          }
+            convidado: g,
+            guestListId: Number(listId),
+          });
         });
       }
     });
 
     // Adicionar reservas de restaurante sem guest list (reservas simples)
-    const searchLower = debouncedSearchTerm.toLowerCase();
-    // Buscar reservas sem guest list (guest_list_id é null ou undefined)
     displayReservasRestaurante.forEach((r) => {
-      // Verificar se esta reserva não tem guest list associada
-      // guest_list_id será null/undefined para reservas sem guest list
-      const hasGuestList = r.guest_list_id != null; // Usar != para verificar null e undefined
+      const hasGuestList = r.guest_list_id != null;
 
       if (!hasGuestList) {
-        const reserva = r as any; // Type assertion para acessar campos opcionais
-        // Buscar nome em múltiplos campos possíveis
-        const nomeCompleto = (
+        const reserva = r as any;
+        const nomeCompleto =
           r.responsavel ||
           reserva.client_name ||
           reserva.owner_name ||
-          ""
-        ).toLowerCase();
-        const origem = (r.origem || reserva.origin || "").toLowerCase();
-
-        // Debug: log para verificar se está encontrando a reserva
-        if (
-          nomeCompleto.includes("luis") ||
-          nomeCompleto.includes("felipe") ||
-          nomeCompleto.includes("martins")
-        ) {
-          console.log("🔍 [BUSCA] Reserva encontrada:", {
-            id: r.id,
-            responsavel: r.responsavel,
-            client_name: reserva.client_name,
-            guest_list_id: r.guest_list_id,
-            nomeCompleto,
-            searchLower,
-            match: nomeCompleto.includes(searchLower),
-          });
-        }
+          "";
 
         if (
-          nomeCompleto.includes(searchLower) ||
-          origem.includes(searchLower)
+          textMatchesSearch(debouncedSearchTerm, nomeCompleto) ||
+          textMatchesSearch(debouncedSearchTerm, r.origem || reserva.origin)
         ) {
           resultados.push({
             tipo: "restaurante",
@@ -3972,14 +3946,11 @@ export default function EventoCheckInsPage() {
   // Adicionar reservas da API aos resultados
   const resultadosCompletos = useMemo(() => {
     const resultados = [...resultadosBuscaUnificados];
-    const searchLower = debouncedSearchTerm.toLowerCase();
 
     // Adicionar reservas encontradas na API adicional
     reservasAdicionaisAPI.forEach((r) => {
-      const nomeCompleto = (r.client_name || "").toLowerCase();
-      const origem = (r.origin || "").toLowerCase();
-
-      if (nomeCompleto.includes(searchLower) || origem.includes(searchLower)) {
+      if (!textMatchesSearch(debouncedSearchTerm, r.client_name) &&
+          !textMatchesSearch(debouncedSearchTerm, r.origin)) return;
         // Verificar se já não está nos resultados
         const jaExiste = resultados.some(
           (res) => res.id === r.id && res.tipo === "restaurante",
@@ -3998,7 +3969,6 @@ export default function EventoCheckInsPage() {
             reservationId: r.id,
           });
         }
-      }
     });
 
     // Ordenar alfabeticamente por nome
@@ -4016,8 +3986,6 @@ export default function EventoCheckInsPage() {
   const resultsTabletStyle = useMemo((): SearchResultTablet[] => {
     const term = debouncedSearchTerm.trim();
     if (term.length < 2) return [];
-
-    const searchLower = term.toLowerCase();
     const results: SearchResultTablet[] = [];
     const isSeuJustino =
       evento?.establishment_name?.toLowerCase().includes("seu justino") &&
@@ -4039,8 +4007,7 @@ export default function EventoCheckInsPage() {
 
     // Owners (guest lists)
     for (const gl of displayGuestListsRestaurante) {
-      const ownerName = (gl.owner_name || "").toLowerCase();
-      if (!ownerName.includes(searchLower)) continue;
+      if (!textMatchesSearch(term, gl.owner_name)) continue;
 
       const guestListId = gl.guest_list_id ?? (gl as any).id;
       const guests = guestsByList[guestListId] || [];
@@ -4177,9 +4144,7 @@ export default function EventoCheckInsPage() {
         return gid != null && Number(gid) === listId;
       });
       for (const g of guests) {
-        const nome = (g.name || "").toLowerCase();
-        const whatsapp = (g.whatsapp || "").toLowerCase();
-        if (!nome.includes(searchLower) && !whatsapp.includes(searchLower))
+        if (!textMatchesSearch(term, g.name) && !textMatchesSearch(term, g.whatsapp))
           continue;
 
         const checkedIn = g.checked_in === 1 || g.checked_in === true;
@@ -4253,13 +4218,8 @@ export default function EventoCheckInsPage() {
     // Reservas restaurante sem guest list
     for (const r of displayReservasRestaurante) {
       if (r.guest_list_id != null) continue;
-      const nome = (
-        r.responsavel ||
-        (r as any).client_name ||
-        ""
-      ).toLowerCase();
-      const origem = (r.origem || (r as any).origin || "").toLowerCase();
-      if (!nome.includes(searchLower) && !origem.includes(searchLower))
+      if (!textMatchesSearch(term, r.responsavel || (r as any).client_name) &&
+          !textMatchesSearch(term, r.origem || (r as any).origin))
         continue;
 
       // Buscar observações da reserva
@@ -4301,9 +4261,7 @@ export default function EventoCheckInsPage() {
     );
     for (const r of reservasAdicionaisAPI) {
       if (idsInResults.has(r.id)) continue;
-      const nome = (r.client_name || "").toLowerCase();
-      const origem = (r.origin || "").toLowerCase();
-      if (!nome.includes(searchLower) && !origem.includes(searchLower))
+      if (!textMatchesSearch(term, r.client_name) && !textMatchesSearch(term, r.origin))
         continue;
 
       // Buscar observações da reserva
@@ -4339,8 +4297,7 @@ export default function EventoCheckInsPage() {
 
     // Promoters
     for (const p of promoters) {
-      const nome = (p.nome || "").toLowerCase();
-      if (!nome.includes(searchLower)) continue;
+      if (!textMatchesSearch(term, p.nome)) continue;
       results.push({
         type: "promoter",
         name: p.nome || "Sem nome",
@@ -4358,16 +4315,10 @@ export default function EventoCheckInsPage() {
       isValidPromoterGuest(c),
     );
     for (const c of validPromoters) {
-      const nome = (c.nome || "").toLowerCase();
-      const tel = (c.telefone || "").toLowerCase();
-      const resp = (c.responsavel || "").toLowerCase();
-      const orig = (c.origem || "").toLowerCase();
-      if (
-        !nome.includes(searchLower) &&
-        !tel.includes(searchLower) &&
-        !resp.includes(searchLower) &&
-        !orig.includes(searchLower)
-      )
+      if (!textMatchesSearch(term, c.nome) &&
+          !textMatchesSearch(term, c.telefone) &&
+          !textMatchesSearch(term, c.responsavel) &&
+          !textMatchesSearch(term, c.origem))
         continue;
 
       const prom = promoters.find(
@@ -5094,15 +5045,19 @@ export default function EventoCheckInsPage() {
                             );
                           }
                         };
+                        const isPromoter =
+                          result.type === "promoter" || result.type === "promoter_guest";
                         return (
                           <div
                             key={`${result.type}-${result.id ?? result.guestListId ?? result.reservationId ?? index}`}
-                            className={`bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl shadow-lg p-4 sm:p-6 border-l-4 transition-all hover:shadow-xl ${
+                            className={`backdrop-blur-sm border rounded-xl shadow-lg p-4 sm:p-6 border-l-4 transition-all hover:shadow-xl ${
                               result.checkedIn
-                                ? "border-l-green-500 bg-green-900/20"
-                                : isOwner
-                                  ? "border-l-purple-500 bg-purple-900/20"
-                                  : "border-l-blue-500"
+                                ? "border-l-green-500 bg-green-900/20 border-white/20"
+                                : isPromoter
+                                  ? "border-l-purple-500 bg-purple-900/30 border-purple-500/50"
+                                  : isOwner
+                                    ? "border-l-purple-500 bg-purple-900/20 border-white/20"
+                                    : "border-l-blue-500 bg-white/10 border-white/20"
                             }`}
                           >
                             <div className="flex items-start gap-3 sm:gap-4">
@@ -5112,20 +5067,24 @@ export default function EventoCheckInsPage() {
                                     ? "bg-gray-500/20"
                                     : result.checkedIn
                                       ? "bg-green-500/20"
-                                      : isOwner
-                                        ? "bg-purple-500/20"
-                                        : "bg-blue-500/20"
+                                      : isPromoter
+                                        ? "bg-purple-500/30"
+                                        : isOwner
+                                          ? "bg-purple-500/20"
+                                          : "bg-blue-500/20"
                                 }`}
                               >
                                 {result.type === "promoter" ||
                                 result.type === "promoter_guest" ? (
                                   <MdEvent
                                     className={
-                                      result.checkedOut
-                                        ? "text-gray-400"
-                                        : result.checkedIn
-                                          ? "text-green-400"
-                                          : "text-blue-400"
+                                        result.checkedOut
+                                          ? "text-gray-400"
+                                          : result.checkedIn
+                                            ? "text-green-400"
+                                            : isPromoter
+                                              ? "text-purple-400"
+                                              : "text-blue-400"
                                     }
                                     size={24}
                                   />
@@ -5149,7 +5108,7 @@ export default function EventoCheckInsPage() {
                                   <div className="flex-1 min-w-0">
                                     <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-2">
                                       <h3
-                                        className={`text-xl sm:text-2xl font-bold truncate ${isOwner ? "text-purple-300" : "text-white"}`}
+                                        className={`text-xl sm:text-2xl font-bold truncate ${isPromoter ? "text-purple-200" : isOwner ? "text-purple-300" : "text-white"}`}
                                       >
                                         {result.name}
                                       </h3>
@@ -5160,9 +5119,14 @@ export default function EventoCheckInsPage() {
                                           title="VIP Noite Tuda"
                                         />
                                       )}
-                                      {isOwner && (
+                                      {isOwner && !isPromoter && (
                                         <span className="px-2 sm:px-3 py-1 bg-purple-500/30 text-purple-200 rounded-full text-xs sm:text-sm font-semibold flex items-center gap-1 flex-shrink-0">
                                           <MdPerson size={14} /> DONO DA RESERVA
+                                        </span>
+                                      )}
+                                      {isPromoter && (
+                                        <span className="px-2 sm:px-3 py-1 bg-purple-600/50 text-purple-100 rounded-full text-xs sm:text-sm font-semibold flex items-center gap-1 flex-shrink-0">
+                                          <MdEvent size={14} /> LISTA DE PROMOTERS
                                         </span>
                                       )}
                                       {eventTypeInfo && (
@@ -5198,7 +5162,11 @@ export default function EventoCheckInsPage() {
                                         result.type === "promoter_guest") && (
                                         <button
                                           onClick={handleCheckInClick}
-                                          className="w-full sm:w-auto px-4 sm:px-5 py-2 sm:py-2.5 bg-green-500 hover:bg-green-600 text-white rounded-lg flex items-center justify-center gap-2 transition-all shadow-md hover:shadow-lg font-semibold text-sm sm:text-base"
+                                          className={`w-full sm:w-auto px-4 sm:px-5 py-2 sm:py-2.5 text-white rounded-lg flex items-center justify-center gap-2 transition-all shadow-md hover:shadow-lg font-semibold text-sm sm:text-base ${
+                                            isPromoter
+                                              ? "bg-purple-600 hover:bg-purple-700"
+                                              : "bg-green-500 hover:bg-green-600"
+                                          }`}
                                         >
                                           <MdCheckCircle size={18} /> Check-in
                                         </button>

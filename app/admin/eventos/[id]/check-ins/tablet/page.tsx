@@ -9,6 +9,20 @@ import { io } from 'socket.io-client';
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.agilizaiapp.com.br';
 const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL || 'https://vamos-comemorar-api.onrender.com';
 
+function normalizeForSearch(s: string): string {
+  if (!s) return '';
+  return String(s).normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase().replace(/\s+/g, ' ').trim();
+}
+
+function textMatchesSearch(searchTerm: string, text: string | null | undefined): boolean {
+  const normSearch = normalizeForSearch(searchTerm);
+  if (!normSearch) return true;
+  if (!text) return false;
+  const normText = normalizeForSearch(text);
+  const words = normSearch.split(/\s+/).filter(Boolean);
+  return words.every((word) => normText.includes(word));
+}
+
 interface SearchResult {
   type: 'guest' | 'owner' | 'promoter' | 'promoter_guest';
   name: string;
@@ -188,14 +202,12 @@ export default function EventoTabletCheckInsPage() {
       return;
     }
 
-    const searchLower = term.toLowerCase().trim();
     const results: SearchResult[] = [];
 
     // Buscar em guest lists (owners)
     for (const gl of loadedData.guestLists) {
-      const ownerName = gl.owner_name?.toLowerCase() || '';
-      if (ownerName.includes(searchLower)) {
-        const giftData = loadedData.gifts[gl.guest_list_id];
+      if (!textMatchesSearch(term, gl.owner_name)) continue;
+      const giftData = loadedData.gifts[gl.guest_list_id];
         let giftInfo: { remainingCheckins: number; hasGift: boolean; giftDescription?: string } = { remainingCheckins: 0, hasGift: false };
         
         if (giftData?.rules?.[0]) {
@@ -226,13 +238,11 @@ export default function EventoTabletCheckInsPage() {
           },
           giftInfo,
         });
-      }
 
       // Buscar guests desta lista
       const guests = loadedData.guests[gl.guest_list_id] || [];
       for (const guest of guests) {
-        const guestName = guest.name?.toLowerCase() || '';
-        if (guestName.includes(searchLower)) {
+        if (!textMatchesSearch(term, guest.name)) continue;
           const giftData = loadedData.gifts[gl.guest_list_id];
           let giftInfo: { remainingCheckins: number; hasGift: boolean; giftDescription?: string } = { remainingCheckins: 0, hasGift: false };
           
@@ -266,32 +276,28 @@ export default function EventoTabletCheckInsPage() {
             },
             giftInfo,
           });
-        }
       }
     }
 
     // Buscar em promoters
     for (const promoter of loadedData.promoters) {
-      const promoterName = promoter.nome?.toLowerCase() || '';
-      if (promoterName.includes(searchLower)) {
-        results.push({
-          type: 'promoter',
+      if (!textMatchesSearch(term, promoter.nome)) continue;
+      results.push({
+        type: 'promoter',
+        name: promoter.nome,
+        promoterId: promoter.id,
+        promoterInfo: {
+          id: promoter.id,
           name: promoter.nome,
-          promoterId: promoter.id,
-          promoterInfo: {
-            id: promoter.id,
-            name: promoter.nome,
-            totalCheckins: promoter.convidados_checkin || 0,
-          },
-        });
-      }
+          totalCheckins: promoter.convidados_checkin || 0,
+        },
+      });
 
       // Buscar convidados do promoter
       const promoterGuests = loadedData.promoterGuests[promoter.id] || [];
       for (const guest of promoterGuests) {
-        const guestName = guest.nome?.toLowerCase() || '';
-        if (guestName.includes(searchLower)) {
-          results.push({
+        if (!textMatchesSearch(term, guest.nome)) continue;
+        results.push({
             type: 'promoter_guest',
             name: guest.nome,
             id: guest.lista_convidado_id,
@@ -303,7 +309,6 @@ export default function EventoTabletCheckInsPage() {
               totalCheckins: promoter.convidados_checkin || 0,
             },
           });
-        }
       }
     }
 
@@ -452,30 +457,38 @@ export default function EventoTabletCheckInsPage() {
               {/* Resultados */}
               {results.length > 0 && (
                 <div className="space-y-4">
-                  {results.map((result, index) => (
+                  {results.map((result, index) => {
+                    const isPromoter = result.type === 'promoter' || result.type === 'promoter_guest';
+                    return (
                     <div
                       key={index}
-                      className={`bg-white rounded-lg shadow-md p-6 border-l-4 ${
-                        result.checkedIn ? 'border-green-500' : 'border-blue-500'
+                      className={`rounded-lg shadow-md p-6 border-l-4 ${
+                        result.checkedIn
+                          ? 'border-green-500 bg-green-50'
+                          : isPromoter
+                            ? 'border-purple-500 bg-purple-50'
+                            : 'border-blue-500 bg-white'
                       }`}
                     >
                       <div className="flex items-start gap-4">
                         <div className={`p-3 rounded-full ${
-                          result.checkedIn ? 'bg-green-100' : 'bg-blue-100'
+                          result.checkedIn ? 'bg-green-100' : isPromoter ? 'bg-purple-100' : 'bg-blue-100'
                         }`}>
                           {result.type === 'promoter' || result.type === 'promoter_guest' ? (
-                            <MdEvent className={result.checkedIn ? 'text-green-600' : 'text-blue-600'} size={24} />
+                            <MdEvent className={result.checkedIn ? 'text-green-600' : 'text-purple-600'} size={24} />
                           ) : (
                             <MdPerson className={result.checkedIn ? 'text-green-600' : 'text-blue-600'} size={24} />
                           )}
                         </div>
                         <div className="flex-1">
                           <div className="flex items-center justify-between mb-2">
-                            <h3 className="text-xl font-bold text-gray-800">{result.name}</h3>
+                            <h3 className={`text-xl font-bold ${isPromoter ? 'text-purple-800' : 'text-gray-800'}`}>{result.name}</h3>
                             {!result.checkedIn && (result.type === 'guest' || result.type === 'owner' || result.type === 'promoter_guest') && (
                               <button
                                 onClick={() => handleCheckIn(result)}
-                                className="px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg flex items-center gap-2 transition-colors"
+                                className={`px-4 py-2 text-white rounded-lg flex items-center gap-2 transition-colors ${
+                                  isPromoter ? 'bg-purple-600 hover:bg-purple-700' : 'bg-green-500 hover:bg-green-600'
+                                }`}
                               >
                                 <MdCheckCircle size={20} />
                                 Check-in
@@ -544,7 +557,7 @@ export default function EventoTabletCheckInsPage() {
                         </div>
                       </div>
                     </div>
-                  ))}
+                  ); })}
                 </div>
               )}
 
