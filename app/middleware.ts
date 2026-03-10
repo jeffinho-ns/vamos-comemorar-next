@@ -68,6 +68,7 @@ export function middleware(request: NextRequest) {
     '/admin/checkins': ['admin', 'promoter', 'promoter-list', 'recepção', 'recepcao', 'atendente', 'gerente'],
     '/admin/restaurant-reservations': ['admin', 'promoter', 'promoter-list', 'recepção', 'gerente'],
     '/admin/detalhes-operacionais': ['admin', 'recepção', 'gerente'],
+    '/admin/relatorios-gerador': ['admin'],
   };
 
   // Verifica a rota mais específica (maior prefixo que bate) para aplicar as permissões corretas
