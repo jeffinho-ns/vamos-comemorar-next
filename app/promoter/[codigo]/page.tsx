@@ -262,11 +262,14 @@ export default function PromoterPublicPage() {
 
   const shareUrl = typeof window !== 'undefined' ? window.location.href : '';
   const isCarnaval = params?.codigo === 'highlinepromo';
+  const isPracinha = params?.codigo === 'pracinha';
 
   // Degradê Carnaval (Saváh): tons de verde escuro e médio mesclados
   const bgGradient = isCarnaval
     ? 'bg-gradient-to-br from-[#1E503F] via-[#245642] to-[#2d6a4f]'
-    : 'bg-gradient-to-br from-purple-900 via-purple-800 to-pink-800';
+    : isPracinha
+      ? 'bg-gradient-to-br from-[#004938] via-[#D03F00] to-[#F88A17]'
+      : 'bg-gradient-to-br from-purple-900 via-purple-800 to-pink-800';
 
   const copyToClipboard = () => {
     navigator.clipboard.writeText(shareUrl);
@@ -338,7 +341,13 @@ export default function PromoterPublicPage() {
                 initial={{ scale: 0 }}
                 animate={{ scale: 1 }}
                 transition={{ type: "spring", stiffness: 200 }}
-                className={`w-32 h-32 rounded-full border-4 border-white shadow-2xl mx-auto mb-6 flex items-center justify-center ${isCarnaval ? 'bg-gradient-to-br from-[#1E503F] via-[#245642] to-[#2d6a4f]' : 'bg-gradient-to-br from-purple-400 to-pink-400'}`}
+                className={`w-32 h-32 rounded-full border-4 border-white shadow-2xl mx-auto mb-6 flex items-center justify-center ${
+                  isCarnaval
+                    ? 'bg-gradient-to-br from-[#1E503F] via-[#245642] to-[#2d6a4f]'
+                    : isPracinha
+                      ? 'bg-gradient-to-br from-[#004938] via-[#D03F00] to-[#F88A17]'
+                      : 'bg-gradient-to-br from-purple-400 to-pink-400'
+                }`}
               >
                 <MdPerson className="text-white text-6xl" />
               </motion.div>
@@ -350,7 +359,13 @@ export default function PromoterPublicPage() {
             </h1>
             
             {promoter.apelido && (
-              <p className={`text-xl mb-4 ${isCarnaval ? 'text-amber-100' : 'text-purple-200'}`}>{promoter.nome}</p>
+              <p className={`text-xl mb-4 ${
+                isCarnaval
+                  ? 'text-amber-100'
+                  : isPracinha
+                    ? 'text-orange-100'
+                    : 'text-purple-200'
+              }`}>{promoter.nome}</p>
             )}
 
             {/* Instagram */}
@@ -359,7 +374,13 @@ export default function PromoterPublicPage() {
                 href={`https://instagram.com/${promoter.instagram}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className={`inline-flex items-center gap-2 hover:text-white transition-colors mb-6 ${isCarnaval ? 'text-amber-100' : 'text-purple-200'}`}
+                className={`inline-flex items-center gap-2 hover:text-white transition-colors mb-6 ${
+                  isCarnaval
+                    ? 'text-amber-100'
+                    : isPracinha
+                      ? 'text-orange-100'
+                      : 'text-purple-200'
+                }`}
               >
                 <MdCamera size={20} />
                 @{promoter.instagram}
@@ -368,7 +389,13 @@ export default function PromoterPublicPage() {
 
             {/* Estabelecimento */}
             {promoter.establishment_name && (
-              <div className={`flex items-center justify-center gap-2 mt-4 ${isCarnaval ? 'text-amber-100' : 'text-purple-100'}`}>
+              <div className={`flex items-center justify-center gap-2 mt-4 ${
+                isCarnaval
+                  ? 'text-amber-100'
+                  : isPracinha
+                    ? 'text-orange-100'
+                    : 'text-purple-100'
+              }`}>
                 <MdNightlife size={24} />
                 <span className="text-lg font-semibold">{promoter.establishment_name}</span>
               </div>
@@ -378,12 +405,30 @@ export default function PromoterPublicPage() {
             <div className="flex items-center justify-center gap-8 mt-8">
               <div className="text-center">
                 <div className="text-3xl font-bold text-white">{stats.total_convidados}</div>
-                <div className={`text-sm ${isCarnaval ? 'text-amber-100' : 'text-purple-200'}`}>Convidados</div>
+                <div className={`text-sm ${
+                  isCarnaval
+                    ? 'text-amber-100'
+                    : isPracinha
+                      ? 'text-orange-100'
+                      : 'text-purple-200'
+                }`}>Convidados</div>
               </div>
-              <div className={`h-12 w-px ${isCarnaval ? 'bg-amber-400' : 'bg-purple-400'}`}></div>
+              <div className={`h-12 w-px ${
+                isCarnaval
+                  ? 'bg-amber-400'
+                  : isPracinha
+                    ? 'bg-[#F88A17]'
+                    : 'bg-purple-400'
+              }`}></div>
               <div className="text-center">
                 <div className="text-3xl font-bold text-white">{stats.total_confirmados}</div>
-                <div className={`text-sm ${isCarnaval ? 'text-amber-100' : 'text-purple-200'}`}>Confirmados</div>
+                <div className={`text-sm ${
+                  isCarnaval
+                    ? 'text-amber-100'
+                    : isPracinha
+                      ? 'text-orange-100'
+                      : 'text-purple-200'
+                }`}>Confirmados</div>
               </div>
             </div>
           </motion.div>
@@ -402,7 +447,13 @@ export default function PromoterPublicPage() {
               className="bg-white rounded-3xl shadow-2xl p-8 md:p-10"
             >
               <div className="flex items-center gap-3 mb-6">
-                <div className="bg-gradient-to-r from-purple-600 to-pink-600 p-3 rounded-xl">
+                <div className={`p-3 rounded-xl ${
+                  isCarnaval
+                    ? 'bg-gradient-to-r from-[#1E503F] via-[#245642] to-[#2d6a4f]'
+                    : isPracinha
+                      ? 'bg-gradient-to-r from-[#004938] via-[#D03F00] to-[#F88A17]'
+                      : 'bg-gradient-to-r from-purple-600 to-pink-600'
+                }`}>
                   <MdStar className="text-white text-2xl" />
                 </div>
                 <div>
@@ -415,7 +466,13 @@ export default function PromoterPublicPage() {
 
               {/* Mensagem de Observações */}
               {promoter.observacoes && (
-                <div className="mb-6 p-4 bg-purple-50 border-l-4 border-purple-500 rounded-r-lg">
+                <div className={`mb-6 p-4 border-l-4 rounded-r-lg ${
+                  isCarnaval
+                    ? 'bg-emerald-50 border-emerald-500'
+                    : isPracinha
+                      ? 'bg-orange-50 border-[#F88A17]'
+                      : 'bg-purple-50 border-purple-500'
+                }`}>
                   <p className="text-gray-700">{promoter.observacoes}</p>
                 </div>
               )}
@@ -530,7 +587,13 @@ export default function PromoterPublicPage() {
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-bold py-5 px-6 rounded-xl shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none flex items-center justify-center gap-2"
+                  className={`w-full text-white font-bold py-5 px-6 rounded-xl shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none flex items-center justify-center gap-2 ${
+                    isCarnaval
+                      ? 'bg-gradient-to-r from-[#1E503F] via-[#245642] to-[#2d6a4f] hover:from-[#163c31] hover:to-[#245642]'
+                      : isPracinha
+                        ? 'bg-gradient-to-r from-[#004938] via-[#D03F00] to-[#F88A17] hover:from-[#003629] hover:to-[#D03F00]'
+                        : 'bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700'
+                  }`}
                 >
                   {isSubmitting ? (
                     <>
@@ -559,10 +622,16 @@ export default function PromoterPublicPage() {
                     <MdContentCopy size={20} />
                     Copiar Link
                   </button>
-                  <button
-                    onClick={shareWhatsApp}
-                    className="flex-1 px-4 py-3 bg-green-600 hover:bg-green-700 text-white rounded-xl font-medium transition-colors flex items-center justify-center gap-2"
-                  >
+                <button
+                  onClick={shareWhatsApp}
+                  className={`flex-1 px-4 py-3 rounded-xl font-medium transition-colors flex items-center justify-center gap-2 ${
+                    isCarnaval
+                      ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                      : isPracinha
+                        ? 'bg-[#D03F00] hover:bg-[#B23700] text-white'
+                        : 'bg-green-600 hover:bg-green-700 text-white'
+                  }`}
+                >
                     <MdWhatsapp size={20} />
                     WhatsApp
                   </button>
@@ -582,7 +651,13 @@ export default function PromoterPublicPage() {
                 className="bg-white rounded-3xl shadow-2xl p-6"
               >
                 <div className="flex items-center gap-3 mb-6">
-                  <div className="bg-gradient-to-r from-blue-600 to-purple-600 p-2 rounded-lg">
+                  <div className={`p-2 rounded-lg ${
+                    isCarnaval
+                      ? 'bg-gradient-to-r from-emerald-500 to-teal-500'
+                      : isPracinha
+                        ? 'bg-gradient-to-r from-[#004938] via-[#D03F00] to-[#F88A17]'
+                        : 'bg-gradient-to-r from-blue-600 to-purple-600'
+                  }`}>
                     <MdEvent className="text-white text-xl" />
                   </div>
                   <h3 className="text-xl font-bold text-gray-900">
@@ -597,7 +672,13 @@ export default function PromoterPublicPage() {
                       initial={{ opacity: 0, x: -10 }}
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ delay: index * 0.1 }}
-                      className="p-3 bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl border border-blue-200"
+                      className={`p-3 rounded-xl border ${
+                        isCarnaval
+                          ? 'bg-gradient-to-r from-emerald-50 to-teal-50 border-emerald-200'
+                          : isPracinha
+                            ? 'bg-gradient-to-r from-[#FFF4E5] to-[#FFE0CC] border-[#F88A17]/40'
+                            : 'bg-gradient-to-r from-blue-50 to-purple-50 border-blue-200'
+                      }`}
                     >
                       <h4 className="font-semibold text-gray-900 text-sm mb-1">
                         {evento.nome_do_evento}
@@ -644,7 +725,13 @@ export default function PromoterPublicPage() {
               className="bg-white rounded-3xl shadow-2xl p-6"
             >
               <div className="flex items-center gap-3 mb-6">
-                <div className="bg-gradient-to-r from-purple-600 to-pink-600 p-2 rounded-lg">
+                <div className={`p-2 rounded-lg ${
+                  isCarnaval
+                    ? 'bg-gradient-to-r from-emerald-500 to-teal-500'
+                    : isPracinha
+                      ? 'bg-gradient-to-r from-[#004938] via-[#D03F00] to-[#F88A17]'
+                      : 'bg-gradient-to-r from-purple-600 to-pink-600'
+                }`}>
                   <MdPeople className="text-white text-xl" />
                 </div>
                 <h3 className="text-xl font-bold text-gray-900">
@@ -655,18 +742,48 @@ export default function PromoterPublicPage() {
               <p className="text-gray-600 leading-relaxed">
                 Para privacidade e segurança, a lista completa de convidados é acessível
                 somente pelo promoter em seu painel exclusivo. Entre em contato com{" "}
-                <span className="font-semibold text-purple-700">{promoter.apelido || promoter.nome}</span> para saber mais
+                <span className={`font-semibold ${
+                  isCarnaval
+                    ? 'text-emerald-700'
+                    : isPracinha
+                      ? 'text-[#D03F00]'
+                      : 'text-purple-700'
+                }`}>{promoter.apelido || promoter.nome}</span> para saber mais
                 sobre sua entrada ou confirme sua presença pelo formulário ao lado.
               </p>
 
-              <div className="mt-6 p-4 bg-purple-50 border border-purple-200 rounded-2xl">
-                <h4 className="text-sm font-semibold text-purple-900 mb-2">Quer gerenciar sua lista?</h4>
-                <p className="text-sm text-purple-800 mb-3">
+              <div className={`mt-6 p-4 border rounded-2xl ${
+                isCarnaval
+                  ? 'bg-emerald-50 border-emerald-200'
+                  : isPracinha
+                    ? 'bg-[#FFF4E5] border-[#F88A17]/60'
+                    : 'bg-purple-50 border-purple-200'
+              }`}>
+                <h4 className={`text-sm font-semibold mb-2 ${
+                  isCarnaval
+                    ? 'text-emerald-900'
+                    : isPracinha
+                      ? 'text-[#D03F00]'
+                      : 'text-purple-900'
+                }`}>Quer gerenciar sua lista?</h4>
+                <p className={`text-sm mb-3 ${
+                  isCarnaval
+                    ? 'text-emerald-800'
+                    : isPracinha
+                      ? 'text-[#7A2A00]'
+                      : 'text-purple-800'
+                }`}>
                   Promoters podem acessar o painel completo utilizando suas credenciais.
                 </p>
                 <button
                   onClick={() => window.location.href = `/promoter/${params.codigo}/dashboard`}
-                  className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-purple-600 text-white font-semibold hover:bg-purple-700 transition"
+                  className={`inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-white font-semibold transition ${
+                    isCarnaval
+                      ? 'bg-emerald-600 hover:bg-emerald-700'
+                      : isPracinha
+                        ? 'bg-[#D03F00] hover:bg-[#B23700]'
+                        : 'bg-purple-600 hover:bg-purple-700'
+                  }`}
                 >
                   Acessar painel do promoter
                 </button>
@@ -678,7 +795,13 @@ export default function PromoterPublicPage() {
 
       {/* Footer */}
       <div className="max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
-        <div className={`text-center text-sm ${isCarnaval ? 'text-amber-100' : 'text-purple-200'}`}>
+        <div className={`text-center text-sm ${
+          isCarnaval
+            ? 'text-amber-100'
+            : isPracinha
+              ? 'text-orange-100'
+              : 'text-purple-200'
+        }`}>
           <p>Powered by Agilizaiapp</p>
         </div>
       </div>
