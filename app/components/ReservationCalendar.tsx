@@ -26,6 +26,12 @@ interface CalendarDay {
   availableTables: number;
 }
 
+interface DayBlockInfo {
+  hasFullBlock: boolean;
+  hasPartialBlock: boolean;
+  reason?: string;
+}
+
 interface ReservationCalendarProps {
   establishment: Establishment;
   reservations: Reservation[];
@@ -36,6 +42,7 @@ interface ReservationCalendarProps {
   onStatusChange?: (reservation: Reservation, newStatus: string) => void;
   onAddGuestList?: (reservation: Reservation) => void;
   birthdayReservations?: BirthdayReservation[];
+  dayBlocks?: Record<string, DayBlockInfo>;
 }
 
 export default function ReservationCalendar({ 
@@ -47,7 +54,8 @@ export default function ReservationCalendar({
   onDeleteReservation,
   onStatusChange,
   onAddGuestList,
-  birthdayReservations = []
+  birthdayReservations = [],
+  dayBlocks
 }: ReservationCalendarProps) {
   const [currentDate, setCurrentDate] = useState(new Date());// Setembro de 2025
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
@@ -374,6 +382,12 @@ export default function ReservationCalendar({
 
   const dayNames = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 
+  const getDayBlockInfo = (date: Date): DayBlockInfo | null => {
+    if (!dayBlocks) return null;
+    const key = date.toISOString().split('T')[0];
+    return dayBlocks[key] || null;
+  };
+
   return (
     <>
     <div className="bg-white rounded-xl shadow-lg border border-gray-200">
@@ -432,6 +446,22 @@ export default function ReservationCalendar({
               }`}>
                 {day.date.getDate()}
               </span>
+              {(() => {
+                const block = getDayBlockInfo(day.date);
+                if (!block) return null;
+                return (
+                  <span
+                    className={`ml-1 inline-flex items-center justify-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                      block.hasFullBlock
+                        ? 'bg-red-100 text-red-700 border border-red-300'
+                        : 'bg-orange-100 text-orange-700 border border-orange-300'
+                    }`}
+                    title={block.reason || (block.hasFullBlock ? 'Dia bloqueado' : 'Capacidade reduzida')}
+                  >
+                    {block.hasFullBlock ? 'BLOQUEADO' : 'CAP. REDUZIDA'}
+                  </span>
+                );
+              })()}
               {day.isCurrentMonth && day.availableTables > 0 && (
                 <button
                   onClick={(e) => {

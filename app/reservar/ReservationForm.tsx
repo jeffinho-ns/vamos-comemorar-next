@@ -434,6 +434,30 @@ export default function ReservationForm() {
     (selectedEstablishment.name || '').toLowerCase().includes('rooftop')
   );
 
+  // Mapeamento simplificado de áreas do Reserva Rooftop para UI pública
+  const rooftopCoveredAreas = useMemo(() => {
+    if (!isReservaRooftop) return [] as RestaurantArea[];
+    const lower = (area: RestaurantArea) => (area.name || '').toLowerCase();
+    return areas.filter((a) => {
+      const n = lower(a);
+      return n.includes('interna') || n.includes('coberta') || n.includes('salão') || n.includes('lg');
+    });
+  }, [areas, isReservaRooftop]);
+
+  const rooftopUncoveredAreas = useMemo(() => {
+    if (!isReservaRooftop) return [] as RestaurantArea[];
+    const lower = (area: RestaurantArea) => (area.name || '').toLowerCase();
+    return areas.filter((a) => {
+      const n = lower(a);
+      if (n.includes('interna') || n.includes('coberta') || n.includes('salão') || n.includes('lg')) {
+        return false;
+      }
+      return n.includes('terraço') || n.includes('externa') || n.includes('descoberta') || n.includes('gramado') || n.includes('parrilha') || n.includes('pq ');
+    });
+  }, [areas, isReservaRooftop]);
+
+  const [rooftopAreaChoice, setRooftopAreaChoice] = useState<'' | 'covered' | 'uncovered'>('');
+
   // Janelas de horário para o Highline (Sexta e Sábado)
   const getHighlineTimeWindows = (dateStr: string, subareaKey?: string) => {
     if (!dateStr) return [] as Array<{ start: string; end: string; label: string }>;
@@ -842,10 +866,10 @@ const handleSubmit = async (e: React.FormEvent) => {
         : seuJustinoSubareas.find(s => s.key === selectedSubareaKey);
       if (sub?.label) areaDisplayName = sub.label;
     }
-  } else if (isReservaRooftop && !isPracinha && selectedSubareaKey) {
-    // Reserva Rooftop usa subáreas, mas Pracinha NÃO
-    const sub = rooftopSubareas.find(s => s.key === selectedSubareaKey);
-    if (sub?.label) areaDisplayName = sub.label;
+  } else if (isReservaRooftop && !isPracinha && rooftopAreaChoice) {
+    // Reserva Rooftop público: exibir rótulo simplificado
+    areaDisplayName =
+      rooftopAreaChoice === 'covered' ? 'Área Coberta' : 'Área Descoberta';
   } else if (areas.length && reservationData.area_id) {
     const ar = areas.find((a: { id: number }) => Number(a.id) === Number(reservationData.area_id));
     if (ar && (ar as { name?: string }).name) areaDisplayName = (ar as { name: string }).name;
@@ -2026,52 +2050,77 @@ const handleSubmit = async (e: React.FormEvent) => {
                     Área Preferida *
                   </label>
                   <select
-                    value={(isHighline || isSeuJustino || isReservaRooftop) ? selectedSubareaKey : reservationData.area_id}
+                    value={
+                      isHighline || isSeuJustino
+                        ? selectedSubareaKey
+                        : isReservaRooftop && !isPracinha
+                        ? rooftopAreaChoice
+                        : reservationData.area_id
+                    }
                     onChange={(e) => {
                       if (isHighline || isSeuJustino) {
                         const key = e.target.value;
                         setSelectedSubareaKey(key);
-                        const sub = isHighline 
-                          ? highlineSubareas.find(s => s.key === key)
-                          : seuJustinoSubareas.find(s => s.key === key);
-                        handleInputChange('area_id', sub ? String(sub.area_id) : '');
-                        handleInputChange('table_number', '');
-                        handleInputChange('reservation_time', '');
+                        const sub = isHighline
+                          ? highlineSubareas.find((s) => s.key === key)
+                          : seuJustinoSubareas.find((s) => s.key === key);
+                        handleInputChange(
+                          "area_id",
+                          sub ? String(sub.area_id) : "",
+                        );
+                        handleInputChange("table_number", "");
+                        handleInputChange("reservation_time", "");
                       } else if (isReservaRooftop && !isPracinha) {
-                        // Reserva Rooftop usa subáreas, mas Pracinha NÃO
-                        const key = e.target.value;
-                        setSelectedSubareaKey(key);
-                        const sub = rooftopSubareas.find(s => s.key === key);
-                        const area = sub ? areas.find((a: { name?: string }) => (a.name || '') === sub.areaName) : null;
-                        handleInputChange('area_id', area ? String(area.id) : '');
-                        handleInputChange('table_number', '');
-                        handleInputChange('reservation_time', '');
+                        const choice = e.target.value as "" | "covered" | "uncovered";
+                        setRooftopAreaChoice(choice);
+                        let targetArea: RestaurantArea | undefined;
+                        if (choice === "covered" && rooftopCoveredAreas.length > 0) {
+                          targetArea = rooftopCoveredAreas[0];
+                        } else if (choice === "uncovered" && rooftopUncoveredAreas.length > 0) {
+                          targetArea = rooftopUncoveredAreas[0];
+                        }
+                        handleInputChange(
+                          "area_id",
+                          targetArea ? String(targetArea.id) : "",
+                        );
+                        handleInputChange("table_number", "");
+                        handleInputChange("reservation_time", "");
                       } else {
-                        // Pracinha e outros estabelecimentos usam áreas normais
-                        handleInputChange('area_id', e.target.value);
-                        handleInputChange('table_number', '');
-                        handleInputChange('reservation_time', '');
+                        handleInputChange("area_id", e.target.value);
+                        handleInputChange("table_number", "");
+                        handleInputChange("reservation_time", "");
                       }
                     }}
                     className={`w-full px-3 sm:px-4 py-2 sm:py-3 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent text-sm sm:text-base ${
-                      errors.area_id ? 'border-red-500' : 'border-gray-300'
+                      errors.area_id ? "border-red-500" : "border-gray-300"
                     }`}
                   >
                     <option value="">Selecione uma área</option>
                     {isHighline
                       ? highlineSubareas.map((s) => (
-                          <option key={s.key} value={s.key}>{s.label}</option>
+                          <option key={s.key} value={s.key}>
+                            {s.label}
+                          </option>
                         ))
                       : isSeuJustino
                       ? seuJustinoSubareas.map((s) => (
-                          <option key={s.key} value={s.key}>{s.label}</option>
+                          <option key={s.key} value={s.key}>
+                            {s.label}
+                          </option>
                         ))
-                      : (isReservaRooftop && !isPracinha)
-                      ? rooftopSubareas.map((s) => (
-                          <option key={s.key} value={s.key}>{s.label}</option>
-                        ))
+                      : isReservaRooftop && !isPracinha
+                      ? [
+                          <option key="covered" value="covered">
+                            Área Coberta
+                          </option>,
+                          <option key="uncovered" value="uncovered">
+                            Área Descoberta
+                          </option>,
+                        ]
                       : areas.map((area) => (
-                          <option key={area.id} value={area.id}>{area.name}</option>
+                          <option key={area.id} value={area.id}>
+                            {area.name}
+                          </option>
                         ))}
                   </select>
                   {errors.area_id && (

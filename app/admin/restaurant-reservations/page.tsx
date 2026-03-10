@@ -16,6 +16,7 @@ import {
   MdTimer,
   MdLocationOn,
   MdPerson,
+  MdLock,
 } from "react-icons/md";
 import { motion } from "framer-motion";
 import ReservationCalendar from "../../components/ReservationCalendar";
@@ -25,6 +26,7 @@ import WalkInModal from "../../components/WalkInModal";
 import WaitlistModal from "../../components/WaitlistModal";
 import AllocateTableModal from "../../components/AllocateTableModal";
 import AddGuestListToReservationModal from "../../components/AddGuestListToReservationModal";
+import ReservationBlockModal from "../../components/ReservationBlockModal";
 import { Reservation } from "@/app/types/reservation";
 import {
   BirthdayService,
@@ -374,6 +376,11 @@ export default function RestaurantReservationsPage() {
   >([]);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
+  const [showBlockModal, setShowBlockModal] = useState(false);
+  const [dayBlocks, setDayBlocks] = useState<Record<
+    string,
+    { hasFullBlock: boolean; hasPartialBlock: boolean; reason?: string }
+  >>({});
 
   const [viewMode, setViewMode] = useState<
     "calendar" | "list" | "weekly" | "sheet"
@@ -420,6 +427,64 @@ export default function RestaurantReservationsPage() {
     const d = new Date();
     return d.toISOString().split("T")[0];
   });
+
+  // Carregar bloqueios de agenda para o estabelecimento selecionado
+  const loadBlocks = useCallback(async () => {
+    if (!selectedEstablishment) return;
+    try {
+      const token = localStorage.getItem("authToken");
+      const url = new URL(
+        `${API_URL}/api/restaurant-reservation-blocks`,
+      );
+      url.searchParams.set(
+        "establishment_id",
+        String(selectedEstablishment.id),
+      );
+      const response = await fetch(url.toString(), {
+        headers: token
+          ? {
+              Authorization: `Bearer ${token}`,
+            }
+          : undefined,
+      });
+      if (!response.ok) return;
+      const data = await response.json();
+      if (!data?.success || !Array.isArray(data.blocks)) return;
+
+      const map: Record<
+        string,
+        { hasFullBlock: boolean; hasPartialBlock: boolean; reason?: string }
+      > = {};
+
+      data.blocks.forEach((block: any) => {
+        if (!block.start_datetime || !block.end_datetime) return;
+        const start = new Date(block.start_datetime);
+        const end = new Date(block.end_datetime);
+        if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return;
+
+        const current = new Date(start);
+        while (current <= end) {
+          const key = current.toISOString().split("T")[0];
+          const existing = map[key] || {
+            hasFullBlock: false,
+            hasPartialBlock: false,
+          };
+          if (block.max_people_capacity == null) {
+            existing.hasFullBlock = true;
+          } else {
+            existing.hasPartialBlock = true;
+          }
+          existing.reason = block.reason || existing.reason;
+          map[key] = existing;
+          current.setDate(current.getDate() + 1);
+        }
+      });
+
+      setDayBlocks(map);
+    } catch (error) {
+      console.error("Erro ao carregar bloqueios de agenda:", error);
+    }
+  }, [API_URL, selectedEstablishment]);
 
   // Estados para Guest Lists (Admin)
   type GuestListItem = {
@@ -773,6 +838,12 @@ export default function RestaurantReservationsPage() {
       setWaitlist([]);
     }
   }, [selectedEstablishment, API_URL]);
+
+  // Recarregar bloqueios sempre que o estabelecimento mudar
+  useEffect(() => {
+    if (!selectedEstablishment) return;
+    loadBlocks();
+  }, [selectedEstablishment, loadBlocks]);
 
   // Carregar dados imediatamente quando um estabelecimento é selecionado
   useEffect(() => {
@@ -2588,16 +2659,29 @@ export default function RestaurantReservationsPage() {
                         />
                       </div>
                       {canCreateEditReservations && (
-                        <button
-                          onClick={async () => {
-                            await loadAreas();
-                            setShowModal(true);
-                          }}
-                          className="flex items-center gap-2 px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-white rounded-lg transition-colors w-full sm:w-auto justify-center"
-                        >
-                          <MdAdd />
-                          Nova Reserva
-                        </button>
+                        <div className="flex flex-col sm:flex-row gap-2">
+                          <button
+                            onClick={async () => {
+                              await loadAreas();
+                              setShowModal(true);
+                            }}
+                            className="flex items-center gap-2 px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-white rounded-lg transition-colors w-full sm:w-auto justify-center"
+                          >
+                            <MdAdd />
+                            Nova Reserva
+                          </button>
+                          {selectedEstablishment && (
+                            <button
+                              onClick={() => {
+                                setShowBlockModal(true);
+                              }}
+                              className="flex items-center gap-2 px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-colors w-full sm:w-auto justify-center"
+                            >
+                              <MdLock />
+                              Bloquear Agenda
+                            </button>
+                          )}
+                        </div>
                       )}
                     </div>
                   </div>
@@ -2618,6 +2702,7 @@ export default function RestaurantReservationsPage() {
                           setShowAddGuestListModal(true);
                         }}
                         birthdayReservations={birthdayReservations}
+                        dayBlocks={dayBlocks}
                       />
                     </div>
                   )}
@@ -5388,6 +5473,19 @@ export default function RestaurantReservationsPage() {
             areas={areas}
           />
         )}
+
+        <ReservationBlockModal
+          isOpen={showBlockModal}
+          onClose={() => setShowBlockModal(false)}
+          establishmentId={selectedEstablishment?.id}
+          areas={areas}
+          initialDate={selectedDate}
+          apiUrl={API_URL}
+          onBlockCreated={async () => {
+            await loadEstablishmentData();
+            await loadBlocks();
+          }}
+        />
 
         {showWalkInModal && (
           <WalkInModal
