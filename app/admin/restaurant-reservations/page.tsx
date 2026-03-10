@@ -381,6 +381,7 @@ export default function RestaurantReservationsPage() {
     string,
     { hasFullBlock: boolean; hasPartialBlock: boolean; reason?: string }
   >>({});
+  const [reservationBlocksRaw, setReservationBlocksRaw] = useState<any[]>([]);
 
   const [viewMode, setViewMode] = useState<
     "calendar" | "list" | "weekly" | "sheet"
@@ -455,6 +456,8 @@ export default function RestaurantReservationsPage() {
         string,
         { hasFullBlock: boolean; hasPartialBlock: boolean; reason?: string }
       > = {};
+
+      setReservationBlocksRaw(data.blocks);
 
       data.blocks.forEach((block: any) => {
         if (!block.start_datetime || !block.end_datetime) return;
@@ -2704,6 +2707,81 @@ export default function RestaurantReservationsPage() {
                         birthdayReservations={birthdayReservations}
                         dayBlocks={dayBlocks}
                       />
+
+                      {/* Lista de bloqueios do dia selecionado */}
+                      {selectedDate && reservationBlocksRaw.length > 0 && (
+                        <div className="mt-4 bg-red-50 border border-red-200 rounded-lg p-4">
+                          <h3 className="text-sm font-semibold text-red-800 mb-2">
+                            Bloqueios deste dia
+                          </h3>
+                          <div className="space-y-2 max-h-48 overflow-y-auto text-xs">
+                            {reservationBlocksRaw
+                              .filter((block) => {
+                                if (!block.start_datetime || !block.end_datetime) return false;
+                                const start = new Date(block.start_datetime);
+                                const end = new Date(block.end_datetime);
+                                const dayStr = selectedDate.toISOString().split("T")[0];
+                                const startStr = start.toISOString().split("T")[0];
+                                const endStr = end.toISOString().split("T")[0];
+                                return dayStr >= startStr && dayStr <= endStr;
+                              })
+                              .map((block) => {
+                                const start = new Date(block.start_datetime);
+                                const end = new Date(block.end_datetime);
+                                const formatTime = (d: Date) =>
+                                  `${String(d.getHours()).padStart(2, "0")}:${String(
+                                    d.getMinutes(),
+                                  ).padStart(2, "0")}`;
+                                return (
+                                  <div
+                                    key={block.id}
+                                    className="flex items-center justify-between gap-2 bg-white/70 border border-red-100 rounded-md px-2 py-1"
+                                  >
+                                    <div className="flex-1 min-w-0">
+                                      <div className="font-medium text-red-900 truncate">
+                                        {formatTime(start)} – {formatTime(end)}
+                                      </div>
+                                      <div className="text-red-700 truncate">
+                                        {block.reason || "Bloqueio de agenda"}
+                                      </div>
+                                    </div>
+                                    <button
+                                      type="button"
+                                      onClick={async () => {
+                                        try {
+                                          const token = localStorage.getItem("authToken");
+                                          const res = await fetch(
+                                            `${API_URL}/api/restaurant-reservation-blocks/${block.id}`,
+                                            {
+                                              method: "DELETE",
+                                              headers: token
+                                                ? {
+                                                    Authorization: `Bearer ${token}`,
+                                                  }
+                                                : undefined,
+                                            },
+                                          );
+                                          if (!res.ok) {
+                                            console.error("Erro ao remover bloqueio:", await res.text());
+                                            alert("Não foi possível remover o bloqueio. Tente novamente.");
+                                            return;
+                                          }
+                                          await loadBlocks();
+                                        } catch (e) {
+                                          console.error("Erro ao remover bloqueio:", e);
+                                          alert("Erro ao remover bloqueio. Verifique sua conexão.");
+                                        }
+                                      }}
+                                      className="text-xs font-semibold text-red-700 hover:text-red-900 px-2 py-1 rounded border border-red-200 bg-red-50"
+                                    >
+                                      Remover
+                                    </button>
+                                  </div>
+                                );
+                              })}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
 

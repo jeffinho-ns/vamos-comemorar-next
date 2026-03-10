@@ -181,6 +181,7 @@ export default function ReservationForm() {
   const [promoterEventsLoading, setPromoterEventsLoading] = useState(false);
   const [promoterEventsError, setPromoterEventsError] = useState<string | null>(null);
   const [isWalkIn, setIsWalkIn] = useState<boolean>(false);
+  const [reservationBlocks, setReservationBlocks] = useState<any[]>([]);
 
   // Carregar estabelecimentos da API
   useEffect(() => {
@@ -457,6 +458,37 @@ export default function ReservationForm() {
   }, [areas, isReservaRooftop]);
 
   const [rooftopAreaChoice, setRooftopAreaChoice] = useState<'' | 'covered' | 'uncovered'>('');
+
+  // Carregar bloqueios de agenda para o dia selecionado (exibir apenas horários livres)
+  useEffect(() => {
+    const loadBlocksForPublic = async () => {
+      try {
+        if (!selectedEstablishment?.id || !reservationData.reservation_date) {
+          setReservationBlocks([]);
+          return;
+        }
+        const url = new URL(`${API_URL}/api/restaurant-reservation-blocks`);
+        url.searchParams.set('establishment_id', String(selectedEstablishment.id));
+        url.searchParams.set('date', reservationData.reservation_date);
+        const response = await fetch(url.toString());
+        if (!response.ok) {
+          setReservationBlocks([]);
+          return;
+        }
+        const data = await response.json();
+        if (data?.success && Array.isArray(data.blocks)) {
+          setReservationBlocks(data.blocks);
+        } else {
+          setReservationBlocks([]);
+        }
+      } catch (e) {
+        console.error('Erro ao carregar bloqueios de agenda (público):', e);
+        setReservationBlocks([]);
+      }
+    };
+
+    loadBlocksForPublic();
+  }, [API_URL, selectedEstablishment, reservationData.reservation_date]);
 
   // Janelas de horário para o Highline (Sexta e Sábado)
   const getHighlineTimeWindows = (dateStr: string, subareaKey?: string) => {
@@ -1129,6 +1161,37 @@ const handleSubmit = async (e: React.FormEvent) => {
       }
     }
 
+    // Aplicar bloqueios de agenda (restaurant_reservation_blocks)
+    if (slots.length > 0 && reservationBlocks.length > 0 && selectedEstablishment?.id) {
+      try {
+        const dateStr = reservationData.reservation_date;
+        const dateBase = new Date(`${dateStr}T00:00:00`);
+
+        const isSlotBlocked = (slot: string): boolean => {
+          const [h, m] = slot.split(':').map((v) => Number(v));
+          if (!Number.isFinite(h)) return false;
+          const slotDateTime = new Date(dateBase);
+          slotDateTime.setHours(h, Number.isFinite(m) ? m : 0, 0, 0);
+
+          return reservationBlocks.some((block: any) => {
+            if (!block.start_datetime || !block.end_datetime) return false;
+            // Filtra só bloqueios do mesmo estabelecimento
+            if (block.establishment_id && Number(block.establishment_id) !== Number(selectedEstablishment.id)) {
+              return false;
+            }
+            const start = new Date(block.start_datetime);
+            const end = new Date(block.end_datetime);
+            if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return false;
+            return slotDateTime >= start && slotDateTime <= end;
+          });
+        };
+
+        slots = slots.filter((slot) => !isSlotBlocked(slot));
+      } catch (e) {
+        console.error('Erro ao aplicar bloqueios de agenda em /reservar:', e);
+      }
+    }
+
     return slots;
   };
 
@@ -1325,6 +1388,7 @@ const handleSubmit = async (e: React.FormEvent) => {
     selectedSubareaKey,
     isHighline,
     selectedEstablishment,
+    reservationBlocks,
   ]);
 
   const establishmentsMap = useMemo(() => {
