@@ -43,6 +43,7 @@ interface ReservationCalendarProps {
   onAddGuestList?: (reservation: Reservation) => void;
   birthdayReservations?: BirthdayReservation[];
   dayBlocks?: Record<string, DayBlockInfo>;
+  onDayBlockClick?: (date: Date) => void;
 }
 
 export default function ReservationCalendar({ 
@@ -55,7 +56,8 @@ export default function ReservationCalendar({
   onStatusChange,
   onAddGuestList,
   birthdayReservations = [],
-  dayBlocks
+  dayBlocks,
+  onDayBlockClick,
 }: ReservationCalendarProps) {
   const [currentDate, setCurrentDate] = useState(new Date());// Setembro de 2025
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
@@ -449,17 +451,25 @@ export default function ReservationCalendar({
               {(() => {
                 const block = getDayBlockInfo(day.date);
                 if (!block) return null;
+                const label = block.hasFullBlock ? 'BLOQUEADO' : 'CAP. REDUZIDA';
+                const title =
+                  block.reason || (block.hasFullBlock ? 'Dia bloqueado' : 'Capacidade reduzida');
+                const classes =
+                  block.hasFullBlock
+                    ? 'bg-red-100 text-red-700 border border-red-300'
+                    : 'bg-orange-100 text-orange-700 border border-orange-300';
                 return (
-                  <span
-                    className={`ml-1 inline-flex items-center justify-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${
-                      block.hasFullBlock
-                        ? 'bg-red-100 text-red-700 border border-red-300'
-                        : 'bg-orange-100 text-orange-700 border border-orange-300'
-                    }`}
-                    title={block.reason || (block.hasFullBlock ? 'Dia bloqueado' : 'Capacidade reduzida')}
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (onDayBlockClick) onDayBlockClick(day.date);
+                    }}
+                    className={`ml-1 inline-flex items-center justify-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${classes}`}
+                    title={title}
                   >
-                    {block.hasFullBlock ? 'BLOQUEADO' : 'CAP. REDUZIDA'}
-                  </span>
+                    {label}
+                  </button>
                 );
               })()}
               {day.isCurrentMonth && day.availableTables > 0 && (
