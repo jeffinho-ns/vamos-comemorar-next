@@ -189,7 +189,7 @@ export default function EventoConvidadosPage() {
                                         ? "bg-green-100 text-green-800 border-green-200"
                                         : "bg-yellow-100 text-yellow-800 border-yellow-200";
                                       const dataCheckin = chegou && convidado.data_checkin
-                                        ? new Date(convidado.data_checkin).toLocaleString("pt-BR")
+                                        ? new Date(convidado.data_checkin).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })
                                         : "";
                                       return (
                                         <li key={convidado.id} className="py-4 px-6 flex flex-col md:flex-row justify-between items-start md:items-center hover:bg-gray-50/50 transition-colors">

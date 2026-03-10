@@ -3,6 +3,58 @@
  * Corrige problemas de fuso horário ao exibir datas
  */
 
+/** Timezone do estabelecimento (São Paulo) - usada para exibir horários de check-in corretamente */
+export const TIMEZONE_BR = "America/Sao_Paulo";
+
+/**
+ * Formata horário de check-in para exibição no fuso de São Paulo.
+ * Resolve o problema de horários aparecendo errados (ex: 15:10 quando o real é 18:10)
+ * quando o navegador está em outro fuso.
+ * @param isoString - Timestamp ISO (ex: "2026-02-27T21:10:00.000Z" ou "2026-02-27T21:10:00")
+ * @returns Hora formatada (ex: "21:10") ou string vazia se inválido
+ */
+/**
+ * Formata horário de check-in (HH:mm) para exibição no fuso de São Paulo.
+ */
+export function formatCheckinTime(isoString?: string | null): string {
+  if (!isoString || String(isoString).trim() === "") return "";
+  try {
+    const d = new Date(isoString);
+    if (isNaN(d.getTime())) return "";
+    return d.toLocaleTimeString("pt-BR", {
+      hour: "2-digit",
+      minute: "2-digit",
+      timeZone: TIMEZONE_BR,
+    });
+  } catch {
+    return "";
+  }
+}
+
+/** Alias para formatCheckinTime */
+export const formatCheckinTimeShort = formatCheckinTime;
+
+/**
+ * Formata data e hora completas para o fuso de São Paulo.
+ */
+export function formatDateTimeCheckin(isoString?: string | null): string {
+  if (!isoString || String(isoString).trim() === "") return "";
+  try {
+    const d = new Date(isoString);
+    if (isNaN(d.getTime())) return "";
+    return d.toLocaleString("pt-BR", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      timeZone: TIMEZONE_BR,
+    });
+  } catch {
+    return "";
+  }
+}
+
 /**
  * Formata uma data no formato YYYY-MM-DD para o padrão brasileiro
  * Adiciona T12:00:00 para evitar problemas de fuso horário

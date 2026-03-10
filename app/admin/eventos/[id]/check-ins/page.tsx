@@ -61,6 +61,10 @@ import {
   isReservaRooftopEstablishment,
   toDateKey,
 } from "@/app/utils/rooftopCheckins";
+import {
+  formatCheckinTime,
+  formatDateTimeCheckin,
+} from "@/lib/dateUtils";
 
 const API_URL =
   process.env.NEXT_PUBLIC_API_URL || "https://api.agilizaiapp.com.br";
@@ -2111,8 +2115,7 @@ export default function EventoCheckInsPage() {
         return "";
       }
     };
-    const formatTime = (t?: string) =>
-      t && t.trim() ? String(t).slice(0, 5) : "";
+    const formatTime = (t?: string) => formatCheckinTime(t) || "";
     const filtered = planilhaReservas.filter(matches);
 
     const { workbook, rowMap } = buildCheckinSpreadsheetTemplate({
@@ -5218,12 +5221,9 @@ export default function EventoCheckInsPage() {
                                         🚪 Saída registrada
                                         {result.checkoutTime && (
                                           <span className="text-xs text-gray-400">
-                                            {new Date(
+                                            {formatCheckinTime(
                                               result.checkoutTime,
-                                            ).toLocaleTimeString("pt-BR", {
-                                              hour: "2-digit",
-                                              minute: "2-digit",
-                                            })}
+                                            )}
                                           </span>
                                         )}
                                       </span>
@@ -6541,14 +6541,8 @@ export default function EventoCheckInsPage() {
                                                   return (
                                                     <span className="text-xs text-gray-400 font-mono px-2">
                                                       E:{" "}
-                                                      {new Date(
+                                                      {formatCheckinTime(
                                                         checkinTime,
-                                                      ).toLocaleTimeString(
-                                                        "pt-BR",
-                                                        {
-                                                          hour: "2-digit",
-                                                          minute: "2-digit",
-                                                        },
                                                       )}
                                                     </span>
                                                   );
@@ -6578,28 +6572,16 @@ export default function EventoCheckInsPage() {
                                                 ownerCheckOutTimeMap[
                                                   gl.guest_list_id
                                                 ];
-                                              const formatTime = (
-                                                timeStr: string | undefined,
-                                              ) => {
-                                                if (!timeStr) return "";
-                                                return new Date(
-                                                  timeStr,
-                                                ).toLocaleTimeString("pt-BR", {
-                                                  hour: "2-digit",
-                                                  minute: "2-digit",
-                                                });
-                                              };
-
                                               if (checkinTime || checkoutTime) {
                                                 return (
                                                   <span className="text-xs text-gray-400 font-mono px-2">
                                                     {checkinTime &&
-                                                      `E: ${formatTime(checkinTime)}`}
+                                                      `E: ${formatCheckinTime(checkinTime)}`}
                                                     {checkinTime &&
                                                       checkoutTime &&
                                                       " | "}
                                                     {checkoutTime &&
-                                                      `S: ${formatTime(checkoutTime)}`}
+                                                      `S: ${formatCheckinTime(checkoutTime)}`}
                                                   </span>
                                                 );
                                               }
@@ -6787,7 +6769,7 @@ export default function EventoCheckInsPage() {
                                             {checkInStatus[gl.guest_list_id]
                                               ?.ownerCheckedIn ||
                                             gl.owner_checked_in === 1
-                                              ? `✅ Presente${gl.owner_checkin_time || ownerCheckInTimeMap[gl.guest_list_id] ? ` ${new Date(gl.owner_checkin_time || ownerCheckInTimeMap[gl.guest_list_id]!).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}` : ""}`
+                                              ? `✅ Presente${gl.owner_checkin_time || ownerCheckInTimeMap[gl.guest_list_id] ? ` ${formatCheckinTime(gl.owner_checkin_time || ownerCheckInTimeMap[gl.guest_list_id]!)}` : ""}`
                                               : "⏳ Aguardando"}
                                           </span>
                                           <span className="px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-700">
@@ -6932,31 +6914,13 @@ export default function EventoCheckInsPage() {
                                                 const hasCheckinTime =
                                                   !!g.checkin_time;
 
-                                                // Formatar horários de entrada e saída
-                                                const formatTime = (
-                                                  timeStr: string | undefined,
-                                                ) => {
-                                                  if (!timeStr) return "";
-                                                  return new Date(
-                                                    timeStr,
-                                                  ).toLocaleTimeString(
-                                                    "pt-BR",
-                                                    {
-                                                      hour: "2-digit",
-                                                      minute: "2-digit",
-                                                    },
-                                                  );
-                                                };
-
                                                 const checkinTimeFormatted =
                                                   hasCheckinTime
-                                                    ? formatTime(g.checkin_time)
+                                                    ? formatCheckinTime(g.checkin_time)
                                                     : "";
                                                 const checkoutTimeFormatted =
                                                   hasCheckoutTime
-                                                    ? formatTime(
-                                                        g.checkout_time,
-                                                      )
+                                                    ? formatCheckinTime(g.checkout_time)
                                                     : "";
 
                                                 return (
@@ -7240,26 +7204,13 @@ export default function EventoCheckInsPage() {
                                             const hasCheckinTime =
                                               !!g.checkin_time;
 
-                                            // Formatar horários de entrada e saída
-                                            const formatTime = (
-                                              timeStr: string | undefined,
-                                            ) => {
-                                              if (!timeStr) return "";
-                                              return new Date(
-                                                timeStr,
-                                              ).toLocaleTimeString("pt-BR", {
-                                                hour: "2-digit",
-                                                minute: "2-digit",
-                                              });
-                                            };
-
                                             const checkinTimeFormatted =
                                               hasCheckinTime
-                                                ? formatTime(g.checkin_time)
+                                                ? formatCheckinTime(g.checkin_time)
                                                 : "";
                                             const checkoutTimeFormatted =
                                               hasCheckoutTime
-                                                ? formatTime(g.checkout_time)
+                                                ? formatCheckinTime(g.checkout_time)
                                                 : "";
 
                                             return (
@@ -7474,16 +7425,6 @@ export default function EventoCheckInsPage() {
                                     r.checked_out === true ||
                                     r.checked_out === 1 ||
                                     !!r.checkout_time;
-                                  const fmt = (t: string | undefined) =>
-                                    t
-                                      ? new Date(t).toLocaleTimeString(
-                                          "pt-BR",
-                                          {
-                                            hour: "2-digit",
-                                            minute: "2-digit",
-                                          },
-                                        )
-                                      : "";
                                   return (
                                     <div
                                       key={`reserva-sem-lista-${r.id}`}
@@ -7553,7 +7494,7 @@ export default function EventoCheckInsPage() {
                                               </div>
                                               {r.checkin_time && (
                                                 <span className="text-xs text-gray-400 font-mono px-2">
-                                                  E: {fmt(r.checkin_time)}
+                                                  E: {formatCheckinTime(r.checkin_time)}
                                                 </span>
                                               )}
                                             </>
@@ -7567,12 +7508,12 @@ export default function EventoCheckInsPage() {
                                                 r.checkout_time) && (
                                                 <span className="text-xs text-gray-400 font-mono px-2">
                                                   {r.checkin_time &&
-                                                    `E: ${fmt(r.checkin_time)}`}
+                                                    `E: ${formatCheckinTime(r.checkin_time)}`}
                                                   {r.checkin_time &&
                                                     r.checkout_time &&
                                                     " | "}
                                                   {r.checkout_time &&
-                                                    `S: ${fmt(r.checkout_time)}`}
+                                                    `S: ${formatCheckinTime(r.checkout_time)}`}
                                                 </span>
                                               )}
                                             </div>
@@ -7929,14 +7870,7 @@ export default function EventoCheckInsPage() {
                               <div className="text-center space-y-1">
                                 <div className="text-xs text-green-400 font-medium">
                                   ✅{" "}
-                                  {convidado.data_checkin
-                                    ? new Date(
-                                        convidado.data_checkin,
-                                      ).toLocaleTimeString("pt-BR", {
-                                        hour: "2-digit",
-                                        minute: "2-digit",
-                                      })
-                                    : ""}
+                                  {formatCheckinTime(convidado.data_checkin)}
                                 </div>
                                 {convidado.entrada_tipo && (
                                   <div
@@ -8057,9 +7991,7 @@ export default function EventoCheckInsPage() {
                                 <div className="text-sm text-green-400 font-medium">
                                   ✅{" "}
                                   {convidado.data_checkin
-                                    ? new Date(
-                                        convidado.data_checkin,
-                                      ).toLocaleTimeString("pt-BR")
+                                    ? formatDateTimeCheckin(convidado.data_checkin)
                                     : "Presente"}
                                 </div>
                                 {convidado.entrada_tipo && (
@@ -8185,14 +8117,7 @@ export default function EventoCheckInsPage() {
                         ) : (
                           <div className="text-center text-xs text-green-400 font-medium">
                             ✅{" "}
-                            {camarote.checkin_time
-                              ? new Date(
-                                  camarote.checkin_time,
-                                ).toLocaleTimeString("pt-BR", {
-                                  hour: "2-digit",
-                                  minute: "2-digit",
-                                })
-                              : ""}
+                            {formatCheckinTime(camarote.checkin_time)}
                           </div>
                         )}
                       </motion.div>
@@ -9085,14 +9010,6 @@ export default function EventoCheckInsPage() {
                 return timeB - timeA;
               })
               .map((reserva) => {
-                const formatTime = (timeStr: string) => {
-                  if (!timeStr) return "—";
-                  return new Date(timeStr).toLocaleTimeString("pt-BR", {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  });
-                };
-
                 return (
                   <div
                     key={
@@ -9125,12 +9042,12 @@ export default function EventoCheckInsPage() {
                         <div className="mt-2 flex flex-col md:flex-row md:items-center gap-2 md:gap-4 text-xs text-gray-400">
                           <div className="flex items-center gap-1">
                             <span className="font-mono">
-                              E: {formatTime(reserva.checkin_time)}
+                              E: {formatCheckinTime(reserva.checkin_time)}
                             </span>
                           </div>
                           <div className="flex items-center gap-1">
                             <span className="font-mono">
-                              S: {formatTime(reserva.checkout_time)}
+                              S: {formatCheckinTime(reserva.checkout_time)}
                             </span>
                           </div>
                         </div>
@@ -9157,8 +9074,8 @@ export default function EventoCheckInsPage() {
                                   {guest.name}
                                 </span>
                                 <span className="font-mono">
-                                  E: {formatTime(guest.checkin_time || "")} | S:{" "}
-                                  {formatTime(guest.checkout_time || "")}
+                                  E: {formatCheckinTime(guest.checkin_time)} | S:{" "}
+                                  {formatCheckinTime(guest.checkout_time)}
                                 </span>
                               </div>
                             ))}
