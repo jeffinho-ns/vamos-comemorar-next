@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
+import Image from "next/image";
 import {
   MdPerson,
   MdWhatsapp,
@@ -18,6 +19,8 @@ import {
   MdEvent,
   MdClose
 } from "react-icons/md";
+
+import logoPracinha from "@/app/assets/pracinha/pracinha-logo-2.png";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://vamos-comemorar-api.onrender.com';
 
@@ -326,8 +329,24 @@ export default function PromoterPublicPage() {
             animate={{ opacity: 1, y: 0 }}
             className="text-center"
           >
-            {/* Foto do Promoter */}
-            {promoter.foto_url ? (
+            {/* Foto do Promoter ou logo Pracinha */}
+            {isPracinha ? (
+              <motion.div
+                initial={{ scale: 0, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ type: "spring", stiffness: 200 }}
+                className="mx-auto mb-6 flex justify-center"
+              >
+                <Image
+                  src={logoPracinha}
+                  alt="Pracinha"
+                  width={128}
+                  height={128}
+                  className="w-32 h-32 object-contain"
+                  priority
+                />
+              </motion.div>
+            ) : promoter.foto_url ? (
               <motion.img
                 initial={{ scale: 0 }}
                 animate={{ scale: 1 }}
@@ -344,9 +363,7 @@ export default function PromoterPublicPage() {
                 className={`w-32 h-32 rounded-full border-4 border-white shadow-2xl mx-auto mb-6 flex items-center justify-center ${
                   isCarnaval
                     ? 'bg-gradient-to-br from-[#1E503F] via-[#245642] to-[#2d6a4f]'
-                    : isPracinha
-                      ? 'bg-gradient-to-br from-[#004938] via-[#D03F00] to-[#F88A17]'
-                      : 'bg-gradient-to-br from-purple-400 to-pink-400'
+                    : 'bg-gradient-to-br from-purple-400 to-pink-400'
                 }`}
               >
                 <MdPerson className="text-white text-6xl" />
