@@ -2670,7 +2670,7 @@ const handleSubmit = async (e: React.FormEvent) => {
           <span className="font-bold text-green-900">INFORMAÇÕES DE CONTATO</span>
         </div>
         <p className="text-sm text-green-800 font-medium">
-          Para mais informações, entre em contato pelo WhatsApp (11) 3032-2937 Highline
+          Para mais informações, entre em contato pelo WhatsApp {selectedEstablishment?.phone || '(11) 99999-9999'} {selectedEstablishment?.name || ''}
         </p>
       </div>
     </div>
