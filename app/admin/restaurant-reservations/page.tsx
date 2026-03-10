@@ -464,9 +464,25 @@ export default function RestaurantReservationsPage() {
 
       data.blocks.forEach((block: any) => {
         if (!block.start_datetime || !block.end_datetime) return;
-        const start = new Date(block.start_datetime);
-        const end = new Date(block.end_datetime);
-        if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return;
+
+        const parseLocalDate = (value: string) => {
+          try {
+            const clean = value.replace('Z', '').trim();
+            const [dPart] = clean.split('T');
+            if (!dPart) return null;
+            const [year, month, day] = dPart.split('-').map((v) => Number(v));
+            if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) {
+              return null;
+            }
+            return new Date(year, (month || 1) - 1, day || 1);
+          } catch {
+            return null;
+          }
+        };
+
+        const start = parseLocalDate(block.start_datetime);
+        const end = parseLocalDate(block.end_datetime);
+        if (!start || !end || Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return;
 
         const current = new Date(start);
         while (current <= end) {

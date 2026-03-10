@@ -1167,6 +1167,30 @@ const handleSubmit = async (e: React.FormEvent) => {
         const dateStr = reservationData.reservation_date;
         const dateBase = new Date(`${dateStr}T00:00:00`);
 
+        const parseLocalDateTime = (value: string) => {
+          try {
+            const clean = value.replace('Z', '').trim();
+            const [dPart, tPart] = clean.split('T');
+            if (!dPart || !tPart) return null;
+            const [year, month, day] = dPart.split('-').map((v) => Number(v));
+            const [hour, minute] = tPart.split(':').map((v) => Number(v));
+            if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) {
+              return null;
+            }
+            return new Date(
+              year,
+              (month || 1) - 1,
+              day || 1,
+              Number.isFinite(hour) ? hour : 0,
+              Number.isFinite(minute) ? minute : 0,
+              0,
+              0,
+            );
+          } catch {
+            return null;
+          }
+        };
+
         const isSlotBlocked = (slot: string): boolean => {
           const [h, m] = slot.split(':').map((v) => Number(v));
           if (!Number.isFinite(h)) return false;
@@ -1179,9 +1203,11 @@ const handleSubmit = async (e: React.FormEvent) => {
             if (block.establishment_id && Number(block.establishment_id) !== Number(selectedEstablishment.id)) {
               return false;
             }
-            const start = new Date(block.start_datetime);
-            const end = new Date(block.end_datetime);
-            if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return false;
+            const start = parseLocalDateTime(block.start_datetime);
+            const end = parseLocalDateTime(block.end_datetime);
+            if (!start || !end || Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+              return false;
+            }
             return slotDateTime >= start && slotDateTime <= end;
           });
         };

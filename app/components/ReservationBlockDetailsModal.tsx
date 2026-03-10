@@ -17,10 +17,38 @@ export default function ReservationBlockDetailsModal({
 }: ReservationBlockDetailsModalProps) {
   if (!isOpen) return null;
 
+  const parseLocalDateTime = (value: string) => {
+    try {
+      const clean = value.replace('Z', '').trim();
+      const [datePart, timePart] = clean.split('T');
+      if (!datePart || !timePart) return null;
+      const [year, month, day] = datePart.split('-').map((v) => Number(v));
+      const [hour, minute] = timePart.split(':').map((v) => Number(v));
+      if (
+        !Number.isFinite(year) ||
+        !Number.isFinite(month) ||
+        !Number.isFinite(day)
+      ) {
+        return null;
+      }
+      return new Date(
+        year,
+        (month || 1) - 1,
+        day || 1,
+        Number.isFinite(hour) ? hour : 0,
+        Number.isFinite(minute) ? minute : 0,
+        0,
+        0,
+      );
+    } catch {
+      return null;
+    }
+  };
+
   const formatDateTime = (value?: string | null) => {
     if (!value) return "";
-    const d = new Date(value);
-    if (Number.isNaN(d.getTime())) return "";
+    const d = parseLocalDateTime(value);
+    if (!d || Number.isNaN(d.getTime())) return "";
     return d.toLocaleString("pt-BR", {
       day: "2-digit",
       month: "2-digit",
