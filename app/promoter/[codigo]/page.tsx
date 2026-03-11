@@ -475,7 +475,7 @@ export default function PromoterPublicPage() {
                 </div>
                 <div>
                   <h2 className="text-2xl md:text-3xl font-bold text-gray-900">
-                    Entre na Lista VIP
+                    Entre na Lista
                   </h2>
                   <p className="text-gray-600">Garanta sua entrada nos melhores eventos</p>
                 </div>
