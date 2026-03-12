@@ -2459,7 +2459,8 @@ export default function RestaurantReservationsPage() {
 
             {/* Navegação por Abas */}
             <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-2xl border border-gray-200/20 mb-8">
-              <div className="flex border-b border-gray-200">
+              <div className="border-b border-gray-200 overflow-x-auto">
+                <div className="flex w-max min-w-full">
                 {tabs.map((tab) => (
                   <button
                     key={tab.id}
@@ -2474,6 +2475,7 @@ export default function RestaurantReservationsPage() {
                     {tab.label}
                   </button>
                 ))}
+                </div>
               </div>
             </div>
 
@@ -2485,82 +2487,86 @@ export default function RestaurantReservationsPage() {
                   {/* Controles da Aba Reservas */}
                   <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-6">
                     <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-                      <div className="flex bg-gray-100 rounded-lg p-1">
-                        <button
-                          onClick={() => setViewMode("calendar")}
-                          className={`px-4 py-2 rounded-md transition-colors ${
-                            viewMode === "calendar"
-                              ? "bg-white text-gray-800 shadow-sm"
-                              : "text-gray-600 hover:text-gray-800"
-                          }`}
-                        >
-                          Calendário
-                        </button>
-                        <button
-                          onClick={() => setViewMode("weekly")}
-                          className={`px-4 py-2 rounded-md transition-colors ${
-                            viewMode === "weekly"
-                              ? "bg-white text-gray-800 shadow-sm"
-                              : "text-gray-600 hover:text-gray-800"
-                          }`}
-                        >
-                          Semanal
-                        </button>
-                        <button
-                          onClick={() => setViewMode("list")}
-                          className={`px-4 py-2 rounded-md transition-colors ${
-                            viewMode === "list"
-                              ? "bg-white text-gray-800 shadow-sm"
-                              : "text-gray-600 hover:text-gray-800"
-                          }`}
-                        >
-                          Lista
-                        </button>
-                        <button
-                          onClick={() => setViewMode("sheet")}
-                          className={`px-4 py-2 rounded-md transition-colors ${
-                            viewMode === "sheet"
-                              ? "bg-white text-gray-800 shadow-sm"
-                              : "text-gray-600 hover:text-gray-800"
-                          }`}
-                        >
-                          Planilha
-                        </button>
+                      <div className="w-full sm:w-auto overflow-x-auto">
+                        <div className="flex w-max bg-gray-100 rounded-lg p-1 whitespace-nowrap">
+                          <button
+                            onClick={() => setViewMode("calendar")}
+                            className={`px-4 py-2 rounded-md transition-colors ${
+                              viewMode === "calendar"
+                                ? "bg-white text-gray-800 shadow-sm"
+                                : "text-gray-600 hover:text-gray-800"
+                            }`}
+                          >
+                            Calendário
+                          </button>
+                          <button
+                            onClick={() => setViewMode("weekly")}
+                            className={`px-4 py-2 rounded-md transition-colors ${
+                              viewMode === "weekly"
+                                ? "bg-white text-gray-800 shadow-sm"
+                                : "text-gray-600 hover:text-gray-800"
+                            }`}
+                          >
+                            Semanal
+                          </button>
+                          <button
+                            onClick={() => setViewMode("list")}
+                            className={`px-4 py-2 rounded-md transition-colors ${
+                              viewMode === "list"
+                                ? "bg-white text-gray-800 shadow-sm"
+                                : "text-gray-600 hover:text-gray-800"
+                            }`}
+                          >
+                            Lista
+                          </button>
+                          <button
+                            onClick={() => setViewMode("sheet")}
+                            className={`px-4 py-2 rounded-md transition-colors ${
+                              viewMode === "sheet"
+                                ? "bg-white text-gray-800 shadow-sm"
+                                : "text-gray-600 hover:text-gray-800"
+                            }`}
+                          >
+                            Planilha
+                          </button>
+                        </div>
                       </div>
 
                       {/* Filtros de Giro (Seu Justino e Reserva Rooftop) */}
                       {(isSeuJustino || isReservaRooftop) && (
-                        <div className="flex bg-orange-100 rounded-lg p-1 border border-orange-300">
-                          <button
-                            onClick={() => setGiroFilter("all")}
-                            className={`px-4 py-2 rounded-md transition-colors text-sm ${
-                              giroFilter === "all"
-                                ? "bg-orange-500 text-white shadow-sm font-medium"
-                                : "text-orange-700 hover:text-orange-900"
-                            }`}
-                          >
-                            Todos os Giros
-                          </button>
-                          <button
-                            onClick={() => setGiroFilter("1º Giro")}
-                            className={`px-4 py-2 rounded-md transition-colors text-sm ${
-                              giroFilter === "1º Giro"
-                                ? "bg-orange-500 text-white shadow-sm font-medium"
-                                : "text-orange-700 hover:text-orange-900"
-                            }`}
-                          >
-                            1º Giro
-                          </button>
-                          <button
-                            onClick={() => setGiroFilter("2º Giro")}
-                            className={`px-4 py-2 rounded-md transition-colors text-sm ${
-                              giroFilter === "2º Giro"
-                                ? "bg-orange-500 text-white shadow-sm font-medium"
-                                : "text-orange-700 hover:text-orange-900"
-                            }`}
-                          >
-                            2º Giro
-                          </button>
+                        <div className="w-full sm:w-auto overflow-x-auto">
+                          <div className="flex w-max bg-orange-100 rounded-lg p-1 border border-orange-300 whitespace-nowrap">
+                            <button
+                              onClick={() => setGiroFilter("all")}
+                              className={`px-4 py-2 rounded-md transition-colors text-sm ${
+                                giroFilter === "all"
+                                  ? "bg-orange-500 text-white shadow-sm font-medium"
+                                  : "text-orange-700 hover:text-orange-900"
+                              }`}
+                            >
+                              Todos os Giros
+                            </button>
+                            <button
+                              onClick={() => setGiroFilter("1º Giro")}
+                              className={`px-4 py-2 rounded-md transition-colors text-sm ${
+                                giroFilter === "1º Giro"
+                                  ? "bg-orange-500 text-white shadow-sm font-medium"
+                                  : "text-orange-700 hover:text-orange-900"
+                              }`}
+                            >
+                              1º Giro
+                            </button>
+                            <button
+                              onClick={() => setGiroFilter("2º Giro")}
+                              className={`px-4 py-2 rounded-md transition-colors text-sm ${
+                                giroFilter === "2º Giro"
+                                  ? "bg-orange-500 text-white shadow-sm font-medium"
+                                  : "text-orange-700 hover:text-orange-900"
+                              }`}
+                            >
+                              2º Giro
+                            </button>
+                          </div>
                         </div>
                       )}
 

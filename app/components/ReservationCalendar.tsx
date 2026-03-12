@@ -392,17 +392,17 @@ export default function ReservationCalendar({
 
   return (
     <>
-    <div className="bg-white rounded-xl shadow-lg border border-gray-200">
+    <div className="bg-white rounded-xl shadow-lg border border-gray-200 relative">
       {/* Header do Calendário */}
-      <div className="p-6 border-b border-gray-200">
-        <div className="flex items-center justify-between">
+      <div className="p-3 sm:p-6 border-b border-gray-200">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
-            <h2 className="text-2xl font-bold text-gray-800">
+            <h2 className="text-lg sm:text-2xl font-bold text-gray-800">
               {monthNames[currentDate.getMonth()]} {currentDate.getFullYear()}
             </h2>
-            <p className="text-gray-600">{establishment.name}</p>
+            <p className="text-gray-600 text-sm sm:text-base">{establishment.name}</p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 self-end sm:self-auto">
             <button
               onClick={handlePreviousMonth}
               className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
@@ -419,28 +419,31 @@ export default function ReservationCalendar({
         </div>
       </div>
 
-      {/* Dias da Semana */}
-      <div className="grid grid-cols-7 border-b border-gray-200">
-        {dayNames.map(day => (
-          <div key={day} className="p-3 text-center text-sm font-medium text-gray-500 bg-gray-50">
-            {day}
+      {/* Mobile: permitir scroll horizontal para manter legibilidade */}
+      <div className="overflow-x-auto sm:overflow-visible">
+        <div className="min-w-[700px] sm:min-w-0">
+          {/* Dias da Semana */}
+          <div className="grid grid-cols-7 border-b border-gray-200">
+            {dayNames.map(day => (
+              <div key={day} className="p-2 sm:p-3 text-center text-[10px] sm:text-sm font-medium text-gray-500 bg-gray-50">
+                {day}
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
 
-      {/* Grid do Calendário */}
-      <div className="grid grid-cols-7">
-        {calendarDays.map((day, index) => (
-          <div
-            key={index}
-            className={`
-              min-h-[120px] p-2 border-r border-b border-gray-200 cursor-pointer transition-colors
-              ${!day.isCurrentMonth ? 'bg-gray-50 text-gray-400' : 'bg-white hover:bg-gray-50'}
-              ${day.isToday ? 'bg-yellow-50 border-yellow-200' : ''}
-              ${selectedDate?.toDateString() === day.date.toDateString() ? 'bg-blue-50 border-blue-200' : ''}
-            `}
-            onClick={() => handleDateClick(day)}
-          >
+          {/* Grid do Calendário */}
+          <div className="grid grid-cols-7">
+            {calendarDays.map((day, index) => (
+              <div
+                key={index}
+                className={`
+                  min-h-[92px] sm:min-h-[120px] p-1.5 sm:p-2 border-r border-b border-gray-200 cursor-pointer transition-colors
+                  ${!day.isCurrentMonth ? 'bg-gray-50 text-gray-400' : 'bg-white hover:bg-gray-50'}
+                  ${day.isToday ? 'bg-yellow-50 border-yellow-200' : ''}
+                  ${selectedDate?.toDateString() === day.date.toDateString() ? 'bg-blue-50 border-blue-200' : ''}
+                `}
+                onClick={() => handleDateClick(day)}
+              >
             <div className="flex items-center justify-between mb-1">
               <span className={`text-sm font-medium ${
                 day.isToday ? 'text-yellow-600' : 
@@ -546,8 +549,10 @@ export default function ReservationCalendar({
                 )}
               </div>
             )}
+              </div>
+            ))}
           </div>
-        ))}
+        </div>
       </div>
 
              {/* Loading Overlay */}
