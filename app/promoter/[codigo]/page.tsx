@@ -17,12 +17,13 @@ import {
   MdStar,
   MdCamera,
   MdEvent,
-  MdClose
+  MdClose,
 } from "react-icons/md";
 
 import logoPracinha from "@/app/assets/pracinha/pracinha-logo-2.png";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://vamos-comemorar-api.onrender.com';
+const API_URL =
+  process.env.NEXT_PUBLIC_API_URL || "https://vamos-comemorar-api.onrender.com";
 
 interface Promoter {
   id: number;
@@ -72,19 +73,20 @@ export default function PromoterPublicPage() {
   const [convidados, setConvidados] = useState<Convidado[]>([]);
   const [showSuccess, setShowSuccess] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
-  
+
   // Calcular estatísticas baseadas apenas em convidados de eventos futuros
   const stats = {
     total_convidados: convidados.length,
-    total_confirmados: convidados.filter(c => c.status === 'confirmado').length
+    total_confirmados: convidados.filter((c) => c.status === "confirmado")
+      .length,
   };
-  
+
   const [formData, setFormData] = useState({
-    nome: '',
-    whatsapp: '',
-    evento_id: ''
+    nome: "",
+    whatsapp: "",
+    evento_id: "",
   });
-  
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
@@ -100,15 +102,15 @@ export default function PromoterPublicPage() {
     try {
       setLoading(true);
       const response = await fetch(`${API_URL}/api/promoter/${params.codigo}`);
-      
+
       if (!response.ok) {
-        throw new Error('Promoter não encontrado');
+        throw new Error("Promoter não encontrado");
       }
-      
+
       const data = await response.json();
       setPromoter(data.promoter);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erro ao carregar dados');
+      setError(err instanceof Error ? err.message : "Erro ao carregar dados");
     } finally {
       setLoading(false);
     }
@@ -117,115 +119,146 @@ export default function PromoterPublicPage() {
   const loadEventos = async () => {
     try {
       // Buscar promoter_id primeiro
-      const promoterResponse = await fetch(`${API_URL}/api/promoter/${params.codigo}`);
+      const promoterResponse = await fetch(
+        `${API_URL}/api/promoter/${params.codigo}`,
+      );
       if (!promoterResponse.ok) return;
-      
+
       const promoterData = await promoterResponse.json();
       const promoterId = promoterData.promoter.id;
-      
+
       // Buscar eventos do promoter usando a nova API
-      const eventosResponse = await fetch(`${API_URL}/api/promoter-eventos/promoter/${promoterId}?status=ativo`);
-      
+      const eventosResponse = await fetch(
+        `${API_URL}/api/promoter-eventos/promoter/${promoterId}?status=ativo`,
+      );
+
       if (eventosResponse.ok) {
         const data = await eventosResponse.json();
         const todosEventos = data.eventos || [];
-        
+
         // Filtrar eventos ainda ativos (futuros, hoje, ou dia anterior na madrugada)
         const eventosFuturos = todosEventos.filter((evento: Evento) => {
           // Se for evento semanal, sempre mostrar
-          if (evento.tipo_evento === 'semanal') {
+          if (evento.tipo_evento === "semanal") {
             return true;
           }
-          
+
           // Se não tem data_evento, mostrar
           if (!evento.data_evento) {
             return true;
           }
-          
+
           try {
-            const dataEvento = evento.data_evento || '';
-            const eventDate = dataEvento.includes('T') || dataEvento.includes(' ')
-              ? dataEvento
-              : dataEvento ? dataEvento + 'T23:59:59' : '';
-            
+            const dataEvento = evento.data_evento || "";
+            const eventDate =
+              dataEvento.includes("T") || dataEvento.includes(" ")
+                ? dataEvento
+                : dataEvento
+                  ? dataEvento + "T23:59:59"
+                  : "";
+
             const eventDateObj = new Date(eventDate);
             const now = new Date();
-            
-            const eventDateOnly = new Date(eventDateObj.getFullYear(), eventDateObj.getMonth(), eventDateObj.getDate());
-            const nowDateOnly = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-            
+
+            const eventDateOnly = new Date(
+              eventDateObj.getFullYear(),
+              eventDateObj.getMonth(),
+              eventDateObj.getDate(),
+            );
+            const nowDateOnly = new Date(
+              now.getFullYear(),
+              now.getMonth(),
+              now.getDate(),
+            );
+
             // Eventos futuros ou hoje
             if (eventDateOnly >= nowDateOnly) return true;
-            
+
             // Madrugada (00:00–05:59): evento do dia anterior ainda pode aceitar entradas
             const hour = now.getHours();
             const isMadrugada = hour >= 0 && hour < 6;
             const yesterday = new Date(nowDateOnly);
             yesterday.setDate(yesterday.getDate() - 1);
-            if (isMadrugada && eventDateOnly.getTime() === yesterday.getTime()) return true;
-            
+            if (isMadrugada && eventDateOnly.getTime() === yesterday.getTime())
+              return true;
+
             return false;
           } catch (error) {
-            console.error('Erro ao verificar data do evento:', error);
+            console.error("Erro ao verificar data do evento:", error);
             return true;
           }
         });
-        
+
         setEventos(eventosFuturos);
       }
     } catch (err) {
-      console.error('Erro ao carregar eventos:', err);
+      console.error("Erro ao carregar eventos:", err);
     }
   };
 
   const loadConvidados = async () => {
     try {
-      const response = await fetch(`${API_URL}/api/promoter/${params.codigo}/convidados`);
+      const response = await fetch(
+        `${API_URL}/api/promoter/${params.codigo}/convidados`,
+      );
       if (response.ok) {
         const data = await response.json();
         // Filtrar convidados: ocultar os de eventos que já passaram
-        const convidadosFiltrados = (data.convidados || []).filter((convidado: Convidado) => {
-          // Se não tem evento_data, mostrar normalmente
-          if (!convidado.evento_data) {
-            return true;
-          }
-          
-          try {
-            // Verificar se o evento já passou
-            const dataConvidado = convidado.evento_data || '';
-            const eventDate = dataConvidado.includes('T') || dataConvidado.includes(' ')
-              ? dataConvidado
-              : dataConvidado ? dataConvidado + 'T23:59:59' : '';
-            
-            const eventDateObj = new Date(eventDate);
-            const now = new Date();
-            
-            // Se o evento já passou (antes de hoje), ocultar o convidado
-            // Comparar apenas a data, ignorando horas
-            const eventDateOnly = new Date(eventDateObj.getFullYear(), eventDateObj.getMonth(), eventDateObj.getDate());
-            const nowDateOnly = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-            
-            // Se evento passou, não mostrar (false = filtrar)
-            return eventDateOnly >= nowDateOnly;
-          } catch (error) {
-            console.error('Erro ao verificar data do evento:', error);
-            // Em caso de erro, mostrar o convidado
-            return true;
-          }
-        });
-        
+        const convidadosFiltrados = (data.convidados || []).filter(
+          (convidado: Convidado) => {
+            // Se não tem evento_data, mostrar normalmente
+            if (!convidado.evento_data) {
+              return true;
+            }
+
+            try {
+              // Verificar se o evento já passou
+              const dataConvidado = convidado.evento_data || "";
+              const eventDate =
+                dataConvidado.includes("T") || dataConvidado.includes(" ")
+                  ? dataConvidado
+                  : dataConvidado
+                    ? dataConvidado + "T23:59:59"
+                    : "";
+
+              const eventDateObj = new Date(eventDate);
+              const now = new Date();
+
+              // Se o evento já passou (antes de hoje), ocultar o convidado
+              // Comparar apenas a data, ignorando horas
+              const eventDateOnly = new Date(
+                eventDateObj.getFullYear(),
+                eventDateObj.getMonth(),
+                eventDateObj.getDate(),
+              );
+              const nowDateOnly = new Date(
+                now.getFullYear(),
+                now.getMonth(),
+                now.getDate(),
+              );
+
+              // Se evento passou, não mostrar (false = filtrar)
+              return eventDateOnly >= nowDateOnly;
+            } catch (error) {
+              console.error("Erro ao verificar data do evento:", error);
+              // Em caso de erro, mostrar o convidado
+              return true;
+            }
+          },
+        );
+
         setConvidados(convidadosFiltrados);
       }
     } catch (err) {
-      console.error('Erro ao carregar convidados:', err);
+      console.error("Erro ao carregar convidados:", err);
     }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!formData.nome.trim() || !formData.whatsapp.trim()) {
-      setSubmitError('Nome e WhatsApp são obrigatórios');
+      setSubmitError("Nome e WhatsApp são obrigatórios");
       return;
     }
 
@@ -233,60 +266,65 @@ export default function PromoterPublicPage() {
     setSubmitError(null);
 
     try {
-      const response = await fetch(`${API_URL}/api/promoter/${params.codigo}/convidado`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          nome: formData.nome,
-          whatsapp: formData.whatsapp,
-          evento_id: formData.evento_id || null
-        })
-      });
+      const response = await fetch(
+        `${API_URL}/api/promoter/${params.codigo}/convidado`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            nome: formData.nome,
+            whatsapp: formData.whatsapp,
+            evento_id: formData.evento_id || null,
+          }),
+        },
+      );
 
       const data = await response.json();
 
       if (response.ok) {
         setShowSuccess(true);
-        setFormData({ nome: '', whatsapp: '', evento_id: '' });
+        setFormData({ nome: "", whatsapp: "", evento_id: "" });
         loadConvidados();
-        
+
         setTimeout(() => {
           setShowSuccess(false);
         }, 5000);
       } else {
-        setSubmitError(data.error || 'Erro ao adicionar à lista');
+        setSubmitError(data.error || "Erro ao adicionar à lista");
       }
     } catch (err) {
-      setSubmitError('Erro de conexão. Tente novamente.');
+      setSubmitError("Erro de conexão. Tente novamente.");
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const shareUrl = typeof window !== 'undefined' ? window.location.href : '';
-  const isCarnaval = params?.codigo === 'highlinepromo';
-  const isPracinha = params?.codigo === 'pracinha';
+  const shareUrl = typeof window !== "undefined" ? window.location.href : "";
+  const isCarnaval = params?.codigo === "highlinepromo";
+  const isPracinha = params?.codigo === "pracinha";
 
   // Degradê Carnaval (Saváh): tons de verde escuro e médio mesclados
   const bgGradient = isCarnaval
-    ? 'bg-gradient-to-br from-[#1E503F] via-[#245642] to-[#2d6a4f]'
+    ? "bg-gradient-to-br from-[#1E503F] via-[#245642] to-[#2d6a4f]"
     : isPracinha
-      ? 'bg-gradient-to-br from-[#004938] via-[#D03F00] to-[#F88A17]'
-      : 'bg-gradient-to-br from-purple-900 via-purple-800 to-pink-800';
+      ? "bg-gradient-to-br from-[#004938] via-[#D03F00] to-[#F88A17]"
+      : "bg-gradient-to-br from-purple-900 via-purple-800 to-pink-800";
 
   const copyToClipboard = () => {
     navigator.clipboard.writeText(shareUrl);
-    alert('Link copiado!');
+    alert("Link copiado!");
   };
 
   const shareWhatsApp = () => {
     const message = `Ei! Entre na minha lista VIP de convidados! 🎉\n\n${shareUrl}`;
-    window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank');
+    window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, "_blank");
   };
 
   if (loading) {
     return (
-      <div className={`min-h-screen ${bgGradient} flex items-center justify-center`}>
+      <div
+        className={`min-h-screen ${bgGradient} flex items-center justify-center`}
+      >
         <div className="text-center">
           <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-white mx-auto"></div>
           <p className="mt-4 text-white text-lg font-medium">Carregando...</p>
@@ -297,7 +335,9 @@ export default function PromoterPublicPage() {
 
   if (error || !promoter) {
     return (
-      <div className={`min-h-screen ${bgGradient} flex items-center justify-center p-4`}>
+      <div
+        className={`min-h-screen ${bgGradient} flex items-center justify-center p-4`}
+      >
         <motion.div
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
@@ -305,9 +345,11 @@ export default function PromoterPublicPage() {
         >
           <MdError className="text-red-500 text-6xl mx-auto mb-4" />
           <h2 className="text-2xl font-bold text-gray-900 mb-2">Ops!</h2>
-          <p className="text-gray-600 mb-6">{error || 'Promoter não encontrado'}</p>
+          <p className="text-gray-600 mb-6">
+            {error || "Promoter não encontrado"}
+          </p>
           <button
-            onClick={() => window.location.href = '/'}
+            onClick={() => (window.location.href = "/")}
             className="px-6 py-3 bg-purple-600 text-white rounded-xl font-semibold hover:bg-purple-700 transition-colors"
           >
             Voltar ao Início
@@ -322,7 +364,7 @@ export default function PromoterPublicPage() {
       {/* Header com foto do promoter */}
       <div className="relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-b from-black/50 to-transparent"></div>
-        
+
         <div className="relative max-w-7xl mx-auto px-4 py-12 sm:px-6 lg:px-8">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -362,8 +404,8 @@ export default function PromoterPublicPage() {
                 transition={{ type: "spring", stiffness: 200 }}
                 className={`w-32 h-32 rounded-full border-4 border-white shadow-2xl mx-auto mb-6 flex items-center justify-center ${
                   isCarnaval
-                    ? 'bg-gradient-to-br from-[#1E503F] via-[#245642] to-[#2d6a4f]'
-                    : 'bg-gradient-to-br from-purple-400 to-pink-400'
+                    ? "bg-gradient-to-br from-[#1E503F] via-[#245642] to-[#2d6a4f]"
+                    : "bg-gradient-to-br from-purple-400 to-pink-400"
                 }`}
               >
                 <MdPerson className="text-white text-6xl" />
@@ -374,15 +416,19 @@ export default function PromoterPublicPage() {
             <h1 className="text-4xl md:text-5xl font-bold text-white mb-2">
               {promoter.apelido || promoter.nome}
             </h1>
-            
+
             {promoter.apelido && (
-              <p className={`text-xl mb-4 ${
-                isCarnaval
-                  ? 'text-amber-100'
-                  : isPracinha
-                    ? 'text-orange-100'
-                    : 'text-purple-200'
-              }`}>{promoter.nome}</p>
+              <p
+                className={`text-xl mb-4 ${
+                  isCarnaval
+                    ? "text-amber-100"
+                    : isPracinha
+                      ? "text-orange-100"
+                      : "text-purple-200"
+                }`}
+              >
+                {promoter.nome}
+              </p>
             )}
 
             {/* Instagram */}
@@ -393,61 +439,35 @@ export default function PromoterPublicPage() {
                 rel="noopener noreferrer"
                 className={`inline-flex items-center gap-2 hover:text-white transition-colors mb-6 ${
                   isCarnaval
-                    ? 'text-amber-100'
+                    ? "text-amber-100"
                     : isPracinha
-                      ? 'text-orange-100'
-                      : 'text-purple-200'
+                      ? "text-orange-100"
+                      : "text-purple-200"
                 }`}
               >
-                <MdCamera size={20} />
-                @{promoter.instagram}
+                <MdCamera size={20} />@{promoter.instagram}
               </a>
             )}
 
             {/* Estabelecimento */}
             {promoter.establishment_name && (
-              <div className={`flex items-center justify-center gap-2 mt-4 ${
-                isCarnaval
-                  ? 'text-amber-100'
-                  : isPracinha
-                    ? 'text-orange-100'
-                    : 'text-purple-100'
-              }`}>
+              <div
+                className={`flex items-center justify-center gap-2 mt-4 ${
+                  isCarnaval
+                    ? "text-amber-100"
+                    : isPracinha
+                      ? "text-orange-100"
+                      : "text-purple-100"
+                }`}
+              >
                 <MdNightlife size={24} />
-                <span className="text-lg font-semibold">{promoter.establishment_name}</span>
+                <span className="text-lg font-semibold">
+                  {promoter.establishment_name}
+                </span>
               </div>
             )}
 
             {/* Estatísticas */}
-            <div className="flex items-center justify-center gap-8 mt-8">
-              <div className="text-center">
-                <div className="text-3xl font-bold text-white">{stats.total_convidados}</div>
-                <div className={`text-sm ${
-                  isCarnaval
-                    ? 'text-amber-100'
-                    : isPracinha
-                      ? 'text-orange-100'
-                      : 'text-purple-200'
-                }`}>Convidados</div>
-              </div>
-              <div className={`h-12 w-px ${
-                isCarnaval
-                  ? 'bg-amber-400'
-                  : isPracinha
-                    ? 'bg-[#F88A17]'
-                    : 'bg-purple-400'
-              }`}></div>
-              <div className="text-center">
-                <div className="text-3xl font-bold text-white">{stats.total_confirmados}</div>
-                <div className={`text-sm ${
-                  isCarnaval
-                    ? 'text-amber-100'
-                    : isPracinha
-                      ? 'text-orange-100'
-                      : 'text-purple-200'
-                }`}>Confirmados</div>
-              </div>
-            </div>
           </motion.div>
         </div>
       </div>
@@ -464,32 +484,38 @@ export default function PromoterPublicPage() {
               className="bg-white rounded-3xl shadow-2xl p-8 md:p-10"
             >
               <div className="flex items-center gap-3 mb-6">
-                <div className={`p-3 rounded-xl ${
-                  isCarnaval
-                    ? 'bg-gradient-to-r from-[#1E503F] via-[#245642] to-[#2d6a4f]'
-                    : isPracinha
-                      ? 'bg-gradient-to-r from-[#004938] via-[#D03F00] to-[#F88A17]'
-                      : 'bg-gradient-to-r from-purple-600 to-pink-600'
-                }`}>
+                <div
+                  className={`p-3 rounded-xl ${
+                    isCarnaval
+                      ? "bg-gradient-to-r from-[#1E503F] via-[#245642] to-[#2d6a4f]"
+                      : isPracinha
+                        ? "bg-gradient-to-r from-[#004938] via-[#D03F00] to-[#F88A17]"
+                        : "bg-gradient-to-r from-purple-600 to-pink-600"
+                  }`}
+                >
                   <MdStar className="text-white text-2xl" />
                 </div>
                 <div>
                   <h2 className="text-2xl md:text-3xl font-bold text-gray-900">
                     Entre na Lista
                   </h2>
-                  <p className="text-gray-600">Garanta sua entrada nos melhores eventos</p>
+                  <p className="text-gray-600">
+                    Garanta sua entrada nos melhores eventos
+                  </p>
                 </div>
               </div>
 
               {/* Mensagem de Observações */}
               {promoter.observacoes && (
-                <div className={`mb-6 p-4 border-l-4 rounded-r-lg ${
-                  isCarnaval
-                    ? 'bg-emerald-50 border-emerald-500'
-                    : isPracinha
-                      ? 'bg-orange-50 border-[#F88A17]'
-                      : 'bg-purple-50 border-purple-500'
-                }`}>
+                <div
+                  className={`mb-6 p-4 border-l-4 rounded-r-lg ${
+                    isCarnaval
+                      ? "bg-emerald-50 border-emerald-500"
+                      : isPracinha
+                        ? "bg-orange-50 border-[#F88A17]"
+                        : "bg-purple-50 border-purple-500"
+                  }`}
+                >
                   <p className="text-gray-700">{promoter.observacoes}</p>
                 </div>
               )}
@@ -505,8 +531,12 @@ export default function PromoterPublicPage() {
                   >
                     <MdCheckCircle className="text-green-600 text-2xl flex-shrink-0" />
                     <div>
-                      <p className="text-green-800 font-semibold">Sucesso! 🎉</p>
-                      <p className="text-green-700 text-sm">Você foi adicionado à lista VIP!</p>
+                      <p className="text-green-800 font-semibold">
+                        Sucesso! 🎉
+                      </p>
+                      <p className="text-green-700 text-sm">
+                        Você foi adicionado à lista VIP!
+                      </p>
                     </div>
                   </motion.div>
                 )}
@@ -541,7 +571,9 @@ export default function PromoterPublicPage() {
                     <input
                       type="text"
                       value={formData.nome}
-                      onChange={(e) => setFormData({ ...formData, nome: e.target.value })}
+                      onChange={(e) =>
+                        setFormData({ ...formData, nome: e.target.value })
+                      }
                       className="w-full pl-12 pr-4 py-4 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all text-gray-900"
                       placeholder="Digite seu nome completo"
                       required
@@ -561,13 +593,16 @@ export default function PromoterPublicPage() {
                     <input
                       type="tel"
                       value={formData.whatsapp}
-                      onChange={(e) => setFormData({ ...formData, whatsapp: e.target.value })}
+                      onChange={(e) =>
+                        setFormData({ ...formData, whatsapp: e.target.value })
+                      }
                       className="w-full pl-12 pr-4 py-4 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all text-gray-900"
                       placeholder="(11) 99999-9999"
                     />
                   </div>
                   <p className="mt-1 text-xs text-gray-500">
-                    Deixe em branco se preferir que o contato seja feito apenas pelo seu promoter
+                    Deixe em branco se preferir que o contato seja feito apenas
+                    pelo seu promoter
                   </p>
                 </div>
 
@@ -583,19 +618,32 @@ export default function PromoterPublicPage() {
                       </div>
                       <select
                         value={formData.evento_id}
-                        onChange={(e) => setFormData({ ...formData, evento_id: e.target.value })}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            evento_id: e.target.value,
+                          })
+                        }
                         className="w-full pl-12 pr-4 py-4 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all appearance-none text-gray-900"
                       >
                         <option value="">Selecione um evento</option>
                         {eventos.map((evento) => (
-                          <option key={evento.evento_id} value={evento.evento_id}>
-                            {evento.nome_do_evento} - {new Date(evento.data_evento + 'T00:00:00').toLocaleDateString('pt-BR')} às {evento.hora_do_evento}
+                          <option
+                            key={evento.evento_id}
+                            value={evento.evento_id}
+                          >
+                            {evento.nome_do_evento} -{" "}
+                            {new Date(
+                              evento.data_evento + "T00:00:00",
+                            ).toLocaleDateString("pt-BR")}{" "}
+                            às {evento.hora_do_evento}
                           </option>
                         ))}
                       </select>
                     </div>
                     <p className="mt-1 text-xs text-gray-500">
-                      Escolha o evento específico para o qual deseja se inscrever
+                      Escolha o evento específico para o qual deseja se
+                      inscrever
                     </p>
                   </div>
                 )}
@@ -606,10 +654,10 @@ export default function PromoterPublicPage() {
                   disabled={isSubmitting}
                   className={`w-full text-white font-bold py-5 px-6 rounded-xl shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none flex items-center justify-center gap-2 ${
                     isCarnaval
-                      ? 'bg-gradient-to-r from-[#1E503F] via-[#245642] to-[#2d6a4f] hover:from-[#163c31] hover:to-[#245642]'
+                      ? "bg-gradient-to-r from-[#1E503F] via-[#245642] to-[#2d6a4f] hover:from-[#163c31] hover:to-[#245642]"
                       : isPracinha
-                        ? 'bg-gradient-to-r from-[#004938] via-[#D03F00] to-[#F88A17] hover:from-[#003629] hover:to-[#D03F00]'
-                        : 'bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700'
+                        ? "bg-gradient-to-r from-[#004938] via-[#D03F00] to-[#F88A17] hover:from-[#003629] hover:to-[#D03F00]"
+                        : "bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
                   }`}
                 >
                   {isSubmitting ? (
@@ -639,16 +687,16 @@ export default function PromoterPublicPage() {
                     <MdContentCopy size={20} />
                     Copiar Link
                   </button>
-                <button
-                  onClick={shareWhatsApp}
-                  className={`flex-1 px-4 py-3 rounded-xl font-medium transition-colors flex items-center justify-center gap-2 ${
-                    isCarnaval
-                      ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
-                      : isPracinha
-                        ? 'bg-[#D03F00] hover:bg-[#B23700] text-white'
-                        : 'bg-green-600 hover:bg-green-700 text-white'
-                  }`}
-                >
+                  <button
+                    onClick={shareWhatsApp}
+                    className={`flex-1 px-4 py-3 rounded-xl font-medium transition-colors flex items-center justify-center gap-2 ${
+                      isCarnaval
+                        ? "bg-emerald-600 hover:bg-emerald-700 text-white"
+                        : isPracinha
+                          ? "bg-[#D03F00] hover:bg-[#B23700] text-white"
+                          : "bg-green-600 hover:bg-green-700 text-white"
+                    }`}
+                  >
                     <MdWhatsapp size={20} />
                     WhatsApp
                   </button>
@@ -668,13 +716,15 @@ export default function PromoterPublicPage() {
                 className="bg-white rounded-3xl shadow-2xl p-6"
               >
                 <div className="flex items-center gap-3 mb-6">
-                  <div className={`p-2 rounded-lg ${
-                    isCarnaval
-                      ? 'bg-gradient-to-r from-emerald-500 to-teal-500'
-                      : isPracinha
-                        ? 'bg-gradient-to-r from-[#004938] via-[#D03F00] to-[#F88A17]'
-                        : 'bg-gradient-to-r from-blue-600 to-purple-600'
-                  }`}>
+                  <div
+                    className={`p-2 rounded-lg ${
+                      isCarnaval
+                        ? "bg-gradient-to-r from-emerald-500 to-teal-500"
+                        : isPracinha
+                          ? "bg-gradient-to-r from-[#004938] via-[#D03F00] to-[#F88A17]"
+                          : "bg-gradient-to-r from-blue-600 to-purple-600"
+                    }`}
+                  >
                     <MdEvent className="text-white text-xl" />
                   </div>
                   <h3 className="text-xl font-bold text-gray-900">
@@ -691,40 +741,55 @@ export default function PromoterPublicPage() {
                       transition={{ delay: index * 0.1 }}
                       className={`p-3 rounded-xl border ${
                         isCarnaval
-                          ? 'bg-gradient-to-r from-emerald-50 to-teal-50 border-emerald-200'
+                          ? "bg-gradient-to-r from-emerald-50 to-teal-50 border-emerald-200"
                           : isPracinha
-                            ? 'bg-gradient-to-r from-[#FFF4E5] to-[#FFE0CC] border-[#F88A17]/40'
-                            : 'bg-gradient-to-r from-blue-50 to-purple-50 border-blue-200'
+                            ? "bg-gradient-to-r from-[#FFF4E5] to-[#FFE0CC] border-[#F88A17]/40"
+                            : "bg-gradient-to-r from-blue-50 to-purple-50 border-blue-200"
                       }`}
                     >
                       <h4 className="font-semibold text-gray-900 text-sm mb-1">
                         {evento.nome_do_evento}
                       </h4>
                       <div className="text-xs text-gray-600 space-y-1">
-                        <p>📅 {(() => {
-                          try {
-                            // Adiciona T12:00:00 para evitar problemas de timezone
-                            const dataEvento = evento.data_evento || '';
-                            const dateWithTime = dataEvento.includes('T') || dataEvento.includes(' ')
-                              ? dataEvento
-                              : dataEvento ? dataEvento + 'T12:00:00' : '';
-                            return new Date(dateWithTime).toLocaleDateString('pt-BR');
-                          } catch (error) {
-                            console.error('Erro ao formatar data:', evento.data_evento, error);
-                            return 'Data inválida';
-                          }
-                        })()}</p>
+                        <p>
+                          📅{" "}
+                          {(() => {
+                            try {
+                              // Adiciona T12:00:00 para evitar problemas de timezone
+                              const dataEvento = evento.data_evento || "";
+                              const dateWithTime =
+                                dataEvento.includes("T") ||
+                                dataEvento.includes(" ")
+                                  ? dataEvento
+                                  : dataEvento
+                                    ? dataEvento + "T12:00:00"
+                                    : "";
+                              return new Date(dateWithTime).toLocaleDateString(
+                                "pt-BR",
+                              );
+                            } catch (error) {
+                              console.error(
+                                "Erro ao formatar data:",
+                                evento.data_evento,
+                                error,
+                              );
+                              return "Data inválida";
+                            }
+                          })()}
+                        </p>
                         <p>🕐 {evento.hora_do_evento}</p>
                         {evento.establishment_name && (
                           <p>📍 {evento.establishment_name}</p>
                         )}
-                        {evento.tipo_evento === 'semanal' && (
-                          <p className="text-blue-600 font-medium">🔄 Evento Semanal</p>
+                        {evento.tipo_evento === "semanal" && (
+                          <p className="text-blue-600 font-medium">
+                            🔄 Evento Semanal
+                          </p>
                         )}
                       </div>
                     </motion.div>
                   ))}
-                  
+
                   {eventos.length > 5 && (
                     <p className="text-center text-xs text-gray-500 pt-2">
                       +{eventos.length - 5} eventos
@@ -742,13 +807,15 @@ export default function PromoterPublicPage() {
               className="bg-white rounded-3xl shadow-2xl p-6"
             >
               <div className="flex items-center gap-3 mb-6">
-                <div className={`p-2 rounded-lg ${
-                  isCarnaval
-                    ? 'bg-gradient-to-r from-emerald-500 to-teal-500'
-                    : isPracinha
-                      ? 'bg-gradient-to-r from-[#004938] via-[#D03F00] to-[#F88A17]'
-                      : 'bg-gradient-to-r from-purple-600 to-pink-600'
-                }`}>
+                <div
+                  className={`p-2 rounded-lg ${
+                    isCarnaval
+                      ? "bg-gradient-to-r from-emerald-500 to-teal-500"
+                      : isPracinha
+                        ? "bg-gradient-to-r from-[#004938] via-[#D03F00] to-[#F88A17]"
+                        : "bg-gradient-to-r from-purple-600 to-pink-600"
+                  }`}
+                >
                   <MdPeople className="text-white text-xl" />
                 </div>
                 <h3 className="text-xl font-bold text-gray-900">
@@ -757,49 +824,66 @@ export default function PromoterPublicPage() {
               </div>
 
               <p className="text-gray-600 leading-relaxed">
-                Para privacidade e segurança, a lista completa de convidados é acessível
-                somente pelo promoter em seu painel exclusivo. Entre em contato com{" "}
-                <span className={`font-semibold ${
-                  isCarnaval
-                    ? 'text-emerald-700'
-                    : isPracinha
-                      ? 'text-[#D03F00]'
-                      : 'text-purple-700'
-                }`}>{promoter.apelido || promoter.nome}</span> para saber mais
-                sobre sua entrada ou confirme sua presença pelo formulário ao lado.
+                Para privacidade e segurança, a lista completa de convidados é
+                acessível somente pelo promoter em seu painel exclusivo. Entre
+                em contato com{" "}
+                <span
+                  className={`font-semibold ${
+                    isCarnaval
+                      ? "text-emerald-700"
+                      : isPracinha
+                        ? "text-[#D03F00]"
+                        : "text-purple-700"
+                  }`}
+                >
+                  {promoter.apelido || promoter.nome}
+                </span>{" "}
+                para saber mais sobre sua entrada ou confirme sua presença pelo
+                formulário ao lado.
               </p>
 
-              <div className={`mt-6 p-4 border rounded-2xl ${
-                isCarnaval
-                  ? 'bg-emerald-50 border-emerald-200'
-                  : isPracinha
-                    ? 'bg-[#FFF4E5] border-[#F88A17]/60'
-                    : 'bg-purple-50 border-purple-200'
-              }`}>
-                <h4 className={`text-sm font-semibold mb-2 ${
+              <div
+                className={`mt-6 p-4 border rounded-2xl ${
                   isCarnaval
-                    ? 'text-emerald-900'
+                    ? "bg-emerald-50 border-emerald-200"
                     : isPracinha
-                      ? 'text-[#D03F00]'
-                      : 'text-purple-900'
-                }`}>Quer gerenciar sua lista?</h4>
-                <p className={`text-sm mb-3 ${
-                  isCarnaval
-                    ? 'text-emerald-800'
-                    : isPracinha
-                      ? 'text-[#7A2A00]'
-                      : 'text-purple-800'
-                }`}>
-                  Promoters podem acessar o painel completo utilizando suas credenciais.
+                      ? "bg-[#FFF4E5] border-[#F88A17]/60"
+                      : "bg-purple-50 border-purple-200"
+                }`}
+              >
+                <h4
+                  className={`text-sm font-semibold mb-2 ${
+                    isCarnaval
+                      ? "text-emerald-900"
+                      : isPracinha
+                        ? "text-[#D03F00]"
+                        : "text-purple-900"
+                  }`}
+                >
+                  Quer gerenciar sua lista?
+                </h4>
+                <p
+                  className={`text-sm mb-3 ${
+                    isCarnaval
+                      ? "text-emerald-800"
+                      : isPracinha
+                        ? "text-[#7A2A00]"
+                        : "text-purple-800"
+                  }`}
+                >
+                  Promoters podem acessar o painel completo utilizando suas
+                  credenciais.
                 </p>
                 <button
-                  onClick={() => window.location.href = `/promoter/${params.codigo}/dashboard`}
+                  onClick={() =>
+                    (window.location.href = `/promoter/${params.codigo}/dashboard`)
+                  }
                   className={`inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-white font-semibold transition ${
                     isCarnaval
-                      ? 'bg-emerald-600 hover:bg-emerald-700'
+                      ? "bg-emerald-600 hover:bg-emerald-700"
                       : isPracinha
-                        ? 'bg-[#D03F00] hover:bg-[#B23700]'
-                        : 'bg-purple-600 hover:bg-purple-700'
+                        ? "bg-[#D03F00] hover:bg-[#B23700]"
+                        : "bg-purple-600 hover:bg-purple-700"
                   }`}
                 >
                   Acessar painel do promoter
@@ -812,17 +896,18 @@ export default function PromoterPublicPage() {
 
       {/* Footer */}
       <div className="max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
-        <div className={`text-center text-sm ${
-          isCarnaval
-            ? 'text-amber-100'
-            : isPracinha
-              ? 'text-orange-100'
-              : 'text-purple-200'
-        }`}>
+        <div
+          className={`text-center text-sm ${
+            isCarnaval
+              ? "text-amber-100"
+              : isPracinha
+                ? "text-orange-100"
+                : "text-purple-200"
+          }`}
+        >
           <p>Powered by Agilizaiapp</p>
         </div>
       </div>
     </div>
   );
 }
-
