@@ -550,14 +550,6 @@ export default function ReservationCalendar({
               </div>
             )}
           </div>
-        </div>
-
-        {/* Loading Overlay */}
-        {loading && (
-          <div className="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-yellow-500"></div>
-          </div>
-        )}
       </div>
 
      {/* Modal de Reservas do Dia */}
