@@ -419,31 +419,31 @@ export default function ReservationCalendar({
         </div>
       </div>
 
-      {/* Mobile: permitir scroll horizontal para manter legibilidade */}
-      <div className="overflow-x-auto sm:overflow-visible">
-        <div className="min-w-[700px] sm:min-w-0">
-          {/* Dias da Semana */}
-          <div className="grid grid-cols-7 border-b border-gray-200">
-            {dayNames.map(day => (
-              <div key={day} className="p-2 sm:p-3 text-center text-[10px] sm:text-sm font-medium text-gray-500 bg-gray-50">
-                {day}
-              </div>
-            ))}
+      {/* Dias da Semana */}
+      <div className="grid grid-cols-7 border-b border-gray-200">
+        {dayNames.map(day => (
+          <div
+            key={day}
+            className="p-2 sm:p-3 text-center text-[10px] sm:text-sm font-medium text-gray-500 bg-gray-50"
+          >
+            {day}
           </div>
+        ))}
+      </div>
 
-          {/* Grid do Calendário */}
-          <div className="grid grid-cols-7">
-            {calendarDays.map((day, index) => (
-              <div
-                key={index}
-                className={`
-                  min-h-[92px] sm:min-h-[120px] p-1.5 sm:p-2 border-r border-b border-gray-200 cursor-pointer transition-colors
-                  ${!day.isCurrentMonth ? 'bg-gray-50 text-gray-400' : 'bg-white hover:bg-gray-50'}
-                  ${day.isToday ? 'bg-yellow-50 border-yellow-200' : ''}
-                  ${selectedDate?.toDateString() === day.date.toDateString() ? 'bg-blue-50 border-blue-200' : ''}
-                `}
-                onClick={() => handleDateClick(day)}
-              >
+      {/* Grid do Calendário */}
+      <div className="grid grid-cols-7">
+        {calendarDays.map((day, index) => (
+          <div
+            key={index}
+            className={`
+              min-h-[92px] sm:min-h-[120px] p-1.5 sm:p-2 border-r border-b border-gray-200 cursor-pointer transition-colors
+              ${!day.isCurrentMonth ? 'bg-gray-50 text-gray-400' : 'bg-white hover:bg-gray-50'}
+              ${day.isToday ? 'bg-yellow-50 border-yellow-200' : ''}
+              ${selectedDate?.toDateString() === day.date.toDateString() ? 'bg-blue-50 border-blue-200' : ''}
+            `}
+            onClick={() => handleDateClick(day)}
+          >
             <div className="flex items-center justify-between mb-1">
               <span className={`text-sm font-medium ${
                 day.isToday ? 'text-yellow-600' : 
@@ -549,10 +549,6 @@ export default function ReservationCalendar({
                 )}
               </div>
             )}
-              </div>
-            ))}
-          </div>
-        </div>
       </div>
 
              {/* Loading Overlay */}

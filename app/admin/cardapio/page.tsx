@@ -297,7 +297,7 @@ const getValidImageUrl = (filename?: string | null): string => {
 };
 
 export default function CardapioAdminPage() {
-  const { isAdmin, isPromoter, promoterBar, canManageBar } = useUserPermissions();
+  const { isAdmin, isPromoter, promoterBar, canManageBar, userEmail } = useUserPermissions();
   const router = useRouter();
   
   // Debug: Log das permissões
@@ -390,6 +390,24 @@ export default function CardapioAdminPage() {
       count?: number;
     }>;
   } | null>(null);
+
+  // Visão restrita apenas para o usuário do Reserva Rooftop (vbs14)
+  const isReservaRooftopRestrictedUser =
+    (userEmail || '').trim().toLowerCase() === 'vbs14@hotmail.com' && !!promoterBar;
+
+  const promoterBarIdNum = promoterBar ? Number(promoterBar.barId) : null;
+
+  const visibleBars = isReservaRooftopRestrictedUser && promoterBarIdNum
+    ? menuData.bars.filter((bar) => Number(bar.id) === promoterBarIdNum)
+    : menuData.bars;
+
+  const visibleCategories = isReservaRooftopRestrictedUser && promoterBarIdNum
+    ? menuData.categories.filter((category) => Number(category.barId) === promoterBarIdNum)
+    : menuData.categories;
+
+  const visibleItems = isReservaRooftopRestrictedUser && promoterBarIdNum
+    ? menuData.items.filter((item) => Number(item.barId) === promoterBarIdNum)
+    : menuData.items;
 
   const [barForm, setBarForm] = useState<BarForm>({
     name: '',
@@ -3052,9 +3070,9 @@ export default function CardapioAdminPage() {
           <div className="border-b border-gray-200">
             <nav className="-mb-px flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-8">
               {[
-                { id: 'bars', name: 'Estabelecimentos', count: menuData.bars.length },
-                { id: 'categories', name: 'Categorias', count: menuData.categories.length },
-                { id: 'items', name: 'Itens do Menu', count: menuData.items.length },
+                { id: 'bars', name: 'Estabelecimentos', count: visibleBars.length },
+                { id: 'categories', name: 'Categorias', count: visibleCategories.length },
+                { id: 'items', name: 'Itens do Menu', count: visibleItems.length },
               ].map((tab) => (
                 <button
                   key={tab.id}
@@ -3145,7 +3163,7 @@ export default function CardapioAdminPage() {
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6 admin-grid-4">
-                  {menuData.bars.map((bar) => (
+                  {visibleBars.map((bar) => (
                     <div key={bar.id} className="overflow-hidden rounded-lg bg-white shadow-md">
                       <div className="relative h-48">
                         <Image
@@ -3230,8 +3248,8 @@ export default function CardapioAdminPage() {
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6 admin-grid-4">
-                  {menuData.categories.map((category) => {
-                    const bar = menuData.bars.find((b) => b.id === category.barId);
+                  {visibleCategories.map((category) => {
+                    const bar = visibleBars.find((b) => b.id === category.barId);
                     if (!bar) return null;
 
                     return (

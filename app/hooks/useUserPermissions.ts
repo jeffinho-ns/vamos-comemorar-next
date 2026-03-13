@@ -60,8 +60,10 @@ export function useUserPermissions() {
         // Buscar informações do bar associado ao promoter (ou analista com acesso restrito ao cardápio)
         let promoterBar = null;
 
+        const normalizedEmail = userEmail.toLowerCase();
+
         // analista.mkt03@ideiaum.com.br: acesso ao cardápio APENAS Pracinha do Seu Justino (barId 8)
-        if (userEmail && userEmail.toLowerCase() === 'analista.mkt03@ideiaum.com.br') {
+        if (normalizedEmail === 'analista.mkt03@ideiaum.com.br') {
           promoterBar = {
             userId: 0,
             userEmail: 'analista.mkt03@ideiaum.com.br',
@@ -69,6 +71,16 @@ export function useUserPermissions() {
             barId: 8,
             barName: 'Pracinha do Seu Justino',
             barSlug: 'pracinha-do-seu-justino',
+          };
+        // vbs14@hotmail.com: acesso ao cardápio APENAS Reserva Rooftop (barId 5)
+        } else if (normalizedEmail === 'vbs14@hotmail.com') {
+          promoterBar = {
+            userId: 0,
+            userEmail: 'vbs14@hotmail.com',
+            userName: 'Reserva Rooftop',
+            barId: 5,
+            barName: 'Reserva Rooftop',
+            barSlug: 'reserva-rooftop',
           };
         } else if (isPromoter && userEmail) {
           promoterBar = getPromoterBarByEmail(userEmail);
@@ -161,10 +173,17 @@ export function useUserPermissions() {
           };
         }
 
-        // Definir permissões de acesso (promoter e promoter-list para analista.mkt03 - Pracinha; gerentes SJM para cardápio)
-        const isAnalistaPracinha = !!(userEmail && userEmail.toLowerCase() === 'analista.mkt03@ideiaum.com.br');
+        // Definir permissões de acesso (promoter e promoter-list para analista.mkt03 - Pracinha; gerentes SJM para cardápio; vbs14 para Reserva Rooftop)
+        const isAnalistaPracinha = normalizedEmail === 'analista.mkt03@ideiaum.com.br';
+        const isReservaRooftopMenuManager = normalizedEmail === 'vbs14@hotmail.com';
         const canAccessAdmin = isAdmin || role === 'promoter' || role === 'promoter-list' || isAnalistaPracinha;
-        const canAccessCardapio = isAdmin || role === 'promoter' || role === 'promoter-list' || isGerenteSeuJustinoCardapio || isAnalistaPracinha;
+        const canAccessCardapio =
+          isAdmin ||
+          role === 'promoter' ||
+          role === 'promoter-list' ||
+          isGerenteSeuJustinoCardapio ||
+          isAnalistaPracinha ||
+          isReservaRooftopMenuManager;
 
         setPermissions({
           role,

@@ -58,7 +58,7 @@ export function useEstablishmentPermissions() {
         setIsLoading(true);
         setError(null);
         
-        const email = localStorage.getItem('userEmail') || '';
+        const email = (localStorage.getItem('userEmail') || '').trim();
         const token = localStorage.getItem('authToken');
         
         setUserEmail(email);
@@ -76,6 +76,8 @@ export function useEstablishmentPermissions() {
             'Content-Type': 'application/json',
           },
         });
+
+        const normalizedEmail = email.toLowerCase();
 
         if (!response.ok) {
           // Se não tem permissões configuradas, verificar fallback para promoter restrito a um estabelecimento
@@ -99,6 +101,24 @@ export function useEstablishmentPermissions() {
               setUserConfig(config);
               setPermissions([]);
               console.log('✅ [PERMISSIONS] Fallback analista.mkt03: restrita ao estabelecimento Pracinha do Seu Justino (id 8)');
+            // subgerente.sjm@seujustino.com.br: acesso aos estabelecimentos Seu Justino (1) e Pracinha do Seu Justino (8)
+            } else if (role === 'gerente' && normalizedEmail === 'subgerente.sjm@seujustino.com.br') {
+              const config: UserEstablishmentConfig = {
+                userEmail: email,
+                establishmentIds: [1, 8],
+                permissions: {
+                  canEditOS: true,
+                  canEditOperationalDetail: true,
+                  canViewOS: true,
+                  canDownloadOS: true,
+                  canViewOperationalDetail: true,
+                  canCreateOS: true,
+                  canCreateOperationalDetail: true,
+                },
+              };
+              setUserConfig(config);
+              setPermissions([]);
+              console.log('✅ [PERMISSIONS] Fallback subgerente.sjm: acesso aos estabelecimentos 1 (Seu Justino) e 8 (Pracinha)');
             } else {
               setUserConfig(null);
               setPermissions([]);
@@ -117,7 +137,12 @@ export function useEstablishmentPermissions() {
           
           // Converter para formato UserEstablishmentConfig
           // Agrupar IDs únicos de estabelecimentos
-          const establishmentIds = Array.from(new Set(permissionsData.map(p => p.establishment_id)));
+          let establishmentIds = Array.from(new Set(permissionsData.map(p => p.establishment_id)));
+
+          // Garantir que o subgerente do Seu Justino também tenha acesso à Pracinha (id 8)
+          if (normalizedEmail === 'subgerente.sjm@seujustino.com.br' && !establishmentIds.includes(8)) {
+            establishmentIds.push(8);
+          }
           const firstPermission = permissionsData[0];
           
           const config: UserEstablishmentConfig = {
@@ -159,6 +184,23 @@ export function useEstablishmentPermissions() {
             setUserConfig(config);
             setPermissions([]);
             console.log('✅ [PERMISSIONS] Fallback analista.mkt03: restrita ao estabelecimento Pracinha do Seu Justino (id 8)');
+          } else if (role === 'gerente' && normalizedEmail === 'subgerente.sjm@seujustino.com.br') {
+            const config: UserEstablishmentConfig = {
+              userEmail: email,
+              establishmentIds: [1, 8],
+              permissions: {
+                canEditOS: true,
+                canEditOperationalDetail: true,
+                canViewOS: true,
+                canDownloadOS: true,
+                canViewOperationalDetail: true,
+                canCreateOS: true,
+                canCreateOperationalDetail: true,
+              },
+            };
+            setUserConfig(config);
+            setPermissions([]);
+            console.log('✅ [PERMISSIONS] Fallback (sem dados) subgerente.sjm: acesso aos estabelecimentos 1 (Seu Justino) e 8 (Pracinha)');
           } else {
             setUserConfig(null);
             setPermissions([]);
