@@ -203,11 +203,11 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-gray-900 to-black px-4 py-10">
-      <div className="w-full max-w-md bg-white rounded-2xl shadow-lg p-6 space-y-6">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-gray-900 to-black px-4 py-10 md:px-6 lg:px-8">
+      <div className="w-full max-w-md md:max-w-lg lg:max-w-xl bg-white rounded-2xl shadow-lg p-6 md:p-8 space-y-6 md:space-y-8">
         <div className="flex justify-center">
           <Link href="/">
-            <Image src={logoWhite} alt="Logo" className="h-16 w-auto" />
+            <Image src={logoWhite} alt="Logo" className="h-14 md:h-16 w-auto" />
           </Link>
         </div>
 
@@ -229,7 +229,7 @@ export default function Login() {
         )}
 
         <form 
-          className="space-y-4"
+          className="space-y-4 md:space-y-5"
           onSubmit={(e) => {
             e.preventDefault();
             if (validInputs && !loginLoading) {
@@ -276,7 +276,7 @@ export default function Login() {
             </button>
           </div>
 
-          <div className="flex items-center justify-between text-sm">
+          <div className="flex items-center justify-between text-xs sm:text-sm gap-3">
   <label className="flex items-center gap-2 cursor-pointer">
     <div className="relative">
       <input
@@ -293,7 +293,7 @@ export default function Login() {
         rememberMe ? "translate-x-5" : ""
       }`}></div>
     </div>
-    <span className="text-gray-700 select-none">Lembrar-me</span>
+    <span className="text-gray-700 select-none whitespace-nowrap">Lembrar-me</span>
   </label>
 
   <button
