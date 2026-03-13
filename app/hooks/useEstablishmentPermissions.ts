@@ -130,9 +130,42 @@ export function useEstablishmentPermissions() {
         }
 
         const data = await response.json();
-        
+
         if (data.success && data.data && data.data.length > 0) {
-          const permissionsData = data.data as PermissionData[];
+          let permissionsData = data.data as PermissionData[];
+
+          // 🔧 Garantir que o subgerente do Seu Justino tenha permissões explícitas
+          // para os estabelecimentos Seu Justino (1) e Pracinha do Seu Justino (8),
+          // mesmo que o backend tenha retornado apenas um deles.
+          if (normalizedEmail === 'subgerente.sjm@seujustino.com.br') {
+            const hasSeuJustino = permissionsData.some(
+              (p) => p.establishment_id === 1,
+            );
+            const hasPracinha = permissionsData.some(
+              (p) => p.establishment_id === 8,
+            );
+
+            // Se só existir permissão para o Seu Justino (1), clonar para a Pracinha (8)
+            if (hasSeuJustino && !hasPracinha) {
+              const basePerm =
+                permissionsData.find((p) => p.establishment_id === 1) ||
+                permissionsData[0];
+              const clonedForPracinha: PermissionData = {
+                ...basePerm,
+                // ID artificial apenas para diferenciar; o que importa é o establishment_id
+                id: basePerm.id + 1000000,
+                establishment_id: 8,
+                establishment_name:
+                  basePerm.establishment_name || 'Pracinha do Seu Justino',
+                // Garantir que possa criar/editar reservas na Pracinha
+                can_create_edit_reservations:
+                  basePerm.can_create_edit_reservations !== false,
+                is_active: true,
+              };
+              permissionsData = [...permissionsData, clonedForPracinha];
+            }
+          }
+
           setPermissions(permissionsData);
           
           // Converter para formato UserEstablishmentConfig
@@ -184,7 +217,10 @@ export function useEstablishmentPermissions() {
             setUserConfig(config);
             setPermissions([]);
             console.log('✅ [PERMISSIONS] Fallback analista.mkt03: restrita ao estabelecimento Pracinha do Seu Justino (id 8)');
-          } else if (role === 'gerente' && normalizedEmail === 'subgerente.sjm@seujustino.com.br') {
+          } else if (
+            role === 'gerente' &&
+            normalizedEmail === 'subgerente.sjm@seujustino.com.br'
+          ) {
             const config: UserEstablishmentConfig = {
               userEmail: email,
               establishmentIds: [1, 8],
@@ -198,9 +234,41 @@ export function useEstablishmentPermissions() {
                 canCreateOperationalDetail: true,
               },
             };
+
+            // Criar permissões padrão para os estabelecimentos 1 e 8,
+            // garantindo que o subgerente possa criar/editar reservas
+            const defaultPerm: PermissionData = {
+              id: 1000000,
+              user_id: 0,
+              user_email: email,
+              establishment_id: 1,
+              establishment_name: 'Seu Justino',
+              can_edit_os: true,
+              can_edit_operational_detail: true,
+              can_view_os: true,
+              can_download_os: true,
+              can_view_operational_detail: true,
+              can_create_os: true,
+              can_create_operational_detail: true,
+              can_manage_reservations: true,
+              can_manage_checkins: true,
+              can_view_reports: true,
+              can_create_edit_reservations: true,
+              is_active: true,
+            };
+
+            const pracinhaPerm: PermissionData = {
+              ...defaultPerm,
+              id: defaultPerm.id + 1,
+              establishment_id: 8,
+              establishment_name: 'Pracinha do Seu Justino',
+            };
+
             setUserConfig(config);
-            setPermissions([]);
-            console.log('✅ [PERMISSIONS] Fallback (sem dados) subgerente.sjm: acesso aos estabelecimentos 1 (Seu Justino) e 8 (Pracinha)');
+            setPermissions([defaultPerm, pracinhaPerm]);
+            console.log(
+              '✅ [PERMISSIONS] Fallback (sem dados) subgerente.sjm: acesso e permissões completas para os estabelecimentos 1 (Seu Justino) e 8 (Pracinha)',
+            );
           } else {
             setUserConfig(null);
             setPermissions([]);
