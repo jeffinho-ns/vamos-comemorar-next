@@ -392,7 +392,7 @@ export default function ReservationCalendar({
 
   return (
     <>
-    <div className="bg-white rounded-xl shadow-lg border border-gray-200 relative">
+      <div className="bg-white rounded-xl shadow-lg border border-gray-200 relative">
       {/* Header do Calendário */}
       <div className="p-3 sm:p-6 border-b border-gray-200">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -550,31 +550,33 @@ export default function ReservationCalendar({
               </div>
             )}
           </div>
+        ))}
+      </div>
       </div>
 
-     {/* Modal de Reservas do Dia */}
-     {selectedDate && (
-       <ReservationsDayModal
-         isOpen={showDayModal}
-         onClose={handleCloseDayModal}
-         date={selectedDate}
-         reservations={selectedDayReservations}
-         isReservaRooftop={isReservaRooftop}
-         onReservationClick={handleReservationClick}
-       />
-     )}
+      {/* Modal de Reservas do Dia */}
+      {selectedDate && (
+        <ReservationsDayModal
+          isOpen={showDayModal}
+          onClose={handleCloseDayModal}
+          date={selectedDate}
+          reservations={selectedDayReservations}
+          isReservaRooftop={isReservaRooftop}
+          onReservationClick={handleReservationClick}
+        />
+      )}
 
-    {/* Modal de Detalhes da Reserva */}
-    <ReservationDetailsModal
-      isOpen={showDetailsModal}
-      onClose={handleCloseDetailsModal}
-      reservation={selectedReservation}
-      isReservaRooftop={isReservaRooftop}
-      onEdit={onEditReservation ? handleEditReservation : undefined}
-      onDelete={onDeleteReservation ? handleDeleteReservation : undefined}
-      onStatusChange={onStatusChange ? handleStatusChange : undefined}
-      onAddGuestList={onAddGuestList}
-    />
-   </>
-   );
- }
+      {/* Modal de Detalhes da Reserva */}
+      <ReservationDetailsModal
+        isOpen={showDetailsModal}
+        onClose={handleCloseDetailsModal}
+        reservation={selectedReservation}
+        isReservaRooftop={isReservaRooftop}
+        onEdit={onEditReservation ? handleEditReservation : undefined}
+        onDelete={onDeleteReservation ? handleDeleteReservation : undefined}
+        onStatusChange={onStatusChange ? handleStatusChange : undefined}
+        onAddGuestList={onAddGuestList}
+      />
+    </>
+  );
+}
