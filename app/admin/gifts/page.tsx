@@ -21,6 +21,8 @@ interface GiftRule {
   vip_m_limit?: number;
   /** Limite de VIP Noite Tuda Feminino (0 = sem limite). Fallback seguro se API não retornar. */
   vip_f_limit?: number;
+  /** Valor de entrada (R$) para convidados da lista do promoter no check-in. 0 = sem valor (ex.: VIP noite toda). */
+  valor_entrada?: number;
   created_at?: string;
   updated_at?: string;
 }
@@ -68,6 +70,7 @@ export default function GiftsAdminPage() {
     promoter_id: number | null;
     vip_m_limit: number;
     vip_f_limit: number;
+    valor_entrada: number;
   }>({
     descricao: '',
     checkins_necessarios: 5,
@@ -75,6 +78,7 @@ export default function GiftsAdminPage() {
     promoter_id: null,
     vip_m_limit: 0,
     vip_f_limit: 0,
+    valor_entrada: 0,
   });
   
   // Estados para promoters
@@ -229,6 +233,7 @@ export default function GiftsAdminPage() {
           ...r,
           vip_m_limit: typeof r.vip_m_limit === 'number' ? r.vip_m_limit : 0,
           vip_f_limit: typeof r.vip_f_limit === 'number' ? r.vip_f_limit : 0,
+          valor_entrada: typeof r.valor_entrada === 'number' ? r.valor_entrada : (parseFloat(String(r.valor_entrada || 0)) || 0),
         }));
         setPromoterGiftRules(rules);
       } else {
@@ -579,6 +584,7 @@ export default function GiftsAdminPage() {
                       promoter_id: null,
                       vip_m_limit: 0,
                       vip_f_limit: 0,
+                      valor_entrada: 0,
                     });
                     setShowPromoterGiftRuleModal(true);
                   }}
@@ -634,6 +640,11 @@ export default function GiftsAdminPage() {
                               🎟️ VIP Noite Tuda: M {rule.vip_m_limit ?? 0} / F {rule.vip_f_limit ?? 0}
                             </p>
                           )}
+                          {((rule.valor_entrada ?? 0) > 0) && (
+                            <p className="text-xs text-purple-700 mt-1 font-medium">
+                              💵 Valor de entrada: R$ {Number(rule.valor_entrada).toFixed(2).replace('.', ',')}
+                            </p>
+                          )}
                         </div>
                         <div className="flex gap-2 ml-4">
                           <button
@@ -646,6 +657,7 @@ export default function GiftsAdminPage() {
                                 promoter_id: rule.promoter_id || null,
                                 vip_m_limit: typeof rule.vip_m_limit === 'number' ? rule.vip_m_limit : 0,
                                 vip_f_limit: typeof rule.vip_f_limit === 'number' ? rule.vip_f_limit : 0,
+                                valor_entrada: typeof rule.valor_entrada === 'number' ? rule.valor_entrada : (parseFloat(String(rule.valor_entrada || 0)) || 0),
                               });
                               setShowPromoterGiftRuleModal(true);
                             }}
@@ -879,20 +891,21 @@ export default function GiftsAdminPage() {
                   onClick={() => {
                     setShowPromoterGiftRuleModal(false);
                     setEditingPromoterGiftRule(null);
-                    setPromoterGiftRuleForm({
+setPromoterGiftRuleForm({
                       descricao: '',
                       checkins_necessarios: 5,
                       status: 'ATIVA',
                       promoter_id: null,
                       vip_m_limit: 0,
                       vip_f_limit: 0,
+                      valor_entrada: 0,
                     });
                   }}
                   className="text-gray-400 hover:text-gray-600"
                 >
-                  <MdClose size={24} />
-                </button>
-              </div>
+                <MdClose size={24} />
+              </button>
+            </div>
               
               <form onSubmit={async (e) => {
                 e.preventDefault();
@@ -918,6 +931,7 @@ export default function GiftsAdminPage() {
                       promoter_id: promoterGiftRuleForm.promoter_id || null,
                       vip_m_limit: Number(promoterGiftRuleForm.vip_m_limit) || 0,
                       vip_f_limit: Number(promoterGiftRuleForm.vip_f_limit) || 0,
+                      valor_entrada: Number(promoterGiftRuleForm.valor_entrada) || 0,
                     })
                   });
 
@@ -934,6 +948,7 @@ export default function GiftsAdminPage() {
                       promoter_id: null,
                       vip_m_limit: 0,
                       vip_f_limit: 0,
+                      valor_entrada: 0,
                     });
                   } else {
                     const errorData = await response.json();
@@ -1003,6 +1018,24 @@ export default function GiftsAdminPage() {
                     <p className="text-xs text-gray-500 mt-1">0 = sem cota VIP F</p>
                   </div>
                 </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Valor de entrada (R$)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={promoterGiftRuleForm.valor_entrada}
+                    onChange={(e) => setPromoterGiftRuleForm(prev => ({ ...prev, valor_entrada: Math.max(0, parseFloat(e.target.value) || 0) }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    placeholder="0"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Valor que a recepção cobrará no check-in (lista promoter). 0 = sem valor (ex.: VIP noite toda).
+                  </p>
+                </div>
                 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -1068,6 +1101,7 @@ export default function GiftsAdminPage() {
                         promoter_id: null,
                         vip_m_limit: 0,
                         vip_f_limit: 0,
+                        valor_entrada: 0,
                       });
                     }}
                     className="flex-1 px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded-lg transition-colors"

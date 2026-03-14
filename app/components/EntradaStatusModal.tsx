@@ -13,6 +13,8 @@ interface EntradaStatusModalProps {
   horaAtual: Date;
   /** Quando true (ex.: convidado de promoter), mostra opção "VIP a noite toda" mesmo após 22:20 */
   showVipNoiteTudaOption?: boolean;
+  /** Valor de entrada (R$) da regra do promoter. Quando > 0, mostra opção "Entrada (lista promoter) — R$ X,XX". */
+  valorEntradaPromoter?: number;
 }
 
 const EntradaStatusModal: React.FC<EntradaStatusModalProps> = ({
@@ -22,8 +24,11 @@ const EntradaStatusModal: React.FC<EntradaStatusModalProps> = ({
   nomeConvidado,
   horaAtual,
   showVipNoiteTudaOption = false,
+  valorEntradaPromoter = 0,
 }) => {
   const [selectedTipo, setSelectedTipo] = React.useState<EntradaTipo | null>(null);
+  const [selectedEntradaPromoter, setSelectedEntradaPromoter] = React.useState(false);
+  const isEntradaPromoter = valorEntradaPromoter > 0;
   const hasInitialized = React.useRef(false);
 
   // Calcular opções baseadas no horário
@@ -88,6 +93,7 @@ const EntradaStatusModal: React.FC<EntradaStatusModalProps> = ({
     } else if (!isOpen) {
       // Resetar quando o modal fechar
       setSelectedTipo(null);
+      setSelectedEntradaPromoter(false);
       hasInitialized.current = false;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -97,6 +103,9 @@ const EntradaStatusModal: React.FC<EntradaStatusModalProps> = ({
     // Se escolheu VIP a noite toda (lista promoter), confirmar como VIP R$ 0
     if (selectedTipo === 'VIP') {
       onConfirm('VIP', 0);
+    } else if (selectedTipo === 'SECO' && selectedEntradaPromoter && valorEntradaPromoter > 0) {
+      // Entrada com valor da regra do promoter (a noite toda)
+      onConfirm('SECO', valorEntradaPromoter);
     } else if (opcoes.modoAutomatico && opcoes.tipoAutomatico) {
       // Modo automático (VIP por horário): confirmar VIP diretamente
       onConfirm(opcoes.tipoAutomatico, 0);
@@ -176,6 +185,41 @@ const EntradaStatusModal: React.FC<EntradaStatusModalProps> = ({
               </div>
             )}
 
+            {/* Opção Entrada com valor (lista promoter) — valor da regra de brinde */}
+            {isEntradaPromoter && (
+              <div className="mb-4">
+                <button
+                  type="button"
+                  onClick={() => { setSelectedTipo('SECO'); setSelectedEntradaPromoter(true); }}
+                  className={`w-full p-4 border-2 rounded-lg text-left transition-all ${
+                    selectedTipo === 'SECO' && selectedEntradaPromoter
+                      ? 'border-emerald-500 bg-emerald-50'
+                      : 'border-emerald-300 hover:border-emerald-400 bg-emerald-50/50'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <MdAttachMoney
+                        size={24}
+                        className={selectedTipo === 'SECO' ? 'text-emerald-600' : 'text-emerald-500'}
+                      />
+                      <div>
+                        <div className="font-semibold text-gray-900">Entrada (lista promoter)</div>
+                        <div className="text-sm text-gray-600">
+                          Valor da regra — R$ {valorEntradaPromoter.toFixed(2).replace('.', ',')}
+                        </div>
+                      </div>
+                    </div>
+                    {selectedTipo === 'SECO' && selectedEntradaPromoter && (
+                      <span className="text-emerald-600 font-bold">
+                        R$ {valorEntradaPromoter.toFixed(2).replace('.', ',')}
+                      </span>
+                    )}
+                  </div>
+                </button>
+              </div>
+            )}
+
             {/* Modo Automático VIP por horário (até 22:20h) - só se não for VIP noite tuda */}
             {opcoes.modoAutomatico && opcoes.tipoAutomatico === 'VIP' && !showVipNoiteTudaOption && (
               <div className="mb-6">
@@ -200,7 +244,7 @@ const EntradaStatusModal: React.FC<EntradaStatusModalProps> = ({
                 {/* Opção SECO */}
                 {opcoes.mostraSeco && (
                   <button
-                    onClick={() => setSelectedTipo('SECO')}
+                    onClick={() => { setSelectedTipo('SECO'); setSelectedEntradaPromoter(false); }}
                     className={`w-full p-4 border-2 rounded-lg text-left transition-all ${
                       selectedTipo === 'SECO'
                         ? 'border-blue-500 bg-blue-50'
@@ -228,7 +272,7 @@ const EntradaStatusModal: React.FC<EntradaStatusModalProps> = ({
                 {/* Opção CONSUMA */}
                 {opcoes.mostraConsuma && (
                   <button
-                    onClick={() => setSelectedTipo('CONSUMA')}
+                    onClick={() => { setSelectedTipo('CONSUMA'); setSelectedEntradaPromoter(false); }}
                     className={`w-full p-4 border-2 rounded-lg text-left transition-all ${
                       selectedTipo === 'CONSUMA'
                         ? 'border-purple-500 bg-purple-50'
@@ -272,7 +316,7 @@ const EntradaStatusModal: React.FC<EntradaStatusModalProps> = ({
                     : 'bg-gray-300 cursor-not-allowed'
                 }`}
               >
-                {selectedTipo === 'VIP' ? 'Confirmar VIP a noite toda' : opcoes.modoAutomatico ? 'Confirmar Check-in VIP' : 'Confirmar Check-in'}
+                {selectedTipo === 'VIP' ? 'Confirmar VIP a noite toda' : selectedEntradaPromoter && selectedTipo === 'SECO' ? 'Confirmar Entrada (valor da regra)' : opcoes.modoAutomatico ? 'Confirmar Check-in VIP' : 'Confirmar Check-in'}
               </button>
             </div>
           </div>

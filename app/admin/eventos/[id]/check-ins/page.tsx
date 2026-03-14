@@ -155,6 +155,8 @@ interface ConvidadoPromoter {
   entrada_valor?: number;
   /** VIP Noite Tuda: 'M' | 'F' = entrada R$ 0 sempre. Fallback seguro se API não retornar. */
   vip_tipo?: "M" | "F" | null;
+  /** Valor de entrada (R$) da regra de brinde do promoter. Exibido no modal de check-in quando > 0. */
+  valor_entrada_regra?: number;
 }
 
 interface Promoter {
@@ -605,6 +607,8 @@ export default function EventoCheckInsPage() {
     reservationId?: number; // Para reservas sem guest list
     /** Apenas para promoter: true se tem direito a VIP a noite toda (vip_tipo M ou F) */
     vipNoiteTuda?: boolean;
+    /** Valor de entrada (R$) da regra do promoter para exibir no modal de check-in */
+    valorEntradaPromoter?: number;
   } | null>(null);
   const [arrecadacao, setArrecadacao] = useState<{
     totalGeral: number;
@@ -2318,6 +2322,7 @@ export default function EventoCheckInsPage() {
         id: convidado.id,
         nome: convidado.nome,
         vipNoiteTuda: isVipNoiteTuda,
+        valorEntradaPromoter: typeof convidado.valor_entrada_regra === "number" ? convidado.valor_entrada_regra : (parseFloat(String(convidado.valor_entrada_regra || 0)) || 0),
       };
       const isRooftop =
         evento?.establishment_id === 9 ||
@@ -8301,6 +8306,7 @@ export default function EventoCheckInsPage() {
           nomeConvidado={convidadoParaCheckIn.nome}
           horaAtual={new Date()}
           showVipNoiteTudaOption={convidadoParaCheckIn.tipo === "promoter" && !!convidadoParaCheckIn.vipNoiteTuda}
+          valorEntradaPromoter={convidadoParaCheckIn.tipo === "promoter" ? (convidadoParaCheckIn.valorEntradaPromoter ?? 0) : 0}
         />
       )}
 
