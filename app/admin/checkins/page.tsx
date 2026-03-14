@@ -26,6 +26,14 @@ import { isReservaRooftopEstablishment } from '@/app/utils/rooftopCheckins';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.agilizaiapp.com.br';
 
+// Override temporário: recepcionista regianebrunno@gmail.com pode escolher Seu Justino e High Line nas páginas de check-in
+const TEMPORARY_CHECKINS_EMAIL = 'regianebrunno@gmail.com';
+const TEMPORARY_CHECKINS_ESTABLISHMENT_IDS = [1, 7]; // 1 = Seu Justino, 7 = High Line
+const TEMPORARY_CHECKINS_ESTABLISHMENTS: { id: number; nome: string }[] = [
+  { id: 1, nome: 'Seu Justino' },
+  { id: 7, nome: 'High Line' },
+];
+
 // Tipos
 interface EventoLista {
   evento_id: number;
@@ -175,7 +183,13 @@ export default function CheckInsGeralPage() {
       );
       
       // Filtrar estabelecimentos baseado nas permissões do usuário
-      const filteredLista = establishmentPermissions.getFilteredEstablishments(lista);
+      let filteredLista = establishmentPermissions.getFilteredEstablishments(lista);
+      const userEmail = (localStorage.getItem('userEmail') || '').trim().toLowerCase();
+      if (userEmail === TEMPORARY_CHECKINS_EMAIL) {
+        const tempList = lista.filter((e) => TEMPORARY_CHECKINS_ESTABLISHMENT_IDS.includes(Number(e.id)));
+        filteredLista = tempList.length > 0 ? tempList : TEMPORARY_CHECKINS_ESTABLISHMENTS;
+        console.log('📋 [CHECKINS] Override temporário ativo para recepcionista: Seu Justino + High Line');
+      }
       
       console.log(`📋 [CHECKINS] Total de estabelecimentos após filtro: ${filteredLista.length}`, 
         filteredLista.map(e => ({ id: e.id, nome: e.nome }))
@@ -382,8 +396,8 @@ export default function CheckInsGeralPage() {
         <div className="bg-white/5 backdrop-blur-sm border-b border-white/10 sticky top-0 z-30">
           <div className="max-w-7xl mx-auto p-4">
             <div className="flex flex-col md:flex-row gap-4 items-center">
-              {/* Ocultar o seletor se houver apenas um estabelecimento ou se estiver restrito */}
-              {(establishmentPermissions.isRestrictedToSingleEstablishment() || estabelecimentos.length === 1) && estabelecimentos.length > 0 ? (
+              {/* Ocultar o seletor se houver apenas um estabelecimento ou se estiver restrito (exceto override temporário regianebrunno) */}
+              {((establishmentPermissions.isRestrictedToSingleEstablishment() && typeof window !== 'undefined' && (localStorage.getItem('userEmail') || '').trim().toLowerCase() !== TEMPORARY_CHECKINS_EMAIL) || estabelecimentos.length === 1) && estabelecimentos.length > 0 ? (
                 <div className="w-full md:w-1/2">
                   <label className="block text-sm text-gray-300 mb-2">Estabelecimento</label>
                   <div className="w-full bg-white/10 border border-white/20 rounded-lg text-white px-3 py-3">

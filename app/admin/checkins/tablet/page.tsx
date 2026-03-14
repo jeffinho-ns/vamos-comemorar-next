@@ -9,6 +9,14 @@ import { BirthdayReservation } from '../../../services/birthdayService';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.agilizaiapp.com.br';
 
+// Override temporário: recepcionista regianebrunno@gmail.com pode escolher Seu Justino e High Line nas páginas de check-in
+const TEMPORARY_CHECKINS_EMAIL = 'regianebrunno@gmail.com';
+const TEMPORARY_CHECKINS_ESTABLISHMENT_IDS = [1, 7]; // 1 = Seu Justino, 7 = High Line
+const TEMPORARY_CHECKINS_ESTABLISHMENTS: { id: number; nome: string }[] = [
+  { id: 1, nome: 'Seu Justino' },
+  { id: 7, nome: 'High Line' },
+];
+
 interface SearchResult {
   type: 'guest' | 'owner' | 'promoter' | 'promoter_guest';
   name: string;
@@ -199,7 +207,13 @@ export default function TabletCheckInsPage() {
           lista.map(e => ({ id: e.id, nome: e.nome }))
         );
         
-        const filteredLista = establishmentPermissions.getFilteredEstablishments(lista);
+        let filteredLista = establishmentPermissions.getFilteredEstablishments(lista);
+        const userEmail = (localStorage.getItem('userEmail') || '').trim().toLowerCase();
+        if (userEmail === TEMPORARY_CHECKINS_EMAIL) {
+          const tempList = lista.filter((e) => TEMPORARY_CHECKINS_ESTABLISHMENT_IDS.includes(Number(e.id)));
+          filteredLista = tempList.length > 0 ? tempList : TEMPORARY_CHECKINS_ESTABLISHMENTS;
+          console.log('📋 [TABLET] Override temporário ativo para recepcionista: Seu Justino + High Line');
+        }
         
         console.log(`📋 [TABLET] Total de estabelecimentos após filtro: ${filteredLista.length}`, 
           filteredLista.map(e => ({ id: e.id, nome: e.nome }))
@@ -1531,9 +1545,9 @@ export default function TabletCheckInsPage() {
                 setResults([]);
               }}
               className="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-white/10 border-2 border-white/20 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base sm:text-lg text-white transition-all"
-              disabled={establishmentPermissions.isRestrictedToSingleEstablishment()}
+              disabled={establishmentPermissions.isRestrictedToSingleEstablishment() && typeof window !== 'undefined' && (localStorage.getItem('userEmail') || '').trim().toLowerCase() !== TEMPORARY_CHECKINS_EMAIL}
             >
-              {establishmentPermissions.isRestrictedToSingleEstablishment() ? (
+              {establishmentPermissions.isRestrictedToSingleEstablishment() && typeof window !== 'undefined' && (localStorage.getItem('userEmail') || '').trim().toLowerCase() !== TEMPORARY_CHECKINS_EMAIL ? (
                 estabelecimentos.map(est => (
                   <option key={est.id} value={est.id} className="text-gray-900">{est.nome}</option>
                 ))
