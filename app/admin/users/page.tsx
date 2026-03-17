@@ -880,7 +880,7 @@ function EditUserModal({
       const nextName = name.trim();
       const nextEmail = email.trim().toLowerCase();
       const nextTelefone = telefone.trim();
-      const nextRole = role;
+      const nextRole = normalizeRole(role);
       const body: Record<string, unknown> = {};
 
       if (nextName && nextName !== (user.name || "")) body.name = nextName;
