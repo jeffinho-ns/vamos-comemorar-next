@@ -590,11 +590,8 @@ export default function ReservationCalendar({
                   </div>
                 )}
                 
-                {day.reservations.length > 2 && (
-                  <div className="text-xs text-gray-500">
-                    +{day.reservations.length - 2} mais
-                  </div>
-                )}
+                {/* Em mobile não mostramos o “+X mais”; em telas maiores pode ser útil,
+                    mas por enquanto vamos remover para manter apenas os números exatos. */}
               </div>
             )}
           </div>
