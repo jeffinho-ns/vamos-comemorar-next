@@ -904,10 +904,18 @@ function EditUserModal({
       const body: Record<string, unknown> = {};
 
       if (nextName && nextName !== (user.name || "")) body.name = nextName;
-      if (nextEmail && nextEmail !== (user.email || "").toLowerCase()) body.email = nextEmail;
-      if (nextTelefone !== (user.telefone || "")) body.telefone = nextTelefone || undefined;
+      if (nextEmail && nextEmail !== (user.email || "").toLowerCase())
+        body.email = nextEmail;
+      if (nextTelefone !== (user.telefone || ""))
+        body.telefone = nextTelefone || undefined;
       if (nextRole !== normalizeRole(user.role)) body.role = nextRole;
       if (password.trim()) body.password = password.trim();
+
+      // Se nenhum campo mudou, ainda assim envie nome/e-mail atuais para evitar 400 do backend
+      if (Object.keys(body).length === 0) {
+        if (nextName) body.name = nextName;
+        if (nextEmail) body.email = nextEmail;
+      }
 
       const resUser = await fetch(`${apiUrl}/api/users/${user.id}`, {
         method: "PUT",
