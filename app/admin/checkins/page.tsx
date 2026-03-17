@@ -184,6 +184,27 @@ export default function CheckInsGeralPage() {
       
       // Filtrar estabelecimentos baseado nas permissões do usuário
       let filteredLista = establishmentPermissions.getFilteredEstablishments(lista);
+
+      // Fallback: se não sobrou nenhum, mas há permissões ativas, criar lista sintética
+      if (
+        filteredLista.length === 0 &&
+        establishmentPermissions.permissions.length > 0
+      ) {
+        const synthetic = establishmentPermissions.permissions
+          .filter((p) => p.is_active)
+          .map((p) => ({
+            id: p.establishment_id,
+            nome:
+              p.establishment_name || `Estabelecimento ${p.establishment_id}`,
+          }));
+        if (synthetic.length > 0) {
+          filteredLista = synthetic;
+          console.log(
+            "🔁 [CHECKINS] Usando lista sintética de estabelecimentos a partir das permissões:",
+            synthetic,
+          );
+        }
+      }
       const userEmail = (localStorage.getItem('userEmail') || '').trim().toLowerCase();
       if (userEmail === TEMPORARY_CHECKINS_EMAIL) {
         const tempList = lista.filter((e) => TEMPORARY_CHECKINS_ESTABLISHMENT_IDS.includes(Number(e.id)));

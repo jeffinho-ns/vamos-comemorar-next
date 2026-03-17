@@ -130,7 +130,31 @@ export default function PainelEventos() {
       console.log("Estabelecimentos formatados (places):", formattedEstablishments);
       
       // Filtrar estabelecimentos baseado nas permissões do usuário
-      const filteredEstablishments = filterEstablishments(formattedEstablishments);
+      let filteredEstablishments = filterEstablishments(formattedEstablishments);
+
+      // Fallback: se não sobrou nenhum, mas o hook tem permissões ativas,
+      // montar uma lista sintética a partir delas
+      if (
+        filteredEstablishments.length === 0 &&
+        establishmentPermissions.permissions.length > 0
+      ) {
+        const synthetic = establishmentPermissions.permissions
+          .filter((p) => p.is_active)
+          .map((p) => ({
+            id: p.establishment_id,
+            name:
+              p.establishment_name || `Estabelecimento ${p.establishment_id}`,
+            logo: "",
+            address: "Endereço não informado",
+          }));
+        if (synthetic.length > 0) {
+          filteredEstablishments = synthetic;
+          console.log(
+            "🔁 [PAINEL EVENTOS] Usando lista sintética de estabelecimentos a partir das permissões:",
+            synthetic,
+          );
+        }
+      }
       console.log("Estabelecimentos filtrados:", filteredEstablishments);
       setEstablishments(filteredEstablishments);
       

@@ -178,6 +178,32 @@ export default function RestaurantReservationsPage() {
           establishmentPermissions.getFilteredEstablishments(
             formattedEstablishments,
           );
+
+        // Fallback: se não sobrou nenhum mas o usuário tem permissões,
+        // criar uma lista sintética a partir de user_establishment_permissions
+        if (
+          filteredEstablishments.length === 0 &&
+          establishmentPermissions.permissions.length > 0
+        ) {
+          const synthetic = establishmentPermissions.permissions
+            .filter((p) => p.is_active)
+            .map((p) => ({
+              id: p.establishment_id,
+              name:
+                p.establishment_name ||
+                `Estabelecimento ${p.establishment_id}`,
+              logo: "",
+              address: "Endereço não informado",
+            }));
+          if (synthetic.length > 0) {
+            filteredEstablishments = synthetic;
+            console.log(
+              "🔁 [RESTAURANT RESERVATIONS] Usando lista sintética de estabelecimentos a partir das permissões:",
+              synthetic,
+            );
+          }
+        }
+
         console.log(
           `📋 [RESTAURANT RESERVATIONS] Estabelecimentos filtrados: ${filteredEstablishments.length} de ${formattedEstablishments.length}`,
           filteredEstablishments.map((e) => ({ id: e.id, name: e.name })),
@@ -313,8 +339,28 @@ export default function RestaurantReservationsPage() {
       !hasFilteredRef.current
     ) {
       // Refiltrar estabelecimentos agora que as permissões estão carregadas
-      const filteredEstabs =
+      let filteredEstabs =
         establishmentPermissions.getFilteredEstablishments(allEstablishments);
+
+      // Mesmo fallback: se nada sobrou mas há permissões, montar lista sintética
+      if (
+        filteredEstabs.length === 0 &&
+        establishmentPermissions.permissions.length > 0
+      ) {
+        const synthetic = establishmentPermissions.permissions
+          .filter((p) => p.is_active)
+          .map((p) => ({
+            id: p.establishment_id,
+            name:
+              p.establishment_name || `Estabelecimento ${p.establishment_id}`,
+            logo: "",
+            address: "Endereço não informado",
+          }));
+        if (synthetic.length > 0) {
+          filteredEstabs = synthetic;
+        }
+      }
+
       console.log(
         `🔄 [RESTAURANT RESERVATIONS] Refiltrando estabelecimentos após permissões carregarem: ${filteredEstabs.length} de ${allEstablishments.length}`,
         filteredEstabs.map((e) => ({ id: e.id, name: e.name })),
