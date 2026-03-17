@@ -32,6 +32,8 @@ const ANALISTA_EMAIL = 'analista.mkt03@ideiaum.com.br';
 const GERENTES_SEU_JUSTINO_CARDAPIO = [
   'gerente.sjm@seujustino.com.br',
   'subgerente.sjm@seujustino.com.br',
+  // Highline: analista com acesso ao Cardápio do Highline (controlado também por permissões por estabelecimento)
+  'analista@highline.com',
 ];
 
 // E-mails autorizados a acessar rooftop-fluxo (Reserva Rooftop) - recebem menu de recepção

@@ -48,6 +48,10 @@ interface PermissionRow {
   can_manage_checkins: boolean;
   can_view_reports: boolean;
   can_create_edit_reservations?: boolean;
+  can_view_cardapio?: boolean;
+  can_create_cardapio?: boolean;
+  can_edit_cardapio?: boolean;
+  can_delete_cardapio?: boolean;
   is_active: boolean;
 }
 
@@ -705,6 +709,10 @@ function CreateUserModal({ onClose, onSuccess, establishments, apiUrl }: CreateU
                         { key: "can_edit_operational_detail", label: "Editar detalhes operacionais" },
                         { key: "can_create_os", label: "Criar OS" },
                         { key: "can_create_operational_detail", label: "Criar detalhes operacionais" },
+                        { key: "can_view_cardapio", label: "Ver Cardápio" },
+                        { key: "can_create_cardapio", label: "Criar Cardápio" },
+                        { key: "can_edit_cardapio", label: "Editar Cardápio" },
+                        { key: "can_delete_cardapio", label: "Excluir Cardápio" },
                       ].map(({ key, label }) => (
                         <label key={key} className="flex items-center gap-2">
                           <input
@@ -771,6 +779,10 @@ type EstablishmentPerms = {
   can_edit_operational_detail: boolean;
   can_create_os: boolean;
   can_create_operational_detail: boolean;
+  can_view_cardapio: boolean;
+  can_create_cardapio: boolean;
+  can_edit_cardapio: boolean;
+  can_delete_cardapio: boolean;
 };
 
 const DEFAULT_ESTAB_PERMS: EstablishmentPerms = {
@@ -785,6 +797,10 @@ const DEFAULT_ESTAB_PERMS: EstablishmentPerms = {
   can_edit_operational_detail: false,
   can_create_os: false,
   can_create_operational_detail: false,
+  can_view_cardapio: true,
+  can_create_cardapio: true,
+  can_edit_cardapio: true,
+  can_delete_cardapio: true,
 };
 
 function permFromRow(p: PermissionRow): EstablishmentPerms {
@@ -800,6 +816,10 @@ function permFromRow(p: PermissionRow): EstablishmentPerms {
     can_edit_operational_detail: p.can_edit_operational_detail,
     can_create_os: p.can_create_os,
     can_create_operational_detail: p.can_create_operational_detail,
+    can_view_cardapio: p.can_view_cardapio !== false,
+    can_create_cardapio: p.can_create_cardapio !== false,
+    can_edit_cardapio: p.can_edit_cardapio !== false,
+    can_delete_cardapio: p.can_delete_cardapio !== false,
   };
 }
 
@@ -1134,6 +1154,10 @@ function EditUserModal({
                         { key: "can_edit_operational_detail", label: "Editar detalhes operacionais" },
                         { key: "can_create_os", label: "Criar OS" },
                         { key: "can_create_operational_detail", label: "Criar detalhes operacionais" },
+                        { key: "can_view_cardapio", label: "Ver Cardápio" },
+                        { key: "can_create_cardapio", label: "Criar Cardápio" },
+                        { key: "can_edit_cardapio", label: "Editar Cardápio" },
+                        { key: "can_delete_cardapio", label: "Excluir Cardápio" },
                       ].map(({ key, label }) => (
                         <label key={key} className="flex items-center gap-2">
                           <input
