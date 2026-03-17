@@ -3,8 +3,8 @@
 import { useEffect, useState, useCallback } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { usePathname } from 'next/navigation'; // Hook para pegar a URL atual
-import './responsive.css';
+import { usePathname } from "next/navigation"; // Hook para pegar a URL atual
+import "./responsive.css";
 import {
   MdMenu,
   MdDashboard,
@@ -27,40 +27,56 @@ import UserMenu from "../components/UserMenu/UserMenu"; // Verifique o caminho
 import { useUserPermissions } from "../hooks/useUserPermissions";
 
 // E-mail da analista com acesso restrito ao estabelecimento Pracinha do Seu Justino (menu próprio, não promoter)
-const ANALISTA_EMAIL = 'analista.mkt03@ideiaum.com.br';
+const ANALISTA_EMAIL = "analista.mkt03@ideiaum.com.br";
 
 // Gerentes do Seu Justino que têm acesso ao Gerenciamento do Cardápio (apenas estabelecimento Seu Justino)
 const GERENTES_SEU_JUSTINO_CARDAPIO = [
-  'gerente.sjm@seujustino.com.br',
-  'subgerente.sjm@seujustino.com.br',
+  "gerente.sjm@seujustino.com.br",
+  "subgerente.sjm@seujustino.com.br",
   // Highline: analista com acesso ao Cardápio do Highline (controlado também por permissões por estabelecimento)
-  'analista@highline.com',
+  "analista@highline.com",
 ];
 
 // E-mails autorizados a acessar rooftop-fluxo (Reserva Rooftop) - recebem menu de recepção
 const ROOFTOP_FLUXO_EMAILS = new Set([
-  'recepcao@reservarooftop.com.br',
-  'gerente.maitre@reservarooftop.com.br',
-  'diego.gomes@reservarooftop.com.br',
-  'vbs14@hotmail.com',
-  'reservas@reservarooftop.com.br',
-  'coordenadora.reservas@ideiaum.com.br',
-  'analista.mkt02@ideiaum.com.br',
+  "recepcao@reservarooftop.com.br",
+  "gerente.maitre@reservarooftop.com.br",
+  "diego.gomes@reservarooftop.com.br",
+  "vbs14@hotmail.com",
+  "reservas@reservarooftop.com.br",
+  "coordenadora.reservas@ideiaum.com.br",
+  "analista.mkt02@ideiaum.com.br",
 ]);
 const ROOFTOP_FLUXO_LINKS = [
   { href: "/admin", label: "Dashboard", icon: MdDashboard },
   { href: "/admin/checkins", label: "Check-ins", icon: MdCheckCircle },
-  { href: "/admin/checkins/rooftop-fluxo", label: "Fluxo Rooftop", icon: MdCheckCircle },
-  { href: "/admin/restaurant-reservations", label: "Sistema de Reservas", icon: MdRestaurant },
-  { href: "/admin/detalhes-operacionais", label: "Detalhes Operacionais do Evento", icon: MdInfo },
+  {
+    href: "/admin/checkins/rooftop-fluxo",
+    label: "Fluxo Rooftop",
+    icon: MdCheckCircle,
+  },
+  {
+    href: "/admin/restaurant-reservations",
+    label: "Sistema de Reservas",
+    icon: MdRestaurant,
+  },
+  {
+    href: "/admin/detalhes-operacionais",
+    label: "Detalhes Operacionais do Evento",
+    icon: MdInfo,
+  },
   { href: "/admin/qrcode", label: "Scanner QR Code", icon: MdQrCodeScanner },
   { href: "/admin/reservas", label: "Reservas", icon: MdEditCalendar },
 ];
 
-export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+export default function DashboardLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [userRole, setUserRole] = useState<string>('');
-  const [userEmail, setUserEmail] = useState<string>('');
+  const [userRole, setUserRole] = useState<string>("");
+  const [userEmail, setUserEmail] = useState<string>("");
   const [isLoading, setIsLoading] = useState(true);
   const pathname = usePathname(); // Hook do Next.js para pegar a rota ativa
   const { canAccessCardapio, isLoading: isLoadingPerms } = useUserPermissions();
@@ -68,24 +84,33 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   useEffect(() => {
     // Buscar role e email: cookies (prioridade) ou localStorage (fallback)
     const loadUser = () => {
-      let role = '';
-      const cookies = document.cookie.split(';');
-      const roleCookie = cookies.find(cookie => cookie.trim().startsWith('role='));
+      let role = "";
+      const cookies = document.cookie.split(";");
+      const roleCookie = cookies.find((cookie) =>
+        cookie.trim().startsWith("role="),
+      );
       if (roleCookie) {
-        role = (roleCookie.split('=')[1] || '').trim();
+        role = (roleCookie.split("=")[1] || "").trim();
       }
-      if (!role && typeof window !== 'undefined') {
-        role = localStorage.getItem('role') || '';
+      if (!role && typeof window !== "undefined") {
+        role = localStorage.getItem("role") || "";
       }
       setUserRole(role);
-      let email = '';
-      if (typeof window !== 'undefined') {
-        const emailCookie = cookies.find(cookie => cookie.trim().startsWith('userEmail='));
-        const emailFromCookie = emailCookie ? (emailCookie.split('=').slice(1).join('=') || '').trim() : '';
+      let email = "";
+      if (typeof window !== "undefined") {
+        const emailCookie = cookies.find((cookie) =>
+          cookie.trim().startsWith("userEmail="),
+        );
+        const emailFromCookie = emailCookie
+          ? (emailCookie.split("=").slice(1).join("=") || "").trim()
+          : "";
         try {
-          email = (emailFromCookie ? decodeURIComponent(emailFromCookie) : '') || localStorage.getItem('userEmail') || '';
+          email =
+            (emailFromCookie ? decodeURIComponent(emailFromCookie) : "") ||
+            localStorage.getItem("userEmail") ||
+            "";
         } catch {
-          email = localStorage.getItem('userEmail') || '';
+          email = localStorage.getItem("userEmail") || "";
         }
         email = email.trim().toLowerCase();
       }
@@ -97,7 +122,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }, []);
 
   const isAnalista = userEmail === ANALISTA_EMAIL;
-  const isRooftopFluxoEmail = userEmail && ROOFTOP_FLUXO_EMAILS.has(userEmail.toLowerCase().trim());
+  const isRooftopFluxoEmail =
+    userEmail && ROOFTOP_FLUXO_EMAILS.has(userEmail.toLowerCase().trim());
 
   // A lista de links da sua navegação baseada no role e no perfil (analista vs promoter)
   const getNavLinks = () => {
@@ -109,57 +135,130 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     if (isAnalista) {
       return [
         { href: "/admin", label: "Dashboard", icon: MdDashboard },
-        { href: "/admin/restaurant-reservations", label: "Sistema de Reservas", icon: MdRestaurant },
-        { href: "/admin/eventos/dashboard", label: "Dashboard de Eventos", icon: MdEvent },
-        { href: "/admin/eventos/promoters", label: "Promoters", icon: MdPerson },
+        {
+          href: "/admin/restaurant-reservations",
+          label: "Sistema de Reservas",
+          icon: MdRestaurant,
+        },
+        {
+          href: "/admin/eventos/dashboard",
+          label: "Dashboard de Eventos",
+          icon: MdEvent,
+        },
+        {
+          href: "/admin/eventos/promoters",
+          label: "Promoters",
+          icon: MdPerson,
+        },
         { href: "/admin/eventos/listas", label: "Listas", icon: MdEvent },
-        { href: "/admin/painel-eventos", label: "Painel de Eventos", icon: MdBusiness },
+        {
+          href: "/admin/painel-eventos",
+          label: "Painel de Eventos",
+          icon: MdBusiness,
+        },
         { href: "/admin/checkins", label: "Check-ins", icon: MdCheckCircle },
         { href: "/admin/workdays", label: "Funcionamento", icon: MdTimer },
         { href: "/admin/cardapio", label: "Cardápio", icon: MdRestaurant },
-        { href: "/admin/qrcode", label: "Scanner QR Code", icon: MdQrCodeScanner },
+        {
+          href: "/admin/qrcode",
+          label: "Scanner QR Code",
+          icon: MdQrCodeScanner,
+        },
         { href: "/admin/reservas", label: "Reservas", icon: MdEditCalendar },
-        { href: "/admin/detalhes-operacionais", label: "Detalhes Operacionais do Evento", icon: MdInfo },
+        {
+          href: "/admin/detalhes-operacionais",
+          label: "Detalhes Operacionais do Evento",
+          icon: MdInfo,
+        },
       ];
     }
-    if (userRole === 'promoter' || userRole === 'promoter-list') {
+    if (userRole === "promoter" || userRole === "promoter-list") {
       // Promoter – acesso restrito ao cardápio, eventos, reservas, checkins do seu estabelecimento
       return [
         { href: "/admin/cardapio", label: "Cardápio", icon: MdRestaurant },
         { href: "/admin/eventos", label: "Eventos", icon: MdEvent },
         { href: "/admin/reservas", label: "Reservas", icon: MdEditCalendar },
-        { href: "/admin/restaurant-reservations", label: "Sistema de Reservas", icon: MdRestaurant },
-        { href: "/admin/qrcode", label: "Scanner QR Code", icon: MdQrCodeScanner },
+        {
+          href: "/admin/restaurant-reservations",
+          label: "Sistema de Reservas",
+          icon: MdRestaurant,
+        },
+        {
+          href: "/admin/qrcode",
+          label: "Scanner QR Code",
+          icon: MdQrCodeScanner,
+        },
         { href: "/admin/checkins", label: "Check-ins", icon: MdCheckCircle },
       ];
-    } else if (userRole === 'recepção' || userRole === 'recepcao' || userRole === 'atendente') {
+    } else if (
+      userRole === "recepção" ||
+      userRole === "recepcao" ||
+      userRole === "atendente"
+    ) {
       // Recepção/Atendente - acesso restrito aos estabelecimentos configurados (inclui Reserva Rooftop)
       const links = [
         { href: "/admin", label: "Dashboard", icon: MdDashboard },
         { href: "/admin/checkins", label: "Check-ins", icon: MdCheckCircle },
-        { href: "/admin/restaurant-reservations", label: "Sistema de Reservas", icon: MdRestaurant },
-        { href: "/admin/detalhes-operacionais", label: "Detalhes Operacionais do Evento", icon: MdInfo },
-        { href: "/admin/qrcode", label: "Scanner QR Code", icon: MdQrCodeScanner },
+        {
+          href: "/admin/restaurant-reservations",
+          label: "Sistema de Reservas",
+          icon: MdRestaurant,
+        },
+        {
+          href: "/admin/detalhes-operacionais",
+          label: "Detalhes Operacionais do Evento",
+          icon: MdInfo,
+        },
+        {
+          href: "/admin/qrcode",
+          label: "Scanner QR Code",
+          icon: MdQrCodeScanner,
+        },
         { href: "/admin/reservas", label: "Reservas", icon: MdEditCalendar },
       ];
       if (canAccessCardapio) {
-        links.splice(2, 0, { href: "/admin/cardapio", label: "Cardápio", icon: MdRestaurant });
+        links.splice(2, 0, {
+          href: "/admin/cardapio",
+          label: "Cardápio",
+          icon: MdRestaurant,
+        });
       }
       return links;
-    } else if (userRole === 'gerente') {
+    } else if (userRole === "gerente") {
       // Gerente - acesso às páginas administrativas restritas aos seus estabelecimentos
       const baseLinks = [
         { href: "/admin", label: "Dashboard", icon: MdDashboard },
-        { href: "/admin/restaurant-reservations", label: "Sistema de Reservas", icon: MdRestaurant },
-        { href: "/admin/detalhes-operacionais", label: "Detalhes Operacionais do Evento", icon: MdInfo },
-        { href: "/admin/painel-eventos", label: "Painel de Eventos", icon: MdBusiness },
-        { href: "/admin/eventos/dashboard", label: "Dashboard de Eventos", icon: MdEvent },
+        {
+          href: "/admin/restaurant-reservations",
+          label: "Sistema de Reservas",
+          icon: MdRestaurant,
+        },
+        {
+          href: "/admin/detalhes-operacionais",
+          label: "Detalhes Operacionais do Evento",
+          icon: MdInfo,
+        },
+        {
+          href: "/admin/painel-eventos",
+          label: "Painel de Eventos",
+          icon: MdBusiness,
+        },
+        {
+          href: "/admin/eventos/dashboard",
+          label: "Dashboard de Eventos",
+          icon: MdEvent,
+        },
         { href: "/admin/checkins", label: "Check-ins", icon: MdCheckCircle },
-        { href: "/admin/qrcode", label: "Scanner QR Code", icon: MdQrCodeScanner },
+        {
+          href: "/admin/qrcode",
+          label: "Scanner QR Code",
+          icon: MdQrCodeScanner,
+        },
         { href: "/admin/reservas", label: "Reservas", icon: MdEditCalendar },
       ];
       // Apenas gerente.sjm e subgerente.sjm do Seu Justino têm acesso ao Gerenciamento do Cardápio
-      const canAccessCardapioByEmail = GERENTES_SEU_JUSTINO_CARDAPIO.includes(userEmail);
+      const canAccessCardapioByEmail =
+        GERENTES_SEU_JUSTINO_CARDAPIO.includes(userEmail);
       if (canAccessCardapioByEmail || canAccessCardapio) {
         return [
           ...baseLinks.slice(0, 2),
@@ -168,18 +267,34 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         ];
       }
       return baseLinks;
-    } else if (userRole === 'admin') {
+    } else if (userRole === "admin") {
       // Administrador pode ver tudo
       return [
         { href: "/admin", label: "Dashboard", icon: MdDashboard },
-        { href: "/admin/qrcode", label: "Scanner QR Code", icon: MdQrCodeScanner },
+        {
+          href: "/admin/qrcode",
+          label: "Scanner QR Code",
+          icon: MdQrCodeScanner,
+        },
         { href: "/admin/checkins", label: "Check-ins", icon: MdCheckCircle },
         { href: "/admin/users", label: "Usuários", icon: MdPerson },
         { href: "/admin/eventos", label: "Eventos", icon: MdEvent },
-        { href: "/admin/painel-eventos", label: "Painel de Eventos", icon: MdBusiness },
-        { href: "/admin/detalhes-operacionais", label: "Detalhes Operacionais do Evento", icon: MdInfo },
+        {
+          href: "/admin/painel-eventos",
+          label: "Painel de Eventos",
+          icon: MdBusiness,
+        },
+        {
+          href: "/admin/detalhes-operacionais",
+          label: "Detalhes Operacionais do Evento",
+          icon: MdInfo,
+        },
         { href: "/admin/reservas", label: "Reservas", icon: MdEditCalendar },
-        { href: "/admin/restaurant-reservations", label: "Sistema de Reservas", icon: MdRestaurant },
+        {
+          href: "/admin/restaurant-reservations",
+          label: "Sistema de Reservas",
+          icon: MdRestaurant,
+        },
         { href: "/admin/enterprise", label: "Empresa", icon: MdFactory },
         // { href: "/admin/places", label: "Locais", icon: MdPlace },
         // { href: "/admin/tables", label: "Mesas", icon: MdTableBar },
@@ -189,29 +304,37 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         { href: "/admin/commodities", label: "Commodities", icon: MdFactory },
       ];
     }
-    
+
     // Para outros roles, retorna array vazio
     return [];
   };
 
   let navLinks = getNavLinks();
   // Quando está na página rooftop-fluxo, garantir links (evitar redirect para acesso-negado)
-  if (navLinks.length === 0 && pathname.startsWith('/admin/checkins/rooftop-fluxo')) {
+  if (
+    navLinks.length === 0 &&
+    pathname.startsWith("/admin/checkins/rooftop-fluxo")
+  ) {
     navLinks = ROOFTOP_FLUXO_LINKS;
   }
 
   const getActiveLabel = () => {
-    const activeLink = navLinks.find(link => pathname.startsWith(link.href));
+    const activeLink = navLinks.find((link) => pathname.startsWith(link.href));
     if (isAnalista) {
       return "Admin - Analista";
     }
-    if (userRole === 'promoter' || userRole === 'promoter-list') {
+    if (userRole === "promoter" || userRole === "promoter-list") {
       return "Painel Promoter";
     }
-    if (isRooftopFluxoEmail || userRole === 'recepção' || userRole === 'recepcao' || userRole === 'atendente') {
+    if (
+      isRooftopFluxoEmail ||
+      userRole === "recepção" ||
+      userRole === "recepcao" ||
+      userRole === "atendente"
+    ) {
       return "Admin - Recepção";
     }
-    if (userRole === 'gerente') {
+    if (userRole === "gerente") {
       return "Admin - Gerente";
     }
     return activeLink ? activeLink.label : "Admin";
@@ -219,7 +342,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   // Se não há links disponíveis para o usuário, redireciona para acesso negado
   if (!isLoading && navLinks.length === 0) {
-    window.location.href = '/acesso-negado';
+    window.location.href = "/acesso-negado";
     return null;
   }
 
@@ -235,56 +358,83 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     <div className="flex min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
       {/* Overlay para mobile */}
       {sidebarOpen && (
-        <div 
+        <div
           className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
           onClick={() => setSidebarOpen(false)}
         />
       )}
-      
+
       {/* Sidebar */}
-<aside
-  className={`admin-sidebar bg-gray-800/95 backdrop-blur-sm text-white w-60 sm:w-64 md:w-72 transform ${
-    sidebarOpen ? "translate-x-0 open" : "-translate-x-full"
-  } lg:translate-x-0 transition-transform duration-300 fixed lg:relative z-50 border-r border-gray-700/50 h-full`}
+      <aside
+        className={`admin-sidebar bg-gray-800/95 backdrop-blur-sm text-white w-60 sm:w-64 md:w-72 transform ${
+          sidebarOpen ? "translate-x-0 open" : "-translate-x-full"
+        } lg:translate-x-0 transition-transform duration-300 fixed lg:relative z-50 border-r border-gray-700/50 h-full`}
       >
         <div className="p-6 flex items-center gap-3 border-b border-gray-700/50">
           <div className="bg-white/10 p-2 rounded-xl">
-            <Image src={logBrand} alt="Logo" width={32} height={32} className="rounded-lg" />
+            <Image
+              src={logBrand}
+              alt="Logo"
+              width={32}
+              height={32}
+              className="rounded-lg"
+            />
           </div>
           <span className="text-lg font-bold hidden lg:inline text-white">
-            {isAnalista ? 'Painel Analista' : (userRole === 'promoter' || userRole === 'promoter-list') ? 'Painel Promoter' : 'Painel Admin'}
+            {isAnalista
+              ? "Painel Analista"
+              : userRole === "promoter" || userRole === "promoter-list"
+                ? "Painel Promoter"
+                : "Painel Admin"}
           </span>
         </div>
-        
+
         {/* Indicador de Role */}
         <div className="px-6 py-3 border-b border-gray-700/50">
           <div className="flex items-center gap-2">
-            <div className={`w-3 h-3 rounded-full ${
-              isAnalista ? 'bg-cyan-500' :
-              userRole === 'admin' ? 'bg-blue-500' : 
-              (userRole === 'promoter' || userRole === 'promoter-list') ? 'bg-green-500' :
-              userRole === 'gerente' ? 'bg-yellow-500' :
-              (userRole === 'recepção' || userRole === 'recepcao' || userRole === 'atendente') ? 'bg-purple-500' : 'bg-gray-500'
-            }`}></div>
-            <span className="text-sm text-gray-300 capitalize">{isAnalista ? 'Analista' : userRole}</span>
+            <div
+              className={`w-3 h-3 rounded-full ${
+                isAnalista
+                  ? "bg-cyan-500"
+                  : userRole === "admin"
+                    ? "bg-blue-500"
+                    : userRole === "promoter" || userRole === "promoter-list"
+                      ? "bg-green-500"
+                      : userRole === "gerente"
+                        ? "bg-yellow-500"
+                        : userRole === "recepção" ||
+                            userRole === "recepcao" ||
+                            userRole === "atendente"
+                          ? "bg-purple-500"
+                          : "bg-gray-500"
+              }`}
+            ></div>
+            <span className="text-sm text-gray-300 capitalize">
+              {isAnalista ? "Analista" : userRole}
+            </span>
           </div>
         </div>
 
         <nav className="mt-6 space-y-2 p-4">
           {navLinks.map(({ href, label, icon: Icon }) => {
-            const isActive = pathname === href || (href !== "/admin" && pathname.startsWith(href));
+            const isActive =
+              pathname === href ||
+              (href !== "/admin" && pathname.startsWith(href));
             return (
               <Link
                 key={href}
                 href={href}
                 onClick={() => setSidebarOpen(false)}
                 className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group ${
-                  isActive 
-                    ? "bg-gradient-to-r from-yellow-500 to-yellow-600 text-gray-900 font-semibold shadow-lg" 
+                  isActive
+                    ? "bg-gradient-to-r from-yellow-500 to-yellow-600 text-gray-900 font-semibold shadow-lg"
                     : "text-gray-300 hover:bg-gray-700/50 hover:text-white"
                 }`}
               >
-                <Icon size={20} className={`${isActive ? 'text-gray-900' : 'text-gray-400 group-hover:text-white'}`} />
+                <Icon
+                  size={20}
+                  className={`${isActive ? "text-gray-900" : "text-gray-400 group-hover:text-white"}`}
+                />
                 <span className="font-medium">{label}</span>
               </Link>
             );
@@ -295,18 +445,22 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         {isAnalista && (
           <div className="p-4 mx-4 mt-4 bg-cyan-900/20 border border-cyan-700/30 rounded-lg">
             <p className="text-cyan-300 text-xs text-center">
-              Acesso Analista: reservas, eventos, listas, painel, check-ins, funcionamento, cardápio e QR code do estabelecimento Pracinha do Seu Justino.
+              Acesso Analista: reservas, eventos, listas, painel, check-ins,
+              funcionamento, cardápio e QR code do estabelecimento Pracinha do
+              Seu Justino.
             </p>
           </div>
         )}
         {/* Mensagem para Promoters */}
-        {!isAnalista && (userRole === 'promoter' || userRole === 'promoter-list') && (
-          <div className="p-4 mx-4 mt-4 bg-green-900/20 border border-green-700/30 rounded-lg">
-            <p className="text-green-300 text-xs text-center">
-              Você tem acesso ao gerenciamento do cardápio, eventos, reservas e QR code do seu estabelecimento.
-            </p>
-          </div>
-        )}
+        {!isAnalista &&
+          (userRole === "promoter" || userRole === "promoter-list") && (
+            <div className="p-4 mx-4 mt-4 bg-green-900/20 border border-green-700/30 rounded-lg">
+              <p className="text-green-300 text-xs text-center">
+                Você tem acesso ao gerenciamento do cardápio, eventos, reservas
+                e QR code do seu estabelecimento.
+              </p>
+            </div>
+          )}
       </aside>
 
       {/* Main Content */}
@@ -314,21 +468,21 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         {/* Header */}
         <header className="bg-white/95 backdrop-blur-sm flex justify-between items-center px-4 sm:px-6 lg:px-8 py-4 shadow-lg border-b border-gray-200/20 z-40 admin-header">
           <div className="flex items-center gap-4">
-            <button 
-              className="lg:hidden text-gray-700 hover:text-gray-900 p-2 rounded-lg hover:bg-gray-100 transition-colors" 
+            <button
+              className="lg:hidden text-gray-700 hover:text-gray-900 p-2 rounded-lg hover:bg-gray-100 transition-colors"
               onClick={() => setSidebarOpen(!sidebarOpen)}
             >
               <MdMenu size={24} />
             </button>
-            <h1 className="text-lg sm:text-xl font-bold text-gray-800 admin-title">{getActiveLabel()}</h1>
+            <h1 className="text-lg sm:text-xl font-bold text-gray-800 admin-title">
+              {getActiveLabel()}
+            </h1>
           </div>
           <UserMenu />
         </header>
 
         {/* O conteúdo da página ativa é renderizado aqui */}
-        <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
-            {children}
-        </main>
+        <main className="flex-1 overflow-y-auto sm:p-6 lg:p-8">{children}</main>
       </div>
     </div>
   );

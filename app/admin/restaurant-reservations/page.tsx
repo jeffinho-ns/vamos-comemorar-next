@@ -122,7 +122,9 @@ export default function RestaurantReservationsPage() {
     "https://vamos-comemorar-api.onrender.com";
 
   const canCreateEditReservations = selectedEstablishment
-    ? establishmentPermissions.canCreateEditReservations(Number(selectedEstablishment.id))
+    ? establishmentPermissions.canCreateEditReservations(
+        Number(selectedEstablishment.id),
+      )
     : true;
 
   const fetchEstablishments = useCallback(async () => {
@@ -190,8 +192,7 @@ export default function RestaurantReservationsPage() {
             .map((p) => ({
               id: p.establishment_id,
               name:
-                p.establishment_name ||
-                `Estabelecimento ${p.establishment_id}`,
+                p.establishment_name || `Estabelecimento ${p.establishment_id}`,
               logo: "",
               address: "Endereço não informado",
             }));
@@ -424,10 +425,12 @@ export default function RestaurantReservationsPage() {
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
   const [showBlockModal, setShowBlockModal] = useState(false);
-  const [dayBlocks, setDayBlocks] = useState<Record<
-    string,
-    { hasFullBlock: boolean; hasPartialBlock: boolean; reason?: string }
-  >>({});
+  const [dayBlocks, setDayBlocks] = useState<
+    Record<
+      string,
+      { hasFullBlock: boolean; hasPartialBlock: boolean; reason?: string }
+    >
+  >({});
   const [reservationBlocksRaw, setReservationBlocksRaw] = useState<any[]>([]);
   const [selectedBlockDay, setSelectedBlockDay] = useState<string | null>(null);
   const [showBlockDetailsModal, setShowBlockDetailsModal] = useState(false);
@@ -483,9 +486,7 @@ export default function RestaurantReservationsPage() {
     if (!selectedEstablishment) return;
     try {
       const token = localStorage.getItem("authToken");
-      const url = new URL(
-        `${API_URL}/api/restaurant-reservation-blocks`,
-      );
+      const url = new URL(`${API_URL}/api/restaurant-reservation-blocks`);
       url.searchParams.set(
         "establishment_id",
         String(selectedEstablishment.id),
@@ -513,11 +514,15 @@ export default function RestaurantReservationsPage() {
 
         const parseLocalDate = (value: string) => {
           try {
-            const clean = value.replace('Z', '').trim();
-            const [dPart] = clean.split('T');
+            const clean = value.replace("Z", "").trim();
+            const [dPart] = clean.split("T");
             if (!dPart) return null;
-            const [year, month, day] = dPart.split('-').map((v) => Number(v));
-            if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) {
+            const [year, month, day] = dPart.split("-").map((v) => Number(v));
+            if (
+              !Number.isFinite(year) ||
+              !Number.isFinite(month) ||
+              !Number.isFinite(day)
+            ) {
               return null;
             }
             return new Date(year, (month || 1) - 1, day || 1);
@@ -528,7 +533,13 @@ export default function RestaurantReservationsPage() {
 
         const start = parseLocalDate(block.start_datetime);
         const end = parseLocalDate(block.end_datetime);
-        if (!start || !end || Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return;
+        if (
+          !start ||
+          !end ||
+          Number.isNaN(start.getTime()) ||
+          Number.isNaN(end.getTime())
+        )
+          return;
 
         const current = new Date(start);
         while (current <= end) {
@@ -990,11 +1001,14 @@ export default function RestaurantReservationsPage() {
   ): Promise<boolean> => {
     try {
       const dateString = date.toISOString().split("T")[0];
-      const establishmentName = (selectedEstablishment?.name ?? "").toLowerCase();
+      const establishmentName = (
+        selectedEstablishment?.name ?? ""
+      ).toLowerCase();
 
       // Seu Justino (e similares): modelo por MESAS, não por capacidade total — não bloquear por capacidade
       const isTableBasedEstablishment =
-        establishmentName.includes("justino") && !establishmentName.includes("pracinha");
+        establishmentName.includes("justino") &&
+        !establishmentName.includes("pracinha");
       if (isTableBasedEstablishment) {
         let hasWaitlistEntries = false;
         if (reservationTime && String(reservationTime).trim()) {
@@ -1006,12 +1020,18 @@ export default function RestaurantReservationsPage() {
             // Só bloqueia quando existir waitlist SEM bistrô para o mesmo dia/horário.
             if (entry.has_bistro_table === true) return false;
             const eid = entry.establishment_id;
-            if (eid == null || Number(eid) !== Number(selectedEstablishment?.id)) return false;
+            if (
+              eid == null ||
+              Number(eid) !== Number(selectedEstablishment?.id)
+            )
+              return false;
             if (entry.preferred_date !== dateString) return false;
             const pt = (entry.preferred_time || "").trim();
             if (!pt) return false;
             const ptHhmm = pt.length >= 5 ? pt.substring(0, 5) : pt;
-            return ptHhmm === hhmm || pt === t || pt === hhmm || pt === hhmm + ":00";
+            return (
+              ptHhmm === hhmm || pt === t || pt === hhmm || pt === hhmm + ":00"
+            );
           });
         }
         if (hasWaitlistEntries) {
@@ -1048,8 +1068,11 @@ export default function RestaurantReservationsPage() {
           if (!reservation.reservation_date) return "";
           try {
             const dateStr = String(reservation.reservation_date).trim();
-            if (!dateStr || dateStr === "null" || dateStr === "undefined") return "";
-            const d = dateStr.includes("T") ? new Date(dateStr) : new Date(dateStr + "T12:00:00");
+            if (!dateStr || dateStr === "null" || dateStr === "undefined")
+              return "";
+            const d = dateStr.includes("T")
+              ? new Date(dateStr)
+              : new Date(dateStr + "T12:00:00");
             if (isNaN(d.getTime())) return "";
             return d.toISOString().split("T")[0];
           } catch {
@@ -1081,18 +1104,24 @@ export default function RestaurantReservationsPage() {
           // Só considera waitlist sem bistrô como bloqueio
           if (entry.has_bistro_table === true) return false;
           const eid = entry.establishment_id;
-          const matchEst = eid != null && Number(eid) === Number(selectedEstablishment?.id);
+          const matchEst =
+            eid != null && Number(eid) === Number(selectedEstablishment?.id);
           if (!matchEst) return false;
           if (entry.preferred_date !== dateString) return false;
           const pt = (entry.preferred_time || "").trim();
           if (!pt) return false;
           const ptHhmm = pt.length >= 5 ? pt.substring(0, 5) : pt;
-          return ptHhmm === hhmm || pt === t || pt === hhmm || pt === hhmm + ":00";
+          return (
+            ptHhmm === hhmm || pt === t || pt === hhmm || pt === hhmm + ":00"
+          );
         });
       }
 
       if (hasWaitlistEntries || totalWithNew > totalCapacity) {
-        const available = Math.min(999999, Math.max(0, totalCapacity - totalPeopleReserved));
+        const available = Math.min(
+          999999,
+          Math.max(0, totalCapacity - totalPeopleReserved),
+        );
         const msg = hasWaitlistEntries
           ? "Há clientes na lista de espera para este dia e horário. Utilize a lista de espera ou escolha outro horário."
           : `Capacidade insuficiente. Restam ${available} lugares.`;
@@ -2421,7 +2450,7 @@ export default function RestaurantReservationsPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-base">
-      <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
+      <div className="w-full max-w-none sm:max-w-7xl sm:mx-auto sm:p-6 lg:p-8">
         {/* Header da página */}
         <div className="mb-8">
           <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-widest">
@@ -2507,20 +2536,20 @@ export default function RestaurantReservationsPage() {
             <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-2xl border border-gray-200/20 mb-8">
               <div className="border-b border-gray-200 overflow-x-auto">
                 <div className="flex w-max min-w-full">
-                {tabs.map((tab) => (
-                  <button
-                    key={tab.id}
-                    onClick={() => setActiveTab(tab.id as TabType)}
-                    className={`flex items-center gap-2 px-6 py-4 font-medium transition-colors ${
-                      activeTab === tab.id
-                        ? "text-yellow-600 border-b-2 border-yellow-600 bg-yellow-50"
-                        : "text-gray-600 hover:text-gray-800 hover:bg-gray-50"
-                    }`}
-                  >
-                    <tab.icon size={20} />
-                    {tab.label}
-                  </button>
-                ))}
+                  {tabs.map((tab) => (
+                    <button
+                      key={tab.id}
+                      onClick={() => setActiveTab(tab.id as TabType)}
+                      className={`flex items-center gap-2 px-6 py-4 font-medium transition-colors ${
+                        activeTab === tab.id
+                          ? "text-yellow-600 border-b-2 border-yellow-600 bg-yellow-50"
+                          : "text-gray-600 hover:text-gray-800 hover:bg-gray-50"
+                      }`}
+                    >
+                      <tab.icon size={20} />
+                      {tab.label}
+                    </button>
+                  ))}
                 </div>
               </div>
             </div>
@@ -2631,19 +2660,25 @@ export default function RestaurantReservationsPage() {
                                     0,
                                     areas.reduce(
                                       (sum, area) =>
-                                        sum + Number(area.capacity_dinner ?? 0) || 0,
+                                        sum +
+                                          Number(area.capacity_dinner ?? 0) ||
+                                        0,
                                       0,
                                     ),
                                   );
                                   if (totalCapacity === 0 && areas.length > 0) {
-                                    totalCapacity = Math.max(
-                                      0,
-                                      areas.reduce(
-                                        (sum, area) =>
-                                          sum + Number(area.capacity_lunch ?? 0) || 0,
+                                    totalCapacity =
+                                      Math.max(
                                         0,
-                                      ),
-                                    ) || 99999;
+                                        areas.reduce(
+                                          (sum, area) =>
+                                            sum +
+                                              Number(
+                                                area.capacity_lunch ?? 0,
+                                              ) || 0,
+                                          0,
+                                        ),
+                                      ) || 99999;
                                   }
                                   const dateString = selectedDate
                                     .toISOString()
@@ -2698,7 +2733,10 @@ export default function RestaurantReservationsPage() {
                                     0,
                                     activeReservations.reduce(
                                       (sum, reservation) =>
-                                        sum + Number(reservation.number_of_people ?? 0) || 0,
+                                        sum +
+                                          Number(
+                                            reservation.number_of_people ?? 0,
+                                          ) || 0,
                                       0,
                                     ),
                                   );
@@ -2762,14 +2800,26 @@ export default function RestaurantReservationsPage() {
 
                   {/* Visualização do Calendário */}
                   {viewMode === "calendar" && (
-                    <div className="mb-8">
+                    <div className="mb-8 -mx-4 sm:mx-0">
                       <ReservationCalendar
                         establishment={selectedEstablishment}
                         reservations={filteredReservations}
                         onDateSelect={handleDateSelect}
-                        onAddReservation={canCreateEditReservations ? handleAddReservation : () => {}}
-                        onEditReservation={canCreateEditReservations ? handleEditReservation : undefined}
-                        onDeleteReservation={canCreateEditReservations ? handleDeleteReservation : undefined}
+                        onAddReservation={
+                          canCreateEditReservations
+                            ? handleAddReservation
+                            : () => {}
+                        }
+                        onEditReservation={
+                          canCreateEditReservations
+                            ? handleEditReservation
+                            : undefined
+                        }
+                        onDeleteReservation={
+                          canCreateEditReservations
+                            ? handleDeleteReservation
+                            : undefined
+                        }
                         onStatusChange={handleStatusChange}
                         onAddGuestList={(reservation) => {
                           setSelectedReservationForGuestList(reservation);
@@ -2782,6 +2832,24 @@ export default function RestaurantReservationsPage() {
                           setSelectedBlockDay(dayStr);
                           setShowBlockDetailsModal(true);
                         }}
+                        dayGuestTotalsByDate={Object.entries(
+                          checkInStatus,
+                        ).reduce<Record<string, number>>(
+                          (acc, [listIdStr, status]) => {
+                            const listId = Number(listIdStr);
+                            const gl = guestLists.find(
+                              (g) => g.guest_list_id === listId,
+                            );
+                            if (!gl || !gl.reservation_date) return acc;
+                            const dateStr = new Date(gl.reservation_date)
+                              .toISOString()
+                              .split("T")[0];
+                            acc[dateStr] =
+                              (acc[dateStr] || 0) + (status.totalGuests || 0);
+                            return acc;
+                          },
+                          {},
+                        )}
                       />
                     </div>
                   )}
@@ -2792,25 +2860,37 @@ export default function RestaurantReservationsPage() {
                       <WeeklyCalendar
                         reservations={filteredReservations}
                         establishment={selectedEstablishment}
-                        onAddReservation={canCreateEditReservations ? async (date, time) => {
-                          setSelectedDate(date);
-                          setSelectedTime(time);
-                          setEditingReservation(null);
-                          await loadAreas();
-                          const canMakeReservation =
-                            await checkCapacityAndWaitlist(
-                              date,
-                              undefined,
-                              time ?? undefined,
-                            );
-                          if (!canMakeReservation) {
-                            handleAddWaitlistEntry();
-                            return;
-                          }
-                          setShowModal(true);
-                        } : () => {}}
-                        onEditReservation={canCreateEditReservations ? handleEditReservation : () => {}}
-                        onDeleteReservation={canCreateEditReservations ? handleDeleteReservation : () => {}}
+                        onAddReservation={
+                          canCreateEditReservations
+                            ? async (date, time) => {
+                                setSelectedDate(date);
+                                setSelectedTime(time);
+                                setEditingReservation(null);
+                                await loadAreas();
+                                const canMakeReservation =
+                                  await checkCapacityAndWaitlist(
+                                    date,
+                                    undefined,
+                                    time ?? undefined,
+                                  );
+                                if (!canMakeReservation) {
+                                  handleAddWaitlistEntry();
+                                  return;
+                                }
+                                setShowModal(true);
+                              }
+                            : () => {}
+                        }
+                        onEditReservation={
+                          canCreateEditReservations
+                            ? handleEditReservation
+                            : () => {}
+                        }
+                        onDeleteReservation={
+                          canCreateEditReservations
+                            ? handleDeleteReservation
+                            : () => {}
+                        }
                         onStatusChange={handleStatusChange}
                       />
                     </div>
@@ -2851,11 +2931,12 @@ export default function RestaurantReservationsPage() {
                                 )}
                             </div>
                             <span
-                              className={`px-2 py-1 rounded-full text-xs font-medium flex-shrink-0 ${
-                                getReservationStatusColor(reservation.status, {
+                              className={`px-2 py-1 rounded-full text-xs font-medium flex-shrink-0 ${getReservationStatusColor(
+                                reservation.status,
+                                {
                                   isReservaRooftop: Boolean(isReservaRooftop),
-                                })
-                              }`}
+                                },
+                              )}`}
                             >
                               {getReservationStatusText(reservation.status, {
                                 isReservaRooftop: Boolean(isReservaRooftop),
@@ -2887,7 +2968,9 @@ export default function RestaurantReservationsPage() {
                             )}
                           </div>
                           <div className="flex flex-col sm:flex-row gap-2 mt-3">
-                            {isConfirmedReservationStatus(reservation.status) && (
+                            {isConfirmedReservationStatus(
+                              reservation.status,
+                            ) && (
                               <button
                                 onClick={() => handleCheckIn(reservation)}
                                 className="flex-1 px-3 py-1 bg-green-500 hover:bg-green-600 text-white text-sm rounded transition-colors"
@@ -2906,7 +2989,9 @@ export default function RestaurantReservationsPage() {
                             {canCreateEditReservations && (
                               <>
                                 <button
-                                  onClick={() => handleEditReservation(reservation)}
+                                  onClick={() =>
+                                    handleEditReservation(reservation)
+                                  }
                                   className="flex-1 px-3 py-1 bg-blue-500 hover:bg-blue-600 text-white text-sm rounded transition-colors"
                                 >
                                   Editar
@@ -4922,18 +5007,27 @@ export default function RestaurantReservationsPage() {
                         Lista de Espera
                       </h3>
                       <div className="flex items-center gap-2">
-                        <label htmlFor="waitlist-date" className="text-sm font-medium text-gray-600">
+                        <label
+                          htmlFor="waitlist-date"
+                          className="text-sm font-medium text-gray-600"
+                        >
                           Dia:
                         </label>
                         <input
                           id="waitlist-date"
                           type="date"
                           value={waitlistDateFilter}
-                          onChange={(e) => setWaitlistDateFilter(e.target.value)}
+                          onChange={(e) =>
+                            setWaitlistDateFilter(e.target.value)
+                          }
                           className="rounded-lg border border-gray-300 px-3 py-2 text-gray-800 bg-white focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
                         />
                         <span className="text-sm text-gray-600">
-                          {waitlistForSelectedDay.length} {waitlistForSelectedDay.length === 1 ? "pessoa" : "pessoas"} na fila
+                          {waitlistForSelectedDay.length}{" "}
+                          {waitlistForSelectedDay.length === 1
+                            ? "pessoa"
+                            : "pessoas"}{" "}
+                          na fila
                         </span>
                       </div>
                     </div>
@@ -4948,17 +5042,24 @@ export default function RestaurantReservationsPage() {
                     )}
                   </div>
                   <p className="text-sm text-gray-500 mb-4">
-                    Exibindo apenas a fila do dia selecionado. Use o campo &quot;Dia&quot; para ver quem está aguardando mesa naquela data e direcionar quando a mesa liberar.
+                    Exibindo apenas a fila do dia selecionado. Use o campo
+                    &quot;Dia&quot; para ver quem está aguardando mesa naquela
+                    data e direcionar quando a mesa liberar.
                   </p>
 
                   <div className="space-y-4">
                     {waitlistForSelectedDay.length === 0 ? (
                       <div className="text-center py-12 bg-gray-50 rounded-lg border border-gray-200">
-                        <MdSchedule className="mx-auto text-gray-400" size={48} />
+                        <MdSchedule
+                          className="mx-auto text-gray-400"
+                          size={48}
+                        />
                         <p className="text-gray-600 mt-2">
                           Nenhuma pessoa na fila de espera para{" "}
                           {waitlistDateFilter
-                            ? new Date(waitlistDateFilter + "T12:00:00").toLocaleDateString("pt-BR", {
+                            ? new Date(
+                                waitlistDateFilter + "T12:00:00",
+                              ).toLocaleDateString("pt-BR", {
                                 day: "2-digit",
                                 month: "2-digit",
                                 year: "numeric",
@@ -4967,88 +5068,96 @@ export default function RestaurantReservationsPage() {
                         </p>
                       </div>
                     ) : (
-                    waitlistForSelectedDay.map((entry, index) => (
-                      <motion.div
-                        key={entry.id}
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className="bg-gray-50 rounded-lg p-4 border border-gray-200 hover:shadow-md transition-shadow"
-                      >
-                        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-                          <div className="flex items-center gap-4">
-                            <div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center">
-                              <span className="text-orange-600 font-bold text-sm">
-                                {index + 1}
-                              </span>
-                            </div>
-                            <div>
-                              <h4 className="font-semibold text-gray-800">
-                                {entry.client_name}
-                              </h4>
-                              <p className="text-sm text-gray-500">
-                                {entry.number_of_people} pessoas • Data:{" "}
-                                {entry.preferred_date
-                                  ? formatDate(normalizePreferredDate(entry.preferred_date))
-                                  : "Data não informada"}{" "}
-                                • Preferência:{" "}
-                                {entry.preferred_time || "Qualquer horário"}
-                              </p>
-                              <p className="text-xs text-gray-400">
-                                Entrou na fila:{" "}
-                                {new Date(entry.created_at).toLocaleTimeString(
-                                  "pt-BR",
-                                  {
+                      waitlistForSelectedDay.map((entry, index) => (
+                        <motion.div
+                          key={entry.id}
+                          initial={{ opacity: 0, y: 20 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          className="bg-gray-50 rounded-lg p-4 border border-gray-200 hover:shadow-md transition-shadow"
+                        >
+                          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                            <div className="flex items-center gap-4">
+                              <div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center">
+                                <span className="text-orange-600 font-bold text-sm">
+                                  {index + 1}
+                                </span>
+                              </div>
+                              <div>
+                                <h4 className="font-semibold text-gray-800">
+                                  {entry.client_name}
+                                </h4>
+                                <p className="text-sm text-gray-500">
+                                  {entry.number_of_people} pessoas • Data:{" "}
+                                  {entry.preferred_date
+                                    ? formatDate(
+                                        normalizePreferredDate(
+                                          entry.preferred_date,
+                                        ),
+                                      )
+                                    : "Data não informada"}{" "}
+                                  • Preferência:{" "}
+                                  {entry.preferred_time || "Qualquer horário"}
+                                </p>
+                                <p className="text-xs text-gray-400">
+                                  Entrou na fila:{" "}
+                                  {new Date(
+                                    entry.created_at,
+                                  ).toLocaleTimeString("pt-BR", {
                                     hour: "2-digit",
                                     minute: "2-digit",
-                                  },
-                                )}
-                              </p>
+                                  })}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="text-sm text-gray-600">
+                                <MdTimer className="inline mr-1" />
+                                {calculateWaitTime(entry.created_at)}min
+                              </span>
+                              <button
+                                onClick={() => handleCallCustomer(entry)}
+                                className="flex items-center gap-1 px-3 py-1 bg-green-500 hover:bg-green-600 text-white text-sm rounded transition-colors"
+                              >
+                                <MdCall />
+                                Chamar
+                              </button>
+                              <button
+                                onClick={() => {
+                                  // Abrir modal de alocação simples
+                                  setAllocatingEntry(entry);
+                                  setShowAllocateModal(true);
+                                }}
+                                className="flex items-center gap-1 px-3 py-1 bg-purple-500 hover:bg-purple-600 text-white text-sm rounded transition-colors"
+                                title="Alocar cliente em uma mesa específica"
+                              >
+                                <MdChair />
+                                Alocar em Mesa
+                              </button>
+                              {canCreateEditReservations && (
+                                <>
+                                  <button
+                                    onClick={() =>
+                                      handleEditWaitlistEntry(entry)
+                                    }
+                                    className="px-3 py-1 bg-blue-500 hover:bg-blue-600 text-white text-sm rounded transition-colors"
+                                  >
+                                    Editar
+                                  </button>
+                                  <button
+                                    onClick={() =>
+                                      handleDeleteWaitlistEntry(entry)
+                                    }
+                                    className="px-3 py-1 bg-red-500 hover:bg-red-600 text-white text-sm rounded transition-colors"
+                                  >
+                                    Remover
+                                  </button>
+                                </>
+                              )}
                             </div>
                           </div>
-                          <div className="flex flex-wrap items-center gap-2">
-                            <span className="text-sm text-gray-600">
-                              <MdTimer className="inline mr-1" />
-                              {calculateWaitTime(entry.created_at)}min
-                            </span>
-                            <button
-                              onClick={() => handleCallCustomer(entry)}
-                              className="flex items-center gap-1 px-3 py-1 bg-green-500 hover:bg-green-600 text-white text-sm rounded transition-colors"
-                            >
-                              <MdCall />
-                              Chamar
-                            </button>
-                            <button
-                              onClick={() => {
-                                // Abrir modal de alocação simples
-                                setAllocatingEntry(entry);
-                                setShowAllocateModal(true);
-                              }}
-                              className="flex items-center gap-1 px-3 py-1 bg-purple-500 hover:bg-purple-600 text-white text-sm rounded transition-colors"
-                              title="Alocar cliente em uma mesa específica"
-                            >
-                              <MdChair />
-                              Alocar em Mesa
-                            </button>
-                            {canCreateEditReservations && (
-                              <>
-                                <button
-                                  onClick={() => handleEditWaitlistEntry(entry)}
-                                  className="px-3 py-1 bg-blue-500 hover:bg-blue-600 text-white text-sm rounded transition-colors"
-                                >
-                                  Editar
-                                </button>
-                                <button
-                                  onClick={() => handleDeleteWaitlistEntry(entry)}
-                                  className="px-3 py-1 bg-red-500 hover:bg-red-600 text-white text-sm rounded transition-colors"
-                                >
-                                  Remover
-                                </button>
-                              </>
-                            )}
-                          </div>
-                        </div>
-                      </motion.div>
-                    )))}
+                        </motion.div>
+                      ))
+                    )}
                   </div>
                 </div>
               )}
@@ -5573,7 +5682,8 @@ export default function RestaurantReservationsPage() {
           blocks={
             selectedBlockDay
               ? reservationBlocksRaw.filter((block) => {
-                  if (!block.start_datetime || !block.end_datetime) return false;
+                  if (!block.start_datetime || !block.end_datetime)
+                    return false;
                   const start = new Date(block.start_datetime);
                   const end = new Date(block.end_datetime);
                   const dayStr = selectedBlockDay;

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { MdChevronLeft, MdChevronRight, MdAdd, MdEvent, MdRestaurant } from "react-icons/md";
+import { MdChevronLeft, MdChevronRight, MdAdd, MdEvent, MdRestaurant, MdPeople } from "react-icons/md";
 import ReservationsDayModal from "./ReservationsDayModal";
 import ReservationDetailsModal from "./ReservationDetailsModal";
 import { getReservationStatusColor } from "@/app/utils/reservationStatus";
@@ -24,6 +24,8 @@ interface CalendarDay {
   birthdayReservations: BirthdayReservation[];
   totalReservations: number;
   availableTables: number;
+   totalPeople: number;
+   totalGuests: number;
 }
 
 interface DayBlockInfo {
@@ -44,6 +46,7 @@ interface ReservationCalendarProps {
   birthdayReservations?: BirthdayReservation[];
   dayBlocks?: Record<string, DayBlockInfo>;
   onDayBlockClick?: (date: Date) => void;
+  dayGuestTotalsByDate?: Record<string, number>;
 }
 
 export default function ReservationCalendar({ 
@@ -58,6 +61,7 @@ export default function ReservationCalendar({
   birthdayReservations = [],
   dayBlocks,
   onDayBlockClick,
+  dayGuestTotalsByDate,
 }: ReservationCalendarProps) {
   const [currentDate, setCurrentDate] = useState(new Date());// Setembro de 2025
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
@@ -158,7 +162,9 @@ export default function ReservationCalendar({
         reservations: [],
         birthdayReservations: [],
         totalReservations: 0,
-        availableTables: 0
+        availableTables: 0,
+        totalPeople: 0,
+        totalGuests: 0,
       });
     }
     
@@ -263,13 +269,24 @@ export default function ReservationCalendar({
           
           availableTables = Math.max(0, totalTables - occupiedTables.size);
         }
+
+        const totalPeople = dayReservations.reduce(
+          (sum, reservation) =>
+            sum + (Number(reservation.number_of_people ?? 0) || 0),
+          0,
+        );
+
+        const totalGuests =
+          (dayGuestTotalsByDate && dayGuestTotalsByDate[dayString]) || 0;
         
         return {
           ...day,
           reservations: dayReservations,
           birthdayReservations: dayBirthdayReservations,
           totalReservations: dayReservations.length + dayBirthdayReservations.length,
-          availableTables
+          availableTables,
+          totalPeople,
+          totalGuests,
         };
       });
 
@@ -392,7 +409,7 @@ export default function ReservationCalendar({
 
   return (
     <>
-      <div className="bg-white rounded-xl shadow-lg border border-gray-200 relative">
+      <div className="relative bg-white border-0 rounded-none shadow-none w-full max-w-[100vw] overflow-x-hidden sm:rounded-xl sm:border sm:border-gray-200 sm:shadow-lg">
       {/* Header do Calendário */}
       <div className="p-3 sm:p-6 border-b border-gray-200">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -493,16 +510,34 @@ export default function ReservationCalendar({
             {day.isCurrentMonth && (
               <div className="space-y-1">
                 {day.totalReservations > 0 && (
-                  <div className="flex items-center gap-1 text-xs">
+                  <div className="hidden sm:flex items-center gap-1 text-xs">
                     <MdEvent className="text-blue-500" />
                     <span className="text-blue-600 font-medium">
                       {day.totalReservations} reserva{day.totalReservations !== 1 ? 's' : ''}
                     </span>
                   </div>
                 )}
+
+                {day.totalPeople > 0 && (
+                  <div className="flex items-center gap-1 text-xs">
+                    <MdPeople className="text-amber-500" />
+                    <span className="text-amber-600">
+                      {day.totalPeople}
+                    </span>
+                  </div>
+                )}
+
+                {day.totalGuests > 0 && (
+                  <div className="hidden sm:flex items-center gap-1 text-xs">
+                    <MdPeople className="text-purple-500" />
+                    <span className="text-purple-600">
+                      {day.totalGuests} convidado{day.totalGuests !== 1 ? 's' : ''} nas listas
+                    </span>
+                  </div>
+                )}
                 
                 {day.availableTables > 0 && (
-                  <div className="flex items-center gap-1 text-xs">
+                  <div className="hidden sm:flex items-center gap-1 text-xs">
                     <MdRestaurant className="text-green-500" />
                     <span className="text-green-600">
                       {day.availableTables}{' '}
@@ -513,25 +548,38 @@ export default function ReservationCalendar({
                   </div>
                 )}
 
-                {/* Lista de Reservas (máximo 2 visíveis) */}
-                {day.reservations.slice(0, 2).map((reservation) => {
-                  const isEsperaAntecipada = reservation.notes && reservation.notes.includes('ESPERA ANTECIPADA');
-                  return (
-                  <div
-                    key={reservation.id}
-                    className={`text-xs p-1 rounded ${getStatusColor(reservation.status, reservation.notes)}`}
-                  >
-                    <div className="font-medium truncate">
-                      {isEsperaAntecipada && <span className="mr-1">⏳</span>}
-                      {reservation.client_name}
-                    </div>
-                    <ReservationBadge reservation={reservation} />
-                    {isEsperaAntecipada && (
-                      <div className="text-xs font-bold text-orange-700 mt-1">ESPERA ANTECIPADA</div>
-                    )}
-                  </div>
-                  );
-                })}
+                {/* Lista de Reservas (máximo 2 visíveis) - apenas em telas maiores */}
+                <div className="hidden sm:space-y-1">
+                  {day.reservations.slice(0, 2).map((reservation) => {
+                    const isEsperaAntecipada =
+                      reservation.notes &&
+                      reservation.notes.includes("ESPERA ANTECIPADA");
+                    return (
+                      <div
+                        key={reservation.id}
+                        className={`text-xs p-1 rounded ${getStatusColor(
+                          reservation.status,
+                          reservation.notes,
+                        )}`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleReservationClick(reservation);
+                        }}
+                      >
+                        <div className="font-medium truncate">
+                          {isEsperaAntecipada && <span className="mr-1">⏳</span>}
+                          {reservation.client_name}
+                        </div>
+                        <ReservationBadge reservation={reservation} />
+                        {isEsperaAntecipada && (
+                          <div className="text-xs font-bold text-orange-700 mt-1">
+                            ESPERA ANTECIPADA
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
                 
                 {/* Indicadores de Aniversário */}
                 {day.birthdayReservations.length > 0 && (
