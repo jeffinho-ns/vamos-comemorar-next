@@ -101,6 +101,7 @@ export function useUserPermissions() {
         } catch {
           userEmail = (emailCookie.split("=").slice(1).join("=") || "").trim();
         }
+      }
     }
     userEmail = (userEmail || "").trim();
 
