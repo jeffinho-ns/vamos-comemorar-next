@@ -562,7 +562,11 @@ function CreateUserModal({ onClose, onSuccess, establishments, apiUrl }: CreateU
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto px-6 py-4 space-y-6">
+        <form
+          id="create-user-form"
+          onSubmit={handleSubmit}
+          className="flex-1 overflow-y-auto px-6 py-4 space-y-6"
+        >
           {error && (
             <div className="p-3 bg-red-900/40 border border-red-500/60 rounded-lg text-red-100 text-sm">
               {error}
@@ -743,7 +747,7 @@ function CreateUserModal({ onClose, onSuccess, establishments, apiUrl }: CreateU
           </button>
           <button
             type="submit"
-            form=""
+            form="create-user-form"
             disabled={loading}
             className="flex-1 py-2 px-4 rounded-xl bg-yellow-500 hover:bg-yellow-400 text-slate-900 text-sm font-semibold disabled:opacity-50"
           >
