@@ -789,6 +789,20 @@ export default function ReservationForm() {
           newErrors.reservation_time = 'Horário fora do funcionamento. Consulte os horários disponíveis abaixo.';
         }
       }
+
+      // Regra de horário de funcionamento do Reserva Rooftop (giros)
+      if (isReservaRooftop) {
+        const windows = getReservaRooftopTimeWindows(reservationData.reservation_date);
+        const hasWindows = windows.length > 0;
+        if (!hasWindows) {
+          newErrors.reservation_time = 'Reservas fechadas para o dia selecionado no Reserva Rooftop.';
+        } else if (
+          reservationData.reservation_time &&
+          !isTimeWithinWindows(reservationData.reservation_time, windows)
+        ) {
+          newErrors.reservation_time = 'Horário fora do funcionamento. Consulte os horários disponíveis abaixo.';
+        }
+      }
     }
 
     if (!reservationData.area_id) {
@@ -797,6 +811,9 @@ export default function ReservationForm() {
 
     if (reservationData.number_of_people < 1) {
       newErrors.number_of_people = 'Número de pessoas deve ser maior que 0';
+    }
+    if (isReservaRooftop && reservationData.number_of_people > 10) {
+      newErrors.number_of_people = 'Para o Reserva Rooftop, o limite é de até 10 pessoas.';
     }
 
     // Validação: tipo de reserva obrigatório para Highline com mais de 5 pessoas
@@ -1040,7 +1057,14 @@ const handleSubmit = async (e: React.FormEvent) => {
 
 
   const handleInputChange = (field: string, value: any) => {
-    setReservationData(prev => ({ ...prev, [field]: value }));
+    // Reserva Rooftop: limitar número de pessoas a no máximo 10
+    if (field === 'number_of_people' && isReservaRooftop) {
+      const n = Number(value);
+      const capped = Number.isFinite(n) ? Math.min(10, Math.max(1, n)) : 1;
+      setReservationData((prev) => ({ ...prev, [field]: capped }));
+    } else {
+      setReservationData((prev) => ({ ...prev, [field]: value }));
+    }
     if (errors[field]) {
       setErrors(prev => ({ ...prev, [field]: '' }));
     }
@@ -1122,6 +1146,38 @@ const handleSubmit = async (e: React.FormEvent) => {
     return [{ start: '18:00', end: '22:30', label: 'Horário padrão' }];
   };
 
+  // Janelas de horário para o Reserva Rooftop (ID 9)
+  // Deve refletir os "giros" usados no admin (/admin/restaurant-reservations) e no backend:
+  // - Terça a Quinta: 18:00–22:30 (jantar)
+  // - Sexta e Sábado: 12:00–16:00 (almoço) e 17:00–22:30 (jantar)
+  // - Domingo: 12:00–16:00 (almoço) e 17:00–20:30 (jantar)
+  // - Segunda: fechado
+  const getReservaRooftopTimeWindows = (dateStr: string) => {
+    if (!dateStr) return [] as Array<{ start: string; end: string; label: string }>;
+    const date = new Date(`${dateStr}T00:00:00`);
+    const weekday = date.getDay(); // 0=Dom, 1=Seg, 2=Ter, 3=Qua, 4=Qui, 5=Sex, 6=Sáb
+    const windows: Array<{ start: string; end: string; label: string }> = [];
+
+    if (weekday >= 2 && weekday <= 4) {
+      windows.push({ start: '18:00', end: '22:30', label: 'Terça a Quinta: 18:00–22:30' });
+      return windows;
+    }
+
+    if (weekday === 5 || weekday === 6) {
+      windows.push({ start: '12:00', end: '16:00', label: 'Almoço: 12:00–16:00' });
+      windows.push({ start: '17:00', end: '22:30', label: 'Jantar: 17:00–22:30' });
+      return windows;
+    }
+
+    if (weekday === 0) {
+      windows.push({ start: '12:00', end: '16:00', label: 'Almoço: 12:00–16:00' });
+      windows.push({ start: '17:00', end: '20:30', label: 'Jantar: 17:00–20:30' });
+      return windows;
+    }
+
+    return windows;
+  };
+
   const computeAvailableTimeSlots = () => {
     if (!reservationData.reservation_date) return [] as string[];
 
@@ -1138,28 +1194,13 @@ const handleSubmit = async (e: React.FormEvent) => {
       return windows.flatMap((window) => createSlotsFromWindow(window.start, window.end));
     }
 
+    if (isReservaRooftop) {
+      const windows = getReservaRooftopTimeWindows(reservationData.reservation_date);
+      return windows.flatMap((window) => createSlotsFromWindow(window.start, window.end));
+    }
+
     const windows = getDefaultTimeWindows(reservationData.reservation_date);
     let slots = windows.flatMap((window) => createSlotsFromWindow(window.start, window.end));
-
-    // Reserva Rooftop: bloquear intervalo entre 1º e 2º giro (16:01–16:59)
-    if (isReservaRooftop && slots.length > 0) {
-      try {
-        const date = new Date(`${reservationData.reservation_date}T00:00:00`);
-        const weekday = date.getDay(); // 0=Dom, 5=Sex, 6=Sáb
-        const isGiroIntermediateDay = weekday === 0 || weekday === 5 || weekday === 6;
-
-        if (isGiroIntermediateDay) {
-          slots = slots.filter((slot) => {
-            const [h, m] = slot.split(':').map((v) => Number(v));
-            const minutes = h * 60 + (Number.isFinite(m) ? m : 0);
-            // Mantém tudo que NÃO estiver estritamente entre 16:01 e 16:59
-            return !(minutes > 16 * 60 && minutes < 17 * 60);
-          });
-        }
-      } catch {
-        // Em caso de erro de parse, mantém slots originais
-      }
-    }
 
     // Aplicar bloqueios de agenda (restaurant_reservation_blocks)
     if (slots.length > 0 && reservationBlocks.length > 0 && selectedEstablishment?.id) {
@@ -2044,6 +2085,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                   <input
                     type="number"
                     min={1}
+                    max={isReservaRooftop ? 10 : 999}
                     value={reservationData.number_of_people}
                     onChange={(e) => {
                       const newValue = parseInt(e.target.value || '0');
@@ -2062,7 +2104,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                   )}
                   
                   {/* Indicador de reserva grande */}
-                  {reservationData.number_of_people >= 4 && (
+                  {!isReservaRooftop && reservationData.number_of_people >= 4 && (
                     <div className="mt-3 p-4 bg-gradient-to-r from-orange-100 to-red-100 border-2 border-orange-400 rounded-lg shadow-lg">
                       <div className="flex items-center gap-2 text-orange-900">
                         <MdPeople className="text-orange-600 text-lg" />
@@ -2073,6 +2115,12 @@ const handleSubmit = async (e: React.FormEvent) => {
                         O admin selecionará as mesas específicas.
                       </p>
                     </div>
+                  )}
+
+                  {isReservaRooftop && !errors.number_of_people && (
+                    <p className="text-gray-500 text-xs mt-1">
+                      No Reserva Rooftop, o limite máximo é de 10 pessoas por reserva.
+                    </p>
                   )}
                 </div>
               </div>
