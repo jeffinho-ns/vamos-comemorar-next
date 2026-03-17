@@ -567,13 +567,31 @@ export default function CardapioAdminPage() {
       if (promoterBar) {
         const promoterBarIdNum = Number(promoterBar.barId);
         const promoterBarName = String(promoterBar.barName || '').toLowerCase();
-        barsData = barsData.filter((bar) => {
+
+        const normalizeName = (value: string) =>
+          (value || '')
+            .toLowerCase()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .replace(/[^a-z0-9]+/g, ' ')
+            .trim();
+
+        const targetNameNorm = normalizeName(promoterBarName);
+
+        const filteredBars = barsData.filter((bar) => {
           const barIdNum = Number(bar.id);
           const barName = (bar.name || '').toLowerCase();
+          const barNameNorm = normalizeName(barName);
           const matchById = barIdNum === promoterBarIdNum || String(bar.id) === String(promoterBar.barId);
-          const matchByName = promoterBarName && barName.includes(promoterBarName);
+          const matchByName =
+            (promoterBarName && barName.includes(promoterBarName)) ||
+            (targetNameNorm && barNameNorm && (barNameNorm.includes(targetNameNorm) || targetNameNorm.includes(barNameNorm)));
           return matchById || matchByName;
         });
+
+        // Fallback: se não encontrou nenhum bar correspondente, não zera a tela.
+        // Isso acontece quando establishment_id (places) não corresponde ao barId (cardápio).
+        barsData = filteredBars.length > 0 ? filteredBars : barsData;
       }
 
       let categoriesData = Array.isArray(categories) ? categories : [];
@@ -597,6 +615,10 @@ export default function CardapioAdminPage() {
           const catBarId = Number(category.barId);
           return allowedBarIds.has(catBarId);
         });
+        subCategoriesData = subCategoriesData.filter((sub: any) => {
+          const subBarId = Number(sub.barId);
+          return allowedBarIds.has(subBarId);
+        });
         itemsData = itemsData.filter((item) => {
           const itemBarId = Number(item.barId);
           return allowedBarIds.has(itemBarId);
@@ -607,6 +629,11 @@ export default function CardapioAdminPage() {
           (category) =>
             Number(category.barId) === promoterBarIdNum ||
             String(category.barId) === String(promoterBar.barId),
+        );
+        subCategoriesData = subCategoriesData.filter(
+          (sub: any) =>
+            Number(sub.barId) === promoterBarIdNum ||
+            String(sub.barId) === String(promoterBar.barId),
         );
         itemsData = itemsData.filter(
           (item) =>
