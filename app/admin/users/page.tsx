@@ -984,7 +984,11 @@ function EditUserModal({
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto px-6 py-4 space-y-6">
+        <form
+          id="edit-user-form"
+          onSubmit={handleSubmit}
+          className="flex-1 overflow-y-auto px-6 py-4 space-y-6"
+        >
           {error && (
             <div className="p-3 bg-red-900/40 border border-red-500/60 rounded-lg text-red-100 text-sm">
               {error}
