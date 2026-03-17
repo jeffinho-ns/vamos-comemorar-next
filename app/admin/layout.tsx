@@ -24,6 +24,7 @@ import {
 } from "react-icons/md";
 import logBrand from "../assets/logo-agilizai-h.png"; // Verifique o caminho
 import UserMenu from "../components/UserMenu/UserMenu"; // Verifique o caminho
+import { useUserPermissions } from "../hooks/useUserPermissions";
 
 // E-mail da analista com acesso restrito ao estabelecimento Pracinha do Seu Justino (menu próprio, não promoter)
 const ANALISTA_EMAIL = 'analista.mkt03@ideiaum.com.br';
@@ -62,6 +63,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [userEmail, setUserEmail] = useState<string>('');
   const [isLoading, setIsLoading] = useState(true);
   const pathname = usePathname(); // Hook do Next.js para pegar a rota ativa
+  const { canAccessCardapio, isLoading: isLoadingPerms } = useUserPermissions();
 
   useEffect(() => {
     // Buscar role e email: cookies (prioridade) ou localStorage (fallback)
@@ -132,7 +134,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       ];
     } else if (userRole === 'recepção' || userRole === 'recepcao' || userRole === 'atendente') {
       // Recepção/Atendente - acesso restrito aos estabelecimentos configurados (inclui Reserva Rooftop)
-      return [
+      const links = [
         { href: "/admin", label: "Dashboard", icon: MdDashboard },
         { href: "/admin/checkins", label: "Check-ins", icon: MdCheckCircle },
         { href: "/admin/restaurant-reservations", label: "Sistema de Reservas", icon: MdRestaurant },
@@ -140,6 +142,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         { href: "/admin/qrcode", label: "Scanner QR Code", icon: MdQrCodeScanner },
         { href: "/admin/reservas", label: "Reservas", icon: MdEditCalendar },
       ];
+      if (canAccessCardapio) {
+        links.splice(2, 0, { href: "/admin/cardapio", label: "Cardápio", icon: MdRestaurant });
+      }
+      return links;
     } else if (userRole === 'gerente') {
       // Gerente - acesso às páginas administrativas restritas aos seus estabelecimentos
       const baseLinks = [
@@ -153,8 +159,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         { href: "/admin/reservas", label: "Reservas", icon: MdEditCalendar },
       ];
       // Apenas gerente.sjm e subgerente.sjm do Seu Justino têm acesso ao Gerenciamento do Cardápio
-      const canAccessCardapio = GERENTES_SEU_JUSTINO_CARDAPIO.includes(userEmail);
-      if (canAccessCardapio) {
+      const canAccessCardapioByEmail = GERENTES_SEU_JUSTINO_CARDAPIO.includes(userEmail);
+      if (canAccessCardapioByEmail || canAccessCardapio) {
         return [
           ...baseLinks.slice(0, 2),
           { href: "/admin/cardapio", label: "Cardápio", icon: MdRestaurant },
@@ -217,7 +223,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     return null;
   }
 
-  if (isLoading) {
+  if (isLoading || isLoadingPerms) {
     return (
       <div className="flex min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 items-center justify-center">
         <div className="text-white text-xl">Carregando...</div>

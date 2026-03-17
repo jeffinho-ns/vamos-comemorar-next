@@ -23,6 +23,10 @@ export interface MyEstablishmentPermission {
   can_manage_checkins: boolean;
   can_view_reports: boolean;
   can_create_edit_reservations?: boolean;
+  can_view_cardapio?: boolean;
+  can_create_cardapio?: boolean;
+  can_edit_cardapio?: boolean;
+  can_delete_cardapio?: boolean;
   is_active: boolean;
 }
 
@@ -115,6 +119,7 @@ export function useUserPermissions() {
 
     const applyPermissions = (myPerms: MyEstablishmentPermission[]) => {
       const hasAnyEstablishmentAccess = myPerms.length > 0;
+      const hasCardapioAccess = myPerms.some((p) => p.can_view_cardapio !== false);
       const first = myPerms[0];
       const promoterBar = first
         ? {
@@ -130,7 +135,7 @@ export function useUserPermissions() {
         isAdmin ||
         ["gerente", "atendente", "recepcao"].includes(role) ||
         hasAnyEstablishmentAccess;
-      const canAccessCardapio = isAdmin || hasAnyEstablishmentAccess;
+      const canAccessCardapio = isAdmin || hasCardapioAccess;
 
       setPermissions({
         role,
