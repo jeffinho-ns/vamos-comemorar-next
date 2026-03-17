@@ -1,5 +1,38 @@
 import { useState, useEffect } from 'react';
-import { getPromoterBar, getPromoterBarByEmail, PROMOTER_BAR_MAPPINGS } from '../config/promoter-bars';
+
+const API_URL =
+  process.env.NEXT_PUBLIC_API_URL ||
+  process.env.NEXT_PUBLIC_API_URL_LOCAL ||
+  "https://vamos-comemorar-api.onrender.com";
+
+/** Uma permissão de estabelecimento retornada por GET /api/establishment-permissions/my-permissions */
+export interface MyEstablishmentPermission {
+  id: number;
+  user_id: number;
+  user_email: string;
+  establishment_id: number;
+  establishment_name?: string;
+  can_edit_os: boolean;
+  can_edit_operational_detail: boolean;
+  can_view_os: boolean;
+  can_download_os: boolean;
+  can_view_operational_detail: boolean;
+  can_create_os: boolean;
+  can_create_operational_detail: boolean;
+  can_manage_reservations: boolean;
+  can_manage_checkins: boolean;
+  can_view_reports: boolean;
+  can_create_edit_reservations?: boolean;
+  is_active: boolean;
+}
+
+function slugify(name: string): string {
+  return (name || "")
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, "-")
+    .replace(/[^a-z0-9-]/g, "");
+}
 
 export interface UserPermissions {
   role: string;
@@ -8,14 +41,37 @@ export interface UserPermissions {
   isAdmin: boolean;
   isPromoter: boolean;
   isClient: boolean;
-  promoterBar: any | null;
+  promoterBar: {
+    userId: number;
+    userEmail: string;
+    userName?: string;
+    barId: number;
+    barName: string;
+    barSlug: string;
+  } | null;
   canAccessAdmin: boolean;
   canAccessCardapio: boolean;
+  /** Permissões por estabelecimento (fonte: banco de dados) */
+  myEstablishmentPermissions: MyEstablishmentPermission[];
 }
+
+const ADMIN_ALLOWED_ROUTES = [
+  "/admin/restaurant-reservations",
+  "/admin/eventos/dashboard",
+  "/admin/eventos/promoters",
+  "/admin/eventos/listas",
+  "/admin/painel-eventos",
+  "/admin/checkins",
+  "/admin/workdays",
+  "/admin/cardapio",
+  "/admin/qrcode",
+  "/admin/events",
+  "/admin/reservas",
+];
 
 export function useUserPermissions() {
   const [permissions, setPermissions] = useState<UserPermissions>({
-    role: '',
+    role: "",
     userId: null,
     userEmail: null,
     isAdmin: false,
@@ -24,237 +80,119 @@ export function useUserPermissions() {
     promoterBar: null,
     canAccessAdmin: false,
     canAccessCardapio: false,
+    myEstablishmentPermissions: [],
   });
 
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const getPermissions = () => {
-      try {
-        // Buscar informações dos cookies
-        const cookies = document.cookie.split(';');
-        const roleCookie = cookies.find(cookie => cookie.trim().startsWith('role='));
-        const tokenCookie = cookies.find(cookie => cookie.trim().startsWith('authToken='));
-        const emailCookie = cookies.find(cookie => cookie.trim().startsWith('userEmail='));
+    let cancelled = false;
 
-        // Buscar informações do localStorage (cookie como fallback para userEmail)
-        const userId = localStorage.getItem('userId');
-        let userEmail = localStorage.getItem('userEmail') || '';
-        if (!userEmail && emailCookie) {
-          try {
-            userEmail = decodeURIComponent((emailCookie.split('=').slice(1).join('=') || '').trim());
-          } catch {
-            userEmail = (emailCookie.split('=').slice(1).join('=') || '').trim();
+    const cookies = document.cookie.split(";");
+    const roleCookie = cookies.find((c) => c.trim().startsWith("role="));
+    let userEmail = (localStorage.getItem("userEmail") || "").trim();
+    if (!userEmail) {
+      const emailCookie = cookies.find((c) => c.trim().startsWith("userEmail="));
+      if (emailCookie) {
+        try {
+          userEmail = decodeURIComponent(
+            (emailCookie.split("=").slice(1).join("=") || "").trim()
+          );
+        } catch {
+          userEmail = (emailCookie.split("=").slice(1).join("=") || "").trim();
+        }
+    }
+    userEmail = (userEmail || "").trim();
+
+    const userIdStr = localStorage.getItem("userId");
+    const userId = userIdStr ? parseInt(userIdStr, 10) : null;
+    const role = roleCookie ? roleCookie.split("=")[1]?.trim() || "" : "";
+
+    const isAdmin = role === "admin";
+    const isPromoter = role === "promoter" || role === "promoter-list";
+    const isClient = role === "cliente";
+
+    const applyPermissions = (myPerms: MyEstablishmentPermission[]) => {
+      const hasAnyEstablishmentAccess = myPerms.length > 0;
+      const first = myPerms[0];
+      const promoterBar = first
+        ? {
+            userId: userId ?? 0,
+            userEmail: userEmail || "",
+            userName: first.establishment_name,
+            barId: Number(first.establishment_id),
+            barName: first.establishment_name || `Estabelecimento ${first.establishment_id}`,
+            barSlug: slugify(first.establishment_name || ""),
           }
-        }
-        userEmail = (userEmail || '').trim();
+        : null;
+      const canAccessAdmin =
+        isAdmin ||
+        ["gerente", "atendente", "recepcao"].includes(role) ||
+        hasAnyEstablishmentAccess;
+      const canAccessCardapio = isAdmin || hasAnyEstablishmentAccess;
 
-        const role = roleCookie ? roleCookie.split('=')[1] : '';
-        
-        // Determinar permissões baseadas no role
-        const isAdmin = role === 'admin';
-        const isPromoter = role === 'promoter' || role === 'promoter-list';
-        const isPromoterList = role === 'promoter-list';
-        const isClient = role === 'cliente';
-        
-        // Buscar informações do bar associado ao promoter (ou analista com acesso restrito ao cardápio)
-        let promoterBar = null;
-
-        const normalizedEmail = userEmail.toLowerCase();
-
-        // analista.mkt03@ideiaum.com.br: acesso ao cardápio APENAS Pracinha do Seu Justino (barId 8)
-        if (normalizedEmail === 'analista.mkt03@ideiaum.com.br') {
-          promoterBar = {
-            userId: 0,
-            userEmail: 'analista.mkt03@ideiaum.com.br',
-            userName: 'Helena',
-            barId: 8,
-            barName: 'Pracinha do Seu Justino',
-            barSlug: 'pracinha-do-seu-justino',
-          };
-        // vbs14@hotmail.com: acesso ao cardápio APENAS Reserva Rooftop (barId 5)
-        } else if (normalizedEmail === 'vbs14@hotmail.com') {
-          promoterBar = {
-            userId: 0,
-            userEmail: 'vbs14@hotmail.com',
-            userName: 'Reserva Rooftop',
-            barId: 5,
-            barName: 'Reserva Rooftop',
-            barSlug: 'reserva-rooftop',
-          };
-        } else if (isPromoter && userEmail) {
-          promoterBar = getPromoterBarByEmail(userEmail);
-          
-          // SOLUÇÃO TEMPORÁRIA: Se não encontrou, usar mapeamento hardcoded
-          if (!promoterBar) {
-            if (userEmail === 'analista@pracinha.com') {
-              promoterBar = {
-                userId: 62,
-                userEmail: 'analista@pracinha.com',
-                userName: 'Analista Pracinha',
-                barId: 8,
-                barName: 'Pracinha do Seu Justino',
-                barSlug: 'pracinha-do-seu-justino'
-              };
-            } else if (userEmail === 'analista.mkt03@ideiaum.com.br') {
-              promoterBar = {
-                userId: 0,
-                userEmail: 'analista.mkt03@ideiaum.com.br',
-                userName: 'Helena',
-                barId: 8,
-                barName: 'Pracinha do Seu Justino',
-                barSlug: 'pracinha-do-seu-justino'
-              };
-            } else if (userEmail === 'analista@seujustino.com') {
-              promoterBar = {
-                userId: 59,
-                userEmail: 'analista@seujustino.com',
-                userName: 'Analista Seu Justino',
-                barId: 1,
-                barName: 'Seu Justino',
-                barSlug: 'seu-justino'
-              };
-            } else if (userEmail === 'analista@ohfregues.com') {
-              promoterBar = {
-                userId: 60,
-                userEmail: 'analista@ohfregues.com',
-                userName: 'Analista Oh Fregues',
-                barId: 4,
-                barName: 'Oh Fregues',
-                barSlug: 'oh-fregues'
-              };
-            } else if (userEmail === 'analista@highline.com') {
-              promoterBar = {
-                userId: 61,
-                userEmail: 'analista@highline.com',
-                userName: 'Analista HighLine',
-                barId: 3, // Corrigido: 3 é o barId correto do Highline no banco
-                barName: 'HighLine',
-                barSlug: 'highline'
-              };
-            } else if (userEmail === 'fran@highlinebar.com.br') {
-              promoterBar = {
-                userId: 0, // Será atualizado quando obtivermos o ID do banco
-                userEmail: 'fran@highlinebar.com.br',
-                userName: 'Fran HighLine',
-                barId: 3, // Corrigido: 3 é o barId correto do Highline no banco
-                barName: 'HighLine',
-                barSlug: 'highline'
-              };
-              console.log('✅ [PERMISSIONS] PromoterBar configurado para fran@highlinebar.com.br:', promoterBar);
-            } else if (userEmail === 'analista@reserva.com') {
-              promoterBar = {
-                userId: 63,
-                userEmail: 'analista@reserva.com',
-                userName: 'Analista Reserva Rooftop',
-                barId: 5,
-                barName: 'Reserva Rooftop',
-                barSlug: 'reserva-rooftop'
-              };
-            }
-          }
-        }
-        
-        if (isPromoter && !promoterBar && userId) {
-          promoterBar = getPromoterBar(parseInt(userId));
-        }
-
-        // Gerentes do Seu Justino com acesso ao Gerenciamento do Cardápio (apenas bar Seu Justino, id 1)
-        const gerentesSeuJustinoCardapio = ['gerente.sjm@seujustino.com.br', 'subgerente.sjm@seujustino.com.br'];
-        const isGerenteSeuJustinoCardapio = role === 'gerente' && gerentesSeuJustinoCardapio.includes(userEmail);
-        if (isGerenteSeuJustinoCardapio && !promoterBar) {
-          promoterBar = {
-            userId: 0,
-            userEmail,
-            userName: 'Gerente Seu Justino',
-            barId: 1,
-            barName: 'Seu Justino',
-            barSlug: 'seu-justino',
-          };
-        }
-
-        // Definir permissões de acesso (promoter e promoter-list para analista.mkt03 - Pracinha; gerentes SJM para cardápio; vbs14 para Reserva Rooftop)
-        const isAnalistaPracinha = normalizedEmail === 'analista.mkt03@ideiaum.com.br';
-        const isReservaRooftopMenuManager = normalizedEmail === 'vbs14@hotmail.com';
-        const canAccessAdmin = isAdmin || role === 'promoter' || role === 'promoter-list' || isAnalistaPracinha;
-        const canAccessCardapio =
-          isAdmin ||
-          role === 'promoter' ||
-          role === 'promoter-list' ||
-          isGerenteSeuJustinoCardapio ||
-          isAnalistaPracinha ||
-          isReservaRooftopMenuManager;
-
-        setPermissions({
-          role,
-          userId: userId ? parseInt(userId) : null,
-          userEmail,
-          isAdmin,
-          isPromoter,
-          isClient,
-          promoterBar,
-          canAccessAdmin,
-          canAccessCardapio,
-        });
-
-        setIsLoading(false);
-      } catch (error) {
-        console.error('Erro ao obter permissões do usuário:', error);
-        setIsLoading(false);
-      }
+      setPermissions({
+        role,
+        userId,
+        userEmail: userEmail || null,
+        isAdmin,
+        isPromoter,
+        isClient,
+        promoterBar,
+        canAccessAdmin,
+        canAccessCardapio,
+        myEstablishmentPermissions: myPerms,
+      });
     };
 
-    getPermissions();
+    const token = localStorage.getItem("authToken");
+    if (!token) {
+      applyPermissions([]);
+      setIsLoading(false);
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    fetch(`${API_URL}/api/establishment-permissions/my-permissions`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((res) => (res.ok ? res.json() : { success: false, data: [] }))
+      .then((data: { success?: boolean; data?: MyEstablishmentPermission[] }) => {
+        if (cancelled) return;
+        const myPerms =
+          data.success && Array.isArray(data.data) ? data.data : [];
+        applyPermissions(myPerms);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        applyPermissions([]);
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
-  // Função para verificar se o usuário pode acessar uma rota específica
   const canAccessRoute = (route: string): boolean => {
     if (permissions.isAdmin) return true;
-
-    const isAnalistaPracinha = permissions.userEmail?.toLowerCase() === 'analista.mkt03@ideiaum.com.br';
-    if (isAnalistaPracinha) {
-      const allowedRoutes = [
-        '/admin/restaurant-reservations', '/admin/eventos/dashboard', '/admin/eventos/promoters',
-        '/admin/eventos/listas', '/admin/painel-eventos', '/admin/checkins', '/admin/workdays',
-        '/admin/cardapio', '/admin/qrcode', '/admin/events', '/admin/reservas',
-      ];
-      return allowedRoutes.includes(route) || allowedRoutes.some((r) => route.startsWith(r + '/'));
-    }
-    
-    if (permissions.role === 'promoter' || permissions.role === 'promoter-list') {
-      // Promoters/promoter-list podem acessar rotas conforme perfil (ex: analista.mkt03 - apenas Pracinha)
-      const allowedRoutes = [
-        '/admin/restaurant-reservations',
-        '/admin/eventos/dashboard',
-        '/admin/eventos/promoters',
-        '/admin/eventos/listas',
-        '/admin/painel-eventos',
-        '/admin/checkins',
-        '/admin/workdays',
-        '/admin/cardapio',
-        '/admin/qrcode',
-        '/admin/events',
-        '/admin/reservas',
-      ];
-      return allowedRoutes.includes(route) || allowedRoutes.some(r => route.startsWith(r + '/'));
-    }
-    
-    return false;
+    if (!permissions.canAccessAdmin) return false;
+    return (
+      ADMIN_ALLOWED_ROUTES.includes(route) ||
+      ADMIN_ALLOWED_ROUTES.some((r) => route.startsWith(r + "/"))
+    );
   };
 
-  // Função para verificar se o usuário pode gerenciar um bar específico
   const canManageBar = (barId: number): boolean => {
     if (permissions.isAdmin) return true;
-    // Promoter ou gerente Seu Justino (com promoterBar definido): apenas o bar associado
-    if (permissions.promoterBar) {
-      const promoterBarId = Number(permissions.promoterBar.barId);
-      const requestedBarId = Number(barId);
-      return promoterBarId === requestedBarId;
-    }
-    return false;
+    return permissions.myEstablishmentPermissions.some(
+      (p) => Number(p.establishment_id) === Number(barId)
+    );
   };
 
-  // Função para obter o bar que o promoter pode gerenciar
   const getPromoterBarData = () => {
     return permissions.promoterBar;
   };

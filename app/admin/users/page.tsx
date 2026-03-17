@@ -382,26 +382,20 @@ function CreateUserModal({ onClose, onSuccess, establishments, apiUrl }: CreateU
   const [telefone, setTelefone] = useState("");
   const [role, setRole] = useState<Role>("usuario");
   const [establishmentIds, setEstablishmentIds] = useState<number[]>([]);
-  const [perms, setPerms] = useState({
-    can_manage_reservations: true,
-    can_create_edit_reservations: true,
-    can_manage_checkins: true,
-    can_view_reports: true,
-    can_view_os: true,
-    can_download_os: true,
-    can_view_operational_detail: true,
-    can_edit_os: false,
-    can_edit_operational_detail: false,
-    can_create_os: false,
-    can_create_operational_detail: false,
-  });
+  const [permsByEstablishment, setPermsByEstablishment] = useState<Record<number, EstablishmentPerms>>({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const toggleEstablishment = (id: number) => {
-    setEstablishmentIds((prev) =>
-      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
-    );
+    if (establishmentIds.includes(id)) {
+      setEstablishmentIds((prev) => prev.filter((x) => x !== id));
+    } else {
+      setPermsByEstablishment((p) => ({
+        ...p,
+        [id]: p[id] ?? { ...DEFAULT_ESTAB_PERMS },
+      }));
+      setEstablishmentIds((prev) => [...prev, id]);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -443,6 +437,7 @@ function CreateUserModal({ onClose, onSuccess, establishments, apiUrl }: CreateU
       if (!userId) throw new Error("Resposta da API sem ID do usuário");
 
       for (const estabId of establishmentIds) {
+        const perms = permsByEstablishment[estabId] ?? DEFAULT_ESTAB_PERMS;
         const resPerm = await fetch(`${apiUrl}/api/establishment-permissions`, {
           method: "POST",
           headers: {
@@ -477,146 +472,259 @@ function CreateUserModal({ onClose, onSuccess, establishments, apiUrl }: CreateU
   const rolesForCreate: Role[] = ["usuario", "admin", "gerente", "atendente", "recepcao", "cliente"];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-        <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
-          <h2 className="text-xl font-semibold text-gray-800">Novo usuário</h2>
-          <button onClick={onClose} className="p-2 text-gray-500 hover:bg-gray-100 rounded-lg">
-            <MdClose size={24} />
+    <div className="fixed inset-0 z-50 flex items-center justify-end bg-black/60">
+      <div className="h-full w-full max-w-2xl bg-slate-900 text-slate-50 shadow-2xl border-l border-slate-800 flex flex-col">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800 bg-slate-900/90 backdrop-blur">
+          <div>
+            <h2 className="text-xl font-semibold">Novo usuário</h2>
+            <p className="text-xs text-slate-400 mt-1">
+              Cadastre o usuário, defina o cargo global e as permissões por estabelecimento.
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-2 rounded-full hover:bg-slate-800 text-slate-400 hover:text-slate-100"
+            aria-label="Fechar"
+          >
+            <MdClose size={22} />
           </button>
         </div>
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+
+        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto px-6 py-4 space-y-6">
           {error && (
-            <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+            <div className="p-3 bg-red-900/40 border border-red-500/60 rounded-lg text-red-100 text-sm">
               {error}
             </div>
           )}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Nome</label>
-              <input
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                required
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500"
-              />
+
+          <section>
+            <h3 className="text-sm font-semibold text-slate-200 mb-3">Dados do usuário</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-medium text-slate-400 mb-1">Nome</label>
+                <input
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  required
+                  className="w-full px-3 py-2 rounded-lg border border-slate-700 bg-slate-900/80 text-slate-50 text-sm focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-400 mb-1">E-mail</label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  className="w-full px-3 py-2 rounded-lg border border-slate-700 bg-slate-900/80 text-slate-50 text-sm focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-400 mb-1">Senha</label>
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  minLength={6}
+                  className="w-full px-3 py-2 rounded-lg border border-slate-700 bg-slate-900/80 text-slate-50 text-sm focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-400 mb-1">Telefone</label>
+                <input
+                  type="text"
+                  value={telefone}
+                  onChange={(e) => setTelefone(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg border border-slate-700 bg-slate-900/80 text-slate-50 text-sm focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-400 mb-1">Cargo global (role)</label>
+                <select
+                  value={role}
+                  onChange={(e) => setRole(e.target.value as Role)}
+                  className="w-full px-3 py-2 rounded-lg border border-slate-700 bg-slate-900/80 text-slate-50 text-sm focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+                >
+                  {rolesForCreate.map((r) => (
+                    <option key={r} value={r}>
+                      {ROLE_LABELS[r]}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-[10px] text-slate-500 mt-1">
+                  Promoters continuam sendo cadastrados na tela específica de Promoters.
+                </p>
+              </div>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">E-mail</label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500"
-              />
-            </div>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Senha</label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                minLength={6}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Telefone</label>
-              <input
-                type="text"
-                value={telefone}
-                onChange={(e) => setTelefone(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500"
-              />
-            </div>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Tipo de usuário (role)</label>
-            <select
-              value={role}
-              onChange={(e) => setRole(e.target.value as Role)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500"
-            >
-              {rolesForCreate.map((r) => (
-                <option key={r} value={r}>
-                  {ROLE_LABELS[r]}
-                </option>
-              ))}
-            </select>
-            <p className="text-xs text-gray-500 mt-1">Promoters são cadastrados na página de Promoters.</p>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Estabelecimento(s)</label>
-            <div className="flex flex-wrap gap-2">
-              {establishments.map((est) => (
-                <label key={est.id} className="inline-flex items-center gap-2 px-3 py-2 bg-gray-100 rounded-lg cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={establishmentIds.includes(est.id)}
-                    onChange={() => toggleEstablishment(est.id)}
-                  />
-                  <span className="text-sm text-gray-800">{est.name}</span>
-                </label>
-              ))}
+          </section>
+
+          <section className="border-t border-slate-800 pt-4">
+            <h3 className="text-sm font-semibold text-slate-200 mb-2">Estabelecimentos e permissões</h3>
+            <p className="text-xs text-slate-400 mb-3">
+              Selecione os estabelecimentos aos quais este usuário terá acesso e configure as permissões.
+            </p>
+
+            <div className="flex flex-wrap gap-2 mb-4">
+              {establishments.map((est) => {
+                const active = establishmentIds.includes(est.id);
+                return (
+                  <button
+                    key={est.id}
+                    type="button"
+                    onClick={() => toggleEstablishment(est.id)}
+                    className={`px-3 py-1 rounded-full text-xs border transition-colors ${
+                      active
+                        ? "bg-yellow-500 text-slate-900 border-yellow-400"
+                        : "bg-slate-800/70 text-slate-300 border-slate-700 hover:bg-slate-800"
+                    }`}
+                  >
+                    {est.name}
+                  </button>
+                );
+              })}
               {establishments.length === 0 && (
-                <span className="text-sm text-gray-500">Nenhum estabelecimento carregado.</span>
+                <span className="text-xs text-slate-500">Nenhum estabelecimento carregado.</span>
               )}
             </div>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Permissões do menu (por estabelecimento)</label>
-            <div className="grid grid-cols-2 gap-2 text-sm">
-              {[
-                { key: "can_manage_reservations", label: "Gerenciar reservas" },
-                { key: "can_create_edit_reservations", label: "Criar/editar reservas e lista de espera" },
-                { key: "can_manage_checkins", label: "Gerenciar check-ins" },
-                { key: "can_view_reports", label: "Ver relatórios" },
-                { key: "can_view_os", label: "Ver OS" },
-                { key: "can_download_os", label: "Baixar OS" },
-                { key: "can_view_operational_detail", label: "Ver detalhes operacionais" },
-                { key: "can_edit_os", label: "Editar OS" },
-                { key: "can_edit_operational_detail", label: "Editar detalhes operacionais" },
-                { key: "can_create_os", label: "Criar OS" },
-                { key: "can_create_operational_detail", label: "Criar detalhes operacionais" },
-              ].map(({ key, label }) => (
-                <label key={key} className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={perms[key as keyof typeof perms]}
-                    onChange={(e) =>
-                      setPerms((prev) => ({ ...prev, [key]: e.target.checked }))
-                    }
-                  />
-                  {label}
-                </label>
-              ))}
+
+            <div className="space-y-3 max-h-72 overflow-y-auto pr-1">
+              {establishmentIds.map((id) => {
+                const est = establishments.find((e) => e.id === id);
+                const perms = permsByEstablishment[id] ?? DEFAULT_ESTAB_PERMS;
+                return (
+                  <div
+                    key={id}
+                    className="rounded-xl border border-slate-800 bg-slate-900/70 px-4 py-3"
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <div>
+                        <p className="text-sm font-semibold text-slate-100">
+                          {est?.name || `Estabelecimento #${id}`}
+                        </p>
+                        <p className="text-xs text-slate-500">Permissões de acesso</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => toggleEstablishment(id)}
+                        className="text-xs text-red-400 hover:text-red-300"
+                      >
+                        Remover acesso
+                      </button>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 text-xs">
+                      {[
+                        { key: "can_manage_reservations", label: "Gerenciar reservas" },
+                        {
+                          key: "can_create_edit_reservations",
+                          label: "Criar/editar reservas e lista de espera",
+                        },
+                        { key: "can_manage_checkins", label: "Gerenciar check-ins" },
+                        { key: "can_view_reports", label: "Ver relatórios" },
+                        { key: "can_view_os", label: "Ver OS" },
+                        { key: "can_download_os", label: "Baixar OS" },
+                        { key: "can_view_operational_detail", label: "Ver detalhes operacionais" },
+                        { key: "can_edit_os", label: "Editar OS" },
+                        { key: "can_edit_operational_detail", label: "Editar detalhes operacionais" },
+                        { key: "can_create_os", label: "Criar OS" },
+                        { key: "can_create_operational_detail", label: "Criar detalhes operacionais" },
+                      ].map(({ key, label }) => (
+                        <label key={key} className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            checked={perms[key as keyof EstablishmentPerms]}
+                            onChange={(e) =>
+                              setPermsByEstablishment((prev) => ({
+                                ...prev,
+                                [id]: {
+                                  ...(prev[id] ?? DEFAULT_ESTAB_PERMS),
+                                  [key]: e.target.checked,
+                                },
+                              }))
+                            }
+                            className="w-3 h-3 rounded border-slate-600 bg-slate-900 text-yellow-500 focus:ring-yellow-500"
+                          />
+                          <span className="text-slate-200">{label}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+              {establishmentIds.length === 0 && (
+                <p className="text-xs text-slate-500">
+                  Nenhum estabelecimento selecionado. Selecione acima para liberar o acesso.
+                </p>
+              )}
             </div>
-          </div>
-          <div className="flex gap-3 pt-4">
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 py-2 px-4 border border-gray-300 rounded-xl text-gray-700 hover:bg-gray-50"
-            >
-              Cancelar
-            </button>
-            <button
-              type="submit"
-              disabled={loading}
-              className="flex-1 py-2 px-4 bg-yellow-500 hover:bg-yellow-600 text-gray-900 font-semibold rounded-xl disabled:opacity-50"
-            >
-              {loading ? "Criando..." : "Criar usuário"}
-            </button>
-          </div>
+          </section>
         </form>
+
+        <div className="px-6 py-4 border-t border-slate-800 bg-slate-900/95 flex gap-3">
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex-1 py-2 px-4 rounded-xl border border-slate-600 text-slate-100 text-sm hover:bg-slate-800"
+          >
+            Cancelar
+          </button>
+          <button
+            type="submit"
+            form=""
+            disabled={loading}
+            className="flex-1 py-2 px-4 rounded-xl bg-yellow-500 hover:bg-yellow-400 text-slate-900 text-sm font-semibold disabled:opacity-50"
+          >
+            {loading ? "Criando..." : "Criar usuário"}
+          </button>
+        </div>
       </div>
     </div>
   );
+}
+
+type EstablishmentPerms = {
+  can_manage_reservations: boolean;
+  can_create_edit_reservations: boolean;
+  can_manage_checkins: boolean;
+  can_view_reports: boolean;
+  can_view_os: boolean;
+  can_download_os: boolean;
+  can_view_operational_detail: boolean;
+  can_edit_os: boolean;
+  can_edit_operational_detail: boolean;
+  can_create_os: boolean;
+  can_create_operational_detail: boolean;
+};
+
+const DEFAULT_ESTAB_PERMS: EstablishmentPerms = {
+  can_manage_reservations: true,
+  can_create_edit_reservations: true,
+  can_manage_checkins: true,
+  can_view_reports: true,
+  can_view_os: true,
+  can_download_os: true,
+  can_view_operational_detail: true,
+  can_edit_os: false,
+  can_edit_operational_detail: false,
+  can_create_os: false,
+  can_create_operational_detail: false,
+};
+
+function permFromRow(p: PermissionRow): EstablishmentPerms {
+  return {
+    can_manage_reservations: p.can_manage_reservations,
+    can_create_edit_reservations: p.can_create_edit_reservations !== false,
+    can_manage_checkins: p.can_manage_checkins,
+    can_view_reports: p.can_view_reports,
+    can_view_os: p.can_view_os,
+    can_download_os: p.can_download_os,
+    can_view_operational_detail: p.can_view_operational_detail,
+    can_edit_os: p.can_edit_os,
+    can_edit_operational_detail: p.can_edit_operational_detail,
+    can_create_os: p.can_create_os,
+    can_create_operational_detail: p.can_create_operational_detail,
+  };
 }
 
 interface EditUserModalProps {
@@ -651,43 +759,35 @@ function EditUserModal({
   const [establishmentIds, setEstablishmentIds] = useState<number[]>(
     () => permissions.map((p) => Number(p.establishment_id)).filter((id, i, a) => a.indexOf(id) === i)
   );
-  const [perms, setPerms] = useState(() => {
-    const first = permissions[0];
-    return first
-      ? {
-          can_manage_reservations: first.can_manage_reservations,
-          can_create_edit_reservations: first.can_create_edit_reservations !== false,
-          can_manage_checkins: first.can_manage_checkins,
-          can_view_reports: first.can_view_reports,
-          can_view_os: first.can_view_os,
-          can_download_os: first.can_download_os,
-          can_view_operational_detail: first.can_view_operational_detail,
-          can_edit_os: first.can_edit_os,
-          can_edit_operational_detail: first.can_edit_operational_detail,
-          can_create_os: first.can_create_os,
-          can_create_operational_detail: first.can_create_operational_detail,
-        }
-      : {
-          can_manage_reservations: true,
-          can_create_edit_reservations: true,
-          can_manage_checkins: true,
-          can_view_reports: true,
-          can_view_os: true,
-          can_download_os: true,
-          can_view_operational_detail: true,
-          can_edit_os: false,
-          can_edit_operational_detail: false,
-          can_create_os: false,
-          can_create_operational_detail: false,
-        };
+  const [permsByEstablishment, setPermsByEstablishment] = useState<Record<number, EstablishmentPerms>>(() => {
+    const map: Record<number, EstablishmentPerms> = {};
+    permissions.forEach((p) => {
+      map[Number(p.establishment_id)] = permFromRow(p);
+    });
+    return map;
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const perms = DEFAULT_ESTAB_PERMS;
+
   const toggleEstablishment = (id: number) => {
-    setEstablishmentIds((prev) =>
-      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
-    );
+    if (establishmentIds.includes(id)) {
+      setEstablishmentIds((prev) => prev.filter((x) => x !== id));
+    } else {
+      setPermsByEstablishment((p) => ({
+        ...p,
+        [id]: p[id] ?? { ...DEFAULT_ESTAB_PERMS },
+      }));
+      setEstablishmentIds((prev) => [...prev, id]);
+    }
+  };
+
+  const setPermsForEstablishment = (estabId: number, key: keyof EstablishmentPerms, value: boolean) => {
+    setPermsByEstablishment((prev) => ({
+      ...prev,
+      [estabId]: { ...(prev[estabId] ?? DEFAULT_ESTAB_PERMS), [key]: value },
+    }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -732,14 +832,11 @@ function EditUserModal({
       const existingEstabIds = permissions.map((p) => Number(p.establishment_id));
       const toAdd = establishmentIds.filter((id) => !existingEstabIds.includes(Number(id)));
       const toRemove = permissions.filter((p) => !establishmentIds.includes(Number(p.establishment_id)));
+      const toUpdate = permissions.filter((p) => establishmentIds.includes(Number(p.establishment_id)));
 
-      for (const perm of toRemove) {
-        await fetch(`${apiUrl}/api/establishment-permissions/${perm.id}`, {
-          method: "DELETE",
-          headers: { Authorization: `Bearer ${token}` },
-        });
-      }
+      // Ordem segura: criar novas permissões primeiro, depois atualizar, por último remover (evita perda de acesso)
       for (const estabId of toAdd) {
+        const permsForEstab = permsByEstablishment[estabId] ?? perms;
         const resPerm = await fetch(`${apiUrl}/api/establishment-permissions`, {
           method: "POST",
           headers: {
@@ -750,7 +847,7 @@ function EditUserModal({
             user_id: user.id,
             user_email: email,
             establishment_id: estabId,
-            ...perms,
+            ...permsForEstab,
             is_active: true,
           }),
         });
@@ -759,15 +856,25 @@ function EditUserModal({
           throw new Error(errBody.error || errBody.message || "Erro ao salvar permissão");
         }
       }
-      const toUpdate = permissions.filter((p) => establishmentIds.includes(Number(p.establishment_id)));
       for (const perm of toUpdate) {
-        await fetch(`${apiUrl}/api/establishment-permissions/${perm.id}`, {
+        const permsForEstab = permsByEstablishment[Number(perm.establishment_id)] ?? perms;
+        const resUpdate = await fetch(`${apiUrl}/api/establishment-permissions/${perm.id}`, {
           method: "PUT",
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
           },
-          body: JSON.stringify({ ...perms, is_active: true }),
+          body: JSON.stringify({ ...permsForEstab, is_active: true }),
+        });
+        if (!resUpdate.ok) {
+          const errBody = await resUpdate.json().catch(() => ({}));
+          throw new Error(errBody.error || errBody.message || "Erro ao atualizar permissão");
+        }
+      }
+      for (const perm of toRemove) {
+        await fetch(`${apiUrl}/api/establishment-permissions/${perm.id}`, {
+          method: "DELETE",
+          headers: { Authorization: `Bearer ${token}` },
         });
       }
 
@@ -783,136 +890,203 @@ function EditUserModal({
   const allRoles: Role[] = ["admin", "gerente", "atendente", "recepcao", "usuario", "cliente", "promoter"];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-        <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
-          <h2 className="text-xl font-semibold text-gray-800">Editar usuário</h2>
-          <button onClick={onClose} className="p-2 text-gray-500 hover:bg-gray-100 rounded-lg">
-            <MdClose size={24} />
+    <div className="fixed inset-0 z-50 flex items-center justify-end bg-black/60">
+      <div className="h-full w-full max-w-2xl bg-slate-900 text-slate-50 shadow-2xl border-l border-slate-800 flex flex-col">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800 bg-slate-900/90 backdrop-blur">
+          <div>
+            <h2 className="text-xl font-semibold">Editar usuário</h2>
+            <p className="text-xs text-slate-400 mt-1">
+              Defina o cargo global e as permissões por estabelecimento.
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-2 rounded-full hover:bg-slate-800 text-slate-400 hover:text-slate-100"
+            aria-label="Fechar"
+          >
+            <MdClose size={22} />
           </button>
         </div>
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+
+        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto px-6 py-4 space-y-6">
           {error && (
-            <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+            <div className="p-3 bg-red-900/40 border border-red-500/60 rounded-lg text-red-100 text-sm">
               {error}
             </div>
           )}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Nome</label>
-              <input
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                required
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">E-mail</label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500"
-              />
-            </div>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Nova senha (deixe em branco para manter)</label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Telefone</label>
-              <input
-                type="text"
-                value={telefone}
-                onChange={(e) => setTelefone(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500"
-              />
-            </div>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Tipo de usuário (role)</label>
-            <select
-              value={role}
-              onChange={(e) => setRole(e.target.value as Role)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500"
-            >
-              {allRoles.map((r) => (
-                <option key={r} value={r}>
-                  {ROLE_LABELS[r]}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Estabelecimento(s)</label>
-            <div className="flex flex-wrap gap-2">
-              {establishments.map((est) => (
-                <label key={est.id} className="inline-flex items-center gap-2 px-3 py-2 bg-gray-100 rounded-lg cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={establishmentIds.includes(est.id)}
-                    onChange={() => toggleEstablishment(est.id)}
-                  />
-                  <span className="text-sm text-gray-800">{est.name}</span>
+
+          <section>
+            <h3 className="text-sm font-semibold text-slate-200 mb-3">Dados gerais</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-medium text-slate-400 mb-1">Nome</label>
+                <input
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  required
+                  className="w-full px-3 py-2 rounded-lg border border-slate-700 bg-slate-900/80 text-slate-50 text-sm focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-400 mb-1">E-mail</label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  className="w-full px-3 py-2 rounded-lg border border-slate-700 bg-slate-900/80 text-slate-50 text-sm focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-400 mb-1">
+                  Nova senha (deixe em branco para manter)
                 </label>
-              ))}
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg border border-slate-700 bg-slate-900/80 text-slate-50 text-sm focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-400 mb-1">Telefone</label>
+                <input
+                  type="text"
+                  value={telefone}
+                  onChange={(e) => setTelefone(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg border border-slate-700 bg-slate-900/80 text-slate-50 text-sm focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-400 mb-1">Cargo global (role)</label>
+                <select
+                  value={role}
+                  onChange={(e) => setRole(e.target.value as Role)}
+                  className="w-full px-3 py-2 rounded-lg border border-slate-700 bg-slate-900/80 text-slate-50 text-sm focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+                >
+                  {allRoles.map((r) => (
+                    <option key={r} value={r}>
+                      {ROLE_LABELS[r]}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Permissões do menu</label>
-            <div className="grid grid-cols-2 gap-2 text-sm">
-              {[
-                { key: "can_manage_reservations", label: "Gerenciar reservas" },
-                { key: "can_manage_checkins", label: "Gerenciar check-ins" },
-                { key: "can_view_reports", label: "Ver relatórios" },
-                { key: "can_view_os", label: "Ver OS" },
-                { key: "can_download_os", label: "Baixar OS" },
-                { key: "can_view_operational_detail", label: "Ver detalhes operacionais" },
-                { key: "can_edit_os", label: "Editar OS" },
-                { key: "can_edit_operational_detail", label: "Editar detalhes operacionais" },
-                { key: "can_create_os", label: "Criar OS" },
-                { key: "can_create_operational_detail", label: "Criar detalhes operacionais" },
-              ].map(({ key, label }) => (
-                <label key={key} className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={perms[key as keyof typeof perms]}
-                    onChange={(e) =>
-                      setPerms((prev) => ({ ...prev, [key]: e.target.checked }))
-                    }
-                  />
-                  {label}
-                </label>
-              ))}
+          </section>
+
+          <section className="border-t border-slate-800 pt-4">
+            <h3 className="text-sm font-semibold text-slate-200 mb-2">Estabelecimentos e permissões</h3>
+            <p className="text-xs text-slate-400 mb-3">
+              Selecione os estabelecimentos e, para cada um, defina as permissões granulares.
+            </p>
+
+            <div className="flex flex-wrap gap-2 mb-4">
+              {establishments.map((est) => {
+                const active = establishmentIds.includes(est.id);
+                return (
+                  <button
+                    key={est.id}
+                    type="button"
+                    onClick={() => toggleEstablishment(est.id)}
+                    className={`px-3 py-1 rounded-full text-xs border transition-colors ${
+                      active
+                        ? "bg-yellow-500 text-slate-900 border-yellow-400"
+                        : "bg-slate-800/70 text-slate-300 border-slate-700 hover:bg-slate-800"
+                    }`}
+                  >
+                    {est.name}
+                  </button>
+                );
+              })}
+              {establishments.length === 0 && (
+                <span className="text-xs text-slate-500">Nenhum estabelecimento carregado.</span>
+              )}
             </div>
-          </div>
-          <div className="flex gap-3 pt-4">
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 py-2 px-4 border border-gray-300 rounded-xl text-gray-700 hover:bg-gray-50"
-            >
-              Cancelar
-            </button>
-            <button
-              type="submit"
-              disabled={loading}
-              className="flex-1 py-2 px-4 bg-yellow-500 hover:bg-yellow-600 text-gray-900 font-semibold rounded-xl disabled:opacity-50"
-            >
-              {loading ? "Salvando..." : "Salvar"}
-            </button>
-          </div>
+
+            <div className="space-y-3 max-h-80 overflow-y-auto pr-1">
+              {establishmentIds.map((id) => {
+                const est = establishments.find((e) => e.id === id);
+                const estPerms = permsByEstablishment[id] ?? DEFAULT_ESTAB_PERMS;
+                return (
+                  <div
+                    key={id}
+                    className="rounded-xl border border-slate-800 bg-slate-900/70 px-4 py-3"
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <div>
+                        <p className="text-sm font-semibold text-slate-100">
+                          {est?.name || `Estabelecimento #${id}`}
+                        </p>
+                        <p className="text-xs text-slate-500">Permissões de acesso</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => toggleEstablishment(id)}
+                        className="text-xs text-red-400 hover:text-red-300"
+                      >
+                        Remover acesso
+                      </button>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 text-xs">
+                      {[
+                        { key: "can_manage_reservations", label: "Gerenciar reservas" },
+                        {
+                          key: "can_create_edit_reservations",
+                          label: "Criar/editar reservas e lista de espera",
+                        },
+                        { key: "can_manage_checkins", label: "Gerenciar check-ins" },
+                        { key: "can_view_reports", label: "Ver relatórios" },
+                        { key: "can_view_os", label: "Ver OS" },
+                        { key: "can_download_os", label: "Baixar OS" },
+                        { key: "can_view_operational_detail", label: "Ver detalhes operacionais" },
+                        { key: "can_edit_os", label: "Editar OS" },
+                        { key: "can_edit_operational_detail", label: "Editar detalhes operacionais" },
+                        { key: "can_create_os", label: "Criar OS" },
+                        { key: "can_create_operational_detail", label: "Criar detalhes operacionais" },
+                      ].map(({ key, label }) => (
+                        <label key={key} className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            checked={estPerms[key as keyof EstablishmentPerms]}
+                            onChange={(e) =>
+                              setPermsForEstablishment(id, key as keyof EstablishmentPerms, e.target.checked)
+                            }
+                            className="w-3 h-3 rounded border-slate-600 bg-slate-900 text-yellow-500 focus:ring-yellow-500"
+                          />
+                          <span className="text-slate-200">{label}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+              {establishmentIds.length === 0 && (
+                <p className="text-xs text-slate-500">
+                  Nenhum estabelecimento selecionado. Selecione acima para liberar o acesso.
+                </p>
+              )}
+            </div>
+          </section>
         </form>
+
+        <div className="px-6 py-4 border-t border-slate-800 bg-slate-900/95 flex gap-3">
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex-1 py-2 px-4 rounded-xl border border-slate-600 text-slate-100 text-sm hover:bg-slate-800"
+          >
+            Cancelar
+          </button>
+          <button
+            type="submit"
+            form="edit-user-form"
+            disabled={loading}
+            className="flex-1 py-2 px-4 rounded-xl bg-yellow-500 hover:bg-yellow-400 text-slate-900 text-sm font-semibold disabled:opacity-50"
+          >
+            {loading ? "Salvando..." : "Salvar alterações"}
+          </button>
+        </div>
       </div>
     </div>
   );
