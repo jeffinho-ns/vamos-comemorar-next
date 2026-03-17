@@ -575,22 +575,42 @@ export default function CardapioAdminPage() {
             .replace(/[\u0300-\u036f]/g, '')
             .replace(/[^a-z0-9]+/g, ' ')
             .trim();
+        const normalizeCompact = (value: string) =>
+          normalizeName(value).replace(/\s+/g, '');
 
         const targetNameNorm = normalizeName(promoterBarName);
+        const targetNameCompact = normalizeCompact(promoterBarName);
 
-        const filteredBars = barsData.filter((bar) => {
+        let filteredBars = barsData.filter((bar) => {
           const barIdNum = Number(bar.id);
           const barName = (bar.name || '').toLowerCase();
           const barNameNorm = normalizeName(barName);
+          const barNameCompact = normalizeCompact(barName);
           const matchById = barIdNum === promoterBarIdNum || String(bar.id) === String(promoterBar.barId);
           const matchByName =
             (promoterBarName && barName.includes(promoterBarName)) ||
-            (targetNameNorm && barNameNorm && (barNameNorm.includes(targetNameNorm) || targetNameNorm.includes(barNameNorm)));
+            (targetNameNorm &&
+              barNameNorm &&
+              (barNameNorm.includes(targetNameNorm) || targetNameNorm.includes(barNameNorm))) ||
+            (targetNameCompact &&
+              barNameCompact &&
+              (barNameCompact.includes(targetNameCompact) ||
+                targetNameCompact.includes(barNameCompact)));
           return matchById || matchByName;
         });
 
-        // Fallback: se não encontrou nenhum bar correspondente, não zera a tela.
-        // Isso acontece quando establishment_id (places) não corresponde ao barId (cardápio).
+        // Fallback: se não encontrou nenhum bar correspondente, tenta heurística por palavra-chave.
+        // Ex.: "highline" vs "high line" (diferença de espaços) ou nomes com variações.
+        if (filteredBars.length === 0) {
+          const wantsHighline =
+            targetNameCompact.includes('highline') || targetNameNorm.includes('high line') || targetNameNorm.includes('high');
+          if (wantsHighline) {
+            const hi = barsData.filter((bar) => normalizeCompact(String(bar.name || '')).includes('high'));
+            if (hi.length > 0) filteredBars = hi;
+          }
+        }
+
+        // Se ainda assim não achou, não aplica filtro (evita tela vazia).
         barsData = filteredBars.length > 0 ? filteredBars : barsData;
       }
 
