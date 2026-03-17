@@ -80,107 +80,26 @@ export function useEstablishmentPermissions() {
         const normalizedEmail = email.toLowerCase();
 
         if (!response.ok) {
-          // Se não tem permissões configuradas, verificar fallback para promoter restrito a um estabelecimento
-          if (response.status === 404 || response.status === 403) {
-            const role = localStorage.getItem('role') || '';
-            // analista.mkt03@ideiaum.com.br: acesso apenas ao estabelecimento Pracinha do Seu Justino (place id 8)
-            if ((role === 'promoter' || role === 'promoter-list') && email === 'analista.mkt03@ideiaum.com.br') {
-              const config: UserEstablishmentConfig = {
-                userEmail: email,
-                establishmentIds: [8], // Pracinha do Seu Justino
-                permissions: {
-                  canEditOS: false,
-                  canEditOperationalDetail: false,
-                  canViewOS: true,
-                  canDownloadOS: true,
-                  canViewOperationalDetail: true,
-                  canCreateOS: false,
-                  canCreateOperationalDetail: false,
-                },
-              };
-              setUserConfig(config);
-              setPermissions([]);
-              console.log('✅ [PERMISSIONS] Fallback analista.mkt03: restrita ao estabelecimento Pracinha do Seu Justino (id 8)');
-            // subgerente.sjm@seujustino.com.br: acesso aos estabelecimentos Seu Justino (1) e Pracinha do Seu Justino (8)
-            } else if (role === 'gerente' && normalizedEmail === 'subgerente.sjm@seujustino.com.br') {
-              const config: UserEstablishmentConfig = {
-                userEmail: email,
-                establishmentIds: [1, 8],
-                permissions: {
-                  canEditOS: true,
-                  canEditOperationalDetail: true,
-                  canViewOS: true,
-                  canDownloadOS: true,
-                  canViewOperationalDetail: true,
-                  canCreateOS: true,
-                  canCreateOperationalDetail: true,
-                },
-              };
-              setUserConfig(config);
-              setPermissions([]);
-              console.log('✅ [PERMISSIONS] Fallback subgerente.sjm: acesso aos estabelecimentos 1 (Seu Justino) e 8 (Pracinha)');
-            } else {
-              setUserConfig(null);
-              setPermissions([]);
-            }
-            setIsLoading(false);
-            return;
-          }
           throw new Error('Erro ao buscar permissões');
         }
 
         const data = await response.json();
 
         if (data.success && data.data && data.data.length > 0) {
-          let permissionsData = data.data as PermissionData[];
-
-          // 🔧 Garantir que o subgerente do Seu Justino tenha permissões explícitas
-          // para os estabelecimentos Seu Justino (1) e Pracinha do Seu Justino (8),
-          // mesmo que o backend tenha retornado apenas um deles.
-          if (normalizedEmail === 'subgerente.sjm@seujustino.com.br') {
-            const hasSeuJustino = permissionsData.some(
-              (p) => p.establishment_id === 1,
-            );
-            const hasPracinha = permissionsData.some(
-              (p) => p.establishment_id === 8,
-            );
-
-            // Se só existir permissão para o Seu Justino (1), clonar para a Pracinha (8)
-            if (hasSeuJustino && !hasPracinha) {
-              const basePerm =
-                permissionsData.find((p) => p.establishment_id === 1) ||
-                permissionsData[0];
-              const clonedForPracinha: PermissionData = {
-                ...basePerm,
-                // ID artificial apenas para diferenciar; o que importa é o establishment_id
-                id: basePerm.id + 1000000,
-                establishment_id: 8,
-                establishment_name:
-                  basePerm.establishment_name || 'Pracinha do Seu Justino',
-                // Garantir que possa criar/editar reservas na Pracinha
-                can_create_edit_reservations:
-                  basePerm.can_create_edit_reservations !== false,
-                is_active: true,
-              };
-              permissionsData = [...permissionsData, clonedForPracinha];
-            }
-          }
+          const permissionsData = data.data as PermissionData[];
 
           setPermissions(permissionsData);
-          
+
           // Converter para formato UserEstablishmentConfig
           // Agrupar IDs únicos de estabelecimentos
-          let establishmentIds = Array.from(new Set(permissionsData.map(p => p.establishment_id)));
-
-          // Garantir que o subgerente do Seu Justino também tenha acesso à Pracinha (id 8)
-          if (normalizedEmail === 'subgerente.sjm@seujustino.com.br' && !establishmentIds.includes(8)) {
-            establishmentIds.push(8);
-          }
+          const establishmentIds = Array.from(
+            new Set(permissionsData.map((p) => p.establishment_id)),
+          );
           const firstPermission = permissionsData[0];
-          
+
           const config: UserEstablishmentConfig = {
             userEmail: email,
-            establishmentIds: establishmentIds,
+            establishmentIds,
             permissions: {
               canEditOS: firstPermission.can_edit_os,
               canEditOperationalDetail: firstPermission.can_edit_operational_detail,
@@ -191,7 +110,7 @@ export function useEstablishmentPermissions() {
               canCreateOperationalDetail: firstPermission.can_create_operational_detail,
             },
           };
-          
+
           setUserConfig(config);
           console.log('✅ [PERMISSIONS] Config carregada:', config);
         } else {
@@ -200,75 +119,6 @@ export function useEstablishmentPermissions() {
           if (role === 'admin') {
             setUserConfig(null);
             setPermissions([]);
-          } else if ((role === 'promoter' || role === 'promoter-list') && email === 'analista.mkt03@ideiaum.com.br') {
-            const config: UserEstablishmentConfig = {
-              userEmail: email,
-              establishmentIds: [8], // Pracinha do Seu Justino
-              permissions: {
-                canEditOS: false,
-                canEditOperationalDetail: false,
-                canViewOS: true,
-                canDownloadOS: true,
-                canViewOperationalDetail: true,
-                canCreateOS: false,
-                canCreateOperationalDetail: false,
-              },
-            };
-            setUserConfig(config);
-            setPermissions([]);
-            console.log('✅ [PERMISSIONS] Fallback analista.mkt03: restrita ao estabelecimento Pracinha do Seu Justino (id 8)');
-          } else if (
-            role === 'gerente' &&
-            normalizedEmail === 'subgerente.sjm@seujustino.com.br'
-          ) {
-            const config: UserEstablishmentConfig = {
-              userEmail: email,
-              establishmentIds: [1, 8],
-              permissions: {
-                canEditOS: true,
-                canEditOperationalDetail: true,
-                canViewOS: true,
-                canDownloadOS: true,
-                canViewOperationalDetail: true,
-                canCreateOS: true,
-                canCreateOperationalDetail: true,
-              },
-            };
-
-            // Criar permissões padrão para os estabelecimentos 1 e 8,
-            // garantindo que o subgerente possa criar/editar reservas
-            const defaultPerm: PermissionData = {
-              id: 1000000,
-              user_id: 0,
-              user_email: email,
-              establishment_id: 1,
-              establishment_name: 'Seu Justino',
-              can_edit_os: true,
-              can_edit_operational_detail: true,
-              can_view_os: true,
-              can_download_os: true,
-              can_view_operational_detail: true,
-              can_create_os: true,
-              can_create_operational_detail: true,
-              can_manage_reservations: true,
-              can_manage_checkins: true,
-              can_view_reports: true,
-              can_create_edit_reservations: true,
-              is_active: true,
-            };
-
-            const pracinhaPerm: PermissionData = {
-              ...defaultPerm,
-              id: defaultPerm.id + 1,
-              establishment_id: 8,
-              establishment_name: 'Pracinha do Seu Justino',
-            };
-
-            setUserConfig(config);
-            setPermissions([defaultPerm, pracinhaPerm]);
-            console.log(
-              '✅ [PERMISSIONS] Fallback (sem dados) subgerente.sjm: acesso e permissões completas para os estabelecimentos 1 (Seu Justino) e 8 (Pracinha)',
-            );
           } else {
             setUserConfig(null);
             setPermissions([]);
@@ -278,27 +128,8 @@ export function useEstablishmentPermissions() {
       } catch (error) {
         console.error('Erro ao carregar permissões:', error);
         setError(error instanceof Error ? error.message : 'Erro desconhecido');
-        // Em caso de erro: aplicar fallback para analista.mkt03 (apenas Pracinha)
-        const role = localStorage.getItem('role') || '';
-        if ((role === 'promoter' || role === 'promoter-list') && (localStorage.getItem('userEmail') || '') === 'analista.mkt03@ideiaum.com.br') {
-          setUserConfig({
-            userEmail: 'analista.mkt03@ideiaum.com.br',
-            establishmentIds: [8],
-            permissions: {
-              canEditOS: false,
-              canEditOperationalDetail: false,
-              canViewOS: true,
-              canDownloadOS: true,
-              canViewOperationalDetail: true,
-              canCreateOS: false,
-              canCreateOperationalDetail: false,
-            },
-          });
-          setPermissions([]);
-        } else {
-          setUserConfig(null);
-          setPermissions([]);
-        }
+        setUserConfig(null);
+        setPermissions([]);
       } finally {
         setIsLoading(false);
       }
@@ -369,11 +200,14 @@ export function useEstablishmentPermissions() {
     
     // Se não tem userConfig nem permissões, verificar role
     const role = localStorage.getItem('role') || '';
-    console.log(`⚠️ [FILTER] Sem permissões configuradas, role: ${role}, retornando todos os estabelecimentos`);
-    
-    // Para qualquer role sem permissões configuradas, mostrar todos
-    // (o middleware já controla o acesso às rotas)
-    return establishments;
+    console.log(`⚠️ [FILTER] Sem permissões configuradas, role: ${role}`);
+
+    // Admin continua vendo todos; demais, nenhum (sem permissões explícitas)
+    if (role === 'admin') {
+      return establishments;
+    }
+
+    return [];
   };
 
   // Buscar permissão específica para um estabelecimento
