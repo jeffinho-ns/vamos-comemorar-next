@@ -68,7 +68,7 @@ export default function UsersPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
-  const [originFilter, setOriginFilter] = useState<"all" | "app" | "admin">("all");
+  const [viewMode, setViewMode] = useState<"all" | "establishments" | "clients" | "promoters">("all");
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<UserRow | null>(null);
@@ -145,15 +145,24 @@ export default function UsersPage() {
     if (["admin", "gerente", "atendente", "recepcao"].includes(role)) return true;
     return (permissionsByUser[user.id]?.length ?? 0) > 0;
   };
+  const hasEstablishmentAccess = (user: UserRow) =>
+    (permissionsByUser[user.id]?.some((p) => p.is_active) ?? false);
 
   const filteredUsers = users.filter((u) => {
+    const term = search.trim().toLowerCase();
     const matchSearch =
-      !search.trim() ||
-      u.name?.toLowerCase().includes(search.trim().toLowerCase()) ||
-      u.email?.toLowerCase().includes(search.trim().toLowerCase());
+      !term ||
+      u.name?.toLowerCase().includes(term) ||
+      u.email?.toLowerCase().includes(term);
     if (!matchSearch) return false;
-    if (originFilter === "admin") return hasAdminAccess(u);
-    if (originFilter === "app") return !hasAdminAccess(u);
+
+    const role = (u.role || "").toLowerCase();
+    const isClient = role === "cliente";
+    const isPromoter = role === "promoter" || role === "promoter-list";
+
+    if (viewMode === "clients") return isClient;
+    if (viewMode === "promoters") return isPromoter;
+    if (viewMode === "establishments") return hasEstablishmentAccess(u);
     return true;
   });
 
@@ -190,11 +199,34 @@ export default function UsersPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-base">
       <div className="max-w-7xl mx-auto p-8">
-        <div className="mb-8">
-          <h1 className="text-4xl font-bold text-white mb-2">Gerenciar Usuários</h1>
-          <p className="text-gray-400 text-lg">
-            Visualize todos os usuários, cadastre novos por estabelecimento e edite dados e permissões.
-          </p>
+        <div className="mb-8 flex flex-col md:flex-row md:items-end md:justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-semibold text-white mb-2">Gestão de acessos</h1>
+            <p className="text-gray-400 text-sm max-w-xl">
+              Controle quem acessa cada parte do admin por estabelecimento, clientes do app e promoters.
+            </p>
+          </div>
+          <div className="flex items-center gap-2 bg-slate-800/60 rounded-full p-1 border border-slate-700">
+            {[
+              { id: "all", label: "Todos" },
+              { id: "establishments", label: "Estabelecimentos" },
+              { id: "clients", label: "Clientes (App)" },
+              { id: "promoters", label: "Promoters" },
+            ].map(({ id, label }) => (
+              <button
+                key={id}
+                type="button"
+                onClick={() => setViewMode(id as typeof viewMode)}
+                className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                  viewMode === id
+                    ? "bg-yellow-500 text-slate-900"
+                    : "text-slate-300 hover:bg-slate-700/60"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
         </div>
 
         {error && (
@@ -205,132 +237,172 @@ export default function UsersPage() {
 
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
           <div className="flex flex-wrap items-center gap-3">
-            <div className="relative">
-              <MdSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
+            <div className="relative w-full sm:w-72">
+              <MdSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
               <input
                 type="text"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Buscar por nome ou e-mail"
-                className="pl-10 pr-4 py-2 rounded-xl border border-gray-200/30 bg-white/95 text-gray-800 w-64 focus:ring-2 focus:ring-yellow-500"
+                className="pl-9 pr-3 py-2 rounded-xl border border-slate-700 bg-slate-900/60 text-slate-100 w-full text-sm focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
               />
             </div>
-            <select
-              value={originFilter}
-              onChange={(e) => setOriginFilter(e.target.value as "all" | "app" | "admin")}
-              className="px-4 py-2 rounded-xl border border-gray-200/30 bg-white/95 text-gray-800 focus:ring-2 focus:ring-yellow-500"
-            >
-              <option value="all">Todos</option>
-              <option value="app">Cadastrados pelo App (Agilizia)</option>
-              <option value="admin">Acesso Admin</option>
-            </select>
           </div>
           <div className="flex items-center gap-3">
             <button
               onClick={loadAll}
-              className="p-3 rounded-xl bg-gray-700 hover:bg-gray-600 text-white transition-colors"
+              className="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-100 border border-slate-700 transition-colors"
             >
-              <MdRefresh size={20} />
+              <MdRefresh size={18} />
             </button>
             <button
               onClick={() => setCreateModalOpen(true)}
-              className="flex items-center gap-2 px-6 py-3 rounded-xl bg-yellow-500 hover:bg-yellow-600 text-gray-900 font-semibold transition-colors"
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-yellow-500 hover:bg-yellow-400 text-slate-900 text-sm font-semibold transition-colors shadow-sm"
             >
-              <MdAdd size={20} /> Novo usuário
+              <MdAdd size={18} /> Novo usuário
             </button>
           </div>
         </div>
 
-        <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-xl border border-gray-200/20 overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left">
-              <thead>
-                <tr className="border-b border-gray-200 bg-gray-50">
-                  <th className="px-4 py-3 text-gray-700 font-semibold">Nome</th>
-                  <th className="px-4 py-3 text-gray-700 font-semibold">E-mail</th>
-                  <th className="px-4 py-3 text-gray-700 font-semibold">Origem</th>
-                  <th className="px-4 py-3 text-gray-700 font-semibold">Role</th>
-                  <th className="px-4 py-3 text-gray-700 font-semibold">Cliente</th>
-                  <th className="px-4 py-3 text-gray-700 font-semibold">Gerente / Atendente</th>
-                  <th className="px-4 py-3 text-gray-700 font-semibold">Estabelecimento(s)</th>
-                  <th className="px-4 py-3 text-gray-700 font-semibold w-28">Ações</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredUsers.length === 0 && (
-                  <tr>
-                    <td colSpan={8} className="px-4 py-12 text-center text-gray-500">
-                      Nenhum usuário encontrado.
-                    </td>
-                  </tr>
-                )}
-                {filteredUsers.map((user) => {
-                  const perms = permissionsByUser[user.id] || [];
-                  const roleRaw = (user.role || "usuario").toLowerCase();
-                  const role = roleRaw === "recepção" ? "recepcao" : roleRaw;
-                  const isGerenteOuAtendente = role === "gerente" || role === "atendente" || role === "recepcao";
-                  const estabNames = perms
-                    .filter((p) => p.is_active)
-                    .map((p) => p.establishment_name || `#${p.establishment_id}`)
-                    .join(", ") || "—";
-                  return (
-                    <tr key={user.id} className="border-b border-gray-100 hover:bg-gray-50/80">
-                      <td className="px-4 py-3 text-gray-800 font-medium">{user.name || "—"}</td>
-                      <td className="px-4 py-3 text-gray-600">{user.email || "—"}</td>
-                      <td className="px-4 py-3">
+        <div className="space-y-4">
+          {filteredUsers.length === 0 && (
+            <div className="rounded-2xl border border-slate-800 bg-slate-900/60 px-6 py-10 text-center text-slate-400 text-sm">
+              Nenhum usuário encontrado com os filtros atuais.
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+            {filteredUsers.map((user) => {
+              const perms = (permissionsByUser[user.id] || []).filter((p) => p.is_active);
+              const roleRaw = (user.role || "usuario").toLowerCase();
+              const role = roleRaw === "recepção" ? "recepcao" : roleRaw;
+              const isClient = role === "cliente";
+              const isPromoter = role === "promoter" || role === "promoter-list";
+              const isAdminOrManager = hasAdminAccess(user);
+
+              const estabNames =
+                perms.map((p) => p.establishment_name || `#${p.establishment_id}`).join(", ") || "Sem estabelecimentos";
+
+              const hasReservations = perms.some(
+                (p) => p.can_manage_reservations || p.can_create_edit_reservations !== false,
+              );
+              const hasCheckins = perms.some((p) => p.can_manage_checkins);
+              const hasReports = perms.some((p) => p.can_view_reports);
+              const hasOs =
+                perms.some((p) => p.can_view_os || p.can_download_os || p.can_create_os || p.can_edit_os) ||
+                perms.some((p) => p.can_view_operational_detail || p.can_create_operational_detail || p.can_edit_operational_detail);
+
+              return (
+                <div
+                  key={user.id}
+                  className="rounded-2xl border border-slate-800 bg-slate-900/70 px-4 py-4 flex flex-col justify-between"
+                >
+                  <div>
+                    <div className="flex items-start justify-between gap-3 mb-2">
+                      <div>
+                        <p className="text-sm font-medium text-slate-50 truncate">
+                          {user.name || "Usuário sem nome"}
+                        </p>
+                        <p className="text-xs text-slate-400 truncate">{user.email || "—"}</p>
+                      </div>
+                      <span
+                        className={`px-2 py-1 rounded-full text-[10px] font-semibold ${
+                          isAdminOrManager
+                            ? "bg-yellow-500/15 text-yellow-300 border border-yellow-500/40"
+                            : "bg-slate-800 text-slate-300 border border-slate-700"
+                        }`}
+                      >
+                        {ROLE_LABELS[role] || user.role || "Usuário"}
+                      </span>
+                    </div>
+
+                    <div className="flex flex-wrap gap-1.5 mb-2">
+                      {isClient && (
+                        <span className="px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 text-[10px] border border-slate-700">
+                          Cliente (App)
+                        </span>
+                      )}
+                      {isPromoter && (
+                        <span className="px-2 py-0.5 rounded-full bg-purple-600/20 text-purple-200 text-[10px] border border-purple-500/40">
+                          Promoter
+                        </span>
+                      )}
+                      {isAdminOrManager && !isClient && (
+                        <span className="px-2 py-0.5 rounded-full bg-blue-600/20 text-blue-200 text-[10px] border border-blue-500/40">
+                          Acesso admin
+                        </span>
+                      )}
+                    </div>
+
+                    {perms.length > 0 && (
+                      <div className="mb-3">
+                        <p className="text-[11px] text-slate-400 mb-1">Estabelecimentos</p>
+                        <p className="text-xs text-slate-200 line-clamp-2" title={estabNames}>
+                          {estabNames}
+                        </p>
+                      </div>
+                    )}
+
+                    <div className="grid grid-cols-2 gap-1.5 text-[11px] text-slate-300">
+                      <div className="flex items-center gap-1">
                         <span
-                          className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${
-                            hasAdminAccess(user)
-                              ? "bg-blue-100 text-blue-800"
-                              : "bg-gray-200 text-gray-700"
+                          className={`w-1.5 h-1.5 rounded-full ${
+                            hasReservations ? "bg-emerald-400" : "bg-slate-600"
                           }`}
-                        >
-                          {hasAdminAccess(user) ? "Admin" : "App (Agilizia)"}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className="inline-block px-2 py-1 rounded bg-gray-200 text-gray-700 text-xs font-medium">
-                          {ROLE_LABELS[role] || user.role || "—"}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-gray-600">
-                        {role === "cliente" ? "Sim" : "Não"}
-                      </td>
-                      <td className="px-4 py-3 text-gray-600">
-                        {isGerenteOuAtendente ? (
-                          <span className="text-green-700 font-medium">
-                            {ROLE_LABELS[role]}
-                          </span>
-                        ) : (
-                          "—"
-                        )}
-                      </td>
-                      <td className="px-4 py-3 text-gray-600 text-sm max-w-xs truncate" title={estabNames}>
-                        {estabNames}
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => openEdit(user)}
-                            className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                            title="Editar"
-                          >
-                            <MdEdit size={18} />
-                          </button>
-                          <button
-                            onClick={() => handleDelete(user.id)}
-                            className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                            title="Excluir"
-                          >
-                            <MdDelete size={18} />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                        />
+                        <span>Reservas</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <span
+                          className={`w-1.5 h-1.5 rounded-full ${
+                            hasCheckins ? "bg-emerald-400" : "bg-slate-600"
+                          }`}
+                        />
+                        <span>Check-ins</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <span
+                          className={`w-1.5 h-1.5 rounded-full ${
+                            hasReports ? "bg-emerald-400" : "bg-slate-600"
+                          }`}
+                        />
+                        <span>Relatórios</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <span
+                          className={`w-1.5 h-1.5 rounded-full ${
+                            hasOs ? "bg-emerald-400" : "bg-slate-600"
+                          }`}
+                        />
+                        <span>OS & Operação</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between mt-4 pt-3 border-t border-slate-800">
+                    <span className="text-[10px] text-slate-500">
+                      ID #{user.id}
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => openEdit(user)}
+                        className="px-2.5 py-1 rounded-lg text-xs text-blue-100 bg-blue-600/20 border border-blue-500/40 hover:bg-blue-600/30"
+                        type="button"
+                      >
+                        Editar
+                      </button>
+                      <button
+                        onClick={() => handleDelete(user.id)}
+                        className="px-2.5 py-1 rounded-lg text-xs text-red-100 bg-red-600/20 border border-red-500/40 hover:bg-red-600/30"
+                        type="button"
+                      >
+                        Remover
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       </div>
