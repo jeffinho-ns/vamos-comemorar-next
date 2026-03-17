@@ -877,12 +877,16 @@ function EditUserModal({
       return;
     }
     try {
-      const body: Record<string, unknown> = {
-        name: name.trim(),
-        email: email.trim().toLowerCase(),
-        telefone: telefone.trim() || undefined,
-        role,
-      };
+      const nextName = name.trim();
+      const nextEmail = email.trim().toLowerCase();
+      const nextTelefone = telefone.trim();
+      const nextRole = role;
+      const body: Record<string, unknown> = {};
+
+      if (nextName && nextName !== (user.name || "")) body.name = nextName;
+      if (nextEmail && nextEmail !== (user.email || "").toLowerCase()) body.email = nextEmail;
+      if (nextTelefone !== (user.telefone || "")) body.telefone = nextTelefone || undefined;
+      if (nextRole !== normalizeRole(user.role)) body.role = nextRole;
       if (password.trim()) body.password = password.trim();
 
       const resUser = await fetch(`${apiUrl}/api/users/${user.id}`, {
@@ -895,13 +899,19 @@ function EditUserModal({
       });
       if (!resUser.ok) {
         const text = await resUser.text();
-        let err: { error?: string; message?: string } = {};
+        let err: { error?: string; message?: string; details?: unknown } = {};
         try {
           err = text ? JSON.parse(text) : {};
         } catch {
           err = { error: text || resUser.statusText };
         }
-        const msg = err.error || err.message || text || resUser.statusText || "Erro ao atualizar usuário";
+        const msg =
+          err.error ||
+          err.message ||
+          (typeof err.details === "string" ? err.details : undefined) ||
+          text ||
+          resUser.statusText ||
+          "Erro ao atualizar usuário";
         throw new Error(msg);
       }
 
