@@ -536,16 +536,23 @@ export default function ReservationCalendar({
                   </div>
                 )}
                 
-                {day.availableTables > 0 && (
-                  <div className="hidden sm:flex items-center gap-1 text-xs">
+                {isReservaRooftop ? (
+                  <div className="flex items-center gap-1 text-xs">
                     <MdRestaurant className="text-green-500" />
                     <span className="text-green-600">
-                      {day.availableTables}{' '}
-                      {isReservaRooftop
-                        ? `reserva${day.availableTables !== 1 ? 's' : ''} disponível${day.availableTables !== 1 ? 'is' : ''}`
-                        : `mesa${day.availableTables !== 1 ? 's' : ''} disponível${day.availableTables !== 1 ? 'is' : ''}`}
+                      {day.reservations.length} reserva{day.reservations.length !== 1 ? "s" : ""}
                     </span>
                   </div>
+                ) : (
+                  day.availableTables > 0 && (
+                    <div className="hidden sm:flex items-center gap-1 text-xs">
+                      <MdRestaurant className="text-green-500" />
+                      <span className="text-green-600">
+                        {day.availableTables} mesa{day.availableTables !== 1 ? "s" : ""}{" "}
+                        disponível{day.availableTables !== 1 ? "is" : ""}
+                      </span>
+                    </div>
+                  )
                 )}
 
                 {/* Lista de Reservas (máximo 2 visíveis) - apenas em telas maiores */}
