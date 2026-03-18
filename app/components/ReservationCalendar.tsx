@@ -537,10 +537,11 @@ export default function ReservationCalendar({
                 )}
                 
                 {isReservaRooftop ? (
-                  <div className="flex items-center gap-1 text-xs">
+                  <div className="flex items-center gap-1 text-[10px] sm:text-xs">
                     <MdRestaurant className="text-green-500" />
                     <span className="text-green-600">
-                      {day.reservations.length} reserva{day.reservations.length !== 1 ? "s" : ""}
+                      {day.reservations.length}{" "}
+                      <span className="uppercase tracking-wide">res.</span>
                     </span>
                   </div>
                 ) : (
