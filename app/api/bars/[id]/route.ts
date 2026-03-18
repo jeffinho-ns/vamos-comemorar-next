@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+// Needed for Next.js static export ("output: export").
+// This route handler depends on runtime fetches but must be explicitly marked.
+export const dynamic = 'force-static';
+
 const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL_LOCAL;
 
 export async function GET(
