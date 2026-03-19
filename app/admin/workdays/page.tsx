@@ -20,22 +20,22 @@ export default function EventsPage() {
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [duplicateModalOpen, setDuplicateModalOpen] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<EventDataApi | null>(null);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(0);
 
-  const fetchEvents = async (page: number) => {
+  const PAGE_SIZES = [10, 30, 50] as const;
+
+  // Paginação independente por estabelecimento (client-side)
+  const [pageSizeByEstablishment, setPageSizeByEstablishment] = useState<Record<string, number>>({});
+  const [currentPageByEstablishment, setCurrentPageByEstablishment] = useState<Record<string, number>>({});
+
+  const fetchEventsAll = async () => {
     setLoading(true);
+    setError(null);
     const token = localStorage.getItem("authToken");
 
     try {
-      const response = await fetch(
-        `https://vamos-comemorar-api.onrender.com/api/events?page=${page}&perPage=10`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        },
-      );
+      const response = await fetch(`https://vamos-comemorar-api.onrender.com/api/events`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      });
 
       if (!response.ok) throw new Error("Erro ao buscar eventos");
 
@@ -43,25 +43,21 @@ export default function EventsPage() {
 
       if (Array.isArray(data)) {
         setEvents(data);
-        setTotalPages(1); // Ajuste conforme a lógica de paginação da sua API
       } else {
         setError("Dados inválidos.");
       }
-    } catch (error) {
-      if (error instanceof Error) {
-        setError(error.message);
-      } else {
-        setError("Erro desconhecido");
-      }
-      console.error("Erro ao buscar eventos:", error);
+    } catch (err) {
+      if (err instanceof Error) setError(err.message);
+      else setError("Erro desconhecido");
+      console.error("Erro ao buscar eventos:", err);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchEvents(currentPage);
-  }, [currentPage]);
+    fetchEventsAll();
+  }, []);
 
   const deleteEvent = async (id: number) => {
     const token = localStorage.getItem("authToken");
@@ -136,14 +132,6 @@ export default function EventsPage() {
     }
   };
 
-  const handlePreviousPage = () => {
-    if (currentPage > 1) setCurrentPage(currentPage - 1);
-  };
-
-  const handleNextPage = () => {
-    if (currentPage < totalPages) setCurrentPage(currentPage + 1);
-  };
-
   if (loading)
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 flex items-center justify-center">
@@ -172,7 +160,7 @@ export default function EventsPage() {
 
         <div className="flex items-center mb-8 gap-4">
           <button
-            onClick={() => fetchEvents(currentPage)}
+            onClick={() => fetchEventsAll()}
             className="bg-gradient-to-r from-gray-700 to-gray-800 hover:from-gray-800 hover:to-gray-900 text-white p-4 rounded-xl shadow-lg transition-all duration-200 transform hover:scale-105"
           >
             <MdRefresh className="text-xl" />
@@ -198,6 +186,75 @@ export default function EventsPage() {
                 </div>
                 <div className="bg-white/95 backdrop-blur-sm shadow-lg rounded-b-2xl overflow-hidden border border-gray-200/20 border-t-0">
                   <div className="overflow-x-auto">
+                    {(() => {
+                      const pageSize = pageSizeByEstablishment[establishment] ?? PAGE_SIZES[0];
+                      const currentPage = currentPageByEstablishment[establishment] ?? 1;
+                      const totalPages = Math.max(1, Math.ceil(establishmentEvents.length / pageSize));
+                      const safeCurrentPage = Math.min(Math.max(1, currentPage), totalPages);
+
+                      const startIndex = (safeCurrentPage - 1) * pageSize;
+                      const paginatedEvents = establishmentEvents.slice(startIndex, startIndex + pageSize);
+
+                      return (
+                        <>
+                          <div className="flex flex-wrap items-center gap-3 justify-between px-4 py-3 border-b border-gray-100">
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-semibold text-gray-700">Exibir</span>
+                              <select
+                                className="px-3 py-2 rounded-lg border border-gray-200 bg-white text-sm"
+                                value={pageSize}
+                                onChange={(e) => {
+                                  const nextSize = Number(e.target.value);
+                                  setPageSizeByEstablishment((prev) => ({
+                                    ...prev,
+                                    [establishment]: nextSize,
+                                  }));
+                                  setCurrentPageByEstablishment((prev) => ({
+                                    ...prev,
+                                    [establishment]: 1,
+                                  }));
+                                }}
+                              >
+                                {PAGE_SIZES.map((s) => (
+                                  <option key={s} value={s}>
+                                    {s}
+                                  </option>
+                                ))}
+                              </select>
+                              <span className="text-sm text-gray-500">por página</span>
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => {
+                                  setCurrentPageByEstablishment((prev) => ({
+                                    ...prev,
+                                    [establishment]: Math.max(1, safeCurrentPage - 1),
+                                  }));
+                                }}
+                                className="px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white hover:bg-gray-50 disabled:opacity-50"
+                                disabled={safeCurrentPage === 1}
+                              >
+                                Anterior
+                              </button>
+                              <span className="text-sm font-semibold text-gray-600 px-3 py-2 border border-gray-200 rounded-lg bg-white">
+                                Página {safeCurrentPage} de {totalPages}
+                              </span>
+                              <button
+                                onClick={() => {
+                                  setCurrentPageByEstablishment((prev) => ({
+                                    ...prev,
+                                    [establishment]: Math.min(totalPages, safeCurrentPage + 1),
+                                  }));
+                                }}
+                                className="px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white hover:bg-gray-50 disabled:opacity-50"
+                                disabled={safeCurrentPage === totalPages}
+                              >
+                                Próximo
+                              </button>
+                            </div>
+                          </div>
+
                     <table className="min-w-full text-left">
                       <thead className="bg-gray-50/80">
                         <tr>
@@ -225,7 +282,7 @@ export default function EventsPage() {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-100">
-                        {establishmentEvents.map((event) => (
+                        {paginatedEvents.map((event) => (
                           <tr
                             key={event.id}
                             className="hover:bg-gray-50/50 transition-colors"
@@ -279,6 +336,9 @@ export default function EventsPage() {
                         ))}
                       </tbody>
                     </table>
+                        </>
+                      );
+                    })()}
                   </div>
                 </div>
               </div>
@@ -293,31 +353,12 @@ export default function EventsPage() {
           </div>
         )}
 
-        <div className="mt-8 flex justify-center gap-3">
-          <button
-            onClick={handlePreviousPage}
-            className="px-6 py-3 border border-gray-300 rounded-xl text-sm bg-white/95 backdrop-blur-sm hover:bg-gray-50 disabled:opacity-50 transition-all duration-200 font-semibold"
-            disabled={currentPage === 1}
-          >
-            Anterior
-          </button>
-          <span className="text-sm px-6 py-3 rounded-xl bg-white/95 backdrop-blur-sm border border-gray-200 font-semibold text-gray-300">
-            Página {currentPage} de {totalPages}
-          </span>
-          <button
-            onClick={handleNextPage}
-            className="px-6 py-3 border border-gray-300 rounded-xl text-sm bg-white/95 backdrop-blur-sm hover:bg-gray-50 disabled:opacity-50 transition-all duration-200 font-semibold"
-            disabled={currentPage === totalPages}
-          >
-            Próximo
-          </button>
-        </div>
       </div>
       {/* ✨ Movendo os modais para o final do componente para garantir o empilhamento correto */}
       <AddEvent
         isOpen={modalIsOpen}
         onRequestClose={closeModal}
-        onEventAdded={() => fetchEvents(currentPage)}
+        onEventAdded={() => fetchEventsAll()}
       />
       {selectedEvent && (
         <>
@@ -325,14 +366,14 @@ export default function EventsPage() {
             isOpen={editModalOpen}
             onRequestClose={closeEditModal}
             event={selectedEvent}
-            onEventUpdated={() => fetchEvents(currentPage)}
+            onEventUpdated={() => fetchEventsAll()}
           />
           <DuplicateEvent
             isOpen={duplicateModalOpen}
             onRequestClose={closeDuplicateModal}
             event={selectedEvent}
             onEventDuplicated={() => {
-              fetchEvents(currentPage);
+              fetchEventsAll();
               closeDuplicateModal();
             }}
           />
