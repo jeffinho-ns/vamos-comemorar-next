@@ -348,11 +348,15 @@ export default function ReservationsDayModal({
                 <div className="space-y-2">
                   {sortedReservations.map((reservation) => {
                     const notes = (reservation as any).notes as string | undefined;
+                    const tableNumber = (reservation as any).table_number as string | number | undefined;
                     const statusCls = getStatusColor((reservation as any).status, notes);
                     const statusText = getStatusText((reservation as any).status, notes);
                     const areaName = getReservationAreaLabel(reservation);
                     const time = String((reservation as any).reservation_time || "").trim();
                     const people = Number((reservation as any).number_of_people ?? 0) || 0;
+                    const observation = notes
+                      ? notes.replace(/ESPERA ANTECIPADA/gi, "").trim()
+                      : "";
 
                     return (
                       <motion.button
@@ -385,6 +389,14 @@ export default function ReservationsDayModal({
                               <span className="block w-full whitespace-normal break-words">
                                 {areaName}
                               </span>
+                              <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] font-semibold text-gray-600">
+                                <span className="whitespace-nowrap">
+                                  Mesa: {tableNumber !== undefined && tableNumber !== null && String(tableNumber).trim() !== "" ? tableNumber : "-"}
+                                </span>
+                                <span className="min-w-0 truncate flex-1">
+                                  Obs: {observation ? observation : "-"}
+                                </span>
+                              </div>
                             </div>
                           </div>
 
