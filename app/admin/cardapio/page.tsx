@@ -401,11 +401,14 @@ export default function CardapioAdminPage() {
   const promoterBarIdNum = promoterBar ? Number(promoterBar.barId) : null;
 
   const normalizeKey = (value: unknown) => {
+    // Remove acentos, pontuação e normaliza espaços para aumentar taxa de match.
     return String(value || "")
       .normalize("NFD")
       .replace(/\p{Diacritic}/gu, "")
       .toLowerCase()
-      .trim();
+      .replace(/[^a-z0-9]+/g, " ")
+      .trim()
+      .replace(/\s+/g, " ");
   };
 
   const allowedBarIdsFromPerms = myEstablishmentPermissions
@@ -415,19 +418,18 @@ export default function CardapioAdminPage() {
 
   const uniqueAllowedBarIds = Array.from(new Set(allowedBarIdsFromPerms));
 
-  const allowedEstablishmentNameKeys = new Set(
-    myEstablishmentPermissions
-      .filter((p) => p.can_view_cardapio !== false)
-      .map((p) => (p.establishment_name ? normalizeKey(p.establishment_name) : ""))
-      .filter((k) => k)
-  );
+  const allowedEstablishmentNameKeys = myEstablishmentPermissions
+    .filter((p) => p.can_view_cardapio !== false)
+    .map((p) => (p.establishment_name ? normalizeKey(p.establishment_name) : ""))
+    .filter((k) => k);
+  const allowedEstablishmentNameKeysSet = new Set(allowedEstablishmentNameKeys);
 
   // Mantém regra especial existente (compatibilidade)
   const isReservaRooftopRestrictedUser =
     (userEmail || "").trim().toLowerCase() === "vbs14@hotmail.com" && promoterBarIdNum !== null;
 
   const shouldRestrictByPerms =
-    !isAdmin && !isReservaRooftopRestrictedUser && (uniqueAllowedBarIds.length > 0 || allowedEstablishmentNameKeys.size > 0);
+    !isAdmin && !isReservaRooftopRestrictedUser && (uniqueAllowedBarIds.length > 0 || allowedEstablishmentNameKeys.length > 0);
 
   const visibleBars =
     !isAdmin && isReservaRooftopRestrictedUser && promoterBarIdNum !== null
@@ -436,18 +438,32 @@ export default function CardapioAdminPage() {
         ? (() => {
             // 1) Preferência por ID (se cardápio/bars e places usam o mesmo id)
             const barsById = menuData.bars.filter((bar) => uniqueAllowedBarIds.includes(Number(bar.id)));
-            if (barsById.length > 0) return barsById;
 
-            // 2) Fallback por nome (evita "tela vazia" quando ids não batem 1:1)
-            const barsByName = menuData.bars.filter((bar) =>
-              allowedEstablishmentNameKeys.has(normalizeKey(bar.name))
-            );
-            if (barsByName.length > 0) return barsByName;
+            // 2) Fallback por nome (aceita match exato e substring)
+            const barsByName = menuData.bars.filter((bar) => {
+              const barKey = normalizeKey(bar.name);
+              if (!barKey) return false;
+              if (allowedEstablishmentNameKeysSet.has(barKey)) return true;
+
+              // Casos comuns: barKey inclui alguma informação extra ou o contrário.
+              return allowedEstablishmentNameKeys.some(
+                (permKey) => permKey && (barKey.includes(permKey) || permKey.includes(barKey))
+              );
+            });
+
+            const barsUnionById = (() => {
+              const map = new Map<string, Bar>();
+              for (const bar of barsById) map.set(String(bar.id), bar);
+              for (const bar of barsByName) map.set(String(bar.id), bar);
+              return Array.from(map.values());
+            })();
+
+            if (barsUnionById.length > 0) return barsUnionById;
 
             // Se nada casou, loga e não quebra a UX do admin.
             console.warn("[CARDAPIO] Falha ao mapear permissões do usuário para bars.", {
               uniqueAllowedBarIds,
-              allowedEstablishmentNameKeys: Array.from(allowedEstablishmentNameKeys),
+              allowedEstablishmentNameKeys,
               sampleBars: menuData.bars.slice(0, 5).map((b) => ({ id: b.id, name: b.name })),
             });
             return menuData.bars;
