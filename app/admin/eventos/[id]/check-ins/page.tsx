@@ -2855,6 +2855,78 @@ export default function EventoCheckInsPage() {
     [params?.id],
   );
 
+  const handleReservaRestauranteNoShow = useCallback(
+    async (
+      reservationId: number,
+      nome: string,
+      source: "restaurante" | "api-adicional" = "restaurante",
+      e?: React.MouseEvent,
+    ) => {
+      e?.preventDefault();
+      e?.stopPropagation();
+
+      if (
+        !confirm(
+          `Confirmar NO-SHOW para ${nome}?\n\nA reserva será marcada como no-show (cliente não compareceu).`,
+        )
+      ) {
+        return;
+      }
+
+      const key = `reserva-noshow-${reservationId}`;
+      if (checkInInProgressRef.current[key]) return;
+      checkInInProgressRef.current[key] = true;
+
+      try {
+        const token = localStorage.getItem("authToken");
+        const response = await fetch(
+          `${API_URL}/api/restaurant-reservations/${reservationId}`,
+          {
+            method: "PUT",
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ status: "no_show" }),
+          },
+        );
+
+        if (!response.ok) {
+          const err = await response.json().catch(() => ({}));
+          throw new Error(err?.error || "Erro ao marcar no-show");
+        }
+
+        if (source === "restaurante") {
+          setReservasRestaurante((prev) =>
+            prev.map((r) =>
+              r.id === reservationId ? { ...r, status: "no_show" } : r,
+            ),
+          );
+        } else {
+          setReservasAdicionaisAPI((prev) =>
+            prev.map((r) =>
+              r.id === reservationId ? { ...r, status: "no_show" } : r,
+            ),
+          );
+        }
+
+        toast.success(`⚠️ Reserva de ${nome} marcada como no-show`, {
+          position: "top-center",
+          autoClose: 3000,
+        });
+      } catch (error: any) {
+        console.error("Erro ao marcar no-show:", error);
+        toast.error(`❌ ${error?.message || "Erro ao marcar no-show"}`, {
+          position: "top-center",
+          autoClose: 4000,
+        });
+      } finally {
+        checkInInProgressRef.current[key] = false;
+      }
+    },
+    [],
+  );
+
   /** Check-in de reserva sem guest list vinda da API adicional (mesmo fluxo do modo tablet) */
   const handleReservaSemGuestListCheckIn = useCallback(
     async (reservationId: number, nome: string, e?: React.MouseEvent) => {
@@ -5168,16 +5240,72 @@ export default function EventoCheckInsPage() {
                                       (result.type === "guest" ||
                                         result.type === "owner" ||
                                         result.type === "promoter_guest") && (
-                                        <button
-                                          onClick={handleCheckInClick}
-                                          className={`w-full sm:w-auto px-4 sm:px-5 py-2 sm:py-2.5 text-white rounded-lg flex items-center justify-center gap-2 transition-all shadow-md hover:shadow-lg font-semibold text-sm sm:text-base ${
-                                            isPromoter
-                                              ? "bg-purple-600 hover:bg-purple-700"
-                                              : "bg-green-500 hover:bg-green-600"
-                                          }`}
-                                        >
-                                          <MdCheckCircle size={18} /> Check-in
-                                        </button>
+                                        <>
+                                          <button
+                                            onClick={handleCheckInClick}
+                                            className={`w-full sm:w-auto px-4 sm:px-5 py-2 sm:py-2.5 text-white rounded-lg flex items-center justify-center gap-2 transition-all shadow-md hover:shadow-lg font-semibold text-sm sm:text-base ${
+                                              isPromoter
+                                                ? "bg-purple-600 hover:bg-purple-700"
+                                                : "bg-green-500 hover:bg-green-600"
+                                            }`}
+                                          >
+                                            <MdCheckCircle size={18} /> Check-in
+                                          </button>
+                                          {result.type === "owner" &&
+                                            result.reservaRestaurante && (
+                                              <button
+                                                onClick={(e) =>
+                                                  handleReservaRestauranteNoShow(
+                                                    result.reservaRestaurante!.id,
+                                                    result.name,
+                                                    "restaurante",
+                                                    e,
+                                                  )
+                                                }
+                                                className="w-full sm:w-auto px-4 sm:px-5 py-2 sm:py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-lg flex items-center justify-center gap-2 transition-all shadow-md hover:shadow-lg font-semibold text-sm sm:text-base"
+                                                title="Marcar reserva como no-show"
+                                              >
+                                                No-show
+                                              </button>
+                                            )}
+                                          {result.type === "owner" &&
+                                            !result.reservaRestaurante &&
+                                            !result.fromReservasAdicionaisAPI &&
+                                            result.reservationId != null && (
+                                              <button
+                                                onClick={(e) =>
+                                                  handleReservaRestauranteNoShow(
+                                                    result.reservationId!,
+                                                    result.name,
+                                                    "restaurante",
+                                                    e,
+                                                  )
+                                                }
+                                                className="w-full sm:w-auto px-4 sm:px-5 py-2 sm:py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-lg flex items-center justify-center gap-2 transition-all shadow-md hover:shadow-lg font-semibold text-sm sm:text-base"
+                                                title="Marcar reserva como no-show"
+                                              >
+                                                No-show
+                                              </button>
+                                            )}
+                                          {result.type === "owner" &&
+                                            result.fromReservasAdicionaisAPI &&
+                                            result.reservationId != null && (
+                                              <button
+                                                onClick={(e) =>
+                                                  handleReservaRestauranteNoShow(
+                                                    result.reservationId!,
+                                                    result.name,
+                                                    "api-adicional",
+                                                    e,
+                                                  )
+                                                }
+                                                className="w-full sm:w-auto px-4 sm:px-5 py-2 sm:py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-lg flex items-center justify-center gap-2 transition-all shadow-md hover:shadow-lg font-semibold text-sm sm:text-base"
+                                                title="Marcar reserva como no-show"
+                                              >
+                                                No-show
+                                              </button>
+                                            )}
+                                        </>
                                       )}
                                     {result.checkedIn &&
                                       !result.checkedOut &&
@@ -6463,43 +6591,47 @@ export default function EventoCheckInsPage() {
                                       </div>
                                     </div>
 
-                                    {/* Check-in do dono — oculto se já existir convidado com o mesmo nome (evita duplicidade) */}
+                                    {/* Ações do dono da reserva (check-in / no-show / check-out) */}
                                     {(() => {
-                                      const ownerNameNorm = (gl.owner_name || "")
-                                        .trim()
-                                        .toLowerCase()
-                                        .normalize("NFD")
-                                        .replace(/\p{Diacritic}/gu, "");
-                                      const listGuests = guestsByList[gl.guest_list_id] || [];
-                                      const hasGuestWithOwnerName = listGuests.some(
-                                        (g) =>
-                                          (g.name || "")
-                                            .trim()
-                                            .toLowerCase()
-                                            .normalize("NFD")
-                                            .replace(/\p{Diacritic}/gu, "") === ownerNameNorm,
-                                      );
-                                      return !hasGuestWithOwnerName ? (
+                                      return (
                                       <div className="flex items-center gap-2 flex-wrap">
                                         {!(
                                           checkInStatus[gl.guest_list_id]
                                             ?.ownerCheckedIn ||
                                           gl.owner_checked_in === 1
                                         ) && (
-                                          <button
-                                            onClick={(e) => {
-                                              e.preventDefault();
-                                              e.stopPropagation();
-                                              handleOwnerCheckIn(
-                                                gl.guest_list_id,
-                                                gl.owner_name,
-                                                e,
-                                              );
-                                            }}
-                                            className="px-2 md:px-3 py-1 text-xs rounded-full transition-colors font-medium touch-manipulation bg-blue-100 text-blue-700 hover:bg-blue-200 border border-blue-300"
-                                          >
-                                            📋 Check-in Dono
-                                          </button>
+                                          <>
+                                            <button
+                                              onClick={(e) => {
+                                                e.preventDefault();
+                                                e.stopPropagation();
+                                                handleOwnerCheckIn(
+                                                  gl.guest_list_id,
+                                                  gl.owner_name,
+                                                  e,
+                                                );
+                                              }}
+                                              className="px-2 md:px-3 py-1 text-xs rounded-full transition-colors font-medium touch-manipulation bg-blue-100 text-blue-700 hover:bg-blue-200 border border-blue-300"
+                                            >
+                                              📋 Check-in Dono
+                                            </button>
+                                            {gl.reservation_id && (
+                                              <button
+                                                onClick={(e) =>
+                                                  handleReservaRestauranteNoShow(
+                                                    Number(gl.reservation_id),
+                                                    gl.owner_name || "Cliente",
+                                                    "restaurante",
+                                                    e,
+                                                  )
+                                                }
+                                                className="px-2 md:px-3 py-1 text-xs rounded-full transition-colors font-medium touch-manipulation bg-red-100 text-red-700 hover:bg-red-200 border border-red-300"
+                                                title="Marcar reserva como no-show e liberar mesa/área"
+                                              >
+                                                🚫 No-show
+                                              </button>
+                                            )}
+                                          </>
                                         )}
                                         {(checkInStatus[gl.guest_list_id]
                                           ?.ownerCheckedIn ||
@@ -6595,7 +6727,7 @@ export default function EventoCheckInsPage() {
                                           </div>
                                         )}
                                       </div>
-                                    ) : null;
+                                      );
                                     })()}
                                     <div className="mt-2 space-y-2">
                                       {/* Indicadores de Progresso e Brindes */}
@@ -7458,19 +7590,38 @@ export default function EventoCheckInsPage() {
                                         </div>
                                         <div className="flex-shrink-0 flex flex-col items-end gap-1">
                                           {!r.checked_in && (
-                                            <button
-                                              type="button"
-                                              onClick={(e) =>
-                                                handleReservaRestauranteCheckIn(
-                                                  r,
-                                                  e,
-                                                )
-                                              }
-                                              className="px-3 py-1.5 text-xs font-medium rounded-lg bg-green-600 hover:bg-green-700 text-white flex items-center gap-1"
-                                            >
-                                              <MdCheckCircle size={16} />{" "}
-                                              Check-in
-                                            </button>
+                                            <div className="flex gap-2 flex-wrap justify-end">
+                                              <button
+                                                type="button"
+                                                onClick={(e) =>
+                                                  handleReservaRestauranteCheckIn(
+                                                    r,
+                                                    e,
+                                                  )
+                                                }
+                                                className="px-3 py-1.5 text-xs font-medium rounded-lg bg-green-600 hover:bg-green-700 text-white flex items-center gap-1"
+                                              >
+                                                <MdCheckCircle size={16} />{" "}
+                                                Check-in
+                                              </button>
+                                              <button
+                                                type="button"
+                                                onClick={(e) =>
+                                                  handleReservaRestauranteNoShow(
+                                                    r.id,
+                                                    r.responsavel ||
+                                                      (r as any).client_name ||
+                                                      "Cliente",
+                                                    "restaurante",
+                                                    e,
+                                                  )
+                                                }
+                                                className="px-3 py-1.5 text-xs font-medium rounded-lg bg-red-600 hover:bg-red-700 text-white"
+                                                title="Marcar reserva como no-show"
+                                              >
+                                                No-show
+                                              </button>
+                                            </div>
                                           )}
                                           {r.checked_in && !checkedOut && (
                                             <>
