@@ -297,7 +297,14 @@ const getValidImageUrl = (filename?: string | null): string => {
 };
 
 export default function CardapioAdminPage() {
-  const { isAdmin, isPromoter, promoterBar, canManageBar, userEmail } = useUserPermissions();
+  const {
+    isAdmin,
+    isPromoter,
+    promoterBar,
+    canManageBar,
+    userEmail,
+    myEstablishmentPermissions,
+  } = useUserPermissions();
   const router = useRouter();
   
   // Debug: Log das permissões
@@ -391,23 +398,40 @@ export default function CardapioAdminPage() {
     }>;
   } | null>(null);
 
-  // Visão restrita apenas para o usuário do Reserva Rooftop (vbs14)
-  const isReservaRooftopRestrictedUser =
-    (userEmail || '').trim().toLowerCase() === 'vbs14@hotmail.com' && !!promoterBar;
-
   const promoterBarIdNum = promoterBar ? Number(promoterBar.barId) : null;
 
-  const visibleBars = isReservaRooftopRestrictedUser && promoterBarIdNum
-    ? menuData.bars.filter((bar) => Number(bar.id) === promoterBarIdNum)
-    : menuData.bars;
+  const allowedBarIdsFromPerms = myEstablishmentPermissions
+    .filter((p) => p.can_view_cardapio !== false)
+    .map((p) => Number(p.establishment_id))
+    .filter((id) => !Number.isNaN(id));
 
-  const visibleCategories = isReservaRooftopRestrictedUser && promoterBarIdNum
-    ? menuData.categories.filter((category) => Number(category.barId) === promoterBarIdNum)
-    : menuData.categories;
+  const uniqueAllowedBarIds = Array.from(new Set(allowedBarIdsFromPerms));
 
-  const visibleItems = isReservaRooftopRestrictedUser && promoterBarIdNum
-    ? menuData.items.filter((item) => Number(item.barId) === promoterBarIdNum)
-    : menuData.items;
+  // Mantém regra especial existente (compatibilidade)
+  const isReservaRooftopRestrictedUser =
+    (userEmail || '').trim().toLowerCase() === 'vbs14@hotmail.com' && promoterBarIdNum !== null;
+
+  const restrictedBarIds =
+    isAdmin
+      ? null
+      : isReservaRooftopRestrictedUser && promoterBarIdNum !== null
+        ? [promoterBarIdNum]
+        : uniqueAllowedBarIds;
+
+  const visibleBars =
+    !isAdmin && restrictedBarIds && restrictedBarIds.length > 0
+      ? menuData.bars.filter((bar) => restrictedBarIds.includes(Number(bar.id)))
+      : menuData.bars;
+
+  const visibleCategories =
+    !isAdmin && restrictedBarIds && restrictedBarIds.length > 0
+      ? menuData.categories.filter((category) => restrictedBarIds.includes(Number(category.barId)))
+      : menuData.categories;
+
+  const visibleItems =
+    !isAdmin && restrictedBarIds && restrictedBarIds.length > 0
+      ? menuData.items.filter((item) => restrictedBarIds.includes(Number(item.barId)))
+      : menuData.items;
 
   const [barForm, setBarForm] = useState<BarForm>({
     name: '',
