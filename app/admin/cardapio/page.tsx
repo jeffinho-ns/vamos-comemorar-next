@@ -447,7 +447,10 @@ export default function CardapioAdminPage() {
 
               // Casos comuns: barKey inclui alguma informação extra ou o contrário.
               return allowedEstablishmentNameKeys.some(
-                (permKey) => permKey && (barKey.includes(permKey) || permKey.includes(barKey))
+                // Importante: não fazemos match nos dois sentidos.
+                // Ex.: "pracinha do seu justino" contém "seu justino" e isso faria liberar
+                // ambos os bares indevidamente.
+                (permKey) => permKey && barKey.includes(permKey)
               );
             });
 
