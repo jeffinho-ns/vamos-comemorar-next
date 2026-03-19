@@ -400,6 +400,14 @@ export default function CardapioAdminPage() {
 
   const promoterBarIdNum = promoterBar ? Number(promoterBar.barId) : null;
 
+  const normalizeKey = (value: unknown) => {
+    return String(value || "")
+      .normalize("NFD")
+      .replace(/\p{Diacritic}/gu, "")
+      .toLowerCase()
+      .trim();
+  };
+
   const allowedBarIdsFromPerms = myEstablishmentPermissions
     .filter((p) => p.can_view_cardapio !== false)
     .map((p) => Number(p.establishment_id))
@@ -407,30 +415,57 @@ export default function CardapioAdminPage() {
 
   const uniqueAllowedBarIds = Array.from(new Set(allowedBarIdsFromPerms));
 
+  const allowedEstablishmentNameKeys = new Set(
+    myEstablishmentPermissions
+      .filter((p) => p.can_view_cardapio !== false)
+      .map((p) => (p.establishment_name ? normalizeKey(p.establishment_name) : ""))
+      .filter((k) => k)
+  );
+
   // Mantém regra especial existente (compatibilidade)
   const isReservaRooftopRestrictedUser =
-    (userEmail || '').trim().toLowerCase() === 'vbs14@hotmail.com' && promoterBarIdNum !== null;
+    (userEmail || "").trim().toLowerCase() === "vbs14@hotmail.com" && promoterBarIdNum !== null;
 
-  const restrictedBarIds =
-    isAdmin
-      ? null
-      : isReservaRooftopRestrictedUser && promoterBarIdNum !== null
-        ? [promoterBarIdNum]
-        : uniqueAllowedBarIds;
+  const shouldRestrictByPerms =
+    !isAdmin && !isReservaRooftopRestrictedUser && (uniqueAllowedBarIds.length > 0 || allowedEstablishmentNameKeys.size > 0);
 
   const visibleBars =
-    !isAdmin && restrictedBarIds && restrictedBarIds.length > 0
-      ? menuData.bars.filter((bar) => restrictedBarIds.includes(Number(bar.id)))
-      : menuData.bars;
+    !isAdmin && isReservaRooftopRestrictedUser && promoterBarIdNum !== null
+      ? menuData.bars.filter((bar) => Number(bar.id) === promoterBarIdNum)
+      : shouldRestrictByPerms
+        ? (() => {
+            // 1) Preferência por ID (se cardápio/bars e places usam o mesmo id)
+            const barsById = menuData.bars.filter((bar) => uniqueAllowedBarIds.includes(Number(bar.id)));
+            if (barsById.length > 0) return barsById;
+
+            // 2) Fallback por nome (evita "tela vazia" quando ids não batem 1:1)
+            const barsByName = menuData.bars.filter((bar) =>
+              allowedEstablishmentNameKeys.has(normalizeKey(bar.name))
+            );
+            if (barsByName.length > 0) return barsByName;
+
+            // Se nada casou, loga e não quebra a UX do admin.
+            console.warn("[CARDAPIO] Falha ao mapear permissões do usuário para bars.", {
+              uniqueAllowedBarIds,
+              allowedEstablishmentNameKeys: Array.from(allowedEstablishmentNameKeys),
+              sampleBars: menuData.bars.slice(0, 5).map((b) => ({ id: b.id, name: b.name })),
+            });
+            return menuData.bars;
+          })()
+        : menuData.bars;
+
+  const visibleBarIdsForFiltering = Array.from(
+    new Set(visibleBars.map((bar) => Number(bar.id)).filter((id) => !Number.isNaN(id)))
+  );
 
   const visibleCategories =
-    !isAdmin && restrictedBarIds && restrictedBarIds.length > 0
-      ? menuData.categories.filter((category) => restrictedBarIds.includes(Number(category.barId)))
+    !isAdmin && visibleBarIdsForFiltering.length > 0
+      ? menuData.categories.filter((category) => visibleBarIdsForFiltering.includes(Number(category.barId)))
       : menuData.categories;
 
   const visibleItems =
-    !isAdmin && restrictedBarIds && restrictedBarIds.length > 0
-      ? menuData.items.filter((item) => restrictedBarIds.includes(Number(item.barId)))
+    !isAdmin && visibleBarIdsForFiltering.length > 0
+      ? menuData.items.filter((item) => visibleBarIdsForFiltering.includes(Number(item.barId)))
       : menuData.items;
 
   const [barForm, setBarForm] = useState<BarForm>({
