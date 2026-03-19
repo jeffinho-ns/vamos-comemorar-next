@@ -2879,6 +2879,7 @@ export default function EventoCheckInsPage() {
 
       try {
         const token = localStorage.getItem("authToken");
+        const nowIso = new Date().toISOString();
         const response = await fetch(
           `${API_URL}/api/restaurant-reservations/${reservationId}`,
           {
@@ -2899,13 +2900,61 @@ export default function EventoCheckInsPage() {
         if (source === "restaurante") {
           setReservasRestaurante((prev) =>
             prev.map((r) =>
-              r.id === reservationId ? { ...r, status: "no_show" } : r,
+              r.id === reservationId
+                ? {
+                    ...r,
+                    status: "no_show",
+                    checked_in: false,
+                    checked_out: true,
+                    checkout_time: nowIso,
+                  }
+                : r,
             ),
           );
+
+          // Se a reserva tiver guest list vinculada, refletir como concluída no dono
+          const relatedGuestLists = guestListsRestaurante.filter(
+            (gl) => Number(gl.reservation_id) === Number(reservationId),
+          );
+          if (relatedGuestLists.length > 0) {
+            setGuestListsRestaurante((prev) =>
+              prev.map((gl) =>
+                Number(gl.reservation_id) === Number(reservationId)
+                  ? { ...gl, owner_checked_out: 1, owner_checkout_time: nowIso }
+                  : gl,
+              ),
+            );
+            setCheckInStatus((prev) => {
+              const next = { ...prev };
+              relatedGuestLists.forEach((gl) => {
+                next[gl.guest_list_id] = {
+                  ...(next[gl.guest_list_id] || {}),
+                  ownerCheckedIn: false,
+                  ownerCheckedOut: true,
+                };
+              });
+              return next;
+            });
+            setOwnerCheckOutTimeMap((prev) => {
+              const next = { ...prev };
+              relatedGuestLists.forEach((gl) => {
+                next[gl.guest_list_id] = nowIso;
+              });
+              return next;
+            });
+          }
         } else {
           setReservasAdicionaisAPI((prev) =>
             prev.map((r) =>
-              r.id === reservationId ? { ...r, status: "no_show" } : r,
+              r.id === reservationId
+                ? {
+                    ...r,
+                    status: "no_show",
+                    checked_in: false,
+                    checked_out: true,
+                    checkout_time: nowIso,
+                  }
+                : r,
             ),
           );
         }
@@ -6694,9 +6743,17 @@ export default function EventoCheckInsPage() {
                                             gl.owner_checked_out,
                                           )) && (
                                           <div className="flex flex-col gap-1">
-                                            <span className="px-2 md:px-3 py-1 text-xs rounded-full font-medium bg-gray-100 text-gray-600 border border-gray-300">
-                                              ✅ Concluído
-                                            </span>
+                                            <div className="flex gap-2 flex-wrap">
+                                              <span className="px-2 md:px-3 py-1 text-xs rounded-full font-medium bg-gray-100 text-gray-600 border border-gray-300">
+                                                ✅ Concluído
+                                              </span>
+                                              {(String((gl as any).status || "").toLowerCase() === "no_show" ||
+                                                String((gl as any).status || "").toLowerCase() === "no-show") && (
+                                                <span className="px-2 md:px-3 py-1 text-xs rounded-full font-medium bg-red-100 text-red-700 border border-red-300">
+                                                  🚫 NO-SHOW
+                                                </span>
+                                              )}
+                                            </div>
                                             {/* Exibir horários de entrada e saída lado a lado */}
                                             {(() => {
                                               const checkinTime =
@@ -7657,9 +7714,17 @@ export default function EventoCheckInsPage() {
                                           )}
                                           {r.checked_in && checkedOut && (
                                             <div className="flex flex-col gap-0.5 items-end">
-                                              <span className="px-2 md:px-3 py-1 text-xs rounded-full font-medium bg-gray-100 text-gray-600 border border-gray-300">
-                                                ✅ Concluído
-                                              </span>
+                                              <div className="flex gap-2 flex-wrap justify-end">
+                                                <span className="px-2 md:px-3 py-1 text-xs rounded-full font-medium bg-gray-100 text-gray-600 border border-gray-300">
+                                                  ✅ Concluído
+                                                </span>
+                                                {(String((r as any).status || "").toLowerCase() === "no_show" ||
+                                                  String((r as any).status || "").toLowerCase() === "no-show") && (
+                                                  <span className="px-2 md:px-3 py-1 text-xs rounded-full font-medium bg-red-100 text-red-700 border border-red-300">
+                                                    🚫 NO-SHOW
+                                                  </span>
+                                                )}
+                                              </div>
                                               {(r.checkin_time ||
                                                 r.checkout_time) && (
                                                 <span className="text-xs text-gray-400 font-mono px-2">
