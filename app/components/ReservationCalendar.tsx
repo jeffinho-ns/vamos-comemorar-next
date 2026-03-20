@@ -615,6 +615,7 @@ export default function ReservationCalendar({
           date={selectedDate}
           reservations={selectedDayReservations}
           isReservaRooftop={isReservaRooftop}
+          establishmentName={establishment?.name}
           onReservationClick={handleReservationClick}
         />
       )}
