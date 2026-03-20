@@ -11,6 +11,7 @@ import AddEvent from "../../components/events/AddEvent";
 import EditEventModal from "@/app/components/EditEvent/EditEvent";
 import DuplicateEvent from "@/app/components/DuplicateEvent/DuplicateEvent";
 import { useEffect, useState, useMemo } from "react";
+import { useUserPermissions } from "@/app/hooks/useUserPermissions";
 
 export default function EventsPage() {
   const [events, setEvents] = useState<EventDataApi[]>([]);
@@ -20,6 +21,7 @@ export default function EventsPage() {
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [duplicateModalOpen, setDuplicateModalOpen] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<EventDataApi | null>(null);
+  const { isAdmin, myEstablishmentPermissions, isLoading: permissionsLoading } = useUserPermissions();
 
   const PAGE_SIZES = [10, 30, 50] as const;
 
@@ -58,6 +60,56 @@ export default function EventsPage() {
   useEffect(() => {
     fetchEventsAll();
   }, []);
+
+  const normalizeEstablishmentName = (value?: string) =>
+    (value || "")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .trim();
+
+  const allowedEstablishmentIds = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          myEstablishmentPermissions
+            .filter((perm) => perm.is_active)
+            .map((perm) => Number(perm.establishment_id))
+            .filter((id) => !Number.isNaN(id))
+        )
+      ),
+    [myEstablishmentPermissions]
+  );
+
+  const allowedEstablishmentNames = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          myEstablishmentPermissions
+            .filter((perm) => perm.is_active)
+            .map((perm) => normalizeEstablishmentName(perm.establishment_name))
+            .filter(Boolean)
+        )
+      ),
+    [myEstablishmentPermissions]
+  );
+
+  const visibleEvents = useMemo(() => {
+    if (isAdmin) return events;
+    if (allowedEstablishmentIds.length === 0 && allowedEstablishmentNames.length === 0) return [];
+
+    return events.filter((event) => {
+      const eventEstablishmentId = Number(event.establishment_id ?? event.id_place);
+      const eventEstablishmentName = normalizeEstablishmentName(event.casa_do_evento);
+
+      const matchesById =
+        !Number.isNaN(eventEstablishmentId) && allowedEstablishmentIds.includes(eventEstablishmentId);
+      const matchesByName =
+        eventEstablishmentName.length > 0 && allowedEstablishmentNames.includes(eventEstablishmentName);
+
+      return matchesById || matchesByName;
+    });
+  }, [events, isAdmin, allowedEstablishmentIds, allowedEstablishmentNames]);
 
   const deleteEvent = async (id: number) => {
     const token = localStorage.getItem("authToken");
@@ -107,7 +159,7 @@ export default function EventsPage() {
   // Agrupar eventos por estabelecimento (casa_do_evento)
   const eventsByEstablishment = useMemo(() => {
     const grouped: Record<string, EventDataApi[]> = {};
-    events.forEach((event) => {
+    visibleEvents.forEach((event) => {
       const establishment = event.casa_do_evento || "Sem estabelecimento";
       if (!grouped[establishment]) {
         grouped[establishment] = [];
@@ -115,7 +167,7 @@ export default function EventsPage() {
       grouped[establishment].push(event);
     });
     return grouped;
-  }, [events]);
+  }, [visibleEvents]);
 
   // Formata o campo do dia do evento (trata tipos e convenções 0..6 ou 1..7)
   const formatEventDay = (event: EventDataApi) => {
@@ -132,7 +184,7 @@ export default function EventsPage() {
     }
   };
 
-  if (loading)
+  if (loading || permissionsLoading)
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 flex items-center justify-center">
         <div className="text-white text-xl">Carregando eventos...</div>
