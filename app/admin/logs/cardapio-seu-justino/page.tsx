@@ -63,6 +63,34 @@ function formatDateTime(dateString: string) {
   return new Date(dateString).toLocaleString('pt-BR');
 }
 
+function extractAdditionalDataObject(additionalData: unknown): Record<string, unknown> | null {
+  if (!additionalData) return null;
+  if (typeof additionalData !== 'object') return null;
+  if (Array.isArray(additionalData)) return null;
+  return additionalData as Record<string, unknown>;
+}
+
+function extractEstablishmentIdFromAdditionalData(additionalData: unknown): number | null {
+  const obj = extractAdditionalDataObject(additionalData);
+  if (!obj) return null;
+
+  const candidates = [
+    obj.establishmentId,
+    obj.establishment_id,
+    obj.estabelecimentoId,
+    obj.estabelecimento_id,
+    obj.barId,
+    obj.bar_id,
+  ];
+
+  for (const value of candidates) {
+    if (typeof value === 'number' && Number.isFinite(value)) return value;
+    if (typeof value === 'string' && value.trim() && !Number.isNaN(Number(value))) return Number(value);
+  }
+
+  return null;
+}
+
 function isCardapioLog(log: ActionLog): boolean {
   const joined = [
     log.action_type,
@@ -75,6 +103,8 @@ function isCardapioLog(log: ActionLog): boolean {
     .join(' ');
 
   return (
+    joined.includes('/api/cardapio') ||
+    joined.includes('/cardapio/') ||
     joined.includes('cardapio') ||
     joined.includes('cardápio') ||
     joined.includes('menu') ||
@@ -87,6 +117,7 @@ function isCardapioLog(log: ActionLog): boolean {
 function isSeuJustinoLog(log: ActionLog): boolean {
   const establishmentName = normalizeText(log.establishment_name);
   const additionalData = normalizeText(log.additional_data);
+  const extractedEstablishmentId = extractEstablishmentIdFromAdditionalData(log.additional_data);
 
   const matchesName =
     establishmentName.includes('seu justino') && !establishmentName.includes('pracinha');
@@ -95,6 +126,7 @@ function isSeuJustinoLog(log: ActionLog): boolean {
 
   return (
     log.establishment_id === SEU_JUSTINO_ESTABLISHMENT_ID ||
+    extractedEstablishmentId === SEU_JUSTINO_ESTABLISHMENT_ID ||
     matchesName ||
     matchesAdditionalData
   );
@@ -225,6 +257,9 @@ export default function RelatorioCardapioSeuJustinoPage() {
     return logs.filter((log) => isCardapioLog(log) && isSeuJustinoLog(log));
   }, [logs]);
 
+  const cardapioLogsCount = useMemo(() => logs.filter(isCardapioLog).length, [logs]);
+  const justinoLogsCount = useMemo(() => logs.filter(isSeuJustinoLog).length, [logs]);
+
   const filteredReportLogs = useMemo(() => {
     if (!textFilter.trim()) return reportLogs;
     const normalized = textFilter.toLowerCase();
@@ -320,6 +355,31 @@ export default function RelatorioCardapioSeuJustinoPage() {
           <div className="bg-red-900/30 border border-red-500 rounded-lg p-6">{error}</div>
         ) : (
           <>
+            <div className="bg-gray-900 border border-gray-800 rounded-lg p-4 mb-6 print:hidden">
+              <p className="text-gray-300 font-semibold mb-2">Diagnóstico rápido (para entender “zerado”)</p>
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-3 text-sm">
+                <div className="bg-gray-800 rounded-lg p-3">
+                  <p className="text-gray-400">Logs buscados da API</p>
+                  <p className="text-xl font-bold">{logs.length}</p>
+                </div>
+                <div className="bg-gray-800 rounded-lg p-3">
+                  <p className="text-gray-400">Logs com “cardápio”</p>
+                  <p className="text-xl font-bold">{cardapioLogsCount}</p>
+                </div>
+                <div className="bg-gray-800 rounded-lg p-3">
+                  <p className="text-gray-400">Logs do “Seu Justino”</p>
+                  <p className="text-xl font-bold">{justinoLogsCount}</p>
+                </div>
+                <div className="bg-gray-800 rounded-lg p-3">
+                  <p className="text-gray-400">Logs do relatório (interseção)</p>
+                  <p className="text-xl font-bold">{reportLogs.length}</p>
+                </div>
+              </div>
+              <p className="text-gray-400 text-xs mt-3">
+                Se “Logs buscados da API” estiver 0, o problema é a API/permissão/período. Se a interseção estiver 0, é falta de metadados do estabelecimento nos logs.
+              </p>
+            </div>
+
             <div className="bg-gray-900 border border-gray-800 rounded-lg p-4 mb-6 print:hidden">
               <div className="flex items-center gap-2 mb-4 text-gray-300">
                 <MdFilterList size={20} />
