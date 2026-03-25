@@ -253,6 +253,14 @@ export default function RelatorioCardapioSeuJustinoPage() {
     fetchLogs();
   }, [fetchLogs]);
 
+  const cardapioAlterationLogsAll = useMemo(() => {
+    return logs.filter((log) => isCardapioLog(log) && isAlteration(log));
+  }, [logs]);
+
+  const cardapioAlterationLogsJustino = useMemo(() => {
+    return logs.filter((log) => isCardapioLog(log) && isAlteration(log) && isSeuJustinoLog(log));
+  }, [logs]);
+
   const reportLogs = useMemo(() => {
     return logs.filter((log) => isCardapioLog(log) && isSeuJustinoLog(log));
   }, [logs]);
@@ -278,6 +286,28 @@ export default function RelatorioCardapioSeuJustinoPage() {
     );
   }, [reportLogs, textFilter]);
 
+  const filteredAlterationLogsFallback = useMemo(() => {
+    const base =
+      cardapioAlterationLogsJustino.length > 0 ? cardapioAlterationLogsJustino : cardapioAlterationLogsAll;
+
+    if (!textFilter.trim()) return base;
+    const normalized = textFilter.toLowerCase();
+
+    return base.filter((log) =>
+      [
+        log.user_name,
+        log.user_email,
+        log.user_role,
+        log.action_type,
+        log.action_description,
+        log.request_url,
+      ]
+        .map(normalizeText)
+        .join(' ')
+        .includes(normalized)
+    );
+  }, [cardapioAlterationLogsAll, cardapioAlterationLogsJustino, textFilter]);
+
   const accessLogs = useMemo(
     () => filteredReportLogs.filter((log) => !isAlteration(log)),
     [filteredReportLogs]
@@ -289,6 +319,10 @@ export default function RelatorioCardapioSeuJustinoPage() {
 
   const usersWithAccess = useMemo(() => buildUserSummary(accessLogs), [accessLogs]);
   const usersWhoChanged = useMemo(() => buildUserSummary(alterationLogs), [alterationLogs]);
+  const usersWhoChangedFallback = useMemo(
+    () => buildUserSummary(filteredAlterationLogsFallback),
+    [filteredAlterationLogsFallback]
+  );
 
   if (loading) {
     return (
@@ -454,7 +488,29 @@ export default function RelatorioCardapioSeuJustinoPage() {
                   <MdHistory /> Usuários que alteraram o cardápio
                 </h2>
                 {usersWhoChanged.length === 0 ? (
-                  <p className="text-gray-400">Nenhuma alteração encontrada no período.</p>
+                  <div className="space-y-3">
+                    <div className="bg-amber-900/20 border border-amber-500/40 rounded-lg p-3 text-amber-200 text-sm">
+                      Não encontrei alterações com vínculo explícito ao estabelecimento “Seu Justino” nos logs.
+                      Para você conseguir apresentar agora, estou mostrando abaixo quem alterou o <b>cardápio (geral)</b> no período.
+                      Depois ajustamos o backend para salvar `establishment_id` nas ações do cardápio.
+                    </div>
+
+                    {usersWhoChangedFallback.length === 0 ? (
+                      <p className="text-gray-400">Nenhuma alteração encontrada no período.</p>
+                    ) : (
+                      <div className="space-y-2">
+                        {usersWhoChangedFallback.map((user) => (
+                          <div key={user.userId} className="bg-gray-800 rounded-lg p-3">
+                            <p className="font-semibold">{user.userName}</p>
+                            <p className="text-sm text-gray-300">{user.userEmail}</p>
+                            <p className="text-sm text-gray-400">
+                              Perfil: {user.userRole} | Alterações: {user.total} | Última: {formatDateTime(user.lastActionAt)}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 ) : (
                   <div className="space-y-2">
                     {usersWhoChanged.map((user) => (
