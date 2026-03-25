@@ -373,14 +373,24 @@ export default function ActionLogsPage() {
               </div>
             </div>
             
-            <button
-              onClick={handleRefresh}
-              disabled={refreshing}
-              className="flex items-center gap-2 bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg transition-colors disabled:opacity-50"
-            >
-              <MdRefresh className={refreshing ? 'animate-spin' : ''} size={20} />
-              <span>Atualizar</span>
-            </button>
+            <div className="flex items-center gap-2 flex-wrap">
+              <button
+                onClick={() => router.push('/admin/logs/cardapio-seu-justino')}
+                className="flex items-center gap-2 bg-indigo-500 hover:bg-indigo-600 text-white px-4 py-2 rounded-lg transition-colors"
+              >
+                <MdDownload size={20} />
+                <span>Relatório Cardápio (Seu Justino)</span>
+              </button>
+
+              <button
+                onClick={handleRefresh}
+                disabled={refreshing}
+                className="flex items-center gap-2 bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg transition-colors disabled:opacity-50"
+              >
+                <MdRefresh className={refreshing ? 'animate-spin' : ''} size={20} />
+                <span>Atualizar</span>
+              </button>
+            </div>
           </div>
         </div>
 
