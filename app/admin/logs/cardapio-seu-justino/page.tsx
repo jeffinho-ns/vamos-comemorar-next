@@ -9,7 +9,7 @@ import {
   MdHistory,
   MdPerson,
   MdRefresh,
-+  MdRestaurantMenu,
+  MdRestaurantMenu,
 } from 'react-icons/md';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://vamos-comemorar-api.onrender.com';
