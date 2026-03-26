@@ -9,8 +9,14 @@ import {
   MdBusiness,
   MdChecklist,
   MdClose,
+  MdArrowBack,
   MdEvent,
   MdGroups,
+  MdHome,
+  MdInfo,
+  MdRestaurant,
+  MdSecurity,
+  MdEditCalendar,
   MdMenu,
   MdOutlineWorkHistory,
   MdSchool,
@@ -22,6 +28,11 @@ import { Tabs } from '@/app/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/app/components/ui/card';
 import { useUserPermissions } from '@/app/hooks/useUserPermissions';
 import { CARGO_BY_EMAIL, CARGO_BY_ROLE, DocCargo, docsConfig } from '@/app/data/docsConfig';
+import IntroducaoSection from './components/IntroducaoSection';
+import AcessoSection from './components/AcessoSection';
+import CardapioSection from './components/CardapioSection';
+import ReservasSection from './components/ReservasSection';
+import ApresentacaoSection from './components/ApresentacaoSection';
 
 function normalizeRole(role: string): string {
   return (role || '').toLowerCase().trim();
@@ -80,7 +91,7 @@ export default function DocumentacaoPage() {
       }
     : null;
 
-  const sections = [
+  const navBase = [
     {
       id: 'visao-geral',
       title: 'Visão Geral',
@@ -105,9 +116,107 @@ export default function DocumentacaoPage() {
       icon: MdChecklist,
       description: 'Ações práticas do seu dia a dia.',
     },
+  ]
+
+  const navByCargo: Record<DocCargo, typeof navBase> = {
+    marketing: [
+      {
+        id: 'introducao',
+        title: 'Introdução',
+        icon: MdHome,
+        description: 'Visão geral do sistema e como você opera.',
+      },
+      {
+        id: 'acesso',
+        title: 'Acesso e Segurança',
+        icon: MdSecurity,
+        description: 'Permissões e como evitar acessos indevidos.',
+      },
+      {
+        id: 'apresentacao',
+        title: 'Apresentação',
+        icon: MdInfo,
+        description: 'Visão completa do painel administrativo.',
+      },
+      {
+        id: 'em-construcao',
+        title: 'Em Construção',
+        icon: MdEvent,
+        description: 'Próximas seções: Eventos, QR Code e Lista de Convidados.',
+      },
+    ],
+    design: [
+      {
+        id: 'introducao',
+        title: 'Introdução',
+        icon: MdHome,
+        description: 'Visão geral do sistema e recursos do cardápio.',
+      },
+      {
+        id: 'acesso',
+        title: 'Acesso e Segurança',
+        icon: MdSecurity,
+        description: 'Permissões e validação por estabelecimento.',
+      },
+      {
+        id: 'cardapio',
+        title: 'Cardápio',
+        icon: MdRestaurant,
+        description: 'Como gerenciar categorias, itens e imagens.',
+      },
+      {
+        id: 'apresentacao',
+        title: 'Apresentação',
+        icon: MdInfo,
+        description: 'Visão completa do painel administrativo.',
+      },
+      {
+        id: 'em-construcao',
+        title: 'Em Construção',
+        icon: MdEvent,
+        description: 'Próximas seções: Eventos e QR Code.',
+      },
+    ],
+    atendimento: [
+      {
+        id: 'introducao',
+        title: 'Introdução',
+        icon: MdHome,
+        description: 'Visão geral do sistema e operação de reservas.',
+      },
+      {
+        id: 'acesso',
+        title: 'Acesso e Segurança',
+        icon: MdSecurity,
+        description: 'Permissões e boas práticas de acesso.',
+      },
+      {
+        id: 'reservas',
+        title: 'Reservas',
+        icon: MdEditCalendar,
+        description: 'Check-ins e fluxo operacional da reserva.',
+      },
+      {
+        id: 'apresentacao',
+        title: 'Apresentação',
+        icon: MdInfo,
+        description: 'Visão completa do painel administrativo.',
+      },
+      {
+        id: 'em-construcao',
+        title: 'Em Construção',
+        icon: MdEvent,
+        description: 'Próximas seções: Lista de Convidados e QR Code.',
+      },
+    ],
+  }
+
+  const sections = [
+    ...navBase,
+    ...(cargo ? navByCargo[cargo] : []),
   ].filter((s) =>
     `${s.title} ${s.description}`.toLowerCase().includes(searchTerm.toLowerCase()),
-  );
+  )
 
   const scrollToSection = (sectionId: string) => {
     const element = document.getElementById(sectionId);
@@ -140,8 +249,13 @@ export default function DocumentacaoPage() {
               >
                 <MdMenu size={24} />
               </button>
-              <Link href="/admin" className="text-gray-600 hover:text-gray-900 text-sm font-medium">
-                Voltar ao painel
+              <Link
+                href="/admin"
+                aria-label="Voltar ao painel"
+                className="inline-flex items-center gap-2 bg-gradient-to-r from-blue-600 to-blue-500 text-white px-4 py-2 rounded-lg shadow-sm hover:from-blue-700 hover:to-blue-600 transition-colors text-sm font-semibold"
+              >
+                <MdArrowBack size={18} />
+                <span>Voltar ao painel</span>
               </Link>
             </div>
             <h1 className="text-xl sm:text-2xl font-bold text-gray-900">📚 Central de Documentação</h1>
@@ -365,6 +479,51 @@ export default function DocumentacaoPage() {
                       />
                     </CardContent>
                   </Card>
+                </section>
+              </>
+            )}
+
+            {docs && cargo && (
+              <>
+                <IntroducaoSection />
+                <AcessoSection />
+
+                {cargo === 'design' && <CardapioSection />}
+                {cargo === 'atendimento' && <ReservasSection />}
+
+                <ApresentacaoSection />
+
+                <section
+                  id="em-construcao"
+                  className="bg-white rounded-xl shadow-lg p-8 mb-2 border border-gray-200"
+                >
+                  <div className="text-center">
+                    <h3 className="text-2xl font-bold text-gray-900 mb-4">
+                      🚧 Em Construção
+                    </h3>
+                    <p className="text-gray-600 mb-4">
+                      As próximas seções estão sendo desenvolvidas e estarão disponíveis em breve!
+                    </p>
+                    <div className="grid md:grid-cols-2 gap-4 text-left">
+                      <div>
+                        <h4 className="font-semibold text-gray-800 mb-2">Próximas seções:</h4>
+                        <ul className="space-y-1 text-gray-600 text-sm">
+                          <li>• 🎉 Eventos</li>
+                          <li>• 📱 Scanner QR Code</li>
+                          <li>• 👥 Lista de Convidados</li>
+                        </ul>
+                      </div>
+                      <div>
+                        <h4 className="font-semibold text-gray-800 mb-2">Funcionalidades:</h4>
+                        <ul className="space-y-1 text-gray-600 text-sm">
+                          <li>• 💡 Dicas e Boas Práticas</li>
+                          <li>• 📞 Suporte e Contato</li>
+                          <li>• 🔍 Guias passo a passo</li>
+                          <li>• 📱 Screenshots e vídeos</li>
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
                 </section>
               </>
             )}
