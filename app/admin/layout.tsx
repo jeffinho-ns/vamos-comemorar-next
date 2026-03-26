@@ -184,6 +184,7 @@ export default function DashboardLayout({
           label: "Detalhes Operacionais do Evento",
           icon: MdInfo,
         },
+        { href: "/admin/guia", label: "Guia Interno", icon: MdInfo },
       ];
     }
     if (userRole === "promoter" || userRole === "promoter-list") {
@@ -223,6 +224,7 @@ export default function DashboardLayout({
           label: "Detalhes Operacionais do Evento",
           icon: MdInfo,
         },
+        { href: "/admin/guia", label: "Guia Interno", icon: MdInfo },
         {
           href: "/admin/qrcode",
           label: "Scanner QR Code",
@@ -303,12 +305,14 @@ export default function DashboardLayout({
           label: "Detalhes Operacionais do Evento",
           icon: MdInfo,
         },
+        { href: "/admin/guia", label: "Guia Interno", icon: MdInfo },
         { href: "/admin/reservas", label: "Reservas", icon: MdEditCalendar },
         {
           href: "/admin/restaurant-reservations",
           label: "Sistema de Reservas",
           icon: MdRestaurant,
         },
+        { href: "/admin/guia", label: "Guia Interno", icon: MdInfo },
         { href: "/admin/enterprise", label: "Empresa", icon: MdFactory },
         // { href: "/admin/places", label: "Locais", icon: MdPlace },
         // { href: "/admin/tables", label: "Mesas", icon: MdTableBar },

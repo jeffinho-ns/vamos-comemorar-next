@@ -71,6 +71,7 @@ const ADMIN_ALLOWED_ROUTES = [
   "/admin/qrcode",
   "/admin/events",
   "/admin/reservas",
+  "/admin/guia",
 ];
 
 export function useUserPermissions() {
