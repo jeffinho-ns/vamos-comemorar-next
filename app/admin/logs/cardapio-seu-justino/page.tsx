@@ -15,6 +15,7 @@ interface ActionLog {
   action_type: string;
   action_description: string;
   resource_type: string | null;
+  establishment_name: string | null;
   request_method: string | null;
   request_url: string | null;
   additional_data: unknown;
@@ -42,6 +43,19 @@ function normalizeText(value: unknown): string {
 
 function formatDateTime(dateString: string): string {
   return new Date(dateString).toLocaleString('pt-BR');
+}
+
+function getEstablishmentLabel(log: ActionLog): string {
+  if (log.establishment_name && String(log.establishment_name).trim()) {
+    return String(log.establishment_name);
+  }
+
+  const text = normalizeText([log.request_url, log.action_description, log.additional_data]);
+  if (text.includes('highline') || text.includes('high line')) return 'High Line';
+  if (text.includes('pracinha')) return 'Pracinha do Seu Justino';
+  if (text.includes('seu justino') || text.includes('justino')) return 'Seu Justino';
+
+  return 'Não identificado';
 }
 
 function toDateInputValue(date: Date): string {
@@ -122,6 +136,9 @@ export default function RelatorioCardapioSeuJustinoPage() {
   const [error, setError] = useState<string | null>(null);
   const [allLogs, setAllLogs] = useState<ActionLog[]>([]);
   const [search, setSearch] = useState('');
+  const [selectedEstablishment, setSelectedEstablishment] = useState('');
+  const [selectedRole, setSelectedRole] = useState('');
+  const [selectedEventType, setSelectedEventType] = useState<'all' | 'access' | 'change'>('all');
   const [period, setPeriod] = useState(() => {
     const end = new Date();
     const start = new Date();
@@ -185,16 +202,48 @@ export default function RelatorioCardapioSeuJustinoPage() {
     [allLogs]
   );
 
+  const establishmentOptions = useMemo(() => {
+    const values = Array.from(
+      new Set(cardapioContextLogs.map((log) => getEstablishmentLabel(log)))
+    )
+      .filter(Boolean)
+      .sort((a, b) => a.localeCompare(b, 'pt-BR'));
+    return values;
+  }, [cardapioContextLogs]);
+
+  const roleOptions = useMemo(() => {
+    const values = Array.from(
+      new Set(cardapioContextLogs.map((log) => log.user_role).filter(Boolean))
+    ).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+    return values;
+  }, [cardapioContextLogs]);
+
   const filteredContextLogs = useMemo(() => {
-    if (!search.trim()) return cardapioContextLogs;
-    const q = search.toLowerCase();
-    return cardapioContextLogs.filter((log) =>
-      [log.user_name, log.user_email, log.user_role, log.action_type, log.action_description, log.request_url]
-        .map(normalizeText)
-        .join(' ')
-        .includes(q)
-    );
-  }, [cardapioContextLogs, search]);
+    return cardapioContextLogs.filter((log) => {
+      if (selectedEstablishment && getEstablishmentLabel(log) !== selectedEstablishment) return false;
+      if (selectedRole && log.user_role !== selectedRole) return false;
+      if (selectedEventType === 'access' && isAlteration(log)) return false;
+      if (selectedEventType === 'change' && !isAlteration(log)) return false;
+
+      if (search.trim()) {
+        const q = search.toLowerCase();
+        const searchable = [
+          log.user_name,
+          log.user_email,
+          log.user_role,
+          log.action_type,
+          log.action_description,
+          log.request_url,
+          getEstablishmentLabel(log),
+        ]
+          .map(normalizeText)
+          .join(' ');
+        if (!searchable.includes(q)) return false;
+      }
+
+      return true;
+    });
+  }, [cardapioContextLogs, search, selectedEstablishment, selectedEventType, selectedRole]);
 
   const accessLogs = useMemo(
     () => filteredContextLogs.filter((log) => !isAlteration(log)),
@@ -248,10 +297,31 @@ export default function RelatorioCardapioSeuJustinoPage() {
           <>
             <div className="bg-gray-900 border border-gray-800 rounded-lg p-4 mb-5 print:hidden">
               <div className="flex items-center gap-2 mb-3"><MdFilterList /> Filtros</div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-3">
                 <input type="date" value={period.startDate} onChange={(e) => setPeriod((p) => ({ ...p, startDate: e.target.value }))} className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2" />
                 <input type="date" value={period.endDate} onChange={(e) => setPeriod((p) => ({ ...p, endDate: e.target.value }))} className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2" />
-                <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar por usuário/ação/endpoint..." className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2" />
+                <select value={selectedEstablishment} onChange={(e) => setSelectedEstablishment(e.target.value)} className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2">
+                  <option value="">Todos estabelecimentos</option>
+                  {establishmentOptions.map((est) => (
+                    <option key={est} value={est}>
+                      {est}
+                    </option>
+                  ))}
+                </select>
+                <select value={selectedRole} onChange={(e) => setSelectedRole(e.target.value)} className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2">
+                  <option value="">Todas funções</option>
+                  {roleOptions.map((role) => (
+                    <option key={role} value={role}>
+                      {role}
+                    </option>
+                  ))}
+                </select>
+                <select value={selectedEventType} onChange={(e) => setSelectedEventType(e.target.value as 'all' | 'access' | 'change')} className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2">
+                  <option value="all">Todos eventos</option>
+                  <option value="access">Apenas acessos</option>
+                  <option value="change">Apenas alterações</option>
+                </select>
+                <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar por usuário/ação/endpoint..." className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 lg:col-span-2" />
               </div>
             </div>
 
@@ -306,6 +376,7 @@ export default function RelatorioCardapioSeuJustinoPage() {
                         <th className="py-2 pr-4">Data/Hora</th>
                         <th className="py-2 pr-4">Usuário</th>
                         <th className="py-2 pr-4">Tipo</th>
+                        <th className="py-2 pr-4">Estabelecimento</th>
                         <th className="py-2 pr-4">Descrição</th>
                         <th className="py-2 pr-4">Endpoint</th>
                       </tr>
@@ -319,6 +390,7 @@ export default function RelatorioCardapioSeuJustinoPage() {
                             <div className="text-xs text-gray-400">{log.user_email}</div>
                           </td>
                           <td className="py-2 pr-4">{log.action_type}</td>
+                          <td className="py-2 pr-4">{getEstablishmentLabel(log)}</td>
                           <td className="py-2 pr-4">{log.action_description}</td>
                           <td className="py-2 pr-4 text-gray-400">{log.request_url || '-'}</td>
                         </tr>

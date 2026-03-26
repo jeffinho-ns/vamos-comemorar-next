@@ -69,10 +69,10 @@ export default function ActionLogsPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
-  // Filtros - Por padrão, mostra apenas logs de admin e promoter
+  // Filtros - Por padrão, mostra todos os usuários/funções
   const [filters, setFilters] = useState({
     userId: '',
-    userRole: 'admin,promoter', // Filtra por admin e promoter por padrão
+    userRole: '',
     actionType: '',
     resourceType: '',
     establishmentId: '',
@@ -289,7 +289,7 @@ export default function ActionLogsPage() {
   const clearFilters = () => {
     setFilters({
       userId: '',
-      userRole: 'admin,promoter', // Volta ao padrão de mostrar admin e promoter
+      userRole: '',
       actionType: '',
       resourceType: '',
       establishmentId: '',
@@ -365,11 +365,6 @@ export default function ActionLogsPage() {
                 <p className="text-gray-400">
                   Rastreamento completo de todas as ações dos usuários no sistema
                 </p>
-                {filters.userRole === 'admin,promoter' && (
-                  <span className="px-3 py-1 bg-orange-500/20 text-orange-400 text-xs rounded-full border border-orange-500/30">
-                    📊 Mostrando apenas Admin e Promoter
-                  </span>
-                )}
               </div>
             </div>
             
@@ -526,7 +521,7 @@ export default function ActionLogsPage() {
                       className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-orange-500"
                     >
                       <option value="">Todas as funções</option>
-                      <option value="admin,promoter">Admin e Promoter (Padrão)</option>
+                      <option value="admin,promoter">Admin e Promoter</option>
                       <option value="admin">Apenas Admin</option>
                       <option value="promoter">Apenas Promoter</option>
                       <option value="gerente">Gerente</option>
