@@ -132,7 +132,7 @@ export default function Login() {
         }
       
         // Redirecionamento inteligente com base no email ou role
-        // Emails que devem ir direto para /admin
+        // Emails internos devem ir direto para a central de documentação
         const adminEmails = [
           'analista@reserva.com',
           'analista@seujustino.com',
@@ -159,38 +159,32 @@ export default function Login() {
         const userEmail = emailCpf.toLowerCase().trim();
         
         if (adminEmails.includes(userEmail)) {
-          router.push('/admin');
+          router.push('/documentacao');
           return;
         }
         
         // Redirecionamento padrão com base no role
         switch (data.role) {
           case 'admin':
-            router.push('/admin');
+            router.push('/documentacao');
             break;
           case 'gerente':
-            // Gerentes também vão para /admin (não existe /gerente)
-            router.push('/admin');
+            router.push('/documentacao');
             break;
           case 'recepção':
           case 'recepcao':
           case 'atendente':
-            // Recepção/Atendente acessam o painel admin
-            router.push('/admin');
+            router.push('/documentacao');
             break;
           case 'promoter':
           case 'promoter-list':
-            if (data.promoterCodigo) {
-              router.push(`/promoter/${data.promoterCodigo}/dashboard`);
-            } else {
-              router.push('/promoter');
-            }
+            router.push('/documentacao');
             break;
           case 'cliente':
             router.push('/cliente');
             break;
           default:
-            router.push('/');
+            router.push('/documentacao');
         }
       } else {
         setError(data.message || "Credenciais inválidas.");
