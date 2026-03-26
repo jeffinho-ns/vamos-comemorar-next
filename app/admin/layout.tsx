@@ -69,6 +69,14 @@ const ROOFTOP_FLUXO_LINKS = [
   { href: "/admin/reservas", label: "Reservas", icon: MdEditCalendar },
 ];
 
+// Usuários com acesso exclusivo ao módulo de Cardápio
+const CARDAPIO_ONLY_EMAILS = new Set([
+  "vinicius.gomes@ideiaum.com.br",
+]);
+const CARDAPIO_ONLY_LINKS = [
+  { href: "/admin/cardapio", label: "Cardápio", icon: MdRestaurant },
+];
+
 export default function DashboardLayout({
   children,
 }: {
@@ -124,9 +132,15 @@ export default function DashboardLayout({
   const isAnalista = userEmail === ANALISTA_EMAIL;
   const isRooftopFluxoEmail =
     userEmail && ROOFTOP_FLUXO_EMAILS.has(userEmail.toLowerCase().trim());
+  const isCardapioOnlyUser =
+    userEmail && CARDAPIO_ONLY_EMAILS.has(userEmail.toLowerCase().trim());
 
   // A lista de links da sua navegação baseada no role e no perfil (analista vs promoter)
   const getNavLinks = () => {
+    if (isCardapioOnlyUser) {
+      return CARDAPIO_ONLY_LINKS;
+    }
+
     // Reserva Rooftop: e-mails autorizados ao rooftop-fluxo (prioridade)
     if (isRooftopFluxoEmail) {
       return ROOFTOP_FLUXO_LINKS;
@@ -325,6 +339,9 @@ export default function DashboardLayout({
     }
     if (userRole === "promoter" || userRole === "promoter-list") {
       return "Painel Promoter";
+    }
+    if (isCardapioOnlyUser) {
+      return "Admin - Cardápio";
     }
     if (
       isRooftopFluxoEmail ||

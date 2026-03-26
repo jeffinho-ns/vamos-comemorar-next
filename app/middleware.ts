@@ -5,6 +5,7 @@ export function middleware(request: NextRequest) {
   const token = request.cookies.get('authToken')?.value;
   const role = request.cookies.get('role')?.value;
   const promoterCodigo = request.cookies.get('promoterCodigo')?.value;
+  const userEmailRaw = request.cookies.get('userEmail')?.value || '';
   const url = request.nextUrl.pathname;
 
   // 🔍 DEBUG
@@ -28,6 +29,24 @@ export function middleware(request: NextRequest) {
     try { return decodeURIComponent(value); } catch { return value; }
   };
   const _roleNorm = (role ? safeDecodeURIComponent(role) : role || '').toLowerCase().trim();
+  const userEmail = safeDecodeURIComponent(userEmailRaw).toLowerCase().trim();
+  const CARDAPIO_ONLY_EMAILS = new Set([
+    'vinicius.gomes@ideiaum.com.br',
+  ]);
+  const isCardapioOnlyUser = CARDAPIO_ONLY_EMAILS.has(userEmail);
+
+  if (isCardapioOnlyUser) {
+    const isCardapioRoute =
+      url === '/admin/cardapio' || url.startsWith('/admin/cardapio/');
+
+    if (url === '/admin' || url === '/admin/') {
+      return NextResponse.redirect(new URL('/admin/cardapio', request.url));
+    }
+
+    if (!isCardapioRoute) {
+      return NextResponse.redirect(new URL('/acesso-negado', request.url));
+    }
+  }
 
   const isPromoter = _roleNorm === 'promoter';
   const isPromoterList = _roleNorm === 'promoter-list';
