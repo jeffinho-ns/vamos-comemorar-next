@@ -27,6 +27,26 @@ interface CardProps {
 export default function ProfilePage() {
   const { user, isLoading: loading } = useAppContext();
   const router = useRouter();
+  const profileUserData = user
+    ? {
+        foto_perfil: String(user.foto_perfil || ""),
+        name: String(user.name || ""),
+        email: String(user.email || ""),
+        telefone: String(user.telefone || ""),
+        sexo: "",
+        data_nascimento: "",
+        cep: "",
+        cpf: String(user.cpf || ""),
+        endereco: String(user.endereco || ""),
+        numero: "",
+        bairro: "",
+        cidade: "",
+        estado: "",
+        complemento: "",
+        id: String(user.id || ""),
+        status: "Ativado",
+      }
+    : null;
 
   useEffect(() => {
     const token = localStorage.getItem("authToken");
@@ -89,7 +109,7 @@ export default function ProfilePage() {
             </div>
           </div>
         ) : (
-          <ProfileUser user={user} addUser={addUser} />
+          <ProfileUser user={profileUserData} addUser={addUser} />
         )}
       </div>
       

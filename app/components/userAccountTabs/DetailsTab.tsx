@@ -13,7 +13,7 @@ export default function DetailsTab() {
     );
   }
 
-  const formatDate = (dateString: string) => {
+  const formatDate = (dateString?: string) => {
     if (!dateString) return "Data não disponível";
     try {
       return new Date(dateString).toLocaleDateString('pt-BR', {

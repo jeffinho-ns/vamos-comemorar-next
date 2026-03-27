@@ -233,12 +233,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const barsMapped = Array.isArray(barsPayload)
         ? barsPayload.map((item) => mapBar(item as Record<string, unknown>))
         : [];
-      const placeList = Array.isArray(placesPayload)
+      const placeList: unknown[] = Array.isArray(placesPayload)
         ? placesPayload
         : Array.isArray(placesPayload?.data)
           ? placesPayload.data
           : [];
-      const placesMapped = placeList.map((item) =>
+      const placesMapped = placeList.map((item: unknown) =>
         mapPlace(item as Record<string, unknown>),
       );
       setEstablishments(mergeEstablishments(barsMapped, placesMapped));
