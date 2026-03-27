@@ -1359,22 +1359,75 @@ export default function EventoCheckInsPage() {
 
         setPromoters(data.dados.promoters || []);
 
-        // Carregar regras de brindes para este estabelecimento/evento
-        if (data.evento?.establishment_id) {
-          try {
-            const giftRulesRes = await fetch(
-              `${API_URL}/api/gift-rules?establishment_id=${data.evento.establishment_id}&evento_id=${eventoId}`,
-              {
+        // Carregar regras de brindes com fallback robusto.
+        // No Reserva Rooftop, dependendo do cadastro, as regras podem estar
+        // vinculadas ao evento, ao estabelecimento ou retornarem em formato diverso.
+        try {
+          const establishmentId = data.evento?.establishment_id;
+          const queryCandidates = [
+            establishmentId
+              ? `${API_URL}/api/gift-rules?establishment_id=${establishmentId}&evento_id=${eventoId}&tipo_beneficiario=ANIVERSARIO`
+              : null,
+            establishmentId
+              ? `${API_URL}/api/gift-rules?establishment_id=${establishmentId}&tipo_beneficiario=ANIVERSARIO`
+              : null,
+            `${API_URL}/api/gift-rules?evento_id=${eventoId}&tipo_beneficiario=ANIVERSARIO`,
+            establishmentId
+              ? `${API_URL}/api/gift-rules?establishment_id=${establishmentId}&evento_id=${eventoId}`
+              : null,
+            establishmentId
+              ? `${API_URL}/api/gift-rules?establishment_id=${establishmentId}`
+              : null,
+          ].filter(Boolean) as string[];
+
+          let loadedRules: GiftRule[] = [];
+
+          for (const url of queryCandidates) {
+            try {
+              const response = await fetch(url, {
                 headers: { Authorization: `Bearer ${token}` },
-              },
-            );
-            if (giftRulesRes.ok) {
-              const giftRulesData = await giftRulesRes.json();
-              setGiftRules(giftRulesData.rules || []);
+              });
+              if (!response.ok) continue;
+
+              const payload = await response.json();
+              const rawRules = Array.isArray(payload)
+                ? payload
+                : Array.isArray(payload?.rules)
+                  ? payload.rules
+                  : [];
+
+              if (!Array.isArray(rawRules) || rawRules.length === 0) continue;
+
+              loadedRules = rawRules
+                .filter((r: any) => {
+                  const tipo = String(r?.tipo_beneficiario || "")
+                    .trim()
+                    .toUpperCase();
+                  return !tipo || tipo === "ANIVERSARIO";
+                })
+                .map((r: any) => ({
+                  id: Number(r.id),
+                  descricao: String(r.descricao || ""),
+                  checkins_necessarios: Number(r.checkins_necessarios || 0),
+                  status: String(r.status || ""),
+                }))
+                .filter(
+                  (r) =>
+                    Number.isFinite(r.id) &&
+                    r.id > 0 &&
+                    Number.isFinite(r.checkins_necessarios) &&
+                    r.checkins_necessarios > 0,
+                );
+
+              if (loadedRules.length > 0) break;
+            } catch {
+              // Tenta próximo fallback silenciosamente.
             }
-          } catch (error) {
-            console.error("Erro ao carregar regras de brindes:", error);
           }
+
+          setGiftRules(loadedRules);
+        } catch (error) {
+          console.error("Erro ao carregar regras de brindes:", error);
         }
 
         // VALIDAÇÃO RIGOROSA: Garantir que apenas convidados de promoters sejam exibidos
@@ -4147,7 +4200,9 @@ export default function EventoCheckInsPage() {
       const totalGuests =
         (guestsByList[guestListId] || []).length || gl.total_guests || 0;
       const activeRule = giftRules
-        .filter((r) => r.status === "ATIVA")
+        .filter(
+          (r) => String(r.status || "").trim().toUpperCase() === "ATIVA",
+        )
         .sort((a, b) => a.checkins_necessarios - b.checkins_necessarios)[0];
       let giftInfo: {
         remainingCheckins: number;
@@ -6612,7 +6667,12 @@ export default function EventoCheckInsPage() {
                                             checkInStatus[gl.guest_list_id]
                                               ?.guestsCheckedIn || 0;
                                           const activeRules = giftRules
-                                            .filter((r) => r.status === "ATIVA")
+                                            .filter(
+                                              (r) =>
+                                                String(r.status || "")
+                                                  .trim()
+                                                  .toUpperCase() === "ATIVA",
+                                            )
                                             .sort(
                                               (a, b) =>
                                                 a.checkins_necessarios -
@@ -6623,6 +6683,21 @@ export default function EventoCheckInsPage() {
                                               guestsCheckedIn <
                                               r.checkins_necessarios,
                                           );
+                                          const currentRule = [...activeRules]
+                                            .reverse()
+                                            .find(
+                                              (r) =>
+                                                guestsCheckedIn >=
+                                                r.checkins_necessarios,
+                                            );
+                                          if (currentRule) {
+                                            return (
+                                              <div className="rounded-full bg-gradient-to-r from-emerald-500/90 to-green-500/90 px-2 md:px-3 py-1 text-xs md:text-sm font-bold text-white shadow-lg">
+                                                🎁 Direito atual:{" "}
+                                                {currentRule.descricao}
+                                              </div>
+                                            );
+                                          }
                                           if (nextRule) {
                                             const faltam =
                                               nextRule.checkins_necessarios -
@@ -6631,7 +6706,7 @@ export default function EventoCheckInsPage() {
                                               <div className="rounded-full bg-gradient-to-r from-orange-500/90 to-red-500/90 px-2 md:px-3 py-1 text-xs md:text-sm font-bold text-white shadow-lg animate-pulse">
                                                 ⚠️ Faltam {faltam} check-in
                                                 {faltam !== 1 ? "s" : ""} para o
-                                                brinde!
+                                                brinde ({nextRule.descricao})!
                                               </div>
                                             );
                                           }
@@ -6805,7 +6880,12 @@ export default function EventoCheckInsPage() {
                                               )
                                             : 0;
                                         const activeRules = giftRules
-                                          .filter((r) => r.status === "ATIVA")
+                                          .filter(
+                                            (r) =>
+                                              String(r.status || "")
+                                                .trim()
+                                                .toUpperCase() === "ATIVA",
+                                          )
                                           .sort(
                                             (a, b) =>
                                               a.checkins_necessarios -
@@ -6816,6 +6896,13 @@ export default function EventoCheckInsPage() {
                                             guestsCheckedIn <
                                             r.checkins_necessarios,
                                         );
+                                        const currentRule = [...activeRules]
+                                          .reverse()
+                                          .find(
+                                            (r) =>
+                                              guestsCheckedIn >=
+                                              r.checkins_necessarios,
+                                          );
                                         const awardedGifts =
                                           giftsByGuestList[gl.guest_list_id] ||
                                           [];
@@ -6880,6 +6967,16 @@ export default function EventoCheckInsPage() {
                                                       Próximo brinde:{" "}
                                                       <span className="font-semibold text-amber-300">
                                                         {nextRule.descricao}
+                                                      </span>
+                                                    </p>
+                                                  </div>
+                                                )}
+                                                {currentRule && (
+                                                  <div className="mt-1">
+                                                    <p className="text-xs text-green-200">
+                                                      Direito atual:{" "}
+                                                      <span className="font-semibold text-green-300">
+                                                        {currentRule.descricao}
                                                       </span>
                                                     </p>
                                                   </div>
