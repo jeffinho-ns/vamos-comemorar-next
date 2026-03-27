@@ -13,7 +13,7 @@ export default function CompanyTab() {
     );
   }
 
-  const formatCNPJ = (cnpj: string) => {
+  const formatCNPJ = (cnpj?: string) => {
     if (!cnpj) return "Não informado";
     // Remove caracteres não numéricos
     const cleanCNPJ = cnpj.replace(/\D/g, '');
