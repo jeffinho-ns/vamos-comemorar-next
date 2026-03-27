@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation"; // Hook para pegar a URL atual
@@ -25,6 +25,7 @@ import {
 import logBrand from "../assets/logo-agilizai-h.png"; // Verifique o caminho
 import UserMenu from "../components/UserMenu/UserMenu"; // Verifique o caminho
 import { useUserPermissions } from "../hooks/useUserPermissions";
+import { useAppContext } from "../context/AppContext";
 
 // E-mail da analista com acesso restrito ao estabelecimento Pracinha do Seu Justino (menu próprio, não promoter)
 const ANALISTA_EMAIL = "analista.mkt03@ideiaum.com.br";
@@ -83,51 +84,9 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [userRole, setUserRole] = useState<string>("");
-  const [userEmail, setUserEmail] = useState<string>("");
-  const [isLoading, setIsLoading] = useState(true);
   const pathname = usePathname(); // Hook do Next.js para pegar a rota ativa
   const { canAccessCardapio, isLoading: isLoadingPerms } = useUserPermissions();
-
-  useEffect(() => {
-    // Buscar role e email: cookies (prioridade) ou localStorage (fallback)
-    const loadUser = () => {
-      let role = "";
-      const cookies = document.cookie.split(";");
-      const roleCookie = cookies.find((cookie) =>
-        cookie.trim().startsWith("role="),
-      );
-      if (roleCookie) {
-        role = (roleCookie.split("=")[1] || "").trim();
-      }
-      if (!role && typeof window !== "undefined") {
-        role = localStorage.getItem("role") || "";
-      }
-      setUserRole(role);
-      let email = "";
-      if (typeof window !== "undefined") {
-        const emailCookie = cookies.find((cookie) =>
-          cookie.trim().startsWith("userEmail="),
-        );
-        const emailFromCookie = emailCookie
-          ? (emailCookie.split("=").slice(1).join("=") || "").trim()
-          : "";
-        try {
-          email =
-            (emailFromCookie ? decodeURIComponent(emailFromCookie) : "") ||
-            localStorage.getItem("userEmail") ||
-            "";
-        } catch {
-          email = localStorage.getItem("userEmail") || "";
-        }
-        email = email.trim().toLowerCase();
-      }
-      setUserEmail(email);
-      setIsLoading(false);
-    };
-
-    loadUser();
-  }, []);
+  const { role: userRole, userEmail, isLoading } = useAppContext();
 
   const isAnalista = userEmail === ANALISTA_EMAIL;
   const isRooftopFluxoEmail =

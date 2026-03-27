@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import ProfileUser from "../components/profileuser/profileuser";
 import Banner from "../components/banner/banner";
@@ -11,6 +11,7 @@ import Footer from "../components/footer/footer";
 import logoBanner from "@/app/assets/commemoration.png";
 import logoBlue from "@/app/assets/logo-agilizai-h.png";
 import "react-multi-carousel/lib/styles.css";
+import { useAppContext } from "../context/AppContext";
 
 // Defina uma interface para os props do componente Card
 interface CardProps {
@@ -24,50 +25,18 @@ interface CardProps {
 }
 
 export default function ProfilePage() {
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const { user, isLoading: loading } = useAppContext();
   const router = useRouter();
 
-  // Função para buscar os dados do usuário logado
-  const fetchUserData = useCallback(async () => {
+  useEffect(() => {
     const token = localStorage.getItem("authToken");
     if (!token) {
-      console.error("Token não encontrado. Faça login novamente.");
       router.push("/login");
-      return;
-    }
-
-    try {
-      const response = await fetch("https://vamos-comemorar-api.onrender.com/api/users/me", {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      if (response.ok) {
-        const userData = await response.json();
-        console.log("Dados do usuário:", userData);
-        setUser(userData);
-      } else {
-        console.error("Erro ao buscar dados do usuário:", response.statusText);
-      }
-    } catch (error) {
-      console.error("Erro ao fazer a requisição:", error);
-    } finally {
-      setLoading(false);
     }
   }, [router]);
 
-  useEffect(() => {
-    fetchUserData();
-  }, [fetchUserData]);
-
   // Função addUser que será passada como prop para o ProfileUser
-  const addUser = (newUser: any) => {
-    console.log("Usuário adicionado:", newUser);
-    setUser(newUser);
-  };
+  const addUser = (_newUser: any) => undefined;
 
   // Função para monitorar o tamanho da tela
   useEffect(() => {

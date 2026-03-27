@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useRef } from "react";
 import Image from "next/image";
 import { MdPerson, MdPhone, MdLocationOn, MdPhotoCamera, MdEdit, MdClose } from "react-icons/md";
 import { uploadImage as uploadImageToFirebase } from "@/app/services/uploadService";
+import { useAppContext } from "@/app/context/AppContext";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL_LOCAL;
 const DEFAULT_AVATAR_URL = "https://via.placeholder.com/150";
@@ -31,8 +32,7 @@ const getProfileImageUrl = (
 };
 
 export default function ProfileTab() {
-  const [user, setUser] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+  const { user, isLoading: loading, refetchAll } = useAppContext();
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [modal, setModal] = useState<"edit" | "password" | null>(null);
   const [saving, setSaving] = useState(false);
@@ -50,34 +50,14 @@ export default function ProfileTab() {
     confirmPassword: "",
   });
 
-  const fetchUser = useCallback(async () => {
-    const token = localStorage.getItem("authToken");
-    if (!token || !API_URL) return;
-    try {
-      const res = await fetch(`${API_URL}/api/users/me`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setUser(data);
-        setEditForm({
-          name: data.name || "",
-          email: data.email || "",
-          telefone: data.telefone || "",
-          endereco: data.endereco || "",
-        });
-      }
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
   useEffect(() => {
-    setLoading(true);
-    fetchUser();
-  }, [fetchUser]);
+    setEditForm({
+      name: String(user?.name || ""),
+      email: String(user?.email || ""),
+      telefone: String(user?.telefone || ""),
+      endereco: String(user?.endereco || ""),
+    });
+  }, [user]);
 
   const showMessage = (type: "success" | "error", text: string) => {
     setMessage({ type, text });
@@ -133,7 +113,7 @@ export default function ProfileTab() {
       }
       showMessage("success", "Perfil atualizado com sucesso!");
       setModal(null);
-      await fetchUser();
+      await refetchAll();
     } catch (e) {
       showMessage("error", "Erro ao atualizar perfil. Tente novamente.");
     } finally {
@@ -172,7 +152,7 @@ export default function ProfileTab() {
         return;
       }
       showMessage("success", "Foto alterada com sucesso!");
-      await fetchUser();
+      await refetchAll();
     } catch (err) {
       showMessage(
         "error",

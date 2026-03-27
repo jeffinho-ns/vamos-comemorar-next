@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect } from "react";
 import Image from "next/image";
 import { FiSave } from "react-icons/fi";
 import Header from "../components/headerNotificatioin/headerNotification";
@@ -8,6 +8,7 @@ import Footer from "../../components/footer/footer";
 import { useRouter } from "next/navigation";
 import logoBlue from "@/app/assets/logo-agilizai-h.png";
 import { uploadImage as uploadImageToFirebase } from "@/app/services/uploadService";
+import { useAppContext } from "@/app/context/AppContext";
 
 type UserField = "nome" | "endereco" | "telefone";
 type ProfileField = "nome" | "endereco" | "telefone" | "senha";
@@ -22,7 +23,7 @@ interface User {
 const PerfilMobile: React.FC = () => {
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null); // Novo estado para a URL da imagem
-  const [user, setUser] = useState<User | null>(null);
+  const { user, isLoading, refetchAll } = useAppContext();
   const router = useRouter();
   const [isEditing, setIsEditing] = useState({
     nome: false,
@@ -38,62 +39,36 @@ const PerfilMobile: React.FC = () => {
     foto_perfil: "",
     senha: "",
   });
-  const [loading, setLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [message, setMessage] = useState("");
-
-  const fetchUserData = useCallback(async (token: string) => {
-    try {
-      const API_URL = process.env.NEXT_PUBLIC_API || process.env.NEXT_PUBLIC_API_URL_LOCAL;
-      const response = await fetch(`${API_URL}/api/users/me`, {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      });
-
-      if (response.ok) {
-        const userData = await response.json();
-        const baseUrl = `${API_URL}`;
-        const fotoUrl = userData.foto_perfil
-          ? (typeof userData.foto_perfil === "string" && userData.foto_perfil.startsWith("http")
-              ? userData.foto_perfil
-              : `${baseUrl}${userData.foto_perfil.startsWith("/") ? userData.foto_perfil : `/uploads/${userData.foto_perfil}`}`)
-          : "";
-        setUserInfo({
-          nome: userData.name,
-          localizacao: "BR (Brasil - SP)",
-          endereco: userData.endereco,
-          telefone: userData.telefone || "(11) 9 4350-1097",
-          foto_perfil: fotoUrl,
-          senha: "",
-        });
-        setUser(userData);
-        setIsAuthenticated(true);
-      } else if (response.status === 401) {
-        localStorage.removeItem("authToken");
-        router.push("/login");
-      } else {
-        console.error("Erro ao buscar dados do usuário:", response.status, await response.text());
-      }
-    } catch (error) {
-      console.error("Erro ao buscar dados do usuário:", error);
-      localStorage.removeItem("authToken");
-      router.push("/login");
-    } finally {
-      setLoading(false);
-    }
-  }, [router]);
 
   useEffect(() => {
     const token = localStorage.getItem("authToken");
     if (!token) {
       router.push("/login");
-    } else {
-      fetchUserData(token);
+      return;
     }
-  }, [fetchUserData, router]);
+    setIsAuthenticated(true);
+  }, [router]);
+
+  useEffect(() => {
+    if (!user) return;
+    const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL_LOCAL;
+    const baseUrl = `${API_URL}`;
+    const fotoUrl = user.foto_perfil
+      ? (typeof user.foto_perfil === "string" && user.foto_perfil.startsWith("http")
+          ? user.foto_perfil
+          : `${baseUrl}${String(user.foto_perfil).startsWith("/") ? user.foto_perfil : `/uploads/${user.foto_perfil}`}`)
+      : "";
+    setUserInfo({
+      nome: String(user.name || ""),
+      localizacao: "BR (Brasil - SP)",
+      endereco: String(user.endereco || ""),
+      telefone: String(user.telefone || "(11) 9 4350-1097"),
+      foto_perfil: fotoUrl,
+      senha: "",
+    });
+  }, [user]);
 
   const handleEditClick = (field: UserField | "senha") => {
     setIsEditing((prev) => ({ ...prev, [field]: true }));
@@ -122,10 +97,10 @@ const PerfilMobile: React.FC = () => {
 
     // Adiciona os dados ao payload se estiverem modificados
     if (user) {
-        if (userInfo.nome && userInfo.nome !== user.name) {
+        if (userInfo.nome && userInfo.nome !== String(user.name || "")) {
             payload.name = userInfo.nome;
         }
-        if (userInfo.telefone && userInfo.telefone !== user.telefone) {
+        if (userInfo.telefone && userInfo.telefone !== String(user.telefone || "")) {
             payload.telefone = userInfo.telefone;
         }
         if (userInfo.senha && userInfo.senha !== "") {
@@ -163,8 +138,7 @@ const PerfilMobile: React.FC = () => {
         });
 
         if (updateResponse.ok) {
-            const updatedData = await updateResponse.json();
-            setUser(updatedData); // Atualiza o estado do usuário com os dados recebidos
+            await refetchAll();
             setMessage("Dados salvos com sucesso!");
             setFile(null);
             setPreviewUrl(null); // Limpa a URL de visualização após salvar
@@ -181,7 +155,7 @@ const PerfilMobile: React.FC = () => {
 };
 
 
-  if (loading) {
+  if (isLoading) {
     return <div>Carregando...</div>;
   }
 

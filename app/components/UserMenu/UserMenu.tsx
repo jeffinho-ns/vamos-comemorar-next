@@ -11,6 +11,7 @@ import {
   MdArrowDropDown,
 } from "react-icons/md";
 import { useRouter } from "next/navigation";
+import { useAppContext } from "@/app/context/AppContext";
 
 // URL padrão para o caso de não haver foto
 const DEFAULT_AVATAR_URL = "https://via.placeholder.com/150";
@@ -37,42 +38,10 @@ const getProfileImageUrl = (fotoPerfil?: string | null, fotoPerfilUrl?: string |
 };
 
 export default function UserMenu() {
-  const [user, setUser] = useState<any>(null);
+  const { user, isLoading } = useAppContext();
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const router = useRouter();
   const menuRef = useRef<HTMLDivElement>(null);
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL_LOCAL;
-
-  useEffect(() => {
-    const fetchUser = async () => {
-      const token = localStorage.getItem("authToken");
-      if (!token || !API_URL) {
-        setUser(null);
-        return;
-      }
-
-      try {
-        const res = await fetch(`${API_URL}/api/users/me`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
-
-        if (res.ok) {
-          const data = await res.json();
-          setUser(data);
-        } else {
-          console.error("Erro ao buscar usuário:", res.status);
-          setUser(null);
-        }
-      } catch (err) {
-        console.error("Erro ao buscar usuário:", err);
-        setUser(null);
-      }
-    };
-
-    fetchUser();
-  }, [API_URL]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -94,7 +63,7 @@ export default function UserMenu() {
     router.push(`/admin/contausuariopage?aba=${aba}`);
   };
 
-  if (!user) {
+  if (isLoading || !user) {
     return (
       <div className="w-9 h-9 rounded-full bg-gray-400 animate-pulse"></div>
     );

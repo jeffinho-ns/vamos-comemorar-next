@@ -1,28 +1,9 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useAppContext } from "@/app/context/AppContext";
 import { MdLanguage, MdNotifications, MdDarkMode, MdLightMode, MdSettings } from "react-icons/md";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL_LOCAL;
-
 export default function SettingsTab() {
-  const [user, setUser] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const token = localStorage.getItem("authToken");
-    if (!token || !API_URL) {
-      setLoading(false);
-      return;
-    }
-
-    fetch(`${API_URL}/api/users/me`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then(res => res.json())
-      .then(setUser)
-      .catch(console.error)
-      .finally(() => setLoading(false));
-  }, []);
+  const { user, isLoading: loading } = useAppContext();
 
   if (loading) {
     return (

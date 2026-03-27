@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { getApiUrl } from '../config/api';
+import { useMemo } from "react";
+import { useAppContext } from "../context/AppContext";
 
 export interface EstablishmentPermission {
   establishmentId: number;
@@ -46,97 +46,33 @@ export interface PermissionData {
 }
 
 export function useEstablishmentPermissions() {
-  const [userConfig, setUserConfig] = useState<UserEstablishmentConfig | null>(null);
-  const [permissions, setPermissions] = useState<PermissionData[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [userEmail, setUserEmail] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    const loadUserPermissions = async () => {
-      try {
-        setIsLoading(true);
-        setError(null);
-        
-        const email = (localStorage.getItem('userEmail') || '').trim();
-        const token = localStorage.getItem('authToken');
-        
-        setUserEmail(email);
-
-        if (!email || !token) {
-          setIsLoading(false);
-          return;
-        }
-
-        // Buscar permissões do backend
-        const API_URL = getApiUrl();
-        const response = await fetch(`${API_URL}/api/establishment-permissions/my-permissions`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-        });
-
-        const normalizedEmail = email.toLowerCase();
-
-        if (!response.ok) {
-          throw new Error('Erro ao buscar permissões');
-        }
-
-        const data = await response.json();
-
-        if (data.success && data.data && data.data.length > 0) {
-          const permissionsData = data.data as PermissionData[];
-
-          setPermissions(permissionsData);
-
-          // Converter para formato UserEstablishmentConfig
-          // Agrupar IDs únicos de estabelecimentos
-          const establishmentIds = Array.from(
-            new Set(permissionsData.map((p) => p.establishment_id)),
-          );
-          const firstPermission = permissionsData[0];
-
-          const config: UserEstablishmentConfig = {
-            userEmail: email,
-            establishmentIds,
-            permissions: {
-              canEditOS: firstPermission.can_edit_os,
-              canEditOperationalDetail: firstPermission.can_edit_operational_detail,
-              canViewOS: firstPermission.can_view_os,
-              canDownloadOS: firstPermission.can_download_os,
-              canViewOperationalDetail: firstPermission.can_view_operational_detail,
-              canCreateOS: firstPermission.can_create_os,
-              canCreateOperationalDetail: firstPermission.can_create_operational_detail,
-            },
-          };
-
-          setUserConfig(config);
-          console.log('✅ [PERMISSIONS] Config carregada:', config);
-        } else {
-          // Se não tem permissões configuradas (API retornou success mas sem dados)
-          const role = localStorage.getItem('role') || '';
-          if (role === 'admin') {
-            setUserConfig(null);
-            setPermissions([]);
-          } else {
-            setUserConfig(null);
-            setPermissions([]);
-            console.log('⚠️ [PERMISSIONS] Usuário sem permissões específicas configuradas');
-          }
-        }
-      } catch (error) {
-        console.error('Erro ao carregar permissões:', error);
-        setError(error instanceof Error ? error.message : 'Erro desconhecido');
-        setUserConfig(null);
-        setPermissions([]);
-      } finally {
-        setIsLoading(false);
-      }
+  const {
+    myPermissions,
+    isLoading,
+    userEmail,
+    role,
+    error: contextError,
+  } = useAppContext();
+  const permissions = myPermissions as PermissionData[];
+  const normalizedRole = (role || "").toLowerCase();
+  const userConfig = useMemo<UserEstablishmentConfig | null>(() => {
+    if (!permissions.length) return null;
+    const establishmentIds = Array.from(new Set(permissions.map((p) => p.establishment_id)));
+    const firstPermission = permissions[0];
+    return {
+      userEmail: userEmail || "",
+      establishmentIds,
+      permissions: {
+        canEditOS: firstPermission.can_edit_os,
+        canEditOperationalDetail: firstPermission.can_edit_operational_detail,
+        canViewOS: firstPermission.can_view_os,
+        canDownloadOS: firstPermission.can_download_os,
+        canViewOperationalDetail: firstPermission.can_view_operational_detail,
+        canCreateOS: firstPermission.can_create_os,
+        canCreateOperationalDetail: firstPermission.can_create_operational_detail,
+      },
     };
-
-    loadUserPermissions();
-  }, []);
+  }, [permissions, userEmail]);
 
   // Verifica se o usuário tem acesso a um estabelecimento específico
   const hasAccessToEstablishment = (establishmentId: number): boolean => {
@@ -155,26 +91,9 @@ export function useEstablishmentPermissions() {
       
       const filtered = establishments.filter((est) => {
         const estId = typeof est.id === 'string' ? parseInt(est.id, 10) : Number(est.id);
-        const allowed = allowedIds.includes(estId);
-        
-        if (!allowed) {
-          console.log(`🚫 [FILTER] Estabelecimento ${estId} (${(est as any).name || (est as any).nome}) não permitido. IDs permitidos: [${allowedIds.join(', ')}]`);
-        } else {
-          console.log(`✅ [FILTER] Estabelecimento ${estId} (${(est as any).name || (est as any).nome}) permitido`);
-        }
-        
-        return allowed;
+        return allowedIds.includes(estId);
       });
-      
-      console.log(`📊 [FILTER] Resultado: ${filtered.length} de ${establishments.length} estabelecimentos permitidos`, {
-        allowedIds: allowedIds,
-        totalEstabelecimentos: establishments.length,
-        estabelecimentosPermitidos: filtered.map(e => ({ 
-          id: typeof e.id === 'string' ? parseInt(e.id, 10) : Number(e.id), 
-          name: (e as any).name || (e as any).nome 
-        }))
-      });
-      
+
       return filtered;
     }
     
@@ -191,19 +110,12 @@ export function useEstablishmentPermissions() {
         const estId = typeof est.id === 'string' ? parseInt(est.id) : est.id;
         return allowedIds.includes(estId);
       });
-      console.log(`✅ [FILTER] Filtrando por permissões: ${filtered.length} de ${establishments.length} permitidos`, {
-        allowedIds,
-        filtered: filtered.map(e => ({ id: e.id, name: (e as any).name || (e as any).nome }))
-      });
       return filtered;
     }
     
     // Se não tem userConfig nem permissões, verificar role
-    const role = localStorage.getItem('role') || '';
-    console.log(`⚠️ [FILTER] Sem permissões configuradas, role: ${role}`);
-
     // Admin continua vendo todos; demais, nenhum (sem permissões explícitas)
-    if (role === 'admin') {
+    if (normalizedRole === "admin") {
       return establishments;
     }
 
@@ -329,9 +241,9 @@ export function useEstablishmentPermissions() {
   return {
     userConfig,
     permissions,
-    userEmail,
+    userEmail: userEmail || null,
     isLoading,
-    error,
+    error: contextError,
     hasAccessToEstablishment,
     getFilteredEstablishments,
     getPermissionForEstablishment,

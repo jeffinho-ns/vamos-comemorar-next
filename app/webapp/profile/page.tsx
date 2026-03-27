@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react"; 
+import React, { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { FiSettings, FiLogOut, FiLock, FiHelpCircle } from "react-icons/fi";
 import Link from "next/link";
@@ -9,6 +9,7 @@ import Footer from "../../components/footer/footer";
 import Image from "next/image";
 import logoBlue from "@/app/assets/logo-agilizai-h.png";
 import "./profile.module.scss";
+import { useAppContext } from "@/app/context/AppContext";
 
 interface User {
   id: string; 
@@ -17,48 +18,17 @@ interface User {
 }
 
 export default function PerfilMobile() {
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true); 
+  const { user, isLoading: loading } = useAppContext();
   const router = useRouter();
   const API_URL = process.env.NEXT_PUBLIC_API_URL|| process.env.NEXT_PUBLIC_API_URL_LOCAL;
 
-  const fetchUserData = useCallback(async (token: string) => {
-    setLoading(true);
-    try {
-      console.log("Token usado:", token); 
-      const response = await fetch(`${API_URL}/api/users/me`, {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      if (response.ok) {
-        const userData = await response.json();
-        setUser(userData);
-      } else {
-        console.error("Erro ao buscar dados do usuário:", response.statusText);
-        router.push('/login');
-      }
-    } catch (error) {
-      console.error("Erro ao fazer a requisição:", error);
-      router.push('/login');
-    } finally {
-      setLoading(false);
-    }
-  }, [API_URL, router]);
-
   useEffect(() => {
     const token = localStorage.getItem('authToken');
-    console.log("Token recuperado:", token); 
-
     if (!token) {
       router.push('/login');
-      return;  // Impede que a página continue sendo renderizada sem o token
-    } else {
-      fetchUserData(token);
+      return;
     }
-  }, [fetchUserData, router]);
+  }, [router]);
 
   const handleLogout = () => {
     localStorage.removeItem('authToken');
