@@ -114,9 +114,30 @@ const menuData: MenuCategory[] = [
     icon: <MdFastfood className="w-6 h-6" />,
     color: "from-orange-600 to-orange-800",
     items: [
-      { id: "l1", name: "BRAZUCA", price: 43.0, category: "lanche" },
-      { id: "l2", name: "DA CASA", price: 59.0, category: "lanche" },
-      { id: "l3", name: "DO SAMBA", price: 57.0, category: "lanche" },
+      {
+        id: "l1",
+        name: "BRAZUCA",
+        price: 43.0,
+        category: "lanche",
+        description:
+          "Blend bovino de 180 gramas, queijo coalho, alface americana e tomate no pão brioche, acompanha fritas",
+      },
+      {
+        id: "l2",
+        name: "DA CASA",
+        price: 59.0,
+        category: "lanche",
+        description:
+          "Blend bovino de 180g com queijo cheddar derretido, costelinha suína ao molho barbecue e cebola crispy, acompanha fritas",
+      },
+      {
+        id: "l3",
+        name: "DO SAMBA",
+        price: 57.0,
+        category: "lanche",
+        description:
+          "Blend bovino de 180 gramas com queijo cheddar e bacon no pão brioche, acompanha fritas",
+      },
     ],
   },
   {
@@ -125,17 +146,54 @@ const menuData: MenuCategory[] = [
     icon: <MdTapas className="w-6 h-6" />,
     color: "from-rose-600 to-rose-800",
     items: [
-      { id: "p1", name: "BATATA FRITA", price: 43.0, category: "petisco" },
-      { id: "p2", name: "BATATA TRUFADA", price: 53.0, category: "petisco" },
+      {
+        id: "p1",
+        name: "BATATA FRITA",
+        price: 43.0,
+        category: "petisco",
+        description:
+          "Batatas fritas com alecrim. Acompanha maionese aioli. *Opção de maionese vegana.",
+      },
+      {
+        id: "p2",
+        name: "BATATA TRUFADA",
+        price: 53.0,
+        category: "petisco",
+        description:
+          "Batatas fritas regadas com azeite trufado, cobertas com parmesão. Acompanha maionese aioli. *Opção de maionese vegana.",
+      },
       {
         id: "p3",
         name: "BOLINHO DE COSTELA DEFUMADA",
         price: 43.0,
         category: "petisco",
+        description:
+          "Carne desfiada e marcada pelo sabor intenso da defumação, envolta em massa crocante. Acompanha barbecue",
       },
-      { id: "p4", name: "ISCA DE FRANGO", price: 47.0, category: "petisco" },
-      { id: "p5", name: "KIBE VEGANO", price: 45.0, category: "petisco" },
-      { id: "p6", name: "PASTEL DE QUEIJO", price: 49.0, category: "petisco" },
+      {
+        id: "p4",
+        name: "ISCA DE FRANGO",
+        price: 47.0,
+        category: "petisco",
+        description:
+          "Sticks de peito de frango empanados em farinha de cajun. Acompanha molho ginger sour-cream.",
+      },
+      {
+        id: "p5",
+        name: "KIBE VEGANO",
+        price: 45.0,
+        category: "petisco",
+        description:
+          "Mini Kibe totalmente vegano e delicioso. Acompanha maionese vegana.",
+      },
+      {
+        id: "p6",
+        name: "PASTEL DE QUEIJO",
+        price: 49.0,
+        category: "petisco",
+        description:
+          "Mega sticks crocantes de mix de queijos na massa de pastel. Acompanha geleia de pimenta.",
+      },
     ],
   },
   {
@@ -144,7 +202,14 @@ const menuData: MenuCategory[] = [
     icon: <MdCake className="w-6 h-6" />,
     color: "from-pink-600 to-pink-800",
     items: [
-      { id: "sb1", name: "CHURROS", price: 29.0, category: "sobremesa" },
+      {
+        id: "sb1",
+        name: "CHURROS",
+        price: 29.0,
+        category: "sobremesa",
+        description:
+          "Churros crocantes e dourados, perfumados com canela e açúcar, servidos com um delicioso doce de leite cremoso.",
+      },
     ],
   },
   {
@@ -241,18 +306,20 @@ export default function GalpaoCardapioPage() {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3 }}
-      className="bg-white rounded-2xl p-4 shadow-lg border border-gray-100 hover:shadow-xl transition-all duration-300 menu-item-card"
+      className="bg-white rounded-2xl p-4 shadow-lg border border-gray-100 hover:shadow-xl transition-all duration-300 menu-item-card overflow-hidden"
     >
-      <div className="flex justify-between items-start mb-2">
-        <h3 className="font-bold text-gray-900 text-lg leading-tight">
+      <div className="flex justify-between items-start gap-3">
+        <h3 className="font-bold text-gray-900 text-base sm:text-lg leading-snug flex-1 min-w-0 pr-1">
           {item.name}
         </h3>
-        <span className="font-bold text-2xl text-blue-600 price-tag">
+        <span className="font-bold text-lg sm:text-2xl text-blue-600 price-tag shrink-0 tabular-nums text-right leading-tight">
           {formatPrice(item.price)}
         </span>
       </div>
       {item.description && (
-        <p className="text-gray-600 text-sm">{item.description}</p>
+        <p className="text-gray-600 text-sm leading-relaxed mt-3 pt-3 border-t border-gray-100 break-words">
+          {item.description}
+        </p>
       )}
     </motion.div>
   );
