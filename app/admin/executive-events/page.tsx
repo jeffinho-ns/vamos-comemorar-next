@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import {
   MdAdd,
@@ -20,7 +20,7 @@ import { ExecutiveEvent } from '@/app/types/executiveEvents';
 import ExecutiveEventModal from '@/app/components/ExecutiveEventModal';
 
 export default function ExecutiveEventsPage() {
-  const { establishments, loading: establishmentsLoading, fetchEstablishments } = useEstablishments();
+  const { establishments, loading: establishmentsLoading } = useEstablishments();
   const [events, setEvents] = useState<ExecutiveEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -30,19 +30,15 @@ export default function ExecutiveEventsPage() {
 
   const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://vamos-comemorar-api.onrender.com';
 
-  useEffect(() => {
-    fetchEstablishments();
-    fetchEvents();
-  }, []);
-
-  useEffect(() => {
-    fetchEvents();
-  }, [selectedEstablishment]);
-
-  const fetchEvents = async () => {
+  /**
+   * Não chamar fetchEstablishments() na montagem: isso dispara loadAll(true) no AppContext,
+   * setIsLoading(true) no layout admin e desmonta esta página — ao terminar remonta e o efeito
+   * roda de novo → loop infinito. Estabelecimentos já vêm do AppContext após o login.
+   */
+  const fetchEvents = useCallback(async () => {
     setLoading(true);
     setError(null);
-    
+
     try {
       const token = localStorage.getItem('authToken');
       if (!token) {
@@ -75,7 +71,11 @@ export default function ExecutiveEventsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [API_URL, selectedEstablishment]);
+
+  useEffect(() => {
+    fetchEvents();
+  }, [fetchEvents]);
 
   const handleAdd = () => {
     setEditingEvent(null);

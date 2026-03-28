@@ -12,6 +12,7 @@ import {
   MdAccessTime,
   MdClose,
 } from "react-icons/md";
+import Link from "next/link";
 import { useGoogleAnalytics } from "../../hooks/useGoogleAnalytics";
 import { getImageUrl } from "@/lib/imageConfig";
 
@@ -439,6 +440,14 @@ export default function GalpaoCardapioPage() {
             ))}
           </div>
           <p className="text-gray-500 text-sm mt-4">
+            <Link
+              href="/cardapio/galpao/qrcode"
+              className="text-blue-400 hover:text-blue-300 underline underline-offset-2"
+            >
+              QR Code para impressão (PNG)
+            </Link>
+          </p>
+          <p className="text-gray-500 text-sm mt-2">
             © {new Date().getFullYear()} Galpão — Vamos Comemorar
           </p>
         </div>
