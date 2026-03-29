@@ -156,7 +156,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (hasFetchedRef.current && !force) return;
     const run = (async () => {
       hasFetchedRef.current = true;
-      setIsLoading(true);
+      // Refetch em background: não dispara "Carregando..." no layout (evita piscar tela inteira).
+      if (!force) {
+        setIsLoading(true);
+      }
       setError(null);
       setHasError(false);
 

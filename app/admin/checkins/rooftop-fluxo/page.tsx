@@ -51,14 +51,7 @@ function formatCheckinTimeBr(value: string): string {
 
 export default function RooftopFluxoPage() {
   const establishmentPermissions = useEstablishmentPermissions();
-  const { establishments, loading: establishmentsLoading, fetchEstablishments } =
-    useEstablishments();
-
-  const [rooftopEstablishmentId, setRooftopEstablishmentId] = useState<
-    number | null
-  >(null);
-  const [rooftopEstablishmentName, setRooftopEstablishmentName] =
-    useState<string>("");
+  const { establishments, loading: establishmentsLoading } = useEstablishments();
 
   const [reservations, setReservations] = useState<RooftopReservationLike[]>([]);
   const [guestLists, setGuestLists] = useState<RooftopGuestListLike[]>([]);
@@ -71,17 +64,11 @@ export default function RooftopFluxoPage() {
   const [error, setError] = useState<string | null>(null);
   const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null);
 
-  const todayDateKey = getTodayDateKey();
   const [conducedIds, setConducedIds] = useState<Set<string>>(new Set());
   const [conductionError, setConductionError] = useState<string | null>(null);
   const [conductionSuccessId, setConductionSuccessId] = useState<string | null>(null);
 
   const lastDataSignatureRef = useRef<string>("");
-
-  useEffect(() => {
-    if (establishmentPermissions.isLoading) return;
-    fetchEstablishments();
-  }, [establishmentPermissions.isLoading, fetchEstablishments]);
 
   const rooftopEstablishment = useMemo(() => {
     if (establishmentPermissions.isLoading) return null;
@@ -119,15 +106,12 @@ export default function RooftopFluxoPage() {
     establishmentPermissions.permissions,
   ]);
 
-  useEffect(() => {
-    if (!rooftopEstablishment) {
-      setRooftopEstablishmentId(null);
-      setRooftopEstablishmentName("");
-      return;
-    }
-    setRooftopEstablishmentId(Number(rooftopEstablishment.id));
-    setRooftopEstablishmentName(rooftopEstablishment.name);
-  }, [rooftopEstablishment]);
+  const rooftopEstablishmentId = rooftopEstablishment
+    ? Number(rooftopEstablishment.id)
+    : null;
+  const rooftopEstablishmentName = rooftopEstablishment?.name ?? "";
+
+  const [todayDateKey] = useState(() => getTodayDateKey());
 
   const loadTodayData = useCallback(
     async (silent = false, userInitiated = false) => {
