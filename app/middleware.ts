@@ -8,15 +8,8 @@ export function middleware(request: NextRequest) {
   const userEmailRaw = request.cookies.get('userEmail')?.value || '';
   const url = request.nextUrl.pathname;
 
-  // 🔍 DEBUG
-  console.log("🔍 Middleware DEBUG");
-  console.log("Token:", token);
-  console.log("Role:", role);
-  console.log("Pathname:", url);
-
   // Se não houver token ou role, redireciona para login
   if (!token || !role) {
-    console.log("🔁 Redirecionando para /login por falta de token ou role.");
     return NextResponse.redirect(new URL('/login', request.url));
   }
 
@@ -88,6 +81,7 @@ export function middleware(request: NextRequest) {
     '/admin/restaurant-reservations': ['admin', 'promoter', 'promoter-list', 'recepção', 'gerente'],
     '/admin/detalhes-operacionais': ['admin', 'recepção', 'gerente'],
     '/admin/guia': ['admin', 'gerente', 'recepção', 'recepcao', 'atendente', 'promoter', 'promoter-list'],
+    '/admin/logs': ['admin', 'gerente', 'recepção', 'recepcao', 'atendente', 'promoter', 'promoter-list'],
     '/admin/relatorios-gerador': ['admin'],
   };
 
@@ -102,11 +96,9 @@ export function middleware(request: NextRequest) {
   const roleAllowed = allowedRoles && allowedRoles.some((r) => (r || '').toLowerCase().trim() === _roleNorm);
 
   if (allowedRoles && !roleAllowed) {
-    console.log("⛔ Acesso negado. Role:", role, "| URL:", url);
     return NextResponse.redirect(new URL('/acesso-negado', request.url));
   }
 
-  console.log("✅ Acesso liberado");
   return NextResponse.next();
 }
 

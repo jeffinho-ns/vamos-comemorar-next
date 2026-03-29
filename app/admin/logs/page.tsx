@@ -19,10 +19,19 @@ import {
   MdCalendarToday,
   MdGroup,
   MdWarning,
+  MdPictureAsPdf,
 } from 'react-icons/md';
 import { useRouter } from 'next/navigation';
+import { useUserPermissions } from '../../hooks/useUserPermissions';
+import AuditDiffTable from '../../components/logs/AuditDiffTable';
+import { exportActionLogsPdf } from './exportActionLogsPdf';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://vamos-comemorar-api.onrender.com';
+
+interface BarOption {
+  id: number;
+  name: string;
+}
 
 interface ActionLog {
   id: number;
@@ -62,9 +71,16 @@ interface User {
 
 export default function ActionLogsPage() {
   const router = useRouter();
+  const {
+    canViewActionLogs,
+    isLoading: permsLoading,
+    isSuperAdmin,
+    myEstablishmentPermissions,
+  } = useUserPermissions();
   const [logs, setLogs] = useState<ActionLog[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
   const [users, setUsers] = useState<User[]>([]);
+  const [establishmentOptions, setEstablishmentOptions] = useState<BarOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -74,6 +90,7 @@ export default function ActionLogsPage() {
     userId: '',
     userRole: '',
     actionType: '',
+    actionCategory: '',
     resourceType: '',
     establishmentId: '',
     startDate: '',
@@ -83,12 +100,52 @@ export default function ActionLogsPage() {
   
   const [showFilters, setShowFilters] = useState(false);
   const [expandedLog, setExpandedLog] = useState<number | null>(null);
+  const [exportingPdf, setExportingPdf] = useState(false);
   const [pagination, setPagination] = useState({
     limit: 50,
     offset: 0,
     total: 0,
     hasMore: false,
   });
+
+  useEffect(() => {
+    if (!permsLoading && !canViewActionLogs) {
+      router.replace('/acesso-negado');
+    }
+  }, [permsLoading, canViewActionLogs, router]);
+
+  useEffect(() => {
+    if (!isSuperAdmin) {
+      const opts = myEstablishmentPermissions
+        .filter((p) => p.is_active && p.establishment_id != null)
+        .map((p) => ({
+          id: Number(p.establishment_id),
+          name: p.establishment_name || `Estabelecimento ${p.establishment_id}`,
+        }));
+      setEstablishmentOptions(opts);
+      return;
+    }
+    const token = typeof window !== 'undefined' ? localStorage.getItem('authToken') : null;
+    if (!token) return;
+    (async () => {
+      try {
+        const r = await fetch(`${API_URL}/api/bars`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!r.ok) return;
+        const data = await r.json();
+        const arr = Array.isArray(data) ? data : [];
+        setEstablishmentOptions(
+          arr.map((b: { id: number; name?: string }) => ({
+            id: Number(b.id),
+            name: b.name || `ID ${b.id}`,
+          }))
+        );
+      } catch {
+        /* ignore */
+      }
+    })();
+  }, [isSuperAdmin, myEstablishmentPermissions]);
 
   // Buscar logs
   const fetchLogs = useCallback(async (refresh = false) => {
@@ -111,6 +168,7 @@ export default function ActionLogsPage() {
       if (filters.userId) queryParams.append('userId', filters.userId);
       if (filters.userRole) queryParams.append('userRole', filters.userRole);
       if (filters.actionType) queryParams.append('actionType', filters.actionType);
+      if (filters.actionCategory) queryParams.append('actionCategory', filters.actionCategory);
       if (filters.resourceType) queryParams.append('resourceType', filters.resourceType);
       if (filters.establishmentId) queryParams.append('establishmentId', filters.establishmentId);
       if (filters.startDate) queryParams.append('startDate', filters.startDate);
@@ -120,8 +178,6 @@ export default function ActionLogsPage() {
       queryParams.append('offset', pagination.offset.toString());
 
       const url = `${API_URL}/api/action-logs?${queryParams}`;
-      console.log('🔍 Buscando logs da URL:', url);
-      console.log('🔑 Token presente:', token ? 'Sim' : 'Não');
 
       const response = await fetch(url, {
         headers: {
@@ -129,40 +185,25 @@ export default function ActionLogsPage() {
         },
       });
 
-      console.log('📡 Resposta da API:', {
-        status: response.status,
-        statusText: response.statusText,
-        ok: response.ok,
-        headers: response.headers
-      });
-
       // Token inválido ou expirado - redireciona para login
       if (response.status === 401) {
-        console.log('❌ Status 401 - Token inválido');
         localStorage.removeItem('authToken');
         router.push('/login');
         return;
       }
 
-      // Sem permissão (não é admin) - redireciona para acesso negado
+      // Sem permissão
       if (response.status === 403) {
-        console.log('⚠️ Status 403 - Verificando tipo de erro...');
         try {
           const errorData = await response.json();
-          console.log('Dados do erro 403:', errorData);
-          // Se o erro é de token (MISSING_TOKEN ou INVALID_TOKEN), vai para login
           if (errorData.error === 'MISSING_TOKEN' || errorData.error === 'INVALID_TOKEN') {
-            console.log('❌ Token inválido - redirecionando para login');
             localStorage.removeItem('authToken');
             router.push('/login');
             return;
           }
-          // Se é por falta de permissão (não é admin), vai para acesso negado
-          console.log('❌ Sem permissão - redirecionando para acesso negado');
           router.push('/acesso-negado');
           return;
-        } catch (e) {
-          console.error('Erro ao parsear JSON do erro 403:', e);
+        } catch {
           router.push('/acesso-negado');
           return;
         }
@@ -202,12 +243,6 @@ export default function ActionLogsPage() {
       console.error('Erro ao buscar logs:', err);
       const errorMessage = err instanceof Error ? err.message : 'Erro desconhecido';
       setError(errorMessage);
-      // Mostra o erro no console também
-      console.log('Detalhes do erro:', {
-        error: err,
-        filters,
-        token: localStorage.getItem('authToken') ? 'presente' : 'ausente'
-      });
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -223,6 +258,7 @@ export default function ActionLogsPage() {
       const queryParams = new URLSearchParams();
       if (filters.startDate) queryParams.append('startDate', filters.startDate);
       if (filters.endDate) queryParams.append('endDate', filters.endDate);
+      if (filters.establishmentId) queryParams.append('establishmentId', filters.establishmentId);
 
       const response = await fetch(`${API_URL}/api/action-logs/stats?${queryParams}`, {
         headers: {
@@ -242,7 +278,7 @@ export default function ActionLogsPage() {
     } catch (err) {
       console.error('Erro ao buscar estatísticas:', err);
     }
-  }, [filters.startDate, filters.endDate]);
+  }, [filters.startDate, filters.endDate, filters.establishmentId]);
 
   // Buscar usuários para filtro
   const fetchUsers = useCallback(async () => {
@@ -281,6 +317,31 @@ export default function ActionLogsPage() {
     fetchStats();
   };
 
+  const handleExportPdf = async () => {
+    const token = localStorage.getItem('authToken');
+    if (!token) {
+      router.push('/login');
+      return;
+    }
+    if (pagination.total === 0) {
+      window.alert('Não há registos para exportar com os filtros atuais.');
+      return;
+    }
+    setExportingPdf(true);
+    try {
+      await exportActionLogsPdf({
+        apiUrl: API_URL,
+        token,
+        filters,
+        totalRows: pagination.total,
+      });
+    } catch (e) {
+      window.alert(e instanceof Error ? e.message : 'Erro ao gerar o PDF.');
+    } finally {
+      setExportingPdf(false);
+    }
+  };
+
   const handleFilterChange = (key: string, value: string) => {
     setFilters(prev => ({ ...prev, [key]: value }));
     setPagination(prev => ({ ...prev, offset: 0 }));
@@ -291,6 +352,7 @@ export default function ActionLogsPage() {
       userId: '',
       userRole: '',
       actionType: '',
+      actionCategory: '',
       resourceType: '',
       establishmentId: '',
       startDate: '',
@@ -331,7 +393,7 @@ export default function ActionLogsPage() {
     });
   };
 
-  if (loading && !refreshing) {
+  if (permsLoading || (loading && !refreshing)) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 flex items-center justify-center">
         <div className="text-center">
@@ -340,6 +402,10 @@ export default function ActionLogsPage() {
         </div>
       </div>
     );
+  }
+
+  if (!canViewActionLogs) {
+    return null;
   }
 
   return (
@@ -375,6 +441,16 @@ export default function ActionLogsPage() {
               >
                 <MdDownload size={20} />
                 <span>Relatório Cardápio (Seu Justino)</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleExportPdf}
+                disabled={exportingPdf || loading || pagination.total === 0}
+                className="flex items-center gap-2 bg-slate-600 hover:bg-slate-500 text-white px-4 py-2 rounded-lg transition-colors disabled:opacity-50"
+              >
+                <MdPictureAsPdf size={20} />
+                <span>{exportingPdf ? 'A gerar PDF…' : 'Exportar relatório'}</span>
               </button>
 
               <button
@@ -480,6 +556,39 @@ export default function ActionLogsPage() {
                 className="border-t border-gray-700 p-4"
               >
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
+                  {/* Estabelecimento */}
+                  <div>
+                    <label className="block text-sm text-gray-400 mb-2">Estabelecimento</label>
+                    <select
+                      value={filters.establishmentId}
+                      onChange={(e) => handleFilterChange('establishmentId', e.target.value)}
+                      className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-orange-500"
+                    >
+                      <option value="">Todos (no seu escopo)</option>
+                      {establishmentOptions.map((est) => (
+                        <option key={est.id} value={String(est.id)}>
+                          {est.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Ação (categoria) */}
+                  <div>
+                    <label className="block text-sm text-gray-400 mb-2">Ação</label>
+                    <select
+                      value={filters.actionCategory}
+                      onChange={(e) => handleFilterChange('actionCategory', e.target.value)}
+                      className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-orange-500"
+                    >
+                      <option value="">Todas</option>
+                      <option value="create">Criar</option>
+                      <option value="update">Editar</option>
+                      <option value="delete">Deletar</option>
+                      <option value="view">Visualizar</option>
+                    </select>
+                  </div>
+
                   {/* Busca geral */}
                   <div>
                     <label className="block text-sm text-gray-400 mb-2">Buscar</label>
@@ -529,28 +638,31 @@ export default function ActionLogsPage() {
                     </select>
                   </div>
 
-                  {/* Tipo de Ação */}
+                  {/* Tipo de Ação (código exato na API) */}
                   <div>
-                    <label className="block text-sm text-gray-400 mb-2">Tipo de Ação</label>
+                    <label className="block text-sm text-gray-400 mb-2">Tipo de Ação (avançado)</label>
                     <select
                       value={filters.actionType}
                       onChange={(e) => handleFilterChange('actionType', e.target.value)}
                       className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-orange-500"
                     >
                       <option value="">Todos os tipos</option>
+                      <option value="page_view_admin">Visualização de página (admin)</option>
                       <option value="create_reservation">Criar Reserva</option>
                       <option value="update_reservation">Atualizar Reserva</option>
                       <option value="delete_reservation">Deletar Reserva</option>
-                      <option value="create">Criar</option>
-                      <option value="update">Atualizar</option>
-                      <option value="delete">Deletar</option>
-                      <option value="view">Visualizar</option>
+                      <option value="create_cardapio_item">Criar item cardápio</option>
+                      <option value="update_cardapio_item">Atualizar item cardápio</option>
+                      <option value="create">create</option>
+                      <option value="update">update</option>
+                      <option value="delete">delete</option>
+                      <option value="view">view</option>
                     </select>
                   </div>
 
                   {/* Data Inicial */}
                   <div>
-                    <label className="block text-sm text-gray-400 mb-2">Data Inicial</label>
+                    <label className="block text-sm text-gray-400 mb-2">Período — Data inicial</label>
                     <input
                       type="date"
                       value={filters.startDate}
@@ -561,7 +673,7 @@ export default function ActionLogsPage() {
 
                   {/* Data Final */}
                   <div>
-                    <label className="block text-sm text-gray-400 mb-2">Data Final</label>
+                    <label className="block text-sm text-gray-400 mb-2">Período — Data final</label>
                     <input
                       type="date"
                       value={filters.endDate}
@@ -720,14 +832,39 @@ export default function ActionLogsPage() {
                           </div>
                         )}
                         
-                        {log.additional_data && (
-                          <div className="md:col-span-2">
-                            <p className="text-gray-400 mb-1">Dados Adicionais</p>
-                            <pre className="text-white bg-gray-900 p-3 rounded text-xs overflow-x-auto">
-                              {JSON.stringify(log.additional_data, null, 2)}
-                            </pre>
+                        {log.additional_data?.audit && (
+                          <div className="md:col-span-2 space-y-3">
+                            <p className="text-gray-300 font-semibold text-sm">
+                              Comparação de auditoria
+                            </p>
+                            <AuditDiffTable
+                              before={
+                                log.additional_data.audit.before as
+                                  | Record<string, unknown>
+                                  | null
+                              }
+                              after={
+                                log.additional_data.audit.after as
+                                  | Record<string, unknown>
+                                  | null
+                              }
+                            />
                           </div>
                         )}
+                        {log.additional_data &&
+                          (() => {
+                            const rest = { ...log.additional_data };
+                            delete (rest as { audit?: unknown }).audit;
+                            if (!Object.keys(rest).length) return null;
+                            return (
+                              <div className="md:col-span-2">
+                                <p className="text-gray-400 mb-1">Outros metadados</p>
+                                <pre className="text-white bg-gray-900 p-3 rounded text-xs overflow-x-auto">
+                                  {JSON.stringify(rest, null, 2)}
+                                </pre>
+                              </div>
+                            );
+                          })()}
                       </motion.div>
                     )}
                   </AnimatePresence>

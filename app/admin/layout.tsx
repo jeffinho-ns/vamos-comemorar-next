@@ -21,9 +21,11 @@ import {
   MdBusiness,
   MdRestaurant,
   MdInfo,
+  MdHistory,
 } from "react-icons/md";
 import logBrand from "../assets/logo-agilizai-h.png"; // Verifique o caminho
 import UserMenu from "../components/UserMenu/UserMenu"; // Verifique o caminho
+import AdminPageViewLogger from "../components/AdminPageViewLogger";
 import { useUserPermissions } from "../hooks/useUserPermissions";
 import { useAppContext } from "../context/AppContext";
 
@@ -85,7 +87,11 @@ export default function DashboardLayout({
 }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const pathname = usePathname(); // Hook do Next.js para pegar a rota ativa
-  const { canAccessCardapio, isLoading: isLoadingPerms } = useUserPermissions();
+  const {
+    canAccessCardapio,
+    canViewActionLogs,
+    isLoading: isLoadingPerms,
+  } = useUserPermissions();
   const { role: userRole, userEmail, isLoading } = useAppContext();
 
   const isAnalista = userEmail === ANALISTA_EMAIL;
@@ -295,6 +301,16 @@ export default function DashboardLayout({
     navLinks = ROOFTOP_FLUXO_LINKS;
   }
 
+  if (
+    canViewActionLogs &&
+    !navLinks.some((l) => l.href === "/admin/logs")
+  ) {
+    navLinks = [
+      ...navLinks,
+      { href: "/admin/logs", label: "Logs de Ações", icon: MdHistory },
+    ];
+  }
+
   const getActiveLabel = () => {
     const activeLink = navLinks.find((link) => pathname.startsWith(link.href));
     if (isAnalista) {
@@ -462,7 +478,11 @@ export default function DashboardLayout({
         </header>
 
         {/* O conteúdo da página ativa é renderizado aqui */}
-        <main className="flex-1 overflow-y-auto sm:p-6 lg:p-8">{children}</main>
+        <main className="flex-1 overflow-y-auto sm:p-6 lg:p-8">
+          {/* Page views admin: POST /api/action-logs (page_view_admin) em cada navegação */}
+          <AdminPageViewLogger />
+          {children}
+        </main>
       </div>
     </div>
   );

@@ -39,6 +39,8 @@ export interface UserPermissions {
   userId: number | null;
   userEmail: string | null;
   isAdmin: boolean;
+  /** Admin de sistema ou e-mail em SUPER_ADMIN_EMAILS */
+  isSuperAdmin: boolean;
   isPromoter: boolean;
   isClient: boolean;
   promoterBar: {
@@ -51,8 +53,23 @@ export interface UserPermissions {
   } | null;
   canAccessAdmin: boolean;
   canAccessCardapio: boolean;
+  /** Ver relatório de logs de ações (escopo por estabelecimento se não for super admin) */
+  canViewActionLogs: boolean;
   /** Permissões por estabelecimento (fonte: banco de dados) */
   myEstablishmentPermissions: MyEstablishmentPermission[];
+}
+
+/** Super admins: mesmo acesso irrestrito a logs/dados que role admin (por e-mail). */
+const SUPER_ADMIN_EMAILS = new Set([
+  "jeffinho_ns@hotmail.com",
+  "teste@teste",
+]);
+
+export function isSuperAdminEmail(
+  email: string | null | undefined
+): boolean {
+  if (!email) return false;
+  return SUPER_ADMIN_EMAILS.has(email.toLowerCase().trim());
 }
 
 const ADMIN_ALLOWED_ROUTES = [
@@ -68,6 +85,7 @@ const ADMIN_ALLOWED_ROUTES = [
   "/admin/events",
   "/admin/reservas",
   "/admin/guia",
+  "/admin/logs",
 ];
 
 export function useUserPermissions() {
@@ -78,15 +96,20 @@ export function useUserPermissions() {
   const safeRole = (role || "").trim().toLowerCase();
   const safeUserEmail = (ctxUserEmail || "").trim();
   const isAdmin = safeRole === "admin";
+  const isSuperAdmin = isAdmin || isSuperAdminEmail(safeUserEmail);
   const isPromoter = safeRole === "promoter" || safeRole === "promoter-list";
   const isClient = safeRole === "cliente";
   const hasAnyEstablishmentAccess = myPermissions.length > 0;
+  const activeEstablishmentPermissions = myPermissions.filter((p) => p.is_active);
   const hasCardapioAccess = myPermissions.some((p) => p.can_view_cardapio !== false);
   const canAccessAdmin =
-    isAdmin ||
+    isSuperAdmin ||
     ["gerente", "atendente", "recepcao", "recepção"].includes(safeRole) ||
     hasAnyEstablishmentAccess;
-  const canAccessCardapio = isAdmin || hasCardapioAccess;
+  const canAccessCardapio = isSuperAdmin || hasCardapioAccess;
+  /** Logs: super admin ou utilizador com pelo menos um estabelecimento ativo. */
+  const canViewActionLogs =
+    isSuperAdmin || activeEstablishmentPermissions.length > 0;
 
   const permissions: UserPermissions = useMemo(() => {
     const first = myPermissions[0];
@@ -105,11 +128,13 @@ export function useUserPermissions() {
       userId,
       userEmail: safeUserEmail || null,
       isAdmin,
+      isSuperAdmin,
       isPromoter,
       isClient,
       promoterBar,
       canAccessAdmin,
       canAccessCardapio,
+      canViewActionLogs,
       myEstablishmentPermissions: myPermissions as MyEstablishmentPermission[],
     };
   }, [
@@ -117,16 +142,24 @@ export function useUserPermissions() {
     userId,
     safeUserEmail,
     isAdmin,
+    isSuperAdmin,
     isPromoter,
     isClient,
     canAccessAdmin,
     canAccessCardapio,
+    canViewActionLogs,
     myPermissions,
   ]);
 
   const canAccessRoute = (route: string): boolean => {
-    if (permissions.isAdmin) return true;
+    if (permissions.isSuperAdmin) return true;
     if (!permissions.canAccessAdmin) return false;
+    if (
+      route === "/admin/logs" ||
+      route.startsWith("/admin/logs/")
+    ) {
+      return permissions.canViewActionLogs;
+    }
     return (
       ADMIN_ALLOWED_ROUTES.includes(route) ||
       ADMIN_ALLOWED_ROUTES.some((r) => route.startsWith(r + "/"))
@@ -134,7 +167,7 @@ export function useUserPermissions() {
   };
 
   const canManageBar = (barId: number): boolean => {
-    if (permissions.isAdmin) return true;
+    if (permissions.isSuperAdmin) return true;
     return permissions.myEstablishmentPermissions.some(
       (p) => Number(p.establishment_id) === Number(barId)
     );
