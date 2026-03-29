@@ -259,6 +259,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return run;
   }, []);
 
+  /** Referência estável — evita loop em hooks que dependem de refetchAll/fetchEstablishments. */
+  const refetchAll = useCallback(() => loadAll(true), [loadAll]);
+
   useEffect(() => {
     loadAll();
   }, [loadAll]);
@@ -274,7 +277,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       myPermissions,
       establishments,
       error,
-      refetchAll: () => loadAll(true),
+      refetchAll,
     }),
     [
       isLoading,
@@ -286,7 +289,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       myPermissions,
       establishments,
       error,
-      loadAll,
+      refetchAll,
     ],
   );
 

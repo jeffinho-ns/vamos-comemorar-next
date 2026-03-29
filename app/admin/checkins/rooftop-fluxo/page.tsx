@@ -111,7 +111,13 @@ export default function RooftopFluxoPage() {
       return { id: ROOFTOP_ESTABLISHMENT_ID, name: "Reserva Rooftop" };
     }
     return null;
-  }, [establishments, establishmentPermissions]);
+    // Objetos de permissão mudam só com dados; evitar depender do objeto inteiro (nova ref a cada render).
+  }, [
+    establishments,
+    establishmentPermissions.isLoading,
+    establishmentPermissions.userConfig,
+    establishmentPermissions.permissions,
+  ]);
 
   useEffect(() => {
     if (!rooftopEstablishment) {
