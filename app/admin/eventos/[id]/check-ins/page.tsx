@@ -65,6 +65,8 @@ import {
   formatCheckinTime,
   formatDateTimeCheckin,
 } from "@/lib/dateUtils";
+import { FileText } from "lucide-react";
+import CheckinsReportModal from "./CheckinsReportModal";
 
 const API_URL =
   process.env.NEXT_PUBLIC_API_URL || "https://api.agilizaiapp.com.br";
@@ -366,6 +368,7 @@ export default function EventoCheckInsPage() {
 
   // Estado para modal de planilha
   const [planilhaModalOpen, setPlanilhaModalOpen] = useState(false);
+  const [relatorioModalOpen, setRelatorioModalOpen] = useState(false);
   // Estados para Planilha (estilo restaurant-reservations)
   const [planilhaReservas, setPlanilhaReservas] = useState<Reservation[]>([]);
   const [planilhaLoading, setPlanilhaLoading] = useState(false);
@@ -4668,6 +4671,99 @@ export default function EventoCheckInsPage() {
     [camarotes],
   );
 
+  const eventDateLabel = useMemo(() => {
+    if (!evento?.data_evento) return "";
+    const raw = evento.data_evento;
+    const datePart = raw.split("T")[0].split(" ")[0];
+    if (datePart && datePart.length === 10) {
+      const d = new Date(`${datePart}T12:00:00`);
+      return isNaN(d.getTime()) ? "Data inválida" : d.toLocaleDateString("pt-BR");
+    }
+    const d = new Date(raw);
+    return isNaN(d.getTime()) ? "Data inválida" : d.toLocaleDateString("pt-BR");
+  }, [evento?.data_evento]);
+
+  const reportEnabledAt = useMemo(() => {
+    if (!evento?.data_evento) return null;
+    const datePart =
+      evento.data_evento.split("T")[0].split(" ")[0] || evento.data_evento;
+    const baseDate = new Date(`${datePart}T12:00:00`);
+    if (isNaN(baseDate.getTime())) return null;
+
+    if (evento.horario) {
+      const [hours, minutes] = evento.horario.split(":");
+      const h = Number(hours);
+      const m = Number(minutes);
+      if (!isNaN(h) && !isNaN(m)) {
+        baseDate.setHours(h, m, 0, 0);
+      }
+    }
+
+    baseDate.setHours(baseDate.getHours() + 24);
+    return baseDate;
+  }, [evento?.data_evento, evento?.horario]);
+
+  const reportDisabled = useMemo(() => {
+    if (!reportEnabledAt) return true;
+    return Date.now() < reportEnabledAt.getTime();
+  }, [reportEnabledAt]);
+
+  const reportDisableLabel = useMemo(() => {
+    if (!reportDisabled || !reportEnabledAt) return "";
+    return `Disponível após ${reportEnabledAt.toLocaleString("pt-BR")}`;
+  }, [reportDisabled, reportEnabledAt]);
+
+  const reportChartData = useMemo(() => {
+    const hourly = Array.from({ length: 24 }, (_, index) => ({
+      hora: `${String(index).padStart(2, "0")}h`,
+      checkins: 0,
+    }));
+
+    const addCheckin = (rawDate?: string) => {
+      if (!rawDate) return;
+      const d = new Date(rawDate);
+      if (isNaN(d.getTime())) return;
+      const hour = d.getHours();
+      if (hour >= 0 && hour <= 23) {
+        hourly[hour].checkins += 1;
+      }
+    };
+
+    convidadosReservas.forEach((c) => {
+      if (c.status === "CHECK-IN") addCheckin(c.data_checkin);
+    });
+    displayConvidadosReservasRestaurante.forEach((c) => {
+      if (c.status_checkin === 1 || c.status_checkin === true) addCheckin(c.data_checkin);
+    });
+    convidadosPromoters.forEach((c) => {
+      if (c.status_checkin === "Check-in") addCheckin(c.data_checkin);
+    });
+    displayGuestListsRestaurante.forEach((gl) => {
+      if (isOwnerCheckedIn(gl.owner_checked_in)) addCheckin(gl.owner_checkin_time);
+    });
+    Object.values(guestsByList)
+      .flat()
+      .forEach((guest) => {
+        if (guest.checked_in === 1 || guest.checked_in === true) addCheckin(guest.checkin_time);
+      });
+    displayReservasRestaurante.forEach((r) => {
+      if (r.checked_in) addCheckin(r.checkin_time);
+    });
+    camarotes.forEach((c) => {
+      if (c.checked_in) addCheckin(c.checkin_time);
+    });
+
+    return hourly;
+  }, [
+    convidadosReservas,
+    displayConvidadosReservasRestaurante,
+    convidadosPromoters,
+    displayGuestListsRestaurante,
+    guestsByList,
+    displayReservasRestaurante,
+    camarotes,
+  ]);
+
   const getEventTypeLabel = useCallback((eventType?: string) => {
     if (!eventType) return null;
     const types: Record<
@@ -5034,6 +5130,17 @@ export default function EventoCheckInsPage() {
                 <MdDescription size={18} />
                 <span>Planilha</span>
               </button>
+              <div className="hidden lg:block">
+                <button
+                  onClick={() => setRelatorioModalOpen(true)}
+                  disabled={reportDisabled}
+                  title={reportDisableLabel || "Abrir relatório"}
+                  className="inline-flex items-center justify-center gap-2 px-4 md:px-6 py-2.5 md:py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-semibold text-sm md:text-base"
+                >
+                  <FileText size={18} />
+                  <span>Relatório</span>
+                </button>
+              </div>
               <button
                 onClick={loadCheckInData}
                 disabled={loading}
@@ -9288,6 +9395,54 @@ export default function EventoCheckInsPage() {
           </div>
         </div>
       )}
+
+      <CheckinsReportModal
+        isOpen={relatorioModalOpen}
+        onClose={() => setRelatorioModalOpen(false)}
+        eventId={eventoId}
+        eventName={evento?.nome || "Evento"}
+        eventDate={eventDateLabel}
+        metrics={{
+          totalPresentes: Number(totalGeralMetrics.checkins) || 0,
+          ocupacaoPct:
+            Number(totalGeralMetrics.total) > 0
+              ? (Number(totalGeralMetrics.checkins) / Number(totalGeralMetrics.total)) * 100
+              : 0,
+          totalReservas: Number(reservasMetrics.numReservas) || 0,
+        }}
+        chartData={reportChartData}
+        guestLists={displayGuestListsRestaurante.map((gl) => ({
+          reservation_id: gl.reservation_id,
+          reservation_type: gl.reservation_type,
+          owner_name: gl.owner_name,
+          area_name: gl.area_name,
+          table_number: gl.table_number,
+        }))}
+        reservations={[
+          ...displayReservasRestaurante.map((r) => ({
+            id: r.id,
+            reservation_type: "restaurant",
+            responsavel: r.responsavel,
+            client_name: (r as any).client_name,
+            area_name: r.area_name,
+            table_number: r.table_number,
+            client_phone: (r as any).client_phone,
+            telefone: (r as any).telefone,
+            phone: (r as any).phone,
+          })),
+          ...reservasAdicionaisAPI.map((r) => ({
+            id: r.id,
+            reservation_type: "restaurant",
+            responsavel: r.client_name,
+            client_name: r.client_name,
+            area_name: r.area_name,
+            table_number: r.table_number,
+            client_phone: (r as any).client_phone,
+            telefone: (r as any).telefone,
+            phone: (r as any).phone,
+          })),
+        ]}
+      />
 
       {/* Toast Container para notificações não-bloqueantes */}
       <ToastContainer
