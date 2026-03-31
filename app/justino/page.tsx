@@ -351,12 +351,11 @@ const Justino = () => {
 
           {/* Reserve Button */}
           <div className="text-center mt-8">
-            <button
-              onClick={openModal}
-              className="bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-600 hover:to-yellow-700 text-gray-900 px-8 py-4 rounded-xl font-bold text-lg transition-all duration-200 transform hover:scale-105 shadow-lg"
-            >
-              🎉 Fazer Reserva
-            </button>
+            <Link href="/reservar/justino">
+              <button className="bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-600 hover:to-yellow-700 text-gray-900 px-8 py-4 rounded-xl font-bold text-lg transition-all duration-200 transform hover:scale-105 shadow-lg">
+                🎉 Fazer Reserva
+              </button>
+            </Link>
           </div>
         </div>
       </div>

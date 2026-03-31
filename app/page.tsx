@@ -349,6 +349,10 @@ export default function Home() {
       return "/pracinha";
     }
 
+    if (lowerName.includes("reserva rooftop") || lowerName.includes("rooftop")) {
+      return "/reserva-rooftop";
+    }
+
     if (lowerName.includes("justino")) {
       return "/justino";
     }

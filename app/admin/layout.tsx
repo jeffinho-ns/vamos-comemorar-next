@@ -10,6 +10,7 @@ import {
   MdDashboard,
   MdPerson,
   MdFactory,
+  MdPhotoLibrary,
   MdQrCodeScanner,
   MdCheckCircle,
   MdTableBar,
@@ -31,6 +32,9 @@ import { useAppContext } from "../context/AppContext";
 
 // E-mail da analista com acesso restrito ao estabelecimento Pracinha do Seu Justino (menu próprio, não promoter)
 const ANALISTA_EMAIL = "analista.mkt03@ideiaum.com.br";
+
+// Super Admins: acesso extra (ex: página de Galeria)
+const SUPER_ADMIN_EMAILS = new Set(["teste@teste", "jeffinho_ns@hotmail.com"]);
 
 // Gerentes do Seu Justino que têm acesso ao Gerenciamento do Cardápio (apenas estabelecimento Seu Justino)
 const GERENTES_SEU_JUSTINO_CARDAPIO = [
@@ -95,6 +99,8 @@ export default function DashboardLayout({
   const { role: userRole, userEmail, isLoading } = useAppContext();
 
   const isAnalista = userEmail === ANALISTA_EMAIL;
+  const isSuperAdmin =
+    !!userEmail && SUPER_ADMIN_EMAILS.has(userEmail.toLowerCase().trim());
   const isRooftopFluxoEmail =
     userEmail && ROOFTOP_FLUXO_EMAILS.has(userEmail.toLowerCase().trim());
   const isCardapioOnlyUser =
@@ -250,7 +256,7 @@ export default function DashboardLayout({
       return baseLinks;
     } else if (userRole === "admin") {
       // Administrador pode ver tudo
-      return [
+      const links = [
         { href: "/admin", label: "Dashboard", icon: MdDashboard },
         {
           href: "/admin/qrcode",
@@ -270,7 +276,6 @@ export default function DashboardLayout({
           label: "Detalhes Operacionais do Evento",
           icon: MdInfo,
         },
-        { href: "/admin/guia", label: "Guia Interno", icon: MdInfo },
         { href: "/admin/reservas", label: "Reservas", icon: MdEditCalendar },
         {
           href: "/admin/restaurant-reservations",
@@ -286,6 +291,19 @@ export default function DashboardLayout({
         { href: "/admin/cardapio", label: "Cardápio", icon: MdRestaurant },
         { href: "/admin/commodities", label: "Commodities", icon: MdFactory },
       ];
+
+      // Super Admins: ver acesso à página de Galeria
+      if (isSuperAdmin) {
+        const guiaIndex = links.findIndex((l) => l.href === "/admin/guia");
+        const insertAt = guiaIndex >= 0 ? guiaIndex + 1 : links.length;
+        links.splice(insertAt, 0, {
+          href: "/admin/galeria",
+          label: "Galeria",
+          icon: MdPhotoLibrary,
+        });
+      }
+
+      return links;
     }
 
     // Para outros roles, retorna array vazio

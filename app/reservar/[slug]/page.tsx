@@ -1,10 +1,15 @@
 import { redirect } from 'next/navigation';
 
 const establishmentSlugMap: Record<string, string> = {
-  reservarooftop: 'reserva rooftop',
+  // slugs canônicos (usados nas URLs para redes sociais)
+  'reserva-rooftop': 'reserva rooftop',
   highline: 'highline',
   pracinha: 'pracinha',
   justino: 'seu justino',
+  ohfregues: 'oh fregues',
+
+  // compatibilidade com slugs antigos
+  reservarooftop: 'reserva rooftop',
 };
 
 interface ReservarSlugPageProps {
