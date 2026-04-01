@@ -23,6 +23,8 @@ export function middleware(request: NextRequest) {
   };
   const _roleNorm = (role ? safeDecodeURIComponent(role) : role || '').toLowerCase().trim();
   const userEmail = safeDecodeURIComponent(userEmailRaw).toLowerCase().trim();
+  const SUPER_ADMIN_EMAILS = new Set(['teste@teste', 'jeffinho_ns@hotmail.com']);
+  const isSuperAdmin = SUPER_ADMIN_EMAILS.has(userEmail);
   const CARDAPIO_ONLY_EMAILS = new Set([
     'vinicius.gomes@ideiaum.com.br',
   ]);
@@ -59,6 +61,13 @@ export function middleware(request: NextRequest) {
     }
   }
 
+  // /admin/reservas: apenas Super Admins
+  if (url === '/admin/reservas' || url.startsWith('/admin/reservas/')) {
+    if (!isSuperAdmin) {
+      return NextResponse.redirect(new URL('/acesso-negado', request.url));
+    }
+  }
+
   // Define as permissões para as rotas específicas (promoter e promoter-list para analista.mkt03 - Pracinha)
   const routePermissions: Record<string, string[]> = {
     // Rota principal do admin
@@ -75,7 +84,7 @@ export function middleware(request: NextRequest) {
     '/admin/eventos/dashboard': ['admin', 'gerente', 'promoter', 'promoter-list'],
     '/admin/cardapio': ['admin', 'promoter', 'promoter-list', 'recepção', 'gerente'],
     '/admin/events': ['admin', 'promoter', 'promoter-list', 'recepção', 'gerente'],
-    '/admin/reservas': ['admin', 'promoter', 'promoter-list', 'recepção', 'gerente'],
+    '/admin/reservas': ['admin'],
     '/admin/qrcode': ['admin', 'promoter', 'promoter-list', 'recepção', 'gerente'],
     '/admin/checkins': ['admin', 'promoter', 'promoter-list', 'recepção', 'recepcao', 'atendente', 'gerente'],
     '/admin/restaurant-reservations': ['admin', 'promoter', 'promoter-list', 'recepção', 'gerente'],

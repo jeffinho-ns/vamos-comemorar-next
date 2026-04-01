@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState, useMemo } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import SafeImage from "../../components/SafeImage";
+import { WithPermission } from "@/app/components/WithPermission/WithPermission";
 import {
   MdRefresh,
   MdFilterList,
@@ -27,6 +28,7 @@ import {
 import { FaBirthdayCake, FaGlassCheers, FaUtensils } from "react-icons/fa";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL_LOCAL || 'https://vamos-comemorar-api.onrender.com';
+const SUPER_ADMIN_EMAILS = ["teste@teste", "jeffinho_ns@hotmail.com"];
 
 interface Establishment {
   id: number;
@@ -134,6 +136,7 @@ export default function ReservesPage() {
   const [loadingEvents, setLoadingEvents] = useState(false);
   const [revenueByPeriod, setRevenueByPeriod] = useState<Record<number, RevenueByPeriod>>({});
   const [showEventRevenues, setShowEventRevenues] = useState<Record<number, boolean>>({});
+  const [hasLoadedEvents, setHasLoadedEvents] = useState(false);
 
   // Carregar estabelecimentos
   const loadEstablishments = useCallback(async () => {
@@ -521,6 +524,7 @@ export default function ReservesPage() {
       const allEventRevenues = Object.values(eventsByEstablishment).flat();
       setEventRevenues(allEventRevenues);
       setRevenueByPeriod(revenueByPeriodData);
+      setHasLoadedEvents(true);
     } catch (error) {
       console.error("Erro ao carregar faturamento dos eventos:", error);
     } finally {
@@ -549,12 +553,8 @@ export default function ReservesPage() {
     loadAllData();
   }, [loadAllData]);
 
-  useEffect(() => {
-    if (establishments.length > 0) {
-      console.log('🔄 Carregando faturamento dos eventos...');
-      loadEventRevenues();
-    }
-  }, [establishments, loadEventRevenues]);
+  // IMPORTANTE: não carregar faturamento automaticamente.
+  // Essa rotina dispara muitas requisições e pode travar notebooks fracos.
 
   // Recarregar eventos quando o filtro de período mudar
   useEffect(() => {
@@ -1033,11 +1033,8 @@ export default function ReservesPage() {
   };
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 flex items-center justify-center">
-        <div className="text-white text-xl">Carregando reservas...</div>
-      </div>
-    );
+    // Renderiza a estrutura da página imediatamente; os blocos carregam progressivamente.
+    // Mantemos um indicador de carregamento no topo para feedback rápido.
   }
 
   if (error) {
@@ -1049,14 +1046,20 @@ export default function ReservesPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white">
-      <div className="max-w-7xl mx-auto p-6 lg:p-8">
+    <WithPermission allowedRoles={[]} allowedEmails={SUPER_ADMIN_EMAILS}>
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white">
+        <div className="max-w-7xl mx-auto p-6 lg:p-8">
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-4xl font-bold mb-2">Visão Geral de Reservas</h1>
           <p className="text-gray-400 text-lg">
             Gerencie todas as reservas de aniversário e restaurante em um só lugar
           </p>
+          {loading && (
+            <p className="text-sm text-gray-300 mt-3">
+              Carregando dados...
+            </p>
+          )}
         </div>
 
         {/* Filtros */}
@@ -1299,13 +1302,32 @@ export default function ReservesPage() {
                 <MdAttachMoney className="text-green-500" size={28} />
                 Faturamento por Período
               </h2>
-              <button
-                onClick={() => printReport(undefined, "all")}
-                className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg transition-colors font-semibold"
-              >
-                <MdPrint size={20} />
-                Imprimir Relatório Completo
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    if (!hasLoadedEvents) {
+                      alert("Carregue o faturamento dos eventos antes de imprimir.");
+                      return;
+                    }
+                    printReport(undefined, "all");
+                  }}
+                  className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg transition-colors font-semibold"
+                  disabled={!hasLoadedEvents}
+                  title={!hasLoadedEvents ? "Carregue o faturamento dos eventos para imprimir" : undefined}
+                >
+                  <MdPrint size={20} />
+                  Imprimir Relatório Completo
+                </button>
+                <button
+                  onClick={loadEventRevenues}
+                  className="flex items-center gap-2 px-4 py-2 bg-orange-500 hover:bg-orange-600 rounded-lg transition-colors font-semibold"
+                  disabled={loadingEvents}
+                  title="Carregar faturamento dos eventos (pode levar alguns segundos)"
+                >
+                  <MdRefresh size={20} />
+                  {loadingEvents ? "Carregando..." : (hasLoadedEvents ? "Recarregar Faturamento" : "Carregar Faturamento")}
+                </button>
+              </div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               {establishments.map((est) => {
@@ -1388,9 +1410,16 @@ export default function ReservesPage() {
                 <MdEvent className="text-orange-500" size={28} />
                 Faturamento dos Eventos
               </h2>
-              {loadingEvents && (
-                <span className="text-gray-400 text-sm">Carregando eventos...</span>
-              )}
+              <div className="flex items-center gap-2">
+                {!hasLoadedEvents ? (
+                  <span className="text-gray-400 text-sm">
+                    Clique em “Carregar Faturamento” para buscar os eventos.
+                  </span>
+                ) : null}
+                {loadingEvents && (
+                  <span className="text-gray-400 text-sm">Carregando eventos...</span>
+                )}
+              </div>
             </div>
             <div className="space-y-4">
               {establishments.map((est) => {
@@ -1440,7 +1469,12 @@ export default function ReservesPage() {
                 return (
                   <div key={est.id} className="bg-slate-800/50 backdrop-blur-sm rounded-xl border border-slate-700 overflow-hidden">
                     <button
-                      onClick={() => setShowEventRevenues(prev => ({ ...prev, [est.id]: !prev[est.id] }))}
+                      onClick={async () => {
+                        if (!hasLoadedEvents && !loadingEvents) {
+                          await loadEventRevenues();
+                        }
+                        setShowEventRevenues((prev) => ({ ...prev, [est.id]: !prev[est.id] }));
+                      }}
                       className="w-full p-6 flex items-center justify-between hover:bg-slate-700/50 transition-colors"
                     >
                       <div className="flex items-center gap-4">
@@ -1488,6 +1522,7 @@ export default function ReservesPage() {
                           <button
                             onClick={() => printReport(est.id, "day")}
                             className="flex items-center justify-center gap-2 px-4 py-3 bg-green-600 hover:bg-green-700 rounded-lg transition-colors font-semibold"
+                            disabled={!hasLoadedEvents}
                           >
                             <MdPrint size={20} />
                             Imprimir Relatório - Hoje
@@ -1495,6 +1530,7 @@ export default function ReservesPage() {
                           <button
                             onClick={() => printReport(est.id, "week")}
                             className="flex items-center justify-center gap-2 px-4 py-3 bg-green-600 hover:bg-green-700 rounded-lg transition-colors font-semibold"
+                            disabled={!hasLoadedEvents}
                           >
                             <MdPrint size={20} />
                             Imprimir Relatório - Semana
@@ -1502,6 +1538,7 @@ export default function ReservesPage() {
                           <button
                             onClick={() => printReport(est.id, "month")}
                             className="flex items-center justify-center gap-2 px-4 py-3 bg-green-600 hover:bg-green-700 rounded-lg transition-colors font-semibold"
+                            disabled={!hasLoadedEvents}
                           >
                             <MdPrint size={20} />
                             Imprimir Relatório - Mês
@@ -1822,6 +1859,7 @@ export default function ReservesPage() {
           )}
         </div>
       </div>
-    </div>
+      </div>
+    </WithPermission>
   );
 }

@@ -319,6 +319,11 @@ export default function DashboardLayout({
     navLinks = ROOFTOP_FLUXO_LINKS;
   }
 
+  // /admin/reservas: apenas Super Admins
+  if (!isSuperAdmin) {
+    navLinks = navLinks.filter((l) => l.href !== "/admin/reservas");
+  }
+
   if (
     isSuperAdmin &&
     canViewActionLogs &&
