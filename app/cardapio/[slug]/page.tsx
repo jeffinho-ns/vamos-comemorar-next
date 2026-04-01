@@ -2048,14 +2048,14 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
 
               <div className="flex flex-col md:flex-row gap-6">
                 <div className="flex-shrink-0 w-full md:w-1/2 relative">
-                  <div className="relative w-full min-h-[300px] bg-gray-100 rounded-lg overflow-hidden flex items-center justify-center">
+                  <div className="relative w-full aspect-square bg-gray-100 rounded-lg overflow-hidden flex items-center justify-center">
                     {imageError ? (
-                      <div className="w-full h-full min-h-[300px] flex items-center justify-center bg-gray-200 rounded-lg">
+                      <div className="w-full h-full flex items-center justify-center bg-gray-200 rounded-lg">
                         <Image
                           src={PLACEHOLDER_IMAGE_URL}
                           alt="Imagem não disponível"
-                          width={500}
-                          height={400}
+                          fill
+                          sizes="(max-width: 768px) 90vw, 400px"
                           className="w-full h-full object-contain rounded-lg"
                           unoptimized
                         />
@@ -2064,9 +2064,9 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
                       <Image
                         src={getValidImageUrl(selectedItem.imageUrl)}
                         alt={selectedItem.name}
-                        width={500}
-                        height={400}
-                        className="w-full h-auto max-h-[500px] object-contain rounded-lg shadow-lg"
+                        fill
+                        sizes="(max-width: 768px) 90vw, 400px"
+                        className="w-full h-full object-contain rounded-lg shadow-lg"
                         unoptimized={true}
                         onError={(e) => {
                           console.error("❌ Erro ao carregar imagem do item:", {
