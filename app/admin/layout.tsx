@@ -320,6 +320,7 @@ export default function DashboardLayout({
   }
 
   if (
+    isSuperAdmin &&
     canViewActionLogs &&
     !navLinks.some((l) => l.href === "/admin/logs")
   ) {
