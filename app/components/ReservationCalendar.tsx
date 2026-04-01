@@ -63,7 +63,7 @@ export default function ReservationCalendar({
   onDayBlockClick,
   dayGuestTotalsByDate,
 }: ReservationCalendarProps) {
-  const [currentDate, setCurrentDate] = useState(new Date());// Setembro de 2025
+  const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [calendarDays, setCalendarDays] = useState<CalendarDay[]>([]);
   const [loading, setLoading] = useState(false);
@@ -72,6 +72,27 @@ export default function ReservationCalendar({
   const [selectedReservation, setSelectedReservation] = useState<Reservation | null>(null);
   const [selectedDayReservations, setSelectedDayReservations] = useState<Reservation[]>([]);
   const isReservaRooftop = (establishment?.name || '').toLowerCase().includes('reserva rooftop');
+
+  const toDateKey = (value: unknown): string | null => {
+    if (!value) return null;
+    try {
+      if (value instanceof Date) {
+        if (isNaN(value.getTime())) return null;
+        return value.toISOString().split("T")[0] || null;
+      }
+
+      const raw = String(value).trim();
+      if (!raw) return null;
+
+      // Evita parsing inconsistente por navegador quando vem só YYYY-MM-DD
+      const safe = raw.includes("T") ? raw : `${raw}T12:00:00`;
+      const d = new Date(safe);
+      if (isNaN(d.getTime())) return null;
+      return d.toISOString().split("T")[0] || null;
+    } catch {
+      return null;
+    }
+  };
 
   // Total de mesas / slots de reserva por estabelecimento
   // Highline = 36 mesas, Seu Justino = 29 mesas, Reserva Rooftop = 60 reservas/dia
@@ -185,44 +206,33 @@ export default function ReservationCalendar({
       // Atualizar dias do calendário com as reservas
       const totalTables = getTotalTablesForEstablishment();
       const updatedDays = generateCalendarDays(date).map(day => {
-        const dayString = day.date.toISOString().split('T')[0];
+        const dayString = toDateKey(day.date);
+        if (!dayString) {
+          return {
+            ...day,
+            reservations: [],
+            birthdayReservations: [],
+            totalReservations: 0,
+            availableTables: totalTables,
+            totalPeople: 0,
+            totalGuests: 0,
+          };
+        }
+
         const dayReservations = reservations.filter(
           reservation => {
-            const reservationDate = new Date(reservation.reservation_date).toISOString().split('T')[0];
-            return reservationDate === dayString;
+            const reservationDateKey = toDateKey(reservation.reservation_date);
+            return !!reservationDateKey && reservationDateKey === dayString;
           }
         );
         
         // Filtrar reservas de aniversário para este dia
         const dayBirthdayReservations = birthdayReservations.filter(
           birthday => {
-            const birthdayDate = new Date(birthday.data_aniversario).toISOString().split('T')[0];
-            return birthdayDate === dayString;
+            const birthdayDateKey = toDateKey(birthday.data_aniversario);
+            return !!birthdayDateKey && birthdayDateKey === dayString;
           }
         );
-
-        // TESTE: Adicionar aniversário hardcoded para o dia 15
-        if (dayString === '2025-09-15') {
-          dayBirthdayReservations.push({
-            id: 999,
-            user_id: 1,
-            aniversariante_nome: 'TESTE HARDCODED',
-            data_aniversario: '2025-09-15T07:00:00.000Z',
-            quantidade_convidados: 10,
-            nomes_convidados: [],
-            id_casa_evento: 1,
-            place_name: 'Teste',
-            user_name: 'Teste',
-            decoracao_tipo: 'Teste',
-            painel_personalizado: false,
-            painel_tema: '',
-            painel_frase: '',
-            painel_estoque_imagem_url: '',
-            status: 'pendente',
-            created_at: '2025-09-04T07:00:00.000Z',
-            updated_at: '2025-09-04T07:00:00.000Z'
-          } as BirthdayReservation);
-        }
         
         // Debug: log para dias com aniversários
         if (dayBirthdayReservations.length > 0) {
@@ -306,22 +316,18 @@ export default function ReservationCalendar({
     } finally {
       setLoading(false);
     }
-  }, [generateCalendarDays, reservations, birthdayReservations]);
+  }, [generateCalendarDays, reservations, birthdayReservations, dayGuestTotalsByDate, establishment?.name]);
 
   useEffect(() => {
     loadReservationsForMonth(currentDate);
   }, [currentDate, loadReservationsForMonth]);
 
   const handlePreviousMonth = () => {
-    const newDate = new Date(currentDate);
-    newDate.setMonth(newDate.getMonth() - 1);
-    setCurrentDate(newDate);
+    setCurrentDate((prev) => new Date(prev.getFullYear(), prev.getMonth() - 1, 1));
   };
 
   const handleNextMonth = () => {
-    const newDate = new Date(currentDate);
-    newDate.setMonth(newDate.getMonth() + 1);
-    setCurrentDate(newDate);
+    setCurrentDate((prev) => new Date(prev.getFullYear(), prev.getMonth() + 1, 1));
   };
 
   const handleDateClick = (day: CalendarDay) => {
