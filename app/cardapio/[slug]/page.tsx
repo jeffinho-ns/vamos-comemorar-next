@@ -1094,9 +1094,7 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
           onClick={() => onClick(item)}
         >
           <div
-            className={`relative overflow-hidden ${
-              isCleanStyle ? "h-32 sm:h-36 md:h-40 lg:h-44" : "h-48"
-            } ${isCleanStyle ? "border-b border-[#e7d9c3]" : ""}`}
+            className={`relative overflow-hidden w-full aspect-square ${isCleanStyle ? "border-b border-[#e7d9c3]" : ""}`}
           >
             <Image
               src={imageSrc}
