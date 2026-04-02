@@ -11,7 +11,7 @@ import {
 import { MdAccessTime, MdLocationOn } from 'react-icons/md';
 import { BirthdayService } from '../services/birthdayService';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL_LOCAL || 'https://vamos-comemorar-api.onrender.com';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL_LOCAL || 'https://api.agilizaiapp.com.br';
 
 
 interface Establishment {

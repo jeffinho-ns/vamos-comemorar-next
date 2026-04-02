@@ -177,6 +177,9 @@ const EditEvent: React.FC<EditEventProps> = ({
     Array<{
       filename: string;
       url?: string | null;
+      thumbUrl?: string | null;
+      mediumUrl?: string | null;
+      fullUrl?: string | null;
       sourceType: string;
       imageType: string;
       usageCount: number;
@@ -215,28 +218,34 @@ const EditEvent: React.FC<EditEventProps> = ({
     [fetchGalleryImages],
   );
 
+  const pickPersistValue = useCallback((filename: string, fullUrl?: string | null) => {
+    const f = String(filename || '').trim();
+    if (f && !f.startsWith('http://') && !f.startsWith('https://')) return f;
+    if (f) return f;
+    return String(fullUrl || '').trim();
+  }, []);
+
   // Função para selecionar imagem da galeria
   const handleSelectGalleryImage = useCallback(
-    (filename: string, imageUrl?: string | null) => {
-      // A partir da migração para Firebase, sempre persistimos a URL completa.
-      const imageValue = imageUrl || filename;
-      const previewUrl = getValidImageUrl(imageValue);
+    (filename: string, fullUrl?: string | null, previewUrlOverride?: string | null) => {
+      const persistedValue = pickPersistValue(filename, fullUrl);
+      const previewUrl = getValidImageUrl(previewUrlOverride || fullUrl || persistedValue);
 
       if (imageGalleryField === "imagem_do_evento") {
         setImagemDoEvento(null);
         setImagemEventoPreview(previewUrl);
-        setImagemEventoFilename(imageValue);
+        setImagemEventoFilename(persistedValue);
       } else if (imageGalleryField === "imagem_do_combo") {
         setImagemDoCombo(null);
         setImagemComboPreview(previewUrl);
-        setImagemComboFilename(imageValue);
+        setImagemComboFilename(persistedValue);
       }
 
       setShowImageGalleryModal(false);
       setImageGalleryField("");
       setGallerySearchTerm("");
     },
-    [imageGalleryField, getValidImageUrl],
+    [imageGalleryField, getValidImageUrl, pickPersistValue],
   );
 
   // Função para deletar imagem da galeria
@@ -801,9 +810,9 @@ const EditEvent: React.FC<EditEventProps> = ({
                         .toLowerCase()
                         .includes(gallerySearchTerm.toLowerCase()),
                   )
-                  .map((image, index) => {
+                  .map((image: any, index) => {
                     const imageUrl =
-                      image.url || getValidImageUrl(image.filename);
+                      image.thumbUrl || image.url || getValidImageUrl(image.filename);
                     return (
                       <div
                         key={`${image.filename}-${index}`}
@@ -811,7 +820,8 @@ const EditEvent: React.FC<EditEventProps> = ({
                         onClick={() =>
                           handleSelectGalleryImage(
                             image.filename,
-                            image.url || undefined,
+                            image.fullUrl || image.url || undefined,
+                            image.thumbUrl || image.url || undefined,
                           )
                         }
                       >

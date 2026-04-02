@@ -35,7 +35,7 @@ interface Promoter {
 }
 
 export default function GiftsAdminPage() {
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL_LOCAL || 'https://vamos-comemorar-api.onrender.com';
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL_LOCAL || 'https://api.agilizaiapp.com.br';
 
   // Estados
   const [selectedEstablishment, setSelectedEstablishment] = useState<Establishment | null>(null);

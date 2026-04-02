@@ -168,7 +168,7 @@ declare module 'react' {
   }
 }
 
-const API_BASE_URL = 'https://vamos-comemorar-api.onrender.com/api/cardapio';
+const API_BASE_URL = 'https://api.agilizaiapp.com.br/api/cardapio';
 
 // Placeholder local para todos os pontos do admin
 const PLACEHOLDER_IMAGE_URL = '/placeholder-cardapio.svg';
@@ -2736,13 +2736,18 @@ export default function CardapioAdminPage() {
   }, [fetchGalleryImages]);
 
   // Função para selecionar imagem da galeria
-  const handleSelectGalleryImage = useCallback((filename: string, imageUrl?: string | null) => {
-    // Pós-migração: sempre persistir URL completa do Firebase quando existir; fallback para filename.
-    const imageValue = imageUrl || filename;
+  const handleSelectGalleryImage = useCallback((filename: string, fullUrl?: string | null) => {
+    // Persistir SEMPRE o filename/objectPath quando disponível (estável e independente de cache/CDN).
+    // Só persistir URL quando o "filename" já for URL completa (legado).
+    const f = String(filename || '').trim();
+    const imageValue =
+      f && !f.startsWith('http://') && !f.startsWith('https://')
+        ? f
+        : (String(fullUrl || '').trim() || f);
     
     console.log('🖼️ Selecionando imagem da galeria:', { 
       filename, 
-      imageUrl, 
+      fullUrl, 
       imageValue, 
       imageGalleryField,
       isCloudinaryUrl: imageValue.startsWith('https://res.cloudinary.com')
@@ -5997,8 +6002,9 @@ export default function CardapioAdminPage() {
                       // - fallback via getValidImageUrl(image.filename) usando o índice local
                       const imageUrl = getValidImageUrl((image.url as any) || image.filename);
                       
-                      // URL para salvar ao selecionar (sempre preferir URL completa quando existir)
-                      const selectUrl = image.url ? getValidImageUrl(image.url) : getValidImageUrl(image.filename);
+                      // Persistência: sempre preferir salvar o filename/objectPath (estável).
+                      // Preview: usar thumb quando existir.
+                      const selectUrl = (image as any).fullUrl || (image as any).url || null;
                       
                       // Log apenas para as primeiras imagens para não poluir o console
                       if (index < 3) {
@@ -6016,7 +6022,7 @@ export default function CardapioAdminPage() {
                         <div
                           key={`${image.filename}-${index}`}
                           className="relative group cursor-pointer rounded-lg border-2 border-gray-200 hover:border-blue-500 transition-all overflow-hidden shadow-md hover:shadow-lg"
-                          onClick={() => handleSelectGalleryImage(image.filename, selectUrl)}
+                        onClick={() => handleSelectGalleryImage(image.filename, selectUrl)}
                         >
                           <div className="aspect-square relative bg-gray-100">
                             <Image

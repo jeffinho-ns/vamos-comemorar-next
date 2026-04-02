@@ -191,7 +191,7 @@ export default function PromotersPage() {
     pode_selecionar_areas: false
   });
 
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://vamos-comemorar-api.onrender.com';
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.agilizaiapp.com.br';
 
   useEffect(() => {
     fetchPromoters();

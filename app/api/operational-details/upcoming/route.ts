@@ -6,7 +6,7 @@ const MAX_DAYS = 90;
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL ||
   process.env.NEXT_PUBLIC_API_URL_LOCAL ||
-  'https://vamos-comemorar-api.onrender.com';
+  'https://api.agilizaiapp.com.br';
 
 const formatDate = (date: Date) => date.toISOString().split('T')[0];
 

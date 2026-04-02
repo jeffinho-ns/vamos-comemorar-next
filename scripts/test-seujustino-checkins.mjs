@@ -3,7 +3,7 @@
  * Uso: node scripts/test-seujustino-checkins.mjs
  */
 
-const API = process.env.NEXT_PUBLIC_API_URL || 'https://vamos-comemorar-api.onrender.com';
+const API = process.env.NEXT_PUBLIC_API_URL || 'https://api.agilizaiapp.com.br';
 const EMAIL = 'gerente.sjm@seujustino.com.br';
 const PASSWORD = '@123Mudar';
 const ESTABLISHMENT_ID = 1; // Seu Justino

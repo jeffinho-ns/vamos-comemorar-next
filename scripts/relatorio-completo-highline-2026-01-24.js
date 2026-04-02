@@ -3,7 +3,7 @@
  * Inclui: todas as reservas, guest lists e convidados de cada lista
  */
 
-const API_URL = process.env.API_URL || 'https://vamos-comemorar-api.onrender.com';
+const API_URL = process.env.API_URL || 'https://api.agilizaiapp.com.br';
 
 async function gerarRelatorioCompleto() {
   try {

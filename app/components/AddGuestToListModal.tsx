@@ -48,7 +48,7 @@ export default function AddGuestToListModal({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [beneficiosDisponiveis, setBeneficiosDisponiveis] = useState<Beneficio[]>([]);
 
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://vamos-comemorar-api.onrender.com';
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.agilizaiapp.com.br';
 
   useEffect(() => {
     if (isOpen) {

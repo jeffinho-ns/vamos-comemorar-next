@@ -55,7 +55,7 @@ export default function Eventos() {
     const token = localStorage.getItem("authToken");
   
     try {
-      const res = await fetch("https://vamos-comemorar-api.onrender.com/api/events", {
+      const res = await fetch("https://api.agilizaiapp.com.br/api/events", {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
@@ -66,7 +66,7 @@ export default function Eventos() {
           try {
             // Buscar convidados
             const convidadosRes = await fetch(
-              `https://vamos-comemorar-api.onrender.com/api/convidados/${event.id}`,
+              `https://api.agilizaiapp.com.br/api/convidados/${event.id}`,
               { headers: { Authorization: `Bearer ${token}` } }
             );
             const convidados = await convidadosRes.json();
@@ -75,7 +75,7 @@ export default function Eventos() {
             let promoters: Promoter[] = [];
             try {
               const promotersRes = await fetch(
-                `https://vamos-comemorar-api.onrender.com/api/promoter-eventos/${event.id}`,
+                `https://api.agilizaiapp.com.br/api/promoter-eventos/${event.id}`,
                 { headers: { Authorization: `Bearer ${token}` } }
               );
               if (promotersRes.ok) {

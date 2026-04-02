@@ -30,7 +30,7 @@ export default function AddRuleForm({ eventId, onRuleAdded }: { eventId: string;
     setError(null);
 
     try {
-      const response = await fetch(`https://vamos-comemorar-api.onrender.com/api/events/${eventId}/rules`, {
+      const response = await fetch(`https://api.agilizaiapp.com.br/api/events/${eventId}/rules`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

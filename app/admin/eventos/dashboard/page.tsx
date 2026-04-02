@@ -79,7 +79,7 @@ export default function EventosDashboard() {
   const [showPromoterModal, setShowPromoterModal] = useState(false);
   const [selectedEvento, setSelectedEvento] = useState<EventoUnico | EventoSemanal | null>(null);
 
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://vamos-comemorar-api.onrender.com';
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.agilizaiapp.com.br';
 
   useEffect(() => {
     fetchEstablishments();

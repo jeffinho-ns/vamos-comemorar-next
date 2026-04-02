@@ -99,7 +99,7 @@ export default function ReservationDetailsModal({
     const loadMenuItems = async () => {
       setMenuLoading(true);
       try {
-        const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL_LOCAL || 'https://vamos-comemorar-api.onrender.com';
+        const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL_LOCAL || 'https://api.agilizaiapp.com.br';
         const API_BASE_URL = `${API_URL}/api/cardapio`;
         
         // 1. Buscar o estabelecimento (place) para pegar o nome/slug
@@ -377,7 +377,7 @@ export default function ReservationDetailsModal({
       const fetchBirthdayReservation = async () => {
         setLoadingBirthday(true);
         try {
-          const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL_LOCAL || 'https://vamos-comemorar-api.onrender.com';
+          const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL_LOCAL || 'https://api.agilizaiapp.com.br';
           const token = localStorage.getItem('authToken');
           
           console.log('🔍 [ReservationDetailsModal] Buscando reserva de aniversário para reserva:', {

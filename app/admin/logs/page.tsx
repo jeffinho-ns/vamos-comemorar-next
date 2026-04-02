@@ -26,7 +26,7 @@ import { useUserPermissions } from '../../hooks/useUserPermissions';
 import AuditDiffTable from '../../components/logs/AuditDiffTable';
 import { exportActionLogsPdf } from './exportActionLogsPdf';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://vamos-comemorar-api.onrender.com';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.agilizaiapp.com.br';
 
 interface BarOption {
   id: number;

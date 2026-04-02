@@ -16,6 +16,11 @@ const nextConfig = {
             },
             {
                 protocol: 'https',
+                hostname: 'api.agilizaiapp.com.br',
+                pathname: '/uploads/**',
+            },
+            {
+                protocol: 'https',
                 hostname: 'firebasestorage.googleapis.com',
                 pathname: '/**',
             },

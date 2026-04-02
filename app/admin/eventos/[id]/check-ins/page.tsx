@@ -72,7 +72,7 @@ const API_URL =
   process.env.NEXT_PUBLIC_API_URL || "https://api.agilizaiapp.com.br";
 const SOCKET_URL =
   process.env.NEXT_PUBLIC_SOCKET_URL ||
-  "https://vamos-comemorar-api.onrender.com";
+  "https://api.agilizaiapp.com.br";
 
 /**
  * Normaliza texto para busca: remove acentos, lowercase, colapsa espaços.
@@ -800,7 +800,7 @@ export default function EventoCheckInsPage() {
         const API_URL =
           process.env.NEXT_PUBLIC_API_URL ||
           process.env.NEXT_PUBLIC_API_URL_LOCAL ||
-          "https://vamos-comemorar-api.onrender.com";
+          "https://api.agilizaiapp.com.br";
         const API_BASE_URL = `${API_URL}/api/cardapio`;
 
         // Buscar o estabelecimento (place) para pegar o nome/slug

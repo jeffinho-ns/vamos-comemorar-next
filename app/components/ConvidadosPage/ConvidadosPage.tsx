@@ -22,7 +22,7 @@ export default function ConvidadosPage() {
 
   const fetchConvidados = useCallback(async () => {
     try {
-      const res = await fetch(`https://vamos-comemorar-api.onrender.com/api/convidados/evento/${id}`);
+      const res = await fetch(`https://api.agilizaiapp.com.br/api/convidados/evento/${id}`);
       const data = await res.json();
       setConvidados(data.convidados);
       setEventoNome(data.evento?.nome_do_evento || "Evento");

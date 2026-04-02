@@ -19,7 +19,7 @@ import { formatDateBR } from '@/lib/dateUtils';
 import Link from 'next/link';
 
 // Configuração da API
-const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL_LOCAL || 'https://vamos-comemorar-api.onrender.com';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL_LOCAL || 'https://api.agilizaiapp.com.br';
 
 interface Establishment {
   id: number;
@@ -207,7 +207,7 @@ export default function ReservationForm() {
               return {
                 id: place.id,
                 name,
-                logo: place.logo ? `https://vamos-comemorar-api.onrender.com/uploads/${place.logo}` : "/images/default-logo.png",
+                logo: place.logo ? `https://api.agilizaiapp.com.br/uploads/${place.logo}` : "/images/default-logo.png",
                 address: place.street ? `${place.street}, ${place.number || ''}`.trim() : "Endereço não informado",
                 phone: place.phone || fallbackPhone,
                 email: place.email || "contato@estabelecimento.com.br"
@@ -230,7 +230,7 @@ export default function ReservationForm() {
               return {
                 id: place.id,
                 name,
-                logo: place.logo ? `https://vamos-comemorar-api.onrender.com/uploads/${place.logo}` : "/images/default-logo.png",
+                logo: place.logo ? `https://api.agilizaiapp.com.br/uploads/${place.logo}` : "/images/default-logo.png",
                 address: place.street ? `${place.street}, ${place.number || ''}`.trim() : "Endereço não informado",
                 phone: place.phone || fallbackPhone,
                 email: place.email || "contato@estabelecimento.com.br"
@@ -244,7 +244,7 @@ export default function ReservationForm() {
             {
               id: 7,
               name: "High Line",
-              logo: "https://vamos-comemorar-api.onrender.com/uploads/1730836360230.png",
+              logo: "https://api.agilizaiapp.com.br/uploads/1730836360230.png",
               address: "Rua Girassol, 144 - Vila Madalena",
               phone: "(11) 3032-2934",
               email: "reservas@highlinebar.com.br"
@@ -252,7 +252,7 @@ export default function ReservationForm() {
             {
               id: 1,
               name: "Seu Justino",
-              logo: "https://vamos-comemorar-api.onrender.com/uploads/1729923901750.webp",
+              logo: "https://api.agilizaiapp.com.br/uploads/1729923901750.webp",
               address: "Rua Harmonia, 77 - Vila Madalena",
               phone: "(11) 99999-8888",
               email: "contato@seujustino.com.br"
@@ -260,7 +260,7 @@ export default function ReservationForm() {
             {
               id: 4,
               name: "Oh Freguês",
-              logo: "https://vamos-comemorar-api.onrender.com/uploads/1730172121902.png",
+              logo: "https://api.agilizaiapp.com.br/uploads/1730172121902.png",
               address: "Largo da Matriz de Nossa Senhora do Ó, 145 - Freguesia do Ó",
               phone: "(11) 99999-7777",
               email: "contato@ohfregues.com.br"
@@ -268,7 +268,7 @@ export default function ReservationForm() {
             {
               id: 8,
               name: "Pracinha do Seu Justino",
-              logo: "https://vamos-comemorar-api.onrender.com/uploads/1730836754093.png",
+              logo: "https://api.agilizaiapp.com.br/uploads/1730836754093.png",
               address: "Rua Harmonia, 117 - Sumarezinho",
               phone: "(11) 99999-6666",
               email: "contato@pracinha.com.br"
@@ -290,7 +290,7 @@ export default function ReservationForm() {
           {
             id: 7,
             name: "High Line",
-            logo: "https://vamos-comemorar-api.onrender.com/uploads/1730836360230.png",
+            logo: "https://api.agilizaiapp.com.br/uploads/1730836360230.png",
             address: "Rua Girassol, 144 - Vila Madalena",
             phone: "(11) 3032-2934",
             email: "reservas@highlinebar.com.br"
@@ -298,7 +298,7 @@ export default function ReservationForm() {
           {
             id: 1,
             name: "Seu Justino",
-            logo: "https://vamos-comemorar-api.onrender.com/uploads/1729923901750.webp",
+            logo: "https://api.agilizaiapp.com.br/uploads/1729923901750.webp",
             address: "Rua Harmonia, 77 - Vila Madalena",
             phone: "(11) 99999-8888",
             email: "contato@seujustino.com.br"
@@ -306,7 +306,7 @@ export default function ReservationForm() {
           {
             id: 4,
             name: "Oh Freguês",
-            logo: "https://vamos-comemorar-api.onrender.com/uploads/1730172121902.png",
+            logo: "https://api.agilizaiapp.com.br/uploads/1730172121902.png",
             address: "Largo da Matriz de Nossa Senhora do Ó, 145 - Freguesia do Ó",
             phone: "(11) 99999-7777",
             email: "contato@ohfregues.com.br"
@@ -314,7 +314,7 @@ export default function ReservationForm() {
           {
             id: 8,
             name: "Pracinha do Seu Justino",
-            logo: "https://vamos-comemorar-api.onrender.com/uploads/1730836754093.png",
+            logo: "https://api.agilizaiapp.com.br/uploads/1730836754093.png",
             address: "Rua Harmonia, 117 - Sumarezinho",
             phone: "(11) 99999-6666",
             email: "contato@pracinha.com.br"

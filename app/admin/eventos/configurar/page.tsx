@@ -42,7 +42,7 @@ export default function ConfigurarEventosPage() {
   const [tipoFilter, setTipoFilter] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<string>('');
 
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://vamos-comemorar-api.onrender.com';
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.agilizaiapp.com.br';
 
   useEffect(() => {
     fetchEstablishments();

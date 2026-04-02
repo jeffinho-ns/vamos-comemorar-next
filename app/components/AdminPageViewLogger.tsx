@@ -4,7 +4,7 @@ import { useEffect, useRef } from 'react';
 import { usePathname } from 'next/navigation';
 
 const API_URL =
-  process.env.NEXT_PUBLIC_API_URL || 'https://vamos-comemorar-api.onrender.com';
+  process.env.NEXT_PUBLIC_API_URL || 'https://api.agilizaiapp.com.br';
 
 /**
  * Regista visualização de páginas /admin (page view) na API de action-logs.

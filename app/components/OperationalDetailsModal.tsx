@@ -11,7 +11,7 @@ import ArtistOSForm from './ArtistOSForm';
 import BarServiceOSForm from './BarServiceOSForm';
 import { uploadImage } from '@/app/services/uploadService';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://vamos-comemorar-api.onrender.com';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.agilizaiapp.com.br';
 const BASE_IMAGE_URL = 'https://grupoideiaum.com.br/cardapio-agilizaiapp/';
 const PLACEHOLDER_IMAGE_URL = '/placeholder-cardapio.svg';
 

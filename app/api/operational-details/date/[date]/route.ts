@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL ||
   process.env.NEXT_PUBLIC_API_URL_LOCAL ||
-  'https://vamos-comemorar-api.onrender.com';
+  'https://api.agilizaiapp.com.br';
 
 // GET - Buscar detalhe operacional por data (público - para uso no formulário de reserva)
 export async function GET(

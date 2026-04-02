@@ -145,7 +145,7 @@ export default function ReservasCamarote({ establishment }: { establishment: Est
   const [newGuestName, setNewGuestName] = useState('');
   const [confirmingCancel, setConfirmingCancel] = useState<boolean>(false);
 
-  const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL_LOCAL || 'https://vamos-comemorar-api.onrender.com';
+  const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL_LOCAL || 'https://api.agilizaiapp.com.br';
 
   const getAuthToken = () => {
     const token = localStorage.getItem('authToken');

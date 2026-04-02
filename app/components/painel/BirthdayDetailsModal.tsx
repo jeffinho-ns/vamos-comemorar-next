@@ -232,7 +232,7 @@ export default function BirthdayDetailsModal({ reservation, isOpen, onClose }: B
       // PRIORIDADE 2: Fallback - buscar do cardápio (apenas se não houver dados salvos)
       console.log('⚠️ [Modal] Dados completos não encontrados, buscando do cardápio...');
       try {
-        const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL_LOCAL || 'https://vamos-comemorar-api.onrender.com';
+        const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL_LOCAL || 'https://api.agilizaiapp.com.br';
         const API_BASE_URL = `${API_URL}/api/cardapio`;
         
         // 1. Buscar o estabelecimento (place) para pegar o nome/slug

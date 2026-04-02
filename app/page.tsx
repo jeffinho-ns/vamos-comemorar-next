@@ -57,7 +57,7 @@ export default function Home() {
   const API_URL =
     process.env.NEXT_PUBLIC_API_URL ||
     process.env.NEXT_PUBLIC_API_URL_LOCAL ||
-    "https://vamos-comemorar-api.onrender.com";
+    "https://api.agilizaiapp.com.br";
 
   // Função para construir URL da imagem
   const getImageUrl = (image: GalleryImage) => {

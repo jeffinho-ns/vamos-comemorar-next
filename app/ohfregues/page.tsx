@@ -164,7 +164,7 @@ const Ohfregues = () => {
         const API_URL =
           process.env.NEXT_PUBLIC_API_URL ||
           process.env.NEXT_PUBLIC_API_URL_LOCAL ||
-          "https://vamos-comemorar-api.onrender.com";
+          "https://api.agilizaiapp.com.br";
         const API_BASE_URL = `${API_URL}/api/cardapio`;
         
         // 1. Buscar o bar pelo slug

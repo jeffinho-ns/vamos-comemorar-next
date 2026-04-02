@@ -44,7 +44,7 @@ export default function AddGuestModal({
     setErro("");
 
     try {
-      const res = await fetch("https://vamos-comemorar-api.onrender.com/api/convidados", {
+      const res = await fetch("https://api.agilizaiapp.com.br/api/convidados", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

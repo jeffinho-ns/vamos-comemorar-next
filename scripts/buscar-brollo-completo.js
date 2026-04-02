@@ -3,7 +3,7 @@
  * Lista também todas as reservas do Highline para análise
  */
 
-const API_URL = process.env.API_URL || 'https://vamos-comemorar-api.onrender.com';
+const API_URL = process.env.API_URL || 'https://api.agilizaiapp.com.br';
 
 async function buscarBrolloCompleto() {
   try {

@@ -1,6 +1,6 @@
 // app/services/birthdayService.ts
 
-const API_BASE_URL = 'https://vamos-comemorar-api.onrender.com/api';
+const API_BASE_URL = 'https://api.agilizaiapp.com.br/api';
 
 export interface BirthdayReservation {
   id: number;

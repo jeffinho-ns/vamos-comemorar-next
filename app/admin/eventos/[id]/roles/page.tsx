@@ -6,7 +6,7 @@ import AddRuleForm from '../../../../components/form/AddRuleForm'; // Ajuste o c
 import { Button } from '../../../../components/ui/button'; // Importe o componente Button
 import { MdAdd } from 'react-icons/md'; // Importe um ícone de adição
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://vamos-comemorar-api.onrender.com/api";
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://api.agilizaiapp.com.br/api";
 
 interface EventRule {
   id: number;

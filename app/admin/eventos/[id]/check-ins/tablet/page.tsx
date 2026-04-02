@@ -7,7 +7,7 @@ import { WithPermission } from '../../../../../components/WithPermission/WithPer
 import { io } from 'socket.io-client';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.agilizaiapp.com.br';
-const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL || 'https://vamos-comemorar-api.onrender.com';
+const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL || 'https://api.agilizaiapp.com.br';
 
 function normalizeForSearch(s: string): string {
   if (!s) return '';

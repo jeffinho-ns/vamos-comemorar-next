@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-const API_BASE_URL = 'https://vamos-comemorar-api.onrender.com';
+const API_BASE_URL = 'https://api.agilizaiapp.com.br';
 
 // GET - Buscar todas as reservas do restaurante
 export async function GET(request: NextRequest) {

@@ -8,7 +8,7 @@ import { ExecutiveEvent, ExecutiveEventForm } from '@/app/types/executiveEvents'
 import { Establishment } from '@/app/hooks/useEstablishments';
 import { uploadImage } from '@/app/services/uploadService';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://vamos-comemorar-api.onrender.com';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.agilizaiapp.com.br';
 const BASE_IMAGE_URL = 'https://grupoideiaum.com.br/cardapio-agilizaiapp/';
 
 interface ExecutiveEventModalProps {
@@ -451,8 +451,15 @@ export default function ExecutiveEventModal({
     fetchGalleryImages();
   }, [fetchGalleryImages]);
 
-  const handleSelectGalleryImage = useCallback((filename: string, imageUrl?: string | null) => {
-    const imageValue = imageUrl || filename;
+  const pickPersistValue = useCallback((filename: string, fullUrl?: string | null) => {
+    const f = String(filename || '').trim();
+    if (f && !f.startsWith('http://') && !f.startsWith('https://')) return f;
+    if (f) return f;
+    return String(fullUrl || '').trim();
+  }, []);
+
+  const handleSelectGalleryImage = useCallback((filename: string, fullUrl?: string | null, previewUrlOverride?: string | null) => {
+    const imageValue = pickPersistValue(filename, fullUrl);
     
     if (imageGalleryField === 'logo_url') {
       setFormData(prev => ({ ...prev, logo_url: imageValue }));
@@ -463,7 +470,7 @@ export default function ExecutiveEventModal({
     setShowImageGalleryModal(false);
     setImageGalleryField('');
     setGallerySearchTerm('');
-  }, [imageGalleryField]);
+  }, [imageGalleryField, pickPersistValue]);
 
   const handleDeleteGalleryImage = useCallback(async (filename: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -1012,13 +1019,13 @@ export default function ExecutiveEventModal({
                         !gallerySearchTerm || 
                         img.filename.toLowerCase().includes(gallerySearchTerm.toLowerCase())
                       )
-                      .map((image, index) => {
-                        const imageUrl = image.url || getValidImageUrl(image.filename);
+                      .map((image: any, index) => {
+                        const imageUrl = image.thumbUrl || image.url || getValidImageUrl(image.filename);
                         return (
                           <div
                             key={`${image.filename}-${index}`}
                             className="relative group cursor-pointer rounded-lg border-2 border-gray-600 hover:border-yellow-500 transition-all overflow-hidden"
-                            onClick={() => handleSelectGalleryImage(image.filename, image.url || undefined)}
+                            onClick={() => handleSelectGalleryImage(image.filename, image.fullUrl || image.url || undefined, image.thumbUrl || image.url || undefined)}
                           >
                             <div className="aspect-square relative bg-gray-700">
                               <Image

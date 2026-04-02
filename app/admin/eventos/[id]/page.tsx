@@ -41,7 +41,7 @@ export default function EventoConvidadosPage() {
     try {
       const token = localStorage.getItem('authToken')
       // Buscar nome do evento
-      const resEvento = await fetch(`https://vamos-comemorar-api.onrender.com/api/events/${id}`, {
+      const resEvento = await fetch(`https://api.agilizaiapp.com.br/api/events/${id}`, {
         headers: {
           Authorization: `Bearer ${token}`,
         }
@@ -50,7 +50,7 @@ export default function EventoConvidadosPage() {
       setEventoNome(eventoData.nome_do_evento || 'Evento')
 
       // Buscar convidados
-      const resConvidados = await fetch(`https://vamos-comemorar-api.onrender.com/api/events/${id}/convidados-com-status`, {
+      const resConvidados = await fetch(`https://api.agilizaiapp.com.br/api/events/${id}/convidados-com-status`, {
         headers: {
           Authorization: `Bearer ${token}`,
         }

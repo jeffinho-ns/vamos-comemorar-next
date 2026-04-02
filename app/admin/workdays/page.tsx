@@ -35,7 +35,7 @@ export default function EventsPage() {
     const token = localStorage.getItem("authToken");
 
     try {
-      const response = await fetch(`https://vamos-comemorar-api.onrender.com/api/events`, {
+      const response = await fetch(`https://api.agilizaiapp.com.br/api/events`, {
         headers: token ? { Authorization: `Bearer ${token}` } : undefined,
       });
 
@@ -116,7 +116,7 @@ export default function EventsPage() {
 
     try {
       const response = await fetch(
-        `https://vamos-comemorar-api.onrender.com/api/events/${id}`,
+        `https://api.agilizaiapp.com.br/api/events/${id}`,
         {
           method: "DELETE",
           headers: {

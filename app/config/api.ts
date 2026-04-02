@@ -1,21 +1,17 @@
-// Configurações da API
+import { getPublicApiUrl } from '@/lib/publicApiUrl';
+
+// Configurações da API (fallback de produção = Cloudflare + Render)
 export const API_CONFIG = {
-  // URL da API em produção
-  PRODUCTION: 'https://vamos-comemorar-api.onrender.com',
-  // URL da API local para desenvolvimento
+  PRODUCTION: 'https://api.agilizaiapp.com.br',
   LOCAL: 'http://localhost:3001',
-  // URL padrão (usa produção se não estiver em desenvolvimento)
-  DEFAULT: process.env.NODE_ENV === 'development' 
-    ? 'http://localhost:3001' 
-    : 'https://vamos-comemorar-api.onrender.com'
+  DEFAULT:
+    process.env.NODE_ENV === 'development'
+      ? 'http://localhost:3001'
+      : 'https://api.agilizaiapp.com.br',
 };
 
-// Função para obter a URL da API
-export const getApiUrl = (): string => {
-  return process.env.NEXT_PUBLIC_API_URL || 
-         process.env.NEXT_PUBLIC_API_URL_LOCAL || 
-         API_CONFIG.DEFAULT;
-};
+/** URL base da API (sem barra final). Preferir este helper em novo código. */
+export const getApiUrl = (): string => getPublicApiUrl();
 
 // Configurações do banco de dados (apenas para referência)
 export const DB_CONFIG = {

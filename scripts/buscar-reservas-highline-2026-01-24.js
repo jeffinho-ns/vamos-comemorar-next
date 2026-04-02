@@ -3,7 +3,7 @@
  * Executar: node scripts/buscar-reservas-highline-2026-01-24.js
  */
 
-const API_URL = process.env.API_URL || 'https://vamos-comemorar-api.onrender.com';
+const API_URL = process.env.API_URL || 'https://api.agilizaiapp.com.br';
 
 async function buscarReservasHighline() {
   try {

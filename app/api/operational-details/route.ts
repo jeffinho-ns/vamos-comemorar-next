@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-// URL da API backend - sempre usar vamos-comemorar-api.onrender.com
-const API_BASE_URL = 'https://vamos-comemorar-api.onrender.com';
+// URL da API backend (produção: api.agilizaiapp.com.br via Cloudflare)
+const API_BASE_URL = 'https://api.agilizaiapp.com.br';
 
 // GET - Buscar todos os detalhes operacionais
 export async function GET(request: NextRequest) {

@@ -77,7 +77,7 @@ export default function PromoterEventosModal({ evento, isOpen, onClose, onSave }
   const [funcao, setFuncao] = useState<'responsavel' | 'co-promoter' | 'backup'>('responsavel');
   const [observacoes, setObservacoes] = useState('');
 
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://vamos-comemorar-api.onrender.com';
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.agilizaiapp.com.br';
 
   useEffect(() => {
     if (isOpen && evento) {

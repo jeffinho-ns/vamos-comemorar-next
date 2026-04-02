@@ -35,7 +35,7 @@ export default function DetalhesOperacionaisPage() {
   const [selectedEstablishment, setSelectedEstablishment] = useState<number | null>(null);
   const [filterDate, setFilterDate] = useState<string>('');
 
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://vamos-comemorar-api.onrender.com';
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.agilizaiapp.com.br';
 
   useEffect(() => {
     fetchEstablishments();

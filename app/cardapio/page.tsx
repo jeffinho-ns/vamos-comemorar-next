@@ -28,7 +28,7 @@ interface Bar {
   longitude?: number;
 }
 
-const API_BASE_URL = 'https://vamos-comemorar-api.onrender.com/api/cardapio';
+const API_BASE_URL = 'https://api.agilizaiapp.com.br/api/cardapio';
 const PLACEHOLDER_BAR_URL = getCardapioPlaceholderUrl();
 
 const resolveCoverImage = (coverImageUrl?: string | null, coverImages?: string[] | null) => {

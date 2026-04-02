@@ -31,7 +31,7 @@ interface LinkReservationToEventModalProps {
   onSuccess?: () => void;
 }
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://vamos-comemorar-api.onrender.com';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.agilizaiapp.com.br';
 
 export default function LinkReservationToEventModal({
   isOpen,

@@ -71,7 +71,7 @@ export default function ListasPage() {
   const [expandedListas, setExpandedListas] = useState<Set<number>>(new Set());
   const [checkingIn, setCheckingIn] = useState<number | null>(null);
 
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://vamos-comemorar-api.onrender.com';
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.agilizaiapp.com.br';
 
   useEffect(() => {
     fetchEventos();

@@ -28,7 +28,7 @@ export default function ExecutiveEventsPage() {
   const [editingEvent, setEditingEvent] = useState<ExecutiveEvent | null>(null);
   const [selectedEstablishment, setSelectedEstablishment] = useState<number | null>(null);
 
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://vamos-comemorar-api.onrender.com';
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.agilizaiapp.com.br';
 
   /**
    * Não chamar fetchEstablishments() na montagem: isso dispara loadAll(true) no AppContext,

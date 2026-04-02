@@ -193,7 +193,7 @@ interface CardapioBarPageProps {
   params: Promise<{ slug: string }>;
 }
 
-const API_BASE_URL = "https://vamos-comemorar-api.onrender.com/api/cardapio";
+const API_BASE_URL = "https://api.agilizaiapp.com.br/api/cardapio";
 // Placeholders locais para evitar erros 404 externos
 const PLACEHOLDER_IMAGE_URL = "/placeholder-cardapio.svg";
 const PLACEHOLDER_LOGO_URL = getCardapioPlaceholderUrl();

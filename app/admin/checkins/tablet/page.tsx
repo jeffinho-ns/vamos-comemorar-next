@@ -246,7 +246,7 @@ export default function TabletCheckInsPage() {
     establishmentId: number
   ) => {
     try {
-      const API_URL_LOCAL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL_LOCAL || 'https://vamos-comemorar-api.onrender.com';
+      const API_URL_LOCAL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL_LOCAL || 'https://api.agilizaiapp.com.br';
       const API_BASE_URL = `${API_URL_LOCAL}/api/cardapio`;
       
       // Buscar o estabelecimento (place) para pegar o nome/slug
