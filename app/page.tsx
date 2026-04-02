@@ -94,7 +94,8 @@ export default function Home() {
       const cleanFilename = image.filename
         .replace(/^https?:\/\/[^\/]+/, "")
         .replace(/^\//, "");
-      return `${API_URL}/uploads/${cleanFilename}`;
+      // Preferir proxy público de imagens (cacheável) para objetos do Firebase Storage.
+      return `${API_URL}/public/images/${encodeURIComponent(cleanFilename)}`;
     }
 
     // Fallback

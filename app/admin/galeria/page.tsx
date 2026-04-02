@@ -11,6 +11,9 @@ type GalleryImage = {
   imageId?: number | null;
   filename: string;
   url?: string | null;
+  thumbUrl?: string | null;
+  mediumUrl?: string | null;
+  fullUrl?: string | null;
   sourceType?: string;
   imageType?: string;
   usageCount?: number;
@@ -149,12 +152,10 @@ export default function AdminGaleriaPage() {
     async (imageUrl: string | null | undefined) => {
       if (!imageUrl) return;
       try {
-        const res = await fetch(imageUrl);
-        if (!res.ok) throw new Error("Falha ao baixar imagem");
-        const blob = await res.blob();
-        const tempUrl = URL.createObjectURL(blob);
         setCropFolder("cardapio/items");
-        setCropSrc(tempUrl);
+        // Evitar download duplicado via fetch()+blob().
+        // O modal já carrega a imagem diretamente (com crossOrigin quando aplicável).
+        setCropSrc(imageUrl);
         setCropOpen(true);
       } catch (err) {
         console.error("Erro ao carregar imagem para edição:", err);
@@ -341,7 +342,7 @@ export default function AdminGaleriaPage() {
                         <MdLink size={16} />
                       </button>
                       <button
-                        onClick={() => createVariantFromUrl(img.url)}
+                        onClick={() => createVariantFromUrl(img.fullUrl || img.url)}
                         className="flex-1 inline-flex items-center justify-center gap-1 px-2 py-1 rounded-md bg-gray-100 hover:bg-gray-200 text-gray-800 text-xs font-semibold"
                         title="Criar variação (editar/manipular)"
                         disabled={!img.url || uploading}

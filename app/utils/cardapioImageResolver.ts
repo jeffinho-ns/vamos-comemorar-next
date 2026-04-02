@@ -69,7 +69,11 @@ export async function warmCardapioImageIndex(apiBaseUrl: string) {
     const res = await fetch(`${apiBaseUrl}/gallery/images`);
     if (!res.ok) return;
     const data = await res.json();
-    const images = Array.isArray(data?.images) ? data.images : [];
+    const images = Array.isArray(data?.data)
+      ? data.data
+      : Array.isArray(data?.images)
+        ? data.images
+        : [];
     for (const img of images) {
       if (img?.filename && img?.url) {
         indexCardapioImageUrl(img.filename, img.url);
