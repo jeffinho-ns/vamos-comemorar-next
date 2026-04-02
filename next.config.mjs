@@ -8,6 +8,12 @@ const nextConfig = {
                 hostname: 'vamos-comemorar-api.onrender.com',
                 pathname: '/uploads/**',
             },
+            // API proxied via Cloudflare (Render custom domain)
+            {
+                protocol: 'https',
+                hostname: 'api.agilizaiapp.com.br',
+                pathname: '/public/images/**',
+            },
             {
                 protocol: 'https',
                 hostname: 'firebasestorage.googleapis.com',
