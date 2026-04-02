@@ -8,12 +8,7 @@ const nextConfig = {
                 hostname: 'vamos-comemorar-api.onrender.com',
                 pathname: '/uploads/**',
             },
-            // API proxied via Cloudflare (Render custom domain)
-            {
-                protocol: 'https',
-                hostname: 'api.agilizaiapp.com.br',
-                pathname: '/public/images/**',
-            },
+            // Não listar /public/images da API: o optimizer do Next não deve buscar esse proxy (404).
             {
                 protocol: 'https',
                 hostname: 'api.agilizaiapp.com.br',

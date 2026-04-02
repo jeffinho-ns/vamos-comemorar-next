@@ -21,9 +21,11 @@ import {
 } from "react-icons/md";
 
 import logoPracinha from "@/app/assets/pracinha/pracinha-logo-2.png";
+import { rewriteRemoteImageToApiProxy } from "@/app/utils/apiImageProxy";
 
-const API_URL =
-  process.env.NEXT_PUBLIC_API_URL || "https://api.agilizaiapp.com.br";
+const API_URL = (
+  process.env.NEXT_PUBLIC_API_URL || "https://api.agilizaiapp.com.br"
+).replace(/\/+$/, "");
 
 interface Promoter {
   id: number;
@@ -393,7 +395,7 @@ export default function PromoterPublicPage() {
                 initial={{ scale: 0 }}
                 animate={{ scale: 1 }}
                 transition={{ type: "spring", stiffness: 200 }}
-                src={promoter.foto_url}
+                src={rewriteRemoteImageToApiProxy(promoter.foto_url, API_URL)}
                 alt={promoter.nome}
                 className="w-32 h-32 rounded-full border-4 border-white shadow-2xl mx-auto mb-6 object-cover"
               />

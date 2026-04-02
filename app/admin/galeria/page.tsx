@@ -1,11 +1,46 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import Image from "next/image";
 import { MdDelete, MdEdit, MdLink, MdSwapHoriz, MdUpload } from "react-icons/md";
 import ImageCropModal from "@/app/components/ImageCropModal";
 import { uploadImage } from "@/app/services/uploadService";
+import {
+  resolveAdminGalleryImageUrlCandidates,
+  rewriteToAppMediaProxy,
+} from "@/app/utils/apiImageProxy";
 import { WithPermission } from "@/app/components/WithPermission/WithPermission";
+
+/** Miniatura com vários candidatos (/api/media/...) — tenta o seguinte em caso de 404 no Storage. */
+function AdminGalleryThumb({
+  candidates,
+  alt,
+}: {
+  candidates: string[];
+  alt: string;
+}) {
+  const [idx, setIdx] = useState(0);
+
+  if (!candidates.length || idx >= candidates.length) {
+    return (
+      <div className="absolute inset-0 flex items-center justify-center text-xs text-gray-400 px-1 text-center">
+        Sem preview
+      </div>
+    );
+  }
+
+  return (
+    <img
+      key={idx}
+      src={candidates[idx]}
+      alt={alt}
+      className="absolute inset-0 h-full w-full object-cover"
+      loading="lazy"
+      decoding="async"
+      referrerPolicy="no-referrer"
+      onError={() => setIdx((i) => i + 1)}
+    />
+  );
+}
 
 type GalleryImage = {
   imageId?: number | null;
@@ -57,10 +92,116 @@ export default function AdminGaleriaPage() {
   const fetchImages = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch(`${API_BASE_URL}/gallery/images`, { method: "GET" });
-      if (!res.ok) throw new Error("Falha ao buscar imagens");
-      const data = await res.json();
-      setImages(Array.isArray(data.images) ? data.images : []);
+      const fetchApiGalleryDeduped = async (): Promise<GalleryImage[]> => {
+        const aggregated: GalleryImage[] = [];
+        let page = 1;
+        const limit = 100;
+        let totalPages = 1;
+
+        do {
+          const res = await fetch(
+            `${API_BASE_URL}/gallery/images?page=${page}&limit=${limit}`,
+            { method: "GET" },
+          );
+          if (!res.ok) throw new Error("Falha ao buscar imagens");
+          const payload = await res.json();
+          const chunk: GalleryImage[] = Array.isArray(payload.images)
+            ? payload.images
+            : Array.isArray(payload.data)
+              ? payload.data
+              : [];
+          aggregated.push(...chunk);
+          const total =
+            typeof payload.total === "number" && payload.total >= 0
+              ? payload.total
+              : aggregated.length;
+          totalPages =
+            typeof payload.totalPages === "number" && payload.totalPages >= 1
+              ? payload.totalPages
+              : Math.max(1, Math.ceil(total / limit));
+          if (chunk.length < limit || page >= totalPages) break;
+          page += 1;
+          if (page > 200) break;
+        } while (true);
+
+        const byFilename = new Map<string, GalleryImage>();
+        for (const item of aggregated) {
+          const key =
+            String(item.filename ?? "").trim() || `id:${item.imageId ?? ""}`;
+          if (!byFilename.has(key)) byFilename.set(key, item);
+        }
+        return Array.from(byFilename.values());
+      };
+
+      const basenamePath = (p: string) => {
+        const i = p.lastIndexOf("/");
+        return i >= 0 ? p.slice(i + 1) : p;
+      };
+
+      const [apiImages, fbPaths] = await Promise.all([
+        fetchApiGalleryDeduped(),
+        (async (): Promise<string[]> => {
+          const { isFirebaseClientConfigured } = await import(
+            "@/app/config/firebase"
+          );
+          if (!isFirebaseClientConfigured()) return [];
+          try {
+            const { listAllImageObjectPathsClient } = await import(
+              "@/app/utils/firebaseStorageListClient"
+            );
+            return await listAllImageObjectPathsClient();
+          } catch (e) {
+            console.warn("Listagem do Firebase Storage indisponível:", e);
+            return [];
+          }
+        })(),
+      ]);
+
+      const byStoragePath = new Map<string, GalleryImage>();
+
+      for (const path of fbPaths) {
+        byStoragePath.set(path, {
+          filename: path,
+          sourceType: "firebase_storage",
+        });
+      }
+
+      for (const a of apiImages) {
+        const fn = String(a.filename ?? "").trim();
+        if (!fn) continue;
+
+        let pathKey: string | null = null;
+        if (byStoragePath.has(fn)) {
+          pathKey = fn;
+        } else {
+          const candidates = [...byStoragePath.keys()].filter(
+            (p) =>
+              p === fn ||
+              p.endsWith("/" + fn) ||
+              basenamePath(p) === fn,
+          );
+          if (candidates.length === 1) pathKey = candidates[0];
+          else if (candidates.length > 1) {
+            const strict = candidates.filter((p) => p.endsWith("/" + fn));
+            pathKey = strict.length === 1 ? strict[0] : null;
+          }
+        }
+
+        if (pathKey) {
+          const cur = byStoragePath.get(pathKey)!;
+          byStoragePath.set(pathKey, { ...cur, ...a, filename: pathKey });
+        } else if (!byStoragePath.has(fn)) {
+          byStoragePath.set(fn, { ...a, filename: fn });
+        } else {
+          byStoragePath.set(fn, { ...byStoragePath.get(fn)!, ...a });
+        }
+      }
+
+      setImages(
+        Array.from(byStoragePath.values()).sort((x, y) =>
+          String(x.filename).localeCompare(String(y.filename)),
+        ),
+      );
     } catch (err) {
       console.error("Erro ao buscar imagens da galeria:", err);
       setImages([]);
@@ -149,20 +290,27 @@ export default function AdminGaleriaPage() {
   );
 
   const createVariantFromUrl = useCallback(
-    async (imageUrl: string | null | undefined) => {
-      if (!imageUrl) return;
+    async (img: GalleryImage) => {
+      const candidates = resolveAdminGalleryImageUrlCandidates(img, API_URL);
+      const first = candidates[0];
+      if (!first) {
+        alert("Não há URL para editar esta imagem.");
+        return;
+      }
       try {
         setCropFolder("cardapio/items");
-        // Evitar download duplicado via fetch()+blob().
-        // O modal já carrega a imagem diretamente (com crossOrigin quando aplicável).
-        setCropSrc(imageUrl);
+        const proxied =
+          rewriteToAppMediaProxy(first, API_URL) ||
+          rewriteToAppMediaProxy(img.url || "", API_URL) ||
+          first;
+        setCropSrc(proxied);
         setCropOpen(true);
       } catch (err) {
         console.error("Erro ao carregar imagem para edição:", err);
         alert("Não foi possível abrir a imagem para edição.");
       }
     },
-    [],
+    [API_URL],
   );
 
   const handleCropComplete = useCallback(
@@ -222,7 +370,10 @@ export default function AdminGaleriaPage() {
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Galeria de Imagens</h1>
             <p className="text-sm text-gray-600">
-              Upload, exclusão e criação de variações (crop/rotação/filtros).
+              Lista ficheiros no Storage (cardapio, galeria, uploads, users) e
+              cruza com a API para uso e URLs. Requer permissão de{" "}
+              <code className="text-xs bg-gray-100 px-1 rounded">list</code> nas
+              regras do Storage para o teu utilizador.
             </p>
           </div>
 
@@ -303,28 +454,15 @@ export default function AdminGaleriaPage() {
           <div className="text-gray-600">Nenhuma imagem encontrada.</div>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
-            {filtered.map((img) => {
-              const url = img.url || "";
+            {filtered.map((img, index) => {
+              const candidates = resolveAdminGalleryImageUrlCandidates(img, API_URL);
               return (
                 <div
-                  key={img.filename}
+                  key={`${img.imageId ?? "noid"}-${img.filename}-${index}`}
                   className="group border border-gray-200 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow bg-white"
                 >
                   <div className="relative aspect-square bg-gray-100">
-                    {url ? (
-                      <Image
-                        src={url}
-                        alt={img.filename}
-                        fill
-                        sizes="(max-width: 768px) 50vw, 16vw"
-                        className="object-cover"
-                        unoptimized
-                      />
-                    ) : (
-                      <div className="absolute inset-0 flex items-center justify-center text-xs text-gray-400">
-                        Sem preview
-                      </div>
-                    )}
+                    <AdminGalleryThumb candidates={candidates} alt={img.filename} />
                   </div>
 
                   <div className="p-2 space-y-2">
@@ -342,10 +480,10 @@ export default function AdminGaleriaPage() {
                         <MdLink size={16} />
                       </button>
                       <button
-                        onClick={() => createVariantFromUrl(img.fullUrl || img.url)}
+                        onClick={() => createVariantFromUrl(img)}
                         className="flex-1 inline-flex items-center justify-center gap-1 px-2 py-1 rounded-md bg-gray-100 hover:bg-gray-200 text-gray-800 text-xs font-semibold"
                         title="Criar variação (editar/manipular)"
-                        disabled={!img.url || uploading}
+                        disabled={candidates.length === 0 || uploading}
                       >
                         <MdEdit size={16} />
                         Editar

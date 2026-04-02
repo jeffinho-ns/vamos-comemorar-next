@@ -6,5 +6,9 @@ node_modules
 .env.local
 .env.production
 .env.development
+
+# Chave de conta de serviço Firebase (download Storage / admin)
+firebase-admin-key.json
+secrets/
 package-lock.json
 tsconfig.tsbuildinfo

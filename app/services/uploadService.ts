@@ -1,6 +1,6 @@
 'use client';
 
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { getDownloadURL, ref, uploadBytes } from 'firebase/storage';
 import { v4 as uuidv4 } from 'uuid';
 import { signInAnonymously } from 'firebase/auth';
 import { getFirebaseAuth, getFirebaseStorage } from '@/app/config/firebase';
@@ -65,7 +65,7 @@ export async function uploadImage(file: File, folder?: string): Promise<string> 
     contentType: file.type || undefined,
   });
 
-  return await getDownloadURL(storageRef);
+  return getDownloadURL(storageRef);
 }
 
 

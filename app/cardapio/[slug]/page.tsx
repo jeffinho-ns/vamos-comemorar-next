@@ -27,9 +27,11 @@ import { scrollToSection } from "../../utils/scrollToSection";
 
 import {
   getCardapioPlaceholderUrl,
+  getCardapioImageSrcCandidates,
   resolveCardapioImageUrl,
   warmCardapioImageIndex,
 } from "@/app/utils/cardapioImageResolver";
+import { rewriteRemoteImageToApiProxy } from "@/app/utils/apiImageProxy";
 
 // Constantes dos selos
 const FOOD_SEALS: { [key: string]: { name: string; color: string } } = {
@@ -199,7 +201,8 @@ const PLACEHOLDER_IMAGE_URL = "/placeholder-cardapio.svg";
 const PLACEHOLDER_LOGO_URL = getCardapioPlaceholderUrl();
 
 const getValidImageUrl = (filename?: string | null): string => {
-  return resolveCardapioImageUrl(filename || null);
+  const resolved = resolveCardapioImageUrl(filename || null);
+  return rewriteRemoteImageToApiProxy(resolved);
 };
 
 const groupItemsBySubcategory = (
@@ -263,7 +266,7 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
   const [activeSubcategory, setActiveSubcategory] = useState<string>("");
   const [showPopup, setShowPopup] = useState(false);
   const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null);
-  const [imageError, setImageError] = useState<string | null>(null);
+  const [modalImgTry, setModalImgTry] = useState(0);
   const [showMobileSidebar, setShowMobileSidebar] = useState(false);
   const [headerHeight, setHeaderHeight] = useState<number>(0);
   const [categoryBarHeight, setCategoryBarHeight] = useState<number>(0);
@@ -293,10 +296,21 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
     );
   }, [selectedBar]);
 
+  const modalImageCandidates = useMemo(
+    () =>
+      selectedItem
+        ? getCardapioImageSrcCandidates(selectedItem.imageUrl)
+        : [],
+    [selectedItem?.id, selectedItem?.imageUrl],
+  );
+
+  useEffect(() => {
+    setModalImgTry(0);
+  }, [selectedItem?.id]);
+
   const handleItemClick = useCallback(
     (item: MenuItem) => {
       setSelectedItem(item);
-      setImageError(null); // Resetar erro de imagem ao selecionar novo item
 
       // Rastrear clique no item do cardápio
       if (selectedBar) {
@@ -327,7 +341,7 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
 
   const handleCloseModal = () => {
     setSelectedItem(null);
-    setImageError(null);
+    setModalImgTry(0);
   };
 
   const handleClosePopup = () => {
@@ -1019,14 +1033,20 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
       const itemRef = React.useRef<HTMLDivElement>(null);
       const hasTrackedView = React.useRef(false);
       const hasAnimated = React.useRef(false);
-      const [imageSrc, setImageSrc] = React.useState<string>(() =>
-        getValidImageUrl(item.imageUrl),
+      const imageCandidates = React.useMemo(
+        () => getCardapioImageSrcCandidates(item.imageUrl),
+        [item.imageUrl],
       );
+      const [imageTryIdx, setImageTryIdx] = React.useState(0);
 
-      // Atualiza o src se o imageUrl do item mudar
       React.useEffect(() => {
-        setImageSrc(getValidImageUrl(item.imageUrl));
-      }, [item.imageUrl, getValidImageUrl]);
+        setImageTryIdx(0);
+      }, [item.imageUrl]);
+
+      const imageSrc =
+        imageCandidates[
+          Math.min(imageTryIdx, Math.max(0, imageCandidates.length - 1))
+        ] ?? PLACEHOLDER_IMAGE_URL;
 
       // Rastrear visualização quando o item aparece na tela
       React.useEffect(() => {
@@ -1104,9 +1124,8 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
               className={`object-cover ${isCleanStyle ? "scale-[1.02]" : ""}`}
               unoptimized={true}
               onError={() => {
-                // Se a imagem real falhar (404 no FTP ou URL inválida), garante fallback local
-                if (imageSrc !== PLACEHOLDER_IMAGE_URL) {
-                  setImageSrc(PLACEHOLDER_IMAGE_URL);
+                if (imageTryIdx + 1 < imageCandidates.length) {
+                  setImageTryIdx((i) => i + 1);
                 }
               }}
             />
@@ -2049,43 +2068,26 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
               <div className="flex flex-col md:flex-row gap-6">
                 <div className="flex-shrink-0 w-full md:w-1/2 relative">
                   <div className="relative w-full aspect-square bg-gray-100 rounded-lg overflow-hidden flex items-center justify-center">
-                    {imageError ? (
-                      <div className="w-full h-full flex items-center justify-center bg-gray-200 rounded-lg">
-                        <Image
-                          src={PLACEHOLDER_IMAGE_URL}
-                          alt="Imagem não disponível"
-                          fill
-                          sizes="(max-width: 768px) 90vw, 400px"
-                          className="w-full h-full object-contain rounded-lg"
-                          unoptimized
-                        />
-                      </div>
-                    ) : (
-                      <Image
-                        src={getValidImageUrl(selectedItem.imageUrl)}
-                        alt={selectedItem.name}
-                        fill
-                        sizes="(max-width: 768px) 90vw, 400px"
-                        className="w-full h-full object-contain rounded-lg shadow-lg"
-                        unoptimized={true}
-                        onError={(e) => {
-                          console.error("❌ Erro ao carregar imagem do item:", {
-                            originalUrl: selectedItem.imageUrl,
-                            generatedUrl: getValidImageUrl(
-                              selectedItem.imageUrl,
-                            ),
-                            itemName: selectedItem.name,
-                          });
-                          setImageError(selectedItem.imageUrl || "error");
-                        }}
-                        onLoad={() => {
-                          // Resetar erro se a imagem carregar com sucesso
-                          if (imageError) {
-                            setImageError(null);
-                          }
-                        }}
-                      />
-                    )}
+                    <Image
+                      src={
+                        modalImageCandidates[
+                          Math.min(
+                            modalImgTry,
+                            Math.max(0, modalImageCandidates.length - 1),
+                          )
+                        ] ?? PLACEHOLDER_IMAGE_URL
+                      }
+                      alt={selectedItem.name}
+                      fill
+                      sizes="(max-width: 768px) 90vw, 400px"
+                      className="w-full h-full object-contain rounded-lg shadow-lg"
+                      unoptimized={true}
+                      onError={() => {
+                        if (modalImgTry + 1 < modalImageCandidates.length) {
+                          setModalImgTry((i) => i + 1);
+                        }
+                      }}
+                    />
                   </div>
                 </div>
 

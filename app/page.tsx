@@ -32,6 +32,10 @@ import {
 import { FaBirthdayCake, FaPalette, FaGift } from "react-icons/fa";
 import bannerBackground from "@/app/assets/banner01.webp";
 import iconAg from "@/app/assets/icone-ag.png";
+import {
+  rewriteRemoteImageToApiProxy,
+  rewriteToAppMediaProxy,
+} from "@/app/utils/apiImageProxy";
 
 interface Establishment {
   id: number;
@@ -45,7 +49,63 @@ interface Establishment {
 interface GalleryImage {
   filename: string;
   url?: string;
+  /** API de galeria também envia estes campos */
+  thumbUrl?: string;
+  mediumUrl?: string;
+  fullUrl?: string;
   sourceType: string;
+}
+
+function sanitizeGalleryString(value: unknown): string {
+  if (value == null || typeof value !== "string") return "";
+  return value.trim().replace(/^\uFEFF/, "");
+}
+
+/** Logo do /api/places: pode vir só o arquivo ou URL completa (ex.: proxy /public/images/). */
+function resolvePlaceLogoUrl(
+  logo: unknown,
+  apiBase: string,
+): string {
+  if (logo == null || typeof logo !== "string") return "/images/default-logo.png";
+  const t = sanitizeGalleryString(logo);
+  if (!t || t === "null" || t === "undefined") return "/images/default-logo.png";
+  if (t.startsWith("http://") || t.startsWith("https://")) {
+    const out = rewriteRemoteImageToApiProxy(t, apiBase);
+    if (!out) return "/images/default-logo.png";
+    const lower = out.toLowerCase();
+    if (
+      (lower.includes("api.") || lower.includes("onrender.com")) &&
+      (lower.includes("/public/images/") || lower.includes("public%2fimages"))
+    ) {
+      const v = rewriteToAppMediaProxy(out, apiBase);
+      if (
+        v.startsWith("/api/media/") ||
+        v.includes("firebasestorage.googleapis.com")
+      ) {
+        return v;
+      }
+    }
+    return out;
+  }
+  if (t.startsWith("/")) {
+    const out = rewriteRemoteImageToApiProxy(`${apiBase}${t}`, apiBase);
+    if (!out) return "/images/default-logo.png";
+    const lower = out.toLowerCase();
+    if (
+      (lower.includes("api.") || lower.includes("onrender.com")) &&
+      (lower.includes("/public/images/") || lower.includes("public%2fimages"))
+    ) {
+      const v = rewriteToAppMediaProxy(out, apiBase);
+      if (
+        v.startsWith("/api/media/") ||
+        v.includes("firebasestorage.googleapis.com")
+      ) {
+        return v;
+      }
+    }
+    return out;
+  }
+  return `${apiBase}/uploads/${t.replace(/^\/+/, "")}`;
 }
 
 export default function Home() {
@@ -54,51 +114,77 @@ export default function Home() {
   const [galleryImages, setGalleryImages] = useState<GalleryImage[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const API_URL =
+  const API_URL = (
     process.env.NEXT_PUBLIC_API_URL ||
     process.env.NEXT_PUBLIC_API_URL_LOCAL ||
-    "https://api.agilizaiapp.com.br";
+    "https://api.agilizaiapp.com.br"
+  ).replace(/\/+$/, "");
+
+  const finalizeGalleryDisplayUrl = (u: string): string => {
+    const t = u.trim();
+    if (!t) return t;
+    const lower = t.toLowerCase();
+    if (
+      (lower.includes("api.") || lower.includes("onrender.com")) &&
+      (lower.includes("/public/images/") || lower.includes("public%2fimages"))
+    ) {
+      const v = rewriteToAppMediaProxy(t, API_URL);
+      if (
+        v.startsWith("/api/media/") ||
+        v.includes("firebasestorage.googleapis.com")
+      ) {
+        return v;
+      }
+    }
+    return t;
+  };
 
   // Função para construir URL da imagem
   const getImageUrl = (image: GalleryImage) => {
-    // Prioridade 1: Se já tem URL completa (Cloudinary ou outra), retornar diretamente
+    const urlCandidates = [
+      sanitizeGalleryString(image.url),
+      sanitizeGalleryString(image.fullUrl),
+      sanitizeGalleryString(image.mediumUrl),
+      sanitizeGalleryString(image.thumbUrl),
+    ].filter(Boolean);
+
+    for (const cand of urlCandidates) {
+      if (cand.startsWith("http://") || cand.startsWith("https://")) {
+        const out = rewriteRemoteImageToApiProxy(cand, API_URL);
+        if (out) return finalizeGalleryDisplayUrl(out);
+      }
+      if (cand.startsWith("/")) {
+        const out = rewriteRemoteImageToApiProxy(`${API_URL}${cand}`, API_URL);
+        if (out) return finalizeGalleryDisplayUrl(out);
+      }
+      if (cand.toLowerCase().includes("public/images/")) {
+        const out = rewriteRemoteImageToApiProxy(cand, API_URL);
+        if (out) return finalizeGalleryDisplayUrl(out);
+      }
+    }
+
+    const filename = sanitizeGalleryString(image.filename);
     if (
-      image.url &&
-      (image.url.startsWith("http://") || image.url.startsWith("https://"))
+      filename &&
+      (filename.startsWith("http://") || filename.startsWith("https://"))
     ) {
-      return image.url;
+      const out = rewriteRemoteImageToApiProxy(filename, API_URL);
+      if (out) return finalizeGalleryDisplayUrl(out);
     }
 
-    // Prioridade 2: Se tem URL relativa, construir caminho completo
-    if (image.url && image.url.startsWith("/")) {
-      return `${API_URL}${image.url}`;
+    if (filename && filename.startsWith("/")) {
+      const out = rewriteRemoteImageToApiProxy(`${API_URL}${filename}`, API_URL);
+      if (out) return finalizeGalleryDisplayUrl(out);
     }
 
-    // Prioridade 3: Se filename já é uma URL completa, retornar
-    if (
-      image.filename &&
-      (image.filename.startsWith("http://") ||
-        image.filename.startsWith("https://"))
-    ) {
-      return image.filename;
-    }
-
-    // Prioridade 4: Se filename começa com /, adicionar API_URL
-    if (image.filename && image.filename.startsWith("/")) {
-      return `${API_URL}${image.filename}`;
-    }
-
-    // Prioridade 5: Construir URL padrão de uploads
-    if (image.filename) {
-      // Remover qualquer prefixo de URL que possa estar no filename
-      const cleanFilename = image.filename
+    if (filename) {
+      const cleanFilename = filename
         .replace(/^https?:\/\/[^\/]+/, "")
         .replace(/^\//, "");
-      // Preferir proxy público de imagens (cacheável) para objetos do Firebase Storage.
-      return `${API_URL}/public/images/${encodeURIComponent(cleanFilename)}`;
+      const out = rewriteRemoteImageToApiProxy(cleanFilename, API_URL);
+      if (out) return finalizeGalleryDisplayUrl(out);
     }
 
-    // Fallback
     return "/images/default-logo.png";
   };
 
@@ -118,9 +204,7 @@ export default function Home() {
             .map((place: any) => ({
               id: place.id,
               name: place.name || "Sem nome",
-              logo: place.logo
-                ? `${API_URL}/uploads/${place.logo}`
-                : "/images/default-logo.png",
+              logo: resolvePlaceLogoUrl(place.logo, API_URL),
               address: place.street
                 ? `${place.street}, ${place.number || ""}`.trim()
                 : "Endereço não informado",
@@ -711,10 +795,7 @@ export default function Home() {
                       fill
                       className="object-cover transition-transform duration-300 group-hover:scale-110"
                       sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"
-                      unoptimized={
-                        imageUrl.startsWith("https://res.cloudinary.com") ||
-                        imageUrl.startsWith("http://")
-                      }
+                      unoptimized
                       onError={() => {
                         console.error(
                           `Erro ao carregar imagem ${index + 1}:`,
@@ -767,6 +848,10 @@ export default function Home() {
                       fill
                       className="object-contain p-4"
                       sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                      unoptimized={
+                        establishment.logo.startsWith("http://") ||
+                        establishment.logo.startsWith("https://")
+                      }
                     />
                   </div>
                   <div className="p-6">

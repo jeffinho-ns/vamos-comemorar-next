@@ -11,6 +11,7 @@ import {
   resolveCardapioImageUrl,
   warmCardapioImageIndex,
 } from '@/app/utils/cardapioImageResolver';
+import { rewriteRemoteImageToApiProxy } from '@/app/utils/apiImageProxy';
 
 interface Bar {
   id: string | number;
@@ -32,11 +33,11 @@ const API_BASE_URL = 'https://api.agilizaiapp.com.br/api/cardapio';
 const PLACEHOLDER_BAR_URL = getCardapioPlaceholderUrl();
 
 const resolveCoverImage = (coverImageUrl?: string | null, coverImages?: string[] | null) => {
-  const primary = resolveCardapioImageUrl(coverImageUrl || null);
+  const primary = rewriteRemoteImageToApiProxy(resolveCardapioImageUrl(coverImageUrl || null));
   if (primary !== PLACEHOLDER_BAR_URL) return primary;
   const first =
     Array.isArray(coverImages) && coverImages[0]
-      ? resolveCardapioImageUrl(coverImages[0])
+      ? rewriteRemoteImageToApiProxy(resolveCardapioImageUrl(coverImages[0]))
       : PLACEHOLDER_BAR_URL;
   return first;
 };
@@ -89,7 +90,7 @@ export default function CardapioPage() {
         
         return {
           ...bar,
-          logoUrl: resolveCardapioImageUrl(bar.logoUrl),
+          logoUrl: rewriteRemoteImageToApiProxy(resolveCardapioImageUrl(bar.logoUrl)),
           coverImageUrl: resolveCoverImage(bar.coverImageUrl, processedCoverImages),
           coverImages: processedCoverImages.length > 0 ? processedCoverImages : [],
         };

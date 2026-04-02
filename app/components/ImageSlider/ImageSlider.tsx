@@ -4,6 +4,7 @@
 import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
+import { rewriteRemoteImageToApiProxy } from '@/app/utils/apiImageProxy';
 
 interface ImageSliderProps {
   images: string[];
@@ -23,6 +24,11 @@ const ImageSlider: React.FC<ImageSliderProps> = ({ images, interval = 5000 }) =>
     return () => clearInterval(timer);
   }, [images, interval]);
 
+  const rawSrc = images[currentIndex] || '';
+  const slideSrc = rewriteRemoteImageToApiProxy(rawSrc);
+  const isRemote =
+    slideSrc.startsWith('http://') || slideSrc.startsWith('https://');
+
   return (
     <div className="relative h-full w-full overflow-hidden">
       <AnimatePresence mode="wait">
@@ -35,13 +41,21 @@ const ImageSlider: React.FC<ImageSliderProps> = ({ images, interval = 5000 }) =>
           className="absolute inset-0"
         >
           <Image
-            src={images[currentIndex]}
+            src={slideSrc}
             alt={`Imagem de capa ${currentIndex + 1}`}
             fill
             sizes="100vw"
             className="object-cover"
             priority={currentIndex === 0}
-            unoptimized={images[currentIndex]?.includes('grupoideiaum.com.br') || images[currentIndex]?.includes('cloudinary.com') || images[currentIndex]?.startsWith('blob:') || images[currentIndex]?.includes('/placeholder-') || false}
+            unoptimized={
+              isRemote ||
+              slideSrc.includes('grupoideiaum.com.br') ||
+              slideSrc.includes('cloudinary.com') ||
+              slideSrc.startsWith('blob:') ||
+              slideSrc.includes('/placeholder-') ||
+              slideSrc.includes('/public/images/') ||
+              slideSrc.toLowerCase().includes('public%2fimages')
+            }
           />
         </motion.div>
       </AnimatePresence>
