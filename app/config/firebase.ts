@@ -60,9 +60,19 @@ export function getFirebaseApp(): FirebaseApp {
 }
 
 let cachedStorage: FirebaseStorage | null = null;
+
+/** Garante que list/upload apontem para o bucket de produção (ex.: agilizaiapp-img.firebasestorage.app). */
+function storageBucketGsUrl(): string | undefined {
+  const raw = process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET?.trim();
+  if (!raw) return undefined;
+  return raw.startsWith('gs://') ? raw : `gs://${raw}`;
+}
+
 export function getFirebaseStorage(): FirebaseStorage {
   if (!cachedStorage) {
-    cachedStorage = getStorage(getFirebaseApp());
+    const app = getFirebaseApp();
+    const gsUrl = storageBucketGsUrl();
+    cachedStorage = gsUrl ? getStorage(app, gsUrl) : getStorage(app);
   }
   return cachedStorage;
 }
@@ -73,6 +83,21 @@ export function getFirebaseAuth(): Auth {
     cachedAuth = getAuth(getFirebaseApp());
   }
   return cachedAuth;
+}
+
+/**
+ * Firebase Analytics (só no browser). Use em useEffect de um Client Component.
+ * Não inicializa no SSR. Retorna null se não houver measurementId ou não for suportado.
+ */
+export async function getFirebaseAnalytics(): Promise<
+  import('firebase/analytics').Analytics | null
+> {
+  if (!isBrowser()) return null;
+  const measurementId = process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID;
+  if (!measurementId) return null;
+  const { getAnalytics, isSupported } = await import('firebase/analytics');
+  if (!(await isSupported())) return null;
+  return getAnalytics(getFirebaseApp());
 }
 
 

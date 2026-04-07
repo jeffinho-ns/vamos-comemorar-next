@@ -26,6 +26,11 @@ const nextConfig = {
             },
             {
                 protocol: 'https',
+                hostname: '**.firebasestorage.app',
+                pathname: '/**',
+            },
+            {
+                protocol: 'https',
                 hostname: 'grupoideiaum.com.br',
                 pathname: '/cardapio-agilizaiapp/**',
             },

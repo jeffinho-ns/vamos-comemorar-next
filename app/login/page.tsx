@@ -159,32 +159,32 @@ export default function Login() {
         const userEmail = emailCpf.toLowerCase().trim();
         
         if (adminEmails.includes(userEmail)) {
-          router.push('/documentacao');
+          router.push('/admin');
           return;
         }
         
         // Redirecionamento padrão com base no role
         switch (data.role) {
           case 'admin':
-            router.push('/documentacao');
+            router.push('/admin');
             break;
           case 'gerente':
-            router.push('/documentacao');
+            router.push('/admin');
             break;
           case 'recepção':
           case 'recepcao':
           case 'atendente':
-            router.push('/documentacao');
+            router.push('/admin');
             break;
           case 'promoter':
           case 'promoter-list':
-            router.push('/documentacao');
+            router.push('/admin');
             break;
           case 'cliente':
             router.push('/cliente');
             break;
           default:
-            router.push('/documentacao');
+            router.push('/admin');
         }
       } else {
         setError(data.message || "Credenciais inválidas.");

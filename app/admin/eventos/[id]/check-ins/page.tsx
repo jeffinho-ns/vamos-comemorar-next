@@ -4683,36 +4683,6 @@ export default function EventoCheckInsPage() {
     return isNaN(d.getTime()) ? "Data inválida" : d.toLocaleDateString("pt-BR");
   }, [evento?.data_evento]);
 
-  const reportEnabledAt = useMemo(() => {
-    if (!evento?.data_evento) return null;
-    const datePart =
-      evento.data_evento.split("T")[0].split(" ")[0] || evento.data_evento;
-    const baseDate = new Date(`${datePart}T12:00:00`);
-    if (isNaN(baseDate.getTime())) return null;
-
-    if (evento.horario) {
-      const [hours, minutes] = evento.horario.split(":");
-      const h = Number(hours);
-      const m = Number(minutes);
-      if (!isNaN(h) && !isNaN(m)) {
-        baseDate.setHours(h, m, 0, 0);
-      }
-    }
-
-    baseDate.setHours(baseDate.getHours() + 24);
-    return baseDate;
-  }, [evento?.data_evento, evento?.horario]);
-
-  const reportDisabled = useMemo(() => {
-    if (!reportEnabledAt) return true;
-    return Date.now() < reportEnabledAt.getTime();
-  }, [reportEnabledAt]);
-
-  const reportDisableLabel = useMemo(() => {
-    if (!reportDisabled || !reportEnabledAt) return "";
-    return `Disponível após ${reportEnabledAt.toLocaleString("pt-BR")}`;
-  }, [reportDisabled, reportEnabledAt]);
-
   const reportChartData = useMemo(() => {
     const hourly = Array.from({ length: 24 }, (_, index) => ({
       hora: `${String(index).padStart(2, "0")}h`,
@@ -5133,9 +5103,8 @@ export default function EventoCheckInsPage() {
               <div className="hidden lg:block">
                 <button
                   onClick={() => setRelatorioModalOpen(true)}
-                  disabled={reportDisabled}
-                  title={reportDisableLabel || "Abrir relatório"}
-                  className="inline-flex items-center justify-center gap-2 px-4 md:px-6 py-2.5 md:py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-semibold text-sm md:text-base"
+                  title="Abrir relatório"
+                  className="inline-flex items-center justify-center gap-2 px-4 md:px-6 py-2.5 md:py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition-colors font-semibold text-sm md:text-base"
                 >
                   <FileText size={18} />
                   <span>Relatório</span>
