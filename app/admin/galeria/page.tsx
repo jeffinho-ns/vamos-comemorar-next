@@ -39,9 +39,7 @@ function normalizeGalleryKey(value: string): string {
     }
   }
   s = s.replace(/^\/+/, "");
-  if (s.startsWith("cardapio/items/")) return s;
-  if (s.includes("/")) return s;
-  return `cardapio/items/${s}`;
+  return s;
 }
 
 /** Pasta de upload ao usar “pasta exibida”: `cardapio` sozinho vira itens do cardápio. */
@@ -54,6 +52,65 @@ function buildApiProxyImageUrl(apiUrl: string, objectPath: string): string {
   const base = String(apiUrl || "").replace(/\/+$/, "");
   const cleanPath = String(objectPath || "").replace(/^\/+/, "");
   return `${base}/public/images/${encodeURIComponent(cleanPath)}`;
+}
+
+function isHttpUrl(value: string): boolean {
+  return /^https?:\/\//i.test(value);
+}
+
+function isFirebaseStorageUrl(value: string): boolean {
+  return value.includes("firebasestorage.googleapis.com");
+}
+
+function pickGalleryPreviewUrl(
+  apiUrl: string,
+  storagePath: string,
+  ...candidates: Array<string | null | undefined>
+): string {
+  for (const raw of candidates) {
+    const value = String(raw || "").trim();
+    if (!value) continue;
+    // Prioriza URL direta recebida da API (inclui Firebase com alt=media).
+    if (isHttpUrl(value)) return value;
+  }
+
+  return buildApiProxyImageUrl(apiUrl, storagePath);
+}
+
+function buildGalleryPreviewCandidates(
+  apiUrl: string,
+  storagePath: string,
+  ...candidates: Array<string | null | undefined>
+): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  const push = (value?: string) => {
+    const v = String(value || "").trim();
+    if (!v || seen.has(v)) return;
+    seen.add(v);
+    out.push(v);
+  };
+
+  for (const raw of candidates) {
+    const value = String(raw || "").trim();
+    if (!value) continue;
+    push(value);
+  }
+
+  // Só depois tenta proxy da API para reduzir 404 em lote.
+  push(buildApiProxyImageUrl(apiUrl, storagePath));
+  if (storagePath && !storagePath.includes("/")) {
+    push(buildApiProxyImageUrl(apiUrl, `cardapio/items/${storagePath}`));
+  }
+
+  for (const raw of candidates) {
+    const value = String(raw || "").trim();
+    if (!value || !isFirebaseStorageUrl(value)) continue;
+    const extracted = normalizeGalleryKey(value);
+    if (extracted) push(buildApiProxyImageUrl(apiUrl, extracted));
+  }
+
+  return out;
 }
 
 const STORAGE_PREFIX_OPTIONS: { value: string; label: string }[] = [
@@ -125,9 +182,17 @@ export default function AdminGaleriaPage() {
   const [recursiveSubfolders, setRecursiveSubfolders] = useState(false);
   /** Evita loop de efeito se getDownloadURL falhar para sempre os mesmos paths. */
   const previewAttemptedRef = useRef<Set<string>>(new Set());
+  const warnedStorageEnvRef = useRef(false);
   const [previewFailedPaths, setPreviewFailedPaths] = useState<Set<string>>(
     () => new Set(),
   );
+  const hasFirebaseEnv =
+    !!process.env.NEXT_PUBLIC_FIREBASE_API_KEY &&
+    !!process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN &&
+    !!process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID &&
+    !!process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET &&
+    !!process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID &&
+    !!process.env.NEXT_PUBLIC_FIREBASE_APP_ID;
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -179,8 +244,16 @@ export default function AdminGaleriaPage() {
         setGalleryRows((prev) => {
           let changed = false;
           const next = prev.map((row) => {
-            const u = resolved[row.filename] || buildApiProxyImageUrl(API_URL, row.filename);
-            if (!u || row.url) return row;
+            const u = pickGalleryPreviewUrl(
+              API_URL,
+              row.filename,
+              resolved[row.filename],
+              row.url,
+              row.thumbUrl,
+              row.mediumUrl,
+              row.fullUrl,
+            );
+            if (!u || row.url === u) return row;
             changed = true;
             return {
               ...row,
@@ -216,15 +289,25 @@ export default function AdminGaleriaPage() {
     try {
       let paths: string[] = [];
       try {
-        paths = await listImagePathsFromStoragePrefix(storagePrefix, {
-          recursive: recursiveSubfolders,
-          maxFiles: recursiveSubfolders ? RECURSIVE_FAST_MAX_FILES : undefined,
-        });
+        if (hasFirebaseEnv) {
+          paths = await listImagePathsFromStoragePrefix(storagePrefix, {
+            recursive: recursiveSubfolders,
+            maxFiles: recursiveSubfolders ? RECURSIVE_FAST_MAX_FILES : undefined,
+          });
+        } else if (!warnedStorageEnvRef.current) {
+          warnedStorageEnvRef.current = true;
+          console.warn(
+            "Galeria: variáveis NEXT_PUBLIC_FIREBASE_* ausentes no ambiente. Usando fallback via API.",
+          );
+        }
       } catch (firebaseErr) {
-        console.warn(
-          "Galeria: listagem no Firebase Storage falhou (regras/credenciais?). Tentando só API.",
-          firebaseErr,
-        );
+        if (!warnedStorageEnvRef.current) {
+          warnedStorageEnvRef.current = true;
+          console.warn(
+            "Galeria: listagem no Firebase Storage falhou (regras/credenciais?). Tentando só API.",
+            firebaseErr,
+          );
+        }
       }
 
       let apiImages: GalleryImage[] = [];
@@ -257,12 +340,14 @@ export default function AdminGaleriaPage() {
         const merged: GalleryImage[] = paths.map((fullPath) => {
           const key = fullPath.replace(/^\/+/, "");
           const apiMatch = usageByPath.get(key);
-          const apiUrl =
-            (apiMatch?.url ||
-              apiMatch?.thumbUrl ||
-              apiMatch?.mediumUrl ||
-              apiMatch?.fullUrl ||
-              buildApiProxyImageUrl(API_URL, key)) as string | null;
+          const apiUrl = pickGalleryPreviewUrl(
+            API_URL,
+            key,
+            apiMatch?.url,
+            apiMatch?.thumbUrl,
+            apiMatch?.mediumUrl,
+            apiMatch?.fullUrl,
+          );
           return {
             filename: key,
             url: apiUrl,
@@ -284,19 +369,36 @@ export default function AdminGaleriaPage() {
         return;
       }
 
-      const itemOnly = apiImages.filter((img) =>
-        normalizeGalleryKey(img.filename || img.url || "").startsWith(
-          "cardapio/items/",
-        ),
-      );
-      setGalleryRows(itemOnly.length ? itemOnly : apiImages);
+      const fallbackRows = apiImages
+        .map((img) => {
+          const key = normalizeGalleryKey(String(img.filename || img.url || ""));
+          if (!key) return null;
+          const previewUrl = pickGalleryPreviewUrl(
+            API_URL,
+            key,
+            img.url,
+            img.thumbUrl,
+            img.mediumUrl,
+            img.fullUrl,
+          );
+          return {
+            ...img,
+            filename: key,
+            url: previewUrl,
+            thumbUrl: previewUrl,
+            mediumUrl: img.mediumUrl || previewUrl,
+            fullUrl: img.fullUrl || previewUrl,
+          } as GalleryImage;
+        })
+        .filter((row): row is GalleryImage => !!row);
+      setGalleryRows(fallbackRows);
     } catch (err) {
       console.error("Erro ao buscar imagens da galeria:", err);
       setGalleryRows([]);
     } finally {
       setLoading(false);
     }
-  }, [API_BASE_URL, storagePrefix, recursiveSubfolders]);
+  }, [API_BASE_URL, hasFirebaseEnv, storagePrefix, recursiveSubfolders]);
 
   const openUsage = useCallback(
     async (value: string) => {
@@ -595,7 +697,15 @@ export default function AdminGaleriaPage() {
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
             {pageSlice.map((img) => {
-              const url = img.url || "";
+              const fallbackCandidates = buildGalleryPreviewCandidates(
+                API_URL,
+                img.filename,
+                img.url,
+                img.thumbUrl,
+                img.mediumUrl,
+                img.fullUrl,
+              );
+              const url = img.url || fallbackCandidates[0] || "";
               return (
                 <div
                   key={img.filename}
@@ -608,12 +718,23 @@ export default function AdminGaleriaPage() {
                         alt=""
                         loading="lazy"
                         decoding="async"
+                        data-fallback-index="0"
                         className="absolute inset-0 h-full w-full object-cover"
-                        onError={() => {
-                          setPreviewFailedPaths(
-                            (prev) =>
-                              new Set([...Array.from(prev), img.filename]),
+                        onError={(e) => {
+                          const imgEl = e.currentTarget;
+                          const currentIndex = Number(
+                            (imgEl?.dataset?.fallbackIndex as string | undefined) || "0",
                           );
+                          const nextIndex = currentIndex + 1;
+                          const next = fallbackCandidates[nextIndex];
+                          if (next) {
+                            if (imgEl) {
+                              imgEl.dataset.fallbackIndex = String(nextIndex);
+                              imgEl.src = next;
+                            }
+                            return;
+                          }
+                          setPreviewFailedPaths((prev) => new Set([...Array.from(prev), img.filename]));
                         }}
                       />
                     ) : previewFailedPaths.has(img.filename) ? (

@@ -10,6 +10,7 @@ import {
   useState,
 } from "react";
 import { getApiUrl } from "../config/api";
+import { AUTH_CHANGED_EVENT } from "../utils/authSession";
 
 export const USE_GLOBAL_CONTEXT = true;
 
@@ -267,6 +268,23 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     loadAll();
+  }, [loadAll]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const handleAuthChanged = () => {
+      hasFetchedRef.current = false;
+      void loadAll(true);
+    };
+
+    window.addEventListener(AUTH_CHANGED_EVENT, handleAuthChanged);
+    window.addEventListener("storage", handleAuthChanged);
+
+    return () => {
+      window.removeEventListener(AUTH_CHANGED_EVENT, handleAuthChanged);
+      window.removeEventListener("storage", handleAuthChanged);
+    };
   }, [loadAll]);
 
   const value = useMemo<AppContextValue>(

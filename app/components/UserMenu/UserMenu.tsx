@@ -12,6 +12,7 @@ import {
 } from "react-icons/md";
 import { useRouter } from "next/navigation";
 import { useAppContext } from "@/app/context/AppContext";
+import { clearAuthSession } from "@/app/utils/authSession";
 
 // URL padrão para o caso de não haver foto
 const DEFAULT_AVATAR_URL = "https://via.placeholder.com/150";
@@ -54,8 +55,9 @@ export default function UserMenu() {
   }, []);
 
   const handleLogout = () => {
-    localStorage.removeItem("authToken");
+    clearAuthSession();
     router.push("/login");
+    router.refresh();
   };
 
   const handleNavigation = (aba: string) => {

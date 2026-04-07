@@ -10,6 +10,7 @@ import Image from "next/image";
 import logoBlue from "@/app/assets/logo-agilizai-h.png";
 import "./profile.module.scss";
 import { useAppContext } from "@/app/context/AppContext";
+import { clearAuthSession } from "@/app/utils/authSession";
 
 interface User {
   id: string; 
@@ -31,8 +32,9 @@ export default function PerfilMobile() {
   }, [router]);
 
   const handleLogout = () => {
-    localStorage.removeItem('authToken');
+    clearAuthSession();
     router.push('/webapp');
+    router.refresh();
   };
 
   if (loading) {

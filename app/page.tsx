@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import Image from "next/image";
 import Link from "next/link";
@@ -32,6 +31,11 @@ import {
 import { FaBirthdayCake, FaPalette, FaGift } from "react-icons/fa";
 import bannerBackground from "@/app/assets/banner01.webp";
 import iconAg from "@/app/assets/icone-ag.png";
+import {
+  getCardapioPlaceholderUrl,
+  resolveCardapioImageUrl,
+  warmCardapioImageIndex,
+} from "@/app/utils/cardapioImageResolver";
 
 interface Establishment {
   id: number;
@@ -46,10 +50,12 @@ interface GalleryImage {
   filename: string;
   url?: string;
   sourceType: string;
+  resolvedUrl?: string;
 }
 
+const CARDAPIO_PLACEHOLDER = getCardapioPlaceholderUrl();
+
 export default function Home() {
-  const router = useRouter();
   const [establishments, setEstablishments] = useState<Establishment[]>([]);
   const [galleryImages, setGalleryImages] = useState<GalleryImage[]>([]);
   const [loading, setLoading] = useState(true);
@@ -58,50 +64,9 @@ export default function Home() {
     process.env.NEXT_PUBLIC_API_URL ||
     process.env.NEXT_PUBLIC_API_URL_LOCAL ||
     "https://api.agilizaiapp.com.br";
+  const API_CARDAPIO_URL = `${API_URL}/api/cardapio`;
 
   // Função para construir URL da imagem
-  const getImageUrl = (image: GalleryImage) => {
-    // Prioridade 1: Se já tem URL completa (Cloudinary ou outra), retornar diretamente
-    if (
-      image.url &&
-      (image.url.startsWith("http://") || image.url.startsWith("https://"))
-    ) {
-      return image.url;
-    }
-
-    // Prioridade 2: Se tem URL relativa, construir caminho completo
-    if (image.url && image.url.startsWith("/")) {
-      return `${API_URL}${image.url}`;
-    }
-
-    // Prioridade 3: Se filename já é uma URL completa, retornar
-    if (
-      image.filename &&
-      (image.filename.startsWith("http://") ||
-        image.filename.startsWith("https://"))
-    ) {
-      return image.filename;
-    }
-
-    // Prioridade 4: Se filename começa com /, adicionar API_URL
-    if (image.filename && image.filename.startsWith("/")) {
-      return `${API_URL}${image.filename}`;
-    }
-
-    // Prioridade 5: Construir URL padrão de uploads
-    if (image.filename) {
-      // Remover qualquer prefixo de URL que possa estar no filename
-      const cleanFilename = image.filename
-        .replace(/^https?:\/\/[^\/]+/, "")
-        .replace(/^\//, "");
-      // Preferir proxy público de imagens (cacheável) para objetos do Firebase Storage.
-      return `${API_URL}/public/images/${encodeURIComponent(cleanFilename)}`;
-    }
-
-    // Fallback
-    return "/images/default-logo.png";
-  };
-
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -131,74 +96,51 @@ export default function Home() {
           setEstablishments(formattedPlaces);
         }
 
-        // Buscar imagens da galeria
+        // Buscar imagens dos itens do cardápio (fonte mais estável).
         try {
-          const galleryResponse = await fetch(
-            `${API_URL}/api/cardapio/gallery/images`,
-            {
-              method: "GET",
-              headers: {
-                "Content-Type": "application/json",
-              },
+          await warmCardapioImageIndex(API_CARDAPIO_URL);
+          const itemsResponse = await fetch(`${API_CARDAPIO_URL}/items`);
+
+          if (itemsResponse.ok) {
+            const itemsData = await itemsResponse.json();
+            const items = Array.isArray(itemsData)
+              ? itemsData
+              : Array.isArray(itemsData?.data)
+                ? itemsData.data
+                : [];
+
+            const unique = new Set<string>();
+            const selected: GalleryImage[] = [];
+
+            for (const item of items) {
+              const rawImage = String(item?.imageUrl || item?.image || item?.filename || "").trim();
+              if (!rawImage) continue;
+
+              const resolved = resolveCardapioImageUrl(rawImage);
+              if (!resolved || resolved === CARDAPIO_PLACEHOLDER) continue;
+              if (unique.has(resolved)) continue;
+
+              unique.add(resolved);
+              selected.push({
+                filename: String(item?.id || rawImage),
+                sourceType: "cardapio_item",
+                url: resolved,
+                resolvedUrl: resolved,
+              });
+
+              if (selected.length >= 12) break;
             }
-          );
 
-          if (galleryResponse.ok) {
-            const galleryData = await galleryResponse.json();
-            console.log("📸 Galeria de imagens recebida:", galleryData);
-
-            // Verificar diferentes formatos de resposta
-            const images = galleryData.images || galleryData.data || [];
-
-            if (Array.isArray(images) && images.length > 0) {
-              // Pegar apenas imagens com URL válida ou filename e limitar a 12
-              const validImages = images
-                .filter((img: GalleryImage) => {
-                  // Verificar se tem URL válida (completa ou relativa)
-                  const hasUrl =
-                    img.url &&
-                    (img.url.startsWith("http://") ||
-                      img.url.startsWith("https://") ||
-                      img.url.startsWith("/"));
-                  // Verificar se tem filename válido
-                  const hasFilename =
-                    img.filename &&
-                    img.filename.trim() !== "" &&
-                    img.filename !== "null" &&
-                    img.filename !== "undefined";
-                  // Verificar se filename é uma URL válida
-                  const filenameIsUrl =
-                    img.filename &&
-                    (img.filename.startsWith("http://") ||
-                      img.filename.startsWith("https://"));
-
-                  return hasUrl || hasFilename || filenameIsUrl;
-                })
-                .slice(0, 12);
-
-              console.log(
-                `✅ ${validImages.length} imagens válidas encontradas na galeria`
-              );
-              console.log(
-                "📸 Primeiras 3 imagens:",
-                validImages.slice(0, 3).map((img) => ({
-                  filename: img.filename,
-                  url: img.url,
-                  fullUrl: getImageUrl(img),
-                }))
-              );
-              setGalleryImages(validImages);
-            } else {
-              console.log("⚠️ Galeria retornou sem imagens ou array vazio");
-              setGalleryImages([]);
-            }
+            setGalleryImages(selected);
           } else {
             console.warn(
-              `⚠️ Erro ao buscar galeria: ${galleryResponse.status} - ${galleryResponse.statusText}`
+              `⚠️ Erro ao buscar itens do cardápio: ${itemsResponse.status} - ${itemsResponse.statusText}`
             );
+            setGalleryImages([]);
           }
         } catch (galleryError) {
-          console.error("❌ Erro ao buscar galeria de imagens:", galleryError);
+          console.error("❌ Erro ao buscar imagens do cardápio:", galleryError);
+          setGalleryImages([]);
         }
       } catch (error) {
         console.error("Erro ao carregar dados:", error);
@@ -208,7 +150,7 @@ export default function Home() {
     };
 
     fetchData();
-  }, [API_URL]);
+  }, [API_CARDAPIO_URL, API_URL]);
 
   const features = [
     {
@@ -695,7 +637,7 @@ export default function Home() {
 
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
               {galleryImages.map((image, index) => {
-                const imageUrl = getImageUrl(image);
+                const imageUrl = image.resolvedUrl || image.url || CARDAPIO_PLACEHOLDER;
                 return (
                   <motion.div
                     key={`${image.filename || image.url || index}-${index}`}
@@ -705,21 +647,21 @@ export default function Home() {
                     transition={{ duration: 0.5, delay: index * 0.1 }}
                     className="relative aspect-square rounded-xl overflow-hidden group cursor-pointer bg-gray-200"
                   >
-                    <Image
+                    <img
                       src={imageUrl}
                       alt={`Galeria ${index + 1}`}
-                      fill
-                      className="object-cover transition-transform duration-300 group-hover:scale-110"
-                      sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"
-                      unoptimized={
-                        imageUrl.startsWith("https://res.cloudinary.com") ||
-                        imageUrl.startsWith("http://")
-                      }
-                      onError={() => {
-                        console.error(
-                          `Erro ao carregar imagem ${index + 1}:`,
-                          imageUrl
-                        );
+                      loading="lazy"
+                      decoding="async"
+                      className="absolute inset-0 h-full w-full object-cover transition-transform duration-300 group-hover:scale-110"
+                      onError={(e) => {
+                        const el = e.currentTarget;
+                        const fallbackSrc = CARDAPIO_PLACEHOLDER;
+                        if (el.src.endsWith(fallbackSrc)) {
+                          el.onerror = null;
+                          return;
+                        }
+                        el.onerror = null;
+                        el.src = fallbackSrc;
                       }}
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>

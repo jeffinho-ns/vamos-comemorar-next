@@ -34,7 +34,9 @@ function getFirebaseConfig() {
   if (!messagingSenderId) missing.push('NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID');
   if (!appId) missing.push('NEXT_PUBLIC_FIREBASE_APP_ID');
   if (missing.length) {
-    throw new Error(`Variáveis de ambiente ausentes no Vercel: ${missing.join(', ')}`);
+    throw new Error(
+      `Variáveis de ambiente ausentes no frontend (build/runtime): ${missing.join(', ')}`,
+    );
   }
 
   return {

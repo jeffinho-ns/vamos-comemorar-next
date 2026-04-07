@@ -8,6 +8,11 @@ import { MdVisibility, MdVisibilityOff, MdHelp } from "react-icons/md";
 import { FcGoogle } from "react-icons/fc";
 import { FaFacebook } from "react-icons/fa";
 import Link from "next/link";
+import {
+  clearAuthSession,
+  notifyAuthChanged,
+  setAuthSessionCookies,
+} from "../utils/authSession";
 
 export default function Login() {
   const [show, setShow] = useState(false);
@@ -94,6 +99,9 @@ export default function Login() {
       const data = await response.json();
 
       if (response.ok && data.token && data.userId) {
+        // Evita reaproveitar resíduos da sessão anterior ao trocar de conta.
+        clearAuthSession({ notify: false });
+
         // Salvar credenciais se "lembrar-me" estiver marcado
         saveCredentialsIfRemembered();
         
@@ -108,8 +116,6 @@ export default function Login() {
         if (emailCpf && emailCpf.includes('@')) {
           const normalizedEmail = emailCpf.toLowerCase().trim();
           localStorage.setItem("userEmail", normalizedEmail);
-          // Cookie para o middleware (server-side) conseguir liberar rotas por e-mail
-          document.cookie = `userEmail=${encodeURIComponent(normalizedEmail)}; path=/`;
         }
         if (data.promoterId) {
           localStorage.setItem("promoterId", data.promoterId);
@@ -122,14 +128,15 @@ export default function Login() {
           localStorage.removeItem("promoterCodigo");
         }
       
-        // Armazena nos cookies para o middleware ter acesso
-        document.cookie = `authToken=${data.token}; path=/`;
-        document.cookie = `role=${data.role}; path=/`;
-        if (data.promoterCodigo) {
-          document.cookie = `promoterCodigo=${encodeURIComponent(data.promoterCodigo)}; path=/`;
-        } else {
-          document.cookie = `promoterCodigo=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`;
-        }
+        // Mantém cookies de autenticação usados no middleware.
+        setAuthSessionCookies({
+          authToken: data.token,
+          role: data.role,
+          userEmail:
+            emailCpf && emailCpf.includes("@") ? emailCpf.toLowerCase().trim() : undefined,
+          promoterCodigo: data.promoterCodigo || undefined,
+        });
+        notifyAuthChanged();
       
         // Redirecionamento inteligente com base no email ou role
         // Emails internos devem ir direto para a central de documentação
