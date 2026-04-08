@@ -17,6 +17,7 @@ import {
 import { useRouter, useSearchParams } from 'next/navigation';
 import { formatDateBR } from '@/lib/dateUtils';
 import Link from 'next/link';
+import { getConfiguredWindows, WeeklyOperatingSetting, DateOperatingOverride } from '@/app/utils/reservationOperatingHours';
 
 // Configuração da API
 const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL_LOCAL || 'https://api.agilizaiapp.com.br';
@@ -182,6 +183,8 @@ export default function ReservationForm() {
   const [promoterEventsError, setPromoterEventsError] = useState<string | null>(null);
   const [isWalkIn, setIsWalkIn] = useState<boolean>(false);
   const [reservationBlocks, setReservationBlocks] = useState<any[]>([]);
+  const [weeklyOperatingSettings, setWeeklyOperatingSettings] = useState<WeeklyOperatingSetting[]>([]);
+  const [dateOperatingOverrides, setDateOperatingOverrides] = useState<DateOperatingOverride[]>([]);
 
   // Carregar estabelecimentos da API
   useEffect(() => {
@@ -489,6 +492,38 @@ export default function ReservationForm() {
 
     loadBlocksForPublic();
   }, [API_URL, selectedEstablishment, reservationData.reservation_date]);
+
+  useEffect(() => {
+    const loadOperatingSettings = async () => {
+      if (!selectedEstablishment?.id) {
+        setWeeklyOperatingSettings([]);
+        setDateOperatingOverrides([]);
+        return;
+      }
+      try {
+        const response = await fetch(
+          `${API_URL}/api/restaurant-reservation-settings?establishment_id=${selectedEstablishment.id}`,
+        );
+        if (!response.ok) {
+          setWeeklyOperatingSettings([]);
+          setDateOperatingOverrides([]);
+          return;
+        }
+        const data = await response.json();
+        if (data?.success) {
+          setWeeklyOperatingSettings(Array.isArray(data.weekly_settings) ? data.weekly_settings : []);
+          setDateOperatingOverrides(Array.isArray(data.date_overrides) ? data.date_overrides : []);
+        } else {
+          setWeeklyOperatingSettings([]);
+          setDateOperatingOverrides([]);
+        }
+      } catch {
+        setWeeklyOperatingSettings([]);
+        setDateOperatingOverrides([]);
+      }
+    };
+    loadOperatingSettings();
+  }, [selectedEstablishment?.id]);
 
   // Janelas de horário para o Highline (Sexta e Sábado)
   const getHighlineTimeWindows = (dateStr: string, subareaKey?: string) => {
@@ -1097,9 +1132,12 @@ const handleSubmit = async (e: React.FormEvent) => {
 
     const startTotal = startHour * 60 + (isNaN(startMinute) ? 0 : startMinute);
     const endTotal = endHour * 60 + (isNaN(endMinute) ? 0 : endMinute);
+    const crossesMidnight = endTotal < startTotal;
+    const normalizedEnd = crossesMidnight ? endTotal + 24 * 60 : endTotal;
 
-    for (let current = startTotal; current <= endTotal; current += 30) {
-      const hour = Math.floor(current / 60);
+    for (let current = startTotal; current <= normalizedEnd; current += 30) {
+      const normalizedCurrent = current % (24 * 60);
+      const hour = Math.floor(normalizedCurrent / 60);
       const minute = current % 60;
       slots.push(`${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`);
     }
@@ -1110,6 +1148,23 @@ const handleSubmit = async (e: React.FormEvent) => {
   // Janelas de horário para Seu Justino e Pracinha do Seu Justino
   const getSeuJustinoTimeWindows = (dateStr: string) => {
     if (!dateStr) return [] as Array<{ start: string; end: string; label: string }>;
+
+    if (dateStr === '2026-04-20') {
+      if (isPracinha) {
+        return [{ start: '14:00', end: '00:00', label: 'Segunda especial (20/04): 14:00–00:00' }];
+      }
+      return [{ start: '12:00', end: '00:00', label: 'Segunda especial (20/04): 12:00–00:00' }];
+    }
+
+    if (weeklyOperatingSettings.length > 0 || dateOperatingOverrides.length > 0) {
+      const configured = getConfiguredWindows(
+        dateStr,
+        weeklyOperatingSettings,
+        dateOperatingOverrides,
+      );
+      if (configured) return configured;
+    }
+
     const date = new Date(`${dateStr}T00:00:00`);
     const weekday = date.getDay(); // 0=Dom, 1=Seg, 2=Ter, 3=Qua, 4=Qui, 5=Sex, 6=Sáb
     const windows: Array<{ start: string; end: string; label: string }> = [];
@@ -1154,6 +1209,20 @@ const handleSubmit = async (e: React.FormEvent) => {
   // - Segunda: fechado
   const getReservaRooftopTimeWindows = (dateStr: string) => {
     if (!dateStr) return [] as Array<{ start: string; end: string; label: string }>;
+
+    if (dateStr === '2026-04-20') {
+      return [{ start: '12:00', end: '20:00', label: 'Segunda especial (20/04): 12:00–20:00' }];
+    }
+
+    if (weeklyOperatingSettings.length > 0 || dateOperatingOverrides.length > 0) {
+      const configured = getConfiguredWindows(
+        dateStr,
+        weeklyOperatingSettings,
+        dateOperatingOverrides,
+      );
+      if (configured) return configured;
+    }
+
     const date = new Date(`${dateStr}T00:00:00`);
     const weekday = date.getDay(); // 0=Dom, 1=Seg, 2=Ter, 3=Qua, 4=Qui, 5=Sex, 6=Sáb
     const windows: Array<{ start: string; end: string; label: string }> = [];
@@ -2104,15 +2173,14 @@ const handleSubmit = async (e: React.FormEvent) => {
                   )}
                   
                   {/* Indicador de reserva grande */}
-                  {!isReservaRooftop && reservationData.number_of_people >= 4 && (
+                  {reservationData.number_of_people >= 4 && (
                     <div className="mt-3 p-4 bg-gradient-to-r from-orange-100 to-red-100 border-2 border-orange-400 rounded-lg shadow-lg">
                       <div className="flex items-center gap-2 text-orange-900">
                         <MdPeople className="text-orange-600 text-lg" />
                         <span className="text-sm font-bold">⚠️ RESERVA GRANDE</span>
                       </div>
                       <p className="text-sm text-orange-800 mt-2 font-medium">
-                        Para grupos acima de 10 pessoas, você pode escolher apenas a área. 
-                        O admin selecionará as mesas específicas.
+                        Para grupos a partir de 4 pessoas, a disponibilidade pode seguir regra de giro por estabelecimento e alocação administrativa.
                       </p>
                     </div>
                   )}

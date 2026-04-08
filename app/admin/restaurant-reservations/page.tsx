@@ -28,6 +28,7 @@ import AllocateTableModal from "../../components/AllocateTableModal";
 import AddGuestListToReservationModal from "../../components/AddGuestListToReservationModal";
 import ReservationBlockModal from "../../components/ReservationBlockModal";
 import ReservationBlockDetailsModal from "../../components/ReservationBlockDetailsModal";
+import ReservationOperatingSettingsPanel from "../../components/ReservationOperatingSettingsPanel";
 import { Reservation } from "@/app/types/reservation";
 import {
   BirthdayService,
@@ -5242,6 +5243,12 @@ export default function RestaurantReservationsPage() {
                         ))}
                       </div>
                     </div>
+
+                    <ReservationOperatingSettingsPanel
+                      establishmentId={selectedEstablishment?.id}
+                      establishmentName={selectedEstablishment?.name}
+                      apiUrl={API_URL}
+                    />
 
                     {/* Link para gerenciar regras de brindes */}
                     <div className="bg-gradient-to-r from-yellow-50 to-yellow-100 rounded-lg p-6 border-2 border-yellow-300">

@@ -20,6 +20,11 @@ import {
 } from "react-icons/md";
 import { FaWhatsapp } from "react-icons/fa"; // <-- 1. IMPORTAÇÃO ADICIONADA
 import { useUserPermissions } from "@/app/hooks/useUserPermissions";
+import {
+  getConfiguredWindows,
+  WeeklyOperatingSetting,
+  DateOperatingOverride,
+} from "@/app/utils/reservationOperatingHours";
 
 // Configuração da API
 const API_URL =
@@ -117,6 +122,12 @@ export default function ReservationModal({
 
   // Estado para armazenar áreas bloqueadas para a data selecionada
   const [blockedAreas, setBlockedAreas] = useState<Set<number>>(new Set());
+  const [weeklyOperatingSettings, setWeeklyOperatingSettings] = useState<
+    WeeklyOperatingSetting[]
+  >([]);
+  const [dateOperatingOverrides, setDateOperatingOverrides] = useState<
+    DateOperatingOverride[]
+  >([]);
 
   const highlineSubareas = [
     {
@@ -309,6 +320,35 @@ export default function ReservationModal({
   const getSeuJustinoTimeWindows = (dateStr: string) => {
     if (!dateStr)
       return [] as Array<{ start: string; end: string; label: string }>;
+
+    if (dateStr === "2026-04-20") {
+      if (isPracinha) {
+        return [
+          {
+            start: "14:00",
+            end: "00:00",
+            label: "Segunda especial (20/04): 14:00–00:00",
+          },
+        ];
+      }
+      return [
+        {
+          start: "12:00",
+          end: "00:00",
+          label: "Segunda especial (20/04): 12:00–00:00",
+        },
+      ];
+    }
+
+    if (weeklyOperatingSettings.length > 0 || dateOperatingOverrides.length > 0) {
+      const configured = getConfiguredWindows(
+        dateStr,
+        weeklyOperatingSettings,
+        dateOperatingOverrides,
+      );
+      if (configured) return configured;
+    }
+
     const date = new Date(dateStr + "T00:00:00");
     const weekday = date.getDay(); // 0=Dom, 1=Seg, 2=Ter, 3=Qua, 4=Qui, 5=Sex, 6=Sáb
     const windows: Array<{ start: string; end: string; label: string }> = [];
@@ -340,6 +380,38 @@ export default function ReservationModal({
 
     return windows;
   };
+
+  useEffect(() => {
+    const loadOperatingSettings = async () => {
+      if (!establishment?.id) {
+        setWeeklyOperatingSettings([]);
+        setDateOperatingOverrides([]);
+        return;
+      }
+      try {
+        const response = await fetch(
+          `${API_URL}/api/restaurant-reservation-settings?establishment_id=${establishment.id}`,
+        );
+        if (!response.ok) {
+          setWeeklyOperatingSettings([]);
+          setDateOperatingOverrides([]);
+          return;
+        }
+        const data = await response.json();
+        if (data?.success) {
+          setWeeklyOperatingSettings(Array.isArray(data.weekly_settings) ? data.weekly_settings : []);
+          setDateOperatingOverrides(Array.isArray(data.date_overrides) ? data.date_overrides : []);
+        } else {
+          setWeeklyOperatingSettings([]);
+          setDateOperatingOverrides([]);
+        }
+      } catch {
+        setWeeklyOperatingSettings([]);
+        setDateOperatingOverrides([]);
+      }
+    };
+    loadOperatingSettings();
+  }, [establishment?.id]);
 
   // Janelas de horário para o Highline (Sexta e Sábado)
   const getHighlineTimeWindows = (dateStr: string, subareaKey?: string) => {
