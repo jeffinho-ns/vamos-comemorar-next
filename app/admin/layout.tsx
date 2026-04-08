@@ -23,6 +23,7 @@ import {
   MdRestaurant,
   MdInfo,
   MdHistory,
+  MdChat,
 } from "react-icons/md";
 import logBrand from "../assets/logo-agilizai-h.png"; // Verifique o caminho
 import UserMenu from "../components/UserMenu/UserMenu"; // Verifique o caminho
@@ -156,6 +157,11 @@ export default function DashboardLayout({
           icon: MdInfo,
         },
         { href: "/admin/guia", label: "Guia Interno", icon: MdInfo },
+        {
+          href: "/admin/whatsapp",
+          label: "WhatsApp",
+          icon: MdChat,
+        },
       ];
     }
     if (userRole === "promoter" || userRole === "promoter-list") {
@@ -197,6 +203,11 @@ export default function DashboardLayout({
         },
         { href: "/admin/guia", label: "Guia Interno", icon: MdInfo },
         {
+          href: "/admin/whatsapp",
+          label: "WhatsApp",
+          icon: MdChat,
+        },
+        {
           href: "/admin/qrcode",
           label: "Scanner QR Code",
           icon: MdQrCodeScanner,
@@ -224,6 +235,11 @@ export default function DashboardLayout({
           href: "/admin/detalhes-operacionais",
           label: "Detalhes Operacionais do Evento",
           icon: MdInfo,
+        },
+        {
+          href: "/admin/whatsapp",
+          label: "WhatsApp",
+          icon: MdChat,
         },
         {
           href: "/admin/painel-eventos",
@@ -283,6 +299,11 @@ export default function DashboardLayout({
           icon: MdRestaurant,
         },
         { href: "/admin/guia", label: "Guia Interno", icon: MdInfo },
+        {
+          href: "/admin/whatsapp",
+          label: "WhatsApp",
+          icon: MdChat,
+        },
         { href: "/admin/enterprise", label: "Empresa", icon: MdFactory },
         // { href: "/admin/places", label: "Locais", icon: MdPlace },
         // { href: "/admin/tables", label: "Mesas", icon: MdTableBar },
