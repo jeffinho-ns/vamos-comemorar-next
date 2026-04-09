@@ -64,6 +64,7 @@ export default function AdminWhatsappPage() {
   const [loadingThread, setLoadingThread] = useState(false);
   const [sending, setSending] = useState(false);
   const [takeoverLoading, setTakeoverLoading] = useState(false);
+  const [resumeLoading, setResumeLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -237,6 +238,35 @@ export default function AdminWhatsappPage() {
     }
   };
 
+  const handleResumeAI = async () => {
+    if (!selectedWaId || !token) return;
+    setResumeLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(
+        `${API_URL}/api/admin/whatsapp/conversations/${encodeURIComponent(selectedWaId)}/resume`,
+        {
+          method: "POST",
+          headers: authHeaders,
+        },
+      );
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.message || `Erro ${res.status}`);
+      if (data.conversation) {
+        setConversationMeta({
+          human_takeover_until: data.conversation.human_takeover_until,
+          contact_name: data.conversation.contact_name,
+        });
+      }
+      await fetchConversations();
+      await fetchMessages(selectedWaId);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Falha ao retomar IA");
+    } finally {
+      setResumeLoading(false);
+    }
+  };
+
   const handleSend = async () => {
     if (!selectedWaId || !token) return;
     const text = composeText.trim();
@@ -385,6 +415,17 @@ export default function AdminWhatsappPage() {
                     <span className="text-xs text-amber-800 bg-amber-100 px-2 py-1 rounded-md">
                       IA pausada (handoff ativo)
                     </span>
+                  ) : null}
+                  {handoff ? (
+                    <button
+                      type="button"
+                      onClick={handleResumeAI}
+                      disabled={resumeLoading}
+                      className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-emerald-600 text-white text-sm hover:bg-emerald-700 disabled:opacity-50"
+                    >
+                      <MdSupportAgent className="text-lg" />
+                      {resumeLoading ? "Retomando…" : "Retomar IA"}
+                    </button>
                   ) : null}
                   <button
                     type="button"
