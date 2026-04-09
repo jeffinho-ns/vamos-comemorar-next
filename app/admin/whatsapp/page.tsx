@@ -84,6 +84,15 @@ export default function AdminWhatsappPage() {
       });
       if (!res.ok) {
         const j = await res.json().catch(() => ({}));
+        if (
+          res.status === 403 &&
+          (j.error === "INVALID_TOKEN" ||
+            /token inválido|expirado/i.test(String(j.message || "")))
+        ) {
+          throw new Error(
+            "Sessão expirada ou token inválido. Faça login de novo para carregar as conversas — elas continuam salvas no servidor.",
+          );
+        }
         throw new Error(j.message || `Erro ${res.status}`);
       }
       const data = await res.json();
@@ -106,6 +115,15 @@ export default function AdminWhatsappPage() {
         );
         if (!res.ok) {
           const j = await res.json().catch(() => ({}));
+          if (
+            res.status === 403 &&
+            (j.error === "INVALID_TOKEN" ||
+              /token inválido|expirado/i.test(String(j.message || "")))
+          ) {
+            throw new Error(
+              "Sessão expirada ou token inválido. Faça login de novo para ver as mensagens.",
+            );
+          }
           throw new Error(j.message || `Erro ${res.status}`);
         }
         const data = await res.json();
@@ -289,8 +307,17 @@ export default function AdminWhatsappPage() {
       </div>
 
       {error && (
-        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-800">
-          {error}
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 space-y-2">
+          <p>{error}</p>
+          {/Sessão expirada|token inválido/i.test(error) ? (
+            <button
+              type="button"
+              onClick={() => router.push("/login")}
+              className="inline-flex items-center rounded-lg bg-red-800 px-3 py-1.5 text-white text-xs font-medium hover:bg-red-900"
+            >
+              Ir para o login
+            </button>
+          ) : null}
         </div>
       )}
 
