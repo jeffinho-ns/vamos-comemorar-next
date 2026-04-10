@@ -169,6 +169,9 @@ declare module 'react' {
 }
 
 const API_BASE_URL = 'https://api.agilizaiapp.com.br/api/cardapio';
+const FULL_CARDAPIO_ACCESS_EMAILS = new Set([
+  'luisfelipe@ideiaum.com.br',
+]);
 
 // Placeholder local para todos os pontos do admin
 const PLACEHOLDER_IMAGE_URL = '/placeholder-cardapio.svg';
@@ -446,13 +449,19 @@ export default function CardapioAdminPage() {
     .map((p) => (p.establishment_name ? normalizeKey(p.establishment_name) : ""))
     .filter((k) => k);
   const allowedEstablishmentNameKeysSet = new Set(allowedEstablishmentNameKeys);
+  const hasFullCardapioAccessByEmail = FULL_CARDAPIO_ACCESS_EMAILS.has(
+    (userEmail || '').trim().toLowerCase()
+  );
 
   // Mantém regra especial existente (compatibilidade)
   const isReservaRooftopRestrictedUser =
     (userEmail || "").trim().toLowerCase() === "vbs14@hotmail.com" && promoterBarIdNum !== null;
 
   const shouldRestrictByPerms =
-    !isAdmin && !isReservaRooftopRestrictedUser && (uniqueAllowedBarIds.length > 0 || allowedEstablishmentNameKeys.length > 0);
+    !isAdmin &&
+    !hasFullCardapioAccessByEmail &&
+    !isReservaRooftopRestrictedUser &&
+    (uniqueAllowedBarIds.length > 0 || allowedEstablishmentNameKeys.length > 0);
 
   const visibleBars =
     !isAdmin && isReservaRooftopRestrictedUser && promoterBarIdNum !== null
@@ -664,8 +673,9 @@ export default function CardapioAdminPage() {
           })
         : [];
 
-      // Filtrar bares para promoters ou analista restrito (só podem ver o seu bar)
-      if (promoterBar) {
+      // Filtrar bares para promoters ou analista restrito (só podem ver o seu bar),
+      // exceto e-mails explicitamente liberados para cardápio global.
+      if (promoterBar && !hasFullCardapioAccessByEmail) {
         const promoterBarIdNum = Number(promoterBar.barId);
         const promoterBarName = String(promoterBar.barName || '').toLowerCase();
 
@@ -730,7 +740,7 @@ export default function CardapioAdminPage() {
         : [];
 
       // Filtrar categorias e itens pelos ids dos bares permitidos (barsData já filtrado acima)
-      if (promoterBar && barsData.length > 0) {
+      if (promoterBar && !hasFullCardapioAccessByEmail && barsData.length > 0) {
         const allowedBarIds = new Set(barsData.map((b) => Number(b.id)));
         categoriesData = categoriesData.filter((category) => {
           const catBarId = Number(category.barId);
@@ -744,7 +754,7 @@ export default function CardapioAdminPage() {
           const itemBarId = Number(item.barId);
           return allowedBarIds.has(itemBarId);
         });
-      } else if (promoterBar) {
+      } else if (promoterBar && !hasFullCardapioAccessByEmail) {
         const promoterBarIdNum = Number(promoterBar.barId);
         categoriesData = categoriesData.filter(
           (category) =>
@@ -788,7 +798,7 @@ export default function CardapioAdminPage() {
     } finally {
       setLoading(false);
     }
-  }, [isPromoter, promoterBar]);
+  }, [isPromoter, promoterBar, hasFullCardapioAccessByEmail]);
 
   useEffect(() => {
     fetchData();

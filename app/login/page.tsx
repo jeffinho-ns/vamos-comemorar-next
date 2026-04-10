@@ -20,7 +20,6 @@ const PROMOTER_ONLY_EMAILS = new Set([
   "juliosolto@ideiaum.com.br",
   "renans@ideiaum.com.br",
   "renato@ideiaum.com.br",
-  "luisfelipe@ideiaum.com.br",
 ]);
 
 export default function Login() {
@@ -175,6 +174,7 @@ export default function Login() {
           'reservas@reservarooftop.com.br',
           'coordenadora.reservas@ideiaum.com.br',
           'analista.mkt02@ideiaum.com.br',
+          'luisfelipe@ideiaum.com.br',
         ];
         
         const userEmail = emailCpf.toLowerCase().trim();

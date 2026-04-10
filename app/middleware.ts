@@ -7,7 +7,6 @@ const PROMOTER_ONLY_EMAILS = new Set([
   'juliosolto@ideiaum.com.br',
   'renans@ideiaum.com.br',
   'renato@ideiaum.com.br',
-  'luisfelipe@ideiaum.com.br',
 ]);
 
 export function middleware(request: NextRequest) {
@@ -33,7 +32,7 @@ export function middleware(request: NextRequest) {
   const _roleNorm = (role ? safeDecodeURIComponent(role) : role || '').toLowerCase().trim();
   const userEmail = safeDecodeURIComponent(userEmailRaw).toLowerCase().trim();
   const isPromoterOnlyEmail = PROMOTER_ONLY_EMAILS.has(userEmail);
-  const SUPER_ADMIN_EMAILS = new Set(['teste@teste', 'jeffinho_ns@hotmail.com']);
+  const SUPER_ADMIN_EMAILS = new Set(['teste@teste', 'jeffinho_ns@hotmail.com', 'luisfelipe@ideiaum.com.br']);
   const isSuperAdmin = SUPER_ADMIN_EMAILS.has(userEmail);
   const CARDAPIO_ONLY_EMAILS = new Set([
     'vinicius.gomes@ideiaum.com.br',
@@ -87,6 +86,11 @@ export function middleware(request: NextRequest) {
     if (!isSuperAdmin) {
       return NextResponse.redirect(new URL('/acesso-negado', request.url));
     }
+  }
+
+  // Acesso completo ao admin para super admins por e-mail.
+  if (isSuperAdmin && url.startsWith('/admin')) {
+    return NextResponse.next();
   }
 
   // Define as permissões para as rotas específicas (promoter e promoter-list para analista.mkt03 - Pracinha)
