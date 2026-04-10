@@ -14,6 +14,15 @@ import {
   setAuthSessionCookies,
 } from "../utils/authSession";
 
+const PROMOTER_ONLY_EMAILS = new Set([
+  "montoya@ideiaum.com.br",
+  "golin@ideiaum.com.br",
+  "juliosolto@ideiaum.com.br",
+  "renans@ideiaum.com.br",
+  "renato@ideiaum.com.br",
+  "luisfelipe@ideiaum.com.br",
+]);
+
 export default function Login() {
   const [show, setShow] = useState(false);
   const [emailCpf, setEmailCpf] = useState("");
@@ -29,6 +38,11 @@ export default function Login() {
   }, [emailCpf, password]);
 
   const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL_LOCAL;
+
+  const resolvePromoterDestination = (promoterCodigo?: string | null) => {
+    if (promoterCodigo) return `/promoter/${promoterCodigo}/dashboard`;
+    return "/promoter";
+  };
 
   // Carregar credenciais salvas quando o componente montar
   useEffect(() => {
@@ -164,6 +178,11 @@ export default function Login() {
         ];
         
         const userEmail = emailCpf.toLowerCase().trim();
+
+        if (PROMOTER_ONLY_EMAILS.has(userEmail)) {
+          router.push(resolvePromoterDestination(data.promoterCodigo));
+          return;
+        }
         
         if (adminEmails.includes(userEmail)) {
           router.push('/admin');
@@ -185,7 +204,7 @@ export default function Login() {
             break;
           case 'promoter':
           case 'promoter-list':
-            router.push('/admin');
+            router.push(resolvePromoterDestination(data.promoterCodigo));
             break;
           case 'cliente':
             router.push('/cliente');

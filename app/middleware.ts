@@ -1,6 +1,15 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
+const PROMOTER_ONLY_EMAILS = new Set([
+  'montoya@ideiaum.com.br',
+  'golin@ideiaum.com.br',
+  'juliosolto@ideiaum.com.br',
+  'renans@ideiaum.com.br',
+  'renato@ideiaum.com.br',
+  'luisfelipe@ideiaum.com.br',
+]);
+
 export function middleware(request: NextRequest) {
   const token = request.cookies.get('authToken')?.value;
   const role = request.cookies.get('role')?.value;
@@ -23,6 +32,7 @@ export function middleware(request: NextRequest) {
   };
   const _roleNorm = (role ? safeDecodeURIComponent(role) : role || '').toLowerCase().trim();
   const userEmail = safeDecodeURIComponent(userEmailRaw).toLowerCase().trim();
+  const isPromoterOnlyEmail = PROMOTER_ONLY_EMAILS.has(userEmail);
   const SUPER_ADMIN_EMAILS = new Set(['teste@teste', 'jeffinho_ns@hotmail.com']);
   const isSuperAdmin = SUPER_ADMIN_EMAILS.has(userEmail);
   const CARDAPIO_ONLY_EMAILS = new Set([
@@ -45,6 +55,17 @@ export function middleware(request: NextRequest) {
 
   const isPromoter = _roleNorm === 'promoter';
   const isPromoterList = _roleNorm === 'promoter-list';
+
+  if (isPromoterOnlyEmail) {
+    const isPromoterRoute = url.startsWith('/promoter');
+    const destino = promoterCodigo
+      ? `/promoter/${promoterCodigo}/dashboard`
+      : '/promoter';
+
+    if (!isPromoterRoute || url === '/admin' || url.startsWith('/admin/')) {
+      return NextResponse.redirect(new URL(destino, request.url));
+    }
+  }
 
   // promoter-list: redirecionar para /promoter apenas se NÃO estiver acessando /admin (analista.mkt03 acessa /admin)
   if (isPromoterList) {
