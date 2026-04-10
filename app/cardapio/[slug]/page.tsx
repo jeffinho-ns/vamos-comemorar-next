@@ -1094,7 +1094,7 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
           onClick={() => onClick(item)}
         >
           <div
-            className={`relative overflow-hidden w-full aspect-square ${isCleanStyle ? "border-b border-[#e7d9c3]" : ""}`}
+            className={`relative overflow-hidden w-full aspect-[4/3] sm:aspect-square ${isCleanStyle ? "border-b border-[#e7d9c3]" : ""}`}
           >
             <Image
               src={imageSrc}
@@ -1113,16 +1113,16 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
           </div>
 
           <div
-            className={`flex flex-col h-full p-3 sm:p-4 ${isCleanStyle ? "sm:p-6" : ""}`}
+            className={`flex flex-col h-full p-2.5 sm:p-4 ${isCleanStyle ? "sm:p-6" : ""}`}
           >
             <div className="space-y-2">
               <h3
-                className={`mb-1 line-clamp-2 ${
+                className={`mb-1 line-clamp-3 sm:line-clamp-2 leading-snug break-words ${
                   isCleanStyle
-                    ? "font-serif text-[1.1rem] font-bold tracking-[0.12em] text-[#2b241a]"
+                    ? "font-serif text-[0.85rem] sm:text-[1.1rem] font-bold tracking-[0.06em] sm:tracking-[0.12em] text-[#2b241a]"
                     : isReservaRooftop
-                      ? "text-lg sm:text-xl font-bold text-gray-900"
-                      : "text-base sm:text-lg font-semibold text-gray-800"
+                      ? "text-[0.85rem] sm:text-xl font-bold text-gray-900"
+                      : "text-[0.8rem] sm:text-lg font-semibold text-gray-800"
                 }`}
               >
                 {item.name}
@@ -1356,7 +1356,7 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
 
         @media (max-width: 640px) {
           .menu-item-card {
-            min-height: 280px;
+            min-height: 250px;
           }
         }
 
