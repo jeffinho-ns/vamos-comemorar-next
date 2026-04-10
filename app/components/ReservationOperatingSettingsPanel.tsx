@@ -500,9 +500,10 @@ export default function ReservationOperatingSettingsPanel({
               }
             />
             <span>
-              <strong>Permitir ultrapassar capacidade máxima</strong> — ignora limite de lugares do dia
-              (e, no Reserva Rooftop, o limite diário de quantidade de reservas). A lista de espera
-              continua sendo respeitada.
+              <strong>Permitir ultrapassar capacidade máxima</strong> — para este estabelecimento,
+              ignora o limite de lugares do dia (capacidade das áreas) e quaisquer limites extras
+              definidos na API para ele (por exemplo limite diário de quantidade de reservas, quando
+              existir). A lista de espera continua sendo respeitada.
             </span>
           </label>
           <label className="flex items-start gap-3 text-sm text-gray-800 cursor-pointer">
@@ -519,8 +520,9 @@ export default function ReservationOperatingSettingsPanel({
             />
             <span>
               <strong>Permitir horários fora do funcionamento</strong> — no painel, atendentes podem
-              escolher horário fora das janelas (ex.: Highline, Seu Justino, Pracinha). Na API, ignora
-              validação de turno do Reserva Rooftop e bloqueios de agenda por período.
+              escolher horário fora das janelas configuradas para este estabelecimento. Na API,
+              relaxa as checagens de horário/turno e os bloqueios de agenda por período aplicáveis a
+              ele.
             </span>
           </label>
           <button
