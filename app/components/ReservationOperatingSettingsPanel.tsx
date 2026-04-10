@@ -24,10 +24,16 @@ interface DateOverride {
   note?: string | null;
 }
 
+export type ReservationPolicyFlags = {
+  allow_capacity_override: boolean;
+  allow_outside_hours: boolean;
+};
+
 interface Props {
   establishmentId?: number | null;
   establishmentName?: string;
   apiUrl: string;
+  onPolicyChange?: (policy: ReservationPolicyFlags) => void;
 }
 
 const WEEKDAY_LABELS = [
@@ -54,6 +60,7 @@ export default function ReservationOperatingSettingsPanel({
   establishmentId,
   establishmentName,
   apiUrl,
+  onPolicyChange,
 }: Props) {
   const [weekly, setWeekly] = useState<WeeklySetting[]>([]);
   const [overrides, setOverrides] = useState<DateOverride[]>([]);
@@ -61,6 +68,10 @@ export default function ReservationOperatingSettingsPanel({
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string>("");
   const [overrideForm, setOverrideForm] = useState(DEFAULT_OVERRIDE);
+  const [policy, setPolicy] = useState<ReservationPolicyFlags>({
+    allow_capacity_override: false,
+    allow_outside_hours: false,
+  });
 
   const token =
     typeof window !== "undefined" ? localStorage.getItem("authToken") : null;
@@ -81,6 +92,13 @@ export default function ReservationOperatingSettingsPanel({
       }
       setWeekly(Array.isArray(data.weekly_settings) ? data.weekly_settings : []);
       setOverrides(Array.isArray(data.date_overrides) ? data.date_overrides : []);
+      const p = data?.policy;
+      const nextPolicy: ReservationPolicyFlags = {
+        allow_capacity_override: !!p?.allow_capacity_override,
+        allow_outside_hours: !!p?.allow_outside_hours,
+      };
+      setPolicy(nextPolicy);
+      onPolicyChange?.(nextPolicy);
     } catch (error: any) {
       setMessage(error?.message || "Erro ao carregar configurações");
     } finally {
@@ -176,6 +194,44 @@ export default function ReservationOperatingSettingsPanel({
       await loadSettings();
     } catch (error: any) {
       setMessage(error?.message || "Erro ao salvar exceção");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const savePolicy = async () => {
+    if (!canLoad) return;
+    setSaving(true);
+    setMessage("");
+    try {
+      const response = await fetch(
+        `${apiUrl}/api/restaurant-reservation-settings/policy`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          body: JSON.stringify({
+            establishment_id: establishmentId,
+            allow_capacity_override: policy.allow_capacity_override,
+            allow_outside_hours: policy.allow_outside_hours,
+          }),
+        },
+      );
+      const data = await response.json();
+      if (!response.ok || !data?.success) {
+        throw new Error(data?.error || "Erro ao salvar política");
+      }
+      const saved: ReservationPolicyFlags = {
+        allow_capacity_override: !!data.policy?.allow_capacity_override,
+        allow_outside_hours: !!data.policy?.allow_outside_hours,
+      };
+      setPolicy(saved);
+      onPolicyChange?.(saved);
+      setMessage("Política para atendentes salva com sucesso.");
+    } catch (error: any) {
+      setMessage(error?.message || "Erro ao salvar política");
     } finally {
       setSaving(false);
     }
@@ -419,6 +475,63 @@ export default function ReservationOperatingSettingsPanel({
               </button>
             </div>
           ))}
+        </div>
+      </div>
+
+      <div className="bg-white border border-amber-200 rounded-xl p-5">
+        <h4 className="text-lg font-semibold text-gray-900">
+          Política para atendentes (painel admin)
+        </h4>
+        <p className="text-sm text-gray-600 mt-1">
+          Afeta reservas criadas em <strong>/admin/restaurant-reservations</strong> e validações da API
+          correspondentes. Desative quando não precisar flexibilizar.
+        </p>
+        <div className="mt-4 space-y-3">
+          <label className="flex items-start gap-3 text-sm text-gray-800 cursor-pointer">
+            <input
+              type="checkbox"
+              className="mt-0.5"
+              checked={policy.allow_capacity_override}
+              onChange={(e) =>
+                setPolicy((prev) => ({
+                  ...prev,
+                  allow_capacity_override: e.target.checked,
+                }))
+              }
+            />
+            <span>
+              <strong>Permitir ultrapassar capacidade máxima</strong> — ignora limite de lugares do dia
+              (e, no Reserva Rooftop, o limite diário de quantidade de reservas). A lista de espera
+              continua sendo respeitada.
+            </span>
+          </label>
+          <label className="flex items-start gap-3 text-sm text-gray-800 cursor-pointer">
+            <input
+              type="checkbox"
+              className="mt-0.5"
+              checked={policy.allow_outside_hours}
+              onChange={(e) =>
+                setPolicy((prev) => ({
+                  ...prev,
+                  allow_outside_hours: e.target.checked,
+                }))
+              }
+            />
+            <span>
+              <strong>Permitir horários fora do funcionamento</strong> — no painel, atendentes podem
+              escolher horário fora das janelas (ex.: Highline, Seu Justino, Pracinha). Na API, ignora
+              validação de turno do Reserva Rooftop e bloqueios de agenda por período.
+            </span>
+          </label>
+          <button
+            type="button"
+            onClick={savePolicy}
+            disabled={saving || loading}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-sm font-medium disabled:opacity-50"
+          >
+            <MdSave />
+            Salvar política
+          </button>
         </div>
       </div>
 

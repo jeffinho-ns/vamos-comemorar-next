@@ -55,6 +55,8 @@ interface ReservationModalProps {
   selectedTime?: string | null;
   establishment?: Establishment | null;
   areas?: RestaurantArea[];
+  /** Quando true (configuração do estabelecimento), atendentes podem informar horário fora das janelas. */
+  allowOutsideHours?: boolean;
 }
 
 export default function ReservationModal({
@@ -66,6 +68,7 @@ export default function ReservationModal({
   selectedTime,
   establishment,
   areas = [],
+  allowOutsideHours = false,
 }: ReservationModalProps) {
   interface RestaurantTable {
     id: number;
@@ -1194,7 +1197,8 @@ export default function ReservationModal({
       isHighline &&
       formData.reservation_time &&
       formData.reservation_date &&
-      !isAdmin
+      !isAdmin &&
+      !allowOutsideHours
     ) {
       const windows = getHighlineTimeWindows(
         formData.reservation_date,
@@ -1214,7 +1218,8 @@ export default function ReservationModal({
       (isSeuJustino || isPracinha) &&
       formData.reservation_time &&
       formData.reservation_date &&
-      !isAdmin
+      !isAdmin &&
+      !allowOutsideHours
     ) {
       const windows = getSeuJustinoTimeWindows(formData.reservation_date);
       if (

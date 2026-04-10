@@ -28,7 +28,9 @@ import AllocateTableModal from "../../components/AllocateTableModal";
 import AddGuestListToReservationModal from "../../components/AddGuestListToReservationModal";
 import ReservationBlockModal from "../../components/ReservationBlockModal";
 import ReservationBlockDetailsModal from "../../components/ReservationBlockDetailsModal";
-import ReservationOperatingSettingsPanel from "../../components/ReservationOperatingSettingsPanel";
+import ReservationOperatingSettingsPanel, {
+  type ReservationPolicyFlags,
+} from "../../components/ReservationOperatingSettingsPanel";
 import { Reservation } from "@/app/types/reservation";
 import {
   BirthdayService,
@@ -482,6 +484,12 @@ export default function RestaurantReservationsPage() {
     return d.toISOString().split("T")[0];
   });
 
+  const [reservationPolicy, setReservationPolicy] =
+    useState<ReservationPolicyFlags>({
+      allow_capacity_override: false,
+      allow_outside_hours: false,
+    });
+
   // Carregar bloqueios de agenda para o estabelecimento selecionado
   const loadBlocks = useCallback(async () => {
     if (!selectedEstablishment) return;
@@ -565,6 +573,41 @@ export default function RestaurantReservationsPage() {
       console.error("Erro ao carregar bloqueios de agenda:", error);
     }
   }, [API_URL, selectedEstablishment]);
+
+  useEffect(() => {
+    if (!selectedEstablishment?.id) {
+      setReservationPolicy({
+        allow_capacity_override: false,
+        allow_outside_hours: false,
+      });
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(
+          `${API_URL}/api/restaurant-reservation-settings?establishment_id=${selectedEstablishment.id}`,
+        );
+        const data = await res.json();
+        if (cancelled) return;
+        const p = data?.policy;
+        setReservationPolicy({
+          allow_capacity_override: !!p?.allow_capacity_override,
+          allow_outside_hours: !!p?.allow_outside_hours,
+        });
+      } catch {
+        if (!cancelled) {
+          setReservationPolicy({
+            allow_capacity_override: false,
+            allow_outside_hours: false,
+          });
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedEstablishment?.id, API_URL]);
 
   // Estados para Guest Lists (Admin)
   type GuestListItem = {
@@ -1045,6 +1088,38 @@ export default function RestaurantReservationsPage() {
       }
 
       // Demais estabelecimentos: checagem por capacidade numérica
+      const hasWaitlistForSlot = (): boolean => {
+        if (!reservationTime || !String(reservationTime).trim()) return false;
+        const t = String(reservationTime).trim();
+        const hhmm = t.length >= 5 ? t.substring(0, 5) : t;
+        return waitlist.some((entry) => {
+          if (entry.status !== "AGUARDANDO") return false;
+          if (entry.has_bistro_table === true) return false;
+          const eid = entry.establishment_id;
+          const matchEst =
+            eid != null && Number(eid) === Number(selectedEstablishment?.id);
+          if (!matchEst) return false;
+          if (entry.preferred_date !== dateString) return false;
+          const pt = (entry.preferred_time || "").trim();
+          if (!pt) return false;
+          const ptHhmm = pt.length >= 5 ? pt.substring(0, 5) : pt;
+          return (
+            ptHhmm === hhmm || pt === t || pt === hhmm || pt === hhmm + ":00"
+          );
+        });
+      };
+      const hasWaitlistEntries = hasWaitlistForSlot();
+
+      if (reservationPolicy.allow_capacity_override) {
+        if (hasWaitlistEntries) {
+          alert(
+            "Há clientes na lista de espera para este dia e horário. Utilize a lista de espera ou escolha outro horário.",
+          );
+          return false;
+        }
+        return true;
+      }
+
       let totalCapacity = Math.max(
         0,
         areas.reduce(
@@ -1095,28 +1170,6 @@ export default function RestaurantReservationsPage() {
       );
       const newPeople = Math.max(0, Number(newReservationPeople ?? 0) || 0);
       const totalWithNew = totalPeopleReserved + newPeople;
-
-      let hasWaitlistEntries = false;
-      if (reservationTime && String(reservationTime).trim()) {
-        const t = String(reservationTime).trim();
-        const hhmm = t.length >= 5 ? t.substring(0, 5) : t;
-        hasWaitlistEntries = waitlist.some((entry) => {
-          if (entry.status !== "AGUARDANDO") return false;
-          // Só considera waitlist sem bistrô como bloqueio
-          if (entry.has_bistro_table === true) return false;
-          const eid = entry.establishment_id;
-          const matchEst =
-            eid != null && Number(eid) === Number(selectedEstablishment?.id);
-          if (!matchEst) return false;
-          if (entry.preferred_date !== dateString) return false;
-          const pt = (entry.preferred_time || "").trim();
-          if (!pt) return false;
-          const ptHhmm = pt.length >= 5 ? pt.substring(0, 5) : pt;
-          return (
-            ptHhmm === hhmm || pt === t || pt === hhmm || pt === hhmm + ":00"
-          );
-        });
-      }
 
       if (hasWaitlistEntries || totalWithNew > totalCapacity) {
         const available = Math.min(
@@ -5248,6 +5301,7 @@ export default function RestaurantReservationsPage() {
                       establishmentId={selectedEstablishment?.id}
                       establishmentName={selectedEstablishment?.name}
                       apiUrl={API_URL}
+                      onPolicyChange={setReservationPolicy}
                     />
 
                     {/* Link para gerenciar regras de brindes */}
@@ -5313,6 +5367,7 @@ export default function RestaurantReservationsPage() {
               setEditingReservation(null);
               setSelectedTime(null);
             }}
+            allowOutsideHours={reservationPolicy.allow_outside_hours}
             onSave={async (reservationData) => {
               try {
                 // Verificar se está editando uma reserva existente ou criando uma nova
