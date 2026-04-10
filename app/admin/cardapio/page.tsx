@@ -275,6 +275,29 @@ const getValidImageUrl = (filename?: string | null): string => {
 
   // Se já é uma URL completa (Firebase/FTP/Unsplash/etc), retornar como está
   if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+    // URLs legadas /public/images/... podem quebrar (404) em alguns cenários.
+    // Tenta remapear para URL real pelo índice; se não achar, placeholder para ativar fallback.
+    if (trimmed.includes('/public/images/')) {
+      const marker = '/public/images/';
+      const rawKey = trimmed.split(marker)[1]?.split('?')[0]?.trim() || '';
+      if (rawKey) {
+        let decodedKey = rawKey;
+        try {
+          decodedKey = decodeURIComponent(rawKey);
+        } catch {
+          decodedKey = rawKey;
+        }
+        const key = decodedKey.replace(/^\/+/, '');
+        const byExact = imageUrlIndex.get(key);
+        if (byExact) return byExact;
+        const last = key.split('/').pop();
+        if (last) {
+          const byLast = imageUrlIndex.get(last);
+          if (byLast) return byLast;
+        }
+      }
+      return PLACEHOLDER_IMAGE_URL;
+    }
     return trimmed;
   }
 

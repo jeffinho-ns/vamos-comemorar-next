@@ -27,6 +27,7 @@ import { scrollToSection } from "../../utils/scrollToSection";
 
 import {
   getCardapioPlaceholderUrl,
+  preloadCardapioImages,
   resolveCardapioImageUrl,
   warmCardapioImageIndex,
 } from "@/app/utils/cardapioImageResolver";
@@ -493,6 +494,37 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
   useEffect(() => {
     fetchBarData();
   }, [fetchBarData]);
+
+  useEffect(() => {
+    if (!selectedBar || menuCategories.length === 0) return;
+
+    const imagesToPreload: string[] = [];
+    imagesToPreload.push(selectedBar.logoUrl);
+    imagesToPreload.push(...selectedBar.coverImages.slice(0, 2));
+
+    for (const category of menuCategories) {
+      for (const subcategory of category.subCategories) {
+        for (const item of subcategory.items) {
+          if (imagesToPreload.length >= 10) break;
+          imagesToPreload.push(item.imageUrl);
+        }
+        if (imagesToPreload.length >= 10) break;
+      }
+      if (imagesToPreload.length >= 10) break;
+    }
+
+    const preload = () => preloadCardapioImages(imagesToPreload, 10);
+    if (typeof window !== "undefined" && "requestIdleCallback" in window) {
+      const idleWindow = window as Window & {
+        requestIdleCallback: (cb: () => void) => number;
+      };
+      idleWindow.requestIdleCallback(preload);
+      return;
+    }
+
+    const timer = setTimeout(preload, 80);
+    return () => clearTimeout(timer);
+  }, [selectedBar, menuCategories]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
