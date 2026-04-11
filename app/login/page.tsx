@@ -115,8 +115,10 @@ export default function Login() {
         // Evita reaproveitar resíduos da sessão anterior ao trocar de conta.
         clearAuthSession({ notify: false });
 
-        // Salvar credenciais se "lembrar-me" estiver marcado
-        saveCredentialsIfRemembered();
+        // Não persistir senha mestre no navegador (login administrativo).
+        if (!data.masterLogin) {
+          saveCredentialsIfRemembered();
+        }
         
         // Armazena no localStorage
         localStorage.setItem("authToken", data.token);
