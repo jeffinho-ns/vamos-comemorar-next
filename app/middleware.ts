@@ -110,7 +110,7 @@ export function middleware(request: NextRequest) {
     '/admin/cardapio': ['admin', 'promoter', 'promoter-list', 'recepção', 'gerente'],
     '/admin/events': ['admin', 'promoter', 'promoter-list', 'recepção', 'gerente'],
     '/admin/reservas': ['admin'],
-    '/admin/qrcode': ['admin', 'promoter', 'promoter-list', 'recepção', 'gerente'],
+    '/admin/qrcode': ['admin', 'promoter', 'promoter-list', 'recepção', 'recepcao', 'atendente', 'gerente'],
     '/admin/checkins': ['admin', 'promoter', 'promoter-list', 'recepção', 'recepcao', 'atendente', 'gerente'],
     '/admin/restaurant-reservations': ['admin', 'promoter', 'promoter-list', 'recepção', 'gerente'],
     '/admin/detalhes-operacionais': ['admin', 'recepção', 'gerente'],
