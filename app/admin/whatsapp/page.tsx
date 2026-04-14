@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { io } from "socket.io-client";
-import { MdChat, MdRefresh, MdSend, MdSupportAgent } from "react-icons/md";
+import { MdChat, MdContentCopy, MdLink, MdRefresh, MdSend, MdSupportAgent } from "react-icons/md";
 import { getApiUrl } from "@/app/config/api";
 import { getPublicSocketUrl } from "@/lib/publicApiUrl";
 import { useAppContext } from "@/app/context/AppContext";
@@ -161,6 +161,23 @@ function pickLatestSuggestedReply(messages: MessageRow[]): string {
   return "";
 }
 
+function digitsOnly(value: string): string {
+  return String(value || "").replace(/\D/g, "");
+}
+
+function buildEstablishmentToken(establishmentId: number): string {
+  return `#EST_${establishmentId}`;
+}
+
+function buildEstablishmentLinkText(establishmentName: string, establishmentId: number): string {
+  return `Olá! Quero fazer uma reserva no ${establishmentName}. ${buildEstablishmentToken(establishmentId)}`;
+}
+
+function buildWhatsAppEntryLink(phoneDigits: string, text: string): string {
+  const base = phoneDigits ? `https://wa.me/${phoneDigits}` : "https://wa.me/";
+  return `${base}?text=${encodeURIComponent(text)}`;
+}
+
 export default function AdminWhatsappPage() {
   const router = useRouter();
   const { token, establishments } = useAppContext();
@@ -251,11 +268,38 @@ export default function AdminWhatsappPage() {
     status_filter: "",
     only_opt_in: true,
   });
+  const [centralWhatsappNumber, setCentralWhatsappNumber] = useState("");
+  const [copiedLinkId, setCopiedLinkId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const draftDirtyRef = useRef(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const stored = window.localStorage.getItem("admin_whatsapp_central_number");
+    if (stored && stored.trim()) {
+      setCentralWhatsappNumber(stored.trim());
+      return;
+    }
+    const envNumber = process.env.NEXT_PUBLIC_WHATSAPP_CENTRAL_NUMBER || "";
+    if (envNumber.trim()) {
+      setCentralWhatsappNumber(envNumber.trim());
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!centralWhatsappNumber.trim()) {
+      window.localStorage.removeItem("admin_whatsapp_central_number");
+      return;
+    }
+    window.localStorage.setItem(
+      "admin_whatsapp_central_number",
+      centralWhatsappNumber.trim(),
+    );
+  }, [centralWhatsappNumber]);
 
   const authHeaders = useMemo(() => {
     const h: Record<string, string> = { "Content-Type": "application/json" };
@@ -1056,6 +1100,40 @@ export default function AdminWhatsappPage() {
       .map(([id, name]) => ({ id, name }))
       .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
   }, [establishments, isSuperAdmin, myEstablishmentPermissions]);
+  const centralWhatsappDigits = useMemo(
+    () => digitsOnly(centralWhatsappNumber),
+    [centralWhatsappNumber],
+  );
+  const hasCentralWhatsappDigits = centralWhatsappDigits.length >= 10;
+  const establishmentEntryLinks = useMemo(
+    () =>
+      establishmentFilterOptions.map((opt) => {
+        const token = buildEstablishmentToken(opt.id);
+        const text = buildEstablishmentLinkText(opt.name, opt.id);
+        const link = buildWhatsAppEntryLink(centralWhatsappDigits, text);
+        return {
+          id: opt.id,
+          name: opt.name,
+          token,
+          text,
+          link,
+        };
+      }),
+    [centralWhatsappDigits, establishmentFilterOptions],
+  );
+
+  const copyToClipboard = useCallback(async (value: string, key: string) => {
+    try {
+      if (!navigator?.clipboard?.writeText) {
+        throw new Error("clipboard-api-unavailable");
+      }
+      await navigator.clipboard.writeText(value);
+      setCopiedLinkId(key);
+      window.setTimeout(() => setCopiedLinkId((prev) => (prev === key ? null : prev)), 2200);
+    } catch (_e) {
+      setError("Não foi possível copiar automaticamente. Copie manualmente o conteúdo exibido.");
+    }
+  }, []);
 
   useEffect(() => {
     if (campaignForm.establishment_id !== "") return;
@@ -1326,6 +1404,102 @@ export default function AdminWhatsappPage() {
           )}
         </section>
       </div>
+
+      <section className="rounded-xl border border-gray-200 bg-white shadow-sm">
+        <div className="px-4 py-3 border-b border-gray-100">
+          <h2 className="text-base font-semibold text-gray-900">
+            Links de entrada por estabelecimento
+          </h2>
+          <p className="text-xs text-gray-500">
+            Gere links com token automático (<code>#EST_ID</code>) para a Central AgilizaiApp
+            já iniciar no estabelecimento correto.
+          </p>
+        </div>
+        <div className="p-4 border-b border-gray-100 grid grid-cols-1 md:grid-cols-[minmax(320px,460px),1fr] gap-3 items-start">
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">
+              Número WhatsApp da Central (com DDI)
+            </label>
+            <input
+              type="text"
+              value={centralWhatsappNumber}
+              onChange={(e) => setCentralWhatsappNumber(e.target.value)}
+              placeholder="+55 11 99999-8888"
+              className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
+            />
+            <p className="mt-1 text-[11px] text-gray-500">
+              Usamos apenas dígitos no link. Exemplo válido: <code>5511999998888</code>.
+            </p>
+          </div>
+          <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+            <p className="font-medium">Como funciona</p>
+            <p>
+              Cada link envia uma mensagem inicial com token do estabelecimento. O webhook
+              identifica o token e vincula a conversa automaticamente no CRM.
+            </p>
+            {!hasCentralWhatsappDigits ? (
+              <p className="mt-1 text-red-700">
+                Informe o número da Central para gerar links com destino direto.
+              </p>
+            ) : null}
+          </div>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="min-w-full text-sm">
+            <thead className="bg-gray-50 text-gray-600">
+              <tr>
+                <th className="text-left px-4 py-2">Estabelecimento</th>
+                <th className="text-left px-4 py-2">Token</th>
+                <th className="text-left px-4 py-2">Mensagem inicial</th>
+                <th className="text-left px-4 py-2">Ações</th>
+              </tr>
+            </thead>
+            <tbody>
+              {establishmentEntryLinks.length === 0 ? (
+                <tr>
+                  <td className="px-4 py-4 text-gray-500" colSpan={4}>
+                    Nenhum estabelecimento disponível para gerar links.
+                  </td>
+                </tr>
+              ) : null}
+              {establishmentEntryLinks.map((item) => (
+                <tr key={item.id} className="border-t border-gray-100 align-top">
+                  <td className="px-4 py-2 text-gray-900">{item.name}</td>
+                  <td className="px-4 py-2 font-mono text-xs text-indigo-700">{item.token}</td>
+                  <td className="px-4 py-2 text-xs text-gray-700 max-w-[520px] break-words">
+                    {item.text}
+                  </td>
+                  <td className="px-4 py-2">
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() => copyToClipboard(item.link, `link-${item.id}`)}
+                        className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded bg-emerald-600 text-white text-xs hover:bg-emerald-700"
+                        disabled={!hasCentralWhatsappDigits}
+                        title={hasCentralWhatsappDigits ? "Copiar link do WhatsApp" : "Informe o número da Central primeiro"}
+                      >
+                        <MdLink className="text-sm" />
+                        {copiedLinkId === `link-${item.id}` ? "Copiado!" : "Copiar link"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => copyToClipboard(item.text, `text-${item.id}`)}
+                        className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded border border-gray-300 bg-white text-xs hover:bg-gray-50"
+                      >
+                        <MdContentCopy className="text-sm" />
+                        {copiedLinkId === `text-${item.id}` ? "Copiado!" : "Copiar texto"}
+                      </button>
+                    </div>
+                    {hasCentralWhatsappDigits ? (
+                      <p className="mt-1 text-[10px] text-gray-500 break-all">{item.link}</p>
+                    ) : null}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
 
       <section className="rounded-xl border border-gray-200 bg-white shadow-sm">
         <div className="px-4 py-3 border-b border-gray-100 flex flex-wrap items-center justify-between gap-2">
