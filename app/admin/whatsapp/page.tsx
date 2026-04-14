@@ -297,12 +297,31 @@ export default function AdminWhatsappPage() {
     status_filter: "",
     only_opt_in: true,
   });
+  const [manualCentralWhatsappNumber, setManualCentralWhatsappNumber] = useState("");
   const [copiedLinkId, setCopiedLinkId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const draftDirtyRef = useRef(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const saved = window.localStorage.getItem("admin_whatsapp_central_number_manual");
+    if (saved?.trim()) {
+      setManualCentralWhatsappNumber(saved.trim());
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const value = manualCentralWhatsappNumber.trim();
+    if (!value) {
+      window.localStorage.removeItem("admin_whatsapp_central_number_manual");
+      return;
+    }
+    window.localStorage.setItem("admin_whatsapp_central_number_manual", value);
+  }, [manualCentralWhatsappNumber]);
 
   const authHeaders = useMemo(() => {
     const h: Record<string, string> = { "Content-Type": "application/json" };
@@ -1084,9 +1103,10 @@ export default function AdminWhatsappPage() {
     conversationMeta?.assigned_user_name || selectedConv?.assigned_user_name;
   const selectedEstablishmentName =
     conversationMeta?.establishment_name || selectedConv?.establishment_name;
-  const configuredCentralWhatsappNumber = (
+  const envCentralWhatsappNumber = (
     process.env.NEXT_PUBLIC_WHATSAPP_CENTRAL_NUMBER || ""
   ).trim();
+  const effectiveCentralWhatsappNumber = envCentralWhatsappNumber || manualCentralWhatsappNumber;
   const establishmentFilterOptions = useMemo(() => {
     if (isSuperAdmin) {
       return establishments
@@ -1107,8 +1127,8 @@ export default function AdminWhatsappPage() {
       .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
   }, [establishments, isSuperAdmin, myEstablishmentPermissions]);
   const centralWhatsappDigits = useMemo(
-    () => digitsOnly(configuredCentralWhatsappNumber),
-    [configuredCentralWhatsappNumber],
+    () => digitsOnly(effectiveCentralWhatsappNumber),
+    [effectiveCentralWhatsappNumber],
   );
   const hasCentralWhatsappDigits = centralWhatsappDigits.length >= 10;
   const establishmentEntryLinks = useMemo(
@@ -1130,6 +1150,9 @@ export default function AdminWhatsappPage() {
 
   const copyToClipboard = useCallback(async (value: string, key: string) => {
     try {
+      if (!String(value || "").trim()) {
+        throw new Error("empty-value");
+      }
       if (navigator?.clipboard?.writeText) {
         await navigator.clipboard.writeText(value);
       } else if (!fallbackCopyText(value)) {
@@ -1427,7 +1450,7 @@ export default function AdminWhatsappPage() {
         <div className="p-4 border-b border-gray-100 grid grid-cols-1 md:grid-cols-[minmax(320px,460px),1fr] gap-3 items-start">
           <div>
             <p className="text-xs font-medium text-gray-600">Número fixo da Central (Render)</p>
-            {hasCentralWhatsappDigits ? (
+            {envCentralWhatsappNumber ? (
               <div className="mt-1 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-900">
                 <p>
                   <strong>Configurado:</strong> {centralWhatsappDigits}
@@ -1439,12 +1462,24 @@ export default function AdminWhatsappPage() {
             ) : (
               <div className="mt-1 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-800">
                 <p>
-                  Número da central não configurado no frontend. Defina{" "}
+                  Número da central não configurado no build do frontend. Defina{" "}
                   <code>NEXT_PUBLIC_WHATSAPP_CENTRAL_NUMBER</code> no Render e faça novo deploy.
                 </p>
                 <p className="mt-1">
-                  Exemplo: <code>5511999998888</code>
+                  Enquanto isso, use o fallback manual abaixo para gerar os links agora.
                 </p>
+                <div className="mt-2">
+                  <label className="block text-[11px] font-medium text-red-900 mb-1">
+                    Fallback manual (apenas neste navegador)
+                  </label>
+                  <input
+                    type="text"
+                    value={manualCentralWhatsappNumber}
+                    onChange={(e) => setManualCentralWhatsappNumber(e.target.value)}
+                    placeholder="5511999998888"
+                    className="w-full rounded-md border border-red-200 px-2 py-1.5 text-xs text-gray-800 bg-white"
+                  />
+                </div>
               </div>
             )}
           </div>
