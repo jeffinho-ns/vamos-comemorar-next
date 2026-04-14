@@ -254,6 +254,7 @@ export default function AdminWhatsappPage() {
   const [error, setError] = useState<string | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
   const draftDirtyRef = useRef(false);
 
   const authHeaders = useMemo(() => {
@@ -491,7 +492,9 @@ export default function AdminWhatsappPage() {
   }, [selectedWaId]);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    const container = messagesContainerRef.current;
+    if (!container) return;
+    container.scrollTo({ top: container.scrollHeight, behavior: "smooth" });
   }, [messages]);
 
   useEffect(() => {
@@ -1173,7 +1176,7 @@ export default function AdminWhatsappPage() {
           </div>
         </aside>
 
-        <section className="flex-1 flex flex-col min-h-[50vh] lg:min-h-[560px]">
+        <section className="flex-1 flex flex-col min-h-[50vh] max-h-[70vh] lg:max-h-[760px]">
           {!selectedWaId ? (
             <div className="flex-1 flex items-center justify-center text-gray-500 text-sm p-8">
               Selecione uma conversa à esquerda.
@@ -1257,7 +1260,10 @@ export default function AdminWhatsappPage() {
                 </div>
               </header>
 
-              <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-gray-50/80">
+              <div
+                ref={messagesContainerRef}
+                className="flex-1 min-h-0 overflow-y-auto p-4 space-y-3 bg-gray-50/80"
+              >
                 {loadingThread && messages.length === 0 ? (
                   <p className="text-sm text-gray-500">Carregando mensagens…</p>
                 ) : null}
