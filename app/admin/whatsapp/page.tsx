@@ -3,7 +3,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { io } from "socket.io-client";
-import { MdChat, MdContentCopy, MdLink, MdRefresh, MdSend, MdSupportAgent } from "react-icons/md";
+import {
+  MdChat,
+  MdContentCopy,
+  MdLink,
+  MdOpenInNew,
+  MdRefresh,
+  MdSend,
+  MdSupportAgent,
+} from "react-icons/md";
 import { getApiUrl } from "@/app/config/api";
 import { getPublicSocketUrl } from "@/lib/publicApiUrl";
 import { useAppContext } from "@/app/context/AppContext";
@@ -178,6 +186,27 @@ function buildWhatsAppEntryLink(phoneDigits: string, text: string): string {
   return `${base}?text=${encodeURIComponent(text)}`;
 }
 
+function fallbackCopyText(value: string): boolean {
+  if (typeof document === "undefined") return false;
+  const el = document.createElement("textarea");
+  el.value = value;
+  el.setAttribute("readonly", "true");
+  el.style.position = "fixed";
+  el.style.opacity = "0";
+  el.style.pointerEvents = "none";
+  document.body.appendChild(el);
+  el.focus();
+  el.select();
+  let copied = false;
+  try {
+    copied = document.execCommand("copy");
+  } catch {
+    copied = false;
+  }
+  document.body.removeChild(el);
+  return copied;
+}
+
 export default function AdminWhatsappPage() {
   const router = useRouter();
   const { token, establishments } = useAppContext();
@@ -268,38 +297,12 @@ export default function AdminWhatsappPage() {
     status_filter: "",
     only_opt_in: true,
   });
-  const [centralWhatsappNumber, setCentralWhatsappNumber] = useState("");
   const [copiedLinkId, setCopiedLinkId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const draftDirtyRef = useRef(false);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const stored = window.localStorage.getItem("admin_whatsapp_central_number");
-    if (stored && stored.trim()) {
-      setCentralWhatsappNumber(stored.trim());
-      return;
-    }
-    const envNumber = process.env.NEXT_PUBLIC_WHATSAPP_CENTRAL_NUMBER || "";
-    if (envNumber.trim()) {
-      setCentralWhatsappNumber(envNumber.trim());
-    }
-  }, []);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    if (!centralWhatsappNumber.trim()) {
-      window.localStorage.removeItem("admin_whatsapp_central_number");
-      return;
-    }
-    window.localStorage.setItem(
-      "admin_whatsapp_central_number",
-      centralWhatsappNumber.trim(),
-    );
-  }, [centralWhatsappNumber]);
 
   const authHeaders = useMemo(() => {
     const h: Record<string, string> = { "Content-Type": "application/json" };
@@ -1081,6 +1084,9 @@ export default function AdminWhatsappPage() {
     conversationMeta?.assigned_user_name || selectedConv?.assigned_user_name;
   const selectedEstablishmentName =
     conversationMeta?.establishment_name || selectedConv?.establishment_name;
+  const configuredCentralWhatsappNumber = (
+    process.env.NEXT_PUBLIC_WHATSAPP_CENTRAL_NUMBER || ""
+  ).trim();
   const establishmentFilterOptions = useMemo(() => {
     if (isSuperAdmin) {
       return establishments
@@ -1101,8 +1107,8 @@ export default function AdminWhatsappPage() {
       .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
   }, [establishments, isSuperAdmin, myEstablishmentPermissions]);
   const centralWhatsappDigits = useMemo(
-    () => digitsOnly(centralWhatsappNumber),
-    [centralWhatsappNumber],
+    () => digitsOnly(configuredCentralWhatsappNumber),
+    [configuredCentralWhatsappNumber],
   );
   const hasCentralWhatsappDigits = centralWhatsappDigits.length >= 10;
   const establishmentEntryLinks = useMemo(
@@ -1124,14 +1130,17 @@ export default function AdminWhatsappPage() {
 
   const copyToClipboard = useCallback(async (value: string, key: string) => {
     try {
-      if (!navigator?.clipboard?.writeText) {
+      if (navigator?.clipboard?.writeText) {
+        await navigator.clipboard.writeText(value);
+      } else if (!fallbackCopyText(value)) {
         throw new Error("clipboard-api-unavailable");
       }
-      await navigator.clipboard.writeText(value);
       setCopiedLinkId(key);
       window.setTimeout(() => setCopiedLinkId((prev) => (prev === key ? null : prev)), 2200);
     } catch (_e) {
-      setError("Não foi possível copiar automaticamente. Copie manualmente o conteúdo exibido.");
+      setError(
+        "Não foi possível copiar automaticamente neste navegador. Use o botão Abrir e copie pela barra de endereço.",
+      );
     }
   }, []);
 
@@ -1417,19 +1426,27 @@ export default function AdminWhatsappPage() {
         </div>
         <div className="p-4 border-b border-gray-100 grid grid-cols-1 md:grid-cols-[minmax(320px,460px),1fr] gap-3 items-start">
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">
-              Número WhatsApp da Central (com DDI)
-            </label>
-            <input
-              type="text"
-              value={centralWhatsappNumber}
-              onChange={(e) => setCentralWhatsappNumber(e.target.value)}
-              placeholder="+55 11 99999-8888"
-              className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
-            />
-            <p className="mt-1 text-[11px] text-gray-500">
-              Usamos apenas dígitos no link. Exemplo válido: <code>5511999998888</code>.
-            </p>
+            <p className="text-xs font-medium text-gray-600">Número fixo da Central (Render)</p>
+            {hasCentralWhatsappDigits ? (
+              <div className="mt-1 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-900">
+                <p>
+                  <strong>Configurado:</strong> {centralWhatsappDigits}
+                </p>
+                <p className="mt-1">
+                  Fonte: <code>NEXT_PUBLIC_WHATSAPP_CENTRAL_NUMBER</code>
+                </p>
+              </div>
+            ) : (
+              <div className="mt-1 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-800">
+                <p>
+                  Número da central não configurado no frontend. Defina{" "}
+                  <code>NEXT_PUBLIC_WHATSAPP_CENTRAL_NUMBER</code> no Render e faça novo deploy.
+                </p>
+                <p className="mt-1">
+                  Exemplo: <code>5511999998888</code>
+                </p>
+              </div>
+            )}
           </div>
           <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
             <p className="font-medium">Como funciona</p>
@@ -1439,7 +1456,7 @@ export default function AdminWhatsappPage() {
             </p>
             {!hasCentralWhatsappDigits ? (
               <p className="mt-1 text-red-700">
-                Informe o número da Central para gerar links com destino direto.
+                Sem número configurado, os botões de link ficam bloqueados.
               </p>
             ) : null}
           </div>
@@ -1481,6 +1498,20 @@ export default function AdminWhatsappPage() {
                         <MdLink className="text-sm" />
                         {copiedLinkId === `link-${item.id}` ? "Copiado!" : "Copiar link"}
                       </button>
+                      <a
+                        href={item.link}
+                        target="_blank"
+                        rel="noreferrer"
+                        className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded border text-xs ${
+                          hasCentralWhatsappDigits
+                            ? "border-indigo-300 bg-indigo-50 text-indigo-700 hover:bg-indigo-100"
+                            : "border-gray-200 bg-gray-100 text-gray-400 pointer-events-none"
+                        }`}
+                        title={hasCentralWhatsappDigits ? "Abrir link em nova aba" : "Defina o número da Central no Render"}
+                      >
+                        <MdOpenInNew className="text-sm" />
+                        Abrir
+                      </a>
                       <button
                         type="button"
                         onClick={() => copyToClipboard(item.text, `text-${item.id}`)}
