@@ -34,7 +34,7 @@ import { useAppContext } from "../context/AppContext";
 // E-mail da analista com acesso restrito ao estabelecimento Pracinha do Seu Justino (menu próprio, não promoter)
 const ANALISTA_EMAIL = "analista.mkt03@ideiaum.com.br";
 
-// Super Admins: acesso extra (ex: página de Galeria)
+// Super Admins: acesso extra (ex: Galeria, WhatsApp, Reservas globais) — alinhado ao middleware
 const SUPER_ADMIN_EMAILS = new Set(["teste@teste", "jeffinho_ns@hotmail.com"]);
 
 // Gerentes do Seu Justino que têm acesso ao Gerenciamento do Cardápio (apenas estabelecimento Seu Justino)
@@ -157,11 +157,6 @@ export default function DashboardLayout({
           icon: MdInfo,
         },
         { href: "/admin/guia", label: "Guia Interno", icon: MdInfo },
-        {
-          href: "/admin/whatsapp",
-          label: "WhatsApp",
-          icon: MdChat,
-        },
       ];
     }
     if (userRole === "promoter" || userRole === "promoter-list") {
@@ -203,11 +198,6 @@ export default function DashboardLayout({
         },
         { href: "/admin/guia", label: "Guia Interno", icon: MdInfo },
         {
-          href: "/admin/whatsapp",
-          label: "WhatsApp",
-          icon: MdChat,
-        },
-        {
           href: "/admin/qrcode",
           label: "Scanner QR Code",
           icon: MdQrCodeScanner,
@@ -235,11 +225,6 @@ export default function DashboardLayout({
           href: "/admin/detalhes-operacionais",
           label: "Detalhes Operacionais do Evento",
           icon: MdInfo,
-        },
-        {
-          href: "/admin/whatsapp",
-          label: "WhatsApp",
-          icon: MdChat,
         },
         {
           href: "/admin/painel-eventos",
@@ -299,11 +284,6 @@ export default function DashboardLayout({
           icon: MdRestaurant,
         },
         { href: "/admin/guia", label: "Guia Interno", icon: MdInfo },
-        {
-          href: "/admin/whatsapp",
-          label: "WhatsApp",
-          icon: MdChat,
-        },
         { href: "/admin/enterprise", label: "Empresa", icon: MdFactory },
         // { href: "/admin/places", label: "Locais", icon: MdPlace },
         // { href: "/admin/tables", label: "Mesas", icon: MdTableBar },
@@ -343,6 +323,17 @@ export default function DashboardLayout({
   // /admin/reservas: apenas Super Admins
   if (!isSuperAdmin) {
     navLinks = navLinks.filter((l) => l.href !== "/admin/reservas");
+  }
+
+  // /admin/whatsapp: apenas Super Admins
+  if (isSuperAdmin && !navLinks.some((l) => l.href === "/admin/whatsapp")) {
+    const guiaIndex = navLinks.findIndex((l) => l.href === "/admin/guia");
+    const insertAt = guiaIndex >= 0 ? guiaIndex + 1 : navLinks.length;
+    navLinks.splice(insertAt, 0, {
+      href: "/admin/whatsapp",
+      label: "WhatsApp",
+      icon: MdChat,
+    });
   }
 
   if (

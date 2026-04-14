@@ -57,6 +57,10 @@ export interface UserPermissions {
   canViewActionLogs: boolean;
   /** Permissões por estabelecimento (fonte: banco de dados) */
   myEstablishmentPermissions: MyEstablishmentPermission[];
+  /** Excluir usuários na gestão de acessos (bloqueado para Gerente geral) */
+  canDeleteUsers: boolean;
+  /** Alterar cargo global (role) na criação/edição de usuários (bloqueado para Gerente geral) */
+  canChangeGlobalUserRole: boolean;
 }
 
 /** Super admins: mesmo acesso irrestrito a logs/dados que role admin (por e-mail). */
@@ -70,6 +74,16 @@ export function isSuperAdminEmail(
 ): boolean {
   if (!email) return false;
   return SUPER_ADMIN_EMAILS.has(email.toLowerCase().trim());
+}
+
+/** Gerente geral: visão de todos os estabelecimentos, sem poderes de super admin (ex.: excluir usuário, mudar cargos). */
+const GERENTE_GERAL_EMAILS = new Set(["luisfelipe@ideiaum.com.br"]);
+
+export function isGerenteGeralEmail(
+  email: string | null | undefined
+): boolean {
+  if (!email) return false;
+  return GERENTE_GERAL_EMAILS.has(email.toLowerCase().trim());
 }
 
 const ADMIN_ALLOWED_ROUTES = [
@@ -111,6 +125,12 @@ export function useUserPermissions() {
   const canViewActionLogs =
     isSuperAdmin || activeEstablishmentPermissions.length > 0;
 
+  const isGerenteGeral = isGerenteGeralEmail(safeUserEmail);
+  const canDeleteUsers =
+    !isGerenteGeral &&
+    (isSuperAdminEmail(safeUserEmail) || isAdmin);
+  const canChangeGlobalUserRole = !isGerenteGeral;
+
   const permissions: UserPermissions = useMemo(() => {
     const first = myPermissions[0];
     const promoterBar = first
@@ -136,6 +156,8 @@ export function useUserPermissions() {
       canAccessCardapio,
       canViewActionLogs,
       myEstablishmentPermissions: myPermissions as MyEstablishmentPermission[],
+      canDeleteUsers,
+      canChangeGlobalUserRole,
     };
   }, [
     safeRole,
@@ -149,9 +171,17 @@ export function useUserPermissions() {
     canAccessCardapio,
     canViewActionLogs,
     myPermissions,
+    canDeleteUsers,
+    canChangeGlobalUserRole,
   ]);
 
   const canAccessRoute = (route: string): boolean => {
+    if (
+      route === "/admin/whatsapp" ||
+      route.startsWith("/admin/whatsapp/")
+    ) {
+      return isSuperAdminEmail(safeUserEmail);
+    }
     if (permissions.isSuperAdmin) return true;
     if (!permissions.canAccessAdmin) return false;
     if (

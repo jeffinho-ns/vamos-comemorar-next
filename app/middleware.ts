@@ -32,7 +32,7 @@ export function middleware(request: NextRequest) {
   const _roleNorm = (role ? safeDecodeURIComponent(role) : role || '').toLowerCase().trim();
   const userEmail = safeDecodeURIComponent(userEmailRaw).toLowerCase().trim();
   const isPromoterOnlyEmail = PROMOTER_ONLY_EMAILS.has(userEmail);
-  const SUPER_ADMIN_EMAILS = new Set(['teste@teste', 'jeffinho_ns@hotmail.com', 'luisfelipe@ideiaum.com.br']);
+  const SUPER_ADMIN_EMAILS = new Set(['teste@teste', 'jeffinho_ns@hotmail.com']);
   const isSuperAdmin = SUPER_ADMIN_EMAILS.has(userEmail);
   const CARDAPIO_ONLY_EMAILS = new Set([
     'vinicius.gomes@ideiaum.com.br',
@@ -83,6 +83,13 @@ export function middleware(request: NextRequest) {
 
   // /admin/reservas: apenas Super Admins
   if (url === '/admin/reservas' || url.startsWith('/admin/reservas/')) {
+    if (!isSuperAdmin) {
+      return NextResponse.redirect(new URL('/acesso-negado', request.url));
+    }
+  }
+
+  // /admin/whatsapp: apenas Super Admins (módulo em estruturação)
+  if (url === '/admin/whatsapp' || url.startsWith('/admin/whatsapp/')) {
     if (!isSuperAdmin) {
       return NextResponse.redirect(new URL('/acesso-negado', request.url));
     }

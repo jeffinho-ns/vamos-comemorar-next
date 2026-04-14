@@ -9,6 +9,7 @@ import {
   MdSearch,
   MdClose,
 } from "react-icons/md";
+import { useUserPermissions } from "@/app/hooks/useUserPermissions";
 
 const API_URL =
   process.env.NEXT_PUBLIC_API_URL ||
@@ -66,6 +67,7 @@ const ROLE_LABELS: Record<string, string> = {
 };
 
 export default function UsersPage() {
+  const { canDeleteUsers, canChangeGlobalUserRole } = useUserPermissions();
   const [users, setUsers] = useState<UserRow[]>([]);
   const [permissions, setPermissions] = useState<PermissionRow[]>([]);
   const [establishments, setEstablishments] = useState<Establishment[]>([]);
@@ -171,6 +173,7 @@ export default function UsersPage() {
   });
 
   const handleDelete = async (id: number) => {
+    if (!canDeleteUsers) return;
     if (!confirm("Tem certeza que deseja excluir este usuário? Esta ação é irreversível.")) return;
     const token = localStorage.getItem("authToken");
     if (!token) return;
@@ -209,6 +212,12 @@ export default function UsersPage() {
             <p className="text-gray-400 text-sm max-w-xl">
               Controle quem acessa cada parte do admin por estabelecimento, clientes do app e promoters.
             </p>
+            {!canChangeGlobalUserRole && (
+              <p className="text-amber-200/90 text-xs mt-2 max-w-xl">
+                Seu perfil (Gerente geral) permite gerir acessos por estabelecimento, mas não excluir
+                usuários nem alterar cargos globais.
+              </p>
+            )}
           </div>
           <div className="flex items-center gap-2 bg-slate-800/60 rounded-full p-1 border border-slate-700">
             {[
@@ -395,13 +404,15 @@ export default function UsersPage() {
                       >
                         Editar
                       </button>
-                      <button
-                        onClick={() => handleDelete(user.id)}
-                        className="px-2.5 py-1 rounded-lg text-xs text-red-100 bg-red-600/20 border border-red-500/40 hover:bg-red-600/30"
-                        type="button"
-                      >
-                        Remover
-                      </button>
+                      {canDeleteUsers ? (
+                        <button
+                          onClick={() => handleDelete(user.id)}
+                          className="px-2.5 py-1 rounded-lg text-xs text-red-100 bg-red-600/20 border border-red-500/40 hover:bg-red-600/30"
+                          type="button"
+                        >
+                          Remover
+                        </button>
+                      ) : null}
                     </div>
                   </div>
                 </div>
@@ -420,6 +431,7 @@ export default function UsersPage() {
           }}
           establishments={establishments}
           apiUrl={API_URL}
+          canChangeGlobalUserRole={canChangeGlobalUserRole}
         />
       )}
 
@@ -438,6 +450,7 @@ export default function UsersPage() {
             loadAll();
           }}
           apiUrl={API_URL}
+          canChangeGlobalUserRole={canChangeGlobalUserRole}
         />
       )}
     </div>
@@ -449,9 +462,16 @@ interface CreateUserModalProps {
   onSuccess: () => void;
   establishments: Establishment[];
   apiUrl: string;
+  canChangeGlobalUserRole: boolean;
 }
 
-function CreateUserModal({ onClose, onSuccess, establishments, apiUrl }: CreateUserModalProps) {
+function CreateUserModal({
+  onClose,
+  onSuccess,
+  establishments,
+  apiUrl,
+  canChangeGlobalUserRole,
+}: CreateUserModalProps) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -545,7 +565,9 @@ function CreateUserModal({ onClose, onSuccess, establishments, apiUrl }: CreateU
     }
   };
 
-  const rolesForCreate: Role[] = ["usuario", "admin", "gerente", "atendente", "recepcao", "cliente"];
+  const rolesForCreate: Role[] = canChangeGlobalUserRole
+    ? ["usuario", "admin", "gerente", "atendente", "recepcao", "cliente"]
+    : ["usuario", "atendente", "recepcao", "cliente"];
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-end bg-black/60">
@@ -625,7 +647,8 @@ function CreateUserModal({ onClose, onSuccess, establishments, apiUrl }: CreateU
                 <select
                   value={role}
                   onChange={(e) => setRole(e.target.value as Role)}
-                  className="w-full px-3 py-2 rounded-lg border border-slate-700 bg-slate-900/80 text-slate-50 text-sm focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+                  disabled={!canChangeGlobalUserRole}
+                  className="w-full px-3 py-2 rounded-lg border border-slate-700 bg-slate-900/80 text-slate-50 text-sm focus:ring-2 focus:ring-yellow-500 focus:border-transparent disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   {rolesForCreate.map((r) => (
                     <option key={r} value={r}>
@@ -634,7 +657,9 @@ function CreateUserModal({ onClose, onSuccess, establishments, apiUrl }: CreateU
                   ))}
                 </select>
                 <p className="text-[10px] text-slate-500 mt-1">
-                  Promoters continuam sendo cadastrados na tela específica de Promoters.
+                  {canChangeGlobalUserRole
+                    ? "Promoters continuam sendo cadastrados na tela específica de Promoters."
+                    : "Gerente geral: apenas cargos operacionais. Administradores e gerentes locais só podem ser definidos por um super admin."}
                 </p>
               </div>
             </div>
@@ -830,6 +855,7 @@ interface EditUserModalProps {
   onClose: () => void;
   onSuccess: () => void;
   apiUrl: string;
+  canChangeGlobalUserRole: boolean;
 }
 
 function EditUserModal({
@@ -839,6 +865,7 @@ function EditUserModal({
   onClose,
   onSuccess,
   apiUrl,
+  canChangeGlobalUserRole,
 }: EditUserModalProps) {
   const normalizeRole = (r: string | undefined): Role => {
     if (!r) return "usuario";
@@ -908,7 +935,12 @@ function EditUserModal({
         body.email = nextEmail;
       if (nextTelefone !== (user.telefone || ""))
         body.telefone = nextTelefone || undefined;
-      if (nextRole !== normalizeRole(user.role)) body.role = nextRole;
+      if (
+        canChangeGlobalUserRole &&
+        nextRole !== normalizeRole(user.role)
+      ) {
+        body.role = nextRole;
+      }
       if (password.trim()) body.password = password.trim();
 
       // Se nenhum campo mudou, ainda assim envie nome/e-mail atuais para evitar 400 do backend
@@ -1078,17 +1110,24 @@ function EditUserModal({
               </div>
               <div>
                 <label className="block text-xs font-medium text-slate-400 mb-1">Cargo global (role)</label>
-                <select
-                  value={role}
-                  onChange={(e) => setRole(e.target.value as Role)}
-                  className="w-full px-3 py-2 rounded-lg border border-slate-700 bg-slate-900/80 text-slate-50 text-sm focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
-                >
-                  {allRoles.map((r) => (
-                    <option key={r} value={r}>
-                      {ROLE_LABELS[r]}
-                    </option>
-                  ))}
-                </select>
+                {canChangeGlobalUserRole ? (
+                  <select
+                    value={role}
+                    onChange={(e) => setRole(e.target.value as Role)}
+                    className="w-full px-3 py-2 rounded-lg border border-slate-700 bg-slate-900/80 text-slate-50 text-sm focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+                  >
+                    {allRoles.map((r) => (
+                      <option key={r} value={r}>
+                        {ROLE_LABELS[r]}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <div className="w-full px-3 py-2 rounded-lg border border-slate-700 bg-slate-800/80 text-slate-300 text-sm">
+                    {ROLE_LABELS[normalizeRole(user.role)] || user.role || "—"}{" "}
+                    <span className="text-slate-500 text-xs">(somente super admin altera o cargo)</span>
+                  </div>
+                )}
               </div>
             </div>
           </section>

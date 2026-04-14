@@ -7,7 +7,13 @@ import { MdChat, MdRefresh, MdSend, MdSupportAgent } from "react-icons/md";
 import { getApiUrl } from "@/app/config/api";
 import { getPublicSocketUrl } from "@/lib/publicApiUrl";
 import { useAppContext } from "@/app/context/AppContext";
-import { useUserPermissions } from "@/app/hooks/useUserPermissions";
+import {
+  isSuperAdminEmail,
+  useUserPermissions,
+} from "@/app/hooks/useUserPermissions";
+import { WithPermission } from "@/app/components/WithPermission/WithPermission";
+
+const SUPER_ADMIN_EMAILS = ["teste@teste", "jeffinho_ns@hotmail.com"];
 
 const API_URL = getApiUrl();
 const SOCKET_URL = getPublicSocketUrl();
@@ -50,7 +56,8 @@ function pickLatestSuggestedReply(messages: MessageRow[]): string {
 export default function AdminWhatsappPage() {
   const router = useRouter();
   const { token } = useAppContext();
-  const { isLoading: permsLoading, canAccessAdmin } = useUserPermissions();
+  const { isLoading: permsLoading, userEmail } = useUserPermissions();
+  const canAccessWhatsapp = isSuperAdminEmail(userEmail);
 
   const [conversations, setConversations] = useState<ConversationRow[]>([]);
   const [selectedWaId, setSelectedWaId] = useState<string | null>(null);
@@ -151,15 +158,9 @@ export default function AdminWhatsappPage() {
   );
 
   useEffect(() => {
-    if (!permsLoading && !canAccessAdmin) {
-      router.replace("/acesso-negado");
-    }
-  }, [permsLoading, canAccessAdmin, router]);
-
-  useEffect(() => {
-    if (!token || !canAccessAdmin) return;
+    if (!token || !canAccessWhatsapp) return;
     fetchConversations();
-  }, [token, canAccessAdmin, fetchConversations]);
+  }, [token, canAccessWhatsapp, fetchConversations]);
 
   useEffect(() => {
     if (!selectedWaId || !token) return;
@@ -175,7 +176,7 @@ export default function AdminWhatsappPage() {
   }, [messages]);
 
   useEffect(() => {
-    if (!token || !canAccessAdmin) return;
+    if (!token || !canAccessWhatsapp) return;
 
     const socket = io(SOCKET_URL, { transports: ["websocket"] });
     socket.on("connect", () => {
@@ -203,7 +204,7 @@ export default function AdminWhatsappPage() {
     };
   }, [
     token,
-    canAccessAdmin,
+    canAccessWhatsapp,
     selectedWaId,
     fetchConversations,
     fetchMessages,
@@ -295,20 +296,18 @@ export default function AdminWhatsappPage() {
     }
   };
 
-  if (permsLoading || (!canAccessAdmin && !permsLoading)) {
-    return (
-      <div className="min-h-[50vh] flex items-center justify-center text-gray-600">
-        Carregando…
-      </div>
-    );
-  }
-
   const selectedConv = conversations.find((c) => c.wa_id === selectedWaId);
   const handoff =
     handoffActive(conversationMeta?.human_takeover_until) ||
     handoffActive(selectedConv?.human_takeover_until);
 
   return (
+    <WithPermission allowedRoles={[]} allowedEmails={SUPER_ADMIN_EMAILS}>
+      {permsLoading ? (
+        <div className="min-h-[50vh] flex items-center justify-center text-gray-600">
+          Carregando…
+        </div>
+      ) : (
     <div className="flex flex-col gap-4 p-4 md:p-6 max-w-[1600px] mx-auto min-h-[calc(100vh-4rem)]">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
@@ -503,5 +502,7 @@ export default function AdminWhatsappPage() {
         </section>
       </div>
     </div>
+      )}
+    </WithPermission>
   );
 }
