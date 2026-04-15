@@ -941,26 +941,7 @@ const handleSubmit = async (e: React.FormEvent) => {
     delete payload.table_number;
   }
 
-  // 3.1 Área exibida ao cliente (email): subárea (ex. Lounge Aquário TV) ou nome da área
-  let areaDisplayName: string | null = null;
-  if (isHighline || isSeuJustino) {
-    if (selectedSubareaKey) {
-      const sub = isHighline
-        ? highlineSubareas.find(s => s.key === selectedSubareaKey)
-        : seuJustinoSubareas.find(s => s.key === selectedSubareaKey);
-      if (sub?.label) areaDisplayName = sub.label;
-    }
-  } else if (isReservaRooftop && !isPracinha && rooftopAreaChoice) {
-    // Reserva Rooftop público: exibir rótulo simplificado
-    areaDisplayName =
-      rooftopAreaChoice === 'covered' ? 'Área Coberta' : 'Área Descoberta';
-  } else if (areas.length && reservationData.area_id) {
-    const ar = areas.find((a: { id: number }) => Number(a.id) === Number(reservationData.area_id));
-    if (ar && (ar as { name?: string }).name) areaDisplayName = (ar as { name: string }).name;
-  }
-  if (areaDisplayName) payload.area_display_name = areaDisplayName;
-
-  // 3.2 REGRA NOVA 2º GIRO (BISTRÔ) — APENAS Seu Justino (ID 1) e Pracinha (ID 8)
+  // 3.1 REGRA NOVA 2º GIRO (BISTRÔ) — APENAS Seu Justino (ID 1) e Pracinha (ID 8)
   // - Terça a Sexta: 1º giro 18:00–21:00 | 2º giro a partir de 21:00 (inclui madrugada)
   // - Sábado: 1º giro 12:00–15:00 | 2º giro a partir de 15:00 (inclui madrugada)
   // - Domingo: 1º giro 12:00–15:00 | 2º giro a partir de 15:00
@@ -2706,19 +2687,6 @@ const handleSubmit = async (e: React.FormEvent) => {
         <div className="flex justify-between">
           <span className="text-gray-600">Pessoas:</span>
           <span className="font-medium">{reservationData.number_of_people}</span>
-        </div>
-        <div className="flex justify-between">
-          <span className="text-gray-600">Área:</span>
-          <span className="font-medium">
-            {isHighline 
-              ? highlineSubareas.find(s => s.area_id.toString() === reservationData.area_id)?.label
-              : isSeuJustino
-              ? seuJustinoSubareas.find(s => s.area_id.toString() === reservationData.area_id)?.label
-              : (isReservaRooftop && !isPracinha)
-              ? rooftopSubareas.find(s => s.key === selectedSubareaKey)?.label || areas.find(a => a.id.toString() === reservationData.area_id)?.name
-              : areas.find(a => a.id.toString() === reservationData.area_id)?.name
-            }
-          </span>
         </div>
         {reservationId && (
           <div className="flex justify-between">
