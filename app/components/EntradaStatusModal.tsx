@@ -5,6 +5,12 @@ import { MdClose, MdCheckCircle, MdAttachMoney, MdLocalBar } from 'react-icons/m
 
 export type EntradaTipo = 'VIP' | 'SECO' | 'CONSUMA';
 
+export interface PromoterEntradaConfig {
+  couvert?: { inicio?: string | null; fim?: string | null; valor?: number | null } | null;
+  faixa_1?: { inicio?: string | null; fim?: string | null; seco?: number | null; consuma?: number | null } | null;
+  faixa_2?: { inicio?: string | null; fim?: string | null; seco?: number | null; consuma?: number | null } | null;
+}
+
 interface EntradaStatusModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -15,6 +21,8 @@ interface EntradaStatusModalProps {
   showVipNoiteTudaOption?: boolean;
   /** Valor de entrada (R$) da regra do promoter. Quando > 0, mostra opção "Entrada (lista promoter) — R$ X,XX". */
   valorEntradaPromoter?: number;
+  /** Configuração opcional de entrada por faixa de horário para convidados de promoter. */
+  entradaConfigPromoter?: PromoterEntradaConfig | null;
 }
 
 const EntradaStatusModal: React.FC<EntradaStatusModalProps> = ({
@@ -25,11 +33,85 @@ const EntradaStatusModal: React.FC<EntradaStatusModalProps> = ({
   horaAtual,
   showVipNoiteTudaOption = false,
   valorEntradaPromoter = 0,
+  entradaConfigPromoter = null,
 }) => {
   const [selectedTipo, setSelectedTipo] = React.useState<EntradaTipo | null>(null);
   const [selectedEntradaPromoter, setSelectedEntradaPromoter] = React.useState(false);
+  const [selectedCustomOptionId, setSelectedCustomOptionId] = React.useState<string | null>(null);
   const isEntradaPromoter = valorEntradaPromoter > 0;
   const hasInitialized = React.useRef(false);
+
+  const toMinutes = (value?: string | null) => {
+    if (!value) return null;
+    const [h, m] = String(value).split(':').map(Number);
+    if (Number.isNaN(h) || Number.isNaN(m)) return null;
+    return h * 60 + m;
+  };
+
+  const isTimeInWindow = (nowMinutes: number, start?: string | null, end?: string | null) => {
+    const startMinutes = toMinutes(start);
+    const endMinutes = toMinutes(end);
+    if (startMinutes === null) return false;
+    if (endMinutes === null) return nowMinutes >= startMinutes;
+    if (endMinutes >= startMinutes) return nowMinutes >= startMinutes && nowMinutes <= endMinutes;
+    return nowMinutes >= startMinutes || nowMinutes <= endMinutes;
+  };
+
+  const customOptions = React.useMemo(() => {
+    if (!entradaConfigPromoter || typeof entradaConfigPromoter !== 'object') return [];
+    const nowMinutes = horaAtual.getHours() * 60 + horaAtual.getMinutes();
+    const options: Array<{ id: string; tipo: EntradaTipo; valor: number; titulo: string; descricao: string; cor: string }> = [];
+    const money = (value?: number | null) => {
+      const parsed = Number(value ?? 0);
+      return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+    };
+
+    const couvert = entradaConfigPromoter.couvert;
+    const couvertValor = money(couvert?.valor);
+    if (couvertValor > 0 && isTimeInWindow(nowMinutes, couvert?.inicio || null, couvert?.fim || null)) {
+      options.push({
+        id: 'couvert',
+        tipo: 'SECO',
+        valor: couvertValor,
+        titulo: 'Couvert Artístico',
+        descricao: `${couvert?.inicio || '--:--'} até ${couvert?.fim || '--:--'}`,
+        cor: 'amber',
+      });
+    }
+
+    const addFaixaOptions = (key: 'faixa_1' | 'faixa_2', title: string) => {
+      const faixa = entradaConfigPromoter[key];
+      if (!faixa || !isTimeInWindow(nowMinutes, faixa.inicio || null, faixa.fim || null)) return;
+      const valorSeco = money(faixa.seco);
+      const valorConsuma = money(faixa.consuma);
+      if (valorSeco > 0) {
+        options.push({
+          id: `${key}-seco`,
+          tipo: 'SECO',
+          valor: valorSeco,
+          titulo: `${title} - SECO`,
+          descricao: `${faixa.inicio || '--:--'} até ${faixa.fim || 'fim da noite'}`,
+          cor: 'blue',
+        });
+      }
+      if (valorConsuma > 0) {
+        options.push({
+          id: `${key}-consuma`,
+          tipo: 'CONSUMA',
+          valor: valorConsuma,
+          titulo: `${title} - CONSUMA`,
+          descricao: `${faixa.inicio || '--:--'} até ${faixa.fim || 'fim da noite'}`,
+          cor: 'purple',
+        });
+      }
+    };
+
+    addFaixaOptions('faixa_1', 'Entrada Faixa 1');
+    addFaixaOptions('faixa_2', 'Entrada Faixa 2');
+    return options;
+  }, [entradaConfigPromoter, horaAtual]);
+
+  const hasCustomPromoterOptions = customOptions.length > 0;
 
   // Calcular opções baseadas no horário
   const opcoes = React.useMemo(() => {
@@ -77,12 +159,16 @@ const EntradaStatusModal: React.FC<EntradaStatusModalProps> = ({
       valorConsuma: 150
     };
   }, [horaAtual]);
+  const canAutoConfirm = opcoes.modoAutomatico && !hasCustomPromoterOptions && !showVipNoiteTudaOption;
 
   // Inicializar o tipo selecionado apenas quando o modal abrir
   React.useEffect(() => {
     if (isOpen && !hasInitialized.current) {
       // Primeira vez que o modal abre nesta sessão
-      if (opcoes.modoAutomatico && opcoes.tipoAutomatico && !showVipNoiteTudaOption) {
+      if (hasCustomPromoterOptions) {
+        setSelectedTipo(null);
+        setSelectedCustomOptionId(null);
+      } else if (opcoes.modoAutomatico && opcoes.tipoAutomatico && !showVipNoiteTudaOption) {
         // Modo automático (e não é VIP noite tuda): já definir como VIP por horário
         setSelectedTipo(opcoes.tipoAutomatico);
       } else {
@@ -94,19 +180,25 @@ const EntradaStatusModal: React.FC<EntradaStatusModalProps> = ({
       // Resetar quando o modal fechar
       setSelectedTipo(null);
       setSelectedEntradaPromoter(false);
+      setSelectedCustomOptionId(null);
       hasInitialized.current = false;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen]); // Apenas quando isOpen mudar
+  }, [isOpen, hasCustomPromoterOptions]); // Apenas quando isOpen mudar
 
   const handleConfirm = () => {
     // Se escolheu VIP a noite toda (lista promoter), confirmar como VIP R$ 0
     if (selectedTipo === 'VIP') {
       onConfirm('VIP', 0);
+    } else if (selectedCustomOptionId) {
+      const selectedOption = customOptions.find((option) => option.id === selectedCustomOptionId);
+      if (selectedOption) {
+        onConfirm(selectedOption.tipo, selectedOption.valor);
+      }
     } else if (selectedTipo === 'SECO' && selectedEntradaPromoter && valorEntradaPromoter > 0) {
       // Entrada com valor da regra do promoter (a noite toda)
       onConfirm('SECO', valorEntradaPromoter);
-    } else if (opcoes.modoAutomatico && opcoes.tipoAutomatico) {
+    } else if (canAutoConfirm && opcoes.tipoAutomatico) {
       // Modo automático (VIP por horário): confirmar VIP diretamente
       onConfirm(opcoes.tipoAutomatico, 0);
     } else if (selectedTipo) {
@@ -159,7 +251,7 @@ const EntradaStatusModal: React.FC<EntradaStatusModalProps> = ({
               <div className="mb-4">
                 <button
                   type="button"
-                  onClick={() => setSelectedTipo('VIP')}
+                  onClick={() => { setSelectedTipo('VIP'); setSelectedCustomOptionId(null); setSelectedEntradaPromoter(false); }}
                   className={`w-full p-4 border-2 rounded-lg text-left transition-all ${
                     selectedTipo === 'VIP'
                       ? 'border-amber-500 bg-amber-50'
@@ -186,11 +278,11 @@ const EntradaStatusModal: React.FC<EntradaStatusModalProps> = ({
             )}
 
             {/* Opção Entrada com valor (lista promoter) — valor da regra de brinde */}
-            {isEntradaPromoter && (
+            {isEntradaPromoter && !hasCustomPromoterOptions && (
               <div className="mb-4">
                 <button
                   type="button"
-                  onClick={() => { setSelectedTipo('SECO'); setSelectedEntradaPromoter(true); }}
+                  onClick={() => { setSelectedTipo('SECO'); setSelectedEntradaPromoter(true); setSelectedCustomOptionId(null); }}
                   className={`w-full p-4 border-2 rounded-lg text-left transition-all ${
                     selectedTipo === 'SECO' && selectedEntradaPromoter
                       ? 'border-emerald-500 bg-emerald-50'
@@ -220,8 +312,45 @@ const EntradaStatusModal: React.FC<EntradaStatusModalProps> = ({
               </div>
             )}
 
+            {/* Opções customizadas por horário (regra de promoter) */}
+            {hasCustomPromoterOptions && (
+              <div className="space-y-3 mb-6">
+                {customOptions.map((option) => {
+                  const isSelected = selectedCustomOptionId === option.id;
+                  const colorClasses = option.cor === 'purple'
+                    ? (isSelected ? 'border-purple-500 bg-purple-50' : 'border-purple-300 hover:border-purple-400')
+                    : option.cor === 'amber'
+                      ? (isSelected ? 'border-amber-500 bg-amber-50' : 'border-amber-300 hover:border-amber-400')
+                      : (isSelected ? 'border-blue-500 bg-blue-50' : 'border-blue-300 hover:border-blue-400');
+
+                  return (
+                    <button
+                      key={option.id}
+                      type="button"
+                      onClick={() => {
+                        setSelectedCustomOptionId(option.id);
+                        setSelectedTipo(null);
+                        setSelectedEntradaPromoter(false);
+                      }}
+                      className={`w-full p-4 border-2 rounded-lg text-left transition-all ${colorClasses}`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <div className="font-semibold text-gray-900">{option.titulo}</div>
+                          <div className="text-sm text-gray-600">{option.descricao}</div>
+                        </div>
+                        <span className="font-bold text-gray-900">
+                          R$ {option.valor.toFixed(2).replace('.', ',')}
+                        </span>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
             {/* Modo Automático VIP por horário (até 22:20h) - só se não for VIP noite tuda */}
-            {opcoes.modoAutomatico && opcoes.tipoAutomatico === 'VIP' && !showVipNoiteTudaOption && (
+            {opcoes.modoAutomatico && opcoes.tipoAutomatico === 'VIP' && !showVipNoiteTudaOption && !hasCustomPromoterOptions && (
               <div className="mb-6">
                 <div className="bg-green-50 border-2 border-green-500 rounded-lg p-4">
                   <div className="flex items-center gap-3">
@@ -239,12 +368,12 @@ const EntradaStatusModal: React.FC<EntradaStatusModalProps> = ({
             )}
 
             {/* Modo Manual (após 22:20h) */}
-            {!opcoes.modoAutomatico && (
+            {!opcoes.modoAutomatico && !hasCustomPromoterOptions && (
               <div className="space-y-3 mb-6">
                 {/* Opção SECO */}
                 {opcoes.mostraSeco && (
                   <button
-                    onClick={() => { setSelectedTipo('SECO'); setSelectedEntradaPromoter(false); }}
+                    onClick={() => { setSelectedTipo('SECO'); setSelectedEntradaPromoter(false); setSelectedCustomOptionId(null); }}
                     className={`w-full p-4 border-2 rounded-lg text-left transition-all ${
                       selectedTipo === 'SECO'
                         ? 'border-blue-500 bg-blue-50'
@@ -272,7 +401,7 @@ const EntradaStatusModal: React.FC<EntradaStatusModalProps> = ({
                 {/* Opção CONSUMA */}
                 {opcoes.mostraConsuma && (
                   <button
-                    onClick={() => { setSelectedTipo('CONSUMA'); setSelectedEntradaPromoter(false); }}
+                    onClick={() => { setSelectedTipo('CONSUMA'); setSelectedEntradaPromoter(false); setSelectedCustomOptionId(null); }}
                     className={`w-full p-4 border-2 rounded-lg text-left transition-all ${
                       selectedTipo === 'CONSUMA'
                         ? 'border-purple-500 bg-purple-50'
@@ -309,14 +438,22 @@ const EntradaStatusModal: React.FC<EntradaStatusModalProps> = ({
               </button>
               <button
                 onClick={handleConfirm}
-                disabled={!opcoes.modoAutomatico && !selectedTipo}
+                disabled={!canAutoConfirm && !selectedTipo && !selectedCustomOptionId}
                 className={`flex-1 px-4 py-2 rounded-lg text-white font-semibold transition-colors ${
-                  (opcoes.modoAutomatico || selectedTipo)
+                  (canAutoConfirm || selectedTipo || selectedCustomOptionId)
                     ? 'bg-green-600 hover:bg-green-700'
                     : 'bg-gray-300 cursor-not-allowed'
                 }`}
               >
-                {selectedTipo === 'VIP' ? 'Confirmar VIP a noite toda' : selectedEntradaPromoter && selectedTipo === 'SECO' ? 'Confirmar Entrada (valor da regra)' : opcoes.modoAutomatico ? 'Confirmar Check-in VIP' : 'Confirmar Check-in'}
+                {selectedTipo === 'VIP'
+                  ? 'Confirmar VIP a noite toda'
+                  : selectedCustomOptionId
+                    ? 'Confirmar Opção Selecionada'
+                    : selectedEntradaPromoter && selectedTipo === 'SECO'
+                      ? 'Confirmar Entrada (valor da regra)'
+                      : canAutoConfirm
+                        ? 'Confirmar Check-in VIP'
+                        : 'Confirmar Check-in'}
               </button>
             </div>
           </div>

@@ -23,6 +23,8 @@ interface GiftRule {
   vip_f_limit?: number;
   /** Valor de entrada (R$) para convidados da lista do promoter no check-in. 0 = sem valor (ex.: VIP noite toda). */
   valor_entrada?: number;
+  /** Configuração opcional de entrada por horário para check-in de convidados de promoter. */
+  entrada_config?: PromoterEntradaConfig | null;
   created_at?: string;
   updated_at?: string;
 }
@@ -33,6 +35,85 @@ interface Promoter {
   apelido?: string;
   email?: string;
 }
+
+interface CouvertConfig {
+  inicio: string;
+  fim: string;
+  valor: number;
+}
+
+interface EntradaFaixaConfig {
+  inicio: string;
+  fim: string;
+  seco: number;
+  consuma: number;
+}
+
+interface PromoterEntradaConfig {
+  couvert: CouvertConfig;
+  faixa_1: EntradaFaixaConfig;
+  faixa_2: EntradaFaixaConfig;
+}
+
+const createDefaultPromoterEntradaConfig = (): PromoterEntradaConfig => ({
+  couvert: { inicio: '', fim: '', valor: 0 },
+  faixa_1: { inicio: '', fim: '', seco: 0, consuma: 0 },
+  faixa_2: { inicio: '', fim: '', seco: 0, consuma: 0 },
+});
+
+const normalizePromoterEntradaConfig = (raw: any): PromoterEntradaConfig => ({
+  couvert: {
+    inicio: typeof raw?.couvert?.inicio === 'string' ? raw.couvert.inicio : '',
+    fim: typeof raw?.couvert?.fim === 'string' ? raw.couvert.fim : '',
+    valor: typeof raw?.couvert?.valor === 'number' ? raw.couvert.valor : (parseFloat(String(raw?.couvert?.valor || 0)) || 0),
+  },
+  faixa_1: {
+    inicio: typeof raw?.faixa_1?.inicio === 'string' ? raw.faixa_1.inicio : '',
+    fim: typeof raw?.faixa_1?.fim === 'string' ? raw.faixa_1.fim : '',
+    seco: typeof raw?.faixa_1?.seco === 'number' ? raw.faixa_1.seco : (parseFloat(String(raw?.faixa_1?.seco || 0)) || 0),
+    consuma: typeof raw?.faixa_1?.consuma === 'number' ? raw.faixa_1.consuma : (parseFloat(String(raw?.faixa_1?.consuma || 0)) || 0),
+  },
+  faixa_2: {
+    inicio: typeof raw?.faixa_2?.inicio === 'string' ? raw.faixa_2.inicio : '',
+    fim: typeof raw?.faixa_2?.fim === 'string' ? raw.faixa_2.fim : '',
+    seco: typeof raw?.faixa_2?.seco === 'number' ? raw.faixa_2.seco : (parseFloat(String(raw?.faixa_2?.seco || 0)) || 0),
+    consuma: typeof raw?.faixa_2?.consuma === 'number' ? raw.faixa_2.consuma : (parseFloat(String(raw?.faixa_2?.consuma || 0)) || 0),
+  },
+});
+
+const sanitizePromoterEntradaConfigForApi = (config: PromoterEntradaConfig) => {
+  const normalizeTime = (value: string) => (value && value.trim() ? value.trim() : null);
+  const normalizeMoney = (value: number) => {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+  };
+
+  const payload = {
+    couvert: {
+      inicio: normalizeTime(config.couvert.inicio),
+      fim: normalizeTime(config.couvert.fim),
+      valor: normalizeMoney(config.couvert.valor),
+    },
+    faixa_1: {
+      inicio: normalizeTime(config.faixa_1.inicio),
+      fim: normalizeTime(config.faixa_1.fim),
+      seco: normalizeMoney(config.faixa_1.seco),
+      consuma: normalizeMoney(config.faixa_1.consuma),
+    },
+    faixa_2: {
+      inicio: normalizeTime(config.faixa_2.inicio),
+      fim: normalizeTime(config.faixa_2.fim),
+      seco: normalizeMoney(config.faixa_2.seco),
+      consuma: normalizeMoney(config.faixa_2.consuma),
+    },
+  };
+
+  const hasData = Object.values(payload).some((item) =>
+    Object.values(item).some((value) => value !== null),
+  );
+
+  return hasData ? payload : null;
+};
 
 export default function GiftsAdminPage() {
   const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL_LOCAL || 'https://api.agilizaiapp.com.br';
@@ -71,6 +152,7 @@ export default function GiftsAdminPage() {
     vip_m_limit: number;
     vip_f_limit: number;
     valor_entrada: number;
+    entrada_config: PromoterEntradaConfig;
   }>({
     descricao: '',
     checkins_necessarios: 5,
@@ -79,6 +161,7 @@ export default function GiftsAdminPage() {
     vip_m_limit: 0,
     vip_f_limit: 0,
     valor_entrada: 0,
+    entrada_config: createDefaultPromoterEntradaConfig(),
   });
   
   // Estados para promoters
@@ -234,6 +317,7 @@ export default function GiftsAdminPage() {
           vip_m_limit: typeof r.vip_m_limit === 'number' ? r.vip_m_limit : 0,
           vip_f_limit: typeof r.vip_f_limit === 'number' ? r.vip_f_limit : 0,
           valor_entrada: typeof r.valor_entrada === 'number' ? r.valor_entrada : (parseFloat(String(r.valor_entrada || 0)) || 0),
+          entrada_config: normalizePromoterEntradaConfig(r.entrada_config || {}),
         }));
         setPromoterGiftRules(rules);
       } else {
@@ -585,6 +669,7 @@ export default function GiftsAdminPage() {
                       vip_m_limit: 0,
                       vip_f_limit: 0,
                       valor_entrada: 0,
+                      entrada_config: createDefaultPromoterEntradaConfig(),
                     });
                     setShowPromoterGiftRuleModal(true);
                   }}
@@ -645,6 +730,25 @@ export default function GiftsAdminPage() {
                               💵 Valor de entrada: R$ {Number(rule.valor_entrada).toFixed(2).replace('.', ',')}
                             </p>
                           )}
+                          {rule.entrada_config && (
+                            <div className="text-xs text-purple-700 mt-2 space-y-1">
+                              {(rule.entrada_config.couvert?.valor ?? 0) > 0 && (
+                                <p>
+                                  🎼 Couvert: {rule.entrada_config.couvert.inicio || '--:--'} até {rule.entrada_config.couvert.fim || '--:--'} — R$ {Number(rule.entrada_config.couvert.valor || 0).toFixed(2).replace('.', ',')}
+                                </p>
+                              )}
+                              {((rule.entrada_config.faixa_1?.seco ?? 0) > 0 || (rule.entrada_config.faixa_1?.consuma ?? 0) > 0) && (
+                                <p>
+                                  ⏰ Faixa 1: {rule.entrada_config.faixa_1.inicio || '--:--'} até {rule.entrada_config.faixa_1.fim || '--:--'} — SECO R$ {Number(rule.entrada_config.faixa_1.seco || 0).toFixed(2).replace('.', ',')} / CONSUMA R$ {Number(rule.entrada_config.faixa_1.consuma || 0).toFixed(2).replace('.', ',')}
+                                </p>
+                              )}
+                              {((rule.entrada_config.faixa_2?.seco ?? 0) > 0 || (rule.entrada_config.faixa_2?.consuma ?? 0) > 0) && (
+                                <p>
+                                  🌙 Faixa 2: {rule.entrada_config.faixa_2.inicio || '--:--'} até {rule.entrada_config.faixa_2.fim || 'fim da noite'} — SECO R$ {Number(rule.entrada_config.faixa_2.seco || 0).toFixed(2).replace('.', ',')} / CONSUMA R$ {Number(rule.entrada_config.faixa_2.consuma || 0).toFixed(2).replace('.', ',')}
+                                </p>
+                              )}
+                            </div>
+                          )}
                         </div>
                         <div className="flex gap-2 ml-4">
                           <button
@@ -658,6 +762,7 @@ export default function GiftsAdminPage() {
                                 vip_m_limit: typeof rule.vip_m_limit === 'number' ? rule.vip_m_limit : 0,
                                 vip_f_limit: typeof rule.vip_f_limit === 'number' ? rule.vip_f_limit : 0,
                                 valor_entrada: typeof rule.valor_entrada === 'number' ? rule.valor_entrada : (parseFloat(String(rule.valor_entrada || 0)) || 0),
+                                entrada_config: normalizePromoterEntradaConfig(rule.entrada_config || {}),
                               });
                               setShowPromoterGiftRuleModal(true);
                             }}
@@ -747,7 +852,7 @@ export default function GiftsAdminPage() {
         {/* Modal para Criar/Editar Regra de Brinde para Aniversário */}
         {showGiftRuleModal && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg p-6 w-full max-w-md shadow-xl">
+            <div className="bg-white rounded-lg p-6 w-full max-w-3xl shadow-xl max-h-[90vh] overflow-y-auto">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-xl font-semibold text-gray-800">
                   {editingGiftRule ? 'Editar Regra de Brinde' : 'Nova Regra de Brinde para Aniversário'}
@@ -891,7 +996,7 @@ export default function GiftsAdminPage() {
                   onClick={() => {
                     setShowPromoterGiftRuleModal(false);
                     setEditingPromoterGiftRule(null);
-setPromoterGiftRuleForm({
+                    setPromoterGiftRuleForm({
                       descricao: '',
                       checkins_necessarios: 5,
                       status: 'ATIVA',
@@ -899,6 +1004,7 @@ setPromoterGiftRuleForm({
                       vip_m_limit: 0,
                       vip_f_limit: 0,
                       valor_entrada: 0,
+                      entrada_config: createDefaultPromoterEntradaConfig(),
                     });
                   }}
                   className="text-gray-400 hover:text-gray-600"
@@ -932,6 +1038,7 @@ setPromoterGiftRuleForm({
                       vip_m_limit: Number(promoterGiftRuleForm.vip_m_limit) || 0,
                       vip_f_limit: Number(promoterGiftRuleForm.vip_f_limit) || 0,
                       valor_entrada: Number(promoterGiftRuleForm.valor_entrada) || 0,
+                      entrada_config: sanitizePromoterEntradaConfigForApi(promoterGiftRuleForm.entrada_config),
                     })
                   });
 
@@ -949,6 +1056,7 @@ setPromoterGiftRuleForm({
                       vip_m_limit: 0,
                       vip_f_limit: 0,
                       valor_entrada: 0,
+                      entrada_config: createDefaultPromoterEntradaConfig(),
                     });
                   } else {
                     const errorData = await response.json();
@@ -1036,6 +1144,139 @@ setPromoterGiftRuleForm({
                     Valor que a recepção cobrará no check-in (lista promoter). 0 = sem valor (ex.: VIP noite toda).
                   </p>
                 </div>
+
+                <div className="border border-purple-200 rounded-lg p-3 bg-purple-50/40 space-y-3">
+                  <h4 className="text-sm font-semibold text-purple-800">Configuração de Entrada por Horário (opcional)</h4>
+                  <p className="text-xs text-purple-700">
+                    Se não preencher os horários/valores abaixo, o check-in seguirá as regras normais já existentes.
+                  </p>
+
+                  <div className="grid grid-cols-3 gap-2">
+                    <input
+                      type="time"
+                      value={promoterGiftRuleForm.entrada_config.couvert.inicio}
+                      onChange={(e) => setPromoterGiftRuleForm(prev => ({
+                        ...prev,
+                        entrada_config: { ...prev.entrada_config, couvert: { ...prev.entrada_config.couvert, inicio: e.target.value } }
+                      }))}
+                      className="px-2 py-2 border border-gray-300 rounded-lg text-sm"
+                    />
+                    <input
+                      type="time"
+                      value={promoterGiftRuleForm.entrada_config.couvert.fim}
+                      onChange={(e) => setPromoterGiftRuleForm(prev => ({
+                        ...prev,
+                        entrada_config: { ...prev.entrada_config, couvert: { ...prev.entrada_config.couvert, fim: e.target.value } }
+                      }))}
+                      className="px-2 py-2 border border-gray-300 rounded-lg text-sm"
+                    />
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={promoterGiftRuleForm.entrada_config.couvert.valor}
+                      onChange={(e) => setPromoterGiftRuleForm(prev => ({
+                        ...prev,
+                        entrada_config: { ...prev.entrada_config, couvert: { ...prev.entrada_config.couvert, valor: Math.max(0, parseFloat(e.target.value) || 0) } }
+                      }))}
+                      className="px-2 py-2 border border-gray-300 rounded-lg text-sm"
+                      placeholder="Couvert"
+                    />
+                  </div>
+                  <p className="text-xs text-gray-500 -mt-1">Couvert Artístico: início, fim e valor (R$).</p>
+
+                  <div className="grid grid-cols-4 gap-2">
+                    <input
+                      type="time"
+                      value={promoterGiftRuleForm.entrada_config.faixa_1.inicio}
+                      onChange={(e) => setPromoterGiftRuleForm(prev => ({
+                        ...prev,
+                        entrada_config: { ...prev.entrada_config, faixa_1: { ...prev.entrada_config.faixa_1, inicio: e.target.value } }
+                      }))}
+                      className="px-2 py-2 border border-gray-300 rounded-lg text-sm"
+                    />
+                    <input
+                      type="time"
+                      value={promoterGiftRuleForm.entrada_config.faixa_1.fim}
+                      onChange={(e) => setPromoterGiftRuleForm(prev => ({
+                        ...prev,
+                        entrada_config: { ...prev.entrada_config, faixa_1: { ...prev.entrada_config.faixa_1, fim: e.target.value } }
+                      }))}
+                      className="px-2 py-2 border border-gray-300 rounded-lg text-sm"
+                    />
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={promoterGiftRuleForm.entrada_config.faixa_1.seco}
+                      onChange={(e) => setPromoterGiftRuleForm(prev => ({
+                        ...prev,
+                        entrada_config: { ...prev.entrada_config, faixa_1: { ...prev.entrada_config.faixa_1, seco: Math.max(0, parseFloat(e.target.value) || 0) } }
+                      }))}
+                      className="px-2 py-2 border border-gray-300 rounded-lg text-sm"
+                      placeholder="Seco"
+                    />
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={promoterGiftRuleForm.entrada_config.faixa_1.consuma}
+                      onChange={(e) => setPromoterGiftRuleForm(prev => ({
+                        ...prev,
+                        entrada_config: { ...prev.entrada_config, faixa_1: { ...prev.entrada_config.faixa_1, consuma: Math.max(0, parseFloat(e.target.value) || 0) } }
+                      }))}
+                      className="px-2 py-2 border border-gray-300 rounded-lg text-sm"
+                      placeholder="Consuma"
+                    />
+                  </div>
+                  <p className="text-xs text-gray-500 -mt-1">Faixa 1: início, fim, valor SECO e valor CONSUMA (R$).</p>
+
+                  <div className="grid grid-cols-4 gap-2">
+                    <input
+                      type="time"
+                      value={promoterGiftRuleForm.entrada_config.faixa_2.inicio}
+                      onChange={(e) => setPromoterGiftRuleForm(prev => ({
+                        ...prev,
+                        entrada_config: { ...prev.entrada_config, faixa_2: { ...prev.entrada_config.faixa_2, inicio: e.target.value } }
+                      }))}
+                      className="px-2 py-2 border border-gray-300 rounded-lg text-sm"
+                    />
+                    <input
+                      type="time"
+                      value={promoterGiftRuleForm.entrada_config.faixa_2.fim}
+                      onChange={(e) => setPromoterGiftRuleForm(prev => ({
+                        ...prev,
+                        entrada_config: { ...prev.entrada_config, faixa_2: { ...prev.entrada_config.faixa_2, fim: e.target.value } }
+                      }))}
+                      className="px-2 py-2 border border-gray-300 rounded-lg text-sm"
+                    />
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={promoterGiftRuleForm.entrada_config.faixa_2.seco}
+                      onChange={(e) => setPromoterGiftRuleForm(prev => ({
+                        ...prev,
+                        entrada_config: { ...prev.entrada_config, faixa_2: { ...prev.entrada_config.faixa_2, seco: Math.max(0, parseFloat(e.target.value) || 0) } }
+                      }))}
+                      className="px-2 py-2 border border-gray-300 rounded-lg text-sm"
+                      placeholder="Seco"
+                    />
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={promoterGiftRuleForm.entrada_config.faixa_2.consuma}
+                      onChange={(e) => setPromoterGiftRuleForm(prev => ({
+                        ...prev,
+                        entrada_config: { ...prev.entrada_config, faixa_2: { ...prev.entrada_config.faixa_2, consuma: Math.max(0, parseFloat(e.target.value) || 0) } }
+                      }))}
+                      className="px-2 py-2 border border-gray-300 rounded-lg text-sm"
+                      placeholder="Consuma"
+                    />
+                  </div>
+                  <p className="text-xs text-gray-500 -mt-1">Faixa 2: início, fim (opcional para "após"), valor SECO e valor CONSUMA (R$).</p>
+                </div>
                 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -1102,6 +1343,7 @@ setPromoterGiftRuleForm({
                         vip_m_limit: 0,
                         vip_f_limit: 0,
                         valor_entrada: 0,
+                        entrada_config: createDefaultPromoterEntradaConfig(),
                       });
                     }}
                     className="flex-1 px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded-lg transition-colors"

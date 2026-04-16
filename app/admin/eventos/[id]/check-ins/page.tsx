@@ -140,6 +140,12 @@ interface ConvidadoReserva {
   entrada_valor?: number;
 }
 
+interface PromoterEntradaConfig {
+  couvert?: { inicio?: string | null; fim?: string | null; valor?: number | null } | null;
+  faixa_1?: { inicio?: string | null; fim?: string | null; seco?: number | null; consuma?: number | null } | null;
+  faixa_2?: { inicio?: string | null; fim?: string | null; seco?: number | null; consuma?: number | null } | null;
+}
+
 interface ConvidadoPromoter {
   id: number;
   tipo: string;
@@ -159,6 +165,8 @@ interface ConvidadoPromoter {
   vip_tipo?: "M" | "F" | null;
   /** Valor de entrada (R$) da regra de brinde do promoter. Exibido no modal de check-in quando > 0. */
   valor_entrada_regra?: number;
+  /** Configuração de entrada por horário da regra de promoter (opcional). */
+  entrada_config_regra?: PromoterEntradaConfig | null;
 }
 
 interface Promoter {
@@ -612,6 +620,8 @@ export default function EventoCheckInsPage() {
     vipNoiteTuda?: boolean;
     /** Valor de entrada (R$) da regra do promoter para exibir no modal de check-in */
     valorEntradaPromoter?: number;
+    /** Configuração de entrada por horário da regra do promoter para exibir no modal. */
+    entradaConfigPromoter?: PromoterEntradaConfig | null;
   } | null>(null);
   const [arrecadacao, setArrecadacao] = useState<{
     totalGeral: number;
@@ -1450,6 +1460,10 @@ export default function EventoCheckInsPage() {
           .map((c: any) => {
             const vipRaw = c.vip_tipo != null ? String(c.vip_tipo).trim().toUpperCase() : "";
             const vipTipo = vipRaw === "M" || vipRaw === "F" ? vipRaw : null;
+            const entradaConfig =
+              c.entrada_config_regra && typeof c.entrada_config_regra === "object"
+                ? (c.entrada_config_regra as PromoterEntradaConfig)
+                : null;
             return {
               ...c,
               tipo: "convidado_promoter" as const,
@@ -1460,6 +1474,7 @@ export default function EventoCheckInsPage() {
               promoter_id: Number(c.promoter_id),
               tipo_lista: c.tipo_lista || "Promoter",
               vip_tipo: vipTipo as "M" | "F" | null,
+              entrada_config_regra: entradaConfig,
             };
           });
 
@@ -2379,6 +2394,7 @@ export default function EventoCheckInsPage() {
         nome: convidado.nome,
         vipNoiteTuda: isVipNoiteTuda,
         valorEntradaPromoter: typeof convidado.valor_entrada_regra === "number" ? convidado.valor_entrada_regra : (parseFloat(String(convidado.valor_entrada_regra || 0)) || 0),
+        entradaConfigPromoter: convidado.entrada_config_regra || null,
       };
       const isRooftop =
         evento?.establishment_id === 9 ||
@@ -8696,6 +8712,9 @@ export default function EventoCheckInsPage() {
           horaAtual={new Date()}
           showVipNoiteTudaOption={convidadoParaCheckIn.tipo === "promoter" && !!convidadoParaCheckIn.vipNoiteTuda}
           valorEntradaPromoter={convidadoParaCheckIn.tipo === "promoter" ? (convidadoParaCheckIn.valorEntradaPromoter ?? 0) : 0}
+          {...((convidadoParaCheckIn.tipo === "promoter"
+            ? { entradaConfigPromoter: convidadoParaCheckIn.entradaConfigPromoter ?? null }
+            : {}) as Record<string, unknown>)}
         />
       )}
 
