@@ -987,7 +987,7 @@ export default function GiftsAdminPage() {
         {/* Modal para Criar/Editar Regra de Brinde para Promoter */}
         {showPromoterGiftRuleModal && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg p-6 w-full max-w-md shadow-xl">
+            <div className="bg-white rounded-lg p-6 w-full max-w-6xl shadow-xl max-h-[90vh] overflow-y-auto">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-xl font-semibold text-gray-800">
                   {editingPromoterGiftRule ? 'Editar Regra de Brinde' : 'Nova Regra de Brinde para Promoter'}
@@ -1066,92 +1066,148 @@ export default function GiftsAdminPage() {
                   console.error('Erro ao salvar regra:', error);
                   alert('Erro ao salvar regra. Tente novamente.');
                 }
-              }} className="space-y-4">
-                {/* Campo para selecionar promoter */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Promoter (Opcional)
-                  </label>
-                  <select
-                    value={promoterGiftRuleForm.promoter_id || ''}
-                    onChange={(e) => setPromoterGiftRuleForm(prev => ({ 
-                      ...prev, 
-                      promoter_id: e.target.value === '' ? null : parseInt(e.target.value)
-                    }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                  >
-                    <option value="">-- Todos os Promoters (Regra Geral) --</option>
-                    {loadingPromoters ? (
-                      <option disabled>Carregando promoters...</option>
-                    ) : (
-                      promoters.map((promoter) => (
-                        <option key={promoter.promoter_id} value={promoter.promoter_id}>
-                          {promoter.nome} {promoter.apelido ? `(${promoter.apelido})` : ''}
-                        </option>
-                      ))
-                    )}
-                  </select>
-                  <p className="text-xs text-gray-500 mt-1">
-                    Selecione um promoter específico ou deixe em branco para aplicar a todos os promoters do estabelecimento
-                  </p>
-                </div>
+              }} className="space-y-5">
+                <div className="grid grid-cols-1 xl:grid-cols-2 gap-5 items-start">
+                  <div className="space-y-4">
+                    {/* Campo para selecionar promoter */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Promoter (Opcional)
+                      </label>
+                      <select
+                        value={promoterGiftRuleForm.promoter_id || ''}
+                        onChange={(e) => setPromoterGiftRuleForm(prev => ({ 
+                          ...prev, 
+                          promoter_id: e.target.value === '' ? null : parseInt(e.target.value)
+                        }))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                      >
+                        <option value="">-- Todos os Promoters (Regra Geral) --</option>
+                        {loadingPromoters ? (
+                          <option disabled>Carregando promoters...</option>
+                        ) : (
+                          promoters.map((promoter) => (
+                            <option key={promoter.promoter_id} value={promoter.promoter_id}>
+                              {promoter.nome} {promoter.apelido ? `(${promoter.apelido})` : ''}
+                            </option>
+                          ))
+                        )}
+                      </select>
+                      <p className="text-xs text-gray-500 mt-1">
+                        Selecione um promoter específico ou deixe em branco para aplicar a todos os promoters do estabelecimento
+                      </p>
+                    </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Limite VIP Masculino
-                    </label>
-                    <input
-                      type="number"
-                      min="0"
-                      value={promoterGiftRuleForm.vip_m_limit}
-                      onChange={(e) => setPromoterGiftRuleForm(prev => ({ ...prev, vip_m_limit: Math.max(0, parseInt(e.target.value, 10) || 0) }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                      placeholder="0"
-                    />
-                    <p className="text-xs text-gray-500 mt-1">0 = sem cota VIP M</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Limite VIP Masculino
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          value={promoterGiftRuleForm.vip_m_limit}
+                          onChange={(e) => setPromoterGiftRuleForm(prev => ({ ...prev, vip_m_limit: Math.max(0, parseInt(e.target.value, 10) || 0) }))}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                          placeholder="0"
+                        />
+                        <p className="text-xs text-gray-500 mt-1">0 = sem cota VIP M</p>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Limite VIP Feminino
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          value={promoterGiftRuleForm.vip_f_limit}
+                          onChange={(e) => setPromoterGiftRuleForm(prev => ({ ...prev, vip_f_limit: Math.max(0, parseInt(e.target.value, 10) || 0) }))}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                          placeholder="0"
+                        />
+                        <p className="text-xs text-gray-500 mt-1">0 = sem cota VIP F</p>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Valor de entrada (R$)
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={promoterGiftRuleForm.valor_entrada}
+                        onChange={(e) => setPromoterGiftRuleForm(prev => ({ ...prev, valor_entrada: Math.max(0, parseFloat(e.target.value) || 0) }))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                        placeholder="0"
+                      />
+                      <p className="text-xs text-gray-500 mt-1">
+                        Valor que a recepção cobrará no check-in (lista promoter). 0 = sem valor (ex.: VIP noite toda).
+                      </p>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Descrição do Brinde *
+                      </label>
+                      <input
+                        type="text"
+                        value={promoterGiftRuleForm.descricao}
+                        onChange={(e) => setPromoterGiftRuleForm(prev => ({ ...prev, descricao: e.target.value }))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                        placeholder="Ex: 10% de comissão, 1 garrafa premium, acesso VIP..."
+                        required
+                      />
+                      <p className="text-xs text-gray-500 mt-1">
+                        Descreva claramente o brinde que será oferecido
+                      </p>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Check-ins Necessários *
+                        </label>
+                        <input
+                          type="number"
+                          min="1"
+                          value={promoterGiftRuleForm.checkins_necessarios}
+                          onChange={(e) => setPromoterGiftRuleForm(prev => ({ ...prev, checkins_necessarios: parseInt(e.target.value) || 1 }))}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                          required
+                        />
+                        <p className="text-xs text-gray-500 mt-1">
+                          Quantidade para liberar o brinde
+                        </p>
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Status
+                        </label>
+                        <select
+                          value={promoterGiftRuleForm.status}
+                          onChange={(e) => setPromoterGiftRuleForm(prev => ({ ...prev, status: e.target.value as 'ATIVA' | 'INATIVA' }))}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                        >
+                          <option value="ATIVA">Ativa</option>
+                          <option value="INATIVA">Inativa</option>
+                        </select>
+                        <p className="text-xs text-gray-500 mt-1">
+                          Regras inativas não são verificadas
+                        </p>
+                      </div>
+                    </div>
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Limite VIP Feminino
-                    </label>
-                    <input
-                      type="number"
-                      min="0"
-                      value={promoterGiftRuleForm.vip_f_limit}
-                      onChange={(e) => setPromoterGiftRuleForm(prev => ({ ...prev, vip_f_limit: Math.max(0, parseInt(e.target.value, 10) || 0) }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                      placeholder="0"
-                    />
-                    <p className="text-xs text-gray-500 mt-1">0 = sem cota VIP F</p>
-                  </div>
-                </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Valor de entrada (R$)
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={promoterGiftRuleForm.valor_entrada}
-                    onChange={(e) => setPromoterGiftRuleForm(prev => ({ ...prev, valor_entrada: Math.max(0, parseFloat(e.target.value) || 0) }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                    placeholder="0"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">
-                    Valor que a recepção cobrará no check-in (lista promoter). 0 = sem valor (ex.: VIP noite toda).
-                  </p>
-                </div>
-
-                <div className="border border-purple-200 rounded-lg p-3 bg-purple-50/40 space-y-3">
+                  <div className="border border-purple-200 rounded-lg p-3 bg-purple-50/40 space-y-3">
                   <h4 className="text-sm font-semibold text-purple-800">Configuração de Entrada por Horário (opcional)</h4>
                   <p className="text-xs text-purple-700">
                     Se não preencher os horários/valores abaixo, o check-in seguirá as regras normais já existentes.
                   </p>
 
-                  <div className="grid grid-cols-3 gap-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                     <input
                       type="time"
                       value={promoterGiftRuleForm.entrada_config.couvert.inicio}
@@ -1185,7 +1241,7 @@ export default function GiftsAdminPage() {
                   </div>
                   <p className="text-xs text-gray-500 -mt-1">Couvert Artístico: início, fim e valor (R$).</p>
 
-                  <div className="grid grid-cols-4 gap-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
                     <input
                       type="time"
                       value={promoterGiftRuleForm.entrada_config.faixa_1.inicio}
@@ -1231,7 +1287,7 @@ export default function GiftsAdminPage() {
                   </div>
                   <p className="text-xs text-gray-500 -mt-1">Faixa 1: início, fim, valor SECO e valor CONSUMA (R$).</p>
 
-                  <div className="grid grid-cols-4 gap-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
                     <input
                       type="time"
                       value={promoterGiftRuleForm.entrada_config.faixa_2.inicio}
@@ -1277,56 +1333,6 @@ export default function GiftsAdminPage() {
                   </div>
                   <p className="text-xs text-gray-500 -mt-1">Faixa 2: início, fim (opcional para "após"), valor SECO e valor CONSUMA (R$).</p>
                 </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Descrição do Brinde *
-                  </label>
-                  <input
-                    type="text"
-                    value={promoterGiftRuleForm.descricao}
-                    onChange={(e) => setPromoterGiftRuleForm(prev => ({ ...prev, descricao: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                    placeholder="Ex: 10% de comissão, 1 garrafa premium, acesso VIP..."
-                    required
-                  />
-                  <p className="text-xs text-gray-500 mt-1">
-                    Descreva claramente o brinde que será oferecido
-                  </p>
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Check-ins Necessários *
-                  </label>
-                  <input
-                    type="number"
-                    min="1"
-                    value={promoterGiftRuleForm.checkins_necessarios}
-                    onChange={(e) => setPromoterGiftRuleForm(prev => ({ ...prev, checkins_necessarios: parseInt(e.target.value) || 1 }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                    required
-                  />
-                  <p className="text-xs text-gray-500 mt-1">
-                    Quantidade de check-ins necessários para liberar este brinde
-                  </p>
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Status
-                  </label>
-                  <select
-                    value={promoterGiftRuleForm.status}
-                    onChange={(e) => setPromoterGiftRuleForm(prev => ({ ...prev, status: e.target.value as 'ATIVA' | 'INATIVA' }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                  >
-                    <option value="ATIVA">Ativa</option>
-                    <option value="INATIVA">Inativa</option>
-                  </select>
-                  <p className="text-xs text-gray-500 mt-1">
-                    Regras inativas não serão verificadas automaticamente
-                  </p>
                 </div>
                 
                 <div className="flex gap-3 pt-4">
