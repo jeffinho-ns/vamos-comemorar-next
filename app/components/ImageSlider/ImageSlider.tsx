@@ -39,9 +39,14 @@ const ImageSlider: React.FC<ImageSliderProps> = ({ images, interval = 5000 }) =>
             alt={`Imagem de capa ${currentIndex + 1}`}
             fill
             sizes="100vw"
+            quality={72}
             className="object-cover"
             priority={currentIndex === 0}
-            unoptimized={images[currentIndex]?.includes('grupoideiaum.com.br') || images[currentIndex]?.includes('cloudinary.com') || images[currentIndex]?.startsWith('blob:') || images[currentIndex]?.includes('/placeholder-') || false}
+            unoptimized={
+              images[currentIndex]?.startsWith('blob:') ||
+              images[currentIndex]?.startsWith('data:') ||
+              false
+            }
           />
         </motion.div>
       </AnimatePresence>

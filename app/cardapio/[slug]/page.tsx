@@ -26,8 +26,8 @@ import ImageSlider from "../../components/ImageSlider/ImageSlider";
 import { scrollToSection } from "../../utils/scrollToSection";
 
 import {
+  type CardapioImageVariant,
   getCardapioPlaceholderUrl,
-  preloadCardapioImages,
   resolveCardapioImageUrl,
   warmCardapioImageIndex,
 } from "@/app/utils/cardapioImageResolver";
@@ -199,8 +199,11 @@ const API_BASE_URL = "https://api.agilizaiapp.com.br/api/cardapio";
 const PLACEHOLDER_IMAGE_URL = "/placeholder-cardapio.svg";
 const PLACEHOLDER_LOGO_URL = getCardapioPlaceholderUrl();
 
-const getValidImageUrl = (filename?: string | null): string => {
-  return resolveCardapioImageUrl(filename || null);
+const getValidImageUrl = (
+  filename?: string | null,
+  variant: CardapioImageVariant = "full",
+): string => {
+  return resolveCardapioImageUrl(filename || null, variant);
 };
 
 const groupItemsBySubcategory = (
@@ -360,29 +363,29 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
         try {
           const parsed = JSON.parse(bar.coverImages);
           if (Array.isArray(parsed)) {
-            coverImages = parsed.map((img: string) => getValidImageUrl(img));
+            coverImages = parsed.map((img: string) => getValidImageUrl(img, "medium"));
           }
         } catch (e) {
           coverImages = bar.coverImages.trim()
-            ? [getValidImageUrl(bar.coverImages)]
+            ? [getValidImageUrl(bar.coverImages, "medium")]
             : [];
         }
       } else if (Array.isArray(bar.coverImages)) {
         coverImages = bar.coverImages.map((img: string) =>
-          getValidImageUrl(img),
+          getValidImageUrl(img, "medium"),
         );
       }
 
       const barWithImages: Bar = {
         ...bar,
-        logoUrl: getValidImageUrl(bar.logoUrl),
-        coverImageUrl: getValidImageUrl(bar.coverImageUrl),
+        logoUrl: getValidImageUrl(bar.logoUrl, "thumb"),
+        coverImageUrl: getValidImageUrl(bar.coverImageUrl, "medium"),
         coverImages:
           coverImages.length > 0
             ? coverImages
-            : [getValidImageUrl(bar.coverImageUrl)],
+            : [getValidImageUrl(bar.coverImageUrl, "medium")],
         popupImageUrl: bar.popupImageUrl
-          ? getValidImageUrl(bar.popupImageUrl)
+          ? getValidImageUrl(bar.popupImageUrl, "medium")
           : undefined,
         facebook: bar.facebook || "",
         instagram: bar.instagram || "",
@@ -496,37 +499,6 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
   }, [fetchBarData]);
 
   useEffect(() => {
-    if (!selectedBar || menuCategories.length === 0) return;
-
-    const imagesToPreload: string[] = [];
-    imagesToPreload.push(selectedBar.logoUrl);
-    imagesToPreload.push(...selectedBar.coverImages.slice(0, 2));
-
-    for (const category of menuCategories) {
-      for (const subcategory of category.subCategories) {
-        for (const item of subcategory.items) {
-          if (imagesToPreload.length >= 10) break;
-          imagesToPreload.push(item.imageUrl);
-        }
-        if (imagesToPreload.length >= 10) break;
-      }
-      if (imagesToPreload.length >= 10) break;
-    }
-
-    const preload = () => preloadCardapioImages(imagesToPreload, 10);
-    if (typeof window !== "undefined" && "requestIdleCallback" in window) {
-      const idleWindow = window as Window & {
-        requestIdleCallback: (cb: () => void) => number;
-      };
-      idleWindow.requestIdleCallback(preload);
-      return;
-    }
-
-    const timer = setTimeout(preload, 80);
-    return () => clearTimeout(timer);
-  }, [selectedBar, menuCategories]);
-
-  useEffect(() => {
     if (typeof window === "undefined") return;
     const headerElement = document.querySelector("header");
     if (!headerElement) return;
@@ -615,6 +587,21 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
     () => menuCategories.find((cat) => cat.name === selectedCategory),
     [menuCategories, selectedCategory],
   );
+
+  const eagerItemIds = useMemo(() => {
+    const ids = new Set<string | number>();
+    for (const category of menuCategories) {
+      for (const subcategory of category.subCategories) {
+        for (const item of subcategory.items) {
+          ids.add(item.id);
+          if (ids.size >= 12) {
+            return ids;
+          }
+        }
+      }
+    }
+    return ids;
+  }, [menuCategories]);
 
   const stickyCategoryOffset = useMemo(
     () => Math.max(headerHeight, 0),
@@ -1018,6 +1005,7 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
       getValidImageUrl,
       renderWineSeal,
       getSealById,
+      eagerImage,
     }: {
       item: MenuItem;
       onClick: (item: MenuItem) => void;
@@ -1034,7 +1022,10 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
         price: number,
         pageLocation: string,
       ) => void;
-      getValidImageUrl: (filename?: string | null) => string;
+      getValidImageUrl: (
+        filename?: string | null,
+        variant?: CardapioImageVariant,
+      ) => string;
       renderWineSeal: (
         sealId: string,
         type: "card" | "modal",
@@ -1043,6 +1034,7 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
         sealId: string,
         bar?: BarFromAPI,
       ) => { name: string; color: string } | null;
+      eagerImage: boolean;
     }) => {
       const isReservaRooftop = selectedBar?.slug === "reserva-rooftop";
       const isCleanStyle =
@@ -1051,13 +1043,13 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
       const itemRef = React.useRef<HTMLDivElement>(null);
       const hasTrackedView = React.useRef(false);
       const hasAnimated = React.useRef(false);
-      const [imageSrc, setImageSrc] = React.useState<string>(() =>
-        getValidImageUrl(item.imageUrl),
-      );
+      const thumbImageUrl = getValidImageUrl(item.imageUrl, "thumb");
+      const mediumImageUrl = getValidImageUrl(item.imageUrl, "medium");
+      const [imageSrc, setImageSrc] = React.useState<string>(thumbImageUrl);
 
       // Atualiza o src se o imageUrl do item mudar
       React.useEffect(() => {
-        setImageSrc(getValidImageUrl(item.imageUrl));
+        setImageSrc(getValidImageUrl(item.imageUrl, "thumb"));
       }, [item.imageUrl, getValidImageUrl]);
 
       // Rastrear visualização quando o item aparece na tela
@@ -1133,10 +1125,21 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
               alt={item.name}
               fill
               sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+              quality={68}
+              loading={eagerImage ? "eager" : "lazy"}
+              fetchPriority={eagerImage ? "high" : "auto"}
+              priority={eagerImage}
               className={`object-cover ${isCleanStyle ? "scale-[1.02]" : ""}`}
-              unoptimized={true}
               onError={() => {
-                // Se a imagem real falhar (404 no FTP ou URL inválida), garante fallback local
+                // Primeiro tenta variante medium, depois fallback local.
+                if (
+                  mediumImageUrl &&
+                  mediumImageUrl !== imageSrc &&
+                  mediumImageUrl !== PLACEHOLDER_IMAGE_URL
+                ) {
+                  setImageSrc(mediumImageUrl);
+                  return;
+                }
                 if (imageSrc !== PLACEHOLDER_IMAGE_URL) {
                   setImageSrc(PLACEHOLDER_IMAGE_URL);
                 }
@@ -1264,9 +1267,11 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
     ({
       item,
       onClick,
+      eagerImage,
     }: {
       item: MenuItem;
       onClick: (item: MenuItem) => void;
+      eagerImage: boolean;
     }) => {
       return (
         <MenuItemCardWithTracking
@@ -1280,6 +1285,7 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
           getValidImageUrl={getValidImageUrl}
           renderWineSeal={renderWineSeal}
           getSealById={getSealById}
+          eagerImage={eagerImage}
         />
       );
     },
@@ -1432,12 +1438,12 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
                 }
               >
                 <Image
-                  src={getValidImageUrl(selectedBar.logoUrl)}
+                  src={getValidImageUrl(selectedBar.logoUrl, "thumb")}
                   alt={`${selectedBar.name} logo`}
                   width={64}
                   height={64}
+                  quality={70}
                   className="rounded-lg"
-                  unoptimized={true}
                 />
 
                 <div className="menu-indicator absolute -top-1 -right-1 md:hidden">
@@ -1644,7 +1650,6 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
                 className="hidden md:block w-full h-auto object-cover hover:scale-105 transition-transform duration-300"
                 priority
                 sizes="(max-width: 767px) 0vw, 100vw"
-                unoptimized={true}
               />
               {/* Banner Mobile - Visível apenas em telas pequenas (até 767px) */}
               <Image
@@ -1655,7 +1660,6 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
                 className="block md:hidden w-full h-auto object-cover hover:scale-105 transition-transform duration-300"
                 priority
                 sizes="(max-width: 767px) 100vw, 0vw"
-                unoptimized={true}
               />
               {/* Overlay gradiente para ambos os banners */}
               <div className="absolute transition-all duration-300"></div>
@@ -1754,6 +1758,7 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
                           key={item.id}
                           item={item}
                           onClick={handleItemClick}
+                          eagerImage={eagerItemIds.has(item.id)}
                         />
                       ))}
                     </div>
@@ -1851,6 +1856,7 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
                           key={item.id}
                           item={item}
                           onClick={handleItemClick}
+                          eagerImage={eagerItemIds.has(item.id)}
                         />
                       ))}
                     </div>
@@ -1893,12 +1899,12 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-3">
                     <Image
-                      src={getValidImageUrl(selectedBar.logoUrl)}
+                      src={getValidImageUrl(selectedBar.logoUrl, "thumb")}
                       alt={`${selectedBar.name} logo`}
                       width={48}
                       height={48}
+                      quality={70}
                       className="rounded-lg"
-                      unoptimized={true}
                     />
                     <h2 className="text-xl font-bold">{selectedBar.name}</h2>
                   </div>
@@ -2039,13 +2045,13 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
               </button>
               <div className="text-center">
                 <Image
-                  src={getValidImageUrl(selectedBar.popupImageUrl)}
+                  src={getValidImageUrl(selectedBar.popupImageUrl, "medium")}
                   alt="Popup de Propaganda"
                   width={600}
                   height={400}
+                  quality={72}
                   className="w-full h-auto rounded-lg"
                   priority
-                  unoptimized={true}
                 />
               </div>
             </motion.div>
@@ -2089,22 +2095,22 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
                           fill
                           sizes="(max-width: 768px) 90vw, 400px"
                           className="w-full h-full object-contain rounded-lg"
-                          unoptimized
                         />
                       </div>
                     ) : (
                       <Image
-                        src={getValidImageUrl(selectedItem.imageUrl)}
+                        src={getValidImageUrl(selectedItem.imageUrl, "medium")}
                         alt={selectedItem.name}
                         fill
                         sizes="(max-width: 768px) 90vw, 400px"
+                        quality={78}
                         className="w-full h-full object-contain rounded-lg shadow-lg"
-                        unoptimized={true}
                         onError={(e) => {
                           console.error("❌ Erro ao carregar imagem do item:", {
                             originalUrl: selectedItem.imageUrl,
                             generatedUrl: getValidImageUrl(
                               selectedItem.imageUrl,
+                              "medium",
                             ),
                             itemName: selectedItem.name,
                           });
