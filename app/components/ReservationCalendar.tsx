@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { MdChevronLeft, MdChevronRight, MdAdd, MdEvent, MdRestaurant, MdPeople } from "react-icons/md";
 import ReservationsDayModal from "./ReservationsDayModal";
 import ReservationDetailsModal from "./ReservationDetailsModal";
@@ -93,6 +93,28 @@ export default function ReservationCalendar({
       return null;
     }
   };
+
+  const reservationsByDate = useMemo(() => {
+    const grouped: Record<string, Reservation[]> = {};
+    for (const reservation of reservations) {
+      const key = toDateKey(reservation.reservation_date);
+      if (!key) continue;
+      if (!grouped[key]) grouped[key] = [];
+      grouped[key].push(reservation);
+    }
+    return grouped;
+  }, [reservations]);
+
+  const birthdayReservationsByDate = useMemo(() => {
+    const grouped: Record<string, BirthdayReservation[]> = {};
+    for (const birthday of birthdayReservations) {
+      const key = toDateKey(birthday.data_aniversario);
+      if (!key) continue;
+      if (!grouped[key]) grouped[key] = [];
+      grouped[key].push(birthday);
+    }
+    return grouped;
+  }, [birthdayReservations]);
 
   // Total de mesas / slots de reserva por estabelecimento
   // Highline = 36 mesas, Seu Justino = 29 mesas, Reserva Rooftop = 60 reservas/dia
@@ -196,13 +218,6 @@ export default function ReservationCalendar({
   const loadReservationsForMonth = useCallback((date: Date) => {
     setLoading(true);
     try {
-      const year = date.getFullYear();
-      const month = date.getMonth() + 1;
-
-      console.log('📅 Processando dados para:', { year, month });
-      console.log('📅 Total de reservas recebidas:', reservations.length);
-      console.log('🎂 Reservas de aniversário disponíveis:', birthdayReservations.length);
-
       // Atualizar dias do calendário com as reservas
       const totalTables = getTotalTablesForEstablishment();
       const updatedDays = generateCalendarDays(date).map(day => {
@@ -219,25 +234,10 @@ export default function ReservationCalendar({
           };
         }
 
-        const dayReservations = reservations.filter(
-          reservation => {
-            const reservationDateKey = toDateKey(reservation.reservation_date);
-            return !!reservationDateKey && reservationDateKey === dayString;
-          }
-        );
+        const dayReservations = reservationsByDate[dayString] || [];
         
         // Filtrar reservas de aniversário para este dia
-        const dayBirthdayReservations = birthdayReservations.filter(
-          birthday => {
-            const birthdayDateKey = toDateKey(birthday.data_aniversario);
-            return !!birthdayDateKey && birthdayDateKey === dayString;
-          }
-        );
-        
-        // Debug: log para dias com aniversários
-        if (dayBirthdayReservations.length > 0) {
-          console.log('🎂 Dia com aniversários:', dayString, dayBirthdayReservations.length, 'aniversários');
-        }
+        const dayBirthdayReservations = birthdayReservationsByDate[dayString] || [];
         
         // IMPORTANTE: Contar apenas reservas ATIVAS para calcular mesas disponíveis
         // Reservas canceladas, finalizadas ou com status inativo NÃO devem bloquear mesas
@@ -246,14 +246,6 @@ export default function ReservationCalendar({
           const status = (reservation.status || '').toLowerCase();
           return activeStatuses.includes(status);
         });
-        
-        // Debug: Log para o dia 28/02/2025 no Seu Justino
-        if (dayString === '2025-02-28' && establishment?.name?.toLowerCase().includes('seu justino')) {
-          console.log(`🔍 [DEBUG 28/02] Total reservas: ${dayReservations.length}, Ativas: ${activeReservations.length}`);
-          dayReservations.forEach(r => {
-            console.log(`  - ID ${r.id}: ${r.client_name} | Status: ${r.status} | Mesa: ${r.table_number || 'N/A'}`);
-          });
-        }
         
         // Calcular disponibilidade:
         // - Para Reserva Rooftop: cada reserva ativa consome 1 slot (de 60 por dia)
@@ -316,7 +308,7 @@ export default function ReservationCalendar({
     } finally {
       setLoading(false);
     }
-  }, [generateCalendarDays, reservations, birthdayReservations, dayGuestTotalsByDate, establishment?.name]);
+  }, [generateCalendarDays, reservationsByDate, birthdayReservationsByDate, dayGuestTotalsByDate, establishment?.name, isReservaRooftop]);
 
   useEffect(() => {
     loadReservationsForMonth(currentDate);
@@ -409,7 +401,8 @@ export default function ReservationCalendar({
 
   const getDayBlockInfo = (date: Date): DayBlockInfo | null => {
     if (!dayBlocks) return null;
-    const key = date.toISOString().split('T')[0];
+    const key = toDateKey(date);
+    if (!key) return null;
     return dayBlocks[key] || null;
   };
 

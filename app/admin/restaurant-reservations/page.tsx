@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import {
   MdRestaurant,
   MdPeople,
@@ -2456,6 +2456,27 @@ export default function RestaurantReservationsPage() {
     (entry) => entry.status === "AGUARDANDO",
   );
 
+  const dayGuestTotalsByDate = useMemo(() => {
+    return Object.entries(checkInStatus).reduce<Record<string, number>>(
+      (acc, [listIdStr, status]) => {
+        const listId = Number(listIdStr);
+        const gl = guestLists.find((g) => g.guest_list_id === listId);
+        if (!gl || !gl.reservation_date) return acc;
+
+        const raw = String(gl.reservation_date).trim();
+        if (!raw) return acc;
+        const safeDate = raw.includes("T") ? raw : `${raw}T12:00:00`;
+        const parsed = new Date(safeDate);
+        if (Number.isNaN(parsed.getTime())) return acc;
+
+        const dateStr = parsed.toISOString().split("T")[0];
+        acc[dateStr] = (acc[dateStr] || 0) + (status.totalGuests || 0);
+        return acc;
+      },
+      {},
+    );
+  }, [checkInStatus, guestLists]);
+
   // Lista de espera filtrada pelo dia selecionado (para direcionar quando a mesa liberar)
   const normalizePreferredDate = (dateStr: string | undefined): string => {
     if (!dateStr || typeof dateStr !== "string") return "";
@@ -2886,24 +2907,7 @@ export default function RestaurantReservationsPage() {
                           setSelectedBlockDay(dayStr);
                           setShowBlockDetailsModal(true);
                         }}
-                        dayGuestTotalsByDate={Object.entries(
-                          checkInStatus,
-                        ).reduce<Record<string, number>>(
-                          (acc, [listIdStr, status]) => {
-                            const listId = Number(listIdStr);
-                            const gl = guestLists.find(
-                              (g) => g.guest_list_id === listId,
-                            );
-                            if (!gl || !gl.reservation_date) return acc;
-                            const dateStr = new Date(gl.reservation_date)
-                              .toISOString()
-                              .split("T")[0];
-                            acc[dateStr] =
-                              (acc[dateStr] || 0) + (status.totalGuests || 0);
-                            return acc;
-                          },
-                          {},
-                        )}
+                        dayGuestTotalsByDate={dayGuestTotalsByDate}
                       />
                     </div>
                   )}
