@@ -325,7 +325,8 @@ const getValidImageUrl = (filename?: string | null): string => {
       const mapped = imageUrlIndex.get(last);
       if (mapped) return toThumbVariant(mapped);
     }
-    return PLACEHOLDER_IMAGE_URL;
+    // Fallback para não sumir imagem no admin quando a URL ainda está no Cloudinary.
+    return toThumbVariant(trimmed);
   }
 
   // Se já é uma URL completa (Firebase/FTP/Unsplash/etc), retornar como está
@@ -2636,7 +2637,7 @@ export default function CardapioAdminPage() {
   const fetchGalleryImages = useCallback(async () => {
     setGalleryLoading(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/gallery/images`);
+      const response = await fetch(`${API_BASE_URL}/gallery/images?limit=2000`);
       if (response.ok) {
         const data = await response.json();
         console.log('📊 Galeria atualizada:', { total: data.total, images: data.images?.length });

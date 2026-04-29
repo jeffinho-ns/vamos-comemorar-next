@@ -208,7 +208,8 @@ export async function warmCardapioImageIndex(apiBaseUrl: string) {
   if (imageUrlIndex.size > 0) return;
   if (warmPromise) return warmPromise;
   warmPromise = (async () => {
-    const res = await fetch(`${apiBaseUrl}/gallery/images`);
+    // Carrega mais itens para evitar "miss" de filename -> URL em bares específicos.
+    const res = await fetch(`${apiBaseUrl}/gallery/images?limit=2000`);
     if (!res.ok) return;
     const data = await res.json();
     const images = Array.isArray(data?.data)
