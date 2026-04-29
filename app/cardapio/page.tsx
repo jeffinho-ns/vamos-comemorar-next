@@ -33,12 +33,17 @@ const PLACEHOLDER_BAR_URL = getCardapioPlaceholderUrl();
 
 const resolveCoverImage = (coverImageUrl?: string | null, coverImages?: string[] | null) => {
   const primary = resolveCardapioImageUrl(coverImageUrl || null);
+  const hasLegacyPublicProxy = typeof primary === 'string' && primary.includes('/public/images/');
+  const firstValidCover = Array.isArray(coverImages)
+    ? coverImages.find((img) => img && img !== PLACEHOLDER_BAR_URL)
+    : null;
+
+  // Quando a capa principal vem de /public/images/ (legado), prioriza coverImages[0]
+  // para evitar 404/403 intermitente de cache/proxy.
+  if (hasLegacyPublicProxy && firstValidCover) return firstValidCover;
+
   if (primary !== PLACEHOLDER_BAR_URL) return primary;
-  const first =
-    Array.isArray(coverImages) && coverImages[0]
-      ? resolveCardapioImageUrl(coverImages[0])
-      : PLACEHOLDER_BAR_URL;
-  return first;
+  return firstValidCover || PLACEHOLDER_BAR_URL;
 };
 
 export default function CardapioPage() {

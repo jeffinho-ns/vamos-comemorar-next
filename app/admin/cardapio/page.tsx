@@ -377,6 +377,27 @@ const getValidImageUrl = (filename?: string | null): string => {
   return PLACEHOLDER_IMAGE_URL;
 };
 
+const resolveBarCoverImage = (bar: { coverImageUrl?: string; coverImages?: string[] }) => {
+  const primary = getValidImageUrl(bar.coverImageUrl);
+  const firstCover = Array.isArray(bar.coverImages) && bar.coverImages[0]
+    ? getValidImageUrl(bar.coverImages[0])
+    : PLACEHOLDER_IMAGE_URL;
+
+  const primaryLooksLegacyProxy =
+    typeof primary === 'string' && primary.includes('/public/images/');
+
+  if (
+    primaryLooksLegacyProxy &&
+    firstCover &&
+    firstCover !== PLACEHOLDER_IMAGE_URL
+  ) {
+    return firstCover;
+  }
+
+  if (primary && primary !== PLACEHOLDER_IMAGE_URL) return primary;
+  return firstCover || PLACEHOLDER_IMAGE_URL;
+};
+
 const applyPracinhaBebidasSubcategoryOrder = <T extends { name: string; order?: number }>(
   subcategories: T[],
   barName?: string,
@@ -3418,11 +3439,7 @@ export default function CardapioAdminPage() {
                     <div key={bar.id} className="overflow-hidden rounded-lg bg-white shadow-md">
                       <div className="relative h-48">
                         <Image
-                          src={getValidImageUrl(bar.coverImageUrl) !== PLACEHOLDER_IMAGE_URL
-                            ? getValidImageUrl(bar.coverImageUrl)
-                            : (Array.isArray(bar.coverImages) && bar.coverImages[0]
-                                ? getValidImageUrl(bar.coverImages[0])
-                                : PLACEHOLDER_IMAGE_URL)}
+                          src={resolveBarCoverImage(bar)}
                           alt={bar.name}
                           fill
                           sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
