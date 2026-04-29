@@ -206,8 +206,40 @@ const getValidImageUrl = (
   return resolveCardapioImageUrl(filename || null, variant);
 };
 
+const PRACINHA_BEBIDAS_SUBCATEGORY_ORDER = [
+  { canonical: "EXCEPCIONAIS CAIPIRINHAS DO PRACINHA", aliases: ["Excepcionais Caipirinhas do Pracinha"] },
+  { canonical: "SÓ TEM NO PRACINHA", aliases: ["Só tem no Pracinha"] },
+  { canonical: "DRINKS BRASILEIROS", aliases: ["Drinks Brasileirinhos", "Drinks Brasileiros"] },
+  { canonical: "DRINKS CLÁSSICOS", aliases: ["Drinks Clássicos"] },
+  { canonical: "CHOPPS E CERVEJA", aliases: ["Chopps & Cervejas", "Chopps e Cervejas"] },
+  { canonical: "DRINKS SEM ALCOOL", aliases: ["Drinks Sem Álcool", "Drinks Sem Alcool"] },
+  { canonical: "GIN NA TAÇA", aliases: ["Gin na Taça e Amor no Coração", "Gin na Taça"] },
+  { canonical: "SPRITZ", aliases: ["Spritz"] },
+  { canonical: "SHOTS DA PRAÇA", aliases: ["Shotzins da Praça", "Shots da Praça"] },
+  { canonical: "OUTROS", aliases: ["Others", "Outros"] },
+  { canonical: "COMBOS", aliases: ["Combos"] },
+  { canonical: "WHISKY", aliases: ["Whisky"] },
+  { canonical: "GIN", aliases: ["Gin"] },
+  { canonical: "VODKA", aliases: ["Vodka"] },
+  { canonical: "LICOR", aliases: ["Liqueur", "Licor"] },
+  { canonical: "RUM", aliases: ["Rum"] },
+  { canonical: "TEQUILA", aliases: ["Tequila"] },
+  { canonical: "SOFT'S", aliases: ["Soft Drinks", "Soft's"] },
+];
+
+const normalizeSortKey = (value: string) =>
+  String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[`´']/g, "'")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+
 const groupItemsBySubcategory = (
   items: MenuItem[],
+  categoryName?: string,
+  barSlug?: string,
 ): { name: string; items: MenuItem[] }[] => {
   const grouped = items.reduce(
     (acc, item) => {
@@ -224,10 +256,32 @@ const groupItemsBySubcategory = (
     {} as Record<string, MenuItem[]>,
   );
 
-  return Object.keys(grouped).map((name) => ({
+  const result = Object.keys(grouped).map((name) => ({
     name,
     items: grouped[name],
   }));
+
+  const isPracinhaBebidas =
+    normalizeSortKey(barSlug || "") === normalizeSortKey("pracinha") &&
+    normalizeSortKey(categoryName || "") === normalizeSortKey("Bebidas");
+  if (!isPracinhaBebidas) {
+    return result;
+  }
+
+  const orderMap = new Map<string, number>();
+  PRACINHA_BEBIDAS_SUBCATEGORY_ORDER.forEach((entry, index) => {
+    orderMap.set(normalizeSortKey(entry.canonical), index);
+    entry.aliases.forEach((alias) => orderMap.set(normalizeSortKey(alias), index));
+  });
+
+  return [...result].sort((a, b) => {
+    const aRank = orderMap.get(normalizeSortKey(a.name));
+    const bRank = orderMap.get(normalizeSortKey(b.name));
+    if (aRank !== undefined && bRank !== undefined) return aRank - bRank;
+    if (aRank !== undefined) return -1;
+    if (bRank !== undefined) return 1;
+    return a.name.localeCompare(b.name);
+  });
 };
 
 const normalizeToDomId = (value: string) => {
@@ -452,7 +506,7 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
         );
         return {
           ...category,
-          subCategories: groupItemsBySubcategory(categoryItems),
+          subCategories: groupItemsBySubcategory(categoryItems, category.name, bar.slug),
         };
       });
 

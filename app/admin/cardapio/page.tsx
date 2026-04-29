@@ -175,6 +175,26 @@ const FULL_CARDAPIO_ACCESS_EMAILS = new Set([
 
 // Placeholder local para todos os pontos do admin
 const PLACEHOLDER_IMAGE_URL = '/placeholder-cardapio.svg';
+const PRACINHA_BEBIDAS_SUBCATEGORY_ORDER = [
+  { canonical: 'EXCEPCIONAIS CAIPIRINHAS DO PRACINHA', aliases: ['Excepcionais Caipirinhas do Pracinha'] },
+  { canonical: 'SÓ TEM NO PRACINHA', aliases: ['Só tem no Pracinha'] },
+  { canonical: 'DRINKS BRASILEIROS', aliases: ['Drinks Brasileirinhos', 'Drinks Brasileiros'] },
+  { canonical: 'DRINKS CLÁSSICOS', aliases: ['Drinks Clássicos'] },
+  { canonical: 'CHOPPS E CERVEJA', aliases: ['Chopps & Cervejas', 'Chopps e Cervejas'] },
+  { canonical: 'DRINKS SEM ALCOOL', aliases: ['Drinks Sem Álcool', 'Drinks Sem Alcool'] },
+  { canonical: 'GIN NA TAÇA', aliases: ['Gin na Taça e Amor no Coração', 'Gin na Taça'] },
+  { canonical: 'SPRITZ', aliases: ['Spritz'] },
+  { canonical: 'SHOTS DA PRAÇA', aliases: ['Shotzins da Praça', 'Shots da Praça'] },
+  { canonical: 'OUTROS', aliases: ['Others', 'Outros'] },
+  { canonical: 'COMBOS', aliases: ['Combos'] },
+  { canonical: 'WHISKY', aliases: ['Whisky'] },
+  { canonical: 'GIN', aliases: ['Gin'] },
+  { canonical: 'VODKA', aliases: ['Vodka'] },
+  { canonical: 'LICOR', aliases: ['Liqueur', 'Licor'] },
+  { canonical: 'RUM', aliases: ['Rum'] },
+  { canonical: 'TEQUILA', aliases: ['Tequila'] },
+  { canonical: "SOFT'S", aliases: ['Soft Drinks', "Soft's"] },
+];
 
 // Índice em memória: resolve valores antigos (filename/objectPath) -> URL pública (Firebase/Cloudinary/etc)
 // Isso evita construir URLs quebradas do Cloudinary e melhora o preview ao selecionar da galeria.
@@ -182,6 +202,38 @@ const imageUrlIndex = new Map<string, string>();
 
 function isHttpUrl(value: string) {
   return /^https?:\/\//i.test(value);
+}
+
+function normalizeSortKey(value: string) {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[`´']/g, "'")
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+}
+
+function toThumbVariant(value: string) {
+  if (!value) return value;
+  return value.replace(/_(full|medium)\.webp$/i, '_thumb.webp');
+}
+
+function toThumbPublicImagesUrl(urlValue: string) {
+  const marker = '/public/images/';
+  if (!urlValue.includes(marker)) return toThumbVariant(urlValue);
+  const [withoutQuery, queryPart] = urlValue.split('?');
+  const raw = withoutQuery.split(marker)[1] || '';
+  if (!raw) return toThumbVariant(urlValue);
+  let decoded = raw;
+  try {
+    decoded = decodeURIComponent(raw);
+  } catch {
+    decoded = raw;
+  }
+  const thumbPath = toThumbVariant(decoded.replace(/^\/+/, ''));
+  const rebuilt = `${withoutQuery.split(marker)[0]}${marker}${encodeURIComponent(thumbPath)}`;
+  return queryPart ? `${rebuilt}?${queryPart}` : rebuilt;
 }
 
 const indexImageUrl = (key: unknown, url: unknown) => {
@@ -271,7 +323,7 @@ const getValidImageUrl = (filename?: string | null): string => {
     const last = trimmed.split('?')[0]?.split('/').pop()?.trim();
     if (last) {
       const mapped = imageUrlIndex.get(last);
-      if (mapped) return mapped;
+      if (mapped) return toThumbVariant(mapped);
     }
     return PLACEHOLDER_IMAGE_URL;
   }
@@ -292,34 +344,68 @@ const getValidImageUrl = (filename?: string | null): string => {
         }
         const key = decodedKey.replace(/^\/+/, '');
         const byExact = imageUrlIndex.get(key);
-        if (byExact) return byExact;
+        if (byExact) return toThumbVariant(byExact);
         const last = key.split('/').pop();
         if (last) {
           const byLast = imageUrlIndex.get(last);
-          if (byLast) return byLast;
+          if (byLast) return toThumbVariant(byLast);
         }
       }
-      return PLACEHOLDER_IMAGE_URL;
+      // Se não houver índice local, mantém a URL de proxy em variante thumb
+      // para evitar sumir imagem no admin.
+      return toThumbPublicImagesUrl(trimmed);
     }
-    return trimmed;
+    return toThumbVariant(trimmed);
   }
 
   // Resolver via índice da galeria (filename/objectPath -> url pública)
   const byExact = imageUrlIndex.get(trimmed);
   if (byExact && (isHttpUrl(byExact) || byExact.startsWith('/') || byExact.startsWith('blob:') || byExact.startsWith('data:'))) {
-    return byExact;
+    return toThumbVariant(byExact);
   }
 
   const lastSegment = trimmed.split('/').pop();
   if (lastSegment) {
     const byLast = imageUrlIndex.get(lastSegment);
     if (byLast && (isHttpUrl(byLast) || byLast.startsWith('/') || byLast.startsWith('blob:') || byLast.startsWith('data:'))) {
-      return byLast;
+      return toThumbVariant(byLast);
     }
   }
 
   // Não conseguimos resolver: não construa URL do Cloudinary (evita 404); use placeholder.
   return PLACEHOLDER_IMAGE_URL;
+};
+
+const applyPracinhaBebidasSubcategoryOrder = <T extends { name: string; order?: number }>(
+  subcategories: T[],
+  barName?: string,
+  categoryName?: string,
+) => {
+  const isPracinhaBar = normalizeSortKey(barName || '').includes(normalizeSortKey('Pracinha do Seu Justino'));
+  const isBebidasCategory = normalizeSortKey(categoryName || '') === normalizeSortKey('Bebidas');
+  if (!isPracinhaBar || !isBebidasCategory) {
+    return subcategories;
+  }
+
+  const orderMap = new Map<string, number>();
+  PRACINHA_BEBIDAS_SUBCATEGORY_ORDER.forEach((entry, index) => {
+    orderMap.set(normalizeSortKey(entry.canonical), index);
+    entry.aliases.forEach((alias) => orderMap.set(normalizeSortKey(alias), index));
+  });
+
+  return [...subcategories].sort((a, b) => {
+    const aRank = orderMap.get(normalizeSortKey(a.name));
+    const bRank = orderMap.get(normalizeSortKey(b.name));
+    const aHasRank = aRank !== undefined;
+    const bHasRank = bRank !== undefined;
+    if (aHasRank && bHasRank) return (aRank as number) - (bRank as number);
+    if (aHasRank) return -1;
+    if (bHasRank) return 1;
+    const aOrder = a.order !== undefined ? Number(a.order) : 999;
+    const bOrder = b.order !== undefined ? Number(b.order) : 999;
+    if (aOrder !== bOrder) return aOrder - bOrder;
+    return (a.name || '').localeCompare(b.name || '');
+  });
 };
 
 export default function CardapioAdminPage() {
@@ -1285,20 +1371,21 @@ export default function CardapioAdminPage() {
           mergedSubCategories.set(key, {
             ...existing,
             ...apiSub,
-            // Manter a ordem original se existir
-            order: existing.order !== undefined ? existing.order : apiSub.order,
+            // Priorizar ordem da API (subcategory_order), que é a fonte oficial.
+            order:
+              apiSub.order !== undefined && apiSub.order !== null
+                ? Number(apiSub.order)
+                : existing.order,
           });
         }
       });
 
         // Converter para array e ordenar
-        finalSubCategories = Array.from(mergedSubCategories.values())
-          .sort((a: any, b: any) => {
-            const orderA = a.order !== undefined && a.order !== null ? Number(a.order) : 999;
-            const orderB = b.order !== undefined && b.order !== null ? Number(b.order) : 999;
-            if (orderA !== orderB) return orderA - orderB;
-            return (a.name || '').localeCompare(b.name || '');
-          });
+        finalSubCategories = applyPracinhaBebidasSubcategoryOrder(
+          Array.from(mergedSubCategories.values()),
+          bar.name,
+          category.name,
+        );
 
         console.log('✅ [QuickEdit] Subcategorias mescladas (local + API):', {
           count: finalSubCategories.length,
