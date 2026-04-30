@@ -110,6 +110,8 @@ type CampaignSendLogRow = {
   created_at: string;
 };
 
+type WhatsappAdminTab = "atendimento" | "links" | "crm" | "campanhas" | "relatorios";
+
 /** Códigos fixos (API/banco); labels em PT para o time (opção A — sem mudar enum). */
 type LeadContactStatus = "new" | "qualified" | "customer" | "inactive";
 
@@ -300,6 +302,7 @@ export default function AdminWhatsappPage() {
   const [manualCentralWhatsappNumber, setManualCentralWhatsappNumber] = useState("");
   const [copiedLinkId, setCopiedLinkId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<WhatsappAdminTab>("atendimento");
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
@@ -1131,6 +1134,14 @@ export default function AdminWhatsappPage() {
     [effectiveCentralWhatsappNumber],
   );
   const hasCentralWhatsappDigits = centralWhatsappDigits.length >= 10;
+  const handoffConversationsCount = useMemo(
+    () => conversations.filter((conv) => handoffActive(conv.human_takeover_until)).length,
+    [conversations],
+  );
+  const activeCampaignsCount = useMemo(
+    () => campaigns.filter((campaign) => campaign.is_active).length,
+    [campaigns],
+  );
   const establishmentEntryLinks = useMemo(
     () =>
       establishmentFilterOptions.map((opt) => {
@@ -1194,7 +1205,7 @@ export default function AdminWhatsappPage() {
 
   return (
     <div className="flex flex-col gap-4 p-4 md:p-6 max-w-[1600px] mx-auto min-h-[calc(100vh-4rem)]">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-100 bg-gradient-to-r from-amber-50 via-white to-orange-50 px-4 py-4 md:px-5">
         <div className="flex items-center gap-2">
           <MdChat className="text-2xl text-amber-600" />
           <div>
@@ -1218,6 +1229,25 @@ export default function AdminWhatsappPage() {
           <MdRefresh />
           Atualizar
         </button>
+      </div>
+
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="rounded-xl border border-gray-200 bg-white px-4 py-3 shadow-sm">
+          <p className="text-xs text-gray-500">Conversas ativas</p>
+          <p className="text-2xl font-semibold text-gray-900">{conversations.length}</p>
+        </div>
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 shadow-sm">
+          <p className="text-xs text-amber-700">Handoff humano</p>
+          <p className="text-2xl font-semibold text-amber-900">{handoffConversationsCount}</p>
+        </div>
+        <div className="rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-3 shadow-sm">
+          <p className="text-xs text-indigo-700">Contatos CRM</p>
+          <p className="text-2xl font-semibold text-indigo-900">{contacts.length}</p>
+        </div>
+        <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 shadow-sm">
+          <p className="text-xs text-emerald-700">Campanhas ativas</p>
+          <p className="text-2xl font-semibold text-emerald-900">{activeCampaignsCount}</p>
+        </div>
       </div>
 
       {error && (
@@ -1437,7 +1467,64 @@ export default function AdminWhatsappPage() {
         </section>
       </div>
 
-      <section className="rounded-xl border border-gray-200 bg-white shadow-sm">
+      <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+        <div className="flex gap-2 overflow-x-auto border-b border-gray-100 p-3">
+          {[
+            { id: "atendimento", label: "Atendimento" },
+            { id: "crm", label: "CRM de contatos" },
+            { id: "campanhas", label: "Campanhas" },
+            { id: "links", label: "Links de entrada" },
+            { id: "relatorios", label: "Relatórios" },
+          ].map((tab) => {
+            const isActive = activeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setActiveTab(tab.id as WhatsappAdminTab)}
+                className={`rounded-lg px-3 py-2 text-sm whitespace-nowrap transition-colors ${
+                  isActive
+                    ? "bg-amber-600 text-white shadow-sm"
+                    : "bg-gray-50 text-gray-600 hover:bg-gray-100"
+                }`}
+              >
+                {tab.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {activeTab === "atendimento" ? (
+        <section className="rounded-xl border border-gray-200 bg-white shadow-sm p-4 md:p-5">
+          <h2 className="text-base font-semibold text-gray-900">Visão rápida do atendimento</h2>
+          <p className="text-sm text-gray-500 mt-1">
+            Use este fluxo para operação diária: selecione uma conversa, ajuste status e
+            responsável, valide a sugestão da IA e envie.
+          </p>
+          <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div className="rounded-lg border border-gray-200 p-3">
+              <p className="text-xs text-gray-500">Conversa selecionada</p>
+              <p className="text-sm font-medium text-gray-900 mt-1">
+                {selectedWaId || "Nenhuma conversa selecionada"}
+              </p>
+            </div>
+            <div className="rounded-lg border border-gray-200 p-3">
+              <p className="text-xs text-gray-500">Status atual</p>
+              <p className="text-sm font-medium text-gray-900 mt-1">{selectedStatus}</p>
+            </div>
+            <div className="rounded-lg border border-gray-200 p-3">
+              <p className="text-xs text-gray-500">Responsável</p>
+              <p className="text-sm font-medium text-gray-900 mt-1">
+                {selectedAssignee || "Sem responsável"}
+              </p>
+            </div>
+          </div>
+        </section>
+      ) : null}
+
+      {activeTab === "links" ? (
+        <section className="rounded-xl border border-gray-200 bg-white shadow-sm">
         <div className="px-4 py-3 border-b border-gray-100">
           <h2 className="text-base font-semibold text-gray-900">
             Links de entrada por estabelecimento
@@ -1565,9 +1652,11 @@ export default function AdminWhatsappPage() {
             </tbody>
           </table>
         </div>
-      </section>
+        </section>
+      ) : null}
 
-      <section className="rounded-xl border border-gray-200 bg-white shadow-sm">
+      {activeTab === "crm" ? (
+        <section className="rounded-xl border border-gray-200 bg-white shadow-sm">
         <div className="px-4 py-3 border-b border-gray-100 flex flex-wrap items-center justify-between gap-2">
           <div>
             <h2 className="text-base font-semibold text-gray-900">
@@ -1839,9 +1928,11 @@ export default function AdminWhatsappPage() {
             </tbody>
           </table>
         </div>
-      </section>
+        </section>
+      ) : null}
 
-      <section className="rounded-xl border border-gray-200 bg-white shadow-sm">
+      {activeTab === "campanhas" ? (
+        <section className="rounded-xl border border-gray-200 bg-white shadow-sm">
         <div className="px-4 py-3 border-b border-gray-100">
           <h2 className="text-base font-semibold text-gray-900">
             Campanhas salvas por estabelecimento
@@ -2272,9 +2363,11 @@ export default function AdminWhatsappPage() {
             </div>
           </div>
         ) : null}
-      </section>
+        </section>
+      ) : null}
 
-      <section className="rounded-xl border border-gray-200 bg-white shadow-sm">
+      {activeTab === "relatorios" ? (
+        <section className="rounded-xl border border-gray-200 bg-white shadow-sm">
         <div className="px-4 py-3 border-b border-gray-100 flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="text-base font-semibold text-gray-900">
@@ -2339,7 +2432,8 @@ export default function AdminWhatsappPage() {
             </p>
           </div>
         </div>
-      </section>
+        </section>
+      ) : null}
     </div>
   );
 }
