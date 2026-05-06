@@ -145,6 +145,7 @@ interface BarFromAPI {
     type: "food" | "drink";
   }>;
   menu_display_style?: MenuDisplayStyle;
+  partner_logos?: string[] | string | null;
 }
 
 interface Bar {
@@ -179,6 +180,7 @@ interface Bar {
     type: "food" | "drink";
   }>;
   menu_display_style: MenuDisplayStyle;
+  partner_logos?: string[];
 }
 
 interface GroupedCategory {
@@ -192,6 +194,31 @@ interface GroupedCategory {
 
 interface CardapioBarPageProps {
   params: Promise<{ slug: string }>;
+}
+
+function parsePartnerLogosFromBar(bar: BarFromAPI): string[] {
+  const raw = bar.partner_logos as unknown;
+  if (raw == null) return [];
+  if (Array.isArray(raw)) {
+    return raw.filter(
+      (x): x is string => typeof x === "string" && x.trim() !== "",
+    );
+  }
+  if (typeof raw === "string") {
+    const t = raw.trim();
+    if (!t) return [];
+    try {
+      const parsed = JSON.parse(t);
+      if (Array.isArray(parsed)) {
+        return parsed.filter(
+          (x): x is string => typeof x === "string" && x.trim() !== "",
+        );
+      }
+    } catch {
+      return [t];
+    }
+  }
+  return [];
 }
 
 const API_BASE_URL = "https://api.agilizaiapp.com.br/api/cardapio";
@@ -447,6 +474,9 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
         custom_seals: bar.custom_seals || [],
         menu_display_style:
           bar.menu_display_style === "clean" ? "clean" : "normal",
+        partner_logos: parsePartnerLogosFromBar(bar)
+          .slice(0, 5)
+          .map((img: string) => getValidImageUrl(img, "thumb")),
       };
 
       setSelectedBar(barWithImages);
@@ -1577,6 +1607,40 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
             </div>
           </div>
         </div>
+
+        {selectedBar.partner_logos &&
+          selectedBar.partner_logos.length > 0 && (
+            <div
+              className={`mb-6 px-2 sm:px-0 ${
+                isCleanStyle ? "text-[#5c5348]" : "text-gray-600"
+              }`}
+            >
+              <p
+                className={`mb-3 text-center text-xs font-semibold uppercase tracking-[0.2em] ${
+                  isCleanStyle ? "text-[#8a7d6b]" : "text-gray-500"
+                }`}
+              >
+                Parceiros
+              </p>
+              <div className="flex flex-wrap items-center justify-center gap-x-8 gap-y-4 px-2 py-3">
+                {selectedBar.partner_logos.map((src, idx) => (
+                  <div
+                    key={`partner-${idx}-${src.slice(0, 48)}`}
+                    className="relative flex h-11 max-w-[140px] flex-1 items-center justify-center sm:h-12 sm:max-w-[160px]"
+                  >
+                    <Image
+                      src={src}
+                      alt=""
+                      width={160}
+                      height={48}
+                      className="max-h-11 w-auto object-contain opacity-90 sm:max-h-12"
+                      unoptimized={src.startsWith("https://res.cloudinary.com")}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
         {menuCategories.length > 0 && (
           // Menu de categorias fixo (visível em todas as telas)

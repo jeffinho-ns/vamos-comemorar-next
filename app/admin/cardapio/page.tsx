@@ -112,6 +112,8 @@ interface BarForm {
   mobile_sidebar_text_color?: string;
   custom_seals?: Array<{ id: string; name: string; color: string; type: 'food' | 'drink' }>;
   menu_display_style: MenuDisplayStyle;
+  /** Até 5 logos exibidos no cardápio público entre o banner e o menu de categorias */
+  partner_logos?: string[];
 }
 
 interface MenuItem {
@@ -160,6 +162,7 @@ interface Bar {
   mobile_sidebar_text_color?: string;
   custom_seals?: Array<{ id: string; name: string; color: string; type: 'food' | 'drink' }>;
   menu_display_style?: MenuDisplayStyle;
+  partner_logos?: string[];
 }
 
 declare module 'react' {
@@ -652,6 +655,7 @@ export default function CardapioAdminPage() {
     mobile_sidebar_text_color: '',
     custom_seals: [],
     menu_display_style: 'normal',
+    partner_logos: [],
   });
 
   const [categoryForm, setCategoryForm] = useState<MenuCategoryForm>({
@@ -1174,6 +1178,7 @@ export default function CardapioAdminPage() {
       instagram: '',
       whatsapp: '',
       menu_display_style: 'normal',
+      partner_logos: [],
     });
   }, []);
 
@@ -2028,12 +2033,20 @@ export default function CardapioAdminPage() {
       const normalizedCoverImageUrl =
         processUrlForSave(barForm.coverImageUrl) || normalizedCoverImages[0] || '';
 
+      const normalizedPartnerLogos = Array.isArray(barForm.partner_logos)
+        ? barForm.partner_logos
+            .map((u) => processUrlForSave(u))
+            .filter((u) => !!u)
+            .slice(0, 5)
+        : [];
+
       const barData = {
         ...barForm,
         logoUrl: processUrlForSave(barForm.logoUrl),
         coverImageUrl: normalizedCoverImageUrl,
         coverImages: normalizedCoverImages,
         popupImageUrl: processUrlForSave(barForm.popupImageUrl),
+        partner_logos: normalizedPartnerLogos,
         rating: barForm.rating ? parseFloat(barForm.rating) : 0,
         reviewsCount: barForm.reviewsCount ? parseInt(barForm.reviewsCount) : 0,
         latitude: barForm.latitude ? parseFloat(barForm.latitude) : null,
@@ -2358,6 +2371,9 @@ export default function CardapioAdminPage() {
           : bar.slug === 'reserva-rooftop' && bar.menu_display_style !== 'normal'
             ? 'clean'
             : 'normal',
+      partner_logos: Array.isArray(bar.partner_logos)
+        ? bar.partner_logos.map((u) => processUrlForForm(u)).filter(Boolean).slice(0, 5)
+        : [],
     });
     setShowBarModal(true);
   }, []);
@@ -2751,6 +2767,12 @@ export default function CardapioAdminPage() {
                   coverImageUrl: nextCoverImageUrl,
                 };
               });
+            } else if (targetField === 'partner_logos') {
+              setBarForm((prev) => {
+                const current = prev.partner_logos || [];
+                if (current.length >= 5) return prev;
+                return { ...prev, partner_logos: [...current, imageValue] };
+              });
             } else if (targetField === 'logoUrl' || targetField === 'coverImageUrl' || targetField === 'popupImageUrl') {
               setBarForm((prev) => ({ ...prev, [targetField]: imageValue }));
             } else if (targetField === 'imageUrl') {
@@ -2783,6 +2805,12 @@ export default function CardapioAdminPage() {
                   coverImages: nextCoverImages,
                   coverImageUrl: nextCoverImageUrl,
                 };
+              });
+            } else if (field === 'partner_logos') {
+              setBarForm((prev) => {
+                const current = prev.partner_logos || [];
+                if (current.length >= 5) return prev;
+                return { ...prev, partner_logos: [...current, imageValue] };
               });
             } else if (field === 'logoUrl' || field === 'coverImageUrl' || field === 'popupImageUrl') {
               setBarForm((prev) => ({ ...prev, [field]: imageValue }));
@@ -2870,6 +2898,13 @@ export default function CardapioAdminPage() {
     }));
   };
 
+  const handleRemovePartnerLogo = (urlToRemove: string) => {
+    setBarForm((prev) => ({
+      ...prev,
+      partner_logos: (prev.partner_logos || []).filter((url) => url !== urlToRemove),
+    }));
+  };
+
   // Função para abrir galeria de imagens
   const openImageGallery = useCallback((field: string) => {
     setImageGalleryField(field);
@@ -2907,6 +2942,12 @@ export default function CardapioAdminPage() {
           coverImages: nextCoverImages,
           coverImageUrl: nextCoverImageUrl,
         };
+      });
+    } else if (imageGalleryField === 'partner_logos') {
+      setBarForm((prev) => {
+        const current = prev.partner_logos || [];
+        if (current.length >= 5) return prev;
+        return { ...prev, partner_logos: [...current, imageValue] };
       });
     } else if (imageGalleryField === 'logoUrl' || imageGalleryField === 'coverImageUrl' || imageGalleryField === 'popupImageUrl') {
       setBarForm((prev) => ({ ...prev, [imageGalleryField]: imageValue }));
@@ -4674,6 +4715,65 @@ export default function CardapioAdminPage() {
                   </div>
                 )}
               </div>
+            </div>
+
+            <div className="rounded-lg border border-gray-200 bg-gray-50/80 p-4">
+              <label className="mb-1 block text-sm font-semibold text-gray-800">
+                Parceiros
+              </label>
+              <p className="mb-3 text-xs text-gray-500">
+                Até 5 logos exibidos no cardápio público, entre o banner e o menu de categorias.
+              </p>
+              <div className="mb-3 flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if ((barForm.partner_logos || []).length >= 5) {
+                      alert('Limite de 5 logos de parceiros.');
+                      return;
+                    }
+                    selectImageFile('partner_logos');
+                  }}
+                  className="flex flex-1 items-center justify-center gap-1 rounded-md bg-green-600 px-3 py-2 text-sm text-white hover:bg-green-700 disabled:cursor-not-allowed disabled:bg-gray-400"
+                  disabled={(barForm.partner_logos || []).length >= 5}
+                >
+                  <MdAdd className="h-4 w-4" />
+                  Adicionar logo
+                </button>
+                <span className="text-xs text-gray-500">
+                  {(barForm.partner_logos || []).length}/5
+                </span>
+              </div>
+              {(barForm.partner_logos || []).length > 0 && (
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                  {(barForm.partner_logos || []).map((url, index) => (
+                    <div key={`${url}-${index}`} className="group relative">
+                      <Image
+                        src={getValidImageUrl(url)}
+                        alt={`Logo parceiro ${index + 1}`}
+                        width={160}
+                        height={80}
+                        className="h-16 w-full rounded-lg border border-gray-200 bg-white object-contain p-2"
+                        onError={(e) => {
+                          e.currentTarget.src = PLACEHOLDER_IMAGE_URL;
+                        }}
+                        unoptimized={
+                          url.startsWith('blob:') ||
+                          url.startsWith('https://res.cloudinary.com')
+                        }
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleRemovePartnerLogo(url)}
+                        className="absolute right-1 top-1 rounded-full bg-red-600 p-1 text-white opacity-0 transition-opacity group-hover:opacity-100"
+                        title="Remover"
+                      >
+                        <MdClose className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* ✨ Campo de Upload para a Imagem do Popup */}
