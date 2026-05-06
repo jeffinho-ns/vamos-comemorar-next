@@ -1647,11 +1647,11 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
             >
               Marcas
             </p>
-            <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-4 px-1 py-1 sm:gap-x-7 sm:gap-y-5">
+            <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-4 px-1 py-1 sm:gap-x-6 sm:gap-y-5">
               {selectedBar.partner_logos.map((src, idx) => (
                 <div
                   key={`partner-${idx}-${src.slice(0, 48)}`}
-                  className={`relative flex h-16 min-w-[140px] max-w-[185px] flex-1 items-center justify-center rounded-xl px-3 py-2 transition-all duration-300 sm:h-[4.5rem] sm:min-w-[160px] sm:max-w-[210px] sm:px-4 ${
+                  className={`relative flex h-20 min-w-[165px] max-w-[220px] flex-1 items-center justify-center rounded-xl px-3 py-2 transition-all duration-300 sm:h-[5.5rem] sm:min-w-[200px] sm:max-w-[260px] sm:px-4 ${
                     isCleanStyle
                       ? "bg-white/80 shadow-[0_8px_22px_rgba(71,55,34,0.12)] hover:shadow-[0_12px_28px_rgba(71,55,34,0.18)]"
                       : "bg-gray-50 shadow-[0_8px_20px_rgba(15,23,42,0.12)] hover:shadow-[0_12px_26px_rgba(15,23,42,0.18)]"
@@ -1660,9 +1660,9 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
                   <Image
                     src={src}
                     alt=""
-                    width={200}
-                    height={72}
-                    className="max-h-14 w-auto object-contain opacity-100 sm:max-h-16"
+                    width={240}
+                    height={96}
+                    className="max-h-16 w-auto object-contain opacity-100 sm:max-h-20"
                     unoptimized={src.startsWith("https://res.cloudinary.com")}
                   />
                 </div>
