@@ -234,15 +234,33 @@ const getValidImageUrl = (
 };
 
 const PRACINHA_BEBIDAS_SUBCATEGORY_ORDER = [
-  { canonical: "EXCEPCIONAIS CAIPIRINHAS DO PRACINHA", aliases: ["Excepcionais Caipirinhas do Pracinha"] },
+  {
+    canonical: "EXCEPCIONAIS CAIPIRINHAS DO PRACINHA",
+    aliases: ["Excepcionais Caipirinhas do Pracinha"],
+  },
   { canonical: "SÓ TEM NO PRACINHA", aliases: ["Só tem no Pracinha"] },
-  { canonical: "DRINKS BRASILEIROS", aliases: ["Drinks Brasileirinhos", "Drinks Brasileiros"] },
+  {
+    canonical: "DRINKS BRASILEIROS",
+    aliases: ["Drinks Brasileirinhos", "Drinks Brasileiros"],
+  },
   { canonical: "DRINKS CLÁSSICOS", aliases: ["Drinks Clássicos"] },
-  { canonical: "CHOPPS E CERVEJA", aliases: ["Chopps & Cervejas", "Chopps e Cervejas"] },
-  { canonical: "DRINKS SEM ALCOOL", aliases: ["Drinks Sem Álcool", "Drinks Sem Alcool"] },
-  { canonical: "GIN NA TAÇA", aliases: ["Gin na Taça e Amor no Coração", "Gin na Taça"] },
+  {
+    canonical: "CHOPPS E CERVEJA",
+    aliases: ["Chopps & Cervejas", "Chopps e Cervejas"],
+  },
+  {
+    canonical: "DRINKS SEM ALCOOL",
+    aliases: ["Drinks Sem Álcool", "Drinks Sem Alcool"],
+  },
+  {
+    canonical: "GIN NA TAÇA",
+    aliases: ["Gin na Taça e Amor no Coração", "Gin na Taça"],
+  },
   { canonical: "SPRITZ", aliases: ["Spritz"] },
-  { canonical: "SHOTS DA PRAÇA", aliases: ["Shotzins da Praça", "Shots da Praça"] },
+  {
+    canonical: "SHOTS DA PRAÇA",
+    aliases: ["Shotzins da Praça", "Shots da Praça"],
+  },
   { canonical: "OUTROS", aliases: ["Others", "Outros"] },
   { canonical: "COMBOS", aliases: ["Combos"] },
   { canonical: "WHISKY", aliases: ["Whisky"] },
@@ -298,7 +316,9 @@ const groupItemsBySubcategory = (
   const orderMap = new Map<string, number>();
   PRACINHA_BEBIDAS_SUBCATEGORY_ORDER.forEach((entry, index) => {
     orderMap.set(normalizeSortKey(entry.canonical), index);
-    entry.aliases.forEach((alias) => orderMap.set(normalizeSortKey(alias), index));
+    entry.aliases.forEach((alias) =>
+      orderMap.set(normalizeSortKey(alias), index),
+    );
   });
 
   return [...result].sort((a, b) => {
@@ -444,7 +464,9 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
         try {
           const parsed = JSON.parse(bar.coverImages);
           if (Array.isArray(parsed)) {
-            coverImages = parsed.map((img: string) => getValidImageUrl(img, "medium"));
+            coverImages = parsed.map((img: string) =>
+              getValidImageUrl(img, "medium"),
+            );
           }
         } catch (e) {
           coverImages = bar.coverImages.trim()
@@ -519,14 +541,12 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
         totalItems: items.length,
         barCategoriesCount: barCategories.length,
         barItemsCount: barItems.length,
-        sampleItems: barItems
-          .slice(0, 3)
-          .map((i: MenuItem) => ({
-            id: i.id,
-            name: i.name,
-            barId: i.barId,
-            visible: i.visible,
-          })),
+        sampleItems: barItems.slice(0, 3).map((i: MenuItem) => ({
+          id: i.id,
+          name: i.name,
+          barId: i.barId,
+          visible: i.visible,
+        })),
       });
 
       const groupedCategories = barCategories.map((category: MenuCategory) => {
@@ -536,7 +556,11 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
         );
         return {
           ...category,
-          subCategories: groupItemsBySubcategory(categoryItems, category.name, bar.slug),
+          subCategories: groupItemsBySubcategory(
+            categoryItems,
+            category.name,
+            bar.slug,
+          ),
         };
       });
 
@@ -1275,12 +1299,12 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
                     <div
                       key={topping.id}
                       className={`flex items-center justify-between ${
-                        isCleanStyle ? "text-[0.7rem] text-[#7a6d5b]" : "text-[0.7rem] text-gray-500"
+                        isCleanStyle
+                          ? "text-[0.7rem] text-[#7a6d5b]"
+                          : "text-[0.7rem] text-gray-500"
                       }`}
                     >
-                      <span className="truncate">
-                        {topping.name}
-                      </span>
+                      <span className="truncate">{topping.name}</span>
                       <span className="ml-2 font-medium">
                         {formatPrice(topping.price)}
                       </span>
@@ -1608,39 +1632,38 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
           </div>
         </div>
 
-        {selectedBar.partner_logos &&
-          selectedBar.partner_logos.length > 0 && (
-            <div
-              className={`mb-6 px-2 sm:px-0 ${
-                isCleanStyle ? "text-[#5c5348]" : "text-gray-600"
+        {selectedBar.partner_logos && selectedBar.partner_logos.length > 0 && (
+          <div
+            className={`mb-6 px-2 sm:px-0 ${
+              isCleanStyle ? "text-[#5c5348]" : "text-gray-600"
+            }`}
+          >
+            <p
+              className={`mb-3 text-center text-xs font-semibold uppercase tracking-[0.2em] ${
+                isCleanStyle ? "text-[#8a7d6b]" : "text-gray-500"
               }`}
             >
-              <p
-                className={`mb-3 text-center text-xs font-semibold uppercase tracking-[0.2em] ${
-                  isCleanStyle ? "text-[#8a7d6b]" : "text-gray-500"
-                }`}
-              >
-                Parceiros
-              </p>
-              <div className="flex flex-wrap items-center justify-center gap-x-8 gap-y-4 px-2 py-3">
-                {selectedBar.partner_logos.map((src, idx) => (
-                  <div
-                    key={`partner-${idx}-${src.slice(0, 48)}`}
-                    className="relative flex h-11 max-w-[140px] flex-1 items-center justify-center sm:h-12 sm:max-w-[160px]"
-                  >
-                    <Image
-                      src={src}
-                      alt=""
-                      width={160}
-                      height={48}
-                      className="max-h-11 w-auto object-contain opacity-90 sm:max-h-12"
-                      unoptimized={src.startsWith("https://res.cloudinary.com")}
-                    />
-                  </div>
-                ))}
-              </div>
+              Marcas
+            </p>
+            <div className="flex flex-wrap items-center justify-center gap-x-8 gap-y-4 px-2 py-3">
+              {selectedBar.partner_logos.map((src, idx) => (
+                <div
+                  key={`partner-${idx}-${src.slice(0, 48)}`}
+                  className="relative flex h-11 max-w-[140px] flex-1 items-center justify-center sm:h-12 sm:max-w-[160px]"
+                >
+                  <Image
+                    src={src}
+                    alt=""
+                    width={160}
+                    height={48}
+                    className="max-h-11 w-auto object-contain opacity-90 sm:max-h-12"
+                    unoptimized={src.startsWith("https://res.cloudinary.com")}
+                  />
+                </div>
+              ))}
             </div>
-          )}
+          </div>
+        )}
 
         {menuCategories.length > 0 && (
           // Menu de categorias fixo (visível em todas as telas)
