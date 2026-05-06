@@ -1634,10 +1634,8 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
 
         {selectedBar.partner_logos && selectedBar.partner_logos.length > 0 && (
           <div
-            className={`mb-7 rounded-2xl px-3 py-4 sm:mb-8 sm:px-4 ${
-              isCleanStyle
-                ? "border border-[#eadfca] bg-[#fbf7ef] text-[#5c5348] shadow-[0_18px_45px_rgba(42,34,24,0.08)]"
-                : "border border-gray-200/80 bg-white text-gray-600 shadow-lg"
+            className={`mb-7 px-3 py-2 sm:mb-8 sm:px-4 ${
+              isCleanStyle ? "text-[#5c5348]" : "text-gray-600"
             }`}
           >
             <p
@@ -1651,11 +1649,7 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
               {selectedBar.partner_logos.map((src, idx) => (
                 <div
                   key={`partner-${idx}-${src.slice(0, 48)}`}
-                  className={`relative flex min-h-[12rem] min-w-[165px] max-w-[220px] flex-1 items-center justify-center rounded-xl px-3 py-3 transition-all duration-300 sm:min-h-[13rem] sm:min-w-[200px] sm:max-w-[260px] sm:px-4 sm:py-4 ${
-                    isCleanStyle
-                      ? "bg-white/80 shadow-[0_8px_22px_rgba(71,55,34,0.12)] hover:shadow-[0_12px_28px_rgba(71,55,34,0.18)]"
-                      : "bg-gray-50 shadow-[0_8px_20px_rgba(15,23,42,0.12)] hover:shadow-[0_12px_26px_rgba(15,23,42,0.18)]"
-                  }`}
+                  className="relative flex min-h-[12rem] min-w-[165px] max-w-[220px] flex-1 items-center justify-center px-3 py-3 sm:min-h-[13rem] sm:min-w-[200px] sm:max-w-[260px] sm:px-4 sm:py-4"
                 >
                   <Image
                     src={src}
