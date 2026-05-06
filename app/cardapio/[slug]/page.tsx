@@ -1651,7 +1651,7 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
               {selectedBar.partner_logos.map((src, idx) => (
                 <div
                   key={`partner-${idx}-${src.slice(0, 48)}`}
-                  className={`relative flex h-20 min-w-[165px] max-w-[220px] flex-1 items-center justify-center rounded-xl px-3 py-2 transition-all duration-300 sm:h-[5.5rem] sm:min-w-[200px] sm:max-w-[260px] sm:px-4 ${
+                  className={`relative flex min-h-[12rem] min-w-[165px] max-w-[220px] flex-1 items-center justify-center rounded-xl px-3 py-3 transition-all duration-300 sm:min-h-[13rem] sm:min-w-[200px] sm:max-w-[260px] sm:px-4 sm:py-4 ${
                     isCleanStyle
                       ? "bg-white/80 shadow-[0_8px_22px_rgba(71,55,34,0.12)] hover:shadow-[0_12px_28px_rgba(71,55,34,0.18)]"
                       : "bg-gray-50 shadow-[0_8px_20px_rgba(15,23,42,0.12)] hover:shadow-[0_12px_26px_rgba(15,23,42,0.18)]"
