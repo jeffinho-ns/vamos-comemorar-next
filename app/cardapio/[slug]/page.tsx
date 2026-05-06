@@ -1634,29 +1634,35 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
 
         {selectedBar.partner_logos && selectedBar.partner_logos.length > 0 && (
           <div
-            className={`mb-6 px-2 sm:px-0 ${
-              isCleanStyle ? "text-[#5c5348]" : "text-gray-600"
+            className={`mb-7 rounded-2xl px-3 py-4 sm:mb-8 sm:px-4 ${
+              isCleanStyle
+                ? "border border-[#eadfca] bg-[#fbf7ef] text-[#5c5348] shadow-[0_18px_45px_rgba(42,34,24,0.08)]"
+                : "border border-gray-200/80 bg-white text-gray-600 shadow-lg"
             }`}
           >
             <p
-              className={`mb-3 text-center text-xs font-semibold uppercase tracking-[0.2em] ${
+              className={`mb-4 text-center text-[0.68rem] font-semibold uppercase tracking-[0.24em] sm:mb-5 ${
                 isCleanStyle ? "text-[#8a7d6b]" : "text-gray-500"
               }`}
             >
               Marcas
             </p>
-            <div className="flex flex-wrap items-center justify-center gap-x-8 gap-y-4 px-2 py-3">
+            <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-4 px-1 py-1 sm:gap-x-7 sm:gap-y-5">
               {selectedBar.partner_logos.map((src, idx) => (
                 <div
                   key={`partner-${idx}-${src.slice(0, 48)}`}
-                  className="relative flex h-11 max-w-[140px] flex-1 items-center justify-center sm:h-12 sm:max-w-[160px]"
+                  className={`relative flex h-16 min-w-[140px] max-w-[185px] flex-1 items-center justify-center rounded-xl px-3 py-2 transition-all duration-300 sm:h-[4.5rem] sm:min-w-[160px] sm:max-w-[210px] sm:px-4 ${
+                    isCleanStyle
+                      ? "bg-white/80 shadow-[0_8px_22px_rgba(71,55,34,0.12)] hover:shadow-[0_12px_28px_rgba(71,55,34,0.18)]"
+                      : "bg-gray-50 shadow-[0_8px_20px_rgba(15,23,42,0.12)] hover:shadow-[0_12px_26px_rgba(15,23,42,0.18)]"
+                  }`}
                 >
                   <Image
                     src={src}
                     alt=""
-                    width={160}
-                    height={48}
-                    className="max-h-11 w-auto object-contain opacity-90 sm:max-h-12"
+                    width={200}
+                    height={72}
+                    className="max-h-14 w-auto object-contain opacity-100 sm:max-h-16"
                     unoptimized={src.startsWith("https://res.cloudinary.com")}
                   />
                 </div>
