@@ -1660,9 +1660,9 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
                   <Image
                     src={src}
                     alt=""
-                    width={240}
-                    height={96}
-                    className="max-h-16 w-auto object-contain opacity-100 sm:max-h-20"
+                    width={320}
+                    height={140}
+                    className="max-h-[4.5rem] w-auto object-contain opacity-100 sm:max-h-[5.75rem]"
                     unoptimized={src.startsWith("https://res.cloudinary.com")}
                   />
                 </div>
