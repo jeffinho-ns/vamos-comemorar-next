@@ -572,8 +572,7 @@ export default function ImageCropModal({
             });
             resolve(blob);
           },
-          "image/jpeg",
-          0.95,
+          "image/png",
         );
       });
     } else {
@@ -611,8 +610,7 @@ export default function ImageCropModal({
             });
             resolve(blob);
           },
-          "image/jpeg",
-          0.95,
+          "image/png",
         );
       });
     }

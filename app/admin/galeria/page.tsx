@@ -497,8 +497,10 @@ export default function AdminGaleriaPage() {
     async (blob: Blob) => {
       setUploading(true);
       try {
-        const file = new File([blob], "galeria.jpg", {
-          type: blob.type || "image/jpeg",
+        const mimeType = blob.type || "image/png";
+        const fileExt = mimeType === "image/webp" ? "webp" : mimeType === "image/jpeg" ? "jpg" : "png";
+        const file = new File([blob], `galeria.${fileExt}`, {
+          type: mimeType,
         });
         await uploadImage(file, cropFolder);
         await fetchImages();

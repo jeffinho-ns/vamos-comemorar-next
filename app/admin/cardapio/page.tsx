@@ -2724,8 +2724,10 @@ export default function CardapioAdminPage() {
       try {
         console.log('🔄 Iniciando upload da imagem recortada', { field, blobSize: croppedBlob.size });
 
-        const file = new File([croppedBlob], 'cropped-image.jpg', {
-          type: croppedBlob.type || 'image/jpeg',
+        const mimeType = croppedBlob.type || 'image/png';
+        const fileExt = mimeType === 'image/webp' ? 'webp' : mimeType === 'image/jpeg' ? 'jpg' : 'png';
+        const file = new File([croppedBlob], `cropped-image.${fileExt}`, {
+          type: mimeType,
         });
 
         const folder =
