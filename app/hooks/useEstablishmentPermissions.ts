@@ -82,15 +82,23 @@ export function useEstablishmentPermissions() {
   };
 
   // Retorna apenas os estabelecimentos permitidos para o usuário
-  const getFilteredEstablishments = <T extends { id: number | string; name?: string }>(
-    establishments: T[]
+  /** Aceita `name` (App/places) ou `nome` (ex.: página de check-ins). */
+  const getFilteredEstablishments = <
+    T extends { id: number | string; name?: string; nome?: string },
+  >(
+    establishments: T[],
   ): T[] => {
     const visibilityScoped = filterEstablishmentListForUser(
       userEmail || undefined,
-      establishments.map((est) => ({
-        ...est,
-        name: typeof est.name === "string" ? est.name : "",
-      })) as Array<{ name: string; id?: number | string }>,
+      establishments.map((est) => {
+        const label =
+          typeof est.name === "string" && est.name.trim() !== ""
+            ? est.name
+            : typeof est.nome === "string" && est.nome.trim() !== ""
+              ? est.nome
+              : "";
+        return { ...est, name: label };
+      }) as Array<{ name: string; id?: number | string }>,
     ) as T[];
 
     // Se tem userConfig, usar ele (prioridade)
