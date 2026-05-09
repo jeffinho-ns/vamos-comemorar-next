@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { useAppContext } from "../context/AppContext";
+import { filterEstablishmentListForUser } from "../utils/establishmentAccessRules";
 
 export interface EstablishmentPermission {
   establishmentId: number;
@@ -81,15 +82,23 @@ export function useEstablishmentPermissions() {
   };
 
   // Retorna apenas os estabelecimentos permitidos para o usuário
-  const getFilteredEstablishments = <T extends { id: number | string }>(
+  const getFilteredEstablishments = <T extends { id: number | string; name?: string }>(
     establishments: T[]
   ): T[] => {
+    const visibilityScoped = filterEstablishmentListForUser(
+      userEmail || undefined,
+      establishments.map((est) => ({
+        ...est,
+        name: typeof est.name === "string" ? est.name : "",
+      })) as T[],
+    );
+
     // Se tem userConfig, usar ele (prioridade)
     if (userConfig && userConfig.establishmentIds.length > 0) {
       // Normalizar IDs para números para comparação correta
       const allowedIds = userConfig.establishmentIds.map(id => Number(id));
       
-      const filtered = establishments.filter((est) => {
+      const filtered = visibilityScoped.filter((est) => {
         const estId = typeof est.id === 'string' ? parseInt(est.id, 10) : Number(est.id);
         return allowedIds.includes(estId);
       });
@@ -106,7 +115,7 @@ export function useEstablishmentPermissions() {
           .map(p => p.establishment_id)
       ));
       
-      const filtered = establishments.filter((est) => {
+      const filtered = visibilityScoped.filter((est) => {
         const estId = typeof est.id === 'string' ? parseInt(est.id) : est.id;
         return allowedIds.includes(estId);
       });
@@ -116,7 +125,7 @@ export function useEstablishmentPermissions() {
     // Se não tem userConfig nem permissões, verificar role
     // Admin continua vendo todos; demais, nenhum (sem permissões explícitas)
     if (normalizedRole === "admin") {
-      return establishments;
+      return visibilityScoped;
     }
 
     return [];

@@ -11,6 +11,11 @@ import {
 } from "react";
 import { getApiUrl } from "../config/api";
 import { AUTH_CHANGED_EVENT } from "../utils/authSession";
+import {
+  filterEstablishmentListForUser,
+  filterEstablishmentPermissionsForUser,
+  normalizeUserEmail,
+} from "../utils/establishmentAccessRules";
 
 export const USE_GLOBAL_CONTEXT = true;
 
@@ -192,12 +197,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         fetch(`${apiUrl}/api/places`, { headers }),
       ]);
 
+      let effectiveEmail = normalizeUserEmail(readCookie("userEmail"));
+
       if (userRes.status === "fulfilled" && userRes.value.ok) {
         const userData = (await userRes.value.json()) as AppUser;
         const normalizedRole = normalizeRole(String(userData.role || ""));
-        const normalizedEmail = String(userData.email || "")
-          .trim()
-          .toLowerCase();
+        const normalizedEmail = normalizeUserEmail(String(userData.email || ""));
+        effectiveEmail = normalizedEmail || effectiveEmail;
         setUser(userData);
         setRole(normalizedRole);
         setUserEmail(normalizedEmail);
@@ -218,8 +224,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           success?: boolean;
           data?: AppPermission[];
         };
+        const raw =
+          permsData.success && Array.isArray(permsData.data) ? permsData.data : [];
         setMyPermissions(
-          permsData.success && Array.isArray(permsData.data) ? permsData.data : [],
+          filterEstablishmentPermissionsForUser(effectiveEmail, raw),
         );
       } else {
         // Fallback seguro exigido: permissao vazia em caso de erro
@@ -245,7 +253,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const placesMapped = placeList.map((item: unknown) =>
         mapPlace(item as Record<string, unknown>),
       );
-      setEstablishments(mergeEstablishments(barsMapped, placesMapped));
+      const merged = mergeEstablishments(barsMapped, placesMapped);
+      setEstablishments(filterEstablishmentListForUser(effectiveEmail, merged));
       setToken(resolvedToken);
     })()
       .catch((err) => {

@@ -4,18 +4,20 @@ import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { MdSearch, MdPerson, MdTableBar, MdCardGiftcard, MdCheckCircle, MdPending, MdStore, MdEvent, MdCake, MdGroups, MdAttachMoney, MdStar } from 'react-icons/md';
 import { WithPermission } from '../../../components/WithPermission/WithPermission';
 import { useEstablishmentPermissions } from '@/app/hooks/useEstablishmentPermissions';
+import {
+  eventBelongsToSelectedCheckinVenue,
+  filterSitioIlhaOutOfCheckins,
+  isTemporaryRegianeCheckinsVenue,
+  LEGACY_HIGHLINE_PLACE_ID,
+  shouldUseHighlineDeckTableMapping,
+} from '@/app/utils/checkinsVenueUtils';
 import EntradaStatusModal, { EntradaTipo } from '../../../components/EntradaStatusModal';
 import { BirthdayReservation } from '../../../services/birthdayService';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.agilizaiapp.com.br';
 
-// Override temporário: recepcionista regianebrunno@gmail.com pode escolher Seu Justino e High Line nas páginas de check-in
+// Override temporário: recepcionista regianebrunno@gmail.com — Seu Justino + Highline (Sitio Ilha é outro cadastro; só cardápio)
 const TEMPORARY_CHECKINS_EMAIL = 'regianebrunno@gmail.com';
-const TEMPORARY_CHECKINS_ESTABLISHMENT_IDS = [1, 7]; // 1 = Seu Justino, 7 = High Line
-const TEMPORARY_CHECKINS_ESTABLISHMENTS: { id: number; nome: string }[] = [
-  { id: 1, nome: 'Seu Justino' },
-  { id: 7, nome: 'High Line' },
-];
 
 interface SearchResult {
   type: 'guest' | 'owner' | 'promoter' | 'promoter_guest';
@@ -201,7 +203,9 @@ export default function TabletCheckInsPage() {
         bars.forEach(b => addItem(Number(b.id), b.name, 'bars'));
         places.forEach(p => addItem(Number(p.id), p.name, 'places'));
 
-        const lista = Array.from(merged.values()).sort((a, b) => a.nome.localeCompare(b.nome));
+        const lista = filterSitioIlhaOutOfCheckins(
+          Array.from(merged.values()).sort((a, b) => a.nome.localeCompare(b.nome)),
+        );
         
         console.log(`📋 [TABLET] Total de estabelecimentos antes do filtro: ${lista.length}`, 
           lista.map(e => ({ id: e.id, nome: e.nome }))
@@ -210,9 +214,15 @@ export default function TabletCheckInsPage() {
         let filteredLista = establishmentPermissions.getFilteredEstablishments(lista);
         const userEmail = (localStorage.getItem('userEmail') || '').trim().toLowerCase();
         if (userEmail === TEMPORARY_CHECKINS_EMAIL) {
-          const tempList = lista.filter((e) => TEMPORARY_CHECKINS_ESTABLISHMENT_IDS.includes(Number(e.id)));
-          filteredLista = tempList.length > 0 ? tempList : TEMPORARY_CHECKINS_ESTABLISHMENTS;
-          console.log('📋 [TABLET] Override temporário ativo para recepcionista: Seu Justino + High Line');
+          const tempList = lista.filter(isTemporaryRegianeCheckinsVenue);
+          filteredLista =
+            tempList.length > 0
+              ? tempList
+              : [
+                  { id: 1, nome: 'Seu Justino' },
+                  { id: LEGACY_HIGHLINE_PLACE_ID, nome: 'High Line' },
+                ];
+          console.log('📋 [TABLET] Override temporário: Seu Justino + Highline (sem Sitio Ilha)');
         }
         
         console.log(`📋 [TABLET] Total de estabelecimentos após filtro: ${filteredLista.length}`, 
@@ -717,12 +727,19 @@ export default function TabletCheckInsPage() {
       : ''
   , [estabelecimentoSelecionado, estabelecimentos]);
 
-  const eventosDoEstabelecimento = useMemo(() => eventos.filter(e => {
-    if (!estabelecimentoSelecionado) return false;
-    const idMatch = Number(e.establishment_id) === Number(estabelecimentoSelecionado);
-    const nameMatch = e.establishment_name && normalize(e.establishment_name) === normalize(selectedEstablishmentName);
-    return idMatch || nameMatch;
-  }), [eventos, estabelecimentoSelecionado, selectedEstablishmentName, normalize]);
+  const eventosDoEstabelecimento = useMemo(
+    () =>
+      eventos.filter((e) => {
+        if (!estabelecimentoSelecionado) return false;
+        return eventBelongsToSelectedCheckinVenue(
+          e,
+          estabelecimentoSelecionado,
+          selectedEstablishmentName,
+          normalize,
+        );
+      }),
+    [eventos, estabelecimentoSelecionado, selectedEstablishmentName, normalize],
+  );
 
   // Busca instantânea nos dados já carregados
   const handleSearch = useCallback((term: string) => {
@@ -733,6 +750,20 @@ export default function TabletCheckInsPage() {
 
     const searchLower = term.toLowerCase().trim();
     const results: SearchResult[] = [];
+
+    const selectedNomeTablet =
+      estabelecimentos.find((est) => est.id === estabelecimentoSelecionado)?.nome || '';
+    const useHighlineDeckMap = shouldUseHighlineDeckTableMapping(selectedNomeTablet);
+
+    const pickSubareaFromTable = (
+      tableNum: string | number | undefined,
+      isJustino: boolean,
+    ): string | null => {
+      if (tableNum === undefined || tableNum === null || `${tableNum}`.trim() === '') return null;
+      if (isJustino) return getSeuJustinoSubareaName(tableNum);
+      if (useHighlineDeckMap) return getHighlineSubareaName(tableNum);
+      return null;
+    };
 
     // Buscar em guest lists (owners)
     for (const gl of loadedData.guestLists) {
@@ -764,9 +795,7 @@ export default function TabletCheckInsPage() {
           
           // 1. Tentar obter subárea pelo número da mesa (mais preciso)
           if (gl.table_number) {
-            const subareaName = isSeuJustinoTablet 
-              ? getSeuJustinoSubareaName(gl.table_number)
-              : getHighlineSubareaName(gl.table_number);
+            const subareaName = pickSubareaFromTable(gl.table_number, !!isSeuJustinoTablet);
             if (subareaName) {
               areaName = subareaName;
             }
@@ -782,16 +811,14 @@ export default function TabletCheckInsPage() {
             if (relatedReservation?.area_name) {
               // Se a área da reserva é uma área principal (Rooftop, Deck, etc), tentar mapear pela mesa
               if (gl.table_number) {
-                const subareaName = isSeuJustinoTablet 
-                  ? getSeuJustinoSubareaName(gl.table_number)
-                  : getHighlineSubareaName(gl.table_number);
+                const subareaName = pickSubareaFromTable(gl.table_number, !!isSeuJustinoTablet);
                 if (subareaName) {
                   areaName = subareaName;
                 } else {
                   // Se não encontrou pela mesa, usar função helper para mapear área correta
                   areaName = isSeuJustinoTablet
                     ? getSeuJustinoSubareaName(gl.table_number) || relatedReservation.area_name
-                    : relatedReservation.area_name;
+                    : pickSubareaFromTable(gl.table_number, false) || relatedReservation.area_name;
                 }
               } else {
                 areaName = relatedReservation.area_name;
@@ -845,9 +872,7 @@ export default function TabletCheckInsPage() {
           
           // 1. Tentar obter subárea pelo número da mesa (mais preciso)
           if (gl.table_number) {
-            const subareaName = isSeuJustinoTablet 
-              ? getSeuJustinoSubareaName(gl.table_number)
-              : getHighlineSubareaName(gl.table_number);
+            const subareaName = pickSubareaFromTable(gl.table_number, !!isSeuJustinoTablet);
             if (subareaName) {
               areaName = subareaName;
             }
@@ -863,16 +888,14 @@ export default function TabletCheckInsPage() {
             if (relatedReservation?.area_name) {
               // Se a área da reserva é uma área principal (Rooftop, Deck, etc), tentar mapear pela mesa
               if (gl.table_number) {
-                const subareaName = isSeuJustinoTablet 
-                  ? getSeuJustinoSubareaName(gl.table_number)
-                  : getHighlineSubareaName(gl.table_number);
+                const subareaName = pickSubareaFromTable(gl.table_number, !!isSeuJustinoTablet);
                 if (subareaName) {
                   areaName = subareaName;
                 } else {
                   // Se não encontrou pela mesa, usar função helper para mapear área correta
                   areaName = isSeuJustinoTablet
                     ? getSeuJustinoSubareaName(gl.table_number) || relatedReservation.area_name
-                    : relatedReservation.area_name;
+                    : pickSubareaFromTable(gl.table_number, false) || relatedReservation.area_name;
                 }
               } else {
                 areaName = relatedReservation.area_name;
@@ -957,9 +980,10 @@ export default function TabletCheckInsPage() {
           // Buscar área correta
           let areaName = null;
           if (reservation.table_number) {
-            const subareaName = isSeuJustinoTablet 
-              ? getSeuJustinoSubareaName(reservation.table_number)
-              : getHighlineSubareaName(reservation.table_number);
+            const subareaName = pickSubareaFromTable(
+              reservation.table_number,
+              !!isSeuJustinoTablet,
+            );
             if (subareaName) {
               areaName = subareaName;
             }
@@ -969,7 +993,8 @@ export default function TabletCheckInsPage() {
             if (isSeuJustinoTablet && reservation.table_number) {
               areaName = getSeuJustinoSubareaName(reservation.table_number) || reservation.area_name;
             } else {
-              areaName = reservation.area_name;
+              areaName =
+                pickSubareaFromTable(reservation.table_number, false) || reservation.area_name;
             }
           }
 
@@ -1090,9 +1115,7 @@ export default function TabletCheckInsPage() {
             // Buscar área correta
             let areaName = null;
             if (r.table_number) {
-              const subareaName = isSeuJustinoTablet 
-                ? getSeuJustinoSubareaName(r.table_number)
-                : getHighlineSubareaName(r.table_number);
+              const subareaName = pickSubareaFromTable(r.table_number, !!isSeuJustinoTablet);
               if (subareaName) {
                 areaName = subareaName;
               }
@@ -1102,7 +1125,7 @@ export default function TabletCheckInsPage() {
               if (isSeuJustinoTablet && r.table_number) {
                 areaName = getSeuJustinoSubareaName(r.table_number) || r.area_name;
               } else {
-                areaName = r.area_name;
+                areaName = pickSubareaFromTable(r.table_number, false) || r.area_name;
               }
             }
 

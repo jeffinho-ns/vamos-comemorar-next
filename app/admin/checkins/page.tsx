@@ -23,16 +23,17 @@ import {
 import { WithPermission } from '../../components/WithPermission/WithPermission';
 import { useEstablishmentPermissions } from '@/app/hooks/useEstablishmentPermissions';
 import { isReservaRooftopEstablishment } from '@/app/utils/rooftopCheckins';
+import {
+  eventBelongsToSelectedCheckinVenue,
+  filterSitioIlhaOutOfCheckins,
+  isTemporaryRegianeCheckinsVenue,
+  LEGACY_HIGHLINE_PLACE_ID,
+} from '@/app/utils/checkinsVenueUtils';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.agilizaiapp.com.br';
 
-// Override temporário: recepcionista regianebrunno@gmail.com pode escolher Seu Justino e High Line nas páginas de check-in
+// Override temporário: recepcionista regianebrunno@gmail.com — Seu Justino + Highline (Sitio Ilha não entra em check-ins)
 const TEMPORARY_CHECKINS_EMAIL = 'regianebrunno@gmail.com';
-const TEMPORARY_CHECKINS_ESTABLISHMENT_IDS = [1, 7]; // 1 = Seu Justino, 7 = High Line
-const TEMPORARY_CHECKINS_ESTABLISHMENTS: { id: number; nome: string }[] = [
-  { id: 1, nome: 'Seu Justino' },
-  { id: 7, nome: 'High Line' },
-];
 
 // Tipos
 interface EventoLista {
@@ -152,8 +153,10 @@ export default function CheckInsGeralPage() {
         }
       });
       
-      // Ordena
-      const lista = Array.from(uniqueById.values()).sort((a, b) => a.nome.localeCompare(b.nome));
+      // Ordena; Sitio Ilha é outro estabelecimento (só cardápio) — não aparece em check-ins
+      const lista = filterSitioIlhaOutOfCheckins(
+        Array.from(uniqueById.values()).sort((a, b) => a.nome.localeCompare(b.nome)),
+      );
       
       console.log(`📋 [CHECKINS] Total de estabelecimentos antes do filtro: ${lista.length}`, 
         lista.map(e => ({ id: e.id, nome: e.nome }))
@@ -184,9 +187,15 @@ export default function CheckInsGeralPage() {
       }
       const userEmail = (localStorage.getItem('userEmail') || '').trim().toLowerCase();
       if (userEmail === TEMPORARY_CHECKINS_EMAIL) {
-        const tempList = lista.filter((e) => TEMPORARY_CHECKINS_ESTABLISHMENT_IDS.includes(Number(e.id)));
-        filteredLista = tempList.length > 0 ? tempList : TEMPORARY_CHECKINS_ESTABLISHMENTS;
-        console.log('📋 [CHECKINS] Override temporário ativo para recepcionista: Seu Justino + High Line');
+        const tempList = lista.filter(isTemporaryRegianeCheckinsVenue);
+        filteredLista =
+          tempList.length > 0
+            ? tempList
+            : [
+                { id: 1, nome: 'Seu Justino' },
+                { id: LEGACY_HIGHLINE_PLACE_ID, nome: 'High Line' },
+              ];
+        console.log('📋 [CHECKINS] Override temporário: Seu Justino + Highline (sem Sitio Ilha)');
       }
       
       console.log(`📋 [CHECKINS] Total de estabelecimentos após filtro: ${filteredLista.length}`, 
@@ -290,21 +299,17 @@ export default function CheckInsGeralPage() {
       return false;
     }
     
-    // Comparação por ID (converter para número para garantir)
     const eventoId = Number(e.establishment_id);
     const selecionadoId = Number(estabelecimentoSelecionado);
-    const idMatch = eventoId === selecionadoId;
-    
-    // Comparação por nome (apenas exata, não partial)
-    const eventoNome = normalize(e.establishment_name || '');
-    const selecionadoNome = normalize(selectedEstablishmentName || '');
-    const nameMatch = eventoNome === selecionadoNome && eventoNome !== '';
-    
-    // Apenas incluir se ID match OU nome match exato (não partial)
-    const shouldInclude = idMatch || nameMatch;
-    
+    const shouldInclude = eventBelongsToSelectedCheckinVenue(
+      e,
+      estabelecimentoSelecionado,
+      selectedEstablishmentName,
+      normalize,
+    );
+
     if (shouldInclude) {
-      console.log(`✅ [CHECKINS] Evento "${e.nome}" incluído para estabelecimento ${selecionadoId} (${selectedEstablishmentName}) - ID match: ${idMatch}, Name match: ${nameMatch}`);
+      console.log(`✅ [CHECKINS] Evento "${e.nome}" incluído para estabelecimento ${selecionadoId} (${selectedEstablishmentName})`);
       console.log(`   📍 Evento establishment_id: ${eventoId}, establishment_name: "${e.establishment_name}"`);
     } else {
       console.log(`🚫 [CHECKINS] Evento "${e.nome}" filtrado:`);
