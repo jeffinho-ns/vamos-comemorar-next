@@ -57,16 +57,26 @@ export function shouldUseHighlineDeckTableMapping(
   return n.includes("high");
 }
 
-/** Comparação estrita: mesmo ID ou mesmo nome normalizado (sem cruzar Highline ↔ Sitio Ilha). */
+/**
+ * Eventos ligados ao estabelecimento: pelo `establishment_id` da API (ex.: Highline = 7).
+ * Não usar pareamento só por nome — evita eventos do Highline ao escolher Sitio Ilha.
+ *
+ * Fallback por nome só quando o evento não tem id numérico válido (> 0).
+ */
 export function eventBelongsToSelectedCheckinVenue(
   event: { establishment_id: number; establishment_name?: string | null },
   selectedId: number,
   selectedName: string,
   normalize: (s: string) => string,
 ): boolean {
-  const eid = Number(event.establishment_id);
   const sid = Number(selectedId);
-  if (eid === sid) return true;
+  if (!Number.isFinite(sid) || sid <= 0) return false;
+
+  const rawEid = Number(event.establishment_id);
+  if (Number.isFinite(rawEid) && rawEid > 0) {
+    return rawEid === sid;
+  }
+
   const en = normalize(event.establishment_name || "");
   const sn = normalize(selectedName || "");
   return en === sn && en !== "";
