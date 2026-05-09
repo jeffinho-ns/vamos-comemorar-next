@@ -156,22 +156,8 @@ export default function TabletCheckInsPage() {
           console.error('Erro na requisição de eventos:', evErr);
         }
 
-        // Buscar estabelecimentos com tratamento de erro individual
-        let bars: any[] = [];
+        // Mesma fonte que /admin/restaurant-reservations e check-ins geral: só `places`
         let places: any[] = [];
-
-        try {
-          const barsRes = await fetch(`${API_URL}/api/bars`, { headers });
-          if (barsRes.ok) {
-            const barsData = await barsRes.json();
-            if (Array.isArray(barsData)) bars = barsData;
-          } else {
-            console.error('Erro ao buscar bars:', barsRes.status, barsRes.statusText);
-          }
-        } catch (barsErr) {
-          console.error('Erro na requisição de bars:', barsErr);
-        }
-
         try {
           const placesRes = await fetch(`${API_URL}/api/places`, { headers });
           if (placesRes.ok) {
@@ -185,26 +171,13 @@ export default function TabletCheckInsPage() {
           console.error('Erro na requisição de places:', placesErr);
         }
 
-        // Normalizar nomes para evitar duplicatas (mesmo padrão da página normal)
-        const normalize = (str: string) => str.toLowerCase().trim().replace(/\s+/g, '');
-        
-        const merged = new Map<string, { id: number; nome: string }>();
-        const addItem = (id: number, nome: string, source: string) => {
-          const key = normalize(nome);
-          if (!key) return;
-          // Usar sempre o ID original do estabelecimento
-          const finalId = id;
-          if (!merged.has(key)) {
-            merged.set(key, { id: Number(finalId), nome: nome.replace(/Jutino/gi, 'Justino') });
-            console.log(`📍 [TABLET] Adicionando: ${nome} (ID: ${finalId}, source: ${source})`);
-          }
-        };
-
-        bars.forEach(b => addItem(Number(b.id), b.name, 'bars'));
-        places.forEach(p => addItem(Number(p.id), p.name, 'places'));
+        const listaRaw: { id: number; nome: string }[] = places.map((p: any) => ({
+          id: Number(p.id),
+          nome: (p.name || 'Sem nome').replace(/Jutino/gi, 'Justino'),
+        }));
 
         const lista = filterSitioIlhaOutOfCheckins(
-          Array.from(merged.values()).sort((a, b) => a.nome.localeCompare(b.nome)),
+          listaRaw.sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR')),
         );
         
         console.log(`📋 [TABLET] Total de estabelecimentos antes do filtro: ${lista.length}`, 

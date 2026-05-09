@@ -15,6 +15,16 @@ export function stripDiacritics(s: string): string {
   return (s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 }
 
+/** Igual à página de reservas: places usa `name`; check-ins legado usa `nome`. */
+export function establishmentDisplayLabel(e: {
+  nome?: string | null;
+  name?: string | null;
+}): string {
+  if (typeof e.name === "string" && e.name.trim() !== "") return e.name;
+  if (typeof e.nome === "string" && e.nome.trim() !== "") return e.nome;
+  return "";
+}
+
 export function isSitioIlhaEstablishmentName(name?: string | null): boolean {
   if (!name) return false;
   const n = stripDiacritics(name.toLowerCase());
@@ -64,7 +74,7 @@ export function eventBelongsToSelectedCheckinVenue(
 
 /** Remove Sitio Ilha da lista de check-in (só cardápio). Nunca remove o place id 7 (Highline). */
 export function filterSitioIlhaOutOfCheckins<
-  T extends { id: number; nome: string },
+  T extends { id: number; nome?: string; name?: string },
 >(lista: T[]): T[] {
   return lista.filter((e) => {
     const id = Number(e.id);
@@ -76,7 +86,7 @@ export function filterSitioIlhaOutOfCheckins<
     ) {
       return false;
     }
-    if (isSitioIlhaEstablishmentName(e.nome)) return false;
+    if (isSitioIlhaEstablishmentName(establishmentDisplayLabel(e))) return false;
     return true;
   });
 }
@@ -84,8 +94,9 @@ export function filterSitioIlhaOutOfCheckins<
 /** Override Regiane: Seu Justino + Highline apenas (não Sitio Ilha). */
 export function isTemporaryRegianeCheckinsVenue(est: {
   id: number;
-  nome: string;
+  nome?: string;
+  name?: string;
 }): boolean {
   if (Number(est.id) === 1) return true;
-  return isHighlineEstablishmentForOps(est.id, est.nome);
+  return isHighlineEstablishmentForOps(est.id, establishmentDisplayLabel(est));
 }

@@ -108,17 +108,8 @@ export default function CheckInsGeralPage() {
         if (!eventoNomeToId.has(key)) eventoNomeToId.set(key, ev.establishment_id);
       }
 
-      // Busca estabelecimentos de ambas as fontes
-      const [barsRes, placesRes] = await Promise.all([
-        fetch(`${API_URL}/api/bars`, { headers }),
-        fetch(`${API_URL}/api/places`, { headers })
-      ]);
-
-      let bars: any[] = [];
-      if (barsRes.ok) {
-        const barsData = await barsRes.json();
-        if (Array.isArray(barsData)) bars = barsData;
-      }
+      // Mesma fonte que /admin/restaurant-reservations: só `places` (evita duplicar Highline bars vs places)
+      const placesRes = await fetch(`${API_URL}/api/places`, { headers });
 
       let places: any[] = [];
       if (placesRes.ok) {
@@ -127,35 +118,19 @@ export default function CheckInsGeralPage() {
         else if (placesData?.data && Array.isArray(placesData.data)) places = placesData.data;
       }
 
-      const merged = new Map<string, { id: number; nome: string }>();
-      const addItem = (id: number, nome: string, source: string) => {
-        const key = normalize(nome);
-        if (!key) return;
-        // Usar uma chave única que inclui o ID para evitar conflitos
-        // Mesmo se os nomes normalizados forem iguais, IDs diferentes devem ser mantidos
-        const uniqueKey = `${key}_${id}`;
-        if (!merged.has(uniqueKey)) {
-          merged.set(uniqueKey, { id: Number(id), nome: nome.replace(/Jutino/gi, 'Justino') });
-          console.log(`📍 [ESTAB] Adicionando: ${nome} (ID: ${id}, source: ${source}, key: ${uniqueKey})`);
-        } else {
-          console.log(`⚠️ [ESTAB] Estabelecimento já existe (mesmo nome normalizado e ID): ${nome} (ID: ${id})`);
-        }
-      };
+      const listaRaw: { id: number; nome: string }[] = places.map((p: any) => ({
+        id: Number(p.id),
+        nome: (p.name || 'Sem nome').replace(/Jutino/gi, 'Justino'),
+      }));
 
-      bars.forEach(b => addItem(Number(b.id), b.name, 'bars'));
-      places.forEach(p => addItem(Number(p.id), p.name, 'places'));
+      console.log(
+        '📍 [CHECKINS] Places (mesma lista que reservas):',
+        listaRaw.map((e) => ({ id: e.id, nome: e.nome })),
+      );
 
-      // Remover duplicatas por ID (manter o primeiro encontrado, priorizar places sobre bars)
-      const uniqueById = new Map<number, { id: number; nome: string }>();
-      Array.from(merged.values()).forEach(est => {
-        if (!uniqueById.has(est.id)) {
-          uniqueById.set(est.id, est);
-        }
-      });
-      
-      // Ordena; Sitio Ilha é outro estabelecimento (só cardápio) — não aparece em check-ins
+      // Ordena; Sitio Ilha (outro cadastro, só cardápio) não aparece em check-ins
       const lista = filterSitioIlhaOutOfCheckins(
-        Array.from(uniqueById.values()).sort((a, b) => a.nome.localeCompare(b.nome)),
+        listaRaw.sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR')),
       );
       
       console.log(`📋 [CHECKINS] Total de estabelecimentos antes do filtro: ${lista.length}`, 
