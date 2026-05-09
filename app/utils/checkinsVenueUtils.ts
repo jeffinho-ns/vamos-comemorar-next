@@ -22,15 +22,16 @@ export function isSitioIlhaEstablishmentName(name?: string | null): boolean {
 }
 
 /**
- * Highline (reservas/eventos). Nunca confundir com Sitio Ilha.
+ * Highline (reservas/eventos). Id 7 é sempre Highline (cadastro histórico).
+ * Sitio Ilha é outro place (ex.: id 10).
  */
 export function isHighlineEstablishmentForOps(
   establishmentId: number,
   establishmentName?: string | null,
 ): boolean {
-  if (isSitioIlhaEstablishmentName(establishmentName)) return false;
   const id = Number(establishmentId);
   if (id === HIGHLINE_PLACE_ID) return true;
+  if (isSitioIlhaEstablishmentName(establishmentName)) return false;
   const n = stripDiacritics((establishmentName || "").toLowerCase());
   return n.includes("high");
 }
@@ -61,19 +62,21 @@ export function eventBelongsToSelectedCheckinVenue(
   return en === sn && en !== "";
 }
 
-/** Remove Sitio Ilha da lista de check-in (só cardápio). */
+/** Remove Sitio Ilha da lista de check-in (só cardápio). Nunca remove o place id 7 (Highline). */
 export function filterSitioIlhaOutOfCheckins<
   T extends { id: number; nome: string },
 >(lista: T[]): T[] {
   return lista.filter((e) => {
-    if (isSitioIlhaEstablishmentName(e.nome)) return false;
+    const id = Number(e.id);
+    if (id === HIGHLINE_PLACE_ID) return true;
     if (
       SITIO_ILHA_PLACE_ID != null &&
       !Number.isNaN(SITIO_ILHA_PLACE_ID) &&
-      Number(e.id) === SITIO_ILHA_PLACE_ID
+      id === SITIO_ILHA_PLACE_ID
     ) {
       return false;
     }
+    if (isSitioIlhaEstablishmentName(e.nome)) return false;
     return true;
   });
 }
