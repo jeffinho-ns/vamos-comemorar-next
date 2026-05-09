@@ -90,8 +90,8 @@ export function useEstablishmentPermissions() {
       establishments.map((est) => ({
         ...est,
         name: typeof est.name === "string" ? est.name : "",
-      })) as T[],
-    );
+      })) as Array<{ name: string; id?: number | string }>,
+    ) as T[];
 
     // Se tem userConfig, usar ele (prioridade)
     if (userConfig && userConfig.establishmentIds.length > 0) {
