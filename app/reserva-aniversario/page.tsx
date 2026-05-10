@@ -10,6 +10,8 @@ import {
 } from 'react-icons/fa';
 import { MdAccessTime, MdLocationOn } from 'react-icons/md';
 import { BirthdayService } from '../services/birthdayService';
+import { useAppContext } from '../context/AppContext';
+import { filterEstablishmentListForUser } from '../utils/establishmentAccessRules';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL_LOCAL || 'https://api.agilizaiapp.com.br';
 
@@ -65,6 +67,7 @@ interface FoodOption {
 }
 
 export default function ReservaAniversarioPage() {
+  const { userEmail } = useAppContext();
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [activeSection, setActiveSection] = useState('dados');
@@ -237,7 +240,16 @@ export default function ReservaAniversarioPage() {
             }));
           
           console.log('✅ Estabelecimentos formatados:', formattedEstablishments.length, formattedEstablishments);
-          setEstablishments(formattedEstablishments);
+          setEstablishments(
+            filterEstablishmentListForUser(
+              userEmail,
+              formattedEstablishments.map((e) => ({
+                ...e,
+                name: e.name || '',
+                slug: e.slug ?? undefined,
+              })),
+            ),
+          );
         } else {
           const errorText = await response.text();
           console.error('❌ Erro ao carregar estabelecimentos:', response.status, errorText);
@@ -251,7 +263,7 @@ export default function ReservaAniversarioPage() {
       }
     };
     loadEstablishments();
-  }, []);
+  }, [userEmail]);
 
   // Carregar áreas quando estabelecimento for selecionado
   const loadAreas = async (establishmentId: number) => {

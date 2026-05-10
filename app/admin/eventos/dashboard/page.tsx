@@ -20,6 +20,8 @@ import {
 } from 'react-icons/md';
 import PromoterEventosModal from '../../../components/PromoterEventosModal';
 import { useEstablishmentPermissions } from '@/app/hooks/useEstablishmentPermissions';
+import { useAppContext } from '@/app/context/AppContext';
+import { filterEstablishmentListForUser } from '@/app/utils/establishmentAccessRules';
 
 interface Establishment {
   id: number;
@@ -68,6 +70,7 @@ interface DashboardData {
 type TabType = 'dashboard' | 'promoters' | 'listas' | 'hostess' | 'aniversarios';
 
 export default function EventosDashboard() {
+  const { userEmail } = useAppContext();
   const router = useRouter();
   const establishmentPermissions = useEstablishmentPermissions();
   const [loading, setLoading] = useState(true);
@@ -115,8 +118,19 @@ export default function EventosDashboard() {
         name: place.name || 'Sem nome'
       }));
 
-      // Filtrar estabelecimentos baseado nas permissões do usuário
-      const filteredEstablishments = establishmentPermissions.getFilteredEstablishments(formatted) as Establishment[];
+      const visibilityScoped = filterEstablishmentListForUser(
+        userEmail,
+        formatted.map((e: Establishment) => {
+          const raw = estabs.find(
+            (p: { id?: number }) => Number(p?.id) === Number(e.id),
+          );
+          return { ...e, name: e.name || '', slug: raw?.slug };
+        }),
+      ) as Establishment[];
+
+      const filteredEstablishments = establishmentPermissions.getFilteredEstablishments(
+        visibilityScoped,
+      ) as Establishment[];
       setEstablishments(filteredEstablishments);
       
       // Selecionar automaticamente se houver apenas um estabelecimento ou se estiver restrito

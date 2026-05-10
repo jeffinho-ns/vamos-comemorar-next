@@ -3,6 +3,8 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { MdDashboard, MdEvent, MdBookOnline, MdShoppingCart, MdList, MdStar, MdSecurity, MdAssessment, MdSettings } from "react-icons/md";
 import { useEstablishmentPermissions } from "@/app/hooks/useEstablishmentPermissions";
+import { useAppContext } from "@/app/context/AppContext";
+import { filterEstablishmentListForUser } from "@/app/utils/establishmentAccessRules";
 
 // Componentes do painel (serão criados em seguida)
 import ResumoEventos from "../../components/painel/ResumoEventos";
@@ -35,6 +37,7 @@ const menuItems = [
 ];
 
 export default function PainelEventos() {
+  const { userEmail } = useAppContext();
   const establishmentPermissions = useEstablishmentPermissions();
   const [selectedEstablishment, setSelectedEstablishment] = useState<Establishment | null>(null);
   const [activeMenu, setActiveMenu] = useState<string>("resumo");
@@ -127,6 +130,17 @@ export default function PainelEventos() {
         return;
       }
 
+      const rawPlacesList = Array.isArray(data) ? data : data.data || [];
+      formattedEstablishments = filterEstablishmentListForUser(
+        userEmail,
+        formattedEstablishments.map((est) => {
+          const raw = rawPlacesList.find(
+            (p: { id?: number }) => Number(p?.id) === Number(est.id),
+          );
+          return { ...est, name: est.name || "", slug: raw?.slug };
+        }),
+      ) as Establishment[];
+
       console.log("Estabelecimentos formatados (places):", formattedEstablishments);
       
       // Filtrar estabelecimentos baseado nas permissões do usuário
@@ -202,7 +216,7 @@ export default function PainelEventos() {
     } finally {
       setLoading(false);
     }
-  }, [API_URL, filterEstablishments, isRestricted, defaultEstablishmentId]);
+  }, [API_URL, filterEstablishments, isRestricted, defaultEstablishmentId, userEmail]);
 
   useEffect(() => {
     if (!establishmentPermissions.isLoading && !hasSelectedRef.current) {

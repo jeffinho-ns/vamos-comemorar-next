@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
+import { useAppContext } from '@/app/context/AppContext';
+import { filterEstablishmentListForUser } from '@/app/utils/establishmentAccessRules';
 import {
   MdArrowBack,
   MdEvent,
@@ -33,6 +35,7 @@ interface Establishment {
 }
 
 export default function ConfigurarEventosPage() {
+  const { userEmail } = useAppContext();
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [eventos, setEventos] = useState<Evento[]>([]);
@@ -66,7 +69,17 @@ export default function ConfigurarEventosPage() {
       if (response.ok) {
         const data = await response.json();
         const estabs = Array.isArray(data) ? data : data.data || [];
-        setEstablishments(estabs.map((p: any) => ({ id: p.id, name: p.name })));
+        const mapped = estabs.map((p: any) => ({
+          id: p.id,
+          name: p.name || '',
+          slug: p.slug as string | undefined,
+        }));
+        setEstablishments(
+          filterEstablishmentListForUser(userEmail, mapped).map((e) => ({
+            id: e.id as number,
+            name: e.name || '',
+          })),
+        );
       }
     } catch (error) {
       console.error('❌ Erro ao carregar estabelecimentos:', error);

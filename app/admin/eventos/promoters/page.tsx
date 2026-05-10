@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { useAppContext } from '@/app/context/AppContext';
+import { filterEstablishmentListForUser } from '@/app/utils/establishmentAccessRules';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   MdPerson,
@@ -135,6 +137,7 @@ const formatCurrency = (value: number): string => {
 };
 
 export default function PromotersPage() {
+  const { userEmail } = useAppContext();
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [promoters, setPromoters] = useState<Promoter[]>([]);
@@ -274,14 +277,23 @@ export default function PromotersPage() {
         // A API places retorna { data: [...] }
         const establishmentsData = data.data || [];
         
-        // Formatar os dados para o formato esperado
         const formattedEstablishments = establishmentsData.map((place: any) => ({
           id: place.id,
           name: place.name || 'Sem nome'
         }));
+
+        const visibilityFiltered = filterEstablishmentListForUser(
+          userEmail,
+          formattedEstablishments.map((e: Establishment) => {
+            const raw = establishmentsData.find(
+              (p: { id?: number }) => Number(p?.id) === Number(e.id),
+            );
+            return { ...e, name: e.name || '', slug: raw?.slug };
+          }),
+        ) as Establishment[];
         
-        console.log('📋 Estabelecimentos formatados:', formattedEstablishments);
-        setEstablishments(formattedEstablishments);
+        console.log('📋 Estabelecimentos formatados:', visibilityFiltered);
+        setEstablishments(visibilityFiltered);
       } else {
         console.error('❌ Erro na resposta da API:', response.status, response.statusText);
       }

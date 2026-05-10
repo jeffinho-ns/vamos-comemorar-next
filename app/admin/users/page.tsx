@@ -10,6 +10,8 @@ import {
   MdClose,
 } from "react-icons/md";
 import { useUserPermissions } from "@/app/hooks/useUserPermissions";
+import { useAppContext } from "@/app/context/AppContext";
+import { filterEstablishmentListForUser } from "@/app/utils/establishmentAccessRules";
 
 const API_URL =
   process.env.NEXT_PUBLIC_API_URL ||
@@ -67,6 +69,7 @@ const ROLE_LABELS: Record<string, string> = {
 };
 
 export default function UsersPage() {
+  const { userEmail } = useAppContext();
   const { canDeleteUsers, canChangeGlobalUserRole } = useUserPermissions();
   const [users, setUsers] = useState<UserRow[]>([]);
   const [permissions, setPermissions] = useState<PermissionRow[]>([]);
@@ -120,11 +123,20 @@ export default function UsersPage() {
       });
       if (!res.ok) return;
       const data = await res.json();
-      setEstablishments(Array.isArray(data) ? data : data.data || []);
+      const raw = Array.isArray(data) ? data : data.data || [];
+      const mapped = raw.map((p: { id: number; name?: string; slug?: string }) => ({
+        id: p.id,
+        name: p.name || "",
+        slug: p.slug,
+      }));
+      const filtered = filterEstablishmentListForUser(userEmail, mapped);
+      setEstablishments(
+        filtered.map((p) => ({ id: p.id as number, name: p.name || "" })),
+      );
     } catch {
       setEstablishments([]);
     }
-  }, []);
+  }, [userEmail]);
 
   const loadAll = useCallback(async () => {
     setLoading(true);

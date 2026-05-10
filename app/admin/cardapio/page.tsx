@@ -28,6 +28,7 @@ import { useUserPermissions } from '../../hooks/useUserPermissions';
 import ImageCropModal from '../../components/ImageCropModal';
 import { useRouter } from 'next/navigation';
 import { uploadImage as uploadImageToFirebase } from '@/app/services/uploadService';
+import { filterEstablishmentListForUser } from '@/app/utils/establishmentAccessRules';
 
 type MenuDisplayStyle = 'normal' | 'clean';
 
@@ -837,6 +838,11 @@ export default function CardapioAdminPage() {
         barsData = filteredBars.length > 0 ? filteredBars : barsData;
       }
 
+      barsData = filterEstablishmentListForUser(
+        userEmail,
+        barsData.map((b) => ({ ...b, name: String((b as { name?: string }).name || '') })),
+      ) as typeof barsData;
+
       let categoriesData = Array.isArray(categories) ? categories : [];
       let subCategoriesData = Array.isArray(subCategories) ? subCategories : [];
       let itemsData = Array.isArray(items)
@@ -850,6 +856,17 @@ export default function CardapioAdminPage() {
             return cleanedItem;
           })
         : [];
+
+      const visibleBarIds = new Set(barsData.map((b) => Number(b.id)));
+      categoriesData = categoriesData.filter((c) =>
+        visibleBarIds.has(Number(c.barId)),
+      );
+      subCategoriesData = subCategoriesData.filter((sub: { barId: string | number }) =>
+        visibleBarIds.has(Number(sub.barId)),
+      );
+      itemsData = itemsData.filter((item) =>
+        visibleBarIds.has(Number(item.barId)),
+      );
 
       // Filtrar categorias e itens pelos ids dos bares permitidos (barsData já filtrado acima)
       if (promoterBar && !hasFullCardapioAccessByEmail && barsData.length > 0) {
@@ -910,7 +927,7 @@ export default function CardapioAdminPage() {
     } finally {
       setLoading(false);
     }
-  }, [isPromoter, promoterBar, hasFullCardapioAccessByEmail]);
+  }, [isPromoter, promoterBar, hasFullCardapioAccessByEmail, userEmail]);
 
   useEffect(() => {
     fetchData();

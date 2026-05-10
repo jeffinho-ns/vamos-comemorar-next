@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import { useAppContext } from "@/app/context/AppContext";
+import { filterEstablishmentListForUser } from "@/app/utils/establishmentAccessRules";
 import { MdAdd, MdPeople, MdPerson, MdEdit, MdDelete, MdSettings, MdCheckCircle, MdClose } from "react-icons/md";
 
 interface Establishment {
@@ -116,6 +118,7 @@ const sanitizePromoterEntradaConfigForApi = (config: PromoterEntradaConfig) => {
 };
 
 export default function GiftsAdminPage() {
+  const { userEmail } = useAppContext();
   const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL_LOCAL || 'https://api.agilizaiapp.com.br';
 
   // Estados
@@ -197,6 +200,22 @@ export default function GiftsAdminPage() {
           name: place.name || place.place_name || 'Sem nome'
         }));
       }
+
+      const rawList = Array.isArray(data)
+        ? data
+        : data?.data && Array.isArray(data.data)
+          ? data.data
+          : [];
+      formattedEstablishments = filterEstablishmentListForUser(
+        userEmail,
+        formattedEstablishments.map((est) => {
+          const raw = rawList.find(
+            (p: { id?: number; place_id?: number }) =>
+              Number(p?.id ?? p?.place_id) === Number(est.id),
+          );
+          return { ...est, name: est.name || "", slug: raw?.slug };
+        }),
+      ) as Establishment[];
       
       console.log('🏢 Estabelecimentos formatados:', formattedEstablishments);
       setEstablishments(formattedEstablishments);
@@ -227,7 +246,7 @@ export default function GiftsAdminPage() {
     } finally {
       setLoading(false);
     }
-  }, [API_URL]);
+  }, [API_URL, userEmail]);
 
   // Função para carregar regras de brindes para aniversários
   const loadGiftRules = useCallback(async (establishmentId: number) => {

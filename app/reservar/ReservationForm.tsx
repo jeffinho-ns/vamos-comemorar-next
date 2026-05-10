@@ -18,6 +18,8 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { formatDateBR } from '@/lib/dateUtils';
 import Link from 'next/link';
 import { getConfiguredWindows, WeeklyOperatingSetting, DateOperatingOverride } from '@/app/utils/reservationOperatingHours';
+import { useAppContext } from '@/app/context/AppContext';
+import { filterEstablishmentListForUser } from '@/app/utils/establishmentAccessRules';
 
 // Configuração da API
 const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL_LOCAL || 'https://api.agilizaiapp.com.br';
@@ -144,6 +146,7 @@ const detectAndCreateBirthdayGuestList = async (reservationId: number, payload: 
 // Dados estáticos removidos - agora carregados da API
 
 export default function ReservationForm() {
+  const { userEmail } = useAppContext();
   const router = useRouter();
   const searchParams = useSearchParams();
   const [establishments, setEstablishments] = useState<Establishment[]>([]);
@@ -188,6 +191,12 @@ export default function ReservationForm() {
 
   // Carregar estabelecimentos da API
   useEffect(() => {
+    const visibility = (list: Establishment[]) =>
+      filterEstablishmentListForUser(
+        userEmail,
+        list.map((e) => ({ ...e, name: e.name || '' })),
+      ) as Establishment[];
+
     const fetchEstablishments = async () => {
       setEstablishmentsLoading(true);
       try {
@@ -216,7 +225,7 @@ export default function ReservationForm() {
                 email: place.email || "contato@estabelecimento.com.br"
               };
             });
-            setEstablishments(formattedEstablishments);
+            setEstablishments(visibility(formattedEstablishments));
           } else if (data.data && Array.isArray(data.data)) {
             const formattedEstablishments: Establishment[] = data.data.map((place: any) => {
               const name = place.name || "Sem nome";
@@ -239,11 +248,11 @@ export default function ReservationForm() {
                 email: place.email || "contato@estabelecimento.com.br"
               };
             });
-            setEstablishments(formattedEstablishments);
+            setEstablishments(visibility(formattedEstablishments));
           }
         } else {
           // Fallback com dados estáticos
-          setEstablishments([
+          setEstablishments(visibility([
             {
               id: 7,
               name: "High Line",
@@ -284,12 +293,12 @@ export default function ReservationForm() {
               phone: "(11) 99999-5555",
               email: "contato@reservarooftop.com.br"
             }
-          ]);
+          ]));
         }
       } catch (error) {
         console.error('Erro ao carregar estabelecimentos:', error);
         // Fallback com dados estáticos em caso de erro
-        setEstablishments([
+        setEstablishments(visibility([
           {
             id: 7,
             name: "High Line",
@@ -330,14 +339,14 @@ export default function ReservationForm() {
             phone: "(11) 99999-5555",
             email: "contato@reservarooftop.com.br"
           }
-        ]);
+        ]));
       } finally {
         setEstablishmentsLoading(false);
       }
     };
 
     fetchEstablishments();
-  }, []);
+  }, [userEmail]);
 
   // Detectar estabelecimento na URL
   useEffect(() => {

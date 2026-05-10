@@ -11,6 +11,8 @@ import {
   resolveCardapioImageUrl,
   warmCardapioImageIndex,
 } from '@/app/utils/cardapioImageResolver';
+import { useAppContext } from '@/app/context/AppContext';
+import { filterEstablishmentListForUser } from '@/app/utils/establishmentAccessRules';
 
 interface Bar {
   id: string | number;
@@ -47,6 +49,7 @@ const resolveCoverImage = (coverImageUrl?: string | null, coverImages?: string[]
 };
 
 export default function CardapioPage() {
+  const { userEmail } = useAppContext();
   const [allBars, setAllBars] = useState<Bar[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -100,7 +103,12 @@ export default function CardapioPage() {
         };
       });
       
-      setAllBars(processedBars);
+      setAllBars(
+        filterEstablishmentListForUser(
+          userEmail,
+          processedBars.map((b) => ({ ...b, name: b.name || '' })),
+        ) as Bar[],
+      );
       
     } catch (err) {
       console.error("Erro ao carregar dados:", err);
@@ -108,7 +116,7 @@ export default function CardapioPage() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [userEmail]);
 
   useEffect(() => {
     fetchData();

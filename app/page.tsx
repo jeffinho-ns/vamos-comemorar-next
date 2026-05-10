@@ -36,6 +36,8 @@ import {
   resolveCardapioImageUrl,
   warmCardapioImageIndex,
 } from "@/app/utils/cardapioImageResolver";
+import { useAppContext } from "@/app/context/AppContext";
+import { filterEstablishmentListForUser } from "@/app/utils/establishmentAccessRules";
 
 interface Establishment {
   id: number;
@@ -56,6 +58,7 @@ interface GalleryImage {
 const CARDAPIO_PLACEHOLDER = getCardapioPlaceholderUrl();
 
 export default function Home() {
+  const { userEmail } = useAppContext();
   const [establishments, setEstablishments] = useState<Establishment[]>([]);
   const [galleryImages, setGalleryImages] = useState<GalleryImage[]>([]);
   const [loading, setLoading] = useState(true);
@@ -93,7 +96,15 @@ export default function Home() {
               email: place.email || "contato@estabelecimento.com.br",
             }));
 
-          setEstablishments(formattedPlaces);
+          setEstablishments(
+            filterEstablishmentListForUser(
+              userEmail,
+              formattedPlaces.map((p) => ({
+                ...p,
+                name: p.name || "",
+              })),
+            ),
+          );
         }
 
         // Buscar imagens dos itens do cardápio (fonte mais estável).
@@ -150,7 +161,7 @@ export default function Home() {
     };
 
     fetchData();
-  }, [API_CARDAPIO_URL, API_URL]);
+  }, [API_CARDAPIO_URL, API_URL, userEmail]);
 
   const features = [
     {

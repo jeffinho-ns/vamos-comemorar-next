@@ -26,6 +26,8 @@ import {
   MdTrendingDown,
 } from "react-icons/md";
 import { FaBirthdayCake, FaGlassCheers, FaUtensils } from "react-icons/fa";
+import { useAppContext } from "@/app/context/AppContext";
+import { filterEstablishmentListForUser } from "@/app/utils/establishmentAccessRules";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL_LOCAL || 'https://api.agilizaiapp.com.br';
 const SUPER_ADMIN_EMAILS = ["teste@teste", "jeffinho_ns@hotmail.com"];
@@ -120,6 +122,7 @@ interface RevenueByPeriod {
 }
 
 export default function ReservesPage() {
+  const { userEmail } = useAppContext();
   const [establishments, setEstablishments] = useState<Establishment[]>([]);
   const [birthdayReservations, setBirthdayReservations] = useState<BirthdayReservation[]>([]);
   const [restaurantReservations, setRestaurantReservations] = useState<RestaurantReservation[]>([]);
@@ -145,8 +148,7 @@ export default function ReservesPage() {
       if (response.ok) {
         const data = await response.json();
         const places = Array.isArray(data) ? data : (data.data || []);
-        setEstablishments(places.map((p: any) => {
-          // Formatar URL do logo corretamente
+        const mapped = places.map((p: any) => {
           let logoUrl = null;
           if (p.logo) {
             if (p.logo.startsWith('http://') || p.logo.startsWith('https://')) {
@@ -155,18 +157,23 @@ export default function ReservesPage() {
               logoUrl = `${API_URL}/uploads/${p.logo}`;
             }
           }
-          
           return {
             id: Number(p.id) || 0,
             name: p.name || 'Sem nome',
             logo: logoUrl,
+            slug: p.slug as string | undefined,
           };
-        }).filter((e: Establishment) => e.id > 0));
+        });
+        setEstablishments(
+          filterEstablishmentListForUser(userEmail, mapped).filter(
+            (e) => Number(e.id) > 0,
+          ) as Establishment[],
+        );
       }
     } catch (error) {
       console.error("Erro ao carregar estabelecimentos:", error);
     }
-  }, []);
+  }, [userEmail]);
 
   // Carregar reservas de aniversário
   const loadBirthdayReservations = useCallback(async () => {

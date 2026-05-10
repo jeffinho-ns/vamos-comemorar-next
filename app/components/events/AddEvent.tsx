@@ -5,6 +5,8 @@ import Image from "next/image";
 import Modal from "../ui/Modal";
 import { MdSearch, MdUpload, MdDelete } from "react-icons/md";
 import { uploadImage as uploadImageToFirebase } from "@/app/services/uploadService";
+import { useAppContext } from "@/app/context/AppContext";
+import { filterEstablishmentListForUser } from "@/app/utils/establishmentAccessRules";
 
 interface AddEventProps {
   isOpen: boolean;
@@ -20,6 +22,7 @@ interface Establishment {
 }
 
 const AddEvent: React.FC<AddEventProps> = ({ isOpen, onRequestClose, onEventAdded }) => {
+  const { userEmail } = useAppContext();
   const [idPlace, setIdPlace] = useState<number | null>(null);
   const [casaDoEvento, setCasaDoEvento] = useState("");
   const [nomeDoEvento, setNomeDoEvento] = useState("");
@@ -105,14 +108,28 @@ const AddEvent: React.FC<AddEventProps> = ({ isOpen, onRequestClose, onEventAdde
         number: place.number || "",
       }));
 
-      setEstablishments(formattedEstablishments);
+      setEstablishments(
+        filterEstablishmentListForUser(
+          userEmail,
+          formattedEstablishments.map((e) => {
+            const raw = placesList.find(
+              (p: { id: number | string }) => Number(p.id) === Number(e.id),
+            );
+            return {
+              ...e,
+              name: e.name || "",
+              slug: raw?.slug as string | undefined,
+            };
+          }),
+        ) as Establishment[],
+      );
     } catch (error) {
       console.error("Erro ao carregar estabelecimentos:", error);
       setError("Erro ao carregar lista de estabelecimentos.");
     } finally {
       setLoadingEstablishments(false);
     }
-  }, [API_URL]);
+  }, [API_URL, userEmail]);
 
   // Carregar estabelecimentos quando o modal abrir
   useEffect(() => {
