@@ -1443,6 +1443,8 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
   }
 
   const isReservaRooftop = selectedBar.slug === "reserva-rooftop";
+  /** Banner para decoração-desativa navegação apenas neste cardápio. */
+  const isSitioIlhaCardapio = slug?.toLowerCase() === "sitio-ilha";
   const categorySelectedBg =
     selectedBar.menu_category_bg_color ||
     (isCleanStyle ? "#1f1b16" : "#3b82f6");
@@ -1760,52 +1762,77 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
 
         {/* Banner de Decoração de Aniversário - Responsivo */}
         <div className="mt-8 mb-8">
-          <Link
-            href="/decoracao-aniversario"
-            className="block"
-            onClick={() => {
-              // Rastrear clique no banner desktop
-              if (window.innerWidth >= 768) {
-                trackClick(
-                  "banner-regua-desktop",
-                  `/cardapio/${slug}`,
-                  "banner_click",
-                );
-              } else {
-                // Rastrear clique no banner mobile
-                trackClick(
-                  "banner-mobile",
-                  `/cardapio/${slug}`,
-                  "banner_click",
-                );
-              }
-            }}
-          >
-            <div className="relative overflow-hidden rounded-xl shadow-lg hover:shadow-xl transition-shadow duration-300">
-              {/* Banner Desktop - Visível apenas em telas médias e maiores (md: 768px+) */}
-              <Image
-                src="/banner-regua.jpg"
-                alt="Decoração de Aniversário - Banner Promocional Desktop"
-                width={1200}
-                height={300}
-                className="hidden md:block w-full h-auto object-cover hover:scale-105 transition-transform duration-300"
-                priority
-                sizes="(max-width: 767px) 0vw, 100vw"
-              />
-              {/* Banner Mobile - Visível apenas em telas pequenas (até 767px) */}
-              <Image
-                src="/banne-agilizai-mobile.jpg"
-                alt="Decoração de Aniversário - Banner Promocional Mobile"
-                width={600}
-                height={400}
-                className="block md:hidden w-full h-auto object-cover hover:scale-105 transition-transform duration-300"
-                priority
-                sizes="(max-width: 767px) 100vw, 0vw"
-              />
-              {/* Overlay gradiente para ambos os banners */}
-              <div className="absolute transition-all duration-300"></div>
+          {isSitioIlhaCardapio ? (
+            <div
+              className="block cursor-not-allowed pointer-events-none opacity-90 select-none"
+              aria-disabled="true"
+              title="Indisponível neste cardápio no momento"
+            >
+              <div className="relative overflow-hidden rounded-xl shadow-lg transition-shadow duration-300">
+                <Image
+                  src="/banner-regua.jpg"
+                  alt="Decoração de Aniversário - Banner Promocional Desktop"
+                  width={1200}
+                  height={300}
+                  className="hidden md:block w-full h-auto object-cover transition-transform duration-300"
+                  priority
+                  sizes="(max-width: 767px) 0vw, 100vw"
+                />
+                <Image
+                  src="/banne-agilizai-mobile.jpg"
+                  alt="Decoração de Aniversário - Banner Promocional Mobile"
+                  width={600}
+                  height={400}
+                  className="block md:hidden w-full h-auto object-cover transition-transform duration-300"
+                  priority
+                  sizes="(max-width: 767px) 100vw, 0vw"
+                />
+                <div className="absolute transition-all duration-300"></div>
+              </div>
             </div>
-          </Link>
+          ) : (
+            <Link
+              href="/decoracao-aniversario"
+              className="block"
+              onClick={() => {
+                if (window.innerWidth >= 768) {
+                  trackClick(
+                    "banner-regua-desktop",
+                    `/cardapio/${slug}`,
+                    "banner_click",
+                  );
+                } else {
+                  trackClick(
+                    "banner-mobile",
+                    `/cardapio/${slug}`,
+                    "banner_click",
+                  );
+                }
+              }}
+            >
+              <div className="relative overflow-hidden rounded-xl shadow-lg hover:shadow-xl transition-shadow duration-300">
+                <Image
+                  src="/banner-regua.jpg"
+                  alt="Decoração de Aniversário - Banner Promocional Desktop"
+                  width={1200}
+                  height={300}
+                  className="hidden md:block w-full h-auto object-cover hover:scale-105 transition-transform duration-300"
+                  priority
+                  sizes="(max-width: 767px) 0vw, 100vw"
+                />
+                <Image
+                  src="/banne-agilizai-mobile.jpg"
+                  alt="Decoração de Aniversário - Banner Promocional Mobile"
+                  width={600}
+                  height={400}
+                  className="block md:hidden w-full h-auto object-cover hover:scale-105 transition-transform duration-300"
+                  priority
+                  sizes="(max-width: 767px) 100vw, 0vw"
+                />
+                <div className="absolute transition-all duration-300"></div>
+              </div>
+            </Link>
+          )}
         </div>
 
         {/*

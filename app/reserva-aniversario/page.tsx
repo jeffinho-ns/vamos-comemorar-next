@@ -13,6 +13,8 @@ import { BirthdayService } from '../services/birthdayService';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL_LOCAL || 'https://api.agilizaiapp.com.br';
 
+/** Confirmação de reserva indisponível até abertura oficial do fluxo. */
+const CONFIRMAR_RESERVA_DISABLED = true;
 
 interface Establishment {
   id: number;
@@ -436,6 +438,7 @@ export default function ReservaAniversarioPage() {
   };
 
   const handleConfirmReservation = () => {
+    if (CONFIRMAR_RESERVA_DISABLED) return;
     // Verificar campos obrigatórios
     if (!selectedDecoration || !formData.barSelecionado || !formData.dataAniversario || !formData.areaPreferida || !formData.horario) {
       setErrorMessage('Por favor, preencha todos os campos obrigatórios:\n\n• Estabelecimento\n• Data do aniversário\n• Área preferida\n• Horário\n• Decoração');
@@ -460,6 +463,7 @@ export default function ReservaAniversarioPage() {
   };
 
   const handleSubmit = async () => {
+      if (CONFIRMAR_RESERVA_DISABLED) return;
       setShowConfirmationModal(false);
       setIsLoading(true);
       try {
@@ -1149,11 +1153,21 @@ export default function ReservaAniversarioPage() {
           {currentSectionIndex === sections.length - 1 ? (
             // Na última etapa, mostra o botão de confirmar
             <button
+              type="button"
               onClick={handleConfirmReservation}
-              disabled={isLoading}
-              className="px-8 py-3 bg-orange-500 hover:bg-orange-600 disabled:bg-slate-600 text-white font-bold rounded-lg transition-colors disabled:cursor-not-allowed"
+              disabled={isLoading || CONFIRMAR_RESERVA_DISABLED}
+              title={
+                CONFIRMAR_RESERVA_DISABLED
+                  ? 'Confirmação de reserva em breve.'
+                  : undefined
+              }
+              className="px-8 py-3 bg-orange-500 hover:bg-orange-600 disabled:bg-slate-600 disabled:hover:bg-slate-600 text-white font-bold rounded-lg transition-colors disabled:cursor-not-allowed"
             >
-              {isLoading ? 'Processando...' : 'CONFIRMAR RESERVA'}
+              {CONFIRMAR_RESERVA_DISABLED
+                ? 'CONFIRMAR RESERVA (EM BREVE)'
+                : isLoading
+                  ? 'Processando...'
+                  : 'CONFIRMAR RESERVA'}
             </button>
           ) : (
             // Nas outras etapas, mostra o botão de próximo
@@ -1336,11 +1350,16 @@ export default function ReservaAniversarioPage() {
                   Cancelar
                 </button>
                 <button
+                  type="button"
                   onClick={handleSubmit}
-                  disabled={isLoading}
+                  disabled={isLoading || CONFIRMAR_RESERVA_DISABLED}
                   className="flex-1 px-6 py-3 bg-orange-500 hover:bg-orange-600 disabled:bg-slate-600 text-white font-bold rounded-lg transition-colors disabled:cursor-not-allowed"
                 >
-                  {isLoading ? 'Processando...' : 'Confirmar e Finalizar'}
+                  {CONFIRMAR_RESERVA_DISABLED
+                    ? 'Indisponível'
+                    : isLoading
+                      ? 'Processando...'
+                      : 'Confirmar e Finalizar'}
                 </button>
               </div>
             </div>
