@@ -31,11 +31,6 @@ import {
   resolveCardapioImageUrl,
   warmCardapioImageIndex,
 } from "@/app/utils/cardapioImageResolver";
-import { useAppContext } from "@/app/context/AppContext";
-import {
-  canUserAccessSitioIlha,
-  isSitioIlhaEstablishmentLike,
-} from "@/app/utils/establishmentAccessRules";
 
 // Constantes dos selos
 const FOOD_SEALS: { [key: string]: { name: string; color: string } } = {
@@ -357,7 +352,6 @@ const getSubcategoryDomId = (categoryName: string, subcategoryName: string) =>
 export default function CardapioBarPage({ params }: CardapioBarPageProps) {
   const resolvedParams = use(params);
   const { slug } = resolvedParams;
-  const { userEmail } = useAppContext();
   const {
     trackClick,
     trackMenuItemClick,
@@ -449,16 +443,6 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
     try {
       if (!slug) return;
 
-      // Sitio Ilha: apenas e-mail autorizado (cookie/sessão em AppContext).
-      if (
-        slug?.toLowerCase() === "sitio-ilha" &&
-        !canUserAccessSitioIlha(userEmail)
-      ) {
-        setError("Estabelecimento não encontrado");
-        setIsLoading(false);
-        return;
-      }
-
       // Aquecer índice (filename -> URL Firebase) antes de resolver logo/capa
       await warmCardapioImageIndex(API_BASE_URL);
 
@@ -470,19 +454,6 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
       const bar = bars.find((b: BarFromAPI) => b.slug === slug);
 
       if (!bar) {
-        setError("Estabelecimento não encontrado");
-        setIsLoading(false);
-        return;
-      }
-
-      if (
-        isSitioIlhaEstablishmentLike({
-          slug: bar.slug,
-          id: bar.id,
-          name: bar.name,
-        }) &&
-        !canUserAccessSitioIlha(userEmail)
-      ) {
         setError("Estabelecimento não encontrado");
         setIsLoading(false);
         return;
@@ -629,7 +600,7 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
     } finally {
       setIsLoading(false);
     }
-  }, [slug, userEmail]);
+  }, [slug]);
 
   useEffect(() => {
     fetchBarData();
