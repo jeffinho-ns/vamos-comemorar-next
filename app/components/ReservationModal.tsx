@@ -2085,20 +2085,31 @@ export default function ReservationModal({
                     Número de Pessoas *
                   </label>
                   <input
-                    type="number"
-                    min="1"
-                    value={formData.number_of_people}
-                    onChange={(e) =>
-                      handleInputChange(
-                        "number_of_people",
-                        parseInt(e.target.value),
-                      )
+                    type="text"
+                    inputMode="numeric"
+                    autoComplete="off"
+                    value={
+                      formData.number_of_people < 1
+                        ? ""
+                        : String(formData.number_of_people)
                     }
+                    onChange={(e) => {
+                      const digits = e.target.value.replace(/\D/g, "");
+                      if (digits === "") {
+                        handleInputChange("number_of_people", 0);
+                        return;
+                      }
+                      const n = parseInt(digits, 10);
+                      if (!Number.isNaN(n)) {
+                        handleInputChange("number_of_people", n);
+                      }
+                    }}
                     className={`w-full px-3 py-2 bg-gray-700 border rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-500 ${
                       errors.number_of_people
                         ? "border-red-500"
                         : "border-gray-600"
                     }`}
+                    placeholder="Digite apenas números"
                   />
                   {errors.number_of_people && (
                     <p className="text-red-500 text-sm mt-1">
