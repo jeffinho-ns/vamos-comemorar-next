@@ -1,6 +1,7 @@
 'use client';
 
-import { MdAdd, MdRefresh, MdEdit, MdDelete } from "react-icons/md";
+import { MdAdd, MdRefresh, MdEdit, MdDelete, MdPsychology } from "react-icons/md";
+import Link from "next/link";
 import { useEffect, useState, useCallback } from "react";
 import PlaceModal from "../../components/places/placeModal";
 import EditPlaceModal from "../../components/editPlace/editPlaceModal";
@@ -179,6 +180,13 @@ export default function Businesses() {
                         <td className="px-6 py-4 font-semibold text-gray-800">{business.name || "Sem nome"}</td>
                         <td className="px-6 py-4 text-gray-600">{business.email || "Sem e-mail"}</td>
                         <td className="px-6 py-4 flex space-x-3">
+                          <Link
+                            href={`/admin/estabelecimentos/${business.id}`}
+                            title="Treinamento da IA"
+                            className="text-yellow-600 hover:text-yellow-800 p-2 rounded-lg hover:bg-yellow-50 transition-all duration-200"
+                          >
+                            <MdPsychology size={20} />
+                          </Link>
                           <button 
                             onClick={() => openEditModal(business)} 
                             title="Editar"

@@ -121,6 +121,7 @@ export function middleware(request: NextRequest) {
     '/admin/checkins': ['admin', 'promoter', 'promoter-list', 'recepção', 'recepcao', 'atendente', 'gerente'],
     '/admin/restaurant-reservations': ['admin', 'promoter', 'promoter-list', 'recepção', 'gerente'],
     '/admin/detalhes-operacionais': ['admin', 'recepção', 'gerente'],
+    '/admin/estabelecimentos': ['admin', 'gerente', 'recepção', 'recepcao', 'administrador'],
     '/admin/guia': ['admin', 'gerente', 'recepção', 'recepcao', 'atendente', 'promoter', 'promoter-list'],
     '/admin/logs': ['admin', 'gerente', 'recepção', 'recepcao', 'atendente', 'promoter', 'promoter-list'],
     '/admin/relatorios-gerador': ['admin'],

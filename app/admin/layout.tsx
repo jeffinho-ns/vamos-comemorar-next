@@ -24,6 +24,7 @@ import {
   MdInfo,
   MdHistory,
   MdChat,
+  MdPsychology,
 } from "react-icons/md";
 import logBrand from "../assets/logo-agilizai-h.png"; // Verifique o caminho
 import UserMenu from "../components/UserMenu/UserMenu"; // Verifique o caminho
@@ -227,6 +228,11 @@ export default function DashboardLayout({
           icon: MdInfo,
         },
         {
+          href: "/admin/estabelecimentos",
+          label: "Treinamento da IA",
+          icon: MdPsychology,
+        },
+        {
           href: "/admin/painel-eventos",
           label: "Painel de Eventos",
           icon: MdBusiness,
@@ -276,6 +282,11 @@ export default function DashboardLayout({
           href: "/admin/detalhes-operacionais",
           label: "Detalhes Operacionais do Evento",
           icon: MdInfo,
+        },
+        {
+          href: "/admin/estabelecimentos",
+          label: "Treinamento da IA",
+          icon: MdPsychology,
         },
         { href: "/admin/reservas", label: "Reservas", icon: MdEditCalendar },
         {
