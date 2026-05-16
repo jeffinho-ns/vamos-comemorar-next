@@ -116,7 +116,7 @@ export default function EstabelecimentoDetailPage() {
                 ),
               },
               {
-                title: 'Base de Conhecimento (FAQ)',
+                title: 'Treinamento da IA (Regras da Casa)',
                 content: <EstablishmentFaqSection establishmentId={establishmentId} />,
               },
             ]}

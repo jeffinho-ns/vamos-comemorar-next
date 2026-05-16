@@ -164,7 +164,7 @@ export default function EstablishmentFaqSection({ establishmentId }: Props) {
     <div className="space-y-6">
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div>
-          <h2 className="text-xl font-semibold text-gray-900">Base de Conhecimento (FAQ)</h2>
+          <h2 className="text-xl font-semibold text-gray-900">Treinamento da IA (Regras da Casa)</h2>
           <p className="text-sm text-gray-600">
             Respostas usadas pela IA no WhatsApp para {establishmentName}.
           </p>
@@ -264,14 +264,21 @@ export default function EstablishmentFaqSection({ establishmentId }: Props) {
               </datalist>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Resposta para a IA</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Contexto e Comportamento (O que a IA deve aprender e como deve agir)
+              </label>
               <textarea
                 value={form.answer}
                 onChange={(event) => setForm((prev) => ({ ...prev, answer: event.target.value }))}
                 rows={5}
-                placeholder="Texto que a IA deve usar ao responder no WhatsApp."
+                placeholder="Descreva o contexto e a postura que a IA deve adotar nesta situação."
                 className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
               />
+              <p className="mt-2 text-xs text-gray-500">
+                Dica: Não escreva respostas robóticas. Ensine a IA como ela deve pensar e reagir. Ex:
+                &quot;Diga que adoramos decorações, mas explique com educação que não permitimos
+                confetes&quot;.
+              </p>
             </div>
           </div>
           <div className="flex justify-end gap-3">
