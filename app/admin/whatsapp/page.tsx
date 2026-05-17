@@ -1320,6 +1320,7 @@ export default function AdminWhatsappPage() {
       {activeTab === "treinamento" ? <EstablishmentTrainingPanel /> : null}
 
       {showWhatsappInbox ? (
+      <>
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <div className="rounded-xl border border-gray-200 bg-white px-4 py-3 shadow-sm">
           <p className="text-xs text-gray-500">Conversas ativas</p>
@@ -1555,6 +1556,7 @@ export default function AdminWhatsappPage() {
           )}
         </section>
       </div>
+      </>
       ) : null}
 
       {showWhatsappInbox && activeTab === "atendimento" ? (
