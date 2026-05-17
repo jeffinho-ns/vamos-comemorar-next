@@ -24,7 +24,6 @@ import {
   MdInfo,
   MdHistory,
   MdChat,
-  MdPsychology,
 } from "react-icons/md";
 import logBrand from "../assets/logo-agilizai-h.png"; // Verifique o caminho
 import UserMenu from "../components/UserMenu/UserMenu"; // Verifique o caminho
@@ -85,6 +84,13 @@ const CARDAPIO_ONLY_EMAILS = new Set([
 const CARDAPIO_ONLY_LINKS = [
   { href: "/admin/cardapio", label: "Cardápio", icon: MdRestaurant },
 ];
+
+/** Hub único: atendimento WhatsApp + treinamento da IA por estabelecimento. */
+const ATENDIMENTO_NAV_LINK = {
+  href: "/admin/whatsapp",
+  label: "Atendimento",
+  icon: MdChat,
+};
 
 export default function DashboardLayout({
   children,
@@ -227,11 +233,7 @@ export default function DashboardLayout({
           label: "Detalhes Operacionais do Evento",
           icon: MdInfo,
         },
-        {
-          href: "/admin/estabelecimentos",
-          label: "Treinamento da IA",
-          icon: MdPsychology,
-        },
+        ATENDIMENTO_NAV_LINK,
         {
           href: "/admin/painel-eventos",
           label: "Painel de Eventos",
@@ -283,11 +285,7 @@ export default function DashboardLayout({
           label: "Detalhes Operacionais do Evento",
           icon: MdInfo,
         },
-        {
-          href: "/admin/estabelecimentos",
-          label: "Treinamento da IA",
-          icon: MdPsychology,
-        },
+        ATENDIMENTO_NAV_LINK,
         { href: "/admin/reservas", label: "Reservas", icon: MdEditCalendar },
         {
           href: "/admin/restaurant-reservations",
@@ -334,17 +332,6 @@ export default function DashboardLayout({
   // /admin/reservas: apenas Super Admins
   if (!isSuperAdmin) {
     navLinks = navLinks.filter((l) => l.href !== "/admin/reservas");
-  }
-
-  // /admin/whatsapp: apenas Super Admins
-  if (isSuperAdmin && !navLinks.some((l) => l.href === "/admin/whatsapp")) {
-    const guiaIndex = navLinks.findIndex((l) => l.href === "/admin/guia");
-    const insertAt = guiaIndex >= 0 ? guiaIndex + 1 : navLinks.length;
-    navLinks.splice(insertAt, 0, {
-      href: "/admin/whatsapp",
-      label: "WhatsApp",
-      icon: MdChat,
-    });
   }
 
   if (
@@ -462,7 +449,9 @@ export default function DashboardLayout({
           {navLinks.map(({ href, label, icon: Icon }) => {
             const isActive =
               pathname === href ||
-              (href !== "/admin" && pathname.startsWith(href));
+              (href !== "/admin" && pathname.startsWith(href)) ||
+              (href === ATENDIMENTO_NAV_LINK.href &&
+                pathname.startsWith("/admin/estabelecimentos"));
             return (
               <Link
                 key={href}

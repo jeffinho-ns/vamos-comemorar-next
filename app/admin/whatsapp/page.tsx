@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { io } from "socket.io-client";
 import {
   MdChat,
@@ -16,6 +16,7 @@ import { getApiUrl } from "@/app/config/api";
 import { getPublicSocketUrl } from "@/lib/publicApiUrl";
 import { useAppContext } from "@/app/context/AppContext";
 import { useUserPermissions } from "@/app/hooks/useUserPermissions";
+import EstablishmentTrainingPanel from "@/app/components/admin/EstablishmentTrainingPanel";
 
 const API_URL = getApiUrl();
 const SOCKET_URL = getPublicSocketUrl();
@@ -110,7 +111,13 @@ type CampaignSendLogRow = {
   created_at: string;
 };
 
-type WhatsappAdminTab = "atendimento" | "links" | "crm" | "campanhas" | "relatorios";
+type WhatsappAdminTab =
+  | "treinamento"
+  | "atendimento"
+  | "links"
+  | "crm"
+  | "campanhas"
+  | "relatorios";
 
 /** Códigos fixos (API/banco); labels em PT para o time (opção A — sem mudar enum). */
 type LeadContactStatus = "new" | "qualified" | "customer" | "inactive";
@@ -211,10 +218,12 @@ function fallbackCopyText(value: string): boolean {
 
 export default function AdminWhatsappPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { token, establishments } = useAppContext();
   const {
     isLoading: permsLoading,
     canAccessWhatsapp,
+    canAccessIaTraining,
     isSuperAdmin,
     myEstablishmentPermissions,
   } = useUserPermissions();
@@ -302,7 +311,61 @@ export default function AdminWhatsappPage() {
   const [manualCentralWhatsappNumber, setManualCentralWhatsappNumber] = useState("");
   const [copiedLinkId, setCopiedLinkId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<WhatsappAdminTab>("atendimento");
+  const [activeTab, setActiveTab] = useState<WhatsappAdminTab>("treinamento");
+
+  const adminTabs = useMemo(() => {
+    const items: { id: WhatsappAdminTab; label: string }[] = [];
+    if (canAccessIaTraining) {
+      items.push({ id: "treinamento", label: "Treinamento IA" });
+    }
+    if (canAccessWhatsapp) {
+      items.push(
+        { id: "atendimento", label: "Atendimento" },
+        { id: "crm", label: "CRM de contatos" },
+        { id: "campanhas", label: "Campanhas" },
+        { id: "links", label: "Links de entrada" },
+        { id: "relatorios", label: "Relatórios" },
+      );
+    }
+    return items;
+  }, [canAccessIaTraining, canAccessWhatsapp]);
+
+  const showWhatsappInbox = canAccessWhatsapp && activeTab !== "treinamento";
+
+  const selectTab = useCallback(
+    (tab: WhatsappAdminTab) => {
+      setActiveTab(tab);
+      const params = new URLSearchParams(searchParams.toString());
+      if (tab === "treinamento") {
+        params.set("tab", "treinamento");
+      } else {
+        params.delete("tab");
+      }
+      const query = params.toString();
+      router.replace(query ? `/admin/whatsapp?${query}` : "/admin/whatsapp", {
+        scroll: false,
+      });
+    },
+    [router, searchParams],
+  );
+
+  const tabInitializedRef = useRef(false);
+
+  useEffect(() => {
+    if (permsLoading) return;
+    const tabParam = searchParams.get("tab");
+    if (tabParam === "treinamento" && canAccessIaTraining) {
+      setActiveTab("treinamento");
+      return;
+    }
+    if (tabInitializedRef.current) return;
+    tabInitializedRef.current = true;
+    if (canAccessWhatsapp) {
+      setActiveTab("atendimento");
+    } else if (canAccessIaTraining) {
+      setActiveTab("treinamento");
+    }
+  }, [permsLoading, searchParams, canAccessIaTraining, canAccessWhatsapp]);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
@@ -1195,10 +1258,10 @@ export default function AdminWhatsappPage() {
     );
   }
 
-  if (!canAccessWhatsapp) {
+  if (!canAccessWhatsapp && !canAccessIaTraining) {
     return (
       <div className="min-h-[50vh] flex items-center justify-center text-gray-600 p-6 text-center">
-        Você não tem permissão para acessar a Central WhatsApp.
+        Você não tem permissão para acessar o Atendimento.
       </div>
     );
   }
@@ -1209,28 +1272,54 @@ export default function AdminWhatsappPage() {
         <div className="flex items-center gap-2">
           <MdChat className="text-2xl text-amber-600" />
           <div>
-            <h1 className="text-xl font-semibold text-gray-900">
-              Central WhatsApp
-            </h1>
+            <h1 className="text-xl font-semibold text-gray-900">Atendimento</h1>
             <p className="text-sm text-gray-600">
-              Mensagens em tempo real (Socket.IO) + sugestão editável antes de
-              enviar.
+              {activeTab === "treinamento"
+                ? "Treine a IA com as regras e o comportamento de cada casa."
+                : "WhatsApp em tempo real, CRM, campanhas e treinamento da IA."}
             </p>
           </div>
         </div>
-        <button
-          type="button"
-          onClick={() => {
-            fetchConversations();
-            if (selectedWaId) fetchMessages(selectedWaId);
-          }}
-          className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 bg-white text-sm hover:bg-gray-50"
-        >
-          <MdRefresh />
-          Atualizar
-        </button>
+        {showWhatsappInbox ? (
+          <button
+            type="button"
+            onClick={() => {
+              fetchConversations();
+              if (selectedWaId) fetchMessages(selectedWaId);
+            }}
+            className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 bg-white text-sm hover:bg-gray-50"
+          >
+            <MdRefresh />
+            Atualizar
+          </button>
+        ) : null}
       </div>
 
+      <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+        <div className="flex gap-2 overflow-x-auto border-b border-gray-100 p-3">
+          {adminTabs.map((tab) => {
+            const isActive = activeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => selectTab(tab.id)}
+                className={`rounded-lg px-3 py-2 text-sm whitespace-nowrap transition-colors ${
+                  isActive
+                    ? "bg-amber-600 text-white shadow-sm"
+                    : "bg-gray-50 text-gray-600 hover:bg-gray-100"
+                }`}
+              >
+                {tab.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {activeTab === "treinamento" ? <EstablishmentTrainingPanel /> : null}
+
+      {showWhatsappInbox ? (
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <div className="rounded-xl border border-gray-200 bg-white px-4 py-3 shadow-sm">
           <p className="text-xs text-gray-500">Conversas ativas</p>
@@ -1466,36 +1555,9 @@ export default function AdminWhatsappPage() {
           )}
         </section>
       </div>
+      ) : null}
 
-      <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
-        <div className="flex gap-2 overflow-x-auto border-b border-gray-100 p-3">
-          {[
-            { id: "atendimento", label: "Atendimento" },
-            { id: "crm", label: "CRM de contatos" },
-            { id: "campanhas", label: "Campanhas" },
-            { id: "links", label: "Links de entrada" },
-            { id: "relatorios", label: "Relatórios" },
-          ].map((tab) => {
-            const isActive = activeTab === tab.id;
-            return (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => setActiveTab(tab.id as WhatsappAdminTab)}
-                className={`rounded-lg px-3 py-2 text-sm whitespace-nowrap transition-colors ${
-                  isActive
-                    ? "bg-amber-600 text-white shadow-sm"
-                    : "bg-gray-50 text-gray-600 hover:bg-gray-100"
-                }`}
-              >
-                {tab.label}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {activeTab === "atendimento" ? (
+      {showWhatsappInbox && activeTab === "atendimento" ? (
         <section className="rounded-xl border border-gray-200 bg-white shadow-sm p-4 md:p-5">
           <h2 className="text-base font-semibold text-gray-900">Visão rápida do atendimento</h2>
           <p className="text-sm text-gray-500 mt-1">
@@ -1523,7 +1585,7 @@ export default function AdminWhatsappPage() {
         </section>
       ) : null}
 
-      {activeTab === "links" ? (
+      {showWhatsappInbox && activeTab === "links" ? (
         <section className="rounded-xl border border-gray-200 bg-white shadow-sm">
         <div className="px-4 py-3 border-b border-gray-100">
           <h2 className="text-base font-semibold text-gray-900">
@@ -1655,7 +1717,7 @@ export default function AdminWhatsappPage() {
         </section>
       ) : null}
 
-      {activeTab === "crm" ? (
+      {showWhatsappInbox && activeTab === "crm" ? (
         <section className="rounded-xl border border-gray-200 bg-white shadow-sm">
         <div className="px-4 py-3 border-b border-gray-100 flex flex-wrap items-center justify-between gap-2">
           <div>
@@ -1931,7 +1993,7 @@ export default function AdminWhatsappPage() {
         </section>
       ) : null}
 
-      {activeTab === "campanhas" ? (
+      {showWhatsappInbox && activeTab === "campanhas" ? (
         <section className="rounded-xl border border-gray-200 bg-white shadow-sm">
         <div className="px-4 py-3 border-b border-gray-100">
           <h2 className="text-base font-semibold text-gray-900">
@@ -2366,7 +2428,7 @@ export default function AdminWhatsappPage() {
         </section>
       ) : null}
 
-      {activeTab === "relatorios" ? (
+      {showWhatsappInbox && activeTab === "relatorios" ? (
         <section className="rounded-xl border border-gray-200 bg-white shadow-sm">
         <div className="px-4 py-3 border-b border-gray-100 flex flex-wrap items-center justify-between gap-3">
           <div>

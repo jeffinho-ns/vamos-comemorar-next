@@ -53,6 +53,8 @@ export interface UserPermissions {
   } | null;
   canAccessAdmin: boolean;
   canAccessWhatsapp: boolean;
+  /** Treinamento da IA por estabelecimento (regras da casa). */
+  canAccessIaTraining: boolean;
   canAccessCardapio: boolean;
   /** Ver relatório de logs de ações (escopo por estabelecimento se não for super admin) */
   canViewActionLogs: boolean;
@@ -124,6 +126,10 @@ export function useUserPermissions() {
   const canAccessWhatsapp =
     isSuperAdmin ||
     activeEstablishmentPermissions.some((p) => p.can_manage_reservations);
+  const canAccessIaTraining =
+    isSuperAdmin ||
+    ['admin', 'gerente', 'administrador', 'recepção', 'recepcao'].includes(safeRole) ||
+    activeEstablishmentPermissions.length > 0;
   const canAccessCardapio = isSuperAdmin || hasCardapioAccess;
   /** Logs: super admin ou utilizador com pelo menos um estabelecimento ativo. */
   const canViewActionLogs =
@@ -158,6 +164,7 @@ export function useUserPermissions() {
       promoterBar,
       canAccessAdmin,
       canAccessWhatsapp,
+      canAccessIaTraining,
       canAccessCardapio,
       canViewActionLogs,
       myEstablishmentPermissions: myPermissions as MyEstablishmentPermission[],
@@ -174,6 +181,7 @@ export function useUserPermissions() {
     isClient,
     canAccessAdmin,
     canAccessWhatsapp,
+    canAccessIaTraining,
     canAccessCardapio,
     canViewActionLogs,
     myPermissions,
@@ -186,7 +194,7 @@ export function useUserPermissions() {
       route === "/admin/whatsapp" ||
       route.startsWith("/admin/whatsapp/")
     ) {
-      return permissions.canAccessWhatsapp;
+      return permissions.canAccessWhatsapp || permissions.canAccessIaTraining;
     }
     if (permissions.isSuperAdmin) return true;
     if (!permissions.canAccessAdmin) return false;

@@ -62,11 +62,11 @@ export default function EstabelecimentoDetailPage() {
       <div className="mx-auto max-w-7xl p-8">
         <div className="mb-6">
           <Link
-            href="/admin/estabelecimentos"
+            href="/admin/whatsapp?tab=treinamento"
             className="mb-4 inline-flex items-center gap-2 text-sm text-gray-300 hover:text-white"
           >
             <MdArrowBack size={18} />
-            Voltar para estabelecimentos
+            Voltar para Atendimento
           </Link>
           <h1 className="mb-2 text-4xl font-bold text-white">
             {establishment?.name || `Estabelecimento #${establishmentId}`}
