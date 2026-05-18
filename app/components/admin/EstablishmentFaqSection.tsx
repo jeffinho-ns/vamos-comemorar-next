@@ -1,21 +1,16 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { MdAdd, MdDelete, MdEdit } from 'react-icons/md';
+import { MdAdd, MdDelete, MdEdit, MdWarning } from 'react-icons/md';
 import { useEstablishments } from '@/app/hooks/useEstablishments';
 import { useEstablishmentPermissions } from '@/app/hooks/useEstablishmentPermissions';
 import type { EstablishmentFaq, EstablishmentFaqPayload } from '@/app/types/establishmentFaq';
-
-const TOPIC_SUGGESTIONS = [
-  { value: 'estacionamento', label: 'Estacionamento' },
-  { value: 'pets', label: 'Pets' },
-  { value: 'musica', label: 'Música' },
-  { value: 'cardapio', label: 'Cardápio' },
-  { value: 'horario_funcionamento', label: 'Horário de funcionamento' },
-  { value: 'dress_code', label: 'Dress code' },
-  { value: 'aniversarios', label: 'Aniversários' },
-  { value: 'areas', label: 'Áreas' },
-];
+import {
+  FAQ_TOPIC_TEMPLATES,
+  formatFaqTopicLabel,
+  getFaqTopicTemplate,
+  LEGACY_FAQ_TOPIC_VALUES,
+} from '@/app/types/faqTopics';
 
 function getApiBaseUrl() {
   return process.env.NEXT_PUBLIC_API_URL || 'https://api.agilizaiapp.com.br';
@@ -28,11 +23,11 @@ function getAuthHeaders(): HeadersInit {
   return headers;
 }
 
-function formatTopicLabel(topic: string) {
-  const match = TOPIC_SUGGESTIONS.find((item) => item.value === topic);
-  if (match) return match.label;
-  return topic.replace(/_/g, ' ');
-}
+const RECOMMENDED_TOPICS = [
+  'dias_horarios_funcionamento',
+  'valores_entrada',
+  'beneficios_aniversario',
+] as const;
 
 type Props = {
   establishmentId: number;
@@ -62,6 +57,23 @@ export default function EstablishmentFaqSection({ establishmentId }: Props) {
     return true;
   }, [establishmentPermissions, establishments, establishmentId]);
 
+  const faqTopicsSet = useMemo(() => new Set(faqs.map((f) => f.topic)), [faqs]);
+
+  const missingRecommended = useMemo(
+    () => RECOMMENDED_TOPICS.filter((topic) => !faqTopicsSet.has(topic)),
+    [faqTopicsSet]
+  );
+
+  const legacyFaqs = useMemo(
+    () => faqs.filter((faq) => LEGACY_FAQ_TOPIC_VALUES.has(faq.topic)),
+    [faqs]
+  );
+
+  const selectedTemplate = useMemo(
+    () => getFaqTopicTemplate(form.topic),
+    [form.topic]
+  );
+
   const fetchFaqs = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -87,9 +99,13 @@ export default function EstablishmentFaqSection({ establishmentId }: Props) {
     if (establishmentId > 0) fetchFaqs();
   }, [establishmentId, fetchFaqs]);
 
-  const openCreate = () => {
+  const openCreate = (presetTopic?: string) => {
     setEditing(null);
-    setForm({ topic: '', answer: '' });
+    const template = presetTopic ? getFaqTopicTemplate(presetTopic) : undefined;
+    setForm({
+      topic: presetTopic || '',
+      answer: template?.placeholder || '',
+    });
     setShowForm(true);
   };
 
@@ -103,6 +119,14 @@ export default function EstablishmentFaqSection({ establishmentId }: Props) {
     setEditing(null);
     setForm({ topic: '', answer: '' });
     setShowForm(false);
+  };
+
+  const onTopicChange = (topic: string) => {
+    const template = getFaqTopicTemplate(topic);
+    setForm((prev) => ({
+      topic,
+      answer: prev.answer.trim() ? prev.answer : template?.placeholder || prev.answer,
+    }));
   };
 
   const saveFaq = async () => {
@@ -135,7 +159,7 @@ export default function EstablishmentFaqSection({ establishmentId }: Props) {
   };
 
   const deleteFaq = async (faq: EstablishmentFaq) => {
-    if (!confirm(`Remover a FAQ "${formatTopicLabel(faq.topic)}"?`)) return;
+    if (!confirm(`Remover a FAQ "${formatFaqTopicLabel(faq.topic)}"?`)) return;
     setError(null);
     try {
       const response = await fetch(
@@ -165,19 +189,56 @@ export default function EstablishmentFaqSection({ establishmentId }: Props) {
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div>
           <h2 className="text-xl font-semibold text-gray-900">Treinamento da IA (Regras da Casa)</h2>
-          <p className="text-sm text-gray-600">
-            Respostas usadas pela IA no WhatsApp para {establishmentName}.
+          <p className="text-sm text-gray-600 mt-1">
+            Informações oficiais que a IA usa no WhatsApp para {establishmentName}. Escolha o{' '}
+            <strong>tópico correto</strong> e descreva os fatos com clareza (horários, valores,
+            benefícios).
           </p>
         </div>
         <button
           type="button"
-          onClick={openCreate}
+          onClick={() => openCreate()}
           className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-yellow-500 to-yellow-600 px-4 py-2 text-sm font-medium text-white shadow hover:opacity-90"
         >
           <MdAdd size={18} />
-          Nova FAQ
+          Nova regra
         </button>
       </div>
+
+      {missingRecommended.length > 0 && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
+          <p className="font-medium mb-2">Tópicos recomendados ainda não cadastrados:</p>
+          <ul className="flex flex-wrap gap-2">
+            {missingRecommended.map((topic) => (
+              <li key={topic}>
+                <button
+                  type="button"
+                  onClick={() => openCreate(topic)}
+                  className="rounded-full bg-white border border-amber-300 px-3 py-1 text-xs font-medium hover:bg-amber-100"
+                >
+                  + {formatFaqTopicLabel(topic)}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {legacyFaqs.length > 0 && (
+        <div className="rounded-xl border border-orange-200 bg-orange-50 p-4 text-sm text-orange-950 flex gap-2">
+          <MdWarning className="shrink-0 mt-0.5" size={20} />
+          <div>
+            <p className="font-medium">Tópicos antigos detectados</p>
+            <p className="mt-1">
+              Existem regras com tópicos legados ({legacyFaqs.map((f) => f.topic).join(', ')}).
+              Edite e salve usando os tópicos novos (ex.: &quot;Horário&quot; →{' '}
+              <code className="text-xs">dias_horarios_funcionamento</code>, &quot;Aniversários&quot; →{' '}
+              <code className="text-xs">beneficios_aniversario</code>). Ao salvar, a API normaliza
+              automaticamente.
+            </p>
+          </div>
+        </div>
+      )}
 
       {error && (
         <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
@@ -187,7 +248,7 @@ export default function EstablishmentFaqSection({ establishmentId }: Props) {
 
       {loading ? (
         <div className="rounded-xl border border-gray-200 bg-white p-6 text-sm text-gray-500">
-          Carregando FAQs...
+          Carregando regras...
         </div>
       ) : (
         <div className="rounded-xl border border-gray-200 bg-white overflow-hidden">
@@ -195,7 +256,7 @@ export default function EstablishmentFaqSection({ establishmentId }: Props) {
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-4 py-3 text-left font-medium text-gray-700">Tópico</th>
-                <th className="px-4 py-3 text-left font-medium text-gray-700">Resposta para a IA</th>
+                <th className="px-4 py-3 text-left font-medium text-gray-700">Conteúdo para a IA</th>
                 <th className="px-4 py-3 text-right font-medium text-gray-700">Ações</th>
               </tr>
             </thead>
@@ -203,18 +264,25 @@ export default function EstablishmentFaqSection({ establishmentId }: Props) {
               {faqs.length === 0 ? (
                 <tr>
                   <td colSpan={3} className="px-4 py-6 text-center text-gray-500">
-                    Nenhuma FAQ cadastrada para este estabelecimento.
+                    Nenhuma regra cadastrada. Comece pelos tópicos recomendados acima.
                   </td>
                 </tr>
               ) : (
                 faqs.map((faq) => (
                   <tr key={faq.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3 font-medium text-gray-900">
-                      {formatTopicLabel(faq.topic)}
-                      <div className="text-xs text-gray-500">{faq.topic}</div>
+                    <td className="px-4 py-3 font-medium text-gray-900 align-top">
+                      {formatFaqTopicLabel(faq.topic)}
+                      <div className="text-xs text-gray-500 font-mono">{faq.topic}</div>
+                      {LEGACY_FAQ_TOPIC_VALUES.has(faq.topic) && (
+                        <span className="mt-1 inline-block text-xs text-orange-700 bg-orange-100 px-2 py-0.5 rounded">
+                          legado
+                        </span>
+                      )}
                     </td>
-                    <td className="px-4 py-3 text-gray-700 whitespace-pre-wrap">{faq.answer}</td>
-                    <td className="px-4 py-3 text-right">
+                    <td className="px-4 py-3 text-gray-700 whitespace-pre-wrap max-w-xl">
+                      {faq.answer}
+                    </td>
+                    <td className="px-4 py-3 text-right align-top">
                       <button
                         type="button"
                         onClick={() => openEdit(faq)}
@@ -243,41 +311,45 @@ export default function EstablishmentFaqSection({ establishmentId }: Props) {
       {showForm && (
         <div className="rounded-xl border border-gray-200 bg-white p-6 space-y-4">
           <h3 className="text-lg font-semibold text-gray-900">
-            {editing ? 'Editar FAQ' : 'Nova FAQ'}
+            {editing ? 'Editar regra' : 'Nova regra'}
           </h3>
           <div className="grid grid-cols-1 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Tópico / pergunta</label>
-              <input
-                list="faq-topic-suggestions"
+              <label className="block text-sm font-medium text-gray-700 mb-1">Tópico</label>
+              <select
                 value={form.topic}
-                onChange={(event) => setForm((prev) => ({ ...prev, topic: event.target.value }))}
-                placeholder="Ex.: estacionamento"
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-              />
-              <datalist id="faq-topic-suggestions">
-                {TOPIC_SUGGESTIONS.map((item) => (
+                onChange={(event) => onTopicChange(event.target.value)}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm bg-white"
+              >
+                <option value="">Selecione um tópico...</option>
+                {FAQ_TOPIC_TEMPLATES.map((item) => (
                   <option key={item.value} value={item.value}>
                     {item.label}
                   </option>
                 ))}
-              </datalist>
+              </select>
+              {selectedTemplate && (
+                <p className="mt-2 text-xs text-gray-600">{selectedTemplate.description}</p>
+              )}
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Contexto e Comportamento (O que a IA deve aprender e como deve agir)
+                Fatos e orientações (a IA responde com base neste texto)
               </label>
               <textarea
                 value={form.answer}
                 onChange={(event) => setForm((prev) => ({ ...prev, answer: event.target.value }))}
-                rows={5}
-                placeholder="Descreva o contexto e a postura que a IA deve adotar nesta situação."
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                rows={8}
+                placeholder={
+                  selectedTemplate?.placeholder ||
+                  'Liste horários, valores, benefícios e regras de forma objetiva.'
+                }
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm font-mono leading-relaxed"
               />
               <p className="mt-2 text-xs text-gray-500">
-                Dica: Não escreva respostas robóticas. Ensine a IA como ela deve pensar e reagir. Ex:
-                &quot;Diga que adoramos decorações, mas explique com educação que não permitimos
-                confetes&quot;.
+                Escreva os fatos reais (horários, preços, cortesias). A IA reformula em linguagem
+                natural, mas não deve inventar o que não estiver aqui. Separe horários e valores de
+                entrada em tópicos diferentes quando possível.
               </p>
             </div>
           </div>

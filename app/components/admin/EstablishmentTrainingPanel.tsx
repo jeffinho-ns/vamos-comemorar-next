@@ -29,8 +29,9 @@ export default function EstablishmentTrainingPanel() {
       <div className="px-4 py-4 border-b border-gray-100 md:px-5">
         <h2 className="text-base font-semibold text-gray-900">Treinamento da IA por estabelecimento</h2>
         <p className="text-sm text-gray-500 mt-1">
-          Ensine a IA como agir em cada casa: regras, tom e situações específicas (decorações, VIPs,
-          surpresas). Não são respostas prontas — é contexto para respostas naturais no WhatsApp.
+          Cadastre os fatos oficiais de cada casa (horários, entrada, aniversário, áreas). A IA usa
+          essas regras no WhatsApp antes de pedir dados de reserva. Use os tópicos recomendados em
+          cada estabelecimento.
         </p>
       </div>
       <div className="overflow-x-auto">
