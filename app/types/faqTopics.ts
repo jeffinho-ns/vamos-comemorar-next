@@ -102,3 +102,71 @@ export function formatFaqTopicLabel(topic: string): string {
 export function getFaqTopicTemplate(topic: string): FaqTopicTemplate | undefined {
   return FAQ_TOPIC_TEMPLATES.find((item) => item.value === topic);
 }
+
+/** HighLine (places.id = 7) — checklist completo antes dos demais estabelecimentos. */
+export const HIGHLINE_ESTABLISHMENT_ID = 7;
+
+export const HIGHLINE_RECOMMENDED_TOPIC_VALUES = [
+  'dias_horarios_funcionamento',
+  'valores_entrada',
+  'beneficios_aniversario',
+  'areas_mesas_camarotes_diferenca',
+  'regras_bolo',
+  'redes_sociais_fotos',
+  'estacionamento',
+  'pet',
+  'musica',
+  'cardapio',
+  'dress_code',
+] as const;
+
+/** Tópicos mínimos para demais casas. */
+export const DEFAULT_RECOMMENDED_TOPIC_VALUES = [
+  'dias_horarios_funcionamento',
+  'valores_entrada',
+  'beneficios_aniversario',
+] as const;
+
+export function getRecommendedTopicValues(establishmentId: number): readonly string[] {
+  if (Number(establishmentId) === HIGHLINE_ESTABLISHMENT_ID) {
+    return HIGHLINE_RECOMMENDED_TOPIC_VALUES;
+  }
+  return DEFAULT_RECOMMENDED_TOPIC_VALUES;
+}
+
+/** Espelha a normalização da API ao salvar (slug do tópico). */
+export function normalizeTopicInput(raw: string): string {
+  const canonicalMap: Record<string, string> = {
+    horario: 'dias_horarios_funcionamento',
+    horarios: 'dias_horarios_funcionamento',
+    funcionamento: 'dias_horarios_funcionamento',
+    horario_funcionamento: 'dias_horarios_funcionamento',
+    horario_de_funcionamento: 'dias_horarios_funcionamento',
+    entrada: 'valores_entrada',
+    entradas: 'valores_entrada',
+    aniversario: 'beneficios_aniversario',
+    aniversarios: 'beneficios_aniversario',
+    vantagens_aniversariante: 'beneficios_aniversario',
+    areas: 'areas_mesas_camarotes_diferenca',
+    area: 'areas_mesas_camarotes_diferenca',
+    pets: 'pet',
+    menu: 'cardapio',
+  };
+
+  const slug = String(raw || '')
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, '_')
+    .replace(/[^a-z0-9_]/g, '')
+    .replace(/_+/g, '_')
+    .replace(/^_|_$/g, '');
+
+  return canonicalMap[slug] || slug;
+}
+
+export function isKnownFaqTopic(topic: string): boolean {
+  const normalized = normalizeTopicInput(topic);
+  return FAQ_TOPIC_TEMPLATES.some((item) => item.value === normalized);
+}
