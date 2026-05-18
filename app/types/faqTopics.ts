@@ -14,7 +14,7 @@ export const FAQ_TOPIC_TEMPLATES: FaqTopicTemplate[] = [
     description:
       'Dias da semana que abre/fecha, horários (ex.: sábado 16h–04h), club, música do dia.',
     placeholder:
-      'Ex.: Aos sábados abrimos às 16h e fechamos às 04h. O club abre à meia-noite. Tocamos house e open format. Segunda a quarta fechado.',
+      'Ex.: Aos sábados abrimos às 16h e fechamos às 04h. Tocamos house, open format, brasilidades. Club às 00h. Entrada: até 18h VIP; 18h–00h R$60/R$160; após 00h R$80/R$200. Sujeito a alteração.',
     legacyAliases: ['horario_funcionamento', 'horarios', 'funcionamento'],
   },
   {
@@ -30,7 +30,7 @@ export const FAQ_TOPIC_TEMPLATES: FaqTopicTemplate[] = [
     label: 'Vantagens para aniversariante',
     description: 'Benefícios do aniversariante e cortesias por quantidade de convidados presentes.',
     placeholder:
-      'Ex.: 2 VIPs + 2 G&T para o aniversariante e acompanhante. Com 20 convidados presentes: 1 garrafa Gin 142 ou Clericot. Com 30: garrafa + 1 drink cortesia.',
+      'Ex.: 2 VIPs + 2 G&T (aniversariante + acompanhante). 20 convidados presentes: 1 garrafa Gin 142 ou Clericot. 30 convidados: garrafa + 1 drink cortesia.',
     legacyAliases: ['aniversarios', 'aniversario', 'niver'],
   },
   {
