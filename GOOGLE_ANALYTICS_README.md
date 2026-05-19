@@ -7,8 +7,10 @@ Este projeto está configurado com **Google Analytics 4 (GA4)** para monitorar o
 ## 🔧 Configuração Base
 
 ### ID de Rastreamento
-- **GA4 ID:** `G-EFE3J4Z20X`
-- **Implementado em:** Layout principal (`app/layout.tsx`)
+- **GA4 ID (painel):** `G-EFE3J4Z20X`
+- **Variável:** `NEXT_PUBLIC_GA_ID` (prioridade no gtag)
+- **Firebase:** `NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID` — use o **mesmo** ID, ou o tráfego vai para outra propriedade
+- **Implementado em:** Layout principal (`app/layout.tsx`) + `GaRouteTracker` (navegação SPA)
 - **Cobertura:** Todo o site
 
 ### Componente Principal
