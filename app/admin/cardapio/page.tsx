@@ -329,8 +329,7 @@ const getValidImageUrl = (filename?: string | null): string => {
       const mapped = imageUrlIndex.get(last);
       if (mapped) return toThumbVariant(mapped);
     }
-    // Fallback para não sumir imagem no admin quando a URL ainda está no Cloudinary.
-    return toThumbVariant(trimmed);
+    return PLACEHOLDER_IMAGE_URL;
   }
 
   // Se já é uma URL completa (Firebase/FTP/Unsplash/etc), retornar como está
@@ -737,16 +736,16 @@ export default function CardapioAdminPage() {
 
       let barsData = Array.isArray(bars)
         ? bars.map((bar) => {
-            // Processar URLs das imagens - manter URLs completas do Cloudinary, limpar apenas URLs antigas
+            // Normalizar URLs: nunca manter Cloudinary (conta removida)
             const processImageUrl = (url: string | null | undefined): string => {
               if (!url || typeof url !== 'string') return '';
               
               const trimmed = url.trim();
               if (trimmed === '' || trimmed === 'null' || trimmed === 'undefined') return '';
               
-              // Se já é uma URL completa do Cloudinary, manter como está (não limpar)
-              if (trimmed.startsWith('https://res.cloudinary.com')) {
-                return trimmed;
+              if (trimmed.includes('res.cloudinary.com') || trimmed.includes('cloudinary.com')) {
+                const filename = trimmed.split('?')[0]?.split('/').pop()?.trim() || '';
+                return filename;
               }
               
               // Se é uma URL antiga (grupoideiaum.com.br), extrair apenas o filename
@@ -944,8 +943,13 @@ export default function CardapioAdminPage() {
         const data = await res.json();
         const images = Array.isArray(data?.images) ? data.images : [];
         for (const img of images) {
-          if (img?.filename && img?.url) {
-            indexImageUrl(img.filename, img.url);
+          const url =
+            (typeof img?.url === 'string' && img.url.trim()) ||
+            (typeof img?.thumbUrl === 'string' && img.thumbUrl.trim()) ||
+            (typeof img?.mediumUrl === 'string' && img.mediumUrl.trim()) ||
+            '';
+          if (img?.filename && url) {
+            indexImageUrl(img.filename, url);
           }
         }
         if (!cancelled) setImageIndexVersion((v) => v + 1);
@@ -2031,11 +2035,9 @@ export default function CardapioAdminPage() {
         if (trimmed === '' || trimmed === 'null' || trimmed === 'undefined' || trimmed === PLACEHOLDER_IMAGE_URL) {
           return '';
         }
-        // Se já é URL completa do Cloudinary, manter como está
-        if (trimmed.startsWith('https://res.cloudinary.com')) {
-          return trimmed;
+        if (trimmed.includes('res.cloudinary.com') || trimmed.includes('cloudinary.com')) {
+          return trimmed.split('?')[0]?.split('/').pop()?.trim() || '';
         }
-        // Caso contrário, manter como está (pode ser filename ou outra URL)
         return trimmed;
       };
 

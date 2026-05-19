@@ -3,7 +3,7 @@ const PLACEHOLDER_IMAGE_URL = '/placeholder-cardapio.svg';
 const imageUrlIndex = new Map<string, string>();
 let warmPromise: Promise<void> | null = null;
 const preloadedImages = new Set<string>();
-const INDEX_CACHE_KEY = 'cardapio:image-url-index:v1';
+const INDEX_CACHE_KEY = 'cardapio:image-url-index:v2';
 const INDEX_CACHE_TTL_MS = 1000 * 60 * 60 * 6; // 6 horas
 let cacheHydrated = false;
 export type CardapioImageVariant = 'full' | 'medium' | 'thumb';
@@ -14,6 +14,53 @@ function isHttpUrl(value: string) {
 
 function isCloudinaryUrl(value: string) {
   return value.includes('res.cloudinary.com') || value.includes('cloudinary.com');
+}
+
+/** Extrai objectPath/filename de URL Cloudinary, Firebase ou valor legado. */
+export function extractImageStorageKey(value: string): string | null {
+  const trimmed = String(value || '').trim();
+  if (!trimmed) return null;
+
+  if (trimmed.includes('firebasestorage.googleapis.com')) {
+    const match = trimmed.match(/\/o\/([^?]+)(?:\?|$)/);
+    if (match?.[1]) {
+      try {
+        return normalizeKey(decodeURIComponent(match[1]));
+      } catch {
+        return normalizeKey(match[1]);
+      }
+    }
+  }
+
+  if (isHttpUrl(trimmed)) {
+    const withoutQuery = trimmed.split('?')[0];
+    const parts = withoutQuery.split('/').filter(Boolean);
+    const last = parts[parts.length - 1] || '';
+    return last ? normalizeKey(safeDecode(last)) : null;
+  }
+
+  return normalizeKey(trimmed);
+}
+
+/** Converte valor do banco para exibição: nunca retorna URL Cloudinary. */
+export function sanitizeImageValueForDisplay(value?: string | null): string {
+  if (!value || typeof value !== 'string') return '';
+  const trimmed = value.trim();
+  if (!trimmed || trimmed === 'null' || trimmed === 'undefined') return '';
+
+  if (isCloudinaryUrl(trimmed)) {
+    const key = extractImageStorageKey(trimmed);
+    if (key) {
+      const mapped =
+        imageUrlIndex.get(key) ||
+        imageUrlIndex.get(key.split('/').pop() || '') ||
+        null;
+      if (mapped) return mapped;
+    }
+    return '';
+  }
+
+  return trimmed;
 }
 
 function normalizeKey(value: string) {
@@ -90,7 +137,7 @@ function hydrateIndexFromCache() {
     if (!ts || Date.now() - ts > INDEX_CACHE_TTL_MS || entries.length === 0) return;
 
     for (const [key, value] of entries) {
-      if (typeof key === 'string' && typeof value === 'string') {
+      if (typeof key === 'string' && typeof value === 'string' && !isCloudinaryUrl(value)) {
         imageUrlIndex.set(key, value);
       }
     }
