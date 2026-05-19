@@ -1,6 +1,7 @@
 const PLACEHOLDER_IMAGE_URL = '/placeholder-cardapio.svg';
 
 const imageUrlIndex = new Map<string, string>();
+let lastCardapioApiBaseUrl: string | null = null;
 let warmPromise: Promise<void> | null = null;
 const preloadedImages = new Set<string>();
 const INDEX_CACHE_KEY = 'cardapio:image-url-index:v2';
@@ -86,6 +87,53 @@ function extractPublicImagesKey(urlValue: string): string | null {
 
 function replaceVariantSuffix(value: string, variant: CardapioImageVariant) {
   return value.replace(/_(full|medium|thumb)\.webp$/i, `_${variant}.webp`);
+}
+
+function hasWebpVariantSuffix(value: string) {
+  return /_(full|medium|thumb)\.webp$/i.test(value);
+}
+
+/** Espelha expandBasenameToCardapioItemsObjectPath da API para montar proxy /public/images/. */
+export function expandCardapioObjectPath(basename: string): string {
+  const clean = normalizeKey(basename);
+  if (!clean) return '';
+  if (clean.includes('/')) return clean;
+
+  const uuidFile =
+    /^([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(\.[a-z0-9]+)$/i.exec(
+      clean,
+    );
+  if (uuidFile) {
+    return `cardapio/items/${uuidFile[1]}${uuidFile[2]}`;
+  }
+
+  const nanoidVariants =
+    /^([A-Z0-9]{10})((_full)|(_medium)|(_thumb))?(\.[a-z0-9]+)$/i.exec(clean);
+  if (nanoidVariants) {
+    const id = nanoidVariants[1];
+    const explicitVariant = nanoidVariants[3];
+    const ext = nanoidVariants[5] || '.webp';
+    if (!explicitVariant) {
+      return `cardapio/items/${id}${ext}`;
+    }
+    return `cardapio/items/${id}${explicitVariant}${ext}`;
+  }
+
+  return `cardapio/items/${clean}`;
+}
+
+function buildPublicProxyUrl(reference: string, variant: CardapioImageVariant): string | null {
+  if (!lastCardapioApiBaseUrl) return null;
+  const origin = lastCardapioApiBaseUrl.replace(/\/api\/cardapio\/?$/i, '');
+  const key = extractImageStorageKey(reference) || normalizeKey(reference);
+  if (!key) return null;
+
+  let objectPath = expandCardapioObjectPath(key);
+  if (hasWebpVariantSuffix(objectPath)) {
+    objectPath = replaceVariantSuffix(objectPath, variant);
+  }
+
+  return `${origin}/public/images/${encodeURIComponent(objectPath)}`;
 }
 
 function applyVariantToPublicImagesUrl(
@@ -194,6 +242,8 @@ export function resolveCardapioImageUrl(
       const mapped = imageUrlIndex.get(last);
       if (mapped) return mapped;
     }
+    const proxyUrl = buildPublicProxyUrl(trimmed, variant);
+    if (proxyUrl) return proxyUrl;
     return PLACEHOLDER_IMAGE_URL;
   }
 
@@ -219,12 +269,17 @@ export function resolveCardapioImageUrl(
         if (byLast) return byLast;
       }
 
-      // Se o índice não estiver aquecido, mantém a URL original do proxy para não sumir imagem.
-      return applyVariantToPublicImagesUrl(trimmed, variant);
+      if (hasWebpVariantSuffix(publicImagesKey)) {
+        return applyVariantToPublicImagesUrl(trimmed, variant);
+      }
+      return trimmed;
     }
 
     if (trimmed.includes('firebasestorage.googleapis.com')) {
-      return applyVariantToFirebaseDownloadUrl(trimmed, variant);
+      if (hasWebpVariantSuffix(trimmed)) {
+        return applyVariantToFirebaseDownloadUrl(trimmed, variant);
+      }
+      return trimmed;
     }
 
     return trimmed;
@@ -247,15 +302,17 @@ export function resolveCardapioImageUrl(
     if (byLast) return byLast;
   }
 
+  const proxyUrl = buildPublicProxyUrl(trimmed, variant);
+  if (proxyUrl) return proxyUrl;
+
   return PLACEHOLDER_IMAGE_URL;
 }
 
 export async function warmCardapioImageIndex(apiBaseUrl: string) {
+  lastCardapioApiBaseUrl = apiBaseUrl;
   hydrateIndexFromCache();
-  if (imageUrlIndex.size > 0) return;
   if (warmPromise) return warmPromise;
   warmPromise = (async () => {
-    // Carrega mais itens para evitar "miss" de filename -> URL em bares específicos.
     const res = await fetch(`${apiBaseUrl}/gallery/images?limit=2000`);
     if (!res.ok) return;
     const data = await res.json();
@@ -265,8 +322,14 @@ export async function warmCardapioImageIndex(apiBaseUrl: string) {
         ? data.images
         : [];
     for (const img of images) {
-      if (img?.filename && img?.url) {
-        indexCardapioImageUrl(img.filename, img.url);
+      const url =
+        (typeof img?.url === 'string' && img.url.trim()) ||
+        (typeof img?.mediumUrl === 'string' && img.mediumUrl.trim()) ||
+        (typeof img?.thumbUrl === 'string' && img.thumbUrl.trim()) ||
+        (typeof img?.fullUrl === 'string' && img.fullUrl.trim()) ||
+        '';
+      if (img?.filename && url) {
+        indexCardapioImageUrl(img.filename, url);
       }
     }
     persistIndexToCache();
@@ -274,6 +337,25 @@ export async function warmCardapioImageIndex(apiBaseUrl: string) {
     warmPromise = null;
   });
   return warmPromise;
+}
+
+/** Usa URL já resolvida pela API; só re-resolve filename/Cloudinary legado. */
+export function resolveBarImageFromApi(
+  value?: string | null,
+  variant: CardapioImageVariant = 'medium',
+): string {
+  if (!value || typeof value !== 'string') return PLACEHOLDER_IMAGE_URL;
+  const trimmed = value.trim();
+  if (!trimmed || trimmed === 'null' || trimmed === 'undefined') {
+    return PLACEHOLDER_IMAGE_URL;
+  }
+  if (
+    isHttpUrl(trimmed) &&
+    !isCloudinaryUrl(trimmed)
+  ) {
+    return resolveCardapioImageUrl(trimmed, variant);
+  }
+  return resolveCardapioImageUrl(trimmed, variant);
 }
 
 export function getCardapioPlaceholderUrl() {

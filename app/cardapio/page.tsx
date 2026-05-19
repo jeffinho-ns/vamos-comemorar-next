@@ -8,7 +8,7 @@ import Link from 'next/link';
 
 import {
   getCardapioPlaceholderUrl,
-  resolveCardapioImageUrl,
+  resolveBarImageFromApi,
   warmCardapioImageIndex,
 } from '@/app/utils/cardapioImageResolver';
 
@@ -32,15 +32,10 @@ const API_BASE_URL = 'https://api.agilizaiapp.com.br/api/cardapio';
 const PLACEHOLDER_BAR_URL = getCardapioPlaceholderUrl();
 
 const resolveCoverImage = (coverImageUrl?: string | null, coverImages?: string[] | null) => {
-  const primary = resolveCardapioImageUrl(coverImageUrl || null);
-  const hasLegacyPublicProxy = typeof primary === 'string' && primary.includes('/public/images/');
+  const primary = resolveBarImageFromApi(coverImageUrl, 'medium');
   const firstValidCover = Array.isArray(coverImages)
     ? coverImages.find((img) => img && img !== PLACEHOLDER_BAR_URL)
     : null;
-
-  // Quando a capa principal vem de /public/images/ (legado), prioriza coverImages[0]
-  // para evitar 404/403 intermitente de cache/proxy.
-  if (hasLegacyPublicProxy && firstValidCover) return firstValidCover;
 
   if (primary !== PLACEHOLDER_BAR_URL) return primary;
   return firstValidCover || PLACEHOLDER_BAR_URL;
@@ -73,20 +68,24 @@ export default function CardapioPage() {
         let processedCoverImages: string[] = [];
         if (bar.coverImages) {
           if (Array.isArray(bar.coverImages)) {
-            processedCoverImages = bar.coverImages.map((img: string) => resolveCardapioImageUrl(img));
+            processedCoverImages = bar.coverImages.map((img: string) =>
+              resolveBarImageFromApi(img, 'medium'),
+            );
           } else if (typeof bar.coverImages === 'string') {
             try {
               const parsed = JSON.parse(bar.coverImages);
               if (Array.isArray(parsed)) {
-                processedCoverImages = parsed.map((img: string) => resolveCardapioImageUrl(img));
+                processedCoverImages = parsed.map((img: string) =>
+                  resolveBarImageFromApi(img, 'medium'),
+                );
               } else if (typeof parsed === 'string' && parsed.trim() !== '') {
-                processedCoverImages = [resolveCardapioImageUrl(parsed)];
+                processedCoverImages = [resolveBarImageFromApi(parsed, 'medium')];
               }
             } catch (e) {
               // Se não for JSON válido, tratar como string simples
               const coverImagesStr = bar.coverImages as string;
               if (coverImagesStr.trim() !== '') {
-                processedCoverImages = [resolveCardapioImageUrl(coverImagesStr)];
+                processedCoverImages = [resolveBarImageFromApi(coverImagesStr, 'medium')];
               }
             }
           }
@@ -94,7 +93,7 @@ export default function CardapioPage() {
         
         return {
           ...bar,
-          logoUrl: resolveCardapioImageUrl(bar.logoUrl),
+          logoUrl: resolveBarImageFromApi(bar.logoUrl, 'thumb'),
           coverImageUrl: resolveCoverImage(bar.coverImageUrl, processedCoverImages),
           coverImages: processedCoverImages.length > 0 ? processedCoverImages : [],
         };
