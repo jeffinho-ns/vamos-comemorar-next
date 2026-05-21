@@ -1,6 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { io } from "socket.io-client";
 import {
@@ -20,6 +27,163 @@ import EstablishmentTrainingPanel from "@/app/components/admin/EstablishmentTrai
 
 const API_URL = getApiUrl();
 const SOCKET_URL = getPublicSocketUrl();
+/** Distância do fim (px) para considerar que o operador está acompanhando o fim do chat. */
+const MESSAGES_SCROLL_BOTTOM_THRESHOLD = 72;
+
+/** Filtro da lista de conversas por casa (token #EST_ID no link de entrada). */
+type InboxEstablishmentFilter = "all" | "unassigned" | number;
+
+type InboxEstablishmentTheme = {
+  tabActive: string;
+  tabInactive: string;
+  listHover: string;
+  listActive: string;
+  listActiveBorder: string;
+  badge: string;
+  statusBadge: string;
+  headerBg: string;
+  headerBorder: string;
+  outboundBubble: string;
+};
+
+const INBOX_UNASSIGNED_THEME: InboxEstablishmentTheme = {
+  tabActive: "bg-slate-600 text-white shadow-sm",
+  tabInactive:
+    "bg-slate-50 text-slate-700 border border-slate-200 hover:bg-slate-100",
+  listHover: "hover:bg-slate-50/80",
+  listActive: "bg-slate-50",
+  listActiveBorder: "border-l-slate-500",
+  badge: "bg-slate-100 text-slate-700",
+  statusBadge: "bg-slate-200 text-slate-800",
+  headerBg: "bg-slate-50/90",
+  headerBorder: "border-slate-200",
+  outboundBubble: "bg-slate-700",
+};
+
+const INBOX_ESTABLISHMENT_PALETTES: InboxEstablishmentTheme[] = [
+  {
+    tabActive: "bg-indigo-600 text-white shadow-sm",
+    tabInactive:
+      "bg-indigo-50 text-indigo-800 border border-indigo-200 hover:bg-indigo-100",
+    listHover: "hover:bg-indigo-50/70",
+    listActive: "bg-indigo-50",
+    listActiveBorder: "border-l-indigo-600",
+    badge: "bg-indigo-100 text-indigo-800",
+    statusBadge: "bg-indigo-200/80 text-indigo-900",
+    headerBg: "bg-indigo-50/80",
+    headerBorder: "border-indigo-200",
+    outboundBubble: "bg-indigo-600",
+  },
+  {
+    tabActive: "bg-amber-600 text-white shadow-sm",
+    tabInactive:
+      "bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100",
+    listHover: "hover:bg-amber-50/70",
+    listActive: "bg-amber-50",
+    listActiveBorder: "border-l-amber-600",
+    badge: "bg-amber-100 text-amber-900",
+    statusBadge: "bg-amber-200/80 text-amber-950",
+    headerBg: "bg-amber-50/80",
+    headerBorder: "border-amber-200",
+    outboundBubble: "bg-amber-600",
+  },
+  {
+    tabActive: "bg-emerald-600 text-white shadow-sm",
+    tabInactive:
+      "bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100",
+    listHover: "hover:bg-emerald-50/70",
+    listActive: "bg-emerald-50",
+    listActiveBorder: "border-l-emerald-600",
+    badge: "bg-emerald-100 text-emerald-800",
+    statusBadge: "bg-emerald-200/80 text-emerald-900",
+    headerBg: "bg-emerald-50/80",
+    headerBorder: "border-emerald-200",
+    outboundBubble: "bg-emerald-600",
+  },
+  {
+    tabActive: "bg-violet-600 text-white shadow-sm",
+    tabInactive:
+      "bg-violet-50 text-violet-800 border border-violet-200 hover:bg-violet-100",
+    listHover: "hover:bg-violet-50/70",
+    listActive: "bg-violet-50",
+    listActiveBorder: "border-l-violet-600",
+    badge: "bg-violet-100 text-violet-800",
+    statusBadge: "bg-violet-200/80 text-violet-900",
+    headerBg: "bg-violet-50/80",
+    headerBorder: "border-violet-200",
+    outboundBubble: "bg-violet-600",
+  },
+  {
+    tabActive: "bg-rose-600 text-white shadow-sm",
+    tabInactive:
+      "bg-rose-50 text-rose-800 border border-rose-200 hover:bg-rose-100",
+    listHover: "hover:bg-rose-50/70",
+    listActive: "bg-rose-50",
+    listActiveBorder: "border-l-rose-600",
+    badge: "bg-rose-100 text-rose-800",
+    statusBadge: "bg-rose-200/80 text-rose-900",
+    headerBg: "bg-rose-50/80",
+    headerBorder: "border-rose-200",
+    outboundBubble: "bg-rose-600",
+  },
+  {
+    tabActive: "bg-cyan-600 text-white shadow-sm",
+    tabInactive:
+      "bg-cyan-50 text-cyan-800 border border-cyan-200 hover:bg-cyan-100",
+    listHover: "hover:bg-cyan-50/70",
+    listActive: "bg-cyan-50",
+    listActiveBorder: "border-l-cyan-600",
+    badge: "bg-cyan-100 text-cyan-800",
+    statusBadge: "bg-cyan-200/80 text-cyan-900",
+    headerBg: "bg-cyan-50/80",
+    headerBorder: "border-cyan-200",
+    outboundBubble: "bg-cyan-600",
+  },
+  {
+    tabActive: "bg-orange-600 text-white shadow-sm",
+    tabInactive:
+      "bg-orange-50 text-orange-800 border border-orange-200 hover:bg-orange-100",
+    listHover: "hover:bg-orange-50/70",
+    listActive: "bg-orange-50",
+    listActiveBorder: "border-l-orange-600",
+    badge: "bg-orange-100 text-orange-800",
+    statusBadge: "bg-orange-200/80 text-orange-900",
+    headerBg: "bg-orange-50/80",
+    headerBorder: "border-orange-200",
+    outboundBubble: "bg-orange-600",
+  },
+  {
+    tabActive: "bg-teal-600 text-white shadow-sm",
+    tabInactive:
+      "bg-teal-50 text-teal-800 border border-teal-200 hover:bg-teal-100",
+    listHover: "hover:bg-teal-50/70",
+    listActive: "bg-teal-50",
+    listActiveBorder: "border-l-teal-600",
+    badge: "bg-teal-100 text-teal-800",
+    statusBadge: "bg-teal-200/80 text-teal-900",
+    headerBg: "bg-teal-50/80",
+    headerBorder: "border-teal-200",
+    outboundBubble: "bg-teal-600",
+  },
+];
+
+/** Cores fixas para IDs conhecidos (HighLine, Justino, etc.). */
+const PINNED_INBOX_ESTABLISHMENT_PALETTE: Record<number, number> = {
+  7: 0,
+  1: 1,
+  8: 2,
+  9: 3,
+};
+
+function getInboxEstablishmentTheme(
+  establishmentId: number | null | undefined,
+): InboxEstablishmentTheme {
+  if (!establishmentId) return INBOX_UNASSIGNED_THEME;
+  const pinned = PINNED_INBOX_ESTABLISHMENT_PALETTE[establishmentId];
+  const paletteIndex =
+    pinned ?? Math.abs(establishmentId) % INBOX_ESTABLISHMENT_PALETTES.length;
+  return INBOX_ESTABLISHMENT_PALETTES[paletteIndex] ?? INBOX_ESTABLISHMENT_PALETTES[0];
+}
 
 type ConversationRow = {
   id: number;
@@ -161,6 +325,15 @@ function leadContactStatusBadgeClass(code: string | null | undefined): string {
     default:
       return "bg-gray-100 text-gray-600";
   }
+}
+
+function conversationMatchesInboxFilter(
+  conversation: ConversationRow,
+  filter: InboxEstablishmentFilter,
+): boolean {
+  if (filter === "all") return true;
+  if (filter === "unassigned") return !conversation.establishment_id;
+  return conversation.establishment_id === filter;
 }
 
 function handoffActive(until: string | null | undefined): boolean {
@@ -312,6 +485,8 @@ export default function AdminWhatsappPage() {
   const [copiedLinkId, setCopiedLinkId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<WhatsappAdminTab>("treinamento");
+  const [inboxEstablishmentFilter, setInboxEstablishmentFilter] =
+    useState<InboxEstablishmentFilter>("all");
 
   const adminTabs = useMemo(() => {
     const items: { id: WhatsappAdminTab; label: string }[] = [];
@@ -369,7 +544,30 @@ export default function AdminWhatsappPage() {
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const isPinnedToBottomRef = useRef(true);
   const draftDirtyRef = useRef(false);
+  const [showJumpToLatest, setShowJumpToLatest] = useState(false);
+
+  const scrollMessagesToBottom = useCallback(
+    (behavior: ScrollBehavior = "smooth") => {
+      const container = messagesContainerRef.current;
+      if (!container) return;
+      container.scrollTo({ top: container.scrollHeight, behavior });
+      isPinnedToBottomRef.current = true;
+      setShowJumpToLatest(false);
+    },
+    [],
+  );
+
+  const updateScrollPinState = useCallback(() => {
+    const container = messagesContainerRef.current;
+    if (!container) return;
+    const distanceFromBottom =
+      container.scrollHeight - container.scrollTop - container.clientHeight;
+    const pinned = distanceFromBottom <= MESSAGES_SCROLL_BOTTOM_THRESHOLD;
+    isPinnedToBottomRef.current = pinned;
+    setShowJumpToLatest(!pinned);
+  }, []);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -624,10 +822,18 @@ export default function AdminWhatsappPage() {
   }, [selectedWaId]);
 
   useEffect(() => {
+    isPinnedToBottomRef.current = true;
+    setShowJumpToLatest(false);
+  }, [selectedWaId]);
+
+  useLayoutEffect(() => {
     const container = messagesContainerRef.current;
-    if (!container) return;
-    container.scrollTo({ top: container.scrollHeight, behavior: "smooth" });
-  }, [messages]);
+    if (!container || messages.length === 0) return;
+    if (isPinnedToBottomRef.current) {
+      container.scrollTop = container.scrollHeight;
+      setShowJumpToLatest(false);
+    }
+  }, [messages, selectedWaId]);
 
   useEffect(() => {
     if (!token || !canAccessWhatsapp) return;
@@ -751,6 +957,7 @@ export default function AdminWhatsappPage() {
       if (!res.ok) throw new Error(data.message || `Erro ${res.status}`);
       draftDirtyRef.current = false;
       setComposeText("");
+      isPinnedToBottomRef.current = true;
       await fetchMessages(selectedWaId);
       await fetchConversations();
     } catch (e) {
@@ -1192,6 +1399,80 @@ export default function AdminWhatsappPage() {
       .map(([id, name]) => ({ id, name }))
       .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
   }, [establishments, isSuperAdmin, myEstablishmentPermissions]);
+
+  const inboxEstablishmentTabs = useMemo(() => {
+    const byId = new Map<number, string>();
+    for (const opt of establishmentFilterOptions) {
+      byId.set(opt.id, opt.name);
+    }
+    for (const conv of conversations) {
+      const id = conv.establishment_id;
+      if (!id || byId.has(id)) continue;
+      byId.set(id, conv.establishment_name || `Estabelecimento ${id}`);
+    }
+
+    const tabs: {
+      key: InboxEstablishmentFilter;
+      label: string;
+      count: number;
+      theme: InboxEstablishmentTheme;
+    }[] = [
+      {
+        key: "all",
+        label: "Todos",
+        count: conversations.length,
+        theme: INBOX_UNASSIGNED_THEME,
+      },
+    ];
+
+    for (const [id, name] of Array.from(byId.entries()).sort((a, b) =>
+      a[1].localeCompare(b[1], "pt-BR"),
+    )) {
+      tabs.push({
+        key: id,
+        label: name,
+        count: conversations.filter((c) => c.establishment_id === id).length,
+        theme: getInboxEstablishmentTheme(id),
+      });
+    }
+
+    const unassignedCount = conversations.filter((c) => !c.establishment_id).length;
+    if (unassignedCount > 0) {
+      tabs.push({
+        key: "unassigned",
+        label: "Sem casa",
+        count: unassignedCount,
+        theme: INBOX_UNASSIGNED_THEME,
+      });
+    }
+
+    return tabs;
+  }, [conversations, establishmentFilterOptions]);
+
+  const filteredInboxConversations = useMemo(
+    () =>
+      conversations.filter((c) =>
+        conversationMatchesInboxFilter(c, inboxEstablishmentFilter),
+      ),
+    [conversations, inboxEstablishmentFilter],
+  );
+
+  const activeInboxEstablishmentTheme = useMemo(() => {
+    if (inboxEstablishmentFilter === "all") {
+      const estId =
+        selectedConv?.establishment_id ?? conversationMeta?.establishment_id ?? null;
+      return getInboxEstablishmentTheme(estId);
+    }
+    if (inboxEstablishmentFilter === "unassigned") {
+      return INBOX_UNASSIGNED_THEME;
+    }
+    return getInboxEstablishmentTheme(inboxEstablishmentFilter);
+  }, [
+    inboxEstablishmentFilter,
+    selectedConv?.establishment_id,
+    conversationMeta?.establishment_id,
+  ]);
+
   const centralWhatsappDigits = useMemo(
     () => digitsOnly(effectiveCentralWhatsappNumber),
     [effectiveCentralWhatsappNumber],
@@ -1249,6 +1530,15 @@ export default function AdminWhatsappPage() {
       establishment_id: establishmentFilterOptions[0].id,
     }));
   }, [campaignForm.establishment_id, establishmentFilterOptions]);
+
+  useEffect(() => {
+    if (!selectedWaId || inboxEstablishmentFilter === "all") return;
+    const conv = conversations.find((c) => c.wa_id === selectedWaId);
+    if (!conv) return;
+    if (!conversationMatchesInboxFilter(conv, inboxEstablishmentFilter)) {
+      setSelectedWaId(null);
+    }
+  }, [inboxEstablishmentFilter, conversations, selectedWaId]);
 
   if (permsLoading) {
     return (
@@ -1355,10 +1645,44 @@ export default function AdminWhatsappPage() {
         </div>
       )}
 
-      <div className="flex flex-1 min-h-0 gap-4 flex-col lg:flex-row border border-gray-200 rounded-xl overflow-hidden bg-white shadow-sm">
-        <aside className="w-full lg:w-80 shrink-0 border-b lg:border-b-0 lg:border-r border-gray-200 flex flex-col max-h-[40vh] lg:max-h-none">
-          <div className="px-3 py-2 text-xs font-medium text-gray-500 uppercase tracking-wide border-b border-gray-100">
-            Conversas {loadingList ? "…" : `(${conversations.length})`}
+      <div className="flex flex-1 min-h-[calc(100vh-14rem)] gap-4 flex-col lg:flex-row border border-gray-200 rounded-xl overflow-hidden bg-white shadow-sm">
+        <aside className="w-full lg:w-96 shrink-0 border-b lg:border-b-0 lg:border-r border-gray-200 flex flex-col max-h-[45vh] lg:max-h-none">
+          <div className="px-3 py-2 border-b border-gray-100 space-y-2">
+            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+              Conversas por estabelecimento
+            </p>
+            <p className="text-[11px] text-gray-500 leading-snug">
+              Clientes que entram pelo link com{" "}
+              <code className="text-[10px] bg-gray-100 px-1 rounded">#EST_ID</code>{" "}
+              aparecem na aba da casa correspondente.
+            </p>
+            <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto">
+              {inboxEstablishmentTabs.map((tab) => {
+                const isActive = inboxEstablishmentFilter === tab.key;
+                return (
+                  <button
+                    key={String(tab.key)}
+                    type="button"
+                    onClick={() => setInboxEstablishmentFilter(tab.key)}
+                    className={`rounded-full px-2.5 py-1 text-[11px] font-medium whitespace-nowrap transition-colors ${
+                      isActive ? tab.theme.tabActive : tab.theme.tabInactive
+                    }`}
+                  >
+                    {tab.label}
+                    <span
+                      className={`ml-1 tabular-nums ${isActive ? "opacity-90" : "opacity-70"}`}
+                    >
+                      ({tab.count})
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+            <p className="text-[11px] text-gray-500">
+              {loadingList
+                ? "Carregando…"
+                : `${filteredInboxConversations.length} de ${conversations.length} nesta aba`}
+            </p>
           </div>
           <div className="overflow-y-auto flex-1">
             {conversations.length === 0 && !loadingList && (
@@ -1367,16 +1691,27 @@ export default function AdminWhatsappPage() {
                 conectado à API ou rode a migration no banco.
               </p>
             )}
-            {conversations.map((c) => {
+            {conversations.length > 0 &&
+              filteredInboxConversations.length === 0 &&
+              !loadingList && (
+                <p className="p-4 text-sm text-gray-500">
+                  Nenhuma conversa nesta aba. Troque o estabelecimento ou aguarde
+                  novos contatos pelo link da casa.
+                </p>
+              )}
+            {filteredInboxConversations.map((c) => {
               const active = c.wa_id === selectedWaId;
               const ho = handoffActive(c.human_takeover_until);
+              const theme = getInboxEstablishmentTheme(c.establishment_id);
               return (
                 <button
                   key={c.wa_id}
                   type="button"
                   onClick={() => setSelectedWaId(c.wa_id)}
-                  className={`w-full text-left px-3 py-3 border-b border-gray-50 hover:bg-amber-50/60 transition-colors ${
-                    active ? "bg-amber-50 border-l-4 border-l-amber-500" : ""
+                  className={`w-full text-left px-3 py-3 border-b border-gray-50/80 transition-colors ${theme.listHover} ${
+                    active
+                      ? `${theme.listActive} border-l-4 ${theme.listActiveBorder}`
+                      : ""
                   }`}
                 >
                   <div className="flex items-center justify-between gap-2">
@@ -1384,7 +1719,7 @@ export default function AdminWhatsappPage() {
                       {c.contact_name || c.wa_id}
                     </span>
                     {ho && (
-                      <span className="text-[10px] uppercase font-semibold text-amber-800 bg-amber-100 px-1.5 py-0.5 rounded">
+                      <span className="text-[10px] uppercase font-semibold text-amber-800 bg-amber-100 px-1.5 py-0.5 rounded shrink-0">
                         Humano
                       </span>
                     )}
@@ -1393,10 +1728,14 @@ export default function AdminWhatsappPage() {
                     {c.last_body || "—"}
                   </p>
                   <div className="mt-1 flex flex-wrap gap-1">
-                    <span className="text-[10px] rounded bg-gray-100 text-gray-600 px-1.5 py-0.5">
+                    <span
+                      className={`text-[10px] rounded font-medium px-1.5 py-0.5 ${theme.badge}`}
+                    >
                       {c.establishment_name || "Sem estabelecimento"}
                     </span>
-                    <span className="text-[10px] rounded bg-blue-100 text-blue-700 px-1.5 py-0.5">
+                    <span
+                      className={`text-[10px] rounded px-1.5 py-0.5 ${theme.statusBadge}`}
+                    >
                       {c.status || "new"}
                     </span>
                   </div>
@@ -1406,24 +1745,34 @@ export default function AdminWhatsappPage() {
           </div>
         </aside>
 
-        <section className="flex-1 flex flex-col min-h-[50vh] max-h-[70vh] lg:max-h-[760px]">
+        <section className="flex-1 flex flex-col min-h-[calc(100vh-16rem)] max-h-[calc(100vh-9rem)] lg:min-h-[calc(100vh-14rem)]">
           {!selectedWaId ? (
             <div className="flex-1 flex items-center justify-center text-gray-500 text-sm p-8">
               Selecione uma conversa à esquerda.
             </div>
           ) : (
             <>
-              <header className="px-4 py-3 border-b border-gray-100 flex flex-wrap items-center justify-between gap-2">
+              <header
+                className={`px-4 py-3 border-b flex flex-wrap items-center justify-between gap-2 ${activeInboxEstablishmentTheme.headerBg} ${activeInboxEstablishmentTheme.headerBorder}`}
+              >
                 <div>
-                  <h2 className="font-semibold text-gray-900">
-                    {conversationMeta?.contact_name ||
-                      selectedConv?.contact_name ||
-                      selectedWaId}
-                  </h2>
+                  <div className="flex flex-wrap items-center gap-2 mb-1">
+                    <h2 className="font-semibold text-gray-900">
+                      {conversationMeta?.contact_name ||
+                        selectedConv?.contact_name ||
+                        selectedWaId}
+                    </h2>
+                    <span
+                      className={`text-[10px] font-semibold rounded-full px-2 py-0.5 ${activeInboxEstablishmentTheme.badge}`}
+                    >
+                      {selectedEstablishmentName || "Sem estabelecimento"}
+                    </span>
+                  </div>
                   <p className="text-xs text-gray-500 font-mono">{selectedWaId}</p>
-                  <p className="text-xs text-gray-500">
-                    {selectedEstablishmentName || "Sem estabelecimento identificado"}{" "}
-                    • {selectedAssignee ? `Responsável: ${selectedAssignee}` : "Sem responsável"}
+                  <p className="text-xs text-gray-600">
+                    {selectedAssignee
+                      ? `Responsável: ${selectedAssignee}`
+                      : "Sem responsável"}
                   </p>
                 </div>
                 <div className="flex flex-wrap gap-2">
@@ -1490,40 +1839,52 @@ export default function AdminWhatsappPage() {
                 </div>
               </header>
 
-              <div
-                ref={messagesContainerRef}
-                className="flex-1 min-h-0 overflow-y-auto p-4 space-y-3 bg-gray-50/80"
-              >
-                {loadingThread && messages.length === 0 ? (
-                  <p className="text-sm text-gray-500">Carregando mensagens…</p>
-                ) : null}
-                {messages.map((m) => (
-                  <div
-                    key={m.id}
-                    className={`flex ${m.direction === "outbound" ? "justify-end" : "justify-start"}`}
-                  >
+              <div className="relative flex-1 min-h-0 flex flex-col">
+                <div
+                  ref={messagesContainerRef}
+                  onScroll={updateScrollPinState}
+                  className="flex-1 min-h-0 overflow-y-auto p-4 space-y-3 bg-gray-50/80"
+                >
+                  {loadingThread && messages.length === 0 ? (
+                    <p className="text-sm text-gray-500">Carregando mensagens…</p>
+                  ) : null}
+                  {messages.map((m) => (
                     <div
-                      className={`max-w-[85%] rounded-2xl px-4 py-2 text-sm shadow-sm ${
-                        m.direction === "outbound"
-                          ? "bg-amber-600 text-white rounded-br-md"
-                          : "bg-white text-gray-900 border border-gray-100 rounded-bl-md"
-                      }`}
+                      key={m.id}
+                      className={`flex ${m.direction === "outbound" ? "justify-end" : "justify-start"}`}
                     >
-                      <p className="whitespace-pre-wrap">{m.body}</p>
-                      {m.direction === "inbound" && m.intent ? (
-                        <p className="text-[10px] mt-1 opacity-80">
-                          intent: {m.intent}
-                        </p>
-                      ) : null}
-                      <p
-                        className={`text-[10px] mt-1 ${m.direction === "outbound" ? "text-amber-100" : "text-gray-400"}`}
+                      <div
+                        className={`max-w-[85%] rounded-2xl px-4 py-2 text-sm shadow-sm ${
+                        m.direction === "outbound"
+                          ? `${activeInboxEstablishmentTheme.outboundBubble} text-white rounded-br-md`
+                          : "bg-white text-gray-900 border border-gray-100 rounded-bl-md"
+                        }`}
                       >
-                        {new Date(m.created_at).toLocaleString("pt-BR")}
-                      </p>
+                        <p className="whitespace-pre-wrap">{m.body}</p>
+                        {m.direction === "inbound" && m.intent ? (
+                          <p className="text-[10px] mt-1 opacity-80">
+                            intent: {m.intent}
+                          </p>
+                        ) : null}
+                        <p
+                          className={`text-[10px] mt-1 ${m.direction === "outbound" ? "text-amber-100" : "text-gray-400"}`}
+                        >
+                          {new Date(m.created_at).toLocaleString("pt-BR")}
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                ))}
-                <div ref={messagesEndRef} />
+                  ))}
+                  <div ref={messagesEndRef} />
+                </div>
+                {showJumpToLatest ? (
+                  <button
+                    type="button"
+                    onClick={() => scrollMessagesToBottom("smooth")}
+                    className="absolute bottom-3 left-1/2 z-10 -translate-x-1/2 rounded-full border border-amber-200 bg-white px-4 py-1.5 text-xs font-medium text-amber-900 shadow-md hover:bg-amber-50"
+                  >
+                    Mensagens recentes ↓
+                  </button>
+                ) : null}
               </div>
 
               <footer className="border-t border-gray-200 p-4 bg-white space-y-2">
