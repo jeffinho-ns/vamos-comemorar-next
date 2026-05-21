@@ -42,6 +42,15 @@ export const FAQ_TOPIC_TEMPLATES: FaqTopicTemplate[] = [
     legacyAliases: ['areas', 'area', 'camarote', 'mesa'],
   },
   {
+    value: 'reserva_areas_operacional_highline',
+    label: 'Áreas do Sistema de Reservas (Highline)',
+    description:
+      'Somente Highline: subáreas e mesas do painel /admin/restaurant-reservations. A IA consulta disponibilidade, sugere área por quantidade de pessoas e usa lista de espera se tudo estiver cheio.',
+    placeholder:
+      'Ex.: Respostas curtas e humanizadas. consultar_areas_mesa_reserva com data e pessoas. Em criar_pre_reserva/criar_lista_espera, preencher observacoes: "Cliente quer Deck Frente", pedidos especiais, etc.',
+    legacyAliases: ['areas_reserva', 'lista_espera'],
+  },
+  {
     value: 'regras_bolo',
     label: 'Regras para bolo',
     description: 'Se pode levar bolo, peso máximo, nota fiscal, etc.',
@@ -110,6 +119,7 @@ export const HIGHLINE_RECOMMENDED_TOPIC_VALUES = [
   'dias_horarios_funcionamento',
   'valores_entrada',
   'beneficios_aniversario',
+  'reserva_areas_operacional_highline',
   'areas_mesas_camarotes_diferenca',
   'regras_bolo',
   'redes_sociais_fotos',
@@ -149,6 +159,8 @@ export function normalizeTopicInput(raw: string): string {
     vantagens_aniversariante: 'beneficios_aniversario',
     areas: 'areas_mesas_camarotes_diferenca',
     area: 'areas_mesas_camarotes_diferenca',
+    lista_espera: 'reserva_areas_operacional_highline',
+    areas_reserva: 'reserva_areas_operacional_highline',
     pets: 'pet',
     menu: 'cardapio',
   };
