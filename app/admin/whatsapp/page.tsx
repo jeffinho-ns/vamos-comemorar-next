@@ -906,7 +906,7 @@ export default function AdminWhatsappPage() {
         {
           method: "POST",
           headers: authHeaders,
-          body: JSON.stringify({ hours: 24 }),
+          body: JSON.stringify({ until_resume: true }),
         },
       );
       const data = await res.json().catch(() => ({}));
@@ -981,6 +981,17 @@ export default function AdminWhatsappPage() {
       );
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.message || `Erro ${res.status}`);
+      if (data.conversation) {
+        setConversationMeta({
+          human_takeover_until: data.conversation.human_takeover_until,
+          contact_name: data.conversation.contact_name,
+          establishment_id: data.conversation.establishment_id ?? null,
+          establishment_name: data.conversation.establishment_name ?? null,
+          status: data.conversation.status ?? "new",
+          assigned_user_id: data.conversation.assigned_user_id ?? null,
+          assigned_user_name: data.conversation.assigned_user_name ?? null,
+        });
+      }
       draftDirtyRef.current = false;
       setComposeText("");
       isPinnedToBottomRef.current = true;
@@ -1958,7 +1969,7 @@ export default function AdminWhatsappPage() {
                   </button>
                   {handoff ? (
                     <span className="text-xs text-amber-800 bg-amber-100 px-2 py-1 rounded-md">
-                      IA pausada (handoff ativo)
+                      IA pausada — só atendimento humano
                     </span>
                   ) : null}
                   {handoff ? (
@@ -1969,18 +1980,19 @@ export default function AdminWhatsappPage() {
                       className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-emerald-600 text-white text-sm hover:bg-emerald-700 disabled:opacity-50"
                     >
                       <MdSupportAgent className="text-lg" />
-                      {resumeLoading ? "Retomando…" : "Retomar IA"}
+                      {resumeLoading ? "Retornando…" : "Retornar para IA"}
                     </button>
-                  ) : null}
-                  <button
-                    type="button"
-                    onClick={handleTakeover}
-                    disabled={takeoverLoading}
-                    className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-gray-900 text-white text-sm hover:bg-gray-800 disabled:opacity-50"
-                  >
-                    <MdSupportAgent className="text-lg" />
-                    {takeoverLoading ? "Assumindo…" : "Assumir conversa"}
-                  </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={handleTakeover}
+                      disabled={takeoverLoading}
+                      className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-gray-900 text-white text-sm hover:bg-gray-800 disabled:opacity-50"
+                    >
+                      <MdSupportAgent className="text-lg" />
+                      {takeoverLoading ? "Assumindo…" : "Assumir conversa"}
+                    </button>
+                  )}
                 </div>
               </header>
 
