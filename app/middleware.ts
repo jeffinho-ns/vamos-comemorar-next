@@ -38,6 +38,23 @@ export function middleware(request: NextRequest) {
     'vinicius.gomes@ideiaum.com.br',
   ]);
   const isCardapioOnlyUser = CARDAPIO_ONLY_EMAILS.has(userEmail);
+  const WHATSAPP_HIGHLINE_ONLY_EMAILS = new Set(['reservas@highlinebar.com.br']);
+  const isWhatsappHighlineOnlyUser = WHATSAPP_HIGHLINE_ONLY_EMAILS.has(userEmail);
+
+  if (isWhatsappHighlineOnlyUser) {
+    const isWhatsappRoute =
+      url === '/admin/whatsapp' || url.startsWith('/admin/whatsapp/');
+
+    if (url === '/admin' || url === '/admin/') {
+      return NextResponse.redirect(new URL('/admin/whatsapp', request.url));
+    }
+
+    if (!isWhatsappRoute) {
+      return NextResponse.redirect(new URL('/acesso-negado', request.url));
+    }
+
+    return NextResponse.next();
+  }
 
   if (isCardapioOnlyUser) {
     const isCardapioRoute =
@@ -88,13 +105,6 @@ export function middleware(request: NextRequest) {
     }
   }
 
-  // /admin/whatsapp: apenas Super Admins (módulo em estruturação)
-  if (url === '/admin/whatsapp' || url.startsWith('/admin/whatsapp/')) {
-    if (!isSuperAdmin) {
-      return NextResponse.redirect(new URL('/acesso-negado', request.url));
-    }
-  }
-
   // Acesso completo ao admin para super admins por e-mail.
   if (isSuperAdmin && url.startsWith('/admin')) {
     return NextResponse.next();
@@ -123,6 +133,7 @@ export function middleware(request: NextRequest) {
     '/admin/detalhes-operacionais': ['admin', 'recepção', 'gerente'],
     '/admin/estabelecimentos': ['admin', 'gerente', 'recepção', 'recepcao', 'administrador'],
     '/admin/guia': ['admin', 'gerente', 'recepção', 'recepcao', 'atendente', 'promoter', 'promoter-list'],
+    '/admin/whatsapp': ['admin', 'gerente', 'recepção', 'recepcao', 'atendente', 'hostess', 'promoter'],
     '/admin/logs': ['admin', 'gerente', 'recepção', 'recepcao', 'atendente', 'promoter', 'promoter-list'],
     '/admin/relatorios-gerador': ['admin'],
   };

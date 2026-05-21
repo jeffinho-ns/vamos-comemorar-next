@@ -1,5 +1,9 @@
 import { useMemo } from "react";
 import { useAppContext } from "../context/AppContext";
+import {
+  HIGHLINE_ESTABLISHMENT_ID,
+  isWhatsappHighlineOnlyEmail,
+} from "../config/whatsapp-highline-access";
 
 /** Uma permissão de estabelecimento retornada por GET /api/establishment-permissions/my-permissions */
 export interface MyEstablishmentPermission {
@@ -53,6 +57,9 @@ export interface UserPermissions {
   } | null;
   canAccessAdmin: boolean;
   canAccessWhatsapp: boolean;
+  /** Inbox WhatsApp restrito ao HighLine (#EST_7); sem CRM/campanhas/treinamento. */
+  isWhatsappHighlineOnlyUser: boolean;
+  highlineEstablishmentId: number;
   /** Treinamento da IA por estabelecimento (regras da casa). */
   canAccessIaTraining: boolean;
   canAccessCardapio: boolean;
@@ -119,17 +126,26 @@ export function useUserPermissions() {
   const hasAnyEstablishmentAccess = myPermissions.length > 0;
   const activeEstablishmentPermissions = myPermissions.filter((p) => p.is_active);
   const hasCardapioAccess = myPermissions.some((p) => p.can_view_cardapio !== false);
+  const isWhatsappHighlineOnlyUser = isWhatsappHighlineOnlyEmail(safeUserEmail);
+  const scopedEstablishmentPermissions = isWhatsappHighlineOnlyUser
+    ? activeEstablishmentPermissions.filter(
+        (p) => Number(p.establishment_id) === HIGHLINE_ESTABLISHMENT_ID,
+      )
+    : activeEstablishmentPermissions;
   const canAccessAdmin =
     isSuperAdmin ||
+    isWhatsappHighlineOnlyUser ||
     ["gerente", "atendente", "recepcao", "recepção"].includes(safeRole) ||
     hasAnyEstablishmentAccess;
   const canAccessWhatsapp =
     isSuperAdmin ||
+    isWhatsappHighlineOnlyUser ||
     activeEstablishmentPermissions.some((p) => p.can_manage_reservations);
   const canAccessIaTraining =
-    isSuperAdmin ||
-    ['admin', 'gerente', 'administrador', 'recepção', 'recepcao'].includes(safeRole) ||
-    activeEstablishmentPermissions.length > 0;
+    !isWhatsappHighlineOnlyUser &&
+    (isSuperAdmin ||
+      ['admin', 'gerente', 'administrador', 'recepção', 'recepcao'].includes(safeRole) ||
+      activeEstablishmentPermissions.length > 0);
   const canAccessCardapio = isSuperAdmin || hasCardapioAccess;
   /** Logs: super admin ou utilizador com pelo menos um estabelecimento ativo. */
   const canViewActionLogs =
@@ -164,10 +180,14 @@ export function useUserPermissions() {
       promoterBar,
       canAccessAdmin,
       canAccessWhatsapp,
+      isWhatsappHighlineOnlyUser,
+      highlineEstablishmentId: HIGHLINE_ESTABLISHMENT_ID,
       canAccessIaTraining,
       canAccessCardapio,
       canViewActionLogs,
-      myEstablishmentPermissions: myPermissions as MyEstablishmentPermission[],
+      myEstablishmentPermissions: (isWhatsappHighlineOnlyUser
+        ? scopedEstablishmentPermissions
+        : myPermissions) as MyEstablishmentPermission[],
       canDeleteUsers,
       canChangeGlobalUserRole,
     };
@@ -181,6 +201,8 @@ export function useUserPermissions() {
     isClient,
     canAccessAdmin,
     canAccessWhatsapp,
+    isWhatsappHighlineOnlyUser,
+    scopedEstablishmentPermissions,
     canAccessIaTraining,
     canAccessCardapio,
     canViewActionLogs,
@@ -194,7 +216,13 @@ export function useUserPermissions() {
       route === "/admin/whatsapp" ||
       route.startsWith("/admin/whatsapp/")
     ) {
+      if (permissions.isWhatsappHighlineOnlyUser) {
+        return permissions.canAccessWhatsapp;
+      }
       return permissions.canAccessWhatsapp || permissions.canAccessIaTraining;
+    }
+    if (permissions.isWhatsappHighlineOnlyUser) {
+      return false;
     }
     if (permissions.isSuperAdmin) return true;
     if (!permissions.canAccessAdmin) return false;

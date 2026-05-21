@@ -398,6 +398,8 @@ export default function AdminWhatsappPage() {
     canAccessWhatsapp,
     canAccessIaTraining,
     isSuperAdmin,
+    isWhatsappHighlineOnlyUser,
+    highlineEstablishmentId,
     myEstablishmentPermissions,
   } = useUserPermissions();
 
@@ -486,10 +488,18 @@ export default function AdminWhatsappPage() {
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<WhatsappAdminTab>("treinamento");
   const [inboxEstablishmentFilter, setInboxEstablishmentFilter] =
-    useState<InboxEstablishmentFilter>("all");
+    useState<InboxEstablishmentFilter>(
+      isWhatsappHighlineOnlyUser ? highlineEstablishmentId : "all",
+    );
 
   const adminTabs = useMemo(() => {
     const items: { id: WhatsappAdminTab; label: string }[] = [];
+    if (isWhatsappHighlineOnlyUser) {
+      if (canAccessWhatsapp) {
+        items.push({ id: "atendimento", label: "Conversas HighLine" });
+      }
+      return items;
+    }
     if (canAccessIaTraining) {
       items.push({ id: "treinamento", label: "Treinamento IA" });
     }
@@ -503,7 +513,11 @@ export default function AdminWhatsappPage() {
       );
     }
     return items;
-  }, [canAccessIaTraining, canAccessWhatsapp]);
+  }, [
+    canAccessIaTraining,
+    canAccessWhatsapp,
+    isWhatsappHighlineOnlyUser,
+  ]);
 
   const showWhatsappInbox = canAccessWhatsapp && activeTab !== "treinamento";
 
@@ -528,6 +542,11 @@ export default function AdminWhatsappPage() {
 
   useEffect(() => {
     if (permsLoading) return;
+    if (isWhatsappHighlineOnlyUser) {
+      setActiveTab("atendimento");
+      setInboxEstablishmentFilter(highlineEstablishmentId);
+      return;
+    }
     const tabParam = searchParams.get("tab");
     if (tabParam === "treinamento" && canAccessIaTraining) {
       setActiveTab("treinamento");
@@ -540,7 +559,14 @@ export default function AdminWhatsappPage() {
     } else if (canAccessIaTraining) {
       setActiveTab("treinamento");
     }
-  }, [permsLoading, searchParams, canAccessIaTraining, canAccessWhatsapp]);
+  }, [
+    permsLoading,
+    searchParams,
+    canAccessIaTraining,
+    canAccessWhatsapp,
+    isWhatsappHighlineOnlyUser,
+    highlineEstablishmentId,
+  ]);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
@@ -1381,6 +1407,28 @@ export default function AdminWhatsappPage() {
   ).trim();
   const effectiveCentralWhatsappNumber = envCentralWhatsappNumber || manualCentralWhatsappNumber;
   const establishmentFilterOptions = useMemo(() => {
+    if (isWhatsappHighlineOnlyUser) {
+      const fromPerms = myEstablishmentPermissions
+        .filter((p) => p.can_manage_reservations)
+        .map((p) => ({
+          id: Number(p.establishment_id),
+          name: p.establishment_name || "HighLine",
+        }))
+        .filter((e) => Number.isFinite(e.id) && e.id > 0);
+      if (fromPerms.length > 0) {
+        return fromPerms.sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
+      }
+      const fromCatalog = establishments.find(
+        (e) => Number(e.id) === highlineEstablishmentId,
+      );
+      return [
+        {
+          id: highlineEstablishmentId,
+          name: fromCatalog?.name || "HighLine",
+        },
+      ];
+    }
+
     if (isSuperAdmin) {
       return establishments
         .map((e) => ({ id: Number(e.id), name: e.name }))
@@ -1398,9 +1446,33 @@ export default function AdminWhatsappPage() {
     return Array.from(map.entries())
       .map(([id, name]) => ({ id, name }))
       .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
-  }, [establishments, isSuperAdmin, myEstablishmentPermissions]);
+  }, [
+    establishments,
+    isSuperAdmin,
+    isWhatsappHighlineOnlyUser,
+    highlineEstablishmentId,
+    myEstablishmentPermissions,
+  ]);
 
   const inboxEstablishmentTabs = useMemo(() => {
+    const highlineName =
+      establishmentFilterOptions.find((o) => o.id === highlineEstablishmentId)
+        ?.name || "HighLine";
+
+    if (isWhatsappHighlineOnlyUser) {
+      const highlineConversations = conversations.filter(
+        (c) => c.establishment_id === highlineEstablishmentId,
+      );
+      return [
+        {
+          key: highlineEstablishmentId as InboxEstablishmentFilter,
+          label: highlineName,
+          count: highlineConversations.length,
+          theme: getInboxEstablishmentTheme(highlineEstablishmentId),
+        },
+      ];
+    }
+
     const byId = new Map<number, string>();
     for (const opt of establishmentFilterOptions) {
       byId.set(opt.id, opt.name);
@@ -1447,15 +1519,28 @@ export default function AdminWhatsappPage() {
     }
 
     return tabs;
-  }, [conversations, establishmentFilterOptions]);
+  }, [
+    conversations,
+    establishmentFilterOptions,
+    isWhatsappHighlineOnlyUser,
+    highlineEstablishmentId,
+  ]);
 
-  const filteredInboxConversations = useMemo(
-    () =>
-      conversations.filter((c) =>
-        conversationMatchesInboxFilter(c, inboxEstablishmentFilter),
-      ),
-    [conversations, inboxEstablishmentFilter],
-  );
+  const filteredInboxConversations = useMemo(() => {
+    const scoped = isWhatsappHighlineOnlyUser
+      ? conversations.filter(
+          (c) => c.establishment_id === highlineEstablishmentId,
+        )
+      : conversations;
+    return scoped.filter((c) =>
+      conversationMatchesInboxFilter(c, inboxEstablishmentFilter),
+    );
+  }, [
+    conversations,
+    inboxEstablishmentFilter,
+    isWhatsappHighlineOnlyUser,
+    highlineEstablishmentId,
+  ]);
 
   const activeInboxEstablishmentTheme = useMemo(() => {
     if (inboxEstablishmentFilter === "all") {
@@ -1478,10 +1563,14 @@ export default function AdminWhatsappPage() {
     [effectiveCentralWhatsappNumber],
   );
   const hasCentralWhatsappDigits = centralWhatsappDigits.length >= 10;
-  const handoffConversationsCount = useMemo(
-    () => conversations.filter((conv) => handoffActive(conv.human_takeover_until)).length,
-    [conversations],
-  );
+  const handoffConversationsCount = useMemo(() => {
+    const source = isWhatsappHighlineOnlyUser
+      ? conversations.filter(
+          (conv) => conv.establishment_id === highlineEstablishmentId,
+        )
+      : conversations;
+    return source.filter((conv) => handoffActive(conv.human_takeover_until)).length;
+  }, [conversations, isWhatsappHighlineOnlyUser, highlineEstablishmentId]);
   const activeCampaignsCount = useMemo(
     () => campaigns.filter((campaign) => campaign.is_active).length,
     [campaigns],
@@ -1558,15 +1647,31 @@ export default function AdminWhatsappPage() {
 
   return (
     <div className="flex flex-col gap-4 p-4 md:p-6 max-w-[1600px] mx-auto min-h-[calc(100vh-4rem)]">
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-100 bg-gradient-to-r from-amber-50 via-white to-orange-50 px-4 py-4 md:px-5">
+      <div
+        className={`flex flex-wrap items-center justify-between gap-3 rounded-2xl border px-4 py-4 md:px-5 ${
+          isWhatsappHighlineOnlyUser
+            ? "border-indigo-200 bg-gradient-to-r from-indigo-50 via-white to-indigo-50/40"
+            : "border-amber-100 bg-gradient-to-r from-amber-50 via-white to-orange-50"
+        }`}
+      >
         <div className="flex items-center gap-2">
-          <MdChat className="text-2xl text-amber-600" />
+          <MdChat
+            className={`text-2xl ${
+              isWhatsappHighlineOnlyUser ? "text-indigo-600" : "text-amber-600"
+            }`}
+          />
           <div>
-            <h1 className="text-xl font-semibold text-gray-900">Atendimento</h1>
+            <h1 className="text-xl font-semibold text-gray-900">
+              {isWhatsappHighlineOnlyUser
+                ? "Atendimento HighLine"
+                : "Atendimento"}
+            </h1>
             <p className="text-sm text-gray-600">
-              {activeTab === "treinamento"
-                ? "Treine a IA com as regras e o comportamento de cada casa."
-                : "WhatsApp em tempo real, CRM, campanhas e treinamento da IA."}
+              {isWhatsappHighlineOnlyUser
+                ? "Conversas do WhatsApp vinculadas ao HighLine (#EST_7). Demais estabelecimentos não aparecem aqui."
+                : activeTab === "treinamento"
+                  ? "Treine a IA com as regras e o comportamento de cada casa."
+                  : "WhatsApp em tempo real, CRM, campanhas e treinamento da IA."}
             </p>
           </div>
         </div>
@@ -1585,49 +1690,89 @@ export default function AdminWhatsappPage() {
         ) : null}
       </div>
 
-      <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
-        <div className="flex gap-2 overflow-x-auto border-b border-gray-100 p-3">
-          {adminTabs.map((tab) => {
-            const isActive = activeTab === tab.id;
-            return (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => selectTab(tab.id)}
-                className={`rounded-lg px-3 py-2 text-sm whitespace-nowrap transition-colors ${
-                  isActive
-                    ? "bg-amber-600 text-white shadow-sm"
-                    : "bg-gray-50 text-gray-600 hover:bg-gray-100"
-                }`}
-              >
-                {tab.label}
-              </button>
-            );
-          })}
+      {adminTabs.length > 1 ? (
+        <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+          <div className="flex gap-2 overflow-x-auto border-b border-gray-100 p-3">
+            {adminTabs.map((tab) => {
+              const isActive = activeTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => selectTab(tab.id)}
+                  className={`rounded-lg px-3 py-2 text-sm whitespace-nowrap transition-colors ${
+                    isActive
+                      ? "bg-amber-600 text-white shadow-sm"
+                      : "bg-gray-50 text-gray-600 hover:bg-gray-100"
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              );
+            })}
+          </div>
         </div>
-      </div>
+      ) : null}
 
       {activeTab === "treinamento" ? <EstablishmentTrainingPanel /> : null}
 
       {showWhatsappInbox ? (
       <>
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div
+        className={`grid gap-3 ${
+          isWhatsappHighlineOnlyUser
+            ? "grid-cols-2"
+            : "grid-cols-2 lg:grid-cols-4"
+        }`}
+      >
         <div className="rounded-xl border border-gray-200 bg-white px-4 py-3 shadow-sm">
-          <p className="text-xs text-gray-500">Conversas ativas</p>
-          <p className="text-2xl font-semibold text-gray-900">{conversations.length}</p>
+          <p className="text-xs text-gray-500">
+            {isWhatsappHighlineOnlyUser
+              ? "Conversas HighLine"
+              : "Conversas ativas"}
+          </p>
+          <p className="text-2xl font-semibold text-gray-900">
+            {isWhatsappHighlineOnlyUser
+              ? filteredInboxConversations.length
+              : conversations.length}
+          </p>
         </div>
-        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 shadow-sm">
-          <p className="text-xs text-amber-700">Handoff humano</p>
-          <p className="text-2xl font-semibold text-amber-900">{handoffConversationsCount}</p>
+        <div
+          className={`rounded-xl border px-4 py-3 shadow-sm ${
+            isWhatsappHighlineOnlyUser
+              ? "border-indigo-200 bg-indigo-50"
+              : "border-amber-200 bg-amber-50"
+          }`}
+        >
+          <p
+            className={`text-xs ${
+              isWhatsappHighlineOnlyUser ? "text-indigo-700" : "text-amber-700"
+            }`}
+          >
+            Handoff humano
+          </p>
+          <p
+            className={`text-2xl font-semibold ${
+              isWhatsappHighlineOnlyUser ? "text-indigo-900" : "text-amber-900"
+            }`}
+          >
+            {handoffConversationsCount}
+          </p>
         </div>
-        <div className="rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-3 shadow-sm">
-          <p className="text-xs text-indigo-700">Contatos CRM</p>
-          <p className="text-2xl font-semibold text-indigo-900">{contacts.length}</p>
-        </div>
-        <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 shadow-sm">
-          <p className="text-xs text-emerald-700">Campanhas ativas</p>
-          <p className="text-2xl font-semibold text-emerald-900">{activeCampaignsCount}</p>
-        </div>
+        {!isWhatsappHighlineOnlyUser ? (
+          <>
+            <div className="rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-3 shadow-sm">
+              <p className="text-xs text-indigo-700">Contatos CRM</p>
+              <p className="text-2xl font-semibold text-indigo-900">{contacts.length}</p>
+            </div>
+            <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 shadow-sm">
+              <p className="text-xs text-emerald-700">Campanhas ativas</p>
+              <p className="text-2xl font-semibold text-emerald-900">
+                {activeCampaignsCount}
+              </p>
+            </div>
+          </>
+        ) : null}
       </div>
 
       {error && (

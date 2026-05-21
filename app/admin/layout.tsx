@@ -30,6 +30,7 @@ import UserMenu from "../components/UserMenu/UserMenu"; // Verifique o caminho
 import AdminPageViewLogger from "../components/AdminPageViewLogger";
 import { useUserPermissions } from "../hooks/useUserPermissions";
 import { useAppContext } from "../context/AppContext";
+import { isWhatsappHighlineOnlyEmail } from "../config/whatsapp-highline-access";
 
 // E-mail da analista com acesso restrito ao estabelecimento Pracinha do Seu Justino (menu próprio, não promoter)
 const ANALISTA_EMAIL = "analista.mkt03@ideiaum.com.br";
@@ -85,6 +86,10 @@ const CARDAPIO_ONLY_LINKS = [
   { href: "/admin/cardapio", label: "Cardápio", icon: MdRestaurant },
 ];
 
+const WHATSAPP_HIGHLINE_ONLY_LINKS = [
+  { href: "/admin/whatsapp", label: "Atendimento HighLine", icon: MdChat },
+];
+
 /** Hub único: atendimento WhatsApp + treinamento da IA por estabelecimento. */
 const ATENDIMENTO_NAV_LINK = {
   href: "/admin/whatsapp",
@@ -113,9 +118,14 @@ export default function DashboardLayout({
     userEmail && ROOFTOP_FLUXO_EMAILS.has(userEmail.toLowerCase().trim());
   const isCardapioOnlyUser =
     userEmail && CARDAPIO_ONLY_EMAILS.has(userEmail.toLowerCase().trim());
+  const isWhatsappHighlineOnlyUser = isWhatsappHighlineOnlyEmail(userEmail);
 
   // A lista de links da sua navegação baseada no role e no perfil (analista vs promoter)
   const getNavLinks = () => {
+    if (isWhatsappHighlineOnlyUser) {
+      return WHATSAPP_HIGHLINE_ONLY_LINKS;
+    }
+
     if (isCardapioOnlyUser) {
       return CARDAPIO_ONLY_LINKS;
     }
@@ -411,11 +421,13 @@ export default function DashboardLayout({
             />
           </div>
           <span className="text-lg font-bold hidden lg:inline text-white">
-            {isAnalista
-              ? "Painel Analista"
-              : userRole === "promoter" || userRole === "promoter-list"
-                ? "Painel Promoter"
-                : "Painel Admin"}
+            {isWhatsappHighlineOnlyUser
+              ? "Atendimento HighLine"
+              : isAnalista
+                ? "Painel Analista"
+                : userRole === "promoter" || userRole === "promoter-list"
+                  ? "Painel Promoter"
+                  : "Painel Admin"}
           </span>
         </div>
 
