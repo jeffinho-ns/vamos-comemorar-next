@@ -619,8 +619,9 @@ export default function AdminWhatsappPage() {
     return h;
   }, [token]);
 
-  const fetchConversations = useCallback(async () => {
-    setLoadingList(true);
+  const fetchConversations = useCallback(async (options?: { silent?: boolean }) => {
+    const silent = options?.silent === true;
+    if (!silent) setLoadingList(true);
     setError(null);
     try {
       const res = await fetch(`${API_URL}/api/admin/whatsapp/conversations`, {
@@ -644,13 +645,14 @@ export default function AdminWhatsappPage() {
     } catch (e) {
       setError(e instanceof Error ? e.message : "Falha ao carregar conversas");
     } finally {
-      setLoadingList(false);
+      if (!silent) setLoadingList(false);
     }
   }, [authHeaders]);
 
   const fetchMessages = useCallback(
-    async (waId: string) => {
-      setLoadingThread(true);
+    async (waId: string, options?: { silent?: boolean }) => {
+      const silent = options?.silent === true;
+      if (!silent) setLoadingThread(true);
       setError(null);
       try {
         const res = await fetch(
@@ -692,7 +694,7 @@ export default function AdminWhatsappPage() {
       } catch (e) {
         setError(e instanceof Error ? e.message : "Falha ao carregar mensagens");
       } finally {
-        setLoadingThread(false);
+        if (!silent) setLoadingThread(false);
       }
     },
     [authHeaders],
@@ -864,24 +866,28 @@ export default function AdminWhatsappPage() {
   useEffect(() => {
     if (!token || !canAccessWhatsapp) return;
 
-    const socket = io(SOCKET_URL, { transports: ["websocket"] });
+    const socket = io(SOCKET_URL, {
+      transports: ["websocket", "polling"],
+      reconnection: true,
+      reconnectionAttempts: 12,
+    });
     socket.on("connect", () => {
       socket.emit("join_whatsapp_inbox");
     });
 
     const onUpdate = () => {
-      fetchConversations();
+      fetchConversations({ silent: true });
       if (selectedWaId) {
-        fetchMessages(selectedWaId);
+        fetchMessages(selectedWaId, { silent: true });
       }
     };
 
     socket.on("whatsapp_inbox_update", onUpdate);
 
     const interval = window.setInterval(() => {
-      fetchConversations();
-      if (selectedWaId) fetchMessages(selectedWaId);
-    }, 8000);
+      fetchConversations({ silent: true });
+      if (selectedWaId) fetchMessages(selectedWaId, { silent: true });
+    }, 4000);
 
     return () => {
       window.clearInterval(interval);
