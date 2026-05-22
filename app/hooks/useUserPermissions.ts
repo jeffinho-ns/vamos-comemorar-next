@@ -4,6 +4,8 @@ import {
   HIGHLINE_ESTABLISHMENT_ID,
   isWhatsappHighlineScopedEmail,
 } from "../config/whatsapp-highline-access";
+import { getPromoterBarByEmail } from "../config/promoter-bars";
+import { establishmentGrantsCardapioBar } from "../config/cardapioBarResolver";
 
 /** Uma permissão de estabelecimento retornada por GET /api/establishment-permissions/my-permissions */
 export interface MyEstablishmentPermission {
@@ -153,17 +155,28 @@ export function useUserPermissions() {
   const canChangeGlobalUserRole = !isGerenteGeral;
 
   const permissions: UserPermissions = useMemo(() => {
+    const mappedPromoter = getPromoterBarByEmail(safeUserEmail);
     const first = myPermissions[0];
-    const promoterBar = first
+    const promoterBar = mappedPromoter
       ? {
-          userId: userId ?? 0,
-          userEmail: safeUserEmail,
-          userName: first.establishment_name,
-          barId: Number(first.establishment_id),
-          barName: first.establishment_name || `Estabelecimento ${first.establishment_id}`,
-          barSlug: slugify(first.establishment_name || ""),
+          userId: mappedPromoter.userId || userId || 0,
+          userEmail: mappedPromoter.userEmail,
+          userName: mappedPromoter.userName,
+          barId: mappedPromoter.barId,
+          barName: mappedPromoter.barName,
+          barSlug: mappedPromoter.barSlug,
         }
-      : null;
+      : first
+        ? {
+            userId: userId ?? 0,
+            userEmail: safeUserEmail,
+            userName: first.establishment_name,
+            barId: Number(first.establishment_id),
+            barName:
+              first.establishment_name || `Estabelecimento ${first.establishment_id}`,
+            barSlug: slugify(first.establishment_name || ""),
+          }
+        : null;
     return {
       role: safeRole,
       userId,
@@ -228,8 +241,8 @@ export function useUserPermissions() {
   const canManageBar = useCallback(
     (barId: number): boolean => {
       if (permissions.isSuperAdmin) return true;
-      return permissions.myEstablishmentPermissions.some(
-        (p) => Number(p.establishment_id) === Number(barId),
+      return permissions.myEstablishmentPermissions.some((p) =>
+        establishmentGrantsCardapioBar(Number(p.establishment_id), Number(barId)),
       );
     },
     [permissions.isSuperAdmin, permissions.myEstablishmentPermissions],

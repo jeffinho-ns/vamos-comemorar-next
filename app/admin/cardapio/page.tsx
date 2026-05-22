@@ -29,6 +29,7 @@ import ImageCropModal from '../../components/ImageCropModal';
 import { useRouter } from 'next/navigation';
 import { uploadImage as uploadImageToFirebase } from '@/app/services/uploadService';
 import { filterEstablishmentListForUser } from '@/app/utils/establishmentAccessRules';
+import { toCardapioBarIds } from '@/app/config/cardapioBarResolver';
 
 type MenuDisplayStyle = 'normal' | 'clean';
 
@@ -538,12 +539,12 @@ export default function CardapioAdminPage() {
       .replace(/\s+/g, " ");
   };
 
-  const allowedBarIdsFromPerms = myEstablishmentPermissions
+  const allowedEstablishmentIdsFromPerms = myEstablishmentPermissions
     .filter((p) => p.can_view_cardapio !== false)
     .map((p) => Number(p.establishment_id))
-    .filter((id) => !Number.isNaN(id));
+    .filter((id) => !Number.isNaN(id) && id > 0);
 
-  const uniqueAllowedBarIds = Array.from(new Set(allowedBarIdsFromPerms));
+  const uniqueAllowedEstablishmentIds = Array.from(new Set(allowedEstablishmentIdsFromPerms));
 
   const allowedEstablishmentNameKeys = myEstablishmentPermissions
     .filter((p) => p.can_view_cardapio !== false)
@@ -562,7 +563,7 @@ export default function CardapioAdminPage() {
     !isAdmin &&
     !hasFullCardapioAccessByEmail &&
     !isReservaRooftopRestrictedUser &&
-    (uniqueAllowedBarIds.length > 0 || allowedEstablishmentNameKeys.length > 0);
+    (uniqueAllowedEstablishmentIds.length > 0 || allowedEstablishmentNameKeys.length > 0);
 
   const visibleBars =
     !isAdmin && isReservaRooftopRestrictedUser && promoterBarIdNum !== null
@@ -570,7 +571,13 @@ export default function CardapioAdminPage() {
       : shouldRestrictByPerms
         ? (() => {
             // 1) Preferência por ID (se cardápio/bars e places usam o mesmo id)
-            const barsById = menuData.bars.filter((bar) => uniqueAllowedBarIds.includes(Number(bar.id)));
+            const cardapioBarIdsFromPerms = toCardapioBarIds(
+              uniqueAllowedEstablishmentIds,
+              menuData.bars,
+            );
+            const barsById = menuData.bars.filter((bar) =>
+              cardapioBarIdsFromPerms.includes(Number(bar.id)),
+            );
 
             // 2) Fallback por nome (aceita match exato e substring)
             const barsByName = menuData.bars.filter((bar) => {
@@ -598,7 +605,8 @@ export default function CardapioAdminPage() {
 
             // Se nada casou, loga e não quebra a UX do admin.
             console.warn("[CARDAPIO] Falha ao mapear permissões do usuário para bars.", {
-              uniqueAllowedBarIds,
+              uniqueAllowedEstablishmentIds,
+              cardapioBarIdsFromPerms,
               allowedEstablishmentNameKeys,
               sampleBars: menuData.bars.slice(0, 5).map((b) => ({ id: b.id, name: b.name })),
             });
@@ -681,18 +689,25 @@ export default function CardapioAdminPage() {
     }
     setError(null);
     try {
-      const scopedBarIds =
-        !isAdmin && uniqueAllowedBarIds.length > 0
-          ? uniqueAllowedBarIds
-          : isPromoter && promoterBarIdNum != null
-            ? [promoterBarIdNum]
-            : null;
-
       const barsRes = await fetch(`${API_BASE_URL}/bars`);
       if (!barsRes.ok) {
         throw new Error('Erro ao carregar estabelecimentos');
       }
       const bars = await barsRes.json();
+      const barsList = Array.isArray(bars) ? bars : [];
+
+      const scopedBarIds = (() => {
+        if (isAdmin) return null;
+        if (uniqueAllowedEstablishmentIds.length > 0) {
+          const mapped = toCardapioBarIds(uniqueAllowedEstablishmentIds, barsList);
+          if (mapped.length > 0) return mapped;
+        }
+        if (promoterBarIdNum != null) {
+          const fromPromoter = toCardapioBarIds([promoterBarIdNum], barsList);
+          return fromPromoter.length > 0 ? fromPromoter : [promoterBarIdNum];
+        }
+        return null;
+      })();
 
       let categories: MenuCategory[] = [];
       let items: MenuItem[] = [];
@@ -956,7 +971,7 @@ export default function CardapioAdminPage() {
     promoterBarIdNum,
     hasFullCardapioAccessByEmail,
     userEmail,
-    uniqueAllowedBarIds.join(','),
+    uniqueAllowedEstablishmentIds.join(','),
     menuData.bars.length,
   ]);
 
