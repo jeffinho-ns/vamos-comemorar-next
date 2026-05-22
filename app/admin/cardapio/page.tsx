@@ -443,17 +443,7 @@ export default function CardapioAdminPage() {
     myEstablishmentPermissions,
   } = useUserPermissions();
   const router = useRouter();
-  
-  // Debug: Log das permissões
-  useEffect(() => {
-    console.log('🔐 [CARDAPIO] Permissões do usuário:', {
-      isAdmin,
-      isPromoter,
-      promoterBar,
-      canManageBar: promoterBar ? canManageBar(Number(promoterBar.barId)) : false
-    });
-  }, [isAdmin, isPromoter, promoterBar, canManageBar]);
-  
+
   const [activeTab, setActiveTab] = useState<'bars' | 'categories' | 'items'>('bars');
   const [showBarModal, setShowBarModal] = useState(false);
   const [showCategoryModal, setShowCategoryModal] = useState(false);
@@ -685,25 +675,59 @@ export default function CardapioAdminPage() {
   const [availableSubCategories, setAvailableSubCategories] = useState<Array<{ name: string; order: number }>>([]);
 
   const fetchData = useCallback(async () => {
-    setLoading(true);
+    const isInitialLoad = menuData.bars.length === 0;
+    if (isInitialLoad) {
+      setLoading(true);
+    }
     setError(null);
     try {
-      const [barsRes, categoriesRes, itemsRes] = await Promise.all([
-        fetch(`${API_BASE_URL}/bars`),
-        fetch(`${API_BASE_URL}/categories`),
-        fetch(`${API_BASE_URL}/items`),
-      ]);
+      const scopedBarIds =
+        !isAdmin && uniqueAllowedBarIds.length > 0
+          ? uniqueAllowedBarIds
+          : isPromoter && promoterBarIdNum != null
+            ? [promoterBarIdNum]
+            : null;
 
-      if (!barsRes.ok || !categoriesRes.ok || !itemsRes.ok) {
-        throw new Error('Erro ao carregar dados da API');
+      const barsRes = await fetch(`${API_BASE_URL}/bars`);
+      if (!barsRes.ok) {
+        throw new Error('Erro ao carregar estabelecimentos');
+      }
+      const bars = await barsRes.json();
+
+      let categories: MenuCategory[] = [];
+      let items: MenuItem[] = [];
+
+      if (scopedBarIds && scopedBarIds.length > 0) {
+        const catResults = await Promise.all(
+          scopedBarIds.map((id) =>
+            fetch(`${API_BASE_URL}/categories?barId=${id}`).then((r) =>
+              r.ok ? r.json() : [],
+            ),
+          ),
+        );
+        const itemResults = await Promise.all(
+          scopedBarIds.map((id) =>
+            fetch(`${API_BASE_URL}/items?barId=${id}`).then((r) =>
+              r.ok ? r.json() : [],
+            ),
+          ),
+        );
+        categories = catResults.flat();
+        items = itemResults.flat();
+      } else {
+        const [categoriesRes, itemsRes] = await Promise.all([
+          fetch(`${API_BASE_URL}/categories`),
+          fetch(`${API_BASE_URL}/items`),
+        ]);
+        if (!categoriesRes.ok || !itemsRes.ok) {
+          throw new Error('Erro ao carregar dados da API');
+        }
+        [categories, items] = await Promise.all([
+          categoriesRes.json(),
+          itemsRes.json(),
+        ]);
       }
 
-      const [bars, categories, items] = await Promise.all([
-        barsRes.json(),
-        categoriesRes.json(),
-        itemsRes.json(),
-      ]);
-      
       console.log('📥 [API] Dados recebidos da API:', {
         totalBars: Array.isArray(bars) ? bars.length : 0,
         totalCategories: Array.isArray(categories) ? categories.length : 0,
@@ -926,20 +950,27 @@ export default function CardapioAdminPage() {
     } finally {
       setLoading(false);
     }
-  }, [isPromoter, promoterBar, hasFullCardapioAccessByEmail, userEmail]);
+  }, [
+    isAdmin,
+    isPromoter,
+    promoterBarIdNum,
+    hasFullCardapioAccessByEmail,
+    userEmail,
+    uniqueAllowedBarIds.join(','),
+    menuData.bars.length,
+  ]);
 
   useEffect(() => {
     fetchData();
   }, [fetchData]);
 
-  // Aquecer índice de imagens ao carregar a página (para resolver filename/objectPath -> URL Firebase)
-  // Isso evita placeholders nos cards de Estabelecimentos antes de abrir a galeria.
+  // Índice de imagens: adiar em máquinas lentas (evita competir com o carregamento principal).
   useEffect(() => {
     let cancelled = false;
-    (async () => {
+    const run = async () => {
       try {
-        const res = await fetch(`${API_BASE_URL}/gallery/images`);
-        if (!res.ok) return;
+        const res = await fetch(`${API_BASE_URL}/gallery/images?limit=80`);
+        if (!res.ok || cancelled) return;
         const data = await res.json();
         const images = Array.isArray(data?.images) ? data.images : [];
         for (const img of images) {
@@ -954,11 +985,13 @@ export default function CardapioAdminPage() {
         }
         if (!cancelled) setImageIndexVersion((v) => v + 1);
       } catch {
-        // silencioso: se falhar, apenas fica no placeholder até abrir a galeria manualmente
+        // silencioso
       }
-    })();
+    };
+    const timerId = window.setTimeout(() => void run(), 3000);
     return () => {
       cancelled = true;
+      window.clearTimeout(timerId);
     };
   }, []);
 

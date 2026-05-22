@@ -38,24 +38,6 @@ export function middleware(request: NextRequest) {
     'vinicius.gomes@ideiaum.com.br',
   ]);
   const isCardapioOnlyUser = CARDAPIO_ONLY_EMAILS.has(userEmail);
-  const WHATSAPP_HIGHLINE_ONLY_EMAILS = new Set(['reservas@highlinebar.com.br']);
-  const isWhatsappHighlineOnlyUser = WHATSAPP_HIGHLINE_ONLY_EMAILS.has(userEmail);
-
-  if (isWhatsappHighlineOnlyUser) {
-    const isWhatsappRoute =
-      url === '/admin/whatsapp' || url.startsWith('/admin/whatsapp/');
-
-    if (url === '/admin' || url === '/admin/') {
-      return NextResponse.redirect(new URL('/admin/whatsapp', request.url));
-    }
-
-    if (!isWhatsappRoute) {
-      return NextResponse.redirect(new URL('/acesso-negado', request.url));
-    }
-
-    return NextResponse.next();
-  }
-
   if (isCardapioOnlyUser) {
     const isCardapioRoute =
       url === '/admin/cardapio' || url.startsWith('/admin/cardapio/');
@@ -123,8 +105,8 @@ export function middleware(request: NextRequest) {
     '/admin/tables': ['admin'],
     '/admin/eventos': ['admin', 'gerente', 'promoter', 'promoter-list'],
     '/admin/painel-eventos': ['admin', 'gerente', 'promoter', 'promoter-list'],
-    '/admin/eventos/dashboard': ['admin', 'gerente', 'promoter', 'promoter-list'],
-    '/admin/cardapio': ['admin', 'promoter', 'promoter-list', 'recepção', 'gerente'],
+    '/admin/cardapio': ['admin', 'promoter', 'promoter-list', 'recepção', 'recepcao', 'atendente', 'gerente'],
+    '/admin/eventos/dashboard': ['admin', 'gerente', 'promoter', 'promoter-list', 'recepção', 'recepcao', 'atendente'],
     '/admin/events': ['admin', 'promoter', 'promoter-list', 'recepção', 'gerente'],
     '/admin/reservas': ['admin'],
     '/admin/qrcode': ['admin', 'promoter', 'promoter-list', 'recepção', 'recepcao', 'atendente', 'gerente'],

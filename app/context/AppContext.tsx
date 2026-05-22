@@ -161,9 +161,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (inFlightRef.current) return inFlightRef.current;
     if (hasFetchedRef.current && !force) return;
     const run = (async () => {
+      const isFirstLoad = !hasFetchedRef.current;
       hasFetchedRef.current = true;
-      // Refetch em background: não dispara "Carregando..." no layout (evita piscar tela inteira).
-      if (!force) {
+      // Só bloqueia a tela inteira no primeiro carregamento (evita piscar em refetch).
+      if (isFirstLoad && !force) {
         setIsLoading(true);
       }
       setError(null);

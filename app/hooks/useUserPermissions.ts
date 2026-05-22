@@ -1,8 +1,8 @@
-import { useMemo } from "react";
+import { useCallback, useMemo } from "react";
 import { useAppContext } from "../context/AppContext";
 import {
   HIGHLINE_ESTABLISHMENT_ID,
-  isWhatsappHighlineOnlyEmail,
+  isWhatsappHighlineScopedEmail,
 } from "../config/whatsapp-highline-access";
 
 /** Uma permissão de estabelecimento retornada por GET /api/establishment-permissions/my-permissions */
@@ -57,7 +57,9 @@ export interface UserPermissions {
   } | null;
   canAccessAdmin: boolean;
   canAccessWhatsapp: boolean;
-  /** Inbox WhatsApp restrito ao HighLine (#EST_7); sem CRM/campanhas/treinamento. */
+  /** Inbox WhatsApp do HighLine (#EST_7) com escopo na API; demais módulos seguem permissões do banco. */
+  isWhatsappHighlineScopedUser: boolean;
+  /** @deprecated Alias de isWhatsappHighlineScopedUser */
   isWhatsappHighlineOnlyUser: boolean;
   highlineEstablishmentId: number;
   /** Treinamento da IA por estabelecimento (regras da casa). */
@@ -126,26 +128,19 @@ export function useUserPermissions() {
   const hasAnyEstablishmentAccess = myPermissions.length > 0;
   const activeEstablishmentPermissions = myPermissions.filter((p) => p.is_active);
   const hasCardapioAccess = myPermissions.some((p) => p.can_view_cardapio !== false);
-  const isWhatsappHighlineOnlyUser = isWhatsappHighlineOnlyEmail(safeUserEmail);
-  const scopedEstablishmentPermissions = isWhatsappHighlineOnlyUser
-    ? activeEstablishmentPermissions.filter(
-        (p) => Number(p.establishment_id) === HIGHLINE_ESTABLISHMENT_ID,
-      )
-    : activeEstablishmentPermissions;
+  const isWhatsappHighlineScopedUser = isWhatsappHighlineScopedEmail(safeUserEmail);
   const canAccessAdmin =
     isSuperAdmin ||
-    isWhatsappHighlineOnlyUser ||
     ["gerente", "atendente", "recepcao", "recepção"].includes(safeRole) ||
     hasAnyEstablishmentAccess;
   const canAccessWhatsapp =
     isSuperAdmin ||
-    isWhatsappHighlineOnlyUser ||
+    isWhatsappHighlineScopedUser ||
     activeEstablishmentPermissions.some((p) => p.can_manage_reservations);
   const canAccessIaTraining =
-    !isWhatsappHighlineOnlyUser &&
-    (isSuperAdmin ||
-      ['admin', 'gerente', 'administrador', 'recepção', 'recepcao'].includes(safeRole) ||
-      activeEstablishmentPermissions.length > 0);
+    isSuperAdmin ||
+    ['admin', 'gerente', 'administrador', 'recepção', 'recepcao'].includes(safeRole) ||
+    activeEstablishmentPermissions.length > 0;
   const canAccessCardapio = isSuperAdmin || hasCardapioAccess;
   /** Logs: super admin ou utilizador com pelo menos um estabelecimento ativo. */
   const canViewActionLogs =
@@ -180,14 +175,13 @@ export function useUserPermissions() {
       promoterBar,
       canAccessAdmin,
       canAccessWhatsapp,
-      isWhatsappHighlineOnlyUser,
+      isWhatsappHighlineScopedUser,
+      isWhatsappHighlineOnlyUser: isWhatsappHighlineScopedUser,
       highlineEstablishmentId: HIGHLINE_ESTABLISHMENT_ID,
       canAccessIaTraining,
       canAccessCardapio,
       canViewActionLogs,
-      myEstablishmentPermissions: (isWhatsappHighlineOnlyUser
-        ? scopedEstablishmentPermissions
-        : myPermissions) as MyEstablishmentPermission[],
+      myEstablishmentPermissions: myPermissions as MyEstablishmentPermission[],
       canDeleteUsers,
       canChangeGlobalUserRole,
     };
@@ -201,8 +195,7 @@ export function useUserPermissions() {
     isClient,
     canAccessAdmin,
     canAccessWhatsapp,
-    isWhatsappHighlineOnlyUser,
-    scopedEstablishmentPermissions,
+    isWhatsappHighlineScopedUser,
     canAccessIaTraining,
     canAccessCardapio,
     canViewActionLogs,
@@ -216,13 +209,7 @@ export function useUserPermissions() {
       route === "/admin/whatsapp" ||
       route.startsWith("/admin/whatsapp/")
     ) {
-      if (permissions.isWhatsappHighlineOnlyUser) {
-        return permissions.canAccessWhatsapp;
-      }
       return permissions.canAccessWhatsapp || permissions.canAccessIaTraining;
-    }
-    if (permissions.isWhatsappHighlineOnlyUser) {
-      return false;
     }
     if (permissions.isSuperAdmin) return true;
     if (!permissions.canAccessAdmin) return false;
@@ -238,12 +225,15 @@ export function useUserPermissions() {
     );
   };
 
-  const canManageBar = (barId: number): boolean => {
-    if (permissions.isSuperAdmin) return true;
-    return permissions.myEstablishmentPermissions.some(
-      (p) => Number(p.establishment_id) === Number(barId)
-    );
-  };
+  const canManageBar = useCallback(
+    (barId: number): boolean => {
+      if (permissions.isSuperAdmin) return true;
+      return permissions.myEstablishmentPermissions.some(
+        (p) => Number(p.establishment_id) === Number(barId),
+      );
+    },
+    [permissions.isSuperAdmin, permissions.myEstablishmentPermissions],
+  );
 
   const getPromoterBarData = () => {
     return permissions.promoterBar;

@@ -30,7 +30,7 @@ import UserMenu from "../components/UserMenu/UserMenu"; // Verifique o caminho
 import AdminPageViewLogger from "../components/AdminPageViewLogger";
 import { useUserPermissions } from "../hooks/useUserPermissions";
 import { useAppContext } from "../context/AppContext";
-import { isWhatsappHighlineOnlyEmail } from "../config/whatsapp-highline-access";
+import { isWhatsappHighlineScopedEmail } from "../config/whatsapp-highline-access";
 
 // E-mail da analista com acesso restrito ao estabelecimento Pracinha do Seu Justino (menu próprio, não promoter)
 const ANALISTA_EMAIL = "analista.mkt03@ideiaum.com.br";
@@ -86,10 +86,6 @@ const CARDAPIO_ONLY_LINKS = [
   { href: "/admin/cardapio", label: "Cardápio", icon: MdRestaurant },
 ];
 
-const WHATSAPP_HIGHLINE_ONLY_LINKS = [
-  { href: "/admin/whatsapp", label: "Atendimento HighLine", icon: MdChat },
-];
-
 /** Hub único: atendimento WhatsApp + treinamento da IA por estabelecimento. */
 const ATENDIMENTO_NAV_LINK = {
   href: "/admin/whatsapp",
@@ -106,10 +102,18 @@ export default function DashboardLayout({
   const pathname = usePathname(); // Hook do Next.js para pegar a rota ativa
   const {
     canAccessCardapio,
+    canAccessWhatsapp,
     canViewActionLogs,
     isLoading: isLoadingPerms,
   } = useUserPermissions();
   const { role: userRole, userEmail, isLoading } = useAppContext();
+  const cookieRole =
+    typeof document !== "undefined"
+      ? (document.cookie.match(/(?:^|;\s*)role=([^;]*)/)?.[1] || "")
+      : "";
+  const decodedCookieRole = cookieRole
+    ? decodeURIComponent(cookieRole).toLowerCase().trim()
+    : "";
 
   const isAnalista = userEmail === ANALISTA_EMAIL;
   const isSuperAdmin =
@@ -118,14 +122,22 @@ export default function DashboardLayout({
     userEmail && ROOFTOP_FLUXO_EMAILS.has(userEmail.toLowerCase().trim());
   const isCardapioOnlyUser =
     userEmail && CARDAPIO_ONLY_EMAILS.has(userEmail.toLowerCase().trim());
-  const isWhatsappHighlineOnlyUser = isWhatsappHighlineOnlyEmail(userEmail);
+  const isWhatsappHighlineScopedUser = isWhatsappHighlineScopedEmail(userEmail);
+
+  const appendWhatsappLink = <T extends { href: string; label: string; icon: typeof MdChat }>(
+    links: T[],
+  ): T[] => {
+    if (!canAccessWhatsapp) return links;
+    if (links.some((l) => l.href === ATENDIMENTO_NAV_LINK.href)) return links;
+    return [
+      ...links.slice(0, 2),
+      ATENDIMENTO_NAV_LINK as T,
+      ...links.slice(2),
+    ];
+  };
 
   // A lista de links da sua navegação baseada no role e no perfil (analista vs promoter)
   const getNavLinks = () => {
-    if (isWhatsappHighlineOnlyUser) {
-      return WHATSAPP_HIGHLINE_ONLY_LINKS;
-    }
-
     if (isCardapioOnlyUser) {
       return CARDAPIO_ONLY_LINKS;
     }
@@ -228,7 +240,7 @@ export default function DashboardLayout({
           icon: MdRestaurant,
         });
       }
-      return links;
+      return isWhatsappHighlineScopedUser ? appendWhatsappLink(links) : links;
     } else if (userRole === "gerente") {
       // Gerente - acesso às páginas administrativas restritas aos seus estabelecimentos
       const baseLinks = [
@@ -386,7 +398,10 @@ export default function DashboardLayout({
     return null;
   }
 
-  if (isLoading || isLoadingPerms) {
+  const showBlockingLoader =
+    (isLoading || isLoadingPerms) && !decodedCookieRole && navLinks.length === 0;
+
+  if (showBlockingLoader) {
     return (
       <div className="flex min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 items-center justify-center">
         <div className="text-white text-xl">Carregando...</div>
@@ -421,8 +436,8 @@ export default function DashboardLayout({
             />
           </div>
           <span className="text-lg font-bold hidden lg:inline text-white">
-            {isWhatsappHighlineOnlyUser
-              ? "Atendimento HighLine"
+            {isWhatsappHighlineScopedUser
+              ? "Painel Admin"
               : isAnalista
                 ? "Painel Analista"
                 : userRole === "promoter" || userRole === "promoter-list"

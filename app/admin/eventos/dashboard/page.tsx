@@ -86,14 +86,12 @@ export default function EventosDashboard() {
 
   useEffect(() => {
     fetchEstablishments();
-    // Carregar dados do dashboard na inicialização (sem filtro de estabelecimento)
-    fetchDashboardData();
   }, []);
 
   useEffect(() => {
-    // Recarrega quando muda o estabelecimento selecionado
+    if (establishments.length === 0 && !selectedEstablishment) return;
     fetchDashboardData();
-  }, [selectedEstablishment]);
+  }, [selectedEstablishment, establishments.length]);
 
   const fetchEstablishments = async () => {
     try {
