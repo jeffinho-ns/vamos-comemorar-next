@@ -26,6 +26,10 @@ import {
 } from 'react-icons/md';
 import { useUserPermissions } from '../../hooks/useUserPermissions';
 import ImageCropModal from '../../components/ImageCropModal';
+import MenuPauseScheduleModal, {
+  type MenuPauseApplyMode,
+  type PauseWindowDraft,
+} from '../../components/MenuPauseScheduleModal';
 import { useRouter } from 'next/navigation';
 import { uploadImage as uploadImageToFirebase } from '@/app/services/uploadService';
 import { filterEstablishmentListForUser } from '@/app/utils/establishmentAccessRules';
@@ -133,7 +137,23 @@ interface MenuItem {
   order: number;
   seals?: string[]; // IDs dos selos selecionados
   visible?: number | boolean; // Indica se o item está visível (1 ou true = visível, 0 ou false = oculto)
+  effectiveVisible?: boolean;
+  schedulePaused?: boolean;
+  pauseSchedules?: Array<{
+    id: number;
+    summary: string;
+    weekdays: number[];
+    start_time: string;
+    end_time: string;
+  }>;
   isPriceOnRequest?: boolean; // Indica se o preço é "Sob Consulta"
+}
+
+function isItemEffectivelyPaused(item: MenuItem): boolean {
+  if (item.visible === 0 || item.visible === false) return true;
+  if (item.schedulePaused) return true;
+  if (item.effectiveVisible === false) return true;
+  return false;
 }
 
 // **CORREÇÃO**: Interface Bar atualizada para incluir os campos sociais
@@ -508,6 +528,9 @@ export default function CardapioAdminPage() {
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [editingPriceId, setEditingPriceId] = useState<string | number | null>(null);
   const [editingPriceValue, setEditingPriceValue] = useState<string>('');
+  const [pauseModalOpen, setPauseModalOpen] = useState(false);
+  const [pauseModalScopeLabel, setPauseModalScopeLabel] = useState('');
+  const [pauseModalMode, setPauseModalMode] = useState<MenuPauseApplyMode>('scheduled');
   
   // Estados para controlar expansão de categorias e subcategorias na visualização em lista
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
@@ -3240,43 +3263,97 @@ export default function CardapioAdminPage() {
     }
   }, [selectedItems, fetchData]);
 
-  const handleBulkToggleVisibility = useCallback(async () => {
+  const buildPauseScopeLabel = useCallback(
+    (itemIds: Array<string | number>) => {
+      const items = menuData.items.filter((item) => itemIds.includes(item.id));
+      const categoryNames = new Set<string>();
+      for (const item of items) {
+        const cat = menuData.categories.find((c) => String(c.id) === String(item.categoryId));
+        categoryNames.add(cat?.name || 'Categoria');
+      }
+      const names = Array.from(categoryNames);
+      if (names.length === 1) return names[0];
+      if (names.length <= 3) return names.join(', ');
+      return `${names.length} categorias`;
+    },
+    [menuData.items, menuData.categories],
+  );
+
+  const handleBulkActivate = useCallback(async () => {
     if (selectedItems.length === 0) return;
-
-    const itemsToToggle = menuData.items.filter((item) => selectedItems.includes(item.id));
-    const allPaused = itemsToToggle.every(
-      (item) => item.visible === 0 || item.visible === false
-    );
-    // Se todos estão pausados, vamos ATIVAR; caso contrário, vamos PAUSAR
-    const newVisible = allPaused ? true : false;
-
-    if (!confirm(`${newVisible ? 'Ativar' : 'Pausar'} ${selectedItems.length} item(s) selecionado(s)?`)) {
+    if (
+      !confirm(
+        `Ativar ${selectedItems.length} item(s)? Isso remove pausa imediata e agendas por horário.`,
+      )
+    ) {
       return;
     }
-
     try {
-      const updatePromises = selectedItems.map((itemId) =>
-        fetch(`${API_BASE_URL}/items/${itemId}/visibility`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ visible: newVisible }),
-        })
-      );
-      const results = await Promise.all(updatePromises);
-      const failed = results.filter((res) => !res.ok);
-      
-      if (failed.length > 0) {
-        throw new Error(`Falha ao atualizar ${failed.length} item(s).`);
+      const res = await fetch(`${API_BASE_URL}/pause-schedules/clear-for-items`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ itemIds: selectedItems }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.error || 'Falha ao ativar itens.');
       }
-
-      alert(`Itens ${newVisible ? 'ativados' : 'pausados'} com sucesso!`);
+      alert(data.message || 'Itens ativados.');
       setSelectedItems([]);
       await fetchData();
     } catch (err) {
       console.error(err);
-      alert(`Erro ao ${newVisible ? 'ativar' : 'pausar'} itens: ${err instanceof Error ? err.message : 'Erro desconhecido'}`);
+      alert(err instanceof Error ? err.message : 'Erro ao ativar itens.');
     }
-  }, [selectedItems, menuData.items, fetchData]);
+  }, [selectedItems, fetchData]);
+
+  const handleBulkToggleVisibility = useCallback(() => {
+    if (selectedItems.length === 0) return;
+
+    const itemsToToggle = menuData.items.filter((item) => selectedItems.includes(item.id));
+    const allPaused = itemsToToggle.every((item) => isItemEffectivelyPaused(item));
+
+    if (allPaused) {
+      void handleBulkActivate();
+      return;
+    }
+
+    setPauseModalScopeLabel(buildPauseScopeLabel(selectedItems));
+    setPauseModalMode('scheduled');
+    setPauseModalOpen(true);
+  }, [selectedItems, menuData.items, buildPauseScopeLabel, handleBulkActivate]);
+
+  const handlePauseModalConfirm = useCallback(
+    async ({
+      mode,
+      windows,
+    }: {
+      mode: MenuPauseApplyMode;
+      windows: PauseWindowDraft[];
+    }) => {
+      const res = await fetch(`${API_BASE_URL}/pause-schedules/apply`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          mode,
+          itemIds: selectedItems,
+          windows: windows.map((w) => ({
+            weekdays: w.weekdays,
+            start_time: w.startTime,
+            end_time: w.endTime,
+          })),
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.error || 'Falha ao aplicar pausa.');
+      }
+      alert(data.message || 'Pausa aplicada.');
+      setSelectedItems([]);
+      await fetchData();
+    },
+    [selectedItems, fetchData],
+  );
 
   // Filtros inteligentes com useMemo
   const filteredSubCategories = useMemo(() => {
@@ -3354,9 +3431,9 @@ export default function CardapioAdminPage() {
       // Filtro de status
       let matchesStatus = true;
       if (filterStatus === 'active') {
-        matchesStatus = item.visible === 1 || item.visible === true || item.visible === undefined || item.visible === null;
+        matchesStatus = !isItemEffectivelyPaused(item);
       } else if (filterStatus === 'paused') {
-        matchesStatus = item.visible === 0 || item.visible === false;
+        matchesStatus = isItemEffectivelyPaused(item);
       } else if (filterStatus === 'inactive') {
         matchesStatus = item.visible === 0 || item.visible === false;
       }
@@ -3939,7 +4016,7 @@ export default function CardapioAdminPage() {
                         className="flex items-center gap-2 rounded-lg bg-yellow-600 px-4 py-1.5 text-sm text-white hover:bg-yellow-700"
                       >
                         <MdPause className="h-4 w-4" />
-                        Pausar/Ativar
+                        Pausar / Ativar
                       </button>
                       <button
                         onClick={handleBulkDelete}
@@ -4012,13 +4089,23 @@ export default function CardapioAdminPage() {
                               <div
                                 key={item.id}
                                 className={`relative overflow-hidden rounded-lg bg-white shadow-md ${
-                                  item.visible === 0 || item.visible === false ? 'opacity-60' : ''
+                                  isItemEffectivelyPaused(item) ? 'opacity-60' : ''
                                 }`}
                               >
                                 {/* Badge de pausado */}
-                                {(item.visible === 0 || item.visible === false) && (
-                                  <div className="absolute left-0 top-0 z-20 rounded-br-lg bg-yellow-500 px-3 py-1">
-                                    <span className="text-xs font-bold text-white">PAUSADO</span>
+                                {isItemEffectivelyPaused(item) && (
+                                  <div
+                                    className={`absolute left-0 top-0 z-20 rounded-br-lg px-3 py-1 ${
+                                      item.schedulePaused && item.visible !== 0 && item.visible !== false
+                                        ? 'bg-blue-600'
+                                        : 'bg-yellow-500'
+                                    }`}
+                                  >
+                                    <span className="text-xs font-bold text-white">
+                                      {item.schedulePaused && item.visible !== 0 && item.visible !== false
+                                        ? 'AGENDA'
+                                        : 'PAUSADO'}
+                                    </span>
                                   </div>
                                 )}
                                 <div className="absolute left-2 top-2 z-10">
@@ -4317,7 +4404,7 @@ export default function CardapioAdminPage() {
                                                     </thead>
                                                     <tbody className="divide-y divide-gray-200 bg-white">
                                                       {subCategoryItems.map((item) => {
-                                                        const isPaused = item.visible === 0 || item.visible === false;
+                                                        const isPaused = isItemEffectivelyPaused(item);
                                                         const isEditingPrice = editingPriceId === item.id;
                                                         
                                                         return (
@@ -4398,7 +4485,11 @@ export default function CardapioAdminPage() {
                                                                 {isPaused ? (
                                                                   <>
                                                                     <MdPause className="h-3 w-3" />
-                                                                    Pausado
+                                                                    {item.schedulePaused &&
+                                                                    item.visible !== 0 &&
+                                                                    item.visible !== false
+                                                                      ? 'Agenda'
+                                                                      : 'Pausado'}
                                                                   </>
                                                                 ) : (
                                                                   <>
@@ -4479,7 +4570,7 @@ export default function CardapioAdminPage() {
                                             </thead>
                                             <tbody className="divide-y divide-gray-200 bg-white">
                                               {categoryItems.map((item) => {
-                                                const isPaused = item.visible === 0 || item.visible === false;
+                                                const isPaused = isItemEffectivelyPaused(item);
                                                 const isEditingPrice = editingPriceId === item.id;
                                                 
                                                 return (
@@ -6540,6 +6631,15 @@ export default function CardapioAdminPage() {
           aspectRatio={1} // Quadrado obrigatório
           minZoom={1}
           maxZoom={3}
+        />
+
+        <MenuPauseScheduleModal
+          isOpen={pauseModalOpen}
+          onClose={() => setPauseModalOpen(false)}
+          itemCount={selectedItems.length}
+          scopeLabel={pauseModalScopeLabel}
+          initialMode={pauseModalMode}
+          onConfirm={handlePauseModalConfirm}
         />
       </div>
 

@@ -102,6 +102,8 @@ interface MenuItem {
   order: number;
   seals?: string[];
   visible?: boolean | number | null;
+  effectiveVisible?: boolean;
+  schedulePaused?: boolean;
   isPriceOnRequest?: boolean; // Indica se o preço é "Sob Consulta"
 }
 
@@ -526,10 +528,12 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
         // Filtrar por barId e apenas itens visíveis (visible === 1 ou true ou null/undefined)
         const matchesBar = String(item.barId) === normalizedBarId;
         const isVisible =
-          item.visible === undefined ||
-          item.visible === null ||
-          item.visible === 1 ||
-          item.visible === true;
+          item.effectiveVisible !== undefined && item.effectiveVisible !== null
+            ? Boolean(item.effectiveVisible)
+            : item.visible === undefined ||
+              item.visible === null ||
+              item.visible === 1 ||
+              item.visible === true;
         return matchesBar && isVisible;
       });
 
