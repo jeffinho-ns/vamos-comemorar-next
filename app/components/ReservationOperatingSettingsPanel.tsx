@@ -27,6 +27,7 @@ interface DateOverride {
 export type ReservationPolicyFlags = {
   allow_capacity_override: boolean;
   allow_outside_hours: boolean;
+  max_daily_people?: number | null;
 };
 
 interface Props {
@@ -71,7 +72,9 @@ export default function ReservationOperatingSettingsPanel({
   const [policy, setPolicy] = useState<ReservationPolicyFlags>({
     allow_capacity_override: false,
     allow_outside_hours: false,
+    max_daily_people: null,
   });
+  const [maxDailyInput, setMaxDailyInput] = useState<string>("");
 
   const token =
     typeof window !== "undefined" ? localStorage.getItem("authToken") : null;
@@ -93,11 +96,16 @@ export default function ReservationOperatingSettingsPanel({
       setWeekly(Array.isArray(data.weekly_settings) ? data.weekly_settings : []);
       setOverrides(Array.isArray(data.date_overrides) ? data.date_overrides : []);
       const p = data?.policy;
+      const rawMax = p?.max_daily_people;
+      const parsedMax =
+        rawMax === null || rawMax === undefined ? null : Math.max(0, Number(rawMax) || 0);
       const nextPolicy: ReservationPolicyFlags = {
         allow_capacity_override: !!p?.allow_capacity_override,
         allow_outside_hours: !!p?.allow_outside_hours,
+        max_daily_people: parsedMax && parsedMax > 0 ? parsedMax : null,
       };
       setPolicy(nextPolicy);
+      setMaxDailyInput(nextPolicy.max_daily_people ? String(nextPolicy.max_daily_people) : "");
       onPolicyChange?.(nextPolicy);
     } catch (error: any) {
       setMessage(error?.message || "Erro ao carregar configurações");
@@ -204,6 +212,8 @@ export default function ReservationOperatingSettingsPanel({
     setSaving(true);
     setMessage("");
     try {
+      const trimmed = maxDailyInput.trim();
+      const parsedMaxDaily = trimmed === "" ? null : Math.max(0, Math.floor(Number(trimmed) || 0));
       const response = await fetch(
         `${apiUrl}/api/restaurant-reservation-settings/policy`,
         {
@@ -216,6 +226,7 @@ export default function ReservationOperatingSettingsPanel({
             establishment_id: establishmentId,
             allow_capacity_override: policy.allow_capacity_override,
             allow_outside_hours: policy.allow_outside_hours,
+            max_daily_people: parsedMaxDaily && parsedMaxDaily > 0 ? parsedMaxDaily : null,
           }),
         },
       );
@@ -223,11 +234,18 @@ export default function ReservationOperatingSettingsPanel({
       if (!response.ok || !data?.success) {
         throw new Error(data?.error || "Erro ao salvar política");
       }
+      const savedMaxRaw = data.policy?.max_daily_people;
+      const savedMax =
+        savedMaxRaw === null || savedMaxRaw === undefined
+          ? null
+          : Math.max(0, Number(savedMaxRaw) || 0);
       const saved: ReservationPolicyFlags = {
         allow_capacity_override: !!data.policy?.allow_capacity_override,
         allow_outside_hours: !!data.policy?.allow_outside_hours,
+        max_daily_people: savedMax && savedMax > 0 ? savedMax : null,
       };
       setPolicy(saved);
+      setMaxDailyInput(saved.max_daily_people ? String(saved.max_daily_people) : "");
       onPolicyChange?.(saved);
       setMessage("Política para atendentes salva com sucesso.");
     } catch (error: any) {
@@ -525,6 +543,28 @@ export default function ReservationOperatingSettingsPanel({
               ele.
             </span>
           </label>
+          <div className="rounded-lg border border-amber-100 bg-amber-50/40 p-3">
+            <label className="block text-sm font-semibold text-gray-800">
+              Limite diário de pessoas (capacidade da casa por dia)
+            </label>
+            <p className="text-xs text-gray-600 mt-1">
+              Total máximo de pessoas reservadas por dia para este estabelecimento. Sobrescreve a
+              soma das capacidades das áreas. Deixe em branco para usar a capacidade somada das
+              áreas. Ex.: 800 para o HighLine.
+            </p>
+            <div className="mt-2 flex items-center gap-2">
+              <input
+                type="number"
+                min={0}
+                step={10}
+                value={maxDailyInput}
+                onChange={(e) => setMaxDailyInput(e.target.value)}
+                placeholder="ex.: 800"
+                className="w-32 border rounded px-2 py-1 text-sm"
+              />
+              <span className="text-xs text-gray-500">pessoas/dia</span>
+            </div>
+          </div>
           <button
             type="button"
             onClick={savePolicy}

@@ -488,6 +488,7 @@ export default function RestaurantReservationsPage() {
     useState<ReservationPolicyFlags>({
       allow_capacity_override: false,
       allow_outside_hours: false,
+      max_daily_people: null,
     });
 
   // Carregar bloqueios de agenda para o estabelecimento selecionado
@@ -579,6 +580,7 @@ export default function RestaurantReservationsPage() {
       setReservationPolicy({
         allow_capacity_override: false,
         allow_outside_hours: false,
+        max_daily_people: null,
       });
       return;
     }
@@ -591,15 +593,20 @@ export default function RestaurantReservationsPage() {
         const data = await res.json();
         if (cancelled) return;
         const p = data?.policy;
+        const rawMax = p?.max_daily_people;
+        const parsedMax =
+          rawMax === null || rawMax === undefined ? null : Math.max(0, Number(rawMax) || 0);
         setReservationPolicy({
           allow_capacity_override: !!p?.allow_capacity_override,
           allow_outside_hours: !!p?.allow_outside_hours,
+          max_daily_people: parsedMax && parsedMax > 0 ? parsedMax : null,
         });
       } catch {
         if (!cancelled) {
           setReservationPolicy({
             allow_capacity_override: false,
             allow_outside_hours: false,
+            max_daily_people: null,
           });
         }
       }
@@ -1138,6 +1145,12 @@ export default function RestaurantReservationsPage() {
       }
       if (totalCapacity === 0 && areas.length > 0) totalCapacity = 99999;
       totalCapacity = Math.min(99999, totalCapacity);
+
+      // Limite diário configurado por estabelecimento sobrescreve a soma de áreas
+      const maxDailyOverride = Number(reservationPolicy.max_daily_people ?? 0);
+      if (Number.isFinite(maxDailyOverride) && maxDailyOverride > 0) {
+        totalCapacity = maxDailyOverride;
+      }
 
       const activeReservations = reservations.filter((reservation) => {
         const reservationDate = (() => {
