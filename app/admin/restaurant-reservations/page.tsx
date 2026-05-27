@@ -3236,66 +3236,147 @@ export default function RestaurantReservationsPage() {
                           key: string;
                           title: string;
                           tableWhitelist?: string[];
-                        }> = [
-                          {
-                            key: "deck",
-                            title: "Deck",
-                            tableWhitelist: [
-                              "01",
-                              "02",
-                              "03",
-                              "04",
-                              "05",
-                              "06",
-                              "07",
-                              "08",
-                              "09",
-                              "10",
-                              "11",
-                              "12",
-                            ],
-                          },
-                          {
-                            key: "bar",
-                            title: "Bar Central",
-                            tableWhitelist: ["11", "12", "13", "14"],
-                          },
-                          { key: "balada", title: "Balada" },
-                          {
-                            key: "rooftop",
-                            title: "Rooftop",
-                            tableWhitelist: [
-                              "40",
-                              "41",
-                              "42",
-                              "44",
-                              "45",
-                              "46",
-                              "47",
-                              "60",
-                              "61",
-                              "62",
-                              "63",
-                              "64",
-                              "65",
-                              "50",
-                              "51",
-                              "52",
-                              "53",
-                              "54",
-                              "55",
-                              "56",
-                              "70",
-                              "71",
-                              "72",
-                              "73",
-                            ],
-                          },
-                        ];
+                        }> = isSeuJustino
+                          ? [
+                              {
+                                key: "lounge-aquario-spaten",
+                                title: "Lounge Aquario Spaten",
+                                tableWhitelist: ["210"],
+                              },
+                              {
+                                key: "lounge-aquario-tv",
+                                title: "Lounge Aquario TV",
+                                tableWhitelist: ["208"],
+                              },
+                              {
+                                key: "lounge-palco",
+                                title: "Lounge Palco",
+                                tableWhitelist: ["204", "206"],
+                              },
+                              {
+                                key: "lounge-bar",
+                                title: "Lounge Bar",
+                                tableWhitelist: ["200", "202"],
+                              },
+                              {
+                                key: "quintal-lateral-esquerdo",
+                                title: "Quintal Lateral Esquerdo",
+                                tableWhitelist: ["20", "22", "24", "26", "28", "29"],
+                              },
+                              {
+                                key: "quintal-central-esquerdo",
+                                title: "Quintal Central Esquerdo",
+                                tableWhitelist: ["30", "32", "34", "36", "38", "39"],
+                              },
+                              {
+                                key: "quintal-central-direito",
+                                title: "Quintal Central Direito",
+                                tableWhitelist: ["40", "42", "44", "46", "48"],
+                              },
+                              {
+                                key: "quintal-lateral-direito",
+                                title: "Quintal Lateral Direito",
+                                tableWhitelist: [
+                                  "50",
+                                  "52",
+                                  "54",
+                                  "56",
+                                  "58",
+                                  "60",
+                                  "62",
+                                  "64",
+                                ],
+                              },
+                            ]
+                          : [
+                              {
+                                key: "deck",
+                                title: "Deck",
+                                tableWhitelist: [
+                                  "01",
+                                  "02",
+                                  "03",
+                                  "04",
+                                  "05",
+                                  "06",
+                                  "07",
+                                  "08",
+                                  "09",
+                                  "10",
+                                  "11",
+                                  "12",
+                                ],
+                              },
+                              {
+                                key: "bar",
+                                title: "Bar Central",
+                                tableWhitelist: ["11", "12", "13", "14"],
+                              },
+                              { key: "balada", title: "Balada" },
+                              {
+                                key: "rooftop",
+                                title: "Rooftop",
+                                tableWhitelist: [
+                                  "40",
+                                  "41",
+                                  "42",
+                                  "44",
+                                  "45",
+                                  "46",
+                                  "47",
+                                  "60",
+                                  "61",
+                                  "62",
+                                  "63",
+                                  "64",
+                                  "65",
+                                  "50",
+                                  "51",
+                                  "52",
+                                  "53",
+                                  "54",
+                                  "55",
+                                  "56",
+                                  "70",
+                                  "71",
+                                  "72",
+                                  "73",
+                                ],
+                              },
+                            ];
 
                         const getAreaKeyFromReservation = (
                           r: Reservation,
                         ): string => {
+                          if (isSeuJustino) {
+                            const areaLabel = getSeuJustinoAreaName(
+                              (r as any).table_number,
+                              (r as any).area_name,
+                              (r as any).area_id,
+                            );
+                            const normalizedLabel = areaLabel.toLowerCase().trim();
+                            const sectionByLabel = areaSections.find(
+                              (section) =>
+                                section.title.toLowerCase() === normalizedLabel,
+                            );
+                            if (sectionByLabel) return sectionByLabel.key;
+
+                            const tableNumbers = String(
+                              (r as any).table_number || "",
+                            )
+                              .split(",")
+                              .map((t) => t.trim())
+                              .filter(Boolean);
+                            const sectionByTable = areaSections.find((section) =>
+                              (section.tableWhitelist || []).some((table) =>
+                                tableNumbers.includes(table),
+                              ),
+                            );
+                            if (sectionByTable) return sectionByTable.key;
+
+                            return areaSections[0]?.key || "";
+                          }
+
                           const tableNum = String(
                             (r as any).table_number || "",
                           ).padStart(2, "0");
@@ -3698,12 +3779,15 @@ export default function RestaurantReservationsPage() {
                               {whitelist && whitelist.length > 0 && (
                                 <p className="text-xs text-gray-500 mt-2">
                                   Mesas:{" "}
-                                  {sectionKey === "deck" &&
-                                    "Lounge 1–8, Mesa 09–12"}
-                                  {sectionKey === "bar" &&
-                                    " Bistrô ESPERA 11–14"}
-                                  {sectionKey === "rooftop" &&
-                                    " Lounge 40–42, Lounge Central 44–47, Bangalô 60–65, Mesa 50–56, Bistrô 70–73"}
+                                  {isSeuJustino
+                                    ? whitelist.join(", ")
+                                    : sectionKey === "deck"
+                                      ? "Lounge 1–8, Mesa 09–12"
+                                      : sectionKey === "bar"
+                                        ? " Bistrô ESPERA 11–14"
+                                        : sectionKey === "rooftop"
+                                          ? " Lounge 40–42, Lounge Central 44–47, Bangalô 60–65, Mesa 50–56, Bistrô 70–73"
+                                          : ""}
                                 </p>
                               )}
                             </div>
