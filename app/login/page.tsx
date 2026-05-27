@@ -13,6 +13,7 @@ import {
   notifyAuthChanged,
   setAuthSessionCookies,
 } from "../utils/authSession";
+import { getApiUrl } from "../config/api";
 
 const PROMOTER_ONLY_EMAILS = new Set([
   "montoya@ideiaum.com.br",
@@ -36,7 +37,7 @@ export default function Login() {
     return emailCpf.length > 0 && password.length > 0;
   }, [emailCpf, password]);
 
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL_LOCAL;
+  const API_URL = getApiUrl();
 
   const resolvePromoterDestination = (promoterCodigo?: string | null) => {
     if (promoterCodigo) return `/promoter/${promoterCodigo}/dashboard`;

@@ -86,6 +86,7 @@ interface AppContextValue {
 }
 
 const AppContext = createContext<AppContextValue | undefined>(undefined);
+const GLOBAL_FETCH_TIMEOUT_MS = 12000;
 
 function readCookie(name: string): string {
   if (typeof document === "undefined") return "";
@@ -93,6 +94,20 @@ function readCookie(name: string): string {
     .split(";")
     .find((c) => c.trim().startsWith(`${name}=`));
   return hit ? decodeURIComponent(hit.split("=").slice(1).join("=").trim()) : "";
+}
+
+async function fetchWithTimeout(
+  input: RequestInfo | URL,
+  init: RequestInit = {},
+  timeoutMs = GLOBAL_FETCH_TIMEOUT_MS,
+): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(input, { ...init, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 function normalizeRole(value: string | undefined): string {
@@ -192,10 +207,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const headers = { Authorization: `Bearer ${resolvedToken}` };
 
       const [userRes, permissionsRes, barsRes, placesRes] = await Promise.allSettled([
-        fetch(`${apiUrl}/api/users/me`, { headers }),
-        fetch(`${apiUrl}/api/establishment-permissions/my-permissions`, { headers }),
-        fetch(`${apiUrl}/api/bars`, { headers }),
-        fetch(`${apiUrl}/api/places`, { headers }),
+        fetchWithTimeout(`${apiUrl}/api/users/me`, { headers }),
+        fetchWithTimeout(`${apiUrl}/api/establishment-permissions/my-permissions`, { headers }),
+        fetchWithTimeout(`${apiUrl}/api/bars`, { headers }),
+        fetchWithTimeout(`${apiUrl}/api/places`, { headers }),
       ]);
 
       let effectiveEmail = normalizeUserEmail(readCookie("userEmail"));
