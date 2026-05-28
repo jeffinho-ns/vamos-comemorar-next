@@ -103,6 +103,19 @@ type TabType =
   | "reports"
   | "settings";
 
+const EVENT_TYPE_LABELS: Record<string, string> = {
+  aniversario: "Aniversário",
+  despedida: "Despedida",
+  lista_sexta: "Lista Sexta",
+  outros: "Outros",
+};
+
+function getReservationEventLabel(r: { event_type?: string | null }): string {
+  const raw = r.event_type != null ? String(r.event_type).trim() : "";
+  if (!raw) return "";
+  return EVENT_TYPE_LABELS[raw.toLowerCase()] || raw;
+}
+
 export default function RestaurantReservationsPage() {
   const establishmentPermissions = useEstablishmentPermissions();
   const [selectedEstablishment, setSelectedEstablishment] =
@@ -3190,7 +3203,7 @@ export default function RestaurantReservationsPage() {
                           if (sheetFilters.search) {
                             const q = sheetFilters.search.toLowerCase();
                             const hay =
-                              `${r.client_name || ""} ${r.client_phone || ""} ${(r as any).event_name || ""}`.toLowerCase();
+                              `${r.client_name || ""} ${r.client_phone || ""} ${getReservationEventLabel(r)} ${r.event_type || ""}`.toLowerCase();
                             if (!hay.includes(q)) return false;
                           }
                           if (
@@ -3209,7 +3222,7 @@ export default function RestaurantReservationsPage() {
                             return false;
                           if (
                             sheetFilters.event &&
-                            !`${(r as any).event_name || ""}`
+                            !`${getReservationEventLabel(r)} ${r.event_type || ""}`
                               .toLowerCase()
                               .includes(sheetFilters.event.toLowerCase())
                           )
@@ -3672,7 +3685,7 @@ export default function RestaurantReservationsPage() {
                                           </button>
                                         </td>
                                         <td className="border border-gray-300 px-2 py-1 text-sm text-gray-700">
-                                          {(r as any).event_name || "-"}
+                                          {getReservationEventLabel(r) || "-"}
                                           <button
                                             onClick={() => openEdit(r)}
                                             className="ml-2 px-2 py-0.5 text-xs bg-yellow-100 text-yellow-700 rounded"
