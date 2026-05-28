@@ -1685,9 +1685,9 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
             }`}
             style={{ top: `${stickyCategoryOffset}px` }}
           >
-            {/* Indicador de categoria ativa */}
+            {/* Indicador de categoria ativa (oculto para clientes) */}
             <div
-              className={`text-center py-2 px-4 ${
+              className={`hidden text-center py-2 px-4 ${
                 isCleanStyle
                   ? "bg-[#efe6d8] border-b border-[#e1d6c0]"
                   : isReservaRooftop
