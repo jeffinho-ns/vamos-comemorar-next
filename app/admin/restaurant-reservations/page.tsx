@@ -102,6 +102,7 @@ type TabType =
   | "guest-lists"
   | "reports"
   | "settings";
+type SheetSortField = "table" | "time" | "people" | "presence";
 
 const EVENT_TYPE_LABELS: Record<string, string> = {
   aniversario: "Aniversário",
@@ -463,6 +464,13 @@ export default function RestaurantReservationsPage() {
     table?: string;
     status?: string;
   }>({});
+  const [sheetSort, setSheetSort] = useState<{
+    field: SheetSortField;
+    direction: "asc" | "desc";
+  }>({
+    field: "time",
+    direction: "asc",
+  });
   const [searchTerm, setSearchTerm] = useState("");
   const [giroFilter, setGiroFilter] = useState<"all" | "1º Giro" | "2º Giro">(
     "all",
@@ -3156,6 +3164,49 @@ export default function RestaurantReservationsPage() {
                           )}
                         </div>
                       </div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-sm text-gray-600 font-medium">
+                          Ordenar por:
+                        </span>
+                        {(
+                          [
+                            { field: "table", label: "Mesa" },
+                            { field: "time", label: "Horário" },
+                            { field: "people", label: "Qtd. Pessoas" },
+                            { field: "presence", label: "Presença" },
+                          ] as Array<{ field: SheetSortField; label: string }>
+                        ).map(({ field, label }) => {
+                          const isActive = sheetSort.field === field;
+                          const indicator = isActive
+                            ? sheetSort.direction === "asc"
+                              ? "↑"
+                              : "↓"
+                            : "↕";
+                          return (
+                            <button
+                              key={field}
+                              type="button"
+                              onClick={() =>
+                                setSheetSort((prev) => ({
+                                  field,
+                                  direction:
+                                    prev.field === field &&
+                                    prev.direction === "asc"
+                                      ? "desc"
+                                      : "asc",
+                                }))
+                              }
+                              className={`px-3 py-1.5 rounded-lg border text-sm transition-colors ${
+                                isActive
+                                  ? "bg-yellow-100 text-yellow-800 border-yellow-300"
+                                  : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+                              }`}
+                            >
+                              {label} {indicator}
+                            </button>
+                          );
+                        })}
+                      </div>
 
                       {(() => {
                         // Funções auxiliares
@@ -3243,6 +3294,51 @@ export default function RestaurantReservationsPage() {
                           )
                             return false;
                           return true;
+                        };
+                        const getFirstTableNumber = (tableNumber?: string) => {
+                          if (!tableNumber) return Number.POSITIVE_INFINITY;
+                          const firstTable = String(tableNumber)
+                            .split(",")
+                            .map((item) => item.trim())
+                            .find(Boolean);
+                          if (!firstTable) return Number.POSITIVE_INFINITY;
+                          const numeric = Number.parseInt(
+                            firstTable.replace(/\D/g, ""),
+                            10,
+                          );
+                          return Number.isFinite(numeric)
+                            ? numeric
+                            : Number.POSITIVE_INFINITY;
+                        };
+                        const compareRows = (a: Reservation, b: Reservation) => {
+                          const direction = sheetSort.direction === "asc" ? 1 : -1;
+                          if (sheetSort.field === "table") {
+                            return (
+                              (getFirstTableNumber((a as any).table_number) -
+                                getFirstTableNumber((b as any).table_number)) *
+                              direction
+                            );
+                          }
+                          if (sheetSort.field === "people") {
+                            return (
+                              ((a.number_of_people || 0) -
+                                (b.number_of_people || 0)) *
+                              direction
+                            );
+                          }
+                          if (sheetSort.field === "presence") {
+                            const aPresence = isConfirmedReservationStatus(a.status)
+                              ? 1
+                              : 0;
+                            const bPresence = isConfirmedReservationStatus(b.status)
+                              ? 1
+                              : 0;
+                            return (aPresence - bPresence) * direction;
+                          }
+                          return (
+                            a.reservation_time.localeCompare(b.reservation_time) *
+                            direction
+                          );
                         };
 
                         const areaSections: Array<{
@@ -3516,11 +3612,7 @@ export default function RestaurantReservationsPage() {
                               (r) =>
                                 getAreaKeyFromReservation(r) === sectionKey,
                             )
-                            .sort((a, b) =>
-                              a.reservation_time.localeCompare(
-                                b.reservation_time,
-                              ),
-                            );
+                            .sort(compareRows);
 
                           return (
                             <div>
