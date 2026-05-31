@@ -1194,33 +1194,44 @@ export default function AdminWhatsappPage() {
     }
   };
 
+  const persistContactDraft = useCallback(
+    async (contactId: number, options?: { showSuccess?: boolean }) => {
+      if (!token) return false;
+      const draft = contactDrafts[contactId];
+      if (!draft) return false;
+      setSavingContactIds((prev) => [...prev, contactId]);
+      setError(null);
+      if (options?.showSuccess) setSuccessMessage(null);
+      try {
+        const res = await fetch(`${API_URL}/api/admin/whatsapp/contacts/${contactId}`, {
+          method: "PATCH",
+          headers: authHeaders,
+          body: JSON.stringify({
+            marketing_opt_in: draft.marketing_opt_in,
+            contact_status: draft.contact_status,
+            tags: draft.tags,
+            notes: draft.notes,
+          }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.message || `Erro ${res.status}`);
+        await fetchContacts();
+        if (options?.showSuccess) {
+          setSuccessMessage("Contato salvo com sucesso.");
+        }
+        return true;
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Falha ao salvar contato");
+        return false;
+      } finally {
+        setSavingContactIds((prev) => prev.filter((id) => id !== contactId));
+      }
+    },
+    [authHeaders, contactDrafts, fetchContacts, token],
+  );
+
   const handleSaveContact = async (contactId: number) => {
-    if (!token) return;
-    const draft = contactDrafts[contactId];
-    if (!draft) return;
-    setSavingContactIds((prev) => [...prev, contactId]);
-    setError(null);
-    setSuccessMessage(null);
-    try {
-      const res = await fetch(`${API_URL}/api/admin/whatsapp/contacts/${contactId}`, {
-        method: "PATCH",
-        headers: authHeaders,
-        body: JSON.stringify({
-          marketing_opt_in: draft.marketing_opt_in,
-          contact_status: draft.contact_status,
-          tags: draft.tags,
-          notes: draft.notes,
-        }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.message || `Erro ${res.status}`);
-      await fetchContacts();
-      setSuccessMessage("Contato salvo com sucesso.");
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Falha ao salvar contato");
-    } finally {
-      setSavingContactIds((prev) => prev.filter((id) => id !== contactId));
-    }
+    await persistContactDraft(contactId, { showSuccess: true });
   };
 
   const handleCreateCampaign = async () => {
@@ -1351,6 +1362,16 @@ export default function AdminWhatsappPage() {
     if (!token) return;
     if (!selectedCampaignForSend) {
       setError("Selecione uma campanha para envio.");
+      return;
+    }
+    const draft = contactDrafts[contactId];
+    if (draft && !draft.marketing_opt_in) {
+      setError("Envio bloqueado: este contato está sem opt-in de marketing.");
+      return;
+    }
+    const saved = await persistContactDraft(contactId);
+    if (!saved) {
+      setError("Não foi possível salvar o contato antes do envio da campanha.");
       return;
     }
     setSendCampaignLoading(true);
