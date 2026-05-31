@@ -1374,16 +1374,24 @@ export default function AdminWhatsappPage() {
       setError("Não foi possível salvar o contato antes do envio da campanha.");
       return;
     }
+    const contact = contacts.find((item) => item.id === contactId);
+    const sendQuery = new URLSearchParams({ contact_id: String(contactId) });
+    if (contact?.wa_id) {
+      sendQuery.set("wa_id", contact.wa_id);
+    }
     setSendCampaignLoading(true);
     setError(null);
     setSuccessMessage(null);
     try {
       const res = await fetch(
-        `${API_URL}/api/admin/whatsapp/campaigns/${selectedCampaignForSend}/send-to-contact`,
+        `${API_URL}/api/admin/whatsapp/campaigns/${selectedCampaignForSend}/send-to-contact?${sendQuery.toString()}`,
         {
           method: "POST",
           headers: authHeaders,
-          body: JSON.stringify({ contact_id: contactId }),
+          body: JSON.stringify({
+            contact_id: contactId,
+            wa_id: contact?.wa_id || null,
+          }),
         },
       );
       const data = await res.json().catch(() => ({}));
