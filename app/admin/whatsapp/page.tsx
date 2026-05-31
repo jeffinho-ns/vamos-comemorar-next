@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  Fragment,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -29,6 +30,8 @@ const API_URL = getApiUrl();
 const SOCKET_URL = getPublicSocketUrl();
 /** Distância do fim (px) para considerar que o operador está acompanhando o fim do chat. */
 const MESSAGES_SCROLL_BOTTOM_THRESHOLD = 72;
+const DEFAULT_ENTRY_LINK_TEMPLATE =
+  "Olá! Quero fazer uma reserva no {estabelecimento}. {token}";
 
 /** Filtro da lista de conversas por casa (token #EST_ID no link de entrada). */
 type InboxEstablishmentFilter = "all" | "unassigned" | number;
@@ -363,6 +366,20 @@ function buildEstablishmentLinkText(establishmentName: string, establishmentId: 
   return `Olá! Quero fazer uma reserva no ${establishmentName}. ${buildEstablishmentToken(establishmentId)}`;
 }
 
+function renderEntryLinkMessageTemplate(
+  template: string,
+  establishmentName: string,
+  establishmentId: number,
+): string {
+  const fallback = buildEstablishmentLinkText(establishmentName, establishmentId);
+  const safeTemplate = String(template || "").trim();
+  if (!safeTemplate) return fallback;
+  const token = buildEstablishmentToken(establishmentId);
+  return safeTemplate
+    .replaceAll("{estabelecimento}", establishmentName)
+    .replaceAll("{token}", token);
+}
+
 function buildWhatsAppEntryLink(phoneDigits: string, text: string): string {
   const base = phoneDigits ? `https://wa.me/${phoneDigits}` : "https://wa.me/";
   return `${base}?text=${encodeURIComponent(text)}`;
@@ -484,8 +501,10 @@ export default function AdminWhatsappPage() {
     only_opt_in: true,
   });
   const [manualCentralWhatsappNumber, setManualCentralWhatsappNumber] = useState("");
+  const [entryLinkTemplate, setEntryLinkTemplate] = useState(DEFAULT_ENTRY_LINK_TEMPLATE);
   const [copiedLinkId, setCopiedLinkId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<WhatsappAdminTab>("treinamento");
   const [inboxEstablishmentFilter, setInboxEstablishmentFilter] =
     useState<InboxEstablishmentFilter>(
@@ -519,7 +538,8 @@ export default function AdminWhatsappPage() {
     isWhatsappHighlineOnlyUser,
   ]);
 
-  const showWhatsappInbox = canAccessWhatsapp && activeTab !== "treinamento";
+  const showWhatsappArea = canAccessWhatsapp && activeTab !== "treinamento";
+  const showWhatsappInbox = canAccessWhatsapp && activeTab === "atendimento";
 
   const selectTab = useCallback(
     (tab: WhatsappAdminTab) => {
@@ -601,6 +621,10 @@ export default function AdminWhatsappPage() {
     if (saved?.trim()) {
       setManualCentralWhatsappNumber(saved.trim());
     }
+    const savedTemplate = window.localStorage.getItem("admin_whatsapp_entry_link_template");
+    if (savedTemplate?.trim()) {
+      setEntryLinkTemplate(savedTemplate);
+    }
   }, []);
 
   useEffect(() => {
@@ -612,6 +636,25 @@ export default function AdminWhatsappPage() {
     }
     window.localStorage.setItem("admin_whatsapp_central_number_manual", value);
   }, [manualCentralWhatsappNumber]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const value = entryLinkTemplate.trim();
+    if (!value) {
+      window.localStorage.setItem(
+        "admin_whatsapp_entry_link_template",
+        DEFAULT_ENTRY_LINK_TEMPLATE,
+      );
+      return;
+    }
+    window.localStorage.setItem("admin_whatsapp_entry_link_template", value);
+  }, [entryLinkTemplate]);
+
+  useEffect(() => {
+    if (!successMessage) return;
+    const timeout = window.setTimeout(() => setSuccessMessage(null), 2800);
+    return () => window.clearTimeout(timeout);
+  }, [successMessage]);
 
   const authHeaders = useMemo(() => {
     const h: Record<string, string> = { "Content-Type": "application/json" };
@@ -1157,6 +1200,7 @@ export default function AdminWhatsappPage() {
     if (!draft) return;
     setSavingContactIds((prev) => [...prev, contactId]);
     setError(null);
+    setSuccessMessage(null);
     try {
       const res = await fetch(`${API_URL}/api/admin/whatsapp/contacts/${contactId}`, {
         method: "PATCH",
@@ -1171,6 +1215,7 @@ export default function AdminWhatsappPage() {
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.message || `Erro ${res.status}`);
       await fetchContacts();
+      setSuccessMessage("Contato salvo com sucesso.");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Falha ao salvar contato");
     } finally {
@@ -1186,6 +1231,7 @@ export default function AdminWhatsappPage() {
     }
     setSavingCampaign(true);
     setError(null);
+    setSuccessMessage(null);
     try {
       const target_filters: Record<string, unknown> = {
         tags: campaignForm.tags_filter
@@ -1215,6 +1261,7 @@ export default function AdminWhatsappPage() {
         status_filter: "",
       }));
       await fetchCampaigns();
+      setSuccessMessage("Campanha salva com sucesso.");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Falha ao criar campanha");
     } finally {
@@ -1226,6 +1273,7 @@ export default function AdminWhatsappPage() {
     if (!token) return;
     setSavingCampaign(true);
     setError(null);
+    setSuccessMessage(null);
     try {
       const res = await fetch(`${API_URL}/api/admin/whatsapp/campaigns/${campaign.id}`, {
         method: "PUT",
@@ -1235,6 +1283,9 @@ export default function AdminWhatsappPage() {
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.message || `Erro ${res.status}`);
       await fetchCampaigns();
+      setSuccessMessage(
+        campaign.is_active ? "Campanha desativada." : "Campanha ativada.",
+      );
     } catch (e) {
       setError(e instanceof Error ? e.message : "Falha ao atualizar campanha");
     } finally {
@@ -1246,6 +1297,7 @@ export default function AdminWhatsappPage() {
     if (!token) return;
     setDeletingCampaignId(campaignId);
     setError(null);
+    setSuccessMessage(null);
     try {
       const res = await fetch(`${API_URL}/api/admin/whatsapp/campaigns/${campaignId}`, {
         method: "DELETE",
@@ -1254,6 +1306,7 @@ export default function AdminWhatsappPage() {
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.message || `Erro ${res.status}`);
       await fetchCampaigns();
+      setSuccessMessage("Campanha removida com sucesso.");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Falha ao remover campanha");
     } finally {
@@ -1302,6 +1355,7 @@ export default function AdminWhatsappPage() {
     }
     setSendCampaignLoading(true);
     setError(null);
+    setSuccessMessage(null);
     try {
       const res = await fetch(
         `${API_URL}/api/admin/whatsapp/campaigns/${selectedCampaignForSend}/send-to-contact`,
@@ -1315,6 +1369,7 @@ export default function AdminWhatsappPage() {
       if (!res.ok) throw new Error(data.message || `Erro ${res.status}`);
       await fetchConversations();
       await fetchContacts();
+      setSuccessMessage("Campanha enviada para o contato.");
     } catch (e) {
       setError(
         e instanceof Error ? e.message : "Falha ao enviar campanha para contato",
@@ -1348,6 +1403,7 @@ export default function AdminWhatsappPage() {
     if (!token || batchCampaignId === "") return;
     setCreatingBatch(true);
     setError(null);
+    setSuccessMessage(null);
     try {
       const res = await fetch(`${API_URL}/api/admin/whatsapp/campaigns/${batchCampaignId}/batches`, {
         method: "POST",
@@ -1360,6 +1416,7 @@ export default function AdminWhatsappPage() {
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.message || `Erro ${res.status}`);
       await fetchCampaignBatches();
+      setSuccessMessage("Fila de disparo criada.");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Falha ao criar fila de disparo");
     } finally {
@@ -1371,6 +1428,7 @@ export default function AdminWhatsappPage() {
     if (!token) return;
     setProcessingBatchId(batchId);
     setError(null);
+    setSuccessMessage(null);
     try {
       const res = await fetch(
         `${API_URL}/api/admin/whatsapp/campaign-batches/${batchId}/process`,
@@ -1383,6 +1441,7 @@ export default function AdminWhatsappPage() {
       if (batchLogsForId === batchId) {
         await handleLoadBatchLogs(batchId);
       }
+      setSuccessMessage("Chunk processado com sucesso.");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Falha ao processar lote");
     } finally {
@@ -1394,6 +1453,7 @@ export default function AdminWhatsappPage() {
     if (!token) return;
     setCancellingBatchId(batchId);
     setError(null);
+    setSuccessMessage(null);
     try {
       const res = await fetch(
         `${API_URL}/api/admin/whatsapp/campaign-batches/${batchId}/cancel`,
@@ -1402,6 +1462,7 @@ export default function AdminWhatsappPage() {
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.message || `Erro ${res.status}`);
       await fetchCampaignBatches();
+      setSuccessMessage("Fila cancelada.");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Falha ao cancelar lote");
     } finally {
@@ -1592,11 +1653,49 @@ export default function AdminWhatsappPage() {
     () => campaigns.filter((campaign) => campaign.is_active).length,
     [campaigns],
   );
+  const crmContactGroups = useMemo(() => {
+    const groups = new Map<
+      string,
+      { key: string; label: string; contactCount: number; contacts: ContactRow[] }
+    >();
+    for (const contact of contacts) {
+      const id = contact.last_establishment_id || "sem_estabelecimento";
+      const key = String(id);
+      const label = contact.last_establishment_name || "Sem estabelecimento";
+      const current = groups.get(key);
+      if (!current) {
+        groups.set(key, { key, label, contactCount: 1, contacts: [contact] });
+      } else {
+        current.contactCount += 1;
+        current.contacts.push(contact);
+      }
+    }
+    return Array.from(groups.values()).sort((a, b) => {
+      if (b.contactCount !== a.contactCount) return b.contactCount - a.contactCount;
+      return a.label.localeCompare(b.label, "pt-BR");
+    });
+  }, [contacts]);
+  const reportDerived = useMemo(() => {
+    const conversations = reportSummary?.conversations_total ?? 0;
+    const resolved = reportSummary?.conversations_resolved ?? 0;
+    const contactsTotal = reportSummary?.contacts_total ?? 0;
+    const contactsOptIn = reportSummary?.contacts_opt_in ?? 0;
+    const reservationsWhatsapp = reportSummary?.reservations_whatsapp ?? 0;
+    const resolutionRate = conversations > 0 ? (resolved / conversations) * 100 : 0;
+    const optInRate = contactsTotal > 0 ? (contactsOptIn / contactsTotal) * 100 : 0;
+    const reservationConversion =
+      contactsTotal > 0 ? (reservationsWhatsapp / contactsTotal) * 100 : 0;
+    return {
+      resolutionRate,
+      optInRate,
+      reservationConversion,
+    };
+  }, [reportSummary]);
   const establishmentEntryLinks = useMemo(
     () =>
       establishmentFilterOptions.map((opt) => {
         const token = buildEstablishmentToken(opt.id);
-        const text = buildEstablishmentLinkText(opt.name, opt.id);
+        const text = renderEntryLinkMessageTemplate(entryLinkTemplate, opt.name, opt.id);
         const link = buildWhatsAppEntryLink(centralWhatsappDigits, text);
         return {
           id: opt.id,
@@ -1606,7 +1705,7 @@ export default function AdminWhatsappPage() {
           link,
         };
       }),
-    [centralWhatsappDigits, establishmentFilterOptions],
+    [centralWhatsappDigits, establishmentFilterOptions, entryLinkTemplate],
   );
 
   const copyToClipboard = useCallback(async (value: string, key: string) => {
@@ -1663,7 +1762,7 @@ export default function AdminWhatsappPage() {
   }
 
   return (
-    <div className="flex flex-col gap-4 p-4 md:p-6 max-w-[1600px] mx-auto min-h-[calc(100vh-4rem)]">
+    <div className="flex flex-col gap-5 p-4 md:p-6 max-w-[1600px] mx-auto min-h-[calc(100vh-4rem)]">
       <div
         className={`flex flex-wrap items-center justify-between gap-3 rounded-2xl border px-4 py-4 md:px-5 ${
           isWhatsappHighlineOnlyUser
@@ -1708,8 +1807,8 @@ export default function AdminWhatsappPage() {
       </div>
 
       {adminTabs.length > 1 ? (
-        <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
-          <div className="flex gap-2 overflow-x-auto border-b border-gray-100 p-3">
+        <div className="rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+          <div className="flex gap-2 overflow-x-auto border-b border-gray-100 p-3 bg-gray-50/70">
             {adminTabs.map((tab) => {
               const isActive = activeTab === tab.id;
               return (
@@ -1717,10 +1816,10 @@ export default function AdminWhatsappPage() {
                   key={tab.id}
                   type="button"
                   onClick={() => selectTab(tab.id)}
-                  className={`rounded-lg px-3 py-2 text-sm whitespace-nowrap transition-colors ${
+                  className={`rounded-full px-3.5 py-2 text-sm whitespace-nowrap transition-colors ${
                     isActive
-                      ? "bg-amber-600 text-white shadow-sm"
-                      : "bg-gray-50 text-gray-600 hover:bg-gray-100"
+                      ? "bg-gray-900 text-white shadow-sm"
+                      : "bg-white text-gray-600 border border-gray-200 hover:bg-gray-100"
                   }`}
                 >
                   {tab.label}
@@ -1733,7 +1832,7 @@ export default function AdminWhatsappPage() {
 
       {activeTab === "treinamento" ? <EstablishmentTrainingPanel /> : null}
 
-      {showWhatsappInbox ? (
+      {showWhatsappArea ? (
       <>
       <div
         className={`grid gap-3 ${
@@ -1778,11 +1877,11 @@ export default function AdminWhatsappPage() {
         </div>
         {!isWhatsappHighlineOnlyUser ? (
           <>
-            <div className="rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-3 shadow-sm">
+            <div className="rounded-xl border border-indigo-200 bg-gradient-to-br from-indigo-50 to-white px-4 py-3 shadow-sm">
               <p className="text-xs text-indigo-700">Contatos CRM</p>
               <p className="text-2xl font-semibold text-indigo-900">{contacts.length}</p>
             </div>
-            <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 shadow-sm">
+            <div className="rounded-xl border border-emerald-200 bg-gradient-to-br from-emerald-50 to-white px-4 py-3 shadow-sm">
               <p className="text-xs text-emerald-700">Campanhas ativas</p>
               <p className="text-2xl font-semibold text-emerald-900">
                 {activeCampaignsCount}
@@ -1806,9 +1905,15 @@ export default function AdminWhatsappPage() {
           ) : null}
         </div>
       )}
+      {successMessage && (
+        <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800 shadow-sm">
+          {successMessage}
+        </div>
+      )}
 
-      <div className="flex flex-1 min-h-[calc(100vh-14rem)] gap-4 flex-col lg:flex-row border border-gray-200 rounded-xl overflow-hidden bg-white shadow-sm">
-        <aside className="w-full lg:w-96 shrink-0 border-b lg:border-b-0 lg:border-r border-gray-200 flex flex-col max-h-[45vh] lg:max-h-none">
+      {activeTab === "atendimento" ? (
+      <div className="flex h-[calc(100vh-15rem)] min-h-[560px] max-h-[860px] gap-4 flex-col lg:flex-row border border-gray-200 rounded-xl overflow-hidden bg-white shadow-sm">
+        <aside className="w-full lg:w-96 shrink-0 border-b lg:border-b-0 lg:border-r border-gray-200 flex flex-col h-[42vh] min-h-[280px] lg:h-full">
           <div className="px-3 py-2 border-b border-gray-100 space-y-2">
             <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">
               Conversas por estabelecimento
@@ -1907,7 +2012,7 @@ export default function AdminWhatsappPage() {
           </div>
         </aside>
 
-        <section className="flex-1 flex flex-col min-h-[calc(100vh-16rem)] max-h-[calc(100vh-9rem)] lg:min-h-[calc(100vh-14rem)]">
+        <section className="flex-1 flex flex-col min-h-0 h-full">
           {!selectedWaId ? (
             <div className="flex-1 flex items-center justify-center text-gray-500 text-sm p-8">
               Selecione uma conversa à esquerda.
@@ -2080,28 +2185,29 @@ export default function AdminWhatsappPage() {
           )}
         </section>
       </div>
+      ) : null}
       </>
       ) : null}
 
       {showWhatsappInbox && activeTab === "atendimento" ? (
-        <section className="rounded-xl border border-gray-200 bg-white shadow-sm p-4 md:p-5">
+        <section className="rounded-2xl border border-gray-200 bg-white shadow-sm p-4 md:p-5">
           <h2 className="text-base font-semibold text-gray-900">Visão rápida do atendimento</h2>
           <p className="text-sm text-gray-500 mt-1">
             Use este fluxo para operação diária: selecione uma conversa, ajuste status e
             responsável, valide a sugestão da IA e envie.
           </p>
           <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-3">
-            <div className="rounded-lg border border-gray-200 p-3">
+            <div className="rounded-lg border border-gray-200 bg-gray-50/50 p-3">
               <p className="text-xs text-gray-500">Conversa selecionada</p>
               <p className="text-sm font-medium text-gray-900 mt-1">
                 {selectedWaId || "Nenhuma conversa selecionada"}
               </p>
             </div>
-            <div className="rounded-lg border border-gray-200 p-3">
+            <div className="rounded-lg border border-gray-200 bg-gray-50/50 p-3">
               <p className="text-xs text-gray-500">Status atual</p>
               <p className="text-sm font-medium text-gray-900 mt-1">{selectedStatus}</p>
             </div>
-            <div className="rounded-lg border border-gray-200 p-3">
+            <div className="rounded-lg border border-gray-200 bg-gray-50/50 p-3">
               <p className="text-xs text-gray-500">Responsável</p>
               <p className="text-sm font-medium text-gray-900 mt-1">
                 {selectedAssignee || "Sem responsável"}
@@ -2111,9 +2217,9 @@ export default function AdminWhatsappPage() {
         </section>
       ) : null}
 
-      {showWhatsappInbox && activeTab === "links" ? (
-        <section className="rounded-xl border border-gray-200 bg-white shadow-sm">
-        <div className="px-4 py-3 border-b border-gray-100">
+      {showWhatsappArea && activeTab === "links" ? (
+        <section className="rounded-2xl border border-gray-200 bg-white shadow-sm">
+        <div className="px-4 py-3 border-b border-gray-100 bg-gradient-to-r from-indigo-50 via-white to-white">
           <h2 className="text-base font-semibold text-gray-900">
             Links de entrada por estabelecimento
           </h2>
@@ -2122,7 +2228,7 @@ export default function AdminWhatsappPage() {
             já iniciar no estabelecimento correto.
           </p>
         </div>
-        <div className="p-4 border-b border-gray-100 grid grid-cols-1 md:grid-cols-[minmax(320px,460px),1fr] gap-3 items-start">
+        <div className="p-4 border-b border-gray-100 grid grid-cols-1 md:grid-cols-[minmax(320px,460px),1fr] gap-3 items-start bg-white">
           <div>
             <p className="text-xs font-medium text-gray-600">Número fixo da Central (Render)</p>
             {envCentralWhatsappNumber ? (
@@ -2171,6 +2277,22 @@ export default function AdminWhatsappPage() {
             ) : null}
           </div>
         </div>
+        <div className="px-4 py-3 border-b border-gray-100 bg-gray-50/70">
+          <label className="block text-xs font-semibold text-gray-700">
+            Mensagem inicial padrão (edição única)
+          </label>
+          <p className="mt-1 text-[11px] text-gray-500">
+            Use <code>{"{estabelecimento}"}</code> para o nome da casa e{" "}
+            <code>{"{token}"}</code> para o token automático.
+          </p>
+          <textarea
+            value={entryLinkTemplate}
+            onChange={(e) => setEntryLinkTemplate(e.target.value)}
+            rows={3}
+            className="mt-2 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm bg-white"
+            placeholder={DEFAULT_ENTRY_LINK_TEMPLATE}
+          />
+        </div>
         <div className="overflow-x-auto">
           <table className="min-w-full text-sm">
             <thead className="bg-gray-50 text-gray-600">
@@ -2190,7 +2312,7 @@ export default function AdminWhatsappPage() {
                 </tr>
               ) : null}
               {establishmentEntryLinks.map((item) => (
-                <tr key={item.id} className="border-t border-gray-100 align-top">
+                <tr key={item.id} className="border-t border-gray-100 align-top hover:bg-gray-50/70 transition-colors">
                   <td className="px-4 py-2 text-gray-900">{item.name}</td>
                   <td className="px-4 py-2 font-mono text-xs text-indigo-700">{item.token}</td>
                   <td className="px-4 py-2 text-xs text-gray-700 max-w-[520px] break-words">
@@ -2243,9 +2365,9 @@ export default function AdminWhatsappPage() {
         </section>
       ) : null}
 
-      {showWhatsappInbox && activeTab === "crm" ? (
-        <section className="rounded-xl border border-gray-200 bg-white shadow-sm">
-        <div className="px-4 py-3 border-b border-gray-100 flex flex-wrap items-center justify-between gap-2">
+      {showWhatsappArea && activeTab === "crm" ? (
+        <section className="rounded-2xl border border-gray-200 bg-white shadow-sm">
+        <div className="px-4 py-3 border-b border-gray-100 bg-gradient-to-r from-indigo-50/80 via-white to-white flex flex-wrap items-center justify-between gap-2">
           <div>
             <h2 className="text-base font-semibold text-gray-900">
               Contatos WhatsApp (CRM)
@@ -2289,7 +2411,7 @@ export default function AdminWhatsappPage() {
           </div>
         </div>
 
-        <div className="p-4 border-b border-gray-100 grid grid-cols-1 md:grid-cols-4 gap-3">
+        <div className="p-4 border-b border-gray-100 grid grid-cols-1 md:grid-cols-4 gap-3 bg-gray-50/40">
           <input
             type="text"
             value={contactSearch}
@@ -2371,147 +2493,156 @@ export default function AdminWhatsappPage() {
                   </td>
                 </tr>
               ) : null}
-              {contacts.map((contact) => (
-                <tr key={contact.id} className="border-t border-gray-100">
-                  <td className="px-4 py-2 text-gray-900">
-                    {contact.contact_name || "Sem nome"}
-                  </td>
-                  <td className="px-4 py-2 font-mono text-xs text-gray-700">
-                    {contact.wa_id}
-                  </td>
-                  <td className="px-4 py-2 text-gray-700">
-                    {contact.client_email || "—"}
-                  </td>
-                  <td className="px-4 py-2 text-gray-700">
-                    {contact.last_establishment_name || "—"}
-                  </td>
-                  <td className="px-4 py-2 text-gray-700 min-w-[260px]">
-                    <div className="space-y-1">
-                      <p className="text-[10px] text-gray-500">
-                        Status:{" "}
-                        <span
-                          className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-medium ${leadContactStatusBadgeClass(
-                            contactDrafts[contact.id]?.contact_status ?? contact.contact_status,
-                          )}`}
-                        >
-                          {leadContactStatusLabel(
-                            contactDrafts[contact.id]?.contact_status ?? contact.contact_status,
-                          )}
-                        </span>
-                      </p>
-                      <label className="flex items-center gap-2 text-xs">
-                        <input
-                          type="checkbox"
-                          checked={Boolean(contactDrafts[contact.id]?.marketing_opt_in)}
-                          onChange={(e) =>
-                            setContactDrafts((prev) => ({
-                              ...prev,
-                              [contact.id]: {
-                                ...(prev[contact.id] || {
-                                  marketing_opt_in: false,
-                                  contact_status: "new",
-                                  tags: "",
-                                  notes: "",
-                                }),
-                                marketing_opt_in: e.target.checked,
-                              },
-                            }))
-                          }
-                        />
-                        Opt-in marketing
-                      </label>
-                      <select
-                        value={contactDrafts[contact.id]?.contact_status || "new"}
-                        onChange={(e) =>
-                          setContactDrafts((prev) => ({
-                            ...prev,
-                            [contact.id]: {
-                              ...(prev[contact.id] || {
-                                marketing_opt_in: false,
-                                contact_status: "new",
-                                tags: "",
-                                notes: "",
-                              }),
-                              contact_status: e.target.value,
-                            },
-                          }))
-                        }
-                        className="w-full rounded border border-gray-200 px-2 py-1 text-xs bg-white"
-                        aria-label="Status do lead"
-                      >
-                        {LEAD_CONTACT_STATUS_ORDER.map((s) => (
-                          <option key={s} value={s} title={LEAD_CONTACT_STATUS_HINTS[s]}>
-                            {LEAD_CONTACT_STATUS_LABELS[s]}
-                          </option>
-                        ))}
-                      </select>
-                      <input
-                        type="text"
-                        value={contactDrafts[contact.id]?.tags || ""}
-                        onChange={(e) =>
-                          setContactDrafts((prev) => ({
-                            ...prev,
-                            [contact.id]: {
-                              ...(prev[contact.id] || {
-                                marketing_opt_in: false,
-                                contact_status: "new",
-                                tags: "",
-                                notes: "",
-                              }),
-                              tags: e.target.value,
-                            },
-                          }))
-                        }
-                        placeholder="tags separadas por vírgula"
-                        className="w-full rounded border border-gray-200 px-2 py-1 text-xs"
-                      />
-                      <input
-                        type="text"
-                        value={contactDrafts[contact.id]?.notes || ""}
-                        onChange={(e) =>
-                          setContactDrafts((prev) => ({
-                            ...prev,
-                            [contact.id]: {
-                              ...(prev[contact.id] || {
-                                marketing_opt_in: false,
-                                contact_status: "new",
-                                tags: "",
-                                notes: "",
-                              }),
-                              notes: e.target.value,
-                            },
-                          }))
-                        }
-                        placeholder="nota interna"
-                        className="w-full rounded border border-gray-200 px-2 py-1 text-xs"
-                      />
-                    </div>
-                  </td>
-                  <td className="px-4 py-2 text-gray-700">
-                    {new Date(contact.last_seen_at).toLocaleString("pt-BR")}
-                  </td>
-                  <td className="px-4 py-2">
-                    <div className="flex gap-2">
-                      <button
-                        type="button"
-                        onClick={() => handleSaveContact(contact.id)}
-                        disabled={savingContactIds.includes(contact.id)}
-                        className="inline-flex items-center px-2.5 py-1.5 rounded bg-amber-600 text-white text-xs hover:bg-amber-700 disabled:opacity-50"
-                      >
-                        {savingContactIds.includes(contact.id) ? "Salvando…" : "Salvar"}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleSendCampaignToContact(contact.id)}
-                        disabled={sendCampaignLoading || !selectedCampaignForSend}
-                        className="inline-flex items-center px-2.5 py-1.5 rounded bg-indigo-600 text-white text-xs hover:bg-indigo-700 disabled:opacity-50"
-                        title="Respeita trava de opt-in"
-                      >
-                        {sendCampaignLoading ? "Enviando…" : "Enviar campanha"}
-                      </button>
-                    </div>
-                  </td>
-                </tr>
+              {crmContactGroups.map((group) => (
+                <Fragment key={`group-${group.key}`}>
+                  <tr className="border-t border-indigo-100 bg-indigo-50/60">
+                    <td colSpan={7} className="px-4 py-2 text-xs font-semibold text-indigo-900">
+                      {group.label} • {group.contactCount} contato(s)
+                    </td>
+                  </tr>
+                  {group.contacts.map((contact) => (
+                    <tr key={contact.id} className="border-t border-gray-100 hover:bg-gray-50/70 transition-colors">
+                      <td className="px-4 py-2 text-gray-900">
+                        {contact.contact_name || "Sem nome"}
+                      </td>
+                      <td className="px-4 py-2 font-mono text-xs text-gray-700">
+                        {contact.wa_id}
+                      </td>
+                      <td className="px-4 py-2 text-gray-700">
+                        {contact.client_email || "—"}
+                      </td>
+                      <td className="px-4 py-2 text-gray-700">
+                        {contact.last_establishment_name || "—"}
+                      </td>
+                      <td className="px-4 py-2 text-gray-700 min-w-[260px]">
+                        <div className="space-y-1">
+                          <p className="text-[10px] text-gray-500">
+                            Status:{" "}
+                            <span
+                              className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-medium ${leadContactStatusBadgeClass(
+                                contactDrafts[contact.id]?.contact_status ?? contact.contact_status,
+                              )}`}
+                            >
+                              {leadContactStatusLabel(
+                                contactDrafts[contact.id]?.contact_status ?? contact.contact_status,
+                              )}
+                            </span>
+                          </p>
+                          <label className="flex items-center gap-2 text-xs">
+                            <input
+                              type="checkbox"
+                              checked={Boolean(contactDrafts[contact.id]?.marketing_opt_in)}
+                              onChange={(e) =>
+                                setContactDrafts((prev) => ({
+                                  ...prev,
+                                  [contact.id]: {
+                                    ...(prev[contact.id] || {
+                                      marketing_opt_in: false,
+                                      contact_status: "new",
+                                      tags: "",
+                                      notes: "",
+                                    }),
+                                    marketing_opt_in: e.target.checked,
+                                  },
+                                }))
+                              }
+                            />
+                            Opt-in marketing
+                          </label>
+                          <select
+                            value={contactDrafts[contact.id]?.contact_status || "new"}
+                            onChange={(e) =>
+                              setContactDrafts((prev) => ({
+                                ...prev,
+                                [contact.id]: {
+                                  ...(prev[contact.id] || {
+                                    marketing_opt_in: false,
+                                    contact_status: "new",
+                                    tags: "",
+                                    notes: "",
+                                  }),
+                                  contact_status: e.target.value,
+                                },
+                              }))
+                            }
+                            className="w-full rounded border border-gray-200 px-2 py-1 text-xs bg-white"
+                            aria-label="Status do lead"
+                          >
+                            {LEAD_CONTACT_STATUS_ORDER.map((s) => (
+                              <option key={s} value={s} title={LEAD_CONTACT_STATUS_HINTS[s]}>
+                                {LEAD_CONTACT_STATUS_LABELS[s]}
+                              </option>
+                            ))}
+                          </select>
+                          <input
+                            type="text"
+                            value={contactDrafts[contact.id]?.tags || ""}
+                            onChange={(e) =>
+                              setContactDrafts((prev) => ({
+                                ...prev,
+                                [contact.id]: {
+                                  ...(prev[contact.id] || {
+                                    marketing_opt_in: false,
+                                    contact_status: "new",
+                                    tags: "",
+                                    notes: "",
+                                  }),
+                                  tags: e.target.value,
+                                },
+                              }))
+                            }
+                            placeholder="tags separadas por vírgula"
+                            className="w-full rounded border border-gray-200 px-2 py-1 text-xs"
+                          />
+                          <input
+                            type="text"
+                            value={contactDrafts[contact.id]?.notes || ""}
+                            onChange={(e) =>
+                              setContactDrafts((prev) => ({
+                                ...prev,
+                                [contact.id]: {
+                                  ...(prev[contact.id] || {
+                                    marketing_opt_in: false,
+                                    contact_status: "new",
+                                    tags: "",
+                                    notes: "",
+                                  }),
+                                  notes: e.target.value,
+                                },
+                              }))
+                            }
+                            placeholder="nota interna"
+                            className="w-full rounded border border-gray-200 px-2 py-1 text-xs"
+                          />
+                        </div>
+                      </td>
+                      <td className="px-4 py-2 text-gray-700">
+                        {new Date(contact.last_seen_at).toLocaleString("pt-BR")}
+                      </td>
+                      <td className="px-4 py-2">
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() => handleSaveContact(contact.id)}
+                            disabled={savingContactIds.includes(contact.id)}
+                            className="inline-flex items-center px-2.5 py-1.5 rounded bg-amber-600 text-white text-xs hover:bg-amber-700 disabled:opacity-50"
+                          >
+                            {savingContactIds.includes(contact.id) ? "Salvando…" : "Salvar"}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleSendCampaignToContact(contact.id)}
+                            disabled={sendCampaignLoading || !selectedCampaignForSend}
+                            className="inline-flex items-center px-2.5 py-1.5 rounded bg-indigo-600 text-white text-xs hover:bg-indigo-700 disabled:opacity-50"
+                            title="Respeita trava de opt-in"
+                          >
+                            {sendCampaignLoading ? "Enviando…" : "Enviar campanha"}
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </Fragment>
               ))}
             </tbody>
           </table>
@@ -2519,9 +2650,9 @@ export default function AdminWhatsappPage() {
         </section>
       ) : null}
 
-      {showWhatsappInbox && activeTab === "campanhas" ? (
-        <section className="rounded-xl border border-gray-200 bg-white shadow-sm">
-        <div className="px-4 py-3 border-b border-gray-100">
+      {showWhatsappArea && activeTab === "campanhas" ? (
+        <section className="rounded-2xl border border-gray-200 bg-white shadow-sm">
+        <div className="px-4 py-3 border-b border-gray-100 bg-gradient-to-r from-emerald-50/80 via-white to-white">
           <h2 className="text-base font-semibold text-gray-900">
             Campanhas salvas por estabelecimento
           </h2>
@@ -2637,7 +2768,7 @@ export default function AdminWhatsappPage() {
                 </tr>
               ) : null}
               {campaigns.map((campaign) => (
-                <tr key={campaign.id} className="border-t border-gray-100">
+                <tr key={campaign.id} className="border-t border-gray-100 hover:bg-gray-50/70 transition-colors">
                   <td className="px-4 py-2 text-gray-900">
                     <p className="font-medium">{campaign.name}</p>
                     <p className="text-xs text-gray-500 line-clamp-2">
@@ -2706,7 +2837,7 @@ export default function AdminWhatsappPage() {
           </table>
         </div>
 
-        <div className="border-t border-gray-100 p-4 space-y-4 bg-slate-50/80">
+        <div className="border-t border-gray-100 p-4 space-y-4 bg-slate-50/70">
           <div>
             <h3 className="text-sm font-semibold text-gray-900">
               Disparo em lote (marketing)
@@ -2778,7 +2909,7 @@ export default function AdminWhatsappPage() {
           </div>
 
           {batchCampaignId !== "" ? (
-            <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
+            <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm">
               <table className="min-w-full text-sm">
                 <thead className="bg-gray-50 text-gray-600">
                   <tr>
@@ -2802,7 +2933,7 @@ export default function AdminWhatsappPage() {
                     </tr>
                   ) : null}
                   {campaignBatches.map((b) => (
-                    <tr key={b.id} className="border-t border-gray-100">
+                    <tr key={b.id} className="border-t border-gray-100 hover:bg-gray-50/70 transition-colors">
                       <td className="px-3 py-2 font-mono text-xs">{b.id}</td>
                       <td className="px-3 py-2">
                         <span
@@ -2927,7 +3058,7 @@ export default function AdminWhatsappPage() {
         </div>
 
         {campaignAudiencePreview ? (
-          <div className="border-t border-gray-100 p-4 bg-gray-50">
+          <div className="border-t border-gray-100 p-4 bg-gradient-to-b from-gray-50 to-white">
             <p className="text-sm text-gray-800">
               Prévia da campanha #{campaignAudiencePreview.campaignId}:{" "}
               <strong>{campaignAudiencePreview.estimatedCount}</strong> contatos.
@@ -2954,15 +3085,15 @@ export default function AdminWhatsappPage() {
         </section>
       ) : null}
 
-      {showWhatsappInbox && activeTab === "relatorios" ? (
-        <section className="rounded-xl border border-gray-200 bg-white shadow-sm">
-        <div className="px-4 py-3 border-b border-gray-100 flex flex-wrap items-center justify-between gap-3">
+      {showWhatsappArea && activeTab === "relatorios" ? (
+        <section className="rounded-2xl border border-gray-200 bg-white shadow-sm">
+        <div className="px-4 py-3 border-b border-gray-100 bg-gradient-to-r from-amber-50/80 via-white to-white flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="text-base font-semibold text-gray-900">
-              Relatórios rápidos (próxima fase)
+              Relatórios de desempenho do WhatsApp
             </h2>
             <p className="text-xs text-gray-500">
-              Visão de conversas, contatos e reservas WhatsApp no período.
+              Acompanhe volume, qualidade de atendimento, opt-in e conversão em reservas.
             </p>
           </div>
           <div className="flex gap-2">
@@ -2989,34 +3120,63 @@ export default function AdminWhatsappPage() {
           </div>
         </div>
         <div className="p-4 grid grid-cols-2 md:grid-cols-5 gap-3">
-          <div className="rounded-lg border border-gray-200 p-3">
+          <div className="rounded-lg border border-gray-200 bg-white p-3">
             <p className="text-xs text-gray-500">Conversas</p>
             <p className="text-xl font-semibold text-gray-900">
               {reportSummary?.conversations_total ?? 0}
             </p>
           </div>
-          <div className="rounded-lg border border-gray-200 p-3">
+          <div className="rounded-lg border border-gray-200 bg-white p-3">
             <p className="text-xs text-gray-500">Resolvidas</p>
             <p className="text-xl font-semibold text-gray-900">
               {reportSummary?.conversations_resolved ?? 0}
             </p>
           </div>
-          <div className="rounded-lg border border-gray-200 p-3">
+          <div className="rounded-lg border border-gray-200 bg-white p-3">
             <p className="text-xs text-gray-500">Contatos</p>
             <p className="text-xl font-semibold text-gray-900">
               {reportSummary?.contacts_total ?? 0}
             </p>
           </div>
-          <div className="rounded-lg border border-gray-200 p-3">
+          <div className="rounded-lg border border-gray-200 bg-white p-3">
             <p className="text-xs text-gray-500">Opt-in</p>
             <p className="text-xl font-semibold text-gray-900">
               {reportSummary?.contacts_opt_in ?? 0}
             </p>
           </div>
-          <div className="rounded-lg border border-gray-200 p-3">
+          <div className="rounded-lg border border-gray-200 bg-white p-3">
             <p className="text-xs text-gray-500">Reservas WhatsApp</p>
             <p className="text-xl font-semibold text-gray-900">
               {reportSummary?.reservations_whatsapp ?? 0}
+            </p>
+          </div>
+        </div>
+        <div className="px-4 pb-4 grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3">
+            <p className="text-xs text-emerald-700">Taxa de resolução</p>
+            <p className="text-2xl font-semibold text-emerald-900">
+              {reportDerived.resolutionRate.toFixed(1)}%
+            </p>
+            <p className="text-[11px] text-emerald-800 mt-1">
+              Conversas resolvidas em relação ao total no período.
+            </p>
+          </div>
+          <div className="rounded-lg border border-indigo-200 bg-indigo-50 p-3">
+            <p className="text-xs text-indigo-700">Taxa de opt-in</p>
+            <p className="text-2xl font-semibold text-indigo-900">
+              {reportDerived.optInRate.toFixed(1)}%
+            </p>
+            <p className="text-[11px] text-indigo-800 mt-1">
+              Contatos com permissão para campanhas de marketing.
+            </p>
+          </div>
+          <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
+            <p className="text-xs text-amber-700">Conversão em reservas</p>
+            <p className="text-2xl font-semibold text-amber-900">
+              {reportDerived.reservationConversion.toFixed(1)}%
+            </p>
+            <p className="text-[11px] text-amber-800 mt-1">
+              Reservas geradas via WhatsApp sobre base de contatos.
             </p>
           </div>
         </div>
