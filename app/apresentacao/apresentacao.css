@@ -1,0 +1,325 @@
+.apresentacao-root {
+  --ap-bg: #0a0a0f;
+  --ap-surface: #12121a;
+  --ap-surface-2: #1a1a26;
+  --ap-border: rgba(255, 255, 255, 0.08);
+  --ap-text: #f4f4f5;
+  --ap-muted: #a1a1aa;
+  --ap-accent: #f97316;
+  --ap-accent-2: #ef4444;
+  scroll-behavior: smooth;
+}
+
+/* Toolbar */
+.ap-toolbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  backdrop-filter: blur(16px);
+  background: rgba(10, 10, 15, 0.85);
+  border-bottom: 1px solid var(--ap-border);
+}
+
+.ap-toolbar-inner {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0.75rem 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.ap-nav-desktop {
+  display: none;
+  align-items: center;
+  gap: 0.25rem;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.ap-nav-desktop::-webkit-scrollbar {
+  display: none;
+}
+
+.ap-nav-link {
+  padding: 0.4rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--ap-muted);
+  white-space: nowrap;
+  transition: all 0.2s;
+}
+
+.ap-nav-link:hover {
+  color: var(--ap-text);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.ap-btn-print {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.55rem 1rem;
+  border-radius: 9999px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: white;
+  background: linear-gradient(135deg, var(--ap-accent), var(--ap-accent-2));
+  border: none;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+  white-space: nowrap;
+}
+
+.ap-btn-print:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 24px rgba(249, 115, 22, 0.35);
+}
+
+.ap-mobile-nav {
+  display: flex;
+  gap: 0.35rem;
+  overflow-x: auto;
+  padding: 0.5rem 1rem 0.75rem;
+  scrollbar-width: none;
+  border-top: 1px solid var(--ap-border);
+}
+
+.ap-mobile-nav::-webkit-scrollbar {
+  display: none;
+}
+
+@media (min-width: 1024px) {
+  .ap-nav-desktop {
+    display: flex;
+  }
+
+  .ap-mobile-nav {
+    display: none;
+  }
+}
+
+/* Hero */
+.ap-hero {
+  position: relative;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  padding: 6rem 1rem 4rem;
+}
+
+.ap-hero-bg {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 80% 60% at 50% 0%, rgba(249, 115, 22, 0.18), transparent),
+    radial-gradient(ellipse 60% 50% at 80% 80%, rgba(239, 68, 68, 0.12), transparent),
+    var(--ap-bg);
+}
+
+.ap-hero-grid {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+  background-size: 48px 48px;
+  mask-image: radial-gradient(ellipse at center, black 20%, transparent 75%);
+}
+
+.ap-section {
+  padding: 5rem 1rem;
+  position: relative;
+}
+
+.ap-section-alt {
+  background: var(--ap-surface);
+}
+
+.ap-container {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.ap-section-label {
+  display: inline-block;
+  padding: 0.35rem 0.85rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--ap-accent);
+  background: rgba(249, 115, 22, 0.12);
+  border: 1px solid rgba(249, 115, 22, 0.25);
+  margin-bottom: 1rem;
+}
+
+.ap-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1rem;
+}
+
+@media (min-width: 768px) {
+  .ap-stat-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+.ap-stat-card {
+  padding: 1.25rem;
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--ap-border);
+  text-align: center;
+}
+
+.ap-module-card {
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+.ap-module-image-wrap {
+  position: relative;
+  aspect-ratio: 16 / 10;
+  border-radius: 0.75rem;
+  overflow: hidden;
+  background: var(--ap-surface-2);
+  border: 1px solid var(--ap-border);
+}
+
+.ap-flow-line {
+  display: none;
+}
+
+@media (min-width: 768px) {
+  .ap-flow-line {
+    display: block;
+    position: absolute;
+    top: 2.5rem;
+    left: 10%;
+    right: 10%;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, rgba(249, 115, 22, 0.4), transparent);
+  }
+}
+
+/* Print styles */
+@media print {
+  @page {
+    size: A4;
+    margin: 12mm;
+  }
+
+  .ap-no-print {
+    display: none !important;
+  }
+
+  .apresentacao-root {
+    --ap-bg: #ffffff;
+    --ap-surface: #f8fafc;
+    --ap-surface-2: #f1f5f9;
+    --ap-border: #e2e8f0;
+    --ap-text: #0f172a;
+    --ap-muted: #475569;
+    background: white !important;
+    color: #0f172a !important;
+  }
+
+  .ap-toolbar,
+  .ap-mobile-nav {
+    display: none !important;
+  }
+
+  .ap-hero {
+    min-height: auto;
+    padding: 2rem 0 1.5rem;
+    page-break-after: always;
+  }
+
+  .ap-hero-bg,
+  .ap-hero-grid {
+    display: none;
+  }
+
+  .ap-section {
+    padding: 1.5rem 0;
+    page-break-inside: avoid;
+  }
+
+  .ap-section-alt {
+    background: #f8fafc !important;
+  }
+
+  .ap-module-card {
+    page-break-inside: avoid;
+    break-inside: avoid;
+    margin-bottom: 1rem;
+  }
+
+  .ap-print-break {
+    page-break-before: always;
+  }
+
+  .ap-stat-card,
+  .ap-module-image-wrap {
+    border: 1px solid #cbd5e1 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  a[href]::after {
+    content: none !important;
+  }
+
+  .ap-hero,
+  .ap-section,
+  .ap-module-card,
+  .ap-stat-card {
+    box-shadow: none !important;
+  }
+
+  /* Force light text sections to dark for print readability */
+  .text-white,
+  .text-zinc-100,
+  .text-zinc-200,
+  .text-zinc-300,
+  .text-zinc-400 {
+    color: #0f172a !important;
+  }
+
+  .bg-gradient-to-r,
+  .bg-gradient-to-br,
+  .bg-gradient-to-b {
+    background: #f1f5f9 !important;
+  }
+
+  .ap-print-hero-title {
+    color: #0f172a !important;
+    background: none !important;
+    -webkit-text-fill-color: #0f172a !important;
+  }
+}
+
+@media (max-width: 640px) {
+  .ap-hero {
+    padding-top: 7rem;
+    min-height: auto;
+  }
+
+  .ap-section {
+    padding: 3.5rem 1rem;
+  }
+}
