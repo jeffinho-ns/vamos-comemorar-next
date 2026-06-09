@@ -42,6 +42,15 @@ export const FAQ_TOPIC_TEMPLATES: FaqTopicTemplate[] = [
     legacyAliases: ['areas', 'area', 'camarote', 'mesa'],
   },
   {
+    value: 'reserva_grupos_grandes_highline',
+    label: 'Reservas grandes (16+ pessoas) — Highline',
+    description:
+      'Somente Highline: grupos a partir de 16 pessoas. A IA não deve dizer "sem vaga" por falta de mesa única — explica que pode não haver cadeira para todos, mas registra a reserva.',
+    placeholder:
+      'Ex.: A partir de 16 pessoas juntamos mesas no Deck. Pode não caber todo mundo sentado de uma vez, mas a reserva é feita e a Hostess organiza na chegada. Só lista de espera se zero mesas livres no dia.',
+    legacyAliases: ['grupo_grande', 'grupos_grandes', 'reserva_grande'],
+  },
+  {
     value: 'reserva_areas_operacional_highline',
     label: 'Áreas do Sistema de Reservas (Highline)',
     description:
@@ -119,6 +128,7 @@ export const HIGHLINE_RECOMMENDED_TOPIC_VALUES = [
   'dias_horarios_funcionamento',
   'valores_entrada',
   'beneficios_aniversario',
+  'reserva_grupos_grandes_highline',
   'reserva_areas_operacional_highline',
   'areas_mesas_camarotes_diferenca',
   'regras_bolo',
@@ -161,6 +171,9 @@ export function normalizeTopicInput(raw: string): string {
     area: 'areas_mesas_camarotes_diferenca',
     lista_espera: 'reserva_areas_operacional_highline',
     areas_reserva: 'reserva_areas_operacional_highline',
+    grupo_grande: 'reserva_grupos_grandes_highline',
+    grupos_grandes: 'reserva_grupos_grandes_highline',
+    reserva_grande: 'reserva_grupos_grandes_highline',
     pets: 'pet',
     menu: 'cardapio',
   };
