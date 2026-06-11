@@ -74,7 +74,10 @@ export default function ApresentacaoPage() {
             />
           </Link>
 
-          <nav className="ap-nav-desktop" aria-label="Navegação da apresentação">
+          <nav
+            className="ap-nav-desktop"
+            aria-label="Navegação da apresentação"
+          >
             {navSections.map((s) => (
               <a key={s.id} href={`#${s.id}`} className="ap-nav-link">
                 {s.label}
@@ -125,7 +128,9 @@ export default function ApresentacaoPage() {
 
         <div className="relative z-10 ap-container text-center">
           <motion.div {...fadeUp}>
-            <span className="ap-section-label">Apresentação Comercial 2026</span>
+            <span className="ap-section-label">
+              Apresentação Comercial 2026
+            </span>
             <h1 className="ap-print-hero-title text-4xl sm:text-5xl md:text-7xl font-bold tracking-tight mb-6">
               <span className="bg-gradient-to-r from-orange-400 via-amber-300 to-orange-500 bg-clip-text text-transparent">
                 Agilizaí App
@@ -133,10 +138,12 @@ export default function ApresentacaoPage() {
             </h1>
             <p className="text-lg sm:text-xl md:text-2xl text-zinc-400 max-w-3xl mx-auto mb-4 leading-relaxed">
               A plataforma completa para bares, restaurantes e rooftops operarem
-              reservas, eventos, cardápio digital e atendimento — tudo integrado.
+              reservas, eventos, cardápio digital e atendimento — tudo
+              integrado.
             </p>
             <p className="text-base text-orange-400/90 font-medium mb-10">
-              Transforme a operação do seu estabelecimento e conquiste mais clientes.
+              Transforme a operação do seu estabelecimento e conquiste mais
+              clientes.
             </p>
           </motion.div>
 
@@ -150,7 +157,9 @@ export default function ApresentacaoPage() {
                 <div className="text-2xl sm:text-3xl font-bold text-orange-400 mb-1">
                   {stat.value}
                 </div>
-                <div className="text-xs sm:text-sm text-zinc-500">{stat.label}</div>
+                <div className="text-xs sm:text-sm text-zinc-500">
+                  {stat.label}
+                </div>
               </div>
             ))}
           </motion.div>
@@ -201,7 +210,9 @@ export default function ApresentacaoPage() {
                   {i + 1}
                 </div>
                 <h3 className="text-xl font-bold mb-3">{item.title}</h3>
-                <p className="text-zinc-400 leading-relaxed">{item.description}</p>
+                <p className="text-zinc-400 leading-relaxed">
+                  {item.description}
+                </p>
               </motion.div>
             ))}
           </div>
@@ -217,7 +228,8 @@ export default function ApresentacaoPage() {
               Três plataformas, uma operação
             </h2>
             <p className="text-zinc-400 max-w-2xl mx-auto">
-              App mobile, portal web e painel administrativo conectados em tempo real.
+              App mobile, portal web e painel administrativo conectados em tempo
+              real.
             </p>
           </motion.div>
 
@@ -235,7 +247,9 @@ export default function ApresentacaoPage() {
                     alt={item.title}
                     fill
                     className={`${
-                      item.fit === "contain" ? "object-contain p-2" : "object-cover object-top"
+                      item.fit === "contain"
+                        ? "object-contain p-2"
+                        : "object-cover object-top"
                     } transition-transform duration-500 group-hover:scale-105`}
                     sizes="(max-width: 768px) 100vw, 33vw"
                     unoptimized
@@ -247,7 +261,9 @@ export default function ApresentacaoPage() {
                 </div>
                 <div className="p-6">
                   <h3 className="text-xl font-bold mb-2">{item.title}</h3>
-                  <p className="text-zinc-400 text-sm leading-relaxed">{item.description}</p>
+                  <p className="text-zinc-400 text-sm leading-relaxed">
+                    {item.description}
+                  </p>
                 </div>
               </motion.div>
             ))}
@@ -264,7 +280,8 @@ export default function ApresentacaoPage() {
               Estabelecimentos que já operam conosco
             </h2>
             <p className="text-zinc-400 max-w-2xl mx-auto">
-              Solução validada em operação real — pronta para escalar para o seu estabelecimento.
+              Solução validada em operação real — pronta para escalar para o seu
+              estabelecimento.
             </p>
           </motion.div>
 
@@ -300,7 +317,9 @@ export default function ApresentacaoPage() {
                   </div>
                   <div>
                     <h3 className="font-bold text-lg">{est.name}</h3>
-                    <p className="text-sm text-zinc-500 mt-1">{est.description}</p>
+                    <p className="text-sm text-zinc-500 mt-1">
+                      {est.description}
+                    </p>
                   </div>
                 </div>
               </motion.div>
@@ -310,7 +329,10 @@ export default function ApresentacaoPage() {
       </section>
 
       {/* Módulos */}
-      <section id="modulos" className="ap-section ap-section-alt ap-print-break">
+      <section
+        id="modulos"
+        className="ap-section ap-section-alt ap-print-break"
+      >
         <div className="ap-container">
           <motion.div {...fadeUp} className="text-center mb-14">
             <span className="ap-section-label">Raio-X completo</span>
@@ -318,7 +340,8 @@ export default function ApresentacaoPage() {
               {modules.length} módulos integrados
             </h2>
             <p className="text-zinc-400 max-w-2xl mx-auto">
-              Cada funcionalidade foi pensada para a rotina real de bares, restaurantes e eventos.
+              Cada funcionalidade foi pensada para a rotina real de bares,
+              restaurantes e eventos.
             </p>
           </motion.div>
 
@@ -365,13 +388,25 @@ export default function ApresentacaoPage() {
                         </span>
                       )}
                     </div>
-                    <h3 className="text-2xl md:text-3xl font-bold mb-1">{mod.title}</h3>
-                    <p className="text-orange-400/90 font-medium mb-4">{mod.subtitle}</p>
-                    <p className="text-zinc-400 leading-relaxed mb-6">{mod.description}</p>
+                    <h3 className="text-2xl md:text-3xl font-bold mb-1">
+                      {mod.title}
+                    </h3>
+                    <p className="text-orange-400/90 font-medium mb-4">
+                      {mod.subtitle}
+                    </p>
+                    <p className="text-zinc-400 leading-relaxed mb-6">
+                      {mod.description}
+                    </p>
                     <ul className="space-y-2.5">
                       {mod.highlights.map((h) => (
-                        <li key={h} className="flex items-start gap-2.5 text-sm text-zinc-300">
-                          <MdCheckCircle className="text-green-500 shrink-0 mt-0.5" size={18} />
+                        <li
+                          key={h}
+                          className="flex items-start gap-2.5 text-sm text-zinc-300"
+                        >
+                          <MdCheckCircle
+                            className="text-green-500 shrink-0 mt-0.5"
+                            size={18}
+                          />
                           {h}
                         </li>
                       ))}
@@ -413,7 +448,9 @@ export default function ApresentacaoPage() {
                       <Icon className="text-orange-400 text-2xl" />
                     </div>
                     <h3 className="font-bold text-lg mb-2">{step.title}</h3>
-                    <p className="text-sm text-zinc-400 leading-relaxed">{step.description}</p>
+                    <p className="text-sm text-zinc-400 leading-relaxed">
+                      {step.description}
+                    </p>
                   </motion.div>
                 );
               })}
@@ -443,10 +480,15 @@ export default function ApresentacaoPage() {
                 <div className={`h-2 bg-gradient-to-r ${profile.color}`} />
                 <div className="p-6">
                   <h3 className="font-bold text-lg mb-2">{profile.role}</h3>
-                  <p className="text-sm text-zinc-500 mb-4">{profile.description}</p>
+                  <p className="text-sm text-zinc-500 mb-4">
+                    {profile.description}
+                  </p>
                   <ul className="space-y-1.5">
                     {profile.access.map((a) => (
-                      <li key={a} className="text-xs text-zinc-400 flex items-center gap-1.5">
+                      <li
+                        key={a}
+                        className="text-xs text-zinc-400 flex items-center gap-1.5"
+                      >
                         <span className="w-1 h-1 rounded-full bg-orange-500" />
                         {a}
                       </li>
@@ -484,7 +526,9 @@ export default function ApresentacaoPage() {
                   </div>
                   <div>
                     <h3 className="font-bold text-lg mb-2">{item.title}</h3>
-                    <p className="text-zinc-400 text-sm leading-relaxed">{item.text}</p>
+                    <p className="text-zinc-400 text-sm leading-relaxed">
+                      {item.text}
+                    </p>
                   </div>
                 </motion.div>
               );
@@ -506,8 +550,9 @@ export default function ApresentacaoPage() {
                 Pronto para transformar seu estabelecimento?
               </h2>
               <p className="text-zinc-400 max-w-2xl mx-auto mb-8 leading-relaxed">
-                Junte-se à rede de bares e restaurantes que já operam com o Agilizaí App.
-                Agende uma demonstração personalizada e veja o sistema funcionando ao vivo.
+                Junte-se à rede de bares e restaurantes que já operam com o
+                Agilizaí App. Agende uma demonstração personalizada e veja o
+                sistema funcionando ao vivo.
               </p>
 
               <div className="flex flex-col sm:flex-row gap-4 justify-center mb-10 ap-no-print">
@@ -542,7 +587,8 @@ export default function ApresentacaoPage() {
           </motion.div>
 
           <p className="text-center text-xs text-zinc-600 mt-8 ap-no-print">
-            © {new Date().getFullYear()} Agilizaí App — Vamos Comemorar. Apresentação comercial.
+            © {new Date().getFullYear()} Agilizaí App — IDEIAUM. Apresentação
+            comercial.
           </p>
         </div>
       </section>
