@@ -17,6 +17,7 @@ type MenuPauseScheduleModalProps = {
   itemCount: number;
   scopeLabel: string;
   initialMode?: MenuPauseApplyMode;
+  initialWindows?: PauseWindowDraft[];
   onConfirm: (payload: { mode: MenuPauseApplyMode; windows: PauseWindowDraft[] }) => Promise<void>;
 };
 
@@ -41,26 +42,36 @@ function emptyWindow(): PauseWindowDraft {
   return { weekdays: [1, 2, 3, 4, 5, 6], startTime: '12:00', endTime: '15:00' };
 }
 
+function cloneWindows(source: PauseWindowDraft[] | undefined): PauseWindowDraft[] {
+  if (!source?.length) return [emptyWindow()];
+  return source.map((w) => ({
+    weekdays: [...w.weekdays],
+    startTime: w.startTime,
+    endTime: w.endTime,
+  }));
+}
+
 export default function MenuPauseScheduleModal({
   isOpen,
   onClose,
   itemCount,
   scopeLabel,
   initialMode = 'scheduled',
+  initialWindows,
   onConfirm,
 }: MenuPauseScheduleModalProps) {
   const [mode, setMode] = useState<MenuPauseApplyMode>(initialMode);
-  const [windows, setWindows] = useState<PauseWindowDraft[]>([emptyWindow()]);
+  const [windows, setWindows] = useState<PauseWindowDraft[]>(() => cloneWindows(initialWindows));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isOpen) return;
     setMode(initialMode);
-    setWindows([emptyWindow()]);
+    setWindows(cloneWindows(initialWindows));
     setError(null);
     setSaving(false);
-  }, [isOpen, initialMode]);
+  }, [isOpen, initialMode, initialWindows]);
 
   const canSubmitScheduled = useMemo(
     () =>
@@ -140,6 +151,13 @@ export default function MenuPauseScheduleModal({
             A pausa por horário vale para <strong>todos os clientes</strong> no cardápio público
             (fuso America/Sao_Paulo).
           </p>
+
+          {initialWindows && initialWindows.length > 0 && mode === 'scheduled' && (
+            <p className="rounded-lg bg-blue-50 px-3 py-2 text-sm text-blue-800">
+              Agenda existente carregada. Ajuste os períodos abaixo e salve para substituir a regra
+              atual.
+            </p>
+          )}
 
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
             <button

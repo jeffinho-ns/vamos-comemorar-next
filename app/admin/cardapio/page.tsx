@@ -156,6 +156,37 @@ function isItemEffectivelyPaused(item: MenuItem): boolean {
   return false;
 }
 
+function sameItemId(a: string | number, b: string | number): boolean {
+  return String(a) === String(b);
+}
+
+function itemMatchesSelection(item: MenuItem, selectedIds: Array<string | number>): boolean {
+  return selectedIds.some((id) => sameItemId(id, item.id));
+}
+
+function hasConfiguredPauseSchedule(item: MenuItem): boolean {
+  return (item.pauseSchedules?.length ?? 0) > 0;
+}
+
+function derivePauseWindowsFromItems(items: MenuItem[]): PauseWindowDraft[] {
+  const seen = new Set<number>();
+  const windows: PauseWindowDraft[] = [];
+
+  for (const item of items) {
+    for (const schedule of item.pauseSchedules ?? []) {
+      if (seen.has(schedule.id)) continue;
+      seen.add(schedule.id);
+      windows.push({
+        weekdays: [...schedule.weekdays],
+        startTime: schedule.start_time,
+        endTime: schedule.end_time,
+      });
+    }
+  }
+
+  return windows;
+}
+
 // **CORREÇÃO**: Interface Bar atualizada para incluir os campos sociais
 interface Bar {
   id: string | number;
@@ -531,6 +562,7 @@ export default function CardapioAdminPage() {
   const [pauseModalOpen, setPauseModalOpen] = useState(false);
   const [pauseModalScopeLabel, setPauseModalScopeLabel] = useState('');
   const [pauseModalMode, setPauseModalMode] = useState<MenuPauseApplyMode>('scheduled');
+  const [pauseModalInitialWindows, setPauseModalInitialWindows] = useState<PauseWindowDraft[]>([]);
   
   // Estados para controlar expansão de categorias e subcategorias na visualização em lista
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
@@ -3265,7 +3297,7 @@ export default function CardapioAdminPage() {
 
   const buildPauseScopeLabel = useCallback(
     (itemIds: Array<string | number>) => {
-      const items = menuData.items.filter((item) => itemIds.includes(item.id));
+      const items = menuData.items.filter((item) => itemMatchesSelection(item, itemIds));
       const categoryNames = new Set<string>();
       for (const item of items) {
         const cat = menuData.categories.find((c) => String(c.id) === String(item.categoryId));
@@ -3310,7 +3342,7 @@ export default function CardapioAdminPage() {
   const handleBulkToggleVisibility = useCallback(() => {
     if (selectedItems.length === 0) return;
 
-    const itemsToToggle = menuData.items.filter((item) => selectedItems.includes(item.id));
+    const itemsToToggle = menuData.items.filter((item) => itemMatchesSelection(item, selectedItems));
     const allPaused = itemsToToggle.every((item) => isItemEffectivelyPaused(item));
 
     if (allPaused) {
@@ -3318,8 +3350,10 @@ export default function CardapioAdminPage() {
       return;
     }
 
+    const existingWindows = derivePauseWindowsFromItems(itemsToToggle);
     setPauseModalScopeLabel(buildPauseScopeLabel(selectedItems));
     setPauseModalMode('scheduled');
+    setPauseModalInitialWindows(existingWindows);
     setPauseModalOpen(true);
   }, [selectedItems, menuData.items, buildPauseScopeLabel, handleBulkActivate]);
 
@@ -3349,7 +3383,6 @@ export default function CardapioAdminPage() {
         throw new Error(data.error || 'Falha ao aplicar pausa.');
       }
       alert(data.message || 'Pausa aplicada.');
-      setSelectedItems([]);
       await fetchData();
     },
     [selectedItems, fetchData],
@@ -4108,6 +4141,11 @@ export default function CardapioAdminPage() {
                                     </span>
                                   </div>
                                 )}
+                                {hasConfiguredPauseSchedule(item) && !isItemEffectivelyPaused(item) && (
+                                  <div className="absolute right-0 top-0 z-20 rounded-bl-lg bg-blue-100 px-3 py-1">
+                                    <span className="text-xs font-semibold text-blue-800">AGENDA</span>
+                                  </div>
+                                )}
                                 <div className="absolute left-2 top-2 z-10">
                                   <input
                                     type="checkbox"
@@ -4220,6 +4258,12 @@ export default function CardapioAdminPage() {
                                     <p>Categoria: {category?.name}</p>
                                     {(item.subCategory || item.subCategoryName) && (
                                       <p>Sub-categoria: {item.subCategory || item.subCategoryName}</p>
+                                    )}
+                                    {hasConfiguredPauseSchedule(item) && (
+                                      <p className="mt-1 text-blue-600">
+                                        Pausa agendada:{' '}
+                                        {item.pauseSchedules!.map((schedule) => schedule.summary).join(' · ')}
+                                      </p>
                                     )}
                                     {item.toppings?.length > 0 && (
                                       <p>{item.toppings.length} adicionais</p>
@@ -4479,7 +4523,9 @@ export default function CardapioAdminPage() {
                                                                 className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-medium ${
                                                                   isPaused
                                                                     ? 'bg-yellow-100 text-yellow-800 hover:bg-yellow-200'
-                                                                    : 'bg-green-100 text-green-800 hover:bg-green-200'
+                                                                    : hasConfiguredPauseSchedule(item)
+                                                                      ? 'bg-blue-100 text-blue-800 hover:bg-blue-200'
+                                                                      : 'bg-green-100 text-green-800 hover:bg-green-200'
                                                                 }`}
                                                               >
                                                                 {isPaused ? (
@@ -4490,6 +4536,11 @@ export default function CardapioAdminPage() {
                                                                     item.visible !== false
                                                                       ? 'Agenda'
                                                                       : 'Pausado'}
+                                                                  </>
+                                                                ) : hasConfiguredPauseSchedule(item) ? (
+                                                                  <>
+                                                                    <MdPause className="h-3 w-3" />
+                                                                    Agenda configurada
                                                                   </>
                                                                 ) : (
                                                                   <>
@@ -4645,13 +4696,24 @@ export default function CardapioAdminPage() {
                                                         className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-medium ${
                                                           isPaused
                                                             ? 'bg-yellow-100 text-yellow-800 hover:bg-yellow-200'
-                                                            : 'bg-green-100 text-green-800 hover:bg-green-200'
+                                                            : hasConfiguredPauseSchedule(item)
+                                                              ? 'bg-blue-100 text-blue-800 hover:bg-blue-200'
+                                                              : 'bg-green-100 text-green-800 hover:bg-green-200'
                                                         }`}
                                                       >
                                                         {isPaused ? (
                                                           <>
                                                             <MdPause className="h-3 w-3" />
-                                                            Pausado
+                                                            {item.schedulePaused &&
+                                                            item.visible !== 0 &&
+                                                            item.visible !== false
+                                                              ? 'Agenda'
+                                                              : 'Pausado'}
+                                                          </>
+                                                        ) : hasConfiguredPauseSchedule(item) ? (
+                                                          <>
+                                                            <MdPause className="h-3 w-3" />
+                                                            Agenda configurada
                                                           </>
                                                         ) : (
                                                           <>
@@ -6639,6 +6701,7 @@ export default function CardapioAdminPage() {
           itemCount={selectedItems.length}
           scopeLabel={pauseModalScopeLabel}
           initialMode={pauseModalMode}
+          initialWindows={pauseModalInitialWindows}
           onConfirm={handlePauseModalConfirm}
         />
       </div>
