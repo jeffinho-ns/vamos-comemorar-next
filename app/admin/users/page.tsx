@@ -72,7 +72,7 @@ const ROLE_LABELS: Record<string, string> = {
 };
 
 export default function UsersPage() {
-  const { userEmail, role, myPermissions } = useAppContext();
+  const { userEmail, role, myPermissions, isLoading: contextLoading } = useAppContext();
   const { canDeleteUsers, canChangeGlobalUserRole, isSuperAdmin, myEstablishmentPermissions } =
     useUserPermissions();
   const scopedEstablishmentIds = useMemo(
@@ -159,8 +159,9 @@ export default function UsersPage() {
   }, [fetchUsers, fetchPermissions, fetchEstablishments]);
 
   useEffect(() => {
+    if (contextLoading) return;
     loadAll();
-  }, [loadAll]);
+  }, [loadAll, contextLoading]);
 
   const visiblePermissions = useMemo(
     () =>

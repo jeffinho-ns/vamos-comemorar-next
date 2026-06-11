@@ -41,7 +41,7 @@ const mapCompanyToEstablishment = (company: Company): Establishment => ({
 });
 
 export default function Companies() {
-  const { userEmail, role, myPermissions } = useAppContext();
+  const { userEmail, role, myPermissions, isLoading: contextLoading } = useAppContext();
   const [companies, setCompanies] = useState<Company[]>([]);
   const [filterBy, setFilterBy] = useState("");
   const [modalIsOpen, setModalIsOpen] = useState(false);
@@ -184,8 +184,9 @@ export default function Companies() {
   }, [API_URL, applyEstablishmentScope]);
 
   useEffect(() => {
+    if (contextLoading) return;
     fetchCompanies();
-  }, [fetchCompanies]);
+  }, [fetchCompanies, contextLoading]);
 
   const handleDelete = async (companyId: string) => {
     const confirmDelete = window.confirm("Tem certeza que deseja excluir esta empresa?");

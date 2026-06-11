@@ -246,7 +246,7 @@ export default function GiftsAdminPage() {
     } finally {
       setLoading(false);
     }
-  }, [API_URL, userEmail]);
+  }, [API_URL, establishmentPermissions]);
 
   // Função para carregar regras de brindes para aniversários
   const loadGiftRules = useCallback(async (establishmentId: number) => {
@@ -385,11 +385,11 @@ export default function GiftsAdminPage() {
     establishmentsMapRef.current = newMap;
   }, [establishments]);
 
-  // Carregar estabelecimentos ao montar (promoters serão carregados quando um estabelecimento for selecionado)
+  // Carregar estabelecimentos após permissões do contexto estarem prontas
   useEffect(() => {
+    if (establishmentPermissions.isLoading) return;
     fetchEstablishments();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [establishmentPermissions.isLoading, fetchEstablishments]);
 
   if (loading) {
     return (

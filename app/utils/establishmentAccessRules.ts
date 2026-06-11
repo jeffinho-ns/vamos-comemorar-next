@@ -26,15 +26,22 @@ export function isSuperAdminEmail(email: string | null | undefined): boolean {
   return GLOBAL_SUPER_ADMIN_EMAILS.has(normalizeUserEmail(email));
 }
 
+export type GlobalAdminOptions = {
+  /** Quando false, admin sem permissões ainda não carregadas não é tratado como global. */
+  permissionsResolved?: boolean;
+};
+
 /** Admin com permissões ativas por estabelecimento vê só o escopo; admin sem linhas no banco = global. */
 export function isGlobalAdminUser(
   email: string | null | undefined,
   role: string | null | undefined,
   permissions: EstablishmentPermissionLike[] = [],
+  options: GlobalAdminOptions = {},
 ): boolean {
   if (isSuperAdminEmail(email)) return true;
   const normalizedRole = (role || "").trim().toLowerCase();
   if (normalizedRole !== "admin") return false;
+  if (options.permissionsResolved === false) return false;
   const active = permissions.filter((p) => p.is_active !== false);
   return active.length === 0;
 }
@@ -59,9 +66,10 @@ export function filterEstablishmentsByUserScope<
   role: string | null | undefined,
   permissions: EstablishmentPermissionLike[],
   establishments: T[],
+  options: GlobalAdminOptions = {},
 ): T[] {
   const visibilityScoped = filterEstablishmentListForUser(userEmail, establishments);
-  if (isGlobalAdminUser(userEmail, role, permissions)) {
+  if (isGlobalAdminUser(userEmail, role, permissions, options)) {
     return visibilityScoped;
   }
   const allowedIds = new Set(getActiveEstablishmentIds(permissions));

@@ -122,11 +122,11 @@ export function useUserPermissions() {
   const safeUserEmail = (ctxUserEmail || "").trim();
   const isAdmin = safeRole === "admin";
   const activeEstablishmentPermissions = myPermissions.filter((p) => p.is_active);
-  const isSuperAdmin = isGlobalAdminUser(
-    safeUserEmail,
-    safeRole,
-    activeEstablishmentPermissions,
-  );
+  const isSuperAdmin =
+    !isLoading &&
+    isGlobalAdminUser(safeUserEmail, safeRole, activeEstablishmentPermissions, {
+      permissionsResolved: true,
+    });
   const isPromoter = safeRole === "promoter" || safeRole === "promoter-list";
   const isClient = safeRole === "cliente";
   const hasAnyEstablishmentAccess = myPermissions.length > 0;

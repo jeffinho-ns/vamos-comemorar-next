@@ -79,8 +79,16 @@ export function useEstablishmentPermissions() {
   }, [permissions, userEmail]);
 
   // Verifica se o usuário tem acesso a um estabelecimento específico
+  const permissionsResolved = !isLoading;
+
   const hasAccessToEstablishment = (establishmentId: number): boolean => {
-    if (isGlobalAdminUser(userEmail || null, normalizedRole, permissions)) return true;
+    if (
+      isGlobalAdminUser(userEmail || null, normalizedRole, permissions, {
+        permissionsResolved,
+      })
+    ) {
+      return true;
+    }
     if (!userConfig) return false;
     return userConfig.establishmentIds.includes(establishmentId);
   };
@@ -92,6 +100,8 @@ export function useEstablishmentPermissions() {
   >(
     establishments: T[],
   ): T[] => {
+    if (!permissionsResolved) return [];
+
     const visibilityScoped = filterEstablishmentListForUser(
       userEmail || undefined,
       establishments.map((est) => {
@@ -135,7 +145,11 @@ export function useEstablishmentPermissions() {
     }
     
     // Admin global (sem escopo no banco) vê todos; demais sem permissão, nenhum
-    if (isGlobalAdminUser(userEmail || null, normalizedRole, permissions)) {
+    if (
+      isGlobalAdminUser(userEmail || null, normalizedRole, permissions, {
+        permissionsResolved,
+      })
+    ) {
       return visibilityScoped;
     }
 

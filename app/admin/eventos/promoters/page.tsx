@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAppContext } from '@/app/context/AppContext';
 import { useEstablishmentPermissions } from '@/app/hooks/useEstablishmentPermissions';
+import { useUserPermissions } from '@/app/hooks/useUserPermissions';
+import { getActiveEstablishmentIds } from '@/app/utils/establishmentAccessRules';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   MdPerson,
@@ -139,6 +141,9 @@ const formatCurrency = (value: number): string => {
 export default function PromotersPage() {
   const { userEmail } = useAppContext();
   const establishmentPermissions = useEstablishmentPermissions();
+  const { isSuperAdmin, isLoading: permissionsLoading, myEstablishmentPermissions } =
+    useUserPermissions();
+  const scopedEstablishmentIds = getActiveEstablishmentIds(myEstablishmentPermissions);
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [promoters, setPromoters] = useState<Promoter[]>([]);
@@ -198,14 +203,25 @@ export default function PromotersPage() {
   const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.agilizaiapp.com.br';
 
   useEffect(() => {
+    if (permissionsLoading) return;
     fetchPromoters();
     fetchEstablishments();
     fetchStatistics();
-  }, [establishmentFilter]);
+  }, [establishmentFilter, permissionsLoading]);
 
   useEffect(() => {
     filterAndSortPromoters();
-  }, [searchTerm, statusFilter, categoriaFilter, establishmentFilter, sortBy, sortOrder, promoters]);
+  }, [
+    searchTerm,
+    statusFilter,
+    categoriaFilter,
+    establishmentFilter,
+    sortBy,
+    sortOrder,
+    promoters,
+    isSuperAdmin,
+    scopedEstablishmentIds,
+  ]);
 
   const fetchPromoters = async () => {
     try {
@@ -314,6 +330,13 @@ export default function PromotersPage() {
 
   const filterAndSortPromoters = () => {
     let filtered = [...promoters];
+
+    if (!isSuperAdmin && scopedEstablishmentIds.length > 0) {
+      const allowedIds = new Set(scopedEstablishmentIds);
+      filtered = filtered.filter((p) =>
+        allowedIds.has(Number(p.establishment_id)),
+      );
+    }
 
     // Filtro por nome, apelido ou email
     if (searchTerm) {
