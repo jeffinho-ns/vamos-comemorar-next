@@ -333,6 +333,15 @@ const groupItemsBySubcategory = (
   });
 };
 
+/** Remove categorias/subcategorias sem itens visíveis (pausados ou fora da agenda). */
+const filterVisibleMenuCategories = (categories: GroupedCategory[]): GroupedCategory[] =>
+  categories
+    .map((category) => ({
+      ...category,
+      subCategories: category.subCategories.filter((sub) => sub.items.length > 0),
+    }))
+    .filter((category) => category.subCategories.length > 0);
+
 const normalizeToDomId = (value: string) => {
   if (!value) return "secao";
   return (
@@ -568,14 +577,12 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
         };
       });
 
+      const visibleCategories = filterVisibleMenuCategories(groupedCategories);
+
       console.log("📊 Categorias agrupadas:", {
         totalCategories: groupedCategories.length,
-        categoriesWithItems: groupedCategories.filter((c: GroupedCategory) =>
-          c.subCategories.some(
-            (sub: { name: string; items: MenuItem[] }) => sub.items.length > 0,
-          ),
-        ).length,
-        categories: groupedCategories.map((c: GroupedCategory) => ({
+        visibleCategories: visibleCategories.length,
+        categories: visibleCategories.map((c: GroupedCategory) => ({
           id: c.id,
           name: c.name,
           itemsCount: c.subCategories.reduce(
@@ -586,10 +593,12 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
         })),
       });
 
-      setMenuCategories(groupedCategories);
+      setMenuCategories(visibleCategories);
 
-      if (groupedCategories.length > 0) {
-        setSelectedCategory(groupedCategories[0].name);
+      if (visibleCategories.length > 0) {
+        setSelectedCategory(visibleCategories[0].name);
+      } else {
+        setSelectedCategory("");
       }
 
       // Rastrear visualização da página do cardápio
