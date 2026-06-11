@@ -1545,7 +1545,7 @@ export default function AdminWhatsappPage() {
 
     const map = new Map<number, string>();
     for (const p of myEstablishmentPermissions) {
-      if (!p.can_manage_reservations) continue;
+      if (p.is_active === false) continue;
       const id = Number(p.establishment_id);
       if (!Number.isFinite(id) || id <= 0) continue;
       map.set(id, p.establishment_name || `Estabelecimento ${id}`);
@@ -1634,11 +1634,17 @@ export default function AdminWhatsappPage() {
   ]);
 
   const filteredInboxConversations = useMemo(() => {
-    const scoped = isWhatsappHighlineOnlyUser
-      ? conversations.filter(
-          (c) => c.establishment_id === highlineEstablishmentId,
-        )
-      : conversations;
+    const allowedIds = new Set(establishmentFilterOptions.map((opt) => opt.id));
+    let scoped = conversations;
+    if (isWhatsappHighlineOnlyUser) {
+      scoped = conversations.filter(
+        (c) => c.establishment_id === highlineEstablishmentId,
+      );
+    } else if (!isSuperAdmin && allowedIds.size > 0) {
+      scoped = conversations.filter(
+        (c) => c.establishment_id != null && allowedIds.has(c.establishment_id),
+      );
+    }
     return scoped.filter((c) =>
       conversationMatchesInboxFilter(c, inboxEstablishmentFilter),
     );
@@ -1647,6 +1653,8 @@ export default function AdminWhatsappPage() {
     inboxEstablishmentFilter,
     isWhatsappHighlineOnlyUser,
     highlineEstablishmentId,
+    isSuperAdmin,
+    establishmentFilterOptions,
   ]);
 
   const activeInboxEstablishmentTheme = useMemo(() => {
@@ -1764,6 +1772,19 @@ export default function AdminWhatsappPage() {
       establishment_id: establishmentFilterOptions[0].id,
     }));
   }, [campaignForm.establishment_id, establishmentFilterOptions]);
+
+  useEffect(() => {
+    if (permsLoading || isSuperAdmin || isWhatsappHighlineOnlyUser) return;
+    if (establishmentFilterOptions.length !== 1) return;
+    const onlyId = establishmentFilterOptions[0].id;
+    setInboxEstablishmentFilter(onlyId);
+    setContactEstablishmentId((prev) => (prev === "" ? onlyId : prev));
+  }, [
+    permsLoading,
+    isSuperAdmin,
+    isWhatsappHighlineOnlyUser,
+    establishmentFilterOptions,
+  ]);
 
   useEffect(() => {
     if (!selectedWaId || inboxEstablishmentFilter === "all") return;

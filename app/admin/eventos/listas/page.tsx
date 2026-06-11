@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { useEstablishmentPermissions } from '@/app/hooks/useEstablishmentPermissions';
+import { useUserPermissions } from '@/app/hooks/useUserPermissions';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   MdList,
@@ -59,6 +61,8 @@ interface Evento {
 export default function ListasPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { isSuperAdmin } = useUserPermissions();
+  const establishmentPermissions = useEstablishmentPermissions();
   const eventoIdParam = searchParams?.get('evento_id');
 
   const [loading, setLoading] = useState(true);
@@ -74,8 +78,9 @@ export default function ListasPage() {
   const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.agilizaiapp.com.br';
 
   useEffect(() => {
+    if (establishmentPermissions.isLoading) return;
     fetchEventos();
-  }, []);
+  }, [establishmentPermissions.isLoading, isSuperAdmin]);
 
   useEffect(() => {
     if (selectedEventoId) {
@@ -87,7 +92,12 @@ export default function ListasPage() {
     try {
       const token = localStorage.getItem('authToken');
 
-      const response = await fetch(`${API_URL}/api/v1/eventos`, {
+      const scopedEstId = establishmentPermissions.getDefaultEstablishmentId();
+      const query =
+        !isSuperAdmin && scopedEstId
+          ? `?establishment_id=${scopedEstId}`
+          : '';
+      const response = await fetch(`${API_URL}/api/v1/eventos${query}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
@@ -100,10 +110,19 @@ export default function ListasPage() {
 
       const data = await response.json();
       if (data.success) {
-        setEventos(data.eventos);
-        // Se não tiver evento selecionado, seleciona o mais recente
-        if (!selectedEventoId && data.eventos.length > 0) {
-          setSelectedEventoId(data.eventos[0].evento_id);
+        const allowedIds = new Set(
+          establishmentPermissions.userConfig?.establishmentIds.map(Number) ?? [],
+        );
+        const eventosList = Array.isArray(data.eventos) ? data.eventos : [];
+        const scopedEventos = isSuperAdmin
+          ? eventosList
+          : eventosList.filter((evento: { establishment_id?: number; id_place?: number }) => {
+              const estId = Number(evento.establishment_id ?? evento.id_place);
+              return allowedIds.size === 0 || allowedIds.has(estId);
+            });
+        setEventos(scopedEventos);
+        if (!selectedEventoId && scopedEventos.length > 0) {
+          setSelectedEventoId(scopedEventos[0].evento_id);
         }
       }
     } catch (error) {

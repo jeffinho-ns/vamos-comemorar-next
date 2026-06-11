@@ -70,6 +70,33 @@ export default function DetalhesOperacionaisPage() {
   }, [establishmentPermissions.isLoading, establishments.length, establishmentPermissions.isRestrictedToSingleEstablishment, establishmentPermissions.getDefaultEstablishmentId]);
 
   useEffect(() => {
+    if (establishmentPermissions.isLoading || establishments.length === 0) return;
+    const filteredEstabs = establishmentPermissions.getFilteredEstablishments(establishments);
+    const allowedIds = new Set(
+      filteredEstabs.map((est) =>
+        typeof est.id === 'string' ? parseInt(est.id, 10) : Number(est.id),
+      ),
+    );
+    if (selectedEstablishment != null && !allowedIds.has(selectedEstablishment)) {
+      if (filteredEstabs.length === 1) {
+        const estId =
+          typeof filteredEstabs[0].id === 'string'
+            ? parseInt(filteredEstabs[0].id, 10)
+            : Number(filteredEstabs[0].id);
+        setSelectedEstablishment(estId);
+      } else {
+        const defaultId = establishmentPermissions.getDefaultEstablishmentId();
+        setSelectedEstablishment(defaultId && allowedIds.has(defaultId) ? defaultId : null);
+      }
+    }
+  }, [
+    establishmentPermissions.isLoading,
+    establishments,
+    selectedEstablishment,
+    establishmentPermissions,
+  ]);
+
+  useEffect(() => {
     fetchDetails();
   }, [selectedEstablishment, filterDate]);
 

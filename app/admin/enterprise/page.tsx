@@ -5,6 +5,8 @@ import Enterprise from "../../components/enterprise/enterprise";
 import { useRouter } from "next/navigation";
 import { Establishment } from "../../types/Establishment";
 import { WithPermission } from "../../components/WithPermission/WithPermission";
+import { useAppContext } from "../../context/AppContext";
+import { filterEstablishmentsByUserScope } from "../../utils/establishmentAccessRules";
 
 // Definindo os tipos
 interface Company {
@@ -39,6 +41,7 @@ const mapCompanyToEstablishment = (company: Company): Establishment => ({
 });
 
 export default function Companies() {
+  const { userEmail, role, myPermissions } = useAppContext();
   const [companies, setCompanies] = useState<Company[]>([]);
   const [filterBy, setFilterBy] = useState("");
   const [modalIsOpen, setModalIsOpen] = useState(false);
@@ -75,6 +78,23 @@ export default function Companies() {
     []
   );
 
+  const applyEstablishmentScope = useCallback(
+    (mappedData: Company[]) => {
+      const scoped = filterEstablishmentsByUserScope(
+        userEmail,
+        role,
+        myPermissions,
+        mappedData.map((company) => ({
+          id: Number(company.id),
+          name: company.name,
+        })),
+      );
+      const allowedIds = new Set(scoped.map((item) => Number(item.id)));
+      return mappedData.filter((company) => allowedIds.has(Number(company.id)));
+    },
+    [userEmail, role, myPermissions],
+  );
+
   // Memoriza a função fetchCompanies
   const fetchCompanies = useCallback(async () => {
     setLoading(true);
@@ -105,7 +125,7 @@ export default function Companies() {
             status: bar.status || "ATIVA",
             created_at: bar.created_at || new Date().toISOString()
           }));
-          setCompanies(mappedData);
+          setCompanies(applyEstablishmentScope(mappedData));
           return;
         }
       }
@@ -134,7 +154,7 @@ export default function Companies() {
           status: place.status === 'active' ? 'ATIVA' : 'INATIVA',
           created_at: place.created_at || new Date().toISOString()
         }));
-        setCompanies(mappedData);
+        setCompanies(applyEstablishmentScope(mappedData));
       } else if (data.data && Array.isArray(data.data)) {
         // Se os dados vêm em um objeto com propriedade data
         const mappedData = data.data.map((place: any) => ({
@@ -147,7 +167,7 @@ export default function Companies() {
           status: place.status === 'active' ? 'ATIVA' : 'INATIVA',
           created_at: place.created_at || new Date().toISOString()
         }));
-        setCompanies(mappedData);
+        setCompanies(applyEstablishmentScope(mappedData));
       } else {
         setError("Dados de empresas inválidos.");
       }
@@ -161,7 +181,7 @@ export default function Companies() {
     } finally {
       setLoading(false);
     }
-  }, [API_URL]);
+  }, [API_URL, applyEstablishmentScope]);
 
   useEffect(() => {
     fetchCompanies();

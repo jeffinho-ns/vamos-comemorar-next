@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import {
   MdAdd,
   MdRefresh,
@@ -11,7 +11,10 @@ import {
 } from "react-icons/md";
 import { useUserPermissions } from "@/app/hooks/useUserPermissions";
 import { useAppContext } from "@/app/context/AppContext";
-import { filterEstablishmentListForUser } from "@/app/utils/establishmentAccessRules";
+import {
+  filterEstablishmentsByUserScope,
+  getActiveEstablishmentIds,
+} from "@/app/utils/establishmentAccessRules";
 
 const API_URL =
   process.env.NEXT_PUBLIC_API_URL ||
@@ -69,8 +72,13 @@ const ROLE_LABELS: Record<string, string> = {
 };
 
 export default function UsersPage() {
-  const { userEmail } = useAppContext();
-  const { canDeleteUsers, canChangeGlobalUserRole } = useUserPermissions();
+  const { userEmail, role, myPermissions } = useAppContext();
+  const { canDeleteUsers, canChangeGlobalUserRole, isSuperAdmin, myEstablishmentPermissions } =
+    useUserPermissions();
+  const scopedEstablishmentIds = useMemo(
+    () => new Set(getActiveEstablishmentIds(myEstablishmentPermissions)),
+    [myEstablishmentPermissions],
+  );
   const [users, setUsers] = useState<UserRow[]>([]);
   const [permissions, setPermissions] = useState<PermissionRow[]>([]);
   const [establishments, setEstablishments] = useState<Establishment[]>([]);
@@ -129,14 +137,19 @@ export default function UsersPage() {
         name: p.name || "",
         slug: p.slug,
       }));
-      const filtered = filterEstablishmentListForUser(userEmail, mapped);
+      const filtered = filterEstablishmentsByUserScope(
+        userEmail,
+        role,
+        myPermissions,
+        mapped,
+      );
       setEstablishments(
         filtered.map((p) => ({ id: p.id as number, name: p.name || "" })),
       );
     } catch {
       setEstablishments([]);
     }
-  }, [userEmail]);
+  }, [userEmail, role, myPermissions]);
 
   const loadAll = useCallback(async () => {
     setLoading(true);
@@ -149,7 +162,17 @@ export default function UsersPage() {
     loadAll();
   }, [loadAll]);
 
-  const permissionsByUser = permissions.reduce<Record<number, PermissionRow[]>>(
+  const visiblePermissions = useMemo(
+    () =>
+      isSuperAdmin
+        ? permissions
+        : permissions.filter((p) =>
+            scopedEstablishmentIds.has(Number(p.establishment_id)),
+          ),
+    [permissions, isSuperAdmin, scopedEstablishmentIds],
+  );
+
+  const permissionsByUser = visiblePermissions.reduce<Record<number, PermissionRow[]>>(
     (acc, p) => {
       if (!acc[p.user_id]) acc[p.user_id] = [];
       acc[p.user_id].push(p);
@@ -166,7 +189,12 @@ export default function UsersPage() {
   const hasEstablishmentAccess = (user: UserRow) =>
     (permissionsByUser[user.id]?.some((p) => p.is_active) ?? false);
 
-  const filteredUsers = users.filter((u) => {
+  const filteredUsers = users
+    .filter((u) => {
+      if (isSuperAdmin) return true;
+      return (permissionsByUser[u.id]?.length ?? 0) > 0;
+    })
+    .filter((u) => {
     const term = search.trim().toLowerCase();
     const matchSearch =
       !term ||

@@ -488,6 +488,7 @@ const applyPracinhaBebidasSubcategoryOrder = <T extends { name: string; order?: 
 export default function CardapioAdminPage() {
   const {
     isAdmin,
+    isSuperAdmin,
     isPromoter,
     promoterBar,
     canManageBar,
@@ -615,13 +616,13 @@ export default function CardapioAdminPage() {
     (userEmail || "").trim().toLowerCase() === "vbs14@hotmail.com" && promoterBarIdNum !== null;
 
   const shouldRestrictByPerms =
-    !isAdmin &&
+    !isSuperAdmin &&
     !hasFullCardapioAccessByEmail &&
     !isReservaRooftopRestrictedUser &&
     (uniqueAllowedEstablishmentIds.length > 0 || allowedEstablishmentNameKeys.length > 0);
 
   const visibleBars =
-    !isAdmin && isReservaRooftopRestrictedUser && promoterBarIdNum !== null
+    !isSuperAdmin && isReservaRooftopRestrictedUser && promoterBarIdNum !== null
       ? menuData.bars.filter((bar) => Number(bar.id) === promoterBarIdNum)
       : shouldRestrictByPerms
         ? (() => {
@@ -674,12 +675,12 @@ export default function CardapioAdminPage() {
   );
 
   const visibleCategories =
-    !isAdmin && visibleBarIdsForFiltering.length > 0
+    !isSuperAdmin && visibleBarIdsForFiltering.length > 0
       ? menuData.categories.filter((category) => visibleBarIdsForFiltering.includes(Number(category.barId)))
       : menuData.categories;
 
   const visibleItems =
-    !isAdmin && visibleBarIdsForFiltering.length > 0
+    !isSuperAdmin && visibleBarIdsForFiltering.length > 0
       ? menuData.items.filter((item) => visibleBarIdsForFiltering.includes(Number(item.barId)))
       : menuData.items;
 
@@ -752,7 +753,7 @@ export default function CardapioAdminPage() {
       const barsList = Array.isArray(bars) ? bars : [];
 
       const scopedBarIds = (() => {
-        if (isAdmin) return null;
+        if (isSuperAdmin) return null;
         if (uniqueAllowedEstablishmentIds.length > 0) {
           const mapped = toCardapioBarIds(uniqueAllowedEstablishmentIds, barsList);
           if (mapped.length > 0) return mapped;

@@ -11,6 +11,64 @@ export const REGIANE_RESTRICTED_EMAIL = "regianebrunno@gmail.com";
 /** Único usuário que enxerga o estabelecimento Sitio Ilha em todo o app (listas, admin filtrado, cardápio). */
 export const SITIO_ILHA_OWNER_EMAIL = "jeffinho_ns@hotmail.com";
 
+/** Admin global (todos os estabelecimentos) — por e-mail ou role admin sem escopo no banco. */
+const GLOBAL_SUPER_ADMIN_EMAILS = new Set([
+  "jeffinho_ns@hotmail.com",
+  "teste@teste",
+]);
+
+export type EstablishmentPermissionLike = {
+  is_active?: boolean;
+  establishment_id?: number;
+};
+
+export function isSuperAdminEmail(email: string | null | undefined): boolean {
+  return GLOBAL_SUPER_ADMIN_EMAILS.has(normalizeUserEmail(email));
+}
+
+/** Admin com permissões ativas por estabelecimento vê só o escopo; admin sem linhas no banco = global. */
+export function isGlobalAdminUser(
+  email: string | null | undefined,
+  role: string | null | undefined,
+  permissions: EstablishmentPermissionLike[] = [],
+): boolean {
+  if (isSuperAdminEmail(email)) return true;
+  const normalizedRole = (role || "").trim().toLowerCase();
+  if (normalizedRole !== "admin") return false;
+  const active = permissions.filter((p) => p.is_active !== false);
+  return active.length === 0;
+}
+
+export function getActiveEstablishmentIds(
+  permissions: EstablishmentPermissionLike[] = [],
+): number[] {
+  return Array.from(
+    new Set(
+      permissions
+        .filter((p) => p.is_active !== false)
+        .map((p) => Number(p.establishment_id))
+        .filter((id) => Number.isFinite(id) && id > 0),
+    ),
+  );
+}
+
+export function filterEstablishmentsByUserScope<
+  T extends { name?: string; id?: string | number; slug?: string },
+>(
+  userEmail: string | null | undefined,
+  role: string | null | undefined,
+  permissions: EstablishmentPermissionLike[],
+  establishments: T[],
+): T[] {
+  const visibilityScoped = filterEstablishmentListForUser(userEmail, establishments);
+  if (isGlobalAdminUser(userEmail, role, permissions)) {
+    return visibilityScoped;
+  }
+  const allowedIds = new Set(getActiveEstablishmentIds(permissions));
+  if (allowedIds.size === 0) return [];
+  return visibilityScoped.filter((est) => allowedIds.has(Number(est.id)));
+}
+
 export function normalizeUserEmail(email: string | null | undefined): string {
   return (email || "").trim().toLowerCase();
 }

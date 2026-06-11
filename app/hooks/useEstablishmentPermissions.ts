@@ -1,6 +1,9 @@
 import { useMemo } from "react";
 import { useAppContext } from "../context/AppContext";
-import { filterEstablishmentListForUser } from "../utils/establishmentAccessRules";
+import {
+  filterEstablishmentListForUser,
+  isGlobalAdminUser,
+} from "../utils/establishmentAccessRules";
 
 export interface EstablishmentPermission {
   establishmentId: number;
@@ -77,7 +80,8 @@ export function useEstablishmentPermissions() {
 
   // Verifica se o usuário tem acesso a um estabelecimento específico
   const hasAccessToEstablishment = (establishmentId: number): boolean => {
-    if (!userConfig) return true; // Admin tem acesso total
+    if (isGlobalAdminUser(userEmail || null, normalizedRole, permissions)) return true;
+    if (!userConfig) return false;
     return userConfig.establishmentIds.includes(establishmentId);
   };
 
@@ -130,9 +134,8 @@ export function useEstablishmentPermissions() {
       return filtered;
     }
     
-    // Se não tem userConfig nem permissões, verificar role
-    // Admin continua vendo todos; demais, nenhum (sem permissões explícitas)
-    if (normalizedRole === "admin") {
+    // Admin global (sem escopo no banco) vê todos; demais sem permissão, nenhum
+    if (isGlobalAdminUser(userEmail || null, normalizedRole, permissions)) {
       return visibilityScoped;
     }
 

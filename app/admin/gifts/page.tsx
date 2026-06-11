@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useAppContext } from "@/app/context/AppContext";
-import { filterEstablishmentListForUser } from "@/app/utils/establishmentAccessRules";
+import { useEstablishmentPermissions } from "@/app/hooks/useEstablishmentPermissions";
 import { MdAdd, MdPeople, MdPerson, MdEdit, MdDelete, MdSettings, MdCheckCircle, MdClose } from "react-icons/md";
 
 interface Establishment {
@@ -119,6 +119,7 @@ const sanitizePromoterEntradaConfigForApi = (config: PromoterEntradaConfig) => {
 
 export default function GiftsAdminPage() {
   const { userEmail } = useAppContext();
+  const establishmentPermissions = useEstablishmentPermissions();
   const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL_LOCAL || 'https://api.agilizaiapp.com.br';
 
   // Estados
@@ -206,8 +207,7 @@ export default function GiftsAdminPage() {
         : data?.data && Array.isArray(data.data)
           ? data.data
           : [];
-      formattedEstablishments = filterEstablishmentListForUser(
-        userEmail,
+      formattedEstablishments = establishmentPermissions.getFilteredEstablishments(
         formattedEstablishments.map((est) => {
           const raw = rawList.find(
             (p: { id?: number; place_id?: number }) =>

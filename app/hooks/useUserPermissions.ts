@@ -6,6 +6,10 @@ import {
 } from "../config/whatsapp-highline-access";
 import { getPromoterBarByEmail } from "../config/promoter-bars";
 import { establishmentGrantsCardapioBar } from "../config/cardapioBarResolver";
+import {
+  isGlobalAdminUser,
+  isSuperAdminEmail as isSuperAdminEmailRule,
+} from "../utils/establishmentAccessRules";
 
 /** Uma permissão de estabelecimento retornada por GET /api/establishment-permissions/my-permissions */
 export interface MyEstablishmentPermission {
@@ -77,17 +81,10 @@ export interface UserPermissions {
   canChangeGlobalUserRole: boolean;
 }
 
-/** Super admins: mesmo acesso irrestrito a logs/dados que role admin (por e-mail). */
-const SUPER_ADMIN_EMAILS = new Set([
-  "jeffinho_ns@hotmail.com",
-  "teste@teste",
-]);
-
 export function isSuperAdminEmail(
   email: string | null | undefined
 ): boolean {
-  if (!email) return false;
-  return SUPER_ADMIN_EMAILS.has(email.toLowerCase().trim());
+  return isSuperAdminEmailRule(email);
 }
 
 /** Gerente geral: visão de todos os estabelecimentos, sem poderes de super admin (ex.: excluir usuário, mudar cargos). */
@@ -124,11 +121,15 @@ export function useUserPermissions() {
   const safeRole = (role || "").trim().toLowerCase();
   const safeUserEmail = (ctxUserEmail || "").trim();
   const isAdmin = safeRole === "admin";
-  const isSuperAdmin = isAdmin || isSuperAdminEmail(safeUserEmail);
+  const activeEstablishmentPermissions = myPermissions.filter((p) => p.is_active);
+  const isSuperAdmin = isGlobalAdminUser(
+    safeUserEmail,
+    safeRole,
+    activeEstablishmentPermissions,
+  );
   const isPromoter = safeRole === "promoter" || safeRole === "promoter-list";
   const isClient = safeRole === "cliente";
   const hasAnyEstablishmentAccess = myPermissions.length > 0;
-  const activeEstablishmentPermissions = myPermissions.filter((p) => p.is_active);
   const hasCardapioAccess = myPermissions.some((p) => p.can_view_cardapio !== false);
   const isWhatsappHighlineScopedUser = isWhatsappHighlineScopedEmail(safeUserEmail);
   const canAccessAdmin =

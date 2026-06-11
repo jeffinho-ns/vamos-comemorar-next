@@ -21,7 +21,7 @@ export default function EventsPage() {
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [duplicateModalOpen, setDuplicateModalOpen] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<EventDataApi | null>(null);
-  const { isAdmin, myEstablishmentPermissions, isLoading: permissionsLoading } = useUserPermissions();
+  const { isSuperAdmin, myEstablishmentPermissions, isLoading: permissionsLoading } = useUserPermissions();
 
   const PAGE_SIZES = [10, 30, 50] as const;
 
@@ -95,7 +95,7 @@ export default function EventsPage() {
   );
 
   const visibleEvents = useMemo(() => {
-    if (isAdmin) return events;
+    if (isSuperAdmin) return events;
     if (allowedEstablishmentIds.length === 0 && allowedEstablishmentNames.length === 0) return [];
 
     return events.filter((event) => {
@@ -109,7 +109,7 @@ export default function EventsPage() {
 
       return matchesById || matchesByName;
     });
-  }, [events, isAdmin, allowedEstablishmentIds, allowedEstablishmentNames]);
+  }, [events, isSuperAdmin, allowedEstablishmentIds, allowedEstablishmentNames]);
 
   const deleteEvent = async (id: number) => {
     const token = localStorage.getItem("authToken");

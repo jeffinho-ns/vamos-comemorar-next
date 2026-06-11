@@ -9,6 +9,7 @@ import { Business, Place } from "./types";
 import Image from "next/image";
 import Cookies from "js-cookie";
 import { useEstablishments } from "../../hooks/useEstablishments";
+import { useEstablishmentPermissions } from "../../hooks/useEstablishmentPermissions";
 //import { WithPermission } from "../../components/WithPermission/WithPermission";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL_LOCAL || 'http://localhost:3001';
@@ -24,6 +25,14 @@ const convertBusinessToPlace = (business: Business): Place => ({
 
 export default function Businesses() {
   const { establishments, loading, error, fetchEstablishments, refetch } = useEstablishments();
+  const establishmentPermissions = useEstablishmentPermissions();
+  const allowedEstablishmentIds = new Set(
+    establishmentPermissions
+      .getFilteredEstablishments(
+        establishments.map((est) => ({ id: Number(est.id), name: est.name || "" })),
+      )
+      .map((est) => Number(est.id)),
+  );
   const [filterBy, setFilterBy] = useState<string>("");
   const [modalIsOpen, setModalIsOpen] = useState<boolean>(false);
   const [editModalIsOpen, setEditModalIsOpen] = useState<boolean>(false);
@@ -31,15 +40,18 @@ export default function Businesses() {
   const [token, setToken] = useState<string | null>(null);
 
   // Converter establishments para o formato Business esperado
-  const businesses: Business[] = establishments.map(est => ({
-    id: est.id,
-    name: est.name,
-    email: est.email || "Não informado",
-    telefone: est.phone || "Não informado",
-    logo: est.logo || "default-logo.png",
-    cnpj: est.cnpj || "",
-    status: (est.status === "active" || est.status === "inactive") ? est.status : "active"
-  }));
+  const businesses: Business[] = establishments
+    .filter((est) => allowedEstablishmentIds.has(Number(est.id)))
+    .map((est) => ({
+      id: est.id,
+      name: est.name,
+      email: est.email || "Não informado",
+      telefone: est.phone || "Não informado",
+      logo: est.logo || "default-logo.png",
+      cnpj: est.cnpj || "",
+      status:
+        est.status === "active" || est.status === "inactive" ? est.status : "active",
+    }));
 
   const openEditModal = (business: Business): void => {
     const place = convertBusinessToPlace(business);

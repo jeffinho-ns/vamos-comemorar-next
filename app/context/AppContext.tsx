@@ -14,6 +14,7 @@ import { AUTH_CHANGED_EVENT } from "../utils/authSession";
 import {
   filterEstablishmentListForUser,
   filterEstablishmentPermissionsForUser,
+  filterEstablishmentsByUserScope,
   normalizeUserEmail,
 } from "../utils/establishmentAccessRules";
 
@@ -214,12 +215,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       ]);
 
       let effectiveEmail = normalizeUserEmail(readCookie("userEmail"));
+      let effectiveRole = normalizeRole(readCookie("role"));
 
       if (userRes.status === "fulfilled" && userRes.value.ok) {
         const userData = (await userRes.value.json()) as AppUser;
         const normalizedRole = normalizeRole(String(userData.role || ""));
         const normalizedEmail = normalizeUserEmail(String(userData.email || ""));
         effectiveEmail = normalizedEmail || effectiveEmail;
+        effectiveRole = normalizedRole || effectiveRole;
         setUser(userData);
         setRole(normalizedRole);
         setUserEmail(normalizedEmail);
@@ -235,6 +238,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setHasError(true);
       }
 
+      let scopedPermissions: AppPermission[] = [];
       if (permissionsRes.status === "fulfilled" && permissionsRes.value.ok) {
         const permsData = (await permissionsRes.value.json()) as {
           success?: boolean;
@@ -242,9 +246,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         };
         const raw =
           permsData.success && Array.isArray(permsData.data) ? permsData.data : [];
-        setMyPermissions(
-          filterEstablishmentPermissionsForUser(effectiveEmail, raw),
+        scopedPermissions = filterEstablishmentPermissionsForUser(
+          effectiveEmail,
+          raw,
         );
+        setMyPermissions(scopedPermissions);
       } else {
         // Fallback seguro exigido: permissao vazia em caso de erro
         setMyPermissions([]);
@@ -270,7 +276,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         mapPlace(item as Record<string, unknown>),
       );
       const merged = mergeEstablishments(barsMapped, placesMapped);
-      setEstablishments(filterEstablishmentListForUser(effectiveEmail, merged));
+      setEstablishments(
+        filterEstablishmentsByUserScope(
+          effectiveEmail,
+          effectiveRole,
+          scopedPermissions,
+          merged,
+        ),
+      );
       setToken(resolvedToken);
     })()
       .catch((err) => {

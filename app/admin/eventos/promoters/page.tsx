@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAppContext } from '@/app/context/AppContext';
-import { filterEstablishmentListForUser } from '@/app/utils/establishmentAccessRules';
+import { useEstablishmentPermissions } from '@/app/hooks/useEstablishmentPermissions';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   MdPerson,
@@ -138,6 +138,7 @@ const formatCurrency = (value: number): string => {
 
 export default function PromotersPage() {
   const { userEmail } = useAppContext();
+  const establishmentPermissions = useEstablishmentPermissions();
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [promoters, setPromoters] = useState<Promoter[]>([]);
@@ -282,8 +283,7 @@ export default function PromotersPage() {
           name: place.name || 'Sem nome'
         }));
 
-        const visibilityFiltered = filterEstablishmentListForUser(
-          userEmail,
+        const scopedEstablishments = establishmentPermissions.getFilteredEstablishments(
           formattedEstablishments.map((e: Establishment) => {
             const raw = establishmentsData.find(
               (p: { id?: number }) => Number(p?.id) === Number(e.id),
@@ -291,9 +291,19 @@ export default function PromotersPage() {
             return { ...e, name: e.name || '', slug: raw?.slug };
           }),
         ) as Establishment[];
-        
-        console.log('📋 Estabelecimentos formatados:', visibilityFiltered);
-        setEstablishments(visibilityFiltered);
+
+        console.log('📋 Estabelecimentos formatados:', scopedEstablishments);
+        setEstablishments(scopedEstablishments);
+
+        if (
+          establishmentPermissions.isRestrictedToSingleEstablishment() &&
+          !establishmentFilter
+        ) {
+          const defaultId = establishmentPermissions.getDefaultEstablishmentId();
+          if (defaultId) {
+            setEstablishmentFilter(String(defaultId));
+          }
+        }
       } else {
         console.error('❌ Erro na resposta da API:', response.status, response.statusText);
       }
