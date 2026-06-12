@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAppContext } from '@/app/context/AppContext';
 import { useEstablishmentPermissions } from '@/app/hooks/useEstablishmentPermissions';
 import { useUserPermissions } from '@/app/hooks/useUserPermissions';
@@ -14,7 +14,6 @@ import {
   MdCheckCircle,
   MdSearch,
   MdFilterList,
-  MdArrowBack,
   MdAdd,
   MdEdit,
   MdSettings,
@@ -41,7 +40,13 @@ import {
   MdTableChart,
   MdLocalOffer,
   MdCardGiftcard,
-  MdCamera
+  MdCamera,
+  MdDashboard,
+  MdAssignmentInd,
+  MdList,
+  MdGroups,
+  MdCake,
+  MdEvent,
 } from 'react-icons/md';
 
 interface Promoter {
@@ -145,6 +150,8 @@ export default function PromotersPage() {
     useUserPermissions();
   const scopedEstablishmentIds = getActiveEstablishmentIds(myEstablishmentPermissions);
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const establishmentQuery = searchParams.get('establishment_id') || '';
   const [loading, setLoading] = useState(true);
   const [promoters, setPromoters] = useState<Promoter[]>([]);
   const [filteredPromoters, setFilteredPromoters] = useState<Promoter[]>([]);
@@ -202,6 +209,51 @@ export default function PromotersPage() {
 
   const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.agilizaiapp.com.br';
 
+  const handleTabChange = (tab: string) => {
+    const basePath = establishmentFilter
+      ? `?establishment_id=${establishmentFilter}`
+      : establishmentQuery
+        ? `?establishment_id=${establishmentQuery}`
+        : '';
+
+    switch (tab) {
+      case 'dashboard':
+        router.push(`/admin/eventos/dashboard${basePath}`);
+        break;
+      case 'listas':
+        router.push(`/admin/eventos/listas${basePath}`);
+        break;
+      case 'hostess':
+        router.push(`/admin/eventos/hostess${basePath}`);
+        break;
+      case 'aniversarios':
+        router.push(`/admin/eventos/aniversarios${basePath}`);
+        break;
+      default:
+        break;
+    }
+  };
+
+  useEffect(() => {
+    if (permissionsLoading) return;
+    if (establishmentQuery && !establishmentFilter) {
+      setEstablishmentFilter(establishmentQuery);
+      return;
+    }
+    if (
+      establishmentPermissions.isRestrictedToSingleEstablishment() &&
+      !establishmentFilter
+    ) {
+      const defaultId = establishmentPermissions.getDefaultEstablishmentId();
+      if (defaultId) setEstablishmentFilter(String(defaultId));
+    }
+  }, [
+    permissionsLoading,
+    establishmentQuery,
+    establishmentFilter,
+    establishmentPermissions,
+  ]);
+
   useEffect(() => {
     if (permissionsLoading) return;
     fetchPromoters();
@@ -228,12 +280,24 @@ export default function PromotersPage() {
       setLoading(true);
       const token = localStorage.getItem('authToken');
 
-      const response = await fetch(`${API_URL}/api/v1/promoters/advanced`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
+      const params = new URLSearchParams();
+      if (establishmentFilter) {
+        params.set('establishment_id', establishmentFilter);
+      } else if (establishmentPermissions.isRestrictedToSingleEstablishment()) {
+        const defaultId = establishmentPermissions.getDefaultEstablishmentId();
+        if (defaultId) params.set('establishment_id', String(defaultId));
+      }
+
+      const query = params.toString();
+      const response = await fetch(
+        `${API_URL}/api/v1/promoters/advanced${query ? `?${query}` : ''}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
         },
-      });
+      );
 
       if (!response.ok) {
         throw new Error('Erro ao buscar promoters');
@@ -639,21 +703,75 @@ export default function PromotersPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
+      <div className="bg-gradient-to-r from-green-600 to-green-700 text-white p-6 shadow-lg">
+        <div className="max-w-7xl mx-auto">
+          <h1 className="text-3xl font-bold flex items-center gap-3">
+            <MdEvent size={36} />
+            Gerenciamento de Eventos e Listas
+          </h1>
+          <p className="mt-2 text-green-100">
+            Controle completo de eventos, promoters, listas e check-ins
+          </p>
+        </div>
+      </div>
+
+      {/* Navigation Tabs */}
+      <div className="bg-white shadow-sm border-b">
+        <div className="max-w-7xl mx-auto">
+          <nav className="flex space-x-1 overflow-x-auto">
+            <button
+              onClick={() => handleTabChange('dashboard')}
+              className="flex items-center gap-2 px-6 py-4 font-medium transition-colors whitespace-nowrap text-gray-600 hover:text-gray-900 hover:bg-gray-50"
+            >
+              <MdDashboard size={20} />
+              Dashboard
+            </button>
+            <button
+              className="flex items-center gap-2 px-6 py-4 font-medium transition-colors whitespace-nowrap border-b-2 border-green-500 text-green-600"
+            >
+              <MdAssignmentInd size={20} />
+              Promoters
+            </button>
+            <button
+              onClick={() => handleTabChange('listas')}
+              className="flex items-center gap-2 px-6 py-4 font-medium transition-colors whitespace-nowrap text-gray-600 hover:text-gray-900 hover:bg-gray-50"
+            >
+              <MdList size={20} />
+              Listas
+            </button>
+            <button
+              onClick={() => handleTabChange('hostess')}
+              className="flex items-center gap-2 px-6 py-4 font-medium transition-colors whitespace-nowrap text-gray-600 hover:text-gray-900 hover:bg-gray-50"
+            >
+              <MdGroups size={20} />
+              Hostess
+            </button>
+            <button
+              onClick={() => handleTabChange('aniversarios')}
+              className="flex items-center gap-2 px-6 py-4 font-medium transition-colors whitespace-nowrap text-gray-600 hover:text-gray-900 hover:bg-gray-50"
+            >
+              <MdCake size={20} />
+              Aniversários
+            </button>
+            <button
+              onClick={() => router.push('/admin/eventos/configurar')}
+              className="flex items-center gap-2 px-6 py-4 font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-50 transition-colors whitespace-nowrap"
+            >
+              <MdSettings size={20} />
+              Configurar Eventos
+            </button>
+          </nav>
+        </div>
+      </div>
+
       <div className="bg-gradient-to-r from-purple-600 to-purple-700 text-white p-6 shadow-lg">
         <div className="max-w-7xl mx-auto">
-          <button
-            onClick={() => router.push('/admin/eventos/dashboard')}
-            className="flex items-center gap-2 text-white hover:text-purple-100 mb-4 transition-colors"
-          >
-            <MdArrowBack size={20} />
-            Voltar ao Dashboard
-          </button>
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-bold flex items-center gap-3">
-                <MdPerson size={36} />
+              <h2 className="text-2xl font-bold flex items-center gap-3">
+                <MdPerson size={32} />
                 Sistema Avançado de Promoters
-              </h1>
+              </h2>
               <p className="mt-2 text-purple-100">
                 Gerenciamento completo de promoters com condições, permissões e performance
               </p>
@@ -735,8 +853,11 @@ export default function PromotersPage() {
                 value={establishmentFilter}
                 onChange={(e) => setEstablishmentFilter(e.target.value)}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                disabled={establishmentPermissions.isRestrictedToSingleEstablishment()}
               >
-                <option value="">Todos</option>
+                {!establishmentPermissions.isRestrictedToSingleEstablishment() && (
+                  <option value="">Todos</option>
+                )}
                 {establishments.map((est) => (
                   <option key={est.id} value={est.id.toString()}>
                     {est.name}
@@ -1074,7 +1195,7 @@ export default function PromotersPage() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
+            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-[100]"
           >
             <motion.div
               initial={{ scale: 0.9, opacity: 0 }}
@@ -1436,7 +1557,7 @@ export default function PromotersPage() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
+            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-[100]"
           >
             <motion.div
               initial={{ scale: 0.9, opacity: 0 }}
@@ -1801,7 +1922,7 @@ export default function PromotersPage() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
+            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-[100]"
           >
             <motion.div
               initial={{ scale: 0.9, opacity: 0 }}
@@ -1846,7 +1967,7 @@ export default function PromotersPage() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
+            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-[100]"
           >
             <motion.div
               initial={{ scale: 0.9, opacity: 0 }}
@@ -2206,7 +2327,7 @@ export default function PromotersPage() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
+            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-[100]"
           >
             <motion.div
               initial={{ scale: 0.9, opacity: 0 }}
@@ -2356,7 +2477,7 @@ export default function PromotersPage() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
+            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-[100]"
           >
             <motion.div
               initial={{ scale: 0.9, opacity: 0 }}

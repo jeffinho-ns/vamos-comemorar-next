@@ -812,6 +812,7 @@ export default function EventosDashboard() {
           isOpen={showPromoterModal}
           onClose={handleClosePromoterModal}
           onSave={handlePromoterModalSave}
+          establishmentId={selectedEstablishment?.id ?? null}
         />
       )}
     </div>

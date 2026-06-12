@@ -98,19 +98,73 @@ const EditPlaceModal: React.FC<EditPlaceModalProps> = ({
       setLongitude(currentPlace.longitude?.toString() || "");
       setStatus(currentPlace.status || "active");
       setVisible(currentPlace.visible !== undefined ? currentPlace.visible : true);
+      setLogoUrl(currentPlace.logo || "");
   
-      // Aqui, adicione os valores de 'icon' e 'description' para commodities
       setCommodities(
         currentPlace.commodities?.map((commodity: Commodity) => ({
           ...commodity,
-          icon: commodity.icon || "", // Agora o TypeScript sabe que 'icon' pode ser uma string ou undefined
-          description: commodity.description ?? "", // Se 'description' for indefinido, usa uma string vazia
+          icon: commodity.icon || "",
+          description: commodity.description ?? "",
         })) || commoditiesOptions.map(option => ({ ...option, enabled: false }))
       );
   
-      setPreviewPhotos(currentPlace.photos || Array(10).fill("")); // Preencher com fotos existentes
+      setPreviewPhotos(currentPlace.photos || Array(10).fill(""));
     }
   }, [currentPlace]);
+
+  useEffect(() => {
+    if (!isOpen || !currentPlace?.id) return;
+
+    const fetchPlaceDetails = async () => {
+      const token = localStorage.getItem("authToken");
+      if (!token) return;
+
+      try {
+        const response = await fetch(`${API_URL}/api/places/${currentPlace.id}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!response.ok) return;
+
+        const place = await response.json();
+        setSlug(place.slug || "");
+        setName(place.name || "");
+        setEmail(place.email || "");
+        setDescription(place.description || "");
+        setLogo(place.logo || "");
+        setStreet(place.street || "");
+        setNumber(place.number?.toString() || "");
+        setNeighborhood(place.neighborhood || "");
+        setCity(place.city || "");
+        setState(place.state || "");
+        setZipcode(place.zipcode || "");
+        setLatitude(place.latitude?.toString() || "");
+        setLongitude(place.longitude?.toString() || "");
+        setStatus(place.status || "active");
+        setVisible(place.visible !== undefined ? place.visible : true);
+        setLogoUrl(place.logo || "");
+
+        if (Array.isArray(place.commodities) && place.commodities.length > 0) {
+          setCommodities(
+            place.commodities.map((commodity: Commodity) => ({
+              ...commodity,
+              icon: commodity.icon || "",
+              description: commodity.description ?? "",
+            })),
+          );
+        }
+
+        setPreviewPhotos(
+          Array.isArray(place.photos) && place.photos.length > 0
+            ? [...place.photos, ...Array(Math.max(0, 10 - place.photos.length)).fill("")]
+            : Array(10).fill(""),
+        );
+      } catch {
+        // Mantém dados parciais do currentPlace em caso de falha
+      }
+    };
+
+    fetchPlaceDetails();
+  }, [isOpen, currentPlace?.id, API_URL]);
   
 
   useEffect(() => {

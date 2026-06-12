@@ -3,6 +3,7 @@ import { useAppContext } from "../context/AppContext";
 import {
   filterEstablishmentListForUser,
   isGlobalAdminUser,
+  establishmentMatchesUserScope,
 } from "../utils/establishmentAccessRules";
 
 export interface EstablishmentPermission {
@@ -117,12 +118,11 @@ export function useEstablishmentPermissions() {
 
     // Se tem userConfig, usar ele (prioridade)
     if (userConfig && userConfig.establishmentIds.length > 0) {
-      // Normalizar IDs para números para comparação correta
       const allowedIds = userConfig.establishmentIds.map(id => Number(id));
       
       const filtered = visibilityScoped.filter((est) => {
         const estId = typeof est.id === 'string' ? parseInt(est.id, 10) : Number(est.id);
-        return allowedIds.includes(estId);
+        return establishmentMatchesUserScope(estId, allowedIds);
       });
 
       return filtered;
@@ -130,7 +130,6 @@ export function useEstablishmentPermissions() {
     
     // Se não tem userConfig mas tem permissões ativas, usar elas
     if (permissions.length > 0 && permissions.some(p => p.is_active)) {
-      // Filtrar pelos estabelecimentos das permissões ativas
       const allowedIds = Array.from(new Set(
         permissions
           .filter(p => p.is_active)
@@ -138,8 +137,8 @@ export function useEstablishmentPermissions() {
       ));
       
       const filtered = visibilityScoped.filter((est) => {
-        const estId = typeof est.id === 'string' ? parseInt(est.id) : est.id;
-        return allowedIds.includes(estId);
+        const estId = typeof est.id === 'string' ? parseInt(est.id, 10) : Number(est.id);
+        return establishmentMatchesUserScope(estId, allowedIds);
       });
       return filtered;
     }

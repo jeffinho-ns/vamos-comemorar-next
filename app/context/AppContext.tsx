@@ -150,11 +150,16 @@ function mergeEstablishments(
   bars: AppEstablishment[],
   places: AppEstablishment[],
 ): AppEstablishment[] {
-  const merged = [...bars, ...places];
   const map = new Map<string, AppEstablishment>();
-  for (const item of merged) {
+  for (const item of bars) {
     const key = item.id || item.name.trim().toLowerCase();
     if (!map.has(key)) map.set(key, item);
+  }
+  // Places sobrescrevem bars com o mesmo id (permissões usam ids de `places`).
+  // Ex.: place 4 = Oh Freguês, bar 4 = Pracinha — sem isso aparece o estabelecimento errado.
+  for (const item of places) {
+    const key = item.id || item.name.trim().toLowerCase();
+    map.set(key, item);
   }
   return Array.from(map.values());
 }

@@ -1679,16 +1679,62 @@ export default function AdminWhatsappPage() {
   );
   const hasCentralWhatsappDigits = centralWhatsappDigits.length >= 10;
   const handoffConversationsCount = useMemo(() => {
+    const allowedIds = new Set(establishmentFilterOptions.map((opt) => opt.id));
     const source = isWhatsappHighlineOnlyUser
       ? conversations.filter(
           (conv) => conv.establishment_id === highlineEstablishmentId,
         )
-      : conversations;
+      : !isSuperAdmin && allowedIds.size > 0
+        ? conversations.filter(
+            (c) => c.establishment_id != null && allowedIds.has(c.establishment_id),
+          )
+        : conversations;
     return source.filter((conv) => handoffActive(conv.human_takeover_until)).length;
-  }, [conversations, isWhatsappHighlineOnlyUser, highlineEstablishmentId]);
+  }, [
+    conversations,
+    isWhatsappHighlineOnlyUser,
+    highlineEstablishmentId,
+    isSuperAdmin,
+    establishmentFilterOptions,
+  ]);
+
+  const scopedContacts = useMemo(() => {
+    if (isSuperAdmin) return contacts;
+    const allowedIds = new Set(establishmentFilterOptions.map((opt) => opt.id));
+    if (allowedIds.size === 0) return contacts;
+    return contacts.filter(
+      (c) =>
+        c.last_establishment_id != null &&
+        allowedIds.has(Number(c.last_establishment_id)),
+    );
+  }, [contacts, isSuperAdmin, establishmentFilterOptions]);
+
+  const scopedCampaigns = useMemo(() => {
+    if (isSuperAdmin) return campaigns;
+    const allowedIds = new Set(establishmentFilterOptions.map((opt) => opt.id));
+    if (allowedIds.size === 0) return campaigns;
+    return campaigns.filter((c) => allowedIds.has(Number(c.establishment_id)));
+  }, [campaigns, isSuperAdmin, establishmentFilterOptions]);
+
+  const scopedConversationsCount = useMemo(() => {
+    if (isWhatsappHighlineOnlyUser) return filteredInboxConversations.length;
+    if (isSuperAdmin) return conversations.length;
+    const allowedIds = new Set(establishmentFilterOptions.map((opt) => opt.id));
+    if (allowedIds.size === 0) return conversations.length;
+    return conversations.filter(
+      (c) => c.establishment_id != null && allowedIds.has(c.establishment_id),
+    ).length;
+  }, [
+    conversations,
+    filteredInboxConversations.length,
+    isWhatsappHighlineOnlyUser,
+    isSuperAdmin,
+    establishmentFilterOptions,
+  ]);
+
   const activeCampaignsCount = useMemo(
-    () => campaigns.filter((campaign) => campaign.is_active).length,
-    [campaigns],
+    () => scopedCampaigns.filter((campaign) => campaign.is_active).length,
+    [scopedCampaigns],
   );
   const crmContactGroups = useMemo(() => {
     const groups = new Map<
@@ -1900,7 +1946,7 @@ export default function AdminWhatsappPage() {
           <p className="text-2xl font-semibold text-gray-900">
             {isWhatsappHighlineOnlyUser
               ? filteredInboxConversations.length
-              : conversations.length}
+              : scopedConversationsCount}
           </p>
         </div>
         <div
@@ -1929,7 +1975,7 @@ export default function AdminWhatsappPage() {
           <>
             <div className="rounded-xl border border-indigo-200 bg-gradient-to-br from-indigo-50 to-white px-4 py-3 shadow-sm">
               <p className="text-xs text-indigo-700">Contatos CRM</p>
-              <p className="text-2xl font-semibold text-indigo-900">{contacts.length}</p>
+              <p className="text-2xl font-semibold text-indigo-900">{scopedContacts.length}</p>
             </div>
             <div className="rounded-xl border border-emerald-200 bg-gradient-to-br from-emerald-50 to-white px-4 py-3 shadow-sm">
               <p className="text-xs text-emerald-700">Campanhas ativas</p>

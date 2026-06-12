@@ -4,6 +4,7 @@
  * - Sitio Ilha: visível apenas para o e-mail autorizado (demais usuários não veem em listagens nem cardápio público).
  */
 
+import { ESTABLISHMENT_TO_CARDAPIO_BAR_ID } from "../config/cardapioBarResolver";
 import { SITIO_ILHA_PLACE_ID } from "../config/establishmentIds";
 
 export const REGIANE_RESTRICTED_EMAIL = "regianebrunno@gmail.com";
@@ -59,6 +60,24 @@ export function getActiveEstablishmentIds(
   );
 }
 
+/** Verifica se um item (place ou bar) pertence ao escopo de permissões (ids de `places`). */
+export function establishmentMatchesUserScope(
+  itemId: number | string | undefined,
+  allowedPlaceIds: number[],
+): boolean {
+  const id = Number(itemId);
+  if (!Number.isFinite(id) || id <= 0 || allowedPlaceIds.length === 0) return false;
+
+  if (allowedPlaceIds.includes(id)) return true;
+
+  for (const placeId of allowedPlaceIds) {
+    const mappedBar = ESTABLISHMENT_TO_CARDAPIO_BAR_ID[placeId];
+    if (mappedBar != null && mappedBar === id) return true;
+  }
+
+  return false;
+}
+
 export function filterEstablishmentsByUserScope<
   T extends { name?: string; id?: string | number; slug?: string },
 >(
@@ -72,9 +91,11 @@ export function filterEstablishmentsByUserScope<
   if (isGlobalAdminUser(userEmail, role, permissions, options)) {
     return visibilityScoped;
   }
-  const allowedIds = new Set(getActiveEstablishmentIds(permissions));
-  if (allowedIds.size === 0) return [];
-  return visibilityScoped.filter((est) => allowedIds.has(Number(est.id)));
+  const allowedIds = getActiveEstablishmentIds(permissions);
+  if (allowedIds.length === 0) return [];
+  return visibilityScoped.filter((est) =>
+    establishmentMatchesUserScope(est.id, allowedIds),
+  );
 }
 
 export function normalizeUserEmail(email: string | null | undefined): string {

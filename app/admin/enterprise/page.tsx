@@ -29,15 +29,45 @@ interface Company {
   estado?: string;
 }
 
+// Função para mapear place para Company
+const mapPlaceToCompany = (place: Record<string, unknown>): Company => ({
+  id: String(place.id ?? "0"),
+  name: String(place.name || "Sem nome"),
+  email: String(place.email || "Não informado"),
+  phone: String(place.phone || place.telefone || "Não informado"),
+  logo: String(place.logo || "default-logo.png"),
+  cnpj: String(place.cnpj || ""),
+  status: place.status === "active" || place.status === "ATIVA" ? "ATIVA" : "INATIVA",
+  created_at: String(place.created_at || new Date().toISOString()),
+  site: String(place.site || ""),
+  emailFinanceiro: String(place.email_financeiro || place.emailFinanceiro || ""),
+  cep: String(place.zipcode || place.cep || ""),
+  endereco: String(place.street || place.endereco || ""),
+  numero: String(place.number || place.numero || ""),
+  bairro: String(place.neighborhood || place.bairro || ""),
+  complemento: String(place.complemento || ""),
+  cidade: String(place.city || place.cidade || ""),
+  estado: String(place.state || place.estado || ""),
+});
+
 // Função para mapear Company para Establishment
 const mapCompanyToEstablishment = (company: Company): Establishment => ({
-  id: company.id.toString(), // Convertendo o id para string
-  cnpj: "", // Preencha conforme necessário ou deixe vazio
+  id: company.id.toString(),
+  cnpj: company.cnpj || "",
   nome: company.name,
   telefone: company.phone || "",
   email: company.email,
   status: company.status,
   logo: company.logo || "",
+  site: company.site,
+  emailFinanceiro: company.emailFinanceiro,
+  cep: company.cep,
+  endereco: company.endereco,
+  numero: company.numero,
+  bairro: company.bairro,
+  complemento: company.complemento,
+  cidade: company.cidade,
+  estado: company.estado,
 });
 
 export default function Companies() {
@@ -101,37 +131,27 @@ export default function Companies() {
     const token = localStorage.getItem("authToken");
 
     try {
-      // Primeiro tenta buscar da tabela bars
-      let response = await fetch(`${API_URL}/api/bars`, {
+      // Permissões usam ids de `places` — priorizar essa fonte para evitar colisão com `bars`.
+      let response = await fetch(`${API_URL}/api/places`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
       });
 
-      let data;
       if (response.ok) {
-        data = await response.json();
-        console.log("Dados recebidos da API (bars):", data);
-        
-        if (Array.isArray(data)) {
-          // Mapear dados da tabela bars para o formato esperado
-          const mappedData = data.map(bar => ({
-            id: bar.id.toString(),
-            name: bar.name || "Sem nome",
-            email: bar.email || "Não informado",
-            phone: bar.phone || "Não informado",
-            logo: bar.logoUrl || bar.logo || "default-logo.png",
-            cnpj: bar.cnpj || "",
-            status: bar.status || "ATIVA",
-            created_at: bar.created_at || new Date().toISOString()
-          }));
+        const data = await response.json();
+        const placesList = Array.isArray(data) ? data : (data.data || []);
+        if (Array.isArray(placesList) && placesList.length > 0) {
+          const mappedData = placesList.map((place: Record<string, unknown>) =>
+            mapPlaceToCompany(place),
+          );
           setCompanies(applyEstablishmentScope(mappedData));
           return;
         }
       }
 
-      // Se não conseguir da tabela bars, tenta da tabela places
-      response = await fetch(`${API_URL}/api/places`, {
+      // Fallback: tabela bars (legado)
+      response = await fetch(`${API_URL}/api/bars`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -139,33 +159,17 @@ export default function Companies() {
 
       if (!response.ok) throw new Error("Erro ao buscar empresas");
 
-      data = await response.json();
-      console.log("Dados recebidos da API (places):", data);
-
+      const data = await response.json();
       if (Array.isArray(data)) {
-        // Mapear dados da tabela places para o formato esperado
-        const mappedData = data.map(place => ({
-          id: place.id.toString(),
-          name: place.name || "Sem nome",
-          email: place.email || "Não informado",
-          phone: place.phone || "Não informado",
-          logo: place.logo || "default-logo.png",
-          cnpj: place.cnpj || "",
-          status: place.status === 'active' ? 'ATIVA' : 'INATIVA',
-          created_at: place.created_at || new Date().toISOString()
-        }));
-        setCompanies(applyEstablishmentScope(mappedData));
-      } else if (data.data && Array.isArray(data.data)) {
-        // Se os dados vêm em um objeto com propriedade data
-        const mappedData = data.data.map((place: any) => ({
-          id: place.id.toString(),
-          name: place.name || "Sem nome",
-          email: place.email || "Não informado",
-          phone: place.phone || "Não informado",
-          logo: place.logo || "default-logo.png",
-          cnpj: place.cnpj || "",
-          status: place.status === 'active' ? 'ATIVA' : 'INATIVA',
-          created_at: place.created_at || new Date().toISOString()
+        const mappedData = data.map((bar: Record<string, unknown>) => ({
+          id: String(bar.id ?? "0"),
+          name: String(bar.name || "Sem nome"),
+          email: String(bar.email || "Não informado"),
+          phone: String(bar.phone || "Não informado"),
+          logo: String(bar.logoUrl || bar.logo || "default-logo.png"),
+          cnpj: String(bar.cnpj || ""),
+          status: String(bar.status || "ATIVA"),
+          created_at: String(bar.created_at || new Date().toISOString()),
         }));
         setCompanies(applyEstablishmentScope(mappedData));
       } else {

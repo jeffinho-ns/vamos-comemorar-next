@@ -1,7 +1,9 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useEstablishmentPermissions } from '@/app/hooks/useEstablishmentPermissions';
+import { getActiveEstablishmentIds } from '@/app/utils/establishmentAccessRules';
 import {
   MdPerson,
   MdEvent,
@@ -28,6 +30,7 @@ interface Promoter {
   codigo_identificador?: string;
   link_convite?: string;
   status: 'Ativo' | 'Inativo';
+  establishment_id?: number;
 }
 
 interface Evento {
@@ -43,6 +46,7 @@ interface Evento {
   horario_funcionamento?: string;
   local_do_evento?: string;
   establishment_name?: string;
+  id_place?: number;
 }
 
 interface PromoterEvento {
@@ -64,9 +68,24 @@ interface PromoterEventosModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSave: () => void;
+  establishmentId?: number | null;
 }
 
-export default function PromoterEventosModal({ evento, isOpen, onClose, onSave }: PromoterEventosModalProps) {
+export default function PromoterEventosModal({
+  evento,
+  isOpen,
+  onClose,
+  onSave,
+  establishmentId,
+}: PromoterEventosModalProps) {
+  const establishmentPermissions = useEstablishmentPermissions();
+  const scopedEstablishmentIds = getActiveEstablishmentIds(
+    establishmentPermissions.permissions,
+  );
+  const resolvedEstablishmentId =
+    establishmentId ??
+    evento.id_place ??
+    (scopedEstablishmentIds.length === 1 ? scopedEstablishmentIds[0] : null);
   const [promoters, setPromoters] = useState<Promoter[]>([]);
   const [promotersEvento, setPromotersEvento] = useState<PromoterEvento[]>([]);
   const [loading, setLoading] = useState(false);
@@ -79,36 +98,47 @@ export default function PromoterEventosModal({ evento, isOpen, onClose, onSave }
 
   const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.agilizaiapp.com.br';
 
-  useEffect(() => {
-    if (isOpen && evento) {
-      fetchPromoters();
-      fetchPromotersEvento();
-      generateDateOptions();
-    }
-  }, [isOpen, evento]);
-
-  const fetchPromoters = async () => {
+  const fetchPromoters = useCallback(async () => {
     try {
       setLoading(true);
       const token = localStorage.getItem('authToken');
       
-      const response = await fetch(`${API_URL}/api/v1/promoters/advanced`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
+      const params = new URLSearchParams();
+      if (resolvedEstablishmentId) {
+        params.set('establishment_id', String(resolvedEstablishmentId));
+      }
+
+      const response = await fetch(
+        `${API_URL}/api/v1/promoters/advanced${params.toString() ? `?${params.toString()}` : ''}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
         },
-      });
+      );
 
       if (response.ok) {
         const data = await response.json();
         if (data.success) {
-          setPromoters(data.promoters.filter((p: Promoter) => p.status === 'Ativo'));
+          let list = (data.promoters as Promoter[]).filter((p) => p.status === 'Ativo');
+          if (resolvedEstablishmentId) {
+            list = list.filter(
+              (p) => Number(p.establishment_id) === Number(resolvedEstablishmentId),
+            );
+          } else if (scopedEstablishmentIds.length > 0) {
+            const allowed = new Set(scopedEstablishmentIds);
+            list = list.filter((p) => allowed.has(Number(p.establishment_id)));
+          }
+          setPromoters(list);
         }
       }
-    } catch (error) {
+    } catch {
       // Silently handle error
+    } finally {
+      setLoading(false);
     }
-  };
+  }, [API_URL, resolvedEstablishmentId, scopedEstablishmentIds]);
 
   const fetchPromotersEvento = async () => {
     try {
@@ -138,6 +168,14 @@ export default function PromoterEventosModal({ evento, isOpen, onClose, onSave }
       setSelectedData(evento.data_do_evento);
     }
   };
+
+  useEffect(() => {
+    if (isOpen && evento) {
+      fetchPromoters();
+      fetchPromotersEvento();
+      generateDateOptions();
+    }
+  }, [isOpen, evento, fetchPromoters]);
 
   const handleAddPromoter = async () => {
     if (!selectedPromoter) {
