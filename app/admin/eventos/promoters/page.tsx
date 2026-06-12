@@ -149,12 +149,14 @@ function PromotersPageContent() {
   const establishmentPermissions = useEstablishmentPermissions();
   const { isSuperAdmin, isLoading: permissionsLoading, myEstablishmentPermissions } =
     useUserPermissions();
-  const scopedEstablishmentIds = getActiveEstablishmentIds(myEstablishmentPermissions);
+  const scopedEstablishmentIds = useMemo(
+    () => getActiveEstablishmentIds(myEstablishmentPermissions),
+    [myEstablishmentPermissions],
+  );
   const searchParams = useSearchParams();
   const establishmentQuery = searchParams.get('establishment_id') || '';
   const [loading, setLoading] = useState(true);
   const [promoters, setPromoters] = useState<Promoter[]>([]);
-  const [filteredPromoters, setFilteredPromoters] = useState<Promoter[]>([]);
   const [establishments, setEstablishments] = useState<Establishment[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('');
@@ -220,13 +222,12 @@ function PromotersPageContent() {
 
   useEffect(() => {
     if (permissionsLoading) return;
-    if (establishmentQuery) {
-      setEstablishmentFilter(establishmentQuery);
-      return;
-    }
-    if (isRestrictedToSingle && defaultEstablishmentId) {
-      setEstablishmentFilter(String(defaultEstablishmentId));
-    }
+    const nextFilter = establishmentQuery
+      || (isRestrictedToSingle && defaultEstablishmentId
+        ? String(defaultEstablishmentId)
+        : '');
+    if (!nextFilter) return;
+    setEstablishmentFilter((prev) => (prev === nextFilter ? prev : nextFilter));
   }, [
     permissionsLoading,
     establishmentQuery,
@@ -240,20 +241,6 @@ function PromotersPageContent() {
     fetchEstablishments();
     fetchStatistics();
   }, [establishmentFilter, permissionsLoading]);
-
-  useEffect(() => {
-    filterAndSortPromoters();
-  }, [
-    searchTerm,
-    statusFilter,
-    categoriaFilter,
-    establishmentFilter,
-    sortBy,
-    sortOrder,
-    promoters,
-    isSuperAdmin,
-    scopedEstablishmentIds,
-  ]);
 
   const fetchPromoters = async () => {
     try {
@@ -362,7 +349,7 @@ function PromotersPageContent() {
     }
   };
 
-  const filterAndSortPromoters = () => {
+  const filteredPromoters = useMemo(() => {
     let filtered = [...promoters];
 
     if (!isSuperAdmin && scopedEstablishmentIds.length > 0) {
@@ -372,36 +359,35 @@ function PromotersPageContent() {
       );
     }
 
-    // Filtro por nome, apelido ou email
     if (searchTerm) {
+      const term = searchTerm.toLowerCase();
       filtered = filtered.filter(
         (p) =>
-          p.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          p.apelido?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          p.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          p.codigo_identificador?.toLowerCase().includes(searchTerm.toLowerCase())
+          p.nome.toLowerCase().includes(term) ||
+          p.apelido?.toLowerCase().includes(term) ||
+          p.email.toLowerCase().includes(term) ||
+          p.codigo_identificador?.toLowerCase().includes(term),
       );
     }
 
-    // Filtro por status
     if (statusFilter) {
       filtered = filtered.filter((p) => p.status === statusFilter);
     }
 
-    // Filtro por categoria
     if (categoriaFilter) {
       filtered = filtered.filter((p) => p.tipo_categoria === categoriaFilter);
     }
 
-    // Filtro por estabelecimento
     if (establishmentFilter) {
-      filtered = filtered.filter((p) => p.establishment_id?.toString() === establishmentFilter);
+      filtered = filtered.filter(
+        (p) => p.establishment_id?.toString() === establishmentFilter,
+      );
     }
 
-    // Ordenação
     filtered.sort((a, b) => {
-      let aValue, bValue;
-      
+      let aValue: string | number;
+      let bValue: string | number;
+
       switch (sortBy) {
         case 'nome':
           aValue = a.nome.toLowerCase();
@@ -434,13 +420,22 @@ function PromotersPageContent() {
 
       if (sortOrder === 'asc') {
         return aValue > bValue ? 1 : -1;
-      } else {
-        return aValue < bValue ? 1 : -1;
       }
+      return aValue < bValue ? 1 : -1;
     });
 
-    setFilteredPromoters(filtered);
-  };
+    return filtered;
+  }, [
+    promoters,
+    isSuperAdmin,
+    scopedEstablishmentIds,
+    searchTerm,
+    statusFilter,
+    categoriaFilter,
+    establishmentFilter,
+    sortBy,
+    sortOrder,
+  ]);
 
   const getStatusColor = (status: string) => {
     return status === 'Ativo' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800';
@@ -660,13 +655,11 @@ function PromotersPageContent() {
   };
 
   return (
-    <div className="relative min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50">
       {loading && (
-        <div className="absolute inset-0 z-20 flex items-center justify-center bg-gray-50/80 pointer-events-none">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-500 mx-auto"></div>
-            <p className="mt-4 text-gray-600">Carregando promoters...</p>
-          </div>
+        <div className="mb-4 flex items-center gap-3 rounded-lg border border-purple-100 bg-purple-50 px-4 py-3 text-sm text-purple-800">
+          <div className="h-5 w-5 animate-spin rounded-full border-2 border-purple-500 border-t-transparent" />
+          Carregando promoters...
         </div>
       )}
       {/* Header */}
