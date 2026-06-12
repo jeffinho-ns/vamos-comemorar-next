@@ -358,6 +358,19 @@ function digitsOnly(value: string): string {
   return String(value || "").replace(/\D/g, "");
 }
 
+const SAO_PAULO_DATE_TIME_FORMATTER = new Intl.DateTimeFormat("pt-BR", {
+  dateStyle: "short",
+  timeStyle: "short",
+  timeZone: "America/Sao_Paulo",
+});
+
+function formatSaoPauloDateTime(value: string | null | undefined): string {
+  if (!value) return "—";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "—";
+  return SAO_PAULO_DATE_TIME_FORMATTER.format(date);
+}
+
 function buildEstablishmentToken(establishmentId: number): string {
   return `#EST_${establishmentId}`;
 }
@@ -2233,7 +2246,7 @@ export default function AdminWhatsappPage() {
                         <p
                           className={`text-[10px] mt-1 ${m.direction === "outbound" ? "text-amber-100" : "text-gray-400"}`}
                         >
-                          {new Date(m.created_at).toLocaleString("pt-BR")}
+                          {formatSaoPauloDateTime(m.created_at)}
                         </p>
                       </div>
                     </div>
@@ -2713,7 +2726,7 @@ export default function AdminWhatsappPage() {
                         </div>
                       </td>
                       <td className="px-4 py-2 text-gray-700">
-                        {new Date(contact.last_seen_at).toLocaleString("pt-BR")}
+                        {formatSaoPauloDateTime(contact.last_seen_at)}
                       </td>
                       <td className="px-4 py-2">
                         <div className="flex gap-2">
@@ -3137,7 +3150,7 @@ export default function AdminWhatsappPage() {
                     {batchLogs.map((log) => (
                       <tr key={log.id} className="border-t border-gray-50">
                         <td className="py-1 pr-2 whitespace-nowrap">
-                          {new Date(log.created_at).toLocaleString("pt-BR")}
+                          {formatSaoPauloDateTime(log.created_at)}
                         </td>
                         <td className="py-1 pr-2 font-mono">{log.wa_id}</td>
                         <td className="py-1 pr-2">{log.status}</td>
