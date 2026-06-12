@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, useEffect } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { Suspense, useState, useEffect, useMemo } from 'react';
+import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { useAppContext } from '@/app/context/AppContext';
 import { useEstablishmentPermissions } from '@/app/hooks/useEstablishmentPermissions';
 import { useUserPermissions } from '@/app/hooks/useUserPermissions';
 import { getActiveEstablishmentIds } from '@/app/utils/establishmentAccessRules';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import {
   MdPerson,
   MdEmail,
@@ -143,13 +144,12 @@ const formatCurrency = (value: number): string => {
   return `R$ ${formatted}B`;
 };
 
-export default function PromotersPage() {
+function PromotersPageContent() {
   const { userEmail } = useAppContext();
   const establishmentPermissions = useEstablishmentPermissions();
   const { isSuperAdmin, isLoading: permissionsLoading, myEstablishmentPermissions } =
     useUserPermissions();
   const scopedEstablishmentIds = getActiveEstablishmentIds(myEstablishmentPermissions);
-  const router = useRouter();
   const searchParams = useSearchParams();
   const establishmentQuery = searchParams.get('establishment_id') || '';
   const [loading, setLoading] = useState(true);
@@ -159,7 +159,7 @@ export default function PromotersPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [categoriaFilter, setCategoriaFilter] = useState<string>('');
-  const [establishmentFilter, setEstablishmentFilter] = useState<string>('');
+  const [establishmentFilter, setEstablishmentFilter] = useState<string>(establishmentQuery);
   const [sortBy, setSortBy] = useState<string>('nome');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const [statistics, setStatistics] = useState({
@@ -209,49 +209,29 @@ export default function PromotersPage() {
 
   const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.agilizaiapp.com.br';
 
-  const handleTabChange = (tab: string) => {
-    const basePath = establishmentFilter
-      ? `?establishment_id=${establishmentFilter}`
-      : establishmentQuery
-        ? `?establishment_id=${establishmentQuery}`
-        : '';
+  const establishmentQuerySuffix = useMemo(() => {
+    const id = establishmentFilter || establishmentQuery;
+    return id ? `?establishment_id=${id}` : '';
+  }, [establishmentFilter, establishmentQuery]);
 
-    switch (tab) {
-      case 'dashboard':
-        router.push(`/admin/eventos/dashboard${basePath}`);
-        break;
-      case 'listas':
-        router.push(`/admin/eventos/listas${basePath}`);
-        break;
-      case 'hostess':
-        router.push(`/admin/eventos/hostess${basePath}`);
-        break;
-      case 'aniversarios':
-        router.push(`/admin/eventos/aniversarios${basePath}`);
-        break;
-      default:
-        break;
-    }
-  };
+  const defaultEstablishmentId = establishmentPermissions.getDefaultEstablishmentId();
+  const isRestrictedToSingle =
+    establishmentPermissions.isRestrictedToSingleEstablishment();
 
   useEffect(() => {
     if (permissionsLoading) return;
-    if (establishmentQuery && !establishmentFilter) {
+    if (establishmentQuery) {
       setEstablishmentFilter(establishmentQuery);
       return;
     }
-    if (
-      establishmentPermissions.isRestrictedToSingleEstablishment() &&
-      !establishmentFilter
-    ) {
-      const defaultId = establishmentPermissions.getDefaultEstablishmentId();
-      if (defaultId) setEstablishmentFilter(String(defaultId));
+    if (isRestrictedToSingle && defaultEstablishmentId) {
+      setEstablishmentFilter(String(defaultEstablishmentId));
     }
   }, [
     permissionsLoading,
     establishmentQuery,
-    establishmentFilter,
-    establishmentPermissions,
+    isRestrictedToSingle,
+    defaultEstablishmentId,
   ]);
 
   useEffect(() => {
@@ -374,16 +354,6 @@ export default function PromotersPage() {
 
         console.log('📋 Estabelecimentos formatados:', scopedEstablishments);
         setEstablishments(scopedEstablishments);
-
-        if (
-          establishmentPermissions.isRestrictedToSingleEstablishment() &&
-          !establishmentFilter
-        ) {
-          const defaultId = establishmentPermissions.getDefaultEstablishmentId();
-          if (defaultId) {
-            setEstablishmentFilter(String(defaultId));
-          }
-        }
       } else {
         console.error('❌ Erro na resposta da API:', response.status, response.statusText);
       }
@@ -689,19 +659,16 @@ export default function PromotersPage() {
     setShowQrCodeModal(true);
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-50">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-500 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Carregando promoters...</p>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="relative min-h-screen bg-gray-50">
+      {loading && (
+        <div className="absolute inset-0 z-20 flex items-center justify-center bg-gray-50/80 pointer-events-none">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-500 mx-auto"></div>
+            <p className="mt-4 text-gray-600">Carregando promoters...</p>
+          </div>
+        </div>
+      )}
       {/* Header */}
       <div className="bg-gradient-to-r from-green-600 to-green-700 text-white p-6 shadow-lg">
         <div className="max-w-7xl mx-auto">
@@ -719,47 +686,47 @@ export default function PromotersPage() {
       <div className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto">
           <nav className="flex space-x-1 overflow-x-auto">
-            <button
-              onClick={() => handleTabChange('dashboard')}
+            <Link
+              href={`/admin/eventos/dashboard${establishmentQuerySuffix}`}
               className="flex items-center gap-2 px-6 py-4 font-medium transition-colors whitespace-nowrap text-gray-600 hover:text-gray-900 hover:bg-gray-50"
             >
               <MdDashboard size={20} />
               Dashboard
-            </button>
-            <button
+            </Link>
+            <span
               className="flex items-center gap-2 px-6 py-4 font-medium transition-colors whitespace-nowrap border-b-2 border-green-500 text-green-600"
             >
               <MdAssignmentInd size={20} />
               Promoters
-            </button>
-            <button
-              onClick={() => handleTabChange('listas')}
+            </span>
+            <Link
+              href={`/admin/eventos/listas${establishmentQuerySuffix}`}
               className="flex items-center gap-2 px-6 py-4 font-medium transition-colors whitespace-nowrap text-gray-600 hover:text-gray-900 hover:bg-gray-50"
             >
               <MdList size={20} />
               Listas
-            </button>
-            <button
-              onClick={() => handleTabChange('hostess')}
+            </Link>
+            <Link
+              href={`/admin/eventos/hostess${establishmentQuerySuffix}`}
               className="flex items-center gap-2 px-6 py-4 font-medium transition-colors whitespace-nowrap text-gray-600 hover:text-gray-900 hover:bg-gray-50"
             >
               <MdGroups size={20} />
               Hostess
-            </button>
-            <button
-              onClick={() => handleTabChange('aniversarios')}
+            </Link>
+            <Link
+              href={`/admin/eventos/aniversarios${establishmentQuerySuffix}`}
               className="flex items-center gap-2 px-6 py-4 font-medium transition-colors whitespace-nowrap text-gray-600 hover:text-gray-900 hover:bg-gray-50"
             >
               <MdCake size={20} />
               Aniversários
-            </button>
-            <button
-              onClick={() => router.push('/admin/eventos/configurar')}
+            </Link>
+            <Link
+              href="/admin/eventos/configurar"
               className="flex items-center gap-2 px-6 py-4 font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-50 transition-colors whitespace-nowrap"
             >
               <MdSettings size={20} />
               Configurar Eventos
-            </button>
+            </Link>
           </nav>
         </div>
       </div>
@@ -1189,19 +1156,14 @@ export default function PromotersPage() {
       </div>
 
       {/* Create Modal */}
-      <AnimatePresence>
-        {showCreateModal && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-[100]"
+      {showCreateModal && (
+          <div
+            className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-40"
+            onClick={() => setShowCreateModal(false)}
           >
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
+            <div
               className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto"
+              onClick={(e) => e.stopPropagation()}
             >
               <div className="p-6 border-b border-gray-200">
                 <div className="flex items-center justify-between">
@@ -1545,25 +1507,19 @@ export default function PromotersPage() {
                   </button>
                 </div>
               </div>
-            </motion.div>
-          </motion.div>
+            </div>
+          </div>
         )}
-      </AnimatePresence>
 
       {/* Edit Modal */}
-      <AnimatePresence>
-        {showEditModal && selectedPromoter && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-[100]"
+      {showEditModal && selectedPromoter && (
+          <div
+            className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-40"
+            onClick={() => setShowEditModal(false)}
           >
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
+            <div
               className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto"
+              onClick={(e) => e.stopPropagation()}
             >
               <div className="p-6 border-b border-gray-200">
                 <div className="flex items-center justify-between">
@@ -1910,25 +1866,19 @@ export default function PromotersPage() {
                   </button>
                 </div>
               </div>
-            </motion.div>
-          </motion.div>
+            </div>
+          </div>
         )}
-      </AnimatePresence>
 
       {/* Details Modal */}
-      <AnimatePresence>
-        {showDetailsModal && selectedPromoter && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-[100]"
+      {showDetailsModal && selectedPromoter && (
+          <div
+            className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-40"
+            onClick={() => setShowDetailsModal(false)}
           >
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
+            <div
               className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto"
+              onClick={(e) => e.stopPropagation()}
             >
               <div className="p-6 border-b border-gray-200">
                 <div className="flex items-center justify-between">
@@ -1955,25 +1905,19 @@ export default function PromotersPage() {
                   </div>
                 </div>
               </div>
-            </motion.div>
-          </motion.div>
+            </div>
+          </div>
         )}
-      </AnimatePresence>
 
       {/* Modal de Condições */}
-      <AnimatePresence>
-        {showConditionsModal && selectedPromoter && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-[100]"
+      {showConditionsModal && selectedPromoter && (
+          <div
+            className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-40"
+            onClick={() => setShowConditionsModal(false)}
           >
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
+            <div
               className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto"
+              onClick={(e) => e.stopPropagation()}
             >
               <div className="p-6 border-b border-gray-200">
                 <div className="flex items-center justify-between">
@@ -2315,25 +2259,19 @@ export default function PromotersPage() {
                   Salvar Condições
                 </button>
               </div>
-            </motion.div>
-          </motion.div>
+            </div>
+          </div>
         )}
-      </AnimatePresence>
 
       {/* Modal de Convidados */}
-      <AnimatePresence>
-        {showConvidadosModal && selectedPromoter && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-[100]"
+      {showConvidadosModal && selectedPromoter && (
+          <div
+            className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-40"
+            onClick={() => setShowConvidadosModal(false)}
           >
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
+            <div
               className="bg-white rounded-lg shadow-xl max-w-6xl w-full max-h-[90vh] overflow-y-auto"
+              onClick={(e) => e.stopPropagation()}
             >
               <div className="p-6 border-b border-gray-200">
                 <div className="flex items-center justify-between">
@@ -2465,25 +2403,19 @@ export default function PromotersPage() {
                   </div>
                 )}
               </div>
-            </motion.div>
-          </motion.div>
+            </div>
+          </div>
         )}
-      </AnimatePresence>
 
       {/* Modal QR Code */}
-      <AnimatePresence>
-        {showQrCodeModal && selectedPromoter && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-[100]"
+      {showQrCodeModal && selectedPromoter && (
+          <div
+            className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-40"
+            onClick={() => setShowQrCodeModal(false)}
           >
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
+            <div
               className="bg-white rounded-lg shadow-xl max-w-md w-full"
+              onClick={(e) => e.stopPropagation()}
             >
               <div className="p-6 border-b border-gray-200">
                 <div className="flex items-center justify-between">
@@ -2508,15 +2440,26 @@ export default function PromotersPage() {
                   Funcionalidade em desenvolvimento
                 </p>
               </div>
-            </motion.div>
-          </motion.div>
+            </div>
+          </div>
         )}
-      </AnimatePresence>
     </div>
   );
 }
 
-
-
-
-
+export default function PromotersPage() {
+  return (
+    <Suspense
+      fallback={(
+        <div className="flex min-h-[50vh] items-center justify-center bg-gray-50">
+          <div className="text-center">
+            <div className="mx-auto h-12 w-12 animate-spin rounded-full border-b-2 border-purple-500" />
+            <p className="mt-4 text-gray-600">Carregando promoters...</p>
+          </div>
+        </div>
+      )}
+    >
+      <PromotersPageContent />
+    </Suspense>
+  );
+}
