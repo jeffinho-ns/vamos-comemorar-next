@@ -5,7 +5,10 @@ import {
   isWhatsappHighlineScopedEmail,
 } from "../config/whatsapp-highline-access";
 import { getPromoterBarByEmail } from "../config/promoter-bars";
-import { establishmentGrantsCardapioBar } from "../config/cardapioBarResolver";
+import {
+  establishmentGrantsCardapioBar,
+  establishmentIdToCardapioBarId,
+} from "../config/cardapioBarResolver";
 import {
   isGlobalAdminUser,
   isSuperAdminEmail as isSuperAdminEmailRule,
@@ -172,7 +175,7 @@ export function useUserPermissions() {
             userId: userId ?? 0,
             userEmail: safeUserEmail,
             userName: first.establishment_name,
-            barId: Number(first.establishment_id),
+            barId: establishmentIdToCardapioBarId(Number(first.establishment_id)),
             barName:
               first.establishment_name || `Estabelecimento ${first.establishment_id}`,
             barSlug: slugify(first.establishment_name || ""),
