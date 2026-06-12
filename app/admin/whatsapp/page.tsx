@@ -1054,6 +1054,11 @@ export default function AdminWhatsappPage() {
           assigned_user_name: data.conversation.assigned_user_name ?? null,
         });
       }
+      if (data.pending_delivery) {
+        setSuccessMessage(
+          "A Meta oscilou, mas a mensagem entrou em tentativa automática de envio.",
+        );
+      }
       draftDirtyRef.current = false;
       setComposeText("");
       isPinnedToBottomRef.current = true;

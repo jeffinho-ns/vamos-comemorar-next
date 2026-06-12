@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation"; // Hook para pegar a URL atual
@@ -107,10 +107,10 @@ export default function DashboardLayout({
     isLoading: isLoadingPerms,
   } = useUserPermissions();
   const { role: userRole, userEmail, isLoading } = useAppContext();
-  const cookieRole =
-    typeof document !== "undefined"
-      ? (document.cookie.match(/(?:^|;\s*)role=([^;]*)/)?.[1] || "")
-      : "";
+  const [cookieRole, setCookieRole] = useState("");
+  useEffect(() => {
+    setCookieRole(document.cookie.match(/(?:^|;\s*)role=([^;]*)/)?.[1] || "");
+  }, []);
   const decodedCookieRole = cookieRole
     ? decodeURIComponent(cookieRole).toLowerCase().trim()
     : "";
@@ -393,10 +393,13 @@ export default function DashboardLayout({
   };
 
   // Se não há links disponíveis para o usuário, redireciona para acesso negado
-  if (!isLoading && navLinks.length === 0) {
-    window.location.href = "/acesso-negado";
-    return null;
-  }
+  useEffect(() => {
+    if (!isLoading && navLinks.length === 0) {
+      window.location.href = "/acesso-negado";
+    }
+  }, [isLoading, navLinks.length]);
+
+  if (!isLoading && navLinks.length === 0) return null;
 
   const showBlockingLoader =
     (isLoading || isLoadingPerms) && !decodedCookieRole && navLinks.length === 0;
