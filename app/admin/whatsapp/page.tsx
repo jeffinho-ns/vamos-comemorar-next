@@ -451,6 +451,7 @@ export default function AdminWhatsappPage() {
   const [sending, setSending] = useState(false);
   const [takeoverLoading, setTakeoverLoading] = useState(false);
   const [resumeLoading, setResumeLoading] = useState(false);
+  const [resumeBatchLoading, setResumeBatchLoading] = useState(false);
   const [statusLoading, setStatusLoading] = useState(false);
   const [assignLoading, setAssignLoading] = useState(false);
   const [contacts, setContacts] = useState<ContactRow[]>([]);
@@ -1068,6 +1069,35 @@ export default function AdminWhatsappPage() {
       setError(e instanceof Error ? e.message : "Falha ao enviar");
     } finally {
       setSending(false);
+    }
+  };
+
+  const handleResumeUnassignedAI = async () => {
+    if (!token) return;
+    setResumeBatchLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(
+        `${API_URL}/api/admin/whatsapp/conversations/resume-ai-unassigned`,
+        {
+          method: "POST",
+          headers: authHeaders,
+        },
+      );
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.message || `Erro ${res.status}`);
+      const count = Number(data.resumed_count || 0);
+      setSuccessMessage(
+        count > 0
+          ? `IA retomada em ${count} conversa${count === 1 ? "" : "s"} sem atendente.`
+          : "Nenhuma conversa sem atendente precisava ser retomada.",
+      );
+      await fetchConversations();
+      if (selectedWaId) await fetchMessages(selectedWaId);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Falha ao retomar IA em massa");
+    } finally {
+      setResumeBatchLoading(false);
     }
   };
 
@@ -1906,17 +1936,30 @@ export default function AdminWhatsappPage() {
           </div>
         </div>
         {showWhatsappInbox ? (
-          <button
-            type="button"
-            onClick={() => {
-              fetchConversations();
-              if (selectedWaId) fetchMessages(selectedWaId);
-            }}
-            className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 bg-white text-sm hover:bg-gray-50"
-          >
-            <MdRefresh />
-            Atualizar
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            {handoffConversationsCount > 0 ? (
+              <button
+                type="button"
+                onClick={handleResumeUnassignedAI}
+                disabled={resumeBatchLoading}
+                className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-emerald-600 text-white text-sm hover:bg-emerald-700 disabled:opacity-50"
+              >
+                <MdSupportAgent />
+                {resumeBatchLoading ? "Retomando…" : "Retomar IA sem atendente"}
+              </button>
+            ) : null}
+            <button
+              type="button"
+              onClick={() => {
+                fetchConversations();
+                if (selectedWaId) fetchMessages(selectedWaId);
+              }}
+              className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 bg-white text-sm hover:bg-gray-50"
+            >
+              <MdRefresh />
+              Atualizar
+            </button>
+          </div>
         ) : null}
       </div>
 
