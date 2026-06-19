@@ -25,6 +25,7 @@ import { getPublicSocketUrl } from "@/lib/publicApiUrl";
 import { useAppContext } from "@/app/context/AppContext";
 import { useUserPermissions } from "@/app/hooks/useUserPermissions";
 import EstablishmentTrainingPanel from "@/app/components/admin/EstablishmentTrainingPanel";
+import AiConfigPanel from "@/app/components/admin/AiConfigPanel";
 
 const API_URL = getApiUrl();
 const SOCKET_URL = getPublicSocketUrl();
@@ -280,6 +281,7 @@ type CampaignSendLogRow = {
 
 type WhatsappAdminTab =
   | "treinamento"
+  | "config-ia"
   | "atendimento"
   | "links"
   | "crm"
@@ -535,6 +537,7 @@ export default function AdminWhatsappPage() {
     }
     if (canAccessIaTraining) {
       items.push({ id: "treinamento", label: "Treinamento IA" });
+      items.push({ id: "config-ia", label: "Configurações de IA" });
     }
     if (canAccessWhatsapp) {
       items.push(
@@ -552,7 +555,8 @@ export default function AdminWhatsappPage() {
     isWhatsappHighlineOnlyUser,
   ]);
 
-  const showWhatsappArea = canAccessWhatsapp && activeTab !== "treinamento";
+  const showWhatsappArea =
+    canAccessWhatsapp && activeTab !== "treinamento" && activeTab !== "config-ia";
   const showWhatsappInbox = canAccessWhatsapp && activeTab === "atendimento";
 
   const selectTab = useCallback(
@@ -1988,6 +1992,8 @@ export default function AdminWhatsappPage() {
       ) : null}
 
       {activeTab === "treinamento" ? <EstablishmentTrainingPanel /> : null}
+
+      {activeTab === "config-ia" ? <AiConfigPanel /> : null}
 
       {showWhatsappArea ? (
       <>
