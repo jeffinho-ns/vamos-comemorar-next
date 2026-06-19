@@ -4,7 +4,7 @@ import { useCallback, useEffect } from 'react';
 import { MdAdd, MdDelete } from 'react-icons/md';
 import { AiChannel, AiIceBreaker } from '@/app/types/aiAssistant';
 import { useAiSettings } from './useAiSettings';
-import { FeedbackBanner, SaveBar, SectionHeader, Toggle, useAiList } from './shared';
+import { FeedbackBanner, INPUT_CLASS, SaveBar, SectionHeader, Toggle, useAiList } from './shared';
 
 const DEFAULT_ICE_BREAKERS: AiIceBreaker[] = [
   { channel: 'whatsapp', label: 'Reserva', question: 'Quero fazer uma reserva', is_active: true },
@@ -56,7 +56,7 @@ export default function IceBreakersTab({ establishmentId }: { establishmentId: n
   }, [settingsState, listState]);
 
   if (settingsState.loading || listState.loading)
-    return <p className="text-sm text-zinc-400">Carregando quebra-gelos...</p>;
+    return <p className="text-sm text-gray-500">Carregando quebra-gelos...</p>;
 
   return (
     <div className="space-y-6">
@@ -66,10 +66,10 @@ export default function IceBreakersTab({ establishmentId }: { establishmentId: n
         description="Mensagens iniciais sugeridas que o cliente pode tocar para começar a conversa."
       />
 
-      <div className="flex items-center justify-between gap-4 rounded-lg border border-zinc-700 bg-zinc-800/60 px-4 py-3">
+      <div className="flex items-center justify-between gap-4 rounded-lg border border-gray-200 bg-white px-4 py-3">
         <div>
-          <p className="text-sm font-medium text-zinc-100">Ativar quebra-gelos</p>
-          <p className="text-xs text-zinc-400">Desligue se preferir que o cliente entre direto no chat.</p>
+          <p className="text-sm font-medium text-gray-900">Ativar quebra-gelos</p>
+          <p className="text-xs text-gray-500">Desligue se preferir que o cliente entre direto no chat.</p>
         </div>
         <Toggle
           checked={settings.ice_breakers_enabled}
@@ -78,7 +78,7 @@ export default function IceBreakersTab({ establishmentId }: { establishmentId: n
       </div>
 
       <div>
-        <p className="mb-2 text-xs text-zinc-400">Canais ativos</p>
+        <p className="mb-2 text-xs text-gray-500">Canais ativos</p>
         <div className="flex gap-2">
           {CHANNELS.map((ch) => {
             const active = channels.includes(ch.value);
@@ -89,8 +89,8 @@ export default function IceBreakersTab({ establishmentId }: { establishmentId: n
                 onClick={() => toggleChannel(ch.value)}
                 className={`rounded-full border px-4 py-1.5 text-sm transition-colors ${
                   active
-                    ? 'border-emerald-500/50 bg-emerald-500/15 text-emerald-300'
-                    : 'border-zinc-700 bg-zinc-800 text-zinc-400 hover:bg-zinc-700/60'
+                    ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
+                    : 'border-gray-200 bg-white text-gray-500 hover:bg-gray-50'
                 }`}
               >
                 {ch.label}
@@ -102,9 +102,9 @@ export default function IceBreakersTab({ establishmentId }: { establishmentId: n
 
       <div className="space-y-3">
         {items.map((q, index) => (
-          <div key={index} className="rounded-xl border border-zinc-700 bg-zinc-800/40 p-3">
+          <div key={index} className="rounded-xl border border-gray-200 bg-gray-50 p-3">
             <div className="mb-2 flex items-center gap-2">
-              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-purple-600 text-xs font-semibold text-white">
+              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-amber-600 text-xs font-semibold text-white">
                 {index + 1}
               </span>
               <input
@@ -112,12 +112,12 @@ export default function IceBreakersTab({ establishmentId }: { establishmentId: n
                 value={q.label}
                 onChange={(e) => updateItem(index, { label: e.target.value })}
                 placeholder="Rótulo (ex.: Reserva)"
-                className="flex-1 rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-1.5 text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                className={`${INPUT_CLASS} flex-1`}
               />
               <select
                 value={q.channel}
                 onChange={(e) => updateItem(index, { channel: e.target.value as AiChannel })}
-                className="rounded-lg border border-zinc-700 bg-zinc-800 px-2 py-1.5 text-xs text-zinc-300 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                className="rounded-lg border border-gray-200 bg-white px-2 py-2 text-xs text-gray-600 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none"
               >
                 {CHANNELS.map((ch) => (
                   <option key={ch.value} value={ch.value}>
@@ -128,7 +128,7 @@ export default function IceBreakersTab({ establishmentId }: { establishmentId: n
               <button
                 type="button"
                 onClick={() => removeItem(index)}
-                className="rounded p-1.5 text-red-400 hover:text-red-300"
+                className="rounded p-1.5 text-red-500 hover:text-red-600"
                 aria-label="Remover pergunta"
               >
                 <MdDelete size={18} />
@@ -140,9 +140,9 @@ export default function IceBreakersTab({ establishmentId }: { establishmentId: n
               maxLength={160}
               onChange={(e) => updateItem(index, { question: e.target.value })}
               placeholder="Pergunta que o cliente vê (ex.: Quero fazer uma reserva)"
-              className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-purple-500"
+              className={INPUT_CLASS}
             />
-            <p className="mt-1 text-right text-[11px] text-zinc-500">{q.question.length} / 160</p>
+            <p className="mt-1 text-right text-[11px] text-gray-400">{q.question.length} / 160</p>
           </div>
         ))}
       </div>
@@ -150,7 +150,7 @@ export default function IceBreakersTab({ establishmentId }: { establishmentId: n
       <button
         type="button"
         onClick={addItem}
-        className="inline-flex items-center gap-2 rounded-lg border border-dashed border-zinc-600 px-4 py-2 text-sm text-zinc-300 hover:bg-zinc-800"
+        className="inline-flex items-center gap-2 rounded-lg border border-dashed border-gray-300 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50"
       >
         <MdAdd size={16} />
         Adicionar quebra-gelo

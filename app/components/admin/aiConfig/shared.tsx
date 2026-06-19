@@ -14,6 +14,13 @@ export function getAuthHeaders(): HeadersInit {
   return headers;
 }
 
+export const INPUT_CLASS =
+  'w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none';
+
+export const PANEL_CARD_CLASS = 'rounded-xl border border-gray-200 bg-white p-4 shadow-sm';
+
+export const SUBTLE_CARD_CLASS = 'rounded-xl border border-gray-200 bg-gray-50 p-4';
+
 export function Toggle({
   checked,
   onChange,
@@ -31,7 +38,7 @@ export function Toggle({
       disabled={disabled}
       onClick={() => onChange(!checked)}
       className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${
-        checked ? 'bg-purple-500' : 'bg-zinc-600'
+        checked ? 'bg-amber-500' : 'bg-gray-300'
       } ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
     >
       <span
@@ -57,10 +64,10 @@ export function ToggleRow({
   disabled?: boolean;
 }) {
   return (
-    <div className="flex items-center justify-between gap-4 rounded-lg border border-zinc-700 bg-zinc-800/60 px-4 py-3">
+    <div className="flex items-center justify-between gap-4 rounded-lg border border-gray-200 bg-white px-4 py-3">
       <div>
-        <p className="text-sm font-medium text-zinc-100">{title}</p>
-        {description && <p className="text-xs text-zinc-400">{description}</p>}
+        <p className="text-sm font-medium text-gray-900">{title}</p>
+        {description && <p className="text-xs text-gray-500">{description}</p>}
       </div>
       <Toggle checked={checked} onChange={onChange} disabled={disabled} />
     </div>
@@ -83,11 +90,11 @@ export function CardOption({
       type="button"
       onClick={onClick}
       className={`rounded-xl border px-4 py-3 text-left transition-colors ${
-        active ? 'border-purple-500 bg-purple-500/15' : 'border-zinc-700 bg-zinc-800/60 hover:bg-zinc-700/60'
+        active ? 'border-amber-500 bg-amber-50' : 'border-gray-200 bg-white hover:bg-gray-50'
       }`}
     >
-      <p className={`text-sm font-semibold ${active ? 'text-purple-200' : 'text-zinc-100'}`}>{title}</p>
-      <p className="text-xs text-zinc-400">{hint}</p>
+      <p className={`text-sm font-semibold ${active ? 'text-amber-700' : 'text-gray-900'}`}>{title}</p>
+      <p className="text-xs text-gray-500">{hint}</p>
     </button>
   );
 }
@@ -95,8 +102,8 @@ export function CardOption({
 export function SectionHeader({ title, description }: { title: string; description?: string }) {
   return (
     <header>
-      <h3 className="text-lg font-semibold text-white">{title}</h3>
-      {description && <p className="text-sm text-zinc-400">{description}</p>}
+      <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
+      {description && <p className="text-sm text-gray-500">{description}</p>}
     </header>
   );
 }
@@ -112,12 +119,12 @@ export function FeedbackBanner({
   return (
     <>
       {error && (
-        <div className="mb-4 rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-2 text-sm text-red-300">
+        <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
           {error}
         </div>
       )}
       {success && (
-        <div className="mb-4 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-4 py-2 text-sm text-emerald-300">
+        <div className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm text-emerald-700">
           {success}
         </div>
       )}
@@ -137,12 +144,12 @@ export function SaveBar({
   disabled?: boolean;
 }) {
   return (
-    <div className="mt-8 flex items-center justify-end gap-3 border-t border-zinc-800 pt-4">
+    <div className="mt-8 flex items-center justify-end gap-3 border-t border-gray-200 pt-4">
       <button
         type="button"
         onClick={onReset}
         disabled={saving || disabled}
-        className="inline-flex items-center gap-2 rounded-lg border border-zinc-700 px-4 py-2 text-sm text-zinc-300 hover:bg-zinc-800 disabled:opacity-50"
+        className="inline-flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50"
       >
         <MdReplay size={16} />
         Descartar
@@ -151,7 +158,7 @@ export function SaveBar({
         type="button"
         onClick={onSave}
         disabled={saving || disabled}
-        className="inline-flex items-center gap-2 rounded-lg bg-purple-600 px-5 py-2 text-sm font-medium text-white hover:bg-purple-500 disabled:opacity-50"
+        className="inline-flex items-center gap-2 rounded-lg bg-amber-600 px-5 py-2 text-sm font-medium text-white hover:bg-amber-700 disabled:opacity-50"
       >
         <MdSave size={16} />
         {saving ? 'Salvando...' : 'Salvar alterações'}

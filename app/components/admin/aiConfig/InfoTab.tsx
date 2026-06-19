@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { MdAdd, MdDelete, MdEdit } from 'react-icons/md';
 import { EstablishmentInfo } from '@/app/types/aiAssistant';
-import { FeedbackBanner, SectionHeader, getApiBaseUrl, getAuthHeaders } from './shared';
+import { FeedbackBanner, INPUT_CLASS, SectionHeader, getApiBaseUrl, getAuthHeaders } from './shared';
 
 const CATEGORIES = [
   { value: 'geral', label: 'Geral' },
@@ -16,11 +16,11 @@ const CATEGORIES = [
 const FILTERS = [{ value: 'todas', label: 'Todas' }, ...CATEGORIES];
 
 const CATEGORY_BADGE: Record<string, string> = {
-  geral: 'bg-zinc-600/40 text-zinc-200',
-  evento: 'bg-fuchsia-500/20 text-fuchsia-300',
-  reserva: 'bg-emerald-500/20 text-emerald-300',
-  cardapio: 'bg-amber-500/20 text-amber-300',
-  fila: 'bg-sky-500/20 text-sky-300',
+  geral: 'bg-gray-100 text-gray-600',
+  evento: 'bg-fuchsia-100 text-fuchsia-700',
+  reserva: 'bg-emerald-100 text-emerald-700',
+  cardapio: 'bg-amber-100 text-amber-700',
+  fila: 'bg-sky-100 text-sky-700',
 };
 
 type FormState = { id?: number; topic: string; answer: string; category: string };
@@ -127,7 +127,7 @@ export default function InfoTab({ establishmentId }: { establishmentId: number |
         <button
           type="button"
           onClick={openNew}
-          className="inline-flex shrink-0 items-center gap-2 rounded-lg bg-purple-600 px-4 py-2 text-sm font-medium text-white hover:bg-purple-500"
+          className="inline-flex shrink-0 items-center gap-2 rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-700"
         >
           <MdAdd size={16} />
           Adicionar
@@ -142,8 +142,8 @@ export default function InfoTab({ establishmentId }: { establishmentId: number |
             onClick={() => setFilter(f.value)}
             className={`rounded-full px-3 py-1.5 text-sm transition-colors ${
               filter === f.value
-                ? 'bg-purple-500/20 text-purple-200 ring-1 ring-purple-500/40'
-                : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700/60'
+                ? 'bg-amber-50 text-amber-700 ring-1 ring-amber-200'
+                : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
             }`}
           >
             {f.label}
@@ -152,19 +152,19 @@ export default function InfoTab({ establishmentId }: { establishmentId: number |
       </div>
 
       {showForm && (
-        <div className="rounded-xl border border-purple-500/30 bg-zinc-800/50 p-4">
+        <div className="rounded-xl border border-amber-200 bg-amber-50/50 p-4">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <input
               type="text"
               value={form.topic}
               onChange={(e) => setForm((p) => ({ ...p, topic: e.target.value }))}
               placeholder="Título (ex.: Estacionamento)"
-              className="rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-purple-500"
+              className={INPUT_CLASS}
             />
             <select
               value={form.category}
               onChange={(e) => setForm((p) => ({ ...p, category: e.target.value }))}
-              className="rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-100 focus:outline-none focus:ring-2 focus:ring-purple-500"
+              className={INPUT_CLASS}
             >
               {CATEGORIES.map((c) => (
                 <option key={c.value} value={c.value}>
@@ -178,7 +178,7 @@ export default function InfoTab({ establishmentId }: { establishmentId: number |
             onChange={(e) => setForm((p) => ({ ...p, answer: e.target.value }))}
             rows={4}
             placeholder="Conteúdo que a IA pode usar para responder..."
-            className="mt-3 w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-purple-500"
+            className={`${INPUT_CLASS} mt-3`}
           />
           <div className="mt-3 flex justify-end gap-2">
             <button
@@ -187,7 +187,7 @@ export default function InfoTab({ establishmentId }: { establishmentId: number |
                 setShowForm(false);
                 setForm(EMPTY_FORM);
               }}
-              className="rounded-lg border border-zinc-700 px-4 py-2 text-sm text-zinc-300 hover:bg-zinc-800"
+              className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
             >
               Cancelar
             </button>
@@ -195,7 +195,7 @@ export default function InfoTab({ establishmentId }: { establishmentId: number |
               type="button"
               onClick={handleSubmit}
               disabled={saving}
-              className="rounded-lg bg-purple-600 px-5 py-2 text-sm font-medium text-white hover:bg-purple-500 disabled:opacity-50"
+              className="rounded-lg bg-amber-600 px-5 py-2 text-sm font-medium text-white hover:bg-amber-700 disabled:opacity-50"
             >
               {saving ? 'Salvando...' : 'Salvar'}
             </button>
@@ -204,15 +204,15 @@ export default function InfoTab({ establishmentId }: { establishmentId: number |
       )}
 
       {loading ? (
-        <p className="text-sm text-zinc-400">Carregando informações...</p>
+        <p className="text-sm text-gray-500">Carregando informações...</p>
       ) : visible.length === 0 ? (
-        <p className="rounded-lg border border-dashed border-zinc-700 px-4 py-8 text-center text-sm text-zinc-500">
+        <p className="rounded-lg border border-dashed border-gray-300 px-4 py-8 text-center text-sm text-gray-400">
           Nenhuma informação nesta categoria. Clique em &quot;Adicionar&quot; para cadastrar.
         </p>
       ) : (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {visible.map((info) => (
-            <div key={info.id} className="flex flex-col rounded-xl border border-zinc-700 bg-zinc-800/40 p-4">
+            <div key={info.id} className="flex flex-col rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
               <div className="mb-2 flex items-center justify-between gap-2">
                 <span
                   className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${
@@ -225,7 +225,7 @@ export default function InfoTab({ establishmentId }: { establishmentId: number |
                   <button
                     type="button"
                     onClick={() => openEdit(info)}
-                    className="rounded p-1 text-zinc-400 hover:text-white"
+                    className="rounded p-1 text-gray-400 hover:text-gray-700"
                     aria-label="Editar"
                   >
                     <MdEdit size={16} />
@@ -233,15 +233,15 @@ export default function InfoTab({ establishmentId }: { establishmentId: number |
                   <button
                     type="button"
                     onClick={() => handleDelete(info.id)}
-                    className="rounded p-1 text-red-400 hover:text-red-300"
+                    className="rounded p-1 text-red-500 hover:text-red-600"
                     aria-label="Remover"
                   >
                     <MdDelete size={16} />
                   </button>
                 </div>
               </div>
-              <p className="text-sm font-semibold text-zinc-100">{info.topic}</p>
-              <p className="mt-1 line-clamp-4 text-xs text-zinc-400">{info.answer}</p>
+              <p className="text-sm font-semibold text-gray-900">{info.topic}</p>
+              <p className="mt-1 line-clamp-4 text-xs text-gray-500">{info.answer}</p>
             </div>
           ))}
         </div>

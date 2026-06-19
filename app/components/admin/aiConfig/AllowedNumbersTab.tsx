@@ -4,7 +4,7 @@ import { useCallback, useState } from 'react';
 import { MdAdd, MdDelete, MdInfoOutline } from 'react-icons/md';
 import { AiAllowedNumber } from '@/app/types/aiAssistant';
 import { useAiSettings } from './useAiSettings';
-import { FeedbackBanner, SaveBar, SectionHeader, Toggle, useAiList } from './shared';
+import { FeedbackBanner, INPUT_CLASS, SaveBar, SectionHeader, Toggle, useAiList } from './shared';
 
 function formatPhone(digits: string): string {
   const d = digits.replace(/\D/g, '');
@@ -45,7 +45,7 @@ export default function AllowedNumbersTab({ establishmentId }: { establishmentId
   }, [settingsState, listState]);
 
   if (settingsState.loading || listState.loading)
-    return <p className="text-sm text-zinc-400">Carregando números...</p>;
+    return <p className="text-sm text-gray-500">Carregando números...</p>;
 
   return (
     <div className="space-y-6">
@@ -55,10 +55,10 @@ export default function AllowedNumbersTab({ establishmentId }: { establishmentId
         description="Limite o atendimento da IA a um conjunto de números durante testes."
       />
 
-      <div className="flex items-center justify-between gap-4 rounded-lg border border-zinc-700 bg-zinc-800/60 px-4 py-3">
+      <div className="flex items-center justify-between gap-4 rounded-lg border border-gray-200 bg-white px-4 py-3">
         <div>
-          <p className="text-sm font-medium text-zinc-100">IA ativada globalmente</p>
-          <p className="text-xs text-zinc-400">
+          <p className="text-sm font-medium text-gray-900">IA ativada globalmente</p>
+          <p className="text-xs text-gray-500">
             Quando desligada, apenas os números abaixo recebem resposta da IA.
           </p>
         </div>
@@ -68,7 +68,7 @@ export default function AllowedNumbersTab({ establishmentId }: { establishmentId
         />
       </div>
 
-      <div className="flex items-start gap-2 rounded-lg border border-purple-500/30 bg-purple-500/10 px-4 py-3 text-sm text-purple-200">
+      <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
         <MdInfoOutline size={18} className="mt-0.5 shrink-0" />
         <p>
           <strong>Como funciona:</strong> com a IA desativada globalmente, só os números desta lista terão
@@ -78,22 +78,22 @@ export default function AllowedNumbersTab({ establishmentId }: { establishmentId
 
       <div>
         <div className="mb-3 flex items-center justify-between">
-          <p className="text-sm font-semibold text-zinc-200">Lista de números ({items.length})</p>
+          <p className="text-sm font-semibold text-gray-800">Lista de números ({items.length})</p>
         </div>
         <div className="space-y-2">
           {items.map((n, index) => (
             <div
               key={index}
-              className="flex items-center justify-between gap-3 rounded-xl border border-zinc-700 bg-zinc-800/60 px-4 py-3"
+              className="flex items-center justify-between gap-3 rounded-xl border border-gray-200 bg-white px-4 py-3"
             >
               <div>
-                <p className="text-sm font-medium text-zinc-100">{formatPhone(n.phone_e164)}</p>
-                <p className="text-xs text-zinc-400">{n.label || n.phone_e164.replace(/\D/g, '')}</p>
+                <p className="text-sm font-medium text-gray-900">{formatPhone(n.phone_e164)}</p>
+                <p className="text-xs text-gray-500">{n.label || n.phone_e164.replace(/\D/g, '')}</p>
               </div>
               <button
                 type="button"
                 onClick={() => removeNumber(index)}
-                className="rounded p-1.5 text-red-400 hover:text-red-300"
+                className="rounded p-1.5 text-red-500 hover:text-red-600"
                 aria-label="Remover número"
               >
                 <MdDelete size={18} />
@@ -108,19 +108,19 @@ export default function AllowedNumbersTab({ establishmentId }: { establishmentId
             value={newPhone}
             onChange={(e) => setNewPhone(e.target.value)}
             placeholder="Número com DDI/DDD (ex.: 5511984337670)"
-            className="rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-purple-500"
+            className={INPUT_CLASS}
           />
           <input
             type="text"
             value={newLabel}
             onChange={(e) => setNewLabel(e.target.value)}
             placeholder="Rótulo (opcional)"
-            className="rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-purple-500"
+            className={INPUT_CLASS}
           />
           <button
             type="button"
             onClick={addNumber}
-            className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-purple-600 px-4 py-2 text-sm font-medium text-white hover:bg-purple-500"
+            className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-700"
           >
             <MdAdd size={16} />
             Adicionar

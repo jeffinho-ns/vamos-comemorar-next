@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { MdClose } from 'react-icons/md';
 import { AiFollowUpCategory, AiFollowUpConfig } from '@/app/types/aiAssistant';
 import { useAiSettings } from './useAiSettings';
-import { FeedbackBanner, SaveBar, SectionHeader, Toggle } from './shared';
+import { FeedbackBanner, INPUT_CLASS, SaveBar, SectionHeader, Toggle } from './shared';
 
 const CATEGORIES: { value: AiFollowUpCategory; label: string; placeholder: string }[] = [
   { value: 'reservas', label: 'Reservas', placeholder: 'Ex.: Reservas de mesa para até 6 pessoas' },
@@ -43,7 +43,7 @@ export default function FollowUpTab({ establishmentId }: { establishmentId: numb
     patchConfig({ categories: { ...categories, [key]: { ...current, ...patch } } });
   };
 
-  if (loading) return <p className="text-sm text-zinc-400">Carregando configurações...</p>;
+  if (loading) return <p className="text-sm text-gray-500">Carregando configurações...</p>;
 
   return (
     <div className="space-y-8">
@@ -53,24 +53,24 @@ export default function FollowUpTab({ establishmentId }: { establishmentId: numb
         description="Reativa conversas paradas — quando insistir e quando deixar quieto."
       />
 
-      <div className="flex items-center justify-between gap-4 rounded-lg border border-zinc-700 bg-zinc-800/60 px-4 py-3">
+      <div className="flex items-center justify-between gap-4 rounded-lg border border-gray-200 bg-white px-4 py-3">
         <div>
-          <p className="text-sm font-medium text-zinc-100">Habilitar follow-up automático</p>
-          <p className="text-xs text-zinc-400">Quando ligado, a IA pode retomar conversas sem resposta do cliente.</p>
+          <p className="text-sm font-medium text-gray-900">Habilitar follow-up automático</p>
+          <p className="text-xs text-gray-500">Quando ligado, a IA pode retomar conversas sem resposta do cliente.</p>
         </div>
         <Toggle checked={Boolean(cfg.enabled)} onChange={(v) => patchConfig({ enabled: v })} />
       </div>
 
       <div>
-        <h4 className="mb-1 text-sm font-semibold text-zinc-200">Quando enviar</h4>
-        <p className="mb-3 text-xs text-zinc-400">
+        <h4 className="mb-1 text-sm font-semibold text-gray-800">Quando enviar</h4>
+        <p className="mb-3 text-xs text-gray-500">
           Até 5 intervalos (em minutos) depois da última mensagem do cliente.
         </p>
         <div className="flex flex-wrap items-center gap-2">
           {intervals.map((m) => (
             <span
               key={m}
-              className="inline-flex items-center gap-1.5 rounded-full bg-purple-500/15 px-3 py-1 text-sm text-purple-200"
+              className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-3 py-1 text-sm text-amber-700 ring-1 ring-amber-200"
             >
               {m} min
               <button type="button" onClick={() => removeInterval(m)} aria-label="Remover intervalo">
@@ -92,12 +92,12 @@ export default function FollowUpTab({ establishmentId }: { establishmentId: numb
                   }
                 }}
                 placeholder="0"
-                className="w-24 rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-1.5 text-sm text-zinc-100 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                className={`${INPUT_CLASS} w-24`}
               />
               <button
                 type="button"
                 onClick={addInterval}
-                className="rounded-lg bg-purple-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-purple-500"
+                className="rounded-lg bg-amber-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-amber-700"
               >
                 +
               </button>
@@ -107,17 +107,17 @@ export default function FollowUpTab({ establishmentId }: { establishmentId: numb
       </div>
 
       <div>
-        <h4 className="mb-1 text-sm font-semibold text-zinc-200">Por categoria</h4>
-        <p className="mb-3 text-xs text-zinc-400">
+        <h4 className="mb-1 text-sm font-semibold text-gray-800">Por categoria</h4>
+        <p className="mb-3 text-xs text-gray-500">
           Ligue o follow-up por assunto e, se quiser, dê instruções personalizadas.
         </p>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           {CATEGORIES.map((cat) => {
             const setting = categories[cat.value] || { enabled: false, instruction: '' };
             return (
-              <div key={cat.value} className="rounded-xl border border-zinc-700 bg-zinc-800/40 p-3">
+              <div key={cat.value} className="rounded-xl border border-gray-200 bg-gray-50 p-3">
                 <div className="mb-2 flex items-center justify-between">
-                  <span className="text-sm font-medium text-zinc-100">{cat.label}</span>
+                  <span className="text-sm font-medium text-gray-900">{cat.label}</span>
                   <Toggle
                     checked={Boolean(setting.enabled)}
                     onChange={(v) => setCategory(cat.value, { enabled: v })}
@@ -128,7 +128,7 @@ export default function FollowUpTab({ establishmentId }: { establishmentId: numb
                   onChange={(e) => setCategory(cat.value, { instruction: e.target.value })}
                   rows={3}
                   placeholder={cat.placeholder}
-                  className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  className={INPUT_CLASS}
                 />
               </div>
             );

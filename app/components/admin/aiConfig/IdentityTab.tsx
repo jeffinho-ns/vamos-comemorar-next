@@ -9,7 +9,7 @@ import {
   AiTone,
 } from '@/app/types/aiAssistant';
 import { useAiSettings } from './useAiSettings';
-import { CardOption, FeedbackBanner, SaveBar, SectionHeader, ToggleRow } from './shared';
+import { CardOption, FeedbackBanner, INPUT_CLASS, SaveBar, SectionHeader, ToggleRow } from './shared';
 
 const RESPONSE_SIZE_OPTIONS: { value: AiResponseSize; title: string; hint: string }[] = [
   { value: 'curta', title: 'Curta', hint: 'Respostas diretas, 1-2 frases' },
@@ -62,7 +62,7 @@ export default function IdentityTab({
       return { ...prev, custom_rules: next };
     });
 
-  if (loading) return <p className="text-sm text-zinc-400">Carregando configurações...</p>;
+  if (loading) return <p className="text-sm text-gray-500">Carregando configurações...</p>;
 
   return (
     <div className="space-y-8">
@@ -80,25 +80,25 @@ export default function IdentityTab({
       />
 
       <div>
-        <h4 className="mb-3 text-sm font-semibold text-zinc-200">Nome e gênero</h4>
+        <h4 className="mb-3 text-sm font-semibold text-gray-800">Nome e gênero</h4>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div>
-            <label className="mb-1 block text-xs text-zinc-400">Nome do assistente</label>
+            <label className="mb-1 block text-xs text-gray-500">Nome do assistente</label>
             <input
               type="text"
               value={settings.assistant_name}
               maxLength={80}
               onChange={(e) => update('assistant_name', e.target.value)}
               placeholder="Ex.: Ludmilla"
-              className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-purple-500"
+              className={INPUT_CLASS}
             />
           </div>
           <div>
-            <label className="mb-1 block text-xs text-zinc-400">Gênero do assistente</label>
+            <label className="mb-1 block text-xs text-gray-500">Gênero do assistente</label>
             <select
               value={settings.gender}
               onChange={(e) => update('gender', e.target.value as AiAssistantSettings['gender'])}
-              className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-100 focus:outline-none focus:ring-2 focus:ring-purple-500"
+              className={INPUT_CLASS}
             >
               <option value="feminino">Feminino</option>
               <option value="masculino">Masculino</option>
@@ -109,8 +109,8 @@ export default function IdentityTab({
       </div>
 
       <div>
-        <h4 className="mb-1 text-sm font-semibold text-zinc-200">Tamanho da resposta</h4>
-        <p className="mb-3 text-xs text-zinc-400">Quão longas devem ser as mensagens da assistente.</p>
+        <h4 className="mb-1 text-sm font-semibold text-gray-800">Tamanho da resposta</h4>
+        <p className="mb-3 text-xs text-gray-500">Quão longas devem ser as mensagens da assistente.</p>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           {RESPONSE_SIZE_OPTIONS.map((opt) => (
             <CardOption
@@ -125,8 +125,8 @@ export default function IdentityTab({
       </div>
 
       <div>
-        <h4 className="mb-1 text-sm font-semibold text-zinc-200">Tom de voz</h4>
-        <p className="mb-3 text-xs text-zinc-400">A personalidade refletida nas mensagens.</p>
+        <h4 className="mb-1 text-sm font-semibold text-gray-800">Tom de voz</h4>
+        <p className="mb-3 text-xs text-gray-500">A personalidade refletida nas mensagens.</p>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           {TONE_OPTIONS.map((opt) => (
             <CardOption
@@ -141,7 +141,7 @@ export default function IdentityTab({
       </div>
 
       <div>
-        <h4 className="mb-3 text-sm font-semibold text-zinc-200">Recursos</h4>
+        <h4 className="mb-3 text-sm font-semibold text-gray-800">Recursos</h4>
         <div className="space-y-2">
           <ToggleRow
             title="Emojis"
@@ -172,8 +172,8 @@ export default function IdentityTab({
       </div>
 
       <div>
-        <h4 className="mb-1 text-sm font-semibold text-zinc-200">Gírias e expressões</h4>
-        <p className="mb-3 text-xs text-zinc-400">
+        <h4 className="mb-1 text-sm font-semibold text-gray-800">Gírias e expressões</h4>
+        <p className="mb-3 text-xs text-gray-500">
           Palavras e expressões que combinam com a identidade da casa.
         </p>
         <textarea
@@ -181,9 +181,9 @@ export default function IdentityTab({
           onChange={(e) => update('slang_text', e.target.value)}
           rows={3}
           placeholder="Ex.: fechado, show, beleza, bora?"
-          className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-purple-500"
+          className={INPUT_CLASS}
         />
-        <p className="mb-2 mt-3 text-xs text-zinc-400">Intensidade do uso</p>
+        <p className="mb-2 mt-3 text-xs text-gray-500">Intensidade do uso</p>
         <div className="flex flex-wrap gap-2">
           {SLANG_INTENSITY_OPTIONS.map((opt) => (
             <button
@@ -192,8 +192,8 @@ export default function IdentityTab({
               onClick={() => update('slang_intensity', opt.value)}
               className={`rounded-lg border px-4 py-2 text-sm transition-colors ${
                 settings.slang_intensity === opt.value
-                  ? 'border-purple-500 bg-purple-500/15 text-purple-300'
-                  : 'border-zinc-700 bg-zinc-800 text-zinc-300 hover:bg-zinc-700/60'
+                  ? 'border-amber-500 bg-amber-50 text-amber-700'
+                  : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
               }`}
             >
               {opt.label}
@@ -203,25 +203,25 @@ export default function IdentityTab({
       </div>
 
       <div>
-        <h4 className="mb-1 text-sm font-semibold text-zinc-200">Regras de comportamento</h4>
-        <p className="mb-3 text-xs text-zinc-400">Regras adicionais que a assistente deve sempre seguir.</p>
+        <h4 className="mb-1 text-sm font-semibold text-gray-800">Regras de comportamento</h4>
+        <p className="mb-3 text-xs text-gray-500">Regras adicionais que a assistente deve sempre seguir.</p>
         <div className="space-y-2">
           {settings.custom_rules.length === 0 && (
-            <p className="rounded-lg border border-dashed border-zinc-700 px-4 py-3 text-xs text-zinc-500">
+            <p className="rounded-lg border border-dashed border-gray-300 px-4 py-3 text-xs text-gray-400">
               Nenhuma regra adicional cadastrada.
             </p>
           )}
           {settings.custom_rules.map((rule, index) => (
             <div
               key={`${rule}-${index}`}
-              className="flex items-center gap-2 rounded-lg border border-zinc-700 bg-zinc-800/60 px-3 py-2"
+              className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2"
             >
-              <span className="flex-1 text-sm text-zinc-200">{rule}</span>
+              <span className="flex-1 text-sm text-gray-700">{rule}</span>
               <button
                 type="button"
                 onClick={() => moveRule(index, -1)}
                 disabled={index === 0}
-                className="rounded p-1 text-zinc-400 hover:text-white disabled:opacity-30"
+                className="rounded p-1 text-gray-400 hover:text-gray-700 disabled:opacity-30"
                 aria-label="Mover para cima"
               >
                 <MdArrowUpward size={16} />
@@ -230,7 +230,7 @@ export default function IdentityTab({
                 type="button"
                 onClick={() => moveRule(index, 1)}
                 disabled={index === settings.custom_rules.length - 1}
-                className="rounded p-1 text-zinc-400 hover:text-white disabled:opacity-30"
+                className="rounded p-1 text-gray-400 hover:text-gray-700 disabled:opacity-30"
                 aria-label="Mover para baixo"
               >
                 <MdArrowDownward size={16} />
@@ -238,7 +238,7 @@ export default function IdentityTab({
               <button
                 type="button"
                 onClick={() => removeRule(index)}
-                className="rounded p-1 text-red-400 hover:text-red-300"
+                className="rounded p-1 text-red-500 hover:text-red-600"
                 aria-label="Remover regra"
               >
                 <MdDelete size={16} />
@@ -258,12 +258,12 @@ export default function IdentityTab({
               }
             }}
             placeholder="Ex.: Nunca prometer desconto sem confirmar com a equipe."
-            className="flex-1 rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-purple-500"
+            className={INPUT_CLASS}
           />
           <button
             type="button"
             onClick={addRule}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-purple-600 px-3 py-2 text-sm font-medium text-white hover:bg-purple-500"
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-amber-600 px-3 py-2 text-sm font-medium text-white hover:bg-amber-700"
           >
             <MdAdd size={16} />
             Adicionar
@@ -272,20 +272,20 @@ export default function IdentityTab({
       </div>
 
       <div>
-        <h4 className="mb-3 text-sm font-semibold text-zinc-200">Prévia da resposta</h4>
-        <div className="rounded-xl border border-zinc-700 bg-zinc-800/40 p-4">
+        <h4 className="mb-3 text-sm font-semibold text-gray-800">Prévia da resposta</h4>
+        <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
           <div className="flex items-center gap-2">
-            <div className="flex h-7 w-7 items-center justify-center rounded-full bg-purple-600 text-xs font-semibold text-white">
+            <div className="flex h-7 w-7 items-center justify-center rounded-full bg-amber-600 text-xs font-semibold text-white">
               {avatarLetter}
             </div>
-            <span className="text-sm font-medium text-zinc-200">
+            <span className="text-sm font-medium text-gray-800">
               {settings.assistant_name || 'Assistente'}
             </span>
           </div>
-          <div className="mt-3 max-w-md rounded-2xl rounded-tl-sm bg-purple-600/20 px-4 py-2.5 text-sm text-zinc-100">
+          <div className="mt-3 max-w-md rounded-2xl rounded-tl-sm bg-amber-100 px-4 py-2.5 text-sm text-gray-800">
             {buildPreview(settings)}
           </div>
-          <p className="mt-3 text-[11px] text-zinc-500">
+          <p className="mt-3 text-[11px] text-gray-400">
             Prévia ilustrativa. O comportamento real combina estas opções com a base de conhecimento (Regras da Casa).
           </p>
         </div>

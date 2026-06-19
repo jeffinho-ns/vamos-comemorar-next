@@ -2,7 +2,7 @@
 
 import { AiBehaviorConfig } from '@/app/types/aiAssistant';
 import { useAiSettings } from './useAiSettings';
-import { FeedbackBanner, SaveBar, SectionHeader, ToggleRow } from './shared';
+import { FeedbackBanner, INPUT_CLASS, SaveBar, SectionHeader, ToggleRow } from './shared';
 
 const AFTER_HOURS_OPTIONS = [
   { value: 'padrao', label: 'Padrão (responde normalmente)' },
@@ -24,7 +24,7 @@ export default function BehaviorTab({ establishmentId }: { establishmentId: numb
     }));
   };
 
-  if (loading) return <p className="text-sm text-zinc-400">Carregando configurações...</p>;
+  if (loading) return <p className="text-sm text-gray-500">Carregando configurações...</p>;
 
   return (
     <div className="space-y-8">
@@ -35,7 +35,7 @@ export default function BehaviorTab({ establishmentId }: { establishmentId: numb
       />
 
       <div>
-        <h4 className="mb-3 text-sm font-semibold text-zinc-200">Reservas</h4>
+        <h4 className="mb-3 text-sm font-semibold text-gray-800">Reservas</h4>
         <div className="space-y-2">
           <ToggleRow
             title="Não dar informações sobre reservas"
@@ -53,12 +53,12 @@ export default function BehaviorTab({ establishmentId }: { establishmentId: numb
       </div>
 
       <div>
-        <h4 className="mb-1 text-sm font-semibold text-zinc-200">Fora da janela de atendimento</h4>
-        <p className="mb-3 text-xs text-zinc-400">O que fazer quando o cliente escreve fora do horário.</p>
+        <h4 className="mb-1 text-sm font-semibold text-gray-800">Fora da janela de atendimento</h4>
+        <p className="mb-3 text-xs text-gray-500">O que fazer quando o cliente escreve fora do horário.</p>
         <select
           value={cfg.fora_horario_comportamento || 'padrao'}
           onChange={(e) => setFlag('fora_horario_comportamento', e.target.value)}
-          className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-100 focus:outline-none focus:ring-2 focus:ring-purple-500 sm:max-w-md"
+          className={`${INPUT_CLASS} sm:max-w-md`}
         >
           {AFTER_HOURS_OPTIONS.map((opt) => (
             <option key={opt.value} value={opt.value}>
@@ -69,7 +69,7 @@ export default function BehaviorTab({ establishmentId }: { establishmentId: numb
       </div>
 
       <div>
-        <h4 className="mb-3 text-sm font-semibold text-zinc-200">Chamar humano quando...</h4>
+        <h4 className="mb-3 text-sm font-semibold text-gray-800">Chamar humano quando...</h4>
         <div className="space-y-2">
           <ToggleRow
             title="Cliente insiste para finalizar"
@@ -93,29 +93,29 @@ export default function BehaviorTab({ establishmentId }: { establishmentId: numb
       </div>
 
       <div>
-        <h4 className="mb-3 text-sm font-semibold text-zinc-200">Atendimento humano</h4>
-        <label className="mb-1 block text-xs text-zinc-400">Mensagem ao encaminhar para a equipe</label>
+        <h4 className="mb-3 text-sm font-semibold text-gray-800">Atendimento humano</h4>
+        <label className="mb-1 block text-xs text-gray-500">Mensagem ao encaminhar para a equipe</label>
         <textarea
           value={cfg.mensagem_atendimento_humano || ''}
           onChange={(e) => setFlag('mensagem_atendimento_humano', e.target.value)}
           rows={3}
           placeholder="Ex.: Já chamei alguém da equipe pra continuar com você por aqui, beleza?"
-          className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-purple-500"
+          className={INPUT_CLASS}
         />
         <div className="mt-3 max-w-xs">
-          <label className="mb-1 block text-xs text-zinc-400">Tempo limite de inatividade (minutos)</label>
+          <label className="mb-1 block text-xs text-gray-500">Tempo limite de inatividade (minutos)</label>
           <input
             type="number"
             min={0}
             value={Number(cfg.tempo_limite_inatividade ?? 0)}
             onChange={(e) => setFlag('tempo_limite_inatividade', Number(e.target.value) || 0)}
-            className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-zinc-100 focus:outline-none focus:ring-2 focus:ring-purple-500"
+            className={INPUT_CLASS}
           />
         </div>
       </div>
 
       <div>
-        <h4 className="mb-3 text-sm font-semibold text-zinc-200">Conversa</h4>
+        <h4 className="mb-3 text-sm font-semibold text-gray-800">Conversa</h4>
         <div className="space-y-2">
           <ToggleRow
             title="Bloquear links de entrada em eventos"
@@ -133,7 +133,7 @@ export default function BehaviorTab({ establishmentId }: { establishmentId: numb
       </div>
 
       <div>
-        <h4 className="mb-3 text-sm font-semibold text-zinc-200">Menu</h4>
+        <h4 className="mb-3 text-sm font-semibold text-gray-800">Menu</h4>
         <ToggleRow
           title="Bloquear informações de menu"
           description="A IA não envia detalhes do cardápio; usa o link oficial quando houver."
@@ -143,7 +143,7 @@ export default function BehaviorTab({ establishmentId }: { establishmentId: numb
       </div>
 
       <div>
-        <h4 className="mb-3 text-sm font-semibold text-zinc-200">Outros canais e mídia</h4>
+        <h4 className="mb-3 text-sm font-semibold text-gray-800">Outros canais e mídia</h4>
         <div className="space-y-2">
           <ToggleRow
             title="Considerar figurinhas e reações"
@@ -161,7 +161,7 @@ export default function BehaviorTab({ establishmentId }: { establishmentId: numb
       </div>
 
       <div>
-        <h4 className="mb-3 text-sm font-semibold text-zinc-200">Avançado</h4>
+        <h4 className="mb-3 text-sm font-semibold text-gray-800">Avançado</h4>
         <div className="space-y-2">
           <ToggleRow
             title="Usar classificador BERT (recomendado)"
