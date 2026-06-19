@@ -14,6 +14,7 @@ import { io } from "socket.io-client";
 import {
   MdChat,
   MdContentCopy,
+  MdImage,
   MdLink,
   MdOpenInNew,
   MdRefresh,
@@ -211,6 +212,9 @@ type MessageRow = {
   body: string;
   intent: string | null;
   suggested_reply: string | null;
+  message_type?: string | null;
+  media_url?: string | null;
+  media_mime?: string | null;
   created_at: string;
 };
 
@@ -451,6 +455,7 @@ export default function AdminWhatsappPage() {
   const [loadingList, setLoadingList] = useState(false);
   const [loadingThread, setLoadingThread] = useState(false);
   const [sending, setSending] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
   const [takeoverLoading, setTakeoverLoading] = useState(false);
   const [resumeLoading, setResumeLoading] = useState(false);
   const [resumeBatchLoading, setResumeBatchLoading] = useState(false);
@@ -610,6 +615,7 @@ export default function AdminWhatsappPage() {
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const isPinnedToBottomRef = useRef(true);
   const draftDirtyRef = useRef(false);
+  const imageInputRef = useRef<HTMLInputElement | null>(null);
   const [showJumpToLatest, setShowJumpToLatest] = useState(false);
 
   const scrollMessagesToBottom = useCallback(
@@ -1073,6 +1079,46 @@ export default function AdminWhatsappPage() {
       setError(e instanceof Error ? e.message : "Falha ao enviar");
     } finally {
       setSending(false);
+    }
+  };
+
+  const handleSendImage = async (file: File) => {
+    if (!selectedWaId || !token || !file) return;
+    if (!file.type.startsWith("image/")) {
+      setError("Selecione um arquivo de imagem.");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setError("A imagem deve ter no máximo 5 MB.");
+      return;
+    }
+    setUploadingImage(true);
+    setError(null);
+    try {
+      const form = new FormData();
+      form.append("image", file);
+      const caption = composeText.trim();
+      if (caption) form.append("caption", caption);
+      const res = await fetch(
+        `${API_URL}/api/admin/whatsapp/conversations/${encodeURIComponent(selectedWaId)}/send-image`,
+        {
+          method: "POST",
+          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+          body: form,
+        },
+      );
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.message || `Erro ${res.status}`);
+      draftDirtyRef.current = false;
+      setComposeText("");
+      isPinnedToBottomRef.current = true;
+      await fetchMessages(selectedWaId);
+      await fetchConversations();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Falha ao enviar imagem");
+    } finally {
+      setUploadingImage(false);
+      if (imageInputRef.current) imageInputRef.current.value = "";
     }
   };
 
@@ -2291,7 +2337,24 @@ export default function AdminWhatsappPage() {
                           : "bg-white text-gray-900 border border-gray-100 rounded-bl-md"
                         }`}
                       >
-                        <p className="whitespace-pre-wrap">{m.body}</p>
+                        {m.media_url && m.message_type === "image" ? (
+                          <a
+                            href={m.media_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="block"
+                          >
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={m.media_url}
+                              alt={m.body || "Imagem enviada"}
+                              className="mb-1 max-h-64 w-auto rounded-lg object-cover"
+                            />
+                          </a>
+                        ) : null}
+                        {m.body ? (
+                          <p className="whitespace-pre-wrap">{m.body}</p>
+                        ) : null}
                         {m.direction === "inbound" && m.intent ? (
                           <p className="text-[10px] mt-1 opacity-80">
                             intent: {m.intent}
@@ -2332,11 +2395,31 @@ export default function AdminWhatsappPage() {
                   className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none resize-y min-h-[96px]"
                   placeholder="A sugestão do Host Digital aparece aqui quando a IA processar a última mensagem…"
                 />
-                <div className="flex justify-end">
+                <div className="flex items-center justify-between gap-2">
+                  <input
+                    ref={imageInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f) handleSendImage(f);
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => imageInputRef.current?.click()}
+                    disabled={uploadingImage || sending}
+                    title="Enviar imagem para o cliente"
+                    className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 text-gray-600 text-sm font-medium hover:bg-gray-50 disabled:opacity-50"
+                  >
+                    <MdImage />
+                    {uploadingImage ? "Enviando imagem…" : "Imagem"}
+                  </button>
                   <button
                     type="button"
                     onClick={handleSend}
-                    disabled={sending || !composeText.trim()}
+                    disabled={sending || uploadingImage || !composeText.trim()}
                     className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-amber-600 text-white text-sm font-medium hover:bg-amber-700 disabled:opacity-50"
                   >
                     <MdSend />
