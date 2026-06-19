@@ -245,8 +245,15 @@ export function useUserPermissions() {
   const canManageBar = useCallback(
     (barId: number): boolean => {
       if (permissions.isSuperAdmin) return true;
-      return permissions.myEstablishmentPermissions.some((p) =>
-        establishmentGrantsCardapioBar(Number(p.establishment_id), Number(barId)),
+      // Só gerencia o bar do cardápio se o estabelecimento mapear para ele E
+      // tiver as permissões de cardápio ativas. Desmarcar "ver" ou "editar"
+      // cardápio remove a edição mesmo mantendo o acesso ao estabelecimento.
+      return permissions.myEstablishmentPermissions.some(
+        (p) =>
+          p.is_active !== false &&
+          p.can_view_cardapio !== false &&
+          p.can_edit_cardapio !== false &&
+          establishmentGrantsCardapioBar(Number(p.establishment_id), Number(barId)),
       );
     },
     [permissions.isSuperAdmin, permissions.myEstablishmentPermissions],

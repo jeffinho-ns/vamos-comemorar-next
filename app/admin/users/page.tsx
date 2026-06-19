@@ -920,14 +920,22 @@ function EditUserModal({
   const [telefone, setTelefone] = useState(user.telefone || "");
   const [password, setPassword] = useState("");
   const [role, setRole] = useState<Role>(normalizeRole(user.role));
+  // Apenas vínculos ATIVOS contam como acesso atual. Permissões inativas
+  // (soft delete) não devem reaparecer selecionadas no modal.
   const [establishmentIds, setEstablishmentIds] = useState<number[]>(
-    () => permissions.map((p) => Number(p.establishment_id)).filter((id, i, a) => a.indexOf(id) === i)
+    () =>
+      permissions
+        .filter((p) => p.is_active)
+        .map((p) => Number(p.establishment_id))
+        .filter((id, i, a) => a.indexOf(id) === i)
   );
   const [permsByEstablishment, setPermsByEstablishment] = useState<Record<number, EstablishmentPerms>>(() => {
     const map: Record<number, EstablishmentPerms> = {};
-    permissions.forEach((p) => {
-      map[Number(p.establishment_id)] = permFromRow(p);
-    });
+    permissions
+      .filter((p) => p.is_active)
+      .forEach((p) => {
+        map[Number(p.establishment_id)] = permFromRow(p);
+      });
     return map;
   });
   const [loading, setLoading] = useState(false);
@@ -1016,53 +1024,72 @@ function EditUserModal({
         throw new Error(msg);
       }
 
-      const existingEstabIds = permissions.map((p) => Number(p.establishment_id));
-      const toAdd = establishmentIds.filter((id) => !existingEstabIds.includes(Number(id)));
-      const toRemove = permissions.filter((p) => !establishmentIds.includes(Number(p.establishment_id)));
-      const toUpdate = permissions.filter((p) => establishmentIds.includes(Number(p.establishment_id)));
+      // Mapa de vínculos existentes por estabelecimento (1 linha por user+estab).
+      // Prioriza a linha ativa quando houver, mas mantém a inativa para reativar.
+      const permByEstab = new Map<number, PermissionRow>();
+      permissions.forEach((p) => {
+        const key = Number(p.establishment_id);
+        const current = permByEstab.get(key);
+        if (!current || (p.is_active && !current.is_active)) {
+          permByEstab.set(key, p);
+        }
+      });
 
-      // Ordem segura: criar novas permissões primeiro, depois atualizar, por último remover (evita perda de acesso)
-      for (const estabId of toAdd) {
+      // Para cada estabelecimento SELECIONADO: atualiza/reativa (PUT) se já existe
+      // linha (ativa ou inativa), senão cria (POST). Reativar via PUT evita o 409.
+      for (const estabId of establishmentIds) {
         const permsForEstab = permsByEstablishment[estabId] ?? perms;
-        const resPerm = await fetch(`${apiUrl}/api/establishment-permissions`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            user_id: user.id,
-            user_email: email,
-            establishment_id: estabId,
-            ...permsForEstab,
-            is_active: true,
-          }),
-        });
-        if (!resPerm.ok) {
-          const errBody = await resPerm.json().catch(() => ({}));
-          throw new Error(errBody.error || errBody.message || "Erro ao salvar permissão");
+        const existingRow = permByEstab.get(Number(estabId));
+        if (existingRow) {
+          const resUpdate = await fetch(`${apiUrl}/api/establishment-permissions/${existingRow.id}`, {
+            method: "PUT",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({ ...permsForEstab, is_active: true }),
+          });
+          if (!resUpdate.ok) {
+            const errBody = await resUpdate.json().catch(() => ({}));
+            throw new Error(errBody.error || errBody.message || "Erro ao atualizar permissão");
+          }
+        } else {
+          const resPerm = await fetch(`${apiUrl}/api/establishment-permissions`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+              user_id: user.id,
+              user_email: email,
+              establishment_id: estabId,
+              ...permsForEstab,
+              is_active: true,
+            }),
+          });
+          if (!resPerm.ok) {
+            const errBody = await resPerm.json().catch(() => ({}));
+            throw new Error(errBody.error || errBody.message || "Erro ao salvar permissão");
+          }
         }
       }
-      for (const perm of toUpdate) {
-        const permsForEstab = permsByEstablishment[Number(perm.establishment_id)] ?? perms;
-        const resUpdate = await fetch(`${apiUrl}/api/establishment-permissions/${perm.id}`, {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({ ...permsForEstab, is_active: true }),
-        });
-        if (!resUpdate.ok) {
-          const errBody = await resUpdate.json().catch(() => ({}));
-          throw new Error(errBody.error || errBody.message || "Erro ao atualizar permissão");
-        }
-      }
+
+      // Remover (soft delete) apenas vínculos ATIVOS que foram desmarcados.
+      const toRemove = permissions.filter(
+        (p) => p.is_active && !establishmentIds.includes(Number(p.establishment_id)),
+      );
       for (const perm of toRemove) {
-        await fetch(`${apiUrl}/api/establishment-permissions/${perm.id}`, {
+        const resDelete = await fetch(`${apiUrl}/api/establishment-permissions/${perm.id}`, {
           method: "DELETE",
           headers: { Authorization: `Bearer ${token}` },
         });
+        if (!resDelete.ok) {
+          const errBody = await resDelete.json().catch(() => ({}));
+          throw new Error(
+            errBody.error || errBody.message || "Erro ao remover acesso do estabelecimento",
+          );
+        }
       }
 
       alert("Usuário atualizado com sucesso!");
