@@ -9,6 +9,7 @@ import {
   MdChatBubbleOutline,
   MdInfoOutline,
   MdEmojiEmotions,
+  MdImage,
   MdVerifiedUser,
 } from 'react-icons/md';
 import { useEstablishments } from '@/app/hooks/useEstablishments';
@@ -20,6 +21,7 @@ import ExternalLinksTab from './aiConfig/ExternalLinksTab';
 import IceBreakersTab from './aiConfig/IceBreakersTab';
 import InfoTab from './aiConfig/InfoTab';
 import StickersTab from './aiConfig/StickersTab';
+import FlyersTab from './aiConfig/FlyersTab';
 import AllowedNumbersTab from './aiConfig/AllowedNumbersTab';
 
 type SubTabId =
@@ -30,6 +32,7 @@ type SubTabId =
   | 'quebra-gelos'
   | 'informacoes'
   | 'figurinhas'
+  | 'flyers'
   | 'numeros';
 
 type SubTab = {
@@ -47,6 +50,7 @@ const SUB_TABS: SubTab[] = [
   { id: 'quebra-gelos', label: 'Quebra-gelos', group: 'CONTEÚDO', icon: <MdChatBubbleOutline size={18} /> },
   { id: 'informacoes', label: 'Informações', group: 'CONTEÚDO', icon: <MdInfoOutline size={18} /> },
   { id: 'figurinhas', label: 'Figurinhas', group: 'CONTEÚDO', icon: <MdEmojiEmotions size={18} /> },
+  { id: 'flyers', label: 'Flyers', group: 'CONTEÚDO', icon: <MdImage size={18} /> },
   { id: 'numeros', label: 'Números habilitados', group: 'ACESSO & CRM', icon: <MdVerifiedUser size={18} /> },
 ];
 
@@ -190,6 +194,8 @@ function ActiveTab({
       return <InfoTab key={key} establishmentId={establishmentId} />;
     case 'figurinhas':
       return <StickersTab key={key} establishmentId={establishmentId} />;
+    case 'flyers':
+      return <FlyersTab key={key} establishmentId={establishmentId} />;
     case 'numeros':
       return <AllowedNumbersTab key={key} establishmentId={establishmentId} />;
     default:
