@@ -13,11 +13,13 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { io } from "socket.io-client";
 import {
   MdChat,
+  MdClose,
   MdContentCopy,
   MdImage,
   MdLink,
   MdOpenInNew,
   MdRefresh,
+  MdSearch,
   MdSend,
   MdSupportAgent,
 } from "react-icons/md";
@@ -465,6 +467,7 @@ export default function AdminWhatsappPage() {
   const [loadingContacts, setLoadingContacts] = useState(false);
   const [exportingContacts, setExportingContacts] = useState(false);
   const [contactSearch, setContactSearch] = useState("");
+  const [inboxSearch, setInboxSearch] = useState("");
   const [contactEstablishmentId, setContactEstablishmentId] = useState<number | "">(
     "",
   );
@@ -1755,6 +1758,24 @@ export default function AdminWhatsappPage() {
     establishmentFilterOptions,
   ]);
 
+  const visibleInboxConversations = useMemo(() => {
+    const query = inboxSearch.trim();
+    if (!query) return filteredInboxConversations;
+    const norm = (value: string | null | undefined) =>
+      (value || "")
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "");
+    const nq = norm(query);
+    const digitsQuery = query.replace(/\D/g, "");
+    return filteredInboxConversations.filter((c) => {
+      if (norm(c.contact_name).includes(nq)) return true;
+      if (norm(c.last_body).includes(nq)) return true;
+      if (digitsQuery && (c.wa_id || "").includes(digitsQuery)) return true;
+      return false;
+    });
+  }, [filteredInboxConversations, inboxSearch]);
+
   const activeInboxEstablishmentTheme = useMemo(() => {
     if (inboxEstablishmentFilter === "all") {
       const estId =
@@ -2154,10 +2175,35 @@ export default function AdminWhatsappPage() {
                 );
               })}
             </div>
+            <div className="relative">
+              <MdSearch
+                size={16}
+                className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400"
+              />
+              <input
+                type="text"
+                value={inboxSearch}
+                onChange={(e) => setInboxSearch(e.target.value)}
+                placeholder="Buscar por nome, número ou conversa"
+                className="w-full rounded-lg border border-gray-200 bg-gray-50 py-1.5 pl-8 pr-8 text-sm text-gray-800 placeholder:text-gray-400 focus:border-amber-400 focus:bg-white focus:outline-none focus:ring-1 focus:ring-amber-400"
+              />
+              {inboxSearch && (
+                <button
+                  type="button"
+                  onClick={() => setInboxSearch("")}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full p-0.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                  aria-label="Limpar busca"
+                >
+                  <MdClose size={15} />
+                </button>
+              )}
+            </div>
             <p className="text-[11px] text-gray-500">
               {loadingList
                 ? "Carregando…"
-                : `${filteredInboxConversations.length} de ${conversations.length} nesta aba`}
+                : inboxSearch.trim()
+                  ? `${visibleInboxConversations.length} resultado(s) para “${inboxSearch.trim()}”`
+                  : `${filteredInboxConversations.length} de ${conversations.length} nesta aba`}
             </p>
           </div>
           <div className="overflow-y-auto flex-1">
@@ -2168,14 +2214,20 @@ export default function AdminWhatsappPage() {
               </p>
             )}
             {conversations.length > 0 &&
-              filteredInboxConversations.length === 0 &&
-              !loadingList && (
+              visibleInboxConversations.length === 0 &&
+              !loadingList &&
+              (inboxSearch.trim() ? (
+                <p className="p-4 text-sm text-gray-500">
+                  Nenhuma conversa encontrada para “{inboxSearch.trim()}”. Tente
+                  outro nome, número ou trecho da conversa.
+                </p>
+              ) : (
                 <p className="p-4 text-sm text-gray-500">
                   Nenhuma conversa nesta aba. Troque o estabelecimento ou aguarde
                   novos contatos pelo link da casa.
                 </p>
-              )}
-            {filteredInboxConversations.map((c) => {
+              ))}
+            {visibleInboxConversations.map((c) => {
               const active = c.wa_id === selectedWaId;
               const ho = handoffActive(c.human_takeover_until);
               const theme = getInboxEstablishmentTheme(c.establishment_id);
