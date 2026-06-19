@@ -62,8 +62,12 @@ export function useEstablishmentPermissions() {
   const normalizedRole = (role || "").toLowerCase();
   const userConfig = useMemo<UserEstablishmentConfig | null>(() => {
     if (!permissions.length) return null;
-    const establishmentIds = Array.from(new Set(permissions.map((p) => p.establishment_id)));
-    const firstPermission = permissions[0];
+    const activePermissions = permissions.filter((p) => p.is_active !== false);
+    if (!activePermissions.length) return null;
+    const establishmentIds = Array.from(
+      new Set(activePermissions.map((p) => p.establishment_id)),
+    );
+    const firstPermission = activePermissions[0];
     return {
       userEmail: userEmail || "",
       establishmentIds,

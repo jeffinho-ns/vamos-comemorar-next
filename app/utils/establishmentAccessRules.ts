@@ -4,7 +4,6 @@
  * - Sitio Ilha: visível apenas para o e-mail autorizado (demais usuários não veem em listagens nem cardápio público).
  */
 
-import { ESTABLISHMENT_TO_CARDAPIO_BAR_ID } from "../config/cardapioBarResolver";
 import { SITIO_ILHA_PLACE_ID } from "../config/establishmentIds";
 
 export const REGIANE_RESTRICTED_EMAIL = "regianebrunno@gmail.com";
@@ -60,7 +59,15 @@ export function getActiveEstablishmentIds(
   );
 }
 
-/** Verifica se um item (place ou bar) pertence ao escopo de permissões (ids de `places`). */
+/**
+ * Verifica se um estabelecimento (`places`) pertence ao escopo de permissões do usuário.
+ *
+ * IMPORTANTE: compara apenas por `places.id`. Não aplicar o mapa place→bar aqui:
+ * o id de bar do cardápio colide com ids de places (ex.: Pracinha = place 8 → bar 4,
+ * mas o place 4 é o Oh Freguês). Misturar os dois espaços fazia o Oh Freguês aparecer
+ * para quem só tem acesso à Pracinha. Para escopo de cardápio use
+ * `establishmentGrantsCardapioBar`/`toCardapioBarIds`.
+ */
 export function establishmentMatchesUserScope(
   itemId: number | string | undefined,
   allowedPlaceIds: number[],
@@ -68,14 +75,7 @@ export function establishmentMatchesUserScope(
   const id = Number(itemId);
   if (!Number.isFinite(id) || id <= 0 || allowedPlaceIds.length === 0) return false;
 
-  if (allowedPlaceIds.includes(id)) return true;
-
-  for (const placeId of allowedPlaceIds) {
-    const mappedBar = ESTABLISHMENT_TO_CARDAPIO_BAR_ID[placeId];
-    if (mappedBar != null && mappedBar === id) return true;
-  }
-
-  return false;
+  return allowedPlaceIds.includes(id);
 }
 
 export function filterEstablishmentsByUserScope<
