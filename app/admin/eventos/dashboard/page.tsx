@@ -84,14 +84,27 @@ export default function EventosDashboard() {
 
   const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.agilizaiapp.com.br';
 
+  // Aguarda as permissões do AppContext resolverem antes de buscar/filtrar
+  // estabelecimentos. Sem isso, getFilteredEstablishments retornava [] (porque
+  // permissionsResolved = !isLoading era false na montagem), o dashboard nunca
+  // era buscado e a tela ficava em "Carregando..." infinito.
   useEffect(() => {
+    if (establishmentPermissions.isLoading) return;
     fetchEstablishments();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [establishmentPermissions.isLoading]);
 
   useEffect(() => {
-    if (establishments.length === 0 && !selectedEstablishment) return;
-    fetchDashboardData();
-  }, [selectedEstablishment, establishments.length]);
+    if (establishmentPermissions.isLoading) return;
+    if (selectedEstablishment || establishments.length > 0) {
+      fetchDashboardData();
+    } else {
+      // Permissões resolvidas, mas nenhum estabelecimento disponível: encerra o
+      // loading para não travar a tela (mostra o estado vazio/erro adequado).
+      setLoading(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedEstablishment, establishments.length, establishmentPermissions.isLoading]);
 
   const fetchEstablishments = async () => {
     try {
