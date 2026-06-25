@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useEstablishmentPermissions } from '@/app/hooks/useEstablishmentPermissions';
 import { getActiveEstablishmentIds } from '@/app/utils/establishmentAccessRules';
@@ -79,13 +79,20 @@ export default function PromoterEventosModal({
   establishmentId,
 }: PromoterEventosModalProps) {
   const establishmentPermissions = useEstablishmentPermissions();
-  const scopedEstablishmentIds = getActiveEstablishmentIds(
-    establishmentPermissions.permissions,
+  // Memoizado para manter uma referência estável entre renders. Sem isso, um novo
+  // array era criado a cada render, recriando `fetchPromoters` (useCallback) e
+  // disparando o useEffect em loop infinito (causa do ERR_INSUFFICIENT_RESOURCES).
+  const scopedEstablishmentIds = useMemo(
+    () => getActiveEstablishmentIds(establishmentPermissions.permissions),
+    [establishmentPermissions.permissions],
   );
-  const resolvedEstablishmentId =
-    establishmentId ??
-    evento.id_place ??
-    (scopedEstablishmentIds.length === 1 ? scopedEstablishmentIds[0] : null);
+  const resolvedEstablishmentId = useMemo(
+    () =>
+      establishmentId ??
+      evento.id_place ??
+      (scopedEstablishmentIds.length === 1 ? scopedEstablishmentIds[0] : null),
+    [establishmentId, evento.id_place, scopedEstablishmentIds],
+  );
   const [promoters, setPromoters] = useState<Promoter[]>([]);
   const [promotersEvento, setPromotersEvento] = useState<PromoterEvento[]>([]);
   const [loading, setLoading] = useState(false);
@@ -140,11 +147,14 @@ export default function PromoterEventosModal({
     }
   }, [API_URL, resolvedEstablishmentId, scopedEstablishmentIds]);
 
-  const fetchPromotersEvento = async () => {
+  const eventoId = evento.id || evento.evento_id;
+
+  const fetchPromotersEvento = useCallback(async () => {
     try {
       const token = localStorage.getItem('authToken');
-      const eventoId = evento.id || evento.evento_id;
-      
+
+      if (!eventoId) return;
+
       const response = await fetch(`${API_URL}/api/promoter-eventos/${eventoId}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -161,21 +171,17 @@ export default function PromoterEventosModal({
     } catch (error) {
       // Silently handle error
     }
-  };
-
-  const generateDateOptions = () => {
-    if (evento.tipo_evento === 'unico' && evento.data_do_evento) {
-      setSelectedData(evento.data_do_evento);
-    }
-  };
+  }, [API_URL, eventoId]);
 
   useEffect(() => {
     if (isOpen && evento) {
       fetchPromoters();
       fetchPromotersEvento();
-      generateDateOptions();
+      if (evento.tipo_evento === 'unico' && evento.data_do_evento) {
+        setSelectedData(evento.data_do_evento);
+      }
     }
-  }, [isOpen, evento, fetchPromoters]);
+  }, [isOpen, evento, fetchPromoters, fetchPromotersEvento]);
 
   const handleAddPromoter = async () => {
     if (!selectedPromoter) {
