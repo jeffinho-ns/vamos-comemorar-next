@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { forwardAuthHeaders } from '../../utils/forwardAuth';
 
 const API_BASE_URL = 'https://api.agilizaiapp.com.br';
 
@@ -25,6 +26,7 @@ export async function GET(request: NextRequest) {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
+        ...forwardAuthHeaders(request),
       },
     });
 
@@ -56,6 +58,7 @@ export async function POST(request: NextRequest) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        ...forwardAuthHeaders(request),
       },
       body: JSON.stringify(body),
     });

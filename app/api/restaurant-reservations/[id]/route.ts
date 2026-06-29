@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { forwardAuthHeaders } from '../../../utils/forwardAuth';
 
 const API_BASE_URL = 'https://api.agilizaiapp.com.br';
 
@@ -12,6 +13,7 @@ export async function GET(
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
+        ...forwardAuthHeaders(request),
       },
     });
 
@@ -46,6 +48,7 @@ export async function PUT(
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
+        ...forwardAuthHeaders(request),
       },
       body: JSON.stringify(body),
     });
@@ -79,6 +82,7 @@ export async function DELETE(
       method: 'DELETE',
       headers: {
         'Content-Type': 'application/json',
+        ...forwardAuthHeaders(request),
       },
     });
 
