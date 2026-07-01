@@ -466,6 +466,12 @@ export default function AdminWhatsappPage() {
   const [contacts, setContacts] = useState<ContactRow[]>([]);
   const [loadingContacts, setLoadingContacts] = useState(false);
   const [exportingContacts, setExportingContacts] = useState(false);
+  const [importEstablishmentId, setImportEstablishmentId] = useState<number | "">("");
+  const [importCsvText, setImportCsvText] = useState("");
+  const [importDefaultOptIn, setImportDefaultOptIn] = useState(true);
+  const [importSourceTag, setImportSourceTag] = useState("importado");
+  const [importingContacts, setImportingContacts] = useState(false);
+  const [backfillOptInLoading, setBackfillOptInLoading] = useState(false);
   const [contactSearch, setContactSearch] = useState("");
   const [inboxSearch, setInboxSearch] = useState("");
   const [contactEstablishmentId, setContactEstablishmentId] = useState<number | "">(
@@ -1292,6 +1298,88 @@ export default function AdminWhatsappPage() {
       setError(e instanceof Error ? e.message : "Falha ao exportar CSV");
     } finally {
       setExportingContacts(false);
+    }
+  };
+
+  const handleBackfillOptIn = async () => {
+    if (!token) return;
+    setBackfillOptInLoading(true);
+    setError(null);
+    setSuccessMessage(null);
+    try {
+      const body: Record<string, unknown> = {};
+      if (contactEstablishmentId !== "") {
+        body.establishment_id = contactEstablishmentId;
+      }
+      const res = await fetch(`${API_URL}/api/admin/whatsapp/contacts/backfill-opt-in`, {
+        method: "POST",
+        headers: authHeaders,
+        body: JSON.stringify(body),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.message || `Erro ${res.status}`);
+      await fetchContacts();
+      setSuccessMessage(
+        typeof data.message === "string"
+          ? data.message
+          : `${data.updated ?? 0} contato(s) com opt-in concedido.`,
+      );
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Falha ao conceder opt-in em massa");
+    } finally {
+      setBackfillOptInLoading(false);
+    }
+  };
+
+  const handleImportContacts = async () => {
+    if (!token) return;
+    const estId = importEstablishmentId !== "" ? importEstablishmentId : contactEstablishmentId;
+    if (estId === "") {
+      setError("Selecione o estabelecimento da base importada.");
+      return;
+    }
+    if (!importCsvText.trim()) {
+      setError("Cole o CSV ou carregue um arquivo com os contatos.");
+      return;
+    }
+    setImportingContacts(true);
+    setError(null);
+    setSuccessMessage(null);
+    try {
+      const res = await fetch(`${API_URL}/api/admin/whatsapp/contacts/import`, {
+        method: "POST",
+        headers: authHeaders,
+        body: JSON.stringify({
+          establishment_id: estId,
+          csv_text: importCsvText,
+          default_marketing_opt_in: importDefaultOptIn,
+          source_tag: importSourceTag.trim() || "importado",
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.message || `Erro ${res.status}`);
+      await fetchContacts();
+      setImportCsvText("");
+      setSuccessMessage(
+        typeof data.message === "string"
+          ? data.message
+          : `Importação: ${data.imported ?? 0} novo(s), ${data.updated ?? 0} atualizado(s).`,
+      );
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Falha ao importar contatos");
+    } finally {
+      setImportingContacts(false);
+    }
+  };
+
+  const handleImportFileChange = async (file: File | null) => {
+    if (!file) return;
+    try {
+      const text = await file.text();
+      setImportCsvText(text);
+      setSuccessMessage(`Arquivo "${file.name}" carregado. Revise e clique em Importar.`);
+    } catch {
+      setError("Não foi possível ler o arquivo CSV.");
     }
   };
 
@@ -2760,6 +2848,85 @@ export default function AdminWhatsappPage() {
           >
             Aplicar filtros
           </button>
+        </div>
+
+        <div className="p-4 border-b border-gray-100 bg-white">
+          <h3 className="text-sm font-semibold text-gray-800 mb-2">Importar base de contatos</h3>
+          <p className="text-xs text-gray-500 mb-3">
+            Adicione contatos de planilhas ou outras bases para campanhas. Colunas: wa_id (ou
+            telefone), contact_name, marketing_opt_in, tags.
+          </p>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
+            <select
+              value={importEstablishmentId === "" ? "" : String(importEstablishmentId)}
+              onChange={(e) => {
+                if (!e.target.value) {
+                  setImportEstablishmentId("");
+                  return;
+                }
+                const parsed = Number(e.target.value);
+                setImportEstablishmentId(Number.isFinite(parsed) ? parsed : "");
+              }}
+              className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm bg-white"
+            >
+              <option value="">Estabelecimento da base (obrigatório)</option>
+              {establishmentFilterOptions.map((opt) => (
+                <option key={opt.id} value={String(opt.id)}>
+                  {opt.name}
+                </option>
+              ))}
+            </select>
+            <label className="inline-flex items-center gap-2 text-sm text-gray-700 px-2">
+              <input
+                type="checkbox"
+                checked={importDefaultOptIn}
+                onChange={(e) => setImportDefaultOptIn(e.target.checked)}
+              />
+              Marcar opt-in na importação
+            </label>
+            <input
+              type="text"
+              value={importSourceTag}
+              onChange={(e) => setImportSourceTag(e.target.value)}
+              placeholder="Tag da fonte (ex.: planilha-junho)"
+              className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
+            />
+          </div>
+          <textarea
+            value={importCsvText}
+            onChange={(e) => setImportCsvText(e.target.value)}
+            placeholder={`wa_id,contact_name,marketing_opt_in,tags\n5511999999999,Maria,true,vip`}
+            rows={5}
+            className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm font-mono mb-3"
+          />
+          <div className="flex flex-wrap gap-2">
+            <label className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 text-sm cursor-pointer hover:bg-gray-50">
+              <input
+                type="file"
+                accept=".csv,text/csv"
+                className="hidden"
+                onChange={(e) => handleImportFileChange(e.target.files?.[0] ?? null)}
+              />
+              Carregar CSV
+            </label>
+            <button
+              type="button"
+              onClick={handleImportContacts}
+              disabled={importingContacts}
+              className="inline-flex items-center px-3 py-2 rounded-lg bg-indigo-600 text-white text-sm hover:bg-indigo-700 disabled:opacity-50"
+            >
+              {importingContacts ? "Importando…" : "Importar contatos"}
+            </button>
+            <button
+              type="button"
+              onClick={handleBackfillOptIn}
+              disabled={backfillOptInLoading}
+              className="inline-flex items-center px-3 py-2 rounded-lg border border-emerald-300 text-emerald-800 text-sm hover:bg-emerald-50 disabled:opacity-50"
+              title="Concede opt-in a quem já mandou mensagem pelo WhatsApp"
+            >
+              {backfillOptInLoading ? "Processando…" : "Opt-in para quem já conversou"}
+            </button>
+          </div>
         </div>
 
         <div className="overflow-x-auto">
