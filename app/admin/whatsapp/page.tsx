@@ -243,7 +243,12 @@ type CampaignRow = {
   establishment_id: number;
   establishment_name: string | null;
   name: string;
+  headline?: string | null;
   message_template: string;
+  image_url?: string | null;
+  send_mode?: string | null;
+  meta_template_name?: string | null;
+  meta_template_language?: string | null;
   target_filters: Record<string, unknown>;
   is_active: boolean;
   updated_at: string;
@@ -518,18 +523,27 @@ export default function AdminWhatsappPage() {
   const [campaignForm, setCampaignForm] = useState<{
     establishment_id: number | "";
     name: string;
+    headline: string;
     message_template: string;
+    image_url: string;
+    send_mode: "auto" | "session" | "template";
+    meta_template_name: string;
     tags_filter: string;
     status_filter: "" | "new" | "qualified" | "customer" | "inactive";
     only_opt_in: boolean;
   }>({
     establishment_id: "",
     name: "",
+    headline: "",
     message_template: "",
+    image_url: "",
+    send_mode: "auto",
+    meta_template_name: "",
     tags_filter: "",
     status_filter: "",
     only_opt_in: true,
   });
+  const [uploadingCampaignImage, setUploadingCampaignImage] = useState(false);
   const [manualCentralWhatsappNumber, setManualCentralWhatsappNumber] = useState("");
   const [entryLinkTemplate, setEntryLinkTemplate] = useState(DEFAULT_ENTRY_LINK_TEMPLATE);
   const [copiedLinkId, setCopiedLinkId] = useState<string | null>(null);
@@ -1425,8 +1439,12 @@ export default function AdminWhatsappPage() {
 
   const handleCreateCampaign = async () => {
     if (!token) return;
-    if (!campaignForm.establishment_id || !campaignForm.name.trim() || !campaignForm.message_template.trim()) {
-      setError("Preencha estabelecimento, nome e mensagem da campanha.");
+    if (!campaignForm.establishment_id || !campaignForm.name.trim()) {
+      setError("Preencha estabelecimento e nome da campanha.");
+      return;
+    }
+    if (!campaignForm.message_template.trim() && !campaignForm.image_url.trim()) {
+      setError("Informe o texto da campanha e/ou envie uma imagem.");
       return;
     }
     setSavingCampaign(true);
@@ -1447,7 +1465,11 @@ export default function AdminWhatsappPage() {
         body: JSON.stringify({
           establishment_id: campaignForm.establishment_id,
           name: campaignForm.name.trim(),
+          headline: campaignForm.headline.trim() || campaignForm.name.trim(),
           message_template: campaignForm.message_template.trim(),
+          image_url: campaignForm.image_url.trim() || null,
+          send_mode: campaignForm.send_mode,
+          meta_template_name: campaignForm.meta_template_name.trim() || null,
           target_filters,
         }),
       });
@@ -1456,7 +1478,9 @@ export default function AdminWhatsappPage() {
       setCampaignForm((prev) => ({
         ...prev,
         name: "",
+        headline: "",
         message_template: "",
+        image_url: "",
         tags_filter: "",
         status_filter: "",
       }));
@@ -1466,6 +1490,32 @@ export default function AdminWhatsappPage() {
       setError(e instanceof Error ? e.message : "Falha ao criar campanha");
     } finally {
       setSavingCampaign(false);
+    }
+  };
+
+  const handleUploadCampaignImage = async (file: File | null) => {
+    if (!token || !file) return;
+    setUploadingCampaignImage(true);
+    setError(null);
+    try {
+      const formData = new FormData();
+      formData.append("image", file);
+      const res = await fetch(`${API_URL}/api/admin/whatsapp/campaigns/upload-image`, {
+        method: "POST",
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        body: formData,
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.message || `Erro ${res.status}`);
+      setCampaignForm((prev) => ({
+        ...prev,
+        image_url: String(data.image_url || ""),
+      }));
+      setSuccessMessage("Imagem da campanha carregada.");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Falha ao enviar imagem");
+    } finally {
+      setUploadingCampaignImage(false);
     }
   };
 
@@ -3119,13 +3169,15 @@ export default function AdminWhatsappPage() {
         <section className="rounded-2xl border border-gray-200 bg-white shadow-sm">
         <div className="px-4 py-3 border-b border-gray-100 bg-gradient-to-r from-emerald-50/80 via-white to-white">
           <h2 className="text-base font-semibold text-gray-900">
-            Campanhas salvas por estabelecimento
+            Campanhas (estilo e-mail marketing)
           </h2>
           <p className="text-xs text-gray-500">
-            Salve mensagem e filtros de público para uso rápido do time.
+            Título + imagem + texto. Modo automático: imagem livre na janela de 24h; template Meta
+            fora dela (bases importadas e disparo em massa).
           </p>
         </div>
-        <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-3 border-b border-gray-100">
+        <div className="p-4 grid grid-cols-1 lg:grid-cols-3 gap-4 border-b border-gray-100">
+          <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-3">
           <select
             value={campaignForm.establishment_id === "" ? "" : String(campaignForm.establishment_id)}
             onChange={(e) =>
@@ -3149,16 +3201,63 @@ export default function AdminWhatsappPage() {
             onChange={(e) =>
               setCampaignForm((prev) => ({ ...prev, name: e.target.value }))
             }
-            placeholder="Nome da campanha"
+            placeholder="Nome interno da campanha"
             className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
+          />
+          <input
+            type="text"
+            value={campaignForm.headline}
+            onChange={(e) =>
+              setCampaignForm((prev) => ({ ...prev, headline: e.target.value }))
+            }
+            placeholder="Título (assunto — aparece no topo da mensagem)"
+            className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm md:col-span-2"
           />
           <textarea
             value={campaignForm.message_template}
             onChange={(e) =>
               setCampaignForm((prev) => ({ ...prev, message_template: e.target.value }))
             }
-            placeholder="Mensagem modelo da campanha"
-            rows={4}
+            placeholder="Texto principal da campanha"
+            rows={5}
+            className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm md:col-span-2"
+          />
+          <div className="md:col-span-2 flex flex-wrap gap-2 items-center">
+            <label className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 text-sm cursor-pointer hover:bg-gray-50">
+              <input
+                type="file"
+                accept="image/*"
+                className="hidden"
+                disabled={uploadingCampaignImage}
+                onChange={(e) => handleUploadCampaignImage(e.target.files?.[0] ?? null)}
+              />
+              {uploadingCampaignImage ? "Enviando imagem…" : "Enviar imagem hero"}
+            </label>
+            {campaignForm.image_url ? (
+              <span className="text-xs text-emerald-700 truncate max-w-[240px]">Imagem OK</span>
+            ) : null}
+          </div>
+          <select
+            value={campaignForm.send_mode}
+            onChange={(e) =>
+              setCampaignForm((prev) => ({
+                ...prev,
+                send_mode: e.target.value as "auto" | "session" | "template",
+              }))
+            }
+            className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm bg-white md:col-span-2"
+          >
+            <option value="auto">Modo automático (recomendado)</option>
+            <option value="session">Só janela 24h (sem template)</option>
+            <option value="template">Só template Meta (marketing em massa)</option>
+          </select>
+          <input
+            type="text"
+            value={campaignForm.meta_template_name}
+            onChange={(e) =>
+              setCampaignForm((prev) => ({ ...prev, meta_template_name: e.target.value }))
+            }
+            placeholder="Template Meta (opcional — default: agilizai_campanha_marketing)"
             className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm md:col-span-2"
           />
           <input
@@ -3212,6 +3311,36 @@ export default function AdminWhatsappPage() {
           >
             {savingCampaign ? "Salvando campanha…" : "Salvar campanha"}
           </button>
+          </div>
+          <div className="rounded-xl border border-gray-200 bg-gray-50 p-3">
+            <p className="text-xs font-semibold text-gray-600 mb-2">Prévia (como o cliente vê)</p>
+            <div className="rounded-lg bg-white border border-gray-100 shadow-sm overflow-hidden">
+              {campaignForm.image_url ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={campaignForm.image_url}
+                  alt="Prévia campanha"
+                  className="w-full max-h-40 object-cover"
+                />
+              ) : (
+                <div className="h-24 bg-gray-100 flex items-center justify-center text-xs text-gray-400">
+                  Sem imagem
+                </div>
+              )}
+              <div className="p-3 text-sm">
+                <p className="font-semibold text-gray-900">
+                  {campaignForm.headline || campaignForm.name || "Título da campanha"}
+                </p>
+                <p className="text-gray-700 mt-2 whitespace-pre-wrap text-xs">
+                  {campaignForm.message_template || "Texto da campanha…"}
+                </p>
+              </div>
+            </div>
+            <p className="text-[10px] text-gray-500 mt-2">
+              Template Meta: cabeçalho IMAGE + corpo com {"{{1}}"} título e {"{{2}}"} texto.
+              Necessário para disparos fora da janela de 24h.
+            </p>
+          </div>
         </div>
         <div className="overflow-x-auto">
           <table className="min-w-full text-sm">
@@ -3236,9 +3365,16 @@ export default function AdminWhatsappPage() {
                 <tr key={campaign.id} className="border-t border-gray-100 hover:bg-gray-50/70 transition-colors">
                   <td className="px-4 py-2 text-gray-900">
                     <p className="font-medium">{campaign.name}</p>
+                    {campaign.headline ? (
+                      <p className="text-xs font-medium text-gray-700">{campaign.headline}</p>
+                    ) : null}
+                    {campaign.image_url ? (
+                      <p className="text-[10px] text-indigo-600">Com imagem</p>
+                    ) : null}
                     <p className="text-xs text-gray-500 line-clamp-2">
                       {campaign.message_template}
                     </p>
+                    <p className="text-[10px] text-gray-400">Modo: {campaign.send_mode || "auto"}</p>
                   </td>
                   <td className="px-4 py-2 text-gray-700">
                     {campaign.establishment_name || `ID ${campaign.establishment_id}`}
