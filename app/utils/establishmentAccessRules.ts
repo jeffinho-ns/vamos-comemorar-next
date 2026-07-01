@@ -59,6 +59,25 @@ export function getActiveEstablishmentIds(
   );
 }
 
+/**
+ * Verifica se um estabelecimento (`places`) pertence ao escopo de permissões do usuário.
+ *
+ * IMPORTANTE: compara apenas por `places.id`. Não aplicar o mapa place→bar aqui:
+ * o id de bar do cardápio colide com ids de places (ex.: Pracinha = place 8 → bar 4,
+ * mas o place 4 é o Oh Freguês). Misturar os dois espaços fazia o Oh Freguês aparecer
+ * para quem só tem acesso à Pracinha. Para escopo de cardápio use
+ * `establishmentGrantsCardapioBar`/`toCardapioBarIds`.
+ */
+export function establishmentMatchesUserScope(
+  itemId: number | string | undefined,
+  allowedPlaceIds: number[],
+): boolean {
+  const id = Number(itemId);
+  if (!Number.isFinite(id) || id <= 0 || allowedPlaceIds.length === 0) return false;
+
+  return allowedPlaceIds.includes(id);
+}
+
 export function filterEstablishmentsByUserScope<
   T extends { name?: string; id?: string | number; slug?: string },
 >(
@@ -72,9 +91,11 @@ export function filterEstablishmentsByUserScope<
   if (isGlobalAdminUser(userEmail, role, permissions, options)) {
     return visibilityScoped;
   }
-  const allowedIds = new Set(getActiveEstablishmentIds(permissions));
-  if (allowedIds.size === 0) return [];
-  return visibilityScoped.filter((est) => allowedIds.has(Number(est.id)));
+  const allowedIds = getActiveEstablishmentIds(permissions);
+  if (allowedIds.length === 0) return [];
+  return visibilityScoped.filter((est) =>
+    establishmentMatchesUserScope(est.id, allowedIds),
+  );
 }
 
 export function normalizeUserEmail(email: string | null | undefined): string {

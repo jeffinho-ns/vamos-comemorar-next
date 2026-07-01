@@ -13,10 +13,13 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { io } from "socket.io-client";
 import {
   MdChat,
+  MdClose,
   MdContentCopy,
+  MdImage,
   MdLink,
   MdOpenInNew,
   MdRefresh,
+  MdSearch,
   MdSend,
   MdSupportAgent,
 } from "react-icons/md";
@@ -25,6 +28,7 @@ import { getPublicSocketUrl } from "@/lib/publicApiUrl";
 import { useAppContext } from "@/app/context/AppContext";
 import { useUserPermissions } from "@/app/hooks/useUserPermissions";
 import EstablishmentTrainingPanel from "@/app/components/admin/EstablishmentTrainingPanel";
+import AiConfigPanel from "@/app/components/admin/AiConfigPanel";
 
 const API_URL = getApiUrl();
 const SOCKET_URL = getPublicSocketUrl();
@@ -210,6 +214,9 @@ type MessageRow = {
   body: string;
   intent: string | null;
   suggested_reply: string | null;
+  message_type?: string | null;
+  media_url?: string | null;
+  media_mime?: string | null;
   created_at: string;
 };
 
@@ -236,7 +243,12 @@ type CampaignRow = {
   establishment_id: number;
   establishment_name: string | null;
   name: string;
+  headline?: string | null;
   message_template: string;
+  image_url?: string | null;
+  send_mode?: string | null;
+  meta_template_name?: string | null;
+  meta_template_language?: string | null;
   target_filters: Record<string, unknown>;
   is_active: boolean;
   updated_at: string;
@@ -280,6 +292,7 @@ type CampaignSendLogRow = {
 
 type WhatsappAdminTab =
   | "treinamento"
+  | "config-ia"
   | "atendimento"
   | "links"
   | "crm"
@@ -356,6 +369,19 @@ function pickLatestSuggestedReply(messages: MessageRow[]): string {
 
 function digitsOnly(value: string): string {
   return String(value || "").replace(/\D/g, "");
+}
+
+const SAO_PAULO_DATE_TIME_FORMATTER = new Intl.DateTimeFormat("pt-BR", {
+  dateStyle: "short",
+  timeStyle: "short",
+  timeZone: "America/Sao_Paulo",
+});
+
+function formatSaoPauloDateTime(value: string | null | undefined): string {
+  if (!value) return "—";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "—";
+  return SAO_PAULO_DATE_TIME_FORMATTER.format(date);
 }
 
 function buildEstablishmentToken(establishmentId: number): string {
@@ -436,14 +462,23 @@ export default function AdminWhatsappPage() {
   const [loadingList, setLoadingList] = useState(false);
   const [loadingThread, setLoadingThread] = useState(false);
   const [sending, setSending] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
   const [takeoverLoading, setTakeoverLoading] = useState(false);
   const [resumeLoading, setResumeLoading] = useState(false);
+  const [resumeBatchLoading, setResumeBatchLoading] = useState(false);
   const [statusLoading, setStatusLoading] = useState(false);
   const [assignLoading, setAssignLoading] = useState(false);
   const [contacts, setContacts] = useState<ContactRow[]>([]);
   const [loadingContacts, setLoadingContacts] = useState(false);
   const [exportingContacts, setExportingContacts] = useState(false);
+  const [importEstablishmentId, setImportEstablishmentId] = useState<number | "">("");
+  const [importCsvText, setImportCsvText] = useState("");
+  const [importDefaultOptIn, setImportDefaultOptIn] = useState(true);
+  const [importSourceTag, setImportSourceTag] = useState("importado");
+  const [importingContacts, setImportingContacts] = useState(false);
+  const [backfillOptInLoading, setBackfillOptInLoading] = useState(false);
   const [contactSearch, setContactSearch] = useState("");
+  const [inboxSearch, setInboxSearch] = useState("");
   const [contactEstablishmentId, setContactEstablishmentId] = useState<number | "">(
     "",
   );
@@ -488,18 +523,27 @@ export default function AdminWhatsappPage() {
   const [campaignForm, setCampaignForm] = useState<{
     establishment_id: number | "";
     name: string;
+    headline: string;
     message_template: string;
+    image_url: string;
+    send_mode: "auto" | "session" | "template";
+    meta_template_name: string;
     tags_filter: string;
     status_filter: "" | "new" | "qualified" | "customer" | "inactive";
     only_opt_in: boolean;
   }>({
     establishment_id: "",
     name: "",
+    headline: "",
     message_template: "",
+    image_url: "",
+    send_mode: "auto",
+    meta_template_name: "",
     tags_filter: "",
     status_filter: "",
     only_opt_in: true,
   });
+  const [uploadingCampaignImage, setUploadingCampaignImage] = useState(false);
   const [manualCentralWhatsappNumber, setManualCentralWhatsappNumber] = useState("");
   const [entryLinkTemplate, setEntryLinkTemplate] = useState(DEFAULT_ENTRY_LINK_TEMPLATE);
   const [copiedLinkId, setCopiedLinkId] = useState<string | null>(null);
@@ -521,6 +565,7 @@ export default function AdminWhatsappPage() {
     }
     if (canAccessIaTraining) {
       items.push({ id: "treinamento", label: "Treinamento IA" });
+      items.push({ id: "config-ia", label: "Configurações de IA" });
     }
     if (canAccessWhatsapp) {
       items.push(
@@ -538,7 +583,8 @@ export default function AdminWhatsappPage() {
     isWhatsappHighlineOnlyUser,
   ]);
 
-  const showWhatsappArea = canAccessWhatsapp && activeTab !== "treinamento";
+  const showWhatsappArea =
+    canAccessWhatsapp && activeTab !== "treinamento" && activeTab !== "config-ia";
   const showWhatsappInbox = canAccessWhatsapp && activeTab === "atendimento";
 
   const selectTab = useCallback(
@@ -592,6 +638,7 @@ export default function AdminWhatsappPage() {
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const isPinnedToBottomRef = useRef(true);
   const draftDirtyRef = useRef(false);
+  const imageInputRef = useRef<HTMLInputElement | null>(null);
   const [showJumpToLatest, setShowJumpToLatest] = useState(false);
 
   const scrollMessagesToBottom = useCallback(
@@ -1041,6 +1088,11 @@ export default function AdminWhatsappPage() {
           assigned_user_name: data.conversation.assigned_user_name ?? null,
         });
       }
+      if (data.pending_delivery) {
+        setSuccessMessage(
+          "A Meta oscilou, mas a mensagem entrou em tentativa automática de envio.",
+        );
+      }
       draftDirtyRef.current = false;
       setComposeText("");
       isPinnedToBottomRef.current = true;
@@ -1050,6 +1102,75 @@ export default function AdminWhatsappPage() {
       setError(e instanceof Error ? e.message : "Falha ao enviar");
     } finally {
       setSending(false);
+    }
+  };
+
+  const handleSendImage = async (file: File) => {
+    if (!selectedWaId || !token || !file) return;
+    if (!file.type.startsWith("image/")) {
+      setError("Selecione um arquivo de imagem.");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setError("A imagem deve ter no máximo 5 MB.");
+      return;
+    }
+    setUploadingImage(true);
+    setError(null);
+    try {
+      const form = new FormData();
+      form.append("image", file);
+      const caption = composeText.trim();
+      if (caption) form.append("caption", caption);
+      const res = await fetch(
+        `${API_URL}/api/admin/whatsapp/conversations/${encodeURIComponent(selectedWaId)}/send-image`,
+        {
+          method: "POST",
+          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+          body: form,
+        },
+      );
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.message || `Erro ${res.status}`);
+      draftDirtyRef.current = false;
+      setComposeText("");
+      isPinnedToBottomRef.current = true;
+      await fetchMessages(selectedWaId);
+      await fetchConversations();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Falha ao enviar imagem");
+    } finally {
+      setUploadingImage(false);
+      if (imageInputRef.current) imageInputRef.current.value = "";
+    }
+  };
+
+  const handleResumeUnassignedAI = async () => {
+    if (!token) return;
+    setResumeBatchLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(
+        `${API_URL}/api/admin/whatsapp/conversations/resume-ai-unassigned`,
+        {
+          method: "POST",
+          headers: authHeaders,
+        },
+      );
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.message || `Erro ${res.status}`);
+      const count = Number(data.resumed_count || 0);
+      setSuccessMessage(
+        count > 0
+          ? `IA retomada em ${count} conversa${count === 1 ? "" : "s"} sem atendente.`
+          : "Nenhuma conversa sem atendente precisava ser retomada.",
+      );
+      await fetchConversations();
+      if (selectedWaId) await fetchMessages(selectedWaId);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Falha ao retomar IA em massa");
+    } finally {
+      setResumeBatchLoading(false);
     }
   };
 
@@ -1194,6 +1315,125 @@ export default function AdminWhatsappPage() {
     }
   };
 
+  const handleBackfillOptIn = async () => {
+    if (!token) return;
+    setBackfillOptInLoading(true);
+    setError(null);
+    setSuccessMessage(null);
+    try {
+      const body: Record<string, unknown> = {};
+      if (contactEstablishmentId !== "") {
+        body.establishment_id = contactEstablishmentId;
+      }
+      const res = await fetch(`${API_URL}/api/admin/whatsapp/contacts/backfill-opt-in`, {
+        method: "POST",
+        headers: authHeaders,
+        body: JSON.stringify(body),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.message || `Erro ${res.status}`);
+      await fetchContacts();
+      setSuccessMessage(
+        typeof data.message === "string"
+          ? data.message
+          : `${data.updated ?? 0} contato(s) com opt-in concedido.`,
+      );
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Falha ao conceder opt-in em massa");
+    } finally {
+      setBackfillOptInLoading(false);
+    }
+  };
+
+  const handleImportContacts = async () => {
+    if (!token) return;
+    const estId = importEstablishmentId !== "" ? importEstablishmentId : contactEstablishmentId;
+    if (estId === "") {
+      setError("Selecione o estabelecimento da base importada.");
+      return;
+    }
+    if (!importCsvText.trim()) {
+      setError("Cole o CSV ou carregue um arquivo com os contatos.");
+      return;
+    }
+    setImportingContacts(true);
+    setError(null);
+    setSuccessMessage(null);
+    try {
+      const res = await fetch(`${API_URL}/api/admin/whatsapp/contacts/import`, {
+        method: "POST",
+        headers: authHeaders,
+        body: JSON.stringify({
+          establishment_id: estId,
+          csv_text: importCsvText,
+          default_marketing_opt_in: importDefaultOptIn,
+          source_tag: importSourceTag.trim() || "importado",
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.message || `Erro ${res.status}`);
+      await fetchContacts();
+      setImportCsvText("");
+      const imported = Number(data.imported ?? 0);
+      const updated = Number(data.updated ?? 0);
+      const skipped = Number(data.skipped ?? 0);
+      const errorDetails = Array.isArray(data.errors)
+        ? data.errors
+            .slice(0, 5)
+            .map((item: { line?: number; reason?: string }) =>
+              `Linha ${item.line ?? "?"}: ${item.reason ?? "erro desconhecido"}`,
+            )
+            .join(" · ")
+        : "";
+      const baseMessage =
+        typeof data.message === "string"
+          ? data.message
+          : `Importação: ${imported} novo(s), ${updated} atualizado(s), ${skipped} ignorado(s).`;
+      if (imported + updated === 0 && skipped > 0) {
+        setError(
+          `${baseMessage}${errorDetails ? ` Detalhes: ${errorDetails}` : " Verifique se o telefone está na primeira coluna ou use o cabeçalho telefone,nome,email."}`,
+        );
+        return;
+      }
+      setSuccessMessage(
+        errorDetails && skipped > 0 ? `${baseMessage} Avisos: ${errorDetails}` : baseMessage,
+      );
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Falha ao importar contatos");
+    } finally {
+      setImportingContacts(false);
+    }
+  };
+
+  const handleImportFileChange = async (file: File | null) => {
+    if (!file) return;
+    try {
+      const text = await file.text();
+      setImportCsvText(text);
+      setSuccessMessage(`Arquivo "${file.name}" carregado. Revise e clique em Importar.`);
+    } catch {
+      setError("Não foi possível ler o arquivo CSV.");
+    }
+  };
+
+  const handleDownloadImportTemplate = () => {
+    const template = [
+      "telefone,nome,email,marketing_opt_in,tags",
+      "5511999999999,Maria Silva,maria@email.com,true,vip",
+      "5511888888888,João Santos,joao@email.com,true,planilha-junho",
+    ].join("\n");
+    const blob = new Blob([template], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "modelo-importacao-contatos.csv";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    setSuccessMessage("Modelo CSV baixado. Preencha e use Carregar CSV ou cole na caixa de texto.");
+  };
+
   const persistContactDraft = useCallback(
     async (contactId: number, options?: { showSuccess?: boolean }) => {
       if (!token) return false;
@@ -1236,8 +1476,12 @@ export default function AdminWhatsappPage() {
 
   const handleCreateCampaign = async () => {
     if (!token) return;
-    if (!campaignForm.establishment_id || !campaignForm.name.trim() || !campaignForm.message_template.trim()) {
-      setError("Preencha estabelecimento, nome e mensagem da campanha.");
+    if (!campaignForm.establishment_id || !campaignForm.name.trim()) {
+      setError("Preencha estabelecimento e nome da campanha.");
+      return;
+    }
+    if (!campaignForm.message_template.trim() && !campaignForm.image_url.trim()) {
+      setError("Informe o texto da campanha e/ou envie uma imagem.");
       return;
     }
     setSavingCampaign(true);
@@ -1258,7 +1502,11 @@ export default function AdminWhatsappPage() {
         body: JSON.stringify({
           establishment_id: campaignForm.establishment_id,
           name: campaignForm.name.trim(),
+          headline: campaignForm.headline.trim() || campaignForm.name.trim(),
           message_template: campaignForm.message_template.trim(),
+          image_url: campaignForm.image_url.trim() || null,
+          send_mode: campaignForm.send_mode,
+          meta_template_name: campaignForm.meta_template_name.trim() || null,
           target_filters,
         }),
       });
@@ -1267,7 +1515,9 @@ export default function AdminWhatsappPage() {
       setCampaignForm((prev) => ({
         ...prev,
         name: "",
+        headline: "",
         message_template: "",
+        image_url: "",
         tags_filter: "",
         status_filter: "",
       }));
@@ -1277,6 +1527,32 @@ export default function AdminWhatsappPage() {
       setError(e instanceof Error ? e.message : "Falha ao criar campanha");
     } finally {
       setSavingCampaign(false);
+    }
+  };
+
+  const handleUploadCampaignImage = async (file: File | null) => {
+    if (!token || !file) return;
+    setUploadingCampaignImage(true);
+    setError(null);
+    try {
+      const formData = new FormData();
+      formData.append("image", file);
+      const res = await fetch(`${API_URL}/api/admin/whatsapp/campaigns/upload-image`, {
+        method: "POST",
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        body: formData,
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.message || `Erro ${res.status}`);
+      setCampaignForm((prev) => ({
+        ...prev,
+        image_url: String(data.image_url || ""),
+      }));
+      setSuccessMessage("Imagem da campanha carregada.");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Falha ao enviar imagem");
+    } finally {
+      setUploadingCampaignImage(false);
     }
   };
 
@@ -1657,6 +1933,24 @@ export default function AdminWhatsappPage() {
     establishmentFilterOptions,
   ]);
 
+  const visibleInboxConversations = useMemo(() => {
+    const query = inboxSearch.trim();
+    if (!query) return filteredInboxConversations;
+    const norm = (value: string | null | undefined) =>
+      (value || "")
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "");
+    const nq = norm(query);
+    const digitsQuery = query.replace(/\D/g, "");
+    return filteredInboxConversations.filter((c) => {
+      if (norm(c.contact_name).includes(nq)) return true;
+      if (norm(c.last_body).includes(nq)) return true;
+      if (digitsQuery && (c.wa_id || "").includes(digitsQuery)) return true;
+      return false;
+    });
+  }, [filteredInboxConversations, inboxSearch]);
+
   const activeInboxEstablishmentTheme = useMemo(() => {
     if (inboxEstablishmentFilter === "all") {
       const estId =
@@ -1679,16 +1973,62 @@ export default function AdminWhatsappPage() {
   );
   const hasCentralWhatsappDigits = centralWhatsappDigits.length >= 10;
   const handoffConversationsCount = useMemo(() => {
+    const allowedIds = new Set(establishmentFilterOptions.map((opt) => opt.id));
     const source = isWhatsappHighlineOnlyUser
       ? conversations.filter(
           (conv) => conv.establishment_id === highlineEstablishmentId,
         )
-      : conversations;
+      : !isSuperAdmin && allowedIds.size > 0
+        ? conversations.filter(
+            (c) => c.establishment_id != null && allowedIds.has(c.establishment_id),
+          )
+        : conversations;
     return source.filter((conv) => handoffActive(conv.human_takeover_until)).length;
-  }, [conversations, isWhatsappHighlineOnlyUser, highlineEstablishmentId]);
+  }, [
+    conversations,
+    isWhatsappHighlineOnlyUser,
+    highlineEstablishmentId,
+    isSuperAdmin,
+    establishmentFilterOptions,
+  ]);
+
+  const scopedContacts = useMemo(() => {
+    if (isSuperAdmin) return contacts;
+    const allowedIds = new Set(establishmentFilterOptions.map((opt) => opt.id));
+    if (allowedIds.size === 0) return contacts;
+    return contacts.filter(
+      (c) =>
+        c.last_establishment_id != null &&
+        allowedIds.has(Number(c.last_establishment_id)),
+    );
+  }, [contacts, isSuperAdmin, establishmentFilterOptions]);
+
+  const scopedCampaigns = useMemo(() => {
+    if (isSuperAdmin) return campaigns;
+    const allowedIds = new Set(establishmentFilterOptions.map((opt) => opt.id));
+    if (allowedIds.size === 0) return campaigns;
+    return campaigns.filter((c) => allowedIds.has(Number(c.establishment_id)));
+  }, [campaigns, isSuperAdmin, establishmentFilterOptions]);
+
+  const scopedConversationsCount = useMemo(() => {
+    if (isWhatsappHighlineOnlyUser) return filteredInboxConversations.length;
+    if (isSuperAdmin) return conversations.length;
+    const allowedIds = new Set(establishmentFilterOptions.map((opt) => opt.id));
+    if (allowedIds.size === 0) return conversations.length;
+    return conversations.filter(
+      (c) => c.establishment_id != null && allowedIds.has(c.establishment_id),
+    ).length;
+  }, [
+    conversations,
+    filteredInboxConversations.length,
+    isWhatsappHighlineOnlyUser,
+    isSuperAdmin,
+    establishmentFilterOptions,
+  ]);
+
   const activeCampaignsCount = useMemo(
-    () => campaigns.filter((campaign) => campaign.is_active).length,
-    [campaigns],
+    () => scopedCampaigns.filter((campaign) => campaign.is_active).length,
+    [scopedCampaigns],
   );
   const crmContactGroups = useMemo(() => {
     const groups = new Map<
@@ -1842,17 +2182,30 @@ export default function AdminWhatsappPage() {
           </div>
         </div>
         {showWhatsappInbox ? (
-          <button
-            type="button"
-            onClick={() => {
-              fetchConversations();
-              if (selectedWaId) fetchMessages(selectedWaId);
-            }}
-            className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 bg-white text-sm hover:bg-gray-50"
-          >
-            <MdRefresh />
-            Atualizar
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            {handoffConversationsCount > 0 ? (
+              <button
+                type="button"
+                onClick={handleResumeUnassignedAI}
+                disabled={resumeBatchLoading}
+                className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-emerald-600 text-white text-sm hover:bg-emerald-700 disabled:opacity-50"
+              >
+                <MdSupportAgent />
+                {resumeBatchLoading ? "Retomando…" : "Retomar IA sem atendente"}
+              </button>
+            ) : null}
+            <button
+              type="button"
+              onClick={() => {
+                fetchConversations();
+                if (selectedWaId) fetchMessages(selectedWaId);
+              }}
+              className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 bg-white text-sm hover:bg-gray-50"
+            >
+              <MdRefresh />
+              Atualizar
+            </button>
+          </div>
         ) : null}
       </div>
 
@@ -1882,6 +2235,8 @@ export default function AdminWhatsappPage() {
 
       {activeTab === "treinamento" ? <EstablishmentTrainingPanel /> : null}
 
+      {activeTab === "config-ia" ? <AiConfigPanel /> : null}
+
       {showWhatsappArea ? (
       <>
       <div
@@ -1900,7 +2255,7 @@ export default function AdminWhatsappPage() {
           <p className="text-2xl font-semibold text-gray-900">
             {isWhatsappHighlineOnlyUser
               ? filteredInboxConversations.length
-              : conversations.length}
+              : scopedConversationsCount}
           </p>
         </div>
         <div
@@ -1929,7 +2284,7 @@ export default function AdminWhatsappPage() {
           <>
             <div className="rounded-xl border border-indigo-200 bg-gradient-to-br from-indigo-50 to-white px-4 py-3 shadow-sm">
               <p className="text-xs text-indigo-700">Contatos CRM</p>
-              <p className="text-2xl font-semibold text-indigo-900">{contacts.length}</p>
+              <p className="text-2xl font-semibold text-indigo-900">{scopedContacts.length}</p>
             </div>
             <div className="rounded-xl border border-emerald-200 bg-gradient-to-br from-emerald-50 to-white px-4 py-3 shadow-sm">
               <p className="text-xs text-emerald-700">Campanhas ativas</p>
@@ -1995,10 +2350,35 @@ export default function AdminWhatsappPage() {
                 );
               })}
             </div>
+            <div className="relative">
+              <MdSearch
+                size={16}
+                className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400"
+              />
+              <input
+                type="text"
+                value={inboxSearch}
+                onChange={(e) => setInboxSearch(e.target.value)}
+                placeholder="Buscar por nome, número ou conversa"
+                className="w-full rounded-lg border border-gray-200 bg-gray-50 py-1.5 pl-8 pr-8 text-sm text-gray-800 placeholder:text-gray-400 focus:border-amber-400 focus:bg-white focus:outline-none focus:ring-1 focus:ring-amber-400"
+              />
+              {inboxSearch && (
+                <button
+                  type="button"
+                  onClick={() => setInboxSearch("")}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full p-0.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                  aria-label="Limpar busca"
+                >
+                  <MdClose size={15} />
+                </button>
+              )}
+            </div>
             <p className="text-[11px] text-gray-500">
               {loadingList
                 ? "Carregando…"
-                : `${filteredInboxConversations.length} de ${conversations.length} nesta aba`}
+                : inboxSearch.trim()
+                  ? `${visibleInboxConversations.length} resultado(s) para “${inboxSearch.trim()}”`
+                  : `${filteredInboxConversations.length} de ${conversations.length} nesta aba`}
             </p>
           </div>
           <div className="overflow-y-auto flex-1">
@@ -2009,14 +2389,20 @@ export default function AdminWhatsappPage() {
               </p>
             )}
             {conversations.length > 0 &&
-              filteredInboxConversations.length === 0 &&
-              !loadingList && (
+              visibleInboxConversations.length === 0 &&
+              !loadingList &&
+              (inboxSearch.trim() ? (
+                <p className="p-4 text-sm text-gray-500">
+                  Nenhuma conversa encontrada para “{inboxSearch.trim()}”. Tente
+                  outro nome, número ou trecho da conversa.
+                </p>
+              ) : (
                 <p className="p-4 text-sm text-gray-500">
                   Nenhuma conversa nesta aba. Troque o estabelecimento ou aguarde
                   novos contatos pelo link da casa.
                 </p>
-              )}
-            {filteredInboxConversations.map((c) => {
+              ))}
+            {visibleInboxConversations.map((c) => {
               const active = c.wa_id === selectedWaId;
               const ho = handoffActive(c.human_takeover_until);
               const theme = getInboxEstablishmentTheme(c.establishment_id);
@@ -2178,7 +2564,24 @@ export default function AdminWhatsappPage() {
                           : "bg-white text-gray-900 border border-gray-100 rounded-bl-md"
                         }`}
                       >
-                        <p className="whitespace-pre-wrap">{m.body}</p>
+                        {m.media_url && m.message_type === "image" ? (
+                          <a
+                            href={m.media_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="block"
+                          >
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={m.media_url}
+                              alt={m.body || "Imagem enviada"}
+                              className="mb-1 max-h-64 w-auto rounded-lg object-cover"
+                            />
+                          </a>
+                        ) : null}
+                        {m.body ? (
+                          <p className="whitespace-pre-wrap">{m.body}</p>
+                        ) : null}
                         {m.direction === "inbound" && m.intent ? (
                           <p className="text-[10px] mt-1 opacity-80">
                             intent: {m.intent}
@@ -2187,7 +2590,7 @@ export default function AdminWhatsappPage() {
                         <p
                           className={`text-[10px] mt-1 ${m.direction === "outbound" ? "text-amber-100" : "text-gray-400"}`}
                         >
-                          {new Date(m.created_at).toLocaleString("pt-BR")}
+                          {formatSaoPauloDateTime(m.created_at)}
                         </p>
                       </div>
                     </div>
@@ -2219,11 +2622,31 @@ export default function AdminWhatsappPage() {
                   className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none resize-y min-h-[96px]"
                   placeholder="A sugestão do Host Digital aparece aqui quando a IA processar a última mensagem…"
                 />
-                <div className="flex justify-end">
+                <div className="flex items-center justify-between gap-2">
+                  <input
+                    ref={imageInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f) handleSendImage(f);
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => imageInputRef.current?.click()}
+                    disabled={uploadingImage || sending}
+                    title="Enviar imagem para o cliente"
+                    className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 text-gray-600 text-sm font-medium hover:bg-gray-50 disabled:opacity-50"
+                  >
+                    <MdImage />
+                    {uploadingImage ? "Enviando imagem…" : "Imagem"}
+                  </button>
                   <button
                     type="button"
                     onClick={handleSend}
-                    disabled={sending || !composeText.trim()}
+                    disabled={sending || uploadingImage || !composeText.trim()}
                     className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-amber-600 text-white text-sm font-medium hover:bg-amber-700 disabled:opacity-50"
                   >
                     <MdSend />
@@ -2514,6 +2937,106 @@ export default function AdminWhatsappPage() {
           </button>
         </div>
 
+        <div className="p-4 border-b border-gray-100 bg-white">
+          <h3 className="text-sm font-semibold text-gray-800 mb-2">Importar base de contatos</h3>
+          <div className="text-xs text-gray-500 mb-3 space-y-1">
+            <p>
+              <strong>Passo 1:</strong> selecione o estabelecimento acima (não vai dentro do CSV).
+            </p>
+            <p>
+              <strong>Passo 2:</strong> cole ou carregue um CSV. A coluna obrigatória é{" "}
+              <code className="text-[11px] bg-gray-100 px-1 rounded">telefone</code> (WhatsApp com
+              DDI 55). Opcionais: nome, email, marketing_opt_in, tags.
+            </p>
+            <p>
+              <strong>Contato único:</strong> cole duas linhas — cabeçalho + linha de dados — ou só
+              uma linha no formato{" "}
+              <code className="text-[11px] bg-gray-100 px-1 rounded">
+                5511999999999,Maria,true,vip
+              </code>{" "}
+              (telefone primeiro).
+            </p>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
+            <select
+              value={importEstablishmentId === "" ? "" : String(importEstablishmentId)}
+              onChange={(e) => {
+                if (!e.target.value) {
+                  setImportEstablishmentId("");
+                  return;
+                }
+                const parsed = Number(e.target.value);
+                setImportEstablishmentId(Number.isFinite(parsed) ? parsed : "");
+              }}
+              className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm bg-white"
+            >
+              <option value="">Estabelecimento da base (obrigatório)</option>
+              {establishmentFilterOptions.map((opt) => (
+                <option key={opt.id} value={String(opt.id)}>
+                  {opt.name}
+                </option>
+              ))}
+            </select>
+            <label className="inline-flex items-center gap-2 text-sm text-gray-700 px-2">
+              <input
+                type="checkbox"
+                checked={importDefaultOptIn}
+                onChange={(e) => setImportDefaultOptIn(e.target.checked)}
+              />
+              Marcar opt-in na importação
+            </label>
+            <input
+              type="text"
+              value={importSourceTag}
+              onChange={(e) => setImportSourceTag(e.target.value)}
+              placeholder="Tag da fonte (ex.: planilha-junho)"
+              className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
+            />
+          </div>
+          <textarea
+            value={importCsvText}
+            onChange={(e) => setImportCsvText(e.target.value)}
+            placeholder={`telefone,nome,email,marketing_opt_in,tags\n5511999999999,Maria Silva,maria@email.com,true,vip`}
+            rows={5}
+            className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm font-mono mb-3"
+          />
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={handleDownloadImportTemplate}
+              className="inline-flex items-center px-3 py-2 rounded-lg border border-gray-200 text-sm hover:bg-gray-50"
+            >
+              Baixar modelo CSV
+            </button>
+            <label className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 text-sm cursor-pointer hover:bg-gray-50">
+              <input
+                type="file"
+                accept=".csv,text/csv"
+                className="hidden"
+                onChange={(e) => handleImportFileChange(e.target.files?.[0] ?? null)}
+              />
+              Carregar CSV
+            </label>
+            <button
+              type="button"
+              onClick={handleImportContacts}
+              disabled={importingContacts}
+              className="inline-flex items-center px-3 py-2 rounded-lg bg-indigo-600 text-white text-sm hover:bg-indigo-700 disabled:opacity-50"
+            >
+              {importingContacts ? "Importando…" : "Importar contatos"}
+            </button>
+            <button
+              type="button"
+              onClick={handleBackfillOptIn}
+              disabled={backfillOptInLoading}
+              className="inline-flex items-center px-3 py-2 rounded-lg border border-emerald-300 text-emerald-800 text-sm hover:bg-emerald-50 disabled:opacity-50"
+              title="Concede opt-in a quem já mandou mensagem pelo WhatsApp"
+            >
+              {backfillOptInLoading ? "Processando…" : "Opt-in para quem já conversou"}
+            </button>
+          </div>
+        </div>
+
         <div className="overflow-x-auto">
           <table className="min-w-full text-sm">
             <thead className="bg-gray-50 text-gray-600">
@@ -2667,7 +3190,7 @@ export default function AdminWhatsappPage() {
                         </div>
                       </td>
                       <td className="px-4 py-2 text-gray-700">
-                        {new Date(contact.last_seen_at).toLocaleString("pt-BR")}
+                        {formatSaoPauloDateTime(contact.last_seen_at)}
                       </td>
                       <td className="px-4 py-2">
                         <div className="flex gap-2">
@@ -2704,13 +3227,15 @@ export default function AdminWhatsappPage() {
         <section className="rounded-2xl border border-gray-200 bg-white shadow-sm">
         <div className="px-4 py-3 border-b border-gray-100 bg-gradient-to-r from-emerald-50/80 via-white to-white">
           <h2 className="text-base font-semibold text-gray-900">
-            Campanhas salvas por estabelecimento
+            Campanhas (estilo e-mail marketing)
           </h2>
           <p className="text-xs text-gray-500">
-            Salve mensagem e filtros de público para uso rápido do time.
+            Título + imagem + texto. Modo automático: imagem livre na janela de 24h; template Meta
+            fora dela (bases importadas e disparo em massa).
           </p>
         </div>
-        <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-3 border-b border-gray-100">
+        <div className="p-4 grid grid-cols-1 lg:grid-cols-3 gap-4 border-b border-gray-100">
+          <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-3">
           <select
             value={campaignForm.establishment_id === "" ? "" : String(campaignForm.establishment_id)}
             onChange={(e) =>
@@ -2734,16 +3259,63 @@ export default function AdminWhatsappPage() {
             onChange={(e) =>
               setCampaignForm((prev) => ({ ...prev, name: e.target.value }))
             }
-            placeholder="Nome da campanha"
+            placeholder="Nome interno da campanha"
             className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
+          />
+          <input
+            type="text"
+            value={campaignForm.headline}
+            onChange={(e) =>
+              setCampaignForm((prev) => ({ ...prev, headline: e.target.value }))
+            }
+            placeholder="Título (assunto — aparece no topo da mensagem)"
+            className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm md:col-span-2"
           />
           <textarea
             value={campaignForm.message_template}
             onChange={(e) =>
               setCampaignForm((prev) => ({ ...prev, message_template: e.target.value }))
             }
-            placeholder="Mensagem modelo da campanha"
-            rows={4}
+            placeholder="Texto principal da campanha"
+            rows={5}
+            className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm md:col-span-2"
+          />
+          <div className="md:col-span-2 flex flex-wrap gap-2 items-center">
+            <label className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 text-sm cursor-pointer hover:bg-gray-50">
+              <input
+                type="file"
+                accept="image/*"
+                className="hidden"
+                disabled={uploadingCampaignImage}
+                onChange={(e) => handleUploadCampaignImage(e.target.files?.[0] ?? null)}
+              />
+              {uploadingCampaignImage ? "Enviando imagem…" : "Enviar imagem hero"}
+            </label>
+            {campaignForm.image_url ? (
+              <span className="text-xs text-emerald-700 truncate max-w-[240px]">Imagem OK</span>
+            ) : null}
+          </div>
+          <select
+            value={campaignForm.send_mode}
+            onChange={(e) =>
+              setCampaignForm((prev) => ({
+                ...prev,
+                send_mode: e.target.value as "auto" | "session" | "template",
+              }))
+            }
+            className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm bg-white md:col-span-2"
+          >
+            <option value="auto">Modo automático (recomendado)</option>
+            <option value="session">Só janela 24h (sem template)</option>
+            <option value="template">Só template Meta (marketing em massa)</option>
+          </select>
+          <input
+            type="text"
+            value={campaignForm.meta_template_name}
+            onChange={(e) =>
+              setCampaignForm((prev) => ({ ...prev, meta_template_name: e.target.value }))
+            }
+            placeholder="Template Meta (opcional — default: agilizai_campanha_marketing)"
             className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm md:col-span-2"
           />
           <input
@@ -2797,6 +3369,36 @@ export default function AdminWhatsappPage() {
           >
             {savingCampaign ? "Salvando campanha…" : "Salvar campanha"}
           </button>
+          </div>
+          <div className="rounded-xl border border-gray-200 bg-gray-50 p-3">
+            <p className="text-xs font-semibold text-gray-600 mb-2">Prévia (como o cliente vê)</p>
+            <div className="rounded-lg bg-white border border-gray-100 shadow-sm overflow-hidden">
+              {campaignForm.image_url ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={campaignForm.image_url}
+                  alt="Prévia campanha"
+                  className="w-full max-h-40 object-cover"
+                />
+              ) : (
+                <div className="h-24 bg-gray-100 flex items-center justify-center text-xs text-gray-400">
+                  Sem imagem
+                </div>
+              )}
+              <div className="p-3 text-sm">
+                <p className="font-semibold text-gray-900">
+                  {campaignForm.headline || campaignForm.name || "Título da campanha"}
+                </p>
+                <p className="text-gray-700 mt-2 whitespace-pre-wrap text-xs">
+                  {campaignForm.message_template || "Texto da campanha…"}
+                </p>
+              </div>
+            </div>
+            <p className="text-[10px] text-gray-500 mt-2">
+              Template Meta: cabeçalho IMAGE + corpo com {"{{1}}"} título e {"{{2}}"} texto.
+              Necessário para disparos fora da janela de 24h.
+            </p>
+          </div>
         </div>
         <div className="overflow-x-auto">
           <table className="min-w-full text-sm">
@@ -2821,9 +3423,16 @@ export default function AdminWhatsappPage() {
                 <tr key={campaign.id} className="border-t border-gray-100 hover:bg-gray-50/70 transition-colors">
                   <td className="px-4 py-2 text-gray-900">
                     <p className="font-medium">{campaign.name}</p>
+                    {campaign.headline ? (
+                      <p className="text-xs font-medium text-gray-700">{campaign.headline}</p>
+                    ) : null}
+                    {campaign.image_url ? (
+                      <p className="text-[10px] text-indigo-600">Com imagem</p>
+                    ) : null}
                     <p className="text-xs text-gray-500 line-clamp-2">
                       {campaign.message_template}
                     </p>
+                    <p className="text-[10px] text-gray-400">Modo: {campaign.send_mode || "auto"}</p>
                   </td>
                   <td className="px-4 py-2 text-gray-700">
                     {campaign.establishment_name || `ID ${campaign.establishment_id}`}
@@ -3091,7 +3700,7 @@ export default function AdminWhatsappPage() {
                     {batchLogs.map((log) => (
                       <tr key={log.id} className="border-t border-gray-50">
                         <td className="py-1 pr-2 whitespace-nowrap">
-                          {new Date(log.created_at).toLocaleString("pt-BR")}
+                          {formatSaoPauloDateTime(log.created_at)}
                         </td>
                         <td className="py-1 pr-2 font-mono">{log.wa_id}</td>
                         <td className="py-1 pr-2">{log.status}</td>

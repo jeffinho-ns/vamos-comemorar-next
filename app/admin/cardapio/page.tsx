@@ -626,7 +626,6 @@ export default function CardapioAdminPage() {
       ? menuData.bars.filter((bar) => Number(bar.id) === promoterBarIdNum)
       : shouldRestrictByPerms
         ? (() => {
-            // 1) Preferência por ID (se cardápio/bars e places usam o mesmo id)
             const cardapioBarIdsFromPerms = toCardapioBarIds(
               uniqueAllowedEstablishmentIds,
               menuData.bars,
@@ -635,29 +634,20 @@ export default function CardapioAdminPage() {
               cardapioBarIdsFromPerms.includes(Number(bar.id)),
             );
 
-            // 2) Fallback por nome (aceita match exato e substring)
+            if (barsById.length > 0) return barsById;
+
+            // Fallback por nome apenas quando o mapeamento place → bar não resolveu.
             const barsByName = menuData.bars.filter((bar) => {
               const barKey = normalizeKey(bar.name);
               if (!barKey) return false;
               if (allowedEstablishmentNameKeysSet.has(barKey)) return true;
 
-              // Casos comuns: barKey inclui alguma informação extra ou o contrário.
               return allowedEstablishmentNameKeys.some(
-                // Importante: não fazemos match nos dois sentidos.
-                // Ex.: "pracinha do seu justino" contém "seu justino" e isso faria liberar
-                // ambos os bares indevidamente.
-                (permKey) => permKey && barKey.includes(permKey)
+                (permKey) => permKey && barKey.includes(permKey),
               );
             });
 
-            const barsUnionById = (() => {
-              const map = new Map<string, Bar>();
-              for (const bar of barsById) map.set(String(bar.id), bar);
-              for (const bar of barsByName) map.set(String(bar.id), bar);
-              return Array.from(map.values());
-            })();
-
-            if (barsUnionById.length > 0) return barsUnionById;
+            if (barsByName.length > 0) return barsByName;
 
             // Se nada casou, loga e não quebra a UX do admin.
             console.warn("[CARDAPIO] Falha ao mapear permissões do usuário para bars.", {
@@ -758,7 +748,7 @@ export default function CardapioAdminPage() {
           const mapped = toCardapioBarIds(uniqueAllowedEstablishmentIds, barsList);
           if (mapped.length > 0) return mapped;
         }
-        if (promoterBarIdNum != null) {
+        if (isPromoter && promoterBarIdNum != null) {
           const fromPromoter = toCardapioBarIds([promoterBarIdNum], barsList);
           return fromPromoter.length > 0 ? fromPromoter : [promoterBarIdNum];
         }
@@ -880,9 +870,9 @@ export default function CardapioAdminPage() {
           })
         : [];
 
-      // Filtrar bares para promoters ou analista restrito (só podem ver o seu bar),
+      // Filtrar bares para promoters (não para admins com escopo por estabelecimento no banco),
       // exceto e-mails explicitamente liberados para cardápio global.
-      if (promoterBar && !hasFullCardapioAccessByEmail) {
+      if (promoterBar && isPromoter && !hasFullCardapioAccessByEmail) {
         const promoterBarIdNum = Number(promoterBar.barId);
         const promoterBarName = String(promoterBar.barName || '').toLowerCase();
 
@@ -936,6 +926,11 @@ export default function CardapioAdminPage() {
         userEmail,
         barsData.map((b) => ({ ...b, name: String((b as { name?: string }).name || '') })),
       ) as typeof barsData;
+
+      if (scopedBarIds && scopedBarIds.length > 0) {
+        const allowedBarIdSet = new Set(scopedBarIds.map((id) => Number(id)));
+        barsData = barsData.filter((bar) => allowedBarIdSet.has(Number(bar.id)));
+      }
 
       let categoriesData = Array.isArray(categories) ? categories : [];
       let subCategoriesData = Array.isArray(subCategories) ? subCategories : [];
@@ -1023,6 +1018,7 @@ export default function CardapioAdminPage() {
     }
   }, [
     isAdmin,
+    isSuperAdmin,
     isPromoter,
     promoterBarIdNum,
     hasFullCardapioAccessByEmail,

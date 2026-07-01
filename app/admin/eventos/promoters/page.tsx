@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { Suspense, useState, useEffect, useMemo } from 'react';
+import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { useAppContext } from '@/app/context/AppContext';
 import { useEstablishmentPermissions } from '@/app/hooks/useEstablishmentPermissions';
 import { useUserPermissions } from '@/app/hooks/useUserPermissions';
 import { getActiveEstablishmentIds } from '@/app/utils/establishmentAccessRules';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import {
   MdPerson,
   MdEmail,
@@ -14,7 +15,6 @@ import {
   MdCheckCircle,
   MdSearch,
   MdFilterList,
-  MdArrowBack,
   MdAdd,
   MdEdit,
   MdSettings,
@@ -41,7 +41,13 @@ import {
   MdTableChart,
   MdLocalOffer,
   MdCardGiftcard,
-  MdCamera
+  MdCamera,
+  MdDashboard,
+  MdAssignmentInd,
+  MdList,
+  MdGroups,
+  MdCake,
+  MdEvent,
 } from 'react-icons/md';
 
 interface Promoter {
@@ -138,21 +144,24 @@ const formatCurrency = (value: number): string => {
   return `R$ ${formatted}B`;
 };
 
-export default function PromotersPage() {
+function PromotersPageContent() {
   const { userEmail } = useAppContext();
   const establishmentPermissions = useEstablishmentPermissions();
   const { isSuperAdmin, isLoading: permissionsLoading, myEstablishmentPermissions } =
     useUserPermissions();
-  const scopedEstablishmentIds = getActiveEstablishmentIds(myEstablishmentPermissions);
-  const router = useRouter();
+  const scopedEstablishmentIds = useMemo(
+    () => getActiveEstablishmentIds(myEstablishmentPermissions),
+    [myEstablishmentPermissions],
+  );
+  const searchParams = useSearchParams();
+  const establishmentQuery = searchParams.get('establishment_id') || '';
   const [loading, setLoading] = useState(true);
   const [promoters, setPromoters] = useState<Promoter[]>([]);
-  const [filteredPromoters, setFilteredPromoters] = useState<Promoter[]>([]);
   const [establishments, setEstablishments] = useState<Establishment[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [categoriaFilter, setCategoriaFilter] = useState<string>('');
-  const [establishmentFilter, setEstablishmentFilter] = useState<string>('');
+  const [establishmentFilter, setEstablishmentFilter] = useState<string>(establishmentQuery);
   const [sortBy, setSortBy] = useState<string>('nome');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const [statistics, setStatistics] = useState({
@@ -202,6 +211,30 @@ export default function PromotersPage() {
 
   const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.agilizaiapp.com.br';
 
+  const establishmentQuerySuffix = useMemo(() => {
+    const id = establishmentFilter || establishmentQuery;
+    return id ? `?establishment_id=${id}` : '';
+  }, [establishmentFilter, establishmentQuery]);
+
+  const defaultEstablishmentId = establishmentPermissions.getDefaultEstablishmentId();
+  const isRestrictedToSingle =
+    establishmentPermissions.isRestrictedToSingleEstablishment();
+
+  useEffect(() => {
+    if (permissionsLoading) return;
+    const nextFilter = establishmentQuery
+      || (isRestrictedToSingle && defaultEstablishmentId
+        ? String(defaultEstablishmentId)
+        : '');
+    if (!nextFilter) return;
+    setEstablishmentFilter((prev) => (prev === nextFilter ? prev : nextFilter));
+  }, [
+    permissionsLoading,
+    establishmentQuery,
+    isRestrictedToSingle,
+    defaultEstablishmentId,
+  ]);
+
   useEffect(() => {
     if (permissionsLoading) return;
     fetchPromoters();
@@ -209,31 +242,29 @@ export default function PromotersPage() {
     fetchStatistics();
   }, [establishmentFilter, permissionsLoading]);
 
-  useEffect(() => {
-    filterAndSortPromoters();
-  }, [
-    searchTerm,
-    statusFilter,
-    categoriaFilter,
-    establishmentFilter,
-    sortBy,
-    sortOrder,
-    promoters,
-    isSuperAdmin,
-    scopedEstablishmentIds,
-  ]);
-
   const fetchPromoters = async () => {
     try {
       setLoading(true);
       const token = localStorage.getItem('authToken');
 
-      const response = await fetch(`${API_URL}/api/v1/promoters/advanced`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
+      const params = new URLSearchParams();
+      if (establishmentFilter) {
+        params.set('establishment_id', establishmentFilter);
+      } else if (establishmentPermissions.isRestrictedToSingleEstablishment()) {
+        const defaultId = establishmentPermissions.getDefaultEstablishmentId();
+        if (defaultId) params.set('establishment_id', String(defaultId));
+      }
+
+      const query = params.toString();
+      const response = await fetch(
+        `${API_URL}/api/v1/promoters/advanced${query ? `?${query}` : ''}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
         },
-      });
+      );
 
       if (!response.ok) {
         throw new Error('Erro ao buscar promoters');
@@ -310,16 +341,6 @@ export default function PromotersPage() {
 
         console.log('📋 Estabelecimentos formatados:', scopedEstablishments);
         setEstablishments(scopedEstablishments);
-
-        if (
-          establishmentPermissions.isRestrictedToSingleEstablishment() &&
-          !establishmentFilter
-        ) {
-          const defaultId = establishmentPermissions.getDefaultEstablishmentId();
-          if (defaultId) {
-            setEstablishmentFilter(String(defaultId));
-          }
-        }
       } else {
         console.error('❌ Erro na resposta da API:', response.status, response.statusText);
       }
@@ -328,7 +349,7 @@ export default function PromotersPage() {
     }
   };
 
-  const filterAndSortPromoters = () => {
+  const filteredPromoters = useMemo(() => {
     let filtered = [...promoters];
 
     if (!isSuperAdmin && scopedEstablishmentIds.length > 0) {
@@ -338,36 +359,35 @@ export default function PromotersPage() {
       );
     }
 
-    // Filtro por nome, apelido ou email
     if (searchTerm) {
+      const term = searchTerm.toLowerCase();
       filtered = filtered.filter(
         (p) =>
-          p.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          p.apelido?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          p.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          p.codigo_identificador?.toLowerCase().includes(searchTerm.toLowerCase())
+          p.nome.toLowerCase().includes(term) ||
+          p.apelido?.toLowerCase().includes(term) ||
+          p.email.toLowerCase().includes(term) ||
+          p.codigo_identificador?.toLowerCase().includes(term),
       );
     }
 
-    // Filtro por status
     if (statusFilter) {
       filtered = filtered.filter((p) => p.status === statusFilter);
     }
 
-    // Filtro por categoria
     if (categoriaFilter) {
       filtered = filtered.filter((p) => p.tipo_categoria === categoriaFilter);
     }
 
-    // Filtro por estabelecimento
     if (establishmentFilter) {
-      filtered = filtered.filter((p) => p.establishment_id?.toString() === establishmentFilter);
+      filtered = filtered.filter(
+        (p) => p.establishment_id?.toString() === establishmentFilter,
+      );
     }
 
-    // Ordenação
     filtered.sort((a, b) => {
-      let aValue, bValue;
-      
+      let aValue: string | number;
+      let bValue: string | number;
+
       switch (sortBy) {
         case 'nome':
           aValue = a.nome.toLowerCase();
@@ -400,13 +420,22 @@ export default function PromotersPage() {
 
       if (sortOrder === 'asc') {
         return aValue > bValue ? 1 : -1;
-      } else {
-        return aValue < bValue ? 1 : -1;
       }
+      return aValue < bValue ? 1 : -1;
     });
 
-    setFilteredPromoters(filtered);
-  };
+    return filtered;
+  }, [
+    promoters,
+    isSuperAdmin,
+    scopedEstablishmentIds,
+    searchTerm,
+    statusFilter,
+    categoriaFilter,
+    establishmentFilter,
+    sortBy,
+    sortOrder,
+  ]);
 
   const getStatusColor = (status: string) => {
     return status === 'Ativo' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800';
@@ -625,35 +654,84 @@ export default function PromotersPage() {
     setShowQrCodeModal(true);
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-50">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-500 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Carregando promoters...</p>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen bg-gray-50">
+      {loading && (
+        <div className="mb-4 flex items-center gap-3 rounded-lg border border-purple-100 bg-purple-50 px-4 py-3 text-sm text-purple-800">
+          <div className="h-5 w-5 animate-spin rounded-full border-2 border-purple-500 border-t-transparent" />
+          Carregando promoters...
+        </div>
+      )}
       {/* Header */}
+      <div className="bg-gradient-to-r from-green-600 to-green-700 text-white p-6 shadow-lg">
+        <div className="max-w-7xl mx-auto">
+          <h1 className="text-3xl font-bold flex items-center gap-3">
+            <MdEvent size={36} />
+            Gerenciamento de Eventos e Listas
+          </h1>
+          <p className="mt-2 text-green-100">
+            Controle completo de eventos, promoters, listas e check-ins
+          </p>
+        </div>
+      </div>
+
+      {/* Navigation Tabs */}
+      <div className="bg-white shadow-sm border-b">
+        <div className="max-w-7xl mx-auto">
+          <nav className="flex space-x-1 overflow-x-auto">
+            <Link
+              href={`/admin/eventos/dashboard${establishmentQuerySuffix}`}
+              className="flex items-center gap-2 px-6 py-4 font-medium transition-colors whitespace-nowrap text-gray-600 hover:text-gray-900 hover:bg-gray-50"
+            >
+              <MdDashboard size={20} />
+              Dashboard
+            </Link>
+            <span
+              className="flex items-center gap-2 px-6 py-4 font-medium transition-colors whitespace-nowrap border-b-2 border-green-500 text-green-600"
+            >
+              <MdAssignmentInd size={20} />
+              Promoters
+            </span>
+            <Link
+              href={`/admin/eventos/listas${establishmentQuerySuffix}`}
+              className="flex items-center gap-2 px-6 py-4 font-medium transition-colors whitespace-nowrap text-gray-600 hover:text-gray-900 hover:bg-gray-50"
+            >
+              <MdList size={20} />
+              Listas
+            </Link>
+            <Link
+              href={`/admin/eventos/hostess${establishmentQuerySuffix}`}
+              className="flex items-center gap-2 px-6 py-4 font-medium transition-colors whitespace-nowrap text-gray-600 hover:text-gray-900 hover:bg-gray-50"
+            >
+              <MdGroups size={20} />
+              Hostess
+            </Link>
+            <Link
+              href={`/admin/eventos/aniversarios${establishmentQuerySuffix}`}
+              className="flex items-center gap-2 px-6 py-4 font-medium transition-colors whitespace-nowrap text-gray-600 hover:text-gray-900 hover:bg-gray-50"
+            >
+              <MdCake size={20} />
+              Aniversários
+            </Link>
+            <Link
+              href="/admin/eventos/configurar"
+              className="flex items-center gap-2 px-6 py-4 font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-50 transition-colors whitespace-nowrap"
+            >
+              <MdSettings size={20} />
+              Configurar Eventos
+            </Link>
+          </nav>
+        </div>
+      </div>
+
       <div className="bg-gradient-to-r from-purple-600 to-purple-700 text-white p-6 shadow-lg">
         <div className="max-w-7xl mx-auto">
-          <button
-            onClick={() => router.push('/admin/eventos/dashboard')}
-            className="flex items-center gap-2 text-white hover:text-purple-100 mb-4 transition-colors"
-          >
-            <MdArrowBack size={20} />
-            Voltar ao Dashboard
-          </button>
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-bold flex items-center gap-3">
-                <MdPerson size={36} />
+              <h2 className="text-2xl font-bold flex items-center gap-3">
+                <MdPerson size={32} />
                 Sistema Avançado de Promoters
-              </h1>
+              </h2>
               <p className="mt-2 text-purple-100">
                 Gerenciamento completo de promoters com condições, permissões e performance
               </p>
@@ -735,8 +813,11 @@ export default function PromotersPage() {
                 value={establishmentFilter}
                 onChange={(e) => setEstablishmentFilter(e.target.value)}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                disabled={establishmentPermissions.isRestrictedToSingleEstablishment()}
               >
-                <option value="">Todos</option>
+                {!establishmentPermissions.isRestrictedToSingleEstablishment() && (
+                  <option value="">Todos</option>
+                )}
                 {establishments.map((est) => (
                   <option key={est.id} value={est.id.toString()}>
                     {est.name}
@@ -1068,19 +1149,14 @@ export default function PromotersPage() {
       </div>
 
       {/* Create Modal */}
-      <AnimatePresence>
-        {showCreateModal && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
+      {showCreateModal && (
+          <div
+            className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-40"
+            onClick={() => setShowCreateModal(false)}
           >
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
+            <div
               className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto"
+              onClick={(e) => e.stopPropagation()}
             >
               <div className="p-6 border-b border-gray-200">
                 <div className="flex items-center justify-between">
@@ -1424,25 +1500,19 @@ export default function PromotersPage() {
                   </button>
                 </div>
               </div>
-            </motion.div>
-          </motion.div>
+            </div>
+          </div>
         )}
-      </AnimatePresence>
 
       {/* Edit Modal */}
-      <AnimatePresence>
-        {showEditModal && selectedPromoter && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
+      {showEditModal && selectedPromoter && (
+          <div
+            className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-40"
+            onClick={() => setShowEditModal(false)}
           >
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
+            <div
               className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto"
+              onClick={(e) => e.stopPropagation()}
             >
               <div className="p-6 border-b border-gray-200">
                 <div className="flex items-center justify-between">
@@ -1789,25 +1859,19 @@ export default function PromotersPage() {
                   </button>
                 </div>
               </div>
-            </motion.div>
-          </motion.div>
+            </div>
+          </div>
         )}
-      </AnimatePresence>
 
       {/* Details Modal */}
-      <AnimatePresence>
-        {showDetailsModal && selectedPromoter && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
+      {showDetailsModal && selectedPromoter && (
+          <div
+            className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-40"
+            onClick={() => setShowDetailsModal(false)}
           >
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
+            <div
               className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto"
+              onClick={(e) => e.stopPropagation()}
             >
               <div className="p-6 border-b border-gray-200">
                 <div className="flex items-center justify-between">
@@ -1834,25 +1898,19 @@ export default function PromotersPage() {
                   </div>
                 </div>
               </div>
-            </motion.div>
-          </motion.div>
+            </div>
+          </div>
         )}
-      </AnimatePresence>
 
       {/* Modal de Condições */}
-      <AnimatePresence>
-        {showConditionsModal && selectedPromoter && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
+      {showConditionsModal && selectedPromoter && (
+          <div
+            className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-40"
+            onClick={() => setShowConditionsModal(false)}
           >
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
+            <div
               className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto"
+              onClick={(e) => e.stopPropagation()}
             >
               <div className="p-6 border-b border-gray-200">
                 <div className="flex items-center justify-between">
@@ -2194,25 +2252,19 @@ export default function PromotersPage() {
                   Salvar Condições
                 </button>
               </div>
-            </motion.div>
-          </motion.div>
+            </div>
+          </div>
         )}
-      </AnimatePresence>
 
       {/* Modal de Convidados */}
-      <AnimatePresence>
-        {showConvidadosModal && selectedPromoter && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
+      {showConvidadosModal && selectedPromoter && (
+          <div
+            className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-40"
+            onClick={() => setShowConvidadosModal(false)}
           >
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
+            <div
               className="bg-white rounded-lg shadow-xl max-w-6xl w-full max-h-[90vh] overflow-y-auto"
+              onClick={(e) => e.stopPropagation()}
             >
               <div className="p-6 border-b border-gray-200">
                 <div className="flex items-center justify-between">
@@ -2344,25 +2396,19 @@ export default function PromotersPage() {
                   </div>
                 )}
               </div>
-            </motion.div>
-          </motion.div>
+            </div>
+          </div>
         )}
-      </AnimatePresence>
 
       {/* Modal QR Code */}
-      <AnimatePresence>
-        {showQrCodeModal && selectedPromoter && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
+      {showQrCodeModal && selectedPromoter && (
+          <div
+            className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-40"
+            onClick={() => setShowQrCodeModal(false)}
           >
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
+            <div
               className="bg-white rounded-lg shadow-xl max-w-md w-full"
+              onClick={(e) => e.stopPropagation()}
             >
               <div className="p-6 border-b border-gray-200">
                 <div className="flex items-center justify-between">
@@ -2387,15 +2433,26 @@ export default function PromotersPage() {
                   Funcionalidade em desenvolvimento
                 </p>
               </div>
-            </motion.div>
-          </motion.div>
+            </div>
+          </div>
         )}
-      </AnimatePresence>
     </div>
   );
 }
 
-
-
-
-
+export default function PromotersPage() {
+  return (
+    <Suspense
+      fallback={(
+        <div className="flex min-h-[50vh] items-center justify-center bg-gray-50">
+          <div className="text-center">
+            <div className="mx-auto h-12 w-12 animate-spin rounded-full border-b-2 border-purple-500" />
+            <p className="mt-4 text-gray-600">Carregando promoters...</p>
+          </div>
+        </div>
+      )}
+    >
+      <PromotersPageContent />
+    </Suspense>
+  );
+}

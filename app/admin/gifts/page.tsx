@@ -119,8 +119,12 @@ const sanitizePromoterEntradaConfigForApi = (config: PromoterEntradaConfig) => {
 
 export default function GiftsAdminPage() {
   const { userEmail } = useAppContext();
-  const establishmentPermissions = useEstablishmentPermissions();
+  const {
+    isLoading: permissionsLoading,
+    getFilteredEstablishments,
+  } = useEstablishmentPermissions();
   const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL_LOCAL || 'https://api.agilizaiapp.com.br';
+  const initialEstablishmentsLoadRef = useRef(true);
 
   // Estados
   const [selectedEstablishment, setSelectedEstablishment] = useState<Establishment | null>(null);
@@ -174,7 +178,10 @@ export default function GiftsAdminPage() {
 
   // Carregar estabelecimentos
   const fetchEstablishments = useCallback(async () => {
-    setLoading(true);
+    const isInitialLoad = initialEstablishmentsLoadRef.current;
+    if (isInitialLoad) {
+      setLoading(true);
+    }
     const token = localStorage.getItem("authToken");
 
     try {
@@ -207,7 +214,7 @@ export default function GiftsAdminPage() {
         : data?.data && Array.isArray(data.data)
           ? data.data
           : [];
-      formattedEstablishments = establishmentPermissions.getFilteredEstablishments(
+      formattedEstablishments = getFilteredEstablishments(
         formattedEstablishments.map((est) => {
           const raw = rawList.find(
             (p: { id?: number; place_id?: number }) =>
@@ -244,9 +251,12 @@ export default function GiftsAdminPage() {
       setError("Erro ao carregar estabelecimentos. Tente recarregar a página.");
       setEstablishments([]);
     } finally {
-      setLoading(false);
+      if (isInitialLoad) {
+        setLoading(false);
+        initialEstablishmentsLoadRef.current = false;
+      }
     }
-  }, [API_URL, establishmentPermissions]);
+  }, [API_URL, getFilteredEstablishments]);
 
   // Função para carregar regras de brindes para aniversários
   const loadGiftRules = useCallback(async (establishmentId: number) => {
@@ -387,9 +397,9 @@ export default function GiftsAdminPage() {
 
   // Carregar estabelecimentos após permissões do contexto estarem prontas
   useEffect(() => {
-    if (establishmentPermissions.isLoading) return;
+    if (permissionsLoading) return;
     fetchEstablishments();
-  }, [establishmentPermissions.isLoading, fetchEstablishments]);
+  }, [permissionsLoading, fetchEstablishments]);
 
   if (loading) {
     return (

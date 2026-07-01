@@ -13,11 +13,16 @@
 
 | Campo | Valor |
 |-------|-------|
-| Última atualização | 2026-06-03 |
-| Modo atual | Planejamento aprovado — ainda NÃO foi escrito código |
-| Fase em andamento | Nenhuma (aguardando início da Fase 0) |
-| Próximo passo | Iniciar **Fase 0** (fundação/segurança) após aprovação |
-| Pendências/decisões | Billing definido: receita do SaaS, cobrança manual primeiro (gateway depois) |
+| Última atualização | 2026-06-29 |
+| Modo atual | **`SAAS_MODE=observe` LIGADO em produção** (Render). Front já envia `Authorization` nas proxies de reserva. App intacto (observe nunca bloqueia). |
+| Fase em andamento | Fase 2 — preparação do `enforce` seguro. `tenantMiddleware` endurecido (anônimo passa; só restringe autenticado) + isolamento de leitura por escopo na listagem de reservas, ambos **inertes** até `SAAS_MODE=on`. |
+| Próximo passo | Coletar logs `[tenant:observe]` por alguns dias; estender `establishmentScopeClause` aos demais endpoints de leitura; validar `enforce` com 1 usuário de teste restrito; só então virar `on` rota a rota. |
+| Pendências/decisões | Billing definido (manual primeiro). `memberships` ainda vazio em prod → `enforce` usa fallback `user_establishment_permissions` (48 perms / 33 usuários). Falta JWT com tenant e RLS. |
+
+> ⚠️ NADA foi executado no banco de produção. Nenhum arquivo existente do back-end/front-end
+> foi modificado — só foram ADICIONADOS arquivos novos, todos fail-open / não plugados.
+> Detalhes da entrega: ver "Log de progresso" e os runbooks
+> `vamos-comemorar-api/migrations/saas/README.md` e `vamos-comemorar-api/tenancy/README.md`.
 
 ### Como retomar no outro PC
 1. `git pull` nos dois repositórios (`vamos-comemorar-next` e `vamos-comemorar-api`).
@@ -25,18 +30,27 @@
 3. Consulte o checklist abaixo para ver o que já foi concluído.
 
 ### Checklist de fases
-- [ ] **Fase 0** — Fundação / segurança (middleware na raiz em modo observação, auth nas rotas públicas, remover credenciais hardcoded)
-- [ ] **Camada de segurança** (transversal — aplicar em todas as fases)
-- [ ] **Fase 1** — Banco / tenant model (tabelas novas + backfill org piloto)
-- [ ] **Fase 2** — Isolamento (JWT com tenant, tenantMiddleware, RLS)
-- [ ] **Fase 3** — RBAC + entitlements
-- [ ] **Fase 4** — Front modular (EntitlementsContext, sidebar data-driven, quebrar monolitos)
-- [ ] **Fase 5** — Faturamento SaaS (invoices/payments, MRR, PaymentProvider)
-- [ ] **Fase 6** — Painel Super Admin + onboarding em poucos cliques
-- [ ] **Fase 7** — Desacoplar IA / hardcodes residuais
+- [~] **Fase 0** — Fundação / segurança. Itens seguros prontos como arquivo. NÃO feito (exige staging/observação): mover middleware p/ raiz, auth em rotas públicas, remover credenciais hardcoded.
+- [~] **Camada de segurança** (transversal) — feature flags `SAAS_MODE` (off/observe/on) + fail-open implementados; runner de migration com trava de confirmação e tabela de controle.
+- [x] **Fase 1** — Banco / tenant model: migrations `001..005` validadas em staging e **APLICADAS EM PRODUÇÃO** (2026-06-28) com 0 erros e 0 órfãos. Falta só a virada NOT NULL (Contract, fase posterior).
+- [~] **Fase 2** — Isolamento. `tenantMiddleware` + `optionalAuth` plugados em produção; `/api/me/entitlements` montado; **`SAAS_MODE=observe` LIGADO**; front envia `Authorization` nas proxies. `tenantMiddleware` endurecido (anônimo NÃO é bloqueado; só restringe usuário autenticado fora de escopo) + `establishmentScopeClause` na listagem de reservas (isolamento de leitura), com teste unitário. Tudo INERTE até `on`. Falta: estender escopo aos demais endpoints, validar com usuário restrito, virar `on` rota a rota; JWT com tenant; RLS.
+- [~] **Fase 3** — RBAC + entitlements: `tenancy/entitlements.js`, `requireModule`, `requirePermission`, `GET /api/me/entitlements` prontos (fail-open, NÃO plugados).
+- [~] **Fase 4** — Front modular: `EntitlementsContext`, `useCan`, `<Gate>`, `moduleManifest` criados (fail-open, NÃO consumidos pela sidebar ainda). Quebra de monolitos: pendente.
+- [ ] **Fase 5** — Faturamento SaaS: schema (`invoices/payments/billing_events`) criado na migration 002; lógica/`PaymentProvider` pendente.
+- [ ] **Fase 6** — Painel Super Admin + onboarding. Flag `users.is_super_admin` na migration 003.
+- [ ] **Fase 7** — Desacoplar IA / hardcodes residuais.
+
+Legenda: [x] concluído · [~] parcial/pronto-mas-inerte · [ ] não iniciado.
 
 ### Log de progresso (adicionar 1 linha por sessão)
 - 2026-06-03 — Diagnóstico (raio-X) concluído e plano aprovado. Documento versionado para sincronizar entre os dois PCs.
+- 2026-06-28 — Implementada a **fundação aditiva e inerte** sem tocar em produção: migrations SaaS `001..005` + runner (`scripts/saas/run-saas-migrations.js`), módulos `tenancy/*` (featureFlags, tenantScope, tenantMiddleware, entitlements, requireModule, requirePermission, meEntitlementsRouter) — nenhum plugado no `server.js`. No front: `EntitlementsContext`/`useCan`/`<Gate>`/`moduleManifest` fail-open, sem alterar `layout.tsx`/middleware. Verificado: `tsc --noEmit` do next OK; testes da API mantêm o mesmo resultado pré-existente (1 falha de contrato do funil de IA, não relacionada). Sem commit/push.
+- 2026-06-28 — **Migrations validadas em STAGING** (Docker Postgres 18 = versão de produção; cópia via `pg_dump` do banco real, 50 MB). Aplicadas `001..005` com 0 erros. Resultado: org piloto `grupo-ideia-um` (saas_enabled=false), 7 establishments reconciliando places+bars (Rooftop=place9/bar5, HighLine=place7/bar3, Tio Jacques=bar-only), 7 módulos, 13 permissões, 5 roles, 1 super_admin/148 users, e **0 linhas órfãs** (organization_id) em todas as tabelas-chave. Migration 005 ajustada (aliases place→bar + bars sem place) e confirmada **idempotente** no re-run.
+- 2026-06-28 — **Fase 1 APLICADA EM PRODUÇÃO**. Backup `pg_dump` salvo antes (18 MB). Rodado via `scripts/saas/run-saas-migrations.js` (`SAAS_MIGRATE_CONFIRM=apply`) → 001..005 ✅ 0 erros. Validação em prod idêntica ao staging (0 órfãos, 7 establishments). Health check pós-migration OK (`/api/bars` e `/api/places` HTTP 200). `SAAS_MODE` permanece off — nenhuma mudança de comportamento. Sem commit/push.
+- 2026-06-28 — **Fase 2 iniciada e DEPLOYADA em produção (inerte)**. Commit `f61fd73` push no master → auto-deploy Render. `optionalAuth` + `tenantMiddleware` (observe) plugados em `routes/restaurantReservations.js` e `routes/reservas.js`; `GET /api/me/entitlements` montado (read-only, fail-open). Verificado pós-deploy: rota nova `403` (exige token), `/api/restaurant-reservations` `200` sem regressão durante todo o deploy. **Inerte** até `SAAS_MODE=observe` no Render. Próximo: (1) setar `SAAS_MODE=observe` no Render; (2) front enviar `Authorization` nas chamadas de reserva para o observe ter dados; (3) só então `enforce` rota a rota.
+- 2026-06-29 — **`SAAS_MODE=observe` confirmado em produção** + front enviando `Authorization` nas proxies de reserva. Preparação do `enforce` de forma **segura e inerte**: (1) descoberto que o formulário **público** de reserva faz `POST /api/restaurant-reservations` **sem token** → ligar `on` "cru" bloquearia o cliente; (2) `tenantMiddleware` **endurecido**: anônimo NUNCA é bloqueado (rota mantém política pública), só restringe usuário AUTENTICADO fora de escopo; (3) novo `tenancy/queryScope.js` (`establishmentScopeClause`) aplicado na listagem `GET /api/restaurant-reservations` para isolamento de LEITURA por escopo; (4) teste unitário `tests/unit/tenantMiddleware.test.js` (6/6) cobrindo off/observe/on × anônimo/admin/escopado. Tudo inerte até `SAAS_MODE=on`. Suíte: mesma 1 falha pré-existente do funil de IA (não relacionada).
+- 2026-06-29 — **Isolamento de leitura estendido** em `restaurantReservations.js`: `establishmentScopeClause` em `GET /stats/dashboard` (3 queries agregadas + NULLIF anti-divisão-por-zero) e novo `canReadEstablishment` (checagem pós-fetch → 404) em `GET /:id` e `GET /:id/guest-list`. Testes `tests/unit/queryScope.test.js` (9) — total tenancy 15/15. `reservas.js` (sistema legado de eventos) deixado como está: não-admin já filtra por `user_id`, não é vazamento de tenant. **⚠️ CAVEAT de IDs:** `restaurant_reservations.establishment_id` = id **operacional** (place/bar), igual ao que o front manda e ao `user_establishment_permissions`. `memberships.establishment_id` = id **canônico** (establishments.id) — espaço diferente. Hoje funciona porque `memberships` está vazio (loadUserScope cai no legado/operacional). **Antes de popular `memberships`**, decidir: gravar id operacional, traduzir no `loadUserScope`, ou migrar `restaurant_reservations.establishment_id` p/ canônico. Próximo: validar `enforce` com 1 usuário restrito antes do `on`.
+- 2026-06-28 — **Unificação places+bars (passos seguros) APLICADA EM PRODUÇÃO**. Migrations `006` (enriquece `establishments` com campos tipados de places+bars + `theme` JSONB; decisão: tipado + JSONB) e `007` (`establishment_modules` = serviços por casa, on/off). Seed por evidência: 5 casas operacionais com tudo; Sitio Ilha e Tio Jacques só cardápio. Validado em staging e prod; API 200. **Ainda intacto**: places/bars seguem existindo (compatibilidade); o código continua lendo as tabelas legadas. **Pendente p/ próxima sessão (staging + decisão):** Passo 4-5 — transformar places/bars em VIEWS sobre establishments e migrar as queries da API para o id canônico; depois aposentar as tabelas legadas.
 
 ---
 

@@ -9,10 +9,13 @@ export const ESTABLISHMENT_TO_CARDAPIO_BAR_ID: Record<number, number> = {
   5: 5,
   // High Line: place 7 → bar 3
   7: 3,
+  // Oh Freguês: place 4 → bar 2 (place 4 ≠ bar 4, que é a Pracinha no cardápio)
+  4: 2,
   // Pracinha do Seu Justino: place 8 → bar 4
   8: 4,
-  // Seu Justino / Oh Fregues (place e bar costumam coincidir)
+  // Seu Justino: place 1 → bar 1
   1: 1,
+  // Legado: alguns ambientes ainda referenciam bar/place 2 como Oh Freguês
   2: 2,
 };
 
@@ -29,6 +32,34 @@ function normalizeNameKey(value: string): string {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, ' ')
     .trim();
+}
+
+const ESTABLISHMENT_NAME_TO_BAR_NAME_HINTS: Record<number, string[]> = {
+  4: ['oh fregues', 'oh freguês'],
+  8: ['pracinha'],
+};
+
+function matchBarIdByEstablishmentName(
+  establishmentId: number,
+  barNameKeys: Array<{ id: number; key: string }>,
+): number | null {
+  const hints = ESTABLISHMENT_NAME_TO_BAR_NAME_HINTS[establishmentId];
+  if (!hints?.length) return null;
+  for (const bar of barNameKeys) {
+    if (hints.some((hint) => bar.key.includes(hint))) {
+      return bar.id;
+    }
+  }
+  return null;
+}
+
+/** Converte establishment_id (places) para barId do cardápio quando possível. */
+export function establishmentIdToCardapioBarId(establishmentId: number): number {
+  const est = Number(establishmentId);
+  if (!Number.isFinite(est) || est <= 0) return est;
+  const mapped = ESTABLISHMENT_TO_CARDAPIO_BAR_ID[est];
+  if (Number.isFinite(mapped) && mapped > 0) return mapped;
+  return est;
 }
 
 /**
@@ -60,9 +91,15 @@ export function toCardapioBarIds(
       continue;
     }
 
-    if (barById.has(estId)) {
+    // Só aceita id direto quando não há place mapeado (evita place 4 → bar Pracinha id 4).
+    if (barById.has(estId) && ESTABLISHMENT_TO_CARDAPIO_BAR_ID[estId] == null) {
       resolved.add(estId);
       continue;
+    }
+
+    const nameMatched = matchBarIdByEstablishmentName(estId, barNameKeys);
+    if (nameMatched != null) {
+      resolved.add(nameMatched);
     }
 
     // Fallback: permissão com id de place sem mapa — tenta casar pelo nome conhecido
@@ -84,6 +121,7 @@ export function establishmentGrantsCardapioBar(
   const est = Number(establishmentId);
   const bar = Number(cardapioBarId);
   if (!Number.isFinite(est) || !Number.isFinite(bar)) return false;
-  if (est === bar) return true;
-  return ESTABLISHMENT_TO_CARDAPIO_BAR_ID[est] === bar;
+  const mapped = ESTABLISHMENT_TO_CARDAPIO_BAR_ID[est];
+  if (Number.isFinite(mapped) && mapped > 0) return mapped === bar;
+  return est === bar;
 }

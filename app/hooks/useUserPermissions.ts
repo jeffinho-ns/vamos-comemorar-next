@@ -5,7 +5,10 @@ import {
   isWhatsappHighlineScopedEmail,
 } from "../config/whatsapp-highline-access";
 import { getPromoterBarByEmail } from "../config/promoter-bars";
-import { establishmentGrantsCardapioBar } from "../config/cardapioBarResolver";
+import {
+  establishmentGrantsCardapioBar,
+  establishmentIdToCardapioBarId,
+} from "../config/cardapioBarResolver";
 import {
   isGlobalAdminUser,
   isSuperAdminEmail as isSuperAdminEmailRule,
@@ -172,7 +175,7 @@ export function useUserPermissions() {
             userId: userId ?? 0,
             userEmail: safeUserEmail,
             userName: first.establishment_name,
-            barId: Number(first.establishment_id),
+            barId: establishmentIdToCardapioBarId(Number(first.establishment_id)),
             barName:
               first.establishment_name || `Estabelecimento ${first.establishment_id}`,
             barSlug: slugify(first.establishment_name || ""),
@@ -242,8 +245,15 @@ export function useUserPermissions() {
   const canManageBar = useCallback(
     (barId: number): boolean => {
       if (permissions.isSuperAdmin) return true;
-      return permissions.myEstablishmentPermissions.some((p) =>
-        establishmentGrantsCardapioBar(Number(p.establishment_id), Number(barId)),
+      // Só gerencia o bar do cardápio se o estabelecimento mapear para ele E
+      // tiver as permissões de cardápio ativas. Desmarcar "ver" ou "editar"
+      // cardápio remove a edição mesmo mantendo o acesso ao estabelecimento.
+      return permissions.myEstablishmentPermissions.some(
+        (p) =>
+          p.is_active !== false &&
+          p.can_view_cardapio !== false &&
+          p.can_edit_cardapio !== false &&
+          establishmentGrantsCardapioBar(Number(p.establishment_id), Number(barId)),
       );
     },
     [permissions.isSuperAdmin, permissions.myEstablishmentPermissions],

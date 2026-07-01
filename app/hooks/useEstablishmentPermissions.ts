@@ -1,8 +1,9 @@
-import { useMemo } from "react";
+import { useCallback, useMemo } from "react";
 import { useAppContext } from "../context/AppContext";
 import {
   filterEstablishmentListForUser,
   isGlobalAdminUser,
+  establishmentMatchesUserScope,
 } from "../utils/establishmentAccessRules";
 
 export interface EstablishmentPermission {
@@ -61,8 +62,12 @@ export function useEstablishmentPermissions() {
   const normalizedRole = (role || "").toLowerCase();
   const userConfig = useMemo<UserEstablishmentConfig | null>(() => {
     if (!permissions.length) return null;
-    const establishmentIds = Array.from(new Set(permissions.map((p) => p.establishment_id)));
-    const firstPermission = permissions[0];
+    const activePermissions = permissions.filter((p) => p.is_active !== false);
+    if (!activePermissions.length) return null;
+    const establishmentIds = Array.from(
+      new Set(activePermissions.map((p) => p.establishment_id)),
+    );
+    const firstPermission = activePermissions[0];
     return {
       userEmail: userEmail || "",
       establishmentIds,
@@ -81,7 +86,7 @@ export function useEstablishmentPermissions() {
   // Verifica se o usuário tem acesso a um estabelecimento específico
   const permissionsResolved = !isLoading;
 
-  const hasAccessToEstablishment = (establishmentId: number): boolean => {
+  const hasAccessToEstablishment = useCallback((establishmentId: number): boolean => {
     if (
       isGlobalAdminUser(userEmail || null, normalizedRole, permissions, {
         permissionsResolved,
@@ -91,11 +96,11 @@ export function useEstablishmentPermissions() {
     }
     if (!userConfig) return false;
     return userConfig.establishmentIds.includes(establishmentId);
-  };
+  }, [userEmail, normalizedRole, permissions, permissionsResolved, userConfig]);
 
   // Retorna apenas os estabelecimentos permitidos para o usuário
   /** Aceita `name` (App/places) ou `nome` (ex.: página de check-ins). */
-  const getFilteredEstablishments = <
+  const getFilteredEstablishments = useCallback(<
     T extends { id: number | string; name?: string; nome?: string },
   >(
     establishments: T[],
@@ -117,12 +122,11 @@ export function useEstablishmentPermissions() {
 
     // Se tem userConfig, usar ele (prioridade)
     if (userConfig && userConfig.establishmentIds.length > 0) {
-      // Normalizar IDs para números para comparação correta
       const allowedIds = userConfig.establishmentIds.map(id => Number(id));
       
       const filtered = visibilityScoped.filter((est) => {
         const estId = typeof est.id === 'string' ? parseInt(est.id, 10) : Number(est.id);
-        return allowedIds.includes(estId);
+        return establishmentMatchesUserScope(estId, allowedIds);
       });
 
       return filtered;
@@ -130,7 +134,6 @@ export function useEstablishmentPermissions() {
     
     // Se não tem userConfig mas tem permissões ativas, usar elas
     if (permissions.length > 0 && permissions.some(p => p.is_active)) {
-      // Filtrar pelos estabelecimentos das permissões ativas
       const allowedIds = Array.from(new Set(
         permissions
           .filter(p => p.is_active)
@@ -138,8 +141,8 @@ export function useEstablishmentPermissions() {
       ));
       
       const filtered = visibilityScoped.filter((est) => {
-        const estId = typeof est.id === 'string' ? parseInt(est.id) : est.id;
-        return allowedIds.includes(estId);
+        const estId = typeof est.id === 'string' ? parseInt(est.id, 10) : Number(est.id);
+        return establishmentMatchesUserScope(estId, allowedIds);
       });
       return filtered;
     }
@@ -154,86 +157,86 @@ export function useEstablishmentPermissions() {
     }
 
     return [];
-  };
+  }, [permissionsResolved, userEmail, userConfig, permissions, normalizedRole]);
 
   // Buscar permissão específica para um estabelecimento
-  const getPermissionForEstablishment = (establishmentId: number): PermissionData | null => {
+  const getPermissionForEstablishment = useCallback((establishmentId: number): PermissionData | null => {
     return permissions.find(p => p.establishment_id === establishmentId && p.is_active) || null;
-  };
+  }, [permissions]);
 
   // Verifica se o usuário pode editar OS (para um estabelecimento específico)
-  const canEditOS = (establishmentId?: number): boolean => {
+  const canEditOS = useCallback((establishmentId?: number): boolean => {
     if (!userConfig) return true; // Admin pode editar
     if (establishmentId) {
       const perm = getPermissionForEstablishment(establishmentId);
       return perm ? perm.can_edit_os : false;
     }
     return userConfig.permissions.canEditOS ?? false;
-  };
+  }, [userConfig, getPermissionForEstablishment]);
 
   // Verifica se o usuário pode editar Detalhe Operacional
-  const canEditOperationalDetail = (establishmentId?: number): boolean => {
+  const canEditOperationalDetail = useCallback((establishmentId?: number): boolean => {
     if (!userConfig) return true; // Admin pode editar
     if (establishmentId) {
       const perm = getPermissionForEstablishment(establishmentId);
       return perm ? perm.can_edit_operational_detail : false;
     }
     return userConfig.permissions.canEditOperationalDetail ?? false;
-  };
+  }, [userConfig, getPermissionForEstablishment]);
 
   // Verifica se o usuário pode visualizar OS
-  const canViewOS = (establishmentId?: number): boolean => {
+  const canViewOS = useCallback((establishmentId?: number): boolean => {
     if (!userConfig) return true; // Admin pode visualizar
     if (establishmentId) {
       const perm = getPermissionForEstablishment(establishmentId);
       return perm ? perm.can_view_os : false;
     }
     return userConfig.permissions.canViewOS ?? true;
-  };
+  }, [userConfig, getPermissionForEstablishment]);
 
   // Verifica se o usuário pode baixar OS
-  const canDownloadOS = (establishmentId?: number): boolean => {
+  const canDownloadOS = useCallback((establishmentId?: number): boolean => {
     if (!userConfig) return true; // Admin pode baixar
     if (establishmentId) {
       const perm = getPermissionForEstablishment(establishmentId);
       return perm ? perm.can_download_os : false;
     }
     return userConfig.permissions.canDownloadOS ?? true;
-  };
+  }, [userConfig, getPermissionForEstablishment]);
 
   // Verifica se o usuário pode criar OS
-  const canCreateOS = (establishmentId?: number): boolean => {
+  const canCreateOS = useCallback((establishmentId?: number): boolean => {
     if (!userConfig) return true; // Admin pode criar
     if (establishmentId) {
       const perm = getPermissionForEstablishment(establishmentId);
       return perm ? perm.can_create_os : false;
     }
     return userConfig.permissions.canCreateOS ?? false;
-  };
+  }, [userConfig, getPermissionForEstablishment]);
 
   // Verifica se o usuário pode criar Detalhe Operacional
-  const canCreateOperationalDetail = (establishmentId?: number): boolean => {
+  const canCreateOperationalDetail = useCallback((establishmentId?: number): boolean => {
     if (!userConfig) return true; // Admin pode criar
     if (establishmentId) {
       const perm = getPermissionForEstablishment(establishmentId);
       return perm ? perm.can_create_operational_detail : false;
     }
     return userConfig.permissions.canCreateOperationalDetail ?? false;
-  };
+  }, [userConfig, getPermissionForEstablishment]);
 
   // Verifica se o usuário pode criar, editar e excluir reservas e lista de espera (no Sistema de Reservas).
   // Se false, pode apenas visualizar, fazer check-in, check-out e alocar mesa.
-  const canCreateEditReservations = (establishmentId?: number): boolean => {
+  const canCreateEditReservations = useCallback((establishmentId?: number): boolean => {
     if (!userConfig) return true; // Admin pode tudo
     if (establishmentId) {
       const perm = getPermissionForEstablishment(establishmentId);
       return perm ? (perm.can_create_edit_reservations !== false) : false;
     }
     return permissions.some((p) => p.is_active && p.can_create_edit_reservations !== false);
-  };
+  }, [userConfig, permissions, getPermissionForEstablishment]);
 
   // Retorna o primeiro estabelecimento permitido (útil para seleção automática)
-  const getDefaultEstablishmentId = (): number | null => {
+  const getDefaultEstablishmentId = useCallback((): number | null => {
     // Verificar primeiro userConfig
     if (userConfig && userConfig.establishmentIds.length > 0) {
       return userConfig.establishmentIds[0];
@@ -250,10 +253,10 @@ export function useEstablishmentPermissions() {
     }
     
     return null;
-  };
+  }, [userConfig, permissions]);
 
   // Verifica se o usuário está restrito a um único estabelecimento
-  const isRestrictedToSingleEstablishment = (): boolean => {
+  const isRestrictedToSingleEstablishment = useCallback((): boolean => {
     // Verificar primeiro userConfig
     if (userConfig && userConfig.establishmentIds.length === 1) {
       return true;
@@ -270,26 +273,47 @@ export function useEstablishmentPermissions() {
     }
     
     return false;
-  };
+  }, [userConfig, permissions]);
 
-  return {
-    userConfig,
-    permissions,
-    userEmail: userEmail || null,
-    isLoading,
-    error: contextError,
-    hasAccessToEstablishment,
-    getFilteredEstablishments,
-    getPermissionForEstablishment,
-    canEditOS,
-    canEditOperationalDetail,
-    canViewOS,
-    canDownloadOS,
-    canCreateOS,
-    canCreateOperationalDetail,
-    canCreateEditReservations,
-    getDefaultEstablishmentId,
-    isRestrictedToSingleEstablishment,
-  };
+  return useMemo(
+    () => ({
+      userConfig,
+      permissions,
+      userEmail: userEmail || null,
+      isLoading,
+      error: contextError,
+      hasAccessToEstablishment,
+      getFilteredEstablishments,
+      getPermissionForEstablishment,
+      canEditOS,
+      canEditOperationalDetail,
+      canViewOS,
+      canDownloadOS,
+      canCreateOS,
+      canCreateOperationalDetail,
+      canCreateEditReservations,
+      getDefaultEstablishmentId,
+      isRestrictedToSingleEstablishment,
+    }),
+    [
+      userConfig,
+      permissions,
+      userEmail,
+      isLoading,
+      contextError,
+      hasAccessToEstablishment,
+      getFilteredEstablishments,
+      getPermissionForEstablishment,
+      canEditOS,
+      canEditOperationalDetail,
+      canViewOS,
+      canDownloadOS,
+      canCreateOS,
+      canCreateOperationalDetail,
+      canCreateEditReservations,
+      getDefaultEstablishmentId,
+      isRestrictedToSingleEstablishment,
+    ],
+  );
 }
 
