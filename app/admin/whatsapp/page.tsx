@@ -1374,10 +1374,29 @@ export default function AdminWhatsappPage() {
       if (!res.ok) throw new Error(data.message || `Erro ${res.status}`);
       await fetchContacts();
       setImportCsvText("");
-      setSuccessMessage(
+      const imported = Number(data.imported ?? 0);
+      const updated = Number(data.updated ?? 0);
+      const skipped = Number(data.skipped ?? 0);
+      const errorDetails = Array.isArray(data.errors)
+        ? data.errors
+            .slice(0, 5)
+            .map((item: { line?: number; reason?: string }) =>
+              `Linha ${item.line ?? "?"}: ${item.reason ?? "erro desconhecido"}`,
+            )
+            .join(" · ")
+        : "";
+      const baseMessage =
         typeof data.message === "string"
           ? data.message
-          : `Importação: ${data.imported ?? 0} novo(s), ${data.updated ?? 0} atualizado(s).`,
+          : `Importação: ${imported} novo(s), ${updated} atualizado(s), ${skipped} ignorado(s).`;
+      if (imported + updated === 0 && skipped > 0) {
+        setError(
+          `${baseMessage}${errorDetails ? ` Detalhes: ${errorDetails}` : " Verifique se o telefone está na primeira coluna ou use o cabeçalho telefone,nome,email."}`,
+        );
+        return;
+      }
+      setSuccessMessage(
+        errorDetails && skipped > 0 ? `${baseMessage} Avisos: ${errorDetails}` : baseMessage,
       );
     } catch (e) {
       setError(e instanceof Error ? e.message : "Falha ao importar contatos");
@@ -1395,6 +1414,24 @@ export default function AdminWhatsappPage() {
     } catch {
       setError("Não foi possível ler o arquivo CSV.");
     }
+  };
+
+  const handleDownloadImportTemplate = () => {
+    const template = [
+      "telefone,nome,email,marketing_opt_in,tags",
+      "5511999999999,Maria Silva,maria@email.com,true,vip",
+      "5511888888888,João Santos,joao@email.com,true,planilha-junho",
+    ].join("\n");
+    const blob = new Blob([template], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "modelo-importacao-contatos.csv";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    setSuccessMessage("Modelo CSV baixado. Preencha e use Carregar CSV ou cole na caixa de texto.");
   };
 
   const persistContactDraft = useCallback(
@@ -2902,10 +2939,24 @@ export default function AdminWhatsappPage() {
 
         <div className="p-4 border-b border-gray-100 bg-white">
           <h3 className="text-sm font-semibold text-gray-800 mb-2">Importar base de contatos</h3>
-          <p className="text-xs text-gray-500 mb-3">
-            Adicione contatos de planilhas ou outras bases para campanhas. Colunas: wa_id (ou
-            telefone), contact_name, marketing_opt_in, tags.
-          </p>
+          <div className="text-xs text-gray-500 mb-3 space-y-1">
+            <p>
+              <strong>Passo 1:</strong> selecione o estabelecimento acima (não vai dentro do CSV).
+            </p>
+            <p>
+              <strong>Passo 2:</strong> cole ou carregue um CSV. A coluna obrigatória é{" "}
+              <code className="text-[11px] bg-gray-100 px-1 rounded">telefone</code> (WhatsApp com
+              DDI 55). Opcionais: nome, email, marketing_opt_in, tags.
+            </p>
+            <p>
+              <strong>Contato único:</strong> cole duas linhas — cabeçalho + linha de dados — ou só
+              uma linha no formato{" "}
+              <code className="text-[11px] bg-gray-100 px-1 rounded">
+                5511999999999,Maria,true,vip
+              </code>{" "}
+              (telefone primeiro).
+            </p>
+          </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
             <select
               value={importEstablishmentId === "" ? "" : String(importEstablishmentId)}
@@ -2945,11 +2996,18 @@ export default function AdminWhatsappPage() {
           <textarea
             value={importCsvText}
             onChange={(e) => setImportCsvText(e.target.value)}
-            placeholder={`wa_id,contact_name,marketing_opt_in,tags\n5511999999999,Maria,true,vip`}
+            placeholder={`telefone,nome,email,marketing_opt_in,tags\n5511999999999,Maria Silva,maria@email.com,true,vip`}
             rows={5}
             className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm font-mono mb-3"
           />
           <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={handleDownloadImportTemplate}
+              className="inline-flex items-center px-3 py-2 rounded-lg border border-gray-200 text-sm hover:bg-gray-50"
+            >
+              Baixar modelo CSV
+            </button>
             <label className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 text-sm cursor-pointer hover:bg-gray-50">
               <input
                 type="file"
