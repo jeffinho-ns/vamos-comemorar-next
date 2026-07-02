@@ -30,7 +30,7 @@ export async function fetchCardapioMappings(): Promise<Record<number, number>> {
   } catch {
     cardapioMappingsCache = { ...ESTABLISHMENT_TO_CARDAPIO_BAR_ID };
   }
-  return cardapioMappingsCache;
+  return cardapioMappingsCache ?? { ...ESTABLISHMENT_TO_CARDAPIO_BAR_ID };
 }
 
 export async function fetchEstablishmentRules(
