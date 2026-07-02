@@ -15,8 +15,8 @@
 |-------|-------|
 | Última atualização | 2026-07-02 |
 | Modo atual | **`SAAS_MODE=on`** na API · **`NEXT_PUBLIC_SAAS_MODE=on`** no front (`.env.example`). Migrations **001–011** no código; aplicar **009–011** em prod se ainda pendentes. |
-| Fase em andamento | **Fase 6 fechando** — materiais no `/documentacao`, onboarding no provisionamento, scripts de backfill. |
-| Próximo passo | Rodar migrations + scripts em **produção** (com backup); validar sidebar filtrando módulos; Fase 7 hardcodes. |
+| Fase em andamento | **Fase 7** — regras por estabelecimento (`establishmentRules`) substituindo hardcodes de ID. |
+| Próximo passo | Aplicar migration `012` em prod; expandir uso de `establishments.config`; places/bars → views. |
 | Pendências/decisões | Contract NOT NULL (fase posterior); places/bars → views; expandir RLS além de `restaurant_reservations`. |
 
 > Produção já tem migrations 001–007, observe ativo, proxies com Authorization e código de enforce **pronto mas inerte** até `SAAS_MODE=on`.
@@ -35,7 +35,7 @@
 - [~] **Fase 4** — `EntitlementsProvider` + sidebar via `adminNavModules`. **`NEXT_PUBLIC_SAAS_MODE=on`** no `.env.example` e `.env.local`. Quebra de monolitos: pendente.
 - [x] **Fase 5** — Billing manual, mensalidade (`009`), `past_due`, sem gateway.
 - [x] **Fase 6** — Superadmin completo + materiais em `/documentacao` + onboarding no provisionamento + scripts backfill.
-- [ ] **Fase 7** — Desacoplar IA / hardcodes residuais.
+- [~] **Fase 7** — `establishmentRules` + migration `012` + API `/api/establishments/rules`; refatoradas rotas de áreas/reservas/waitlist. Pendente: eventos/check-ins front, places/bars views.
 
 Legenda: [x] concluído · [~] parcial/pronto-mas-inerte · [ ] não iniciado.
 
@@ -52,7 +52,7 @@ Legenda: [x] concluído · [~] parcial/pronto-mas-inerte · [ ] não iniciado.
 - 2026-07-02 — **Fix login Rooftop** (`analista.mkt02`): bypass middleware + sidebar sem esvaziar por entitlements vazios (`adminProfileEmails.ts`, commit `29c5f68` next).
 - 2026-07-02 — **mkt02 validado** em produção com `@123Mudar`. Migration 008 já aplicada no banco prod.
 - 2026-07-02 — **Fase 5/6 MVP:** API `billing/billingService`, `ManualPaymentProvider`, rotas `/api/superadmin/*`, `past_due` em entitlements; front `/superadmin` (dashboard, orgs, faturas manuais).
-- 2026-07-02 — **Fase 6 fechamento:** `GET /api/me/training-materials`, seção Materiais SaaS em `/documentacao`, onboarding seed no provisionamento, migration `011` (materiais globais), scripts `backfill_memberships_from_uep` e `fix_promoter_orphans`, `NEXT_PUBLIC_SAAS_MODE=on`.
+- 2026-07-02 — **Fase 7 início:** `services/establishmentRules.js`, migration `012` (config por casa), rotas `/api/establishments/*`, refatoração de `restaurantAreas`, `restaurantReservations`, `waitlist`, `businessRulesEngine`; front `establishmentRulesClient` + cardápio dinâmico.
 - 2026-07-02 — **Fase 2 stats:** `establishmentScopeClause` em `GET /large-reservations/stats/dashboard`, `GET /waitlist/stats/count`, `GET /walk-ins/stats/active`.
 - 2026-07-02 — **Fase 2 expand + Fase 4 sidebar:** enforce em `guestListsAdmin`, `restaurantAreas`, `restaurantReservationBlocks`, `restaurantReservationSettings`, `eventos/dashboard`; removido fake admin sem token em guest-lists. Front: `EntitlementsProvider` montado, `filterNavByEntitlements` na sidebar (`adminNavModules.ts`). Ativar filtro real: `NEXT_PUBLIC_SAAS_MODE=on` no Render do front.
 - 2026-06-28 — **Unificação places+bars (passos seguros) APLICADA EM PRODUÇÃO**. Migrations `006` (enriquece `establishments` com campos tipados de places+bars + `theme` JSONB; decisão: tipado + JSONB) e `007` (`establishment_modules` = serviços por casa, on/off). Seed por evidência: 5 casas operacionais com tudo; Sitio Ilha e Tio Jacques só cardápio. Validado em staging e prod; API 200. **Ainda intacto**: places/bars seguem existindo (compatibilidade); o código continua lendo as tabelas legadas. **Pendente p/ próxima sessão (staging + decisão):** Passo 4-5 — transformar places/bars em VIEWS sobre establishments e migrar as queries da API para o id canônico; depois aposentar as tabelas legadas.

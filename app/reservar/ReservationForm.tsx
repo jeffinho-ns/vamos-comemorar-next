@@ -954,8 +954,8 @@ const handleSubmit = async (e: React.FormEvent) => {
   // - Terça a Sexta: 1º giro 18:00–21:00 | 2º giro a partir de 21:00 (inclui madrugada)
   // - Sábado: 1º giro 12:00–15:00 | 2º giro a partir de 15:00 (inclui madrugada)
   // - Domingo: 1º giro 12:00–15:00 | 2º giro a partir de 15:00
-  const isSeuJustinoId = selectedEstablishment?.id === 1;
-  const isPracinhaId = selectedEstablishment?.id === 8;
+  const isSeuJustinoId = !!isSeuJustino;
+  const isPracinhaId = !!isPracinha;
   let isEsperaAntecipada = false;
   
   if ((isSeuJustinoId || isPracinhaId) && reservationData.reservation_date && reservationData.reservation_time) {

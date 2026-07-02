@@ -1,7 +1,10 @@
 /**
  * IDs em user_establishment_permissions referem-se em geral à tabela `places`.
  * O admin de cardápio (/api/cardapio) usa a tabela `bars` — os IDs nem sempre coincidem.
+ * Mapeamento dinâmico via /api/establishments/cardapio-mappings (Fase 7).
  */
+
+import { resolveCardapioBarId } from '@/app/utils/establishmentRulesClient';
 
 export const ESTABLISHMENT_TO_CARDAPIO_BAR_ID: Record<number, number> = {
   // Reserva Rooftop: place 9 → bar 5 (também aceita 5 legado na permissão)
@@ -57,7 +60,7 @@ function matchBarIdByEstablishmentName(
 export function establishmentIdToCardapioBarId(establishmentId: number): number {
   const est = Number(establishmentId);
   if (!Number.isFinite(est) || est <= 0) return est;
-  const mapped = ESTABLISHMENT_TO_CARDAPIO_BAR_ID[est];
+  const mapped = resolveCardapioBarId(est);
   if (Number.isFinite(mapped) && mapped > 0) return mapped;
   return est;
 }

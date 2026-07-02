@@ -34,6 +34,7 @@ import { useRouter } from 'next/navigation';
 import { uploadImage as uploadImageToFirebase } from '@/app/services/uploadService';
 import { filterEstablishmentListForUser } from '@/app/utils/establishmentAccessRules';
 import { toCardapioBarIds } from '@/app/config/cardapioBarResolver';
+import { fetchCardapioMappings } from '@/app/utils/establishmentRulesClient';
 
 type MenuDisplayStyle = 'normal' | 'clean';
 
@@ -1026,6 +1027,10 @@ export default function CardapioAdminPage() {
     uniqueAllowedEstablishmentIds.join(','),
     menuData.bars.length,
   ]);
+
+  useEffect(() => {
+    fetchCardapioMappings().catch(() => undefined);
+  }, []);
 
   useEffect(() => {
     fetchData();
