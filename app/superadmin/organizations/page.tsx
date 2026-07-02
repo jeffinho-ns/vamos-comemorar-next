@@ -13,6 +13,7 @@ type OrgRow = {
   plan_key: string | null;
   plan_name: string | null;
   plan_price_cents: number | null;
+  monthly_amount_cents: number | null;
   subscription_status: string | null;
   establishments_count: number;
   open_invoices: number;
@@ -29,6 +30,7 @@ export default function SuperadminOrganizationsPage() {
     adminEmail: "",
     adminName: "",
     establishmentName: "",
+    monthlyAmount: "0",
   });
   const [saving, setSaving] = useState(false);
 
@@ -47,6 +49,9 @@ export default function SuperadminOrganizationsPage() {
     setSaving(true);
     setError(null);
     try {
+      const parsed = Math.round(
+        parseFloat(form.monthlyAmount.replace(",", ".") || "0") * 100,
+      );
       await superadminFetch("/organizations", {
         method: "POST",
         body: JSON.stringify({
@@ -56,6 +61,7 @@ export default function SuperadminOrganizationsPage() {
           adminEmail: form.adminEmail || undefined,
           adminName: form.adminName || undefined,
           establishmentName: form.establishmentName || undefined,
+          monthlyAmountCents: Number.isFinite(parsed) ? parsed : undefined,
         }),
       });
       setShowForm(false);
@@ -66,6 +72,7 @@ export default function SuperadminOrganizationsPage() {
         adminEmail: "",
         adminName: "",
         establishmentName: "",
+        monthlyAmount: "0",
       });
       load();
     } catch (err) {
@@ -81,7 +88,7 @@ export default function SuperadminOrganizationsPage() {
         <div>
           <h2 className="text-2xl font-bold">Organizações</h2>
           <p className="text-slate-400 text-sm">
-            Clientes do SaaS — planos, módulos e faturamento.
+            Clientes do SaaS com mensalidade manual para medir sua receita real.
           </p>
         </div>
         <button
@@ -128,6 +135,12 @@ export default function SuperadminOrganizationsPage() {
               setForm({ ...form, establishmentName: e.target.value })
             }
           />
+          <input
+            placeholder="Mensalidade (R$)"
+            className="rounded border border-slate-700 bg-slate-950 px-3 py-2"
+            value={form.monthlyAmount}
+            onChange={(e) => setForm({ ...form, monthlyAmount: e.target.value })}
+          />
           <button
             type="submit"
             disabled={saving}
@@ -144,6 +157,7 @@ export default function SuperadminOrganizationsPage() {
             <tr>
               <th className="p-3">Nome</th>
               <th className="p-3">Plano</th>
+              <th className="p-3">Mensalidade</th>
               <th className="p-3">Status</th>
               <th className="p-3">Casas</th>
               <th className="p-3">Faturas abertas</th>
@@ -168,6 +182,11 @@ export default function SuperadminOrganizationsPage() {
                       {" "}
                       ({formatBrlFromCents(o.plan_price_cents)})
                     </span>
+                  )}
+                </td>
+                <td className="p-3 text-emerald-300">
+                  {formatBrlFromCents(
+                    o.monthly_amount_cents ?? o.plan_price_cents ?? 0,
                   )}
                 </td>
                 <td className="p-3">

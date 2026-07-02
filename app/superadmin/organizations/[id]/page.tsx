@@ -5,25 +5,58 @@ import { useParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { formatBrlFromCents, superadminFetch } from "@/app/utils/superadminApi";
 
+type PaymentRow = {
+  id: number;
+  amount_cents: number;
+  paid_at: string | null;
+  method: string | null;
+  receipt_url: string | null;
+  created_at: string;
+};
+
+type InvoiceRow = {
+  id: number;
+  amount_cents: number;
+  paid_cents: number;
+  status: string;
+  due_date: string | null;
+  payments: PaymentRow[];
+};
+
 type OrgDetail = {
   organization: Record<string, unknown>;
   establishments: Array<Record<string, unknown>>;
   modules: Array<{ key: string; name: string; is_enabled: boolean }>;
-  invoices: Array<Record<string, unknown>>;
+  invoices: InvoiceRow[];
   billingEvents: Array<Record<string, unknown>>;
 };
+
+function toInputMoney(cents: number | null | undefined): string {
+  return ((Number(cents || 0) || 0) / 100).toFixed(2).replace(".", ",");
+}
+
+function parseMoneyToCents(value: string): number {
+  const parsed = Math.round(parseFloat(value.replace(",", ".") || "0") * 100);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
 
 export default function SuperadminOrganizationDetailPage() {
   const params = useParams();
   const id = Number(params.id);
   const [detail, setDetail] = useState<OrgDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [invoiceAmount, setInvoiceAmount] = useState("0");
+  const [invoiceAmount, setInvoiceAmount] = useState("0,00");
+  const [monthlyAmount, setMonthlyAmount] = useState("0,00");
+  const [savingMonthly, setSavingMonthly] = useState(false);
+  const [payingInvoiceId, setPayingInvoiceId] = useState<number | null>(null);
 
   const load = useCallback(() => {
     if (!Number.isFinite(id)) return;
     superadminFetch<OrgDetail>(`/organizations/${id}`)
-      .then(setDetail)
+      .then((data) => {
+        setDetail(data);
+        setMonthlyAmount(toInputMoney(Number(data.organization.monthly_amount_cents)));
+      })
       .catch((e) => setError(e.message));
   }, [id]);
 
@@ -39,12 +72,27 @@ export default function SuperadminOrganizationDetailPage() {
     load();
   };
 
+  const saveMonthlyAmount = async () => {
+    setSavingMonthly(true);
+    setError(null);
+    try {
+      await superadminFetch(`/organizations/${id}/subscription`, {
+        method: "PATCH",
+        body: JSON.stringify({ monthlyAmountCents: parseMoneyToCents(monthlyAmount) }),
+      });
+      load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Erro ao salvar mensalidade");
+    } finally {
+      setSavingMonthly(false);
+    }
+  };
+
   const createInvoice = async () => {
-    const amountCents = Math.round(parseFloat(invoiceAmount.replace(",", ".")) * 100);
     await superadminFetch(`/organizations/${id}/invoices`, {
       method: "POST",
       body: JSON.stringify({
-        amountCents,
+        amountCents: parseMoneyToCents(invoiceAmount),
         dueDate: new Date().toISOString().slice(0, 10),
       }),
     });
@@ -52,11 +100,19 @@ export default function SuperadminOrganizationDetailPage() {
   };
 
   const payInvoice = async (invoiceId: number, amountCents: number) => {
-    await superadminFetch(`/invoices/${invoiceId}/payments`, {
-      method: "POST",
-      body: JSON.stringify({ amountCents, method: "manual" }),
-    });
-    load();
+    setPayingInvoiceId(invoiceId);
+    setError(null);
+    try {
+      await superadminFetch(`/invoices/${invoiceId}/payments`, {
+        method: "POST",
+        body: JSON.stringify({ amountCents, method: "manual" }),
+      });
+      load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Erro ao registrar pagamento");
+    } finally {
+      setPayingInvoiceId(null);
+    }
   };
 
   const markPastDue = async () => {
@@ -68,6 +124,7 @@ export default function SuperadminOrganizationDetailPage() {
   if (!detail) return <p className="text-slate-400">Carregando…</p>;
 
   const org = detail.organization;
+  const currentMonthly = Number(org.monthly_amount_cents ?? org.price_cents ?? 0);
 
   return (
     <div className="space-y-8">
@@ -77,8 +134,7 @@ export default function SuperadminOrganizationDetailPage() {
         </Link>
         <h2 className="mt-2 text-2xl font-bold">{String(org.name)}</h2>
         <p className="text-slate-400">
-          {String(org.slug)} · {String(org.status)} · SaaS{" "}
-          {org.saas_enabled ? "on" : "off"}
+          {String(org.slug)} · {String(org.status)} · SaaS {org.saas_enabled ? "on" : "off"}
         </p>
         <div className="mt-4 flex flex-wrap gap-2">
           <button
@@ -90,6 +146,30 @@ export default function SuperadminOrganizationDetailPage() {
           </button>
         </div>
       </div>
+
+      <section className="rounded-xl border border-slate-800 bg-slate-900/40 p-4">
+        <h3 className="mb-3 text-lg font-semibold">Mensalidade da empresa</h3>
+        <p className="mb-3 text-sm text-slate-400">
+          Valor que conta para sua receita mensal. Atual: {formatBrlFromCents(currentMonthly)}.
+        </p>
+        <div className="flex flex-wrap gap-2">
+          <input
+            type="text"
+            value={monthlyAmount}
+            onChange={(e) => setMonthlyAmount(e.target.value)}
+            className="rounded border border-slate-700 bg-slate-950 px-3 py-2"
+            placeholder="Ex: 1490,00"
+          />
+          <button
+            type="button"
+            onClick={saveMonthlyAmount}
+            disabled={savingMonthly}
+            className="rounded bg-amber-600 px-3 py-2 text-sm font-medium disabled:opacity-50"
+          >
+            {savingMonthly ? "Salvando…" : "Salvar mensalidade"}
+          </button>
+        </div>
+      </section>
 
       <section>
         <h3 className="mb-3 text-lg font-semibold">Módulos</h3>
@@ -113,7 +193,7 @@ export default function SuperadminOrganizationDetailPage() {
 
       <section>
         <h3 className="mb-3 text-lg font-semibold">Estabelecimentos</h3>
-        <ul className="text-sm text-slate-300 space-y-1">
+        <ul className="space-y-1 text-sm text-slate-300">
           {detail.establishments.map((e) => (
             <li key={String(e.id)}>
               {String(e.name)} (place {String(e.legacy_place_id ?? "—")})
@@ -124,51 +204,67 @@ export default function SuperadminOrganizationDetailPage() {
 
       <section>
         <h3 className="mb-3 text-lg font-semibold">Faturas</h3>
-        <div className="mb-4 flex gap-2">
+        <div className="mb-4 flex flex-wrap gap-2">
           <input
             type="text"
-            placeholder="Valor R$"
-            className="rounded border border-slate-700 bg-slate-950 px-3 py-1"
+            placeholder="Valor da fatura (R$)"
+            className="rounded border border-slate-700 bg-slate-950 px-3 py-2"
             value={invoiceAmount}
             onChange={(e) => setInvoiceAmount(e.target.value)}
           />
           <button
             type="button"
             onClick={createInvoice}
-            className="rounded bg-amber-600 px-3 py-1 text-sm"
+            className="rounded bg-amber-600 px-3 py-2 text-sm"
           >
             Gerar fatura
           </button>
         </div>
-        <div className="space-y-2">
+        <div className="space-y-3">
           {detail.invoices.map((inv) => {
-            const invId = Number(inv.id);
             const amount = Number(inv.amount_cents);
             const paid = Number(inv.paid_cents || 0);
+            const remaining = Math.max(amount - paid, 0);
             return (
               <div
-                key={invId}
-                className="flex flex-wrap items-center justify-between gap-2 rounded border border-slate-800 p-3 text-sm"
+                key={inv.id}
+                className="rounded border border-slate-800 p-4 text-sm"
               >
-                <div>
-                  <span className="font-medium">#{invId}</span>{" "}
-                  {formatBrlFromCents(amount)} —{" "}
-                  <span className="text-slate-400">{String(inv.status)}</span>
-                  {paid > 0 && (
-                    <span className="text-emerald-400">
-                      {" "}
-                      (pago {formatBrlFromCents(paid)})
-                    </span>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <p className="font-medium">
+                      Fatura #{inv.id} · {formatBrlFromCents(amount)}
+                    </p>
+                    <p className="text-slate-400">
+                      Status: {inv.status} · Pago: {formatBrlFromCents(paid)} · Aberto: {formatBrlFromCents(remaining)}
+                    </p>
+                  </div>
+                  {remaining > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => payInvoice(Number(inv.id), remaining)}
+                      disabled={payingInvoiceId === Number(inv.id)}
+                      className="rounded bg-emerald-700 px-3 py-1 text-xs disabled:opacity-50"
+                    >
+                      {payingInvoiceId === Number(inv.id)
+                        ? "Registrando…"
+                        : `Registrar pagamento de ${formatBrlFromCents(remaining)}`}
+                    </button>
                   )}
                 </div>
-                {String(inv.status) !== "paid" && (
-                  <button
-                    type="button"
-                    onClick={() => payInvoice(invId, amount - paid)}
-                    className="rounded bg-emerald-700 px-2 py-1 text-xs"
-                  >
-                    Registrar pagamento manual
-                  </button>
+                {Array.isArray(inv.payments) && inv.payments.length > 0 && (
+                  <div className="mt-3 rounded bg-slate-950/60 p-3">
+                    <p className="mb-2 text-xs uppercase tracking-wide text-slate-500">
+                      Histórico de pagamentos
+                    </p>
+                    <ul className="space-y-1 text-xs text-slate-300">
+                      {inv.payments.map((pay) => (
+                        <li key={pay.id}>
+                          {pay.paid_at || pay.created_at} · {pay.method || "manual"} · {formatBrlFromCents(Number(pay.amount_cents))}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
                 )}
               </div>
             );
@@ -178,7 +274,7 @@ export default function SuperadminOrganizationDetailPage() {
 
       <section>
         <h3 className="mb-3 text-lg font-semibold">Eventos de billing</h3>
-        <ul className="max-h-48 overflow-y-auto text-xs text-slate-500 space-y-1">
+        <ul className="max-h-48 space-y-1 overflow-y-auto text-xs text-slate-500">
           {detail.billingEvents.map((ev) => (
             <li key={String(ev.id)}>
               {String(ev.created_at)} — {String(ev.event_type)}
