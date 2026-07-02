@@ -203,6 +203,10 @@ type ConversationRow = {
   assigned_user_name: string | null;
   human_takeover_until: string | null;
   updated_at: string;
+  last_message_id?: number | null;
+  last_intent?: string | null;
+  never_opened_by_me?: boolean;
+  has_unread?: boolean;
   last_body: string | null;
   last_message_at: string | null;
   last_direction: string | null;
@@ -364,6 +368,132 @@ function conversationMatchesInboxFilter(
 function handoffActive(until: string | null | undefined): boolean {
   if (!until) return false;
   return new Date(until).getTime() > Date.now();
+}
+
+type InboxRowVisualState =
+  | "human_handoff"
+  | "unread_inbound"
+  | "ai_active"
+  | "never_opened"
+  | "read";
+
+const CAMPAIGN_INTENTS = new Set(["CAMPAIGN_SEND", "CAMPAIGN_BATCH"]);
+const AI_ACTIVE_INTENTS = new Set([
+  "AGENT_REPLY",
+  "PROCESS_RESERVATION",
+  "OPERATIONAL_INFO",
+  "GUEST_LIST_LINK",
+  "recovery_followup",
+]);
+
+function resolveInboxRowVisual(conversation: ConversationRow): InboxRowVisualState {
+  if (handoffActive(conversation.human_takeover_until)) return "human_handoff";
+  if (conversation.has_unread && conversation.last_direction === "inbound") {
+    return "unread_inbound";
+  }
+  if (conversation.never_opened_by_me) return "never_opened";
+  const intent = String(conversation.last_intent || "").trim();
+  if (
+    conversation.last_direction === "outbound" &&
+    (AI_ACTIVE_INTENTS.has(intent) || (!intent && !CAMPAIGN_INTENTS.has(intent)))
+  ) {
+    return "ai_active";
+  }
+  return "read";
+}
+
+function inboxRowVisualStyles(
+  state: InboxRowVisualState,
+  active: boolean,
+): { row: string; name: string; dot: string; label: string } {
+  switch (state) {
+    case "human_handoff":
+      return {
+        row: active ? "bg-amber-100/90 ring-1 ring-amber-200" : "bg-amber-50/90",
+        name: "font-semibold text-amber-950",
+        dot: "bg-amber-500",
+        label: "Aguardando humano",
+      };
+    case "unread_inbound":
+      return {
+        row: active ? "bg-sky-100 ring-1 ring-sky-200" : "bg-sky-50",
+        name: "font-bold text-sky-950",
+        dot: "bg-sky-500",
+        label: "Cliente aguardando",
+      };
+    case "ai_active":
+      return {
+        row: active ? "bg-emerald-50 ring-1 ring-emerald-200" : "bg-emerald-50/70",
+        name: "font-medium text-emerald-950",
+        dot: "bg-emerald-500",
+        label: "IA ativa",
+      };
+    case "never_opened":
+      return {
+        row: active ? "bg-violet-50 ring-1 ring-violet-200" : "bg-violet-50/50",
+        name: "font-medium text-violet-950",
+        dot: "bg-violet-400",
+        label: "Não aberta",
+      };
+    default:
+      return {
+        row: active ? "bg-white" : "",
+        name: "font-medium text-gray-900",
+        dot: "bg-transparent",
+        label: "",
+      };
+  }
+}
+
+const AVATAR_BG_CLASSES = [
+  "bg-sky-600",
+  "bg-violet-600",
+  "bg-emerald-600",
+  "bg-rose-600",
+  "bg-amber-600",
+  "bg-cyan-600",
+  "bg-indigo-600",
+  "bg-teal-600",
+];
+
+function hashWaId(value: string): number {
+  let hash = 0;
+  for (let i = 0; i < value.length; i += 1) {
+    hash = (hash * 31 + value.charCodeAt(i)) >>> 0;
+  }
+  return hash;
+}
+
+function contactAvatarInitials(name: string | null, waId: string): string {
+  const base = (name || "").trim();
+  if (base) {
+    const parts = base.split(/\s+/).filter(Boolean);
+    if (parts.length >= 2) {
+      return `${parts[0][0] || ""}${parts[1][0] || ""}`.toUpperCase();
+    }
+    return base.slice(0, 2).toUpperCase();
+  }
+  const digits = waId.replace(/\D/g, "");
+  return digits.slice(-2) || "??";
+}
+
+function contactAvatarClass(waId: string): string {
+  return AVATAR_BG_CLASSES[hashWaId(waId) % AVATAR_BG_CLASSES.length];
+}
+
+function inboxRowSortPriority(state: InboxRowVisualState): number {
+  switch (state) {
+    case "human_handoff":
+      return 0;
+    case "unread_inbound":
+      return 1;
+    case "never_opened":
+      return 2;
+    case "ai_active":
+      return 3;
+    default:
+      return 4;
+  }
 }
 
 function pickLatestSuggestedReply(messages: MessageRow[]): string {
@@ -812,6 +942,29 @@ export default function AdminWhatsappPage() {
         if (!draftDirtyRef.current) {
           setComposeText(pickLatestSuggestedReply(list));
         }
+        const lastMsg = list.length > 0 ? list[list.length - 1] : null;
+        await fetch(
+          `${API_URL}/api/admin/whatsapp/conversations/${encodeURIComponent(waId)}/mark-read`,
+          {
+            method: "POST",
+            headers: authHeaders,
+            body: JSON.stringify(
+              lastMsg?.id ? { last_message_id: lastMsg.id } : {},
+            ),
+          },
+        ).catch(() => {});
+        setConversations((prev) =>
+          prev.map((c) =>
+            c.wa_id === waId
+              ? {
+                  ...c,
+                  has_unread: false,
+                  never_opened_by_me: false,
+                  last_message_id: lastMsg?.id ?? c.last_message_id,
+                }
+              : c,
+          ),
+        );
       } catch (e) {
         setError(e instanceof Error ? e.message : "Falha ao carregar mensagens");
       } finally {
@@ -2113,19 +2266,29 @@ export default function AdminWhatsappPage() {
 
   const visibleInboxConversations = useMemo(() => {
     const query = inboxSearch.trim();
-    if (!query) return filteredInboxConversations;
-    const norm = (value: string | null | undefined) =>
-      (value || "")
-        .toLowerCase()
-        .normalize("NFD")
-        .replace(/[\u0300-\u036f]/g, "");
-    const nq = norm(query);
-    const digitsQuery = query.replace(/\D/g, "");
-    return filteredInboxConversations.filter((c) => {
-      if (norm(c.contact_name).includes(nq)) return true;
-      if (norm(c.last_body).includes(nq)) return true;
-      if (digitsQuery && (c.wa_id || "").includes(digitsQuery)) return true;
-      return false;
+    let rows = filteredInboxConversations;
+    if (query) {
+      const norm = (value: string | null | undefined) =>
+        (value || "")
+          .toLowerCase()
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "");
+      const nq = norm(query);
+      const digitsQuery = query.replace(/\D/g, "");
+      rows = filteredInboxConversations.filter((c) => {
+        if (norm(c.contact_name).includes(nq)) return true;
+        if (norm(c.last_body).includes(nq)) return true;
+        if (digitsQuery && (c.wa_id || "").includes(digitsQuery)) return true;
+        return false;
+      });
+    }
+    return [...rows].sort((a, b) => {
+      const pa = inboxRowSortPriority(resolveInboxRowVisual(a));
+      const pb = inboxRowSortPriority(resolveInboxRowVisual(b));
+      if (pa !== pb) return pa - pb;
+      const ta = new Date(a.last_message_at || a.updated_at).getTime();
+      const tb = new Date(b.last_message_at || b.updated_at).getTime();
+      return tb - ta;
     });
   }, [filteredInboxConversations, inboxSearch]);
 
@@ -2565,6 +2728,29 @@ export default function AdminWhatsappPage() {
                     }`}
             </p>
           </div>
+          <div className="px-3 py-2 border-b border-gray-100 bg-gray-50/80">
+            <p className="text-[10px] font-medium uppercase tracking-wide text-gray-500 mb-1.5">
+              Legenda
+            </p>
+            <div className="flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-gray-600">
+              <span className="inline-flex items-center gap-1">
+                <span className="h-2 w-2 rounded-full bg-sky-500" />
+                Cliente aguardando
+              </span>
+              <span className="inline-flex items-center gap-1">
+                <span className="h-2 w-2 rounded-full bg-amber-500" />
+                Humano
+              </span>
+              <span className="inline-flex items-center gap-1">
+                <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                IA ativa
+              </span>
+              <span className="inline-flex items-center gap-1">
+                <span className="h-2 w-2 rounded-full bg-violet-400" />
+                Não aberta
+              </span>
+            </div>
+          </div>
           <div className="overflow-y-auto flex-1">
             {conversations.length === 0 && !loadingList && (
               <p className="p-4 text-sm text-gray-500">
@@ -2590,41 +2776,73 @@ export default function AdminWhatsappPage() {
               const active = c.wa_id === selectedWaId;
               const ho = handoffActive(c.human_takeover_until);
               const theme = getInboxEstablishmentTheme(c.establishment_id);
+              const visual = resolveInboxRowVisual(c);
+              const visualStyles = inboxRowVisualStyles(visual, active);
+              const avatarInitials = contactAvatarInitials(c.contact_name, c.wa_id);
               return (
                 <button
                   key={c.wa_id}
                   type="button"
                   onClick={() => setSelectedWaId(c.wa_id)}
-                  className={`w-full text-left px-3 py-3 border-b border-gray-50/80 transition-colors ${theme.listHover} ${
-                    active
+                  className={`w-full text-left px-3 py-3 border-b border-gray-50/80 transition-colors ${visualStyles.row || theme.listHover} ${
+                    active && !visualStyles.row
                       ? `${theme.listActive} border-l-4 ${theme.listActiveBorder}`
-                      : ""
-                  }`}
+                      : active
+                        ? "border-l-4 border-l-gray-400"
+                        : ""
+                  } ${!active && !visualStyles.row ? theme.listHover : ""}`}
                 >
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="font-medium text-gray-900 truncate">
-                      {c.contact_name || c.wa_id}
-                    </span>
-                    {ho && (
-                      <span className="text-[10px] uppercase font-semibold text-amber-800 bg-amber-100 px-1.5 py-0.5 rounded shrink-0">
-                        Humano
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-xs text-gray-500 truncate mt-0.5">
-                    {c.last_body || "—"}
-                  </p>
-                  <div className="mt-1 flex flex-wrap gap-1">
-                    <span
-                      className={`text-[10px] rounded font-medium px-1.5 py-0.5 ${theme.badge}`}
+                  <div className="flex items-start gap-2.5">
+                    <div
+                      className={`relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-xs font-semibold text-white shadow-sm ${contactAvatarClass(c.wa_id)}`}
+                      title="Foto de perfil não disponível via WhatsApp — exibindo iniciais"
                     >
-                      {c.establishment_name || "Sem estabelecimento"}
-                    </span>
-                    <span
-                      className={`text-[10px] rounded px-1.5 py-0.5 ${theme.statusBadge}`}
-                    >
-                      {c.status || "new"}
-                    </span>
+                      {avatarInitials}
+                      {visualStyles.dot !== "bg-transparent" ? (
+                        <span
+                          className={`absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full ring-2 ring-white ${visualStyles.dot}`}
+                        />
+                      ) : null}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className={`truncate ${visualStyles.name}`}>
+                          {c.contact_name || c.wa_id}
+                        </span>
+                        <div className="flex shrink-0 items-center gap-1">
+                          {visualStyles.label ? (
+                            <span className="text-[9px] font-medium text-gray-500 hidden sm:inline">
+                              {visualStyles.label}
+                            </span>
+                          ) : null}
+                          {ho && (
+                            <span className="text-[10px] uppercase font-semibold text-amber-800 bg-amber-100 px-1.5 py-0.5 rounded">
+                              Humano
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <p
+                        className={`text-xs truncate mt-0.5 ${
+                          visual === "unread_inbound" ? "text-gray-700 font-medium" : "text-gray-500"
+                        }`}
+                      >
+                        {c.last_direction === "inbound" ? "← " : c.last_direction === "outbound" ? "→ " : ""}
+                        {c.last_body || "—"}
+                      </p>
+                      <div className="mt-1 flex flex-wrap gap-1">
+                        <span
+                          className={`text-[10px] rounded font-medium px-1.5 py-0.5 ${theme.badge}`}
+                        >
+                          {c.establishment_name || "Sem estabelecimento"}
+                        </span>
+                        <span
+                          className={`text-[10px] rounded px-1.5 py-0.5 ${theme.statusBadge}`}
+                        >
+                          {c.status || "new"}
+                        </span>
+                      </div>
+                    </div>
                   </div>
                 </button>
               );
