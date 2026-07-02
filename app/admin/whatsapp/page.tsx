@@ -290,6 +290,15 @@ type CampaignSendLogRow = {
   created_at: string;
 };
 
+type InboxListMeta = {
+  limit: number;
+  returned: number;
+  total: number;
+  unassigned: number;
+  by_establishment: Record<string, number>;
+  truncated: boolean;
+};
+
 type WhatsappAdminTab =
   | "treinamento"
   | "config-ia"
@@ -447,6 +456,7 @@ export default function AdminWhatsappPage() {
   } = useUserPermissions();
 
   const [conversations, setConversations] = useState<ConversationRow[]>([]);
+  const [inboxListMeta, setInboxListMeta] = useState<InboxListMeta | null>(null);
   const [selectedWaId, setSelectedWaId] = useState<string | null>(null);
   const [messages, setMessages] = useState<MessageRow[]>([]);
   const [conversationMeta, setConversationMeta] = useState<{
@@ -724,9 +734,19 @@ export default function AdminWhatsappPage() {
     if (!silent) setLoadingList(true);
     setError(null);
     try {
-      const res = await fetch(`${API_URL}/api/admin/whatsapp/conversations`, {
-        headers: authHeaders,
-      });
+      const params = new URLSearchParams();
+      if (inboxEstablishmentFilter === "unassigned") {
+        params.set("establishment_id", "unassigned");
+      } else if (inboxEstablishmentFilter !== "all") {
+        params.set("establishment_id", String(inboxEstablishmentFilter));
+      }
+      const query = params.toString();
+      const res = await fetch(
+        `${API_URL}/api/admin/whatsapp/conversations${query ? `?${query}` : ""}`,
+        {
+          headers: authHeaders,
+        },
+      );
       if (!res.ok) {
         const j = await res.json().catch(() => ({}));
         if (
@@ -742,12 +762,13 @@ export default function AdminWhatsappPage() {
       }
       const data = await res.json();
       setConversations(data.conversations || []);
+      setInboxListMeta(data.meta || null);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Falha ao carregar conversas");
     } finally {
       if (!silent) setLoadingList(false);
     }
-  }, [authHeaders]);
+  }, [authHeaders, inboxEstablishmentFilter]);
 
   const fetchMessages = useCallback(
     async (waId: string, options?: { silent?: boolean }) => {
@@ -1995,14 +2016,14 @@ export default function AdminWhatsappPage() {
         ?.name || "HighLine";
 
     if (isWhatsappHighlineOnlyUser) {
-      const highlineConversations = conversations.filter(
-        (c) => c.establishment_id === highlineEstablishmentId,
-      );
+      const highlineCount =
+        inboxListMeta?.by_establishment?.[String(highlineEstablishmentId)] ??
+        conversations.filter((c) => c.establishment_id === highlineEstablishmentId).length;
       return [
         {
           key: highlineEstablishmentId as InboxEstablishmentFilter,
           label: highlineName,
-          count: highlineConversations.length,
+          count: highlineCount,
           theme: getInboxEstablishmentTheme(highlineEstablishmentId),
         },
       ];
@@ -2027,7 +2048,7 @@ export default function AdminWhatsappPage() {
       {
         key: "all",
         label: "Todos",
-        count: conversations.length,
+        count: inboxListMeta?.total ?? conversations.length,
         theme: INBOX_UNASSIGNED_THEME,
       },
     ];
@@ -2038,12 +2059,16 @@ export default function AdminWhatsappPage() {
       tabs.push({
         key: id,
         label: name,
-        count: conversations.filter((c) => c.establishment_id === id).length,
+        count:
+          inboxListMeta?.by_establishment?.[String(id)] ??
+          conversations.filter((c) => c.establishment_id === id).length,
         theme: getInboxEstablishmentTheme(id),
       });
     }
 
-    const unassignedCount = conversations.filter((c) => !c.establishment_id).length;
+    const unassignedCount =
+      inboxListMeta?.unassigned ??
+      conversations.filter((c) => !c.establishment_id).length;
     if (unassignedCount > 0) {
       tabs.push({
         key: "unassigned",
@@ -2057,6 +2082,7 @@ export default function AdminWhatsappPage() {
   }, [
     conversations,
     establishmentFilterOptions,
+    inboxListMeta,
     isWhatsappHighlineOnlyUser,
     highlineEstablishmentId,
   ]);
@@ -2530,7 +2556,13 @@ export default function AdminWhatsappPage() {
                 ? "Carregando…"
                 : inboxSearch.trim()
                   ? `${visibleInboxConversations.length} resultado(s) para “${inboxSearch.trim()}”`
-                  : `${filteredInboxConversations.length} de ${conversations.length} nesta aba`}
+                  : `${filteredInboxConversations.length} nesta aba${
+                      inboxListMeta?.truncated
+                        ? ` (mostrando ${inboxListMeta.returned} mais recentes de ${inboxListMeta.total})`
+                        : inboxListMeta?.total != null
+                          ? ` de ${inboxListMeta.total} no total`
+                          : ""
+                    }`}
             </p>
           </div>
           <div className="overflow-y-auto flex-1">
