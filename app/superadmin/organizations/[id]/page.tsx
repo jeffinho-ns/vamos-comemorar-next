@@ -1,9 +1,17 @@
 "use client";
 
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { formatBrlFromCents, superadminFetch } from "@/app/utils/superadminApi";
+import { applyImpersonationSession } from "@/app/utils/impersonation";
+
+type OrgUser = {
+  id: number;
+  name: string;
+  email: string;
+  role: string;
+};
 
 type PaymentRow = {
   id: number;
@@ -42,13 +50,16 @@ function parseMoneyToCents(value: string): number {
 
 export default function SuperadminOrganizationDetailPage() {
   const params = useParams();
+  const router = useRouter();
   const id = Number(params.id);
   const [detail, setDetail] = useState<OrgDetail | null>(null);
+  const [orgUsers, setOrgUsers] = useState<OrgUser[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [invoiceAmount, setInvoiceAmount] = useState("0,00");
   const [monthlyAmount, setMonthlyAmount] = useState("0,00");
   const [savingMonthly, setSavingMonthly] = useState(false);
   const [payingInvoiceId, setPayingInvoiceId] = useState<number | null>(null);
+  const [impersonatingId, setImpersonatingId] = useState<number | null>(null);
 
   const load = useCallback(() => {
     if (!Number.isFinite(id)) return;
@@ -58,6 +69,9 @@ export default function SuperadminOrganizationDetailPage() {
         setMonthlyAmount(toInputMoney(Number(data.organization.monthly_amount_cents)));
       })
       .catch((e) => setError(e.message));
+    superadminFetch<OrgUser[]>(`/organizations/${id}/users`)
+      .then(setOrgUsers)
+      .catch(() => setOrgUsers([]));
   }, [id]);
 
   useEffect(() => {
@@ -120,6 +134,24 @@ export default function SuperadminOrganizationDetailPage() {
     load();
   };
 
+  const impersonateUser = async (userId: number) => {
+    if (!confirm("Entrar como este usuário? Ação auditada.")) return;
+    setImpersonatingId(userId);
+    try {
+      const data = await superadminFetch<{
+        token: string;
+        user: OrgUser;
+        impersonator: { id: number; name: string; email: string };
+      }>(`/impersonate/${userId}`, { method: "POST" });
+      applyImpersonationSession(data);
+      router.push("/admin");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Erro ao impersonar");
+    } finally {
+      setImpersonatingId(null);
+    }
+  };
+
   if (error) return <p className="text-red-400">{error}</p>;
   if (!detail) return <p className="text-slate-400">Carregando…</p>;
 
@@ -137,6 +169,12 @@ export default function SuperadminOrganizationDetailPage() {
           {String(org.slug)} · {String(org.status)} · SaaS {org.saas_enabled ? "on" : "off"}
         </p>
         <div className="mt-4 flex flex-wrap gap-2">
+          <Link
+            href={`/superadmin/billing`}
+            className="rounded border border-slate-700 px-3 py-1 text-sm text-slate-300 hover:border-amber-700"
+          >
+            Ver no faturamento
+          </Link>
           <button
             type="button"
             onClick={markPastDue}
@@ -146,6 +184,37 @@ export default function SuperadminOrganizationDetailPage() {
           </button>
         </div>
       </div>
+
+      <section className="rounded-xl border border-slate-800 bg-slate-900/40 p-4">
+        <h3 className="mb-3 text-lg font-semibold">Usuários e suporte</h3>
+        {orgUsers.length === 0 ? (
+          <p className="text-sm text-slate-500">Nenhum usuário vinculado encontrado.</p>
+        ) : (
+          <ul className="space-y-2 text-sm">
+            {orgUsers.map((u) => (
+              <li
+                key={u.id}
+                className="flex flex-wrap items-center justify-between gap-2 rounded border border-slate-800 px-3 py-2"
+              >
+                <div>
+                  <p className="font-medium">{u.name || u.email}</p>
+                  <p className="text-slate-400">
+                    {u.email} · {u.role}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  disabled={impersonatingId === u.id}
+                  onClick={() => impersonateUser(u.id)}
+                  className="rounded bg-amber-700 px-3 py-1 text-xs disabled:opacity-50"
+                >
+                  {impersonatingId === u.id ? "Abrindo…" : "Entrar como"}
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
 
       <section className="rounded-xl border border-slate-800 bg-slate-900/40 p-4">
         <h3 className="mb-3 text-lg font-semibold">Mensalidade da empresa</h3>

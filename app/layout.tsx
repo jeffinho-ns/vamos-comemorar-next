@@ -4,6 +4,7 @@ import { Inter } from "next/font/google";
 import "./globals.scss";
 import "./app.styles.scss";
 import GoogleAnalytics from "./components/GoogleAnalytics/GoogleAnalytics";
+import ImpersonationBanner from "./components/ImpersonationBanner";
 import { AppProvider } from "./context/AppContext";
 import { EntitlementsProvider } from "./context/EntitlementsContext";
 
@@ -25,6 +26,7 @@ export default function RootLayout({
         <AppProvider>
           <EntitlementsProvider>
             <GoogleAnalytics />
+            <ImpersonationBanner />
             {children}
           </EntitlementsProvider>
         </AppProvider>

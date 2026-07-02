@@ -2,13 +2,25 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { MdBusiness, MdDashboard, MdLogout } from "react-icons/md";
+import {
+  MdBusiness,
+  MdDashboard,
+  MdHistory,
+  MdLogout,
+  MdPayments,
+  MdPersonSearch,
+  MdSchool,
+} from "react-icons/md";
 import { clearAuthSession } from "../utils/authSession";
 import { useRouter } from "next/navigation";
 
 const NAV = [
-  { href: "/superadmin", label: "Dashboard", icon: MdDashboard },
+  { href: "/superadmin", label: "Dashboard", icon: MdDashboard, exact: true },
   { href: "/superadmin/organizations", label: "Organizações", icon: MdBusiness },
+  { href: "/superadmin/billing", label: "Faturamento", icon: MdPayments },
+  { href: "/superadmin/training", label: "Treinamentos", icon: MdSchool },
+  { href: "/superadmin/impersonate", label: "Impersonate", icon: MdPersonSearch },
+  { href: "/superadmin/audit", label: "Auditoria", icon: MdHistory },
 ];
 
 export default function SuperadminLayout({
@@ -21,24 +33,26 @@ export default function SuperadminLayout({
 
   return (
     <div className="flex min-h-screen bg-slate-950 text-slate-100">
-      <aside className="w-64 border-r border-slate-800 bg-slate-900/80 p-4 flex flex-col">
-        <div className="mb-8">
+      <aside className="w-64 shrink-0 border-r border-slate-800 bg-slate-900/80 p-4 flex flex-col">
+        <div className="mb-6">
           <p className="text-xs uppercase tracking-widest text-amber-400">
             Agilizai SaaS
           </p>
           <h1 className="text-lg font-bold">Super Admin</h1>
+          <p className="mt-1 text-xs text-slate-500">
+            Gestão de clientes, cobrança e suporte
+          </p>
         </div>
         <nav className="space-y-1 flex-1">
-          {NAV.map(({ href, label, icon: Icon }) => {
-            const active =
-              href === "/superadmin"
-                ? pathname === "/superadmin"
-                : pathname.startsWith(href);
+          {NAV.map(({ href, label, icon: Icon, exact }) => {
+            const active = exact
+              ? pathname === href
+              : pathname.startsWith(href);
             return (
               <Link
                 key={href}
                 href={href}
-                className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm ${
+                className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition ${
                   active
                     ? "bg-amber-500/20 text-amber-300"
                     : "text-slate-300 hover:bg-slate-800"

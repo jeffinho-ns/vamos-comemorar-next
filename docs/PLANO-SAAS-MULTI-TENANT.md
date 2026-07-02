@@ -14,9 +14,9 @@
 | Campo | Valor |
 |-------|-------|
 | Última atualização | 2026-07-02 |
-| Modo atual | **`SAAS_MODE=on` em produção** — enforce + `requireModule` nas rotas de reserva/eventos. Migration **008** já no banco prod. |
-| Fase em andamento | **Fase 5/6** — billing manual + painel `/superadmin` + mensalidade por empresa (`009` pendente de migration). |
-| Próximo passo | Aplicar migration `009` em staging/prod; testar salvar mensalidade e histórico de pagamentos no `/superadmin`; depois impersonate + treinamentos. |
+| Modo atual | **`SAAS_MODE=on` em produção** — enforce + `requireModule` nas rotas de reserva/eventos. Migrations **008–010** no código (`009` mensalidade, `010` treinamentos). |
+| Fase em andamento | **Fase 6** — impersonate com auditoria, treinamentos, faturamento por mês, painel `/superadmin` expandido. |
+| Próximo passo | Aplicar migrations `009` e `010` em staging/prod; validar impersonate + faturamento mensal no `/superadmin/billing`. |
 | Pendências/decisões | Contract NOT NULL; popular `memberships`; 8 promoters órfãos; expandir RLS a outras tabelas. |
 
 > Produção já tem migrations 001–007, observe ativo, proxies com Authorization e código de enforce **pronto mas inerte** até `SAAS_MODE=on`.
@@ -34,7 +34,7 @@
 - [~] **Fase 3** — `requireModule` plugado em rotas reserva/eventos; `legacyScoped` em entitlements para UEP. `requirePermission` pronto, uso fino após memberships.
 - [~] **Fase 4** — Front modular: `EntitlementsProvider` montado; sidebar filtra via `adminNavModules` + `useCan` (inerte até `NEXT_PUBLIC_SAAS_MODE=on`). Quebra de monolitos: pendente.
 - [~] **Fase 5** — `billing/*` (ManualProvider), faturas/pagamentos, `past_due` bloqueia módulos, **mensalidade por empresa** via migration `009`. Sem gateway por decisão de produto.
-- [~] **Fase 6** — `/superadmin` + API `/api/superadmin/*`, gate `is_super_admin`. Pendente: impersonate, treinamentos, filtros e UX avançada.
+- [~] **Fase 6** — `/superadmin` expandido: faturamento por mês, treinamentos, impersonate + auditoria, nav intuitiva. Pendente: aplicar migration `010` em prod.
 - [ ] **Fase 7** — Desacoplar IA / hardcodes residuais.
 
 Legenda: [x] concluído · [~] parcial/pronto-mas-inerte · [ ] não iniciado.
@@ -52,7 +52,7 @@ Legenda: [x] concluído · [~] parcial/pronto-mas-inerte · [ ] não iniciado.
 - 2026-07-02 — **Fix login Rooftop** (`analista.mkt02`): bypass middleware + sidebar sem esvaziar por entitlements vazios (`adminProfileEmails.ts`, commit `29c5f68` next).
 - 2026-07-02 — **mkt02 validado** em produção com `@123Mudar`. Migration 008 já aplicada no banco prod.
 - 2026-07-02 — **Fase 5/6 MVP:** API `billing/billingService`, `ManualPaymentProvider`, rotas `/api/superadmin/*`, `past_due` em entitlements; front `/superadmin` (dashboard, orgs, faturas manuais).
-- 2026-07-02 — **Fase 5/6 iteração 2:** corrigido fluxo visual de faturamento manual (histórico de pagamentos no detalhe da fatura) e criada migration `009_subscription_monthly_amount.sql` para salvar a mensalidade real por empresa, sem gateway.
+- 2026-07-02 — **Fase 6 iteração 3:** impersonate com JWT + `action_logs` (start/end), `/superadmin/billing` (filtro mês + resumo por cliente), `/superadmin/training` (CRUD materiais, migration `010`), `/superadmin/audit`, banner global de modo suporte, link Super Admin no `/admin`.
 - 2026-07-02 — **Fase 2 stats:** `establishmentScopeClause` em `GET /large-reservations/stats/dashboard`, `GET /waitlist/stats/count`, `GET /walk-ins/stats/active`.
 - 2026-07-02 — **Fase 2 expand + Fase 4 sidebar:** enforce em `guestListsAdmin`, `restaurantAreas`, `restaurantReservationBlocks`, `restaurantReservationSettings`, `eventos/dashboard`; removido fake admin sem token em guest-lists. Front: `EntitlementsProvider` montado, `filterNavByEntitlements` na sidebar (`adminNavModules.ts`). Ativar filtro real: `NEXT_PUBLIC_SAAS_MODE=on` no Render do front.
 - 2026-06-28 — **Unificação places+bars (passos seguros) APLICADA EM PRODUÇÃO**. Migrations `006` (enriquece `establishments` com campos tipados de places+bars + `theme` JSONB; decisão: tipado + JSONB) e `007` (`establishment_modules` = serviços por casa, on/off). Seed por evidência: 5 casas operacionais com tudo; Sitio Ilha e Tio Jacques só cardápio. Validado em staging e prod; API 200. **Ainda intacto**: places/bars seguem existindo (compatibilidade); o código continua lendo as tabelas legadas. **Pendente p/ próxima sessão (staging + decisão):** Passo 4-5 — transformar places/bars em VIEWS sobre establishments e migrar as queries da API para o id canônico; depois aposentar as tabelas legadas.

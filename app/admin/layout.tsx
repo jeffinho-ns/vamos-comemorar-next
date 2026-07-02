@@ -24,6 +24,7 @@ import {
   MdInfo,
   MdHistory,
   MdChat,
+  MdAdminPanelSettings,
 } from "react-icons/md";
 import logBrand from "../assets/logo-agilizai-h.png"; // Verifique o caminho
 import UserMenu from "../components/UserMenu/UserMenu"; // Verifique o caminho
@@ -380,6 +381,17 @@ export default function DashboardLayout({
     navLinks = [
       ...navLinks,
       { href: "/admin/logs", label: "Logs de Ações", icon: MdHistory },
+    ];
+  }
+
+  if (isSuperAdmin && !navLinks.some((l) => l.href === "/superadmin")) {
+    navLinks = [
+      ...navLinks,
+      {
+        href: "/superadmin",
+        label: "Super Admin SaaS",
+        icon: MdAdminPanelSettings,
+      },
     ];
   }
 
