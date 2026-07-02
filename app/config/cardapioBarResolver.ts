@@ -88,15 +88,9 @@ export function toCardapioBarIds(
     const estId = Number(raw);
     if (!Number.isFinite(estId) || estId <= 0) continue;
 
-    const mapped = ESTABLISHMENT_TO_CARDAPIO_BAR_ID[estId];
-    if (Number.isFinite(mapped) && mapped > 0) {
+    const mapped = resolveCardapioBarId(estId);
+    if (Number.isFinite(mapped) && mapped > 0 && mapped !== estId) {
       resolved.add(mapped);
-      continue;
-    }
-
-    // Só aceita id direto quando não há place mapeado (evita place 4 → bar Pracinha id 4).
-    if (barById.has(estId) && ESTABLISHMENT_TO_CARDAPIO_BAR_ID[estId] == null) {
-      resolved.add(estId);
       continue;
     }
 
@@ -105,11 +99,8 @@ export function toCardapioBarIds(
       resolved.add(nameMatched);
     }
 
-    // Fallback: permissão com id de place sem mapa — tenta casar pelo nome conhecido
-    const rooftopAliases = ['reserva rooftop', 'rooftop'];
-    if (rooftopAliases.some((a) => estId === 9 || estId === 5)) {
-      const rooftopBar = barNameKeys.find((b) => b.key.includes('reserva') && b.key.includes('rooftop'));
-      if (rooftopBar) resolved.add(rooftopBar.id);
+    if (barById.has(estId) && resolveCardapioBarId(estId) === estId) {
+      resolved.add(estId);
     }
   }
 
@@ -124,7 +115,7 @@ export function establishmentGrantsCardapioBar(
   const est = Number(establishmentId);
   const bar = Number(cardapioBarId);
   if (!Number.isFinite(est) || !Number.isFinite(bar)) return false;
-  const mapped = ESTABLISHMENT_TO_CARDAPIO_BAR_ID[est];
+  const mapped = resolveCardapioBarId(est);
   if (Number.isFinite(mapped) && mapped > 0) return mapped === bar;
   return est === bar;
 }

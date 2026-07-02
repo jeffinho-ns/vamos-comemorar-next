@@ -2361,7 +2361,6 @@ export default function EventoCheckInsPage() {
         nome: convidado.nome,
       };
       const isRooftop =
-        evento?.establishment_id === 9 ||
         isReservaRooftopEstablishment(evento?.establishment_name);
       if (isRooftop && confirmarCheckInRef.current) {
         confirmarCheckInRef.current("CONSUMA", 0, payload);
@@ -2397,7 +2396,6 @@ export default function EventoCheckInsPage() {
         entradaConfigPromoter: convidado.entrada_config_regra || null,
       };
       const isRooftop =
-        evento?.establishment_id === 9 ||
         isReservaRooftopEstablishment(evento?.establishment_name);
       if (isRooftop && confirmarCheckInRef.current) {
         confirmarCheckInRef.current("CONSUMA", 0, payload);
@@ -3504,7 +3502,6 @@ export default function EventoCheckInsPage() {
         guestListId: guestListId,
       };
       const isRooftop =
-        evento?.establishment_id === 9 ||
         isReservaRooftopEstablishment(evento?.establishment_name);
       if (isRooftop && confirmarCheckInRef.current) {
         confirmarCheckInRef.current("CONSUMA", 0, payload);
@@ -3697,7 +3694,6 @@ export default function EventoCheckInsPage() {
 
   const isReservaRooftopEvent = useMemo(
     () =>
-      evento?.establishment_id === 9 ||
       isReservaRooftopEstablishment(evento?.establishment_name),
     [evento?.establishment_id, evento?.establishment_name],
   );

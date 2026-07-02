@@ -14,9 +14,9 @@
 | Campo | Valor |
 |-------|-------|
 | Última atualização | 2026-07-02 |
-| Modo atual | **`SAAS_MODE=on`** na API · **`NEXT_PUBLIC_SAAS_MODE=on`** no front (`.env.example`). Migrations **001–011** no código; aplicar **009–011** em prod se ainda pendentes. |
-| Fase em andamento | **Fase 7** — regras por estabelecimento (`establishmentRules`) substituindo hardcodes de ID. |
-| Próximo passo | Aplicar migration `012` em prod; expandir uso de `establishments.config`; places/bars → views. |
+| Modo atual | **`SAAS_MODE=on`** API · **`NEXT_PUBLIC_SAAS_MODE=on`** Vercel ✅ |
+| Fase em andamento | **Fase 7** — hardcodes migrados para `establishmentRules` (eventos, mesas, IA, check-ins). |
+| Próximo passo | UI superadmin para editar `establishments.config`; places/bars → views; expandir RLS. |
 | Pendências/decisões | Contract NOT NULL (fase posterior); places/bars → views; expandir RLS além de `restaurant_reservations`. |
 
 > Produção já tem migrations 001–007, observe ativo, proxies com Authorization e código de enforce **pronto mas inerte** até `SAAS_MODE=on`.
@@ -35,7 +35,7 @@
 - [~] **Fase 4** — `EntitlementsProvider` + sidebar via `adminNavModules`. **`NEXT_PUBLIC_SAAS_MODE=on`** no `.env.example` e `.env.local`. Quebra de monolitos: pendente.
 - [x] **Fase 5** — Billing manual, mensalidade (`009`), `past_due`, sem gateway.
 - [x] **Fase 6** — Superadmin completo + materiais em `/documentacao` + onboarding no provisionamento + scripts backfill.
-- [~] **Fase 7** — `establishmentRules` + migration `012` + API `/api/establishments/rules`; refatoradas rotas de áreas/reservas/waitlist. Pendente: eventos/check-ins front, places/bars views.
+- [~] **Fase 7** — `establishmentRules` em reservas, eventos, mesas, IA e check-ins. Pendente: editor de config no superadmin, places/bars views.
 
 Legenda: [x] concluído · [~] parcial/pronto-mas-inerte · [ ] não iniciado.
 
