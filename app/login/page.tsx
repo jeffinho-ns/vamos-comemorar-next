@@ -19,6 +19,7 @@ import {
   resolveEventPromoterDashboardPath,
   shouldUseEventPromoterPortal,
 } from "../utils/promoterPortalAccess";
+import { isSuperAdminFromToken } from "../utils/superAdminAccess";
 
 export default function Login() {
   const [show, setShow] = useState(false);
@@ -157,6 +158,7 @@ export default function Login() {
           userEmail:
             emailCpf && emailCpf.includes("@") ? emailCpf.toLowerCase().trim() : undefined,
           promoterCodigo: data.promoterCodigo || undefined,
+          isSuperAdmin: isSuperAdminFromToken(data.token),
         });
         notifyAuthChanged();
       

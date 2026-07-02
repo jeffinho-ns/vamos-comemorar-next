@@ -10,7 +10,7 @@ const AUTH_STORAGE_KEYS = [
   "promoterCodigo",
 ] as const;
 
-const AUTH_COOKIE_KEYS = ["authToken", "role", "userEmail", "promoterCodigo"] as const;
+const AUTH_COOKIE_KEYS = ["authToken", "role", "userEmail", "promoterCodigo", "isSuperAdmin"] as const;
 
 export function notifyAuthChanged() {
   if (typeof window === "undefined") return;
@@ -38,11 +38,18 @@ export function setAuthSessionCookies(params: {
   role: string;
   userEmail?: string;
   promoterCodigo?: string;
+  isSuperAdmin?: boolean;
 }) {
   if (typeof document === "undefined") return;
 
   document.cookie = `authToken=${params.authToken}; path=/`;
   document.cookie = `role=${params.role}; path=/`;
+
+  if (params.isSuperAdmin) {
+    document.cookie = "isSuperAdmin=1; path=/";
+  } else {
+    document.cookie = "isSuperAdmin=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/";
+  }
 
   if (params.userEmail) {
     document.cookie = `userEmail=${encodeURIComponent(params.userEmail)}; path=/`;

@@ -26,18 +26,27 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL('/login', request.url));
   }
 
+  const userEmail = safeDecodeURIComponent(userEmailRaw).toLowerCase().trim();
+  const SUPER_ADMIN_EMAILS = new Set(['teste@teste', 'jeffinho_ns@hotmail.com']);
+  const isSuperAdminLegacy = SUPER_ADMIN_EMAILS.has(userEmail);
+  const isSuperAdmin =
+    request.cookies.get('isSuperAdmin')?.value === '1' || isSuperAdminLegacy;
+
+  if (url.startsWith('/superadmin')) {
+    if (!isSuperAdmin) {
+      return NextResponse.redirect(new URL('/acesso-negado', request.url));
+    }
+    return NextResponse.next();
+  }
+
   if (url.startsWith('/admin/checkins/rooftop-fluxo')) {
     return NextResponse.next();
   }
 
   const roleNorm = safeDecodeURIComponent(roleRaw).toLowerCase().trim();
-  const userEmail = safeDecodeURIComponent(userEmailRaw).toLowerCase().trim();
   const promoterCodigo = promoterCodigoRaw
     ? safeDecodeURIComponent(promoterCodigoRaw).trim()
     : '';
-
-  const SUPER_ADMIN_EMAILS = new Set(['teste@teste', 'jeffinho_ns@hotmail.com']);
-  const isSuperAdmin = SUPER_ADMIN_EMAILS.has(userEmail);
 
   const CARDAPIO_ONLY_EMAILS = new Set(['vinicius.gomes@ideiaum.com.br']);
   if (CARDAPIO_ONLY_EMAILS.has(userEmail)) {
@@ -137,6 +146,8 @@ export function middleware(request: NextRequest) {
 export const config = {
   matcher: [
     '/admin/:path*',
+    '/superadmin',
+    '/superadmin/:path*',
     '/gerente/:path*',
     '/promoter/:path*',
     '/cliente/:path*',

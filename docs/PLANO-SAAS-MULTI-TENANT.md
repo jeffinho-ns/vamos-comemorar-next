@@ -15,8 +15,8 @@
 |-------|-------|
 | Última atualização | 2026-07-02 |
 | Modo atual | **`SAAS_MODE=on` em produção** — enforce + `requireModule` nas rotas de reserva/eventos. Migration **008** já no banco prod. |
-| Fase em andamento | **Fase 3** — `requireModule` plugado; `legacyScoped` para UEP sem memberships. Falta: `SAAS_RLS_MODE=on` no Render. |
-| Próximo passo | Render API: `SAAS_RLS_MODE=on` → validar `/health` → re-login → testar analista restrito. Opcional: `NEXT_PUBLIC_SAAS_MODE=on` no front. |
+| Fase em andamento | **Fase 5/6** — billing manual + painel `/superadmin` (MVP deployado). |
+| Próximo passo | Testar `/superadmin` com `jeffinho_ns@hotmail.com`; criar 2ª org piloto; depois impersonate + treinamentos. |
 | Pendências/decisões | Contract NOT NULL; popular `memberships`; 8 promoters órfãos; expandir RLS a outras tabelas. |
 
 > Produção já tem migrations 001–007, observe ativo, proxies com Authorization e código de enforce **pronto mas inerte** até `SAAS_MODE=on`.
@@ -33,8 +33,8 @@
 - [~] **Fase 2** — JWT + RLS migration 008 **em produção**. Falta: `SAAS_RLS_MODE=on` no Render; expandir RLS.
 - [~] **Fase 3** — `requireModule` plugado em rotas reserva/eventos; `legacyScoped` em entitlements para UEP. `requirePermission` pronto, uso fino após memberships.
 - [~] **Fase 4** — Front modular: `EntitlementsProvider` montado; sidebar filtra via `adminNavModules` + `useCan` (inerte até `NEXT_PUBLIC_SAAS_MODE=on`). Quebra de monolitos: pendente.
-- [ ] **Fase 5** — Faturamento SaaS: schema (`invoices/payments/billing_events`) criado na migration 002; lógica/`PaymentProvider` pendente.
-- [ ] **Fase 6** — Painel Super Admin + onboarding. Flag `users.is_super_admin` na migration 003.
+- [~] **Fase 5** — `billing/*` (ManualProvider), faturas/pagamentos, `past_due` bloqueia módulos. Gateway: pendente.
+- [~] **Fase 6** — `/superadmin` + API `/api/superadmin/*`, gate `is_super_admin`. Pendente: impersonate, treinamentos, MRR avançado.
 - [ ] **Fase 7** — Desacoplar IA / hardcodes residuais.
 
 Legenda: [x] concluído · [~] parcial/pronto-mas-inerte · [ ] não iniciado.
@@ -51,7 +51,7 @@ Legenda: [x] concluído · [~] parcial/pronto-mas-inerte · [ ] não iniciado.
 - 2026-06-29 — **Isolamento de leitura estendido** em `restaurantReservations.js`: `establishmentScopeClause` em `GET /stats/dashboard` (3 queries agregadas + NULLIF anti-divisão-por-zero) e novo `canReadEstablishment` (checagem pós-fetch → 404) em `GET /:id` e `GET /:id/guest-list`. Testes `tests/unit/queryScope.test.js` (9) — total tenancy 15/15. `reservas.js` (sistema legado de eventos) deixado como está: não-admin já filtra por `user_id`, não é vazamento de tenant. **⚠️ CAVEAT de IDs:** `restaurant_reservations.establishment_id` = id **operacional** (place/bar), igual ao que o front manda e ao `user_establishment_permissions`. `memberships.establishment_id` = id **canônico** (establishments.id) — espaço diferente. Hoje funciona porque `memberships` está vazio (loadUserScope cai no legado/operacional). **Antes de popular `memberships`**, decidir: gravar id operacional, traduzir no `loadUserScope`, ou migrar `restaurant_reservations.establishment_id` p/ canônico. Próximo: validar `enforce` com 1 usuário restrito antes do `on`.
 - 2026-07-02 — **Fix login Rooftop** (`analista.mkt02`): bypass middleware + sidebar sem esvaziar por entitlements vazios (`adminProfileEmails.ts`, commit `29c5f68` next).
 - 2026-07-02 — **mkt02 validado** em produção com `@123Mudar`. Migration 008 já aplicada no banco prod.
-- 2026-07-02 — **Fase 3 iniciada:** `requireModule` nas rotas de reserva/eventos; `legacyScoped` em entitlements; `/health` expõe `saas.mode` e `saas.rlsMode`. Runbook: `scripts/saas/go_live_rls_production.md`.
+- 2026-07-02 — **Fase 5/6 MVP:** API `billing/billingService`, `ManualPaymentProvider`, rotas `/api/superadmin/*`, `past_due` em entitlements; front `/superadmin` (dashboard, orgs, faturas manuais).
 - 2026-07-02 — **Fase 2 stats:** `establishmentScopeClause` em `GET /large-reservations/stats/dashboard`, `GET /waitlist/stats/count`, `GET /walk-ins/stats/active`.
 - 2026-07-02 — **Fase 2 expand + Fase 4 sidebar:** enforce em `guestListsAdmin`, `restaurantAreas`, `restaurantReservationBlocks`, `restaurantReservationSettings`, `eventos/dashboard`; removido fake admin sem token em guest-lists. Front: `EntitlementsProvider` montado, `filterNavByEntitlements` na sidebar (`adminNavModules.ts`). Ativar filtro real: `NEXT_PUBLIC_SAAS_MODE=on` no Render do front.
 - 2026-06-28 — **Unificação places+bars (passos seguros) APLICADA EM PRODUÇÃO**. Migrations `006` (enriquece `establishments` com campos tipados de places+bars + `theme` JSONB; decisão: tipado + JSONB) e `007` (`establishment_modules` = serviços por casa, on/off). Seed por evidência: 5 casas operacionais com tudo; Sitio Ilha e Tio Jacques só cardápio. Validado em staging e prod; API 200. **Ainda intacto**: places/bars seguem existindo (compatibilidade); o código continua lendo as tabelas legadas. **Pendente p/ próxima sessão (staging + decisão):** Passo 4-5 — transformar places/bars em VIEWS sobre establishments e migrar as queries da API para o id canônico; depois aposentar as tabelas legadas.
