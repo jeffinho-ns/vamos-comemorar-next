@@ -3,6 +3,10 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
+import {
+  resolveEventPromoterDashboardPath,
+  shouldUseEventPromoterPortal,
+} from '../utils/promoterPortalAccess';
 import { 
   MdLock, 
   MdSecurity, 
@@ -12,15 +16,42 @@ import {
   MdWarning 
 } from 'react-icons/md';
 
+function readCookie(name: string): string {
+  if (typeof document === 'undefined') return '';
+  const match = document.cookie.match(new RegExp(`(?:^|;\\s*)${name}=([^;]*)`));
+  if (!match) return '';
+  try {
+    return decodeURIComponent(match[1]).trim();
+  } catch {
+    return match[1].trim();
+  }
+}
+
+function resolvePostDenialDestination(): string {
+  const role = readCookie('role');
+  const email = readCookie('userEmail');
+  const codigo =
+    readCookie('promoterCodigo') ||
+    (typeof localStorage !== 'undefined'
+      ? localStorage.getItem('promoterCodigo') || ''
+      : '');
+
+  if (shouldUseEventPromoterPortal(role, email, codigo)) {
+    return resolveEventPromoterDashboardPath(codigo);
+  }
+  return '/login';
+}
+
 export default function AcessoNegado() {
   const router = useRouter();
   const [countdown, setCountdown] = useState(10);
 
   useEffect(() => {
+    const destination = resolvePostDenialDestination();
     const timer = setInterval(() => {
       setCountdown((prev) => {
         if (prev <= 1) {
-          router.push('/login');
+          router.push(destination);
           return 0;
         }
         return prev - 1;
@@ -39,7 +70,7 @@ export default function AcessoNegado() {
   };
 
   const handleGoLogin = () => {
-    router.push('/login');
+    router.push(resolvePostDenialDestination());
   };
 
   return (

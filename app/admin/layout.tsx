@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { usePathname } from "next/navigation"; // Hook para pegar a URL atual
+import { usePathname, useRouter } from "next/navigation"; // Hook para pegar a URL atual
 import "./responsive.css";
 import {
   MdMenu,
@@ -31,6 +31,10 @@ import AdminPageViewLogger from "../components/AdminPageViewLogger";
 import { useUserPermissions } from "../hooks/useUserPermissions";
 import { useAppContext } from "../context/AppContext";
 import { isWhatsappHighlineScopedEmail } from "../config/whatsapp-highline-access";
+import {
+  resolveEventPromoterDashboardPath,
+  shouldUseEventPromoterPortal,
+} from "../utils/promoterPortalAccess";
 
 // E-mail da analista com acesso restrito ao estabelecimento Pracinha do Seu Justino (menu próprio, não promoter)
 const ANALISTA_EMAIL = "analista.mkt03@ideiaum.com.br";
@@ -100,6 +104,7 @@ export default function DashboardLayout({
 }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const pathname = usePathname(); // Hook do Next.js para pegar a rota ativa
+  const router = useRouter();
   const {
     canAccessCardapio,
     canAccessWhatsapp,
@@ -114,6 +119,15 @@ export default function DashboardLayout({
   const decodedCookieRole = cookieRole
     ? decodeURIComponent(cookieRole).toLowerCase().trim()
     : "";
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const role = userRole || decodedCookieRole;
+    const codigo = localStorage.getItem("promoterCodigo") || "";
+    if (shouldUseEventPromoterPortal(role, userEmail, codigo)) {
+      router.replace(resolveEventPromoterDashboardPath(codigo));
+    }
+  }, [userRole, userEmail, decodedCookieRole, router]);
 
   const isAnalista = userEmail === ANALISTA_EMAIL;
   const isSuperAdmin =

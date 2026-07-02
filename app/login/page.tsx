@@ -14,14 +14,11 @@ import {
   setAuthSessionCookies,
 } from "../utils/authSession";
 import { getApiUrl } from "../config/api";
-
-const PROMOTER_ONLY_EMAILS = new Set([
-  "montoya@ideiaum.com.br",
-  "golin@ideiaum.com.br",
-  "juliosolto@ideiaum.com.br",
-  "renans@ideiaum.com.br",
-  "renato@ideiaum.com.br",
-]);
+import {
+  isBarAnalystEmail,
+  resolveEventPromoterDashboardPath,
+  shouldUseEventPromoterPortal,
+} from "../utils/promoterPortalAccess";
 
 export default function Login() {
   const [show, setShow] = useState(false);
@@ -39,9 +36,18 @@ export default function Login() {
 
   const API_URL = getApiUrl();
 
-  const resolvePromoterDestination = (promoterCodigo?: string | null) => {
-    if (promoterCodigo) return `/promoter/${promoterCodigo}/dashboard`;
-    return "/promoter";
+  const resolvePromoterDestination = (
+    role: string,
+    email: string,
+    promoterCodigo?: string | null,
+  ) => {
+    if (
+      shouldUseEventPromoterPortal(role, email, promoterCodigo) &&
+      promoterCodigo
+    ) {
+      return resolveEventPromoterDashboardPath(promoterCodigo);
+    }
+    return null;
   };
 
   // Carregar credenciais salvas quando o componente montar
@@ -182,12 +188,29 @@ export default function Login() {
         
         const userEmail = emailCpf.toLowerCase().trim();
 
-        if (PROMOTER_ONLY_EMAILS.has(userEmail)) {
-          router.push(resolvePromoterDestination(data.promoterCodigo));
+        const promoterDashboard = resolvePromoterDestination(
+          data.role,
+          userEmail,
+          data.promoterCodigo,
+        );
+        if (promoterDashboard) {
+          router.push(promoterDashboard);
+          return;
+        }
+
+        if (
+          (data.role === "promoter" || data.role === "promoter-list") &&
+          !isBarAnalystEmail(userEmail) &&
+          !data.promoterCodigo
+        ) {
+          setError(
+            "Conta de promoter sem código de acesso configurado. Contacte o administrador.",
+          );
+          clearAuthSession();
           return;
         }
         
-        if (adminEmails.includes(userEmail)) {
+        if (adminEmails.includes(userEmail) || isBarAnalystEmail(userEmail)) {
           router.push('/admin');
           return;
         }
@@ -207,7 +230,7 @@ export default function Login() {
             break;
           case 'promoter':
           case 'promoter-list':
-            router.push(resolvePromoterDestination(data.promoterCodigo));
+            router.push('/admin');
             break;
           case 'cliente':
             router.push('/cliente');
