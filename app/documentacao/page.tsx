@@ -33,6 +33,7 @@ import AcessoSection from './components/AcessoSection';
 import CardapioSection from './components/CardapioSection';
 import ReservasSection from './components/ReservasSection';
 import ApresentacaoSection from './components/ApresentacaoSection';
+import MateriaisSaasSection from './components/MateriaisSaasSection';
 
 function normalizeRole(role: string): string {
   return (role || '').toLowerCase().trim();
@@ -97,6 +98,12 @@ export default function DocumentacaoPage() {
       title: 'Visão Geral',
       icon: MdAutoStories,
       description: 'Resumo do perfil, cargo e estabelecimento.',
+    },
+    {
+      id: 'materiais-saas',
+      title: 'Materiais SaaS',
+      icon: MdSchool,
+      description: 'Treinamentos liberados para seu plano.',
     },
     {
       id: 'trilha',
@@ -325,6 +332,8 @@ export default function DocumentacaoPage() {
                 <BadgeCard icon={<MdShield />} label="Acesso" value={canAccessAdmin ? 'Autorizado' : 'Restrito'} />
               </div>
             </motion.section>
+
+            <MateriaisSaasSection />
 
             {!docs ? (
               <Card className="border-yellow-200">
