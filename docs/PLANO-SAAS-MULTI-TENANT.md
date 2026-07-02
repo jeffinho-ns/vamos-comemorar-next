@@ -14,10 +14,10 @@
 | Campo | Valor |
 |-------|-------|
 | Última atualização | 2026-07-02 |
-| Modo atual | **`SAAS_MODE=on` em produção** — enforce ativo em reservas + rotas irmãs (guest-lists, areas, blocks, settings, eventos/dashboard). |
-| Fase em andamento | **Fase 4** — sidebar filtrada por `useCan` + `adminNavModules` (inerte até `NEXT_PUBLIC_SAAS_MODE=on` no Render). |
-| Próximo passo | Validar API com `SAAS_RLS_MODE=on` em staging; depois migration 008 em **produção**; re-login para JWT com org. |
-| Pendências/decisões | Contract NOT NULL em `organization_id`; 8 promoters órfãos; mapping memberships→operacional antes de popular memberships. |
+| Modo atual | **`SAAS_MODE=on` em produção** — enforce ativo em reservas + rotas irmãs. Staging validado com RLS (008). |
+| Fase em andamento | **Produção RLS** — aplicar migration 008 + `SAAS_RLS_MODE=on` na API Render. |
+| Próximo passo | (1) Backup prod → `SAAS_MIGRATE_CONFIRM=apply` migration 008 → `SAAS_RLS_MODE=on`; (2) re-login usuários; (3) validar analista restrito + Rooftop mkt02. |
+| Pendências/decisões | `NEXT_PUBLIC_SAAS_MODE=on` no front (sidebar real); Contract NOT NULL; 8 promoters órfãos; mapping memberships→operacional. |
 
 > Produção já tem migrations 001–007, observe ativo, proxies com Authorization e código de enforce **pronto mas inerte** até `SAAS_MODE=on`.
 
@@ -30,7 +30,7 @@
 - [~] **Fase 0** — Fundação / segurança. **Middleware movido para a raiz** (`middleware.ts`, 2026-07-02). NÃO feito: auth em rotas públicas, remover credenciais hardcoded.
 - [~] **Camada de segurança** (transversal) — feature flags `SAAS_MODE` (off/observe/on) + fail-open implementados; runner de migration com trava de confirmação e tabela de controle.
 - [x] **Fase 1** — Banco / tenant model: migrations `001..005` validadas em staging e **APLICADAS EM PRODUÇÃO** (2026-06-28) com 0 erros e 0 órfãos. Falta só a virada NOT NULL (Contract, fase posterior).
-- [~] **Fase 2** — enforce app-layer + **JWT tenant** (`organization_id` no login) + **RLS piloto** migration 008 (`restaurant_reservations`, `SAAS_RLS_MODE`). Falta: expandir RLS; gaps stats.
+- [~] **Fase 2** — enforce app-layer + **JWT tenant** + **RLS piloto** migration 008. Stats com escopo em large/waitlist/walk-ins (2026-07-02). Falta: 008 em produção + `SAAS_RLS_MODE=on`; expandir RLS a outras tabelas.
 - [~] **Fase 3** — RBAC + entitlements: `tenancy/entitlements.js`, `requireModule`, `requirePermission`, `GET /api/me/entitlements` prontos (fail-open, NÃO plugados).
 - [~] **Fase 4** — Front modular: `EntitlementsProvider` montado; sidebar filtra via `adminNavModules` + `useCan` (inerte até `NEXT_PUBLIC_SAAS_MODE=on`). Quebra de monolitos: pendente.
 - [ ] **Fase 5** — Faturamento SaaS: schema (`invoices/payments/billing_events`) criado na migration 002; lógica/`PaymentProvider` pendente.
@@ -49,7 +49,9 @@ Legenda: [x] concluído · [~] parcial/pronto-mas-inerte · [ ] não iniciado.
 - 2026-07-01 — **`SAAS_MODE=on` validado em produção** com `analista@pracinha.com`. Causa do bloqueio inicial: zero linhas em `user_establishment_permissions` (escopo só em `promoter-bars.ts`). Backfill UEP para Pracinha (8) e Oh Fregues (4). Próximo: estender enforce às rotas irmãs do painel.
 - 2026-07-01 — **Fase 2 enforce-ready:** `loadUserScope` traduz `memberships.establishment_id` (canônico) → `legacy_place_id`/`legacy_bar_id` (operacional); escopo de mutação em `PUT/DELETE/:id` e `link-event` via `denyIfCannotReadEstablishment`; testes `tenantScope.test.js` (4). Runbook de enforce gradual em `tenancy/README.md`. Tudo inerte até `SAAS_MODE=on`.
 - 2026-06-29 — **Isolamento de leitura estendido** em `restaurantReservations.js`: `establishmentScopeClause` em `GET /stats/dashboard` (3 queries agregadas + NULLIF anti-divisão-por-zero) e novo `canReadEstablishment` (checagem pós-fetch → 404) em `GET /:id` e `GET /:id/guest-list`. Testes `tests/unit/queryScope.test.js` (9) — total tenancy 15/15. `reservas.js` (sistema legado de eventos) deixado como está: não-admin já filtra por `user_id`, não é vazamento de tenant. **⚠️ CAVEAT de IDs:** `restaurant_reservations.establishment_id` = id **operacional** (place/bar), igual ao que o front manda e ao `user_establishment_permissions`. `memberships.establishment_id` = id **canônico** (establishments.id) — espaço diferente. Hoje funciona porque `memberships` está vazio (loadUserScope cai no legado/operacional). **Antes de popular `memberships`**, decidir: gravar id operacional, traduzir no `loadUserScope`, ou migrar `restaurant_reservations.establishment_id` p/ canônico. Próximo: validar `enforce` com 1 usuário restrito antes do `on`.
-- 2026-07-02 — **Migration 008 aplicada em staging** (Docker `saas-staging`, porta 5433): RLS em `restaurant_reservations` validado com role `saas_rls_test` (org fake=0 linhas, org piloto=3931). Controle `saas_schema_migrations` sincronizado 001–008.
+- 2026-07-02 — **Fix login Rooftop** (`analista.mkt02`): bypass middleware + sidebar sem esvaziar por entitlements vazios (`adminProfileEmails.ts`, commit `29c5f68` next).
+- 2026-07-02 — **Staging RLS validado** (001–008 aplicadas; API local `SAAS_MODE=on` + `SAAS_RLS_MODE=on` OK). Próximo: replicar 008 em produção.
+- 2026-07-02 — **Fase 2 stats:** `establishmentScopeClause` em `GET /large-reservations/stats/dashboard`, `GET /waitlist/stats/count`, `GET /walk-ins/stats/active`.
 - 2026-07-02 — **Fase 2 expand + Fase 4 sidebar:** enforce em `guestListsAdmin`, `restaurantAreas`, `restaurantReservationBlocks`, `restaurantReservationSettings`, `eventos/dashboard`; removido fake admin sem token em guest-lists. Front: `EntitlementsProvider` montado, `filterNavByEntitlements` na sidebar (`adminNavModules.ts`). Ativar filtro real: `NEXT_PUBLIC_SAAS_MODE=on` no Render do front.
 - 2026-06-28 — **Unificação places+bars (passos seguros) APLICADA EM PRODUÇÃO**. Migrations `006` (enriquece `establishments` com campos tipados de places+bars + `theme` JSONB; decisão: tipado + JSONB) e `007` (`establishment_modules` = serviços por casa, on/off). Seed por evidência: 5 casas operacionais com tudo; Sitio Ilha e Tio Jacques só cardápio. Validado em staging e prod; API 200. **Ainda intacto**: places/bars seguem existindo (compatibilidade); o código continua lendo as tabelas legadas. **Pendente p/ próxima sessão (staging + decisão):** Passo 4-5 — transformar places/bars em VIEWS sobre establishments e migrar as queries da API para o id canônico; depois aposentar as tabelas legadas.
 
