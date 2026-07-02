@@ -13,11 +13,11 @@
 
 | Campo | Valor |
 |-------|-------|
-| Última atualização | 2026-07-01 |
+| Última atualização | 2026-07-02 |
 | Modo atual | **`SAAS_MODE=on` em produção** — enforce ativo em `/api/restaurant-reservations` (validado com Analista Pracinha). |
 | Fase em andamento | **Fase 2** — expandir enforce às rotas irmãs do painel de reservas. |
-| Próximo passo | Deploy escopo em `large-reservations`, `waitlist`, `walk-ins`, `birthday-reservations`; auditar usuários sem `user_establishment_permissions`; depois Fase 4 (sidebar por módulo). |
-| Pendências/decisões | JWT com tenant; RLS; `eventos/dashboard` sem filtro; promoters legados precisam linha no banco (não só `promoter-bars.ts`). |
+| Próximo passo | Validar login de promoter de evento → `/promoter/{codigo}/dashboard` pós-deploy; enforce em `eventos/dashboard`, guest-lists admin, `restaurant-areas`/blocks/settings; depois Fase 4 (sidebar por módulo). |
+| Pendências/decisões | JWT com tenant; RLS; promoters órfãos (8 contas legadas Highline); mapping memberships→operacional antes de popular memberships. |
 
 > Produção já tem migrations 001–007, observe ativo, proxies com Authorization e código de enforce **pronto mas inerte** até `SAAS_MODE=on`.
 
@@ -27,7 +27,7 @@
 3. Consulte o checklist abaixo para ver o que já foi concluído.
 
 ### Checklist de fases
-- [~] **Fase 0** — Fundação / segurança. Itens seguros prontos como arquivo. NÃO feito (exige staging/observação): mover middleware p/ raiz, auth em rotas públicas, remover credenciais hardcoded.
+- [~] **Fase 0** — Fundação / segurança. **Middleware movido para a raiz** (`middleware.ts`, 2026-07-02). NÃO feito: auth em rotas públicas, remover credenciais hardcoded.
 - [~] **Camada de segurança** (transversal) — feature flags `SAAS_MODE` (off/observe/on) + fail-open implementados; runner de migration com trava de confirmação e tabela de controle.
 - [x] **Fase 1** — Banco / tenant model: migrations `001..005` validadas em staging e **APLICADAS EM PRODUÇÃO** (2026-06-28) com 0 erros e 0 órfãos. Falta só a virada NOT NULL (Contract, fase posterior).
 - [~] **Fase 2** — **`SAAS_MODE=on` validado** em `restaurant-reservations` (Analista Pracinha). Backfill promoters sem UEP. Expandindo enforce: `large-reservations`, `waitlist`, `walk-ins`, `birthday-reservations`. Falta: `eventos/dashboard`, guest-lists admin, JWT tenant, RLS.
@@ -49,6 +49,7 @@ Legenda: [x] concluído · [~] parcial/pronto-mas-inerte · [ ] não iniciado.
 - 2026-07-01 — **`SAAS_MODE=on` validado em produção** com `analista@pracinha.com`. Causa do bloqueio inicial: zero linhas em `user_establishment_permissions` (escopo só em `promoter-bars.ts`). Backfill UEP para Pracinha (8) e Oh Fregues (4). Próximo: estender enforce às rotas irmãs do painel.
 - 2026-07-01 — **Fase 2 enforce-ready:** `loadUserScope` traduz `memberships.establishment_id` (canônico) → `legacy_place_id`/`legacy_bar_id` (operacional); escopo de mutação em `PUT/DELETE/:id` e `link-event` via `denyIfCannotReadEstablishment`; testes `tenantScope.test.js` (4). Runbook de enforce gradual em `tenancy/README.md`. Tudo inerte até `SAAS_MODE=on`.
 - 2026-06-29 — **Isolamento de leitura estendido** em `restaurantReservations.js`: `establishmentScopeClause` em `GET /stats/dashboard` (3 queries agregadas + NULLIF anti-divisão-por-zero) e novo `canReadEstablishment` (checagem pós-fetch → 404) em `GET /:id` e `GET /:id/guest-list`. Testes `tests/unit/queryScope.test.js` (9) — total tenancy 15/15. `reservas.js` (sistema legado de eventos) deixado como está: não-admin já filtra por `user_id`, não é vazamento de tenant. **⚠️ CAVEAT de IDs:** `restaurant_reservations.establishment_id` = id **operacional** (place/bar), igual ao que o front manda e ao `user_establishment_permissions`. `memberships.establishment_id` = id **canônico** (establishments.id) — espaço diferente. Hoje funciona porque `memberships` está vazio (loadUserScope cai no legado/operacional). **Antes de popular `memberships`**, decidir: gravar id operacional, traduzir no `loadUserScope`, ou migrar `restaurant_reservations.establishment_id` p/ canônico. Próximo: validar `enforce` com 1 usuário restrito antes do `on`.
+- 2026-07-02 — **Fix promoters de evento:** middleware na raiz do Next; login e `acesso-negado` redirecionam para `/promoter/{codigo}/dashboard` (não `/admin`); analistas de bar (`analista@*`) continuam no painel admin. Script de audit UEP vs promoters (`scripts/saas/audit_user_establishment_permissions.sql`). Commits: next `254f153`, api `b9c273f`.
 - 2026-06-28 — **Unificação places+bars (passos seguros) APLICADA EM PRODUÇÃO**. Migrations `006` (enriquece `establishments` com campos tipados de places+bars + `theme` JSONB; decisão: tipado + JSONB) e `007` (`establishment_modules` = serviços por casa, on/off). Seed por evidência: 5 casas operacionais com tudo; Sitio Ilha e Tio Jacques só cardápio. Validado em staging e prod; API 200. **Ainda intacto**: places/bars seguem existindo (compatibilidade); o código continua lendo as tabelas legadas. **Pendente p/ próxima sessão (staging + decisão):** Passo 4-5 — transformar places/bars em VIEWS sobre establishments e migrar as queries da API para o id canônico; depois aposentar as tabelas legadas.
 
 ---
@@ -63,8 +64,8 @@ backfill. O sistema atual permanece em produção durante toda a migração.
 - Banco único, pool único, isolamento apenas lógico (`config/database.js`).
 - Modelo dual de casa: `places` (operacional) vs `bars` (cardápio), com IDs divergentes e aliases manuais.
 - Hardcodes por ID: `defaultWeeklySchedule.js` (mapa de nomes), Rooftop `=== 9`, Pracinha `=== 8`, 2º giro bistrô, data `2026-04-20`, áreas por `ILIKE 'Reserva Rooftop - %'`, subáreas Highline em JS.
-- Acesso por listas de e-mails no `app/middleware.ts` e `app/admin/layout.tsx`.
-- **SEGURANÇA:** `app/middleware.ts` está no lugar errado (Next.js só executa na raiz) → proteção de rota server-side está desativada hoje. `restaurant-reservations` e `events` sem `authenticateToken`. Credenciais com fallback no repo.
+- Acesso por listas de e-mails no `middleware.ts` (raiz) e `app/admin/layout.tsx`.
+- **SEGURANÇA:** middleware agora na raiz (`middleware.ts`, 2026-07-02). `restaurant-reservations` e `events` sem `authenticateToken`. Credenciais com fallback no repo.
 - JWT só carrega `id, email, role` (sem tenant). Isolamento depende de query param confiável do cliente.
 - Padrão seguro JÁ existe em `routes/whatsappAdmin.js` (`loadUserScope` / `canAccessEstablishment`) — generalizar.
 
