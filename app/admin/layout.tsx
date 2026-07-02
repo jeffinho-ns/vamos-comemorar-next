@@ -29,6 +29,9 @@ import logBrand from "../assets/logo-agilizai-h.png"; // Verifique o caminho
 import UserMenu from "../components/UserMenu/UserMenu"; // Verifique o caminho
 import AdminPageViewLogger from "../components/AdminPageViewLogger";
 import { useUserPermissions } from "../hooks/useUserPermissions";
+import { useCan } from "../hooks/useCan";
+import { useEntitlements } from "../context/EntitlementsContext";
+import { filterNavByEntitlements } from "../config/adminNavModules";
 import { useAppContext } from "../context/AppContext";
 import { isWhatsappHighlineScopedEmail } from "../config/whatsapp-highline-access";
 import {
@@ -112,6 +115,8 @@ export default function DashboardLayout({
     isLoading: isLoadingPerms,
   } = useUserPermissions();
   const { role: userRole, userEmail, isLoading } = useAppContext();
+  const { canModule, canPermission } = useCan();
+  const { entitlements } = useEntitlements();
   const [cookieRole, setCookieRole] = useState("");
   useEffect(() => {
     setCookieRole(document.cookie.match(/(?:^|;\s*)role=([^;]*)/)?.[1] || "");
@@ -380,6 +385,13 @@ export default function DashboardLayout({
       { href: "/admin/logs", label: "Logs de Ações", icon: MdHistory },
     ];
   }
+
+  navLinks = filterNavByEntitlements(
+    navLinks,
+    canModule,
+    canPermission,
+    entitlements.allowAll,
+  );
 
   const getActiveLabel = () => {
     const activeLink = navLinks.find((link) => pathname.startsWith(link.href));

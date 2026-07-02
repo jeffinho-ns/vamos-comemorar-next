@@ -5,6 +5,7 @@ import "./globals.scss";
 import "./app.styles.scss";
 import GoogleAnalytics from "./components/GoogleAnalytics/GoogleAnalytics";
 import { AppProvider } from "./context/AppContext";
+import { EntitlementsProvider } from "./context/EntitlementsContext";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -22,8 +23,10 @@ export default function RootLayout({
     <html lang="en">
       <body className={inter.className}>
         <AppProvider>
-          <GoogleAnalytics />
-          {children}
+          <EntitlementsProvider>
+            <GoogleAnalytics />
+            {children}
+          </EntitlementsProvider>
         </AppProvider>
       </body>
     </html>

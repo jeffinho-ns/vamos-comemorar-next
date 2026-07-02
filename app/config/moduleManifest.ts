@@ -1,13 +1,8 @@
 /**
  * moduleManifest — descrição data-driven dos módulos e itens de menu do admin.
  *
- * ADITIVO e ainda NÃO consumido: hoje a sidebar é montada por if/else em
- * `app/admin/layout.tsx` (getNavLinks). Este manifest é o destino para tornar a
- * sidebar data-driven por módulo (Fase 4), substituindo os arrays hardcoded por
- * filtragem via `useCan`. Criar este arquivo não muda nada do comportamento atual.
- *
- * Quando a Fase 4 for ligada: em getNavLinks, filtrar ADMIN_NAV por
- * `useCan().canModule(item.module)` e por `canPermission(item.requiredPermission)`.
+ * ADITIVO: consumido por `filterNavByEntitlements` em `app/admin/layout.tsx`
+ * quando `NEXT_PUBLIC_SAAS_MODE=on` (via EntitlementsProvider + useCan).
  */
 
 export interface ModuleDef {
