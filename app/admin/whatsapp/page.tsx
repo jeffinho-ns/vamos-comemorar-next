@@ -502,6 +502,15 @@ export default function AdminWhatsappPage() {
     sample: ContactRow[];
   } | null>(null);
   const [sendCampaignLoading, setSendCampaignLoading] = useState(false);
+  const [bulkCampaignSending, setBulkCampaignSending] = useState(false);
+  const [bulkSendProgress, setBulkSendProgress] = useState<{
+    batchId: number;
+    processed: number;
+    total: number;
+    sentOk: number;
+    sentFail: number;
+    status: string;
+  } | null>(null);
   const [selectedCampaignForSend, setSelectedCampaignForSend] = useState<number | "">(
     "",
   );
@@ -638,6 +647,7 @@ export default function AdminWhatsappPage() {
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const isPinnedToBottomRef = useRef(true);
   const draftDirtyRef = useRef(false);
+  const bulkSendAbortRef = useRef(false);
   const imageInputRef = useRef<HTMLInputElement | null>(null);
   const [showJumpToLatest, setShowJumpToLatest] = useState(false);
 
@@ -1775,6 +1785,148 @@ export default function AdminWhatsappPage() {
     }
   };
 
+  const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+  const handleBulkSendCampaignFromCrm = async () => {
+    if (!token) return;
+    if (selectedCampaignForSend === "") {
+      setError("Selecione uma campanha para envio em massa.");
+      return;
+    }
+
+    const campaignId = selectedCampaignForSend;
+    const campaign = campaigns.find((item) => item.id === campaignId);
+
+    setError(null);
+    setSuccessMessage(null);
+
+    let estimatedCount = 0;
+    try {
+      const previewRes = await fetch(
+        `${API_URL}/api/admin/whatsapp/campaigns/${campaignId}/audience-preview`,
+        { headers: authHeaders },
+      );
+      const previewData = await previewRes.json().catch(() => ({}));
+      if (!previewRes.ok) {
+        throw new Error(previewData.message || `Erro ${previewRes.status}`);
+      }
+      estimatedCount = Number(previewData.estimated_count || 0);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Falha ao estimar público da campanha");
+      return;
+    }
+
+    if (estimatedCount === 0) {
+      setError("Nenhum contato elegível para esta campanha (verifique filtros e opt-in).");
+      return;
+    }
+
+    const campaignName = campaign?.name || `#${campaignId}`;
+    const confirmed = window.confirm(
+      `Enviar a campanha "${campaignName}" para aproximadamente ${estimatedCount} contatos?\n\nO envio usa os filtros configurados na campanha (não apenas a lista filtrada do CRM). Respeita opt-in e pausas entre mensagens.`,
+    );
+    if (!confirmed) return;
+
+    bulkSendAbortRef.current = false;
+    setBulkCampaignSending(true);
+    setBulkSendProgress(null);
+    setBatchCampaignId(campaignId);
+
+    let lastBatch: CampaignBatchRow | null = null;
+
+    try {
+      const createRes = await fetch(
+        `${API_URL}/api/admin/whatsapp/campaigns/${campaignId}/batches`,
+        {
+          method: "POST",
+          headers: authHeaders,
+          body: JSON.stringify({
+            chunk_size: batchChunkSize,
+            delay_ms: batchDelayMs,
+          }),
+        },
+      );
+      const createData = await createRes.json().catch(() => ({}));
+      if (!createRes.ok) throw new Error(createData.message || `Erro ${createRes.status}`);
+
+      const batchId = Number(createData.batch?.id);
+      if (!Number.isFinite(batchId) || batchId <= 0) {
+        throw new Error("Resposta inválida ao criar fila de disparo");
+      }
+
+      lastBatch = createData.batch as CampaignBatchRow;
+      setBulkSendProgress({
+        batchId,
+        processed: lastBatch.processed_count || 0,
+        total: lastBatch.total_planned || estimatedCount,
+        sentOk: lastBatch.sent_ok || 0,
+        sentFail: lastBatch.sent_fail || 0,
+        status: lastBatch.status || "queued",
+      });
+
+      while (!bulkSendAbortRef.current) {
+        const processRes = await fetch(
+          `${API_URL}/api/admin/whatsapp/campaign-batches/${batchId}/process`,
+          { method: "POST", headers: authHeaders },
+        );
+        const processData = await processRes.json().catch(() => ({}));
+
+        if (processRes.status === 409) {
+          await sleep(1500);
+          continue;
+        }
+        if (!processRes.ok) {
+          throw new Error(processData.message || `Erro ${processRes.status}`);
+        }
+
+        lastBatch = processData.batch as CampaignBatchRow;
+        setBulkSendProgress({
+          batchId,
+          processed: lastBatch.processed_count || 0,
+          total: lastBatch.total_planned || estimatedCount,
+          sentOk: lastBatch.sent_ok || 0,
+          sentFail: lastBatch.sent_fail || 0,
+          status: lastBatch.status || "queued",
+        });
+
+        if (processData.last_chunk?.done || lastBatch.status === "completed") {
+          break;
+        }
+        if (lastBatch.status === "cancelled" || lastBatch.status === "failed") {
+          throw new Error(lastBatch.error_message || "Disparo interrompido");
+        }
+
+        await sleep(400);
+      }
+
+      if (bulkSendAbortRef.current) {
+        setSuccessMessage("Disparo em massa cancelado.");
+      } else if (lastBatch) {
+        setSuccessMessage(
+          `Campanha enviada em massa: ${lastBatch.sent_ok ?? 0} ok, ${lastBatch.sent_fail ?? 0} falhas.`,
+        );
+      }
+
+      await fetchCampaignBatches();
+      await fetchConversations();
+    } catch (e) {
+      if (!bulkSendAbortRef.current) {
+        setError(e instanceof Error ? e.message : "Falha no envio em massa");
+      }
+    } finally {
+      setBulkCampaignSending(false);
+      bulkSendAbortRef.current = false;
+    }
+  };
+
+  const handleCancelBulkCampaignSend = async () => {
+    bulkSendAbortRef.current = true;
+    const batchId = bulkSendProgress?.batchId;
+    if (batchId) {
+      await handleCancelBatch(batchId);
+    }
+  };
+
   const selectedConv = conversations.find((c) => c.wa_id === selectedWaId);
   const handoff =
     handoffActive(conversationMeta?.human_takeover_until) ||
@@ -2869,9 +3021,11 @@ export default function AdminWhatsappPage() {
             </button>
             <select
               value={selectedCampaignForSend === "" ? "" : String(selectedCampaignForSend)}
-              onChange={(e) =>
-                setSelectedCampaignForSend(e.target.value ? Number(e.target.value) : "")
-              }
+              onChange={(e) => {
+                const next = e.target.value ? Number(e.target.value) : "";
+                setSelectedCampaignForSend(next);
+                setBatchCampaignId(next);
+              }}
               className="rounded-lg border border-gray-200 px-3 py-2 text-sm bg-white"
             >
               <option value="">Campanha para envio</option>
@@ -2881,7 +3035,92 @@ export default function AdminWhatsappPage() {
                 </option>
               ))}
             </select>
+            <button
+              type="button"
+              onClick={handleBulkSendCampaignFromCrm}
+              disabled={
+                bulkCampaignSending || selectedCampaignForSend === "" || campaigns.length === 0
+              }
+              className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-indigo-600 text-white text-sm hover:bg-indigo-700 disabled:opacity-50"
+              title="Envia para todos os contatos elegíveis da campanha (filtros + opt-in)"
+            >
+              {bulkCampaignSending ? "Enviando em massa…" : "Enviar em massa"}
+            </button>
+            {bulkCampaignSending ? (
+              <button
+                type="button"
+                onClick={handleCancelBulkCampaignSend}
+                disabled={cancellingBatchId !== null}
+                className="inline-flex items-center px-3 py-2 rounded-lg border border-red-300 text-red-700 text-sm hover:bg-red-50 disabled:opacity-50"
+              >
+                {cancellingBatchId !== null ? "Cancelando…" : "Cancelar envio"}
+              </button>
+            ) : null}
           </div>
+        </div>
+
+        <div className="px-4 py-3 border-b border-gray-100 bg-indigo-50/40 space-y-3">
+          <div className="flex flex-wrap gap-3 items-end">
+            <div>
+              <label className="block text-xs text-gray-600 mb-1">Contatos por lote</label>
+              <input
+                type="number"
+                min={1}
+                max={100}
+                value={batchChunkSize}
+                onChange={(e) => setBatchChunkSize(Number(e.target.value) || 25)}
+                disabled={bulkCampaignSending}
+                className="w-28 rounded-lg border border-gray-200 px-3 py-2 text-sm bg-white disabled:opacity-50"
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-gray-600 mb-1">Pausa entre envios (ms)</label>
+              <input
+                type="number"
+                min={0}
+                max={15000}
+                value={batchDelayMs}
+                onChange={(e) => setBatchDelayMs(Number(e.target.value) || 0)}
+                disabled={bulkCampaignSending}
+                className="w-36 rounded-lg border border-gray-200 px-3 py-2 text-sm bg-white disabled:opacity-50"
+              />
+            </div>
+            <p className="text-xs text-gray-500 max-w-xl pb-2">
+              O envio em massa usa os filtros da campanha selecionada (estabelecimento, tags,
+              status e opt-in), não apenas os contatos visíveis na tabela abaixo.
+            </p>
+          </div>
+          {bulkSendProgress ? (
+            <div className="space-y-1">
+              <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-gray-600">
+                <span>
+                  Progresso: {bulkSendProgress.processed} / {bulkSendProgress.total} ·{" "}
+                  {bulkSendProgress.sentOk} enviados · {bulkSendProgress.sentFail} falhas ·{" "}
+                  {bulkSendProgress.status}
+                </span>
+                {bulkSendProgress.total > 0 ? (
+                  <span>
+                    {Math.min(
+                      100,
+                      Math.round((bulkSendProgress.processed / bulkSendProgress.total) * 100),
+                    )}
+                    %
+                  </span>
+                ) : null}
+              </div>
+              <div className="h-2 rounded-full bg-gray-200 overflow-hidden">
+                <div
+                  className="h-full bg-indigo-600 transition-all duration-300"
+                  style={{
+                    width:
+                      bulkSendProgress.total > 0
+                        ? `${Math.min(100, (bulkSendProgress.processed / bulkSendProgress.total) * 100)}%`
+                        : "0%",
+                  }}
+                />
+              </div>
+            </div>
+          ) : null}
         </div>
 
         <div className="p-4 border-b border-gray-100 grid grid-cols-1 md:grid-cols-4 gap-3 bg-gray-50/40">
@@ -3205,7 +3444,11 @@ export default function AdminWhatsappPage() {
                           <button
                             type="button"
                             onClick={() => handleSendCampaignToContact(contact.id)}
-                            disabled={sendCampaignLoading || !selectedCampaignForSend}
+                            disabled={
+                              sendCampaignLoading ||
+                              bulkCampaignSending ||
+                              !selectedCampaignForSend
+                            }
                             className="inline-flex items-center px-2.5 py-1.5 rounded bg-indigo-600 text-white text-xs hover:bg-indigo-700 disabled:opacity-50"
                             title="Respeita trava de opt-in"
                           >
