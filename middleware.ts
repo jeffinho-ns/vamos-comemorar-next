@@ -5,6 +5,7 @@ import {
   resolveEventPromoterDashboardPath,
   shouldUseEventPromoterPortal,
 } from './app/utils/promoterPortalAccess';
+import { isRooftopFluxoEmail } from './app/utils/adminProfileEmails';
 
 function safeDecodeURIComponent(value: string) {
   try {
@@ -75,6 +76,11 @@ export function middleware(request: NextRequest) {
   }
 
   if (isSuperAdmin && url.startsWith('/admin')) {
+    return NextResponse.next();
+  }
+
+  // Reserva Rooftop (fluxo dedicado): perfil por e-mail, independente do role no JWT.
+  if (isRooftopFluxoEmail(userEmail) && url.startsWith('/admin')) {
     return NextResponse.next();
   }
 

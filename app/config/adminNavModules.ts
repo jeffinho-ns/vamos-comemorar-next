@@ -49,13 +49,20 @@ export function filterNavByEntitlements<T extends { href: string }>(
   canModule: (moduleKey: string) => boolean,
   canPermission: (permission: string) => boolean,
   allowAll: boolean,
+  permissions: string[] = [],
 ): T[] {
   if (allowAll) return links;
+  // Usuários legados (UEP sem memberships): API devolve permissions=[] — não esvaziar sidebar.
+  const skipFinePermissions = permissions.length === 0;
   return links.filter((link) => {
     const meta = NAV_MODULE_BY_HREF[link.href];
     if (!meta) return true;
     if (!canModule(meta.module)) return false;
-    if (meta.requiredPermission && !canPermission(meta.requiredPermission)) {
+    if (
+      meta.requiredPermission &&
+      !skipFinePermissions &&
+      !canPermission(meta.requiredPermission)
+    ) {
       return false;
     }
     return true;

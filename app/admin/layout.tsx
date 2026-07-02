@@ -38,6 +38,7 @@ import {
   resolveEventPromoterDashboardPath,
   shouldUseEventPromoterPortal,
 } from "../utils/promoterPortalAccess";
+import { isRooftopFluxoEmail } from "../utils/adminProfileEmails";
 
 // E-mail da analista com acesso restrito ao estabelecimento Pracinha do Seu Justino (menu próprio, não promoter)
 const ANALISTA_EMAIL = "analista.mkt03@ideiaum.com.br";
@@ -54,15 +55,6 @@ const GERENTES_SEU_JUSTINO_CARDAPIO = [
 ];
 
 // E-mails autorizados a acessar rooftop-fluxo (Reserva Rooftop) - recebem menu de recepção
-const ROOFTOP_FLUXO_EMAILS = new Set([
-  "recepcao@reservarooftop.com.br",
-  "gerente.maitre@reservarooftop.com.br",
-  "diego.gomes@reservarooftop.com.br",
-  "vbs14@hotmail.com",
-  "reservas@reservarooftop.com.br",
-  "coordenadora.reservas@ideiaum.com.br",
-  "analista.mkt02@ideiaum.com.br",
-]);
 const ROOFTOP_FLUXO_LINKS = [
   { href: "/admin", label: "Dashboard", icon: MdDashboard },
   { href: "/admin/checkins", label: "Check-ins", icon: MdCheckCircle },
@@ -115,15 +107,21 @@ export default function DashboardLayout({
     isLoading: isLoadingPerms,
   } = useUserPermissions();
   const { role: userRole, userEmail, isLoading } = useAppContext();
-  const { canModule, canPermission } = useCan();
+  const { canModule, canPermission, loading: entitlementsLoading } = useCan();
   const { entitlements } = useEntitlements();
   const [cookieRole, setCookieRole] = useState("");
+  const [cookieEmail, setCookieEmail] = useState("");
   useEffect(() => {
     setCookieRole(document.cookie.match(/(?:^|;\s*)role=([^;]*)/)?.[1] || "");
+    const emailMatch = document.cookie.match(/(?:^|;\s*)userEmail=([^;]*)/);
+    setCookieEmail(
+      emailMatch ? decodeURIComponent(emailMatch[1]).trim().toLowerCase() : "",
+    );
   }, []);
   const decodedCookieRole = cookieRole
     ? decodeURIComponent(cookieRole).toLowerCase().trim()
     : "";
+  const effectiveEmail = (userEmail || cookieEmail).trim().toLowerCase();
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -137,8 +135,7 @@ export default function DashboardLayout({
   const isAnalista = userEmail === ANALISTA_EMAIL;
   const isSuperAdmin =
     !!userEmail && SUPER_ADMIN_EMAILS.has(userEmail.toLowerCase().trim());
-  const isRooftopFluxoEmail =
-    userEmail && ROOFTOP_FLUXO_EMAILS.has(userEmail.toLowerCase().trim());
+  const isRooftopFluxoUser = isRooftopFluxoEmail(effectiveEmail);
   const isCardapioOnlyUser =
     userEmail && CARDAPIO_ONLY_EMAILS.has(userEmail.toLowerCase().trim());
   const isWhatsappHighlineScopedUser = isWhatsappHighlineScopedEmail(userEmail);
@@ -162,7 +159,7 @@ export default function DashboardLayout({
     }
 
     // Reserva Rooftop: e-mails autorizados ao rooftop-fluxo (prioridade)
-    if (isRooftopFluxoEmail) {
+    if (isRooftopFluxoUser) {
       return ROOFTOP_FLUXO_LINKS;
     }
     // Analista (ex: analista.mkt03) – perfil analista, acesso amplo ao estabelecimento Pracinha (não é promoter)
@@ -386,12 +383,15 @@ export default function DashboardLayout({
     ];
   }
 
-  navLinks = filterNavByEntitlements(
-    navLinks,
-    canModule,
-    canPermission,
-    entitlements.allowAll,
-  );
+  if (!isRooftopFluxoUser) {
+    navLinks = filterNavByEntitlements(
+      navLinks,
+      canModule,
+      canPermission,
+      entitlements.allowAll,
+      entitlements.permissions,
+    );
+  }
 
   const getActiveLabel = () => {
     const activeLink = navLinks.find((link) => pathname.startsWith(link.href));
@@ -405,7 +405,7 @@ export default function DashboardLayout({
       return "Admin - Cardápio";
     }
     if (
-      isRooftopFluxoEmail ||
+      isRooftopFluxoUser ||
       userRole === "recepção" ||
       userRole === "recepcao" ||
       userRole === "atendente"
@@ -420,10 +420,10 @@ export default function DashboardLayout({
 
   // Se não há links disponíveis para o usuário, redireciona para acesso negado
   useEffect(() => {
-    if (!isLoading && navLinks.length === 0) {
+    if (!isLoading && !entitlementsLoading && navLinks.length === 0) {
       window.location.href = "/acesso-negado";
     }
-  }, [isLoading, navLinks.length]);
+  }, [isLoading, entitlementsLoading, navLinks.length]);
 
   if (!isLoading && navLinks.length === 0) return null;
 
