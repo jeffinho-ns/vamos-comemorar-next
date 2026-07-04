@@ -22,12 +22,12 @@ export function middleware(request: NextRequest) {
   const promoterCodigoRaw = request.cookies.get('promoterCodigo')?.value;
   const userEmailRaw = request.cookies.get('userEmail')?.value || '';
   const url = request.nextUrl.pathname;
-  const isEventCheckinsPath = /^\/admin\/eventos\/[^/]+\/check-ins(\/.*)?$/.test(url);
 
-  // Fluxo de check-ins usa Authorization via localStorage nas chamadas à API.
-  // Não bloquear no middleware por cookie/role desatualizado, senão usuários com
-  // sessão válida no client são derrubados para /login ao abrir o evento.
-  if (isEventCheckinsPath) {
+  // Emergencial: as páginas admin usam localStorage para enviar o Bearer token
+  // às APIs. Quando o cookie do middleware fica desatualizado, usuários logados
+  // são derrubados para /login antes da página carregar. As APIs continuam
+  // protegidas por Authorization, então não bloquear /admin no middleware.
+  if (url.startsWith('/admin')) {
     return NextResponse.next();
   }
 
