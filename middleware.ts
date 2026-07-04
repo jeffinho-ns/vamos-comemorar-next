@@ -5,11 +5,8 @@ import {
   resolveEventPromoterDashboardPath,
   shouldUseEventPromoterPortal,
 } from './app/utils/promoterPortalAccess';
-import { isRooftopFluxoEmail } from './app/utils/adminProfileEmails';
-import {
-  canonicalSessionRole,
-  rolesMatchForAccess,
-} from './app/utils/adminRole';
+import { canonicalSessionRole } from './app/utils/adminRole';
+import { roleAllowedForAdminPath } from './app/utils/adminMiddlewareAccess';
 
 function safeDecodeURIComponent(value: string) {
   try {
@@ -31,10 +28,7 @@ export function middleware(request: NextRequest) {
   }
 
   const userEmail = safeDecodeURIComponent(userEmailRaw).toLowerCase().trim();
-  const SUPER_ADMIN_EMAILS = new Set(['teste@teste', 'jeffinho_ns@hotmail.com']);
-  const isSuperAdminLegacy = SUPER_ADMIN_EMAILS.has(userEmail);
-  const isSuperAdmin =
-    request.cookies.get('isSuperAdmin')?.value === '1' || isSuperAdminLegacy;
+  const isSuperAdmin = request.cookies.get('isSuperAdmin')?.value === '1';
 
   if (url.startsWith('/superadmin')) {
     if (!isSuperAdmin) {
@@ -43,26 +37,10 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  if (url.startsWith('/admin/checkins/rooftop-fluxo')) {
-    return NextResponse.next();
-  }
-
   const roleNorm = canonicalSessionRole(safeDecodeURIComponent(roleRaw));
   const promoterCodigo = promoterCodigoRaw
     ? safeDecodeURIComponent(promoterCodigoRaw).trim()
     : '';
-
-  const CARDAPIO_ONLY_EMAILS = new Set(['vinicius.gomes@ideiaum.com.br']);
-  if (CARDAPIO_ONLY_EMAILS.has(userEmail)) {
-    const isCardapioRoute =
-      url === '/admin/cardapio' || url.startsWith('/admin/cardapio/');
-    if (url === '/admin' || url === '/admin/') {
-      return NextResponse.redirect(new URL('/admin/cardapio', request.url));
-    }
-    if (!isCardapioRoute) {
-      return NextResponse.redirect(new URL('/acesso-negado', request.url));
-    }
-  }
 
   const isEventPromoterPortal = shouldUseEventPromoterPortal(
     roleNorm,
@@ -92,52 +70,17 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Reserva Rooftop (fluxo dedicado): perfil por e-mail, independente do role no JWT.
-  if (isRooftopFluxoEmail(userEmail) && url.startsWith('/admin')) {
-    return NextResponse.next();
-  }
+  // Analistas de bar: role efetivo promoter nas rotas admin (legado UEP).
+  const effectiveRole =
+    isBarAnalystEmail(userEmail) &&
+    !['promoter', 'promoter-list'].includes(roleNorm)
+      ? 'promoter'
+      : roleNorm;
 
-  const staffPromoterRoles = isBarAnalystEmail(userEmail)
-    ? ['promoter', 'promoter-list']
-    : [];
-
-  const receptionRoles = ['recepção', 'recepcao', 'atendente'] as const;
-
-  const routePermissions: Record<string, string[]> = {
-    '/admin': ['admin', 'gerente', ...receptionRoles, ...staffPromoterRoles],
-    '/admin/commodities': ['admin'],
-    '/admin/enterprise': ['admin'],
-    '/admin/gifts': ['admin'],
-    '/admin/users': ['admin'],
-    '/admin/workdays': ['admin', ...staffPromoterRoles],
-    '/admin/places': ['admin'],
-    '/admin/tables': ['admin'],
-    '/admin/eventos': ['admin', 'gerente', ...receptionRoles, ...staffPromoterRoles],
-    '/admin/painel-eventos': ['admin', 'gerente', ...staffPromoterRoles],
-    '/admin/cardapio': ['admin', ...staffPromoterRoles, ...receptionRoles, 'gerente'],
-    '/admin/eventos/dashboard': ['admin', 'gerente', ...staffPromoterRoles, ...receptionRoles],
-    '/admin/events': ['admin', ...staffPromoterRoles, ...receptionRoles, 'gerente'],
-    '/admin/reservas': ['admin'],
-    '/admin/qrcode': ['admin', ...staffPromoterRoles, ...receptionRoles, 'gerente'],
-    '/admin/checkins': ['admin', ...staffPromoterRoles, ...receptionRoles, 'gerente'],
-    '/admin/restaurant-reservations': ['admin', ...staffPromoterRoles, ...receptionRoles, 'gerente'],
-    '/admin/detalhes-operacionais': ['admin', ...receptionRoles, 'gerente'],
-    '/admin/estabelecimentos': ['admin', 'gerente', ...receptionRoles, 'administrador'],
-    '/admin/guia': ['admin', 'gerente', ...receptionRoles, ...staffPromoterRoles],
-    '/admin/whatsapp': ['admin', 'gerente', ...receptionRoles, 'atendente', 'hostess'],
-    '/admin/logs': ['admin', 'gerente', ...receptionRoles, ...staffPromoterRoles],
-    '/admin/relatorios-gerador': ['admin'],
-  };
-
-  const matchedRoute = Object.keys(routePermissions)
-    .filter((route) => url.startsWith(route))
-    .sort((a, b) => b.length - a.length)[0];
-  const allowedRoles = matchedRoute ? routePermissions[matchedRoute] : null;
-  const roleAllowed =
-    allowedRoles &&
-    allowedRoles.some((r) => rolesMatchForAccess(r, roleNorm));
-
-  if (allowedRoles && !roleAllowed) {
+  if (
+    url.startsWith('/admin') &&
+    !roleAllowedForAdminPath(url, effectiveRole)
+  ) {
     if (isEventPromoterPortal && promoterCodigo) {
       return NextResponse.redirect(
         new URL(resolveEventPromoterDashboardPath(promoterCodigo), request.url),

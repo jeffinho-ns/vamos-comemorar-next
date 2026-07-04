@@ -15,3 +15,9 @@ export function isSuperAdminFromToken(token: string | null | undefined): boolean
   const payload = decodeJwtPayload(token);
   return payload?.is_super_admin === true;
 }
+
+/** Cookie setado no login quando JWT tem `is_super_admin`. */
+export function readSuperAdminFromCookie(): boolean {
+  if (typeof document === "undefined") return false;
+  return document.cookie.includes("isSuperAdmin=1");
+}

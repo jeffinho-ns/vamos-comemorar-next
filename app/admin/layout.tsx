@@ -33,13 +33,15 @@ import { useUserPermissions } from "../hooks/useUserPermissions";
 import { useCan } from "../hooks/useCan";
 import { useEntitlements } from "../context/EntitlementsContext";
 import { filterNavByEntitlements } from "../config/adminNavModules";
+import AdminPageGate from "../components/AdminPageGate";
 import { useAppContext } from "../context/AppContext";
 import { isWhatsappHighlineScopedEmail } from "../config/whatsapp-highline-access";
 import {
   resolveEventPromoterDashboardPath,
   shouldUseEventPromoterPortal,
 } from "../utils/promoterPortalAccess";
-import { isRooftopFluxoEmail } from "../utils/adminProfileEmails";
+import { readSuperAdminFromCookie } from "../utils/superAdminAccess";
+import { isSaasModeEnabled } from "../utils/saasMode";
 import {
   isAdminRole as isAdminNavRole,
   isGerenteRole,
@@ -52,46 +54,12 @@ import {
 // E-mail da analista com acesso restrito ao estabelecimento Pracinha do Seu Justino (menu próprio, não promoter)
 const ANALISTA_EMAIL = "analista.mkt03@ideiaum.com.br";
 
-// Super Admins: acesso extra (ex: Galeria, WhatsApp, Reservas globais) — alinhado ao middleware
-const SUPER_ADMIN_EMAILS = new Set(["teste@teste", "jeffinho_ns@hotmail.com"]);
-
 // Gerentes do Seu Justino que têm acesso ao Gerenciamento do Cardápio (apenas estabelecimento Seu Justino)
 const GERENTES_SEU_JUSTINO_CARDAPIO = [
   "gerente.sjm@seujustino.com.br",
   "subgerente.sjm@seujustino.com.br",
   // Highline: analista com acesso ao Cardápio do Highline (controlado também por permissões por estabelecimento)
   "analista@highline.com",
-];
-
-// E-mails autorizados a acessar rooftop-fluxo (Reserva Rooftop) - recebem menu de recepção
-const ROOFTOP_FLUXO_LINKS = [
-  { href: "/admin", label: "Dashboard", icon: MdDashboard },
-  { href: "/admin/checkins", label: "Check-ins", icon: MdCheckCircle },
-  {
-    href: "/admin/checkins/rooftop-fluxo",
-    label: "Fluxo Rooftop",
-    icon: MdCheckCircle,
-  },
-  {
-    href: "/admin/restaurant-reservations",
-    label: "Sistema de Reservas",
-    icon: MdRestaurant,
-  },
-  {
-    href: "/admin/detalhes-operacionais",
-    label: "Detalhes Operacionais do Evento",
-    icon: MdInfo,
-  },
-  { href: "/admin/qrcode", label: "Scanner QR Code", icon: MdQrCodeScanner },
-  { href: "/admin/reservas", label: "Reservas", icon: MdEditCalendar },
-];
-
-// Usuários com acesso exclusivo ao módulo de Cardápio
-const CARDAPIO_ONLY_EMAILS = new Set([
-  "vinicius.gomes@ideiaum.com.br",
-]);
-const CARDAPIO_ONLY_LINKS = [
-  { href: "/admin/cardapio", label: "Cardápio", icon: MdRestaurant },
 ];
 
 /** Hub único: atendimento WhatsApp + treinamento da IA por estabelecimento. */
@@ -120,12 +88,14 @@ export default function DashboardLayout({
   const { entitlements } = useEntitlements();
   const [cookieRole, setCookieRole] = useState(() => readSessionRoleSync());
   const [cookieEmail, setCookieEmail] = useState("");
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   useEffect(() => {
     setCookieRole(readSessionRoleSync());
     const emailMatch = document.cookie.match(/(?:^|;\s*)userEmail=([^;]*)/);
     setCookieEmail(
       emailMatch ? decodeURIComponent(emailMatch[1]).trim().toLowerCase() : "",
     );
+    setIsSuperAdmin(readSuperAdminFromCookie());
   }, []);
   const decodedCookieRole = cookieRole
     ? decodeURIComponent(cookieRole).toLowerCase().trim()
@@ -145,12 +115,8 @@ export default function DashboardLayout({
   }, [userRole, userEmail, decodedCookieRole, router]);
 
   const isAnalista = userEmail === ANALISTA_EMAIL;
-  const isSuperAdmin =
-    !!userEmail && SUPER_ADMIN_EMAILS.has(userEmail.toLowerCase().trim());
-  const isRooftopFluxoUser = isRooftopFluxoEmail(effectiveEmail);
-  const isCardapioOnlyUser =
-    userEmail && CARDAPIO_ONLY_EMAILS.has(userEmail.toLowerCase().trim());
   const isWhatsappHighlineScopedUser = isWhatsappHighlineScopedEmail(userEmail);
+  const saasOn = isSaasModeEnabled();
 
   const appendWhatsappLink = <T extends { href: string; label: string; icon: typeof MdChat }>(
     links: T[],
@@ -166,14 +132,6 @@ export default function DashboardLayout({
 
   // A lista de links da sua navegação baseada no role e no perfil (analista vs promoter)
   const getNavLinks = () => {
-    if (isCardapioOnlyUser) {
-      return CARDAPIO_ONLY_LINKS;
-    }
-
-    // Reserva Rooftop: e-mails autorizados ao rooftop-fluxo (prioridade)
-    if (isRooftopFluxoUser) {
-      return ROOFTOP_FLUXO_LINKS;
-    }
     // Analista (ex: analista.mkt03) – perfil analista, acesso amplo ao estabelecimento Pracinha (não é promoter)
     if (isAnalista) {
       return [
@@ -239,6 +197,11 @@ export default function DashboardLayout({
       const links = [
         { href: "/admin", label: "Dashboard", icon: MdDashboard },
         { href: "/admin/checkins", label: "Check-ins", icon: MdCheckCircle },
+        {
+          href: "/admin/checkins/rooftop-fluxo",
+          label: "Fluxo Rooftop",
+          icon: MdCheckCircle,
+        },
         {
           href: "/admin/restaurant-reservations",
           label: "Sistema de Reservas",
@@ -367,13 +330,6 @@ export default function DashboardLayout({
   };
 
   let navLinks = getNavLinks();
-  // Quando está na página rooftop-fluxo, garantir links (evitar redirect para acesso-negado)
-  if (
-    navLinks.length === 0 &&
-    pathname.startsWith("/admin/checkins/rooftop-fluxo")
-  ) {
-    navLinks = ROOFTOP_FLUXO_LINKS;
-  }
 
   // /admin/reservas: apenas Super Admins
   if (!isSuperAdmin) {
@@ -402,7 +358,7 @@ export default function DashboardLayout({
     ];
   }
 
-  if (!isRooftopFluxoUser) {
+  if (saasOn) {
     navLinks = filterNavByEntitlements(
       navLinks,
       canModule,
@@ -421,13 +377,7 @@ export default function DashboardLayout({
     if (isPromoterRole(effectiveRoleRaw)) {
       return "Painel Promoter";
     }
-    if (isCardapioOnlyUser) {
-      return "Admin - Cardápio";
-    }
-    if (
-      isRooftopFluxoUser ||
-      isReceptionRole(effectiveRoleRaw)
-    ) {
+    if (isReceptionRole(effectiveRoleRaw)) {
       return "Admin - Recepção";
     }
     if (isGerenteRole(effectiveRoleRaw)) {
@@ -616,7 +566,7 @@ export default function DashboardLayout({
         <main className="flex-1 overflow-y-auto sm:p-6 lg:p-8">
           {/* Page views admin: POST /api/action-logs (page_view_admin) em cada navegação */}
           <AdminPageViewLogger />
-          {children}
+          <AdminPageGate>{children}</AdminPageGate>
         </main>
       </div>
     </div>
