@@ -20,6 +20,7 @@ import {
   shouldUseEventPromoterPortal,
 } from "../utils/promoterPortalAccess";
 import { isSuperAdminFromToken } from "../utils/superAdminAccess";
+import { canonicalSessionRole } from "../utils/adminRole";
 
 export default function Login() {
   const [show, setShow] = useState(false);
@@ -128,10 +129,12 @@ export default function Login() {
           saveCredentialsIfRemembered();
         }
         
+        const sessionRole = canonicalSessionRole(data.role);
+
         // Armazena no localStorage
         localStorage.setItem("authToken", data.token);
         localStorage.setItem("userId", data.userId);
-        localStorage.setItem("role", data.role);
+        localStorage.setItem("role", sessionRole);
         if (data.nome) {
           localStorage.setItem("userName", data.nome);
         }
@@ -154,7 +157,7 @@ export default function Login() {
         // Mantém cookies de autenticação usados no middleware.
         setAuthSessionCookies({
           authToken: data.token,
-          role: data.role,
+          role: sessionRole,
           userEmail:
             emailCpf && emailCpf.includes("@") ? emailCpf.toLowerCase().trim() : undefined,
           promoterCodigo: data.promoterCodigo || undefined,
@@ -219,14 +222,13 @@ export default function Login() {
         }
         
         // Redirecionamento padrão com base no role
-        switch (data.role) {
+        switch (sessionRole) {
           case 'admin':
             router.push('/admin');
             break;
           case 'gerente':
             router.push('/admin');
             break;
-          case 'recepção':
           case 'recepcao':
           case 'atendente':
             router.push('/admin');

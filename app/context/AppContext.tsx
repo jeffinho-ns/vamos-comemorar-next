@@ -10,6 +10,7 @@ import {
   useState,
 } from "react";
 import { getApiUrl } from "../config/api";
+import { canonicalSessionRole } from "../utils/adminRole";
 import { AUTH_CHANGED_EVENT } from "../utils/authSession";
 import {
   filterEstablishmentListForUser,
@@ -112,7 +113,7 @@ async function fetchWithTimeout(
 }
 
 function normalizeRole(value: string | undefined): string {
-  return (value || "").trim().toLowerCase();
+  return canonicalSessionRole(value);
 }
 
 function mapBar(item: Record<string, unknown>): AppEstablishment {

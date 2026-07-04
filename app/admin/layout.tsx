@@ -45,6 +45,8 @@ import {
   isGerenteRole,
   isPromoterRole,
   isReceptionRole,
+  isStaffAdminRole,
+  readSessionRoleSync,
 } from "../utils/adminRole";
 
 // E-mail da analista com acesso restrito ao estabelecimento Pracinha do Seu Justino (menu próprio, não promoter)
@@ -116,10 +118,10 @@ export default function DashboardLayout({
   const { role: userRole, userEmail, isLoading } = useAppContext();
   const { canModule, canPermission, loading: entitlementsLoading } = useCan();
   const { entitlements } = useEntitlements();
-  const [cookieRole, setCookieRole] = useState("");
+  const [cookieRole, setCookieRole] = useState(() => readSessionRoleSync());
   const [cookieEmail, setCookieEmail] = useState("");
   useEffect(() => {
-    setCookieRole(document.cookie.match(/(?:^|;\s*)role=([^;]*)/)?.[1] || "");
+    setCookieRole(readSessionRoleSync());
     const emailMatch = document.cookie.match(/(?:^|;\s*)userEmail=([^;]*)/);
     setCookieEmail(
       emailMatch ? decodeURIComponent(emailMatch[1]).trim().toLowerCase() : "",
@@ -129,8 +131,9 @@ export default function DashboardLayout({
     ? decodeURIComponent(cookieRole).toLowerCase().trim()
     : "";
   const effectiveEmail = (userEmail || cookieEmail).trim().toLowerCase();
-  const effectiveRoleRaw = (userRole || decodedCookieRole).trim();
+  const effectiveRoleRaw = (userRole || decodedCookieRole || cookieRole).trim();
   const roleResolved = effectiveRoleRaw.length > 0;
+  const isStaffUser = isStaffAdminRole(effectiveRoleRaw);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -435,18 +438,40 @@ export default function DashboardLayout({
 
   // Se não há links disponíveis para o usuário, redireciona para acesso negado
   useEffect(() => {
-    if (!isLoading && !entitlementsLoading && roleResolved && navLinks.length === 0) {
+    if (
+      !isLoading &&
+      !entitlementsLoading &&
+      roleResolved &&
+      navLinks.length === 0 &&
+      !isStaffUser &&
+      !entitlements.legacyScoped
+    ) {
       window.location.href = "/acesso-negado";
     }
-  }, [isLoading, entitlementsLoading, roleResolved, navLinks.length]);
+  }, [
+    isLoading,
+    entitlementsLoading,
+    roleResolved,
+    navLinks.length,
+    isStaffUser,
+    entitlements.legacyScoped,
+  ]);
 
-  if (!isLoading && !entitlementsLoading && roleResolved && navLinks.length === 0) {
+  if (
+    !isLoading &&
+    !entitlementsLoading &&
+    roleResolved &&
+    navLinks.length === 0 &&
+    !isStaffUser &&
+    !entitlements.legacyScoped
+  ) {
     return null;
   }
 
   const showBlockingLoader =
     (isLoading || isLoadingPerms || entitlementsLoading || !roleResolved) &&
-    navLinks.length === 0;
+    navLinks.length === 0 &&
+    !isStaffUser;
 
   if (showBlockingLoader) {
     return (

@@ -6,6 +6,10 @@ import {
   shouldUseEventPromoterPortal,
 } from './app/utils/promoterPortalAccess';
 import { isRooftopFluxoEmail } from './app/utils/adminProfileEmails';
+import {
+  canonicalSessionRole,
+  rolesMatchForAccess,
+} from './app/utils/adminRole';
 
 function safeDecodeURIComponent(value: string) {
   try {
@@ -43,7 +47,7 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  const roleNorm = safeDecodeURIComponent(roleRaw).toLowerCase().trim();
+  const roleNorm = canonicalSessionRole(safeDecodeURIComponent(roleRaw));
   const promoterCodigo = promoterCodigoRaw
     ? safeDecodeURIComponent(promoterCodigoRaw).trim()
     : '';
@@ -129,7 +133,7 @@ export function middleware(request: NextRequest) {
   const allowedRoles = matchedRoute ? routePermissions[matchedRoute] : null;
   const roleAllowed =
     allowedRoles &&
-    allowedRoles.some((r) => (r || '').toLowerCase().trim() === roleNorm);
+    allowedRoles.some((r) => rolesMatchForAccess(r, roleNorm));
 
   if (allowedRoles && !roleAllowed) {
     if (isEventPromoterPortal && promoterCodigo) {
@@ -145,6 +149,7 @@ export function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
+    '/admin',
     '/admin/:path*',
     '/superadmin',
     '/superadmin/:path*',

@@ -1,3 +1,5 @@
+import { canonicalSessionRole } from "./adminRole";
+
 const AUTH_CHANGED_EVENT = "auth:changed";
 
 const AUTH_STORAGE_KEYS = [
@@ -42,8 +44,10 @@ export function setAuthSessionCookies(params: {
 }) {
   if (typeof document === "undefined") return;
 
+  const role = canonicalSessionRole(params.role);
+
   document.cookie = `authToken=${params.authToken}; path=/`;
-  document.cookie = `role=${params.role}; path=/`;
+  document.cookie = `role=${encodeURIComponent(role)}; path=/`;
 
   if (params.isSuperAdmin) {
     document.cookie = "isSuperAdmin=1; path=/";
