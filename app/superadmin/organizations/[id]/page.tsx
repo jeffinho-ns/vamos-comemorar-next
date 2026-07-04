@@ -262,10 +262,21 @@ export default function SuperadminOrganizationDetailPage() {
 
       <section>
         <h3 className="mb-3 text-lg font-semibold">Estabelecimentos</h3>
-        <ul className="space-y-1 text-sm text-slate-300">
+        <ul className="space-y-2 text-sm text-slate-300">
           {detail.establishments.map((e) => (
-            <li key={String(e.id)}>
-              {String(e.name)} (place {String(e.legacy_place_id ?? "—")})
+            <li
+              key={String(e.id)}
+              className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-800 bg-slate-950/40 px-3 py-2"
+            >
+              <span>
+                {String(e.name)} (place {String(e.legacy_place_id ?? "—")})
+              </span>
+              <Link
+                href={`/superadmin/organizations/${id}/establishments/${String(e.id)}`}
+                className="rounded bg-amber-700/80 px-3 py-1 text-xs font-medium text-amber-100 hover:bg-amber-600"
+              >
+                Editar regras
+              </Link>
             </li>
           ))}
         </ul>
