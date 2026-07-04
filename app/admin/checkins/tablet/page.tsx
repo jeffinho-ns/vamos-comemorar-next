@@ -128,6 +128,22 @@ export default function TabletCheckInsPage() {
   const loadingEstabelecimentosRef = useRef(false);
   const loadedPermissionsSignatureRef = useRef<string | null>(null);
 
+  const buildSyntheticEstablishmentsFromPermissions = useCallback(() => {
+    const synthetic = establishmentPermissions.permissions
+      .filter((permission) => permission.is_active && permission.can_manage_checkins !== false)
+      .map((permission) => ({
+        id: permission.establishment_id,
+        nome:
+          permission.establishment_name ||
+          `Estabelecimento ${permission.establishment_id}`,
+      }));
+    const unique = new Map<number, { id: number; nome: string }>();
+    synthetic.forEach((item) => unique.set(Number(item.id), item));
+    return Array.from(unique.values()).sort((a, b) =>
+      a.nome.localeCompare(b.nome, 'pt-BR'),
+    );
+  }, [establishmentPermissions.permissions]);
+
   // Carregar estabelecimentos e eventos (apenas uma vez)
   useEffect(() => {
     if (establishmentPermissions.isLoading) return;
@@ -211,6 +227,19 @@ export default function TabletCheckInsPage() {
         );
         
         let filteredLista = establishmentPermissions.getFilteredEstablishments(lista);
+        if (
+          filteredLista.length === 0 &&
+          establishmentPermissions.permissions.length > 0
+        ) {
+          const synthetic = buildSyntheticEstablishmentsFromPermissions();
+          if (synthetic.length > 0) {
+            filteredLista = synthetic;
+            console.log(
+              '🔁 [TABLET] Usando lista sintética de estabelecimentos a partir das permissões:',
+              synthetic,
+            );
+          }
+        }
         const userEmail = (localStorage.getItem('userEmail') || '').trim().toLowerCase();
         if (userEmail === TEMPORARY_CHECKINS_EMAIL) {
           const tempList = lista.filter(isTemporaryRegianeCheckinsVenue);
@@ -252,6 +281,7 @@ export default function TabletCheckInsPage() {
     establishmentPermissions.userEmail,
     establishmentPermissions,
     estabelecimentoSelecionado,
+    buildSyntheticEstablishmentsFromPermissions,
   ]);
 
   // Função para carregar itens do cardápio para reservas de aniversário

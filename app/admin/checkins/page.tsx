@@ -83,6 +83,20 @@ export default function CheckInsGeralPage() {
       .trim();
   };
 
+  const buildSyntheticEstablishmentsFromPermissions = useCallback(() => {
+    const synthetic = establishmentPermissions.permissions
+      .filter((p) => p.is_active && p.can_manage_checkins !== false)
+      .map((p) => ({
+        id: p.establishment_id,
+        nome: p.establishment_name || `Estabelecimento ${p.establishment_id}`,
+      }));
+    const unique = new Map<number, { id: number; nome: string }>();
+    synthetic.forEach((item) => unique.set(Number(item.id), item));
+    return Array.from(unique.values()).sort((a, b) =>
+      a.nome.localeCompare(b.nome, 'pt-BR'),
+    );
+  }, [establishmentPermissions.permissions]);
+
   // Carrega eventos e estabelece a lista de estabelecimentos com prioridade do id dos eventos
   const carregarTudo = useCallback(async () => {
     setLoading(true);
@@ -90,21 +104,28 @@ export default function CheckInsGeralPage() {
       const token = localStorage.getItem('authToken');
       const headers = { Authorization: `Bearer ${token}` } as any;
 
-      // Busca eventos primeiro
-      const evRes = await fetch(`${API_URL}/api/v1/eventos`, { headers });
-      if (!evRes.ok) throw new Error('Falha ao buscar eventos');
-      const evData = await evRes.json();
-      const listaEventos: EventoLista[] = (evData.eventos || []).map((e: any) => ({
-        evento_id: e.evento_id,
-        nome: e.nome,
-        data_evento: e.data_evento || null,
-        dia_da_semana: e.dia_da_semana ?? null,
-        tipo_evento: e.tipo_evento,
-        establishment_id: Number(e.establishment_id) || Number(e.id_place) || 0, // Garantir que seja número
-        establishment_name: e.establishment_name || e.casa_do_evento || 'Estabelecimento',
-        horario_funcionamento: e.horario_funcionamento || e.hora_do_evento || null
-      }));
-      
+      let listaEventos: EventoLista[] = [];
+      try {
+        const evRes = await fetch(`${API_URL}/api/v1/eventos`, { headers });
+        if (evRes.ok) {
+          const evData = await evRes.json();
+          listaEventos = (evData.eventos || []).map((e: any) => ({
+            evento_id: e.evento_id,
+            nome: e.nome,
+            data_evento: e.data_evento || null,
+            dia_da_semana: e.dia_da_semana ?? null,
+            tipo_evento: e.tipo_evento,
+            establishment_id: Number(e.establishment_id) || Number(e.id_place) || 0, // Garantir que seja número
+            establishment_name: e.establishment_name || e.casa_do_evento || 'Estabelecimento',
+            horario_funcionamento: e.horario_funcionamento || e.hora_do_evento || null
+          }));
+        } else {
+          console.error('Erro ao buscar eventos:', evRes.status, evRes.statusText);
+        }
+      } catch (eventosError) {
+        console.error('Erro na requisição de eventos:', eventosError);
+      }
+
       console.log(`📋 [CHECKINS] Eventos carregados: ${listaEventos.length}`);
       listaEventos.forEach(e => {
         console.log(`   📅 Evento: "${e.nome}" - Establishment ID: ${e.establishment_id} (tipo: ${typeof e.establishment_id}), Nome: "${e.establishment_name}"`);
@@ -156,13 +177,7 @@ export default function CheckInsGeralPage() {
         filteredLista.length === 0 &&
         establishmentPermissions.permissions.length > 0
       ) {
-        const synthetic = establishmentPermissions.permissions
-          .filter((p) => p.is_active)
-          .map((p) => ({
-            id: p.establishment_id,
-            nome:
-              p.establishment_name || `Estabelecimento ${p.establishment_id}`,
-          }));
+        const synthetic = buildSyntheticEstablishmentsFromPermissions();
         if (synthetic.length > 0) {
           filteredLista = synthetic;
           console.log(
@@ -230,6 +245,7 @@ export default function CheckInsGeralPage() {
     establishmentPermissions.isRestrictedToSingleEstablishment,
     establishmentPermissions.getDefaultEstablishmentId,
     establishmentPermissions.permissions,
+    buildSyntheticEstablishmentsFromPermissions,
   ]);
 
   useEffect(() => {
