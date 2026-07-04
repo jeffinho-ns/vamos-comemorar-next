@@ -17,7 +17,7 @@
 | Modo atual | **`SAAS_MODE=on`** API · **`NEXT_PUBLIC_SAAS_MODE=on`** Vercel ✅ |
 | Fase em andamento | **Fase 4** — `useSaasAccess` em todas as páginas admin principais |
 | Próximo passo | Smoke API autenticado; checklist manual `/reservar` org B; `DATABASE_URL` no Render |
-| Veredito B2B | **~98%** — Fase 4 useCan concluída; smoke estendido |
+| Veredito B2B | **~98%** — bug account_admin allowAll corrigido (deploy pendente) |
 
 ### Como retomar no outro PC
 1. `git pull` nos dois repositórios (`vamos-comemorar-next` e `vamos-comemorar-api`).
@@ -142,7 +142,7 @@ Sem SQL manual, você consegue:
 - 2026-07-03 — **Bloco D (parcial):** `AdminPageGate` no layout admin (proteção por módulo/permissão via entitlements); `middleware.ts` sem `CARDAPIO_ONLY_EMAILS`, `SUPER_ADMIN_EMAILS` nem bypass rooftop por e-mail — superadmin só cookie `isSuperAdmin=1`; sidebar sempre `filterNavByEntitlements` com `NEXT_PUBLIC_SAAS_MODE=on`; novos utils `adminRouteModules`, `adminMiddlewareAccess`, `saasMode`.
 - 2026-07-03 — **Bloco B (reservas):** `reservasPermissionMiddleware` em 10 rotas (restaurant-reservations, large, waitlist, walk-ins, blocks, settings, areas, guest-lists, birthday, reservas legado). Front: `isSuperAdminEmail` → cookie JWT (remove lista hardcoded).
 - 2026-07-03 — **Equipe org-admin:** `/api/org/*` (memberships, roles, establishments) + `/admin/equipe`; `isAccountAdmin` em entitlements; migration 024 users constraint; smoke_test_saas.js; `<Gate>` em cardapio/users/promoters.
-- 2026-07-03 — **Fase 4 concluída:** hook `useSaasAccess` (UEP + entitlements); migradas cardapio, users, promoters, guia, workdays; smoke aceita `MASTER_LOGIN_PASSWORD` e valida org demo B em `/api/places`.
+- 2026-07-03 — **Diagnóstico SaaS completo:** smoke_diagnostic_full.js; bug `role=admin` → allowAll para org admins (fix tenantScope+entitlements); recepção vs gerente validado (5 vs 13 perms).
 
 ---
 
