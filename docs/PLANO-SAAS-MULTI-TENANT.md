@@ -15,9 +15,9 @@
 |-------|-------|
 | Última atualização | 2026-07-03 |
 | Modo atual | **`SAAS_MODE=on`** API · **`NEXT_PUBLIC_SAAS_MODE=on`** Vercel ✅ |
-| Fase em andamento | **Bloco C** — RLS cardápio + WhatsApp concluído; falta eventos/check-ins/users |
-| Próximo passo | Bloco C restante (eventos, check-ins); Bloco D (`<Gate>`, middleware e-mails); smoke test org demo |
-| Veredito B2B | **~78%** da fundação. Nova org operacional ✅. Cardápio + WhatsApp com RLS + enforce ✅. |
+| Fase em andamento | **Bloco D** — front Gate + remover e-mails middleware; smoke test org demo |
+| Próximo passo | Bloco D (`<Gate>`, `useCan`); smoke test org demo; Contract NOT NULL users (024) |
+| Veredito B2B | **~85%** da fundação. **25 tabelas RLS**. Eventos + users + check-ins enforce ✅. |
 
 ### Como retomar no outro PC
 1. `git pull` nos dois repositórios (`vamos-comemorar-next` e `vamos-comemorar-api`).
@@ -29,8 +29,8 @@
 - [~] **Fase 0** — Fundação / segurança. Middleware na raiz ✅. **NÃO feito:** auth rotas públicas; remover credenciais hardcoded; remover listas de e-mail do `middleware.ts`.
 - [~] **Camada de segurança** — feature flags ✅; runner migrations ✅; RLS **21 tabelas** ✅.
 - [~] **Fase 1** — Banco / tenant model ✅ migrations 001–007 + 013–015. **NOT NULL** nas 13 tabelas core ✅ (019). Falta: `users.organization_id` NOT NULL; Contract 021 tables.
-- [~] **Fase 2** — RLS **21 tabelas** (008–021): reservas, promoters, **cardápio**, **WhatsApp**, FAQ. Falta: eventos, check-ins, users.
-- [~] **Fase 3** — `role_permissions` ✅ (020). `requirePermission` plugado em **cardapio** e **whatsappAdmin**. Falta: demais rotas; UI org-admin equipe.
+- [~] **Fase 2** — RLS **25 tabelas** (008–023): reservas, promoters, cardápio, WhatsApp, **eventos, listas, users**. Check-ins via `guests` RLS + enforce rotas.
+- [~] **Fase 3** — `requirePermission` em cardapio, whatsapp, **eventos, checkin**. Falta: reservas rotas finas; `/admin/equipe`.
 - [~] **Fase 4** — Entitlements + sidebar ✅. `<Gate>` **não usado**. Falta: migrar `useUserPermissions` → `useCan`.
 - [x] **Fase 5** — Billing manual MVP ✅.
 - [~] **Fase 6** — Superadmin ✅. **Provisionamento operacional completo** ✅ (Bloco A, 2026-07-03). Falta: wizard pós-provisionamento interativo.
@@ -58,7 +58,7 @@ Sem SQL manual, você consegue:
 |-------|------|--------|----------------|
 | **A** | Provisionamento operacional | **✅ feito** | `provisionOperationalEstablishment`, place+bar+legacy IDs, área/mesas, FAQ, 5 roles, config generic |
 | **B** | RBAC real | **~70%** | migration 020 ✅; memberships API/UI ✅; `requirePermission` cardapio + whatsapp ✅. Falta: demais rotas; `/admin/equipe` |
-| **C** | Isolamento módulos restantes | **~55%** | promoters ✅; cardápio + WhatsApp RLS 021 ✅. Falta: eventos, check-ins, users |
+| **C** | Isolamento módulos restantes | **✅ feito** | 25 tabelas RLS; eventos/listas/users 022–023; checkin enforce |
 | **D** | Front modular | **pendente** | `<Gate>` nas páginas; remover e-mails do middleware; wizard onboarding |
 | **E** | Segurança / legado | **pendente** | credenciais DB; unificar IDs canônico↔operacional; NOT NULL users/whatsapp |
 | **F** | Mobile + gateway | **opcional** | Agilizaiapp filtro org; Stripe/Asaas |
@@ -79,12 +79,12 @@ Sem SQL manual, você consegue:
 | Guest lists / guests | ✅ | ✅ | ✅ | ~ | ✅ |
 | Reservas legado (`reservas`) | ✅ | ✅ | ✅ | ~ | ✅ |
 | Promoters | ✅ | ✅ | ✅ (2026-07-03) | ~ | parcial |
-| Check-ins | ❌ | ❌ | ❌ | ❌ | ❌ |
+| Check-ins | via guests ✅ | ✅ | ✅ | ✅ (update) | ✅ (guest_lists RLS) |
 | Cardápio | ✅ | ✅ | ✅ | ✅ (update/read) | ✅ com Bloco A |
 | WhatsApp / IA | ✅ | ✅ | ✅ | ✅ (update/read) | parcial (escopo tenant; número WA por org pendente) |
-| Eventos admin | ~ | parcial | ✅ | ~ | parcial |
-| Eventos público | ~ | ❌ | ❌ | — | — |
-| Users | nullable | ❌ | — | ~ | parcial |
+| Eventos admin | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Eventos público (`/api/events`) | ✅ | ✅ | ✅ | parcial | ✅ |
+| Users | ✅ backfill | ✅ | — | ~ | parcial |
 | Superadmin / billing | ✅ | — | — | — | ✅ |
 | App Flutter | — | — | — | — | ❌ |
 
@@ -104,7 +104,9 @@ Sem SQL manual, você consegue:
 | `vamos-comemorar-api/billing/billingService.js` | `provisionOrganization`, memberships |
 | `vamos-comemorar-api/migrations/saas/020_role_permissions_seed.sql` | backfill role_permissions orgs existentes |
 | `vamos-comemorar-api/migrations/saas/021_rls_cardapio_whatsapp.sql` | RLS cardápio + WhatsApp |
-| `vamos-comemorar-api/scripts/saas/backfill_organization_id_whatsapp.js` | backfill org_id WhatsApp/cardápio aux |
+| `vamos-comemorar-api/migrations/saas/022_add_organization_id_eventos.sql` | coluna org_id em eventos |
+| `vamos-comemorar-api/migrations/saas/023_rls_eventos_listas_users.sql` | RLS eventos + users |
+| `vamos-comemorar-api/scripts/saas/backfill_organization_id_events_users.js` | backfill eventos/listas/users |
 
 ---
 
@@ -129,7 +131,7 @@ Sem SQL manual, você consegue:
 - 2026-07-03 — **Fase 7 front rules:** `useEstablishmentRules` + `deriveEstablishmentRulesFlags` aplicados em reservas admin (`restaurant-reservations`, `ReservationModal`, `ReservationCalendar`, `WeeklyCalendar`, `WaitlistModal`, `AllocateTableModal`), check-ins (`eventos/[id]/check-ins`, `/admin/checkins`, tablet). Fallback por nome mantido quando API não retorna profile.
 - 2026-07-03 — **Fase 7 ReservationForm + places/bars:** formulário público `/reservar` migrado para rules; API `establishmentLegacyAdapter` + migration 013 (views compat) + GET `/api/places` e `/api/bars` leem de `establishments` quando `ESTABLISHMENTS_READ_SOURCE=establishments`.
 - 2026-07-03 — **RLS 017–019:** lote 4 (reservas, promoters, promoter_eventos/convidados); policies estritas sem `organization_id IS NULL`; Contract NOT NULL nas 13 tabelas RLS. checkins ignorado (tabela inexistente).
-- 2026-07-03 — **Bloco C (cardápio + WhatsApp):** backfill org_id (`backfill_organization_id_whatsapp.js`, 0 órfãos); RLS 021 (8 tabelas, total **21 RLS**); `tenantMiddleware` + `requireModule` + `requirePermission` em `cardapio.js` e `whatsappAdmin.js`; `loadUserScope` WhatsApp usa `tenantScope` em SAAS_MODE.
+- 2026-07-03 — **Bloco C concluído:** migrations 022–023 (eventos, listas, listas_convidados, users RLS); backfill eventos/users; `requirePermission` eventos; enforce checkin/checkinsSelfValidate; total **25 tabelas RLS**.
 
 ---
 
