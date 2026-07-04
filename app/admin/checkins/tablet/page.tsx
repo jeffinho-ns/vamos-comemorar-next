@@ -170,6 +170,12 @@ export default function TabletCheckInsPage() {
     const carregarEstabelecimentos = async () => {
       loadingEstabelecimentosRef.current = true;
       try {
+        const urlParams =
+          typeof window !== 'undefined'
+            ? new URLSearchParams(window.location.search)
+            : null;
+        const queryEstablishmentId = Number(urlParams?.get('establishment_id') || 0);
+        const queryEventoId = Number(urlParams?.get('evento_id') || 0);
         const token = localStorage.getItem('authToken');
         const headers: HeadersInit = {
           'Content-Type': 'application/json',
@@ -191,6 +197,12 @@ export default function TabletCheckInsPage() {
               establishment_name: e.establishment_name || e.casa_do_evento || ''
             }));
             setEventos(listaEventos);
+            if (
+              queryEventoId > 0 &&
+              listaEventos.some((evento: any) => Number(evento.evento_id) === queryEventoId)
+            ) {
+              setEventoSelecionado(queryEventoId);
+            }
           } else {
             console.error('Erro ao buscar eventos:', evRes.status, evRes.statusText);
           }
@@ -261,7 +273,12 @@ export default function TabletCheckInsPage() {
         loadedPermissionsSignatureRef.current = signature;
 
         // Auto-selecionar se restrito a um estabelecimento
-        if (establishmentPermissions.isRestrictedToSingleEstablishment() && filteredLista.length > 0) {
+        const queryEstablishment = filteredLista.find(
+          (est) => Number(est.id) === queryEstablishmentId,
+        );
+        if (queryEstablishment && estabelecimentoSelecionado !== queryEstablishment.id) {
+          setEstabelecimentoSelecionado(queryEstablishment.id);
+        } else if (establishmentPermissions.isRestrictedToSingleEstablishment() && filteredLista.length > 0) {
           const defaultId = establishmentPermissions.getDefaultEstablishmentId();
           if (defaultId && !estabelecimentoSelecionado) {
             setEstabelecimentoSelecionado(defaultId);

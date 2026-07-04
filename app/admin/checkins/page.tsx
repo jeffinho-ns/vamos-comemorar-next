@@ -514,7 +514,11 @@ export default function CheckInsGeralPage() {
                     {lista.map(ev => (
                       <button
                         key={ev.evento_id}
-                        onClick={() => router.push(`/admin/eventos/${ev.evento_id}/check-ins`)}
+                        onClick={() =>
+                          router.push(
+                            `/admin/checkins/tablet?evento_id=${ev.evento_id}&establishment_id=${estabelecimentoSelecionado}`,
+                          )
+                        }
                         className="w-full text-left px-4 py-3 hover:bg-white/10 transition-colors"
                       >
                         <div className="flex items-center justify-between">
