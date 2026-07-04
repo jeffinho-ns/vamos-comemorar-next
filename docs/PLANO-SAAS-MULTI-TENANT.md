@@ -15,29 +15,97 @@
 |-------|-------|
 | Última atualização | 2026-07-03 |
 | Modo atual | **`SAAS_MODE=on`** API · **`NEXT_PUBLIC_SAAS_MODE=on`** Vercel ✅ |
-| Fase em andamento | **Fase 7** — editor superadmin de `establishments.config` + hardcodes residuais. |
-| Próximo passo | `ESTABLISHMENTS_READ_SOURCE=establishments` no Render; RLS/whatsapp (backfill org_id); memberships NOT NULL users. |
-| Pendências/decisões | Contract NOT NULL (fase posterior); places/bars → views; expandir RLS além de `restaurant_reservations`. |
-
-> Produção já tem migrations 001–007, observe ativo, proxies com Authorization e código de enforce **pronto mas inerte** até `SAAS_MODE=on`.
+| Fase em andamento | **Bloco A → B** — provisionamento operacional completo + RBAC (`role_permissions`) |
+| Próximo passo | Aplicar migration **020** em prod; smoke test org demo; **Bloco C** (RLS cardápio/WhatsApp/promoters API) |
+| Veredito B2B | **~72%** da fundação. Piloto OK. Nova empresa **agora nasce operacional** (place/bar/área/FAQ). Falta isolamento total + front Gate + segurança. |
 
 ### Como retomar no outro PC
 1. `git pull` nos dois repositórios (`vamos-comemorar-next` e `vamos-comemorar-api`).
-2. Leia esta seção de status para saber a fase atual e o próximo passo.
-3. Consulte o checklist abaixo para ver o que já foi concluído.
+2. Leia **STATUS** e **ROADMAP PARA 100%** (seção abaixo).
+3. Consulte **Matriz por módulo** para saber o que falta em cada funcionalidade.
+4. Veja o **Log de progresso** — última linha = sessão mais recente.
 
 ### Checklist de fases
-- [~] **Fase 0** — Fundação / segurança. **Middleware movido para a raiz** (`middleware.ts`, 2026-07-02). NÃO feito: auth em rotas públicas, remover credenciais hardcoded.
-- [~] **Camada de segurança** (transversal) — feature flags `SAAS_MODE` (off/observe/on) + fail-open implementados; runner de migration com trava de confirmação e tabela de controle.
-- [x] **Fase 1** — Banco / tenant model: migrations `001..005` validadas em staging e **APLICADAS EM PRODUÇÃO** (2026-06-28) com 0 erros e 0 órfãos. Falta só a virada NOT NULL (Contract, fase posterior).
-- [~] **Fase 2** — RLS 008–019 aplicado (13 tabelas, policies estritas, `organization_id NOT NULL` em tabelas RLS). Falta: whatsapp/users org backfill; checkins (sem tabela).
-- [~] **Fase 3** — `requireModule` plugado em rotas reserva/eventos; `legacyScoped` em entitlements para UEP. `requirePermission` pronto, uso fino após memberships.
-- [~] **Fase 4** — `EntitlementsProvider` + sidebar via `adminNavModules`. **`NEXT_PUBLIC_SAAS_MODE=on`** no `.env.example` e `.env.local`. Quebra de monolitos: pendente.
-- [x] **Fase 5** — Billing manual, mensalidade (`009`), `past_due`, sem gateway.
-- [x] **Fase 6** — Superadmin completo + materiais em `/documentacao` + onboarding no provisionamento + scripts backfill.
-- [~] **Fase 7** — `establishmentRules` + editor superadmin. Front (admin + público) em `useEstablishmentRules`. **Adapter** places/bars GET via `establishments` (flag `ESTABLISHMENTS_READ_SOURCE`). Pendente: validar views 013 em staging; expandir RLS.
+- [~] **Fase 0** — Fundação / segurança. Middleware na raiz ✅. **NÃO feito:** auth rotas públicas; remover credenciais hardcoded; remover listas de e-mail do `middleware.ts`.
+- [~] **Camada de segurança** — feature flags ✅; runner migrations ✅; RLS 13 tabelas ✅.
+- [~] **Fase 1** — Banco / tenant model ✅ migrations 001–007 + 013–015. **NOT NULL** nas 13 tabelas RLS ✅ (019). Falta: `users.organization_id` NOT NULL; whatsapp tables.
+- [~] **Fase 2** — RLS 008–019 (13 tabelas, policies estritas). Falta: cardápio, WhatsApp, eventos, check-ins, users.
+- [~] **Fase 3** — `requireModule` em reservas ✅. **`role_permissions`** seed migration 020 ✅ (código). Falta: plugar `requirePermission` nas rotas; UI org-admin memberships (superadmin tem UI básica).
+- [~] **Fase 4** — Entitlements + sidebar ✅. `<Gate>` **não usado**. Falta: migrar `useUserPermissions` → `useCan`.
+- [x] **Fase 5** — Billing manual MVP ✅.
+- [~] **Fase 6** — Superadmin ✅. **Provisionamento operacional completo** ✅ (Bloco A, 2026-07-03). Falta: wizard pós-provisionamento interativo.
+- [~] **Fase 7** — `establishmentRules` + editor superadmin ✅. Falta: remover `LEGACY_PROFILES`; IA sem hardcode Highline id 7.
 
-Legenda: [x] concluído · [~] parcial/pronto-mas-inerte · [ ] não iniciado.
+Legenda: [x] concluído · [~] parcial · [ ] não iniciado.
+
+---
+
+## ROADMAP PARA 100% (executável)
+
+### Definição de “100% fechado”
+Sem SQL manual, você consegue:
+1. Superadmin cria org → casa aparece em `/api/places`, `/reservar`, `/admin/cardapio`
+2. Account Admin convida usuários com roles (Gerente, Recepção, Promoter…)
+3. Cada role vê só o permitido (sidebar + API + RLS)
+4. Org A nunca vê dados da Org B (smoke test formal)
+5. WhatsApp/IA, check-ins, promoters, eventos scoped por tenant
+6. Zero listas de e-mail / IDs hardcoded no middleware e IA
+7. App Flutter lista só casas da org (opcional / Bloco F)
+
+### Blocos (ordem de execução)
+
+| Bloco | Foco | Status | Entregas-chave |
+|-------|------|--------|----------------|
+| **A** | Provisionamento operacional | **✅ feito** | `provisionOperationalEstablishment`, place+bar+legacy IDs, área/mesas, FAQ, 5 roles, config generic |
+| **B** | RBAC real | **~50%** | migration 020, `rolePermissionMatrix.js`, API memberships superadmin, UI equipe superadmin. Falta: `requirePermission` nas rotas; `/admin/equipe` org-admin |
+| **C** | Isolamento módulos restantes | **pendente** | backfill org_id + RLS + tenantMiddleware: cardápio, WhatsApp, promoters API, eventos, check-ins, users |
+| **D** | Front modular | **pendente** | `<Gate>` nas páginas; remover e-mails do middleware; wizard onboarding |
+| **E** | Segurança / legado | **pendente** | credenciais DB; unificar IDs canônico↔operacional; NOT NULL users/whatsapp |
+| **F** | Mobile + gateway | **opcional** | Agilizaiapp filtro org; Stripe/Asaas |
+
+### Decisões pendentes (registrar aqui quando decidir)
+| # | Decisão | Opções | Escolha atual |
+|---|---------|--------|---------------|
+| 1 | `memberships.establishment_id` | canônico (traduz no loadUserScope) vs operacional | **canônico** (já implementado tradução) |
+| 2 | UEP legado | deprecar vs conviver | **conviver** até memberships populado |
+| 3 | Check-ins tenant | nova coluna/tabela vs amarrar em guest_lists | **pendente** |
+| 4 | App Flutter no 100% | sim vs fase posterior | **fase posterior** |
+
+### Matriz por módulo (prontidão B2B)
+
+| Módulo | org_id | RLS | tenantMiddleware | RBAC fino | Nova org opera? |
+|--------|--------|-----|------------------|-----------|-----------------|
+| Reservas (restaurant-reservations, waitlist, walk-ins, large, birthday, blocks) | ✅ | ✅ | ✅ | ~ | ✅ com Bloco A |
+| Guest lists / guests | ✅ | ✅ | ✅ | ~ | ✅ |
+| Reservas legado (`reservas`) | ✅ | ✅ | ✅ | ~ | ✅ |
+| Promoters | ✅ | ✅ | ✅ (2026-07-03) | ~ | parcial |
+| Check-ins | ❌ | ❌ | ❌ | ❌ | ❌ |
+| Cardápio | ~ | ❌ | ❌ | ❌ | ✅ com Bloco A (bar criado) |
+| WhatsApp / IA | ~NULL | ❌ | ❌ | ❌ | ❌ |
+| Eventos admin | ~ | parcial | ✅ | ~ | parcial |
+| Eventos público | ~ | ❌ | ❌ | — | — |
+| Users | nullable | ❌ | — | ~ | parcial |
+| Superadmin / billing | ✅ | — | — | — | ✅ |
+| App Flutter | — | — | — | — | ❌ |
+
+### Smoke test org demo (checklist)
+- [ ] `POST /api/superadmin/organizations` cria org com `legacy_place_id` + `legacy_bar_id`
+- [ ] GET `/api/places` lista a nova casa (com `ESTABLISHMENTS_READ_SOURCE=establishments`)
+- [ ] `/reservar` mostra a casa
+- [ ] `/admin/cardapio` abre para bar da org
+- [ ] Membership recepção vs gerente: sidebar diferente (após Bloco B completo)
+- [ ] Org A vs Org B: zero vazamento (após Bloco C)
+
+### Arquivos-chave (Bloco A/B)
+| Arquivo | Função |
+|---------|--------|
+| `vamos-comemorar-api/billing/provisioningOperational.js` | place/bar/área/mesas/FAQ na transação |
+| `vamos-comemorar-api/billing/rolePermissionMatrix.js` | matriz role → permissions |
+| `vamos-comemorar-api/billing/billingService.js` | `provisionOrganization`, memberships |
+| `vamos-comemorar-api/migrations/saas/020_role_permissions_seed.sql` | backfill role_permissions orgs existentes |
+| `vamos-comemorar-next/app/superadmin/organizations/[id]/page.tsx` | UI equipe (memberships) |
+
+---
 
 ### Log de progresso (adicionar 1 linha por sessão)
 - 2026-06-03 — Diagnóstico (raio-X) concluído e plano aprovado. Documento versionado para sincronizar entre os dois PCs.
@@ -60,6 +128,7 @@ Legenda: [x] concluído · [~] parcial/pronto-mas-inerte · [ ] não iniciado.
 - 2026-07-03 — **Fase 7 front rules:** `useEstablishmentRules` + `deriveEstablishmentRulesFlags` aplicados em reservas admin (`restaurant-reservations`, `ReservationModal`, `ReservationCalendar`, `WeeklyCalendar`, `WaitlistModal`, `AllocateTableModal`), check-ins (`eventos/[id]/check-ins`, `/admin/checkins`, tablet). Fallback por nome mantido quando API não retorna profile.
 - 2026-07-03 — **Fase 7 ReservationForm + places/bars:** formulário público `/reservar` migrado para rules; API `establishmentLegacyAdapter` + migration 013 (views compat) + GET `/api/places` e `/api/bars` leem de `establishments` quando `ESTABLISHMENTS_READ_SOURCE=establishments`.
 - 2026-07-03 — **RLS 017–019:** lote 4 (reservas, promoters, promoter_eventos/convidados); policies estritas sem `organization_id IS NULL`; Contract NOT NULL nas 13 tabelas RLS. checkins ignorado (tabela inexistente).
+- 2026-07-03 — **Roadmap 100%** documentado neste arquivo. **Bloco A ✅:** `provisioningOperational.js` — provisionamento cria place+bar+legacy IDs+área+4 mesas+FAQ+config generic+5 roles. **Bloco B ~50%:** migration 020 `role_permissions`, `rolePermissionMatrix.js`, API `GET/POST .../memberships`, UI equipe em `/superadmin/organizations/[id]`. Próximo: Bloco C (RLS cardápio/WhatsApp/promoters API).
 
 ---
 
@@ -146,6 +215,4 @@ Rota separada `/superadmin` (fora de `/admin`), acessível SÓ a super admins
 8. **Fase 7** — Desacoplar IA / hardcodes residuais.
 
 > A **Camada de segurança** é transversal e deve ser observada em todas as fases.
-
-## NÃO escrever código ainda
-Este é o estudo/diagnóstico e o roadmap. Implementação só após aprovação das fases.
+> Implementação em andamento — ver **ROADMAP PARA 100%** acima.

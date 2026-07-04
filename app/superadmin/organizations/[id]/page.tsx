@@ -13,6 +13,16 @@ type OrgUser = {
   role: string;
 };
 
+type MembershipRow = {
+  id: number;
+  user_email: string;
+  user_name: string;
+  role_key: string;
+  role_name: string;
+  establishment_name: string | null;
+  is_active: boolean;
+};
+
 type PaymentRow = {
   id: number;
   amount_cents: number;
@@ -54,6 +64,10 @@ export default function SuperadminOrganizationDetailPage() {
   const id = Number(params.id);
   const [detail, setDetail] = useState<OrgDetail | null>(null);
   const [orgUsers, setOrgUsers] = useState<OrgUser[]>([]);
+  const [memberships, setMemberships] = useState<MembershipRow[]>([]);
+  const [memberEmail, setMemberEmail] = useState("");
+  const [memberRole, setMemberRole] = useState("recepcao");
+  const [addingMember, setAddingMember] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [invoiceAmount, setInvoiceAmount] = useState("0,00");
   const [monthlyAmount, setMonthlyAmount] = useState("0,00");
@@ -72,6 +86,9 @@ export default function SuperadminOrganizationDetailPage() {
     superadminFetch<OrgUser[]>(`/organizations/${id}/users`)
       .then(setOrgUsers)
       .catch(() => setOrgUsers([]));
+    superadminFetch<MembershipRow[]>(`/organizations/${id}/memberships`)
+      .then(setMemberships)
+      .catch(() => setMemberships([]));
   }, [id]);
 
   useEffect(() => {
@@ -152,6 +169,25 @@ export default function SuperadminOrganizationDetailPage() {
     }
   };
 
+  const addMembership = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!memberEmail.trim()) return;
+    setAddingMember(true);
+    setError(null);
+    try {
+      await superadminFetch(`/organizations/${id}/memberships`, {
+        method: "POST",
+        body: JSON.stringify({ userEmail: memberEmail.trim(), roleKey: memberRole }),
+      });
+      setMemberEmail("");
+      load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro ao adicionar membro");
+    } finally {
+      setAddingMember(false);
+    }
+  };
+
   if (error) return <p className="text-red-400">{error}</p>;
   if (!detail) return <p className="text-slate-400">Carregando…</p>;
 
@@ -210,6 +246,58 @@ export default function SuperadminOrganizationDetailPage() {
                 >
                   {impersonatingId === u.id ? "Abrindo…" : "Entrar como"}
                 </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <section className="rounded-xl border border-slate-800 bg-slate-900/40 p-4">
+        <h3 className="mb-3 text-lg font-semibold">Equipe (memberships SaaS)</h3>
+        <form onSubmit={addMembership} className="mb-4 flex flex-wrap gap-2">
+          <input
+            type="email"
+            required
+            placeholder="E-mail do usuário existente"
+            className="rounded border border-slate-700 bg-slate-950 px-3 py-2 text-sm"
+            value={memberEmail}
+            onChange={(e) => setMemberEmail(e.target.value)}
+          />
+          <select
+            value={memberRole}
+            onChange={(e) => setMemberRole(e.target.value)}
+            className="rounded border border-slate-700 bg-slate-950 px-3 py-2 text-sm"
+          >
+            <option value="account_admin">Account Admin</option>
+            <option value="gerente_bar">Gerente do Bar</option>
+            <option value="recepcao">Recepção</option>
+            <option value="hostess">Hostess</option>
+            <option value="promoter">Promoter</option>
+          </select>
+          <button
+            type="submit"
+            disabled={addingMember}
+            className="rounded bg-amber-600 px-3 py-2 text-sm disabled:opacity-50"
+          >
+            {addingMember ? "Adicionando…" : "Atribuir role"}
+          </button>
+        </form>
+        {memberships.length === 0 ? (
+          <p className="text-sm text-slate-500">Nenhum membership cadastrado.</p>
+        ) : (
+          <ul className="space-y-2 text-sm">
+            {memberships.map((m) => (
+              <li
+                key={m.id}
+                className="flex flex-wrap justify-between gap-2 rounded border border-slate-800 px-3 py-2"
+              >
+                <span>
+                  {m.user_name || m.user_email} · {m.role_name}
+                  {m.establishment_name ? ` · ${m.establishment_name}` : " · org inteira"}
+                </span>
+                <span className={m.is_active ? "text-emerald-400" : "text-slate-500"}>
+                  {m.is_active ? "ativo" : "inativo"}
+                </span>
               </li>
             ))}
           </ul>
