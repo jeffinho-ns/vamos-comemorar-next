@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { Suspense, useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useEstablishmentPermissions } from '@/app/hooks/useEstablishmentPermissions';
 import { useUserPermissions } from '@/app/hooks/useUserPermissions';
@@ -61,7 +61,7 @@ interface Evento {
   dia_da_semana: number | null;
 }
 
-export default function ListasPage() {
+function ListasPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { isSuperAdmin } = useUserPermissions();
@@ -708,6 +708,20 @@ export default function ListasPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function ListasPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex items-center justify-center min-h-screen bg-gray-50">
+          <p className="text-gray-500">Carregando listas…</p>
+        </div>
+      }
+    >
+      <ListasPageContent />
+    </Suspense>
   );
 }
 
