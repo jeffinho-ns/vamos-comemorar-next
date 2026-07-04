@@ -92,4 +92,5 @@ export {
   deriveEstablishmentRulesFlags,
   isRooftopEstablishment,
   isSeuJustinoEstablishment,
+  fallbackPhoneForEstablishment,
 } from '@/app/utils/establishmentRulesFlags';

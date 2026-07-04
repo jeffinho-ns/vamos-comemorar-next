@@ -121,3 +121,16 @@ export function isSeuJustinoEstablishment(
 ): boolean {
   return deriveEstablishmentRulesFlags(rules, establishmentName).isSeuJustino;
 }
+
+/** Telefone fallback por profile (lista pública de estabelecimentos). */
+export function fallbackPhoneForEstablishment(
+  establishmentName?: string | null,
+  rules?: EstablishmentRulesData | null,
+): string {
+  const flags = deriveEstablishmentRulesFlags(rules, establishmentName);
+  if (flags.isHighline) return "(11) 3032-2934";
+  if (flags.isRooftop) return "(11) 4280-3345";
+  if (flags.isSeuJustino) return "(11) 5200-3650";
+  if (flags.isPracinha) return "(11) 2305-0938";
+  return "(11) 99999-9999";
+}

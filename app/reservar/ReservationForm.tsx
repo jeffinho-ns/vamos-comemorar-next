@@ -20,6 +20,11 @@ import Link from 'next/link';
 import { getConfiguredWindows, WeeklyOperatingSetting, DateOperatingOverride } from '@/app/utils/reservationOperatingHours';
 import { useAppContext } from '@/app/context/AppContext';
 import { filterEstablishmentListForUser } from '@/app/utils/establishmentAccessRules';
+import { useEstablishmentRules } from '@/app/hooks/useEstablishmentRules';
+import {
+  deriveEstablishmentRulesFlags,
+  fallbackPhoneForEstablishment,
+} from '@/app/utils/establishmentRulesFlags';
 
 // Configuração da API
 const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL_LOCAL || 'https://api.agilizaiapp.com.br';
@@ -90,9 +95,9 @@ const detectAndCreateBirthdayGuestList = async (reservationId: number, payload: 
     const reservationDate = new Date(`${payload.reservation_date}T00:00:00`);
     const dayOfWeek = reservationDate.getDay(); // Domingo = 0, Sexta = 5, Sábado = 6
     const isWeekend = dayOfWeek === 5 || dayOfWeek === 6; // Sexta ou Sábado
-    const nameLower = (establishmentName || '').toLowerCase();
-    const isHighLine = nameLower.includes('high');
-    const isReservaRooftop = nameLower.includes('reserva rooftop') || nameLower.includes('rooftop');
+    const flags = deriveEstablishmentRulesFlags(null, establishmentName);
+    const isHighLine = flags.isHighline;
+    const isReservaRooftop = flags.isRooftop;
     const isLargeGroup = payload.number_of_people >= 4;
     
     // Criar lista para aniversário (HighLine ou Reserva Rooftop + fim de semana) OU reserva grande (4+ pessoas)
@@ -189,6 +194,16 @@ export default function ReservationForm() {
   const [weeklyOperatingSettings, setWeeklyOperatingSettings] = useState<WeeklyOperatingSetting[]>([]);
   const [dateOperatingOverrides, setDateOperatingOverrides] = useState<DateOperatingOverride[]>([]);
 
+  const { flags: establishmentRulesFlags } = useEstablishmentRules(
+    selectedEstablishment?.id ?? null,
+    selectedEstablishment?.name,
+  );
+  const isHighline = establishmentRulesFlags.isHighline;
+  const isSeuJustino = establishmentRulesFlags.isSeuJustino;
+  const isPracinha = establishmentRulesFlags.isPracinha;
+  const isReservaRooftop = establishmentRulesFlags.isRooftop;
+  const rooftopMaxPartySize = establishmentRulesFlags.maxPartySize ?? 10;
+
   // Carregar estabelecimentos da API
   useEffect(() => {
     const visibility = (list: Establishment[]) =>
@@ -206,16 +221,7 @@ export default function ReservationForm() {
           if (Array.isArray(data)) {
             const formattedEstablishments: Establishment[] = data.map((place: any) => {
               const name = place.name || "Sem nome";
-              const lower = (name || '').toLowerCase();
-              const isHighlineName = lower.includes('high');
-              const isReservaRooftop = lower.includes('reserva rooftop') || lower.includes('rooftop');
-              const isSeuJustino = lower.includes('seu justino');
-              const isPracinha = lower.includes('pracinha');
-              let fallbackPhone = "(11) 99999-9999";
-              if (isHighlineName) fallbackPhone = "(11) 3032-2934";
-              else if (isReservaRooftop) fallbackPhone = "(11) 4280-3345";
-              else if (isSeuJustino) fallbackPhone = "(11) 5200-3650";
-              else if (isPracinha) fallbackPhone = "(11) 2305-0938";
+              const fallbackPhone = fallbackPhoneForEstablishment(name);
               return {
                 id: place.id,
                 name,
@@ -229,16 +235,7 @@ export default function ReservationForm() {
           } else if (data.data && Array.isArray(data.data)) {
             const formattedEstablishments: Establishment[] = data.data.map((place: any) => {
               const name = place.name || "Sem nome";
-              const lower = (name || '').toLowerCase();
-              const isHighlineName = lower.includes('high');
-              const isReservaRooftop = lower.includes('reserva rooftop') || lower.includes('rooftop');
-              const isSeuJustino = lower.includes('seu justino');
-              const isPracinha = lower.includes('pracinha');
-              let fallbackPhone = "(11) 99999-9999";
-              if (isHighlineName) fallbackPhone = "(11) 3032-2934";
-              else if (isReservaRooftop) fallbackPhone = "(11) 4280-3345";
-              else if (isSeuJustino) fallbackPhone = "(11) 5200-3650";
-              else if (isPracinha) fallbackPhone = "(11) 2305-0938";
+              const fallbackPhone = fallbackPhoneForEstablishment(name);
               return {
                 id: place.id,
                 name,
@@ -413,19 +410,6 @@ export default function ReservationForm() {
     { key: 'quintal-lateral-direito', area_id: 2, label: 'Quintal Lateral Direito', tableNumbers: ['50','52','54','56','58','60','62','64'] },
   ];
 
-  const isHighline = selectedEstablishment && (
-    (selectedEstablishment.name || '').toLowerCase().includes('high')
-  );
-
-  const isSeuJustino = selectedEstablishment && (
-    (selectedEstablishment.name || '').toLowerCase().includes('seu justino') && 
-    !(selectedEstablishment.name || '').toLowerCase().includes('pracinha')
-  );
-
-  const isPracinha = selectedEstablishment && (
-    (selectedEstablishment.name || '').toLowerCase().includes('pracinha')
-  );
-
   // Subáreas do Reserva Rooftop (nomes batem com restaurant_areas após migração add_reserva_rooftop_areas_postgresql)
   const rooftopSubareas = [
     { key: 'corredor', label: 'Reserva Rooftop - Corredor', areaName: 'Reserva Rooftop - Corredor' },
@@ -441,11 +425,6 @@ export default function ReservationForm() {
     { key: 'pq3', label: 'Reserva Rooftop - PQ 3', areaName: 'Reserva Rooftop - PQ 3' },
     { key: 'pq4', label: 'Reserva Rooftop - PQ 4', areaName: 'Reserva Rooftop - PQ 4' },
   ];
-
-  const isReservaRooftop = selectedEstablishment && (
-    (selectedEstablishment.name || '').toLowerCase().includes('reserva rooftop') ||
-    (selectedEstablishment.name || '').toLowerCase().includes('rooftop')
-  );
 
   // Mapeamento simplificado de áreas do Reserva Rooftop para UI pública
   const rooftopCoveredAreas = useMemo(() => {
@@ -856,8 +835,8 @@ export default function ReservationForm() {
     if (reservationData.number_of_people < 1) {
       newErrors.number_of_people = 'Número de pessoas deve ser maior que 0';
     }
-    if (isReservaRooftop && reservationData.number_of_people > 10) {
-      newErrors.number_of_people = 'Para o Reserva Rooftop, o limite é de até 10 pessoas.';
+    if (isReservaRooftop && reservationData.number_of_people > rooftopMaxPartySize) {
+      newErrors.number_of_people = `Para o Reserva Rooftop, o limite é de até ${rooftopMaxPartySize} pessoas.`;
     }
 
     // Validação: tipo de reserva obrigatório para Highline com mais de 5 pessoas
@@ -1082,10 +1061,12 @@ const handleSubmit = async (e: React.FormEvent) => {
 
 
   const handleInputChange = (field: string, value: any) => {
-    // Reserva Rooftop: limitar número de pessoas a no máximo 10
+    // Reserva Rooftop: limitar número de pessoas ao máximo configurado
     if (field === 'number_of_people' && isReservaRooftop) {
       const n = Number(value);
-      const capped = Number.isFinite(n) ? Math.min(10, Math.max(1, n)) : 1;
+      const capped = Number.isFinite(n)
+        ? Math.min(rooftopMaxPartySize, Math.max(1, n))
+        : 1;
       setReservationData((prev) => ({ ...prev, [field]: capped }));
     } else {
       setReservationData((prev) => ({ ...prev, [field]: value }));
@@ -2144,7 +2125,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                   <input
                     type="number"
                     min={1}
-                    max={isReservaRooftop ? 10 : 999}
+                    max={isReservaRooftop ? rooftopMaxPartySize : 999}
                     value={reservationData.number_of_people}
                     onChange={(e) => {
                       const newValue = parseInt(e.target.value || '0');
@@ -2177,7 +2158,7 @@ const handleSubmit = async (e: React.FormEvent) => {
 
                   {isReservaRooftop && !errors.number_of_people && (
                     <p className="text-gray-500 text-xs mt-1">
-                      No Reserva Rooftop, o limite máximo é de 10 pessoas por reserva.
+                      No Reserva Rooftop, o limite máximo é de {rooftopMaxPartySize} pessoas por reserva.
                     </p>
                   )}
                 </div>
