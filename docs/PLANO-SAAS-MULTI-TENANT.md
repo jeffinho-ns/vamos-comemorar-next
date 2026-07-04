@@ -15,9 +15,9 @@
 |-------|-------|
 | Última atualização | 2026-07-03 |
 | Modo atual | **`SAAS_MODE=on`** API · **`NEXT_PUBLIC_SAAS_MODE=on`** Vercel ✅ |
-| Fase em andamento | **Bloco E** — migration 024 users; smoke test formal |
-| Próximo passo | Aplicar migration 024 em prod; credenciais DB; LEGACY_PROFILES |
-| Veredito B2B | **~92%** da fundação. Equipe org-admin ✅. Gate ações ✅. |
+| Fase em andamento | **Bloco E** — concluído parcial; smoke test formal com 2ª org |
+| Próximo passo | `SAAS_SMOKE_TOKEN` pós-login browser; criar org B demo; auth rotas públicas |
+| Veredito B2B | **~94%** da fundação. Migration 024 ✅ prod. LEGACY_PROFILES removido ✅. |
 
 ### Como retomar no outro PC
 1. `git pull` nos dois repositórios (`vamos-comemorar-next` e `vamos-comemorar-api`).
@@ -26,7 +26,7 @@
 4. Veja o **Log de progresso** — última linha = sessão mais recente.
 
 ### Checklist de fases
-- [~] **Fase 0** — Fundação / segurança. Middleware na raiz ✅. **Parcial:** listas de e-mail removidas do `middleware.ts` ✅; ainda falta auth rotas públicas; credenciais hardcoded.
+- [~] **Fase 0** — Middleware ✅; **DATABASE_URL** sem fallback hardcoded ✅; auth rotas públicas pendente.
 - [~] **Camada de segurança** — feature flags ✅; runner migrations ✅; RLS **21 tabelas** ✅.
 - [~] **Fase 1** — Banco / tenant model ✅ migrations 001–007 + 013–015. **NOT NULL** nas 13 tabelas core ✅ (019). Falta: `users.organization_id` NOT NULL; Contract 021 tables.
 - [~] **Fase 2** — RLS **25 tabelas** (008–023): reservas, promoters, cardápio, WhatsApp, **eventos, listas, users**. Check-ins via `guests` RLS + enforce rotas.
@@ -34,7 +34,7 @@
 - [~] **Fase 4** — Entitlements + sidebar ✅. `AdminPageGate` + `<Gate>` em ações ✅. Falta: migrar `useUserPermissions` → `useCan` restante.
 - [x] **Fase 5** — Billing manual MVP ✅.
 - [~] **Fase 6** — Superadmin ✅. **Provisionamento operacional completo** ✅ (Bloco A, 2026-07-03). Falta: wizard pós-provisionamento interativo.
-- [~] **Fase 7** — `establishmentRules` + editor superadmin ✅. Falta: remover `LEGACY_PROFILES`; IA sem hardcode Highline id 7.
+- [~] **Fase 7** — `establishmentRules` + editor superadmin ✅. **LEGACY_PROFILES removido** ✅ (config DB). Falta: IA sem hardcode Highline id 7.
 
 Legenda: [x] concluído · [~] parcial · [ ] não iniciado.
 
