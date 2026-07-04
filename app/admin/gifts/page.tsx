@@ -3,6 +3,9 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useAppContext } from "@/app/context/AppContext";
 import { useEstablishmentPermissions } from "@/app/hooks/useEstablishmentPermissions";
+import AdminSaasGuard from "@/app/components/AdminSaasGuard";
+import Gate from "@/app/components/Gate";
+import { useSaasAccess } from "@/app/hooks/useSaasAccess";
 import { MdAdd, MdPeople, MdPerson, MdEdit, MdDelete, MdSettings, MdCheckCircle, MdClose } from "react-icons/md";
 
 interface Establishment {
@@ -119,6 +122,7 @@ const sanitizePromoterEntradaConfigForApi = (config: PromoterEntradaConfig) => {
 
 export default function GiftsAdminPage() {
   const { userEmail } = useAppContext();
+  const { canAccessReservas } = useSaasAccess();
   const {
     isLoading: permissionsLoading,
     getFilteredEstablishments,
@@ -410,6 +414,7 @@ export default function GiftsAdminPage() {
   }
 
   return (
+    <AdminSaasGuard allowed={canAccessReservas}>
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
@@ -534,6 +539,7 @@ export default function GiftsAdminPage() {
                     </p>
                   </div>
                 </div>
+                <Gate permission="reservas:update">
                 <button
                   onClick={() => {
                     setEditingGiftRule(null);
@@ -545,6 +551,7 @@ export default function GiftsAdminPage() {
                   <MdAdd size={24} />
                   Nova Regra
                 </button>
+                </Gate>
               </div>
               
               {giftRules.length === 0 ? (
@@ -687,6 +694,7 @@ export default function GiftsAdminPage() {
                     </p>
                   </div>
                 </div>
+                <Gate permission="reservas:update">
                 <button
                   onClick={() => {
                     setEditingPromoterGiftRule(null);
@@ -707,6 +715,7 @@ export default function GiftsAdminPage() {
                   <MdAdd size={24} />
                   Nova Regra
                 </button>
+                </Gate>
               </div>
               
               {promoterGiftRules.length === 0 ? (
@@ -1398,5 +1407,6 @@ export default function GiftsAdminPage() {
         )}
       </div>
     </div>
+    </AdminSaasGuard>
   );
 }

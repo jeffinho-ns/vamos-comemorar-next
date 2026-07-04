@@ -13,6 +13,8 @@ import {
 } from "react-icons/md";
 import { useAppContext } from "@/app/context/AppContext";
 import { useEstablishmentPermissions } from "@/app/hooks/useEstablishmentPermissions";
+import AdminSaasGuard from "@/app/components/AdminSaasGuard";
+import { useSaasAccess } from "@/app/hooks/useSaasAccess";
 import { getApiUrl } from "@/app/config/api";
 import { isSuperAdminEmail } from "@/app/hooks/useUserPermissions";
 
@@ -128,6 +130,7 @@ function eventsForCalendarDay(day: Date, list: ApiEvento[]): ApiEvento[] {
 
 export default function AdminHomeDashboard() {
   const { token, establishments, isLoading: ctxLoading, userEmail } = useAppContext();
+  const { canAccessReservas } = useSaasAccess();
   const { getFilteredEstablishments } = useEstablishmentPermissions();
 
   const filteredEstablishments = useMemo(
@@ -274,6 +277,7 @@ export default function AdminHomeDashboard() {
   }
 
   return (
+    <AdminSaasGuard allowed={canAccessReservas}>
     <div className="min-h-screen bg-[#eef0f4] text-slate-800 pb-10">
       <div className="max-w-[1400px] mx-auto px-4 sm:px-6 pt-6 sm:pt-8 space-y-5">
         <header className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
@@ -633,5 +637,6 @@ export default function AdminHomeDashboard() {
         </div>
       </div>
     </div>
+    </AdminSaasGuard>
   );
 }

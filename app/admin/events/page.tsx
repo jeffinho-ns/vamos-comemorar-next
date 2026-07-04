@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import AdminSaasGuard from "@/app/components/AdminSaasGuard";
+import { useSaasAccess } from "@/app/hooks/useSaasAccess";
 import { MdAdd, MdCalendarViewMonth, MdList, MdCalendarToday, MdLocationOn, MdAccessTime, MdPeople, MdEvent, MdTableBar, MdStar, MdPerson, MdMusicNote, MdAttachMoney, MdInfo, MdCheckCircle } from "react-icons/md";
 
 interface Promoter {
@@ -46,6 +48,7 @@ type ViewMode = 'list' | 'calendar';
 const BASE_IMAGE_URL = 'https://grupoideiaum.com.br/cardapio-agilizaiapp/';
 
 export default function Eventos() {
+  const { canAccessEventos } = useSaasAccess();
   const [events, setEvents] = useState<Event[]>([]);
   const [search, setSearch] = useState("");
   const [viewMode, setViewMode] = useState<ViewMode>('list');
@@ -192,6 +195,7 @@ export default function Eventos() {
   };
 
   return (
+    <AdminSaasGuard allowed={canAccessEventos}>
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-base">
       <div className="max-w-7xl mx-auto p-8">
         <div className="mb-8">
@@ -638,5 +642,6 @@ export default function Eventos() {
         )}
       </div>
     </div>
+    </AdminSaasGuard>
   );
 }

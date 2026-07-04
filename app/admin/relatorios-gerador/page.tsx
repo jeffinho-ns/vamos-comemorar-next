@@ -38,6 +38,8 @@ import {
   Line,
   Legend,
 } from "recharts";
+import AdminSaasGuard from "@/app/components/AdminSaasGuard";
+import { useSaasAccess } from "@/app/hooks/useSaasAccess";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://api.agilizaiapp.com.br";
 
@@ -142,6 +144,7 @@ const CORES_CHART = [
 ];
 
 export default function RelatoriosGeradorPage() {
+  const { canAccessRelatorios } = useSaasAccess();
   const [estabelecimentos, setEstabelecimentos] = useState<Estabelecimento[]>([]);
   const [eventos, setEventos] = useState<Evento[]>([]);
   const [tipoRelatorio, setTipoRelatorio] = useState<"periodo" | "evento">("periodo");
@@ -259,6 +262,7 @@ export default function RelatoriosGeradorPage() {
     s ? new Date(s + "T12:00:00").toLocaleDateString("pt-BR") : s;
 
   return (
+    <AdminSaasGuard allowed={canAccessRelatorios}>
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-indigo-950/30 to-slate-900 text-white">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header com ilustração */}
@@ -473,6 +477,7 @@ export default function RelatoriosGeradorPage() {
         )}
       </div>
     </div>
+    </AdminSaasGuard>
   );
 }
 

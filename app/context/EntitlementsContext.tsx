@@ -29,6 +29,8 @@ export interface Entitlements {
   modules: string[];
   permissions: string[];
   organizationId: number | null;
+  /** IDs operacionais (place/bar) permitidos ao usuário. */
+  establishmentIds?: number[];
   /** Usuário legado (UEP) sem permissões finas — espelha a API. */
   legacyScoped?: boolean;
   /** Membership role account_admin na org — pode gerenciar /admin/equipe. */
@@ -100,6 +102,9 @@ export function EntitlementsProvider({ children }: { children: ReactNode }) {
               modules: Array.isArray(data.modules) ? data.modules : [],
               permissions: Array.isArray(data.permissions) ? data.permissions : [],
               organizationId: data.organizationId ?? null,
+              establishmentIds: Array.isArray(data.establishmentIds)
+                ? data.establishmentIds.map(Number).filter((n) => n > 0)
+                : [],
               legacyScoped: data.legacyScoped === true,
               isAccountAdmin: data.isAccountAdmin === true,
             }

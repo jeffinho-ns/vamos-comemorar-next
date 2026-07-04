@@ -4,7 +4,8 @@ import { useCallback, useEffect, useState, useMemo } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import SafeImage from "../../components/SafeImage";
-import { WithPermission } from "@/app/components/WithPermission/WithPermission";
+import AdminSaasGuard from "@/app/components/AdminSaasGuard";
+import { useSaasAccess } from "@/app/hooks/useSaasAccess";
 import {
   MdRefresh,
   MdFilterList,
@@ -30,7 +31,6 @@ import { useAppContext } from "@/app/context/AppContext";
 import { filterEstablishmentListForUser } from "@/app/utils/establishmentAccessRules";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL_LOCAL || 'https://api.agilizaiapp.com.br';
-const SUPER_ADMIN_EMAILS = ["teste@teste", "jeffinho_ns@hotmail.com"];
 
 interface Establishment {
   id: number;
@@ -123,6 +123,7 @@ interface RevenueByPeriod {
 
 export default function ReservesPage() {
   const { userEmail } = useAppContext();
+  const { canAccessReservas } = useSaasAccess();
   const [establishments, setEstablishments] = useState<Establishment[]>([]);
   const [birthdayReservations, setBirthdayReservations] = useState<BirthdayReservation[]>([]);
   const [restaurantReservations, setRestaurantReservations] = useState<RestaurantReservation[]>([]);
@@ -1053,7 +1054,7 @@ export default function ReservesPage() {
   }
 
   return (
-    <WithPermission allowedRoles={[]} allowedEmails={SUPER_ADMIN_EMAILS}>
+    <AdminSaasGuard allowed={canAccessReservas}>
       <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white">
         <div className="max-w-7xl mx-auto p-6 lg:p-8">
         {/* Header */}
@@ -1867,6 +1868,6 @@ export default function ReservesPage() {
         </div>
       </div>
       </div>
-    </WithPermission>
+    </AdminSaasGuard>
   );
 }

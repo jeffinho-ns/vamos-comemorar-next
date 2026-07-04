@@ -3,7 +3,8 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import { MdSearch, MdPerson, MdCardGiftcard, MdEvent, MdCheckCircle } from 'react-icons/md';
-import { WithPermission } from '../../../../../components/WithPermission/WithPermission';
+import AdminSaasGuard from '@/app/components/AdminSaasGuard';
+import { useSaasAccess } from '@/app/hooks/useSaasAccess';
 import { io } from 'socket.io-client';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.agilizaiapp.com.br';
@@ -62,6 +63,7 @@ interface LoadedData {
 }
 
 export default function EventoTabletCheckInsPage() {
+  const { canAccessCheckin } = useSaasAccess();
   const params = useParams();
   const eventoId = params?.id?.toString() ?? '';
   
@@ -420,7 +422,7 @@ export default function EventoTabletCheckInsPage() {
   };
 
   return (
-    <WithPermission allowedRoles={["admin", "gerente", "hostess", "promoter"]}>
+    <AdminSaasGuard allowed={canAccessCheckin}>
       <div className="min-h-screen bg-gray-50 p-4">
         <div className="max-w-4xl mx-auto">
           {loadingData && (
@@ -578,6 +580,6 @@ export default function EventoTabletCheckInsPage() {
           )}
         </div>
       </div>
-    </WithPermission>
+    </AdminSaasGuard>
   );
 }

@@ -2,6 +2,8 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import jsQR from "jsqr";
 import { io, Socket } from "socket.io-client";
+import AdminSaasGuard from "@/app/components/AdminSaasGuard";
+import { useSaasAccess } from "@/app/hooks/useSaasAccess";
 
 const API_URL =
   process.env.NEXT_PUBLIC_API_URL || "https://api.agilizaiapp.com.br";
@@ -21,6 +23,7 @@ interface BrindeAlert {
 }
 
 export default function QRCodeScanner() {
+  const { canAccessCheckin } = useSaasAccess();
   const [qrResult, setQrResult] = useState<string | null>(null);
   const [validationMessage, setValidationMessage] = useState<string | null>(
     null,
@@ -184,6 +187,7 @@ export default function QRCodeScanner() {
   };
 
   return (
+    <AdminSaasGuard allowed={canAccessCheckin}>
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white p-8">
       <div className="max-w-2xl mx-auto">
         <div className="mb-8 text-center">
@@ -280,5 +284,6 @@ export default function QRCodeScanner() {
         )}
       </div>
     </div>
+    </AdminSaasGuard>
   );
 }

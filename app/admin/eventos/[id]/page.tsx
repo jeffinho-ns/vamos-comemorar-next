@@ -7,7 +7,8 @@ import { MdAdd, MdExpandMore, MdExpandLess } from 'react-icons/md'
 import AddGuestModal from '../../../components/AddGuestModal/AddGuestModal'
 import ImportarConvidados from '../../../components/convidados/ImportarConvidados'
 import AdicionarConvidado from '../../../components/convidados/AdicionarConvidado'
-import { WithPermission } from "../../../components/WithPermission/WithPermission";
+import AdminSaasGuard from "@/app/components/AdminSaasGuard";
+import { useSaasAccess } from "@/app/hooks/useSaasAccess";
 
 type Convidado = {
   id: number
@@ -26,6 +27,7 @@ type GrupoDeConvidados = {
 };
 
 export default function EventoConvidadosPage() {
+  const { canAccessEventos } = useSaasAccess();
   const params = useParams()
   const router = useRouter()
   const id = params?.id?.toString() ?? ''
@@ -90,7 +92,7 @@ export default function EventoConvidadosPage() {
   };
 
   return (
-    <WithPermission allowedRoles={["admin", "gerente", "promoter"]}>
+    <AdminSaasGuard allowed={canAccessEventos}>
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-base">
       <div className="max-w-6xl mx-auto p-8">
         <div className="mb-8">
@@ -264,6 +266,6 @@ export default function EventoConvidadosPage() {
         </div>
       </div>
     </div>
-    </WithPermission>
+    </AdminSaasGuard>
   )
 }

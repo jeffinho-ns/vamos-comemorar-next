@@ -8,7 +8,10 @@ import {
   listImagePathsFromStoragePrefix,
   uploadImage,
 } from "@/app/services/uploadService";
-import { WithPermission } from "@/app/components/WithPermission/WithPermission";
+import AdminSaasGuard from "@/app/components/AdminSaasGuard";
+import Gate from "@/app/components/Gate";
+import { useSaasAccess } from "@/app/hooks/useSaasAccess";
+import { readSuperAdminFromCookie } from "@/app/utils/superAdminAccess";
 
 type GalleryImage = {
   imageId?: number | null;
@@ -21,8 +24,6 @@ type GalleryImage = {
   imageType?: string;
   usageCount?: number;
 };
-
-const SUPER_ADMIN_EMAILS = ["teste@teste", "jeffinho_ns@hotmail.com"];
 
 /** Alinha paths como `cardapio/items/<arquivo>` para cruzar Firebase + API. */
 function normalizeGalleryKey(value: string): string {
@@ -145,6 +146,7 @@ function readViewerEmailLower(): string {
 }
 
 export default function AdminGaleriaPage() {
+  const { canAccessCardapio } = useSaasAccess();
   const API_URL =
     process.env.NEXT_PUBLIC_API_URL ||
     process.env.NEXT_PUBLIC_API_URL_LOCAL ||
@@ -153,8 +155,7 @@ export default function AdminGaleriaPage() {
 
   const [viewerEmail, setViewerEmail] = useState("");
   const canSeeAllStorageFolders = useMemo(
-    () =>
-      SUPER_ADMIN_EMAILS.map((e) => e.trim().toLowerCase()).includes(viewerEmail),
+    () => readSuperAdminFromCookie(),
     [viewerEmail],
   );
   const storagePrefixOptions = useMemo(() => {
@@ -546,7 +547,7 @@ export default function AdminGaleriaPage() {
   );
 
   return (
-    <WithPermission allowedRoles={["admin"]} allowedEmails={SUPER_ADMIN_EMAILS}>
+    <AdminSaasGuard allowed={canAccessCardapio}>
       <div className="p-6 space-y-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
@@ -559,6 +560,7 @@ export default function AdminGaleriaPage() {
           </div>
 
           <div className="flex flex-col sm:flex-row gap-3">
+            <Gate permission="cardapio:update">
             <button
               onClick={() => pickFile("cardapio/items")}
               className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold"
@@ -567,6 +569,8 @@ export default function AdminGaleriaPage() {
               <MdUpload size={20} />
               Upload (Itens)
             </button>
+            </Gate>
+            <Gate permission="cardapio:update">
             <button
               onClick={() => pickFile("cardapio/bars")}
               className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-semibold"
@@ -584,6 +588,7 @@ export default function AdminGaleriaPage() {
               <MdUpload size={20} />
               Upload (pasta exibida)
             </button>
+            </Gate>
           </div>
         </div>
 
@@ -916,7 +921,7 @@ export default function AdminGaleriaPage() {
           aspectRatio={1}
         />
       </div>
-    </WithPermission>
+    </AdminSaasGuard>
   );
 }
 

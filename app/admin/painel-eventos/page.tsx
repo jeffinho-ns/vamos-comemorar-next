@@ -5,6 +5,8 @@ import { MdDashboard, MdEvent, MdBookOnline, MdShoppingCart, MdList, MdStar, MdS
 import { useEstablishmentPermissions } from "@/app/hooks/useEstablishmentPermissions";
 import { useAppContext } from "@/app/context/AppContext";
 import { filterEstablishmentListForUser } from "@/app/utils/establishmentAccessRules";
+import AdminSaasGuard from "@/app/components/AdminSaasGuard";
+import { useSaasAccess } from "@/app/hooks/useSaasAccess";
 
 // Componentes do painel (serão criados em seguida)
 import ResumoEventos from "../../components/painel/ResumoEventos";
@@ -38,6 +40,7 @@ const menuItems = [
 
 export default function PainelEventos() {
   const { userEmail } = useAppContext();
+  const { canAccessEventos } = useSaasAccess();
   const establishmentPermissions = useEstablishmentPermissions();
   const [selectedEstablishment, setSelectedEstablishment] = useState<Establishment | null>(null);
   const [activeMenu, setActiveMenu] = useState<string>("resumo");
@@ -282,6 +285,7 @@ export default function PainelEventos() {
   }
 
   return (
+    <AdminSaasGuard allowed={canAccessEventos}>
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-base">
       <div className="max-w-7xl mx-auto p-8">
         
@@ -428,5 +432,6 @@ export default function PainelEventos() {
         )}
       </div>
     </div>
+    </AdminSaasGuard>
   );
 } 

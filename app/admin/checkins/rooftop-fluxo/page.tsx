@@ -12,6 +12,8 @@ import {
 import RooftopUnifiedStatsHeader from "@/app/components/checkins/RooftopUnifiedStatsHeader";
 import { useEstablishments } from "@/app/hooks/useEstablishments";
 import { useEstablishmentPermissions } from "@/app/hooks/useEstablishmentPermissions";
+import AdminSaasGuard from "@/app/components/AdminSaasGuard";
+import { useSaasAccess } from "@/app/hooks/useSaasAccess";
 import {
   buildConductionPayload,
   confirmConduction,
@@ -50,6 +52,7 @@ function formatCheckinTimeBr(value: string): string {
 }
 
 export default function RooftopFluxoPage() {
+  const { canAccessCheckin } = useSaasAccess();
   const establishmentPermissions = useEstablishmentPermissions();
   const { establishments, loading: establishmentsLoading } = useEstablishments();
 
@@ -439,6 +442,7 @@ export default function RooftopFluxoPage() {
   const canRenderQueue = rooftopEstablishmentId != null;
 
   return (
+    <AdminSaasGuard allowed={canAccessCheckin}>
       <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
         <div className="mx-auto w-full max-w-6xl px-3 py-3 md:px-4 md:py-5">
           <div className="mb-2 rounded-lg border border-white/20 bg-white/10 p-2 text-white shadow-lg backdrop-blur-sm md:mb-4 md:rounded-xl md:p-4">
@@ -601,5 +605,6 @@ export default function RooftopFluxoPage() {
           )}
         </div>
       </div>
+    </AdminSaasGuard>
   );
 }

@@ -4,9 +4,10 @@ import { useEffect, useState, useCallback, useMemo } from "react";
 import Enterprise from "../../components/enterprise/enterprise";
 import { useRouter } from "next/navigation";
 import { Establishment } from "../../types/Establishment";
-import { WithPermission } from "../../components/WithPermission/WithPermission";
 import { useAppContext } from "../../context/AppContext";
 import { filterEstablishmentsByUserScope } from "../../utils/establishmentAccessRules";
+import AdminSaasGuard from "@/app/components/AdminSaasGuard";
+import { useSaasAccess } from "@/app/hooks/useSaasAccess";
 
 // Definindo os tipos
 interface Company {
@@ -72,6 +73,7 @@ const mapCompanyToEstablishment = (company: Company): Establishment => ({
 
 export default function Companies() {
   const { userEmail, role, myPermissions, isLoading: contextLoading } = useAppContext();
+  const { canAccessReservas } = useSaasAccess();
   const [companies, setCompanies] = useState<Company[]>([]);
   const [filterBy, setFilterBy] = useState("");
   const [modalIsOpen, setModalIsOpen] = useState(false);
@@ -229,7 +231,7 @@ export default function Companies() {
   );
 
   return (
-    <WithPermission allowedRoles={["admin", "gerente", "promoter"]}>
+    <AdminSaasGuard allowed={canAccessReservas}>
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-base">
       <div className="max-w-7xl mx-auto p-8">
         <div className="mb-8">
@@ -325,6 +327,6 @@ export default function Companies() {
       </div>
     </div>
     <Enterprise isOpen={modalIsOpen} onRequestClose={closeModal} company={selectedCompany || initialEnterpriseState} />
-    </WithPermission>
+    </AdminSaasGuard>
   );
 }

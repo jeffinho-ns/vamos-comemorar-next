@@ -18,8 +18,12 @@ import {
 import { useEstablishments } from '@/app/hooks/useEstablishments';
 import { ExecutiveEvent } from '@/app/types/executiveEvents';
 import ExecutiveEventModal from '@/app/components/ExecutiveEventModal';
+import AdminSaasGuard from '@/app/components/AdminSaasGuard';
+import Gate from '@/app/components/Gate';
+import { useSaasAccess } from '@/app/hooks/useSaasAccess';
 
 export default function ExecutiveEventsPage() {
+  const { canAccessEventos } = useSaasAccess();
   const { establishments, loading: establishmentsLoading } = useEstablishments();
   const [events, setEvents] = useState<ExecutiveEvent[]>([]);
   const [loading, setLoading] = useState(true);
@@ -192,6 +196,7 @@ export default function ExecutiveEventsPage() {
   }
 
   return (
+    <AdminSaasGuard allowed={canAccessEventos}>
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-base">
       <div className="max-w-7xl mx-auto p-8">
         <div className="mb-8">
@@ -230,12 +235,14 @@ export default function ExecutiveEventsPage() {
               >
                 <MdRefresh className="text-xl" />
               </button>
+              <Gate permission="eventos:update">
               <button
                 onClick={handleAdd}
                 className="bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-600 hover:to-yellow-700 text-gray-900 px-6 py-3 rounded-xl shadow-lg transition-all duration-200 transform hover:scale-105 font-semibold flex items-center gap-2"
               >
                 <MdAdd size={20} /> Novo Evento
               </button>
+              </Gate>
             </div>
           </div>
         </div>
@@ -374,6 +381,7 @@ export default function ExecutiveEventsPage() {
         establishments={establishments}
       />
     </div>
+    </AdminSaasGuard>
   );
 }
 

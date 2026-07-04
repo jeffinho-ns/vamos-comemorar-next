@@ -2,7 +2,8 @@
 
 import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { MdSearch, MdPerson, MdTableBar, MdCardGiftcard, MdCheckCircle, MdPending, MdStore, MdEvent, MdCake, MdGroups, MdAttachMoney, MdStar } from 'react-icons/md';
-import { WithPermission } from '../../../components/WithPermission/WithPermission';
+import AdminSaasGuard from '@/app/components/AdminSaasGuard';
+import { useSaasAccess } from '@/app/hooks/useSaasAccess';
 import { useEstablishmentPermissions } from '@/app/hooks/useEstablishmentPermissions';
 import { useEstablishmentRules } from '@/app/hooks/useEstablishmentRules';
 import {
@@ -67,6 +68,7 @@ interface LoadedData {
 }
 
 export default function TabletCheckInsPage() {
+  const { canAccessCheckin } = useSaasAccess();
   const establishmentPermissions = useEstablishmentPermissions();
   
   const [estabelecimentos, setEstabelecimentos] = useState<{ id: number; nome: string }[]>([]);
@@ -1508,7 +1510,7 @@ export default function TabletCheckInsPage() {
   };
 
   return (
-    <WithPermission allowedRoles={["admin", "gerente", "hostess", "promoter", "recepção"]}>
+    <AdminSaasGuard allowed={canAccessCheckin}>
       <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 px-1 sm:px-4 py-2 sm:py-4">
         <div className="max-w-5xl mx-auto w-full">
           {/* Seletores */}
@@ -2014,6 +2016,6 @@ export default function TabletCheckInsPage() {
           />
         )}
       </div>
-    </WithPermission>
+    </AdminSaasGuard>
   );
 }

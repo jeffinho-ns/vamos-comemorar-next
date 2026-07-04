@@ -21,8 +21,11 @@ import EventsModal from '@/app/components/EventsModal';
 import ArtistOSList from '@/app/components/ArtistOSList';
 import ArtistOSCreateModal from '@/app/components/ArtistOSCreateModal';
 import { useEstablishmentPermissions } from '@/app/hooks/useEstablishmentPermissions';
+import AdminSaasGuard from '@/app/components/AdminSaasGuard';
+import { useSaasAccess } from '@/app/hooks/useSaasAccess';
 
 export default function DetalhesOperacionaisPage() {
+  const { canAccessReservas } = useSaasAccess();
   const { establishments, loading: establishmentsLoading, fetchEstablishments } = useEstablishments();
   const establishmentPermissions = useEstablishmentPermissions();
   const [details, setDetails] = useState<OperationalDetail[]>([]);
@@ -276,6 +279,7 @@ export default function DetalhesOperacionaisPage() {
   }
 
   return (
+    <AdminSaasGuard allowed={canAccessReservas}>
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-base">
       <div className="max-w-7xl mx-auto p-8">
         <div className="mb-8">
@@ -590,6 +594,7 @@ export default function DetalhesOperacionaisPage() {
         establishments={establishments}
       />
     </div>
+    </AdminSaasGuard>
   );
 }
 

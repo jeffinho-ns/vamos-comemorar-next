@@ -13,6 +13,8 @@ import {
   MdSearch,
   MdFilterList
 } from 'react-icons/md';
+import AdminSaasGuard from '@/app/components/AdminSaasGuard';
+import { useSaasAccess } from '@/app/hooks/useSaasAccess';
 
 interface Hostess {
   hostess_id: number;
@@ -26,6 +28,7 @@ interface Hostess {
 }
 
 export default function HostessPage() {
+  const { canAccessEventos } = useSaasAccess();
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [hostess, setHostess] = useState<Hostess[]>([]);
@@ -115,6 +118,7 @@ export default function HostessPage() {
   }
 
   return (
+    <AdminSaasGuard allowed={canAccessEventos}>
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white p-6 shadow-lg">
@@ -256,6 +260,7 @@ export default function HostessPage() {
         )}
       </div>
     </div>
+    </AdminSaasGuard>
   );
 }
 

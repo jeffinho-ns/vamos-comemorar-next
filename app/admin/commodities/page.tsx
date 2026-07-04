@@ -10,6 +10,8 @@ import Image from "next/image";
 import Cookies from "js-cookie";
 import { useEstablishments } from "../../hooks/useEstablishments";
 import { useEstablishmentPermissions } from "../../hooks/useEstablishmentPermissions";
+import AdminSaasGuard from "@/app/components/AdminSaasGuard";
+import { useSaasAccess } from "@/app/hooks/useSaasAccess";
 //import { WithPermission } from "../../components/WithPermission/WithPermission";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL_LOCAL || 'http://localhost:3001';
@@ -24,6 +26,7 @@ const convertBusinessToPlace = (business: Business): Place => ({
 });
 
 export default function Businesses() {
+  const { canAccessCardapio } = useSaasAccess();
   const { establishments, loading, error, fetchEstablishments, refetch } = useEstablishments();
   const establishmentPermissions = useEstablishmentPermissions();
   const allowedEstablishmentIds = new Set(
@@ -112,7 +115,7 @@ export default function Businesses() {
   }
 
   return (
-    //<WithPermission allowedRoles={["Gerente"]}>
+    <AdminSaasGuard allowed={canAccessCardapio}>
       <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-base">
         <div className="max-w-7xl mx-auto p-8">
           <div className="mb-8">
@@ -230,6 +233,6 @@ export default function Businesses() {
           </div>
         </div>
       </div>
-   // </WithPermission>
+    </AdminSaasGuard>
   );
 }

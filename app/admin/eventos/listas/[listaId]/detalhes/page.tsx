@@ -16,6 +16,8 @@ import {
   MdEmail,
   MdCardGiftcard
 } from 'react-icons/md';
+import AdminSaasGuard from '@/app/components/AdminSaasGuard';
+import { useSaasAccess } from '@/app/hooks/useSaasAccess';
 
 interface Convidado {
   lista_convidado_id: number;
@@ -45,6 +47,7 @@ interface ListaDetalhes {
 }
 
 export default function DetalhesListaPage() {
+  const { canAccessEventos } = useSaasAccess();
   const router = useRouter();
   const params = useParams();
   const listaId = params?.listaId as string;
@@ -242,6 +245,7 @@ export default function DetalhesListaPage() {
   }
 
   return (
+    <AdminSaasGuard allowed={canAccessEventos}>
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <div className="bg-gradient-to-r from-green-600 to-green-700 text-white p-6 shadow-lg">
@@ -477,6 +481,7 @@ export default function DetalhesListaPage() {
         </div>
       </div>
     </div>
+    </AdminSaasGuard>
   );
 }
 

@@ -33,6 +33,7 @@ export function useSaasAccess() {
     canAccessEventos: resolveModule("eventos", legacy.canAccessAdmin),
     canAccessReservas: resolveModule("reservas", legacy.canAccessAdmin),
     canAccessCheckin: resolveModule("checkin", legacy.canAccessAdmin),
+    canAccessRelatorios: resolveModule("relatorios", legacy.canViewActionLogs),
     canViewActionLogs: resolvePermission("relatorios:read", legacy.canViewActionLogs),
     canDeleteUsers: resolvePermission("reservas:delete", legacy.canDeleteUsers),
     canEditCardapio: resolvePermission("cardapio:update", legacy.canAccessCardapio),

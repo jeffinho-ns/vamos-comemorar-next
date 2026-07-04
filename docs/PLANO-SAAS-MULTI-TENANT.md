@@ -13,12 +13,12 @@
 
 | Campo | Valor |
 |-------|-------|
-| Última atualização | 2026-07-03 |
+| Última atualização | 2026-07-03 (Fase 4 fechada — código) |
 | Modo atual | **`SAAS_MODE=on`** API · **`NEXT_PUBLIC_SAAS_MODE=on`** Vercel ✅ |
-| Fase em andamento | **Fase 4** — Gate/useSaasAccess nas páginas core; checklist manual UI pendente |
-| Próximo passo | Checklist manual UI (recepção vs gerente); Gate em galeria/permissions/reservas legado |
-| Veredito B2B | **~93%** — núcleo prod OK; gaps em RBAC fino, rotas legadas, hardcodes, front/Flutter parcial |
-| Commits recentes | API `66e3f28` · Flutter `90b66ed` · Next doc `ef76450` (pushados) |
+| Fase em andamento | **Fase 3** — RBAC fino promoters + tenancy rotas legadas |
+| Próximo passo | Fase 3: `requirePermission` promoters; tenantMiddleware gift-rules/FAQ; checklist manual UI (`docs/FASE-4-CHECKLIST-UI.md`) |
+| Veredito B2B | **~95%** — Fase 4 front completa; gaps Fase 2/3 API; Flutter parcial |
+| Commits recentes | Next Fase 4 (local) · API `66e3f28` · Flutter `90b66ed` |
 
 ### Como retomar no outro PC
 1. `git pull` nos **três** repositórios (`vamos-comemorar-next`, `vamos-comemorar-api`, `agilizaiapp`).
@@ -32,7 +32,7 @@
 - [~] **Fase 1** (~95%) — migrations **001–024** ✅; NOT NULL 13 tabelas core (019) ✅; users constraint (024) ✅; RLS cardápio/WhatsApp (021) ✅. Falta: **places/bars → views** sobre `establishments` (passo 4–5).
 - [~] **Fase 2** (~90%) — RLS 25 tabelas ✅; `tenantMiddleware` em 19 routers ✅. Falta: ~30 rotas legadas sem tenancy (ver RAIO-X § rotas).
 - [~] **Fase 3** (~85%) — `requirePermission` em cardápio, whatsapp, eventos, checkin, reservas ✅. Falta: **promoters** (`requirePermission`); rotas sensíveis sem tenant.
-- [~] **Fase 4** (~85%) — Entitlements + sidebar ✅; `AdminPageGate` ✅; `useSaasAccess` + `useRequireSaasModule` em reservas/checkins/eventos ✅; `<Gate>` em listas (checkin) + eventos configurar ✅. Falta: galeria/permissions/reservas legado; **checklist manual UI**.
+- [x] **Fase 4** — Entitlements + sidebar ✅; `AdminPageGate` ✅; **`AdminSaasGuard` + `useSaasAccess` em todas as páginas admin** ✅; `<Gate>` em galeria/gifts/executive-events ✅; `/reservar` filtra por `establishmentIds` quando logado ✅. Manual: `docs/FASE-4-CHECKLIST-UI.md`.
 - [x] **Fase 5** — Billing manual MVP ✅ (gateway Stripe/Asaas = fase posterior).
 - [~] **Fase 6** (~90%) — Superadmin ✅; provisionamento operacional ✅ (Bloco A). Falta: wizard pós-provisionamento interativo.
 - [~] **Fase 7** (~75%) — `establishmentRules` + editor superadmin ✅; `operationalProfileIds` ✅. Falta: hardcodes e-mail/ID residuais (Next, API, IA).
@@ -47,7 +47,7 @@ Legenda: [x] concluído · [~] parcial · [ ] não iniciado.
 
 | # | Critério | Status |
 |---|----------|--------|
-| 1 | Superadmin cria org → casa em `/api/places`, `/reservar`, `/admin/cardapio` | **Parcial** — CLI `provision_org_demo_b.js` ✅; POST superadmin não validado; `/reservar` org B manual pendente |
+| 1 | Superadmin cria org → casa em `/api/places`, `/reservar`, `/admin/cardapio` | **Parcial** — CLI ✅; `/reservar` filtra por entitlements client ✅; validação manual org B pendente |
 | 2 | Account Admin convida usuários com roles | **✅** — `/api/org/*` + `/admin/equipe` |
 | 3 | Cada role vê só o permitido (sidebar + API + RLS) | **Parcial** — reservas ✅; promoters sem RBAC fino; ~30 rotas sem tenant |
 | 4 | Org A nunca vê dados da Org B | **✅ API** — smoke formal; **UI manual** pendente |
@@ -61,7 +61,7 @@ Legenda: [x] concluído · [~] parcial · [ ] não iniciado.
 |-------|------|--------|--------------------------|
 | **A** | Provisionamento operacional | **✅ feito** | `provisionOperationalEstablishment`, place+bar+legacy IDs, área/mesas, FAQ, 5 roles |
 | **B** | RBAC real | **~85%** | Reservas ✅; `/api/org/*` ✅. Falta: `requirePermission` em **promoters** |
-| **D** | Front modular | **~80%** | `AdminPageGate` + `<Gate>` em 4 páginas; `useSaasAccess` em 8. Falta: ~30 páginas admin |
+| **D** | Front modular | **✅ Fase 4** | `AdminPageGate`; `AdminSaasGuard` em 35+ páginas admin; `<Gate>` ações de escrita; `/reservar` + entitlements |
 | **E** | Segurança / legado | **~70%** | 024 ✅; smoke DB ✅. Falta: hardcodes; places/bars → views |
 | **F** | Mobile + gateway | **~40% app** | Places filtro org ✅. Falta: MenuService/eventos/reservas; Stripe/Asaas |
 
@@ -105,11 +105,12 @@ Legenda: [x] concluído · [~] parcial · [ ] não iniciado.
 - [x] Smoke API autenticado — `smoke_diagnostic_full.js` 24/24 (2026-07-03)
 - [x] Flutter places (simulado) — filtro org demo B pós-deploy `66e3f28`
 
-**UI manual (Fase 4 — pendente)**
-- [ ] `/reservar` mostra casa org B (login demo B ou anônimo)
+**UI manual (Fase 4 — roteiro em `docs/FASE-4-CHECKLIST-UI.md`)**
+- [ ] `/reservar` mostra casa org B (login demo B)
 - [ ] `/admin/cardapio` abre para bar da org B
 - [ ] Sidebar recepção vs gerente visualmente diferente
 - [ ] Org A vs B: zero vazamento no browser (conta demo B)
+- [ ] Build/release Flutter + login demo B (só Bar Demo B)
 
 ---
 
@@ -123,7 +124,7 @@ Legenda: [x] concluído · [~] parcial · [ ] não iniciado.
 | RLS Postgres | ~95% | 25 tabelas; smoke DB 0 mismatches |
 | API enforce | ~85% | SAAS_MODE=on; 19 routers com tenantMiddleware |
 | Entitlements | ✅ | `/api/me/entitlements` + `establishmentIds` |
-| Front Next admin | ~80% | sidebar; AdminPageGate; useSaasAccess 8 páginas |
+| Front Next admin | ~95% | sidebar; AdminPageGate; AdminSaasGuard 35+ páginas; Gate escrita; /reservar entitlements |
 | Superadmin / billing | ✅ MVP | `/superadmin`, faturas manuais |
 | Flutter | ~40% SaaS | places filtradas; cardápio/eventos/reservas expostos |
 | Produção | ✅ | Render estável; commits pushados |
@@ -156,17 +157,19 @@ Legenda: [x] concluído · [~] parcial · [ ] não iniciado.
 
 **API:** `routes/users.js` (PROMOTER_ONLY_EMAILS, GERENTE_GERAL_EMAILS); `config/superAdmins.js`; `config/whatsappHighlineAccess.js`; `defaultWeeklySchedule.js` (IDs 1,4,7,8,9,10); `PromptBuilder.js` / `AgentPromptBuilder.js` (`id === 7`).
 
-**Next:** `app/config/promoter-bars.ts`; `app/utils/establishmentAccessRules.ts`; `app/config/establishmentIds.ts`; `app/admin/reservas/page.tsx` e `galeria/page.tsx` (SUPER_ADMIN_EMAILS).
+**Next:** `app/config/promoter-bars.ts`; `app/utils/establishmentAccessRules.ts`; `app/config/establishmentIds.ts`. ~~`SUPER_ADMIN_EMAILS` em reservas/galeria~~ removido (2026-07-03 Fase 4).
 
 **Nota:** `middleware.ts` raiz já sem listas de e-mail (2026-07-03).
 
-### Front Next — gap Fase 4
+### Front Next — Fase 4 ✅
 
 | Mecanismo | Cobertura |
 |-----------|-----------|
-| `useSaasAccess` | layout, cardapio, users, promoters, logs, whatsapp, guia, workdays (8) |
-| `<Gate>` | cardapio, users, promoters, equipe (4) |
-| `AdminPageGate` | layout — rotas fora de `NAV_MODULE_BY_HREF` são **fail-open** |
+| `AdminSaasGuard` / `useSaasAccess` | **35+ páginas admin** (reservas, galeria, gifts, permissions, checkins/tablet, eventos/*, etc.) |
+| `<Gate>` | cardapio, users, promoters, equipe, galeria (upload), gifts (nova regra), executive-events |
+| `AdminPageGate` | layout — rotas mapeadas em `adminNavModules.ts` |
+| `/reservar` | `filterPlacesByEntitlements` + `optionalAuthHeaders` em GET `/api/places` |
+| `EntitlementsContext` | expõe `establishmentIds` da API |
 
 ### Flutter — gap Bloco F
 
@@ -183,13 +186,13 @@ Legenda: [x] concluído · [~] parcial · [ ] não iniciado.
 
 Marque `[x]` conforme fechar cada fase nas próximas sessões.
 
-### Fase 4 → 100% (**em andamento** — ~1–2 dias)
-- [x] `useSaasAccess` + `useRequireSaasModule` em restaurant-reservations, checkins, eventos/dashboard, eventos/listas
-- [x] `<Gate>` check-in em listas; configurar eventos no dashboard
-- [x] Rotas admin extras em `adminNavModules.ts` (permissions, executive-events, configurar, tablet…)
-- [ ] Checklist UI: `/reservar` org B, `/admin/cardapio` org B, sidebar recepção vs gerente
-- [ ] `<Gate>` / `useSaasAccess` em: reservas legado, galeria, permissions, gifts
-- [ ] Build/release Flutter `90b66ed` + teste login demo B (só Bar Demo B)
+### Fase 4 → 100% ✅ (código; manual em `docs/FASE-4-CHECKLIST-UI.md`)
+- [x] `useSaasAccess` + `useRequireSaasModule` / `AdminSaasGuard` em **todas** as páginas admin
+- [x] `<Gate>` check-in em listas; configurar eventos; galeria upload; gifts nova regra; executive-events
+- [x] Rotas admin em `adminNavModules.ts`
+- [x] `/reservar`: filtro tenant via `establishmentIds` + Authorization opcional
+- [x] Removido `SUPER_ADMIN_EMAILS` de reservas/galeria → `readSuperAdminFromCookie`
+- [ ] Checklist UI manual browser + Flutter release (operacional)
 
 ### Fase 3 → 100% (~3–5 dias)
 - [ ] `requirePermission` em `promotersAdvanced.js` e `promoterEventos.js`
@@ -276,6 +279,7 @@ Marque `[x]` conforme fechar cada fase nas próximas sessões.
 - 2026-07-03 — **Equipe org-admin:** `/api/org/*` (memberships, roles, establishments) + `/admin/equipe`; `isAccountAdmin` em entitlements; migration 024 users constraint; smoke_test_saas.js; `<Gate>` em cardapio/users/promoters.
 - 2026-07-03 — **Render estável + Bloco F:** fix `walkIns.js` (`wi.establishment_id`); POST `/api/users` com `organization_id` + RLS; smoke **24/24**; Flutter `PlaceService` filtra por `/api/me/entitlements` (`establishmentIds`); `organization_id` em GET `/api/places`.
 - 2026-07-03 — **Fase 4 (parcial):** `useRequireSaasModule`; useSaasAccess em restaurant-reservations, checkins, eventos/dashboard, eventos/listas; Gate check-in + configurar eventos; adminNavModules rotas extras.
+- 2026-07-03 — **Fase 4 (100% código):** `AdminSaasGuard` em 35+ páginas admin; Gate galeria/gifts/executive-events; `/reservar` + `filterPlacesByEntitlements`; `establishmentIds` no EntitlementsContext; removido SUPER_ADMIN_EMAILS reservas/galeria; checklist manual em `docs/FASE-4-CHECKLIST-UI.md`.
 
 ---
 

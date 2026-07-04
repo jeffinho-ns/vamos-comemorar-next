@@ -5,6 +5,9 @@ import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { useAppContext } from '@/app/context/AppContext';
 import { filterEstablishmentListForUser } from '@/app/utils/establishmentAccessRules';
+import AdminSaasGuard from '@/app/components/AdminSaasGuard';
+import Gate from '@/app/components/Gate';
+import { useSaasAccess } from '@/app/hooks/useSaasAccess';
 import {
   MdArrowBack,
   MdEvent,
@@ -36,6 +39,7 @@ interface Establishment {
 
 export default function ConfigurarEventosPage() {
   const { userEmail } = useAppContext();
+  const { canAccessEventos } = useSaasAccess();
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [eventos, setEventos] = useState<Evento[]>([]);
@@ -199,6 +203,7 @@ export default function ConfigurarEventosPage() {
   }
 
   return (
+    <AdminSaasGuard allowed={canAccessEventos}>
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <div className="bg-gradient-to-r from-orange-600 to-orange-700 text-white p-6 shadow-lg">
@@ -418,6 +423,7 @@ export default function ConfigurarEventosPage() {
         </div>
       </div>
     </div>
+    </AdminSaasGuard>
   );
 }
 

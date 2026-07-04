@@ -19,7 +19,9 @@ import { formatDateBR } from '@/lib/dateUtils';
 import Link from 'next/link';
 import { getConfiguredWindows, WeeklyOperatingSetting, DateOperatingOverride } from '@/app/utils/reservationOperatingHours';
 import { useAppContext } from '@/app/context/AppContext';
+import { useEntitlements } from '@/app/context/EntitlementsContext';
 import { filterEstablishmentListForUser } from '@/app/utils/establishmentAccessRules';
+import { filterPlacesByEntitlements } from '@/app/utils/entitlementsPlaceFilter';
 import { useEstablishmentRules } from '@/app/hooks/useEstablishmentRules';
 import {
   deriveEstablishmentRulesFlags,
@@ -151,6 +153,7 @@ const detectAndCreateBirthdayGuestList = async (reservationId: number, payload: 
 
 export default function ReservationForm() {
   const { userEmail } = useAppContext();
+  const { entitlements } = useEntitlements();
   const router = useRouter();
   const searchParams = useSearchParams();
   const [establishments, setEstablishments] = useState<Establishment[]>([]);
@@ -205,16 +208,20 @@ export default function ReservationForm() {
 
   // Carregar estabelecimentos da API
   useEffect(() => {
-    const visibility = (list: Establishment[]) =>
-      filterEstablishmentListForUser(
+    const visibility = (list: Establishment[]) => {
+      const legacyFiltered = filterEstablishmentListForUser(
         userEmail,
         list.map((e) => ({ ...e, name: e.name || '' })),
       ) as Establishment[];
+      return filterPlacesByEntitlements(legacyFiltered, entitlements);
+    };
 
     const fetchEstablishments = async () => {
       setEstablishmentsLoading(true);
       try {
-        const response = await fetch(`${API_URL}/api/places`);
+        const response = await fetch(`${API_URL}/api/places`, {
+          headers: optionalAuthHeaders(),
+        });
         if (response.ok) {
           const data = await response.json();
           if (Array.isArray(data)) {
@@ -342,7 +349,13 @@ export default function ReservationForm() {
     };
 
     fetchEstablishments();
-  }, [userEmail]);
+  }, [
+    userEmail,
+    entitlements.allowAll,
+    entitlements.legacyScoped,
+    entitlements.organizationId,
+    entitlements.establishmentIds,
+  ]);
 
   // Detectar estabelecimento na URL
   useEffect(() => {

@@ -338,9 +338,14 @@ interface SearchResultTablet {
   isVipNoiteTuda?: boolean;
 }
 
+import { useSaasAccess } from '@/app/hooks/useSaasAccess';
+import { useRequireSaasModule } from '@/app/hooks/useRequireSaasModule';
+
 export default function EventoCheckInsPage() {
   const params = useParams();
   const router = useRouter();
+  const { canAccessCheckin } = useSaasAccess();
+  const { guardLoading } = useRequireSaasModule(canAccessCheckin);
   const eventoId = params?.id?.toString() ?? "";
 
   // Detectar se é mobile para otimizar animações
@@ -4765,6 +4770,14 @@ export default function EventoCheckInsPage() {
     };
     return types[eventType.toLowerCase()] || null;
   }, []);
+
+  if (guardLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 flex items-center justify-center">
+        <p className="text-gray-400">Carregando permissões…</p>
+      </div>
+    );
+  }
 
   return (
     <div
