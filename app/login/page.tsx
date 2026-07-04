@@ -171,6 +171,7 @@ export default function Login() {
           'analista.mkt03@ideiaum.com.br',
           'gerente@highlinebar.com.br',
           'regianebrunno@gmail.com',
+          'motosolauriany@gmail.com',
           'franciely.mendes@ideiaum.com.br',
           'recepcao@seujustino.com.br',
           'recepcao@pracinhadoseujustino.com.br',

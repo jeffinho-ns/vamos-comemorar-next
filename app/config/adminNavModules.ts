@@ -50,8 +50,9 @@ export function filterNavByEntitlements<T extends { href: string }>(
   canPermission: (permission: string) => boolean,
   allowAll: boolean,
   permissions: string[] = [],
+  legacyScoped = false,
 ): T[] {
-  if (allowAll) return links;
+  if (allowAll || legacyScoped) return links;
   // Usuários legados (UEP sem memberships): API devolve permissions=[] — não esvaziar sidebar.
   const skipFinePermissions = permissions.length === 0;
   return links.filter((link) => {

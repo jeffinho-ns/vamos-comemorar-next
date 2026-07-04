@@ -15,7 +15,7 @@ export function useCan() {
 
   const canModule = useCallback(
     (moduleKey: string): boolean => {
-      if (entitlements.allowAll) return true;
+      if (entitlements.allowAll || entitlements.legacyScoped) return true;
       return entitlements.modules.includes(moduleKey);
     },
     [entitlements],
@@ -23,7 +23,7 @@ export function useCan() {
 
   const canPermission = useCallback(
     (permissionKey: string): boolean => {
-      if (entitlements.allowAll) return true;
+      if (entitlements.allowAll || entitlements.legacyScoped) return true;
       return entitlements.permissions.includes(permissionKey);
     },
     [entitlements],

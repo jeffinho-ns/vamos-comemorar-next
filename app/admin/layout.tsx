@@ -40,6 +40,12 @@ import {
   shouldUseEventPromoterPortal,
 } from "../utils/promoterPortalAccess";
 import { isRooftopFluxoEmail } from "../utils/adminProfileEmails";
+import {
+  isAdminRole as isAdminNavRole,
+  isGerenteRole,
+  isPromoterRole,
+  isReceptionRole,
+} from "../utils/adminRole";
 
 // E-mail da analista com acesso restrito ao estabelecimento Pracinha do Seu Justino (menu próprio, não promoter)
 const ANALISTA_EMAIL = "analista.mkt03@ideiaum.com.br";
@@ -123,6 +129,8 @@ export default function DashboardLayout({
     ? decodeURIComponent(cookieRole).toLowerCase().trim()
     : "";
   const effectiveEmail = (userEmail || cookieEmail).trim().toLowerCase();
+  const effectiveRoleRaw = (userRole || decodedCookieRole).trim();
+  const roleResolved = effectiveRoleRaw.length > 0;
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -205,7 +213,7 @@ export default function DashboardLayout({
         { href: "/admin/guia", label: "Guia Interno", icon: MdInfo },
       ];
     }
-    if (userRole === "promoter" || userRole === "promoter-list") {
+    if (isPromoterRole(effectiveRoleRaw)) {
       // Promoter – acesso restrito ao cardápio, eventos, reservas, checkins do seu estabelecimento
       return [
         { href: "/admin/cardapio", label: "Cardápio", icon: MdRestaurant },
@@ -223,11 +231,7 @@ export default function DashboardLayout({
         },
         { href: "/admin/checkins", label: "Check-ins", icon: MdCheckCircle },
       ];
-    } else if (
-      userRole === "recepção" ||
-      userRole === "recepcao" ||
-      userRole === "atendente"
-    ) {
+    } else if (isReceptionRole(effectiveRoleRaw)) {
       // Recepção/Atendente - acesso restrito aos estabelecimentos configurados (inclui Reserva Rooftop)
       const links = [
         { href: "/admin", label: "Dashboard", icon: MdDashboard },
@@ -258,7 +262,7 @@ export default function DashboardLayout({
         });
       }
       return isWhatsappHighlineScopedUser ? appendWhatsappLink(links) : links;
-    } else if (userRole === "gerente") {
+    } else if (isGerenteRole(effectiveRoleRaw)) {
       // Gerente - acesso às páginas administrativas restritas aos seus estabelecimentos
       const baseLinks = [
         { href: "/admin", label: "Dashboard", icon: MdDashboard },
@@ -302,7 +306,7 @@ export default function DashboardLayout({
         ];
       }
       return baseLinks;
-    } else if (userRole === "admin") {
+    } else if (isAdminNavRole(effectiveRoleRaw)) {
       // Administrador pode ver tudo
       const links = [
         { href: "/admin", label: "Dashboard", icon: MdDashboard },
@@ -402,6 +406,7 @@ export default function DashboardLayout({
       canPermission,
       entitlements.allowAll,
       entitlements.permissions,
+      entitlements.legacyScoped === true,
     );
   }
 
@@ -410,7 +415,7 @@ export default function DashboardLayout({
     if (isAnalista) {
       return "Admin - Analista";
     }
-    if (userRole === "promoter" || userRole === "promoter-list") {
+    if (isPromoterRole(effectiveRoleRaw)) {
       return "Painel Promoter";
     }
     if (isCardapioOnlyUser) {
@@ -418,13 +423,11 @@ export default function DashboardLayout({
     }
     if (
       isRooftopFluxoUser ||
-      userRole === "recepção" ||
-      userRole === "recepcao" ||
-      userRole === "atendente"
+      isReceptionRole(effectiveRoleRaw)
     ) {
       return "Admin - Recepção";
     }
-    if (userRole === "gerente") {
+    if (isGerenteRole(effectiveRoleRaw)) {
       return "Admin - Gerente";
     }
     return activeLink ? activeLink.label : "Admin";
@@ -432,15 +435,18 @@ export default function DashboardLayout({
 
   // Se não há links disponíveis para o usuário, redireciona para acesso negado
   useEffect(() => {
-    if (!isLoading && !entitlementsLoading && navLinks.length === 0) {
+    if (!isLoading && !entitlementsLoading && roleResolved && navLinks.length === 0) {
       window.location.href = "/acesso-negado";
     }
-  }, [isLoading, entitlementsLoading, navLinks.length]);
+  }, [isLoading, entitlementsLoading, roleResolved, navLinks.length]);
 
-  if (!isLoading && navLinks.length === 0) return null;
+  if (!isLoading && !entitlementsLoading && roleResolved && navLinks.length === 0) {
+    return null;
+  }
 
   const showBlockingLoader =
-    (isLoading || isLoadingPerms) && !decodedCookieRole && navLinks.length === 0;
+    (isLoading || isLoadingPerms || entitlementsLoading || !roleResolved) &&
+    navLinks.length === 0;
 
   if (showBlockingLoader) {
     return (

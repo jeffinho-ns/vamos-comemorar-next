@@ -29,6 +29,8 @@ export interface Entitlements {
   modules: string[];
   permissions: string[];
   organizationId: number | null;
+  /** Usuário legado (UEP) sem permissões finas — espelha a API. */
+  legacyScoped?: boolean;
 }
 
 interface EntitlementsContextValue {
@@ -65,7 +67,10 @@ function readToken(): string {
 
 export function EntitlementsProvider({ children }: { children: ReactNode }) {
   const [entitlements, setEntitlements] = useState<Entitlements>(ALLOW_ALL);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return isSaasMode() && !!readToken();
+  });
 
   const refresh = useCallback(async () => {
     // Inerte fora do modo SaaS: mantém allowAll e não chama a API.
@@ -86,7 +91,17 @@ export function EntitlementsProvider({ children }: { children: ReactNode }) {
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json = await res.json();
       const data = json?.data as Entitlements | undefined;
-      setEntitlements(data && typeof data.allowAll === "boolean" ? data : ALLOW_ALL);
+      setEntitlements(
+        data && typeof data.allowAll === "boolean"
+          ? {
+              allowAll: data.allowAll,
+              modules: Array.isArray(data.modules) ? data.modules : [],
+              permissions: Array.isArray(data.permissions) ? data.permissions : [],
+              organizationId: data.organizationId ?? null,
+              legacyScoped: data.legacyScoped === true,
+            }
+          : ALLOW_ALL,
+      );
     } catch {
       // Fail-open: na dúvida, não trava a UI do cliente.
       setEntitlements(ALLOW_ALL);
