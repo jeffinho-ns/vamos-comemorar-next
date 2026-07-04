@@ -15,9 +15,9 @@
 |-------|-------|
 | Última atualização | 2026-07-03 |
 | Modo atual | **`SAAS_MODE=on`** API · **`NEXT_PUBLIC_SAAS_MODE=on`** Vercel ✅ |
-| Fase em andamento | **Bloco D** — front Gate + middleware sem e-mails; smoke test org demo |
-| Próximo passo | Smoke test org demo; Bloco B (reservas rotas finas); Contract NOT NULL users (024) |
-| Veredito B2B | **~88%** da fundação. **25 tabelas RLS**. Front modular parcial ✅. |
+| Fase em andamento | **Bloco B/E** — RBAC reservas ✅; smoke test org demo |
+| Próximo passo | Smoke test org demo; `/admin/equipe`; Contract NOT NULL users (024) |
+| Veredito B2B | **~90%** da fundação. **25 tabelas RLS**. RBAC reservas ✅. |
 
 ### Como retomar no outro PC
 1. `git pull` nos dois repositórios (`vamos-comemorar-next` e `vamos-comemorar-api`).
@@ -30,7 +30,7 @@
 - [~] **Camada de segurança** — feature flags ✅; runner migrations ✅; RLS **21 tabelas** ✅.
 - [~] **Fase 1** — Banco / tenant model ✅ migrations 001–007 + 013–015. **NOT NULL** nas 13 tabelas core ✅ (019). Falta: `users.organization_id` NOT NULL; Contract 021 tables.
 - [~] **Fase 2** — RLS **25 tabelas** (008–023): reservas, promoters, cardápio, WhatsApp, **eventos, listas, users**. Check-ins via `guests` RLS + enforce rotas.
-- [~] **Fase 3** — `requirePermission` em cardapio, whatsapp, **eventos, checkin**. Falta: reservas rotas finas; `/admin/equipe`.
+- [~] **Fase 3** — `requirePermission` em cardapio, whatsapp, eventos, checkin, **reservas (10 rotas)** ✅. Falta: `/admin/equipe`.
 - [~] **Fase 4** — Entitlements + sidebar ✅. `AdminPageGate` + `<Gate>` ✅. Falta: migrar `useUserPermissions` → `useCan` em páginas.
 - [x] **Fase 5** — Billing manual MVP ✅.
 - [~] **Fase 6** — Superadmin ✅. **Provisionamento operacional completo** ✅ (Bloco A, 2026-07-03). Falta: wizard pós-provisionamento interativo.
@@ -57,7 +57,7 @@ Sem SQL manual, você consegue:
 | Bloco | Foco | Status | Entregas-chave |
 |-------|------|--------|----------------|
 | **A** | Provisionamento operacional | **✅ feito** | `provisionOperationalEstablishment`, place+bar+legacy IDs, área/mesas, FAQ, 5 roles, config generic |
-| **B** | RBAC real | **~70%** | migration 020 ✅; memberships API/UI ✅; `requirePermission` cardapio + whatsapp ✅. Falta: demais rotas; `/admin/equipe` |
+| **B** | RBAC real | **~85%** | migration 020 ✅; memberships API/UI ✅; `requirePermission` cardapio + whatsapp + **reservas (10 rotas)** ✅. Falta: `/admin/equipe` |
 | **C** | Isolamento módulos restantes | **✅ feito** | 25 tabelas RLS; eventos/listas/users 022–023; checkin enforce |
 | **D** | Front modular | **~70%** | `AdminPageGate` por rota; middleware sem e-mails; superadmin só cookie JWT; sidebar sempre filtra entitlements |
 | **E** | Segurança / legado | **pendente** | credenciais DB; unificar IDs canônico↔operacional; NOT NULL users/whatsapp |
@@ -133,6 +133,7 @@ Sem SQL manual, você consegue:
 - 2026-07-03 — **RLS 017–019:** lote 4 (reservas, promoters, promoter_eventos/convidados); policies estritas sem `organization_id IS NULL`; Contract NOT NULL nas 13 tabelas RLS. checkins ignorado (tabela inexistente).
 - 2026-07-03 — **Bloco C concluído:** migrations 022–023 (eventos, listas, listas_convidados, users RLS); backfill eventos/users; `requirePermission` eventos; enforce checkin/checkinsSelfValidate; total **25 tabelas RLS**.
 - 2026-07-03 — **Bloco D (parcial):** `AdminPageGate` no layout admin (proteção por módulo/permissão via entitlements); `middleware.ts` sem `CARDAPIO_ONLY_EMAILS`, `SUPER_ADMIN_EMAILS` nem bypass rooftop por e-mail — superadmin só cookie `isSuperAdmin=1`; sidebar sempre `filterNavByEntitlements` com `NEXT_PUBLIC_SAAS_MODE=on`; novos utils `adminRouteModules`, `adminMiddlewareAccess`, `saasMode`.
+- 2026-07-03 — **Bloco B (reservas):** `reservasPermissionMiddleware` em 10 rotas (restaurant-reservations, large, waitlist, walk-ins, blocks, settings, areas, guest-lists, birthday, reservas legado). Front: `isSuperAdminEmail` → cookie JWT (remove lista hardcoded).
 
 ---
 

@@ -5,25 +5,23 @@
  */
 
 import { SITIO_ILHA_PLACE_ID } from "../config/establishmentIds";
+import { readSuperAdminFromCookie } from "./superAdminAccess";
 
 export const REGIANE_RESTRICTED_EMAIL = "regianebrunno@gmail.com";
 
 /** Único usuário que enxerga o estabelecimento Sitio Ilha em todo o app (listas, admin filtrado, cardápio). */
 export const SITIO_ILHA_OWNER_EMAIL = "jeffinho_ns@hotmail.com";
 
-/** Admin global (todos os estabelecimentos) — por e-mail ou role admin sem escopo no banco. */
-const GLOBAL_SUPER_ADMIN_EMAILS = new Set([
-  "jeffinho_ns@hotmail.com",
-  "teste@teste",
-]);
+/** Admin global (todos os estabelecimentos) — flag JWT `is_super_admin` ou role admin sem escopo no banco. */
 
 export type EstablishmentPermissionLike = {
   is_active?: boolean;
   establishment_id?: number;
 };
 
-export function isSuperAdminEmail(email: string | null | undefined): boolean {
-  return GLOBAL_SUPER_ADMIN_EMAILS.has(normalizeUserEmail(email));
+/** Super admin SaaS — cookie `isSuperAdmin=1` setado no login a partir do JWT. */
+export function isSuperAdminEmail(_email?: string | null): boolean {
+  return readSuperAdminFromCookie();
 }
 
 export type GlobalAdminOptions = {
