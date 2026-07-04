@@ -6,6 +6,9 @@ import {
 /** Resolve módulo/permissão para pathname admin (prefixo mais longo). */
 export function resolveNavModuleForPath(pathname: string): NavModuleMeta | null {
   const path = pathname.split("?")[0];
+  if (/^\/admin\/eventos\/[^/]+\/check-ins(\/.*)?$/.test(path)) {
+    return { module: "checkin", requiredPermission: "checkin:read" };
+  }
   const matches = Object.entries(NAV_MODULE_BY_HREF)
     .filter(([href]) => path === href || (href !== "/admin" && path.startsWith(href)))
     .sort((a, b) => b[0].length - a[0].length);
