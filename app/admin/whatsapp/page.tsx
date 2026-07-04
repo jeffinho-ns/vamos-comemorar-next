@@ -2,6 +2,7 @@
 
 import {
   Fragment,
+  Suspense,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -571,7 +572,7 @@ function fallbackCopyText(value: string): boolean {
   return copied;
 }
 
-export default function AdminWhatsappPage() {
+function AdminWhatsappPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { token, establishments } = useAppContext();
@@ -4335,5 +4336,19 @@ export default function AdminWhatsappPage() {
         </section>
       ) : null}
     </div>
+  );
+}
+
+export default function AdminWhatsappPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+          <p className="text-slate-500">Carregando WhatsApp…</p>
+        </div>
+      }
+    >
+      <AdminWhatsappPageContent />
+    </Suspense>
   );
 }

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { Suspense, useEffect, useRef } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { getGaMeasurementId } from '@/app/config/analytics';
 
@@ -8,7 +8,7 @@ import { getGaMeasurementId } from '@/app/config/analytics';
  * Envia page_view no GA4 a cada navegação client-side (App Router).
  * Sem isso, só a primeira carga conta — o restante do site parece "sem usuários".
  */
-export default function GaRouteTracker() {
+function GaRouteTrackerInner() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const measurementId = getGaMeasurementId();
@@ -34,4 +34,12 @@ export default function GaRouteTracker() {
   }, [pathname, searchParams, measurementId]);
 
   return null;
+}
+
+export default function GaRouteTracker() {
+  return (
+    <Suspense fallback={null}>
+      <GaRouteTrackerInner />
+    </Suspense>
+  );
 }
