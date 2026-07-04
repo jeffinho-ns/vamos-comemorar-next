@@ -126,15 +126,30 @@ export default function TabletCheckInsPage() {
 
   // Flag para evitar múltiplas requisições simultâneas
   const loadingEstabelecimentosRef = useRef(false);
-  const estabelecimentosLoadedRef = useRef(false);
+  const loadedPermissionsSignatureRef = useRef<string | null>(null);
 
   // Carregar estabelecimentos e eventos (apenas uma vez)
   useEffect(() => {
-    // Aguardar o hook carregar as permissões antes de carregar estabelecimentos
     if (establishmentPermissions.isLoading) return;
-    
-    // Evitar carregar múltiplas vezes
-    if (loadingEstabelecimentosRef.current || estabelecimentosLoadedRef.current) return;
+
+    const storedEmail =
+      typeof window !== 'undefined'
+        ? (localStorage.getItem('userEmail') || '').trim().toLowerCase()
+        : '';
+    const permissionIds = establishmentPermissions.permissions
+      .filter((permission) => permission.is_active)
+      .map((permission) => `${permission.establishment_id}:${permission.can_manage_checkins}`)
+      .sort()
+      .join('|');
+    const signature = `${establishmentPermissions.userEmail || storedEmail}:${permissionIds}`;
+
+    // Evitar carregar múltiplas vezes para o mesmo usuário/escopo.
+    if (
+      loadingEstabelecimentosRef.current ||
+      loadedPermissionsSignatureRef.current === signature
+    ) {
+      return;
+    }
 
     const carregarEstabelecimentos = async () => {
       loadingEstabelecimentosRef.current = true;
@@ -214,7 +229,7 @@ export default function TabletCheckInsPage() {
         );
         
         setEstabelecimentos(filteredLista);
-        estabelecimentosLoadedRef.current = true;
+        loadedPermissionsSignatureRef.current = signature;
 
         // Auto-selecionar se restrito a um estabelecimento
         if (establishmentPermissions.isRestrictedToSingleEstablishment() && filteredLista.length > 0) {
@@ -225,14 +240,19 @@ export default function TabletCheckInsPage() {
         }
       } catch (err) {
         console.error('Erro ao carregar estabelecimentos:', err);
-        estabelecimentosLoadedRef.current = true; // Marcar como carregado mesmo com erro para evitar loop
       } finally {
         loadingEstabelecimentosRef.current = false;
       }
     };
 
     carregarEstabelecimentos();
-  }, [establishmentPermissions.isLoading, establishmentPermissions]);
+  }, [
+    establishmentPermissions.isLoading,
+    establishmentPermissions.permissions,
+    establishmentPermissions.userEmail,
+    establishmentPermissions,
+    estabelecimentoSelecionado,
+  ]);
 
   // Função para carregar itens do cardápio para reservas de aniversário
   const loadMenuItemsForBirthdayReservations = useCallback(async (

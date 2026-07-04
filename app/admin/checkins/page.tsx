@@ -68,8 +68,8 @@ export default function CheckInsGeralPage() {
     primaryEstablishment?.nome,
   );
   
-  // Usar ref para evitar chamadas múltiplas
-  const hasLoadedRef = useRef(false);
+  // Evita chamadas duplicadas, mas permite recarregar quando as permissões chegam após o primeiro render.
+  const loadedPermissionsSignatureRef = useRef<string | null>(null);
 
   // Normalizador de nomes para deduplicação (remove acentos, espaços extras e corrige typos conhecidos)
   const normalize = (name: string): string => {
@@ -225,17 +225,36 @@ export default function CheckInsGeralPage() {
     } finally {
       setLoading(false);
     }
-  }, [establishmentPermissions.getFilteredEstablishments, establishmentPermissions.isRestrictedToSingleEstablishment, establishmentPermissions.getDefaultEstablishmentId]);
+  }, [
+    establishmentPermissions.getFilteredEstablishments,
+    establishmentPermissions.isRestrictedToSingleEstablishment,
+    establishmentPermissions.getDefaultEstablishmentId,
+    establishmentPermissions.permissions,
+  ]);
 
   useEffect(() => {
-    // Aguardar o hook carregar as permissões antes de carregar estabelecimentos
-    // Executar apenas uma vez quando as permissões estiverem carregadas
-    if (!establishmentPermissions.isLoading && !hasLoadedRef.current) {
-      hasLoadedRef.current = true;
-      carregarTudo();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [establishmentPermissions.isLoading]);
+    if (establishmentPermissions.isLoading) return;
+
+    const storedEmail =
+      typeof window !== 'undefined'
+        ? (localStorage.getItem('userEmail') || '').trim().toLowerCase()
+        : '';
+    const permissionIds = establishmentPermissions.permissions
+      .filter((permission) => permission.is_active)
+      .map((permission) => `${permission.establishment_id}:${permission.can_manage_checkins}`)
+      .sort()
+      .join('|');
+    const signature = `${establishmentPermissions.userEmail || storedEmail}:${permissionIds}`;
+
+    if (loadedPermissionsSignatureRef.current === signature) return;
+    loadedPermissionsSignatureRef.current = signature;
+    carregarTudo();
+  }, [
+    carregarTudo,
+    establishmentPermissions.isLoading,
+    establishmentPermissions.permissions,
+    establishmentPermissions.userEmail,
+  ]);
 
   // Efeito adicional para garantir seleção quando estabelecimentos forem carregados
   useEffect(() => {
