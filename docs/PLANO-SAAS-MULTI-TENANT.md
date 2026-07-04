@@ -15,9 +15,9 @@
 |-------|-------|
 | Última atualização | 2026-07-03 |
 | Modo atual | **`SAAS_MODE=on`** API · **`NEXT_PUBLIC_SAAS_MODE=on`** Vercel ✅ |
-| Fase em andamento | **Bloco E** — concluído parcial; smoke test formal com 2ª org |
-| Próximo passo | `SAAS_SMOKE_TOKEN` pós-login browser; criar org B demo; auth rotas públicas |
-| Veredito B2B | **~94%** da fundação. Migration 024 ✅ prod. LEGACY_PROFILES removido ✅. |
+| Fase em andamento | **Bloco E** — org B demo + IA sem hardcode id 7 |
+| Próximo passo | `SAAS_SMOKE_TOKEN` pós-login browser; auth rotas públicas; migrar `useUserPermissions` |
+| Veredito B2B | **~96%** da fundação. operationalProfileIds ✅. Config sem senhas hardcoded ✅. |
 
 ### Como retomar no outro PC
 1. `git pull` nos dois repositórios (`vamos-comemorar-next` e `vamos-comemorar-api`).
@@ -34,7 +34,7 @@
 - [~] **Fase 4** — Entitlements + sidebar ✅. `AdminPageGate` + `<Gate>` em ações ✅. Falta: migrar `useUserPermissions` → `useCan` restante.
 - [x] **Fase 5** — Billing manual MVP ✅.
 - [~] **Fase 6** — Superadmin ✅. **Provisionamento operacional completo** ✅ (Bloco A, 2026-07-03). Falta: wizard pós-provisionamento interativo.
-- [~] **Fase 7** — `establishmentRules` + editor superadmin ✅. **LEGACY_PROFILES removido** ✅ (config DB). Falta: IA sem hardcode Highline id 7.
+- [~] **Fase 7** — `establishmentRules` + editor superadmin ✅. **LEGACY_PROFILES removido** ✅. **IA via `operationalProfileIds`** ✅ (warm no boot; sem fallback id 7 no código principal).
 
 Legenda: [x] concluído · [~] parcial · [ ] não iniciado.
 
@@ -59,7 +59,7 @@ Sem SQL manual, você consegue:
 | **A** | Provisionamento operacional | **✅ feito** | `provisionOperationalEstablishment`, place+bar+legacy IDs, área/mesas, FAQ, 5 roles, config generic |
 | **B** | RBAC real | **~90%** | `/api/org/*` equipe; `/admin/equipe`; `requirePermission` reservas ✅ |
 | **D** | Front modular | **~85%** | `AdminPageGate` + `<Gate>` em cardapio/users/promoters/equipe |
-| **E** | Segurança / legado | **~20%** | migration 024 users constraint ✅ (aplicar prod); credenciais DB pendente |
+| **E** | Segurança / legado | **~75%** | migration 024 ✅; DATABASE_URL; LEGACY_PROFILES removido; config sem senhas FTP/DB hardcoded; smoke DB; `provision_org_demo_b.js` |
 | **F** | Mobile + gateway | **opcional** | Agilizaiapp filtro org; Stripe/Asaas |
 
 ### Decisões pendentes (registrar aqui quando decidir)
@@ -89,13 +89,17 @@ Sem SQL manual, você consegue:
 
 ### Smoke test org demo (checklist)
 - [ ] `POST /api/superadmin/organizations` cria org com `legacy_place_id` + `legacy_bar_id`
+- [x] Script `scripts/saas/provision_org_demo_b.js` (alternativa CLI ao POST superadmin)
 - [x] GET `/api/places` lista casas (smoke 2026-07-03)
 - [ ] `/reservar` mostra a casa
 - [ ] `/admin/cardapio` abre para bar da org
 - [ ] Membership recepção vs gerente: sidebar diferente
 - [ ] Org A vs Org B: zero vazamento
-- [x] `GET /api/org/memberships` (account admin) — rota implementada
-- [x] Script `scripts/saas/smoke_test_saas.js` (login + endpoints)
+- [x] Migration 024 users constraint — aplicada prod 2026-07-03
+- [x] Smoke DB: 0 mismatches reservas↔establishments; 0 users órfãos
+- [ ] Smoke API autenticado (`SAAS_SMOKE_TOKEN` do browser)
+- [ ] Org A vs B formal (2 orgs no banco)
+- [x] Org A vs B formal — `grupo-ideia-um` + `org-demo-b` (2026-07-03)
 
 ### Arquivos-chave (Bloco A/B)
 | Arquivo | Função |
@@ -107,7 +111,9 @@ Sem SQL manual, você consegue:
 | `vamos-comemorar-api/migrations/saas/021_rls_cardapio_whatsapp.sql` | RLS cardápio + WhatsApp |
 | `vamos-comemorar-api/migrations/saas/022_add_organization_id_eventos.sql` | coluna org_id em eventos |
 | `vamos-comemorar-api/migrations/saas/023_rls_eventos_listas_users.sql` | RLS eventos + users |
-| `vamos-comemorar-api/scripts/saas/backfill_organization_id_events_users.js` | backfill eventos/listas/users |
+| `vamos-comemorar-api/tenancy/operationalProfileIds.js` | profile → operational id (IA/WhatsApp) |
+| `vamos-comemorar-api/scripts/saas/provision_org_demo_b.js` | org B demo idempotente |
+| `vamos-comemorar-api/scripts/saas/smoke_test_saas.js` | smoke público + DB + API autenticada |
 
 ---
 
@@ -136,6 +142,7 @@ Sem SQL manual, você consegue:
 - 2026-07-03 — **Bloco D (parcial):** `AdminPageGate` no layout admin (proteção por módulo/permissão via entitlements); `middleware.ts` sem `CARDAPIO_ONLY_EMAILS`, `SUPER_ADMIN_EMAILS` nem bypass rooftop por e-mail — superadmin só cookie `isSuperAdmin=1`; sidebar sempre `filterNavByEntitlements` com `NEXT_PUBLIC_SAAS_MODE=on`; novos utils `adminRouteModules`, `adminMiddlewareAccess`, `saasMode`.
 - 2026-07-03 — **Bloco B (reservas):** `reservasPermissionMiddleware` em 10 rotas (restaurant-reservations, large, waitlist, walk-ins, blocks, settings, areas, guest-lists, birthday, reservas legado). Front: `isSuperAdminEmail` → cookie JWT (remove lista hardcoded).
 - 2026-07-03 — **Equipe org-admin:** `/api/org/*` (memberships, roles, establishments) + `/admin/equipe`; `isAccountAdmin` em entitlements; migration 024 users constraint; smoke_test_saas.js; `<Gate>` em cardapio/users/promoters.
+- 2026-07-03 — **Bloco E (continuação):** `operationalProfileIds` (warm no boot) — IA/WhatsApp/Eventos resolvem Highline pelo `establishments.config.profile`, não id 7 fixo; `provision_org_demo_b.js`; config `production/environment/development.js` sem senhas hardcoded; smoke DB estendido (org A vs B + profile highline).
 
 ---
 
