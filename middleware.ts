@@ -101,8 +101,10 @@ export function middleware(request: NextRequest) {
     ? ['promoter', 'promoter-list']
     : [];
 
+  const receptionRoles = ['recepção', 'recepcao', 'atendente'] as const;
+
   const routePermissions: Record<string, string[]> = {
-    '/admin': ['admin', 'gerente', 'recepção', 'recepcao', 'atendente', ...staffPromoterRoles],
+    '/admin': ['admin', 'gerente', ...receptionRoles, ...staffPromoterRoles],
     '/admin/commodities': ['admin'],
     '/admin/enterprise': ['admin'],
     '/admin/gifts': ['admin'],
@@ -110,20 +112,20 @@ export function middleware(request: NextRequest) {
     '/admin/workdays': ['admin', ...staffPromoterRoles],
     '/admin/places': ['admin'],
     '/admin/tables': ['admin'],
-    '/admin/eventos': ['admin', 'gerente', ...staffPromoterRoles],
+    '/admin/eventos': ['admin', 'gerente', ...receptionRoles, ...staffPromoterRoles],
     '/admin/painel-eventos': ['admin', 'gerente', ...staffPromoterRoles],
-    '/admin/cardapio': ['admin', ...staffPromoterRoles, 'recepção', 'recepcao', 'atendente', 'gerente'],
-    '/admin/eventos/dashboard': ['admin', 'gerente', ...staffPromoterRoles, 'recepção', 'recepcao', 'atendente'],
-    '/admin/events': ['admin', ...staffPromoterRoles, 'recepção', 'gerente'],
+    '/admin/cardapio': ['admin', ...staffPromoterRoles, ...receptionRoles, 'gerente'],
+    '/admin/eventos/dashboard': ['admin', 'gerente', ...staffPromoterRoles, ...receptionRoles],
+    '/admin/events': ['admin', ...staffPromoterRoles, ...receptionRoles, 'gerente'],
     '/admin/reservas': ['admin'],
-    '/admin/qrcode': ['admin', ...staffPromoterRoles, 'recepção', 'recepcao', 'atendente', 'gerente'],
-    '/admin/checkins': ['admin', ...staffPromoterRoles, 'recepção', 'recepcao', 'atendente', 'gerente'],
-    '/admin/restaurant-reservations': ['admin', ...staffPromoterRoles, 'recepção', 'gerente'],
-    '/admin/detalhes-operacionais': ['admin', 'recepção', 'gerente'],
-    '/admin/estabelecimentos': ['admin', 'gerente', 'recepção', 'recepcao', 'administrador'],
-    '/admin/guia': ['admin', 'gerente', 'recepção', 'recepcao', 'atendente', ...staffPromoterRoles],
-    '/admin/whatsapp': ['admin', 'gerente', 'recepção', 'recepcao', 'atendente', 'hostess'],
-    '/admin/logs': ['admin', 'gerente', 'recepção', 'recepcao', 'atendente', ...staffPromoterRoles],
+    '/admin/qrcode': ['admin', ...staffPromoterRoles, ...receptionRoles, 'gerente'],
+    '/admin/checkins': ['admin', ...staffPromoterRoles, ...receptionRoles, 'gerente'],
+    '/admin/restaurant-reservations': ['admin', ...staffPromoterRoles, ...receptionRoles, 'gerente'],
+    '/admin/detalhes-operacionais': ['admin', ...receptionRoles, 'gerente'],
+    '/admin/estabelecimentos': ['admin', 'gerente', ...receptionRoles, 'administrador'],
+    '/admin/guia': ['admin', 'gerente', ...receptionRoles, ...staffPromoterRoles],
+    '/admin/whatsapp': ['admin', 'gerente', ...receptionRoles, 'atendente', 'hostess'],
+    '/admin/logs': ['admin', 'gerente', ...receptionRoles, ...staffPromoterRoles],
     '/admin/relatorios-gerador': ['admin'],
   };
 

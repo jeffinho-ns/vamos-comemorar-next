@@ -2,6 +2,11 @@
 
 import { useEffect, useState, ReactNode } from "react";
 import { useRouter } from "next/navigation";
+import {
+  canonicalSessionRole,
+  readSessionRoleSync,
+  rolesMatchForAccess,
+} from "../../utils/adminRole";
 
 type WithPermissionProps = {
   children: ReactNode;
@@ -15,14 +20,7 @@ export function WithPermission({ children, allowedRoles, allowedEmails }: WithPe
   const [checked, setChecked] = useState(false);
 
   useEffect(() => {
-    let role = document.cookie
-      .split("; ")
-      .find((row) => row.startsWith("role="))
-      ?.split("=")[1];
-    if (!role && typeof window !== "undefined") {
-      role = localStorage.getItem("role") || "";
-    }
-    const roleDecoded = role ? (() => { try { return decodeURIComponent(role); } catch { return role; } })() : "";
+    const roleDecoded = readSessionRoleSync();
 
     let userEmail = document.cookie
       .split("; ")
@@ -31,11 +29,21 @@ export function WithPermission({ children, allowedRoles, allowedEmails }: WithPe
     if (!userEmail && typeof window !== "undefined") {
       userEmail = localStorage.getItem("userEmail") || "";
     }
-    const emailDecoded = userEmail ? (() => { try { return decodeURIComponent(userEmail); } catch { return userEmail; } })() : "";
+    const emailDecoded = userEmail
+      ? (() => {
+          try {
+            return decodeURIComponent(userEmail);
+          } catch {
+            return userEmail;
+          }
+        })()
+      : "";
     const emailNormalized = emailDecoded.trim().toLowerCase();
 
-    const roleNorm = (roleDecoded || '').toLowerCase().trim();
-    const roleAllowed = !!roleNorm && allowedRoles.some((r) => (r || '').toLowerCase().trim() === roleNorm);
+    const roleNorm = canonicalSessionRole(roleDecoded);
+    const roleAllowed =
+      !!roleNorm &&
+      allowedRoles.some((r) => rolesMatchForAccess(r, roleNorm));
     const emailAllowed =
       !!emailNormalized &&
       Array.isArray(allowedEmails) &&
