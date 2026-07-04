@@ -23,6 +23,8 @@ import {
 } from 'react-icons/md';
 import { useRouter } from 'next/navigation';
 import { useUserPermissions } from '../../hooks/useUserPermissions';
+import { useCan } from '../../hooks/useCan';
+import { resolveSaasPermissionAccess } from '../../utils/resolveSaasAccess';
 import AuditDiffTable from '../../components/logs/AuditDiffTable';
 import { exportActionLogsPdf } from './exportActionLogsPdf';
 
@@ -72,11 +74,17 @@ interface User {
 export default function ActionLogsPage() {
   const router = useRouter();
   const {
-    canViewActionLogs,
+    canViewActionLogs: legacyCanViewLogs,
     isLoading: permsLoading,
     isSuperAdmin,
     myEstablishmentPermissions,
   } = useUserPermissions();
+  const { canPermission, allowAll } = useCan();
+  const canViewActionLogs = resolveSaasPermissionAccess(
+    'relatorios:read',
+    legacyCanViewLogs,
+    { allowAll, canPermission },
+  );
   const [logs, setLogs] = useState<ActionLog[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
   const [users, setUsers] = useState<User[]>([]);

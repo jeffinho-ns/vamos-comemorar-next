@@ -25,6 +25,7 @@ import {
   deriveEstablishmentRulesFlags,
   fallbackPhoneForEstablishment,
 } from '@/app/utils/establishmentRulesFlags';
+import { optionalAuthHeaders } from '@/app/utils/optionalAuthHeaders';
 
 // Configuração da API
 const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL_LOCAL || 'https://api.agilizaiapp.com.br';
@@ -125,9 +126,7 @@ const detectAndCreateBirthdayGuestList = async (reservationId: number, payload: 
 
       const response = await fetch(endpoint, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: optionalAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify(guestListData),
       });
 
@@ -878,7 +877,7 @@ const handleSubmit = async (e: React.FormEvent) => {
       };
       const response = await fetch(`${API_URL}/api/waitlist`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: optionalAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify(waitlistPayload),
       });
       if (response.ok) {
@@ -1020,9 +1019,7 @@ const handleSubmit = async (e: React.FormEvent) => {
 
     const response = await fetch(endpoint, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: optionalAuthHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify(payload),
     });
 

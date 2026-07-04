@@ -27,6 +27,8 @@ import { getApiUrl } from "@/app/config/api";
 import { getPublicSocketUrl } from "@/lib/publicApiUrl";
 import { useAppContext } from "@/app/context/AppContext";
 import { useUserPermissions } from "@/app/hooks/useUserPermissions";
+import { useCan } from "@/app/hooks/useCan";
+import { resolveSaasModuleAccess } from "@/app/utils/resolveSaasAccess";
 import EstablishmentTrainingPanel from "@/app/components/admin/EstablishmentTrainingPanel";
 import AiConfigPanel from "@/app/components/admin/AiConfigPanel";
 
@@ -577,13 +579,19 @@ export default function AdminWhatsappPage() {
   const { token, establishments } = useAppContext();
   const {
     isLoading: permsLoading,
-    canAccessWhatsapp,
+    canAccessWhatsapp: legacyCanAccessWhatsapp,
     canAccessIaTraining,
     isSuperAdmin,
     isWhatsappHighlineOnlyUser,
     highlineEstablishmentId,
     myEstablishmentPermissions,
   } = useUserPermissions();
+  const { canModule, allowAll } = useCan();
+  const canAccessWhatsapp = resolveSaasModuleAccess(
+    'whatsapp',
+    legacyCanAccessWhatsapp,
+    { allowAll, canModule },
+  );
 
   const [conversations, setConversations] = useState<ConversationRow[]>([]);
   const [inboxListMeta, setInboxListMeta] = useState<InboxListMeta | null>(null);

@@ -32,6 +32,7 @@ import UserMenu from "../components/UserMenu/UserMenu"; // Verifique o caminho
 import AdminPageViewLogger from "../components/AdminPageViewLogger";
 import { useUserPermissions } from "../hooks/useUserPermissions";
 import { useCan } from "../hooks/useCan";
+import { resolveSaasModuleAccess, resolveSaasPermissionAccess } from "../utils/resolveSaasAccess";
 import { useEntitlements } from "../context/EntitlementsContext";
 import { filterNavByEntitlements } from "../config/adminNavModules";
 import AdminPageGate from "../components/AdminPageGate";
@@ -79,13 +80,26 @@ export default function DashboardLayout({
   const pathname = usePathname(); // Hook do Next.js para pegar a rota ativa
   const router = useRouter();
   const {
-    canAccessCardapio,
-    canAccessWhatsapp,
-    canViewActionLogs,
+    canAccessCardapio: legacyCanAccessCardapio,
+    canAccessWhatsapp: legacyCanAccessWhatsapp,
+    canViewActionLogs: legacyCanViewActionLogs,
     isLoading: isLoadingPerms,
   } = useUserPermissions();
   const { role: userRole, userEmail, isLoading } = useAppContext();
-  const { canModule, canPermission, loading: entitlementsLoading } = useCan();
+  const { canModule, canPermission, loading: entitlementsLoading, allowAll } = useCan();
+  const canAccessCardapio = resolveSaasModuleAccess('cardapio', legacyCanAccessCardapio, {
+    allowAll,
+    canModule,
+  });
+  const canAccessWhatsapp = resolveSaasModuleAccess('whatsapp', legacyCanAccessWhatsapp, {
+    allowAll,
+    canModule,
+  });
+  const canViewActionLogs = resolveSaasPermissionAccess(
+    'relatorios:read',
+    legacyCanViewActionLogs,
+    { allowAll, canPermission },
+  );
   const { entitlements } = useEntitlements();
   const [cookieRole, setCookieRole] = useState(() => readSessionRoleSync());
   const [cookieEmail, setCookieEmail] = useState("");
