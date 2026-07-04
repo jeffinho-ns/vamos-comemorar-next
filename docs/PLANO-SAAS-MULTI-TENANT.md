@@ -15,9 +15,9 @@
 |-------|-------|
 | Última atualização | 2026-07-03 |
 | Modo atual | **`SAAS_MODE=on`** API · **`NEXT_PUBLIC_SAAS_MODE=on`** Vercel ✅ |
-| Fase em andamento | **Bloco A → B** — provisionamento operacional completo + RBAC (`role_permissions`) |
-| Próximo passo | Aplicar migration **020** em prod; smoke test org demo; **Bloco C** (RLS cardápio/WhatsApp/promoters API) |
-| Veredito B2B | **~72%** da fundação. Piloto OK. Nova empresa **agora nasce operacional** (place/bar/área/FAQ). Falta isolamento total + front Gate + segurança. |
+| Fase em andamento | **Bloco C** — RLS cardápio + WhatsApp concluído; falta eventos/check-ins/users |
+| Próximo passo | Bloco C restante (eventos, check-ins); Bloco D (`<Gate>`, middleware e-mails); smoke test org demo |
+| Veredito B2B | **~78%** da fundação. Nova org operacional ✅. Cardápio + WhatsApp com RLS + enforce ✅. |
 
 ### Como retomar no outro PC
 1. `git pull` nos dois repositórios (`vamos-comemorar-next` e `vamos-comemorar-api`).
@@ -27,10 +27,10 @@
 
 ### Checklist de fases
 - [~] **Fase 0** — Fundação / segurança. Middleware na raiz ✅. **NÃO feito:** auth rotas públicas; remover credenciais hardcoded; remover listas de e-mail do `middleware.ts`.
-- [~] **Camada de segurança** — feature flags ✅; runner migrations ✅; RLS 13 tabelas ✅.
-- [~] **Fase 1** — Banco / tenant model ✅ migrations 001–007 + 013–015. **NOT NULL** nas 13 tabelas RLS ✅ (019). Falta: `users.organization_id` NOT NULL; whatsapp tables.
-- [~] **Fase 2** — RLS 008–019 (13 tabelas, policies estritas). Falta: cardápio, WhatsApp, eventos, check-ins, users.
-- [~] **Fase 3** — `requireModule` em reservas ✅. **`role_permissions`** seed migration 020 ✅ (código). Falta: plugar `requirePermission` nas rotas; UI org-admin memberships (superadmin tem UI básica).
+- [~] **Camada de segurança** — feature flags ✅; runner migrations ✅; RLS **21 tabelas** ✅.
+- [~] **Fase 1** — Banco / tenant model ✅ migrations 001–007 + 013–015. **NOT NULL** nas 13 tabelas core ✅ (019). Falta: `users.organization_id` NOT NULL; Contract 021 tables.
+- [~] **Fase 2** — RLS **21 tabelas** (008–021): reservas, promoters, **cardápio**, **WhatsApp**, FAQ. Falta: eventos, check-ins, users.
+- [~] **Fase 3** — `role_permissions` ✅ (020). `requirePermission` plugado em **cardapio** e **whatsappAdmin**. Falta: demais rotas; UI org-admin equipe.
 - [~] **Fase 4** — Entitlements + sidebar ✅. `<Gate>` **não usado**. Falta: migrar `useUserPermissions` → `useCan`.
 - [x] **Fase 5** — Billing manual MVP ✅.
 - [~] **Fase 6** — Superadmin ✅. **Provisionamento operacional completo** ✅ (Bloco A, 2026-07-03). Falta: wizard pós-provisionamento interativo.
@@ -57,8 +57,8 @@ Sem SQL manual, você consegue:
 | Bloco | Foco | Status | Entregas-chave |
 |-------|------|--------|----------------|
 | **A** | Provisionamento operacional | **✅ feito** | `provisionOperationalEstablishment`, place+bar+legacy IDs, área/mesas, FAQ, 5 roles, config generic |
-| **B** | RBAC real | **~50%** | migration 020, `rolePermissionMatrix.js`, API memberships superadmin, UI equipe superadmin. Falta: `requirePermission` nas rotas; `/admin/equipe` org-admin |
-| **C** | Isolamento módulos restantes | **pendente** | backfill org_id + RLS + tenantMiddleware: cardápio, WhatsApp, promoters API, eventos, check-ins, users |
+| **B** | RBAC real | **~70%** | migration 020 ✅; memberships API/UI ✅; `requirePermission` cardapio + whatsapp ✅. Falta: demais rotas; `/admin/equipe` |
+| **C** | Isolamento módulos restantes | **~55%** | promoters ✅; cardápio + WhatsApp RLS 021 ✅. Falta: eventos, check-ins, users |
 | **D** | Front modular | **pendente** | `<Gate>` nas páginas; remover e-mails do middleware; wizard onboarding |
 | **E** | Segurança / legado | **pendente** | credenciais DB; unificar IDs canônico↔operacional; NOT NULL users/whatsapp |
 | **F** | Mobile + gateway | **opcional** | Agilizaiapp filtro org; Stripe/Asaas |
@@ -80,8 +80,8 @@ Sem SQL manual, você consegue:
 | Reservas legado (`reservas`) | ✅ | ✅ | ✅ | ~ | ✅ |
 | Promoters | ✅ | ✅ | ✅ (2026-07-03) | ~ | parcial |
 | Check-ins | ❌ | ❌ | ❌ | ❌ | ❌ |
-| Cardápio | ~ | ❌ | ❌ | ❌ | ✅ com Bloco A (bar criado) |
-| WhatsApp / IA | ~NULL | ❌ | ❌ | ❌ | ❌ |
+| Cardápio | ✅ | ✅ | ✅ | ✅ (update/read) | ✅ com Bloco A |
+| WhatsApp / IA | ✅ | ✅ | ✅ | ✅ (update/read) | parcial (escopo tenant; número WA por org pendente) |
 | Eventos admin | ~ | parcial | ✅ | ~ | parcial |
 | Eventos público | ~ | ❌ | ❌ | — | — |
 | Users | nullable | ❌ | — | ~ | parcial |
@@ -103,7 +103,8 @@ Sem SQL manual, você consegue:
 | `vamos-comemorar-api/billing/rolePermissionMatrix.js` | matriz role → permissions |
 | `vamos-comemorar-api/billing/billingService.js` | `provisionOrganization`, memberships |
 | `vamos-comemorar-api/migrations/saas/020_role_permissions_seed.sql` | backfill role_permissions orgs existentes |
-| `vamos-comemorar-next/app/superadmin/organizations/[id]/page.tsx` | UI equipe (memberships) |
+| `vamos-comemorar-api/migrations/saas/021_rls_cardapio_whatsapp.sql` | RLS cardápio + WhatsApp |
+| `vamos-comemorar-api/scripts/saas/backfill_organization_id_whatsapp.js` | backfill org_id WhatsApp/cardápio aux |
 
 ---
 
@@ -128,7 +129,7 @@ Sem SQL manual, você consegue:
 - 2026-07-03 — **Fase 7 front rules:** `useEstablishmentRules` + `deriveEstablishmentRulesFlags` aplicados em reservas admin (`restaurant-reservations`, `ReservationModal`, `ReservationCalendar`, `WeeklyCalendar`, `WaitlistModal`, `AllocateTableModal`), check-ins (`eventos/[id]/check-ins`, `/admin/checkins`, tablet). Fallback por nome mantido quando API não retorna profile.
 - 2026-07-03 — **Fase 7 ReservationForm + places/bars:** formulário público `/reservar` migrado para rules; API `establishmentLegacyAdapter` + migration 013 (views compat) + GET `/api/places` e `/api/bars` leem de `establishments` quando `ESTABLISHMENTS_READ_SOURCE=establishments`.
 - 2026-07-03 — **RLS 017–019:** lote 4 (reservas, promoters, promoter_eventos/convidados); policies estritas sem `organization_id IS NULL`; Contract NOT NULL nas 13 tabelas RLS. checkins ignorado (tabela inexistente).
-- 2026-07-03 — **Roadmap 100%** documentado neste arquivo. **Bloco A ✅:** `provisioningOperational.js` — provisionamento cria place+bar+legacy IDs+área+4 mesas+FAQ+config generic+5 roles. **Bloco B ~50%:** migration 020 `role_permissions`, `rolePermissionMatrix.js`, API `GET/POST .../memberships`, UI equipe em `/superadmin/organizations/[id]`. Próximo: Bloco C (RLS cardápio/WhatsApp/promoters API).
+- 2026-07-03 — **Bloco C (cardápio + WhatsApp):** backfill org_id (`backfill_organization_id_whatsapp.js`, 0 órfãos); RLS 021 (8 tabelas, total **21 RLS**); `tenantMiddleware` + `requireModule` + `requirePermission` em `cardapio.js` e `whatsappAdmin.js`; `loadUserScope` WhatsApp usa `tenantScope` em SAAS_MODE.
 
 ---
 
