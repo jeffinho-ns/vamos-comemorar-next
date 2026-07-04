@@ -24,13 +24,14 @@ export function middleware(request: NextRequest) {
   const url = request.nextUrl.pathname;
   const isEventCheckinsPath = /^\/admin\/eventos\/[^/]+\/check-ins(\/.*)?$/.test(url);
 
+  // Fluxo de check-ins usa Authorization via localStorage nas chamadas à API.
+  // Não bloquear no middleware por cookie/role desatualizado, senão usuários com
+  // sessão válida no client são derrubados para /login ao abrir o evento.
+  if (isEventCheckinsPath) {
+    return NextResponse.next();
+  }
+
   if (!token || !roleRaw) {
-    // Check-ins de evento usa token do localStorage nas chamadas à API. Em algumas
-    // sessões antigas o cookie não está sincronizado e o middleware derruba para
-    // /login mesmo com localStorage válido; a API segue protegendo os dados.
-    if (isEventCheckinsPath) {
-      return NextResponse.next();
-    }
     return NextResponse.redirect(new URL('/login', request.url));
   }
 
