@@ -23,6 +23,8 @@ import {
 import { WithPermission } from '../../components/WithPermission/WithPermission';
 import { useEstablishmentPermissions } from '@/app/hooks/useEstablishmentPermissions';
 import { useEstablishmentRules } from '@/app/hooks/useEstablishmentRules';
+import { useSaasAccess } from '@/app/hooks/useSaasAccess';
+import { useRequireSaasModule } from '@/app/hooks/useRequireSaasModule';
 import {
   eventBelongsToSelectedCheckinVenue,
   filterSitioIlhaOutOfCheckins,
@@ -50,6 +52,8 @@ interface EventoLista {
 export default function CheckInsGeralPage() {
   const router = useRouter();
   const establishmentPermissions = useEstablishmentPermissions();
+  const { canAccessCheckin } = useSaasAccess();
+  const { guardLoading } = useRequireSaasModule(canAccessCheckin);
 
   // Estados
   const [loading, setLoading] = useState(false);
@@ -352,6 +356,14 @@ export default function CheckInsGeralPage() {
     const rooftopRoles = ['admin', 'atendente', 'recepcao', 'recepção'];
     return rooftopRoles.includes(role) || onlyRooftop;
   }, [estabelecimentos, primaryEstablishmentFlags.isRooftop]);
+
+  if (guardLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 flex items-center justify-center">
+        <p className="text-gray-400">Carregando permissões…</p>
+      </div>
+    );
+  }
 
   return (
     <WithPermission allowedRoles={["admin", "gerente", "hostess", "promoter", "recepção", "recepcao", "atendente"]}>

@@ -43,6 +43,19 @@ export const NAV_MODULE_BY_HREF: Record<string, NavModuleMeta> = {
     module: "relatorios",
     requiredPermission: "relatorios:read",
   },
+  "/admin/permissions": {
+    module: "reservas",
+    requiredPermission: "reservas:update",
+  },
+  "/admin/executive-events": { module: "eventos", requiredPermission: "eventos:read" },
+  "/admin/eventos/configurar": {
+    module: "eventos",
+    requiredPermission: "eventos:update",
+  },
+  "/admin/eventos/aniversarios": { module: "eventos", requiredPermission: "eventos:read" },
+  "/admin/eventos/hostess": { module: "eventos", requiredPermission: "eventos:read" },
+  "/admin/checkins/tablet": { module: "checkin", requiredPermission: "checkin:update" },
+  "/admin/contausuariopage": { module: "reservas" },
 };
 
 export function filterNavByEntitlements<T extends { href: string }>(

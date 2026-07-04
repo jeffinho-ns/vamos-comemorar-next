@@ -32,9 +32,13 @@ export function useSaasAccess() {
     canAccessWhatsapp: resolveModule("whatsapp", legacy.canAccessWhatsapp),
     canAccessEventos: resolveModule("eventos", legacy.canAccessAdmin),
     canAccessReservas: resolveModule("reservas", legacy.canAccessAdmin),
+    canAccessCheckin: resolveModule("checkin", legacy.canAccessAdmin),
     canViewActionLogs: resolvePermission("relatorios:read", legacy.canViewActionLogs),
     canDeleteUsers: resolvePermission("reservas:delete", legacy.canDeleteUsers),
     canEditCardapio: resolvePermission("cardapio:update", legacy.canAccessCardapio),
     canManageReservas: resolvePermission("reservas:update", legacy.canAccessAdmin),
+    canReadReservas: resolvePermission("reservas:read", legacy.canAccessAdmin),
+    canManageCheckins: resolvePermission("checkin:update", legacy.canAccessAdmin),
+    canManageEventos: resolvePermission("eventos:update", legacy.canAccessAdmin),
   };
 }

@@ -22,6 +22,9 @@ import PromoterEventosModal from '../../../components/PromoterEventosModal';
 import { useEstablishmentPermissions } from '@/app/hooks/useEstablishmentPermissions';
 import { useAppContext } from '@/app/context/AppContext';
 import { filterEstablishmentListForUser } from '@/app/utils/establishmentAccessRules';
+import { useSaasAccess } from '@/app/hooks/useSaasAccess';
+import { useRequireSaasModule } from '@/app/hooks/useRequireSaasModule';
+import Gate from '@/app/components/Gate';
 
 interface Establishment {
   id: number;
@@ -73,6 +76,8 @@ export default function EventosDashboard() {
   const { userEmail } = useAppContext();
   const router = useRouter();
   const establishmentPermissions = useEstablishmentPermissions();
+  const { canAccessEventos } = useSaasAccess();
+  const { guardLoading } = useRequireSaasModule(canAccessEventos);
   const [loading, setLoading] = useState(true);
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
   const [activeTab, setActiveTab] = useState<TabType>('dashboard');
@@ -305,6 +310,14 @@ export default function EventosDashboard() {
     fetchDashboardData();
   };
 
+  if (guardLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gray-50">
+        <p className="text-gray-500">Carregando permissões…</p>
+      </div>
+    );
+  }
+
   if (loading && !establishments.length) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gray-50">
@@ -390,13 +403,15 @@ export default function EventosDashboard() {
               <MdCake size={20} />
               Aniversários
             </button>
-            <button
-              onClick={() => router.push('/admin/eventos/configurar')}
-              className="flex items-center gap-2 px-6 py-4 font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-50 transition-colors whitespace-nowrap"
-            >
-              <MdSettings size={20} />
-              Configurar Eventos
-            </button>
+            <Gate permission="eventos:update">
+              <button
+                onClick={() => router.push('/admin/eventos/configurar')}
+                className="flex items-center gap-2 px-6 py-4 font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-50 transition-colors whitespace-nowrap"
+              >
+                <MdSettings size={20} />
+                Configurar Eventos
+              </button>
+            </Gate>
           </nav>
         </div>
       </div>
@@ -490,13 +505,15 @@ export default function EventosDashboard() {
                   }
                 </p>
                 <div className="flex gap-3">
-                  <button
-                    onClick={() => router.push('/admin/eventos/configurar')}
-                    className="px-6 py-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg transition-colors flex items-center gap-2"
-                  >
-                    <MdSettings size={20} />
-                    Ver Todos os Eventos
-                  </button>
+                  <Gate permission="eventos:update">
+                    <button
+                      onClick={() => router.push('/admin/eventos/configurar')}
+                      className="px-6 py-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg transition-colors flex items-center gap-2"
+                    >
+                      <MdSettings size={20} />
+                      Ver Todos os Eventos
+                    </button>
+                  </Gate>
                   {selectedEstablishment && (
                     <button
                       onClick={() => setSelectedEstablishment(null)}

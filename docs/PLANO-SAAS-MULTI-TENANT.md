@@ -15,26 +15,27 @@
 |-------|-------|
 | Última atualização | 2026-07-03 |
 | Modo atual | **`SAAS_MODE=on`** API · **`NEXT_PUBLIC_SAAS_MODE=on`** Vercel ✅ |
-| Fase em andamento | **Fase 4** — checklist manual `/reservar` org B |
-| Próximo passo | Deploy API (establishmentIds entitlements) + build Flutter; checklist visual sidebar |
-| Veredito B2B | **~99%** — smoke 24/24; Render estável; Bloco F Flutter implementado |
+| Fase em andamento | **Fase 4** — Gate/useSaasAccess nas páginas core; checklist manual UI pendente |
+| Próximo passo | Checklist manual UI (recepção vs gerente); Gate em galeria/permissions/reservas legado |
+| Veredito B2B | **~93%** — núcleo prod OK; gaps em RBAC fino, rotas legadas, hardcodes, front/Flutter parcial |
+| Commits recentes | API `66e3f28` · Flutter `90b66ed` · Next doc `ef76450` (pushados) |
 
 ### Como retomar no outro PC
-1. `git pull` nos dois repositórios (`vamos-comemorar-next` e `vamos-comemorar-api`).
-2. Leia **STATUS** e **ROADMAP PARA 100%** (seção abaixo).
-3. Consulte **Matriz por módulo** para saber o que falta em cada funcionalidade.
+1. `git pull` nos **três** repositórios (`vamos-comemorar-next`, `vamos-comemorar-api`, `agilizaiapp`).
+2. Leia **RAIO-X ATUAL** e **FECHAMENTO FASE A FASE** (ordem de execução para 100%).
+3. Consulte **Matriz por módulo** e **Backlog P1–P5**.
 4. Veja o **Log de progresso** — última linha = sessão mais recente.
 
 ### Checklist de fases
-- [~] **Fase 0** — Middleware ✅; **DATABASE_URL** sem fallback hardcoded ✅; **optionalAuth** rotas reservas/eventos ✅; front `/reservar` envia token se logado ✅.
-- [~] **Camada de segurança** — feature flags ✅; runner migrations ✅; RLS **21 tabelas** ✅.
-- [~] **Fase 1** — Banco / tenant model ✅ migrations 001–007 + 013–015. **NOT NULL** nas 13 tabelas core ✅ (019). Falta: `users.organization_id` NOT NULL; Contract 021 tables.
-- [~] **Fase 2** — RLS **25 tabelas** (008–023): reservas, promoters, cardápio, WhatsApp, **eventos, listas, users**. Check-ins via `guests` RLS + enforce rotas.
-- [~] **Fase 3** — `requirePermission` em cardapio, whatsapp, eventos, checkin, reservas ✅. `/admin/equipe` ✅.
-- [~] **Fase 4** — Entitlements + sidebar ✅. `AdminPageGate` + `<Gate>` ✅. **`useSaasAccess`** em layout/cardapio/users/promoters/logs/whatsapp/guia/workdays ✅.
-- [x] **Fase 5** — Billing manual MVP ✅.
-- [~] **Fase 6** — Superadmin ✅. **Provisionamento operacional completo** ✅ (Bloco A, 2026-07-03). Falta: wizard pós-provisionamento interativo.
-- [~] **Fase 7** — `establishmentRules` + editor superadmin ✅. **LEGACY_PROFILES removido** ✅. **IA via `operationalProfileIds`** ✅ (warm no boot; sem fallback id 7 no código principal).
+- [~] **Fase 0** (~95%) — Middleware ✅; DATABASE_URL ✅; optionalAuth reservas/eventos ✅; `/reservar` envia token se logado ✅. Falta: mapear rotas públicas restantes.
+- [x] **Camada de segurança** — feature flags ✅; runner migrations ✅; RLS **25 tabelas** ✅ (008–023).
+- [~] **Fase 1** (~95%) — migrations **001–024** ✅; NOT NULL 13 tabelas core (019) ✅; users constraint (024) ✅; RLS cardápio/WhatsApp (021) ✅. Falta: **places/bars → views** sobre `establishments` (passo 4–5).
+- [~] **Fase 2** (~90%) — RLS 25 tabelas ✅; `tenantMiddleware` em 19 routers ✅. Falta: ~30 rotas legadas sem tenancy (ver RAIO-X § rotas).
+- [~] **Fase 3** (~85%) — `requirePermission` em cardápio, whatsapp, eventos, checkin, reservas ✅. Falta: **promoters** (`requirePermission`); rotas sensíveis sem tenant.
+- [~] **Fase 4** (~85%) — Entitlements + sidebar ✅; `AdminPageGate` ✅; `useSaasAccess` + `useRequireSaasModule` em reservas/checkins/eventos ✅; `<Gate>` em listas (checkin) + eventos configurar ✅. Falta: galeria/permissions/reservas legado; **checklist manual UI**.
+- [x] **Fase 5** — Billing manual MVP ✅ (gateway Stripe/Asaas = fase posterior).
+- [~] **Fase 6** (~90%) — Superadmin ✅; provisionamento operacional ✅ (Bloco A). Falta: wizard pós-provisionamento interativo.
+- [~] **Fase 7** (~75%) — `establishmentRules` + editor superadmin ✅; `operationalProfileIds` ✅. Falta: hardcodes e-mail/ID residuais (Next, API, IA).
 
 Legenda: [x] concluído · [~] parcial · [ ] não iniciado.
 
@@ -42,25 +43,27 @@ Legenda: [x] concluído · [~] parcial · [ ] não iniciado.
 
 ## ROADMAP PARA 100% (executável)
 
-### Definição de “100% fechado”
-Sem SQL manual, você consegue:
-1. Superadmin cria org → casa aparece em `/api/places`, `/reservar`, `/admin/cardapio`
-2. Account Admin convida usuários com roles (Gerente, Recepção, Promoter…)
-3. Cada role vê só o permitido (sidebar + API + RLS)
-4. Org A nunca vê dados da Org B (smoke test formal)
-5. WhatsApp/IA, check-ins, promoters, eventos scoped por tenant
-6. Zero listas de e-mail / IDs hardcoded no middleware e IA
-7. App Flutter lista só casas da org (opcional / Bloco F)
+### Definição de “100% fechado” — status atual
+
+| # | Critério | Status |
+|---|----------|--------|
+| 1 | Superadmin cria org → casa em `/api/places`, `/reservar`, `/admin/cardapio` | **Parcial** — CLI `provision_org_demo_b.js` ✅; POST superadmin não validado; `/reservar` org B manual pendente |
+| 2 | Account Admin convida usuários com roles | **✅** — `/api/org/*` + `/admin/equipe` |
+| 3 | Cada role vê só o permitido (sidebar + API + RLS) | **Parcial** — reservas ✅; promoters sem RBAC fino; ~30 rotas sem tenant |
+| 4 | Org A nunca vê dados da Org B | **✅ API** — smoke formal; **UI manual** pendente |
+| 5 | WhatsApp/IA, check-ins, promoters, eventos scoped | **Parcial** — RLS ✅; número WA por org ❌; promoters RBAC ~ |
+| 6 | Zero listas de e-mail / IDs hardcoded | **❌** — ver RAIO-X § hardcodes |
+| 7 | App Flutter lista só casas da org | **Parcial** — places ✅; cardápio/eventos/reservas ❌ |
 
 ### Blocos (ordem de execução)
 
-| Bloco | Foco | Status | Entregas-chave |
-|-------|------|--------|----------------|
-| **A** | Provisionamento operacional | **✅ feito** | `provisionOperationalEstablishment`, place+bar+legacy IDs, área/mesas, FAQ, 5 roles, config generic |
-| **B** | RBAC real | **~90%** | `/api/org/*` equipe; `/admin/equipe`; `requirePermission` reservas ✅ |
-| **D** | Front modular | **~85%** | `AdminPageGate` + `<Gate>` em cardapio/users/promoters/equipe |
-| **E** | Segurança / legado | **~75%** | migration 024 ✅; DATABASE_URL; LEGACY_PROFILES removido; config sem senhas FTP/DB hardcoded; smoke DB; `provision_org_demo_b.js` |
-| **F** | Mobile + gateway | **~done** | Agilizaiapp filtra places por `establishmentIds` (entitlements); Stripe/Asaas pendente |
+| Bloco | Foco | Status | Entregas-chave / lacunas |
+|-------|------|--------|--------------------------|
+| **A** | Provisionamento operacional | **✅ feito** | `provisionOperationalEstablishment`, place+bar+legacy IDs, área/mesas, FAQ, 5 roles |
+| **B** | RBAC real | **~85%** | Reservas ✅; `/api/org/*` ✅. Falta: `requirePermission` em **promoters** |
+| **D** | Front modular | **~80%** | `AdminPageGate` + `<Gate>` em 4 páginas; `useSaasAccess` em 8. Falta: ~30 páginas admin |
+| **E** | Segurança / legado | **~70%** | 024 ✅; smoke DB ✅. Falta: hardcodes; places/bars → views |
+| **F** | Mobile + gateway | **~40% app** | Places filtro org ✅. Falta: MenuService/eventos/reservas; Stripe/Asaas |
 
 ### Decisões pendentes (registrar aqui quando decidir)
 | # | Decisão | Opções | Escolha atual |
@@ -68,38 +71,166 @@ Sem SQL manual, você consegue:
 | 1 | `memberships.establishment_id` | canônico (traduz no loadUserScope) vs operacional | **canônico** (já implementado tradução) |
 | 2 | UEP legado | deprecar vs conviver | **conviver** até memberships populado |
 | 3 | Check-ins tenant | nova coluna/tabela vs amarrar em guest_lists | **pendente** |
-| 4 | App Flutter no 100% | sim vs fase posterior | **sim** — Bloco F (place_service + entitlements) |
+| 4 | App Flutter escopo completo | places only vs todos os módulos | **places done** — cardápio/eventos/reservas pendente |
+| 5 | Número WhatsApp por org | `whatsapp_phone_number_id` por establishment | **pendente** |
+| 6 | Entitlements Flutter fail-open | fail-open vs fail-closed em erro HTTP | **fail-open** (revisar) |
 
-### Matriz por módulo (prontidão B2B)
+### Matriz por módulo (prontidão B2B — atualizada)
 
 | Módulo | org_id | RLS | tenantMiddleware | RBAC fino | Nova org opera? |
 |--------|--------|-----|------------------|-----------|-----------------|
-| Reservas (restaurant-reservations, waitlist, walk-ins, large, birthday, blocks) | ✅ | ✅ | ✅ | ~ | ✅ com Bloco A |
+| Reservas (restaurant-reservations, waitlist, walk-ins, large, birthday, blocks) | ✅ | ✅ | ✅ | ✅ | ✅ |
 | Guest lists / guests | ✅ | ✅ | ✅ | ~ | ✅ |
 | Reservas legado (`reservas`) | ✅ | ✅ | ✅ | ~ | ✅ |
-| Promoters | ✅ | ✅ | ✅ (2026-07-03) | ~ | parcial |
-| Check-ins | via guests ✅ | ✅ | ✅ | ✅ (update) | ✅ (guest_lists RLS) |
-| Cardápio | ✅ | ✅ | ✅ | ✅ (update/read) | ✅ com Bloco A |
-| WhatsApp / IA | ✅ | ✅ | ✅ | ✅ (update/read) | parcial (escopo tenant; número WA por org pendente) |
+| Promoters | ✅ | ✅ | ✅ | **❌** | parcial |
+| Check-ins | via guests ✅ | ✅ | ✅ | ✅ | ✅ |
+| Cardápio | ✅ | ✅ | ✅ | ✅ | ✅ |
+| WhatsApp / IA | ✅ | ✅ | ✅ | ✅ | parcial (nº WA/org pendente) |
 | Eventos admin | ✅ | ✅ | ✅ | ✅ | ✅ |
 | Eventos público (`/api/events`) | ✅ | ✅ | ✅ | parcial | ✅ |
-| Users | ✅ backfill | ✅ | — | ~ | parcial |
+| Users | ✅ | ✅ | parcial | ~ | ✅ (POST com org_id + RLS) |
 | Superadmin / billing | ✅ | — | — | — | ✅ |
-| App Flutter | — | — | — | — | ✅ Bloco F (filtro org) |
+| App Flutter | client | — | — | — | **places only** |
 
 ### Smoke test org demo (checklist)
+
+**API / DB**
 - [ ] `POST /api/superadmin/organizations` cria org com `legacy_place_id` + `legacy_bar_id`
-- [x] Script `scripts/saas/provision_org_demo_b.js` (alternativa CLI ao POST superadmin)
-- [x] GET `/api/places` lista casas (smoke 2026-07-03)
-- [ ] `/reservar` mostra a casa
-- [ ] `/admin/cardapio` abre para bar da org
-- [ ] Membership recepção vs gerente: sidebar diferente
-- [ ] Org A vs Org B: zero vazamento
-- [x] Migration 024 users constraint — aplicada prod 2026-07-03
+- [x] Script `scripts/saas/provision_org_demo_b.js` (alternativa CLI)
+- [x] GET `/api/places` lista casas
+- [x] Org A vs B formal — `grupo-ideia-um` + `org-demo-b` (API)
+- [x] Org A vs B isolamento API — smoke demo B sem Highline (est_id=7)
+- [x] Migration 024 users constraint — prod 2026-07-03
 - [x] Smoke DB: 0 mismatches reservas↔establishments; 0 users órfãos
-- [x] Smoke API autenticado (`smoke_diagnostic_full.js` 24/24 — 2026-07-03)
-- [ ] Org A vs B formal (2 orgs no banco)
-- [x] Org A vs B formal — `grupo-ideia-um` + `org-demo-b` (2026-07-03)
+- [x] Smoke API autenticado — `smoke_diagnostic_full.js` 24/24 (2026-07-03)
+- [x] Flutter places (simulado) — filtro org demo B pós-deploy `66e3f28`
+
+**UI manual (Fase 4 — pendente)**
+- [ ] `/reservar` mostra casa org B (login demo B ou anônimo)
+- [ ] `/admin/cardapio` abre para bar da org B
+- [ ] Sidebar recepção vs gerente visualmente diferente
+- [ ] Org A vs B: zero vazamento no browser (conta demo B)
+
+---
+
+## RAIO-X ATUAL (2026-07-03)
+
+### Camadas — resumo
+
+| Camada | % | Evidência |
+|--------|---|-----------|
+| Banco / tenant model | ~95% | migrations 001–024; org piloto + org-demo-b |
+| RLS Postgres | ~95% | 25 tabelas; smoke DB 0 mismatches |
+| API enforce | ~85% | SAAS_MODE=on; 19 routers com tenantMiddleware |
+| Entitlements | ✅ | `/api/me/entitlements` + `establishmentIds` |
+| Front Next admin | ~80% | sidebar; AdminPageGate; useSaasAccess 8 páginas |
+| Superadmin / billing | ✅ MVP | `/superadmin`, faturas manuais |
+| Flutter | ~40% SaaS | places filtradas; cardápio/eventos/reservas expostos |
+| Produção | ✅ | Render estável; commits pushados |
+
+### Rotas API **sem** `tenantMiddleware` (gap Fase 2)
+
+| Mount | Arquivo | Risco |
+|-------|---------|-------|
+| `/api/places`, `/api/bars` | `places.js`, `bars.js` | Lista pública; filtro org só no client Flutter |
+| `/api/restaurant-tables` | `restaurantTables.js` | Mesas sem escopo |
+| `/api/gift-rules` | `giftRules.js` | Brindes/promoters |
+| `/api/establishment-permissions` | `establishmentPermissions.js` | UEP legado |
+| `/api/rooftop` | `rooftopConduction.js` | Fluxo Rooftop específico |
+| `/api/admin/*` (FAQ, IA) | `establishmentFaqsAdmin.js`, `aiAssistant*.js` | Admin sem tenant |
+| `/api/v1/admin-dashboard` | `adminDashboard.js` | Agregado global |
+| `/api/executive-events` | `executiveEvents.js` | Eventos executivos |
+| `/api/users` | `users.js` | RLS pontual no INSERT; sem tenant gate global |
+
+**Com tenancy (19 routers):** reservas, waitlist, walk-ins, large, birthday, blocks, areas, settings, guest-lists, checkin, events, eventos, cardapio, whatsapp, promoters, orgTeam, reservas legado.
+
+### RBAC fino — gap Fase 3
+
+| Router | Tem | Falta |
+|--------|-----|-------|
+| Reservas (10 rotas) | `reservasPermissionMiddleware` | — |
+| Promoters | `requireModule('promoters')` | **`requirePermission`** |
+| Cardápio, WhatsApp, Eventos, Check-in | `requirePermission` | — |
+
+### Hardcodes residuais (gap Fase 7 / Bloco E)
+
+**API:** `routes/users.js` (PROMOTER_ONLY_EMAILS, GERENTE_GERAL_EMAILS); `config/superAdmins.js`; `config/whatsappHighlineAccess.js`; `defaultWeeklySchedule.js` (IDs 1,4,7,8,9,10); `PromptBuilder.js` / `AgentPromptBuilder.js` (`id === 7`).
+
+**Next:** `app/config/promoter-bars.ts`; `app/utils/establishmentAccessRules.ts`; `app/config/establishmentIds.ts`; `app/admin/reservas/page.tsx` e `galeria/page.tsx` (SUPER_ADMIN_EMAILS).
+
+**Nota:** `middleware.ts` raiz já sem listas de e-mail (2026-07-03).
+
+### Front Next — gap Fase 4
+
+| Mecanismo | Cobertura |
+|-----------|-----------|
+| `useSaasAccess` | layout, cardapio, users, promoters, logs, whatsapp, guia, workdays (8) |
+| `<Gate>` | cardapio, users, promoters, equipe (4) |
+| `AdminPageGate` | layout — rotas fora de `NAV_MODULE_BY_HREF` são **fail-open** |
+
+### Flutter — gap Bloco F
+
+| Área | Arquivo | Status |
+|------|---------|--------|
+| Places | `place_service.dart` | ✅ filtro entitlements |
+| Cardápio | `menu_service.dart` | ❌ `GET /bars` sem filtro org |
+| Eventos | `event_service.dart` | ❌ sem filtro tenant |
+| Reservas | `reservation_service.dart` | ❌ sem validação escopo client |
+
+---
+
+## FECHAMENTO FASE A FASE (ordem para 100%)
+
+Marque `[x]` conforme fechar cada fase nas próximas sessões.
+
+### Fase 4 → 100% (**em andamento** — ~1–2 dias)
+- [x] `useSaasAccess` + `useRequireSaasModule` em restaurant-reservations, checkins, eventos/dashboard, eventos/listas
+- [x] `<Gate>` check-in em listas; configurar eventos no dashboard
+- [x] Rotas admin extras em `adminNavModules.ts` (permissions, executive-events, configurar, tablet…)
+- [ ] Checklist UI: `/reservar` org B, `/admin/cardapio` org B, sidebar recepção vs gerente
+- [ ] `<Gate>` / `useSaasAccess` em: reservas legado, galeria, permissions, gifts
+- [ ] Build/release Flutter `90b66ed` + teste login demo B (só Bar Demo B)
+
+### Fase 3 → 100% (~3–5 dias)
+- [ ] `requirePermission` em `promotersAdvanced.js` e `promoterEventos.js`
+- [ ] `tenantMiddleware` + `requireModule` em: gift-rules, restaurant-tables, FAQ/IA admin
+- [ ] GET `/api/places` com filtro server-side quando autenticado (optionalAuth)
+
+### Fase 2 → 100% (~1 semana)
+- [ ] Plugar tenancy nas rotas restantes (tabela RAIO-X)
+- [ ] Validar RLS + tenantMiddleware juntos em staging por rota
+
+### Fase 7 → 100% (~1–2 semanas)
+- [ ] Migrar `promoter-bars.ts` + `establishmentAccessRules.ts` → entitlements
+- [ ] Remover listas e-mail de `users.js`; superadmin só `is_super_admin`
+- [ ] IA via `operationalProfileIds` + `establishmentRules` (não `id === 7`)
+
+### Fase 1 → 100% (baixa urgência)
+- [ ] Confirmar migration 021 aplicada prod
+- [ ] places/bars como **views** sobre `establishments`
+
+### Fase 6 → 100% (produto)
+- [ ] Wizard pós-provisionamento interativo no `/superadmin`
+
+### Bloco F Flutter → 100%
+- [ ] MenuService, EventService, ReservationService com escopo tenant
+- [ ] Entitlements fail-closed no app
+- [ ] Stripe/Asaas (fase posterior)
+
+---
+
+## BACKLOG PRIORIZADO (P1–P5)
+
+| Prioridade | Itens | Estimativa |
+|------------|-------|------------|
+| **P1** | Checklist manual UI; smoke pós-deploy; build Flutter | 1–2 dias |
+| **P2** | Promoters RBAC; tenancy rotas sensíveis; filtro server-side places | 3–5 dias |
+| **P3** | Hardcodes → memberships; IA sem id=7; places/bars views | 1–2 sem |
+| **P4** | Gate front completo; Flutter módulos restantes | 1 sem |
+| **P5** | Wizard onboarding; gateway pagamento; decisão check-ins | 2–4 sem |
+
+**100% B2B operacional (sem gateway):** P1–P4 · **~2–3 semanas**  
+**100% produto SaaS comercial:** + P5 · **+2–4 semanas**
 
 ### Arquivos-chave (Bloco A/B)
 | Arquivo | Função |
@@ -113,6 +244,7 @@ Sem SQL manual, você consegue:
 | `vamos-comemorar-api/migrations/saas/023_rls_eventos_listas_users.sql` | RLS eventos + users |
 | `vamos-comemorar-api/tenancy/operationalProfileIds.js` | profile → operational id (IA/WhatsApp) |
 | `vamos-comemorar-api/scripts/saas/provision_org_demo_b.js` | org B demo idempotente |
+| `vamos-comemorar-api/scripts/saas/smoke_diagnostic_full.js` | smoke autenticado 24 checks + simulação Flutter |
 | `vamos-comemorar-api/scripts/saas/smoke_test_saas.js` | smoke público + DB + API autenticada |
 
 ---
@@ -143,6 +275,7 @@ Sem SQL manual, você consegue:
 - 2026-07-03 — **Bloco B (reservas):** `reservasPermissionMiddleware` em 10 rotas (restaurant-reservations, large, waitlist, walk-ins, blocks, settings, areas, guest-lists, birthday, reservas legado). Front: `isSuperAdminEmail` → cookie JWT (remove lista hardcoded).
 - 2026-07-03 — **Equipe org-admin:** `/api/org/*` (memberships, roles, establishments) + `/admin/equipe`; `isAccountAdmin` em entitlements; migration 024 users constraint; smoke_test_saas.js; `<Gate>` em cardapio/users/promoters.
 - 2026-07-03 — **Render estável + Bloco F:** fix `walkIns.js` (`wi.establishment_id`); POST `/api/users` com `organization_id` + RLS; smoke **24/24**; Flutter `PlaceService` filtra por `/api/me/entitlements` (`establishmentIds`); `organization_id` em GET `/api/places`.
+- 2026-07-03 — **Fase 4 (parcial):** `useRequireSaasModule`; useSaasAccess em restaurant-reservations, checkins, eventos/dashboard, eventos/listas; Gate check-in + configurar eventos; adminNavModules rotas extras.
 
 ---
 
@@ -152,14 +285,22 @@ tenancy por baixo do que já existe e migrar módulo a módulo. O grupo atual (H
 Justino, Pracinha, Oh Fregues, Rooftop, Sítio Ilha) vira a primeira `organization` via
 backfill. O sistema atual permanece em produção durante toda a migração.
 
-## Diagnóstico-chave (gargalos a resolver)
-- Banco único, pool único, isolamento apenas lógico (`config/database.js`).
-- Modelo dual de casa: `places` (operacional) vs `bars` (cardápio), com IDs divergentes e aliases manuais.
-- Hardcodes por ID: `defaultWeeklySchedule.js` (mapa de nomes), Rooftop `=== 9`, Pracinha `=== 8`, 2º giro bistrô, data `2026-04-20`, áreas por `ILIKE 'Reserva Rooftop - %'`, subáreas Highline em JS.
-- Acesso por listas de e-mails no `middleware.ts` (raiz) e `app/admin/layout.tsx`.
-- **SEGURANÇA:** middleware agora na raiz (`middleware.ts`, 2026-07-02). `restaurant-reservations` e `events` sem `authenticateToken`. Credenciais com fallback no repo.
-- JWT só carrega `id, email, role` (sem tenant). Isolamento depende de query param confiável do cliente.
-- Padrão seguro JÁ existe em `routes/whatsappAdmin.js` (`loadUserScope` / `canAccessEstablishment`) — generalizar.
+## Diagnóstico-chave (gargalos — status jul/2026)
+
+**Resolvidos ou mitigados**
+- Middleware na raiz (`middleware.ts`) sem listas de e-mail hardcoded ✅
+- JWT com `organization_id` + entitlements ✅
+- RLS 25 tabelas + tenantMiddleware nos módulos core ✅
+- `optionalAuth` + política anônima em reservas públicas ✅
+
+**Ainda abertos**
+- Modelo dual places/bars — convive com `establishments`; views pendentes (Fase 1)
+- Hardcodes por ID/e-mail em API, Next e IA (Fase 7)
+- ~30 rotas API sem tenantMiddleware (Fase 2)
+- Promoters sem RBAC fino (Fase 3)
+- Front admin parcialmente gated — ~30 páginas (Fase 4)
+- Flutter: só places filtradas; cardápio/eventos/reservas expostos (Bloco F)
+- Número WhatsApp por org pendente (decisão #5)
 
 ## Modelo de dados alvo (tabelas novas, sem destruir legado)
 - `organizations` (tenant raiz, slug, status).
@@ -229,4 +370,4 @@ Rota separada `/superadmin` (fora de `/admin`), acessível SÓ a super admins
 8. **Fase 7** — Desacoplar IA / hardcodes residuais.
 
 > A **Camada de segurança** é transversal e deve ser observada em todas as fases.
-> Implementação em andamento — ver **ROADMAP PARA 100%** acima.
+> **Próxima sessão:** Fase 4 → ver **FECHAMENTO FASE A FASE** e **BACKLOG P1**.

@@ -38,6 +38,8 @@ import {
 } from "../../services/birthdayService";
 import { useEstablishmentPermissions } from "@/app/hooks/useEstablishmentPermissions";
 import { useEstablishmentRules } from "@/app/hooks/useEstablishmentRules";
+import { useSaasAccess } from "@/app/hooks/useSaasAccess";
+import { useRequireSaasModule } from "@/app/hooks/useRequireSaasModule";
 import {
   getReservationStatusColor,
   getReservationStatusText,
@@ -120,6 +122,8 @@ function getReservationEventLabel(r: { event_type?: string | null }): string {
 
 export default function RestaurantReservationsPage() {
   const establishmentPermissions = useEstablishmentPermissions();
+  const { canAccessReservas, canManageReservas } = useSaasAccess();
+  const { guardLoading } = useRequireSaasModule(canAccessReservas);
   const [selectedEstablishment, setSelectedEstablishment] =
     useState<Establishment | null>(null);
   const [allEstablishments, setAllEstablishments] = useState<Establishment[]>(
@@ -139,11 +143,13 @@ export default function RestaurantReservationsPage() {
     process.env.NEXT_PUBLIC_API_URL_LOCAL ||
     "https://api.agilizaiapp.com.br";
 
-  const canCreateEditReservations = selectedEstablishment
-    ? establishmentPermissions.canCreateEditReservations(
-        Number(selectedEstablishment.id),
-      )
-    : true;
+  const canCreateEditReservations =
+    canManageReservas &&
+    (selectedEstablishment
+      ? establishmentPermissions.canCreateEditReservations(
+          Number(selectedEstablishment.id),
+        )
+      : true);
 
   const { flags: establishmentRulesFlags } = useEstablishmentRules(
     selectedEstablishment?.id ?? null,
@@ -2524,6 +2530,14 @@ export default function RestaurantReservationsPage() {
     const entryDate = normalizePreferredDate(entry.preferred_date);
     return entryDate === waitlistDateFilter;
   });
+
+  if (guardLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 flex items-center justify-center">
+        <p className="text-gray-400">Carregando permissões…</p>
+      </div>
+    );
+  }
 
   if (loading) {
     return (

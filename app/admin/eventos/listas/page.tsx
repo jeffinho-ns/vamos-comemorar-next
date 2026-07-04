@@ -4,6 +4,9 @@ import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useEstablishmentPermissions } from '@/app/hooks/useEstablishmentPermissions';
 import { useUserPermissions } from '@/app/hooks/useUserPermissions';
+import { useSaasAccess } from '@/app/hooks/useSaasAccess';
+import { useRequireSaasModule } from '@/app/hooks/useRequireSaasModule';
+import Gate from '@/app/components/Gate';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   MdList,
@@ -63,6 +66,8 @@ export default function ListasPage() {
   const searchParams = useSearchParams();
   const { isSuperAdmin } = useUserPermissions();
   const establishmentPermissions = useEstablishmentPermissions();
+  const { canAccessEventos, canManageCheckins } = useSaasAccess();
+  const { guardLoading } = useRequireSaasModule(canAccessEventos);
   const eventoIdParam = searchParams?.get('evento_id');
 
   const [loading, setLoading] = useState(true);
@@ -172,6 +177,7 @@ export default function ListasPage() {
   };
 
   const handleCheckin = async (convidadoId: number, novoStatus: string, listaId: number) => {
+    if (!canManageCheckins) return;
     try {
       setCheckingIn(convidadoId);
       const token = localStorage.getItem('authToken');
@@ -302,6 +308,14 @@ export default function ListasPage() {
     : listas;
 
   const selectedEvento = eventos.find((e) => e.evento_id === selectedEventoId);
+
+  if (guardLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gray-50">
+        <p className="text-gray-500">Carregando permissões…</p>
+      </div>
+    );
+  }
 
   if (loading && !eventos.length) {
     return (
@@ -541,13 +555,15 @@ export default function ListasPage() {
                       </button>
                       
                       {lista.total_pendentes > 0 && (
-                        <button
-                          onClick={() => handleCheckInAll(lista.lista_id)}
-                          className="px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg flex items-center gap-2 transition-colors"
-                        >
-                          <MdCheckCircle size={20} />
-                          Check-in em Lote
-                        </button>
+                        <Gate permission="checkin:update">
+                          <button
+                            onClick={() => handleCheckInAll(lista.lista_id)}
+                            className="px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg flex items-center gap-2 transition-colors"
+                          >
+                            <MdCheckCircle size={20} />
+                            Check-in em Lote
+                          </button>
+                        </Gate>
                       )}
                       
                       <button
@@ -636,7 +652,8 @@ export default function ListasPage() {
                                       </span>
 
                                       {/* Botões de Check-in */}
-                                      <div className="flex gap-1">
+                                      <Gate permission="checkin:update">
+                                        <div className="flex gap-1">
                                         {convidado.status_checkin !== 'Check-in' && (
                                           <button
                                             onClick={() => handleCheckin(convidado.lista_convidado_id, 'Check-in', lista.lista_id)}
@@ -667,7 +684,8 @@ export default function ListasPage() {
                                             <MdPending size={14} />
                                           </button>
                                         )}
-                                      </div>
+                                        </div>
+                                      </Gate>
                                     </div>
                                   </div>
                                 </motion.div>
