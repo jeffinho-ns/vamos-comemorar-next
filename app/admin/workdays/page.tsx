@@ -11,7 +11,9 @@ import AddEvent from "../../components/events/AddEvent";
 import EditEventModal from "@/app/components/EditEvent/EditEvent";
 import DuplicateEvent from "@/app/components/DuplicateEvent/DuplicateEvent";
 import { useEffect, useState, useMemo } from "react";
-import { useUserPermissions } from "@/app/hooks/useUserPermissions";
+import { useSaasAccess } from "@/app/hooks/useSaasAccess";
+import { optionalAuthHeaders } from "@/app/utils/optionalAuthHeaders";
+import { getApiUrl } from "@/app/config/api";
 
 export default function EventsPage() {
   const [events, setEvents] = useState<EventDataApi[]>([]);
@@ -21,7 +23,7 @@ export default function EventsPage() {
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [duplicateModalOpen, setDuplicateModalOpen] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<EventDataApi | null>(null);
-  const { isSuperAdmin, myEstablishmentPermissions, isLoading: permissionsLoading } = useUserPermissions();
+  const { isSuperAdmin, myEstablishmentPermissions, isLoading: permissionsLoading } = useSaasAccess();
 
   const PAGE_SIZES = [10, 30, 50] as const;
 
@@ -32,11 +34,10 @@ export default function EventsPage() {
   const fetchEventsAll = async () => {
     setLoading(true);
     setError(null);
-    const token = localStorage.getItem("authToken");
 
     try {
-      const response = await fetch(`https://api.agilizaiapp.com.br/api/events`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      const response = await fetch(`${getApiUrl()}/api/events`, {
+        headers: optionalAuthHeaders(),
       });
 
       if (!response.ok) throw new Error("Erro ao buscar eventos");

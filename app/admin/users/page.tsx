@@ -9,7 +9,7 @@ import {
   MdSearch,
   MdClose,
 } from "react-icons/md";
-import { useUserPermissions } from "@/app/hooks/useUserPermissions";
+import { useSaasAccess } from "@/app/hooks/useSaasAccess";
 import { useAppContext } from "@/app/context/AppContext";
 import {
   filterEstablishmentsByUserScope,
@@ -75,7 +75,7 @@ const ROLE_LABELS: Record<string, string> = {
 export default function UsersPage() {
   const { userEmail, role, myPermissions, isLoading: contextLoading } = useAppContext();
   const { canDeleteUsers, canChangeGlobalUserRole, isSuperAdmin, myEstablishmentPermissions } =
-    useUserPermissions();
+    useSaasAccess();
   const scopedEstablishmentIds = useMemo(
     () => new Set(getActiveEstablishmentIds(myEstablishmentPermissions)),
     [myEstablishmentPermissions],

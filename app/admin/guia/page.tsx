@@ -12,7 +12,8 @@ import {
 } from 'react-icons/md'
 import { Tabs } from '@/app/components/ui/tabs'
 import { Card, CardContent, CardHeader, CardTitle } from '@/app/components/ui/card'
-import { useUserPermissions } from '@/app/hooks/useUserPermissions'
+import { useSaasAccess } from '@/app/hooks/useSaasAccess'
+import { isSaasModeEnabled } from '@/app/utils/saasMode'
 import {
   CARGO_BY_EMAIL,
   CARGO_BY_ROLE,
@@ -32,8 +33,12 @@ function resolveCargo(role: string, email: string): DocCargo | null {
 
 export default function GuiaIntranetPage() {
   const router = useRouter()
-  const { isLoading, canAccessAdmin, role, userEmail, myEstablishmentPermissions } =
-    useUserPermissions()
+  const { isLoading, canAccessAdmin, canAccessReservas, canAccessEventos, role, userEmail, myEstablishmentPermissions, allowAll } =
+    useSaasAccess()
+  const canAccessGuia =
+    allowAll || !isSaasModeEnabled()
+      ? canAccessAdmin
+      : canAccessAdmin && (canAccessReservas || canAccessEventos)
 
   const activePermissions = useMemo(
     () => myEstablishmentPermissions.filter((p) => p.is_active),
@@ -66,7 +71,7 @@ export default function GuiaIntranetPage() {
     </Card>
   )
 
-  if (!isLoading && !canAccessAdmin) {
+  if (!isLoading && !canAccessGuia) {
     router.replace('/acesso-negado')
     return null
   }

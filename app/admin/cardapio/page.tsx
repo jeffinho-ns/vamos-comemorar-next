@@ -25,7 +25,7 @@ import {
   MdKeyboardArrowDown,
   MdKeyboardArrowUp,
 } from 'react-icons/md';
-import { useUserPermissions } from '../../hooks/useUserPermissions';
+import { useSaasAccess } from '../../hooks/useSaasAccess';
 import ImageCropModal from '../../components/ImageCropModal';
 import MenuPauseScheduleModal, {
   type MenuPauseApplyMode,
@@ -496,7 +496,8 @@ export default function CardapioAdminPage() {
     canManageBar,
     userEmail,
     myEstablishmentPermissions,
-  } = useUserPermissions();
+    canAccessCardapio,
+  } = useSaasAccess();
   const router = useRouter();
 
   const [activeTab, setActiveTab] = useState<'bars' | 'categories' | 'items'>('bars');
@@ -618,6 +619,7 @@ export default function CardapioAdminPage() {
     (userEmail || "").trim().toLowerCase() === "vbs14@hotmail.com" && promoterBarIdNum !== null;
 
   const shouldRestrictByPerms =
+    canAccessCardapio &&
     !isSuperAdmin &&
     !hasFullCardapioAccessByEmail &&
     !isReservaRooftopRestrictedUser &&

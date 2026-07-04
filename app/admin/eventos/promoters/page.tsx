@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useAppContext } from '@/app/context/AppContext';
 import { useEstablishmentPermissions } from '@/app/hooks/useEstablishmentPermissions';
-import { useUserPermissions } from '@/app/hooks/useUserPermissions';
+import { useSaasAccess } from '@/app/hooks/useSaasAccess';
 import { getActiveEstablishmentIds } from '@/app/utils/establishmentAccessRules';
 import Gate from '@/app/components/Gate';
 import { motion } from 'framer-motion';
@@ -149,7 +149,7 @@ function PromotersPageContent() {
   const { userEmail } = useAppContext();
   const establishmentPermissions = useEstablishmentPermissions();
   const { isSuperAdmin, isLoading: permissionsLoading, myEstablishmentPermissions } =
-    useUserPermissions();
+    useSaasAccess();
   const scopedEstablishmentIds = useMemo(
     () => getActiveEstablishmentIds(myEstablishmentPermissions),
     [myEstablishmentPermissions],

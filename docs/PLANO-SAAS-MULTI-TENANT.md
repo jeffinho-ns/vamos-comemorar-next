@@ -15,9 +15,9 @@
 |-------|-------|
 | Última atualização | 2026-07-03 |
 | Modo atual | **`SAAS_MODE=on`** API · **`NEXT_PUBLIC_SAAS_MODE=on`** Vercel ✅ |
-| Fase em andamento | **Bloco E** — org B demo + IA sem hardcode id 7 |
-| Próximo passo | Smoke API com `SAAS_SMOKE_TOKEN`; migrar páginas restantes para `useCan` |
-| Veredito B2B | **~97%** — auth opcional no `/reservar`; logs/whatsapp/layout via entitlements |
+| Fase em andamento | **Fase 4** — `useSaasAccess` em todas as páginas admin principais |
+| Próximo passo | Smoke API autenticado; checklist manual `/reservar` org B; `DATABASE_URL` no Render |
+| Veredito B2B | **~98%** — Fase 4 useCan concluída; smoke estendido |
 
 ### Como retomar no outro PC
 1. `git pull` nos dois repositórios (`vamos-comemorar-next` e `vamos-comemorar-api`).
@@ -31,7 +31,7 @@
 - [~] **Fase 1** — Banco / tenant model ✅ migrations 001–007 + 013–015. **NOT NULL** nas 13 tabelas core ✅ (019). Falta: `users.organization_id` NOT NULL; Contract 021 tables.
 - [~] **Fase 2** — RLS **25 tabelas** (008–023): reservas, promoters, cardápio, WhatsApp, **eventos, listas, users**. Check-ins via `guests` RLS + enforce rotas.
 - [~] **Fase 3** — `requirePermission` em cardapio, whatsapp, eventos, checkin, reservas ✅. `/admin/equipe` ✅.
-- [~] **Fase 4** — Entitlements + sidebar ✅. `AdminPageGate` + `<Gate>` ✅. **layout/logs/whatsapp → `useCan`** ✅. Falta: cardapio/users/promoters.
+- [~] **Fase 4** — Entitlements + sidebar ✅. `AdminPageGate` + `<Gate>` ✅. **`useSaasAccess`** em layout/cardapio/users/promoters/logs/whatsapp/guia/workdays ✅.
 - [x] **Fase 5** — Billing manual MVP ✅.
 - [~] **Fase 6** — Superadmin ✅. **Provisionamento operacional completo** ✅ (Bloco A, 2026-07-03). Falta: wizard pós-provisionamento interativo.
 - [~] **Fase 7** — `establishmentRules` + editor superadmin ✅. **LEGACY_PROFILES removido** ✅. **IA via `operationalProfileIds`** ✅ (warm no boot; sem fallback id 7 no código principal).
@@ -142,7 +142,7 @@ Sem SQL manual, você consegue:
 - 2026-07-03 — **Bloco D (parcial):** `AdminPageGate` no layout admin (proteção por módulo/permissão via entitlements); `middleware.ts` sem `CARDAPIO_ONLY_EMAILS`, `SUPER_ADMIN_EMAILS` nem bypass rooftop por e-mail — superadmin só cookie `isSuperAdmin=1`; sidebar sempre `filterNavByEntitlements` com `NEXT_PUBLIC_SAAS_MODE=on`; novos utils `adminRouteModules`, `adminMiddlewareAccess`, `saasMode`.
 - 2026-07-03 — **Bloco B (reservas):** `reservasPermissionMiddleware` em 10 rotas (restaurant-reservations, large, waitlist, walk-ins, blocks, settings, areas, guest-lists, birthday, reservas legado). Front: `isSuperAdminEmail` → cookie JWT (remove lista hardcoded).
 - 2026-07-03 — **Equipe org-admin:** `/api/org/*` (memberships, roles, establishments) + `/admin/equipe`; `isAccountAdmin` em entitlements; migration 024 users constraint; smoke_test_saas.js; `<Gate>` em cardapio/users/promoters.
-- 2026-07-03 — **Fase 0/4:** `optionalAuthHeaders` no `/reservar` (POST reserva/waitlist/guest-list); `resolveSaasAccess` — layout, logs e whatsapp usam `useCan` quando `NEXT_PUBLIC_SAAS_MODE=on`.
+- 2026-07-03 — **Fase 4 concluída:** hook `useSaasAccess` (UEP + entitlements); migradas cardapio, users, promoters, guia, workdays; smoke aceita `MASTER_LOGIN_PASSWORD` e valida org demo B em `/api/places`.
 
 ---
 
