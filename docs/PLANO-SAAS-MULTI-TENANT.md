@@ -15,9 +15,9 @@
 |-------|-------|
 | Última atualização | 2026-07-03 |
 | Modo atual | **`SAAS_MODE=on`** API · **`NEXT_PUBLIC_SAAS_MODE=on`** Vercel ✅ |
-| Fase em andamento | **Fase 4** — `useSaasAccess` em todas as páginas admin principais |
-| Próximo passo | Smoke API autenticado; checklist manual `/reservar` org B; `DATABASE_URL` no Render |
-| Veredito B2B | **~98%** — bug account_admin allowAll corrigido (deploy pendente) |
+| Fase em andamento | **Fase 4** — checklist manual `/reservar` org B |
+| Próximo passo | Deploy API (establishmentIds entitlements) + build Flutter; checklist visual sidebar |
+| Veredito B2B | **~99%** — smoke 24/24; Render estável; Bloco F Flutter implementado |
 
 ### Como retomar no outro PC
 1. `git pull` nos dois repositórios (`vamos-comemorar-next` e `vamos-comemorar-api`).
@@ -60,7 +60,7 @@ Sem SQL manual, você consegue:
 | **B** | RBAC real | **~90%** | `/api/org/*` equipe; `/admin/equipe`; `requirePermission` reservas ✅ |
 | **D** | Front modular | **~85%** | `AdminPageGate` + `<Gate>` em cardapio/users/promoters/equipe |
 | **E** | Segurança / legado | **~75%** | migration 024 ✅; DATABASE_URL; LEGACY_PROFILES removido; config sem senhas FTP/DB hardcoded; smoke DB; `provision_org_demo_b.js` |
-| **F** | Mobile + gateway | **opcional** | Agilizaiapp filtro org; Stripe/Asaas |
+| **F** | Mobile + gateway | **~done** | Agilizaiapp filtra places por `establishmentIds` (entitlements); Stripe/Asaas pendente |
 
 ### Decisões pendentes (registrar aqui quando decidir)
 | # | Decisão | Opções | Escolha atual |
@@ -68,7 +68,7 @@ Sem SQL manual, você consegue:
 | 1 | `memberships.establishment_id` | canônico (traduz no loadUserScope) vs operacional | **canônico** (já implementado tradução) |
 | 2 | UEP legado | deprecar vs conviver | **conviver** até memberships populado |
 | 3 | Check-ins tenant | nova coluna/tabela vs amarrar em guest_lists | **pendente** |
-| 4 | App Flutter no 100% | sim vs fase posterior | **fase posterior** |
+| 4 | App Flutter no 100% | sim vs fase posterior | **sim** — Bloco F (place_service + entitlements) |
 
 ### Matriz por módulo (prontidão B2B)
 
@@ -85,7 +85,7 @@ Sem SQL manual, você consegue:
 | Eventos público (`/api/events`) | ✅ | ✅ | ✅ | parcial | ✅ |
 | Users | ✅ backfill | ✅ | — | ~ | parcial |
 | Superadmin / billing | ✅ | — | — | — | ✅ |
-| App Flutter | — | — | — | — | ❌ |
+| App Flutter | — | — | — | — | ✅ Bloco F (filtro org) |
 
 ### Smoke test org demo (checklist)
 - [ ] `POST /api/superadmin/organizations` cria org com `legacy_place_id` + `legacy_bar_id`
@@ -97,7 +97,7 @@ Sem SQL manual, você consegue:
 - [ ] Org A vs Org B: zero vazamento
 - [x] Migration 024 users constraint — aplicada prod 2026-07-03
 - [x] Smoke DB: 0 mismatches reservas↔establishments; 0 users órfãos
-- [ ] Smoke API autenticado (`SAAS_SMOKE_TOKEN` do browser)
+- [x] Smoke API autenticado (`smoke_diagnostic_full.js` 24/24 — 2026-07-03)
 - [ ] Org A vs B formal (2 orgs no banco)
 - [x] Org A vs B formal — `grupo-ideia-um` + `org-demo-b` (2026-07-03)
 
@@ -142,7 +142,7 @@ Sem SQL manual, você consegue:
 - 2026-07-03 — **Bloco D (parcial):** `AdminPageGate` no layout admin (proteção por módulo/permissão via entitlements); `middleware.ts` sem `CARDAPIO_ONLY_EMAILS`, `SUPER_ADMIN_EMAILS` nem bypass rooftop por e-mail — superadmin só cookie `isSuperAdmin=1`; sidebar sempre `filterNavByEntitlements` com `NEXT_PUBLIC_SAAS_MODE=on`; novos utils `adminRouteModules`, `adminMiddlewareAccess`, `saasMode`.
 - 2026-07-03 — **Bloco B (reservas):** `reservasPermissionMiddleware` em 10 rotas (restaurant-reservations, large, waitlist, walk-ins, blocks, settings, areas, guest-lists, birthday, reservas legado). Front: `isSuperAdminEmail` → cookie JWT (remove lista hardcoded).
 - 2026-07-03 — **Equipe org-admin:** `/api/org/*` (memberships, roles, establishments) + `/admin/equipe`; `isAccountAdmin` em entitlements; migration 024 users constraint; smoke_test_saas.js; `<Gate>` em cardapio/users/promoters.
-- 2026-07-03 — **Diagnóstico SaaS completo:** smoke_diagnostic_full.js; bug `role=admin` → allowAll para org admins (fix tenantScope+entitlements); recepção vs gerente validado (5 vs 13 perms).
+- 2026-07-03 — **Render estável + Bloco F:** fix `walkIns.js` (`wi.establishment_id`); POST `/api/users` com `organization_id` + RLS; smoke **24/24**; Flutter `PlaceService` filtra por `/api/me/entitlements` (`establishmentIds`); `organization_id` em GET `/api/places`.
 
 ---
 
