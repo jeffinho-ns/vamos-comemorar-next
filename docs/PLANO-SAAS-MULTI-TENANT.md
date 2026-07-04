@@ -16,7 +16,7 @@
 | Última atualização | 2026-07-03 |
 | Modo atual | **`SAAS_MODE=on`** API · **`NEXT_PUBLIC_SAAS_MODE=on`** Vercel ✅ |
 | Fase em andamento | **Fase 7** — editor superadmin de `establishments.config` + hardcodes residuais. |
-| Próximo passo | Validar `ESTABLISHMENTS_READ_SOURCE=establishments` em staging; expandir RLS. |
+| Próximo passo | Ativar `ESTABLISHMENTS_READ_SOURCE=establishments` no Render (API); backfill `organization_id` em guest_lists/waitlist; expandir RLS (lote 3). |
 | Pendências/decisões | Contract NOT NULL (fase posterior); places/bars → views; expandir RLS além de `restaurant_reservations`. |
 
 > Produção já tem migrations 001–007, observe ativo, proxies com Authorization e código de enforce **pronto mas inerte** até `SAAS_MODE=on`.
@@ -30,7 +30,7 @@
 - [~] **Fase 0** — Fundação / segurança. **Middleware movido para a raiz** (`middleware.ts`, 2026-07-02). NÃO feito: auth em rotas públicas, remover credenciais hardcoded.
 - [~] **Camada de segurança** (transversal) — feature flags `SAAS_MODE` (off/observe/on) + fail-open implementados; runner de migration com trava de confirmação e tabela de controle.
 - [x] **Fase 1** — Banco / tenant model: migrations `001..005` validadas em staging e **APLICADAS EM PRODUÇÃO** (2026-06-28) com 0 erros e 0 órfãos. Falta só a virada NOT NULL (Contract, fase posterior).
-- [~] **Fase 2** — JWT + RLS migration 008 **em produção** com `SAAS_RLS_MODE=on`. Falta: expandir RLS.
+- [~] **Fase 2** — JWT + RLS migration 008 **em produção** + **014** (guest_lists, waitlist, walk_ins, large/birthday_reservations, blocks). Falta: backfill org_id residual; expandir RLS lote 3.
 - [~] **Fase 3** — `requireModule` plugado em rotas reserva/eventos; `legacyScoped` em entitlements para UEP. `requirePermission` pronto, uso fino após memberships.
 - [~] **Fase 4** — `EntitlementsProvider` + sidebar via `adminNavModules`. **`NEXT_PUBLIC_SAAS_MODE=on`** no `.env.example` e `.env.local`. Quebra de monolitos: pendente.
 - [x] **Fase 5** — Billing manual, mensalidade (`009`), `past_due`, sem gateway.
@@ -59,6 +59,7 @@ Legenda: [x] concluído · [~] parcial/pronto-mas-inerte · [ ] não iniciado.
 - 2026-07-03 — **Fase 7 editor:** `establishmentConfigService`, `GET/PATCH /api/superadmin/establishments/:id/config`, página `/superadmin/organizations/[id]/establishments/[estId]` com form de profile/reservas/cardápio + preview merged.
 - 2026-07-03 — **Fase 7 front rules:** `useEstablishmentRules` + `deriveEstablishmentRulesFlags` aplicados em reservas admin (`restaurant-reservations`, `ReservationModal`, `ReservationCalendar`, `WeeklyCalendar`, `WaitlistModal`, `AllocateTableModal`), check-ins (`eventos/[id]/check-ins`, `/admin/checkins`, tablet). Fallback por nome mantido quando API não retorna profile.
 - 2026-07-03 — **Fase 7 ReservationForm + places/bars:** formulário público `/reservar` migrado para rules; API `establishmentLegacyAdapter` + migration 013 (views compat) + GET `/api/places` e `/api/bars` leem de `establishments` quando `ESTABLISHMENTS_READ_SOURCE=establishments`.
+- 2026-07-03 — **Staging/prod migrations 013–015:** views `places_compat`/`bars_compat`; paridade legacy vs establishments validada (6 places, 6 bars). **RLS 014** em guest_lists, waitlist, walk_ins, large/birthday_reservations, restaurant_reservation_blocks. Pendente backfill org_id em guest_lists (148) e waitlist (26).
 
 ---
 
