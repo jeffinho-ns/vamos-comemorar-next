@@ -7,6 +7,7 @@ import { useAppContext } from '@/app/context/AppContext';
 import { useEstablishmentPermissions } from '@/app/hooks/useEstablishmentPermissions';
 import { useUserPermissions } from '@/app/hooks/useUserPermissions';
 import { getActiveEstablishmentIds } from '@/app/utils/establishmentAccessRules';
+import Gate from '@/app/components/Gate';
 import { motion } from 'framer-motion';
 import {
   MdPerson,
@@ -1812,6 +1813,7 @@ function PromotersPageContent() {
               </div>
 
               <div className="p-6 border-t border-gray-200 flex items-center justify-between">
+                <Gate permission="eventos:update">
                 <button
                   onClick={async () => {
                     if (confirm('Tem certeza que deseja excluir este promoter? Esta ação não pode ser desfeita.')) {
@@ -1843,6 +1845,7 @@ function PromotersPageContent() {
                   <MdDelete size={18} />
                   Excluir Promoter
                 </button>
+                </Gate>
                 
                 <div className="flex items-center gap-4">
                   <button

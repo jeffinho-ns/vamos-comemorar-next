@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import Gate from '@/app/components/Gate';
 import { motion, AnimatePresence } from 'framer-motion';
 import Image from 'next/image';
 import {
@@ -3680,14 +3681,16 @@ export default function CardapioAdminPage() {
                               >
                                 <MdEdit className="h-4 w-4" />
                               </button>
-                              {isAdmin && (
-                                <button
-                                  onClick={() => handleDeleteBar(bar.id)}
-                                  className="rounded-full bg-red-600 p-2 text-white hover:bg-red-700"
-                                >
-                                  <MdDelete className="h-4 w-4" />
-                                </button>
-                              )}
+                              <Gate permission="cardapio:update">
+                                {isAdmin && (
+                                  <button
+                                    onClick={() => handleDeleteBar(bar.id)}
+                                    className="rounded-full bg-red-600 p-2 text-white hover:bg-red-700"
+                                  >
+                                    <MdDelete className="h-4 w-4" />
+                                  </button>
+                                )}
+                              </Gate>
                             </>
                           )}
                         </div>
@@ -3767,12 +3770,14 @@ export default function CardapioAdminPage() {
                                 >
                                   <MdEdit className="h-4 w-4" />
                                 </button>
-                                <button
-                                  onClick={() => handleDeleteCategory(category.id)}
-                                  className="text-red-600 hover:text-red-800"
-                                >
-                                  <MdDelete className="h-4 w-4" />
-                                </button>
+                                <Gate permission="cardapio:update">
+                                  <button
+                                    onClick={() => handleDeleteCategory(category.id)}
+                                    className="text-red-600 hover:text-red-800"
+                                  >
+                                    <MdDelete className="h-4 w-4" />
+                                  </button>
+                                </Gate>
                               </>
                             )}
                           </div>
@@ -4053,6 +4058,7 @@ export default function CardapioAdminPage() {
                         <MdPause className="h-4 w-4" />
                         Pausar / Ativar
                       </button>
+                      <Gate permission="cardapio:update">
                       <button
                         onClick={handleBulkDelete}
                         className="flex items-center gap-2 rounded-lg bg-red-600 px-4 py-1.5 text-sm text-white hover:bg-red-700"
@@ -4060,6 +4066,7 @@ export default function CardapioAdminPage() {
                         <MdDelete className="h-4 w-4" />
                         Excluir
                       </button>
+                      </Gate>
                       <button
                         onClick={() => setSelectedItems([])}
                         className="flex items-center gap-2 rounded-lg bg-gray-600 px-4 py-1.5 text-sm text-white hover:bg-gray-700"

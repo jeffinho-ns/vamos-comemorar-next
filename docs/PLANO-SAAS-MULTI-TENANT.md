@@ -15,9 +15,9 @@
 |-------|-------|
 | Última atualização | 2026-07-03 |
 | Modo atual | **`SAAS_MODE=on`** API · **`NEXT_PUBLIC_SAAS_MODE=on`** Vercel ✅ |
-| Fase em andamento | **Bloco B/E** — RBAC reservas ✅; smoke test org demo |
-| Próximo passo | Smoke test org demo; `/admin/equipe`; Contract NOT NULL users (024) |
-| Veredito B2B | **~90%** da fundação. **25 tabelas RLS**. RBAC reservas ✅. |
+| Fase em andamento | **Bloco E** — migration 024 users; smoke test formal |
+| Próximo passo | Aplicar migration 024 em prod; credenciais DB; LEGACY_PROFILES |
+| Veredito B2B | **~92%** da fundação. Equipe org-admin ✅. Gate ações ✅. |
 
 ### Como retomar no outro PC
 1. `git pull` nos dois repositórios (`vamos-comemorar-next` e `vamos-comemorar-api`).
@@ -30,8 +30,8 @@
 - [~] **Camada de segurança** — feature flags ✅; runner migrations ✅; RLS **21 tabelas** ✅.
 - [~] **Fase 1** — Banco / tenant model ✅ migrations 001–007 + 013–015. **NOT NULL** nas 13 tabelas core ✅ (019). Falta: `users.organization_id` NOT NULL; Contract 021 tables.
 - [~] **Fase 2** — RLS **25 tabelas** (008–023): reservas, promoters, cardápio, WhatsApp, **eventos, listas, users**. Check-ins via `guests` RLS + enforce rotas.
-- [~] **Fase 3** — `requirePermission` em cardapio, whatsapp, eventos, checkin, **reservas (10 rotas)** ✅. Falta: `/admin/equipe`.
-- [~] **Fase 4** — Entitlements + sidebar ✅. `AdminPageGate` + `<Gate>` ✅. Falta: migrar `useUserPermissions` → `useCan` em páginas.
+- [~] **Fase 3** — `requirePermission` em cardapio, whatsapp, eventos, checkin, reservas ✅. `/admin/equipe` ✅.
+- [~] **Fase 4** — Entitlements + sidebar ✅. `AdminPageGate` + `<Gate>` em ações ✅. Falta: migrar `useUserPermissions` → `useCan` restante.
 - [x] **Fase 5** — Billing manual MVP ✅.
 - [~] **Fase 6** — Superadmin ✅. **Provisionamento operacional completo** ✅ (Bloco A, 2026-07-03). Falta: wizard pós-provisionamento interativo.
 - [~] **Fase 7** — `establishmentRules` + editor superadmin ✅. Falta: remover `LEGACY_PROFILES`; IA sem hardcode Highline id 7.
@@ -57,10 +57,9 @@ Sem SQL manual, você consegue:
 | Bloco | Foco | Status | Entregas-chave |
 |-------|------|--------|----------------|
 | **A** | Provisionamento operacional | **✅ feito** | `provisionOperationalEstablishment`, place+bar+legacy IDs, área/mesas, FAQ, 5 roles, config generic |
-| **B** | RBAC real | **~85%** | migration 020 ✅; memberships API/UI ✅; `requirePermission` cardapio + whatsapp + **reservas (10 rotas)** ✅. Falta: `/admin/equipe` |
-| **C** | Isolamento módulos restantes | **✅ feito** | 25 tabelas RLS; eventos/listas/users 022–023; checkin enforce |
-| **D** | Front modular | **~70%** | `AdminPageGate` por rota; middleware sem e-mails; superadmin só cookie JWT; sidebar sempre filtra entitlements |
-| **E** | Segurança / legado | **pendente** | credenciais DB; unificar IDs canônico↔operacional; NOT NULL users/whatsapp |
+| **B** | RBAC real | **~90%** | `/api/org/*` equipe; `/admin/equipe`; `requirePermission` reservas ✅ |
+| **D** | Front modular | **~85%** | `AdminPageGate` + `<Gate>` em cardapio/users/promoters/equipe |
+| **E** | Segurança / legado | **~20%** | migration 024 users constraint ✅ (aplicar prod); credenciais DB pendente |
 | **F** | Mobile + gateway | **opcional** | Agilizaiapp filtro org; Stripe/Asaas |
 
 ### Decisões pendentes (registrar aqui quando decidir)
@@ -90,11 +89,13 @@ Sem SQL manual, você consegue:
 
 ### Smoke test org demo (checklist)
 - [ ] `POST /api/superadmin/organizations` cria org com `legacy_place_id` + `legacy_bar_id`
-- [ ] GET `/api/places` lista a nova casa (com `ESTABLISHMENTS_READ_SOURCE=establishments`)
+- [x] GET `/api/places` lista casas (smoke 2026-07-03)
 - [ ] `/reservar` mostra a casa
 - [ ] `/admin/cardapio` abre para bar da org
-- [ ] Membership recepção vs gerente: sidebar diferente (após Bloco B completo)
-- [ ] Org A vs Org B: zero vazamento (após Bloco C)
+- [ ] Membership recepção vs gerente: sidebar diferente
+- [ ] Org A vs Org B: zero vazamento
+- [x] `GET /api/org/memberships` (account admin) — rota implementada
+- [x] Script `scripts/saas/smoke_test_saas.js` (login + endpoints)
 
 ### Arquivos-chave (Bloco A/B)
 | Arquivo | Função |
@@ -134,6 +135,7 @@ Sem SQL manual, você consegue:
 - 2026-07-03 — **Bloco C concluído:** migrations 022–023 (eventos, listas, listas_convidados, users RLS); backfill eventos/users; `requirePermission` eventos; enforce checkin/checkinsSelfValidate; total **25 tabelas RLS**.
 - 2026-07-03 — **Bloco D (parcial):** `AdminPageGate` no layout admin (proteção por módulo/permissão via entitlements); `middleware.ts` sem `CARDAPIO_ONLY_EMAILS`, `SUPER_ADMIN_EMAILS` nem bypass rooftop por e-mail — superadmin só cookie `isSuperAdmin=1`; sidebar sempre `filterNavByEntitlements` com `NEXT_PUBLIC_SAAS_MODE=on`; novos utils `adminRouteModules`, `adminMiddlewareAccess`, `saasMode`.
 - 2026-07-03 — **Bloco B (reservas):** `reservasPermissionMiddleware` em 10 rotas (restaurant-reservations, large, waitlist, walk-ins, blocks, settings, areas, guest-lists, birthday, reservas legado). Front: `isSuperAdminEmail` → cookie JWT (remove lista hardcoded).
+- 2026-07-03 — **Equipe org-admin:** `/api/org/*` (memberships, roles, establishments) + `/admin/equipe`; `isAccountAdmin` em entitlements; migration 024 users constraint; smoke_test_saas.js; `<Gate>` em cardapio/users/promoters.
 
 ---
 

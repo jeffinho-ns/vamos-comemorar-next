@@ -31,6 +31,8 @@ export interface Entitlements {
   organizationId: number | null;
   /** Usuário legado (UEP) sem permissões finas — espelha a API. */
   legacyScoped?: boolean;
+  /** Membership role account_admin na org — pode gerenciar /admin/equipe. */
+  isAccountAdmin?: boolean;
 }
 
 interface EntitlementsContextValue {
@@ -99,6 +101,7 @@ export function EntitlementsProvider({ children }: { children: ReactNode }) {
               permissions: Array.isArray(data.permissions) ? data.permissions : [],
               organizationId: data.organizationId ?? null,
               legacyScoped: data.legacyScoped === true,
+              isAccountAdmin: data.isAccountAdmin === true,
             }
           : ALLOW_ALL,
       );

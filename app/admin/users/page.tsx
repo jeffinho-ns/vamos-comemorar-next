@@ -15,6 +15,7 @@ import {
   filterEstablishmentsByUserScope,
   getActiveEstablishmentIds,
 } from "@/app/utils/establishmentAccessRules";
+import Gate from "@/app/components/Gate";
 
 const API_URL =
   process.env.NEXT_PUBLIC_API_URL ||
@@ -438,21 +439,25 @@ export default function UsersPage() {
                       ID #{user.id}
                     </span>
                     <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => openEdit(user)}
-                        className="px-2.5 py-1 rounded-lg text-xs text-blue-100 bg-blue-600/20 border border-blue-500/40 hover:bg-blue-600/30"
-                        type="button"
-                      >
-                        Editar
-                      </button>
-                      {canDeleteUsers ? (
+                      <Gate permission="reservas:update">
                         <button
-                          onClick={() => handleDelete(user.id)}
-                          className="px-2.5 py-1 rounded-lg text-xs text-red-100 bg-red-600/20 border border-red-500/40 hover:bg-red-600/30"
+                          onClick={() => openEdit(user)}
+                          className="px-2.5 py-1 rounded-lg text-xs text-blue-100 bg-blue-600/20 border border-blue-500/40 hover:bg-blue-600/30"
                           type="button"
                         >
-                          Remover
+                          Editar
                         </button>
+                      </Gate>
+                      {canDeleteUsers ? (
+                        <Gate permission="reservas:delete">
+                          <button
+                            onClick={() => handleDelete(user.id)}
+                            className="px-2.5 py-1 rounded-lg text-xs text-red-100 bg-red-600/20 border border-red-500/40 hover:bg-red-600/30"
+                            type="button"
+                          >
+                            Remover
+                          </button>
+                        </Gate>
                       ) : null}
                     </div>
                   </div>

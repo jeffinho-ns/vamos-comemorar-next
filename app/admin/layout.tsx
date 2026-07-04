@@ -25,6 +25,7 @@ import {
   MdHistory,
   MdChat,
   MdAdminPanelSettings,
+  MdGroup,
 } from "react-icons/md";
 import logBrand from "../assets/logo-agilizai-h.png"; // Verifique o caminho
 import UserMenu from "../components/UserMenu/UserMenu"; // Verifique o caminho
@@ -355,6 +356,20 @@ export default function DashboardLayout({
         label: "Super Admin SaaS",
         icon: MdAdminPanelSettings,
       },
+    ];
+  }
+
+  const showEquipeNav =
+    isSuperAdmin ||
+    entitlements.allowAll ||
+    entitlements.isAccountAdmin === true;
+  if (showEquipeNav && !navLinks.some((l) => l.href === "/admin/equipe")) {
+    const usersIdx = navLinks.findIndex((l) => l.href === "/admin/users");
+    const insertAt = usersIdx >= 0 ? usersIdx + 1 : navLinks.length;
+    navLinks = [
+      ...navLinks.slice(0, insertAt),
+      { href: "/admin/equipe", label: "Equipe", icon: MdGroup },
+      ...navLinks.slice(insertAt),
     ];
   }
 

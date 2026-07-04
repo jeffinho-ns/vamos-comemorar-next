@@ -34,6 +34,7 @@ export const NAV_MODULE_BY_HREF: Record<string, NavModuleMeta> = {
   "/admin/enterprise": { module: "reservas" },
   "/admin/commodities": { module: "cardapio" },
   "/admin/users": { module: "reservas" },
+  "/admin/equipe": { module: "reservas", requiredPermission: "reservas:update" },
   "/admin/places": { module: "reservas" },
   "/admin/tables": { module: "reservas" },
   "/admin/estabelecimentos": { module: "reservas" },

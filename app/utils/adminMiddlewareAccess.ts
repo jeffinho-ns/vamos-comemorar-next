@@ -17,6 +17,7 @@ export const ADMIN_ROUTE_ROLES: Record<string, string[]> = {
   "/admin/enterprise": ["admin"],
   "/admin/gifts": ["admin"],
   "/admin/users": ["admin"],
+  "/admin/equipe": ["admin"],
   "/admin/workdays": ["admin", "gerente", "promoter", "promoter-list"],
   "/admin/places": ["admin"],
   "/admin/tables": ["admin"],
