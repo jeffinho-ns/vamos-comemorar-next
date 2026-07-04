@@ -16,7 +16,7 @@
 | Última atualização | 2026-07-03 |
 | Modo atual | **`SAAS_MODE=on`** API · **`NEXT_PUBLIC_SAAS_MODE=on`** Vercel ✅ |
 | Fase em andamento | **Fase 7** — editor superadmin de `establishments.config` + hardcodes residuais. |
-| Próximo passo | Ativar `ESTABLISHMENTS_READ_SOURCE=establishments` no Render (API); backfill `organization_id` em guest_lists/waitlist; expandir RLS (lote 3). |
+| Próximo passo | `ESTABLISHMENTS_READ_SOURCE=establishments` no Render; RLS lote 4 (checkins/reservas legado); Contract NOT NULL. |
 | Pendências/decisões | Contract NOT NULL (fase posterior); places/bars → views; expandir RLS além de `restaurant_reservations`. |
 
 > Produção já tem migrations 001–007, observe ativo, proxies com Authorization e código de enforce **pronto mas inerte** até `SAAS_MODE=on`.
@@ -59,7 +59,7 @@ Legenda: [x] concluído · [~] parcial/pronto-mas-inerte · [ ] não iniciado.
 - 2026-07-03 — **Fase 7 editor:** `establishmentConfigService`, `GET/PATCH /api/superadmin/establishments/:id/config`, página `/superadmin/organizations/[id]/establishments/[estId]` com form de profile/reservas/cardápio + preview merged.
 - 2026-07-03 — **Fase 7 front rules:** `useEstablishmentRules` + `deriveEstablishmentRulesFlags` aplicados em reservas admin (`restaurant-reservations`, `ReservationModal`, `ReservationCalendar`, `WeeklyCalendar`, `WaitlistModal`, `AllocateTableModal`), check-ins (`eventos/[id]/check-ins`, `/admin/checkins`, tablet). Fallback por nome mantido quando API não retorna profile.
 - 2026-07-03 — **Fase 7 ReservationForm + places/bars:** formulário público `/reservar` migrado para rules; API `establishmentLegacyAdapter` + migration 013 (views compat) + GET `/api/places` e `/api/bars` leem de `establishments` quando `ESTABLISHMENTS_READ_SOURCE=establishments`.
-- 2026-07-03 — **Staging/prod migrations 013–015:** views `places_compat`/`bars_compat`; paridade legacy vs establishments validada (6 places, 6 bars). **RLS 014** em guest_lists, waitlist, walk_ins, large/birthday_reservations, restaurant_reservation_blocks. Pendente backfill org_id em guest_lists (148) e waitlist (26).
+- 2026-07-03 — **Staging/prod migrations 013–015:** views compat; paridade places/bars OK. **RLS 014** operacional + **016 guests**. Backfill `organization_id` (0 órfãos em reservas/waitlist/blocks; guest_lists órfãs → org piloto). INSERTs passam a gravar `organization_id`.
 
 ---
 
