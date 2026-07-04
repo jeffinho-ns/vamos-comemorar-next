@@ -186,8 +186,19 @@ export const isReservaRooftopEstablishment = (
   const normalized = String(establishmentName || "").toLowerCase();
   return (
     normalized.includes("reserva rooftop") ||
-    normalized.includes("rooftop")
+    (normalized.includes("rooftop") && !normalized.includes("highline"))
   );
+};
+
+/** Preferir profile da API quando disponível. */
+export const isRooftopForCheckins = (
+  rules: { profile?: string } | null | undefined,
+  establishmentName?: string | null,
+): boolean => {
+  const profile = rules?.profile?.trim().toLowerCase();
+  if (profile === "rooftop") return true;
+  if (profile && profile !== "generic") return false;
+  return isReservaRooftopEstablishment(establishmentName);
 };
 
 const normalizeRooftopAreaName = (areaName?: string | null): string | undefined => {

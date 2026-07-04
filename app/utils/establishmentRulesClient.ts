@@ -3,12 +3,10 @@ import {
   ESTABLISHMENT_TO_CARDAPIO_BAR_ID,
   type CardapioBarLike,
 } from '@/app/config/cardapioBarResolver';
+import type { EstablishmentRulesData } from '@/app/utils/establishmentRulesFlags';
 
-type EstablishmentRulesPayload = {
+export type EstablishmentRulesPayload = EstablishmentRulesData & {
   establishmentId: number;
-  profile: string;
-  reservations: Record<string, unknown>;
-  cardapio: { barId: number };
 };
 
 let cardapioMappingsCache: Record<number, number> | null = null;
@@ -68,6 +66,18 @@ export function resolveCardapioBarId(
   return est;
 }
 
+export function clearEstablishmentRulesCache(): void {
+  rulesCache.clear();
+  cardapioMappingsCache = null;
+}
+
+export async function prefetchEstablishmentRules(
+  establishmentIds: number[],
+): Promise<void> {
+  const unique = [...new Set(establishmentIds.filter((id) => id > 0))];
+  await Promise.all(unique.map((id) => fetchEstablishmentRules(id)));
+}
+
 export function isPracinhaProfile(profile: string | null | undefined): boolean {
   return profile === 'pracinha';
 }
@@ -77,3 +87,9 @@ export function isRooftopProfile(profile: string | null | undefined): boolean {
 }
 
 export { type CardapioBarLike };
+export type { EstablishmentRulesData } from '@/app/utils/establishmentRulesFlags';
+export {
+  deriveEstablishmentRulesFlags,
+  isRooftopEstablishment,
+  isSeuJustinoEstablishment,
+} from '@/app/utils/establishmentRulesFlags';

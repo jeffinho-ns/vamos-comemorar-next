@@ -4,6 +4,7 @@ import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { MdSearch, MdPerson, MdTableBar, MdCardGiftcard, MdCheckCircle, MdPending, MdStore, MdEvent, MdCake, MdGroups, MdAttachMoney, MdStar } from 'react-icons/md';
 import { WithPermission } from '../../../components/WithPermission/WithPermission';
 import { useEstablishmentPermissions } from '@/app/hooks/useEstablishmentPermissions';
+import { useEstablishmentRules } from '@/app/hooks/useEstablishmentRules';
 import {
   eventBelongsToSelectedCheckinVenue,
   filterSitioIlhaOutOfCheckins,
@@ -72,6 +73,14 @@ export default function TabletCheckInsPage() {
   const [eventos, setEventos] = useState<{ evento_id: number; nome: string; data_evento?: string; establishment_id: number; establishment_name?: string }[]>([]);
   const [estabelecimentoSelecionado, setEstabelecimentoSelecionado] = useState<number | null>(null);
   const [eventoSelecionado, setEventoSelecionado] = useState<number | null>(null);
+
+  const { flags: establishmentRulesFlags } = useEstablishmentRules(
+    estabelecimentoSelecionado,
+    estabelecimentoSelecionado
+      ? estabelecimentos.find((est) => est.id === estabelecimentoSelecionado)?.nome
+      : null,
+  );
+  const isSeuJustinoTablet = establishmentRulesFlags.isSeuJustino;
   
   const [searchTerm, setSearchTerm] = useState('');
   const [results, setResults] = useState<SearchResult[]>([]);
@@ -760,12 +769,6 @@ export default function TabletCheckInsPage() {
         // Buscar área correta: primeiro tenta mapear pela mesa, depois busca na reserva oficial
         let areaName = null;
         
-          // Detectar se é Seu Justino
-          const isSeuJustinoTablet = estabelecimentoSelecionado && (
-            estabelecimentos.find(est => est.id === estabelecimentoSelecionado)?.nome?.toLowerCase().includes('seu justino') &&
-            !estabelecimentos.find(est => est.id === estabelecimentoSelecionado)?.nome?.toLowerCase().includes('pracinha')
-          );
-          
           // 1. Tentar obter subárea pelo número da mesa (mais preciso)
           if (gl.table_number) {
             const subareaName = pickSubareaFromTable(gl.table_number, !!isSeuJustinoTablet);
@@ -836,12 +839,6 @@ export default function TabletCheckInsPage() {
         if (guestName.includes(searchLower)) {
           // Buscar área correta: primeiro tenta mapear pela mesa, depois busca na reserva oficial
           let areaName = null;
-          
-          // Detectar se é Seu Justino
-          const isSeuJustinoTablet = estabelecimentoSelecionado && (
-            estabelecimentos.find(est => est.id === estabelecimentoSelecionado)?.nome?.toLowerCase().includes('seu justino') &&
-            !estabelecimentos.find(est => est.id === estabelecimentoSelecionado)?.nome?.toLowerCase().includes('pracinha')
-          );
           
           // 1. Tentar obter subárea pelo número da mesa (mais preciso)
           if (gl.table_number) {
@@ -944,12 +941,6 @@ export default function TabletCheckInsPage() {
         }
         
         if (clientName.includes(searchLower) || origin.includes(searchLower)) {
-          // Detectar se é Seu Justino
-          const isSeuJustinoTablet = estabelecimentoSelecionado && (
-            estabelecimentos.find(est => est.id === estabelecimentoSelecionado)?.nome?.toLowerCase().includes('seu justino') &&
-            !estabelecimentos.find(est => est.id === estabelecimentoSelecionado)?.nome?.toLowerCase().includes('pracinha')
-          );
-          
           // Buscar área correta
           let areaName = null;
           if (reservation.table_number) {
@@ -1079,12 +1070,6 @@ export default function TabletCheckInsPage() {
           );
           
           if (!jaExiste) {
-            // Detectar se é Seu Justino
-            const isSeuJustinoTablet = estabelecimentoSelecionado && (
-              estabelecimentos.find(est => est.id === estabelecimentoSelecionado)?.nome?.toLowerCase().includes('seu justino') &&
-              !estabelecimentos.find(est => est.id === estabelecimentoSelecionado)?.nome?.toLowerCase().includes('pracinha')
-            );
-            
             // Buscar área correta
             let areaName = null;
             if (r.table_number) {

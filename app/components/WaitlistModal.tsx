@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useEstablishmentRules } from '@/app/hooks/useEstablishmentRules';
 import {
   MdClose,
   MdPerson,
@@ -97,12 +98,13 @@ export default function WaitlistModal({
     { key: 'quintal-lateral-direito', area_id: 2, label: 'Quintal Lateral Direito', tableNumbers: ['50','52','54','56','58','60','62','64'], capacity: 6 },
   ];
 
-  const isHighline = establishment && ((establishment.name || '').toLowerCase().includes('high'));
-  const isSeuJustino = establishment && (
-    (establishment.name || '').toLowerCase().includes('seu justino') && 
-    !(establishment.name || '').toLowerCase().includes('pracinha')
+  const { flags: establishmentRulesFlags } = useEstablishmentRules(
+    establishment?.id ?? null,
+    establishment?.name,
   );
-  const isPracinha = establishment && (establishment.name || '').toLowerCase().includes('pracinha');
+  const isHighline = establishmentRulesFlags.isHighline;
+  const isSeuJustino = establishmentRulesFlags.isSeuJustino;
+  const isPracinha = establishmentRulesFlags.isPracinha;
   const normalizeEstablishmentName = (name?: string | null) => (name || '').toLowerCase().trim();
   const matchesSelectedEstablishment = (reservation: any): boolean => {
     if (!establishment) return true;

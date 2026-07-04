@@ -22,7 +22,7 @@ import {
 } from 'react-icons/md';
 import { WithPermission } from '../../components/WithPermission/WithPermission';
 import { useEstablishmentPermissions } from '@/app/hooks/useEstablishmentPermissions';
-import { isReservaRooftopEstablishment } from '@/app/utils/rooftopCheckins';
+import { useEstablishmentRules } from '@/app/hooks/useEstablishmentRules';
 import {
   eventBelongsToSelectedCheckinVenue,
   filterSitioIlhaOutOfCheckins,
@@ -56,6 +56,13 @@ export default function CheckInsGeralPage() {
   const [estabelecimentos, setEstabelecimentos] = useState<{ id: number; nome: string }[]>([]);
   const [eventos, setEventos] = useState<EventoLista[]>([]);
   const [estabelecimentoSelecionado, setEstabelecimentoSelecionado] = useState<number | null>(null);
+
+  const primaryEstablishment =
+    estabelecimentos.length === 1 ? estabelecimentos[0] : null;
+  const { flags: primaryEstablishmentFlags } = useEstablishmentRules(
+    primaryEstablishment?.id ?? null,
+    primaryEstablishment?.nome,
+  );
   
   // Usar ref para evitar chamadas múltiplas
   const hasLoadedRef = useRef(false);
@@ -341,10 +348,10 @@ export default function CheckInsGeralPage() {
     const onlyRooftop =
       estabelecimentos.length === 1 &&
       estabelecimentos[0] &&
-      isReservaRooftopEstablishment(estabelecimentos[0].nome);
+      primaryEstablishmentFlags.isRooftop;
     const rooftopRoles = ['admin', 'atendente', 'recepcao', 'recepção'];
     return rooftopRoles.includes(role) || onlyRooftop;
-  }, [estabelecimentos]);
+  }, [estabelecimentos, primaryEstablishmentFlags.isRooftop]);
 
   return (
     <WithPermission allowedRoles={["admin", "gerente", "hostess", "promoter", "recepção", "recepcao", "atendente"]}>

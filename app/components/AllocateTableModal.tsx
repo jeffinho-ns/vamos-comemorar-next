@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useEstablishmentRules } from '@/app/hooks/useEstablishmentRules';
 import { MdClose, MdLocationOn, MdTableBar, MdCheck } from 'react-icons/md';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL_LOCAL || 'https://api.agilizaiapp.com.br';
@@ -43,12 +44,13 @@ export default function AllocateTableModal({
   const [tables, setTables] = useState<RestaurantTable[]>([]);
   const [loading, setLoading] = useState(false);
 
-  const isSeuJustino = establishment && (
-    (establishment.name || '').toLowerCase().includes('seu justino') && 
-    !(establishment.name || '').toLowerCase().includes('pracinha')
+  const { flags: establishmentRulesFlags } = useEstablishmentRules(
+    establishment?.id ?? null,
+    establishment?.name,
   );
-  const isPracinha = establishment && (establishment.name || '').toLowerCase().includes('pracinha');
-  const isReservaRooftop = establishment && (establishment.name || '').toLowerCase().includes('reserva rooftop');
+  const isSeuJustino = establishmentRulesFlags.isSeuJustino;
+  const isPracinha = establishmentRulesFlags.isPracinha;
+  const isReservaRooftop = establishmentRulesFlags.isRooftop;
   const normalizeEstablishmentName = (name?: string | null) => (name || '').toLowerCase().trim();
   const matchesSelectedEstablishment = (reservation: any): boolean => {
     if (!establishment) return true;

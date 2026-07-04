@@ -16,7 +16,7 @@
 | Última atualização | 2026-07-03 |
 | Modo atual | **`SAAS_MODE=on`** API · **`NEXT_PUBLIC_SAAS_MODE=on`** Vercel ✅ |
 | Fase em andamento | **Fase 7** — editor superadmin de `establishments.config` + hardcodes residuais. |
-| Próximo passo | Migrar front (reservas/check-ins) para `fetchEstablishmentRules`; places/bars → views; expandir RLS. |
+| Próximo passo | places/bars → views; expandir RLS; migrar `ReservationForm` público para rules. |
 | Pendências/decisões | Contract NOT NULL (fase posterior); places/bars → views; expandir RLS além de `restaurant_reservations`. |
 
 > Produção já tem migrations 001–007, observe ativo, proxies com Authorization e código de enforce **pronto mas inerte** até `SAAS_MODE=on`.
@@ -35,7 +35,7 @@
 - [~] **Fase 4** — `EntitlementsProvider` + sidebar via `adminNavModules`. **`NEXT_PUBLIC_SAAS_MODE=on`** no `.env.example` e `.env.local`. Quebra de monolitos: pendente.
 - [x] **Fase 5** — Billing manual, mensalidade (`009`), `past_due`, sem gateway.
 - [x] **Fase 6** — Superadmin completo + materiais em `/documentacao` + onboarding no provisionamento + scripts backfill.
-- [~] **Fase 7** — `establishmentRules` em reservas/eventos/mesas/IA/check-ins. **Editor superadmin** de `establishments.config` (`GET/PATCH /api/superadmin/establishments/:id/config`). Pendente: front consumir rules; places/bars views.
+- [~] **Fase 7** — `establishmentRules` em reservas/eventos/mesas/IA/check-ins. **Editor superadmin** de `establishments.config`. **Front admin** migrado para `useEstablishmentRules` (reservas, modais, calendários, check-ins). Pendente: `ReservationForm` público; places/bars views.
 
 Legenda: [x] concluído · [~] parcial/pronto-mas-inerte · [ ] não iniciado.
 
@@ -57,6 +57,7 @@ Legenda: [x] concluído · [~] parcial/pronto-mas-inerte · [ ] não iniciado.
 - 2026-07-02 — **Fase 2 expand + Fase 4 sidebar:** enforce em `guestListsAdmin`, `restaurantAreas`, `restaurantReservationBlocks`, `restaurantReservationSettings`, `eventos/dashboard`; removido fake admin sem token em guest-lists. Front: `EntitlementsProvider` montado, `filterNavByEntitlements` na sidebar (`adminNavModules.ts`). Ativar filtro real: `NEXT_PUBLIC_SAAS_MODE=on` no Render do front.
 - 2026-06-28 — **Unificação places+bars (passos seguros) APLICADA EM PRODUÇÃO**. Migrations `006` (enriquece `establishments` com campos tipados de places+bars + `theme` JSONB; decisão: tipado + JSONB) e `007` (`establishment_modules` = serviços por casa, on/off). Seed por evidência: 5 casas operacionais com tudo; Sitio Ilha e Tio Jacques só cardápio. Validado em staging e prod; API 200. **Ainda intacto**: places/bars seguem existindo (compatibilidade); o código continua lendo as tabelas legadas. **Pendente p/ próxima sessão (staging + decisão):** Passo 4-5 — transformar places/bars em VIEWS sobre establishments e migrar as queries da API para o id canônico; depois aposentar as tabelas legadas.
 - 2026-07-03 — **Fase 7 editor:** `establishmentConfigService`, `GET/PATCH /api/superadmin/establishments/:id/config`, página `/superadmin/organizations/[id]/establishments/[estId]` com form de profile/reservas/cardápio + preview merged.
+- 2026-07-03 — **Fase 7 front rules:** `useEstablishmentRules` + `deriveEstablishmentRulesFlags` aplicados em reservas admin (`restaurant-reservations`, `ReservationModal`, `ReservationCalendar`, `WeeklyCalendar`, `WaitlistModal`, `AllocateTableModal`), check-ins (`eventos/[id]/check-ins`, `/admin/checkins`, tablet). Fallback por nome mantido quando API não retorna profile.
 
 ---
 

@@ -20,6 +20,7 @@ import {
 } from "react-icons/md";
 import { FaWhatsapp } from "react-icons/fa"; // <-- 1. IMPORTAÇÃO ADICIONADA
 import { useUserPermissions } from "@/app/hooks/useUserPermissions";
+import { useEstablishmentRules } from "@/app/hooks/useEstablishmentRules";
 import {
   getConfiguredWindows,
   WeeklyOperatingSetting,
@@ -252,22 +253,14 @@ export default function ReservationModal({
   const normalizeEstablishmentName = (name?: string | null) =>
     (name || "").toLowerCase().trim();
 
-  const isHighline =
-    establishment &&
-    normalizeEstablishmentName(establishment.name).includes("high");
-  const isSeuJustino =
-    establishment &&
-    normalizeEstablishmentName(establishment.name).includes("seu justino") &&
-    !normalizeEstablishmentName(establishment.name).includes("pracinha");
-  const isPracinha =
-    establishment &&
-    normalizeEstablishmentName(establishment.name).includes("pracinha");
-  const isReservaRooftop =
-    establishment &&
-    (normalizeEstablishmentName(establishment.name).includes(
-      "reserva rooftop",
-    ) ||
-      normalizeEstablishmentName(establishment.name).includes("rooftop"));
+  const { flags: establishmentRulesFlags } = useEstablishmentRules(
+    establishment?.id ?? null,
+    establishment?.name,
+  );
+  const isHighline = establishmentRulesFlags.isHighline;
+  const isSeuJustino = establishmentRulesFlags.isSeuJustino;
+  const isPracinha = establishmentRulesFlags.isPracinha;
+  const isReservaRooftop = establishmentRulesFlags.isRooftop;
 
   const matchesSelectedEstablishment = (reservation: any): boolean => {
     if (!establishment) return true;

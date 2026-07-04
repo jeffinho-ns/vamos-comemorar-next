@@ -58,9 +58,9 @@ import RooftopUnifiedStatsHeader from "@/app/components/checkins/RooftopUnifiedS
 import {
   computeRooftopUnifiedMetrics,
   getRooftopSubareaName,
-  isReservaRooftopEstablishment,
   toDateKey,
 } from "@/app/utils/rooftopCheckins";
+import { useEstablishmentRules } from "@/app/hooks/useEstablishmentRules";
 import {
   formatCheckinTime,
   formatDateTimeCheckin,
@@ -650,6 +650,14 @@ export default function EventoCheckInsPage() {
   const [establishmentFilterId, setEstablishmentFilterId] = useState<
     number | null
   >(null);
+
+  const { flags: establishmentRulesFlags } = useEstablishmentRules(
+    evento?.establishment_id ?? null,
+    evento?.establishment_name,
+  );
+  const isReservaRooftopEvent = establishmentRulesFlags.isRooftop;
+  const isSeuJustinoEvent = establishmentRulesFlags.isSeuJustino;
+
   const [expandedGuestListId, setExpandedGuestListId] = useState<number | null>(
     null,
   );
@@ -2360,8 +2368,7 @@ export default function EventoCheckInsPage() {
         id: convidado.id,
         nome: convidado.nome,
       };
-      const isRooftop =
-        isReservaRooftopEstablishment(evento?.establishment_name);
+      const isRooftop = establishmentRulesFlags.isRooftop;
       if (isRooftop && confirmarCheckInRef.current) {
         confirmarCheckInRef.current("CONSUMA", 0, payload);
       } else {
@@ -2372,7 +2379,7 @@ export default function EventoCheckInsPage() {
         checkInInProgressRef.current[key] = false;
       }, 500);
     },
-    [evento?.establishment_id, evento?.establishment_name],
+    [evento?.establishment_id, establishmentRulesFlags.isRooftop],
   );
 
   const handleConvidadoPromoterCheckIn = useCallback(
@@ -2395,8 +2402,7 @@ export default function EventoCheckInsPage() {
         valorEntradaPromoter: typeof convidado.valor_entrada_regra === "number" ? convidado.valor_entrada_regra : (parseFloat(String(convidado.valor_entrada_regra || 0)) || 0),
         entradaConfigPromoter: convidado.entrada_config_regra || null,
       };
-      const isRooftop =
-        isReservaRooftopEstablishment(evento?.establishment_name);
+      const isRooftop = establishmentRulesFlags.isRooftop;
       if (isRooftop && confirmarCheckInRef.current) {
         confirmarCheckInRef.current("CONSUMA", 0, payload);
       } else {
@@ -2407,7 +2413,7 @@ export default function EventoCheckInsPage() {
         checkInInProgressRef.current[key] = false;
       }, 500);
     },
-    [evento?.establishment_id, evento?.establishment_name],
+    [evento?.establishment_id, establishmentRulesFlags.isRooftop],
   );
 
   // Função que realmente faz o check-in após seleção do status.
@@ -3501,8 +3507,7 @@ export default function EventoCheckInsPage() {
         nome: guestName,
         guestListId: guestListId,
       };
-      const isRooftop =
-        isReservaRooftopEstablishment(evento?.establishment_name);
+      const isRooftop = establishmentRulesFlags.isRooftop;
       if (isRooftop && confirmarCheckInRef.current) {
         confirmarCheckInRef.current("CONSUMA", 0, payload);
       } else {
@@ -3514,7 +3519,7 @@ export default function EventoCheckInsPage() {
         checkInInProgressRef.current[key] = false;
       }, 500);
     },
-    [evento?.establishment_id, evento?.establishment_name],
+    [evento?.establishment_id, establishmentRulesFlags.isRooftop],
   );
 
   // Função para fazer check-out de um convidado de guest list
@@ -3690,12 +3695,6 @@ export default function EventoCheckInsPage() {
       return textMatchesSearch(debouncedSearchTerm, text);
     },
     [debouncedSearchTerm],
-  );
-
-  const isReservaRooftopEvent = useMemo(
-    () =>
-      isReservaRooftopEstablishment(evento?.establishment_name),
-    [evento?.establishment_id, evento?.establishment_name],
   );
 
   const eventDateKey = useMemo(() => {
@@ -4184,12 +4183,8 @@ export default function EventoCheckInsPage() {
     const term = debouncedSearchTerm.trim();
     if (term.length < 2) return [];
     const results: SearchResultTablet[] = [];
-    const isSeuJustino =
-      evento?.establishment_name?.toLowerCase().includes("seu justino") &&
-      !evento?.establishment_name?.toLowerCase().includes("pracinha");
-    const isRooftop = isReservaRooftopEstablishment(
-      evento?.establishment_name,
-    );
+    const isSeuJustino = isSeuJustinoEvent;
+    const isRooftop = isReservaRooftopEvent;
 
     const areaFor = (
       table?: string | number,

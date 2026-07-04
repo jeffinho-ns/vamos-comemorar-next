@@ -21,6 +21,7 @@ import {
   getReservationStatusColor,
   getReservationStatusText,
 } from "@/app/utils/reservationStatus";
+import { useEstablishmentRules } from "@/app/hooks/useEstablishmentRules";
 
 interface Reservation {
   id: number;
@@ -116,18 +117,20 @@ export default function WeeklyCalendar({
   onStatusChange,
   establishment,
 }: WeeklyCalendarProps) {
+  const { flags: establishmentRulesFlags } = useEstablishmentRules(
+    establishment?.id ?? null,
+    establishment?.name,
+  );
+  const isSeuJustinoEstablishment = establishmentRulesFlags.isSeuJustino;
+  const isReservaRooftop = establishmentRulesFlags.isRooftop;
+
   // Função helper para mapear mesa -> área do Seu Justino
   const getSeuJustinoAreaName = (
     tableNumber?: string | number,
     areaName?: string,
     areaId?: number,
   ): string => {
-    const isSeuJustino =
-      establishment &&
-      (establishment.name || "").toLowerCase().includes("seu justino") &&
-      !(establishment.name || "").toLowerCase().includes("pracinha");
-
-    if (!isSeuJustino) return areaName || "";
+    if (!isSeuJustinoEstablishment) return areaName || "";
     if (!tableNumber && !areaName && !areaId) return areaName || "";
 
     const tableNum = String(tableNumber || "").trim();
@@ -429,10 +432,6 @@ export default function WeeklyCalendar({
 
     return days;
   }, [currentWeek, reservations]);
-
-  const isReservaRooftop = Boolean(
-    (establishment?.name || "").toLowerCase().includes("reserva rooftop"),
-  );
 
   // Obter cor do status
   const getStatusColor = (status: string) =>

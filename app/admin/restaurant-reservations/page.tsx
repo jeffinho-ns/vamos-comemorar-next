@@ -37,6 +37,7 @@ import {
   BirthdayReservation,
 } from "../../services/birthdayService";
 import { useEstablishmentPermissions } from "@/app/hooks/useEstablishmentPermissions";
+import { useEstablishmentRules } from "@/app/hooks/useEstablishmentRules";
 import {
   getReservationStatusColor,
   getReservationStatusText,
@@ -143,6 +144,13 @@ export default function RestaurantReservationsPage() {
         Number(selectedEstablishment.id),
       )
     : true;
+
+  const { flags: establishmentRulesFlags } = useEstablishmentRules(
+    selectedEstablishment?.id ?? null,
+    selectedEstablishment?.name,
+  );
+  const isSeuJustino = establishmentRulesFlags.isSeuJustino;
+  const isReservaRooftop = establishmentRulesFlags.isRooftop;
 
   const fetchEstablishments = useCallback(async () => {
     setLoading(true);
@@ -1433,17 +1441,7 @@ export default function RestaurantReservationsPage() {
     return Math.max(0, diffInMinutes);
   };
 
-  // Função auxiliar para detectar se é Seu Justino
-  const isSeuJustino =
-    selectedEstablishment &&
-    (selectedEstablishment.name || "").toLowerCase().includes("seu justino") &&
-    !(selectedEstablishment.name || "").toLowerCase().includes("pracinha");
-
-  const isReservaRooftop =
-    selectedEstablishment &&
-    (selectedEstablishment.name || "")
-      .toLowerCase()
-      .includes("reserva rooftop");
+  // isSeuJustino / isReservaRooftop via useEstablishmentRules (topo do componente)
 
   const isConfirmedReservationStatus = (status?: string | null) =>
     isReservationStatus(status, "confirmed");

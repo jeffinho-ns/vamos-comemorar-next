@@ -5,6 +5,7 @@ import { MdChevronLeft, MdChevronRight, MdAdd, MdEvent, MdRestaurant, MdPeople }
 import ReservationsDayModal from "./ReservationsDayModal";
 import ReservationDetailsModal from "./ReservationDetailsModal";
 import { getReservationStatusColor } from "@/app/utils/reservationStatus";
+import { useEstablishmentRules } from "@/app/hooks/useEstablishmentRules";
 
 interface Establishment {
   id: number;
@@ -71,7 +72,12 @@ export default function ReservationCalendar({
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [selectedReservation, setSelectedReservation] = useState<Reservation | null>(null);
   const [selectedDayReservations, setSelectedDayReservations] = useState<Reservation[]>([]);
-  const isReservaRooftop = (establishment?.name || '').toLowerCase().includes('reserva rooftop');
+
+  const { flags: establishmentRulesFlags } = useEstablishmentRules(
+    establishment?.id ?? null,
+    establishment?.name,
+  );
+  const isReservaRooftop = establishmentRulesFlags.isRooftop;
 
   const toDateKey = (value: unknown): string | null => {
     if (!value) return null;
@@ -116,9 +122,11 @@ export default function ReservationCalendar({
     return grouped;
   }, [birthdayReservations]);
 
-  // Total de mesas / slots de reserva por estabelecimento
-  // Highline = 36 mesas, Seu Justino = 29 mesas, Reserva Rooftop = 60 reservas/dia
+  // Total de mesas / slots de reserva por estabelecimento (prioriza rules da API)
   const getTotalTablesForEstablishment = () => {
+    if (establishmentRulesFlags.maxDaily != null) {
+      return establishmentRulesFlags.maxDaily;
+    }
     const name = (establishment?.name || '').toLowerCase();
     if (name.includes('high line') || name.includes('highline')) return 36;
     if (name.includes('seu justino') && !name.includes('pracinha')) return 29;
