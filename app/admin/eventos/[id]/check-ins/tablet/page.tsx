@@ -5,10 +5,26 @@ import { useParams } from 'next/navigation';
 import { MdSearch, MdPerson, MdCardGiftcard, MdEvent, MdCheckCircle } from 'react-icons/md';
 import AdminSaasGuard from '@/app/components/AdminSaasGuard';
 import { useSaasAccess } from '@/app/hooks/useSaasAccess';
+import { readAuthToken } from '@/app/utils/readAuthToken';
 import { io } from 'socket.io-client';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.agilizaiapp.com.br';
 const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL || 'https://api.agilizaiapp.com.br';
+const FETCH_TIMEOUT_MS = 45000;
+
+async function fetchWithTimeout(
+  input: RequestInfo | URL,
+  init: RequestInit = {},
+  timeoutMs = FETCH_TIMEOUT_MS,
+): Promise<Response> {
+  const controller = new AbortController();
+  const timer = window.setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(input, { ...init, signal: controller.signal });
+  } finally {
+    window.clearTimeout(timer);
+  }
+}
 
 function normalizeForSearch(s: string): string {
   if (!s) return '';
@@ -78,6 +94,7 @@ export default function EventoTabletCheckInsPage() {
     promoterGuests: {},
     gifts: {}
   });
+  const [reloadKey, setReloadKey] = useState(0);
 
   // Carregar todos os dados quando o componente montar ou eventoId mudar
   useEffect(() => {
@@ -85,8 +102,9 @@ export default function EventoTabletCheckInsPage() {
 
     const carregarTodosDados = async () => {
       setLoadingData(true);
+      setError(null);
       try {
-        const token = localStorage.getItem('authToken');
+        const token = readAuthToken();
         const headers: HeadersInit = {
           'Content-Type': 'application/json',
         };
@@ -94,57 +112,59 @@ export default function EventoTabletCheckInsPage() {
           headers['Authorization'] = `Bearer ${token}`;
         }
 
-        // Buscar check-ins consolidados do evento
-        const checkinsRes = await fetch(`${API_URL}/api/v1/eventos/${eventoId}/checkins-consolidados`, { headers });
-        if (!checkinsRes.ok) throw new Error('Erro ao carregar dados');
+        const checkinsRes = await fetchWithTimeout(
+          `${API_URL}/api/v1/eventos/${eventoId}/checkins`,
+          { headers },
+        );
+        if (!checkinsRes.ok) {
+          const detail = await checkinsRes.text().catch(() => '');
+          throw new Error(`HTTP ${checkinsRes.status}${detail ? `: ${detail.slice(0, 120)}` : ''}`);
+        }
 
         const checkinsData = await checkinsRes.json();
-        
-        const guestLists = checkinsData.restaurant_guest_lists || [];
+        const dados = checkinsData.dados || checkinsData;
+
+        const guestLists = dados.guestListsRestaurante || dados.restaurant_guest_lists || [];
         const guests: { [key: number]: any[] } = {};
         const gifts: { [key: number]: any } = {};
 
-        // Carregar guests e gifts de cada guest list
         for (const gl of guestLists) {
           try {
-            // Carregar guests
-            const guestsRes = await fetch(`${API_URL}/api/admin/guest-lists/${gl.guest_list_id}/guests`, { headers });
+            const guestListId = gl.guest_list_id || gl.id;
+            if (!guestListId) continue;
+
+            const guestsRes = await fetchWithTimeout(
+              `${API_URL}/api/admin/guest-lists/${guestListId}/guests`,
+              { headers },
+            );
             if (guestsRes.ok) {
               const guestsData = await guestsRes.json();
-              guests[gl.guest_list_id] = guestsData.guests || [];
+              guests[guestListId] = guestsData.guests || [];
             }
 
-            // Carregar gifts
-            const giftRes = await fetch(`${API_URL}/api/gift-rules/guest-list/${gl.guest_list_id}/gifts`, { headers });
+            const giftRes = await fetchWithTimeout(
+              `${API_URL}/api/gift-rules/guest-list/${guestListId}/gifts`,
+              { headers },
+            );
             if (giftRes.ok) {
               const giftData = await giftRes.json();
-              gifts[gl.guest_list_id] = giftData;
+              gifts[guestListId] = giftData;
             }
           } catch (e) {
-            console.error(`Erro ao carregar dados da guest list ${gl.guest_list_id}:`, e);
+            console.error(`Erro ao carregar dados da guest list ${gl.guest_list_id || gl.id}:`, e);
           }
         }
 
-        // Carregar promoters e seus convidados
-        const promoters = checkinsData.promoters || [];
+        const promoters = dados.promoters || [];
         const promoterGuests: { [key: number]: any[] } = {};
+        const convidadosPromoters = dados.convidadosPromoters || [];
 
         for (const promoter of promoters) {
-          try {
-            const listasRes = await fetch(`${API_URL}/api/v1/eventos/${eventoId}/promoter/${promoter.id}/listas`, { headers });
-            if (listasRes.ok) {
-              const listasData = await listasRes.json();
-              const allGuests: any[] = [];
-              (listasData.listas || []).forEach((lista: any) => {
-                if (lista.convidados) {
-                  allGuests.push(...lista.convidados);
-                }
-              });
-              promoterGuests[promoter.id] = allGuests;
-            }
-          } catch (e) {
-            console.error(`Erro ao carregar convidados do promoter ${promoter.id}:`, e);
-          }
+          const promoterId = promoter.id || promoter.promoter_id;
+          promoterGuests[promoterId] = convidadosPromoters.filter((c: any) => {
+            const cPromoterId = c.promoter_id || c.promoter_responsavel_id;
+            return Number(cPromoterId) === Number(promoterId);
+          });
         }
 
         setLoadedData({
@@ -163,7 +183,7 @@ export default function EventoTabletCheckInsPage() {
     };
 
     carregarTodosDados();
-  }, [eventoId]);
+  }, [eventoId, reloadKey]);
 
   // Socket.IO: atualização em tempo real quando check-in é feito via /admin/qrcode
   const guestListIdsKey = (loadedData.guestLists || []).map((g: any) => g.guest_list_id ?? g.id).filter(Boolean).sort().join(',');
@@ -451,8 +471,15 @@ export default function EventoTabletCheckInsPage() {
 
               {/* Erro */}
               {error && (
-                <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
-                  {error}
+                <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4 flex items-center justify-between gap-3">
+                  <span>{error}</span>
+                  <button
+                    type="button"
+                    onClick={() => setReloadKey((k) => k + 1)}
+                    className="shrink-0 rounded bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700"
+                  >
+                    Tentar novamente
+                  </button>
                 </div>
               )}
 
