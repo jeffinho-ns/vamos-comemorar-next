@@ -42,6 +42,7 @@ import {
 } from "../utils/promoterPortalAccess";
 import { readSuperAdminFromCookie } from "../utils/superAdminAccess";
 import { ensureAuthSessionFromStorage } from "../utils/authSession";
+import { readAuthToken } from "../utils/readAuthToken";
 import { isSaasModeEnabled } from "../utils/saasMode";
 import {
   isAdminRole as isAdminNavRole,
@@ -110,12 +111,18 @@ export default function DashboardLayout({
   const decodedCookieRole = cookieRole
     ? decodeURIComponent(cookieRole).toLowerCase().trim()
     : "";
+  const storedSessionRole = clientSessionReady ? readSessionRoleSync() : "";
   const effectiveEmail = (userEmail || cookieEmail).trim().toLowerCase();
-  const effectiveRoleRaw = (userRole || decodedCookieRole || cookieRole).trim();
+  const effectiveRoleRaw = (
+    userRole ||
+    decodedCookieRole ||
+    cookieRole ||
+    storedSessionRole
+  ).trim();
   const hasStoredAuth =
     clientSessionReady &&
     typeof window !== "undefined" &&
-    !!localStorage.getItem("authToken");
+    !!readAuthToken();
   const roleResolved = effectiveRoleRaw.length > 0 || hasStoredAuth;
   const isStaffUser = isStaffAdminRole(effectiveRoleRaw);
 
@@ -397,6 +404,11 @@ export default function DashboardLayout({
     );
   }
 
+  // Notebook lento / API demorada: mantém pelo menos check-in quando há sessão salva
+  if (navLinks.length === 0 && hasStoredAuth && clientSessionReady) {
+    navLinks = [{ href: "/admin/checkins", label: "Check-ins", icon: MdCheckCircle }];
+  }
+
   const getActiveLabel = () => {
     const activeLink = navLinks.find((link) => pathname.startsWith(link.href));
     if (isAnalista) {
@@ -422,7 +434,8 @@ export default function DashboardLayout({
       roleResolved &&
       navLinks.length === 0 &&
       !isStaffUser &&
-      !entitlements.legacyScoped
+      !entitlements.legacyScoped &&
+      !hasStoredAuth
     ) {
       window.location.href = "/acesso-negado";
     }
@@ -433,6 +446,7 @@ export default function DashboardLayout({
     navLinks.length,
     isStaffUser,
     entitlements.legacyScoped,
+    hasStoredAuth,
   ]);
 
   if (
@@ -441,7 +455,8 @@ export default function DashboardLayout({
     roleResolved &&
     navLinks.length === 0 &&
     !isStaffUser &&
-    !entitlements.legacyScoped
+    !entitlements.legacyScoped &&
+    !hasStoredAuth
   ) {
     return null;
   }

@@ -1,5 +1,6 @@
 import { canonicalSessionRole } from "./adminRole";
 import { isSuperAdminFromToken } from "./superAdminAccess";
+import { safeGetItem, safeRemoveItem } from "./safeStorage";
 
 const AUTH_CHANGED_EVENT = "auth:changed";
 /** Cookies persistentes — evita perda de sessão em navegadores antigos ao fechar aba. */
@@ -14,7 +15,6 @@ const AUTH_STORAGE_KEYS = [
   "promoterId",
   "promoterCodigo",
 ] as const;
-
 const AUTH_COOKIE_KEYS = ["authToken", "role", "userEmail", "promoterCodigo", "isSuperAdmin"] as const;
 
 export function notifyAuthChanged() {
@@ -26,7 +26,7 @@ export function clearAuthSession(options?: { notify?: boolean }) {
   if (typeof window === "undefined") return;
 
   for (const key of AUTH_STORAGE_KEYS) {
-    localStorage.removeItem(key);
+    safeRemoveItem(key);
   }
 
   for (const key of AUTH_COOKIE_KEYS) {
@@ -87,7 +87,7 @@ export function ensureAuthSessionFromStorage(): boolean {
   if (typeof window === "undefined") return false;
 
   try {
-    const token = localStorage.getItem("authToken");
+    const token = safeGetItem("authToken");
     if (!token) return false;
 
     const hasAuthCookie = document.cookie
@@ -97,12 +97,11 @@ export function ensureAuthSessionFromStorage(): boolean {
 
     setAuthSessionCookies({
       authToken: token,
-      role: localStorage.getItem("role") || "cliente",
-      userEmail: localStorage.getItem("userEmail") || undefined,
-      promoterCodigo: localStorage.getItem("promoterCodigo") || undefined,
+      role: safeGetItem("role") || "cliente",
+      userEmail: safeGetItem("userEmail") || undefined,
+      promoterCodigo: safeGetItem("promoterCodigo") || undefined,
       isSuperAdmin: isSuperAdminFromToken(token),
-    });
-    notifyAuthChanged();
+    });    notifyAuthChanged();
     return true;
   } catch {
     return false;

@@ -12,6 +12,7 @@ import {
 import { getApiUrl } from "../config/api";
 import { canonicalSessionRole } from "../utils/adminRole";
 import { AUTH_CHANGED_EVENT, ensureAuthSessionFromStorage } from "../utils/authSession";
+import { safeGetItem } from "../utils/safeStorage";
 import {
   filterEstablishmentListForUser,
   filterEstablishmentPermissionsForUser,
@@ -88,7 +89,7 @@ interface AppContextValue {
 }
 
 const AppContext = createContext<AppContextValue | undefined>(undefined);
-const GLOBAL_FETCH_TIMEOUT_MS = 12000;
+const GLOBAL_FETCH_TIMEOUT_MS = 45000;
 
 function readCookie(name: string): string {
   if (typeof document === "undefined") return "";
@@ -199,7 +200,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       // 2) localStorage apenas fallback
       const cookieToken = readCookie("authToken");
       const storageToken =
-        typeof window !== "undefined" ? localStorage.getItem("authToken") || "" : "";
+        typeof window !== "undefined" ? safeGetItem("authToken") : "";
       const resolvedToken = cookieToken || storageToken;
       if (!resolvedToken) {
         setUser(null);
@@ -239,11 +240,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           if (normalizedEmail) localStorage.setItem("userEmail", normalizedEmail);
         }
       } else {
+        const fallbackRole = normalizeRole(
+          readCookie("role") || safeGetItem("role"),
+        );
+        const fallbackEmail = normalizeUserEmail(
+          readCookie("userEmail") || safeGetItem("userEmail"),
+        );
         setUser(null);
-        setRole(normalizeRole(readCookie("role")));
-        setUserEmail(readCookie("userEmail"));
-        setError("Falha ao carregar dados do usuario.");
-        setHasError(true);
+        setRole(fallbackRole);
+        setUserEmail(fallbackEmail);
+        if (fallbackRole || fallbackEmail) {
+          setError(null);
+          setHasError(false);
+        } else {
+          setError("Falha ao carregar dados do usuario.");
+          setHasError(true);
+        }
       }
 
       let scopedPermissions: AppPermission[] = [];

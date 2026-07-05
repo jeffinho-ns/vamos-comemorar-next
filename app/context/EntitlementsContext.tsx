@@ -23,6 +23,7 @@ import {
   type ReactNode,
 } from "react";
 import { getApiUrl } from "../config/api";
+import { readAuthToken } from "../utils/readAuthToken";
 
 export interface Entitlements {
   allowAll: boolean;
@@ -62,11 +63,7 @@ function isSaasMode(): boolean {
 
 function readToken(): string {
   if (typeof window === "undefined") return "";
-  const fromCookie = document.cookie
-    .split("; ")
-    .find((row) => row.startsWith("authToken="))
-    ?.split("=")[1];
-  return fromCookie || localStorage.getItem("authToken") || "";
+  return readAuthToken();
 }
 
 export function EntitlementsProvider({ children }: { children: ReactNode }) {
@@ -76,7 +73,7 @@ export function EntitlementsProvider({ children }: { children: ReactNode }) {
     return isSaasMode() && !!readToken();
   });
 
-const ENTITLEMENTS_TIMEOUT_MS = 8000;
+const ENTITLEMENTS_TIMEOUT_MS = 20000;
 
   const refresh = useCallback(async () => {
     // Inerte fora do modo SaaS: mantém allowAll e não chama a API.

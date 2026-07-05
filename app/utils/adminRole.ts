@@ -3,6 +3,8 @@
  * Remove acentos e unifica recepcao/recepção/atendente.
  */
 
+import { safeGetItem } from "./safeStorage";
+
 export function normalizeAdminRole(role: string | null | undefined): string {
   return String(role || "")
     .normalize("NFD")
@@ -74,9 +76,5 @@ export function readSessionRoleSync(): string {
   } catch {
     /* ignore */
   }
-  try {
-    return localStorage.getItem("role")?.trim() || "";
-  } catch {
-    return "";
-  }
+  return safeGetItem("role").trim();
 }

@@ -25,6 +25,8 @@ import { useEstablishmentPermissions } from '@/app/hooks/useEstablishmentPermiss
 import { useEstablishmentRules } from '@/app/hooks/useEstablishmentRules';
 import { useSaasAccess } from '@/app/hooks/useSaasAccess';
 import { useRequireSaasModule } from '@/app/hooks/useRequireSaasModule';
+import { eventCheckinsPath } from '@/app/utils/preferLiteCheckins';
+import { readAuthToken } from '@/app/utils/readAuthToken';
 import {
   eventBelongsToSelectedCheckinVenue,
   filterSitioIlhaOutOfCheckins,
@@ -101,7 +103,7 @@ export default function CheckInsGeralPage() {
   const carregarTudo = useCallback(async () => {
     setLoading(true);
     try {
-      const token = localStorage.getItem('authToken');
+      const token = readAuthToken();
       const headers = { Authorization: `Bearer ${token}` } as any;
 
       let listaEventos: EventoLista[] = [];
@@ -514,7 +516,7 @@ export default function CheckInsGeralPage() {
                     {lista.map(ev => (
                       <button
                         key={ev.evento_id}
-                        onClick={() => router.push(`/admin/eventos/${ev.evento_id}/check-ins`)}
+                        onClick={() => router.push(eventCheckinsPath(ev.evento_id))}
                         className="w-full text-left px-4 py-3 hover:bg-white/10 transition-colors"
                       >
                         <div className="flex items-center justify-between">
