@@ -41,6 +41,7 @@ import {
   shouldUseEventPromoterPortal,
 } from "../utils/promoterPortalAccess";
 import { readSuperAdminFromCookie } from "../utils/superAdminAccess";
+import { ensureAuthSessionFromStorage } from "../utils/authSession";
 import { isSaasModeEnabled } from "../utils/saasMode";
 import {
   isAdminRole as isAdminNavRole,
@@ -88,23 +89,34 @@ export default function DashboardLayout({
   } = useSaasAccess();
   const { role: userRole, userEmail, isLoading } = useAppContext();
   const { entitlements } = useEntitlements();
-  const [cookieRole, setCookieRole] = useState(() => readSessionRoleSync());
+  const [cookieRole, setCookieRole] = useState("");
   const [cookieEmail, setCookieEmail] = useState("");
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+  const [clientSessionReady, setClientSessionReady] = useState(false);
   useEffect(() => {
+    ensureAuthSessionFromStorage();
     setCookieRole(readSessionRoleSync());
     const emailMatch = document.cookie.match(/(?:^|;\s*)userEmail=([^;]*)/);
     setCookieEmail(
       emailMatch ? decodeURIComponent(emailMatch[1]).trim().toLowerCase() : "",
     );
+    if (!emailMatch && typeof window !== "undefined") {
+      const storedEmail = (localStorage.getItem("userEmail") || "").trim().toLowerCase();
+      if (storedEmail) setCookieEmail(storedEmail);
+    }
     setIsSuperAdmin(readSuperAdminFromCookie());
+    setClientSessionReady(true);
   }, []);
   const decodedCookieRole = cookieRole
     ? decodeURIComponent(cookieRole).toLowerCase().trim()
     : "";
   const effectiveEmail = (userEmail || cookieEmail).trim().toLowerCase();
   const effectiveRoleRaw = (userRole || decodedCookieRole || cookieRole).trim();
-  const roleResolved = effectiveRoleRaw.length > 0;
+  const hasStoredAuth =
+    clientSessionReady &&
+    typeof window !== "undefined" &&
+    !!localStorage.getItem("authToken");
+  const roleResolved = effectiveRoleRaw.length > 0 || hasStoredAuth;
   const isStaffUser = isStaffAdminRole(effectiveRoleRaw);
 
   useEffect(() => {
@@ -435,9 +447,11 @@ export default function DashboardLayout({
   }
 
   const showBlockingLoader =
-    (isLoading || isLoadingPerms || entitlementsLoading || !roleResolved) &&
-    navLinks.length === 0 &&
-    !isStaffUser;
+    !clientSessionReady ||
+    ((isLoading || isLoadingPerms || entitlementsLoading || !roleResolved) &&
+      navLinks.length === 0 &&
+      !isStaffUser &&
+      !hasStoredAuth);
 
   if (showBlockingLoader) {
     return (

@@ -12,7 +12,7 @@ const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL || 'https://api.agilizaiap
 
 function normalizeForSearch(s: string): string {
   if (!s) return '';
-  return String(s).normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase().replace(/\s+/g, ' ').trim();
+  return String(s).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();
 }
 
 function textMatchesSearch(searchTerm: string, text: string | null | undefined): boolean {

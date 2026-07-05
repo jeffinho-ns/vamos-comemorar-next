@@ -23,7 +23,7 @@ export function useRequireSaasModule(allowed: boolean) {
   }, [saasOn, entitlementsLoading, allowAll, legacyScoped, allowed, router]);
 
   const guardLoading =
-    saasOn && entitlementsLoading && !allowAll && !legacyScoped;
+    saasOn && entitlementsLoading && !allowAll && !legacyScoped && !allowed;
 
   const blocked =
     saasOn && !entitlementsLoading && !allowed && !allowAll && !legacyScoped;

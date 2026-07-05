@@ -76,6 +76,8 @@ export function EntitlementsProvider({ children }: { children: ReactNode }) {
     return isSaasMode() && !!readToken();
   });
 
+const ENTITLEMENTS_TIMEOUT_MS = 8000;
+
   const refresh = useCallback(async () => {
     // Inerte fora do modo SaaS: mantém allowAll e não chama a API.
     if (!isSaasMode()) {
@@ -85,12 +87,16 @@ export function EntitlementsProvider({ children }: { children: ReactNode }) {
     const token = readToken();
     if (!token) {
       setEntitlements(ALLOW_ALL);
+      setLoading(false);
       return;
     }
     setLoading(true);
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => controller.abort(), ENTITLEMENTS_TIMEOUT_MS);
     try {
       const res = await fetch(`${getApiUrl()}/api/me/entitlements`, {
         headers: { Authorization: `Bearer ${token}` },
+        signal: controller.signal,
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json = await res.json();
@@ -114,6 +120,7 @@ export function EntitlementsProvider({ children }: { children: ReactNode }) {
       // Fail-open: na dúvida, não trava a UI do cliente.
       setEntitlements(ALLOW_ALL);
     } finally {
+      window.clearTimeout(timer);
       setLoading(false);
     }
   }, []);

@@ -82,7 +82,7 @@ function normalizeForSearch(s: string): string {
   if (!s) return "";
   return String(s)
     .normalize("NFD")
-    .replace(/\p{Diacritic}/gu, "")
+    .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()
     .replace(/\s+/g, " ")
     .trim();
@@ -2600,7 +2600,7 @@ export default function EventoCheckInsPage() {
               .trim()
               .toLowerCase()
               .normalize("NFD")
-              .replace(/\p{Diacritic}/gu, "");
+              .replace(/[\u0300-\u036f]/g, "");
           const guestListForOwner = guestListsRestaurante.find(
             (gl) => gl.guest_list_id === data.guestListId,
           );
@@ -3247,7 +3247,7 @@ export default function EventoCheckInsPage() {
               .trim()
               .toLowerCase()
               .normalize("NFD")
-              .replace(/\p{Diacritic}/gu, "");
+              .replace(/[\u0300-\u036f]/g, "");
           const ownerNorm = normalizeForCompare(ownerName);
           const guests = guestsByList[guestListId] || [];
           const guestSameName = guests.find(
@@ -3771,7 +3771,7 @@ export default function EventoCheckInsPage() {
     return name
       .replace(/Jutino|Jutstino/gi, "Justino")
       .normalize("NFD")
-      .replace(/\p{Diacritic}/gu, "")
+      .replace(/[\u0300-\u036f]/g, "")
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, " ") // remove pontuação, hífens etc.
       .replace(/\s+/g, " ")
@@ -8867,7 +8867,7 @@ export default function EventoCheckInsPage() {
                         .trim()
                         .toLowerCase()
                         .normalize("NFD")
-                        .replace(/\p{Diacritic}/gu, "");
+                        .replace(/[\u0300-\u036f]/g, "");
                     const extractNumber = (s: string): string => {
                       const n = (s || "").replace(/\D/g, "");
                       return n || "";

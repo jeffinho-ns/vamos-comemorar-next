@@ -11,7 +11,7 @@ import {
 } from "react";
 import { getApiUrl } from "../config/api";
 import { canonicalSessionRole } from "../utils/adminRole";
-import { AUTH_CHANGED_EVENT } from "../utils/authSession";
+import { AUTH_CHANGED_EVENT, ensureAuthSessionFromStorage } from "../utils/authSession";
 import {
   filterEstablishmentListForUser,
   filterEstablishmentPermissionsForUser,
@@ -191,6 +191,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
       setError(null);
       setHasError(false);
+
+      ensureAuthSessionFromStorage();
 
       // Regra simples e previsivel:
       // 1) cookie e fonte primaria

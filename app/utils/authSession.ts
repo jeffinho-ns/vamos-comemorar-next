@@ -1,6 +1,9 @@
 import { canonicalSessionRole } from "./adminRole";
+import { isSuperAdminFromToken } from "./superAdminAccess";
 
 const AUTH_CHANGED_EVENT = "auth:changed";
+/** Cookies persistentes — evita perda de sessão em navegadores antigos ao fechar aba. */
+const AUTH_COOKIE_MAX_AGE_SEC = 60 * 60 * 24 * 30;
 
 const AUTH_STORAGE_KEYS = [
   "authToken",
@@ -35,6 +38,14 @@ export function clearAuthSession(options?: { notify?: boolean }) {
   }
 }
 
+function writePersistentCookie(name: string, value: string) {
+  document.cookie = `${name}=${value}; path=/; max-age=${AUTH_COOKIE_MAX_AGE_SEC}; SameSite=Lax`;
+}
+
+function clearCookie(name: string) {
+  document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`;
+}
+
 export function setAuthSessionCookies(params: {
   authToken: string;
   role: string;
@@ -46,25 +57,55 @@ export function setAuthSessionCookies(params: {
 
   const role = canonicalSessionRole(params.role);
 
-  document.cookie = `authToken=${params.authToken}; path=/`;
-  document.cookie = `role=${encodeURIComponent(role)}; path=/`;
+  writePersistentCookie("authToken", params.authToken);
+  writePersistentCookie("role", encodeURIComponent(role));
 
   if (params.isSuperAdmin) {
-    document.cookie = "isSuperAdmin=1; path=/";
+    writePersistentCookie("isSuperAdmin", "1");
   } else {
-    document.cookie = "isSuperAdmin=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/";
+    clearCookie("isSuperAdmin");
   }
 
   if (params.userEmail) {
-    document.cookie = `userEmail=${encodeURIComponent(params.userEmail)}; path=/`;
+    writePersistentCookie("userEmail", encodeURIComponent(params.userEmail));
   } else {
-    document.cookie = "userEmail=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/";
+    clearCookie("userEmail");
   }
 
   if (params.promoterCodigo) {
-    document.cookie = `promoterCodigo=${encodeURIComponent(params.promoterCodigo)}; path=/`;
+    writePersistentCookie("promoterCodigo", encodeURIComponent(params.promoterCodigo));
   } else {
-    document.cookie = "promoterCodigo=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/";
+    clearCookie("promoterCodigo");
+  }
+}
+
+/**
+ * Restaura cookies a partir do localStorage quando o cookie sumiu (comum em PCs
+ * antigos, IE mode ou sessões longas). Mantém middleware e AppContext alinhados.
+ */
+export function ensureAuthSessionFromStorage(): boolean {
+  if (typeof window === "undefined") return false;
+
+  try {
+    const token = localStorage.getItem("authToken");
+    if (!token) return false;
+
+    const hasAuthCookie = document.cookie
+      .split(";")
+      .some((part) => part.trim().startsWith("authToken="));
+    if (hasAuthCookie) return false;
+
+    setAuthSessionCookies({
+      authToken: token,
+      role: localStorage.getItem("role") || "cliente",
+      userEmail: localStorage.getItem("userEmail") || undefined,
+      promoterCodigo: localStorage.getItem("promoterCodigo") || undefined,
+      isSuperAdmin: isSuperAdminFromToken(token),
+    });
+    notifyAuthChanged();
+    return true;
+  } catch {
+    return false;
   }
 }
 

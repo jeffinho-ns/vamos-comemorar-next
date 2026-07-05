@@ -356,7 +356,7 @@ export function fillReservationsIntoSheet(
       .trim()
       .toLowerCase()
       .normalize("NFD")
-      .replace(/\p{Diacritic}/gu, "");
+      .replace(/[\u0300-\u036f]/g, "");
   const extractNumber = (s: string): string =>
     (s || "").replace(/\D/g, "") || "";
   const toInt = (s: string): number =>

@@ -591,7 +591,7 @@ export default function CardapioAdminPage() {
     // Remove acentos, pontuação e normaliza espaços para aumentar taxa de match.
     return String(value || "")
       .normalize("NFD")
-      .replace(/\p{Diacritic}/gu, "")
+      .replace(/[\u0300-\u036f]/g, "")
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, " ")
       .trim()
