@@ -1,23 +1,9559 @@
 "use client";
+import React from "react";
 
-import dynamic from "next/dynamic";
-import type { ComponentType } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { useParams, useRouter } from "next/navigation";
+import { motion, AnimatePresence } from "framer-motion";
+import { toast, ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
+import {
+  MdCheckCircle,
+  MdPending,
+  MdPerson,
+  MdRestaurant,
+  MdEvent,
+  MdPhone,
+  MdAccessTime,
+  MdSearch,
+  MdClose,
+  MdRefresh,
+  MdGroups,
+  MdTableBar,
+  MdStar,
+  MdArrowBack,
+  MdVpnKey,
+  MdEmail,
+  MdDescription,
+  MdViewList,
+  MdViewModule,
+  MdAttachMoney,
+  MdDownload,
+  MdCardGiftcard,
+  MdCake,
+} from "react-icons/md";
+import {
+  buildCheckinSpreadsheetTemplate,
+  fillReservationsIntoSheet,
+} from "./checkinSpreadsheet";
+import {
+  CHECKIN_SHEET_ROWS,
+  CHECKIN_SHEET_DATA_START_INDEX,
+} from "./checkinSheetRows";
+import type { CheckinSheetRow } from "./checkinSheetRows";
+import { WithPermission } from "../../../../components/WithPermission/WithPermission";
+import EntradaStatusModal, {
+  EntradaTipo,
+} from "../../../../components/EntradaStatusModal";
+import BirthdayDetailsModal from "../../../../components/painel/BirthdayDetailsModal";
+import {
+  computeReservasMetrics,
+  computePromoterMetrics,
+  computeTotalGeralMetrics,
+  computeCamarotesMetrics,
+} from "./checkInsMetrics";
+import { BirthdayReservation } from "../../../../services/birthdayService";
+import { Reservation } from "@/app/types/reservation";
+import { io } from "socket.io-client";
+import RooftopUnifiedStatsHeader from "@/app/components/checkins/RooftopUnifiedStatsHeader";
+import {
+  computeRooftopUnifiedMetrics,
+  getRooftopSubareaName,
+  toDateKey,
+} from "@/app/utils/rooftopCheckins";
+import { useEstablishmentRules } from "@/app/hooks/useEstablishmentRules";
+import {
+  formatCheckinTime,
+  formatDateTimeCheckin,
+} from "@/lib/dateUtils";
+import { FileText } from "lucide-react";
+import CheckinsReportModal from "./CheckinsReportModal";
 
-const EventoCheckInsInner = dynamic(
-  () =>
-    import("./EventoCheckInsInner").then((mod) => ({
-      default: mod.default as ComponentType,
-    })),
-  {
-    ssr: false,
-    loading: () => (
-      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 flex items-center justify-center">
-        <p className="text-gray-300 text-lg">Carregando check-ins…</p>
-      </div>
-    ),
-  },
-);
+const API_URL =
+  process.env.NEXT_PUBLIC_API_URL || "https://api.agilizaiapp.com.br";
+const SOCKET_URL =
+  process.env.NEXT_PUBLIC_SOCKET_URL ||
+  "https://api.agilizaiapp.com.br";
+
+/**
+ * Normaliza texto para busca: remove acentos, lowercase, colapsa espaços.
+ * Permite encontrar "josé" digitando "jose", "JOSÉ" digitando "josé", etc.
+ */
+function normalizeForSearch(s: string): string {
+  if (!s) return "";
+  return String(s)
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/**
+ * Verifica se o texto corresponde ao termo de busca (case-insensitive, sem acentos).
+ * Suporta múltiplas palavras: "maria silva" encontra "Maria da Silva".
+ */
+function textMatchesSearch(
+  searchTerm: string,
+  text: string | null | undefined,
+): boolean {
+  const normSearch = normalizeForSearch(searchTerm);
+  if (!normSearch) return true;
+  if (!text) return false;
+  const normText = normalizeForSearch(text);
+  const words = normSearch.split(/\s+/).filter(Boolean);
+  return words.every((word) => normText.includes(word));
+}
+
+// Tipos
+interface EventoInfo {
+  evento_id: number;
+  nome: string;
+  data_evento: string;
+  horario: string;
+  tipo_evento: string;
+  establishment_id: number;
+  establishment_name: string;
+}
+
+interface ReservaMesa {
+  id: number;
+  tipo: string;
+  origem: string;
+  responsavel: string;
+  data_reserva: string;
+  quantidade_convidados: number;
+  total_convidados: number;
+  convidados_checkin: number;
+}
+
+interface ConvidadoReserva {
+  id: number;
+  tipo: string;
+  nome: string;
+  email?: string;
+  documento?: string;
+  status: string;
+  data_checkin?: string;
+  origem: string;
+  responsavel: string;
+  entrada_tipo?: EntradaTipo;
+  entrada_valor?: number;
+}
+
+interface PromoterEntradaConfig {
+  couvert?: { inicio?: string | null; fim?: string | null; valor?: number | null } | null;
+  faixa_1?: { inicio?: string | null; fim?: string | null; seco?: number | null; consuma?: number | null } | null;
+  faixa_2?: { inicio?: string | null; fim?: string | null; seco?: number | null; consuma?: number | null } | null;
+}
+
+interface ConvidadoPromoter {
+  id: number;
+  tipo: string;
+  nome: string;
+  telefone?: string;
+  status_checkin: "Pendente" | "Check-in" | "No-Show";
+  data_checkin?: string;
+  is_vip: boolean;
+  observacoes?: string;
+  origem: string;
+  tipo_lista: string;
+  responsavel: string;
+  promoter_id: number;
+  entrada_tipo?: EntradaTipo;
+  entrada_valor?: number;
+  /** VIP Noite Tuda: 'M' | 'F' = entrada R$ 0 sempre. Fallback seguro se API não retornar. */
+  vip_tipo?: "M" | "F" | null;
+  /** Valor de entrada (R$) da regra de brinde do promoter. Exibido no modal de check-in quando > 0. */
+  valor_entrada_regra?: number;
+  /** Configuração de entrada por horário da regra de promoter (opcional). */
+  entrada_config_regra?: PromoterEntradaConfig | null;
+}
+
+interface Promoter {
+  id: number;
+  tipo: string;
+  nome: string;
+  email?: string;
+  telefone?: string;
+  tipo_categoria?: string;
+  total_listas: number;
+  total_convidados: number;
+  convidados_checkin: number;
+}
+
+interface Camarote {
+  id: number;
+  tipo: string;
+  responsavel: string;
+  origem: string;
+  reservation_date: string;
+  reservation_time: string;
+  number_of_people: number;
+  checked_in: boolean;
+  checkin_time?: string;
+  total_convidados: number;
+  convidados_checkin: number;
+}
+
+interface ReservaRestaurante {
+  id: number;
+  tipo: string;
+  responsavel: string;
+  origem: string;
+  reservation_date: string;
+  reservation_time: string;
+  number_of_people: number;
+  checked_in: boolean;
+  checkin_time?: string;
+  checked_out?: boolean | number;
+  checkout_time?: string;
+  total_convidados: number;
+  convidados_checkin: number;
+  table_number?: string | number;
+  area_name?: string;
+  guest_list_id?: number | null; // Para identificar se tem guest list ou não
+  // Campos alternativos que podem vir do backend
+  client_name?: string;
+  origin?: string;
+  status?: string;
+  notes?: string;
+  admin_notes?: string;
+}
+
+interface ConvidadoReservaRestaurante {
+  id: number;
+  tipo: string;
+  nome: string;
+  telefone?: string;
+  data_nascimento?: string;
+  status_checkin: number | boolean;
+  data_checkin?: string;
+  responsavel: string;
+  origem: string;
+  reserva_id: number;
+}
+
+interface GuestListRestaurante {
+  guest_list_id: number;
+  reservation_type: string;
+  event_type?: string;
+  shareable_link_token: string;
+  expires_at: string;
+  owner_checked_in: number;
+  owner_checkin_time?: string;
+  owner_checked_out?: number;
+  owner_checkout_time?: string;
+  is_valid: number;
+  owner_name: string;
+  reservation_id: number;
+  reservation_date: string;
+  reservation_time: string;
+  number_of_people: number;
+  origin: string;
+  reservation_checked_in: number;
+  reservation_checkin_time?: string;
+  created_by_name: string;
+  total_guests: number;
+  guests_checked_in: number;
+  establishment_id?: number;
+  establishment_name?: string;
+  table_number?: string | number;
+  area_name?: string;
+  notes?: string;
+  admin_notes?: string;
+}
+
+interface GuestItem {
+  id: number;
+  name: string;
+  whatsapp?: string;
+  checked_in: number | boolean;
+  checkin_time?: string;
+  checked_out?: number | boolean;
+  checkout_time?: string;
+  created_at?: string;
+  entrada_tipo?: EntradaTipo;
+  entrada_valor?: number;
+}
+
+interface Estatisticas {
+  totalReservasMesa: number;
+  totalConvidadosReservas: number;
+  checkinConvidadosReservas: number;
+  totalReservasRestaurante: number;
+  totalConvidadosReservasRestaurante: number;
+  checkinConvidadosReservasRestaurante: number;
+  totalPromoters: number;
+  totalConvidadosPromoters: number;
+  checkinConvidadosPromoters: number;
+  totalCamarotes: number;
+  checkinCamarotes: number;
+  totalGeral: number;
+  checkinGeral: number;
+}
+
+/** Resultado de busca no formato do modo tablet (mesma UI que /admin/checkins/tablet) */
+interface SearchResultTablet {
+  type: "guest" | "owner" | "promoter" | "promoter_guest";
+  name: string;
+  id?: number;
+  guestId?: number;
+  guestListId?: number;
+  reservationId?: number;
+  promoterId?: number;
+  checkedIn?: boolean;
+  checkedOut?: boolean;
+  checkoutTime?: string;
+  ownerName?: string;
+  reservation?: {
+    id: number;
+    date: string;
+    time: string;
+    table?: string;
+    area?: string;
+    totalGuests: number;
+    checkedInGuests: number;
+    eventType?: string;
+    blocks_entire_area?: boolean;
+  };
+  giftInfo?: {
+    remainingCheckins: number;
+    giftDescription?: string;
+    hasGift: boolean;
+  };
+  promoterInfo?: {
+    id: number;
+    name: string;
+    totalCheckins: number;
+  };
+  /** Reserva completa (para check-in direto quando owner sem guest list) */
+  reservaRestaurante?: ReservaRestaurante;
+  /** Convidado promoter (para check-in via modal) */
+  convidadoPromoter?: ConvidadoPromoter;
+  /** Indica se owner é reserva da API adicional (não está em reservasRestaurante) */
+  fromReservasAdicionaisAPI?: boolean;
+  /** Observações da reserva */
+  notes?: string;
+  /** Convidado promoter com direito a VIP a noite toda (vip_tipo M ou F) */
+  isVipNoiteTuda?: boolean;
+}
+
+import { useSaasAccess } from '@/app/hooks/useSaasAccess';
+import { useRequireSaasModule } from '@/app/hooks/useRequireSaasModule';
 
 export default function EventoCheckInsPage() {
-  return <EventoCheckInsInner />;
+  const params = useParams();
+  const router = useRouter();
+  const { canAccessCheckin } = useSaasAccess();
+  const { guardLoading } = useRequireSaasModule(canAccessCheckin);
+  const eventoId = params?.id?.toString() ?? "";
+
+  // Detectar se é mobile para otimizar animações
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    checkMobile();
+    window.addEventListener("resize", checkMobile);
+    return () => window.removeEventListener("resize", checkMobile);
+  }, []);
+
+  // Estados
+  const [loading, setLoading] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
+  const [selectedTab, setSelectedTab] = useState<
+    "todos" | "reservas" | "promoters" | "camarotes"
+  >("todos");
+  const [promoterGuestsViewMode, setPromoterGuestsViewMode] = useState<
+    "grid" | "list"
+  >("grid");
+  const [promoterGuestsSearch, setPromoterGuestsSearch] = useState("");
+
+  // Debounce da busca para melhorar performance
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+    }, 150); // 150ms de debounce para desktop
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
+  // Estado para modal de planilha
+  const [planilhaModalOpen, setPlanilhaModalOpen] = useState(false);
+  const [relatorioModalOpen, setRelatorioModalOpen] = useState(false);
+  // Estados para Planilha (estilo restaurant-reservations)
+  const [planilhaReservas, setPlanilhaReservas] = useState<Reservation[]>([]);
+  const [planilhaLoading, setPlanilhaLoading] = useState(false);
+  const [sheetFilters, setSheetFilters] = useState<{
+    date?: string;
+    search?: string;
+    name?: string;
+    phone?: string;
+    event?: string;
+    table?: string;
+    status?: string;
+  }>({});
+  const [todasMesasAreas, setTodasMesasAreas] = useState<
+    Map<
+      string,
+      Array<{
+        area_id: number;
+        area_name: string;
+        table_number: string;
+        capacity?: number;
+      }>
+    >
+  >(new Map());
+  const [planilhaAreas, setPlanilhaAreas] = useState<
+    Array<{ id: number; name: string }>
+  >([]);
+
+  // Função helper para mapear mesa -> área do Seu Justino
+  const getSeuJustinoAreaName = useCallback(
+    (
+      tableNumber?: string | number,
+      areaName?: string,
+      areaId?: number,
+    ): string => {
+      if (!tableNumber && !areaName && !areaId) return areaName || "";
+
+      const tableNum = String(tableNumber || "").trim();
+
+      // Mapeamento de mesas para áreas do Seu Justino
+      const seuJustinoSubareas = [
+        {
+          key: "lounge-aquario-spaten",
+          area_id: 1,
+          label: "Lounge Aquario Spaten",
+          tableNumbers: ["210"],
+        },
+        {
+          key: "lounge-aquario-tv",
+          area_id: 1,
+          label: "Lounge Aquario TV",
+          tableNumbers: ["208"],
+        },
+        {
+          key: "lounge-palco",
+          area_id: 1,
+          label: "Lounge Palco",
+          tableNumbers: ["204", "206"],
+        },
+        {
+          key: "lounge-bar",
+          area_id: 1,
+          label: "Lounge Bar",
+          tableNumbers: ["200", "202"],
+        },
+        {
+          key: "quintal-lateral-esquerdo",
+          area_id: 2,
+          label: "Quintal Lateral Esquerdo",
+          tableNumbers: ["20", "22", "24", "26", "28", "29"],
+        },
+        {
+          key: "quintal-central-esquerdo",
+          area_id: 2,
+          label: "Quintal Central Esquerdo",
+          tableNumbers: ["30", "32", "34", "36", "38", "39"],
+        },
+        {
+          key: "quintal-central-direito",
+          area_id: 2,
+          label: "Quintal Central Direito",
+          tableNumbers: ["40", "42", "44", "46", "48"],
+        },
+        {
+          key: "quintal-lateral-direito",
+          area_id: 2,
+          label: "Quintal Lateral Direito",
+          tableNumbers: ["50", "52", "54", "56", "58", "60", "62", "64"],
+        },
+      ];
+
+      // Se temos número da mesa, buscar pela mesa (suporta múltiplas mesas separadas por vírgula)
+      if (tableNum) {
+        const tableNumbers = tableNum.includes(",")
+          ? tableNum.split(",").map((t) => t.trim())
+          : [tableNum];
+        for (const tn of tableNumbers) {
+          const subarea = seuJustinoSubareas.find((sub) =>
+            sub.tableNumbers.includes(tn),
+          );
+          if (subarea) {
+            return subarea.label;
+          }
+        }
+      }
+
+      // Se não encontrou pela mesa, verificar se area_name já está correto
+      if (areaName) {
+        const normalizedAreaName = areaName.toLowerCase();
+        // Se já é uma das áreas corretas, retornar como está
+        if (
+          seuJustinoSubareas.some(
+            (sub) => sub.label.toLowerCase() === normalizedAreaName,
+          )
+        ) {
+          return areaName;
+        }
+        // Se contém "coberta" ou "descoberta", mapear baseado no area_id
+        if (
+          normalizedAreaName.includes("coberta") ||
+          normalizedAreaName.includes("descoberta")
+        ) {
+          if (areaId === 1) {
+            // Área 1 = Lounge, mas não sabemos qual subárea, então retornar genérico ou tentar pela mesa
+            if (tableNum) {
+              const tableNumbers = tableNum.includes(",")
+                ? tableNum.split(",").map((t) => t.trim())
+                : [tableNum];
+              for (const tn of tableNumbers) {
+                const subarea = seuJustinoSubareas.find(
+                  (sub) => sub.tableNumbers.includes(tn) && sub.area_id === 1,
+                );
+                if (subarea) return subarea.label;
+              }
+            }
+            return "Lounge"; // Fallback genérico
+          } else if (areaId === 2) {
+            // Área 2 = Quintal, mas não sabemos qual subárea, então retornar genérico ou tentar pela mesa
+            if (tableNum) {
+              const tableNumbers = tableNum.includes(",")
+                ? tableNum.split(",").map((t) => t.trim())
+                : [tableNum];
+              for (const tn of tableNumbers) {
+                const subarea = seuJustinoSubareas.find(
+                  (sub) => sub.tableNumbers.includes(tn) && sub.area_id === 2,
+                );
+                if (subarea) return subarea.label;
+              }
+            }
+            return "Quintal"; // Fallback genérico
+          }
+        }
+      }
+
+      // Fallback: retornar area_name original ou vazio
+      return areaName || "";
+    },
+    [],
+  );
+
+  // Funções auxiliares para a planilha
+  const formatDate = (dateString: string, fallbackDate?: string) => {
+    // Se tiver data de fallback (do filtro), usar ela se a data original for inválida
+    if (fallbackDate) {
+      try {
+        const fallback = new Date(fallbackDate + "T12:00:00");
+        if (!isNaN(fallback.getTime())) {
+          const formatted = fallback.toLocaleDateString("pt-BR");
+          // Se a data original não for válida, retornar o fallback formatado
+          if (!dateString || dateString.trim() === "") return formatted;
+          try {
+            const date = new Date(dateString + "T12:00:00");
+            if (isNaN(date.getTime())) return formatted;
+            return date.toLocaleDateString("pt-BR");
+          } catch {
+            return formatted;
+          }
+        }
+      } catch {}
+    }
+
+    if (!dateString || dateString.trim() === "") {
+      return fallbackDate
+        ? new Date(fallbackDate + "T12:00:00").toLocaleDateString("pt-BR")
+        : "Data não informada";
+    }
+    try {
+      const date = new Date(dateString + "T12:00:00");
+      if (isNaN(date.getTime())) {
+        return fallbackDate
+          ? new Date(fallbackDate + "T12:00:00").toLocaleDateString("pt-BR")
+          : "Data inválida";
+      }
+      return date.toLocaleDateString("pt-BR");
+    } catch (error) {
+      return fallbackDate
+        ? new Date(fallbackDate + "T12:00:00").toLocaleDateString("pt-BR")
+        : "Data inválida";
+    }
+  };
+
+  const formatTime = (timeString?: string) => {
+    if (!timeString || timeString.trim() === "") return "";
+    try {
+      return timeString.slice(0, 5);
+    } catch (error) {
+      return "";
+    }
+  };
+
+  // Estado para reservas adicionais buscadas diretamente da API
+  const [reservasAdicionaisAPI, setReservasAdicionaisAPI] = useState<
+    Array<{
+      id: number;
+      client_name: string;
+      reservation_date: string;
+      reservation_time: string;
+      number_of_people: number;
+      table_number?: string;
+      area_name?: string;
+      checked_in: boolean;
+      checkin_time?: string;
+      status?: string;
+      origin?: string;
+      guest_list_id?: null;
+      notes?: string;
+      admin_notes?: string;
+    }>
+  >([]);
+  const [loadingReservasAdicionais, setLoadingReservasAdicionais] =
+    useState(false);
+
+  // Estados para modal de status de entrada
+  const [entradaModalOpen, setEntradaModalOpen] = useState(false);
+  const [convidadoParaCheckIn, setConvidadoParaCheckIn] = useState<{
+    tipo: "reserva" | "promoter" | "guest_list" | "restaurante";
+    id: number;
+    nome: string;
+    guestListId?: number; // Para guest lists
+    reservationId?: number; // Para reservas sem guest list
+    /** Apenas para promoter: true se tem direito a VIP a noite toda (vip_tipo M ou F) */
+    vipNoiteTuda?: boolean;
+    /** Valor de entrada (R$) da regra do promoter para exibir no modal de check-in */
+    valorEntradaPromoter?: number;
+    /** Configuração de entrada por horário da regra do promoter para exibir no modal. */
+    entradaConfigPromoter?: PromoterEntradaConfig | null;
+  } | null>(null);
+  const [arrecadacao, setArrecadacao] = useState<{
+    totalGeral: number;
+    porPromoter: Record<number, { nome: string; total: number }>;
+    porTipo: { vip: number; seco: number; consuma: number };
+  }>({
+    totalGeral: 0,
+    porPromoter: {},
+    porTipo: { vip: 0, seco: 0, consuma: 0 },
+  });
+
+  // Dados
+  const [evento, setEvento] = useState<EventoInfo | null>(null);
+  const [reservasMesa, setReservasMesa] = useState<ReservaMesa[]>([]);
+  const [convidadosReservas, setConvidadosReservas] = useState<
+    ConvidadoReserva[]
+  >([]);
+  const [reservasRestaurante, setReservasRestaurante] = useState<
+    ReservaRestaurante[]
+  >([]);
+  const [convidadosReservasRestaurante, setConvidadosReservasRestaurante] =
+    useState<ConvidadoReservaRestaurante[]>([]);
+  const [guestListsRestaurante, setGuestListsRestaurante] = useState<
+    GuestListRestaurante[]
+  >([]);
+  const [establishmentFilterId, setEstablishmentFilterId] = useState<
+    number | null
+  >(null);
+
+  const { flags: establishmentRulesFlags } = useEstablishmentRules(
+    evento?.establishment_id ?? null,
+    evento?.establishment_name,
+  );
+  const isReservaRooftopEvent = establishmentRulesFlags.isRooftop;
+  const isSeuJustinoEvent = establishmentRulesFlags.isSeuJustino;
+
+  const [expandedGuestListId, setExpandedGuestListId] = useState<number | null>(
+    null,
+  );
+  const [guestsByList, setGuestsByList] = useState<Record<number, GuestItem[]>>(
+    {},
+  );
+  const [guestSearch, setGuestSearch] = useState<Record<number, string>>({});
+  const [checkInStatus, setCheckInStatus] = useState<
+    Record<
+      number,
+      {
+        ownerCheckedIn: boolean;
+        ownerCheckedOut?: boolean;
+        guestsCheckedIn: number;
+        totalGuests: number;
+      }
+    >
+  >({});
+  const [ownerCheckInTimeMap, setOwnerCheckInTimeMap] = useState<
+    Record<number, string>
+  >({});
+  const [ownerCheckOutTimeMap, setOwnerCheckOutTimeMap] = useState<
+    Record<number, string>
+  >({});
+
+  // Função auxiliar para verificar se owner_checked_out é verdadeiro (aceita 1, true, ou qualquer valor truthy)
+  const isOwnerCheckedOut = (
+    value: number | boolean | undefined | null | string,
+  ): boolean => {
+    if (value === null || value === undefined) return false;
+    return value === 1 || value === true || value === "1" || Boolean(value);
+  };
+
+  // Função auxiliar para verificar se owner_checked_in é verdadeiro
+  const isOwnerCheckedIn = (
+    value: number | boolean | undefined | null,
+  ): boolean => {
+    if (value === null || value === undefined) return false;
+    return value === 1 || value === true || Boolean(value);
+  };
+
+  // Histórico de reservas concluídas (check-in + check-out completos)
+  interface ReservaConcluida {
+    guest_list_id: number;
+    owner_name: string;
+    reservation_id: number;
+    table_number?: string | number;
+    area_name?: string;
+    checkin_time: string;
+    checkout_time: string;
+    guests: Array<{
+      id: number;
+      name: string;
+      checkin_time?: string;
+      checkout_time?: string;
+    }>;
+  }
+  const [historicoReservasConcluidas, setHistoricoReservasConcluidas] =
+    useState<ReservaConcluida[]>([]);
+
+  const [promoters, setPromoters] = useState<Promoter[]>([]);
+  const [convidadosPromoters, setConvidadosPromoters] = useState<
+    ConvidadoPromoter[]
+  >([]);
+  const [camarotes, setCamarotes] = useState<Camarote[]>([]);
+
+  // Estado para atrações
+  interface Atracao {
+    id: number;
+    nome_atracao: string;
+    ambiente: string;
+    horario_inicio: string;
+    horario_termino: string;
+  }
+  const [atracoes, setAtracoes] = useState<Atracao[]>([]);
+
+  // Estados para brindes
+  interface GiftRule {
+    id: number;
+    descricao: string;
+    checkins_necessarios: number;
+    status: string;
+  }
+  interface GiftAwarded {
+    id: number;
+    descricao: string;
+    checkins_necessarios: number;
+    status: string;
+    liberado_em: string;
+  }
+  const [giftRules, setGiftRules] = useState<GiftRule[]>([]);
+  const [giftsByGuestList, setGiftsByGuestList] = useState<
+    Record<number, GiftAwarded[]>
+  >({});
+
+  // Estado para reservas de aniversário relacionadas às guest lists
+  const [
+    birthdayReservationsByReservationId,
+    setBirthdayReservationsByReservationId,
+  ] = useState<Record<number, BirthdayReservation>>({});
+  const [selectedBirthdayReservation, setSelectedBirthdayReservation] =
+    useState<BirthdayReservation | null>(null);
+  const [birthdayModalOpen, setBirthdayModalOpen] = useState(false);
+
+  // Estado para itens do menu por reserva de aniversário (para cálculo preciso do valor total)
+  const [menuItemsByBirthdayReservation, setMenuItemsByBirthdayReservation] =
+    useState<Record<number, { bebidas: any[]; comidas: any[] }>>({});
+
+  // Função helper para validar se um item é realmente um convidado de promoter
+  const isValidPromoterGuest = (c: any): c is ConvidadoPromoter => {
+    return (
+      c &&
+      typeof c === "object" &&
+      c.tipo === "convidado_promoter" &&
+      c.status_checkin !== undefined &&
+      c.status_checkin !== null &&
+      ["Pendente", "Check-in", "No-Show"].includes(c.status_checkin) &&
+      c.promoter_id !== undefined &&
+      c.promoter_id !== null &&
+      (typeof c.promoter_id === "number" ||
+        typeof c.promoter_id === "string") &&
+      c.tipo_lista !== undefined &&
+      c.tipo_lista !== null &&
+      (c.status === undefined || c.status === null) &&
+      (!c.email || c.email === null || c.email === "") &&
+      (!c.documento || c.documento === null || c.documento === "")
+    );
+  };
+  const [estatisticas, setEstatisticas] = useState<Estatisticas>({
+    totalReservasMesa: 0,
+    totalConvidadosReservas: 0,
+    checkinConvidadosReservas: 0,
+    totalReservasRestaurante: 0,
+    totalConvidadosReservasRestaurante: 0,
+    checkinConvidadosReservasRestaurante: 0,
+    totalPromoters: 0,
+    totalConvidadosPromoters: 0,
+    checkinConvidadosPromoters: 0,
+    totalCamarotes: 0,
+    checkinCamarotes: 0,
+    totalGeral: 0,
+    checkinGeral: 0,
+  });
+
+  // Refs para prevenir múltiplos cliques simultâneos (debounce)
+  const checkInInProgressRef = useRef<Record<string, boolean>>({});
+
+  // Cache para comparações de strings (otimização de performance)
+  const stringCompareCache = useRef<Map<string, number>>(new Map());
+
+  // Função para carregar itens do cardápio para reservas de aniversário
+  const loadMenuItemsForBirthdayReservations = useCallback(
+    async (
+      birthdayReservationsMap: Record<number, BirthdayReservation>,
+      establishmentId: number,
+    ) => {
+      try {
+        const API_URL =
+          process.env.NEXT_PUBLIC_API_URL ||
+          process.env.NEXT_PUBLIC_API_URL_LOCAL ||
+          "https://api.agilizaiapp.com.br";
+        const API_BASE_URL = `${API_URL}/api/cardapio`;
+
+        // Buscar o estabelecimento (place) para pegar o nome/slug
+        const placesResponse = await fetch(`${API_URL}/api/places`);
+        let establishmentName = "";
+        let establishmentSlug = "";
+
+        if (placesResponse.ok) {
+          const placesData = await placesResponse.json();
+          const places = Array.isArray(placesData)
+            ? placesData
+            : placesData.data || [];
+          const place = places.find(
+            (p: any) => Number(p.id) === Number(establishmentId),
+          );
+          if (place) {
+            establishmentName = place.name || "";
+            establishmentSlug = place.slug || "";
+          }
+        }
+
+        if (!establishmentName) {
+          console.warn("Estabelecimento não encontrado para carregar cardápio");
+          return;
+        }
+
+        // Buscar bars, categories e items do cardápio
+        const [barsResponse, categoriesResponse, itemsResponse] =
+          await Promise.all([
+            fetch(`${API_BASE_URL}/bars`),
+            fetch(`${API_BASE_URL}/categories`),
+            fetch(`${API_BASE_URL}/items`),
+          ]);
+
+        if (!barsResponse.ok || !categoriesResponse.ok || !itemsResponse.ok) {
+          throw new Error("Erro ao carregar dados do cardápio");
+        }
+
+        const [bars, categories, items] = await Promise.all([
+          barsResponse.json(),
+          categoriesResponse.json(),
+          itemsResponse.json(),
+        ]);
+
+        // Normalizar nomes para comparação
+        const normalizeName = (name: string) => {
+          return name
+            .toLowerCase()
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "")
+            .replace(/\s+/g, " ")
+            .trim()
+            .replace(/[^a-z0-9\s]/g, "");
+        };
+
+        const simplifyName = (name: string) => {
+          return normalizeName(name)
+            .replace(/\s+/g, "")
+            .replace(/[^a-z0-9]/g, "");
+        };
+
+        // Buscar bar por slug, ID ou nome
+        let bar = null;
+        if (establishmentSlug) {
+          bar = bars.find((b: any) => b.slug === establishmentSlug);
+        }
+        if (!bar) {
+          bar = bars.find((b: any) => Number(b.id) === Number(establishmentId));
+        }
+        if (!bar) {
+          const normalizedEstablishmentName = normalizeName(establishmentName);
+          const simplifiedEstablishmentName = simplifyName(establishmentName);
+          bar = bars.find((b: any) => {
+            const normalizedBarName = normalizeName(b.name);
+            const simplifiedBarName = simplifyName(b.name);
+            return (
+              normalizedBarName === normalizedEstablishmentName ||
+              simplifiedBarName === simplifiedEstablishmentName
+            );
+          });
+        }
+
+        if (!bar) {
+          console.warn("Bar não encontrado no cardápio");
+          return;
+        }
+
+        // Processar selos dos itens
+        const processedItems = items.map((item: any) => {
+          let seals = [];
+          if (item.seals) {
+            if (Array.isArray(item.seals)) {
+              seals = item.seals;
+            } else if (typeof item.seals === "string") {
+              try {
+                seals = JSON.parse(item.seals);
+                if (!Array.isArray(seals)) seals = [];
+              } catch (e) {
+                seals = [];
+              }
+            }
+          }
+          return { ...item, seals };
+        });
+
+        // Filtrar itens do bar
+        const normalizedBarId = String(bar.id);
+        const barItemsFiltered = processedItems.filter((item: any) => {
+          const matchesBar = String(item.barId) === normalizedBarId;
+          const isVisible =
+            item.visible === undefined ||
+            item.visible === null ||
+            item.visible === 1 ||
+            item.visible === true;
+          return matchesBar && isVisible;
+        });
+
+        const customSeals = bar.custom_seals || [];
+
+        // Filtrar categorias
+        const beverageCategories = categories
+          .filter((cat: any) => {
+            const categoryName = normalizeName(cat.name || "");
+            return (
+              categoryName === "drinks" ||
+              categoryName === "carta de vinho" ||
+              categoryName === "bebidas" ||
+              categoryName.includes("drink") ||
+              categoryName.includes("vinho") ||
+              categoryName.includes("bebida")
+            );
+          })
+          .map((cat: any) => String(cat.id));
+
+        const foodCategories = categories
+          .filter((cat: any) => {
+            const categoryName = normalizeName(cat.name || "");
+            return categoryName === "menu" || categoryName.includes("menu");
+          })
+          .map((cat: any) => String(cat.id));
+
+        // Filtrar itens com selo B-day
+        const beveragesWithBday = barItemsFiltered.filter((item: any) => {
+          const hasBeverageCategory = beverageCategories.includes(
+            String(item.categoryId),
+          );
+          if (!hasBeverageCategory) return false;
+          if (
+            !item.seals ||
+            !Array.isArray(item.seals) ||
+            item.seals.length === 0
+          )
+            return false;
+          return item.seals.some((sealId: string) => {
+            if (!sealId || typeof sealId !== "string") return false;
+            const normalizedSeal = simplifyName(sealId);
+            if (
+              normalizedSeal.includes("b-day") ||
+              normalizedSeal.includes("bday") ||
+              normalizedSeal.includes("birthday")
+            ) {
+              return true;
+            }
+            const customSeal = customSeals.find((cs: any) => cs.id === sealId);
+            if (customSeal) {
+              const customSealName = simplifyName(customSeal.name || "");
+              if (
+                customSealName.includes("b-day") ||
+                customSealName.includes("bday") ||
+                customSealName.includes("birthday")
+              ) {
+                return true;
+              }
+            }
+            return false;
+          });
+        });
+
+        const foodsWithBday = barItemsFiltered.filter((item: any) => {
+          const hasFoodCategory = foodCategories.includes(
+            String(item.categoryId),
+          );
+          if (!hasFoodCategory) return false;
+          if (
+            !item.seals ||
+            !Array.isArray(item.seals) ||
+            item.seals.length === 0
+          )
+            return false;
+          return item.seals.some((sealId: string) => {
+            if (!sealId || typeof sealId !== "string") return false;
+            const normalizedSeal = simplifyName(sealId);
+            if (
+              normalizedSeal.includes("b-day") ||
+              normalizedSeal.includes("bday") ||
+              normalizedSeal.includes("birthday")
+            ) {
+              return true;
+            }
+            const customSeal = customSeals.find((cs: any) => cs.id === sealId);
+            if (customSeal) {
+              const customSealName = simplifyName(customSeal.name || "");
+              if (
+                customSealName.includes("b-day") ||
+                customSealName.includes("bday") ||
+                customSealName.includes("birthday")
+              ) {
+                return true;
+              }
+            }
+            return false;
+          });
+        });
+
+        // Mapear itens selecionados para cada reserva de aniversário
+        const menuItemsMap: Record<number, { bebidas: any[]; comidas: any[] }> =
+          {};
+
+        Object.values(birthdayReservationsMap).forEach((br) => {
+          const bebidasSelecionadas = [];
+          const comidasSelecionadas = [];
+
+          // Mapear bebidas
+          for (let i = 1; i <= 10; i++) {
+            const quantidade = (br as any)[`item_bar_bebida_${i}`] as number;
+            if (quantidade && quantidade > 0) {
+              const itemIndex = i - 1;
+              if (itemIndex < beveragesWithBday.length) {
+                const item = beveragesWithBday[itemIndex];
+                bebidasSelecionadas.push({
+                  nome: item.name || `Bebida ${i}`,
+                  quantidade,
+                  preco: parseFloat(item.price) || 0,
+                });
+              }
+            }
+          }
+
+          // Mapear comidas
+          for (let i = 1; i <= 10; i++) {
+            const quantidade = (br as any)[`item_bar_comida_${i}`] as number;
+            if (quantidade && quantidade > 0) {
+              const itemIndex = i - 1;
+              if (itemIndex < foodsWithBday.length) {
+                const item = foodsWithBday[itemIndex];
+                comidasSelecionadas.push({
+                  nome: item.name || `Porção ${i}`,
+                  quantidade,
+                  preco: parseFloat(item.price) || 0,
+                });
+              }
+            }
+          }
+
+          menuItemsMap[br.id] = {
+            bebidas: bebidasSelecionadas,
+            comidas: comidasSelecionadas,
+          };
+        });
+
+        setMenuItemsByBirthdayReservation(menuItemsMap);
+      } catch (error) {
+        console.error("Erro ao carregar itens do cardápio:", error);
+      }
+    },
+    [],
+  );
+
+  // Função otimizada de comparação de strings com cache
+  const cachedStringCompare = useCallback((a: string, b: string): number => {
+    const cacheKey = `${a}|||${b}`;
+    if (stringCompareCache.current.has(cacheKey)) {
+      return stringCompareCache.current.get(cacheKey)!;
+    }
+    const result = (a || "").localeCompare(b || "", "pt-BR", {
+      sensitivity: "base",
+    });
+    // Limitar cache a 1000 entradas para não consumir muita memória
+    if (stringCompareCache.current.size < 1000) {
+      stringCompareCache.current.set(cacheKey, result);
+    }
+    return result;
+  }, []);
+
+  // Carregar dados
+  const loadCheckInData = useCallback(async () => {
+    if (!eventoId) return;
+
+    setLoading(true);
+    try {
+      const token = localStorage.getItem("authToken");
+      const response = await fetch(
+        `${API_URL}/api/v1/eventos/${eventoId}/checkins`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+
+        setEvento(data.evento);
+        setReservasMesa(data.dados.reservasMesa || []);
+        setConvidadosReservas(data.dados.convidadosReservas || []);
+        setReservasRestaurante(data.dados.reservasRestaurante || []);
+        setConvidadosReservasRestaurante(
+          data.dados.convidadosReservasRestaurante || [],
+        );
+
+        // O backend agora vincula automaticamente reservas ao evento e retorna os dados corretos
+        // Não precisamos mais buscar via API admin/guest-lists
+        const guestLists = data.dados.guestListsRestaurante || [];
+
+        // Debug: verificar campos de notes nas guest lists e reservas
+        const sampleGL = guestLists[0];
+        const sampleReserva = data.dados.reservasRestaurante?.[0];
+        
+        console.log("🔍 [DEBUG CHECK-INS] Dados recebidos:", {
+          evento_id: eventoId,
+          establishment_id: data.evento?.establishment_id,
+          data_evento: data.evento?.data_evento,
+          guestListsCount: guestLists.length,
+          reservasRestauranteCount: data.dados.reservasRestaurante?.length || 0,
+        });
+        
+        console.log("🔍 [DEBUG CHECK-INS] Sample Guest List:", {
+          ownerName: sampleGL?.owner_name,
+          guestListId: sampleGL?.guest_list_id,
+          reservationId: sampleGL?.reservation_id,
+          notes: sampleGL?.notes,
+          admin_notes: sampleGL?.admin_notes,
+          observacao: (sampleGL as any)?.observacao,
+          allKeys: sampleGL ? Object.keys(sampleGL) : [],
+        });
+        
+        console.log("🔍 [DEBUG CHECK-INS] Sample Reserva:", {
+          id: sampleReserva?.id,
+          responsavel: sampleReserva?.responsavel,
+          notes: sampleReserva?.notes,
+          admin_notes: sampleReserva?.admin_notes,
+          observacao: (sampleReserva as any)?.observacao,
+          allKeys: sampleReserva ? Object.keys(sampleReserva) : [],
+        });
+        
+        // Verificar todas as guest lists que têm notes
+        const guestListsComNotes = guestLists.filter((gl: any) => 
+          gl.notes || gl.admin_notes || gl.observacao || gl.observação
+        );
+        console.log("🔍 [DEBUG CHECK-INS] Guest Lists com notes:", {
+          total: guestListsComNotes.length,
+          exemplos: guestListsComNotes.slice(0, 3).map((gl: any) => ({
+            owner: gl.owner_name,
+            notes: gl.notes,
+            admin_notes: gl.admin_notes,
+          })),
+        });
+
+        // Se não recebeu dados mas deveria ter, logar erro
+        if (
+          data.evento?.establishment_id &&
+          data.evento?.data_evento &&
+          guestLists.length === 0
+        ) {
+          console.warn(
+            "⚠️ [WARNING] Evento tem establishment_id e data_evento mas não retornou guest lists!",
+            {
+              establishment_id: data.evento.establishment_id,
+              data_evento: data.evento.data_evento,
+            },
+          );
+        }
+
+        // Usar diretamente os dados do backend (que são a fonte da verdade)
+        // O backend agora retorna owner_checked_out e owner_checkout_time corretamente
+        setGuestListsRestaurante(guestLists);
+
+        // Atualizar checkInStatus diretamente a partir dos dados das guest lists
+        // Isso garante que o status de check-out seja exibido corretamente
+        setCheckInStatus((prev) => {
+          const updated = { ...prev };
+          guestLists.forEach((gl: GuestListRestaurante) => {
+            updated[gl.guest_list_id] = {
+              ...updated[gl.guest_list_id],
+              ownerCheckedIn: isOwnerCheckedIn(gl.owner_checked_in),
+              ownerCheckedOut: isOwnerCheckedOut(gl.owner_checked_out),
+              guestsCheckedIn: gl.guests_checked_in || 0,
+              totalGuests: gl.total_guests || 0,
+            };
+          });
+          return updated;
+        });
+
+        // Buscar reservas de aniversário relacionadas às guest lists com event_type='aniversario'
+        const birthdayReservationsMap: Record<number, BirthdayReservation> = {};
+        const aniversarioGuestLists = guestLists.filter(
+          (gl: GuestListRestaurante) => gl.event_type === "aniversario",
+        );
+
+        if (aniversarioGuestLists.length > 0 && data.evento?.establishment_id) {
+          try {
+            const birthdayResResponse = await fetch(
+              `${API_URL}/api/birthday-reservations?establishment_id=${data.evento.establishment_id}`,
+              {
+                headers: { Authorization: `Bearer ${token}` },
+              },
+            );
+
+            if (birthdayResResponse.ok) {
+              const birthdayData = await birthdayResResponse.json();
+              const birthdayReservations = Array.isArray(birthdayData)
+                ? birthdayData
+                : birthdayData.data || [];
+
+              // Mapear reservas de aniversário pelo restaurant_reservation_id e também por nome/date como fallback
+              const allReservationsRestaurante = [
+                ...reservasRestaurante,
+                ...(data.dados.reservasRestaurante || []),
+              ];
+
+              birthdayReservations.forEach((br: any) => {
+                // Primeiro tenta mapear pelo restaurant_reservation_id
+                if (br.restaurant_reservation_id) {
+                  const resId = Number(br.restaurant_reservation_id);
+                  birthdayReservationsMap[resId] = br;
+                  console.log(
+                    "🎂 [check-ins] Mapeada por restaurant_reservation_id:",
+                    {
+                      restaurantReservationId: resId,
+                      birthdayId: br.id,
+                      nome: br.aniversariante_nome,
+                    },
+                  );
+                }
+
+                // Fallback: tentar encontrar pela reserva de restaurante correspondente usando nome e data
+                if (br.aniversariante_nome && br.data_aniversario) {
+                  const relatedReservation = allReservationsRestaurante.find(
+                    (rr: ReservaRestaurante) => {
+                      // Verificar se nome do cliente e data correspondem
+                      const reservationDate = rr.reservation_date
+                        ? rr.reservation_date.split("T")[0]
+                        : null;
+                      const birthdayDate = br.data_aniversario
+                        ? br.data_aniversario.split("T")[0]
+                        : null;
+                      const nameMatch =
+                        rr.responsavel &&
+                        (rr.responsavel
+                          .toLowerCase()
+                          .includes(br.aniversariante_nome.toLowerCase()) ||
+                          br.aniversariante_nome
+                            .toLowerCase()
+                            .includes(rr.responsavel.toLowerCase()));
+                      const dateMatch = reservationDate === birthdayDate;
+
+                      return (
+                        nameMatch &&
+                        dateMatch &&
+                        !birthdayReservationsMap[rr.id]
+                      );
+                    },
+                  );
+
+                  if (relatedReservation) {
+                    birthdayReservationsMap[relatedReservation.id] = br;
+                    console.log(
+                      "🎂 [check-ins] Mapeada por nome e data (fallback):",
+                      {
+                        restaurantReservationId: relatedReservation.id,
+                        birthdayId: br.id,
+                        nome: br.aniversariante_nome,
+                        cliente: relatedReservation.responsavel,
+                      },
+                    );
+                  }
+                }
+              });
+
+              // Também mapear diretamente para guest lists com event_type='aniversario'
+              aniversarioGuestLists.forEach((gl: GuestListRestaurante) => {
+                // Se não encontrou pelo restaurant_reservation_id, tenta encontrar pela guest list
+                if (!birthdayReservationsMap[gl.reservation_id]) {
+                  const relatedBr = birthdayReservations.find((br: any) => {
+                    // Verificar se a reserva de aniversário corresponde à guest list
+                    const brDate = br.data_aniversario
+                      ? br.data_aniversario.split("T")[0]
+                      : null;
+                    const glDate = gl.reservation_date
+                      ? gl.reservation_date.split("T")[0]
+                      : null;
+                    const nameMatch =
+                      gl.owner_name &&
+                      (gl.owner_name
+                        .toLowerCase()
+                        .includes(
+                          (br.aniversariante_nome || "").toLowerCase(),
+                        ) ||
+                        (br.aniversariante_nome || "")
+                          .toLowerCase()
+                          .includes(gl.owner_name.toLowerCase()));
+
+                    return (
+                      (brDate === glDate && nameMatch) ||
+                      (br.restaurant_reservation_id &&
+                        Number(br.restaurant_reservation_id) ===
+                          gl.reservation_id)
+                    );
+                  });
+
+                  if (relatedBr) {
+                    birthdayReservationsMap[gl.reservation_id] = relatedBr;
+                    console.log("🎂 [check-ins] Mapeada por guest list:", {
+                      guestListId: gl.guest_list_id,
+                      reservationId: gl.reservation_id,
+                      birthdayId: relatedBr.id,
+                      nome: relatedBr.aniversariante_nome,
+                      ownerName: gl.owner_name,
+                    });
+                  }
+                }
+              });
+
+              console.log(
+                "🎂 [check-ins] Total de reservas de aniversário mapeadas:",
+                Object.keys(birthdayReservationsMap).length,
+              );
+              console.log(
+                "🎂 [check-ins] IDs mapeados:",
+                Object.keys(birthdayReservationsMap),
+              );
+
+              setBirthdayReservationsByReservationId(birthdayReservationsMap);
+
+              // Carregar itens do cardápio para todas as reservas de aniversário encontradas
+              if (
+                Object.keys(birthdayReservationsMap).length > 0 &&
+                data.evento?.establishment_id
+              ) {
+                console.log(
+                  "🎂 [check-ins] Carregando itens do cardápio para",
+                  Object.keys(birthdayReservationsMap).length,
+                  "reservas de aniversário",
+                );
+                loadMenuItemsForBirthdayReservations(
+                  birthdayReservationsMap,
+                  data.evento.establishment_id,
+                );
+              }
+            }
+          } catch (error) {
+            console.error("Erro ao buscar reservas de aniversário:", error);
+          }
+        }
+
+        // Armazenar o establishment_id para uso posterior se necessário
+        if (data.evento?.establishment_id) {
+          setEstablishmentFilterId(Number(data.evento.establishment_id));
+        }
+
+        setPromoters(data.dados.promoters || []);
+
+        // Carregar regras de brindes com fallback robusto.
+        // No Reserva Rooftop, dependendo do cadastro, as regras podem estar
+        // vinculadas ao evento, ao estabelecimento ou retornarem em formato diverso.
+        try {
+          const establishmentId = data.evento?.establishment_id;
+          const queryCandidates = [
+            establishmentId
+              ? `${API_URL}/api/gift-rules?establishment_id=${establishmentId}&evento_id=${eventoId}&tipo_beneficiario=ANIVERSARIO`
+              : null,
+            establishmentId
+              ? `${API_URL}/api/gift-rules?establishment_id=${establishmentId}&tipo_beneficiario=ANIVERSARIO`
+              : null,
+            `${API_URL}/api/gift-rules?evento_id=${eventoId}&tipo_beneficiario=ANIVERSARIO`,
+            establishmentId
+              ? `${API_URL}/api/gift-rules?establishment_id=${establishmentId}&evento_id=${eventoId}`
+              : null,
+            establishmentId
+              ? `${API_URL}/api/gift-rules?establishment_id=${establishmentId}`
+              : null,
+          ].filter(Boolean) as string[];
+
+          let loadedRules: GiftRule[] = [];
+
+          for (const url of queryCandidates) {
+            try {
+              const response = await fetch(url, {
+                headers: { Authorization: `Bearer ${token}` },
+              });
+              if (!response.ok) continue;
+
+              const payload = await response.json();
+              const rawRules = Array.isArray(payload)
+                ? payload
+                : Array.isArray(payload?.rules)
+                  ? payload.rules
+                  : [];
+
+              if (!Array.isArray(rawRules) || rawRules.length === 0) continue;
+
+              loadedRules = rawRules
+                .filter((r: any) => {
+                  const tipo = String(r?.tipo_beneficiario || "")
+                    .trim()
+                    .toUpperCase();
+                  return !tipo || tipo === "ANIVERSARIO";
+                })
+                .map((r: any) => ({
+                  id: Number(r.id),
+                  descricao: String(r.descricao || ""),
+                  checkins_necessarios: Number(r.checkins_necessarios || 0),
+                  status: String(r.status || ""),
+                }))
+                .filter(
+                  (r) =>
+                    Number.isFinite(r.id) &&
+                    r.id > 0 &&
+                    Number.isFinite(r.checkins_necessarios) &&
+                    r.checkins_necessarios > 0,
+                );
+
+              if (loadedRules.length > 0) break;
+            } catch {
+              // Tenta próximo fallback silenciosamente.
+            }
+          }
+
+          setGiftRules(loadedRules);
+        } catch (error) {
+          console.error("Erro ao carregar regras de brindes:", error);
+        }
+
+        // VALIDAÇÃO RIGOROSA: Garantir que apenas convidados de promoters sejam exibidos
+        // Limpar array primeiro
+        setConvidadosPromoters([]);
+
+        // Filtrar e validar apenas convidados de promoters
+        const convidadosPromotersFiltrados = (
+          data.dados.convidadosPromoters || []
+        )
+          .filter((c: any) => {
+            if (!isValidPromoterGuest(c)) {
+              return false;
+            }
+            return true;
+          })
+          .map((c: any) => {
+            const vipRaw = c.vip_tipo != null ? String(c.vip_tipo).trim().toUpperCase() : "";
+            const vipTipo = vipRaw === "M" || vipRaw === "F" ? vipRaw : null;
+            const entradaConfig =
+              c.entrada_config_regra && typeof c.entrada_config_regra === "object"
+                ? (c.entrada_config_regra as PromoterEntradaConfig)
+                : null;
+            return {
+              ...c,
+              tipo: "convidado_promoter" as const,
+              status_checkin: c.status_checkin as
+                | "Pendente"
+                | "Check-in"
+                | "No-Show",
+              promoter_id: Number(c.promoter_id),
+              tipo_lista: c.tipo_lista || "Promoter",
+              vip_tipo: vipTipo as "M" | "F" | null,
+              entrada_config_regra: entradaConfig,
+            };
+          });
+
+        setConvidadosPromoters(convidadosPromotersFiltrados);
+        setCamarotes(data.dados.camarotes || []);
+        setAtracoes(data.dados.atracoes || []);
+        setEstatisticas(data.estatisticas);
+
+        // Carregar brindes e status de check-in automaticamente para todas as guest lists
+        if (guestLists.length > 0) {
+          const loadAllGiftsAndStatus = async () => {
+            const token = localStorage.getItem("authToken");
+
+            // Carregar brindes e status de check-in em paralelo para cada lista
+            const promises = guestLists.map(
+              async (gl: GuestListRestaurante) => {
+                try {
+                  // Carregar brindes
+                  const giftsRes = await fetch(
+                    `${API_URL}/api/gift-rules/guest-list/${gl.guest_list_id}/gifts`,
+                    {
+                      headers: { Authorization: `Bearer ${token}` },
+                    },
+                  );
+
+                  // Carregar status de check-in
+                  const checkinRes = await fetch(
+                    `${API_URL}/api/admin/guest-lists/${gl.guest_list_id}/checkin-status`,
+                    {
+                      headers: { Authorization: `Bearer ${token}` },
+                    },
+                  );
+
+                  let gifts: GiftAwarded[] = [];
+                  let checkinStatus: {
+                    ownerCheckedIn: boolean;
+                    ownerCheckedOut?: boolean;
+                    guestsCheckedIn: number;
+                    totalGuests: number;
+                  } | null = null;
+
+                  if (giftsRes.ok) {
+                    const giftsData = await giftsRes.json();
+                    gifts = giftsData.gifts || [];
+                  }
+
+                  if (checkinRes.ok) {
+                    const checkinData = await checkinRes.json();
+                    checkinStatus = {
+                      ownerCheckedIn:
+                        checkinData.checkin_status.owner_checked_in || false,
+                      ownerCheckedOut:
+                        checkinData.checkin_status.owner_checked_out || false,
+                      guestsCheckedIn:
+                        checkinData.checkin_status.guests_checked_in || 0,
+                      // Usar total_guests do checkin_status se disponível, caso contrário será atualizado quando guests forem carregados
+                      totalGuests: checkinData.checkin_status.total_guests || 0,
+                    };
+                  } else {
+                    // Fallback: usar dados da lista se não conseguir carregar
+                    // O totalGuests será atualizado quando os guests forem carregados
+                    checkinStatus = {
+                      ownerCheckedIn: gl.owner_checked_in === 1,
+                      guestsCheckedIn: gl.guests_checked_in || 0,
+                      totalGuests: 0, // Será atualizado quando guests forem carregados
+                    };
+                  }
+
+                  return {
+                    guestListId: gl.guest_list_id,
+                    gifts,
+                    checkinStatus,
+                  };
+                } catch (error) {
+                  console.error(
+                    `Erro ao carregar dados para lista ${gl.guest_list_id}:`,
+                    error,
+                  );
+                  return {
+                    guestListId: gl.guest_list_id,
+                    gifts: [],
+                    checkinStatus: {
+                      ownerCheckedIn: gl.owner_checked_in === 1,
+                      guestsCheckedIn: gl.guests_checked_in || 0,
+                      totalGuests: 0, // Será atualizado quando guests forem carregados
+                    },
+                  };
+                }
+              },
+            );
+
+            const results = await Promise.all(promises);
+
+            // Atualizar estado de brindes
+            const giftsMap: Record<number, GiftAwarded[]> = {};
+            const statusMap: Record<
+              number,
+              {
+                ownerCheckedIn: boolean;
+                guestsCheckedIn: number;
+                totalGuests: number;
+              }
+            > = {};
+
+            results.forEach((result) => {
+              giftsMap[result.guestListId] = result.gifts;
+              if (result.checkinStatus) {
+                statusMap[result.guestListId] = result.checkinStatus;
+              }
+            });
+
+            setGiftsByGuestList(giftsMap);
+            setCheckInStatus((prev) => ({ ...prev, ...statusMap }));
+          };
+
+          // Carregar em background sem bloquear a UI
+          loadAllGiftsAndStatus();
+        }
+
+        // Carregar todos os guests automaticamente para preservar dados de check-in/check-out
+        if (guestLists.length > 0) {
+          const loadAllGuests = async () => {
+            const token = localStorage.getItem("authToken");
+
+            // Carregar guests em paralelo para todas as guest lists
+            const promises = guestLists.map(
+              async (gl: GuestListRestaurante) => {
+                try {
+                  const guestsRes = await fetch(
+                    `${API_URL}/api/admin/guest-lists/${gl.guest_list_id}/guests`,
+                    {
+                      headers: { Authorization: `Bearer ${token}` },
+                    },
+                  );
+
+                  if (guestsRes.ok) {
+                    const guestsData = await guestsRes.json();
+                    const guests = guestsData.guests || [];
+
+                    // Ordenar convidados alfabeticamente por nome
+                    const sortedGuests = [...guests].sort((a, b) =>
+                      (a.name || "").localeCompare(b.name || "", "pt-BR", {
+                        sensitivity: "base",
+                      }),
+                    );
+
+                    return {
+                      guestListId: gl.guest_list_id,
+                      guests: sortedGuests,
+                    };
+                  } else {
+                    console.error(
+                      `Erro ao carregar guests para lista ${gl.guest_list_id}:`,
+                      guestsRes.status,
+                    );
+                    return {
+                      guestListId: gl.guest_list_id,
+                      guests: [],
+                    };
+                  }
+                } catch (error) {
+                  console.error(
+                    `Erro ao carregar guests para lista ${gl.guest_list_id}:`,
+                    error,
+                  );
+                  return {
+                    guestListId: gl.guest_list_id,
+                    guests: [],
+                  };
+                }
+              },
+            );
+
+            const results = await Promise.all(promises);
+
+            // Atualizar estado de guests, sempre usando dados do backend (que são a fonte da verdade)
+            // O backend já retorna os dados de check-out corretos
+            // Garantir que checked_out seja sempre 1 ou 0 para consistência
+            setGuestsByList((prev) => {
+              const updated = { ...prev };
+              results.forEach((result) => {
+                // Sempre usar os dados do backend como fonte da verdade
+                // O backend já retorna checked_out, checkout_time, checked_in, checkin_time corretos
+                // Normalizar checked_out para garantir que seja sempre 1 ou 0
+                updated[result.guestListId] = result.guests.map((g: any) => ({
+                  ...g,
+                  checked_out:
+                    g.checked_out === true || g.checked_out === 1 ? 1 : 0,
+                  checked_in:
+                    g.checked_in === true || g.checked_in === 1 ? 1 : 0,
+                }));
+              });
+              return updated;
+            });
+
+            // Atualizar totalGuests no checkInStatus
+            setCheckInStatus((prev) => {
+              const updated = { ...prev };
+              results.forEach((result) => {
+                if (result.guests.length > 0) {
+                  updated[result.guestListId] = {
+                    ...updated[result.guestListId],
+                    totalGuests: result.guests.length,
+                  };
+                }
+              });
+              return updated;
+            });
+
+            // Carregar histórico de reservas concluídas a partir das guest lists com owner_checked_out = 1
+            // Usar os dados já carregados anteriormente
+            const loadHistoricoConcluidas = () => {
+              const concluidas: ReservaConcluida[] = [];
+
+              // Buscar todas as guest lists concluídas
+              const guestListsConcluidas = guestLists.filter(
+                (gl: GuestListRestaurante) =>
+                  isOwnerCheckedOut(gl.owner_checked_out) &&
+                  gl.owner_checkin_time &&
+                  gl.owner_checkout_time,
+              );
+
+              // Para cada guest list concluída, construir o objeto de histórico
+              guestListsConcluidas.forEach((gl: GuestListRestaurante) => {
+                const guests =
+                  results.find((r) => r.guestListId === gl.guest_list_id)
+                    ?.guests || [];
+
+                // Usar dados da guest list diretamente (já tem table_number e area_name se disponíveis)
+                const reservaConcluida: ReservaConcluida = {
+                  guest_list_id: gl.guest_list_id,
+                  owner_name: gl.owner_name,
+                  reservation_id: gl.reservation_id,
+                  table_number: (gl as any).table_number || undefined,
+                  area_name: (gl as any).area_name || undefined,
+                  checkin_time: gl.owner_checkin_time || "",
+                  checkout_time: gl.owner_checkout_time || "",
+                  guests: guests.map((g: GuestItem) => ({
+                    id: g.id,
+                    name: g.name || "",
+                    checkin_time: g.checkin_time,
+                    checkout_time: g.checkout_time,
+                  })),
+                };
+
+                concluidas.push(reservaConcluida);
+              });
+
+              // Atualizar histórico
+              setHistoricoReservasConcluidas(concluidas);
+            };
+
+            // Carregar histórico após guests serem carregados
+            loadHistoricoConcluidas();
+          };
+
+          // Carregar em background sem bloquear a UI
+          loadAllGuests();
+        }
+
+        // A arrecadação será calculada automaticamente pelo useEffect quando os estados mudarem
+      } else {
+        console.error("Erro ao carregar dados:", response.statusText);
+      }
+    } catch (error) {
+      console.error("Erro ao carregar dados:", error);
+    } finally {
+      setLoading(false);
+    }
+  }, [eventoId, loadMenuItemsForBirthdayReservations]);
+
+  useEffect(() => {
+    loadCheckInData();
+  }, [loadCheckInData]);
+
+  // Carregar histórico de reservas concluídas da tabela checkouts
+  useEffect(() => {
+    if (!eventoId || !evento) {
+      return;
+    }
+
+    const loadCheckoutsFromTable = async () => {
+      try {
+        const token = localStorage.getItem("authToken");
+        const headers: HeadersInit = {
+          "Content-Type": "application/json",
+        };
+        if (token) {
+          headers["Authorization"] = `Bearer ${token}`;
+        }
+
+        // Buscar check-outs da tabela checkouts
+        const checkoutsRes = await fetch(
+          `${API_URL}/api/admin/checkouts?evento_id=${eventoId}`,
+          { headers },
+        );
+
+        if (checkoutsRes.ok) {
+          const checkoutsData = await checkoutsRes.json();
+          const checkouts = checkoutsData.checkouts || [];
+
+          const ownerCheckouts = checkouts.filter(
+            (c: any) => c.checkout_type === "owner",
+          );
+          const guestCheckouts = checkouts.filter(
+            (c: any) => c.checkout_type === "guest",
+          );
+          const reservationCheckouts = checkouts.filter(
+            (c: any) =>
+              c.checkout_type === "reservation" &&
+              c.entity_type === "restaurant_reservation",
+          );
+
+          const historico: ReservaConcluida[] = ownerCheckouts.map(
+            (checkout: any) => {
+              const guestsFromCheckout = guestCheckouts
+                .filter(
+                  (gc: any) => gc.guest_list_id === checkout.guest_list_id,
+                )
+                .map((gc: any) => ({
+                  id: gc.entity_id,
+                  name: gc.name,
+                  checkin_time: gc.checkin_time,
+                  checkout_time: gc.checkout_time,
+                }));
+
+              return {
+                guest_list_id: checkout.guest_list_id,
+                owner_name: checkout.name,
+                reservation_id: checkout.reservation_id || 0,
+                table_number: checkout.table_number,
+                area_name: checkout.area_name,
+                checkin_time: checkout.checkin_time || "",
+                checkout_time: checkout.checkout_time || "",
+                guests: guestsFromCheckout,
+              };
+            },
+          );
+
+          const historicoReservas = reservationCheckouts.map((c: any) => ({
+            guest_list_id: 0,
+            owner_name: c.name || "",
+            reservation_id: c.reservation_id ?? c.entity_id ?? 0,
+            table_number: c.table_number,
+            area_name: c.area_name,
+            checkin_time: c.checkin_time || "",
+            checkout_time: c.checkout_time || "",
+            guests: [] as {
+              id: number;
+              name: string;
+              checkin_time?: string;
+              checkout_time?: string;
+            }[],
+          }));
+
+          setHistoricoReservasConcluidas([...historico, ...historicoReservas]);
+        } else {
+          // Fallback: usar método antigo se a tabela não existir ainda
+          if (guestListsRestaurante.length === 0) {
+            setHistoricoReservasConcluidas([]);
+            return;
+          }
+
+          const guestListsConcluidas = guestListsRestaurante.filter(
+            (gl: GuestListRestaurante) =>
+              gl.owner_checked_out === 1 &&
+              gl.owner_checkin_time &&
+              gl.owner_checkout_time,
+          );
+
+          if (guestListsConcluidas.length === 0) {
+            setHistoricoReservasConcluidas([]);
+            return;
+          }
+
+          const concluidas: ReservaConcluida[] = guestListsConcluidas.map(
+            (gl: GuestListRestaurante) => {
+              const guests = guestsByList[gl.guest_list_id] || [];
+
+              return {
+                guest_list_id: gl.guest_list_id,
+                owner_name: gl.owner_name,
+                reservation_id: gl.reservation_id,
+                table_number: (gl as any).table_number || undefined,
+                area_name: (gl as any).area_name || undefined,
+                checkin_time: gl.owner_checkin_time || "",
+                checkout_time: gl.owner_checkout_time || "",
+                guests: guests.map((g: GuestItem) => ({
+                  id: g.id,
+                  name: g.name || "",
+                  checkin_time: g.checkin_time,
+                  checkout_time: g.checkout_time,
+                })),
+              };
+            },
+          );
+
+          setHistoricoReservasConcluidas(concluidas);
+        }
+      } catch (error) {
+        console.error("Erro ao carregar check-outs da tabela:", error);
+        // Fallback para método antigo em caso de erro
+        if (guestListsRestaurante.length > 0) {
+          const guestListsConcluidas = guestListsRestaurante.filter(
+            (gl: GuestListRestaurante) =>
+              gl.owner_checked_out === 1 &&
+              gl.owner_checkin_time &&
+              gl.owner_checkout_time,
+          );
+
+          if (guestListsConcluidas.length > 0) {
+            const concluidas: ReservaConcluida[] = guestListsConcluidas.map(
+              (gl: GuestListRestaurante) => {
+                const guests = guestsByList[gl.guest_list_id] || [];
+
+                return {
+                  guest_list_id: gl.guest_list_id,
+                  owner_name: gl.owner_name,
+                  reservation_id: gl.reservation_id,
+                  table_number: (gl as any).table_number || undefined,
+                  area_name: (gl as any).area_name || undefined,
+                  checkin_time: gl.owner_checkin_time || "",
+                  checkout_time: gl.owner_checkout_time || "",
+                  guests: guests.map((g: GuestItem) => ({
+                    id: g.id,
+                    name: g.name || "",
+                    checkin_time: g.checkin_time,
+                    checkout_time: g.checkout_time,
+                  })),
+                };
+              },
+            );
+
+            setHistoricoReservasConcluidas(concluidas);
+          }
+        }
+      }
+    };
+
+    loadCheckoutsFromTable();
+  }, [eventoId, evento, guestListsRestaurante, guestsByList]);
+
+  // Socket.IO: atualização em tempo real quando um check-in é feito via /admin/qrcode (QR do convidado)
+  useEffect(() => {
+    if (!guestListsRestaurante.length) return;
+    const socket = io(SOCKET_URL, { transports: ["websocket"] });
+    guestListsRestaurante.forEach((gl) => {
+      const id = gl.guest_list_id ?? (gl as { id?: number }).id;
+      if (id != null) socket.emit("join_guest_list", id);
+    });
+    const onConvidadoCheckin = (data: {
+      convidadoId?: number;
+      nome?: string;
+      guest_list_id?: number;
+    }) => {
+      const listId = data.guest_list_id;
+      const convidadoId = data.convidadoId;
+      if (listId == null || convidadoId == null) return;
+      const now = new Date().toISOString();
+      setGuestsByList((prev) => {
+        const list = prev[listId] || [];
+        const next = list.map((g) =>
+          g.id === convidadoId
+            ? { ...g, checked_in: true, checkin_time: now }
+            : g,
+        );
+        return { ...prev, [listId]: next };
+      });
+      setCheckInStatus((prev) => {
+        const cur = prev[listId] || {
+          ownerCheckedIn: false,
+          guestsCheckedIn: 0,
+          totalGuests: 0,
+        };
+        return {
+          ...prev,
+          [listId]: { ...cur, guestsCheckedIn: cur.guestsCheckedIn + 1 },
+        };
+      });
+      toast.success(`Check-in em tempo real: ${data.nome || "Convidado"}`);
+    };
+    socket.on("convidado_checkin", onConvidadoCheckin);
+    return () => {
+      socket.off("convidado_checkin", onConvidadoCheckin);
+      socket.disconnect();
+    };
+  }, [guestListsRestaurante]);
+
+  useEffect(() => {
+    if (!planilhaModalOpen || !evento || !eventoId) {
+      setPlanilhaReservas([]);
+      return;
+    }
+    const dataEvento =
+      evento.data_evento?.split("T")[0] || evento.data_evento || "";
+    if (!sheetFilters.date) {
+      setSheetFilters((prev) => ({ ...prev, date: dataEvento }));
+      return;
+    }
+
+    const carregarPlanilhaReservas = async () => {
+      setPlanilhaLoading(true);
+      try {
+        const token = localStorage.getItem("authToken");
+        const headers: HeadersInit = {
+          "Content-Type": "application/json",
+        };
+        if (token) {
+          headers["Authorization"] = `Bearer ${token}`;
+        }
+
+        const dateToUse = sheetFilters.date || dataEvento;
+        const dateParam = dateToUse
+          ? `&date=${encodeURIComponent(dateToUse)}`
+          : "";
+        const areasRes = await fetch(
+          `${API_URL}/api/restaurant-areas${evento.establishment_id ? `?establishment_id=${evento.establishment_id}` : ""}`,
+          { headers },
+        );
+        const areas: Array<{ id: number; name: string }> = [];
+        if (areasRes.ok) {
+          const areasData = await areasRes.json();
+          areas.push(
+            ...(areasData.areas || []).map(
+              (a: { id: number; name: string }) => ({
+                id: a.id,
+                name: a.name,
+              }),
+            ),
+          );
+        }
+        setPlanilhaAreas(areas);
+        const areaIdToNameMap: Record<number, string> = {};
+        areas.forEach((a) => {
+          areaIdToNameMap[a.id] = a.name || "";
+        });
+
+        const normalReservationsPromise = fetch(
+          `${API_URL}/api/restaurant-reservations?establishment_id=${evento.establishment_id}${dateParam}`,
+          { headers },
+        ).then((res) => (res.ok ? res.json() : { reservations: [] }));
+
+        const largeReservationsPromise = fetch(
+          `${API_URL}/api/large-reservations?establishment_id=${evento.establishment_id}${dateParam}`,
+          { headers },
+        ).then((res) => (res.ok ? res.json() : { reservations: [] }));
+
+        const [normalData, largeData] = await Promise.all([
+          normalReservationsPromise,
+          largeReservationsPromise,
+        ]);
+
+        const normalList = normalData.reservations || [];
+        const largeList = largeData.reservations || largeData.data || [];
+        const rawList = [
+          ...normalList,
+          ...(Array.isArray(largeList) ? largeList : []),
+        ];
+        const allReservations = rawList.map((item: any) => ({
+          ...item,
+          client_name: item.client_name ?? item.nome ?? "",
+          client_phone: item.client_phone ?? item.telefone ?? "",
+          notes:
+            item.notes ??
+            item.admin_notes ??
+            item.observacao ??
+            item.observação ??
+            "",
+          area_name:
+            item.area_name ??
+            item.area?.name ??
+            (item.area_id != null ? areaIdToNameMap[item.area_id] : "") ??
+            "",
+          table_number:
+            item.table_number != null ? item.table_number : (item.mesa ?? ""),
+        })) as Reservation[];
+
+        setPlanilhaReservas(allReservations);
+
+        const getAreaKeyFromAreaName = (areaName: string): string | null => {
+          const name = areaName.toLowerCase();
+          if (name.includes("roof") || name.includes("rooftop"))
+            return "rooftop";
+          if (name.includes("deck")) return "deck";
+          if (name.includes("bar")) return "bar";
+          if (name.includes("balada")) return "balada";
+          return null;
+        };
+        if (areas.length > 0) {
+          const mesasMap = new Map<
+            string,
+            Array<{
+              area_id: number;
+              area_name: string;
+              table_number: string;
+              capacity?: number;
+            }>
+          >();
+
+          for (const area of areas) {
+            try {
+              const tablesRes = await fetch(
+                `${API_URL}/api/restaurant-tables/${area.id}/availability?date=${dateToUse}${evento.establishment_id ? `&establishment_id=${evento.establishment_id}` : ""}`,
+                { headers },
+              );
+              if (tablesRes.ok) {
+                const tablesData = await tablesRes.json();
+                const tables = tablesData.tables || [];
+                const areaKeyUnique = `area_${area.id}`;
+                mesasMap.set(
+                  areaKeyUnique,
+                  tables.map((t: any) => ({
+                    area_id: area.id,
+                    area_name: area.name,
+                    table_number: t.table_number?.toString() || t.table_number,
+                    capacity:
+                      typeof t.capacity === "number" ? t.capacity : undefined,
+                  })),
+                );
+              }
+            } catch (err) {
+              console.error(
+                `Erro ao carregar mesas da área ${area.name}:`,
+                err,
+              );
+            }
+          }
+
+          setTodasMesasAreas(mesasMap);
+        }
+
+        console.log(
+          `✅ [PLANILHA] ${allReservations.length} reservas carregadas`,
+        );
+      } catch (error) {
+        console.error("❌ Erro ao carregar planilha:", error);
+        setPlanilhaReservas([]);
+      } finally {
+        setPlanilhaLoading(false);
+      }
+    };
+
+    carregarPlanilhaReservas();
+  }, [planilhaModalOpen, evento, eventoId, sheetFilters.date]);
+
+  const handleExportPlanilhaExcel = useCallback(async () => {
+    const matches = (r: Reservation) => {
+      if (sheetFilters.date) {
+        let d = "";
+        try {
+          const dateStr = String(r.reservation_date || "").trim();
+          if (dateStr && dateStr !== "null" && dateStr !== "undefined") {
+            const dt = dateStr.includes("T")
+              ? new Date(dateStr)
+              : new Date(dateStr + "T12:00:00");
+            if (!isNaN(dt.getTime())) d = dt.toISOString().split("T")[0];
+          }
+        } catch {
+          /* ignore */
+        }
+        if (d !== sheetFilters.date) return false;
+      }
+      if (sheetFilters.search) {
+        const q = sheetFilters.search.toLowerCase();
+        const hay =
+          `${(r as any).client_name || ""} ${(r as any).client_phone || ""} ${(r as any).event_name || ""}`.toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      if (
+        sheetFilters.name &&
+        !`${(r as any).client_name || ""}`
+          .toLowerCase()
+          .includes((sheetFilters.name || "").toLowerCase())
+      )
+        return false;
+      if (
+        sheetFilters.phone &&
+        !`${(r as any).client_phone || ""}`
+          .toLowerCase()
+          .includes((sheetFilters.phone || "").toLowerCase())
+      )
+        return false;
+      if (
+        sheetFilters.event &&
+        !`${(r as any).event_name || ""}`
+          .toLowerCase()
+          .includes((sheetFilters.event || "").toLowerCase())
+      )
+        return false;
+      if (
+        sheetFilters.table &&
+        !`${(r as any).table_number || ""}`
+          .toString()
+          .toLowerCase()
+          .includes((sheetFilters.table || "").toLowerCase())
+      )
+        return false;
+      if (
+        sheetFilters.status &&
+        !((r as any).status || "")
+          .toLowerCase()
+          .includes((sheetFilters.status || "").toLowerCase())
+      )
+        return false;
+      return true;
+    };
+    const formatDate = (dateStr?: string) => {
+      if (!dateStr) return "";
+      try {
+        const d = new Date(dateStr + "T12:00:00");
+        return isNaN(d.getTime()) ? "" : d.toLocaleDateString("pt-BR");
+      } catch {
+        return "";
+      }
+    };
+    const formatTime = (t?: string) => formatCheckinTime(t) || "";
+    const filtered = planilhaReservas.filter(matches);
+
+    const { workbook, rowMap } = buildCheckinSpreadsheetTemplate({
+      eventDate: sheetFilters.date,
+      eventName: evento?.nome,
+      disponivel: 248,
+      ocupado: 0,
+    });
+    const sheet = workbook.worksheets[0];
+    if (!sheet) return;
+
+    fillReservationsIntoSheet(sheet, filtered as any[], rowMap, {
+      formatDate,
+      formatTime,
+    });
+
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], {
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    const dateLabel = sheetFilters.date ? `_${sheetFilters.date}` : "";
+    const est = evento?.establishment_name || "estabelecimento";
+    const safe = est.replace(/[^a-z0-9]/gi, "_").slice(0, 30);
+    a.download = `planilha_reservas${dateLabel}_${safe}.xlsx`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [planilhaReservas, sheetFilters, evento]);
+
+  // Função para calcular arrecadação
+  const calcularArrecadacao = useCallback(
+    (
+      convidadosReservas: ConvidadoReserva[],
+      convidadosPromoters: ConvidadoPromoter[],
+      promotersList: Promoter[],
+      guestsByList: Record<number, GuestItem[]>,
+    ) => {
+      let totalGeral = 0;
+      const porPromoter: Record<number, { nome: string; total: number }> = {};
+      const porTipo = { vip: 0, seco: 0, consuma: 0 };
+
+      // Helper para converter entrada_valor para número
+      const toNumber = (value: any): number => {
+        if (typeof value === "number") return value;
+        const parsed = parseFloat(String(value));
+        return isNaN(parsed) ? 0 : parsed;
+      };
+
+      // Calcular de convidados de reservas
+      convidadosReservas.forEach((c) => {
+        if (c.status === "CHECK-IN" && c.entrada_valor) {
+          const valor = toNumber(c.entrada_valor);
+          totalGeral += valor;
+          if (c.entrada_tipo === "SECO") porTipo.seco += valor;
+          else if (c.entrada_tipo === "CONSUMA") porTipo.consuma += valor;
+          else if (c.entrada_tipo === "VIP") porTipo.vip += 0;
+        }
+      });
+
+      // Calcular de convidados de promoters
+      convidadosPromoters.forEach((c) => {
+        if (c.status_checkin === "Check-in" && c.entrada_valor) {
+          const valor = toNumber(c.entrada_valor);
+          totalGeral += valor;
+          if (c.entrada_tipo === "SECO") porTipo.seco += valor;
+          else if (c.entrada_tipo === "CONSUMA") porTipo.consuma += valor;
+          else if (c.entrada_tipo === "VIP") porTipo.vip += 0;
+
+          // Acumular por promoter
+          if (c.promoter_id) {
+            const promoter = promotersList.find(
+              (p) => Number(p.id) === Number(c.promoter_id),
+            );
+            if (promoter) {
+              if (!porPromoter[c.promoter_id]) {
+                porPromoter[c.promoter_id] = { nome: promoter.nome, total: 0 };
+              }
+              porPromoter[c.promoter_id].total += valor;
+            }
+          }
+        }
+      });
+
+      // Calcular de guests (guest lists de restaurante)
+      Object.values(guestsByList)
+        .flat()
+        .forEach((g) => {
+          if (
+            (g.checked_in === 1 || g.checked_in === true) &&
+            g.entrada_valor
+          ) {
+            const valor = toNumber(g.entrada_valor);
+            totalGeral += valor;
+            if (g.entrada_tipo === "SECO") porTipo.seco += valor;
+            else if (g.entrada_tipo === "CONSUMA") porTipo.consuma += valor;
+            else if (g.entrada_tipo === "VIP") porTipo.vip += 0;
+          }
+        });
+
+      setArrecadacao({ totalGeral, porPromoter, porTipo });
+    },
+    [],
+  );
+
+  // Recalcular arrecadação quando os dados mudarem (otimizado - só recalcula quando realmente necessário)
+  const prevDataRef = useRef<{
+    reservas: number;
+    promoters: number;
+    guests: number;
+    guestsByListKeys: string;
+  }>({ reservas: 0, promoters: 0, guests: 0, guestsByListKeys: "" });
+
+  useEffect(() => {
+    const guestsByListKeys = Object.keys(guestsByList).sort().join(",");
+    const currentData = {
+      reservas: convidadosReservas.length,
+      promoters: convidadosPromoters.length,
+      guests: Object.values(guestsByList).flat().length,
+      guestsByListKeys,
+    };
+
+    // Só recalcular se os dados realmente mudaram
+    const hasChanged =
+      prevDataRef.current.reservas !== currentData.reservas ||
+      prevDataRef.current.promoters !== currentData.promoters ||
+      prevDataRef.current.guests !== currentData.guests ||
+      prevDataRef.current.guestsByListKeys !== currentData.guestsByListKeys;
+
+    if (
+      hasChanged &&
+      (convidadosReservas.length > 0 ||
+        convidadosPromoters.length > 0 ||
+        Object.keys(guestsByList).length > 0)
+    ) {
+      calcularArrecadacao(
+        convidadosReservas,
+        convidadosPromoters,
+        promoters,
+        guestsByList,
+      );
+      prevDataRef.current = currentData;
+    }
+  }, [
+    convidadosReservas,
+    convidadosPromoters,
+    promoters,
+    guestsByList,
+    calcularArrecadacao,
+  ]);
+
+  // Ref para check-in direto (Reserva Rooftop) sem depender da ordem de declaração
+  const confirmarCheckInRef = useRef<
+    ((tipo: EntradaTipo, valor: number, override?: typeof convidadoParaCheckIn) => Promise<void>) | null
+  >(null);
+
+  // Funções de check-in - Abre modal primeiro (memoizadas para evitar re-renderizações)
+  const handleConvidadoReservaCheckIn = useCallback(
+    (convidado: ConvidadoReserva) => {
+      const key = `reserva-${convidado.id}`;
+      if (checkInInProgressRef.current[key]) return;
+
+      checkInInProgressRef.current[key] = true;
+      const payload = {
+        tipo: "reserva" as const,
+        id: convidado.id,
+        nome: convidado.nome,
+      };
+      const isRooftop = establishmentRulesFlags.isRooftop;
+      if (isRooftop && confirmarCheckInRef.current) {
+        confirmarCheckInRef.current("CONSUMA", 0, payload);
+      } else {
+        setConvidadoParaCheckIn(payload);
+        setEntradaModalOpen(true);
+      }
+      setTimeout(() => {
+        checkInInProgressRef.current[key] = false;
+      }, 500);
+    },
+    [evento?.establishment_id, establishmentRulesFlags.isRooftop],
+  );
+
+  const handleConvidadoPromoterCheckIn = useCallback(
+    (convidado: ConvidadoPromoter, isVipNoiteTudaFromResult?: boolean) => {
+      const key = `promoter-${convidado.id}`;
+      if (checkInInProgressRef.current[key]) return;
+
+      checkInInProgressRef.current[key] = true;
+
+      // Opção VIP a noite toda: usar flag do resultado da busca quando vier da busca, senão do convidado
+      const vipRaw = convidado.vip_tipo != null ? String(convidado.vip_tipo).trim().toUpperCase() : "";
+      const isVipNoiteTuda =
+        isVipNoiteTudaFromResult ?? (vipRaw === "M" || vipRaw === "F");
+
+      const payload = {
+        tipo: "promoter" as const,
+        id: convidado.id,
+        nome: convidado.nome,
+        vipNoiteTuda: isVipNoiteTuda,
+        valorEntradaPromoter: typeof convidado.valor_entrada_regra === "number" ? convidado.valor_entrada_regra : (parseFloat(String(convidado.valor_entrada_regra || 0)) || 0),
+        entradaConfigPromoter: convidado.entrada_config_regra || null,
+      };
+      const isRooftop = establishmentRulesFlags.isRooftop;
+      if (isRooftop && confirmarCheckInRef.current) {
+        confirmarCheckInRef.current("CONSUMA", 0, payload);
+      } else {
+        setConvidadoParaCheckIn(payload);
+        setEntradaModalOpen(true);
+      }
+      setTimeout(() => {
+        checkInInProgressRef.current[key] = false;
+      }, 500);
+    },
+    [evento?.establishment_id, establishmentRulesFlags.isRooftop],
+  );
+
+  // Função que realmente faz o check-in após seleção do status.
+  // Para Reserva Rooftop pode ser chamada com override (sem abrir modal).
+  const handleConfirmarCheckIn = async (
+    tipo: EntradaTipo,
+    valor: number,
+    override?: typeof convidadoParaCheckIn,
+  ) => {
+    const data = override ?? convidadoParaCheckIn;
+    if (!data) return;
+
+    try {
+      const token = localStorage.getItem("authToken");
+      let response;
+
+      if (data.tipo === "reserva") {
+        // Check-in de convidado de reserva
+        response = await fetch(`${API_URL}/api/checkin`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            convidadoId: data.id,
+            eventId: eventoId,
+            entrada_tipo: tipo,
+            entrada_valor: valor,
+          }),
+        });
+      } else if (data.tipo === "guest_list") {
+        // Check-in de convidado de guest list (reservas de restaurante)
+        response = await fetch(
+          `${API_URL}/api/admin/guests/${data.id}/checkin`,
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              entrada_tipo: tipo,
+              entrada_valor: valor,
+            }),
+          },
+        );
+      } else if (
+        data.tipo === "restaurante" &&
+        data.reservationId
+      ) {
+        // Check-in de reserva de restaurante sem guest list
+        response = await fetch(
+          `${API_URL}/api/restaurant-reservations/${data.reservationId}/checkin`,
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+          },
+        );
+
+        // Atualizar estado local após check-in bem-sucedido
+        if (response.ok) {
+          setReservasRestaurante((prev) =>
+            prev.map((r) =>
+              r.id === data.reservationId
+                ? {
+                    ...r,
+                    checked_in: true,
+                    checkin_time: new Date().toISOString(),
+                  }
+                : r,
+            ),
+          );
+        }
+      } else {
+        // Check-in de convidado de promoter
+        response = await fetch(
+          `${API_URL}/api/v1/eventos/checkin/${data.id}`,
+          {
+            method: "PUT",
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              status_checkin: "Check-in",
+              entrada_tipo: tipo,
+              entrada_valor: valor,
+            }),
+          },
+        );
+      }
+
+      if (response.ok) {
+        const tipoTexto =
+          data.tipo === "restaurante"
+            ? "Check-in confirmado"
+            : tipo === "VIP"
+              ? "VIP (grátis)"
+              : tipo === "SECO"
+                ? `SECO (R$ ${valor.toFixed(2)})`
+                : `CONSUMA (R$ ${valor.toFixed(2)})`;
+        toast.success(
+          `✅ Check-in de ${data.nome} confirmado! ${data.tipo !== "restaurante" ? `Status: ${tipoTexto}` : ""}`,
+          {
+            position: "top-center",
+            autoClose: 3000,
+          },
+        );
+        setEntradaModalOpen(false);
+
+        // Atualizar estado local para reservas sem guest list
+        if (
+          data.tipo === "restaurante" &&
+          data.reservationId
+        ) {
+          setReservasRestaurante((prev) =>
+            prev.map((r) =>
+              r.id === data.reservationId
+                ? {
+                    ...r,
+                    checked_in: true,
+                    checkin_time: new Date().toISOString(),
+                  }
+                : r,
+            ),
+          );
+          // Não recarregar - atualização otimista já foi feita acima
+        }
+
+        // Se for guest list, atualizar o estado local também
+        if (
+          data.tipo === "guest_list" &&
+          data.guestListId
+        ) {
+          const responseData = await response.json();
+          const savedCheckinTime =
+            (responseData.guest?.checkin_time as string | undefined) ||
+            new Date().toISOString();
+          setGuestsByList((prev) => ({
+            ...prev,
+            [data.guestListId!]: (
+              prev[data.guestListId!] || []
+            ).map((g) =>
+              g.id === data.id
+                ? {
+                    ...g,
+                    checked_in: true,
+                    checkin_time: savedCheckinTime,
+                    entrada_tipo: tipo,
+                    entrada_valor: valor,
+                  }
+                : g,
+            ),
+          }));
+
+          // Atualizar contador de check-ins
+          setCheckInStatus((prev) => {
+            const current = prev[data.guestListId!] || {
+              ownerCheckedIn: false,
+              guestsCheckedIn: 0,
+              totalGuests: 0,
+            };
+            return {
+              ...prev,
+              [data.guestListId!]: {
+                ...current,
+                guestsCheckedIn: current.guestsCheckedIn + 1,
+              },
+            };
+          });
+
+          // Se o convidado tem o mesmo nome do dono, marcar também o dono como check-in (evitar duplicidade)
+          const normalizeNameForCompare = (s: string) =>
+            (s || "")
+              .trim()
+              .toLowerCase()
+              .normalize("NFD")
+              .replace(/[\u0300-\u036f]/g, "");
+          const guestListForOwner = guestListsRestaurante.find(
+            (gl) => gl.guest_list_id === data.guestListId,
+          );
+          if (
+            guestListForOwner &&
+            !guestListForOwner.owner_checked_in &&
+            normalizeNameForCompare(guestListForOwner.owner_name || "") ===
+              normalizeNameForCompare(data.nome || "")
+          ) {
+            try {
+              const ownerRes = await fetch(
+                `${API_URL}/api/admin/guest-lists/${data.guestListId}/owner-checkin`,
+                {
+                  method: "POST",
+                  headers: { Authorization: `Bearer ${token}` },
+                },
+              );
+              if (ownerRes.ok) {
+                const now = new Date().toISOString();
+                setCheckInStatus((prev) => ({
+                  ...prev,
+                  [data.guestListId!]: {
+                    ...prev[data.guestListId!],
+                    ownerCheckedIn: true,
+                  },
+                }));
+                setOwnerCheckInTimeMap((prev) => ({
+                  ...prev,
+                  [data.guestListId!]: now,
+                }));
+                setGuestListsRestaurante((prev) =>
+                  prev.map((gl) =>
+                    gl.guest_list_id === data.guestListId
+                      ? { ...gl, owner_checked_in: 1, owner_checkin_time: now }
+                      : gl,
+                  ),
+                );
+              }
+            } catch (_) {
+              // Ignorar falha do owner-checkin
+            }
+          }
+
+          // Recarregar brindes para verificar se algum foi liberado
+          try {
+            const token = localStorage.getItem("authToken");
+            const guestListId = data.guestListId!;
+            const previousGifts = giftsByGuestList[guestListId] || [];
+
+            const giftsRes = await fetch(
+              `${API_URL}/api/gift-rules/guest-list/${guestListId}/gifts`,
+              {
+                headers: { Authorization: `Bearer ${token}` },
+              },
+            );
+            if (giftsRes.ok) {
+              const giftsData = await giftsRes.json();
+              const newGifts = giftsData.gifts || [];
+
+              // Se algum brinde foi liberado, mostrar mensagem
+              if (newGifts.length > previousGifts.length) {
+                const newlyAwarded = newGifts.filter((g: any) => {
+                  return !previousGifts.some((p: any) => p.id === g.id);
+                });
+                if (newlyAwarded.length > 0) {
+                  setTimeout(() => {
+                    toast.success(
+                      `🎁 Brinde(s) liberado(s)!\n\n${newlyAwarded.map((g: any) => `✅ ${g.descricao}`).join("\n")}`,
+                      {
+                        position: "top-center",
+                        autoClose: 5000,
+                      },
+                    );
+                  }, 500);
+                }
+              }
+
+              setGiftsByGuestList((prev) => ({
+                ...prev,
+                [guestListId]: newGifts,
+              }));
+            }
+          } catch (error) {
+            console.error("Erro ao recarregar brindes:", error);
+          }
+        }
+
+        if (!override) setConvidadoParaCheckIn(null);
+        // Não recarregar - atualização otimista já foi feita acima
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        const errMsg = String(errorData.message || errorData.error || "").toLowerCase();
+        const jaFezCheckin = errMsg.includes("já fez check-in") || errMsg.includes("ja fez check-in");
+        if (response.status === 400 && jaFezCheckin) {
+          toast.success("Check-in já estava confirmado.", {
+            position: "top-center",
+            autoClose: 2000,
+          });
+          setEntradaModalOpen(false);
+          setConvidadoParaCheckIn(null);
+          loadCheckInData();
+        } else {
+          toast.error(
+            `❌ ${errorData.message || errorData.error || "Erro ao fazer check-in"}`,
+            {
+              position: "top-center",
+              autoClose: 4000,
+            },
+          );
+        }
+      }
+    } catch (error) {
+      console.error("Erro:", error);
+      toast.error("❌ Erro ao fazer check-in", {
+        position: "top-center",
+        autoClose: 4000,
+      });
+    } finally {
+      // Limpar flag de progresso
+      if (data) {
+        const key = `${data.tipo}-${data.id}`;
+        checkInInProgressRef.current[key] = false;
+      }
+    }
+  };
+
+  useEffect(() => {
+    confirmarCheckInRef.current = handleConfirmarCheckIn;
+  });
+
+  const handleCamaroteCheckIn = useCallback(
+    async (camarote: Camarote, e?: React.MouseEvent) => {
+      e?.preventDefault();
+      e?.stopPropagation();
+
+      const key = `camarote-${camarote.id}`;
+      if (checkInInProgressRef.current[key]) return;
+      checkInInProgressRef.current[key] = true;
+
+      try {
+        const token = localStorage.getItem("authToken");
+        const response = await fetch(
+          `${API_URL}/api/large-reservations/${camarote.id}/checkin`,
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+          },
+        );
+
+        if (response.ok) {
+          // Atualização otimista - atualizar estado local imediatamente
+          setCamarotes((prev) =>
+            prev.map((c) =>
+              c.id === camarote.id
+                ? {
+                    ...c,
+                    checked_in: true,
+                    checkin_time: new Date().toISOString(),
+                  }
+                : c,
+            ),
+          );
+          toast.success(`✅ Check-in de ${camarote.responsavel} confirmado!`, {
+            position: "top-center",
+            autoClose: 3000,
+          });
+          // Não recarregar - atualização otimista já foi feita
+        } else {
+          toast.error("❌ Erro ao fazer check-in", {
+            position: "top-center",
+            autoClose: 4000,
+          });
+        }
+      } catch (error) {
+        console.error("Erro:", error);
+        toast.error("❌ Erro ao fazer check-in", {
+          position: "top-center",
+          autoClose: 4000,
+        });
+      } finally {
+        checkInInProgressRef.current[key] = false;
+      }
+    },
+    [],
+  );
+
+  const handleReservaRestauranteCheckIn = useCallback(
+    async (reserva: ReservaRestaurante, e?: React.MouseEvent) => {
+      e?.preventDefault();
+      e?.stopPropagation();
+
+      const key = `reserva-restaurante-${reserva.id}`;
+      if (checkInInProgressRef.current[key]) return;
+      checkInInProgressRef.current[key] = true;
+
+      try {
+        const token = localStorage.getItem("authToken");
+        const response = await fetch(
+          `${API_URL}/api/restaurant-reservations/${reserva.id}/checkin`,
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+          },
+        );
+
+        if (response.ok) {
+          // Atualização otimista - atualizar estado local imediatamente
+          setReservasRestaurante((prev) =>
+            prev.map((r) =>
+              r.id === reserva.id
+                ? {
+                    ...r,
+                    checked_in: true,
+                    checkin_time: new Date().toISOString(),
+                  }
+                : r,
+            ),
+          );
+          toast.success(`✅ Check-in de ${reserva.responsavel} confirmado!`, {
+            position: "top-center",
+            autoClose: 3000,
+          });
+          // Não recarregar - atualização otimista já foi feita
+        } else {
+          toast.error("❌ Erro ao fazer check-in", {
+            position: "top-center",
+            autoClose: 4000,
+          });
+        }
+      } catch (error) {
+        console.error("Erro:", error);
+        toast.error("❌ Erro ao fazer check-in", {
+          position: "top-center",
+          autoClose: 4000,
+        });
+      } finally {
+        checkInInProgressRef.current[key] = false;
+      }
+    },
+    [],
+  );
+
+  const handleReservaRestauranteCheckOut = useCallback(
+    async (reserva: ReservaRestaurante, e?: React.MouseEvent) => {
+      e?.preventDefault();
+      e?.stopPropagation();
+      const key = `reserva-restaurante-checkout-${reserva.id}`;
+      if (checkInInProgressRef.current[key]) return;
+      checkInInProgressRef.current[key] = true;
+      try {
+        const token = localStorage.getItem("authToken");
+        const body: { evento_id?: number } = {};
+        const eid = params?.id ? Number(params.id) : NaN;
+        if (!isNaN(eid)) body.evento_id = eid;
+        const response = await fetch(
+          `${API_URL}/api/restaurant-reservations/${reserva.id}/checkout`,
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+            body: Object.keys(body).length ? JSON.stringify(body) : undefined,
+          },
+        );
+        if (response.ok) {
+          const data = await response.json();
+          const checkoutTime =
+            data.reservation?.checkout_time || new Date().toISOString();
+          setReservasRestaurante((prev) =>
+            prev.map((r) =>
+              r.id === reserva.id
+                ? { ...r, checked_out: true, checkout_time: checkoutTime }
+                : r,
+            ),
+          );
+          setHistoricoReservasConcluidas((prev) => {
+            const entry: ReservaConcluida = {
+              guest_list_id: 0,
+              owner_name:
+                reserva.responsavel || (reserva as any).client_name || "",
+              reservation_id: reserva.id,
+              table_number: reserva.table_number,
+              area_name: reserva.area_name,
+              checkin_time: reserva.checkin_time || "",
+              checkout_time: checkoutTime,
+              guests: [],
+            };
+            const exists = prev.some(
+              (h) => h.guest_list_id === 0 && h.reservation_id === reserva.id,
+            );
+            if (exists)
+              return prev.map((h) =>
+                h.guest_list_id === 0 && h.reservation_id === reserva.id
+                  ? entry
+                  : h,
+              );
+            return [...prev, entry];
+          });
+          toast.success(
+            `Check-out de ${reserva.responsavel || (reserva as any).client_name} confirmado!`,
+            {
+              position: "top-center",
+              autoClose: 3000,
+            },
+          );
+        } else {
+          const err = await response.json().catch(() => ({}));
+          toast.error(
+            `Erro ao fazer check-out: ${err.error || "Erro desconhecido"}`,
+            {
+              position: "top-center",
+              autoClose: 4000,
+            },
+          );
+        }
+      } catch (error) {
+        console.error("Erro no check-out da reserva:", error);
+        toast.error("Erro ao fazer check-out", {
+          position: "top-center",
+          autoClose: 4000,
+        });
+      } finally {
+        checkInInProgressRef.current[key] = false;
+      }
+    },
+    [params?.id],
+  );
+
+  const handleReservaRestauranteNoShow = useCallback(
+    async (
+      reservationId: number,
+      nome: string,
+      source: "restaurante" | "api-adicional" = "restaurante",
+      e?: React.MouseEvent,
+    ) => {
+      e?.preventDefault();
+      e?.stopPropagation();
+
+      if (
+        !confirm(
+          `Confirmar NO-SHOW para ${nome}?\n\nA reserva será marcada como no-show (cliente não compareceu).`,
+        )
+      ) {
+        return;
+      }
+
+      const key = `reserva-noshow-${reservationId}`;
+      if (checkInInProgressRef.current[key]) return;
+      checkInInProgressRef.current[key] = true;
+
+      try {
+        const token = localStorage.getItem("authToken");
+        const nowIso = new Date().toISOString();
+        const response = await fetch(
+          `${API_URL}/api/restaurant-reservations/${reservationId}`,
+          {
+            method: "PUT",
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ status: "no_show" }),
+          },
+        );
+
+        if (!response.ok) {
+          const err = await response.json().catch(() => ({}));
+          throw new Error(err?.error || "Erro ao marcar no-show");
+        }
+
+        if (source === "restaurante") {
+          setReservasRestaurante((prev) =>
+            prev.map((r) =>
+              r.id === reservationId
+                ? {
+                    ...r,
+                    status: "no_show",
+                    checked_in: false,
+                    checked_out: true,
+                    checkout_time: nowIso,
+                  }
+                : r,
+            ),
+          );
+
+          // Se a reserva tiver guest list vinculada, refletir como concluída no dono
+          const relatedGuestLists = guestListsRestaurante.filter(
+            (gl) => Number(gl.reservation_id) === Number(reservationId),
+          );
+          if (relatedGuestLists.length > 0) {
+            setGuestListsRestaurante((prev) =>
+              prev.map((gl) =>
+                Number(gl.reservation_id) === Number(reservationId)
+                  ? { ...gl, owner_checked_out: 1, owner_checkout_time: nowIso }
+                  : gl,
+              ),
+            );
+            setCheckInStatus((prev) => {
+              const next = { ...prev };
+              relatedGuestLists.forEach((gl) => {
+                next[gl.guest_list_id] = {
+                  ...(next[gl.guest_list_id] || {}),
+                  ownerCheckedIn: false,
+                  ownerCheckedOut: true,
+                };
+              });
+              return next;
+            });
+            setOwnerCheckOutTimeMap((prev) => {
+              const next = { ...prev };
+              relatedGuestLists.forEach((gl) => {
+                next[gl.guest_list_id] = nowIso;
+              });
+              return next;
+            });
+          }
+        } else {
+          setReservasAdicionaisAPI((prev) =>
+            prev.map((r) =>
+              r.id === reservationId
+                ? {
+                    ...r,
+                    status: "no_show",
+                    checked_in: false,
+                    checked_out: true,
+                    checkout_time: nowIso,
+                  }
+                : r,
+            ),
+          );
+        }
+
+        toast.success(`⚠️ Reserva de ${nome} marcada como no-show`, {
+          position: "top-center",
+          autoClose: 3000,
+        });
+      } catch (error: any) {
+        console.error("Erro ao marcar no-show:", error);
+        toast.error(`❌ ${error?.message || "Erro ao marcar no-show"}`, {
+          position: "top-center",
+          autoClose: 4000,
+        });
+      } finally {
+        checkInInProgressRef.current[key] = false;
+      }
+    },
+    [],
+  );
+
+  /** Check-in de reserva sem guest list vinda da API adicional (mesmo fluxo do modo tablet) */
+  const handleReservaSemGuestListCheckIn = useCallback(
+    async (reservationId: number, nome: string, e?: React.MouseEvent) => {
+      e?.preventDefault();
+      e?.stopPropagation();
+      const key = `reserva-api-${reservationId}`;
+      if (checkInInProgressRef.current[key]) return;
+      checkInInProgressRef.current[key] = true;
+      try {
+        const token = localStorage.getItem("authToken");
+        const response = await fetch(
+          `${API_URL}/api/restaurant-reservations/${reservationId}/checkin`,
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+          },
+        );
+        if (response.ok) {
+          setReservasAdicionaisAPI((prev) =>
+            prev.map((r) =>
+              r.id === reservationId
+                ? {
+                    ...r,
+                    checked_in: true,
+                    checkin_time: new Date().toISOString(),
+                  }
+                : r,
+            ),
+          );
+          toast.success(`✅ Check-in de ${nome} confirmado!`, {
+            position: "top-center",
+            autoClose: 3000,
+          });
+        } else {
+          const err = await response.json().catch(() => ({}));
+          toast.error(
+            `❌ Erro ao fazer check-in: ${err?.error || "Erro desconhecido"}`,
+            { position: "top-center", autoClose: 4000 },
+          );
+        }
+      } catch (error) {
+        console.error("Erro check-in reserva API:", error);
+        toast.error("❌ Erro ao fazer check-in", {
+          position: "top-center",
+          autoClose: 4000,
+        });
+      } finally {
+        checkInInProgressRef.current[key] = false;
+      }
+    },
+    [],
+  );
+
+  const handleConvidadoReservaRestauranteCheckIn = useCallback(
+    async (convidado: ConvidadoReservaRestaurante, e?: React.MouseEvent) => {
+      e?.preventDefault();
+      e?.stopPropagation();
+
+      const key = `convidado-restaurante-${convidado.id}`;
+      if (checkInInProgressRef.current[key]) return;
+      checkInInProgressRef.current[key] = true;
+
+      try {
+        const token = localStorage.getItem("authToken");
+        const response = await fetch(
+          `${API_URL}/api/admin/guests/${convidado.id}/checkin`,
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+          },
+        );
+
+        if (response.ok) {
+          // Atualização otimista - atualizar estado local imediatamente
+          // Buscar a guest list correspondente através dos convidados de reservas restaurante
+          // Os convidados de reservas restaurante não têm guestListId direto, então precisamos buscar pela reserva
+          const guestListId = Object.keys(guestsByList).find((listId) =>
+            guestsByList[Number(listId)]?.some((g) => g.id === convidado.id),
+          );
+
+          if (guestListId) {
+            setGuestsByList((prev) => {
+              const updated = { ...prev };
+              if (updated[Number(guestListId)]) {
+                updated[Number(guestListId)] = updated[Number(guestListId)].map(
+                  (g) =>
+                    g.id === convidado.id
+                      ? {
+                          ...g,
+                          checked_in: 1,
+                          checkin_time: new Date().toISOString(),
+                        }
+                      : g,
+                );
+              }
+              return updated;
+            });
+
+            // Atualizar contador de check-ins
+            setCheckInStatus((prev) => {
+              const current = prev[Number(guestListId)] || {
+                ownerCheckedIn: false,
+                guestsCheckedIn: 0,
+                totalGuests: 0,
+              };
+              return {
+                ...prev,
+                [Number(guestListId)]: {
+                  ...current,
+                  guestsCheckedIn: current.guestsCheckedIn + 1,
+                },
+              };
+            });
+          }
+
+          toast.success(`✅ Check-in de ${convidado.nome} confirmado!`, {
+            position: "top-center",
+            autoClose: 3000,
+          });
+          // Não recarregar - atualização otimista já foi feita
+        } else {
+          toast.error("❌ Erro ao fazer check-in", {
+            position: "top-center",
+            autoClose: 4000,
+          });
+        }
+      } catch (error) {
+        console.error("Erro:", error);
+        toast.error("❌ Erro ao fazer check-in", {
+          position: "top-center",
+          autoClose: 4000,
+        });
+      } finally {
+        checkInInProgressRef.current[key] = false;
+      }
+    },
+    [],
+  );
+
+  // Funções para guest lists (replicando Sistema de Reservas)
+  const handleOwnerCheckIn = useCallback(
+    async (guestListId: number, ownerName: string, e?: React.MouseEvent) => {
+      e?.preventDefault();
+      e?.stopPropagation();
+
+      const key = `owner-${guestListId}`;
+      if (checkInInProgressRef.current[key]) return;
+      checkInInProgressRef.current[key] = true;
+
+      try {
+        const token = localStorage.getItem("authToken");
+        const response = await fetch(
+          `${API_URL}/api/admin/guest-lists/${guestListId}/owner-checkin`,
+          {
+            method: "POST",
+            headers: { Authorization: `Bearer ${token}` },
+          },
+        );
+
+        if (response.ok) {
+          const data = await response.json();
+          const savedTime =
+            (data.guestList?.owner_checkin_time as string | undefined) ||
+            new Date().toISOString();
+          setCheckInStatus((prev) => ({
+            ...prev,
+            [guestListId]: { ...prev[guestListId], ownerCheckedIn: true },
+          }));
+          setOwnerCheckInTimeMap((prev) => ({ ...prev, [guestListId]: savedTime }));
+
+          setGuestListsRestaurante((prev) =>
+            prev.map((gl) =>
+              gl.guest_list_id === guestListId
+                ? { ...gl, owner_checked_in: 1, owner_checkin_time: savedTime }
+                : gl,
+            ),
+          );
+
+          // Se o dono também está na lista de convidados (mesmo nome), fazer check-in dele como convidado para evitar duplicidade
+          const normalizeForCompare = (s: string) =>
+            (s || "")
+              .trim()
+              .toLowerCase()
+              .normalize("NFD")
+              .replace(/[\u0300-\u036f]/g, "");
+          const ownerNorm = normalizeForCompare(ownerName);
+          const guests = guestsByList[guestListId] || [];
+          const guestSameName = guests.find(
+            (g) => !g.checked_in && normalizeForCompare(g.name || "") === ownerNorm,
+          );
+          if (guestSameName) {
+            try {
+              const guestRes = await fetch(
+                `${API_URL}/api/admin/guests/${guestSameName.id}/checkin`,
+                {
+                  method: "POST",
+                  headers: {
+                    Authorization: `Bearer ${token}`,
+                    "Content-Type": "application/json",
+                  },
+                  body: JSON.stringify({
+                    entrada_tipo: "CONSUMA",
+                    entrada_valor: 0,
+                  }),
+                },
+              );
+              if (guestRes.ok) {
+                setGuestsByList((prev) => ({
+                  ...prev,
+                  [guestListId]: (prev[guestListId] || []).map((g) =>
+                    g.id === guestSameName.id
+                      ? {
+                          ...g,
+                          checked_in: true,
+                          checkin_time: new Date().toISOString(),
+                        }
+                      : g,
+                  ),
+                }));
+                setCheckInStatus((prev) => {
+                  const cur = prev[guestListId] || {
+                    ownerCheckedIn: true,
+                    guestsCheckedIn: 0,
+                    totalGuests: 0,
+                  };
+                  return {
+                    ...prev,
+                    [guestListId]: {
+                      ...cur,
+                      ownerCheckedIn: true,
+                      guestsCheckedIn: cur.guestsCheckedIn + 1,
+                    },
+                  };
+                });
+              }
+            } catch (_) {
+              // Ignorar falha do check-in do convidado com mesmo nome
+            }
+          }
+
+          toast.success(`✅ Check-in de ${ownerName} confirmado!`, {
+            position: "top-center",
+            autoClose: 3000,
+          });
+          // Não recarregar - atualização otimista já foi feita
+        } else {
+          toast.error("❌ Erro ao fazer check-in do dono", {
+            position: "top-center",
+            autoClose: 4000,
+          });
+        }
+      } catch (error) {
+        console.error("Erro:", error);
+        toast.error("❌ Erro ao fazer check-in do dono", {
+          position: "top-center",
+          autoClose: 4000,
+        });
+      } finally {
+        checkInInProgressRef.current[key] = false;
+      }
+    },
+    [guestsByList],
+  );
+
+  // Função para fazer check-out do dono
+  const handleOwnerCheckOut = useCallback(
+    async (guestListId: number, ownerName: string, e?: React.MouseEvent) => {
+      e?.preventDefault();
+      e?.stopPropagation();
+
+      if (
+        !confirm(
+          `Confirmar check-out de ${ownerName}? Isso liberará a mesa para novos clientes.`,
+        )
+      )
+        return;
+
+      const key = `owner-checkout-${guestListId}`;
+      if (checkInInProgressRef.current[key]) return;
+      checkInInProgressRef.current[key] = true;
+
+      try {
+        const token = localStorage.getItem("authToken");
+
+        // Buscar informações da guest list para obter o reservation_id
+        const guestListInfo = guestListsRestaurante.find(
+          (gl) => gl.guest_list_id === guestListId,
+        );
+
+        // Fazer check-out do dono
+        const response = await fetch(
+          `${API_URL}/api/admin/guest-lists/${guestListId}/owner-checkout`,
+          {
+            method: "POST",
+            headers: { Authorization: `Bearer ${token}` },
+          },
+        );
+
+        if (response.ok) {
+          const data = await response.json();
+          const now =
+            data.guestList?.owner_checkout_time || new Date().toISOString();
+
+          // Atualizar estado local imediatamente
+          setCheckInStatus((prev) => ({
+            ...prev,
+            [guestListId]: {
+              ...prev[guestListId],
+              ownerCheckedIn: false,
+              ownerCheckedOut: true,
+            },
+          }));
+          setOwnerCheckOutTimeMap((prev) => ({ ...prev, [guestListId]: now }));
+
+          // Atualizar também a lista de guestListsRestaurante para refletir o check-out
+          setGuestListsRestaurante((prev) =>
+            prev.map((gl) =>
+              gl.guest_list_id === guestListId
+                ? { ...gl, owner_checked_out: 1, owner_checkout_time: now }
+                : gl,
+            ),
+          );
+
+          // Buscar informações dos convidados para o histórico
+          const guestsInfo = guestsByList[guestListId] || [];
+          const guestsCompletos = guestsInfo.map((g) => ({
+            id: g.id,
+            name: g.name,
+            checkin_time: g.checkin_time,
+            checkout_time: g.checkout_time,
+          }));
+
+          // Adicionar ao histórico de reservas concluídas
+          const reservaConcluida: ReservaConcluida = {
+            guest_list_id: guestListId,
+            owner_name: ownerName,
+            reservation_id: guestListInfo?.reservation_id || 0,
+            table_number: guestListInfo?.table_number,
+            area_name: guestListInfo?.area_name,
+            checkin_time:
+              guestListInfo?.owner_checkin_time ||
+              ownerCheckInTimeMap[guestListId] ||
+              "",
+            checkout_time: now,
+            guests: guestsCompletos,
+          };
+
+          setHistoricoReservasConcluidas((prev) => {
+            // Verificar se já existe no histórico (evitar duplicatas)
+            const exists = prev.some((h) => h.guest_list_id === guestListId);
+            if (exists) {
+              return prev.map((h) =>
+                h.guest_list_id === guestListId ? reservaConcluida : h,
+              );
+            }
+            return [...prev, reservaConcluida];
+          });
+
+          // Após check-out, liberar mesa automaticamente se houver reserva associada
+          if (
+            guestListInfo &&
+            guestListInfo.reservation_id &&
+            guestListInfo.reservation_type === "restaurant"
+          ) {
+            try {
+              // Atualizar status da reserva para 'completed' para liberar a mesa
+              const updateReservationResponse = await fetch(
+                `${API_URL}/api/restaurant-reservations/${guestListInfo.reservation_id}`,
+                {
+                  method: "PUT",
+                  headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`,
+                  },
+                  body: JSON.stringify({
+                    status: "completed",
+                  }),
+                },
+              );
+
+              if (updateReservationResponse.ok) {
+                console.log(
+                  `✅ Mesa liberada para reserva ${guestListInfo.reservation_id}`,
+                );
+              } else {
+                console.warn(
+                  `⚠️ Não foi possível atualizar status da reserva ${guestListInfo.reservation_id}`,
+                );
+              }
+            } catch (tableError) {
+              console.error("❌ Erro ao liberar mesa:", tableError);
+              // Não bloquear o check-out se houver erro na liberação da mesa
+            }
+          }
+
+          toast.success(
+            `✅ Check-out de ${ownerName} confirmado! Mesa liberada.`,
+            {
+              position: "top-center",
+              autoClose: 3000,
+            },
+          );
+
+          // Não recarregar dados imediatamente - o estado já foi atualizado
+          // O useEffect que reconstrói o histórico vai cuidar disso automaticamente
+          // Os dados já estão atualizados no estado local e serão preservados
+        } else {
+          const errorData = await response.json().catch(() => ({}));
+          toast.error(
+            `❌ Erro ao fazer check-out: ${errorData.error || "Erro desconhecido"}`,
+            {
+              position: "top-center",
+              autoClose: 4000,
+            },
+          );
+        }
+      } catch (error) {
+        console.error("Erro:", error);
+        toast.error("❌ Erro ao fazer check-out do dono", {
+          position: "top-center",
+          autoClose: 4000,
+        });
+      } finally {
+        checkInInProgressRef.current[key] = false;
+      }
+    },
+    [guestListsRestaurante],
+  );
+
+  const handleGuestCheckIn = useCallback(
+    (
+      guestListId: number,
+      guestId: number,
+      guestName: string,
+      e?: React.MouseEvent,
+    ) => {
+      e?.preventDefault();
+      e?.stopPropagation();
+
+      const key = `guest-${guestListId}-${guestId}`;
+      if (checkInInProgressRef.current[key]) return;
+      checkInInProgressRef.current[key] = true;
+
+      const payload = {
+        tipo: "guest_list" as const,
+        id: guestId,
+        nome: guestName,
+        guestListId: guestListId,
+      };
+      const isRooftop = establishmentRulesFlags.isRooftop;
+      if (isRooftop && confirmarCheckInRef.current) {
+        confirmarCheckInRef.current("CONSUMA", 0, payload);
+      } else {
+        setConvidadoParaCheckIn(payload);
+        setEntradaModalOpen(true);
+      }
+
+      setTimeout(() => {
+        checkInInProgressRef.current[key] = false;
+      }, 500);
+    },
+    [evento?.establishment_id, establishmentRulesFlags.isRooftop],
+  );
+
+  // Função para fazer check-out de um convidado de guest list
+  const handleGuestCheckOut = useCallback(
+    async (
+      guestListId: number,
+      guestId: number,
+      guestName: string,
+      e?: React.MouseEvent,
+    ) => {
+      e?.preventDefault();
+      e?.stopPropagation();
+
+      if (!confirm(`Confirmar check-out de ${guestName}?`)) return;
+
+      const key = `guest-checkout-${guestListId}-${guestId}`;
+      if (checkInInProgressRef.current[key]) return;
+      checkInInProgressRef.current[key] = true;
+
+      // Atualização otimista do estado - marcar como checked_out imediatamente
+      setGuestsByList((prev) => {
+        const updated = { ...prev };
+        if (updated[guestListId]) {
+          updated[guestListId] = updated[guestListId].map((guest) => {
+            if (guest.id === guestId) {
+              return {
+                ...guest,
+                checked_out: 1,
+                checkout_time: new Date().toISOString(),
+              };
+            }
+            return guest;
+          });
+        }
+        return updated;
+      });
+
+      try {
+        const token = localStorage.getItem("authToken");
+        const response = await fetch(
+          `${API_URL}/api/admin/guests/${guestId}/checkout`,
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+          },
+        );
+
+        if (response.ok) {
+          toast.success(`✅ Check-out de ${guestName} confirmado!`, {
+            position: "top-center",
+            autoClose: 3000,
+          });
+          // Não recarregar dados imediatamente - o estado já foi atualizado otimisticamente
+          // O useEffect que reconstrói o histórico vai cuidar disso automaticamente
+          // Os dados já estão atualizados no estado local e serão preservados
+        } else {
+          // Reverter atualização otimista em caso de erro
+          setGuestsByList((prev) => {
+            const updated = { ...prev };
+            if (updated[guestListId]) {
+              updated[guestListId] = updated[guestListId].map((guest) => {
+                if (guest.id === guestId) {
+                  return {
+                    ...guest,
+                    checked_out: 0,
+                    checkout_time: undefined,
+                  };
+                }
+                return guest;
+              });
+            }
+            return updated;
+          });
+          const errorData = await response.json().catch(() => ({}));
+          toast.error(
+            `❌ Erro ao fazer check-out: ${errorData.error || "Erro desconhecido"}`,
+            {
+              position: "top-center",
+              autoClose: 4000,
+            },
+          );
+        }
+      } catch (error) {
+        // Reverter atualização otimista em caso de erro
+        setGuestsByList((prev) => {
+          const updated = { ...prev };
+          if (updated[guestListId]) {
+            updated[guestListId] = updated[guestListId].map((guest) => {
+              if (guest.id === guestId) {
+                return {
+                  ...guest,
+                  checked_out: 0,
+                  checkout_time: undefined,
+                };
+              }
+              return guest;
+            });
+          }
+          return updated;
+        });
+        console.error("Erro no check-out do convidado:", error);
+        toast.error("❌ Erro ao fazer check-out do convidado", {
+          position: "top-center",
+          autoClose: 4000,
+        });
+      } finally {
+        setTimeout(() => {
+          checkInInProgressRef.current[key] = false;
+        }, 500);
+      }
+    },
+    [],
+  );
+
+  // Função para fazer check-out de um convidado de reserva restaurante
+  const handleConvidadoReservaRestauranteCheckOut = useCallback(
+    async (convidado: ConvidadoReservaRestaurante, e?: React.MouseEvent) => {
+      e?.preventDefault();
+      e?.stopPropagation();
+
+      if (!confirm(`Confirmar check-out de ${convidado.nome}?`)) return;
+
+      const key = `convidado-restaurante-checkout-${convidado.id}`;
+      if (checkInInProgressRef.current[key]) return;
+      checkInInProgressRef.current[key] = true;
+
+      try {
+        const token = localStorage.getItem("authToken");
+        const response = await fetch(
+          `${API_URL}/api/admin/guests/${convidado.id}/checkout`,
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+          },
+        );
+
+        if (response.ok) {
+          toast.success(`✅ Check-out de ${convidado.nome} confirmado!`, {
+            position: "top-center",
+            autoClose: 3000,
+          });
+          loadCheckInData();
+        } else {
+          toast.error("❌ Erro ao fazer check-out", {
+            position: "top-center",
+            autoClose: 4000,
+          });
+        }
+      } catch (error) {
+        console.error("Erro no check-out do convidado:", error);
+        toast.error("❌ Erro ao fazer check-out do convidado", {
+          position: "top-center",
+          autoClose: 4000,
+        });
+      } finally {
+        setTimeout(() => {
+          checkInInProgressRef.current[key] = false;
+        }, 500);
+      }
+    },
+    [],
+  );
+
+  // Filtrar por busca (case-insensitive, sem acentos, múltiplas palavras)
+  const filterBySearch = useCallback(
+    (text: string | null | undefined) => {
+      return textMatchesSearch(debouncedSearchTerm, text);
+    },
+    [debouncedSearchTerm],
+  );
+
+  const eventDateKey = useMemo(() => {
+    const raw = evento?.data_evento || "";
+    const part = raw.split("T")[0]?.split(" ")[0] || "";
+    return toDateKey(part) || "";
+  }, [evento?.data_evento]);
+
+  // Para Reserva Rooftop o backend retorna vários dias; exibimos apenas o dia do evento.
+  const displayGuestListsRestaurante = useMemo(() => {
+    if (!isReservaRooftopEvent || !eventDateKey) return guestListsRestaurante;
+    return guestListsRestaurante.filter(
+      (gl) => toDateKey(gl.reservation_date) === eventDateKey,
+    );
+  }, [isReservaRooftopEvent, eventDateKey, guestListsRestaurante]);
+
+  const displayReservasRestaurante = useMemo(() => {
+    if (!isReservaRooftopEvent || !eventDateKey) return reservasRestaurante;
+    return reservasRestaurante.filter(
+      (r) => toDateKey(r.reservation_date) === eventDateKey,
+    );
+  }, [isReservaRooftopEvent, eventDateKey, reservasRestaurante]);
+
+  const displayConvidadosReservasRestaurante = useMemo(() => {
+    if (!isReservaRooftopEvent || !eventDateKey) return convidadosReservasRestaurante;
+    const reservaIds = new Set(displayReservasRestaurante.map((r) => r.id));
+    return convidadosReservasRestaurante.filter((c) =>
+      reservaIds.has(Number(c.reserva_id)),
+    );
+  }, [
+    isReservaRooftopEvent,
+    eventDateKey,
+    displayReservasRestaurante,
+    convidadosReservasRestaurante,
+  ]);
+
+  const rooftopMetricsEventDay = useMemo(() => {
+    if (!isReservaRooftopEvent || !eventDateKey) {
+      return {
+        areasBreakdown: [],
+        areaPeopleTotal: 0,
+        reservationsCheckedIn: 0,
+        reservationsTotal: 0,
+        totalPeopleExpected: 0,
+        giroMetrics: {
+          first: { areas: [], totalExpected: 0, totalPresent: 0 },
+          intermediate: { areas: [], totalExpected: 0, totalPresent: 0 },
+          second: { areas: [], totalExpected: 0, totalPresent: 0 },
+        },
+      };
+    }
+    return computeRooftopUnifiedMetrics({
+      reservations: reservasRestaurante,
+      guestLists: guestListsRestaurante,
+      dateKey: eventDateKey,
+      guestsByList: guestsByList as Record<number, { id: number; checked_in?: boolean; checkin_time?: string | null }[]>,
+    });
+  }, [
+    isReservaRooftopEvent,
+    eventDateKey,
+    reservasRestaurante,
+    guestListsRestaurante,
+    guestsByList,
+  ]);
+
+  // Normalizador para comparação de nomes de estabelecimentos
+  const normalizeName = (name: string): string => {
+    if (!name) return "";
+    return name
+      .replace(/Jutino|Jutstino/gi, "Justino")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, " ") // remove pontuação, hífens etc.
+      .replace(/\s+/g, " ")
+      .trim();
+  };
+
+  // Filtrar dados - Mostrar todos se não houver busca (otimizado)
+  const filteredConvidadosReservas = useMemo(() => {
+    if (!debouncedSearchTerm.trim()) {
+      // Se não há busca, retornar array ordenado uma vez
+      const sorted = [...convidadosReservas].sort((a, b) =>
+        cachedStringCompare(a.nome || "", b.nome || ""),
+      );
+      return sorted;
+    }
+
+    const filtered = convidadosReservas.filter(
+      (c) =>
+        filterBySearch(c.nome) ||
+        filterBySearch(c.email || "") ||
+        filterBySearch(c.responsavel) ||
+        filterBySearch(c.origem),
+    );
+    // Ordenar alfabeticamente usando cache
+    return filtered.sort((a, b) =>
+      cachedStringCompare(a.nome || "", b.nome || ""),
+    );
+  }, [
+    convidadosReservas,
+    debouncedSearchTerm,
+    filterBySearch,
+    cachedStringCompare,
+  ]);
+
+  // Filtrar convidados de promoters - agora também usa searchTerm principal (otimizado)
+  const filteredConvidadosPromoters = useMemo(() => {
+    // Primeiro, validar que são realmente convidados de promoters (cachear resultado)
+    const validados = convidadosPromoters.filter((c) =>
+      isValidPromoterGuest(c),
+    );
+
+    // Usar searchTerm principal se existir, senão usar promoterGuestsSearch
+    const searchText =
+      debouncedSearchTerm.trim() || promoterGuestsSearch.trim();
+    if (!searchText) {
+      return validados;
+    }
+
+    const filtrados = validados.filter((c) => {
+      if (textMatchesSearch(searchText, c.nome)) return true;
+      const telefoneDig = (c.telefone || "").replace(/\D/g, "");
+      const searchDig = normalizeForSearch(searchText).replace(/\D/g, "");
+      if (searchDig && telefoneDig.includes(searchDig)) return true;
+      if (textMatchesSearch(searchText, c.responsavel)) return true;
+      if (textMatchesSearch(searchText, c.origem)) return true;
+      return false;
+    });
+
+    return filtrados;
+  }, [convidadosPromoters, debouncedSearchTerm, promoterGuestsSearch]);
+
+  const filteredConvidadosReservasRestaurante = useMemo(() => {
+    if (!debouncedSearchTerm.trim()) {
+      const sorted = [...displayConvidadosReservasRestaurante].sort((a, b) =>
+        cachedStringCompare(a.nome || "", b.nome || ""),
+      );
+      return sorted;
+    }
+
+    const filtered = displayConvidadosReservasRestaurante.filter(
+      (c) =>
+        filterBySearch(c.nome) ||
+        filterBySearch(c.telefone || "") ||
+        filterBySearch(c.responsavel) ||
+        filterBySearch(c.origem) ||
+        filterBySearch(c.data_nascimento || ""),
+    );
+    // Ordenar alfabeticamente usando cache
+    return filtered.sort((a, b) =>
+      cachedStringCompare(a.nome || "", b.nome || ""),
+    );
+  }, [
+    displayConvidadosReservasRestaurante,
+    debouncedSearchTerm,
+    filterBySearch,
+    cachedStringCompare,
+  ]);
+
+  // Função de busca melhorada (case-insensitive, sem acentos, múltiplos campos)
+  const enhancedSearch = useCallback((term: string, item: any) => {
+    if (!term.trim()) return true;
+
+    if (textMatchesSearch(term, item.nome || item.name)) return true;
+
+    const telefone = (
+      item.telefone ||
+      item.whatsapp ||
+      item.phone ||
+      ""
+    ).replace(/\D/g, "");
+    const searchNumbers = normalizeForSearch(term).replace(/\D/g, "");
+    if (searchNumbers && telefone.includes(searchNumbers)) return true;
+
+    if (textMatchesSearch(term, item.responsavel || item.responsible)) return true;
+    if (textMatchesSearch(term, item.origem || item.origin)) return true;
+    if (textMatchesSearch(term, item.email)) return true;
+
+    return false;
+  }, []);
+
+  // Resultados unificados de busca - todos os convidados encontrados (com filtros e ordenação) - OTIMIZADO
+  const resultadosBuscaUnificados = useMemo(() => {
+    if (!debouncedSearchTerm.trim()) {
+      return [];
+    }
+
+    const resultados: Array<{
+      tipo: "reserva" | "promoter" | "guest_list" | "restaurante";
+      id: number;
+      nome: string;
+      origem: string;
+      responsavel: string;
+      status: string;
+      data_checkin?: string;
+      data_checkout?: string;
+      email?: string;
+      telefone?: string;
+      documento?: string;
+      entrada_tipo?: EntradaTipo;
+      entrada_valor?: number;
+      convidado?:
+        | ConvidadoReserva
+        | ConvidadoPromoter
+        | ConvidadoReservaRestaurante
+        | GuestItem
+        | undefined;
+      guestListId?: number;
+      reservationId?: number; // Para reservas sem guest list
+    }> = [];
+
+    // Adicionar convidados de reservas
+    filteredConvidadosReservas.forEach((c) => {
+      resultados.push({
+        tipo: "reserva",
+        id: c.id,
+        nome: c.nome,
+        origem: c.origem,
+        responsavel: c.responsavel,
+        status: c.status,
+        data_checkin: c.data_checkin,
+        email: c.email,
+        documento: c.documento,
+        entrada_tipo: c.entrada_tipo,
+        entrada_valor: c.entrada_valor,
+        convidado: c,
+      });
+    });
+
+    // Adicionar convidados de promoters
+    filteredConvidadosPromoters.forEach((c) => {
+      resultados.push({
+        tipo: "promoter",
+        id: c.id,
+        nome: c.nome,
+        origem: c.origem || c.tipo_lista || "Promoter",
+        responsavel: c.responsavel,
+        status: c.status_checkin,
+        data_checkin: c.data_checkin,
+        telefone: c.telefone,
+        entrada_tipo: c.entrada_tipo,
+        entrada_valor: c.entrada_valor,
+        convidado: c,
+      });
+    });
+
+    // Adicionar convidados de reservas de restaurante
+    filteredConvidadosReservasRestaurante.forEach((c) => {
+      resultados.push({
+        tipo: "restaurante",
+        id: c.id,
+        nome: c.nome,
+        origem: c.origem,
+        responsavel: c.responsavel,
+        status:
+          c.status_checkin === 1 || c.status_checkin === true
+            ? "CHECK-IN"
+            : "Pendente",
+        data_checkin: c.data_checkin,
+        telefone: c.telefone,
+        convidado: c,
+      });
+    });
+
+    // Adicionar convidados de guest lists (listas de aniversário)
+    Object.entries(guestsByList).forEach(([listId, guests]) => {
+      const guestListForDay = displayGuestListsRestaurante.find(
+        (gl) => gl.guest_list_id === Number(listId),
+      );
+      if (!guestListForDay) return; // só exibir convidados de listas do dia do evento (Reserva Rooftop)
+      if (!searchTerm.trim()) {
+        // Se não há busca, adiciona todos
+        guests.forEach((g) => {
+          const guestList = guestListForDay;
+          resultados.push({
+            tipo: "guest_list",
+            id: g.id,
+            nome: g.name || "Sem nome",
+            origem: guestList ? guestList.owner_name : "Lista de Aniversário",
+            responsavel: guestList ? guestList.owner_name : "Aniversário",
+            status:
+              g.checked_out === 1 || g.checked_out === true
+                ? "CHECK-OUT"
+                : g.checked_in === 1 || g.checked_in === true
+                  ? "CHECK-IN"
+                  : "Pendente",
+            data_checkin: g.checkin_time,
+            data_checkout: g.checkout_time,
+            telefone: g.whatsapp,
+            entrada_tipo: g.entrada_tipo,
+            entrada_valor: g.entrada_valor,
+            convidado: g,
+            guestListId: Number(listId),
+          });
+        });
+      } else {
+        guests.forEach((g) => {
+          if (!textMatchesSearch(debouncedSearchTerm, g.name) &&
+              !textMatchesSearch(debouncedSearchTerm, g.whatsapp)) return;
+            const guestList = guestListForDay;
+            resultados.push({
+              tipo: "guest_list",
+              id: g.id,
+              nome: g.name || "Sem nome",
+              origem: guestList ? guestList.owner_name : "Lista de Aniversário",
+              responsavel: guestList ? guestList.owner_name : "Aniversário",
+              status:
+                g.checked_out === 1 || g.checked_out === true
+                  ? "CHECK-OUT"
+                  : g.checked_in === 1 || g.checked_in === true
+                    ? "CHECK-IN"
+                    : "Pendente",
+              data_checkin: g.checkin_time,
+              telefone: g.whatsapp,
+              entrada_tipo: g.entrada_tipo,
+              entrada_valor: g.entrada_valor,
+            convidado: g,
+            guestListId: Number(listId),
+          });
+        });
+      }
+    });
+
+    // Adicionar reservas de restaurante sem guest list (reservas simples)
+    displayReservasRestaurante.forEach((r) => {
+      const hasGuestList = r.guest_list_id != null;
+
+      if (!hasGuestList) {
+        const reserva = r as any;
+        const nomeCompleto =
+          r.responsavel ||
+          reserva.client_name ||
+          reserva.owner_name ||
+          "";
+
+        if (
+          textMatchesSearch(debouncedSearchTerm, nomeCompleto) ||
+          textMatchesSearch(debouncedSearchTerm, r.origem || reserva.origin)
+        ) {
+          resultados.push({
+            tipo: "restaurante",
+            id: r.id,
+            nome:
+              r.responsavel ||
+              reserva.client_name ||
+              reserva.owner_name ||
+              "Sem nome",
+            origem: r.origem || reserva.origin || "Reserva",
+            responsavel:
+              r.responsavel ||
+              reserva.client_name ||
+              reserva.owner_name ||
+              "Cliente",
+            status: r.checked_in ? "CHECK-IN" : "Pendente",
+            data_checkin: r.checkin_time,
+            telefone: undefined,
+            convidado: undefined, // Reserva sem guest list não tem convidado
+          });
+        }
+      }
+    });
+
+    return resultados;
+  }, [
+    debouncedSearchTerm,
+    filteredConvidadosReservas,
+    filteredConvidadosPromoters,
+    filteredConvidadosReservasRestaurante,
+    guestsByList,
+    displayGuestListsRestaurante,
+    displayReservasRestaurante,
+    cachedStringCompare,
+  ]);
+
+  // Ref para evitar múltiplas buscas simultâneas
+  const buscandoReservasAdicionaisRef = useRef(false);
+
+  // Buscar reservas adicionais diretamente da API quando houver busca
+  useEffect(() => {
+    if (!debouncedSearchTerm.trim() || !evento) {
+      setReservasAdicionaisAPI([]);
+      return;
+    }
+
+    // Evitar múltiplas buscas simultâneas
+    if (buscandoReservasAdicionaisRef.current) {
+      return;
+    }
+
+    const buscarReservasAdicionais = async () => {
+      buscandoReservasAdicionaisRef.current = true;
+      setLoadingReservasAdicionais(true);
+      try {
+        const token = localStorage.getItem("authToken");
+        const headers: HeadersInit = {
+          "Content-Type": "application/json",
+        };
+        if (token) {
+          headers["Authorization"] = `Bearer ${token}`;
+        }
+
+        const dataEvento =
+          evento.data_evento?.split("T")[0] || evento.data_evento;
+        const url = `${API_URL}/api/restaurant-reservations?establishment_id=${evento.establishment_id}&date=${dataEvento}`;
+
+        const response = await fetch(url, { headers });
+        if (response.ok) {
+          const data = await response.json();
+          const todasReservas = data.reservations || [];
+
+          // Filtrar apenas reservas que não estão já em reservasRestaurante
+          // Se não está em reservasRestaurante, provavelmente não tem guest list ou não foi incluída no endpoint de check-ins
+          const idsJaIncluidos = new Set(reservasRestaurante.map((r) => r.id));
+          const reservasSemGuestList = todasReservas.filter((r: any) => {
+            // Verificar se não está já incluída em reservasRestaurante
+            return !idsJaIncluidos.has(r.id);
+          });
+
+          setReservasAdicionaisAPI(reservasSemGuestList);
+
+          if (reservasSemGuestList.length > 0) {
+            console.log(
+              `✅ [BUSCA API] ${reservasSemGuestList.length} reservas adicionais encontradas (não estavam em check-ins consolidados)`,
+            );
+          }
+        }
+      } catch (error) {
+        console.error("Erro ao buscar reservas adicionais:", error);
+        setReservasAdicionaisAPI([]);
+      } finally {
+        setLoadingReservasAdicionais(false);
+        buscandoReservasAdicionaisRef.current = false;
+      }
+    };
+
+    // Debounce da busca API
+    const timeoutId = setTimeout(buscarReservasAdicionais, 500);
+    return () => {
+      clearTimeout(timeoutId);
+      buscandoReservasAdicionaisRef.current = false;
+    };
+  }, [debouncedSearchTerm, evento?.establishment_id, evento?.data_evento]);
+
+  // Adicionar reservas da API aos resultados
+  const resultadosCompletos = useMemo(() => {
+    const resultados = [...resultadosBuscaUnificados];
+
+    // Adicionar reservas encontradas na API adicional
+    reservasAdicionaisAPI.forEach((r) => {
+      if (!textMatchesSearch(debouncedSearchTerm, r.client_name) &&
+          !textMatchesSearch(debouncedSearchTerm, r.origin)) return;
+        // Verificar se já não está nos resultados
+        const jaExiste = resultados.some(
+          (res) => res.id === r.id && res.tipo === "restaurante",
+        );
+        if (!jaExiste) {
+          resultados.push({
+            tipo: "restaurante",
+            id: r.id,
+            nome: r.client_name || "Sem nome",
+            origem: r.origin || "Reserva",
+            responsavel: r.client_name || "Cliente",
+            status: r.checked_in ? "CHECK-IN" : "Pendente",
+            data_checkin: r.checkin_time,
+            telefone: undefined,
+            convidado: undefined,
+            reservationId: r.id,
+          });
+        }
+    });
+
+    // Ordenar alfabeticamente por nome
+    return resultados.sort((a, b) => {
+      return cachedStringCompare(a.nome, b.nome);
+    });
+  }, [
+    resultadosBuscaUnificados,
+    reservasAdicionaisAPI,
+    debouncedSearchTerm,
+    cachedStringCompare,
+  ]);
+
+  /** Resultados de busca no formato do modo tablet (mesma UI que /admin/checkins/tablet) */
+  const resultsTabletStyle = useMemo((): SearchResultTablet[] => {
+    const term = debouncedSearchTerm.trim();
+    if (term.length < 2) return [];
+    const results: SearchResultTablet[] = [];
+    const isSeuJustino = isSeuJustinoEvent;
+    const isRooftop = isReservaRooftopEvent;
+
+    const areaFor = (
+      table?: string | number,
+      area?: string,
+      areaId?: number,
+    ) => {
+      if (isSeuJustino && table)
+        return getSeuJustinoAreaName(table, area, areaId);
+      if (isRooftop) return getRooftopSubareaName(table, area) || area || undefined;
+      return area || undefined;
+    };
+
+    // Owners (guest lists)
+    for (const gl of displayGuestListsRestaurante) {
+      if (!textMatchesSearch(term, gl.owner_name)) continue;
+
+      const guestListId = gl.guest_list_id ?? (gl as any).id;
+      const guests = guestsByList[guestListId] || [];
+      const guestsCheckedIn =
+        checkInStatus[guestListId]?.guestsCheckedIn ??
+        gl.guests_checked_in ??
+        0;
+      const totalGuests =
+        (guestsByList[guestListId] || []).length || gl.total_guests || 0;
+      const activeRule = giftRules
+        .filter(
+          (r) => String(r.status || "").trim().toUpperCase() === "ATIVA",
+        )
+        .sort((a, b) => a.checkins_necessarios - b.checkins_necessarios)[0];
+      let giftInfo: {
+        remainingCheckins: number;
+        giftDescription?: string;
+        hasGift: boolean;
+      } = { remainingCheckins: 0, hasGift: false };
+      if (activeRule) {
+        const needed = activeRule.checkins_necessarios || 0;
+        giftInfo = {
+          remainingCheckins: Math.max(0, needed - guestsCheckedIn),
+          giftDescription: activeRule.descricao,
+          hasGift: guestsCheckedIn >= needed,
+        };
+      }
+
+      const ownerCheckedIn = !!(
+        checkInStatus[guestListId]?.ownerCheckedIn || gl.owner_checked_in === 1
+      );
+      const ownerCheckedOut = !!(
+        checkInStatus[guestListId]?.ownerCheckedOut ||
+        isOwnerCheckedOut(gl.owner_checked_out)
+      );
+
+      // Buscar observações da reserva (pode estar em notes ou admin_notes)
+      // Primeiro tenta na guest list, depois busca na reserva relacionada se disponível
+      let notes =
+        gl.notes ||
+        gl.admin_notes ||
+        (gl as any).observacao ||
+        (gl as any).observação ||
+        "";
+      
+      // Debug: verificar se encontrou notes na guest list
+      if (gl.owner_name && gl.owner_name.toLowerCase().includes("carlos")) {
+        console.log("🔍 [DEBUG NOTES] Buscando notes para owner:", {
+          ownerName: gl.owner_name,
+          guestListId: gl.guest_list_id,
+          reservationId: gl.reservation_id,
+          notesFromGL: gl.notes,
+          adminNotesFromGL: gl.admin_notes,
+          observacaoFromGL: (gl as any).observacao,
+          notesFound: !!notes,
+        });
+      }
+      
+      // Se não encontrou nas guest lists, tenta buscar na reserva relacionada
+      if (!notes && gl.reservation_id) {
+        const reservaRelacionada = reservasRestaurante.find(
+          (r) => r.id === gl.reservation_id
+        );
+        if (reservaRelacionada) {
+          notes =
+            reservaRelacionada.notes ||
+            reservaRelacionada.admin_notes ||
+            (reservaRelacionada as any).observacao ||
+            (reservaRelacionada as any).observação ||
+            "";
+          
+          // Debug: verificar se encontrou notes na reserva relacionada
+          if (gl.owner_name && gl.owner_name.toLowerCase().includes("carlos")) {
+            console.log("🔍 [DEBUG NOTES] Buscando notes na reserva relacionada:", {
+              reservationId: gl.reservation_id,
+              reservaEncontrada: !!reservaRelacionada,
+              notesFromReserva: reservaRelacionada.notes,
+              adminNotesFromReserva: reservaRelacionada.admin_notes,
+              notesFound: !!notes,
+            });
+          }
+        }
+      }
+      
+      // Debug final
+      if (gl.owner_name && gl.owner_name.toLowerCase().includes("carlos")) {
+        console.log("🔍 [DEBUG NOTES] Resultado final:", {
+          ownerName: gl.owner_name,
+          notesFinal: notes,
+          notesLength: notes?.length || 0,
+        });
+      }
+
+      const resultNotes = notes.trim() || undefined;
+      
+      // Debug: log para todos os resultados (não apenas Carlos)
+      if (resultNotes) {
+        console.log("🔍 [DEBUG NOTES] Adicionando notes ao resultado:", {
+          ownerName: gl.owner_name,
+          guestListId,
+          reservationId: gl.reservation_id,
+          notes: resultNotes,
+          notesLength: resultNotes.length,
+        });
+      }
+      
+      results.push({
+        type: "owner",
+        name: gl.owner_name || "Sem nome",
+        guestListId,
+        reservationId: gl.reservation_id,
+        checkedIn: ownerCheckedIn,
+        checkedOut: ownerCheckedOut,
+        checkoutTime:
+          gl.owner_checkout_time || ownerCheckOutTimeMap[guestListId],
+        reservation: {
+          id: gl.reservation_id,
+          date: gl.reservation_date || "",
+          time: gl.reservation_time || "",
+          table: gl.table_number != null ? String(gl.table_number) : undefined,
+          area: areaFor(gl.table_number, gl.area_name),
+          totalGuests,
+          checkedInGuests: guestsCheckedIn,
+          eventType: gl.event_type || "outros",
+        },
+        giftInfo,
+        notes: resultNotes,
+      });
+    }
+
+    // Guests (guest lists)
+    for (const [listIdStr, guests] of Object.entries(guestsByList)) {
+      const listId = Number(listIdStr);
+      const gl = displayGuestListsRestaurante.find((g) => {
+        const gid = g.guest_list_id ?? (g as any).id;
+        return gid != null && Number(gid) === listId;
+      });
+      for (const g of guests) {
+        if (!textMatchesSearch(term, g.name) && !textMatchesSearch(term, g.whatsapp))
+          continue;
+
+        const checkedIn = g.checked_in === 1 || g.checked_in === true;
+        const checkedOut = g.checked_out === 1 || g.checked_out === true;
+
+        // Buscar observações da reserva (pode estar em notes ou admin_notes)
+        // Primeiro tenta na guest list, depois busca na reserva relacionada se disponível
+        let notes =
+          gl?.notes ||
+          gl?.admin_notes ||
+          (gl as any)?.observacao ||
+          (gl as any)?.observação ||
+          "";
+        
+        // Se não encontrou nas guest lists, tenta buscar na reserva relacionada
+        if (!notes && gl?.reservation_id) {
+          const reservaRelacionada = reservasRestaurante.find(
+            (r) => r.id === gl.reservation_id
+          );
+          if (reservaRelacionada) {
+            notes =
+              reservaRelacionada.notes ||
+              reservaRelacionada.admin_notes ||
+              (reservaRelacionada as any).observacao ||
+              (reservaRelacionada as any).observação ||
+              "";
+          }
+        }
+
+        const guestNotes = notes.trim() || undefined;
+        
+        // Debug: log para guests com notes
+        if (guestNotes) {
+          console.log("🔍 [DEBUG NOTES] Adicionando notes ao guest:", {
+            guestName: g.name,
+            ownerName: gl?.owner_name,
+            guestListId: listId,
+            notes: guestNotes,
+          });
+        }
+        
+        results.push({
+          type: "guest",
+          name: g.name || "Sem nome",
+          id: g.id,
+          guestId: g.id,
+          guestListId: listId,
+          reservationId: gl?.reservation_id,
+          ownerName: gl?.owner_name,
+          checkedIn,
+          checkedOut,
+          checkoutTime: g.checkout_time,
+          reservation: gl
+            ? {
+                id: gl.reservation_id,
+                date: gl.reservation_date || "",
+                time: gl.reservation_time || "",
+                table:
+                  gl.table_number != null ? String(gl.table_number) : undefined,
+                area: areaFor(gl.table_number, gl.area_name),
+                totalGuests: gl.total_guests || 0,
+                checkedInGuests: gl.guests_checked_in || 0,
+                eventType: gl.event_type || "outros",
+              }
+            : undefined,
+          notes: guestNotes,
+        });
+      }
+    }
+
+    // Reservas restaurante sem guest list
+    for (const r of displayReservasRestaurante) {
+      if (r.guest_list_id != null) continue;
+      if (!textMatchesSearch(term, r.responsavel || (r as any).client_name) &&
+          !textMatchesSearch(term, r.origem || (r as any).origin))
+        continue;
+
+      // Buscar observações da reserva
+      const notes =
+        r.notes ||
+        r.admin_notes ||
+        (r as any).observacao ||
+        (r as any).observação ||
+        "";
+
+      results.push({
+        type: "owner",
+        name: r.responsavel || (r as any).client_name || "Sem nome",
+        reservationId: r.id,
+        checkedIn: !!r.checked_in,
+        checkedOut: !!(r as any).checked_out,
+        checkoutTime: (r as any).checkout_time,
+        reservation: {
+          id: r.id,
+          date: r.reservation_date || "",
+          time: r.reservation_time || "",
+          table: r.table_number != null ? String(r.table_number) : undefined,
+          area: areaFor(r.table_number, r.area_name),
+          totalGuests: r.number_of_people || 0,
+          checkedInGuests: (r as any).convidados_checkin || 0,
+          eventType: "outros",
+        },
+        reservaRestaurante: r,
+        fromReservasAdicionaisAPI: false,
+        notes: notes.trim() || undefined,
+      });
+    }
+
+    // Reservas API adicional
+    const idsInResults = new Set(
+      results
+        .filter((x) => x.type === "owner" && x.reservationId)
+        .map((x) => x.reservationId),
+    );
+    for (const r of reservasAdicionaisAPI) {
+      if (idsInResults.has(r.id)) continue;
+      if (!textMatchesSearch(term, r.client_name) && !textMatchesSearch(term, r.origin))
+        continue;
+
+      // Buscar observações da reserva
+      const notes =
+        r.notes ||
+        r.admin_notes ||
+        (r as any).observacao ||
+        (r as any).observação ||
+        "";
+
+      results.push({
+        type: "owner",
+        name: r.client_name || "Sem nome",
+        reservationId: r.id,
+        checkedIn: !!r.checked_in,
+        checkedOut: false,
+        checkoutTime: undefined,
+        reservation: {
+          id: r.id,
+          date: r.reservation_date || "",
+          time: r.reservation_time || "",
+          table: r.table_number ?? undefined,
+          area: areaFor(r.table_number, r.area_name),
+          totalGuests: r.number_of_people || 0,
+          checkedInGuests: 0,
+          eventType: "outros",
+        },
+        fromReservasAdicionaisAPI: true,
+        notes: notes.trim() || undefined,
+      });
+      idsInResults.add(r.id);
+    }
+
+    // Promoters
+    for (const p of promoters) {
+      if (!textMatchesSearch(term, p.nome)) continue;
+      results.push({
+        type: "promoter",
+        name: p.nome || "Sem nome",
+        promoterId: p.id,
+        promoterInfo: {
+          id: p.id,
+          name: p.nome || "",
+          totalCheckins: p.convidados_checkin || 0,
+        },
+      });
+    }
+
+    // Promoter guests
+    const validPromoters = convidadosPromoters.filter((c) =>
+      isValidPromoterGuest(c),
+    );
+    for (const c of validPromoters) {
+      if (!textMatchesSearch(term, c.nome) &&
+          !textMatchesSearch(term, c.telefone) &&
+          !textMatchesSearch(term, c.responsavel) &&
+          !textMatchesSearch(term, c.origem))
+        continue;
+
+      const prom = promoters.find(
+        (pr) => Number(pr.id) === Number(c.promoter_id),
+      );
+      const vipRaw = c.vip_tipo != null ? String(c.vip_tipo).trim().toUpperCase() : "";
+      const isVipNoiteTuda = vipRaw === "M" || vipRaw === "F";
+      results.push({
+        type: "promoter_guest",
+        name: c.nome || "Sem nome",
+        id: c.id,
+        promoterId: c.promoter_id,
+        checkedIn: c.status_checkin === "Check-in",
+        promoterInfo: {
+          id: c.promoter_id,
+          name: prom?.nome || "Promoter",
+          totalCheckins: prom?.convidados_checkin || 0,
+        },
+        convidadoPromoter: c,
+        isVipNoiteTuda,
+      });
+    }
+
+    return results.sort((a, b) => cachedStringCompare(a.name, b.name));
+  }, [
+    debouncedSearchTerm,
+    displayGuestListsRestaurante,
+    guestsByList,
+    displayReservasRestaurante,
+    reservasAdicionaisAPI,
+    promoters,
+    convidadosPromoters,
+    giftRules,
+    checkInStatus,
+    ownerCheckOutTimeMap,
+    evento?.establishment_name,
+    getSeuJustinoAreaName,
+    cachedStringCompare,
+    isValidPromoterGuest,
+  ]);
+
+  // Ordenar listas e convidados alfabeticamente (otimizado)
+  const sortedGuestListsRestaurante = useMemo(() => {
+    const sorted = [...displayGuestListsRestaurante].sort((a, b) =>
+      cachedStringCompare(a.owner_name || "", b.owner_name || ""),
+    );
+    console.log("🔍 [DEBUG] sortedGuestListsRestaurante:", {
+      guestListsRestauranteLength: displayGuestListsRestaurante.length,
+      sortedLength: sorted.length,
+      selectedTab,
+      searchTerm: searchTerm.trim(),
+      willRender:
+        (selectedTab === "todos" || selectedTab === "reservas") &&
+        !searchTerm.trim(),
+      firstItem: sorted[0] || null,
+    });
+    return sorted;
+  }, [displayGuestListsRestaurante, cachedStringCompare, selectedTab, searchTerm]);
+
+  // Reservas sem guest list (ex.: 2 pessoas) — exibidas na mesma seção para check-in
+  const reservasSemGuestListSorted = useMemo(() => {
+    return [...displayReservasRestaurante.filter((r) => r.guest_list_id == null)].sort(
+      (a, b) => cachedStringCompare(a.responsavel || "", b.responsavel || ""),
+    );
+  }, [displayReservasRestaurante, cachedStringCompare]);
+
+  const sortedReservasMesa = useMemo(() => {
+    return [...reservasMesa].sort((a, b) =>
+      cachedStringCompare(a.responsavel || "", b.responsavel || ""),
+    );
+  }, [reservasMesa, cachedStringCompare]);
+
+  const sortedFilteredConvidadosPromoters = useMemo(() => {
+    return [...filteredConvidadosPromoters].sort((a, b) =>
+      cachedStringCompare(a.nome || "", b.nome || ""),
+    );
+  }, [filteredConvidadosPromoters, cachedStringCompare]);
+
+  const filteredCamarotes = useMemo(() => {
+    if (!debouncedSearchTerm.trim()) {
+      return [...camarotes].sort((a, b) =>
+        cachedStringCompare(a.responsavel || "", b.responsavel || ""),
+      );
+    }
+    const filtered = camarotes.filter(
+      (c) => filterBySearch(c.responsavel) || filterBySearch(c.origem),
+    );
+    return filtered.sort((a, b) =>
+      cachedStringCompare(a.responsavel || "", b.responsavel || ""),
+    );
+  }, [camarotes, debouncedSearchTerm, filterBySearch, cachedStringCompare]);
+
+  const filteredReservasRestaurante = useMemo(() => {
+    if (!debouncedSearchTerm.trim()) {
+      return [...displayReservasRestaurante].sort((a, b) =>
+        cachedStringCompare(a.responsavel || "", b.responsavel || ""),
+      );
+    }
+    const filtered = displayReservasRestaurante.filter(
+      (r) => filterBySearch(r.responsavel) || filterBySearch(r.origem),
+    );
+    return filtered.sort((a, b) =>
+      cachedStringCompare(a.responsavel || "", b.responsavel || ""),
+    );
+  }, [
+    displayReservasRestaurante,
+    debouncedSearchTerm,
+    filterBySearch,
+    cachedStringCompare,
+  ]);
+
+  const sortedFilteredPromoters = useMemo(() => {
+    if (!debouncedSearchTerm.trim()) {
+      return [...promoters].sort((a, b) =>
+        cachedStringCompare(a.nome || "", b.nome || ""),
+      );
+    }
+    const filtered = promoters.filter(
+      (p) =>
+        filterBySearch(p.nome) ||
+        filterBySearch(p.email || "") ||
+        filterBySearch(p.telefone || ""),
+    );
+    return filtered.sort((a, b) =>
+      cachedStringCompare(a.nome || "", b.nome || ""),
+    );
+  }, [promoters, debouncedSearchTerm, filterBySearch, cachedStringCompare]);
+
+  const reservasMetrics = useMemo(
+    () =>
+      computeReservasMetrics({
+        convidadosReservas,
+        convidadosReservasRestaurante: displayConvidadosReservasRestaurante,
+        guestListsRestaurante: displayGuestListsRestaurante,
+        guestsByList,
+        checkInStatus,
+        reservasMesa,
+        reservasRestaurante: displayReservasRestaurante,
+      }),
+    [
+      convidadosReservas,
+      displayConvidadosReservasRestaurante,
+      displayGuestListsRestaurante,
+      guestsByList,
+      checkInStatus,
+      reservasMesa,
+      displayReservasRestaurante,
+    ],
+  );
+
+  const promoterMetrics = useMemo(
+    () => computePromoterMetrics(convidadosPromoters),
+    [convidadosPromoters],
+  );
+
+  const totalGeralMetrics = useMemo(
+    () => computeTotalGeralMetrics(reservasMetrics, promoterMetrics, camarotes),
+    [reservasMetrics, promoterMetrics, camarotes],
+  );
+
+  const camarotesMetrics = useMemo(
+    () => computeCamarotesMetrics(camarotes),
+    [camarotes],
+  );
+
+  const eventDateLabel = useMemo(() => {
+    if (!evento?.data_evento) return "";
+    const raw = evento.data_evento;
+    const datePart = raw.split("T")[0].split(" ")[0];
+    if (datePart && datePart.length === 10) {
+      const d = new Date(`${datePart}T12:00:00`);
+      return isNaN(d.getTime()) ? "Data inválida" : d.toLocaleDateString("pt-BR");
+    }
+    const d = new Date(raw);
+    return isNaN(d.getTime()) ? "Data inválida" : d.toLocaleDateString("pt-BR");
+  }, [evento?.data_evento]);
+
+  const reportChartData = useMemo(() => {
+    const hourly = Array.from({ length: 24 }, (_, index) => ({
+      hora: `${String(index).padStart(2, "0")}h`,
+      checkins: 0,
+    }));
+
+    const addCheckin = (rawDate?: string) => {
+      if (!rawDate) return;
+      const d = new Date(rawDate);
+      if (isNaN(d.getTime())) return;
+      const hour = d.getHours();
+      if (hour >= 0 && hour <= 23) {
+        hourly[hour].checkins += 1;
+      }
+    };
+
+    convidadosReservas.forEach((c) => {
+      if (c.status === "CHECK-IN") addCheckin(c.data_checkin);
+    });
+    displayConvidadosReservasRestaurante.forEach((c) => {
+      if (c.status_checkin === 1 || c.status_checkin === true) addCheckin(c.data_checkin);
+    });
+    convidadosPromoters.forEach((c) => {
+      if (c.status_checkin === "Check-in") addCheckin(c.data_checkin);
+    });
+    displayGuestListsRestaurante.forEach((gl) => {
+      if (isOwnerCheckedIn(gl.owner_checked_in)) addCheckin(gl.owner_checkin_time);
+    });
+    Object.values(guestsByList)
+      .flat()
+      .forEach((guest) => {
+        if (guest.checked_in === 1 || guest.checked_in === true) addCheckin(guest.checkin_time);
+      });
+    displayReservasRestaurante.forEach((r) => {
+      if (r.checked_in) addCheckin(r.checkin_time);
+    });
+    camarotes.forEach((c) => {
+      if (c.checked_in) addCheckin(c.checkin_time);
+    });
+
+    return hourly;
+  }, [
+    convidadosReservas,
+    displayConvidadosReservasRestaurante,
+    convidadosPromoters,
+    displayGuestListsRestaurante,
+    guestsByList,
+    displayReservasRestaurante,
+    camarotes,
+  ]);
+
+  const getEventTypeLabel = useCallback((eventType?: string) => {
+    if (!eventType) return null;
+    const types: Record<
+      string,
+      { label: string; icon: typeof MdCake; color: string }
+    > = {
+      aniversario: {
+        label: "Aniversário",
+        icon: MdCake,
+        color: "text-pink-600",
+      },
+      despedida: {
+        label: "Despedida",
+        icon: MdGroups,
+        color: "text-purple-600",
+      },
+      lista_sexta: {
+        label: "Lista Sexta",
+        icon: MdEvent,
+        color: "text-blue-600",
+      },
+    };
+    return types[eventType.toLowerCase()] || null;
+  }, []);
+
+  if (guardLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 flex items-center justify-center">
+        <p className="text-gray-400">Carregando permissões…</p>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900"
+      style={{ touchAction: "manipulation" }}
+    >
+      {/* Header */}
+      <div className="bg-gradient-to-r from-green-600 to-green-700 text-white p-4 md:p-6 shadow-lg">
+        <div className="max-w-7xl mx-auto">
+          <div className="flex items-center gap-2 md:gap-4 mb-3 md:mb-4">
+            <button
+              onClick={() => router.back()}
+              className="p-2 hover:bg-white/10 rounded-lg transition-colors flex-shrink-0"
+            >
+              <MdArrowBack size={20} className="md:w-6 md:h-6" />
+            </button>
+            <div className="flex-1 min-w-0">
+              <h1 className="text-xl md:text-3xl font-bold flex items-center gap-2 md:gap-3">
+                <MdCheckCircle size={24} className="md:w-9 md:h-9" />
+                <span className="truncate">Check-ins do Evento</span>
+              </h1>
+              {evento && (
+                <div className="mt-2 text-green-100 space-y-1">
+                  <p className="text-base md:text-lg font-semibold truncate">
+                    {evento.nome}
+                  </p>
+                  <div className="flex flex-wrap items-center gap-2 md:gap-4 text-xs md:text-sm">
+                    <span>
+                      📅{" "}
+                      {(() => {
+                        const raw = evento.data_evento || "";
+                        const datePart = raw.split("T")[0].split(" ")[0];
+                        if (datePart && datePart.length === 10) {
+                          const d = new Date(`${datePart}T12:00:00`);
+                          return isNaN(d.getTime())
+                            ? "Data inválida"
+                            : d.toLocaleDateString("pt-BR");
+                        }
+                        const d2 = new Date(raw);
+                        return isNaN(d2.getTime())
+                          ? "Data inválida"
+                          : d2.toLocaleDateString("pt-BR");
+                      })()}
+                    </span>
+                    <span>🕐 {evento.horario}</span>
+                    <span className="truncate">
+                      🏢 {evento.establishment_name}
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Barra de filtros */}
+      <div className="bg-white/5 backdrop-blur-sm border-b border-white/10 sticky top-0 z-30">
+        <div className="max-w-7xl mx-auto p-3 md:p-4">
+          {isReservaRooftopEvent && (
+            <RooftopUnifiedStatsHeader
+              className="mb-3 md:mb-4"
+              areaPeopleTotal={rooftopMetricsEventDay.areaPeopleTotal}
+              areasBreakdown={rooftopMetricsEventDay.areasBreakdown}
+              reservationsCheckedIn={rooftopMetricsEventDay.reservationsCheckedIn}
+              reservationsTotal={rooftopMetricsEventDay.reservationsTotal}
+              totalPeopleExpected={rooftopMetricsEventDay.totalPeopleExpected}
+              giroMetrics={rooftopMetricsEventDay.giroMetrics}
+              loading={loading}
+            />
+          )}
+
+          {/* Mobile: Layout simplificado */}
+          <div className="md:hidden space-y-3">
+            {/* Busca rápida */}
+            <div className="relative">
+              <MdSearch
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+                size={18}
+              />
+              <input
+                type="text"
+                placeholder="Digite o nome do convidado, dono da reserva, promoter ou convidado do promoter..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-10 pr-10 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:ring-2 focus:ring-green-500 focus:border-transparent text-base"
+                autoFocus={false}
+              />
+              {searchTerm && (
+                <button
+                  onClick={() => setSearchTerm("")}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white p-1"
+                >
+                  <MdClose size={18} />
+                </button>
+              )}
+            </div>
+
+            {/* Botões de ação rápida - Mobile */}
+            <div className="flex gap-2">
+              <button
+                onClick={() => setPlanilhaModalOpen(true)}
+                className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg transition-colors text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white"
+              >
+                <MdDescription size={18} />
+                <span>Planilha</span>
+              </button>
+              <button
+                onClick={loadCheckInData}
+                disabled={loading}
+                className="flex items-center justify-center gap-2 px-4 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors disabled:opacity-50 font-medium text-sm"
+              >
+                <MdRefresh
+                  className={loading ? "animate-spin" : ""}
+                  size={18}
+                />
+              </button>
+            </div>
+
+            {/* Estatísticas de pessoas - Apenas mobile */}
+            <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4 border border-white/20 space-y-3">
+              <h3 className="text-sm font-semibold text-white mb-3">
+                Estatísticas de Pessoas
+              </h3>
+              <div className="grid grid-cols-3 gap-3">
+                <div className="bg-white/5 rounded-lg p-3 border border-white/10">
+                  <div className="text-xs text-gray-400 mb-1">Na Lista</div>
+                  <div className="text-lg font-bold text-white">
+                    {(() => {
+                      const nomesUnicos = new Set<string>();
+                      convidadosReservas.forEach((c) => {
+                        if (c.nome && c.nome.trim()) {
+                          nomesUnicos.add(c.nome.trim().toLowerCase());
+                        }
+                      });
+                      convidadosReservasRestaurante.forEach((c) => {
+                        if (c.nome && c.nome.trim()) {
+                          nomesUnicos.add(c.nome.trim().toLowerCase());
+                        }
+                      });
+                      Object.values(guestsByList)
+                        .flat()
+                        .forEach((g) => {
+                          const nome = (g.name || "").trim();
+                          if (nome) {
+                            nomesUnicos.add(nome.toLowerCase());
+                          }
+                        });
+                      convidadosPromoters.forEach((c) => {
+                        if (c.nome && c.nome.trim()) {
+                          nomesUnicos.add(c.nome.trim().toLowerCase());
+                        }
+                      });
+                      return nomesUnicos.size;
+                    })()}
+                  </div>
+                </div>
+                <div className="bg-white/5 rounded-lg p-3 border border-white/10">
+                  <div className="text-xs text-gray-400 mb-1">Check-in</div>
+                  <div className="text-lg font-bold text-green-400">
+                    {(() => {
+                      const nomesCheckin = new Set<string>();
+                      convidadosReservas.forEach((c) => {
+                        if (
+                          c.nome &&
+                          c.nome.trim() &&
+                          c.status === "CHECK-IN"
+                        ) {
+                          nomesCheckin.add(c.nome.trim().toLowerCase());
+                        }
+                      });
+                      convidadosReservasRestaurante.forEach((c) => {
+                        if (
+                          c.nome &&
+                          c.nome.trim() &&
+                          (c.status_checkin === 1 || c.status_checkin === true)
+                        ) {
+                          nomesCheckin.add(c.nome.trim().toLowerCase());
+                        }
+                      });
+                      Object.values(guestsByList)
+                        .flat()
+                        .forEach((g) => {
+                          const nome = (g.name || "").trim();
+                          if (
+                            nome &&
+                            (g.checked_in === 1 || g.checked_in === true)
+                          ) {
+                            nomesCheckin.add(nome.toLowerCase());
+                          }
+                        });
+                      convidadosPromoters.forEach((c) => {
+                        if (
+                          c.nome &&
+                          c.nome.trim() &&
+                          c.status_checkin === "Check-in"
+                        ) {
+                          nomesCheckin.add(c.nome.trim().toLowerCase());
+                        }
+                      });
+                      return nomesCheckin.size;
+                    })()}
+                  </div>
+                </div>
+                <div className="bg-white/5 rounded-lg p-3 border border-white/10">
+                  <div className="text-xs text-gray-400 mb-1">
+                    Vão para Casa
+                  </div>
+                  <div className="text-lg font-bold text-blue-400">
+                    {(() => {
+                      const nomesUnicos = new Set<string>();
+                      const nomesCheckin = new Set<string>();
+                      convidadosReservas.forEach((c) => {
+                        if (c.nome && c.nome.trim()) {
+                          const nomeNorm = c.nome.trim().toLowerCase();
+                          nomesUnicos.add(nomeNorm);
+                          if (c.status === "CHECK-IN") {
+                            nomesCheckin.add(nomeNorm);
+                          }
+                        }
+                      });
+                      convidadosReservasRestaurante.forEach((c) => {
+                        if (c.nome && c.nome.trim()) {
+                          const nomeNorm = c.nome.trim().toLowerCase();
+                          nomesUnicos.add(nomeNorm);
+                          if (
+                            c.status_checkin === 1 ||
+                            c.status_checkin === true
+                          ) {
+                            nomesCheckin.add(nomeNorm);
+                          }
+                        }
+                      });
+                      Object.values(guestsByList)
+                        .flat()
+                        .forEach((g) => {
+                          const nome = (g.name || "").trim();
+                          if (nome) {
+                            const nomeNorm = nome.toLowerCase();
+                            nomesUnicos.add(nomeNorm);
+                            if (g.checked_in === 1 || g.checked_in === true) {
+                              nomesCheckin.add(nomeNorm);
+                            }
+                          }
+                        });
+                      convidadosPromoters.forEach((c) => {
+                        if (c.nome && c.nome.trim()) {
+                          const nomeNorm = c.nome.trim().toLowerCase();
+                          nomesUnicos.add(nomeNorm);
+                          if (c.status_checkin === "Check-in") {
+                            nomesCheckin.add(nomeNorm);
+                          }
+                        }
+                      });
+                      return nomesUnicos.size - nomesCheckin.size;
+                    })()}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Tabs mobile - scroll horizontal */}
+            <div className="flex gap-2 overflow-x-auto pb-2 -mb-2 scrollbar-hide">
+              <button
+                onClick={() => setSelectedTab("todos")}
+                className={`px-4 py-2 rounded-lg font-semibold transition-colors whitespace-nowrap text-sm ${
+                  selectedTab === "todos"
+                    ? "bg-green-600 text-white"
+                    : "bg-white/10 text-gray-300"
+                }`}
+              >
+                Todos
+              </button>
+              <button
+                onClick={() => setSelectedTab("reservas")}
+                className={`px-4 py-2 rounded-lg font-semibold transition-colors whitespace-nowrap text-sm ${
+                  selectedTab === "reservas"
+                    ? "bg-blue-600 text-white"
+                    : "bg-white/10 text-gray-300"
+                }`}
+              >
+                Reservas
+              </button>
+              <button
+                onClick={() => setSelectedTab("promoters")}
+                className={`px-4 py-2 rounded-lg font-semibold transition-colors whitespace-nowrap text-sm ${
+                  selectedTab === "promoters"
+                    ? "bg-purple-600 text-white"
+                    : "bg-white/10 text-gray-300"
+                }`}
+              >
+                Promoters
+              </button>
+              <button
+                onClick={() => setSelectedTab("camarotes")}
+                className={`px-4 py-2 rounded-lg font-semibold transition-colors whitespace-nowrap text-sm ${
+                  selectedTab === "camarotes"
+                    ? "bg-orange-600 text-white"
+                    : "bg-white/10 text-gray-300"
+                }`}
+              >
+                Camarotes
+              </button>
+            </div>
+          </div>
+
+          {/* Desktop: Layout original */}
+          <div className="hidden md:flex flex-col md:flex-row gap-3 md:gap-4 items-stretch md:items-center">
+            {/* Busca */}
+            <div className="flex-1 w-full">
+              <div className="relative">
+                <MdSearch
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+                  size={18}
+                />
+                <input
+                  type="text"
+                  placeholder="Digite o nome do convidado, dono da reserva, promoter ou convidado do promoter..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-9 md:pl-10 pr-9 md:pr-10 py-2.5 md:py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm md:text-base"
+                />
+                {searchTerm && (
+                  <button
+                    onClick={() => setSearchTerm("")}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white p-1"
+                  >
+                    <MdClose size={18} />
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Botões de ação */}
+            <div className="flex gap-2">
+              <button
+                onClick={() => setPlanilhaModalOpen(true)}
+                className="flex items-center justify-center gap-2 px-4 md:px-6 py-2.5 md:py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-semibold text-sm md:text-base"
+              >
+                <MdDescription size={18} />
+                <span>Planilha</span>
+              </button>
+              <div className="hidden lg:block">
+                <button
+                  onClick={() => setRelatorioModalOpen(true)}
+                  title="Abrir relatório"
+                  className="inline-flex items-center justify-center gap-2 px-4 md:px-6 py-2.5 md:py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition-colors font-semibold text-sm md:text-base"
+                >
+                  <FileText size={18} />
+                  <span>Relatório</span>
+                </button>
+              </div>
+              <button
+                onClick={loadCheckInData}
+                disabled={loading}
+                className="flex items-center justify-center gap-2 px-4 md:px-6 py-2.5 md:py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors disabled:opacity-50 font-semibold text-sm md:text-base"
+              >
+                <MdRefresh
+                  className={loading ? "animate-spin" : ""}
+                  size={18}
+                />
+                <span>Atualizar</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Tabs Desktop */}
+          <div className="hidden md:flex gap-2 mt-3 md:mt-4 overflow-x-auto pb-2 -mb-2 scrollbar-hide">
+            <button
+              onClick={() => setSelectedTab("todos")}
+              className={`px-3 md:px-4 py-2 rounded-lg font-semibold transition-colors whitespace-nowrap text-sm md:text-base ${
+                selectedTab === "todos"
+                  ? "bg-green-600 text-white"
+                  : "bg-white/10 text-gray-300 hover:bg-white/20"
+              }`}
+            >
+              Todos
+            </button>
+            <button
+              onClick={() => setSelectedTab("reservas")}
+              className={`px-3 md:px-4 py-2 rounded-lg font-semibold transition-colors whitespace-nowrap text-sm md:text-base ${
+                selectedTab === "reservas"
+                  ? "bg-blue-600 text-white"
+                  : "bg-white/10 text-gray-300 hover:bg-white/20"
+              }`}
+            >
+              Reservas ({reservasMesa.length + displayReservasRestaurante.length})
+            </button>
+            <button
+              onClick={() => setSelectedTab("promoters")}
+              className={`px-3 md:px-4 py-2 rounded-lg font-semibold transition-colors whitespace-nowrap text-sm md:text-base ${
+                selectedTab === "promoters"
+                  ? "bg-purple-600 text-white"
+                  : "bg-white/10 text-gray-300 hover:bg-white/20"
+              }`}
+            >
+              Promoters ({promoterMetrics.total})
+            </button>
+            <button
+              onClick={() => setSelectedTab("camarotes")}
+              className={`px-3 md:px-4 py-2 rounded-lg font-semibold transition-colors whitespace-nowrap text-sm md:text-base ${
+                selectedTab === "camarotes"
+                  ? "bg-orange-600 text-white"
+                  : "bg-white/10 text-gray-300 hover:bg-white/20"
+              }`}
+            >
+              Camarotes ({camarotes.length})
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {!isReservaRooftopEvent && (
+        <>
+          {/* Estatísticas - Ocultas em mobile/tablet, visíveis em desktop/notebook */}
+          <div className="hidden md:block max-w-7xl mx-auto p-3 md:p-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-4 md:mb-6">
+              <div className="bg-white/10 backdrop-blur-sm rounded-lg shadow p-4 border border-white/20">
+                <div className="text-sm text-gray-300 mb-1">Total Geral</div>
+                <div
+                  className="text-2xl font-bold text-white"
+                  style={{ fontVariantNumeric: "normal" }}
+                >
+                  {Number(totalGeralMetrics.checkins)}/
+                  {Number(totalGeralMetrics.total)}
+                </div>
+                <div className="text-xs text-gray-400 mt-1">
+                  {Number(totalGeralMetrics.total) > 0
+                    ? `${Math.round((Number(totalGeralMetrics.checkins) / Number(totalGeralMetrics.total)) * 100)}%`
+                    : "0%"}
+                </div>
+              </div>
+              <div className="bg-white/10 backdrop-blur-sm rounded-lg shadow p-4 border border-blue-500/50">
+                <div className="text-sm text-gray-300 mb-1">Reservas</div>
+                <div
+                  className="text-2xl font-bold text-white"
+                  style={{ fontVariantNumeric: "normal" }}
+                >
+                  {Number(reservasMetrics.checkins)}/
+                  {Number(reservasMetrics.numReservas)}
+                </div>
+                <div className="text-xs text-gray-400 mt-1">
+                  {reservasMetrics.numReservas} reserva
+                  {reservasMetrics.numReservas !== 1 ? "s" : ""}
+                </div>
+              </div>
+              <div className="bg-white/10 backdrop-blur-sm rounded-lg shadow p-4 border border-purple-500/50">
+                <div className="text-sm text-gray-300 mb-1">Promoters</div>
+                <div
+                  className="text-2xl font-bold text-white"
+                  style={{ fontVariantNumeric: "normal" }}
+                >
+                  {Number(promoterMetrics.checkins)}/{Number(promoterMetrics.total)}
+                </div>
+              </div>
+              <div className="bg-white/10 backdrop-blur-sm rounded-lg shadow p-4 border border-orange-500/50">
+                <div className="text-sm text-gray-300 mb-1">Camarotes</div>
+                <div
+                  className="text-2xl font-bold text-white"
+                  style={{ fontVariantNumeric: "normal" }}
+                >
+                  {Number(camarotesMetrics.checkins)}/
+                  {Number(camarotesMetrics.total)}
+                </div>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
+      <div className="max-w-7xl mx-auto p-3 md:p-4">
+        {loading && (
+          <div className="text-center py-12">
+            <MdRefresh
+              className="animate-spin inline-block text-green-600"
+              size={48}
+            />
+            <p className="mt-4 text-gray-300">Carregando dados...</p>
+          </div>
+        )}
+
+        {!loading && (
+          <div className="space-y-6">
+            {/* Busca - mesmo resultado e comportamento do modo tablet (/admin/checkins/tablet) */}
+            {searchTerm.trim().length > 0 && (
+              <>
+                {searchTerm.trim().length < 2 && (
+                  <section className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl shadow-lg p-6 sm:p-8 text-center text-gray-400">
+                    <MdSearch
+                      size={40}
+                      className="mx-auto mb-4 text-gray-500"
+                    />
+                    <p className="text-base sm:text-lg">
+                      Digite pelo menos 2 caracteres para buscar
+                    </p>
+                  </section>
+                )}
+                {searchTerm.trim().length >= 2 &&
+                  resultsTabletStyle.length > 0 && (
+                    <section className="space-y-3 sm:space-y-4">
+                      {resultsTabletStyle.map((result, index) => {
+                        const eventTypeInfo = getEventTypeLabel(
+                          result.reservation?.eventType,
+                        );
+                        const isOwner = result.type === "owner";
+                        const handleCheckInClick = () => {
+                          if (
+                            result.type === "guest" &&
+                            result.guestId != null &&
+                            result.guestListId != null
+                          ) {
+                            handleGuestCheckIn(
+                              result.guestListId,
+                              result.guestId,
+                              result.name,
+                            );
+                          } else if (
+                            result.type === "owner" &&
+                            result.guestListId != null
+                          ) {
+                            handleOwnerCheckIn(result.guestListId, result.name);
+                          } else if (
+                            result.type === "owner" &&
+                            result.reservaRestaurante
+                          ) {
+                            handleReservaRestauranteCheckIn(
+                              result.reservaRestaurante,
+                            );
+                          } else if (
+                            result.type === "owner" &&
+                            result.fromReservasAdicionaisAPI &&
+                            result.reservationId != null
+                          ) {
+                            handleReservaSemGuestListCheckIn(
+                              result.reservationId,
+                              result.name,
+                            );
+                          } else if (
+                            result.type === "promoter_guest" &&
+                            result.convidadoPromoter
+                          ) {
+                            handleConvidadoPromoterCheckIn(
+                              result.convidadoPromoter,
+                              result.isVipNoiteTuda,
+                            );
+                          }
+                        };
+                        const isPromoter =
+                          result.type === "promoter" || result.type === "promoter_guest";
+                        return (
+                          <div
+                            key={`${result.type}-${result.id ?? result.guestListId ?? result.reservationId ?? index}`}
+                            className={`backdrop-blur-sm border rounded-xl shadow-lg p-4 sm:p-6 border-l-4 transition-all hover:shadow-xl ${
+                              result.checkedIn
+                                ? "border-l-green-500 bg-green-900/20 border-white/20"
+                                : isPromoter
+                                  ? "border-l-purple-500 bg-purple-900/30 border-purple-500/50"
+                                  : isOwner
+                                    ? "border-l-purple-500 bg-purple-900/20 border-white/20"
+                                    : "border-l-blue-500 bg-white/10 border-white/20"
+                            }`}
+                          >
+                            <div className="flex items-start gap-3 sm:gap-4">
+                              <div
+                                className={`p-2 sm:p-4 rounded-full flex-shrink-0 ${
+                                  result.checkedOut
+                                    ? "bg-gray-500/20"
+                                    : result.checkedIn
+                                      ? "bg-green-500/20"
+                                      : isPromoter
+                                        ? "bg-purple-500/30"
+                                        : isOwner
+                                          ? "bg-purple-500/20"
+                                          : "bg-blue-500/20"
+                                }`}
+                              >
+                                {result.type === "promoter" ||
+                                result.type === "promoter_guest" ? (
+                                  <MdEvent
+                                    className={
+                                        result.checkedOut
+                                          ? "text-gray-400"
+                                          : result.checkedIn
+                                            ? "text-green-400"
+                                            : isPromoter
+                                              ? "text-purple-400"
+                                              : "text-blue-400"
+                                    }
+                                    size={24}
+                                  />
+                                ) : (
+                                  <MdPerson
+                                    className={
+                                      result.checkedOut
+                                        ? "text-gray-400"
+                                        : result.checkedIn
+                                          ? "text-green-400"
+                                          : isOwner
+                                            ? "text-purple-400"
+                                            : "text-blue-400"
+                                    }
+                                    size={24}
+                                  />
+                                )}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-3">
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-2">
+                                      <h3
+                                        className={`text-xl sm:text-2xl font-bold truncate ${isPromoter ? "text-purple-200" : isOwner ? "text-purple-300" : "text-white"}`}
+                                      >
+                                        {result.name}
+                                      </h3>
+                                      {result.type === "promoter_guest" && result.isVipNoiteTuda && (
+                                        <MdStar
+                                          size={20}
+                                          className="text-amber-400 flex-shrink-0"
+                                          title="VIP Noite Tuda"
+                                        />
+                                      )}
+                                      {isOwner && !isPromoter && (
+                                        <span className="px-2 sm:px-3 py-1 bg-purple-500/30 text-purple-200 rounded-full text-xs sm:text-sm font-semibold flex items-center gap-1 flex-shrink-0">
+                                          <MdPerson size={14} /> DONO DA RESERVA
+                                        </span>
+                                      )}
+                                      {isPromoter && (
+                                        <span className="px-2 sm:px-3 py-1 bg-purple-600/50 text-purple-100 rounded-full text-xs sm:text-sm font-semibold flex items-center gap-1 flex-shrink-0">
+                                          <MdEvent size={14} /> LISTA DE PROMOTERS
+                                        </span>
+                                      )}
+                                      {eventTypeInfo && (
+                                        <span
+                                          className={`px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm font-semibold flex items-center gap-1 ${eventTypeInfo.color} bg-opacity-20 flex-shrink-0`}
+                                        >
+                                          <eventTypeInfo.icon size={14} />{" "}
+                                          {eventTypeInfo.label}
+                                        </span>
+                                      )}
+                                    </div>
+                                    {result.type === "promoter_guest" && result.isVipNoiteTuda && (
+                                      <p className="text-amber-300 text-sm sm:text-base mb-2 flex items-center gap-1.5">
+                                        <MdStar size={16} className="text-amber-400 flex-shrink-0" />
+                                        Observação: VIP a noite toda — entrada R$ 0,00
+                                      </p>
+                                    )}
+                                    {result.type === "guest" &&
+                                      result.ownerName && (
+                                        <p className="text-gray-300 mb-2 text-sm sm:text-base">
+                                          <strong className="text-gray-200">
+                                            Convidado de:
+                                          </strong>{" "}
+                                          {result.ownerName}
+                                        </p>
+                                      )}
+                                  </div>
+                                  <div className="flex-shrink-0 flex flex-col gap-2">
+                                    {!result.checkedIn &&
+                                      !result.checkedOut &&
+                                      (result.type === "guest" ||
+                                        result.type === "owner" ||
+                                        result.type === "promoter_guest") && (
+                                        <>
+                                          <button
+                                            onClick={handleCheckInClick}
+                                            className={`w-full sm:w-auto px-4 sm:px-5 py-2 sm:py-2.5 text-white rounded-lg flex items-center justify-center gap-2 transition-all shadow-md hover:shadow-lg font-semibold text-sm sm:text-base ${
+                                              isPromoter
+                                                ? "bg-purple-600 hover:bg-purple-700"
+                                                : "bg-green-500 hover:bg-green-600"
+                                            }`}
+                                          >
+                                            <MdCheckCircle size={18} /> Check-in
+                                          </button>
+                                          {result.type === "owner" &&
+                                            result.reservaRestaurante && (
+                                              <button
+                                                onClick={(e) =>
+                                                  handleReservaRestauranteNoShow(
+                                                    result.reservaRestaurante!.id,
+                                                    result.name,
+                                                    "restaurante",
+                                                    e,
+                                                  )
+                                                }
+                                                className="w-full sm:w-auto px-4 sm:px-5 py-2 sm:py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-lg flex items-center justify-center gap-2 transition-all shadow-md hover:shadow-lg font-semibold text-sm sm:text-base"
+                                                title="Marcar reserva como no-show"
+                                              >
+                                                No-show
+                                              </button>
+                                            )}
+                                          {result.type === "owner" &&
+                                            !result.reservaRestaurante &&
+                                            !result.fromReservasAdicionaisAPI &&
+                                            result.reservationId != null && (
+                                              <button
+                                                onClick={(e) =>
+                                                  handleReservaRestauranteNoShow(
+                                                    result.reservationId!,
+                                                    result.name,
+                                                    "restaurante",
+                                                    e,
+                                                  )
+                                                }
+                                                className="w-full sm:w-auto px-4 sm:px-5 py-2 sm:py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-lg flex items-center justify-center gap-2 transition-all shadow-md hover:shadow-lg font-semibold text-sm sm:text-base"
+                                                title="Marcar reserva como no-show"
+                                              >
+                                                No-show
+                                              </button>
+                                            )}
+                                          {result.type === "owner" &&
+                                            result.fromReservasAdicionaisAPI &&
+                                            result.reservationId != null && (
+                                              <button
+                                                onClick={(e) =>
+                                                  handleReservaRestauranteNoShow(
+                                                    result.reservationId!,
+                                                    result.name,
+                                                    "api-adicional",
+                                                    e,
+                                                  )
+                                                }
+                                                className="w-full sm:w-auto px-4 sm:px-5 py-2 sm:py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-lg flex items-center justify-center gap-2 transition-all shadow-md hover:shadow-lg font-semibold text-sm sm:text-base"
+                                                title="Marcar reserva como no-show"
+                                              >
+                                                No-show
+                                              </button>
+                                            )}
+                                        </>
+                                      )}
+                                    {result.checkedIn &&
+                                      !result.checkedOut &&
+                                      (result.type === "guest" ||
+                                        result.type === "owner") && (
+                                        <>
+                                          <span className="w-full sm:w-auto px-4 sm:px-5 py-2 sm:py-2.5 bg-green-500/20 text-green-300 rounded-lg flex items-center justify-center gap-2 font-semibold text-sm sm:text-base">
+                                            <MdCheckCircle size={18} /> Check-in
+                                            realizado
+                                          </span>
+                                          {(result.type === "guest" ||
+                                            (result.type === "owner" &&
+                                              result.guestListId != null)) && (
+                                            <button
+                                              onClick={() => {
+                                                if (
+                                                  result.type === "guest" &&
+                                                  result.guestId != null &&
+                                                  result.guestListId != null
+                                                ) {
+                                                  handleGuestCheckOut(
+                                                    result.guestListId,
+                                                    result.guestId,
+                                                    result.name,
+                                                  );
+                                                } else if (
+                                                  result.type === "owner" &&
+                                                  result.guestListId != null
+                                                ) {
+                                                  handleOwnerCheckOut(
+                                                    result.guestListId,
+                                                    result.name,
+                                                  );
+                                                }
+                                              }}
+                                              className="w-full sm:w-auto px-4 sm:px-5 py-2 sm:py-2.5 bg-orange-500 hover:bg-orange-600 text-white rounded-lg flex items-center justify-center gap-2 transition-all shadow-md hover:shadow-lg font-semibold text-sm sm:text-base"
+                                              title="Registrar saída"
+                                            >
+                                              🚪 Check-out
+                                            </button>
+                                          )}
+                                        </>
+                                      )}
+                                    {result.checkedOut && (
+                                      <span className="w-full sm:w-auto px-4 sm:px-5 py-2 sm:py-2.5 bg-gray-500/20 text-gray-300 rounded-lg flex items-center justify-center gap-2 font-semibold text-sm sm:text-base">
+                                        🚪 Saída registrada
+                                        {result.checkoutTime && (
+                                          <span className="text-xs text-gray-400">
+                                            {formatCheckinTime(
+                                              result.checkoutTime,
+                                            )}
+                                          </span>
+                                        )}
+                                      </span>
+                                    )}
+                                    {result.checkedIn &&
+                                      result.type === "promoter_guest" && (
+                                        <span className="w-full sm:w-auto px-4 sm:px-5 py-2 sm:py-2.5 bg-green-500/20 text-green-300 rounded-lg flex items-center justify-center gap-2 font-semibold text-sm sm:text-base">
+                                          <MdCheckCircle size={18} /> Check-in
+                                          realizado
+                                        </span>
+                                      )}
+                                  </div>
+                                </div>
+                                {result.type === "guest" && (
+                                  <div className="space-y-2 text-gray-300 bg-white/5 p-3 sm:p-4 rounded-lg">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                      <div>
+                                        <p className="text-xs sm:text-sm text-gray-400">
+                                          Data da Reserva
+                                        </p>
+                                        <p className="font-semibold text-sm sm:text-base text-white">
+                                          {(() => {
+                                            const dateStr =
+                                              result.reservation?.date;
+                                            if (!dateStr)
+                                              return "Data não informada";
+                                            try {
+                                              const datePart = (
+                                                String(dateStr).split("T")[0] ||
+                                                String(dateStr).split(" ")[0] ||
+                                                ""
+                                              ).trim();
+                                              if (
+                                                !datePart ||
+                                                datePart.length < 10
+                                              )
+                                                return "Data não informada";
+                                              const d = new Date(
+                                                datePart + "T12:00:00",
+                                              );
+                                              return isNaN(d.getTime())
+                                                ? "Data não informada"
+                                                : d.toLocaleDateString("pt-BR");
+                                            } catch {
+                                              return "Data não informada";
+                                            }
+                                          })()}{" "}
+                                          às {result.reservation?.time ?? "—"}
+                                        </p>
+                                      </div>
+                                      {result.reservation?.table && (
+                                        <div>
+                                          <p className="text-xs sm:text-sm text-gray-400">
+                                            Mesa
+                                          </p>
+                                          <p className="font-semibold flex items-center gap-1 text-sm sm:text-base text-amber-300 bg-amber-500/20 px-2 py-1 rounded-md">
+                                            <MdTableBar
+                                              size={16}
+                                              className="text-amber-400"
+                                            />
+                                            <span className="font-bold">
+                                              {result.reservation.table}
+                                            </span>
+                                          </p>
+                                        </div>
+                                      )}
+                                    </div>
+                                    {(() => {
+                                      // Debug: verificar se notes está presente
+                                      console.log("🔍 [DEBUG RENDER GUEST] Verificando notes:", {
+                                        type: result.type,
+                                        name: result.name,
+                                        hasNotes: !!result.notes,
+                                        notes: result.notes,
+                                        notesType: typeof result.notes,
+                                      });
+                                      return result.notes ? (
+                                        <div className="mt-2">
+                                          <p className="text-xs sm:text-sm text-gray-400 mb-1 flex items-center gap-1">
+                                            <MdDescription size={14} />
+                                            Observação da Reserva
+                                          </p>
+                                          <p className="font-semibold text-sm sm:text-base text-cyan-300 bg-cyan-500/20 px-3 py-2 rounded-md whitespace-pre-wrap border border-cyan-500/30">
+                                            {result.notes}
+                                          </p>
+                                        </div>
+                                      ) : null;
+                                    })()}
+                                    <div>
+                                      <p className="text-xs sm:text-sm text-gray-400">
+                                        Lista de Reserva
+                                      </p>
+                                      <p className="font-semibold text-sm sm:text-base">
+                                        ID: {result.reservation?.id ?? "—"}
+                                      </p>
+                                    </div>
+                                  </div>
+                                )}
+
+                                {result.type === "owner" &&
+                                  result.reservation && (
+                                    <div className="space-y-2 text-gray-300 bg-white/5 p-3 sm:p-4 rounded-lg">
+                                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                        <div>
+                                          <p className="text-xs sm:text-sm text-gray-400">
+                                            Data da Reserva
+                                          </p>
+                                          <p className="font-semibold text-sm sm:text-base text-white">
+                                            {result.reservation.date
+                                              ? (() => {
+                                                  const d = new Date(
+                                                    result.reservation.date +
+                                                      "T12:00:00",
+                                                  );
+                                                  return isNaN(d.getTime())
+                                                    ? "—"
+                                                    : d.toLocaleDateString(
+                                                        "pt-BR",
+                                                      );
+                                                })()
+                                              : "—"}{" "}
+                                            às {result.reservation.time || "—"}
+                                          </p>
+                                        </div>
+                                        {result.reservation.table && (
+                                          <div>
+                                            <p className="text-xs sm:text-sm text-gray-400">
+                                              Mesa
+                                            </p>
+                                            <p className="font-semibold flex items-center gap-1 text-sm sm:text-base text-amber-300 bg-amber-500/20 px-2 py-1 rounded-md">
+                                              <MdTableBar
+                                                size={16}
+                                                className="text-amber-400"
+                                              />
+                                              <span className="font-bold">
+                                                {result.reservation.table}
+                                              </span>
+                                            </p>
+                                          </div>
+                                        )}
+                                      </div>
+                                      {result.notes && (
+                                        <div className="mt-2">
+                                          <p className="text-xs sm:text-sm text-gray-400 mb-1 flex items-center gap-1">
+                                            <MdDescription size={14} />
+                                            Observação da Reserva
+                                          </p>
+                                          <p className="font-semibold text-sm sm:text-base text-cyan-300 bg-cyan-500/20 px-3 py-2 rounded-md whitespace-pre-wrap border border-cyan-500/30">
+                                            {result.notes}
+                                          </p>
+                                        </div>
+                                      )}
+                                      <div className="grid grid-cols-2 gap-3">
+                                        <div>
+                                          <p className="text-xs text-gray-400">
+                                            Total
+                                          </p>
+                                          <p className="font-semibold">
+                                            {result.reservation.totalGuests}
+                                          </p>
+                                        </div>
+                                        <div>
+                                          <p className="text-xs text-gray-400">
+                                            Check-ins
+                                          </p>
+                                          <p className="font-semibold text-green-400">
+                                            {result.reservation.checkedInGuests}
+                                          </p>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  )}
+                                {result.type === "owner" &&
+                                  result.giftInfo &&
+                                  (result.giftInfo.hasGift ? (
+                                    <div className="p-3 sm:p-4 bg-gradient-to-r from-yellow-900/30 to-yellow-800/30 border-2 border-yellow-500/50 rounded-lg mt-2">
+                                      <div className="flex items-center gap-2">
+                                        <MdCardGiftcard
+                                          className="text-yellow-400"
+                                          size={20}
+                                        />
+                                        <strong className="text-yellow-200">
+                                          🎁 Brinde Disponível!
+                                        </strong>
+                                      </div>
+                                      <p className="text-yellow-200 font-semibold text-sm sm:text-base mt-1">
+                                        {result.giftInfo.giftDescription}
+                                      </p>
+                                    </div>
+                                  ) : result.giftInfo.remainingCheckins > 0 ? (
+                                    <div className="p-3 sm:p-4 bg-blue-900/30 border-2 border-blue-500/50 rounded-lg mt-2">
+                                      <div className="flex items-center gap-2">
+                                        <MdPending
+                                          className="text-blue-400"
+                                          size={20}
+                                        />
+                                        <strong className="text-blue-200 text-sm sm:text-base">
+                                          Check-ins para Brinde
+                                        </strong>
+                                      </div>
+                                      <p className="text-blue-200 font-semibold text-sm sm:text-base mt-1">
+                                        Faltam{" "}
+                                        <span className="text-xl sm:text-2xl text-blue-400">
+                                          {result.giftInfo.remainingCheckins}
+                                        </span>{" "}
+                                        check-in(s) para ganhar o brinde
+                                      </p>
+                                    </div>
+                                  ) : null)}
+                                {result.type === "promoter" &&
+                                  result.promoterInfo && (
+                                    <div className="bg-white/5 p-3 sm:p-4 rounded-lg mt-2">
+                                      <p className="text-gray-300 text-sm sm:text-base">
+                                        <strong>Total de check-ins:</strong>{" "}
+                                        <span className="text-green-400 font-semibold">
+                                          {result.promoterInfo.totalCheckins}
+                                        </span>
+                                      </p>
+                                    </div>
+                                  )}
+                                {result.type === "promoter_guest" &&
+                                  result.promoterInfo && (
+                                    <div className="bg-white/5 p-3 sm:p-4 rounded-lg mt-2">
+                                      <p className="text-gray-300 text-sm sm:text-base">
+                                        <strong>Promoter:</strong>{" "}
+                                        <span className="text-purple-300 font-semibold">
+                                          {result.promoterInfo.name}
+                                        </span>
+                                      </p>
+                                      <p className="text-gray-300 mt-1 text-sm sm:text-base">
+                                        <strong>
+                                          Total de check-ins do promoter:
+                                        </strong>{" "}
+                                        <span className="text-green-400 font-semibold">
+                                          {result.promoterInfo.totalCheckins}
+                                        </span>
+                                      </p>
+                                    </div>
+                                  )}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </section>
+                  )}
+                {searchTerm.trim().length >= 2 &&
+                  resultsTabletStyle.length === 0 &&
+                  !loadingReservasAdicionais && (
+                    <section className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl shadow-lg p-6 sm:p-8 text-center text-gray-400">
+                      <MdSearch
+                        size={40}
+                        className="mx-auto mb-4 text-gray-500"
+                      />
+                      <p className="text-base sm:text-lg">
+                        Nenhum resultado encontrado para &quot;{searchTerm}
+                        &quot;
+                      </p>
+                      <p className="text-sm mt-2">
+                        Tente buscar por nome, telefone ou responsável
+                      </p>
+                    </section>
+                  )}
+              </>
+            )}
+
+            {/* Reservas de Mesa
+                Observação: esta seção exibia apenas um resumo visual das reservas de mesa,
+                mas o fluxo principal de check-in já é feito nas seções abaixo.
+                Para evitar duplicidade de informação e elementos sem interação,
+                ela foi desativada. */}
+            {false &&
+              (selectedTab === "todos" || selectedTab === "reservas") &&
+              reservasMesa.length > 0 && (
+                <section className="bg-white/10 backdrop-blur-sm rounded-lg shadow-sm p-4 md:p-6 border border-white/20">
+                  {/* Seção desativada intencionalmente */}
+                </section>
+              )}
+
+            {/* Guest Lists de Reservas de Restaurante (Sistema de Reservas) */}
+            {(selectedTab === "todos" || selectedTab === "reservas") &&
+              !searchTerm.trim() && (
+                <section className="bg-white/10 backdrop-blur-sm rounded-lg shadow-sm p-4 md:p-6 border border-white/20">
+                  <div className="mb-4">
+                    <h2 className="text-lg md:text-xl font-bold text-white flex items-center gap-2">
+                      <MdRestaurant
+                        size={20}
+                        className="md:w-6 md:h-6 text-green-400"
+                      />
+                      <span className="truncate">
+                        Listas de Convidados e Reservas (
+                        {displayGuestListsRestaurante.length +
+                          reservasSemGuestListSorted.length}
+                        )
+                      </span>
+                    </h2>
+
+                    {/* Descrição adicionada aqui */}
+                    <p className="text-xs md:text-sm text-gray-400 mt-1 ml-1 md:ml-8">
+                      Gerencie aqui as listas de aniversários, despedidas,
+                      confraternizações e reservas de mesas.
+                    </p>
+                  </div>
+
+                  <div className="space-y-2 md:space-y-3">
+                    {(() => {
+                      console.log("🔍 [DEBUG RENDER] Iniciando filtro:", {
+                        sortedGuestListsRestauranteLength:
+                          sortedGuestListsRestaurante.length,
+                        searchTerm: searchTerm.trim(),
+                        checkInStatusKeys: Object.keys(checkInStatus),
+                      });
+
+                      // Primeiro, aplicar filtro de busca textual se houver
+                      let filtered = sortedGuestListsRestaurante;
+                      if (searchTerm.trim()) {
+                        filtered = filtered.filter(
+                          (gl: GuestListRestaurante) =>
+                            filterBySearch(gl.owner_name) ||
+                            filterBySearch(gl.origin),
+                        );
+                      }
+
+                      // Depois, aplicar filtro de reservas concluídas
+                      filtered = filtered.filter((gl: GuestListRestaurante) => {
+                        // Se a reserva está concluída, verificar se há nova reserva para a mesma mesa
+                        const isConcluida =
+                          isOwnerCheckedOut(gl.owner_checked_out) ||
+                          checkInStatus[gl.guest_list_id]?.ownerCheckedOut;
+
+                        if (isConcluida) {
+                          // Verificar se há uma nova reserva (não concluída) para a mesma mesa no mesmo horário
+                          const hasNovaReserva =
+                            sortedGuestListsRestaurante.some(
+                              (otherGl: GuestListRestaurante) =>
+                                otherGl.guest_list_id !== gl.guest_list_id &&
+                                otherGl.table_number === gl.table_number &&
+                                otherGl.reservation_time ===
+                                  gl.reservation_time &&
+                                otherGl.owner_checked_out !== 1 &&
+                                !checkInStatus[otherGl.guest_list_id]
+                                  ?.ownerCheckedOut,
+                            );
+
+                          // Se há nova reserva, não mostrar a concluída
+                          return !hasNovaReserva;
+                        }
+
+                        return true;
+                      });
+
+                      // Reservas sem guest list (ex.: 2 pessoas) — filtradas por busca
+                      const filteredReservasSemGuestList = searchTerm.trim()
+                        ? reservasSemGuestListSorted.filter(
+                            (r: ReservaRestaurante) =>
+                              filterBySearch(r.responsavel) ||
+                              filterBySearch(r.origem || ""),
+                          )
+                        : reservasSemGuestListSorted;
+
+                      console.log("🔍 [DEBUG RENDER] Após filtros:", {
+                        filteredLength: filtered.length,
+                        filteredReservasSemGuestListLength:
+                          filteredReservasSemGuestList.length,
+                        firstFiltered: filtered[0] || null,
+                      });
+
+                      if (
+                        filtered.length === 0 &&
+                        filteredReservasSemGuestList.length === 0
+                      ) {
+                        return (
+                          <div
+                            key="empty"
+                            className="text-center py-8 text-gray-400"
+                          >
+                            {displayGuestListsRestaurante.length === 0 &&
+                            reservasSemGuestListSorted.length === 0
+                              ? "Nenhuma lista de convidados nem reserva sem lista encontrada para este evento."
+                              : "Nenhuma lista ou reserva corresponde aos filtros aplicados."}
+                          </div>
+                        );
+                      }
+
+                      return (
+                        <>
+                          {filtered.map((gl: GuestListRestaurante) => {
+                            const listUrl = `https://agilizaiapp.com.br/lista/${gl.shareable_link_token}`;
+
+                            return (
+                              <div
+                                key={gl.guest_list_id}
+                                className="border rounded-lg border-white/20 bg-white/5 overflow-hidden"
+                              >
+                                <div
+                                  onClick={async () => {
+                                    const willExpand =
+                                      expandedGuestListId !== gl.guest_list_id;
+                                    setExpandedGuestListId(
+                                      willExpand ? gl.guest_list_id : null,
+                                    );
+
+                                    // Se está expandindo, sempre verificar e carregar se necessário
+                                    if (willExpand) {
+                                      // Verificar se já tem dados carregados
+                                      const hasGuests =
+                                        guestsByList[gl.guest_list_id] &&
+                                        guestsByList[gl.guest_list_id].length >
+                                          0;
+
+                                      // Se não tem dados ou array vazio, carregar
+                                      if (!hasGuests) {
+                                        try {
+                                          const token =
+                                            localStorage.getItem("authToken");
+
+                                          // Carregar convidados
+                                          const guestsRes = await fetch(
+                                            `${API_URL}/api/admin/guest-lists/${gl.guest_list_id}/guests`,
+                                            {
+                                              headers: {
+                                                Authorization: `Bearer ${token}`,
+                                              },
+                                            },
+                                          );
+
+                                          let guestsData: {
+                                            guests: GuestItem[];
+                                          } | null = null;
+                                          if (guestsRes.ok) {
+                                            guestsData = await guestsRes.json();
+
+                                            if (
+                                              guestsData &&
+                                              guestsData.guests
+                                            ) {
+                                              // Ordenar convidados alfabeticamente por nome
+                                              const sortedGuests = [
+                                                ...(guestsData.guests || []),
+                                              ].sort((a, b) =>
+                                                (a.name || "").localeCompare(
+                                                  b.name || "",
+                                                  "pt-BR",
+                                                  { sensitivity: "base" },
+                                                ),
+                                              );
+                                              setGuestsByList((prev) => ({
+                                                ...prev,
+                                                [gl.guest_list_id]:
+                                                  sortedGuests,
+                                              }));
+                                              // Atualizar totalGuests no checkInStatus quando guests forem carregados
+                                              setCheckInStatus((prev) => ({
+                                                ...prev,
+                                                [gl.guest_list_id]: {
+                                                  ...prev[gl.guest_list_id],
+                                                  totalGuests:
+                                                    sortedGuests.length,
+                                                },
+                                              }));
+                                            } else {
+                                              setGuestsByList((prev) => ({
+                                                ...prev,
+                                                [gl.guest_list_id]: [],
+                                              }));
+                                            }
+                                          } else {
+                                            const errorText =
+                                              await guestsRes.text();
+                                            console.error(
+                                              `❌ Erro ao carregar convidados (${guestsRes.status}):`,
+                                              errorText,
+                                            );
+                                            // Ainda assim, definir como array vazio para evitar tentativas infinitas
+                                            setGuestsByList((prev) => ({
+                                              ...prev,
+                                              [gl.guest_list_id]: [],
+                                            }));
+                                          }
+
+                                          // Carregar status de check-in
+                                          const checkinRes = await fetch(
+                                            `${API_URL}/api/admin/guest-lists/${gl.guest_list_id}/checkin-status`,
+                                            {
+                                              headers: {
+                                                Authorization: `Bearer ${token}`,
+                                              },
+                                            },
+                                          );
+
+                                          if (checkinRes.ok) {
+                                            const checkinData =
+                                              await checkinRes.json();
+                                            // Se guests já foram carregados, usar contagem real, senão usar do checkin_status
+                                            const currentGuests =
+                                              guestsByList[gl.guest_list_id] ||
+                                              [];
+                                            const totalGuestsToUse =
+                                              currentGuests.length > 0
+                                                ? currentGuests.length
+                                                : checkinData.checkin_status
+                                                    ?.total_guests || 0;
+
+                                            // Usar owner_checked_out do endpoint checkin-status (fonte da verdade)
+                                            // Se não estiver disponível, usar do guestListsRestaurante ou do estado anterior
+                                            const ownerCheckedOutFromEndpoint =
+                                              isOwnerCheckedOut(
+                                                checkinData.checkin_status
+                                                  ?.owner_checked_out,
+                                              );
+                                            const ownerCheckedOutFromGuestList =
+                                              isOwnerCheckedOut(
+                                                gl.owner_checked_out,
+                                              );
+                                            const currentStatus =
+                                              checkInStatus[gl.guest_list_id];
+
+                                            setCheckInStatus((prev) => ({
+                                              ...prev,
+                                              [gl.guest_list_id]: {
+                                                ownerCheckedIn:
+                                                  checkinData.checkin_status
+                                                    .owner_checked_in || false,
+                                                ownerCheckedOut:
+                                                  ownerCheckedOutFromEndpoint ||
+                                                  ownerCheckedOutFromGuestList ||
+                                                  currentStatus?.ownerCheckedOut ||
+                                                  false,
+                                                guestsCheckedIn:
+                                                  checkinData.checkin_status
+                                                    .guests_checked_in || 0,
+                                                totalGuests: totalGuestsToUse,
+                                              },
+                                            }));
+                                          } else {
+                                            // Calcular do guestsData se disponível
+                                            const guestsCheckedIn = guestsData
+                                              ? guestsData.guests.filter(
+                                                  (g: GuestItem) =>
+                                                    g.checked_in === 1 ||
+                                                    g.checked_in === true,
+                                                ).length
+                                              : 0;
+
+                                            // Preservar ownerCheckedOut do estado anterior ou usar do backend (gl.owner_checked_out)
+                                            const currentStatus =
+                                              checkInStatus[gl.guest_list_id];
+                                            const ownerCheckedOutFromBackend =
+                                              isOwnerCheckedOut(
+                                                gl.owner_checked_out,
+                                              );
+
+                                            setCheckInStatus((prev) => ({
+                                              ...prev,
+                                              [gl.guest_list_id]: {
+                                                ownerCheckedIn:
+                                                  isOwnerCheckedIn(
+                                                    gl.owner_checked_in,
+                                                  ),
+                                                ownerCheckedOut:
+                                                  currentStatus?.ownerCheckedOut ??
+                                                  ownerCheckedOutFromBackend,
+                                                guestsCheckedIn:
+                                                  guestsCheckedIn,
+                                                totalGuests: guestsData
+                                                  ? guestsData.guests.length
+                                                  : 0,
+                                              },
+                                            }));
+                                          }
+
+                                          // Carregar brindes liberados para esta lista
+                                          try {
+                                            const giftsRes = await fetch(
+                                              `${API_URL}/api/gift-rules/guest-list/${gl.guest_list_id}/gifts`,
+                                              {
+                                                headers: {
+                                                  Authorization: `Bearer ${token}`,
+                                                },
+                                              },
+                                            );
+                                            if (giftsRes.ok) {
+                                              const giftsData =
+                                                await giftsRes.json();
+                                              setGiftsByGuestList((prev) => ({
+                                                ...prev,
+                                                [gl.guest_list_id]:
+                                                  giftsData.gifts || [],
+                                              }));
+                                            }
+                                          } catch (giftError) {
+                                            console.error(
+                                              "Erro ao carregar brindes:",
+                                              giftError,
+                                            );
+                                          }
+                                        } catch (e) {
+                                          // Definir como array vazio em caso de erro para evitar loops
+                                          setGuestsByList((prev) => ({
+                                            ...prev,
+                                            [gl.guest_list_id]: [],
+                                          }));
+                                        }
+                                      }
+                                    }
+                                  }}
+                                  className={`w-full text-left px-3 md:px-4 py-2.5 md:py-3 flex items-center justify-between cursor-pointer ${
+                                    checkInStatus[gl.guest_list_id]
+                                      ?.ownerCheckedOut ||
+                                    isOwnerCheckedOut(gl.owner_checked_out)
+                                      ? "bg-white/2 hover:bg-white/5 opacity-60"
+                                      : "bg-white/5 hover:bg-white/10"
+                                  }`}
+                                >
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                      <span
+                                        className={`font-semibold text-sm md:text-base truncate ${
+                                          checkInStatus[gl.guest_list_id]
+                                            ?.ownerCheckedOut ||
+                                          isOwnerCheckedOut(
+                                            gl.owner_checked_out,
+                                          )
+                                            ? "text-gray-400 line-through"
+                                            : "text-white"
+                                        }`}
+                                      >
+                                        {gl.owner_name}
+                                      </span>
+                                      <span
+                                        className={`text-xs px-2 py-0.5 rounded-full flex-shrink-0 ${
+                                          gl.reservation_type === "large"
+                                            ? "bg-orange-100 text-orange-700"
+                                            : "bg-blue-100 text-blue-700"
+                                        }`}
+                                      >
+                                        Reserva Normal
+                                      </span>
+                                    </div>
+                                    <div className="mt-1 flex flex-col md:flex-row md:items-center md:justify-between gap-1 md:gap-2">
+                                      <div className="flex-1 min-w-0">
+                                        <div className="text-xs md:text-sm text-gray-300">
+                                          {(() => {
+                                            const dateStr = gl.reservation_date;
+                                            if (!dateStr)
+                                              return "Data não informada";
+
+                                            try {
+                                              const datePart =
+                                                dateStr.split("T")[0] ||
+                                                dateStr.split(" ")[0];
+                                              if (
+                                                datePart &&
+                                                datePart.length === 10
+                                              ) {
+                                                const d = new Date(
+                                                  `${datePart}T12:00:00`,
+                                                );
+                                                if (isNaN(d.getTime())) {
+                                                  return "Data inválida";
+                                                }
+                                                return d.toLocaleDateString(
+                                                  "pt-BR",
+                                                );
+                                              }
+                                              const d2 = new Date(dateStr);
+                                              if (isNaN(d2.getTime())) {
+                                                return "Data inválida";
+                                              }
+                                              return d2.toLocaleDateString(
+                                                "pt-BR",
+                                              );
+                                            } catch {
+                                              return "Data inválida";
+                                            }
+                                          })()}
+                                          {gl.event_type
+                                            ? ` • ${gl.event_type}`
+                                            : ""}{" "}
+                                          • {gl.reservation_time}
+                                        </div>
+                                        {/* Exibir observação abaixo da data */}
+                                        {(() => {
+                                          // Buscar observação da reserva (pode estar em notes ou admin_notes)
+                                          const notes =
+                                            (gl as any).notes ||
+                                            (gl as any).admin_notes ||
+                                            "";
+                                          if (notes && notes.trim()) {
+                                            // Pegar primeira linha ou até 100 caracteres
+                                            const firstLine = notes
+                                              .trim()
+                                              .split("\n")[0];
+                                            const displayText =
+                                              firstLine.length > 100
+                                                ? firstLine.substring(0, 100) +
+                                                  "..."
+                                                : firstLine;
+                                            return (
+                                              <div className="mt-1.5 text-xs text-gray-400 italic break-words">
+                                                📝 {displayText}
+                                              </div>
+                                            );
+                                          }
+                                          return null;
+                                        })()}
+                                      </div>
+                                      <div className="flex flex-col items-end gap-1">
+                                        {/* Botão de Detalhes - apenas para aniversários */}
+                                        {gl.event_type === "aniversario" &&
+                                          (() => {
+                                            // Tentar encontrar a reserva de aniversário de várias formas
+                                            let birthdayReservation:
+                                              | BirthdayReservation
+                                              | undefined =
+                                              birthdayReservationsByReservationId[
+                                                gl.reservation_id
+                                              ];
+
+                                            // Se não encontrou pelo reservation_id, tentar buscar pela guest list
+                                            if (!birthdayReservation) {
+                                              const allBirthdayReservations =
+                                                Object.values(
+                                                  birthdayReservationsByReservationId,
+                                                );
+                                              birthdayReservation =
+                                                allBirthdayReservations.find(
+                                                  (br: any) => {
+                                                    const nameMatch =
+                                                      gl.owner_name &&
+                                                      br.aniversariante_nome &&
+                                                      (gl.owner_name
+                                                        .toLowerCase()
+                                                        .includes(
+                                                          br.aniversariante_nome.toLowerCase(),
+                                                        ) ||
+                                                        br.aniversariante_nome
+                                                          .toLowerCase()
+                                                          .includes(
+                                                            gl.owner_name.toLowerCase(),
+                                                          ));
+                                                    const brDate =
+                                                      br.data_aniversario
+                                                        ? br.data_aniversario.split(
+                                                            "T",
+                                                          )[0]
+                                                        : null;
+                                                    const glDate =
+                                                      gl.reservation_date
+                                                        ? gl.reservation_date.split(
+                                                            "T",
+                                                          )[0]
+                                                        : null;
+                                                    const dateMatch =
+                                                      brDate === glDate;
+                                                    const idMatch =
+                                                      br.restaurant_reservation_id &&
+                                                      Number(
+                                                        br.restaurant_reservation_id,
+                                                      ) === gl.reservation_id;
+                                                    return (
+                                                      idMatch ||
+                                                      (nameMatch && dateMatch)
+                                                    );
+                                                  },
+                                                ) as
+                                                  | BirthdayReservation
+                                                  | undefined;
+                                            }
+
+                                            if (!birthdayReservation) {
+                                              return null;
+                                            }
+
+                                            return (
+                                              <div className="flex items-center gap-2 mb-1">
+                                                <button
+                                                  onClick={(e) => {
+                                                    e.preventDefault();
+                                                    e.stopPropagation();
+                                                    setSelectedBirthdayReservation(
+                                                      birthdayReservation,
+                                                    );
+                                                    setBirthdayModalOpen(true);
+                                                  }}
+                                                  className="px-3 py-1.5 text-xs bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors font-medium flex items-center gap-1"
+                                                >
+                                                  <MdEvent size={14} />
+                                                  Detalhes
+                                                </button>
+                                              </div>
+                                            );
+                                          })()}
+                                        <div className="rounded-full bg-white/10 px-2 md:px-3 py-1 text-xs md:text-sm font-semibold text-amber-200">
+                                          {(() => {
+                                            // Verificar se há múltiplas mesas (separadas por vírgula)
+                                            const tableNumberStr = String(
+                                              gl.table_number || "",
+                                            );
+                                            const hasMultipleTables =
+                                              tableNumberStr.includes(",");
+
+                                            if (hasMultipleTables) {
+                                              const tablesArray = tableNumberStr
+                                                .split(",")
+                                                .map((t) => t.trim())
+                                                .filter((t) => t);
+                                              return (
+                                                <>
+                                                  Mesa
+                                                  {tablesArray.length > 1
+                                                    ? "s"
+                                                    : ""}
+                                                  :{" "}
+                                                  <span className="text-white">
+                                                    {tablesArray.map(
+                                                      (t, idx) => (
+                                                        <span key={idx}>
+                                                          {idx > 0 && ", "}Mesa{" "}
+                                                          {t}
+                                                        </span>
+                                                      ),
+                                                    )}
+                                                  </span>
+                                                </>
+                                              );
+                                            }
+
+                                            return (
+                                              <>
+                                                Mesa:{" "}
+                                                <span className="text-white">
+                                                  {(() => {
+                                                    // Função helper para mapear mesa -> área do Seu Justino
+                                                    const getSeuJustinoAreaName =
+                                                      (
+                                                        tableNumber?:
+                                                          | string
+                                                          | number,
+                                                        areaName?: string,
+                                                      ): string => {
+                                                        if (
+                                                          !tableNumber &&
+                                                          !areaName
+                                                        )
+                                                          return (
+                                                            areaName || "—"
+                                                          );
+
+                                                        const tableNum = String(
+                                                          tableNumber || "",
+                                                        ).trim();
+                                                        const seuJustinoSubareas =
+                                                          [
+                                                            {
+                                                              key: "lounge-aquario-spaten",
+                                                              label:
+                                                                "Lounge Aquario Spaten",
+                                                              tableNumbers: [
+                                                                "210",
+                                                              ],
+                                                            },
+                                                            {
+                                                              key: "lounge-aquario-tv",
+                                                              label:
+                                                                "Lounge Aquario TV",
+                                                              tableNumbers: [
+                                                                "208",
+                                                              ],
+                                                            },
+                                                            {
+                                                              key: "lounge-palco",
+                                                              label:
+                                                                "Lounge Palco",
+                                                              tableNumbers: [
+                                                                "204",
+                                                                "206",
+                                                              ],
+                                                            },
+                                                            {
+                                                              key: "lounge-bar",
+                                                              label:
+                                                                "Lounge Bar",
+                                                              tableNumbers: [
+                                                                "200",
+                                                                "202",
+                                                              ],
+                                                            },
+                                                            {
+                                                              key: "quintal-lateral-esquerdo",
+                                                              label:
+                                                                "Quintal Lateral Esquerdo",
+                                                              tableNumbers: [
+                                                                "20",
+                                                                "22",
+                                                                "24",
+                                                                "26",
+                                                                "28",
+                                                                "29",
+                                                              ],
+                                                            },
+                                                            {
+                                                              key: "quintal-central-esquerdo",
+                                                              label:
+                                                                "Quintal Central Esquerdo",
+                                                              tableNumbers: [
+                                                                "30",
+                                                                "32",
+                                                                "34",
+                                                                "36",
+                                                                "38",
+                                                                "39",
+                                                              ],
+                                                            },
+                                                            {
+                                                              key: "quintal-central-direito",
+                                                              label:
+                                                                "Quintal Central Direito",
+                                                              tableNumbers: [
+                                                                "40",
+                                                                "42",
+                                                                "44",
+                                                                "46",
+                                                                "48",
+                                                              ],
+                                                            },
+                                                            {
+                                                              key: "quintal-lateral-direito",
+                                                              label:
+                                                                "Quintal Lateral Direito",
+                                                              tableNumbers: [
+                                                                "50",
+                                                                "52",
+                                                                "54",
+                                                                "56",
+                                                                "58",
+                                                                "60",
+                                                                "62",
+                                                                "64",
+                                                              ],
+                                                            },
+                                                          ];
+
+                                                        if (tableNum) {
+                                                          const tableNumbers =
+                                                            tableNum.includes(
+                                                              ",",
+                                                            )
+                                                              ? tableNum
+                                                                  .split(",")
+                                                                  .map((t) =>
+                                                                    t.trim(),
+                                                                  )
+                                                              : [tableNum];
+                                                          for (const tn of tableNumbers) {
+                                                            const subarea =
+                                                              seuJustinoSubareas.find(
+                                                                (sub) =>
+                                                                  sub.tableNumbers.includes(
+                                                                    tn,
+                                                                  ),
+                                                              );
+                                                            if (subarea)
+                                                              return subarea.label;
+                                                          }
+                                                        }
+
+                                                        if (
+                                                          areaName &&
+                                                          !areaName
+                                                            .toLowerCase()
+                                                            .includes(
+                                                              "área coberta",
+                                                            ) &&
+                                                          !areaName
+                                                            .toLowerCase()
+                                                            .includes(
+                                                              "área descoberta",
+                                                            )
+                                                        ) {
+                                                          return areaName;
+                                                        }
+
+                                                        return areaName || "—";
+                                                      };
+
+                                                    // Sempre mostrar número da mesa, não o nome da área
+                                                    return gl.table_number
+                                                      ? `Mesa ${gl.table_number}`
+                                                      : gl.area_name || "—";
+                                                  })()}
+                                                </span>
+                                              </>
+                                            );
+                                          })()}
+                                        </div>
+                                        {/* Valor Total da Reserva de Aniversário - acima da mensagem do brinde */}
+                                        {gl.event_type === "aniversario" &&
+                                          (() => {
+                                            // Tentar encontrar a reserva de aniversário de várias formas
+                                            let birthdayReservation:
+                                              | BirthdayReservation
+                                              | undefined =
+                                              birthdayReservationsByReservationId[
+                                                gl.reservation_id
+                                              ];
+
+                                            // Se não encontrou pelo reservation_id, tentar buscar pela guest list
+                                            if (!birthdayReservation) {
+                                              // Buscar diretamente nas reservas de aniversário já carregadas
+                                              const allBirthdayReservations =
+                                                Object.values(
+                                                  birthdayReservationsByReservationId,
+                                                );
+                                              birthdayReservation =
+                                                allBirthdayReservations.find(
+                                                  (br: any) => {
+                                                    // Tentar encontrar por nome do dono da lista
+                                                    const nameMatch =
+                                                      gl.owner_name &&
+                                                      br.aniversariante_nome &&
+                                                      (gl.owner_name
+                                                        .toLowerCase()
+                                                        .includes(
+                                                          br.aniversariante_nome.toLowerCase(),
+                                                        ) ||
+                                                        br.aniversariante_nome
+                                                          .toLowerCase()
+                                                          .includes(
+                                                            gl.owner_name.toLowerCase(),
+                                                          ));
+
+                                                    // Tentar encontrar por data
+                                                    const brDate =
+                                                      br.data_aniversario
+                                                        ? br.data_aniversario.split(
+                                                            "T",
+                                                          )[0]
+                                                        : null;
+                                                    const glDate =
+                                                      gl.reservation_date
+                                                        ? gl.reservation_date.split(
+                                                            "T",
+                                                          )[0]
+                                                        : null;
+                                                    const dateMatch =
+                                                      brDate === glDate;
+
+                                                    // Tentar encontrar por restaurant_reservation_id
+                                                    const idMatch =
+                                                      br.restaurant_reservation_id &&
+                                                      Number(
+                                                        br.restaurant_reservation_id,
+                                                      ) === gl.reservation_id;
+
+                                                    return (
+                                                      idMatch ||
+                                                      (nameMatch && dateMatch)
+                                                    );
+                                                  },
+                                                ) as
+                                                  | BirthdayReservation
+                                                  | undefined;
+                                            }
+
+                                            if (!birthdayReservation) {
+                                              console.log(
+                                                "⚠️ [check-ins] Reserva de aniversário não encontrada para guest list:",
+                                                {
+                                                  guestListId: gl.guest_list_id,
+                                                  reservationId:
+                                                    gl.reservation_id,
+                                                  ownerName: gl.owner_name,
+                                                  eventType: gl.event_type,
+                                                  disponiveis: Object.keys(
+                                                    birthdayReservationsByReservationId,
+                                                  ).length,
+                                                },
+                                              );
+                                              return null;
+                                            }
+
+                                            const menuItems =
+                                              menuItemsByBirthdayReservation[
+                                                birthdayReservation.id
+                                              ] || { bebidas: [], comidas: [] };
+
+                                            console.log(
+                                              "💰 [check-ins] Calculando valor total para reserva:",
+                                              {
+                                                birthdayReservationId:
+                                                  birthdayReservation.id,
+                                                nome: birthdayReservation.aniversariante_nome,
+                                                menuItemsBebidas:
+                                                  menuItems.bebidas.length,
+                                                menuItemsComidas:
+                                                  menuItems.comidas.length,
+                                                decoracao:
+                                                  birthdayReservation.decoracao_tipo,
+                                              },
+                                            );
+
+                                            // Calcular valor total com preços reais do cardápio
+                                            const decorationPrices: Record<
+                                              string,
+                                              number
+                                            > = {
+                                              "Decoração Pequena 1": 200.0,
+                                              "Decoração Pequena 2": 220.0,
+                                              "Decoração Media 3": 250.0,
+                                              "Decoração Media 4": 270.0,
+                                              "Decoração Grande 5": 300.0,
+                                              "Decoração Grande 6": 320.0,
+                                            };
+
+                                            let total = 0;
+
+                                            // Valor da decoração
+                                            if (
+                                              birthdayReservation.decoracao_tipo
+                                            ) {
+                                              total +=
+                                                decorationPrices[
+                                                  birthdayReservation
+                                                    .decoracao_tipo
+                                                ] || 0;
+                                            }
+
+                                            // Valor das bebidas do bar (com preços reais do cardápio)
+                                            menuItems.bebidas.forEach(
+                                              (item) => {
+                                                total +=
+                                                  item.preco * item.quantidade;
+                                              },
+                                            );
+
+                                            // Valor das porções do bar (com preços reais do cardápio)
+                                            menuItems.comidas.forEach(
+                                              (item) => {
+                                                total +=
+                                                  item.preco * item.quantidade;
+                                              },
+                                            );
+
+                                            // Valor das bebidas especiais
+                                            const bebidasEspeciaisMap: Record<
+                                              string,
+                                              { nome: string; preco: number }
+                                            > = {
+                                              bebida_balde_budweiser: {
+                                                nome: "Balde Budweiser",
+                                                preco: 50.0,
+                                              },
+                                              bebida_balde_corona: {
+                                                nome: "Balde Corona",
+                                                preco: 55.0,
+                                              },
+                                              bebida_balde_heineken: {
+                                                nome: "Balde Heineken",
+                                                preco: 60.0,
+                                              },
+                                              bebida_combo_gin_142: {
+                                                nome: "Combo Gin 142",
+                                                preco: 80.0,
+                                              },
+                                              bebida_licor_rufus: {
+                                                nome: "Licor Rufus",
+                                                preco: 45.0,
+                                              },
+                                            };
+
+                                            Object.entries(
+                                              bebidasEspeciaisMap,
+                                            ).forEach(([campo, info]) => {
+                                              const qtd =
+                                                (birthdayReservation as any)[
+                                                  campo
+                                                ] || 0;
+                                              if (qtd > 0) {
+                                                total += info.preco * qtd;
+                                              }
+                                            });
+
+                                            console.log(
+                                              "💰 [check-ins] Valor total calculado:",
+                                              total,
+                                            );
+
+                                            if (total > 0) {
+                                              return (
+                                                <div
+                                                  className="rounded-full bg-gradient-to-r from-orange-500/90 to-red-500/90 px-3 py-1.5 text-xs md:text-sm font-bold text-white shadow-lg"
+                                                  title="Valor total da reserva. Será adicionado à comanda no estabelecimento."
+                                                >
+                                                  💰 Total: R${" "}
+                                                  {total.toFixed(2)}
+                                                </div>
+                                              );
+                                            }
+                                            return null;
+                                          })()}
+                                        {(() => {
+                                          const guestsCheckedIn =
+                                            checkInStatus[gl.guest_list_id]
+                                              ?.guestsCheckedIn || 0;
+                                          const activeRules = giftRules
+                                            .filter(
+                                              (r) =>
+                                                String(r.status || "")
+                                                  .trim()
+                                                  .toUpperCase() === "ATIVA",
+                                            )
+                                            .sort(
+                                              (a, b) =>
+                                                a.checkins_necessarios -
+                                                b.checkins_necessarios,
+                                            );
+                                          const nextRule = activeRules.find(
+                                            (r) =>
+                                              guestsCheckedIn <
+                                              r.checkins_necessarios,
+                                          );
+                                          const currentRule = [...activeRules]
+                                            .reverse()
+                                            .find(
+                                              (r) =>
+                                                guestsCheckedIn >=
+                                                r.checkins_necessarios,
+                                            );
+                                          if (currentRule) {
+                                            return (
+                                              <div className="rounded-full bg-gradient-to-r from-emerald-500/90 to-green-500/90 px-2 md:px-3 py-1 text-xs md:text-sm font-bold text-white shadow-lg">
+                                                🎁 Direito atual:{" "}
+                                                {currentRule.descricao}
+                                              </div>
+                                            );
+                                          }
+                                          if (nextRule) {
+                                            const faltam =
+                                              nextRule.checkins_necessarios -
+                                              guestsCheckedIn;
+                                            return (
+                                              <div className="rounded-full bg-gradient-to-r from-orange-500/90 to-red-500/90 px-2 md:px-3 py-1 text-xs md:text-sm font-bold text-white shadow-lg animate-pulse">
+                                                ⚠️ Faltam {faltam} check-in
+                                                {faltam !== 1 ? "s" : ""} para o
+                                                brinde ({nextRule.descricao})!
+                                              </div>
+                                            );
+                                          }
+                                          return null;
+                                        })()}
+                                      </div>
+                                    </div>
+
+                                    {/* Ações do dono da reserva (check-in / no-show / check-out) */}
+                                    {(() => {
+                                      return (
+                                      <div className="flex items-center gap-2 flex-wrap">
+                                        {!(
+                                          checkInStatus[gl.guest_list_id]
+                                            ?.ownerCheckedIn ||
+                                          gl.owner_checked_in === 1
+                                        ) && (
+                                          <>
+                                            <button
+                                              onClick={(e) => {
+                                                e.preventDefault();
+                                                e.stopPropagation();
+                                                handleOwnerCheckIn(
+                                                  gl.guest_list_id,
+                                                  gl.owner_name,
+                                                  e,
+                                                );
+                                              }}
+                                              className="px-2 md:px-3 py-1 text-xs rounded-full transition-colors font-medium touch-manipulation bg-blue-100 text-blue-700 hover:bg-blue-200 border border-blue-300"
+                                            >
+                                              📋 Check-in Dono
+                                            </button>
+                                            {gl.reservation_id && (
+                                              <button
+                                                onClick={(e) =>
+                                                  handleReservaRestauranteNoShow(
+                                                    Number(gl.reservation_id),
+                                                    gl.owner_name || "Cliente",
+                                                    "restaurante",
+                                                    e,
+                                                  )
+                                                }
+                                                className="px-2 md:px-3 py-1 text-xs rounded-full transition-colors font-medium touch-manipulation bg-red-100 text-red-700 hover:bg-red-200 border border-red-300"
+                                                title="Marcar reserva como no-show e liberar mesa/área"
+                                              >
+                                                🚫 No-show
+                                              </button>
+                                            )}
+                                          </>
+                                        )}
+                                        {(checkInStatus[gl.guest_list_id]
+                                          ?.ownerCheckedIn ||
+                                          gl.owner_checked_in === 1) &&
+                                          !(
+                                            checkInStatus[gl.guest_list_id]
+                                              ?.ownerCheckedOut ||
+                                            isOwnerCheckedOut(
+                                              gl.owner_checked_out,
+                                            )
+                                          ) && (
+                                            <div className="flex flex-col gap-1">
+                                              <div className="flex gap-2">
+                                                <button
+                                                  className="px-2 md:px-3 py-1 text-xs rounded-full transition-colors font-medium touch-manipulation bg-green-100 text-green-700 border border-green-300"
+                                                  disabled
+                                                >
+                                                  ✅ Dono Presente
+                                                </button>
+                                                <button
+                                                  onClick={(e) => {
+                                                    e.preventDefault();
+                                                    e.stopPropagation();
+                                                    handleOwnerCheckOut(
+                                                      gl.guest_list_id,
+                                                      gl.owner_name,
+                                                      e,
+                                                    );
+                                                  }}
+                                                  className="px-2 md:px-3 py-1 text-xs rounded-full transition-colors font-medium touch-manipulation bg-orange-100 text-orange-700 hover:bg-orange-200 border border-orange-300"
+                                                  title="Registrar saída do dono"
+                                                >
+                                                  🚪 Check-out Dono
+                                                </button>
+                                              </div>
+                                              {/* Exibir horário de entrada quando presente */}
+                                              {(() => {
+                                                const checkinTime =
+                                                  gl.owner_checkin_time ||
+                                                  ownerCheckInTimeMap[
+                                                    gl.guest_list_id
+                                                  ];
+                                                if (checkinTime) {
+                                                  return (
+                                                    <span className="text-xs text-gray-400 font-mono px-2">
+                                                      E:{" "}
+                                                      {formatCheckinTime(
+                                                        checkinTime,
+                                                      )}
+                                                    </span>
+                                                  );
+                                                }
+                                                return null;
+                                              })()}
+                                            </div>
+                                          )}
+                                        {(checkInStatus[gl.guest_list_id]
+                                          ?.ownerCheckedOut ||
+                                          isOwnerCheckedOut(
+                                            gl.owner_checked_out,
+                                          )) && (
+                                          <div className="flex flex-col gap-1">
+                                            <div className="flex gap-2 flex-wrap">
+                                              <span className="px-2 md:px-3 py-1 text-xs rounded-full font-medium bg-gray-100 text-gray-600 border border-gray-300">
+                                                ✅ Concluído
+                                              </span>
+                                              {(String((gl as any).status || "").toLowerCase() === "no_show" ||
+                                                String((gl as any).status || "").toLowerCase() === "no-show") && (
+                                                <span className="px-2 md:px-3 py-1 text-xs rounded-full font-medium bg-red-100 text-red-700 border border-red-300">
+                                                  🚫 NO-SHOW
+                                                </span>
+                                              )}
+                                            </div>
+                                            {/* Exibir horários de entrada e saída lado a lado */}
+                                            {(() => {
+                                              const checkinTime =
+                                                gl.owner_checkin_time ||
+                                                ownerCheckInTimeMap[
+                                                  gl.guest_list_id
+                                                ];
+                                              const checkoutTime =
+                                                gl.owner_checkout_time ||
+                                                ownerCheckOutTimeMap[
+                                                  gl.guest_list_id
+                                                ];
+                                              if (checkinTime || checkoutTime) {
+                                                return (
+                                                  <span className="text-xs text-gray-400 font-mono px-2">
+                                                    {checkinTime &&
+                                                      `E: ${formatCheckinTime(checkinTime)}`}
+                                                    {checkinTime &&
+                                                      checkoutTime &&
+                                                      " | "}
+                                                    {checkoutTime &&
+                                                      `S: ${formatCheckinTime(checkoutTime)}`}
+                                                  </span>
+                                                );
+                                              }
+                                              return null;
+                                            })()}
+                                          </div>
+                                        )}
+                                      </div>
+                                      );
+                                    })()}
+                                    <div className="mt-2 space-y-2">
+                                      {/* Indicadores de Progresso e Brindes */}
+                                      {(() => {
+                                        const guestsCheckedIn =
+                                          checkInStatus[gl.guest_list_id]
+                                            ?.guestsCheckedIn || 0;
+                                        // CORREÇÃO: Usar contagem real de guests carregados, não total_guests
+                                        const totalGuests =
+                                          (guestsByList[gl.guest_list_id] || [])
+                                            .length || 0;
+                                        const percentage =
+                                          totalGuests > 0
+                                            ? Math.round(
+                                                (guestsCheckedIn /
+                                                  totalGuests) *
+                                                  100,
+                                              )
+                                            : 0;
+                                        const activeRules = giftRules
+                                          .filter(
+                                            (r) =>
+                                              String(r.status || "")
+                                                .trim()
+                                                .toUpperCase() === "ATIVA",
+                                          )
+                                          .sort(
+                                            (a, b) =>
+                                              a.checkins_necessarios -
+                                              b.checkins_necessarios,
+                                          );
+                                        const nextRule = activeRules.find(
+                                          (r) =>
+                                            guestsCheckedIn <
+                                            r.checkins_necessarios,
+                                        );
+                                        const currentRule = [...activeRules]
+                                          .reverse()
+                                          .find(
+                                            (r) =>
+                                              guestsCheckedIn >=
+                                              r.checkins_necessarios,
+                                          );
+                                        const awardedGifts =
+                                          giftsByGuestList[gl.guest_list_id] ||
+                                          [];
+
+                                        return (
+                                          <div className="space-y-2">
+                                            {/* Barra de Progresso */}
+                                            {activeRules.length > 0 && (
+                                              <div className="bg-gradient-to-br from-white/15 to-white/5 rounded-xl p-3 border border-white/20 shadow-lg">
+                                                <div className="flex items-center justify-between mb-2">
+                                                  <div className="flex items-center gap-2">
+                                                    <span className="text-sm font-semibold text-white">
+                                                      🎯 Progresso do Brinde
+                                                    </span>
+                                                  </div>
+                                                  <div className="flex items-center gap-2">
+                                                    <span className="text-xs font-medium text-gray-300">
+                                                      {guestsCheckedIn} /{" "}
+                                                      {nextRule?.checkins_necessarios ||
+                                                        activeRules[
+                                                          activeRules.length - 1
+                                                        ]
+                                                          ?.checkins_necessarios ||
+                                                        0}
+                                                    </span>
+                                                    <span
+                                                      className={`text-sm font-bold px-2 py-0.5 rounded-full ${
+                                                        percentage >= 80
+                                                          ? "bg-green-500/20 text-green-300"
+                                                          : percentage >= 50
+                                                            ? "bg-yellow-500/20 text-yellow-300"
+                                                            : "bg-blue-500/20 text-blue-300"
+                                                      }`}
+                                                    >
+                                                      {percentage}%
+                                                    </span>
+                                                  </div>
+                                                </div>
+                                                <div className="relative w-full bg-gray-800/50 rounded-full h-5 overflow-hidden shadow-inner border border-gray-700/50">
+                                                  <div
+                                                    className={`h-full rounded-full transition-all duration-500 ease-out relative ${
+                                                      percentage >= 80
+                                                        ? "bg-gradient-to-r from-green-500 via-emerald-400 to-green-500 shadow-lg shadow-green-500/50"
+                                                        : percentage >= 50
+                                                          ? "bg-gradient-to-r from-yellow-500 via-amber-400 to-yellow-500 shadow-lg shadow-yellow-500/50"
+                                                          : "bg-gradient-to-r from-blue-500 via-cyan-400 to-blue-500 shadow-lg shadow-blue-500/50"
+                                                    }`}
+                                                    style={{
+                                                      width: `${Math.min(percentage, 100)}%`,
+                                                    }}
+                                                  >
+                                                    {percentage > 20 && (
+                                                      <span className="absolute inset-0 flex items-center justify-center text-xs font-bold text-white drop-shadow-md">
+                                                        {percentage}%
+                                                      </span>
+                                                    )}
+                                                  </div>
+                                                </div>
+                                                {nextRule && (
+                                                  <div className="mt-2 pt-2 border-t border-white/10">
+                                                    <p className="text-xs text-gray-300">
+                                                      Próximo brinde:{" "}
+                                                      <span className="font-semibold text-amber-300">
+                                                        {nextRule.descricao}
+                                                      </span>
+                                                    </p>
+                                                  </div>
+                                                )}
+                                                {currentRule && (
+                                                  <div className="mt-1">
+                                                    <p className="text-xs text-green-200">
+                                                      Direito atual:{" "}
+                                                      <span className="font-semibold text-green-300">
+                                                        {currentRule.descricao}
+                                                      </span>
+                                                    </p>
+                                                  </div>
+                                                )}
+                                              </div>
+                                            )}
+
+                                            {/* Brindes Liberados */}
+                                            {awardedGifts.length > 0 && (
+                                              <div className="bg-gradient-to-r from-green-900/50 to-green-800/50 rounded-lg p-2 border border-green-500/50">
+                                                <div className="flex items-center gap-2 mb-1">
+                                                  <span className="text-lg">
+                                                    🎁
+                                                  </span>
+                                                  <span className="text-sm font-semibold text-green-200">
+                                                    Brinde(s) Liberado(s)!
+                                                  </span>
+                                                </div>
+                                                <div className="space-y-1">
+                                                  {awardedGifts.map((gift) => (
+                                                    <div
+                                                      key={gift.id}
+                                                      className="text-xs text-green-100"
+                                                    >
+                                                      ✅ {gift.descricao}
+                                                    </div>
+                                                  ))}
+                                                </div>
+                                              </div>
+                                            )}
+
+                                            {/* Mensagem quando atinge 80% */}
+                                            {percentage >= 80 &&
+                                              nextRule &&
+                                              guestsCheckedIn >=
+                                                nextRule.checkins_necessarios &&
+                                              awardedGifts.some(
+                                                (g) =>
+                                                  g.checkins_necessarios ===
+                                                  nextRule.checkins_necessarios,
+                                              ) && (
+                                                <div className="bg-gradient-to-r from-yellow-900/50 to-orange-800/50 rounded-lg p-2 border border-yellow-500/50">
+                                                  <p className="text-xs text-yellow-200 font-semibold">
+                                                    🎉 Meta atingida! Brinde
+                                                    liberado para o dono da
+                                                    lista.
+                                                  </p>
+                                                </div>
+                                              )}
+                                          </div>
+                                        );
+                                      })()}
+                                    </div>
+                                  </div>
+                                  <span
+                                    className={`text-xs px-2 py-1 rounded flex-shrink-0 ${gl.is_valid === 1 ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-600"}`}
+                                  >
+                                    {gl.is_valid === 1 ? "Ativo" : "Expirado"}
+                                  </span>
+                                </div>
+
+                                {expandedGuestListId === gl.guest_list_id && (
+                                  <div className="p-3 md:p-4 space-y-2 md:space-y-3 bg-white/5">
+                                    {/* Resumo de presença */}
+                                    <div className="bg-white/10 rounded-lg p-3">
+                                      <div className="flex items-center justify-between text-sm">
+                                        <span className="text-gray-300">
+                                          Resumo de Presença:
+                                        </span>
+                                        <div className="flex gap-4">
+                                          <span
+                                            className={`px-2 py-1 rounded-full text-xs ${
+                                              checkInStatus[gl.guest_list_id]
+                                                ?.ownerCheckedIn ||
+                                              gl.owner_checked_in === 1
+                                                ? "bg-green-100 text-green-700"
+                                                : "bg-gray-100 text-gray-600"
+                                            }`}
+                                          >
+                                            Dono:{" "}
+                                            {checkInStatus[gl.guest_list_id]
+                                              ?.ownerCheckedIn ||
+                                            gl.owner_checked_in === 1
+                                              ? `✅ Presente${gl.owner_checkin_time || ownerCheckInTimeMap[gl.guest_list_id] ? ` ${formatCheckinTime(gl.owner_checkin_time || ownerCheckInTimeMap[gl.guest_list_id]!)}` : ""}`
+                                              : "⏳ Aguardando"}
+                                          </span>
+                                          <span className="px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-700">
+                                            Convidados:{" "}
+                                            {checkInStatus[gl.guest_list_id]
+                                              ?.guestsCheckedIn || 0}{" "}
+                                            /{" "}
+                                            {(
+                                              guestsByList[gl.guest_list_id] ||
+                                              []
+                                            ).length || 0}
+                                          </span>
+                                        </div>
+                                      </div>
+                                    </div>
+
+                                    {/* Busca rápida por nome/telefone */}
+                                    <div className="flex items-center gap-2">
+                                      <input
+                                        type="text"
+                                        value={
+                                          guestSearch[gl.guest_list_id] || ""
+                                        }
+                                        onChange={(e) =>
+                                          setGuestSearch((prev) => ({
+                                            ...prev,
+                                            [gl.guest_list_id]: e.target.value,
+                                          }))
+                                        }
+                                        placeholder="Buscar convidado por nome ou WhatsApp..."
+                                        className="w-full px-3 py-2.5 md:py-2 rounded bg-white/10 border border-white/20 text-white placeholder-gray-400 focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm md:text-base"
+                                      />
+                                    </div>
+
+                                    {/* Lista de convidados */}
+                                    <div className="border rounded border-white/20 bg-white/5">
+                                      {/* Desktop: Tabela */}
+                                      <div className="hidden md:block overflow-x-auto">
+                                        <table className="min-w-full divide-y divide-white/20">
+                                          <thead className="bg-white/10">
+                                            <tr>
+                                              <th className="px-4 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                                                Nome
+                                              </th>
+                                              <th className="px-4 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                                                WhatsApp
+                                              </th>
+                                              <th className="px-4 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                                                Status
+                                              </th>
+                                              <th className="px-4 py-2 text-right text-xs font-medium text-gray-300 uppercase tracking-wider">
+                                                Ação
+                                              </th>
+                                            </tr>
+                                          </thead>
+                                          <tbody className="bg-white/5 divide-y divide-white/10">
+                                            {(() => {
+                                              const guests =
+                                                guestsByList[
+                                                  gl.guest_list_id
+                                                ] || [];
+                                              const filteredGuests = guests
+                                                .filter((g) => {
+                                                  const q = (
+                                                    guestSearch[
+                                                      gl.guest_list_id
+                                                    ] || ""
+                                                  ).toLowerCase();
+                                                  if (!q) return true;
+                                                  return (
+                                                    g.name
+                                                      .toLowerCase()
+                                                      .includes(q) ||
+                                                    (g.whatsapp || "")
+                                                      .toLowerCase()
+                                                      .includes(q)
+                                                  );
+                                                })
+                                                .sort((a, b) =>
+                                                  (a.name || "").localeCompare(
+                                                    b.name || "",
+                                                    "pt-BR",
+                                                    { sensitivity: "base" },
+                                                  ),
+                                                );
+
+                                              if (
+                                                filteredGuests.length === 0 &&
+                                                guests.length > 0
+                                              ) {
+                                                return (
+                                                  <tr>
+                                                    <td
+                                                      className="px-4 py-4 text-sm text-gray-400 text-center"
+                                                      colSpan={4}
+                                                    >
+                                                      Nenhum convidado
+                                                      encontrado com a busca.
+                                                    </td>
+                                                  </tr>
+                                                );
+                                              }
+
+                                              if (filteredGuests.length === 0) {
+                                                return (
+                                                  <tr>
+                                                    <td
+                                                      className="px-4 py-4 text-sm text-gray-400 text-center"
+                                                      colSpan={4}
+                                                    >
+                                                      {guests.length === 0 ? (
+                                                        <div>
+                                                          <div>
+                                                            Nenhum convidado
+                                                            cadastrado nesta
+                                                            lista.
+                                                          </div>
+                                                          <div className="text-xs mt-1 text-gray-500">
+                                                            Total esperado:{" "}
+                                                            {gl.total_guests ||
+                                                              0}{" "}
+                                                            convidados
+                                                          </div>
+                                                        </div>
+                                                      ) : (
+                                                        "Carregando convidados..."
+                                                      )}
+                                                    </td>
+                                                  </tr>
+                                                );
+                                              }
+
+                                              return filteredGuests.map((g) => {
+                                                const isCheckedIn =
+                                                  g.checked_in === 1 ||
+                                                  g.checked_in === true;
+                                                const isCheckedOut =
+                                                  g.checked_out === 1 ||
+                                                  g.checked_out === true;
+                                                const hasCheckoutTime =
+                                                  !!g.checkout_time;
+                                                const hasCheckinTime =
+                                                  !!g.checkin_time;
+
+                                                const checkinTimeFormatted =
+                                                  hasCheckinTime
+                                                    ? formatCheckinTime(g.checkin_time)
+                                                    : "";
+                                                const checkoutTimeFormatted =
+                                                  hasCheckoutTime
+                                                    ? formatCheckinTime(g.checkout_time)
+                                                    : "";
+
+                                                return (
+                                                  <tr
+                                                    key={g.id}
+                                                    className={`hover:bg-white/10 ${
+                                                      checkInStatus[
+                                                        gl.guest_list_id
+                                                      ]?.ownerCheckedOut ||
+                                                      isOwnerCheckedOut(
+                                                        gl.owner_checked_out,
+                                                      ) ||
+                                                      isCheckedOut
+                                                        ? "opacity-60"
+                                                        : ""
+                                                    }`}
+                                                  >
+                                                    <td
+                                                      className={`px-4 py-2 text-sm ${
+                                                        checkInStatus[
+                                                          gl.guest_list_id
+                                                        ]?.ownerCheckedOut ||
+                                                        isOwnerCheckedOut(
+                                                          gl.owner_checked_out,
+                                                        ) ||
+                                                        isCheckedOut
+                                                          ? "text-gray-400 line-through"
+                                                          : "text-white"
+                                                      }`}
+                                                    >
+                                                      {g.name}
+                                                    </td>
+                                                    <td className="px-4 py-2 text-sm text-gray-300">
+                                                      {g.whatsapp || "-"}
+                                                    </td>
+                                                    <td className="px-4 py-2 text-sm">
+                                                      {(() => {
+                                                        // Verificar se o dono já fez check-out
+                                                        const ownerCheckedOut =
+                                                          checkInStatus[
+                                                            gl.guest_list_id
+                                                          ]?.ownerCheckedOut ||
+                                                          isOwnerCheckedOut(
+                                                            gl.owner_checked_out,
+                                                          );
+
+                                                        // Se o dono fez check-out ou o convidado fez check-out, mostrar como concluído
+                                                        if (
+                                                          ownerCheckedOut ||
+                                                          isCheckedOut
+                                                        ) {
+                                                          return (
+                                                            <div className="flex items-center gap-2 flex-wrap">
+                                                              <span className="px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600 border border-gray-300 whitespace-nowrap">
+                                                                ✅ Concluído
+                                                              </span>
+                                                              {/* Exibir horários de entrada e saída lado a lado */}
+                                                              {(hasCheckinTime ||
+                                                                hasCheckoutTime) && (
+                                                                <span className="text-xs text-gray-400 font-mono whitespace-nowrap">
+                                                                  {hasCheckinTime &&
+                                                                    `E: ${checkinTimeFormatted}`}
+                                                                  {hasCheckinTime &&
+                                                                    hasCheckoutTime &&
+                                                                    " | "}
+                                                                  {hasCheckoutTime &&
+                                                                    `S: ${checkoutTimeFormatted}`}
+                                                                </span>
+                                                              )}
+                                                            </div>
+                                                          );
+                                                        }
+
+                                                        // Status normal quando dono não fez check-out
+                                                        return (
+                                                          <div className="flex items-center gap-2 flex-wrap">
+                                                            <span
+                                                              className={`px-2 py-1 rounded-full text-xs font-medium whitespace-nowrap ${
+                                                                isCheckedIn
+                                                                  ? "bg-green-100 text-green-700 border border-green-300"
+                                                                  : "bg-gray-100 text-gray-600 border border-gray-300"
+                                                              }`}
+                                                            >
+                                                              {isCheckedIn
+                                                                ? "✅ Presente"
+                                                                : "⏳ Aguardando"}
+                                                            </span>
+                                                            {/* Exibir horário de entrada quando presente */}
+                                                            {hasCheckinTime && (
+                                                              <span className="text-xs text-gray-400 font-mono whitespace-nowrap">
+                                                                E:{" "}
+                                                                {
+                                                                  checkinTimeFormatted
+                                                                }
+                                                              </span>
+                                                            )}
+                                                            {isCheckedIn &&
+                                                              g.entrada_tipo && (
+                                                                <span
+                                                                  className={`text-xs px-2 py-0.5 rounded-full whitespace-nowrap ${
+                                                                    g.entrada_tipo ===
+                                                                    "VIP"
+                                                                      ? "bg-green-100 text-green-700"
+                                                                      : g.entrada_tipo ===
+                                                                          "SECO"
+                                                                        ? "bg-blue-100 text-blue-700"
+                                                                        : "bg-purple-100 text-purple-700"
+                                                                  }`}
+                                                                >
+                                                                  {
+                                                                    g.entrada_tipo
+                                                                  }
+                                                                  {g.entrada_valor &&
+                                                                    (() => {
+                                                                      const valor =
+                                                                        typeof g.entrada_valor ===
+                                                                        "number"
+                                                                          ? g.entrada_valor
+                                                                          : parseFloat(
+                                                                              String(
+                                                                                g.entrada_valor,
+                                                                              ),
+                                                                            );
+                                                                      return !isNaN(
+                                                                        valor,
+                                                                      )
+                                                                        ? ` - R$ ${valor.toFixed(2)}`
+                                                                        : "";
+                                                                    })()}
+                                                                </span>
+                                                              )}
+                                                          </div>
+                                                        );
+                                                      })()}
+                                                    </td>
+                                                    <td className="px-4 py-2 text-right">
+                                                      {(() => {
+                                                        // Verificar se o dono já fez check-out - se sim, bloquear todos os botões
+                                                        const ownerCheckedOut =
+                                                          checkInStatus[
+                                                            gl.guest_list_id
+                                                          ]?.ownerCheckedOut ||
+                                                          isOwnerCheckedOut(
+                                                            gl.owner_checked_out,
+                                                          );
+
+                                                        // Se o dono fez check-out ou o convidado fez check-out, não mostrar botões
+                                                        if (
+                                                          ownerCheckedOut ||
+                                                          isCheckedOut
+                                                        ) {
+                                                          return null;
+                                                        }
+
+                                                        return (
+                                                          <div className="flex gap-2 justify-end">
+                                                            {!isCheckedIn && (
+                                                              <button
+                                                                type="button"
+                                                                onClick={(
+                                                                  e,
+                                                                ) => {
+                                                                  e.preventDefault();
+                                                                  e.stopPropagation();
+                                                                  handleGuestCheckIn(
+                                                                    gl.guest_list_id,
+                                                                    g.id,
+                                                                    g.name,
+                                                                  );
+                                                                }}
+                                                                className="px-3 py-1 text-xs bg-green-600 hover:bg-green-700 text-white rounded border border-green-300"
+                                                              >
+                                                                📋 Check-in
+                                                              </button>
+                                                            )}
+                                                            {isCheckedIn && (
+                                                              <button
+                                                                type="button"
+                                                                onClick={(
+                                                                  e,
+                                                                ) => {
+                                                                  e.preventDefault();
+                                                                  e.stopPropagation();
+                                                                  handleGuestCheckOut(
+                                                                    gl.guest_list_id,
+                                                                    g.id,
+                                                                    g.name,
+                                                                  );
+                                                                }}
+                                                                className="px-3 py-1 text-xs bg-orange-600 hover:bg-orange-700 text-white rounded border border-orange-300"
+                                                                title="Registrar saída do convidado"
+                                                              >
+                                                                🚪 Check-out
+                                                              </button>
+                                                            )}
+                                                          </div>
+                                                        );
+                                                      })()}
+                                                    </td>
+                                                  </tr>
+                                                );
+                                              });
+                                            })()}
+                                          </tbody>
+                                        </table>
+                                      </div>
+
+                                      {/* Mobile/Tablet: Lista simples em linhas */}
+                                      <div className="md:hidden divide-y divide-white/10">
+                                        {(() => {
+                                          const guests =
+                                            guestsByList[gl.guest_list_id] ||
+                                            [];
+                                          const filteredGuests = guests
+                                            .filter((g) => {
+                                              const q = (
+                                                guestSearch[gl.guest_list_id] ||
+                                                ""
+                                              ).toLowerCase();
+                                              if (!q) return true;
+                                              return (
+                                                g.name
+                                                  .toLowerCase()
+                                                  .includes(q) ||
+                                                (g.whatsapp || "")
+                                                  .toLowerCase()
+                                                  .includes(q)
+                                              );
+                                            })
+                                            .sort((a, b) =>
+                                              (a.name || "").localeCompare(
+                                                b.name || "",
+                                                "pt-BR",
+                                                { sensitivity: "base" },
+                                              ),
+                                            );
+
+                                          if (
+                                            filteredGuests.length === 0 &&
+                                            guests.length > 0
+                                          ) {
+                                            return (
+                                              <div className="text-center py-4 text-sm text-gray-400 px-3">
+                                                Nenhum convidado encontrado com
+                                                a busca.
+                                              </div>
+                                            );
+                                          }
+
+                                          if (filteredGuests.length === 0) {
+                                            return (
+                                              <div className="text-center py-4 text-sm text-gray-400 px-3">
+                                                {guests.length === 0 ? (
+                                                  <div>
+                                                    <div>
+                                                      Nenhum convidado
+                                                      cadastrado nesta lista.
+                                                    </div>
+                                                    <div className="text-xs mt-1 text-gray-500">
+                                                      Total esperado:{" "}
+                                                      {gl.total_guests || 0}{" "}
+                                                      convidados
+                                                    </div>
+                                                  </div>
+                                                ) : (
+                                                  "Carregando convidados..."
+                                                )}
+                                              </div>
+                                            );
+                                          }
+
+                                          return filteredGuests.map((g) => {
+                                            const isCheckedIn =
+                                              g.checked_in === 1 ||
+                                              g.checked_in === true;
+                                            const isCheckedOut =
+                                              g.checked_out === 1 ||
+                                              g.checked_out === true;
+                                            const hasCheckoutTime =
+                                              !!g.checkout_time;
+                                            const hasCheckinTime =
+                                              !!g.checkin_time;
+
+                                            const checkinTimeFormatted =
+                                              hasCheckinTime
+                                                ? formatCheckinTime(g.checkin_time)
+                                                : "";
+                                            const checkoutTimeFormatted =
+                                              hasCheckoutTime
+                                                ? formatCheckinTime(g.checkout_time)
+                                                : "";
+
+                                            return (
+                                              <div
+                                                key={g.id}
+                                                className={`flex items-center justify-between gap-2 px-3 py-2 ${(() => {
+                                                  const ownerCheckedOut =
+                                                    checkInStatus[
+                                                      gl.guest_list_id
+                                                    ]?.ownerCheckedOut ||
+                                                    isOwnerCheckedOut(
+                                                      gl.owner_checked_out,
+                                                    );
+                                                  return ownerCheckedOut ||
+                                                    isCheckedOut
+                                                    ? "opacity-60 bg-gray-900/10"
+                                                    : isCheckedIn
+                                                      ? "bg-green-900/10"
+                                                      : "hover:bg-white/5";
+                                                })()}`}
+                                              >
+                                                <div className="flex items-center gap-2 flex-1 min-w-0">
+                                                  {(() => {
+                                                    const ownerCheckedOut =
+                                                      checkInStatus[
+                                                        gl.guest_list_id
+                                                      ]?.ownerCheckedOut ||
+                                                      isOwnerCheckedOut(
+                                                        gl.owner_checked_out,
+                                                      );
+                                                    if (
+                                                      ownerCheckedOut ||
+                                                      isCheckedOut
+                                                    ) {
+                                                      return (
+                                                        <MdClose
+                                                          size={18}
+                                                          className="text-gray-400 flex-shrink-0"
+                                                        />
+                                                      );
+                                                    } else if (isCheckedIn) {
+                                                      return (
+                                                        <MdCheckCircle
+                                                          size={18}
+                                                          className="text-green-400 flex-shrink-0"
+                                                        />
+                                                      );
+                                                    } else {
+                                                      return (
+                                                        <div className="w-4 h-4 rounded-full border-2 border-gray-400 flex-shrink-0" />
+                                                      );
+                                                    }
+                                                  })()}
+                                                  <div className="flex-1 min-w-0">
+                                                    <div className="flex items-center gap-2 flex-wrap">
+                                                      <span
+                                                        className={`font-medium text-sm truncate ${(() => {
+                                                          const ownerCheckedOut =
+                                                            checkInStatus[
+                                                              gl.guest_list_id
+                                                            ]
+                                                              ?.ownerCheckedOut ||
+                                                            isOwnerCheckedOut(
+                                                              gl.owner_checked_out,
+                                                            );
+                                                          return ownerCheckedOut ||
+                                                            isCheckedOut
+                                                            ? "text-gray-400 line-through"
+                                                            : "text-white";
+                                                        })()}`}
+                                                      >
+                                                        {g.name}
+                                                      </span>
+                                                      {(() => {
+                                                        const ownerCheckedOut =
+                                                          checkInStatus[
+                                                            gl.guest_list_id
+                                                          ]?.ownerCheckedOut ||
+                                                          isOwnerCheckedOut(
+                                                            gl.owner_checked_out,
+                                                          );
+                                                        if (
+                                                          ownerCheckedOut ||
+                                                          isCheckedOut
+                                                        ) {
+                                                          return (
+                                                            <span className="text-xs px-1.5 py-0.5 rounded bg-gray-500/30 text-gray-200">
+                                                              ✅ Concluído
+                                                            </span>
+                                                          );
+                                                        } else if (
+                                                          g.entrada_tipo &&
+                                                          isCheckedIn
+                                                        ) {
+                                                          return (
+                                                            <span
+                                                              className={`text-xs px-1.5 py-0.5 rounded ${
+                                                                g.entrada_tipo ===
+                                                                "VIP"
+                                                                  ? "bg-green-500/30 text-green-200"
+                                                                  : g.entrada_tipo ===
+                                                                      "SECO"
+                                                                    ? "bg-blue-500/30 text-blue-200"
+                                                                    : "bg-purple-500/30 text-purple-200"
+                                                              }`}
+                                                            >
+                                                              {g.entrada_tipo}
+                                                            </span>
+                                                          );
+                                                        }
+                                                        return null;
+                                                      })()}
+                                                    </div>
+                                                    {/* Exibir horários de entrada e saída lado a lado */}
+                                                    {(hasCheckinTime ||
+                                                      hasCheckoutTime) && (
+                                                      <div className="text-xs text-gray-400 font-mono mt-0.5">
+                                                        {hasCheckinTime &&
+                                                          `E: ${checkinTimeFormatted}`}
+                                                        {hasCheckinTime &&
+                                                          hasCheckoutTime &&
+                                                          " | "}
+                                                        {hasCheckoutTime &&
+                                                          `S: ${checkoutTimeFormatted}`}
+                                                      </div>
+                                                    )}
+                                                    {g.whatsapp && (
+                                                      <div className="text-xs text-gray-400 truncate mt-0.5">
+                                                        {g.whatsapp}
+                                                      </div>
+                                                    )}
+                                                  </div>
+                                                </div>
+                                                {(() => {
+                                                  // Verificar se o dono já fez check-out - se sim, bloquear todos os botões
+                                                  const ownerCheckedOut =
+                                                    checkInStatus[
+                                                      gl.guest_list_id
+                                                    ]?.ownerCheckedOut ||
+                                                    isOwnerCheckedOut(
+                                                      gl.owner_checked_out,
+                                                    );
+
+                                                  // Se o dono fez check-out ou o convidado fez check-out, não mostrar botões
+                                                  if (
+                                                    ownerCheckedOut ||
+                                                    isCheckedOut
+                                                  ) {
+                                                    return null;
+                                                  }
+
+                                                  return (
+                                                    <div className="flex gap-2">
+                                                      {!isCheckedIn && (
+                                                        <button
+                                                          type="button"
+                                                          onClick={(e) => {
+                                                            e.preventDefault();
+                                                            e.stopPropagation();
+                                                            handleGuestCheckIn(
+                                                              gl.guest_list_id,
+                                                              g.id,
+                                                              g.name,
+                                                            );
+                                                          }}
+                                                          className="px-3 py-1.5 text-xs bg-green-600 hover:bg-green-700 text-white rounded-lg touch-manipulation font-medium flex-shrink-0"
+                                                        >
+                                                          Check-in
+                                                        </button>
+                                                      )}
+                                                      {isCheckedIn && (
+                                                        <button
+                                                          type="button"
+                                                          onClick={(e) => {
+                                                            e.preventDefault();
+                                                            e.stopPropagation();
+                                                            handleGuestCheckOut(
+                                                              gl.guest_list_id,
+                                                              g.id,
+                                                              g.name,
+                                                            );
+                                                          }}
+                                                          className="px-3 py-1.5 text-xs bg-orange-600 hover:bg-orange-700 text-white rounded-lg touch-manipulation font-medium flex-shrink-0"
+                                                          title="Registrar saída do convidado"
+                                                        >
+                                                          Check-out
+                                                        </button>
+                                                      )}
+                                                    </div>
+                                                  );
+                                                })()}
+                                              </div>
+                                            );
+                                          });
+                                        })()}
+                                      </div>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                          {filteredReservasSemGuestList.length > 0 && (
+                            <>
+                              <div className="text-sm text-gray-400 mt-4 mb-2 pt-2 border-t border-white/10">
+                                Reservas sem lista de convidados (
+                                {filteredReservasSemGuestList.length})
+                              </div>
+                              {filteredReservasSemGuestList.map(
+                                (r: ReservaRestaurante) => {
+                                  const checkedOut =
+                                    r.checked_out === true ||
+                                    r.checked_out === 1 ||
+                                    !!r.checkout_time;
+                                  return (
+                                    <div
+                                      key={`reserva-sem-lista-${r.id}`}
+                                      className="border rounded-lg border-white/20 bg-white/5 overflow-hidden"
+                                    >
+                                      <div className="w-full text-left px-3 md:px-4 py-2.5 md:py-3 flex items-center justify-between gap-2">
+                                        <div className="flex-1 min-w-0">
+                                          <div className="font-semibold text-sm md:text-base text-white truncate">
+                                            {r.responsavel ||
+                                              (r as any).client_name ||
+                                              "—"}
+                                          </div>
+                                          <div className="text-xs md:text-sm text-gray-300 mt-0.5">
+                                            {r.reservation_time || "—"}
+                                            {r.number_of_people != null
+                                              ? ` • ${r.number_of_people} pessoa(s)`
+                                              : ""}
+                                            {r.table_number != null &&
+                                            String(r.table_number).trim() !== ""
+                                              ? ` • Mesa ${r.table_number}`
+                                              : ""}
+                                            {r.area_name
+                                              ? ` • ${r.area_name}`
+                                              : ""}
+                                          </div>
+                                        </div>
+                                        <div className="flex-shrink-0 flex flex-col items-end gap-1">
+                                          {!r.checked_in && (
+                                            <div className="flex gap-2 flex-wrap justify-end">
+                                              <button
+                                                type="button"
+                                                onClick={(e) =>
+                                                  handleReservaRestauranteCheckIn(
+                                                    r,
+                                                    e,
+                                                  )
+                                                }
+                                                className="px-3 py-1.5 text-xs font-medium rounded-lg bg-green-600 hover:bg-green-700 text-white flex items-center gap-1"
+                                              >
+                                                <MdCheckCircle size={16} />{" "}
+                                                Check-in
+                                              </button>
+                                              <button
+                                                type="button"
+                                                onClick={(e) =>
+                                                  handleReservaRestauranteNoShow(
+                                                    r.id,
+                                                    r.responsavel ||
+                                                      (r as any).client_name ||
+                                                      "Cliente",
+                                                    "restaurante",
+                                                    e,
+                                                  )
+                                                }
+                                                className="px-3 py-1.5 text-xs font-medium rounded-lg bg-red-600 hover:bg-red-700 text-white"
+                                                title="Marcar reserva como no-show"
+                                              >
+                                                No-show
+                                              </button>
+                                            </div>
+                                          )}
+                                          {r.checked_in && !checkedOut && (
+                                            <>
+                                              <div className="flex gap-2 flex-wrap justify-end">
+                                                <span
+                                                  className="px-2 md:px-3 py-1 text-xs rounded-full font-medium bg-green-100 text-green-700 border border-green-300"
+                                                  style={{
+                                                    touchAction: "manipulation",
+                                                  }}
+                                                >
+                                                  ✅ Presente
+                                                </span>
+                                                <button
+                                                  type="button"
+                                                  onClick={(e) =>
+                                                    handleReservaRestauranteCheckOut(
+                                                      r,
+                                                      e,
+                                                    )
+                                                  }
+                                                  className="px-2 md:px-3 py-1 text-xs rounded-full font-medium touch-manipulation bg-orange-100 text-orange-700 hover:bg-orange-200 border border-orange-300"
+                                                  title="Registrar saída"
+                                                >
+                                                  🚪 Check-out
+                                                </button>
+                                              </div>
+                                              {r.checkin_time && (
+                                                <span className="text-xs text-gray-400 font-mono px-2">
+                                                  E: {formatCheckinTime(r.checkin_time)}
+                                                </span>
+                                              )}
+                                            </>
+                                          )}
+                                          {r.checked_in && checkedOut && (
+                                            <div className="flex flex-col gap-0.5 items-end">
+                                              <div className="flex gap-2 flex-wrap justify-end">
+                                                <span className="px-2 md:px-3 py-1 text-xs rounded-full font-medium bg-gray-100 text-gray-600 border border-gray-300">
+                                                  ✅ Concluído
+                                                </span>
+                                                {(String((r as any).status || "").toLowerCase() === "no_show" ||
+                                                  String((r as any).status || "").toLowerCase() === "no-show") && (
+                                                  <span className="px-2 md:px-3 py-1 text-xs rounded-full font-medium bg-red-100 text-red-700 border border-red-300">
+                                                    🚫 NO-SHOW
+                                                  </span>
+                                                )}
+                                              </div>
+                                              {(r.checkin_time ||
+                                                r.checkout_time) && (
+                                                <span className="text-xs text-gray-400 font-mono px-2">
+                                                  {r.checkin_time &&
+                                                    `E: ${formatCheckinTime(r.checkin_time)}`}
+                                                  {r.checkin_time &&
+                                                    r.checkout_time &&
+                                                    " | "}
+                                                  {r.checkout_time &&
+                                                    `S: ${formatCheckinTime(r.checkout_time)}`}
+                                                </span>
+                                              )}
+                                            </div>
+                                          )}
+                                        </div>
+                                      </div>
+                                    </div>
+                                  );
+                                },
+                              )}
+                            </>
+                          )}
+                        </>
+                      );
+                    })()}
+                  </div>
+                </section>
+              )}
+
+            {/* Convidados de Promoters */}
+            {(selectedTab === "todos" || selectedTab === "promoters") &&
+              !searchTerm.trim() && (
+                <>
+                  {/* Lista de Promoters */}
+                  {sortedFilteredPromoters.length > 0 && (
+                    <section className="bg-white/10 backdrop-blur-sm rounded-lg shadow-sm p-4 md:p-6 border border-white/20">
+                      <h2 className="text-lg md:text-xl font-bold text-white mb-3 md:mb-4 flex items-center gap-2">
+                        <MdStar
+                          size={20}
+                          className="md:w-6 md:h-6 text-yellow-400"
+                        />
+                        <span className="truncate">
+                          Promoters ({sortedFilteredPromoters.length})
+                        </span>
+                      </h2>
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-3 md:gap-4">
+                        {sortedFilteredPromoters.map((promoter) => (
+                          <motion.div
+                            key={promoter.id}
+                            initial={isMobile ? false : { opacity: 0, y: 20 }}
+                            animate={isMobile ? false : { opacity: 1, y: 0 }}
+                            transition={
+                              isMobile ? undefined : { duration: 0.2 }
+                            }
+                            style={{ touchAction: "manipulation" }}
+                            className="border rounded-lg p-3 bg-purple-900/20 border-purple-500/50"
+                          >
+                            <div className="flex items-start justify-between mb-2">
+                              <div className="flex-1 min-w-0">
+                                <h3 className="font-bold text-base text-white flex items-center gap-1.5">
+                                  <span className="truncate">
+                                    {promoter.nome}
+                                  </span>
+                                  <MdStar
+                                    size={16}
+                                    className="text-yellow-400 flex-shrink-0"
+                                  />
+                                </h3>
+                                <div className="text-xs text-gray-300 space-y-0.5 mt-1">
+                                  {promoter.email && (
+                                    <div className="flex items-center gap-1 truncate">
+                                      <MdEmail size={12} />
+                                      <span className="truncate">
+                                        {promoter.email}
+                                      </span>
+                                    </div>
+                                  )}
+                                  {promoter.telefone && (
+                                    <div className="flex items-center gap-1 truncate">
+                                      <MdPhone size={12} />
+                                      <span className="truncate">
+                                        {promoter.telefone}
+                                      </span>
+                                    </div>
+                                  )}
+                                  <div className="text-xs text-purple-300 mt-1.5">
+                                    {promoter.convidados_checkin}/
+                                    {promoter.total_convidados} presentes
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </motion.div>
+                        ))}
+                      </div>
+                    </section>
+                  )}
+
+                  {/* Convidados dos Promoters */}
+                  <section className="bg-white/10 backdrop-blur-sm rounded-lg shadow-sm p-4 md:p-6 border border-white/20">
+                    {(() => {
+                      return null;
+                    })()}
+                    <div className="flex items-start justify-between mb-3 md:mb-4 gap-4">
+                      <div className="flex-1 min-w-0">
+                        {" "}
+                        {/* Container para Título e Descrição */}
+                        <h2 className="text-lg md:text-xl font-bold text-white flex items-center gap-2">
+                          <MdEvent
+                            size={20}
+                            className="md:w-6 md:h-6 text-purple-400 flex-shrink-0"
+                          />
+                          <span className="truncate">
+                            Listas de Promoters e Cadastros (
+                            {sortedFilteredConvidadosPromoters.length})
+                          </span>
+                        </h2>
+                        <p className="text-xs md:text-sm text-gray-400 mt-1 ml-1 md:ml-8">
+                          Inclui convidados de promoters, cadastros via
+                          Site/Instagram e listas promocionais (ex: VIP até
+                          horário).
+                        </p>
+                      </div>
+
+                      {/* Botões de Visualização (Grid/List) - Mantidos à direita */}
+                      <div className="flex items-center gap-2 flex-shrink-0 mt-1">
+                        <button
+                          onClick={() => setPromoterGuestsViewMode("grid")}
+                          className={`p-2 rounded-lg transition-colors ${
+                            promoterGuestsViewMode === "grid"
+                              ? "bg-purple-600 text-white"
+                              : "bg-white/10 text-gray-300 hover:bg-white/20"
+                          }`}
+                          title="Visualização em grade"
+                        >
+                          <MdViewModule size={24} />
+                        </button>
+                        <button
+                          onClick={() => setPromoterGuestsViewMode("list")}
+                          className={`p-2 rounded-lg transition-colors ${
+                            promoterGuestsViewMode === "list"
+                              ? "bg-purple-600 text-white"
+                              : "bg-white/10 text-gray-300 hover:bg-white/20"
+                          }`}
+                          title="Visualização em lista"
+                        >
+                          <MdViewList size={24} />
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Campo de busca específico para convidados de promoters */}
+                    <div className="mb-4">
+                      <div className="relative">
+                        <MdSearch
+                          className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+                          size={18}
+                        />
+                        <input
+                          type="text"
+                          placeholder="Buscar convidado por nome..."
+                          value={promoterGuestsSearch}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            setPromoterGuestsSearch(value);
+                          }}
+                          className="w-full pl-9 md:pl-10 pr-9 md:pr-10 py-2.5 md:py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm md:text-base"
+                        />
+                        {promoterGuestsSearch && (
+                          <button
+                            onClick={() => {
+                              setPromoterGuestsSearch("");
+                            }}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white p-1"
+                          >
+                            <MdClose size={18} />
+                          </button>
+                        )}
+                      </div>
+                      {promoterGuestsSearch && (
+                        <div className="mt-2 text-sm text-gray-400">
+                          Buscando: "{promoterGuestsSearch}" -{" "}
+                          {sortedFilteredConvidadosPromoters.length}{" "}
+                          resultado(s) encontrado(s)
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Mobile/Tablet: Lista simples em linhas */}
+                    <div className="md:hidden divide-y divide-white/10">
+                      {sortedFilteredConvidadosPromoters.map((convidado) => {
+                        const isCheckedIn =
+                          convidado.status_checkin === "Check-in";
+                        const isNoShow = convidado.status_checkin === "No-Show";
+                        const isVipNoiteTuda =
+                          convidado.vip_tipo === "M" || convidado.vip_tipo === "F";
+                        return (
+                          <div
+                            key={convidado.id}
+                            className={`flex items-center justify-between gap-2 px-3 py-2 ${
+                              isCheckedIn
+                                ? "bg-green-900/10"
+                                : isNoShow
+                                  ? "bg-red-900/10"
+                                  : isVipNoiteTuda
+                                    ? "bg-purple-900/20 border-l-4 border-amber-400/50"
+                                    : "hover:bg-white/5"
+                            }`}
+                          >
+                            <div className="flex items-center gap-2 flex-1 min-w-0">
+                              {isCheckedIn ? (
+                                <MdCheckCircle
+                                  size={18}
+                                  className="text-green-400 flex-shrink-0"
+                                />
+                              ) : isNoShow ? (
+                                <MdClose
+                                  size={18}
+                                  className="text-red-400 flex-shrink-0"
+                                />
+                              ) : (
+                                <div className="w-4 h-4 rounded-full border-2 border-gray-400 flex-shrink-0" />
+                              )}
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-1.5">
+                                  <span className="font-medium text-white text-sm truncate">
+                                    {convidado.nome}
+                                  </span>
+                                  {(convidado.is_vip || isVipNoiteTuda) && (
+                                    <MdStar
+                                      size={14}
+                                      className="text-amber-400 flex-shrink-0"
+                                      title={isVipNoiteTuda ? "VIP Noite Tuda" : "VIP"}
+                                    />
+                                  )}
+                                  {convidado.entrada_tipo && isCheckedIn && (
+                                    <span
+                                      className={`text-xs px-1.5 py-0.5 rounded ${
+                                        convidado.entrada_tipo === "VIP"
+                                          ? "bg-green-500/30 text-green-200"
+                                          : convidado.entrada_tipo === "SECO"
+                                            ? "bg-blue-500/30 text-blue-200"
+                                            : "bg-purple-500/30 text-purple-200"
+                                      }`}
+                                    >
+                                      {convidado.entrada_tipo}
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="text-xs text-gray-400 truncate mt-0.5">
+                                  {convidado.telefone || convidado.origem}
+                                </div>
+                              </div>
+                            </div>
+                            {!isCheckedIn && !isNoShow && (
+                              <button
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  handleConvidadoPromoterCheckIn(convidado);
+                                }}
+                                className="px-3 py-1.5 text-xs bg-green-600 hover:bg-green-700 text-white rounded-lg touch-manipulation font-medium flex-shrink-0"
+                              >
+                                Check-in
+                              </button>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Desktop: Visualização em Grade */}
+                    {promoterGuestsViewMode === "grid" && (
+                      <div className="hidden md:grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-3 md:gap-4">
+                        {sortedFilteredConvidadosPromoters.map((convidado) => {
+                          const isVipNoiteTuda =
+                            convidado.vip_tipo === "M" || convidado.vip_tipo === "F";
+                          return (
+                          <motion.div
+                            key={convidado.id}
+                            initial={isMobile ? false : { opacity: 0, y: 20 }}
+                            animate={isMobile ? false : { opacity: 1, y: 0 }}
+                            transition={
+                              isMobile ? undefined : { duration: 0.2 }
+                            }
+                            style={{ touchAction: "manipulation" }}
+                            className={`border rounded-lg p-3 ${
+                              convidado.status_checkin === "Check-in"
+                                ? "bg-green-900/30 border-green-500/50"
+                                : convidado.status_checkin === "No-Show"
+                                  ? "bg-red-900/30 border-red-500/50"
+                                  : isVipNoiteTuda
+                                    ? "bg-purple-900/20 border-purple-400/60 hover:border-purple-400/70"
+                                    : "bg-white/5 border-white/20 hover:border-purple-400/50"
+                            } ${isVipNoiteTuda ? "ring-1 ring-amber-400/40" : ""}`}
+                          >
+                            <div className="flex items-start justify-between mb-2">
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-1.5">
+                                  <h3 className="font-bold text-base text-white truncate">
+                                    {convidado.nome}
+                                  </h3>
+                                  {(convidado.is_vip || isVipNoiteTuda) && (
+                                    <MdStar
+                                      size={16}
+                                      className="text-amber-400 flex-shrink-0"
+                                      title={isVipNoiteTuda ? "VIP Noite Tuda" : "VIP"}
+                                    />
+                                  )}
+                                </div>
+                                <div className="text-xs text-gray-300 space-y-0.5 mt-1">
+                                  <div className="text-xs text-gray-400 truncate">
+                                    Lista: {convidado.origem}
+                                  </div>
+                                  <div className="truncate">
+                                    Promoter: {convidado.responsavel}
+                                  </div>
+                                  {isVipNoiteTuda && (
+                                    <div className="mt-1">
+                                      <span className="text-xs px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-medium">
+                                        Entrada VIP a noite toda
+                                      </span>
+                                    </div>
+                                  )}
+                                  {convidado.telefone && (
+                                    <div className="flex items-center gap-1 truncate">
+                                      <MdPhone size={12} />
+                                      <span className="truncate text-xs">
+                                        {convidado.telefone}
+                                      </span>
+                                    </div>
+                                  )}
+                                  {convidado.observacoes && (
+                                    <div className="flex items-center gap-1">
+                                      <MdDescription size={12} />
+                                      <span className="text-xs truncate">
+                                        {convidado.observacoes}
+                                      </span>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                              {convidado.status_checkin === "Check-in" && (
+                                <MdCheckCircle
+                                  size={24}
+                                  className="text-green-400 flex-shrink-0 ml-2"
+                                />
+                              )}
+                            </div>
+
+                            {convidado.status_checkin === "Pendente" ? (
+                              <button
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  handleConvidadoPromoterCheckIn(convidado);
+                                }}
+                                className="w-full bg-purple-600 hover:bg-purple-700 text-white font-medium py-2 rounded-lg transition-colors flex items-center justify-center gap-1.5 text-sm touch-manipulation"
+                              >
+                                <MdCheckCircle size={16} />
+                                {isVipNoiteTuda ? "Check-in (VIP)" : "Check-in"}
+                              </button>
+                            ) : convidado.status_checkin === "Check-in" ? (
+                              <div className="text-center space-y-1">
+                                <div className="text-xs text-green-400 font-medium">
+                                  ✅{" "}
+                                  {formatCheckinTime(convidado.data_checkin)}
+                                </div>
+                                {convidado.entrada_tipo && (
+                                  <div
+                                    className={`text-xs px-2 py-0.5 rounded-full inline-block font-medium ${
+                                      convidado.entrada_tipo === "VIP"
+                                        ? "bg-green-100 text-green-700"
+                                        : convidado.entrada_tipo === "SECO"
+                                          ? "bg-blue-100 text-blue-700"
+                                          : "bg-purple-100 text-purple-700"
+                                    }`}
+                                  >
+                                    {convidado.entrada_tipo}
+                                    {convidado.entrada_valor &&
+                                      (() => {
+                                        const valor =
+                                          typeof convidado.entrada_valor ===
+                                          "number"
+                                            ? convidado.entrada_valor
+                                            : parseFloat(
+                                                String(convidado.entrada_valor),
+                                              );
+                                        return !isNaN(valor)
+                                          ? ` R$ ${valor.toFixed(2)}`
+                                          : "";
+                                      })()}
+                                  </div>
+                                )}
+                              </div>
+                            ) : (
+                              <div className="text-center text-sm text-red-400 font-medium">
+                                ❌ No-Show
+                              </div>
+                            )}
+                          </motion.div>
+                          );
+                        })}
+                        {sortedFilteredConvidadosPromoters.length === 0 && (
+                          <div className="col-span-full text-center py-8 text-gray-400">
+                            Nenhum convidado de promoter encontrado
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Desktop: Visualização em Lista - Apenas nomes */}
+                    {promoterGuestsViewMode === "list" && (
+                      <div className="hidden md:block space-y-2">
+                        {sortedFilteredConvidadosPromoters.map((convidado) => {
+                          const isVipNoiteTuda =
+                            convidado.vip_tipo === "M" || convidado.vip_tipo === "F";
+                          return (
+                          <motion.div
+                            key={convidado.id}
+                            initial={false}
+                            animate={false}
+                            style={{ touchAction: "manipulation" }}
+                            className={`border rounded-lg p-4 flex items-center justify-between ${
+                              convidado.status_checkin === "Check-in"
+                                ? "bg-green-900/30 border-green-500/50"
+                                : convidado.status_checkin === "No-Show"
+                                  ? "bg-red-900/30 border-red-500/50"
+                                  : isVipNoiteTuda
+                                    ? "bg-purple-900/20 border-purple-400/60"
+                                    : "bg-white/5 border-white/20 hover:border-purple-400/50"
+                            } ${isVipNoiteTuda ? "ring-1 ring-amber-400/40" : ""}`}
+                          >
+                            <div className="flex items-center gap-3 flex-1">
+                              <div className="flex items-center gap-2">
+                                {convidado.status_checkin === "Check-in" && (
+                                  <MdCheckCircle
+                                    size={24}
+                                    className="text-green-400"
+                                  />
+                                )}
+                                {convidado.status_checkin === "No-Show" && (
+                                  <MdClose size={24} className="text-red-400" />
+                                )}
+                                {convidado.status_checkin === "Pendente" && (
+                                  <MdPending
+                                    size={24}
+                                    className="text-gray-400"
+                                  />
+                                )}
+                              </div>
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <h3 className="font-semibold text-lg text-white">
+                                  {convidado.nome}
+                                </h3>
+                                {(convidado.is_vip || isVipNoiteTuda) && (
+                                  <MdStar
+                                    size={18}
+                                    className="text-amber-400"
+                                    title={isVipNoiteTuda ? "VIP Noite Tuda" : "VIP"}
+                                  />
+                                )}
+                                {isVipNoiteTuda && (
+                                  <span className="text-xs px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-medium">
+                                    Entrada VIP a noite toda
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            {convidado.status_checkin === "Pendente" && (
+                              <button
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  handleConvidadoPromoterCheckIn(convidado);
+                                }}
+                                className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded-lg transition-colors flex items-center gap-2 touch-manipulation"
+                              >
+                                <MdCheckCircle size={18} />
+                                {isVipNoiteTuda ? "Check-in (VIP)" : "Check-in"}
+                              </button>
+                            )}
+                            {convidado.status_checkin === "Check-in" && (
+                              <div className="flex flex-col items-end gap-1">
+                                <div className="text-sm text-green-400 font-medium">
+                                  ✅{" "}
+                                  {convidado.data_checkin
+                                    ? formatDateTimeCheckin(convidado.data_checkin)
+                                    : "Presente"}
+                                </div>
+                                {convidado.entrada_tipo && (
+                                  <div
+                                    className={`text-xs px-2 py-1 rounded-full font-semibold ${
+                                      convidado.entrada_tipo === "VIP"
+                                        ? "bg-green-100 text-green-700"
+                                        : convidado.entrada_tipo === "SECO"
+                                          ? "bg-blue-100 text-blue-700"
+                                          : "bg-purple-100 text-purple-700"
+                                    }`}
+                                  >
+                                    {convidado.entrada_tipo}
+                                    {convidado.entrada_valor &&
+                                      (() => {
+                                        const valor =
+                                          typeof convidado.entrada_valor ===
+                                          "number"
+                                            ? convidado.entrada_valor
+                                            : parseFloat(
+                                                String(convidado.entrada_valor),
+                                              );
+                                        return !isNaN(valor)
+                                          ? ` R$ ${valor.toFixed(2)}`
+                                          : "";
+                                      })()}
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                            {convidado.status_checkin === "No-Show" && (
+                              <div className="text-sm text-red-400 font-medium">
+                                ❌ No-Show
+                              </div>
+                            )}
+                          </motion.div>
+                          );
+                        })}
+                        {sortedFilteredConvidadosPromoters.length === 0 && (
+                          <div className="text-center py-8 text-gray-400">
+                            Nenhum convidado de promoter encontrado
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </section>
+                </>
+              )}
+
+            {/* Camarotes */}
+            {(selectedTab === "todos" || selectedTab === "camarotes") &&
+              !searchTerm.trim() &&
+              filteredCamarotes.length > 0 && (
+                <section className="bg-white/10 backdrop-blur-sm rounded-lg shadow-sm p-4 md:p-6 border border-white/20">
+                  <h2 className="text-lg md:text-xl font-bold text-white mb-3 md:mb-4 flex items-center gap-2">
+                    <MdTableBar
+                      size={20}
+                      className="md:w-6 md:h-6 text-orange-400"
+                    />
+                    <span className="truncate">
+                      Camarotes / Reservas Grandes ({filteredCamarotes.length})
+                    </span>
+                  </h2>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-3 md:gap-4">
+                    {filteredCamarotes.map((camarote) => (
+                      <motion.div
+                        key={camarote.id}
+                        initial={isMobile ? false : { opacity: 0, y: 20 }}
+                        animate={isMobile ? false : { opacity: 1, y: 0 }}
+                        transition={isMobile ? undefined : { duration: 0.2 }}
+                        style={{ touchAction: "manipulation" }}
+                        className={`border rounded-lg p-3 ${
+                          camarote.checked_in
+                            ? "bg-green-900/30 border-green-500/50"
+                            : "bg-white/5 border-white/20 hover:border-orange-400/50"
+                        }`}
+                      >
+                        <div className="flex items-start justify-between mb-2">
+                          <div className="flex-1 min-w-0">
+                            <h3 className="font-bold text-base text-white truncate">
+                              {camarote.responsavel}
+                            </h3>
+                            <div className="text-xs text-gray-300 space-y-0.5 mt-1">
+                              <div className="text-xs bg-orange-800/30 text-orange-300 px-2 py-0.5 rounded inline-block">
+                                {camarote.origem}
+                              </div>
+                              <div className="flex items-center gap-1">
+                                <MdAccessTime size={12} />
+                                <span className="text-xs">
+                                  {camarote.reservation_time}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-1">
+                                <MdPerson size={12} />
+                                <span className="text-xs">
+                                  {camarote.number_of_people} pessoas
+                                </span>
+                              </div>
+                              {camarote.total_convidados > 0 && (
+                                <div className="text-xs text-gray-400">
+                                  {camarote.convidados_checkin}/
+                                  {camarote.total_convidados} presentes
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                          {camarote.checked_in && (
+                            <MdCheckCircle
+                              size={24}
+                              className="text-green-400 flex-shrink-0 ml-2"
+                            />
+                          )}
+                        </div>
+
+                        {!camarote.checked_in ? (
+                          <button
+                            onClick={(e) => handleCamaroteCheckIn(camarote, e)}
+                            className="w-full bg-orange-600 hover:bg-orange-700 text-white font-medium py-2 rounded-lg transition-colors flex items-center justify-center gap-1.5 text-sm touch-manipulation"
+                          >
+                            <MdCheckCircle size={16} />
+                            Check-in
+                          </button>
+                        ) : (
+                          <div className="text-center text-xs text-green-400 font-medium">
+                            ✅{" "}
+                            {formatCheckinTime(camarote.checkin_time)}
+                          </div>
+                        )}
+                      </motion.div>
+                    ))}
+                  </div>
+                </section>
+              )}
+
+            {/* Line Up - Atrações do Evento */}
+            {(selectedTab === "todos" || selectedTab === "reservas") &&
+              !searchTerm.trim() && (
+                <section className="bg-white/10 backdrop-blur-sm rounded-lg shadow-sm p-4 md:p-6 border border-white/20">
+                  <h2 className="text-lg md:text-xl font-bold text-white mb-3 md:mb-4 flex items-center gap-2">
+                    <MdEvent
+                      size={20}
+                      className="md:w-6 md:h-6 text-pink-400"
+                    />
+                    <span className="truncate">
+                      Line Up ({atracoes.length})
+                    </span>
+                  </h2>
+                  {atracoes.length > 0 ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
+                      {atracoes.map((atracao) => (
+                        <motion.div
+                          key={atracao.id}
+                          initial={false}
+                          animate={false}
+                          style={{ touchAction: "manipulation" }}
+                          className="border rounded-lg p-4 bg-pink-900/20 border-pink-500/50 hover:border-pink-400/70 transition-colors"
+                        >
+                          <div className="flex items-start justify-between mb-3">
+                            <div className="flex-1 min-w-0">
+                              <h3 className="font-bold text-lg text-white mb-2 truncate">
+                                {atracao.nome_atracao}
+                              </h3>
+                              <div className="text-sm text-gray-300 space-y-1">
+                                <div className="flex items-center gap-2">
+                                  <MdTableBar
+                                    size={16}
+                                    className="text-pink-400 flex-shrink-0"
+                                  />
+                                  <span className="truncate">
+                                    {atracao.ambiente}
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <MdAccessTime
+                                    size={16}
+                                    className="text-pink-400 flex-shrink-0"
+                                  />
+                                  <span>
+                                    {(() => {
+                                      const inicio = atracao.horario_inicio
+                                        ? atracao.horario_inicio.substring(0, 5)
+                                        : "";
+                                      const termino = atracao.horario_termino
+                                        ? atracao.horario_termino.substring(
+                                            0,
+                                            5,
+                                          )
+                                        : "";
+                                      return `${inicio} - ${termino}`;
+                                    })()}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </motion.div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8 text-gray-400">
+                      Nenhuma atração cadastrada para este evento
+                    </div>
+                  )}
+                </section>
+              )}
+          </div>
+        )}
+
+        {/* Seção de Contabilização */}
+        {!loading && (
+          <section className="mt-8 bg-gradient-to-r from-green-600 to-green-700 rounded-lg shadow-lg p-6 border border-green-500/50">
+            <h2 className="text-2xl font-bold text-white mb-6 flex items-center gap-2">
+              <MdAttachMoney size={28} />
+              Contabilização de Entradas
+            </h2>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+              <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4 border border-white/20">
+                <div className="text-sm text-white/80 mb-1">
+                  Total Arrecadado
+                </div>
+                <div className="text-3xl font-bold text-white">
+                  R${" "}
+                  {(() => {
+                    const valor =
+                      typeof arrecadacao.totalGeral === "number"
+                        ? arrecadacao.totalGeral
+                        : parseFloat(String(arrecadacao.totalGeral)) || 0;
+                    return valor.toFixed(2);
+                  })()}
+                </div>
+              </div>
+              <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4 border border-white/20">
+                <div className="text-sm text-white/80 mb-1">Entradas SECO</div>
+                <div className="text-2xl font-bold text-white">
+                  R${" "}
+                  {(() => {
+                    const valor =
+                      typeof arrecadacao.porTipo.seco === "number"
+                        ? arrecadacao.porTipo.seco
+                        : parseFloat(String(arrecadacao.porTipo.seco)) || 0;
+                    return valor.toFixed(2);
+                  })()}
+                </div>
+              </div>
+              <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4 border border-white/20">
+                <div className="text-sm text-white/80 mb-1">
+                  Entradas CONSUMA
+                </div>
+                <div className="text-2xl font-bold text-white">
+                  R${" "}
+                  {(() => {
+                    const valor =
+                      typeof arrecadacao.porTipo.consuma === "number"
+                        ? arrecadacao.porTipo.consuma
+                        : parseFloat(String(arrecadacao.porTipo.consuma)) || 0;
+                    return valor.toFixed(2);
+                  })()}
+                </div>
+              </div>
+            </div>
+
+            {/* Arrecadação por Promoter */}
+            {Object.keys(arrecadacao.porPromoter).length > 0 && (
+              <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4 border border-white/20">
+                <h3 className="text-lg font-semibold text-white mb-3">
+                  Arrecadação por Promoter
+                </h3>
+                <div className="space-y-2">
+                  {Object.entries(arrecadacao.porPromoter).map(
+                    ([promoterId, data]) => {
+                      const valor =
+                        typeof data.total === "number"
+                          ? data.total
+                          : parseFloat(String(data.total)) || 0;
+                      return (
+                        <div
+                          key={promoterId}
+                          className="flex items-center justify-between bg-white/5 rounded-lg p-3"
+                        >
+                          <span className="text-white font-medium">
+                            {data.nome}
+                          </span>
+                          <span className="text-green-200 font-bold text-lg">
+                            R$ {valor.toFixed(2)}
+                          </span>
+                        </div>
+                      );
+                    },
+                  )}
+                </div>
+              </div>
+            )}
+          </section>
+        )}
+      </div>
+
+      {/* Modal de Status de Entrada — não exibido no Reserva Rooftop (check-in direto) */}
+      {convidadoParaCheckIn && !isReservaRooftopEvent && (
+        <EntradaStatusModal
+          isOpen={entradaModalOpen}
+          onClose={() => {
+            setEntradaModalOpen(false);
+            setConvidadoParaCheckIn(null);
+          }}
+          onConfirm={handleConfirmarCheckIn}
+          nomeConvidado={convidadoParaCheckIn.nome}
+          horaAtual={new Date()}
+          showVipNoiteTudaOption={convidadoParaCheckIn.tipo === "promoter" && !!convidadoParaCheckIn.vipNoiteTuda}
+          valorEntradaPromoter={convidadoParaCheckIn.tipo === "promoter" ? (convidadoParaCheckIn.valorEntradaPromoter ?? 0) : 0}
+          {...((convidadoParaCheckIn.tipo === "promoter"
+            ? { entradaConfigPromoter: convidadoParaCheckIn.entradaConfigPromoter ?? null }
+            : {}) as Record<string, unknown>)}
+        />
+      )}
+
+      {/* Modal de Detalhes do Aniversário */}
+      <BirthdayDetailsModal
+        reservation={selectedBirthdayReservation}
+        isOpen={birthdayModalOpen}
+        onClose={() => {
+          setBirthdayModalOpen(false);
+          setSelectedBirthdayReservation(null);
+        }}
+      />
+
+      {/* Modal de Planilha */}
+      {planilhaModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+          <div className="bg-gray-900 rounded-lg shadow-2xl w-full max-w-[95vw] lg:max-w-6xl max-h-[95vh] flex flex-col border border-gray-700">
+            {/* Header do Modal */}
+            <div className="flex items-center justify-between p-3 sm:p-4 border-b border-gray-700">
+              <h2 className="text-lg sm:text-xl font-bold text-white flex items-center gap-2">
+                <MdDescription size={20} className="sm:w-6 sm:h-6" />
+                <span className="hidden sm:inline">
+                  Planilha de Reservas - Áreas e Mesas
+                </span>
+                <span className="sm:hidden">Planilha</span>
+              </h2>
+              <button
+                onClick={() => setPlanilhaModalOpen(false)}
+                className="p-2 hover:bg-gray-800 rounded-lg transition-colors"
+              >
+                <MdClose size={20} className="sm:w-6 sm:h-6 text-gray-400" />
+              </button>
+            </div>
+
+            {/* Conteúdo da Planilha */}
+            <div className="flex-1 overflow-auto p-2 sm:p-4 bg-white">
+              {planilhaLoading ? (
+                <div className="flex items-center justify-center py-12">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-400"></div>
+                  <p className="ml-3 text-gray-700">Carregando reservas...</p>
+                </div>
+              ) : (
+                <div className="space-y-8">
+                  {/* Filtros superiores (globais) */}
+                  <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-3 sm:gap-4 mb-4">
+                    <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 w-full md:w-auto">
+                      <div className="flex-1 sm:flex-none">
+                        <label className="block text-xs sm:text-sm text-gray-600 mb-1 font-medium">
+                          Data
+                        </label>
+                        <input
+                          type="date"
+                          value={sheetFilters.date || ""}
+                          onChange={(e) =>
+                            setSheetFilters((prev) => ({
+                              ...prev,
+                              date: e.target.value,
+                            }))
+                          }
+                          className="w-full px-2 sm:px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+                        />
+                      </div>
+                      <div className="flex-1">
+                        <label className="block text-xs sm:text-sm text-gray-600 mb-1 font-medium">
+                          Buscar
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="Nome, telefone, evento..."
+                          value={sheetFilters.search || ""}
+                          onChange={(e) =>
+                            setSheetFilters((prev) => ({
+                              ...prev,
+                              search: e.target.value,
+                            }))
+                          }
+                          className="w-full px-2 sm:px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+                        />
+                      </div>
+                    </div>
+                    <div className="flex gap-2 flex-wrap">
+                      <button
+                        onClick={() => {
+                          const dataEvento =
+                            evento?.data_evento?.split("T")[0] ||
+                            evento?.data_evento ||
+                            "";
+                          setSheetFilters({ date: dataEvento });
+                        }}
+                        className="px-3 sm:px-4 py-2 text-xs sm:text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium"
+                      >
+                        Resetar
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleExportPlanilhaExcel}
+                        className="px-3 sm:px-4 py-2 text-xs sm:text-sm bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium flex items-center gap-1.5"
+                      >
+                        <MdDownload size={16} />
+                        Baixar Excel
+                      </button>
+                    </div>
+                  </div>
+
+                  {(() => {
+                    const eventDate =
+                      sheetFilters.date ||
+                      evento?.data_evento?.split("T")[0] ||
+                      evento?.data_evento ||
+                      "";
+                    const getReservationDate = (r: Reservation) => {
+                      const dateStr = String(
+                        (r as any).reservation_date || "",
+                      ).trim();
+                      if (
+                        !dateStr ||
+                        dateStr === "null" ||
+                        dateStr === "undefined"
+                      )
+                        return "";
+                      try {
+                        const dt = dateStr.includes("T")
+                          ? new Date(dateStr)
+                          : new Date(dateStr + "T12:00:00");
+                        return isNaN(dt.getTime())
+                          ? ""
+                          : dt.toISOString().split("T")[0];
+                      } catch {
+                        return "";
+                      }
+                    };
+
+                    const reservasDoEvento = eventDate
+                      ? planilhaReservas.filter(
+                          (r) => getReservationDate(r) === eventDate,
+                        )
+                      : [];
+
+                    const areaIdToName: Record<number, string> = {};
+                    planilhaAreas.forEach((a) => {
+                      areaIdToName[a.id] = a.name || "";
+                    });
+
+                    const normalize = (s: string) =>
+                      (s || "")
+                        .trim()
+                        .toLowerCase()
+                        .normalize("NFD")
+                        .replace(/[\u0300-\u036f]/g, "");
+                    const extractNumber = (s: string): string => {
+                      const n = (s || "").replace(/\D/g, "");
+                      return n || "";
+                    };
+                    const getReservationAreaName = (r: Reservation): string => {
+                      const a = r as any;
+                      return (
+                        a.area_name ??
+                        a.area?.name ??
+                        (a.area_id != null ? areaIdToName[a.area_id] : "") ??
+                        ""
+                      );
+                    };
+                    const getReservationTableNumber = (
+                      r: Reservation,
+                    ): string =>
+                      String(
+                        (r as any).table_number ?? (r as any).mesa ?? "",
+                      ).trim();
+
+                    const getReservationTableNumbers = (
+                      r: Reservation,
+                    ): string[] => {
+                      const a = r as any;
+                      const single = getReservationTableNumber(r);
+                      if (single) {
+                        const multi =
+                          a.selected_tables ?? a.table_numbers ?? a.tables;
+                        if (Array.isArray(multi) && multi.length > 0)
+                          return multi
+                            .map((t: any) => String(t ?? "").trim())
+                            .filter(Boolean);
+                        return [single];
+                      }
+                      return [];
+                    };
+
+                    const reservationMatchesMesa = (
+                      r: Reservation,
+                      areaNorm: string,
+                      mesaNorm: string,
+                      mesaNumInt: number,
+                    ): boolean => {
+                      const rArea = normalize(getReservationAreaName(r));
+                      const areaMatch =
+                        rArea === areaNorm ||
+                        areaNorm.includes(rArea) ||
+                        rArea.includes(areaNorm);
+                      if (!areaMatch) return false;
+                      const tables = getReservationTableNumbers(r);
+                      for (const rTable of tables) {
+                        const rTableNorm = normalize(rTable);
+                        const rTableNumStr = extractNumber(rTable);
+                        const rTableNumInt = rTableNumStr
+                          ? parseInt(rTableNumStr, 10)
+                          : NaN;
+                        if (rTableNorm === mesaNorm) return true;
+                        const noSpaces = (x: string) => x.replace(/\s/g, "");
+                        if (noSpaces(rTableNorm) === noSpaces(mesaNorm))
+                          return true;
+                        if (
+                          !isNaN(mesaNumInt) &&
+                          !isNaN(rTableNumInt) &&
+                          mesaNumInt === rTableNumInt
+                        )
+                          return true;
+                        if (rTableNorm && mesaNorm.includes(rTableNorm))
+                          return true;
+                        if (rTableNorm && rTableNorm.includes(mesaNorm))
+                          return true;
+                      }
+                      return false;
+                    };
+
+                    const getReservationsForRow = (
+                      areaName: string,
+                      mesaName: string,
+                    ): Reservation[] => {
+                      const areaNorm = normalize(areaName);
+                      const mesaNorm = normalize(mesaName);
+                      const mesaNumStr = extractNumber(mesaName);
+                      const mesaNumInt = mesaNumStr
+                        ? parseInt(mesaNumStr, 10)
+                        : NaN;
+                      return reservasDoEvento.filter((r) =>
+                        reservationMatchesMesa(
+                          r,
+                          areaNorm,
+                          mesaNorm,
+                          mesaNumInt,
+                        ),
+                      );
+                    };
+
+                    const getReservationsAreaOnly = (
+                      areaName: string,
+                    ): Reservation[] => {
+                      const areaNorm = normalize(areaName);
+                      return reservasDoEvento.filter((r) => {
+                        const rArea = normalize(getReservationAreaName(r));
+                        const areaMatch =
+                          rArea === areaNorm ||
+                          areaNorm.includes(rArea) ||
+                          rArea.includes(areaNorm);
+                        if (!areaMatch) return false;
+                        const tables = getReservationTableNumbers(r);
+                        return tables.length === 0 || tables.every((t) => !t);
+                      });
+                    };
+                    const getReservationField = (
+                      r: Reservation | null,
+                      ...keys: string[]
+                    ): string => {
+                      if (!r) return "";
+                      const obj = r as unknown as Record<string, unknown>;
+                      for (const k of keys) {
+                        const v = obj[k];
+                        if (v != null && String(v).trim() !== "")
+                          return String(v).trim();
+                      }
+                      return "";
+                    };
+                    const getReservationNumber = (
+                      r: Reservation | null,
+                    ): number => {
+                      if (!r) return 0;
+                      const v = (r as any).number_of_people;
+                      if (typeof v === "number" && !isNaN(v)) return v;
+                      const n = parseInt(String(v || "0"), 10);
+                      return isNaN(n) ? 0 : n;
+                    };
+                    const getReservationCheckedIn = (
+                      r: Reservation | null,
+                    ): boolean =>
+                      !!(
+                        r &&
+                        ((r as any).checked_in || (r as any).checkin_time)
+                      );
+                    const getReservationsField = (
+                      list: Reservation[],
+                      separator: string,
+                      ...keys: string[]
+                    ): string => {
+                      const parts = list
+                        .map((r) => getReservationField(r, ...keys))
+                        .filter(Boolean);
+                      return [...new Set(parts)].join(separator);
+                    };
+                    const getReservationsNumber = (
+                      list: Reservation[],
+                    ): number =>
+                      list.reduce((s, r) => s + getReservationNumber(r), 0);
+                    const getReservationsCheckedIn = (
+                      list: Reservation[],
+                    ): boolean => list.some((r) => getReservationCheckedIn(r));
+
+                    const reservasDoDia = reservasDoEvento;
+                    const reservasUnicas = Array.from(
+                      new Map(reservasDoDia.map((r) => [r.id, r])).values(),
+                    );
+                    const totalReservations = reservasUnicas.length;
+                    const totalPeople = reservasUnicas.reduce((sum, r) => {
+                      const peopleCount =
+                        typeof r.number_of_people === "number"
+                          ? r.number_of_people
+                          : parseInt(String(r.number_of_people || "0"), 10) ||
+                            0;
+                      return sum + peopleCount;
+                    }, 0);
+
+                    const dataAndSeparatorRows = CHECKIN_SHEET_ROWS.slice(
+                      CHECKIN_SHEET_DATA_START_INDEX,
+                    ) as Array<
+                      | Extract<CheckinSheetRow, { type: "data" }>
+                      | Extract<CheckinSheetRow, { type: "separator" }>
+                    >;
+
+                    type ExtendedRow =
+                      | (Extract<CheckinSheetRow, { type: "data" }> & {
+                          isAreaOnly?: false;
+                        })
+                      | Extract<CheckinSheetRow, { type: "separator" }>
+                      | (Extract<CheckinSheetRow, { type: "data" }> & {
+                          mesaName: "Sem mesa";
+                          isAreaOnly: true;
+                          limit: number;
+                        });
+
+                    const extendedRows: ExtendedRow[] = [];
+                    let lastAreaName: string | null = null;
+                    const pushSemMesaIfNeeded = (areaName: string) => {
+                      if (
+                        !areaName ||
+                        getReservationsAreaOnly(areaName).length === 0
+                      )
+                        return;
+                      const firstInArea = dataAndSeparatorRows.find(
+                        (r): r is Extract<CheckinSheetRow, { type: "data" }> =>
+                          r.type === "data" && r.areaName === areaName,
+                      );
+                      extendedRows.push({
+                        type: "data",
+                        areaName,
+                        mesaName: "Sem mesa",
+                        limit: 0,
+                        areaColorLight: firstInArea?.areaColorLight ?? "FFE0B2",
+                        areaColorDark: firstInArea?.areaColorDark ?? "E65100",
+                        isAreaOnly: true,
+                      } as ExtendedRow);
+                    };
+                    for (const row of dataAndSeparatorRows) {
+                      if (row.type === "separator") {
+                        if (lastAreaName) pushSemMesaIfNeeded(lastAreaName);
+                        extendedRows.push(row);
+                        lastAreaName = null;
+                      } else {
+                        if (
+                          lastAreaName !== null &&
+                          lastAreaName !== row.areaName
+                        )
+                          pushSemMesaIfNeeded(lastAreaName);
+                        extendedRows.push({
+                          ...row,
+                          isAreaOnly: false,
+                        } as ExtendedRow);
+                        lastAreaName = row.areaName;
+                      }
+                    }
+                    if (lastAreaName) pushSemMesaIfNeeded(lastAreaName);
+
+                    return (
+                      <div className="space-y-6">
+                        {sheetFilters.date && (
+                          <div className="bg-gradient-to-r from-yellow-50 to-orange-50 border-2 border-yellow-300 rounded-lg p-4 sm:p-6 shadow-md">
+                            <h3 className="text-base sm:text-xl font-bold text-gray-800 mb-3 sm:mb-4 flex items-center gap-2">
+                              <span className="text-lg sm:text-xl">📊</span>
+                              <span className="hidden sm:inline">
+                                Resumo do Dia -{" "}
+                              </span>
+                              <span className="sm:hidden">Dia - </span>
+                              {(() => {
+                                const date = new Date(
+                                  sheetFilters.date + "T12:00:00",
+                                );
+                                return date.toLocaleDateString("pt-BR", {
+                                  day: "numeric",
+                                  month: "short",
+                                  year: "numeric",
+                                });
+                              })()}
+                            </h3>
+                            <div className="grid grid-cols-2 gap-3 sm:gap-4">
+                              <div className="bg-white rounded-lg p-3 sm:p-4 shadow-sm border border-yellow-200">
+                                <p className="text-xs sm:text-sm text-gray-600 font-medium">
+                                  Reservas
+                                </p>
+                                <p className="text-2xl sm:text-4xl font-bold text-yellow-600 mt-1 sm:mt-2">
+                                  {totalReservations}
+                                </p>
+                              </div>
+                              <div className="bg-white rounded-lg p-3 sm:p-4 shadow-sm border border-orange-200">
+                                <p className="text-xs sm:text-sm text-gray-600 font-medium">
+                                  Pessoas
+                                </p>
+                                <p className="text-2xl sm:text-4xl font-bold text-orange-600 mt-1 sm:mt-2">
+                                  {totalPeople}
+                                </p>
+                              </div>
+                            </div>
+                            {totalReservations > 0 && (
+                              <div className="mt-3 sm:mt-4 pt-3 sm:pt-4 border-t border-yellow-200">
+                                <p className="text-xs sm:text-sm text-gray-600">
+                                  <span className="font-semibold">Média:</span>{" "}
+                                  {(totalPeople / totalReservations).toFixed(1)}{" "}
+                                  pessoas/reserva
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {!sheetFilters.date && totalReservations > 0 && (
+                          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 shadow-sm">
+                            <p className="text-sm text-blue-800">
+                              <span className="font-semibold">💡 Dica:</span>{" "}
+                              Selecione uma data acima para ver o resumo do dia.
+                              Mostrando {totalReservations} reserva(s),{" "}
+                              {totalPeople} pessoa(s).
+                            </p>
+                          </div>
+                        )}
+
+                        <div className="overflow-x-auto border border-gray-300 rounded-lg">
+                          <table className="min-w-full border-collapse text-sm">
+                            <thead className="bg-gray-200">
+                              <tr>
+                                <th className="border border-gray-300 px-2 py-2 text-center font-bold w-20">
+                                  ÁREA
+                                </th>
+                                <th className="border border-gray-300 px-2 py-2 text-left font-bold w-24">
+                                  DATA
+                                </th>
+                                <th className="border border-gray-300 px-2 py-2 text-left font-bold w-20">
+                                  Evento
+                                </th>
+                                <th className="border border-gray-300 px-2 py-2 text-left font-bold w-20">
+                                  Sujeito
+                                </th>
+                                <th className="border border-gray-300 px-2 py-2 text-left font-bold min-w-[100px]">
+                                  Nome
+                                </th>
+                                <th className="border border-gray-300 px-2 py-2 text-left font-bold w-28">
+                                  MESAS
+                                </th>
+                                <th className="border border-gray-300 px-2 py-2 text-left font-bold w-24">
+                                  TEL
+                                </th>
+                                <th className="border border-gray-300 px-2 py-2 text-left font-bold min-w-[80px]">
+                                  OBSERVAÇÃO
+                                </th>
+                                <th className="border border-gray-300 px-2 py-2 text-center font-bold w-14">
+                                  LIMITE
+                                </th>
+                                <th className="border border-gray-300 px-2 py-2 text-center font-bold w-14">
+                                  PESSOAS
+                                </th>
+                                <th className="border border-gray-300 px-2 py-2 text-center font-bold w-16">
+                                  PRESENÇA
+                                </th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {extendedRows.map((row, idx) => {
+                                if (row.type === "separator") {
+                                  return (
+                                    <tr key={`sep-${idx}`}>
+                                      <td
+                                        colSpan={11}
+                                        className="border-t-2 border-gray-400 bg-gray-100 h-1"
+                                      />
+                                    </tr>
+                                  );
+                                }
+                                const isAreaOnly =
+                                  "isAreaOnly" in row &&
+                                  row.isAreaOnly === true;
+                                const list = isAreaOnly
+                                  ? getReservationsAreaOnly(row.areaName)
+                                  : getReservationsForRow(
+                                      row.areaName,
+                                      row.mesaName,
+                                    );
+                                const hasRes = list.length > 0;
+                                const bg = row.rowBgColor
+                                  ? `#${row.rowBgColor}`
+                                  : `#${row.areaColorLight}`;
+                                const areaCellBg = isAreaOnly
+                                  ? "#E65100"
+                                  : `#${row.areaColorDark}`;
+                                const areaCellFg = isAreaOnly ? "#FFF" : "#FFF";
+                                const formatReservationDate = (
+                                  dateStr?: string,
+                                ) => {
+                                  if (!dateStr) return "";
+                                  try {
+                                    const d = String(dateStr).split("T")[0];
+                                    return d || "";
+                                  } catch {
+                                    return "";
+                                  }
+                                };
+                                const firstDate = list[0]
+                                  ? formatReservationDate(
+                                      (list[0] as any).reservation_date,
+                                    )
+                                  : "";
+                                const datesStr = list
+                                  .map((r) =>
+                                    formatReservationDate(
+                                      (r as any).reservation_date,
+                                    ),
+                                  )
+                                  .filter(Boolean);
+                                return (
+                                  <tr
+                                    key={`${row.areaName}-${row.mesaName}-${idx}`}
+                                    style={{
+                                      backgroundColor: hasRes
+                                        ? isAreaOnly
+                                          ? "#FFF3E0"
+                                          : "#fef9c3"
+                                        : undefined,
+                                    }}
+                                    className={
+                                      hasRes
+                                        ? isAreaOnly
+                                          ? "hover:bg-orange-100"
+                                          : "hover:bg-yellow-100"
+                                        : "hover:bg-gray-50"
+                                    }
+                                  >
+                                    <td
+                                      className="border border-gray-300 px-2 py-1.5 text-center font-bold text-xs"
+                                      style={{
+                                        backgroundColor: areaCellBg,
+                                        color: areaCellFg,
+                                        writingMode: "vertical-rl",
+                                        textOrientation: "mixed",
+                                      }}
+                                      title={
+                                        isAreaOnly
+                                          ? "Reserva só com área (sem mesa definida)"
+                                          : undefined
+                                      }
+                                    >
+                                      {isAreaOnly
+                                        ? `${row.areaName} (sem mesa)`
+                                        : row.areaName}
+                                    </td>
+                                    <td className="border border-gray-300 px-2 py-1.5 whitespace-nowrap">
+                                      {hasRes
+                                        ? datesStr.length > 1
+                                          ? datesStr.join(", ")
+                                          : firstDate
+                                        : ""}
+                                    </td>
+                                    <td className="border border-gray-300 px-2 py-1.5">
+                                      {getReservationsField(
+                                        list,
+                                        ", ",
+                                        "event_name",
+                                      )}
+                                    </td>
+                                    <td className="border border-gray-300 px-2 py-1.5" />
+                                    <td className="border border-gray-300 px-2 py-1.5 font-medium">
+                                      {getReservationsField(
+                                        list,
+                                        ", ",
+                                        "client_name",
+                                        "nome",
+                                      )}
+                                    </td>
+                                    <td
+                                      className="border border-gray-300 px-2 py-1.5 font-medium"
+                                      style={{
+                                        backgroundColor: isAreaOnly
+                                          ? "#FFE0B2"
+                                          : bg,
+                                      }}
+                                    >
+                                      {row.mesaName}
+                                    </td>
+                                    <td className="border border-gray-300 px-2 py-1.5">
+                                      {getReservationsField(
+                                        list,
+                                        ", ",
+                                        "client_phone",
+                                        "telefone",
+                                      )}
+                                    </td>
+                                    <td className="border border-gray-300 px-2 py-1.5 text-gray-600">
+                                      {getReservationsField(
+                                        list,
+                                        ", ",
+                                        "notes",
+                                        "admin_notes",
+                                        "observacao",
+                                        "observação",
+                                      )}
+                                    </td>
+                                    <td
+                                      className="border border-gray-300 px-2 py-1.5 text-center"
+                                      style={{
+                                        backgroundColor: isAreaOnly
+                                          ? "#FFE0B2"
+                                          : bg,
+                                      }}
+                                    >
+                                      {row.limit}
+                                    </td>
+                                    <td className="border border-gray-300 px-2 py-1.5 text-center">
+                                      {hasRes
+                                        ? getReservationsNumber(list)
+                                        : ""}
+                                    </td>
+                                    <td className="border border-gray-300 px-2 py-1.5 text-center">
+                                      {getReservationsCheckedIn(list)
+                                        ? "Sim"
+                                        : ""}
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                        <p className="text-xs text-gray-500">
+                          Pré-visualização da planilha. Dia: {eventDate || "—"}.
+                          Match por área + mesa (normalizado).
+                        </p>
+                      </div>
+                    );
+                  })()}
+                </div>
+              )}
+            </div>
+
+            {/* Footer do Modal */}
+            <div className="p-4 border-t border-gray-700 flex justify-end">
+              <button
+                onClick={() => setPlanilhaModalOpen(false)}
+                className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors font-medium"
+              >
+                Fechar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <CheckinsReportModal
+        isOpen={relatorioModalOpen}
+        onClose={() => setRelatorioModalOpen(false)}
+        eventId={eventoId}
+        eventName={evento?.nome || "Evento"}
+        eventDate={eventDateLabel}
+        metrics={{
+          totalPresentes: Number(totalGeralMetrics.checkins) || 0,
+          ocupacaoPct:
+            Number(totalGeralMetrics.total) > 0
+              ? (Number(totalGeralMetrics.checkins) / Number(totalGeralMetrics.total)) * 100
+              : 0,
+          totalReservas: Number(reservasMetrics.numReservas) || 0,
+        }}
+        chartData={reportChartData}
+        guestLists={displayGuestListsRestaurante.map((gl) => ({
+          reservation_id: gl.reservation_id,
+          reservation_type: gl.reservation_type,
+          owner_name: gl.owner_name,
+          area_name: gl.area_name,
+          table_number: gl.table_number,
+        }))}
+        reservations={[
+          ...displayReservasRestaurante.map((r) => ({
+            id: r.id,
+            reservation_type: "restaurant",
+            responsavel: r.responsavel,
+            client_name: (r as any).client_name,
+            area_name: r.area_name,
+            table_number: r.table_number,
+            client_phone: (r as any).client_phone,
+            telefone: (r as any).telefone,
+            phone: (r as any).phone,
+          })),
+          ...reservasAdicionaisAPI.map((r) => ({
+            id: r.id,
+            reservation_type: "restaurant",
+            responsavel: r.client_name,
+            client_name: r.client_name,
+            area_name: r.area_name,
+            table_number: r.table_number,
+            client_phone: (r as any).client_phone,
+            telefone: (r as any).telefone,
+            phone: (r as any).phone,
+          })),
+        ]}
+      />
+
+      {/* Toast Container para notificações não-bloqueantes */}
+      <ToastContainer
+        position="top-center"
+        autoClose={3000}
+        hideProgressBar={false}
+        newestOnTop={true}
+        closeOnClick
+        rtl={false}
+        pauseOnFocusLoss
+        draggable
+        pauseOnHover
+        style={{ touchAction: "manipulation" }}
+      />
+
+      {/* Histórico de Reservas Concluídas */}
+      {historicoReservasConcluidas.length > 0 && (
+        <section className="bg-white/10 backdrop-blur-sm rounded-lg shadow-sm p-4 md:p-6 border border-white/20 mt-6">
+          <div className="mb-4">
+            <h2 className="text-lg md:text-xl font-bold text-white flex items-center gap-2">
+              <MdAccessTime size={20} className="md:w-6 md:h-6 text-blue-400" />
+              <span>
+                Histórico de Reservas Concluídas (
+                {historicoReservasConcluidas.length})
+              </span>
+            </h2>
+            <p className="text-xs md:text-sm text-gray-400 mt-1 ml-1 md:ml-8">
+              Reservas que completaram o fluxo completo de check-in e check-out
+              no dia.
+            </p>
+          </div>
+
+          <div className="space-y-3">
+            {historicoReservasConcluidas
+              .sort((a, b) => {
+                // Ordenar por horário de check-out (mais recente primeiro)
+                const timeA = new Date(a.checkout_time).getTime();
+                const timeB = new Date(b.checkout_time).getTime();
+                return timeB - timeA;
+              })
+              .map((reserva) => {
+                return (
+                  <div
+                    key={
+                      reserva.guest_list_id
+                        ? `gl-${reserva.guest_list_id}`
+                        : `res-${reserva.reservation_id}`
+                    }
+                    className="bg-white/5 border border-white/20 rounded-lg p-4 opacity-70"
+                  >
+                    <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-semibold text-white text-sm md:text-base line-through text-gray-400">
+                            {reserva.owner_name}
+                          </span>
+                          <span className="px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600 border border-gray-300">
+                            ✅ Concluído
+                          </span>
+                          {reserva.table_number && (
+                            <span className="text-xs text-gray-400">
+                              Mesa: {reserva.table_number}
+                            </span>
+                          )}
+                          {reserva.area_name && (
+                            <span className="text-xs text-gray-400">
+                              {reserva.area_name}
+                            </span>
+                          )}
+                        </div>
+                        <div className="mt-2 flex flex-col md:flex-row md:items-center gap-2 md:gap-4 text-xs text-gray-400">
+                          <div className="flex items-center gap-1">
+                            <span className="font-mono">
+                              E: {formatCheckinTime(reserva.checkin_time)}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <span className="font-mono">
+                              S: {formatCheckinTime(reserva.checkout_time)}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Lista de convidados que também completaram o fluxo */}
+                    {reserva.guests.filter(
+                      (g) => g.checkin_time && g.checkout_time,
+                    ).length > 0 && (
+                      <div className="mt-3 pt-3 border-t border-white/10">
+                        <p className="text-xs text-gray-400 mb-2">
+                          Convidados que completaram o fluxo:
+                        </p>
+                        <div className="space-y-1">
+                          {reserva.guests
+                            .filter((g) => g.checkin_time && g.checkout_time)
+                            .map((guest) => (
+                              <div
+                                key={guest.id}
+                                className="text-xs text-gray-400 flex items-center gap-2"
+                              >
+                                <span className="line-through">
+                                  {guest.name}
+                                </span>
+                                <span className="font-mono">
+                                  E: {formatCheckinTime(guest.checkin_time)} | S:{" "}
+                                  {formatCheckinTime(guest.checkout_time)}
+                                </span>
+                              </div>
+                            ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+          </div>
+        </section>
+      )}
+    </div>
+  );
 }
