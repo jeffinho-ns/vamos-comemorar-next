@@ -6,6 +6,7 @@ import { MdSearch, MdPerson, MdCardGiftcard, MdEvent, MdCheckCircle } from 'reac
 import AdminSaasGuard from '@/app/components/AdminSaasGuard';
 import { useSaasAccess } from '@/app/hooks/useSaasAccess';
 import { readAuthToken } from '@/app/utils/readAuthToken';
+import { parseCheckinsApiPayload } from '@/app/utils/tabletCheckinsLoader';
 import { io } from 'socket.io-client';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.agilizaiapp.com.br';
@@ -85,7 +86,7 @@ export default function EventoTabletCheckInsPage() {
   
   const [searchTerm, setSearchTerm] = useState('');
   const [results, setResults] = useState<SearchResult[]>([]);
-  const [loadingData, setLoadingData] = useState(false);
+  const [loadingData, setLoadingData] = useState(() => Boolean(eventoId));
   const [error, setError] = useState<string | null>(null);
   const [loadedData, setLoadedData] = useState<LoadedData>({
     guestLists: [],
@@ -96,9 +97,11 @@ export default function EventoTabletCheckInsPage() {
   });
   const [reloadKey, setReloadKey] = useState(0);
 
-  // Carregar todos os dados quando o componente montar ou eventoId mudar
+  // Uma única requisição à API — convidados já vêm em convidadosReservasRestaurante
   useEffect(() => {
     if (!eventoId) return;
+
+    let cancelled = false;
 
     const carregarTodosDados = async () => {
       setLoadingData(true);
@@ -122,67 +125,30 @@ export default function EventoTabletCheckInsPage() {
         }
 
         const checkinsData = await checkinsRes.json();
-        const dados = checkinsData.dados || checkinsData;
+        if (cancelled) return;
 
-        const guestLists = dados.guestListsRestaurante || dados.restaurant_guest_lists || [];
-        const guests: { [key: number]: any[] } = {};
-        const gifts: { [key: number]: any } = {};
-
-        for (const gl of guestLists) {
-          try {
-            const guestListId = gl.guest_list_id || gl.id;
-            if (!guestListId) continue;
-
-            const guestsRes = await fetchWithTimeout(
-              `${API_URL}/api/admin/guest-lists/${guestListId}/guests`,
-              { headers },
-            );
-            if (guestsRes.ok) {
-              const guestsData = await guestsRes.json();
-              guests[guestListId] = guestsData.guests || [];
-            }
-
-            const giftRes = await fetchWithTimeout(
-              `${API_URL}/api/gift-rules/guest-list/${guestListId}/gifts`,
-              { headers },
-            );
-            if (giftRes.ok) {
-              const giftData = await giftRes.json();
-              gifts[guestListId] = giftData;
-            }
-          } catch (e) {
-            console.error(`Erro ao carregar dados da guest list ${gl.guest_list_id || gl.id}:`, e);
-          }
-        }
-
-        const promoters = dados.promoters || [];
-        const promoterGuests: { [key: number]: any[] } = {};
-        const convidadosPromoters = dados.convidadosPromoters || [];
-
-        for (const promoter of promoters) {
-          const promoterId = promoter.id || promoter.promoter_id;
-          promoterGuests[promoterId] = convidadosPromoters.filter((c: any) => {
-            const cPromoterId = c.promoter_id || c.promoter_responsavel_id;
-            return Number(cPromoterId) === Number(promoterId);
-          });
-        }
+        const parsed = parseCheckinsApiPayload(checkinsData);
 
         setLoadedData({
-          guestLists,
-          guests,
-          promoters,
-          promoterGuests,
-          gifts
+          guestLists: parsed.guestLists,
+          guests: parsed.guests,
+          promoters: parsed.promoters,
+          promoterGuests: parsed.promoterGuests,
+          gifts: {},
         });
       } catch (err) {
+        if (cancelled) return;
         console.error('Erro ao carregar dados:', err);
         setError('Erro ao carregar dados. Tente novamente.');
       } finally {
-        setLoadingData(false);
+        if (!cancelled) setLoadingData(false);
       }
     };
 
     carregarTodosDados();
+    return () => {
+      cancelled = true;
+    };
   }, [eventoId, reloadKey]);
 
   // Socket.IO: atualização em tempo real quando check-in é feito via /admin/qrcode

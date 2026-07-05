@@ -13,6 +13,8 @@ import {
   LEGACY_HIGHLINE_PLACE_ID,
   shouldUseHighlineDeckTableMapping,
 } from '@/app/utils/checkinsVenueUtils';
+import { readAuthToken } from '@/app/utils/readAuthToken';
+import { parseCheckinsApiPayload } from '@/app/utils/tabletCheckinsLoader';
 import EntradaStatusModal, { EntradaTipo } from '../../../components/EntradaStatusModal';
 import { BirthdayReservation } from '../../../services/birthdayService';
 
@@ -535,11 +537,13 @@ export default function TabletCheckInsPage() {
       return;
     }
 
+    let cancelled = false;
+
     const carregarTodosDados = async () => {
       setLoadingData(true);
       setError(null);
       try {
-        const token = localStorage.getItem('authToken');
+        const token = readAuthToken();
         const headers: HeadersInit = {
           'Content-Type': 'application/json',
         };
@@ -547,7 +551,6 @@ export default function TabletCheckInsPage() {
           headers['Authorization'] = `Bearer ${token}`;
         }
 
-        // Buscar check-ins consolidados do evento
         const checkinsRes = await fetch(`${API_URL}/api/v1/eventos/${eventoSelecionado}/checkins`, { headers });
         if (!checkinsRes.ok) {
           const errorText = await checkinsRes.text();
@@ -556,131 +559,93 @@ export default function TabletCheckInsPage() {
         }
 
         const checkinsData = await checkinsRes.json();
-        
-        // A estrutura da resposta vem em checkinsData.dados
-        const dados = checkinsData.dados || checkinsData;
-        const guestLists = dados.guestListsRestaurante || dados.restaurant_guest_lists || [];
-        const guests: { [key: number]: any[] } = {};
-        const gifts: { [key: number]: any } = {};
+        if (cancelled) return;
 
-        // Carregar guests e gifts de cada guest list
-        for (const gl of guestLists) {
-          try {
-            const guestListId = gl.guest_list_id || gl.id;
-            if (!guestListId) continue;
-
-            // Carregar guests
-            const guestsRes = await fetch(`${API_URL}/api/admin/guest-lists/${guestListId}/guests`, { headers });
-            if (guestsRes.ok) {
-              const guestsData = await guestsRes.json();
-              guests[guestListId] = guestsData.guests || [];
-            }
-
-            // Carregar gifts
-            const giftRes = await fetch(`${API_URL}/api/gift-rules/guest-list/${guestListId}/gifts`, { headers });
-            if (giftRes.ok) {
-              const giftData = await giftRes.json();
-              gifts[guestListId] = giftData;
-            }
-          } catch (e) {
-            console.error(`Erro ao carregar dados da guest list ${gl.guest_list_id || gl.id}:`, e);
-          }
-        }
-
-        // Carregar promoters e seus convidados
-        const promoters = dados.promoters || [];
-        const promoterGuests: { [key: number]: any[] } = {};
-
-        // Os convidados dos promoters já vêm em dados.convidadosPromoters
-        const convidadosPromoters = dados.convidadosPromoters || [];
-        console.log('Convidados de promoters carregados:', convidadosPromoters.length);
-        console.log('Primeiros convidados:', convidadosPromoters.slice(0, 3));
-        
-        for (const promoter of promoters) {
-          const promoterId = promoter.id || promoter.promoter_id;
-          // Filtrar convidados deste promoter - verificar múltiplos campos
-          promoterGuests[promoterId] = convidadosPromoters.filter((c: any) => {
-            const cPromoterId = c.promoter_id || c.promoter_responsavel_id;
-            return Number(cPromoterId) === Number(promoterId);
-          });
-          if (promoterGuests[promoterId].length > 0) {
-            console.log(`Promoter ${promoterId} (${promoter.nome}): ${promoterGuests[promoterId].length} convidados`);
-          }
-        }
-        
-        // Também armazenar todos os convidados sem agrupar por promoter (para busca direta)
-        console.log('Total de convidados de promoters:', convidadosPromoters.length);
+        const parsed = parseCheckinsApiPayload(checkinsData);
+        const guestLists = parsed.guestLists;
 
         setLoadedData({
           guestLists,
-          guests,
-          reservations: dados.reservasRestaurante || dados.restaurant_reservations || [],
-          promoters,
-          promoterGuests,
-          gifts
+          guests: parsed.guests,
+          reservations: parsed.reservations,
+          promoters: parsed.promoters,
+          promoterGuests: parsed.promoterGuests,
+          gifts: {},
         });
-        
-        // Buscar reservas de aniversário relacionadas às guest lists com event_type='aniversario'
+
+        // Aniversário: carregar só depois da tela principal (não bloqueia check-in)
         const aniversarioGuestLists = guestLists.filter((gl: any) => gl.event_type === 'aniversario');
-        if (aniversarioGuestLists.length > 0 && estabelecimentoSelecionado) {
-          try {
-            const birthdayResResponse = await fetch(`${API_URL}/api/birthday-reservations?establishment_id=${estabelecimentoSelecionado}`, {
-              headers: { 'Authorization': `Bearer ${token}` }
-            });
-            
-            if (birthdayResResponse.ok) {
+        if (aniversarioGuestLists.length > 0 && estabelecimentoSelecionado && !cancelled) {
+          void (async () => {
+            try {
+              const birthdayResResponse = await fetch(
+                `${API_URL}/api/birthday-reservations?establishment_id=${estabelecimentoSelecionado}`,
+                { headers: { Authorization: `Bearer ${token}` } },
+              );
+
+              if (!birthdayResResponse.ok || cancelled) return;
+
               const birthdayData = await birthdayResResponse.json();
-              const birthdayReservations = Array.isArray(birthdayData) ? birthdayData : (birthdayData.data || []);
-              
+              const birthdayReservations = Array.isArray(birthdayData)
+                ? birthdayData
+                : birthdayData.data || [];
+
               const birthdayReservationsMap: Record<number, BirthdayReservation> = {};
-              
-              // Mapear reservas de aniversário pelo restaurant_reservation_id e também por nome/date como fallback
+
               birthdayReservations.forEach((br: any) => {
-                // Primeiro tenta mapear pelo restaurant_reservation_id
                 if (br.restaurant_reservation_id) {
-                  const resId = Number(br.restaurant_reservation_id);
-                  birthdayReservationsMap[resId] = br;
+                  birthdayReservationsMap[Number(br.restaurant_reservation_id)] = br;
                 }
-                
-                // Fallback: tentar encontrar pela guest list usando nome e data
+
                 aniversarioGuestLists.forEach((gl: any) => {
                   if (!birthdayReservationsMap[gl.reservation_id]) {
                     const brDate = br.data_aniversario ? br.data_aniversario.split('T')[0] : null;
                     const glDate = gl.reservation_date ? gl.reservation_date.split('T')[0] : null;
-                    const nameMatch = gl.owner_name && br.aniversariante_nome && (
-                      gl.owner_name.toLowerCase().includes(br.aniversariante_nome.toLowerCase()) ||
-                      br.aniversariante_nome.toLowerCase().includes(gl.owner_name.toLowerCase())
-                    );
-                    
-                    if ((nameMatch && brDate === glDate) || 
-                        (br.restaurant_reservation_id && Number(br.restaurant_reservation_id) === gl.reservation_id)) {
+                    const nameMatch =
+                      gl.owner_name &&
+                      br.aniversariante_nome &&
+                      (gl.owner_name.toLowerCase().includes(br.aniversariante_nome.toLowerCase()) ||
+                        br.aniversariante_nome.toLowerCase().includes(gl.owner_name.toLowerCase()));
+
+                    if (
+                      (nameMatch && brDate === glDate) ||
+                      (br.restaurant_reservation_id &&
+                        Number(br.restaurant_reservation_id) === gl.reservation_id)
+                    ) {
                       birthdayReservationsMap[gl.reservation_id] = br;
                     }
                   }
                 });
               });
-              
-              setBirthdayReservationsByReservationId(birthdayReservationsMap);
-              
-              // Carregar itens do cardápio
-              if (Object.keys(birthdayReservationsMap).length > 0) {
-                loadMenuItemsForBirthdayReservations(birthdayReservationsMap, estabelecimentoSelecionado);
+
+              if (!cancelled) {
+                setBirthdayReservationsByReservationId(birthdayReservationsMap);
+                if (Object.keys(birthdayReservationsMap).length > 0) {
+                  void loadMenuItemsForBirthdayReservations(
+                    birthdayReservationsMap,
+                    estabelecimentoSelecionado,
+                  );
+                }
               }
+            } catch (error) {
+              console.error('Erro ao buscar reservas de aniversário:', error);
             }
-          } catch (error) {
-            console.error('Erro ao buscar reservas de aniversário:', error);
-          }
+          })();
         }
       } catch (err: any) {
+        if (cancelled) return;
         console.error('Erro ao carregar dados:', err);
         setError('Erro ao carregar dados. Tente novamente.');
       } finally {
-        setLoadingData(false);
+        if (!cancelled) setLoadingData(false);
       }
     };
 
     carregarTodosDados();
-  }, [estabelecimentoSelecionado, eventoSelecionado, loadMenuItemsForBirthdayReservations]);
+    return () => {
+      cancelled = true;
+    };
+  }, [estabelecimentoSelecionado, eventoSelecionado]);
 
   // Normalizador de nomes para comparação
   const normalize = useMemo(() => (name: string): string => {
