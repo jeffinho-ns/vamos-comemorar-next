@@ -38,6 +38,17 @@ const MESSAGES_SCROLL_BOTTOM_THRESHOLD = 72;
 const DEFAULT_ENTRY_LINK_TEMPLATE =
   "Olá! Quero fazer uma reserva no {estabelecimento}. {token}";
 
+function readWhatsappApiError(
+  payload: Record<string, unknown> | null | undefined,
+  status: number,
+): string {
+  const message = payload?.message;
+  const error = payload?.error;
+  if (typeof message === "string" && message.trim()) return message;
+  if (typeof error === "string" && error.trim()) return error;
+  return `Erro ${status}`;
+}
+
 /** Filtro da lista de conversas por casa (token #EST_ID no link de entrada). */
 type InboxEstablishmentFilter = "all" | "unassigned" | number;
 
@@ -889,7 +900,7 @@ function AdminWhatsappPageContent() {
             "Sessão expirada ou token inválido. Faça login de novo para carregar as conversas — elas continuam salvas no servidor.",
           );
         }
-        throw new Error(j.message || `Erro ${res.status}`);
+        throw new Error(readWhatsappApiError(j, res.status));
       }
       const data = await res.json();
       setConversations(data.conversations || []);
@@ -922,7 +933,7 @@ function AdminWhatsappPageContent() {
               "Sessão expirada ou token inválido. Faça login de novo para ver as mensagens.",
             );
           }
-          throw new Error(j.message || `Erro ${res.status}`);
+          throw new Error(readWhatsappApiError(j, res.status));
         }
         const data = await res.json();
         const list: MessageRow[] = data.messages || [];
@@ -996,7 +1007,7 @@ function AdminWhatsappPageContent() {
         { headers: authHeaders },
       );
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.message || `Erro ${res.status}`);
+      if (!res.ok) throw new Error(readWhatsappApiError(data, res.status));
       const list = Array.isArray(data.contacts) ? (data.contacts as ContactRow[]) : [];
       setContacts(list);
       setContactDrafts((prev) => {
@@ -1036,7 +1047,7 @@ function AdminWhatsappPageContent() {
         { headers: authHeaders },
       );
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.message || `Erro ${res.status}`);
+      if (!res.ok) throw new Error(readWhatsappApiError(data, res.status));
       setCampaigns(Array.isArray(data.campaigns) ? data.campaigns : []);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Falha ao carregar campanhas");
@@ -1055,7 +1066,7 @@ function AdminWhatsappPageContent() {
         { headers: authHeaders },
       );
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.message || `Erro ${res.status}`);
+      if (!res.ok) throw new Error(readWhatsappApiError(data, res.status));
       setCampaignBatches(Array.isArray(data.batches) ? data.batches : []);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Falha ao carregar filas de disparo");
@@ -1081,7 +1092,7 @@ function AdminWhatsappPageContent() {
         { headers: authHeaders },
       );
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.message || `Erro ${res.status}`);
+      if (!res.ok) throw new Error(readWhatsappApiError(data, res.status));
       setReportSummary(data.summary || null);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Falha ao carregar relatório");
@@ -1191,7 +1202,7 @@ function AdminWhatsappPageContent() {
         },
       );
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.message || `Erro ${res.status}`);
+      if (!res.ok) throw new Error(readWhatsappApiError(data, res.status));
       if (data.conversation) {
         setConversationMeta({
           human_takeover_until: data.conversation.human_takeover_until,
@@ -1224,7 +1235,7 @@ function AdminWhatsappPageContent() {
         },
       );
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.message || `Erro ${res.status}`);
+      if (!res.ok) throw new Error(readWhatsappApiError(data, res.status));
       if (data.conversation) {
         setConversationMeta({
           human_takeover_until: data.conversation.human_takeover_until,
@@ -1261,7 +1272,7 @@ function AdminWhatsappPageContent() {
         },
       );
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.message || `Erro ${res.status}`);
+      if (!res.ok) throw new Error(readWhatsappApiError(data, res.status));
       if (data.conversation) {
         setConversationMeta({
           human_takeover_until: data.conversation.human_takeover_until,
@@ -1316,7 +1327,7 @@ function AdminWhatsappPageContent() {
         },
       );
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.message || `Erro ${res.status}`);
+      if (!res.ok) throw new Error(readWhatsappApiError(data, res.status));
       draftDirtyRef.current = false;
       setComposeText("");
       isPinnedToBottomRef.current = true;
@@ -1343,7 +1354,7 @@ function AdminWhatsappPageContent() {
         },
       );
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.message || `Erro ${res.status}`);
+      if (!res.ok) throw new Error(readWhatsappApiError(data, res.status));
       const count = Number(data.resumed_count || 0);
       setSuccessMessage(
         count > 0
@@ -1375,7 +1386,7 @@ function AdminWhatsappPageContent() {
         },
       );
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.message || `Erro ${res.status}`);
+      if (!res.ok) throw new Error(readWhatsappApiError(data, res.status));
       if (data.conversation) {
         setConversationMeta({
           human_takeover_until: data.conversation.human_takeover_until,
@@ -1408,7 +1419,7 @@ function AdminWhatsappPageContent() {
         },
       );
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.message || `Erro ${res.status}`);
+      if (!res.ok) throw new Error(readWhatsappApiError(data, res.status));
       if (data.conversation) {
         setConversationMeta({
           human_takeover_until: data.conversation.human_takeover_until,
@@ -1441,7 +1452,7 @@ function AdminWhatsappPageContent() {
         },
       );
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.message || `Erro ${res.status}`);
+      if (!res.ok) throw new Error(readWhatsappApiError(data, res.status));
       if (data.conversation) {
         setConversationMeta({
           human_takeover_until: data.conversation.human_takeover_until,
@@ -1516,7 +1527,7 @@ function AdminWhatsappPageContent() {
         body: JSON.stringify(body),
       });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.message || `Erro ${res.status}`);
+      if (!res.ok) throw new Error(readWhatsappApiError(data, res.status));
       await fetchContacts();
       setSuccessMessage(
         typeof data.message === "string"
@@ -1556,7 +1567,7 @@ function AdminWhatsappPageContent() {
         }),
       });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.message || `Erro ${res.status}`);
+      if (!res.ok) throw new Error(readWhatsappApiError(data, res.status));
       await fetchContacts();
       setImportCsvText("");
       const imported = Number(data.imported ?? 0);
@@ -1639,7 +1650,7 @@ function AdminWhatsappPageContent() {
           }),
         });
         const data = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error(data.message || `Erro ${res.status}`);
+        if (!res.ok) throw new Error(readWhatsappApiError(data, res.status));
         await fetchContacts();
         if (options?.showSuccess) {
           setSuccessMessage("Contato salvo com sucesso.");
@@ -1696,7 +1707,7 @@ function AdminWhatsappPageContent() {
         }),
       });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.message || `Erro ${res.status}`);
+      if (!res.ok) throw new Error(readWhatsappApiError(data, res.status));
       setCampaignForm((prev) => ({
         ...prev,
         name: "",
@@ -1728,7 +1739,7 @@ function AdminWhatsappPageContent() {
         body: formData,
       });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.message || `Erro ${res.status}`);
+      if (!res.ok) throw new Error(readWhatsappApiError(data, res.status));
       setCampaignForm((prev) => ({
         ...prev,
         image_url: String(data.image_url || ""),
@@ -1753,7 +1764,7 @@ function AdminWhatsappPageContent() {
         body: JSON.stringify({ is_active: !campaign.is_active }),
       });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.message || `Erro ${res.status}`);
+      if (!res.ok) throw new Error(readWhatsappApiError(data, res.status));
       await fetchCampaigns();
       setSuccessMessage(
         campaign.is_active ? "Campanha desativada." : "Campanha ativada.",
@@ -1776,7 +1787,7 @@ function AdminWhatsappPageContent() {
         headers: authHeaders,
       });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.message || `Erro ${res.status}`);
+      if (!res.ok) throw new Error(readWhatsappApiError(data, res.status));
       await fetchCampaigns();
       setSuccessMessage("Campanha removida com sucesso.");
     } catch (e) {
@@ -1796,7 +1807,7 @@ function AdminWhatsappPageContent() {
         { headers: authHeaders },
       );
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.message || `Erro ${res.status}`);
+      if (!res.ok) throw new Error(readWhatsappApiError(data, res.status));
       setCampaignAudiencePreview({
         campaignId,
         estimatedCount: Number(data.estimated_count || 0),
@@ -1856,7 +1867,7 @@ function AdminWhatsappPageContent() {
         },
       );
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.message || `Erro ${res.status}`);
+      if (!res.ok) throw new Error(readWhatsappApiError(data, res.status));
       await fetchConversations();
       await fetchContacts();
       setSuccessMessage("Campanha enviada para o contato.");
@@ -1879,7 +1890,7 @@ function AdminWhatsappPageContent() {
         { headers: authHeaders },
       );
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.message || `Erro ${res.status}`);
+      if (!res.ok) throw new Error(readWhatsappApiError(data, res.status));
       setBatchLogs(Array.isArray(data.logs) ? data.logs : []);
       setBatchLogsForId(batchId);
     } catch (e) {
@@ -1904,7 +1915,7 @@ function AdminWhatsappPageContent() {
         }),
       });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.message || `Erro ${res.status}`);
+      if (!res.ok) throw new Error(readWhatsappApiError(data, res.status));
       await fetchCampaignBatches();
       setSuccessMessage("Fila de disparo criada.");
     } catch (e) {
@@ -1925,7 +1936,7 @@ function AdminWhatsappPageContent() {
         { method: "POST", headers: authHeaders },
       );
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.message || `Erro ${res.status}`);
+      if (!res.ok) throw new Error(readWhatsappApiError(data, res.status));
       await fetchCampaignBatches();
       await fetchConversations();
       if (batchLogsForId === batchId) {
@@ -1950,7 +1961,7 @@ function AdminWhatsappPageContent() {
         { method: "POST", headers: authHeaders },
       );
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.message || `Erro ${res.status}`);
+      if (!res.ok) throw new Error(readWhatsappApiError(data, res.status));
       await fetchCampaignBatches();
       setSuccessMessage("Fila cancelada.");
     } catch (e) {
