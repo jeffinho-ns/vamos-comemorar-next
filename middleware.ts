@@ -27,6 +27,7 @@ export function middleware(request: NextRequest) {
   // às APIs. Quando o cookie do middleware fica desatualizado, usuários logados
   // são derrubados para /login antes da página carregar. As APIs continuam
   // protegidas por Authorization, então não bloquear /admin no middleware.
+  // Rotas /promoter/* (lista de convidados) são públicas — fora do matcher.
   if (url.startsWith('/admin')) {
     return NextResponse.next();
   }
@@ -107,7 +108,6 @@ export const config = {
     '/superadmin',
     '/superadmin/:path*',
     '/gerente/:path*',
-    '/promoter/:path*',
     '/cliente/:path*',
   ],
 };
