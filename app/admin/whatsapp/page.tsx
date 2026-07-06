@@ -233,8 +233,20 @@ type MessageRow = {
   message_type?: string | null;
   media_url?: string | null;
   media_mime?: string | null;
+  raw_payload?: Record<string, unknown> | null;
   created_at: string;
 };
+
+function getOutboundDeliveryLabel(rawPayload: unknown): string | null {
+  if (!rawPayload || typeof rawPayload !== "object") return null;
+  const payload = rawPayload as Record<string, unknown>;
+  if (payload.queued === true) return "Na fila de envio";
+  if (payload.mode === "local_best_effort") return "Não entregue";
+  if (payload.delivery_status === "accepted" || payload.meta_message_id) {
+    return "Enviado ao WhatsApp";
+  }
+  return null;
+}
 
 type ContactRow = {
   id: number;
@@ -1286,8 +1298,10 @@ function AdminWhatsappPageContent() {
       }
       if (data.pending_delivery) {
         setSuccessMessage(
-          "A Meta oscilou, mas a mensagem entrou em tentativa automática de envio.",
+          "Mensagem na fila de envio. Se o cliente não receber em 1 minuto, tente novamente.",
         );
+      } else if (data.meta_message_id) {
+        setSuccessMessage("Mensagem enviada ao WhatsApp do cliente.");
       }
       draftDirtyRef.current = false;
       setComposeText("");
@@ -2999,6 +3013,11 @@ function AdminWhatsappPageContent() {
                         {m.direction === "inbound" && m.intent ? (
                           <p className="text-[10px] mt-1 opacity-80">
                             intent: {m.intent}
+                          </p>
+                        ) : null}
+                        {m.direction === "outbound" ? (
+                          <p className="text-[10px] mt-1 text-amber-100/90">
+                            {getOutboundDeliveryLabel(m.raw_payload) || "Enviado"}
                           </p>
                         ) : null}
                         <p
