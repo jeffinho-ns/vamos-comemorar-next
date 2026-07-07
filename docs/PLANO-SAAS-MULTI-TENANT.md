@@ -13,7 +13,7 @@
 
 | Campo | Valor |
 |-------|-------|
-| Última atualização | 2026-07-06 (hotfix RLS: organization_id em INSERTs de fluxo promoter/check-in) |
+| Última atualização | 2026-07-06 (auditoria P1 concluída: organization_id em TODO INSERT de tabela RLS) |
 | Modo atual | **`SAAS_MODE=on`** API · **`NEXT_PUBLIC_SAAS_MODE=on`** Vercel ✅ |
 | Fase em andamento | **Fase 3** — RBAC fino promoters + tenancy rotas legadas |
 | Próximo passo | Fase 3: `requirePermission` promoters; tenantMiddleware gift-rules/FAQ; checklist manual UI (`docs/FASE-4-CHECKLIST-UI.md`) |
@@ -281,6 +281,8 @@ Marque `[x]` conforme fechar cada fase nas próximas sessões.
 - 2026-07-03 — **Fase 4 (parcial):** `useRequireSaasModule`; useSaasAccess em restaurant-reservations, checkins, eventos/dashboard, eventos/listas; Gate check-in + configurar eventos; adminNavModules rotas extras.
 - 2026-07-03 — **Fase 4 (100% código):** `AdminSaasGuard` em 35+ páginas admin; Gate galeria/gifts/executive-events; `/reservar` + `filterPlacesByEntitlements`; `establishmentIds` no EntitlementsContext; removido SUPER_ADMIN_EMAILS reservas/galeria; checklist manual em `docs/FASE-4-CHECKLIST-UI.md`.
 - 2026-07-06 — **Hotfix RLS produção (fluxo promoter/check-in).** 3 incidentes, mesma causa (INSERT sem `organization_id` em tabela RLS): (1) `POST /promoter/:codigo/convidado` estourava **500** — `promoter_convidados.organization_id` é NOT NULL (019); agora propaga o org do promoter em todos os INSERTs (API `cab2d79`). (2) Vínculo promoter↔evento criava `listas` **sem org** → RLS rejeitava o INSERT (engolido por try/catch), promoter sumia do check-in; agora a lista automática recebe `organization_id` e a query de promoters do check-in também reconhece `promoter_eventos` (API `d7d9155`). (3) `listas_convidados` do fluxo público gravava **sem org** → convidado invisível no check-in (leitura sob contexto de org); agora usa o `organization_id` da lista. Documentada a **REGRA CRÍTICA** e o **fluxo de check-in** neste plano; aberta auditoria P1 de `INSERT`s restantes em `restaurant_reservations` (`reservas.js` camarote, `birthdayReservations.js`).
+- 2026-07-06 — **Revisão multi-agente (Bugbot + Security + verificação) da auditoria P1.** 3 agentes em paralelo sobre o diff sem commit. Verificação confirmou: 13 tabelas NOT NULL 100% cobertas e ZERO mismatch de colunas/placeholders/params nos 7 arquivos. Refinamentos aplicados a partir dos achados: (1) camarote em `reservas.js` passou a derivar org do ESTABELECIMENTO (`camaroteOrgId` via `resolveOrganizationIdForEstablishment(idPlace)`) em vez da org do usuário, para restaurant_reservations/guest_lists/guests/camarote_convidados; (2) `walkIns.js` POST ganhou guard `denyIfCannotReadEstablishment` (anti-injeção cross-tenant) e removeu fallback de org piloto (fail-closed p/ anônimo); (3) `birthdayReservations.js` público ganhou fallback final p/ org piloto (evita 23502 se place não mapeado); (4) `camarote_convidados` (org nullable) agora recebe org nos 2 inserts (`reservas.js:585` e rota `/camarote/:id/convidado`) p/ visibilidade sob RLS. `node --check` OK; testes 22/23 (mesma falha pré-existente do funil).
+- 2026-07-06 — **Limpeza + Auditoria P1 CONCLUÍDA (org em TODO INSERT RLS).** Removido 1 convidado órfão (`promoter_convidados` id 582 → evento 43 inexistente). Confirmado no banco prod que NÃO há DEFAULT/trigger de `organization_id` — só o app grava. Auditados todos os INSERTs nas 13 tabelas `NOT NULL` e corrigidos os que faltavam org (risco de **500** e de **dado invisível** para novos clientes): `reservas.js` (camarote: reservas_camarote + restaurant_reservations + guest_lists + guests), `birthdayReservations.js` (birthday + restaurant_reservations + guest_lists + guests), `largeReservations.js` (large_reservations + guest_lists + guests), `guestListPublic.js` (guests públicos), `guestListsAdmin.js` (guests admin), `walkIns.js` (walk_ins), `agentTools.js` (waitlist da IA). Regra: reserva deriva org do establishment (`resolveOrganizationIdForEstablishment`, fallback tenant/user); filhos (guests/listas_convidados) herdam da lista pai. Já corretos: `restaurantReservations.js`, `waitlist.js`, `promotersAdvanced.js`, `restaurantReservationBlocks.js`. Verificação: `node --check` OK em todos; suíte de testes com a mesma 1 falha pré-existente do funil de IA (não relacionada). Sem commit/push.
 
 ---
 
@@ -362,12 +364,33 @@ Cadeia ponta-a-ponta que **não pode quebrar** (cada passo grava/lê tabela RLS)
 6. **Atendente** — `/admin/checkins` → `/admin/eventos/[id]/check-ins`: lê promoters, listas,
    convidados e reservas **sob contexto de org**; só enxerga linhas com `org` correto.
 
-### Auditoria de `INSERT`s ainda SEM `organization_id` (P1 — validar/corrigir com teste)
-Pontos que gravam em `restaurant_reservations` (NOT NULL) sem `organization_id` — risco de 500
-ou de dado invisível no check-in. Corrigir com cuidado (derivar org do establishment) e testar:
-- `routes/reservas.js` — sync camarote → `restaurant_reservations` (INSERT completo e fallback).
-- `routes/birthdayReservations.js` — reserva de aniversário → `restaurant_reservations`.
-- Revisar demais `INSERT`/`UPDATE` em tabelas de `rlsTables.js` fora dos routers já auditados.
+### Auditoria de `INSERT`s SEM `organization_id` (P1) — ✅ CONCLUÍDA em 2026-07-06
+Auditamos TODOS os `INSERT` nas 13 tabelas com `organization_id NOT NULL`
+(`restaurant_reservations`, `guest_lists`, `guests`, `waitlist`, `walk_ins`,
+`large_reservations`, `birthday_reservations`, `restaurant_reservation_blocks`, `reservas`,
+`reservas_camarote`, `promoters`, `promoter_eventos`, `promoter_convidados`). Verificado no banco
+de produção que NÃO há DEFAULT nem trigger preenchendo `organization_id` — só o app grava.
+Regra de derivação aplicada:
+- Tabela-mãe (reserva) → `resolveOrganizationIdForEstablishment(pool, establishmentId)` com
+  fallback para `req.tenant?.primaryOrganizationId` (ou `resolveOrganizationIdForUser` em rota admin).
+- Tabela-filha (`guests`, `listas_convidados`) → HERDA o org da `guest_list`/`lista` pai.
+
+Corrigidos nesta sessão (todos passam `node --check`):
+- `routes/reservas.js` — camarote: `reservas_camarote`, `restaurant_reservations` (completo+fallback),
+  `guest_lists`, `guests` (4 inserts).
+- `routes/birthdayReservations.js` — `birthday_reservations` (principal+fallback),
+  `restaurant_reservations`, `guest_lists`, `guests`.
+- `routes/largeReservations.js` — `large_reservations` (completo+fallback), `guest_lists` (2 rotas), `guests`.
+- `routes/guestListPublic.js` — `guests` (adição pública) herdando org da lista.
+- `routes/guestListsAdmin.js` — `guests` (adição admin) herdando org da lista.
+- `routes/walkIns.js` — `walk_ins` (deriva org do establishment/tenant; passa a gravar `establishment_id`).
+- `services/agent/agentTools.js` — `waitlist` criada pela IA no WhatsApp.
+
+Já corretos (auditados, sem alteração): `routes/restaurantReservations.js`, `routes/waitlist.js`,
+`routes/promotersAdvanced.js`, `routes/restaurantReservationBlocks.js`.
+
+Observação: `eventos`, `listas`, `listas_convidados` têm `organization_id` **nullable** — não geram 500,
+mas devem receber org para visibilidade sob RLS (já tratado nos fluxos de promoter em sessões anteriores).
 
 ## Modularização / monetização
 - Entitlements resolvidos no login (`/api/me/entitlements`).
