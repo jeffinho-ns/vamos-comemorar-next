@@ -529,19 +529,25 @@ function contactAvatarClass(waId: string): string {
 
 function inboxRowSortPriority(state: InboxRowVisualState): number {
   switch (state) {
-    case "human_handoff":
+    case "never_opened":
       return 0;
     case "unread_inbound":
       return 1;
     case "unread_review":
       return 2;
-    case "never_opened":
-      return 3;
     case "ai_active":
+      return 3;
+    case "human_handoff":
       return 4;
     default:
       return 5;
   }
+}
+
+function conversationSortTimestamp(conversation: ConversationRow): number {
+  const raw = conversation.last_message_at || conversation.updated_at;
+  const ts = raw ? new Date(raw).getTime() : 0;
+  return Number.isFinite(ts) ? ts : 0;
 }
 
 const CONVERSATION_STATUS_LABELS: Record<ConversationRow["status"], string> = {
@@ -944,6 +950,7 @@ function AdminWhatsappPageContent() {
     setError(null);
     try {
       const params = new URLSearchParams();
+      params.set("limit", "1000");
       if (inboxEstablishmentFilter === "unassigned") {
         params.set("establishment_id", "unassigned");
       } else if (inboxEstablishmentFilter !== "all") {
@@ -2359,7 +2366,7 @@ function AdminWhatsappPageContent() {
           .replace(/[\u0300-\u036f]/g, "");
       const nq = norm(query);
       const digitsQuery = query.replace(/\D/g, "");
-      rows = filteredInboxConversations.filter((c) => {
+      rows = rows.filter((c) => {
         if (norm(c.contact_name).includes(nq)) return true;
         if (norm(c.last_body).includes(nq)) return true;
         if (digitsQuery && (c.wa_id || "").includes(digitsQuery)) return true;
@@ -2370,9 +2377,7 @@ function AdminWhatsappPageContent() {
       const pa = inboxRowSortPriority(resolveInboxRowVisual(a));
       const pb = inboxRowSortPriority(resolveInboxRowVisual(b));
       if (pa !== pb) return pa - pb;
-      const ta = new Date(a.last_message_at || a.updated_at).getTime();
-      const tb = new Date(b.last_message_at || b.updated_at).getTime();
-      return tb - ta;
+      return conversationSortTimestamp(b) - conversationSortTimestamp(a);
     });
   }, [filteredInboxConversations, inboxSearch, inboxQueueFilter]);
 
@@ -2595,9 +2600,17 @@ function AdminWhatsappPageContent() {
   }
 
   return (
-    <div className="flex flex-col gap-5 p-4 md:p-6 max-w-[1600px] mx-auto min-h-[calc(100vh-4rem)]">
+    <div
+      className={`flex flex-col mx-auto min-h-[calc(100vh-4rem)] ${
+        activeTab === "atendimento"
+          ? "gap-2 p-2 md:p-3 w-full max-w-none"
+          : "gap-5 p-4 md:p-6 max-w-[1600px]"
+      }`}
+    >
       <div
-        className={`flex flex-wrap items-center justify-between gap-3 rounded-2xl border px-4 py-4 md:px-5 ${
+        className={`flex flex-wrap items-center justify-between gap-3 rounded-2xl border px-4 ${
+          activeTab === "atendimento" ? "py-2 md:px-4" : "py-4 md:px-5"
+        } ${
           isWhatsappHighlineOnlyUser
             ? "border-indigo-200 bg-gradient-to-r from-indigo-50 via-white to-indigo-50/40"
             : "border-amber-100 bg-gradient-to-r from-amber-50 via-white to-orange-50"
@@ -2610,12 +2623,12 @@ function AdminWhatsappPageContent() {
             }`}
           />
           <div>
-            <h1 className="text-xl font-semibold text-gray-900">
+            <h1 className={`font-semibold text-gray-900 ${activeTab === "atendimento" ? "text-lg" : "text-xl"}`}>
               {isWhatsappHighlineOnlyUser
                 ? "Atendimento HighLine"
                 : "Atendimento"}
             </h1>
-            <p className="text-sm text-gray-600">
+            <p className={`text-gray-600 ${activeTab === "atendimento" ? "text-xs hidden sm:block" : "text-sm"}`}>
               {isWhatsappHighlineOnlyUser
                 ? "Conversas do WhatsApp vinculadas ao HighLine (#EST_7). Demais estabelecimentos não aparecem aqui."
                 : activeTab === "treinamento"
@@ -2680,8 +2693,27 @@ function AdminWhatsappPageContent() {
 
       {activeTab === "config-ia" ? <AiConfigPanel /> : null}
 
-      {showWhatsappArea ? (
-      <>
+      {error && (
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 space-y-2">
+          <p>{error}</p>
+          {/Sessão expirada|token inválido/i.test(error) ? (
+            <button
+              type="button"
+              onClick={() => router.push("/login")}
+              className="inline-flex items-center rounded-lg bg-red-800 px-3 py-1.5 text-white text-xs font-medium hover:bg-red-900"
+            >
+              Ir para o login
+            </button>
+          ) : null}
+        </div>
+      )}
+      {successMessage && (
+        <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800 shadow-sm">
+          {successMessage}
+        </div>
+      )}
+
+      {showWhatsappArea && activeTab !== "atendimento" ? (
       <div
         className={`grid gap-3 ${
           isWhatsappHighlineOnlyUser
@@ -2772,40 +2804,26 @@ function AdminWhatsappPageContent() {
           </>
         ) : null}
       </div>
-
-      {error && (
-        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 space-y-2">
-          <p>{error}</p>
-          {/Sessão expirada|token inválido/i.test(error) ? (
-            <button
-              type="button"
-              onClick={() => router.push("/login")}
-              className="inline-flex items-center rounded-lg bg-red-800 px-3 py-1.5 text-white text-xs font-medium hover:bg-red-900"
-            >
-              Ir para o login
-            </button>
-          ) : null}
-        </div>
-      )}
-      {successMessage && (
-        <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800 shadow-sm">
-          {successMessage}
-        </div>
-      )}
+      ) : null}
 
       {activeTab === "atendimento" ? (
-      <div className="flex h-[calc(100vh-15rem)] min-h-[560px] max-h-[860px] gap-4 flex-col lg:flex-row border border-gray-200 rounded-xl overflow-hidden bg-white shadow-sm">
-        <aside className="w-full lg:w-96 shrink-0 border-b lg:border-b-0 lg:border-r border-gray-200 flex flex-col h-[42vh] min-h-[280px] lg:h-full">
-          <div className="px-3 py-2 border-b border-gray-100 space-y-2">
-            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">
-              Conversas por estabelecimento
-            </p>
-            <p className="text-[11px] text-gray-500 leading-snug">
-              Clientes que entram pelo link com{" "}
-              <code className="text-[10px] bg-gray-100 px-1 rounded">#EST_ID</code>{" "}
-              aparecem na aba da casa correspondente.
-            </p>
-            <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto">
+      <div className="flex flex-1 min-h-0 h-[calc(100vh-8.5rem)] gap-0 flex-col lg:flex-row border border-gray-200 rounded-xl overflow-hidden bg-white shadow-sm">
+        <aside className="w-full lg:w-[min(100%,28rem)] xl:w-[32rem] shrink-0 border-b lg:border-b-0 lg:border-r border-gray-200 flex flex-col min-h-[45vh] lg:min-h-0 lg:h-full">
+          <div className="px-2.5 py-2 border-b border-gray-100 space-y-1.5 shrink-0">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-xs font-semibold text-gray-700">
+                Conversas
+                {inboxAttentionStats.needsAttention > 0 ? (
+                  <span className="ml-1.5 text-orange-700">
+                    · {inboxAttentionStats.needsAttention} precisa ver
+                  </span>
+                ) : null}
+              </p>
+              <p className="text-[10px] text-gray-500 tabular-nums">
+                Ordem: novas → não lidas → IA → humano
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-1 max-h-16 overflow-y-auto">
               {inboxEstablishmentTabs.map((tab) => {
                 const isActive = inboxEstablishmentFilter === tab.key;
                 return (
@@ -2865,7 +2883,7 @@ function AdminWhatsappPageContent() {
                 type="text"
                 value={inboxSearch}
                 onChange={(e) => setInboxSearch(e.target.value)}
-                placeholder="Buscar por nome, número ou conversa"
+                placeholder="Buscar nome ou número"
                 className="w-full rounded-lg border border-gray-200 bg-gray-50 py-1.5 pl-8 pr-8 text-sm text-gray-800 placeholder:text-gray-400 focus:border-amber-400 focus:bg-white focus:outline-none focus:ring-1 focus:ring-amber-400"
               />
               {inboxSearch && (
@@ -2879,50 +2897,21 @@ function AdminWhatsappPageContent() {
                 </button>
               )}
             </div>
-            <p className="text-[11px] text-gray-500">
+            <p className="text-[10px] text-gray-500 leading-tight">
               {loadingList
                 ? "Carregando…"
                 : inboxQueueFilter === "attention"
-                  ? `${visibleInboxConversations.length} precisa(m) de atenção nesta aba`
+                  ? `${visibleInboxConversations.length} precisa(m) de atenção`
                   : inboxSearch.trim()
-                  ? `${visibleInboxConversations.length} resultado(s) para “${inboxSearch.trim()}”`
-                  : `${filteredInboxConversations.length} nesta aba${
+                    ? `${visibleInboxConversations.length} resultado(s)`
+                    : `${visibleInboxConversations.length} conversas · ${filteredInboxConversations.length} nesta aba${
                       inboxListMeta?.truncated
-                        ? ` (mostrando ${inboxListMeta.returned} mais recentes de ${inboxListMeta.total})`
-                        : inboxListMeta?.total != null
-                          ? ` de ${inboxListMeta.total} no total`
-                          : ""
+                        ? ` (limite ${inboxListMeta.returned}/${inboxListMeta.total})`
+                        : ""
                     }`}
             </p>
           </div>
-          <div className="px-3 py-2 border-b border-gray-100 bg-gray-50/80">
-            <p className="text-[10px] font-medium uppercase tracking-wide text-gray-500 mb-1.5">
-              Legenda
-            </p>
-            <div className="flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-gray-600">
-              <span className="inline-flex items-center gap-1">
-                <span className="h-2 w-2 rounded-full bg-sky-500" />
-                Cliente aguardando (não lida)
-              </span>
-              <span className="inline-flex items-center gap-1">
-                <span className="h-2 w-2 rounded-full bg-orange-500" />
-                Nova para você (IA/equipe já respondeu)
-              </span>
-              <span className="inline-flex items-center gap-1">
-                <span className="h-2 w-2 rounded-full bg-amber-500" />
-                Humano assumiu
-              </span>
-              <span className="inline-flex items-center gap-1">
-                <span className="h-2 w-2 rounded-full bg-emerald-500" />
-                IA respondeu (já vista)
-              </span>
-              <span className="inline-flex items-center gap-1">
-                <span className="h-2 w-2 rounded-full bg-violet-400" />
-                Nunca aberta por você
-              </span>
-            </div>
-          </div>
-          <div className="overflow-y-auto flex-1">
+          <div className="overflow-y-auto flex-1 min-h-0">
             {conversations.length === 0 && !loadingList && (
               <p className="p-4 text-sm text-gray-500">
                 Nenhuma conversa ainda. Envie uma mensagem para o número
@@ -2957,12 +2946,13 @@ function AdminWhatsappPageContent() {
               const avatarInitials = contactAvatarInitials(c.contact_name, c.wa_id);
               const relativeTime = formatRelativeInboxTime(c.last_message_at || c.updated_at);
               const aiResponded = isAiLastResponder(c);
+              const showEstablishmentBadge = inboxEstablishmentFilter === "all";
               return (
                 <button
                   key={c.wa_id}
                   type="button"
                   onClick={() => setSelectedWaId(c.wa_id)}
-                  className={`w-full text-left px-3 py-3 border-b border-gray-50/80 transition-colors ${visualStyles.row || theme.listHover} ${
+                  className={`w-full text-left px-2.5 py-2 border-b border-gray-50/80 transition-colors ${visualStyles.row || theme.listHover} ${
                     active && !visualStyles.row
                       ? `${theme.listActive} border-l-4 ${theme.listActiveBorder}`
                       : active
@@ -2970,24 +2960,24 @@ function AdminWhatsappPageContent() {
                         : ""
                   } ${!active && !visualStyles.row ? theme.listHover : ""}`}
                 >
-                  <div className="flex items-start gap-2.5">
+                  <div className="flex items-center gap-2">
                     <div
-                      className={`relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-xs font-semibold text-white shadow-sm ${contactAvatarClass(c.wa_id)}`}
+                      className={`relative flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold text-white shadow-sm ${contactAvatarClass(c.wa_id)}`}
                       title="Foto de perfil não disponível via WhatsApp — exibindo iniciais"
                     >
                       {avatarInitials}
                       {visualStyles.dot !== "bg-transparent" ? (
                         <span
-                          className={`absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full ring-2 ring-white ${visualStyles.dot}`}
+                          className={`absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full ring-2 ring-white ${visualStyles.dot}`}
                         />
                       ) : null}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <div className="flex items-center justify-between gap-2">
-                        <span className={`truncate ${visualStyles.name}`}>
+                      <div className="flex items-baseline justify-between gap-2">
+                        <span className={`truncate text-sm leading-tight ${visualStyles.name}`}>
                           {c.contact_name || c.wa_id}
                         </span>
-                        <div className="flex shrink-0 flex-col items-end gap-0.5">
+                        <div className="flex shrink-0 items-center gap-1">
                           {relativeTime ? (
                             <span
                               className={`text-[10px] tabular-nums whitespace-nowrap ${
@@ -2997,48 +2987,40 @@ function AdminWhatsappPageContent() {
                               {relativeTime}
                             </span>
                           ) : null}
-                          {visualStyles.label ? (
-                            <span className="text-[9px] font-medium text-gray-500 hidden sm:inline max-w-[88px] text-right leading-tight">
-                              {visualStyles.label}
+                          {ho ? (
+                            <span className="text-[9px] font-bold uppercase text-amber-900 bg-amber-100 px-1 py-0.5 rounded">
+                              H
                             </span>
                           ) : null}
-                          {ho && (
-                            <span className="text-[10px] uppercase font-semibold text-amber-800 bg-amber-100 px-1.5 py-0.5 rounded">
-                              Humano
-                            </span>
-                          )}
-                          {!ho && aiResponded && visual !== "unread_review" ? (
-                            <span className="text-[10px] font-medium text-emerald-800 bg-emerald-100 px-1.5 py-0.5 rounded">
+                          {!ho && aiResponded ? (
+                            <span className="text-[9px] font-bold text-emerald-900 bg-emerald-100 px-1 py-0.5 rounded">
                               IA
+                            </span>
+                          ) : null}
+                          {c.has_unread ? (
+                            <span className="text-[9px] font-bold text-orange-900 bg-orange-100 px-1 py-0.5 rounded">
+                              •
                             </span>
                           ) : null}
                         </div>
                       </div>
                       <p
-                        className={`text-xs truncate mt-0.5 ${
+                        className={`text-xs truncate leading-snug ${
                           c.has_unread ? "text-gray-800 font-medium" : "text-gray-500"
                         }`}
                       >
                         {c.last_direction === "inbound" ? "← " : c.last_direction === "outbound" ? "→ " : ""}
                         {c.last_body || "—"}
                       </p>
-                      <div className="mt-1 flex flex-wrap gap-1">
-                        <span
-                          className={`text-[10px] rounded font-medium px-1.5 py-0.5 ${theme.badge}`}
-                        >
-                          {c.establishment_name || "Sem estabelecimento"}
-                        </span>
-                        <span
-                          className={`text-[10px] rounded px-1.5 py-0.5 ${theme.statusBadge}`}
-                        >
-                          {translateConversationStatus(c.status)}
-                        </span>
-                        {c.has_unread ? (
-                          <span className="text-[10px] rounded px-1.5 py-0.5 bg-orange-100 text-orange-900 font-semibold">
-                            Não lida
+                      {showEstablishmentBadge ? (
+                        <div className="mt-0.5">
+                          <span
+                            className={`text-[10px] rounded font-medium px-1 py-0.5 ${theme.badge}`}
+                          >
+                            {c.establishment_name || "Sem casa"}
                           </span>
-                        ) : null}
-                      </div>
+                        </div>
+                      ) : null}
                     </div>
                   </div>
                 </button>
@@ -3273,36 +3255,6 @@ function AdminWhatsappPageContent() {
           )}
         </section>
       </div>
-      ) : null}
-      </>
-      ) : null}
-
-      {showWhatsappInbox && activeTab === "atendimento" ? (
-        <section className="rounded-2xl border border-gray-200 bg-white shadow-sm p-4 md:p-5">
-          <h2 className="text-base font-semibold text-gray-900">Visão rápida do atendimento</h2>
-          <p className="text-sm text-gray-500 mt-1">
-            Use este fluxo para operação diária: selecione uma conversa, ajuste status e
-            responsável, valide a sugestão da IA e envie.
-          </p>
-          <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-3">
-            <div className="rounded-lg border border-gray-200 bg-gray-50/50 p-3">
-              <p className="text-xs text-gray-500">Conversa selecionada</p>
-              <p className="text-sm font-medium text-gray-900 mt-1">
-                {selectedWaId || "Nenhuma conversa selecionada"}
-              </p>
-            </div>
-            <div className="rounded-lg border border-gray-200 bg-gray-50/50 p-3">
-              <p className="text-xs text-gray-500">Status atual</p>
-              <p className="text-sm font-medium text-gray-900 mt-1">{selectedStatus}</p>
-            </div>
-            <div className="rounded-lg border border-gray-200 bg-gray-50/50 p-3">
-              <p className="text-xs text-gray-500">Responsável</p>
-              <p className="text-sm font-medium text-gray-900 mt-1">
-                {selectedAssignee || "Sem responsável"}
-              </p>
-            </div>
-          </div>
-        </section>
       ) : null}
 
       {showWhatsappArea && activeTab === "links" ? (
