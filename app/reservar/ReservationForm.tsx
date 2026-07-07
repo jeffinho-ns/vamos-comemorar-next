@@ -17,7 +17,7 @@ import {
 import { useRouter, useSearchParams } from 'next/navigation';
 import { formatDateBR } from '@/lib/dateUtils';
 import Link from 'next/link';
-import { getConfiguredWindows, WeeklyOperatingSetting, DateOperatingOverride } from '@/app/utils/reservationOperatingHours';
+import { getConfiguredWindows, getHighlineTimeWindows, WeeklyOperatingSetting, DateOperatingOverride } from '@/app/utils/reservationOperatingHours';
 import { useAppContext } from '@/app/context/AppContext';
 import { useEntitlements } from '@/app/context/EntitlementsContext';
 import { filterEstablishmentListForUser } from '@/app/utils/establishmentAccessRules';
@@ -525,33 +525,6 @@ export default function ReservationForm() {
     loadOperatingSettings();
   }, [selectedEstablishment?.id]);
 
-  // Janelas de horário para o Highline (Sexta e Sábado)
-  const getHighlineTimeWindows = (dateStr: string, subareaKey?: string) => {
-    if (!dateStr) return [] as Array<{ start: string; end: string; label: string }>;
-    const date = new Date(dateStr + 'T00:00:00');
-    const weekday = date.getDay(); // 0=Dom, 5=Sex, 6=Sáb
-    const windows: Array<{ start: string; end: string; label: string }> = [];
-    const isRooftop = subareaKey ? subareaKey.startsWith('roof') : false;
-    const isDeckOrBar = subareaKey ? (subareaKey.startsWith('deck') || subareaKey === 'bar') : false;
-
-    if (weekday === 5) {
-      // Sexta-feira (qualquer área)
-      windows.push({ start: '18:00', end: '21:00', label: 'Sexta-feira: 18:00–21:00' });
-    } else if (weekday === 6) {
-      // Sábado: rooftop 14–17, deck/bar 14–20
-      if (isRooftop) {
-        windows.push({ start: '14:00', end: '17:00', label: 'Sábado Rooftop: 14:00–17:00' });
-      } else if (isDeckOrBar) {
-        windows.push({ start: '14:00', end: '20:00', label: 'Sábado Deck: 14:00–20:00' });
-      } else {
-        // Sem subárea definida ainda: mostrar ambas como informação
-        windows.push({ start: '14:00', end: '17:00', label: 'Sábado Rooftop: 14:00–17:00' });
-        windows.push({ start: '14:00', end: '20:00', label: 'Sábado Deck: 14:00–20:00' });
-      }
-    }
-    return windows;
-  };
-
   const isTimeWithinWindows = (timeStr: string, windows: Array<{ start: string; end: string }>) => {
     if (!timeStr || windows.length === 0) return false;
     const [h, m] = timeStr.split(':').map(Number);
@@ -805,7 +778,12 @@ export default function ReservationForm() {
 
       // Regra de horário de funcionamento do Highline
       if (isHighline) {
-        const windows = getHighlineTimeWindows(reservationData.reservation_date, selectedSubareaKey);
+        const windows = getHighlineTimeWindows(
+          reservationData.reservation_date,
+          weeklyOperatingSettings,
+          dateOperatingOverrides,
+          selectedSubareaKey,
+        );
         const hasWindows = windows.length > 0;
         if (!hasWindows) {
           newErrors.reservation_time = 'Reservas fechadas para o dia selecionado no Highline.';
@@ -1232,7 +1210,12 @@ const handleSubmit = async (e: React.FormEvent) => {
     if (!reservationData.reservation_date) return [] as string[];
 
     if (isHighline) {
-      const windows = getHighlineTimeWindows(reservationData.reservation_date, selectedSubareaKey);
+      const windows = getHighlineTimeWindows(
+        reservationData.reservation_date,
+        weeklyOperatingSettings,
+        dateOperatingOverrides,
+        selectedSubareaKey,
+      );
       if (!selectedSubareaKey && windows.length > 1) {
         return [];
       }
@@ -2391,7 +2374,12 @@ const handleSubmit = async (e: React.FormEvent) => {
                   {isHighline && reservationData.reservation_date && (
                     <div className="mt-2 text-xs text-gray-600">
                       {(() => {
-                        const windows = getHighlineTimeWindows(reservationData.reservation_date, selectedSubareaKey);
+                        const windows = getHighlineTimeWindows(
+          reservationData.reservation_date,
+          weeklyOperatingSettings,
+          dateOperatingOverrides,
+          selectedSubareaKey,
+        );
                         if (windows.length === 0) {
                           return (
                             <div className="p-4 bg-gradient-to-r from-red-100 to-pink-100 border-2 border-red-400 rounded-lg shadow-lg">
@@ -2400,7 +2388,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                                 <span className="font-bold text-red-900">❌ RESERVAS FECHADAS</span>
                               </div>
                               <p className="text-sm text-red-800 font-medium">
-                                Reservas fechadas para este dia no Highline. Disponível apenas Sexta e Sábado.
+                                Reservas fechadas para este dia no Highline.
                               </p>
                             </div>
                           );
@@ -2713,7 +2701,12 @@ const handleSubmit = async (e: React.FormEvent) => {
       {/* Alerta de Horários (se for Highline) */}
       {isHighline && reservationData.reservation_date && (
         (() => {
-          const windows = getHighlineTimeWindows(reservationData.reservation_date, selectedSubareaKey);
+          const windows = getHighlineTimeWindows(
+          reservationData.reservation_date,
+          weeklyOperatingSettings,
+          dateOperatingOverrides,
+          selectedSubareaKey,
+        );
           if (windows.length > 0) {
             return (
               <div className="bg-gradient-to-r from-amber-50 to-yellow-50 border-2 border-amber-300 rounded-lg p-4">

@@ -12,6 +12,11 @@ import { MdAccessTime, MdLocationOn } from 'react-icons/md';
 import { BirthdayService } from '../services/birthdayService';
 import { useAppContext } from '../context/AppContext';
 import { filterEstablishmentListForUser } from '../utils/establishmentAccessRules';
+import {
+  getHighlineTimeWindows,
+  WeeklyOperatingSetting,
+  DateOperatingOverride,
+} from '../utils/reservationOperatingHours';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL_LOCAL || 'https://api.agilizaiapp.com.br';
 
@@ -106,6 +111,8 @@ export default function ReservaAniversarioPage() {
   const [areas, setAreas] = useState<RestaurantArea[]>([]);
   const [availableTimeSlots, setAvailableTimeSlots] = useState<string[]>([]);
   const [selectedSubareaKey, setSelectedSubareaKey] = useState<string>('');
+  const [weeklyOperatingSettings, setWeeklyOperatingSettings] = useState<WeeklyOperatingSetting[]>([]);
+  const [dateOperatingOverrides, setDateOperatingOverrides] = useState<DateOperatingOverride[]>([]);
 
 
   // Estados para modais
@@ -281,30 +288,42 @@ export default function ReservaAniversarioPage() {
     }
   };
 
-
-  // Janelas de horário para o Highline
-  const getHighlineTimeWindows = (dateStr: string, subareaKey?: string) => {
-    if (!dateStr) return [] as Array<{ start: string; end: string; label: string }>;
-    const date = new Date(dateStr + 'T00:00:00');
-    const weekday = date.getDay();
-    const windows: Array<{ start: string; end: string; label: string }> = [];
-    const isRooftop = subareaKey ? subareaKey.startsWith('roof') : false;
-    const isDeckOrBar = subareaKey ? (subareaKey.startsWith('deck') || subareaKey === 'bar') : false;
-
-    if (weekday === 5) {
-      windows.push({ start: '18:00', end: '21:00', label: 'Sexta-feira: 18:00–21:00' });
-    } else if (weekday === 6) {
-      if (isRooftop) {
-        windows.push({ start: '14:00', end: '17:00', label: 'Sábado Rooftop: 14:00–17:00' });
-      } else if (isDeckOrBar) {
-        windows.push({ start: '14:00', end: '20:00', label: 'Sábado Deck: 14:00–20:00' });
-      } else {
-        windows.push({ start: '14:00', end: '17:00', label: 'Sábado Rooftop: 14:00–17:00' });
-        windows.push({ start: '14:00', end: '20:00', label: 'Sábado Deck: 14:00–20:00' });
+  useEffect(() => {
+    const loadOperatingSettings = async () => {
+      if (!selectedEstablishment?.id) {
+        setWeeklyOperatingSettings([]);
+        setDateOperatingOverrides([]);
+        return;
       }
-    }
-    return windows;
-  };
+      try {
+        const response = await fetch(
+          `${API_URL}/api/restaurant-reservation-settings?establishment_id=${selectedEstablishment.id}`,
+        );
+        if (!response.ok) {
+          setWeeklyOperatingSettings([]);
+          setDateOperatingOverrides([]);
+          return;
+        }
+        const data = await response.json();
+        if (data?.success) {
+          setWeeklyOperatingSettings(
+            Array.isArray(data.weekly_settings) ? data.weekly_settings : [],
+          );
+          setDateOperatingOverrides(
+            Array.isArray(data.date_overrides) ? data.date_overrides : [],
+          );
+        } else {
+          setWeeklyOperatingSettings([]);
+          setDateOperatingOverrides([]);
+        }
+      } catch {
+        setWeeklyOperatingSettings([]);
+        setDateOperatingOverrides([]);
+      }
+    };
+    void loadOperatingSettings();
+  }, [selectedEstablishment?.id]);
+
 
   // Janelas de horário para Seu Justino
   const getSeuJustinoTimeWindows = (dateStr: string) => {
@@ -364,7 +383,12 @@ export default function ReservaAniversarioPage() {
     if (!formData.dataAniversario) return [] as string[];
 
     if (isHighline) {
-      const windows = getHighlineTimeWindows(formData.dataAniversario, selectedSubareaKey);
+      const windows = getHighlineTimeWindows(
+        formData.dataAniversario,
+        weeklyOperatingSettings,
+        dateOperatingOverrides,
+        selectedSubareaKey,
+      );
       if (!selectedSubareaKey && windows.length > 1) {
         return [];
       }
@@ -847,12 +871,17 @@ export default function ReservaAniversarioPage() {
                     {isHighline && formData.dataAniversario && (
                       <div className="mt-2 text-xs text-gray-400">
                         {(() => {
-                          const windows = getHighlineTimeWindows(formData.dataAniversario, selectedSubareaKey);
+                          const windows = getHighlineTimeWindows(
+        formData.dataAniversario,
+        weeklyOperatingSettings,
+        dateOperatingOverrides,
+        selectedSubareaKey,
+      );
                           if (windows.length === 0) {
                             return (
                               <div className="p-3 bg-red-500/20 border border-red-500/40 rounded-lg text-red-200">
                                 <p className="font-semibold">❌ RESERVAS FECHADAS</p>
-                                <p className="text-sm">Reservas disponíveis apenas Sexta e Sábado.</p>
+                                <p className="text-sm">Reservas fechadas para este dia no Highline.</p>
                               </div>
                             );
                           }

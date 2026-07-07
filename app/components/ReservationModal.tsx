@@ -23,6 +23,7 @@ import { useUserPermissions } from "@/app/hooks/useUserPermissions";
 import { useEstablishmentRules } from "@/app/hooks/useEstablishmentRules";
 import {
   getConfiguredWindows,
+  getHighlineTimeWindows,
   WeeklyOperatingSetting,
   DateOperatingOverride,
 } from "@/app/utils/reservationOperatingHours";
@@ -408,53 +409,6 @@ export default function ReservationModal({
     };
     loadOperatingSettings();
   }, [establishment?.id]);
-
-  // Janelas de horário para o Highline (Sexta e Sábado)
-  const getHighlineTimeWindows = (dateStr: string, subareaKey?: string) => {
-    if (!dateStr)
-      return [] as Array<{ start: string; end: string; label: string }>;
-    const date = new Date(dateStr + "T00:00:00");
-    const weekday = date.getDay(); // 0=Dom, 5=Sex, 6=Sáb
-    const windows: Array<{ start: string; end: string; label: string }> = [];
-    const isRooftop = subareaKey ? subareaKey.startsWith("roof") : false;
-    const isDeckOrBar = subareaKey
-      ? subareaKey.startsWith("deck") || subareaKey === "bar"
-      : false;
-
-    if (weekday === 5) {
-      windows.push({
-        start: "18:00",
-        end: "21:00",
-        label: "Sexta-feira: 18:00–21:00",
-      });
-    } else if (weekday === 6) {
-      if (isRooftop) {
-        windows.push({
-          start: "14:00",
-          end: "19:00",
-          label: "Sábado Rooftop: 14:00–19:00",
-        });
-      } else if (isDeckOrBar) {
-        windows.push({
-          start: "14:00",
-          end: "21:00",
-          label: "Sábado Deck: 14:00–21:00",
-        });
-      } else {
-        windows.push({
-          start: "14:00",
-          end: "19:00",
-          label: "Sábado Rooftop: 14:00–19:00",
-        });
-        windows.push({
-          start: "14:00",
-          end: "21:00",
-          label: "Sábado Deck: 14:00–21:00",
-        });
-      }
-    }
-    return windows;
-  };
 
   const isTimeWithinWindows = (
     timeStr: string,
@@ -1195,6 +1149,8 @@ export default function ReservationModal({
     ) {
       const windows = getHighlineTimeWindows(
         formData.reservation_date,
+        weeklyOperatingSettings,
+        dateOperatingOverrides,
         selectedSubareaKey,
       );
       if (
@@ -1328,6 +1284,8 @@ export default function ReservationModal({
       if (isHighline) {
         const windows = getHighlineTimeWindows(
           formData.reservation_date,
+          weeklyOperatingSettings,
+          dateOperatingOverrides,
           selectedSubareaKey,
         );
         if (
@@ -2229,13 +2187,14 @@ export default function ReservationModal({
                       {(() => {
                         const windows = getHighlineTimeWindows(
                           formData.reservation_date,
+                          weeklyOperatingSettings,
+                          dateOperatingOverrides,
                           selectedSubareaKey,
                         );
                         if (windows.length === 0) {
                           return (
                             <div className="p-2 bg-red-900/20 border border-red-600/40 rounded">
                               Reservas fechadas para este dia no Highline.
-                              Disponível apenas Sexta e Sábado.
                               {isAdmin && (
                                 <div className="mt-2 text-amber-300 font-medium">
                                   ⚠️ Admin: Você pode criar reservas fora do

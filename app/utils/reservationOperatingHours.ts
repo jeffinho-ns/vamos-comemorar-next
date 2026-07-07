@@ -24,6 +24,19 @@ export interface TimeWindow {
 
 const labelFromWindow = (start: string, end: string) => `${start}–${end}`;
 
+/** Normaliza YYYY-MM-DD (API pode retornar timestamp em texto). */
+function normalizeDateKey(value: string | null | undefined): string {
+  if (!value) return "";
+  const s = String(value).trim();
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
+  const d = new Date(s);
+  if (Number.isNaN(d.getTime())) return s;
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
 export function getConfiguredWindows(
   dateStr: string,
   weekly: WeeklyOperatingSetting[],
@@ -34,7 +47,9 @@ export function getConfiguredWindows(
   if (Number.isNaN(date.getTime())) return null;
   const weekday = date.getDay();
 
-  const override = overrides.find((o) => o.override_date === dateStr);
+  const override = overrides.find(
+    (o) => normalizeDateKey(o.override_date) === normalizeDateKey(dateStr),
+  );
   if (override) {
     if (!override.is_open) return [];
     const windows: TimeWindow[] = [];
@@ -84,4 +99,73 @@ export function getConfiguredWindows(
     });
   }
   return windows;
+}
+
+/** Fallback legado Highline (sex/sáb + subáreas) quando não há config no admin. */
+export function getHighlineLegacyTimeWindows(
+  dateStr: string,
+  subareaKey?: string,
+): TimeWindow[] {
+  if (!dateStr) return [];
+  const date = new Date(`${dateStr}T00:00:00`);
+  const weekday = date.getDay();
+  const windows: TimeWindow[] = [];
+  const isRooftop = subareaKey ? subareaKey.startsWith("roof") : false;
+  const isDeckOrBar = subareaKey
+    ? subareaKey.startsWith("deck") || subareaKey === "bar"
+    : false;
+
+  if (weekday === 5) {
+    windows.push({
+      start: "18:00",
+      end: "21:00",
+      label: "Sexta-feira: 18:00–21:00",
+    });
+  } else if (weekday === 6) {
+    if (isRooftop) {
+      windows.push({
+        start: "14:00",
+        end: "17:00",
+        label: "Sábado Rooftop: 14:00–17:00",
+      });
+    } else if (isDeckOrBar) {
+      windows.push({
+        start: "14:00",
+        end: "20:00",
+        label: "Sábado Deck: 14:00–20:00",
+      });
+    } else {
+      windows.push({
+        start: "14:00",
+        end: "17:00",
+        label: "Sábado Rooftop: 14:00–17:00",
+      });
+      windows.push({
+        start: "14:00",
+        end: "20:00",
+        label: "Sábado Deck: 14:00–20:00",
+      });
+    }
+  }
+  return windows;
+}
+
+/**
+ * Horários Highline: prioriza config do admin (semanal + exceções por data);
+ * cai no legado sex/sáb só se não houver configuração salva.
+ */
+export function getHighlineTimeWindows(
+  dateStr: string,
+  weekly: WeeklyOperatingSetting[],
+  overrides: DateOperatingOverride[],
+  subareaKey?: string,
+): TimeWindow[] {
+  if (!dateStr) return [];
+
+  if (weekly.length > 0 || overrides.length > 0) {
+    const configured = getConfiguredWindows(dateStr, weekly, overrides);
+    if (configured !== null) return configured;
+  }
+
+  return getHighlineLegacyTimeWindows(dateStr, subareaKey);
 }
