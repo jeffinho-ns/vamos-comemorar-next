@@ -2853,10 +2853,10 @@ function AdminWhatsappPageContent() {
 
   return (
     <div
-      className={`flex flex-col mx-auto min-h-[calc(100vh-4rem)] ${
+      className={`flex flex-col mx-auto ${
         activeTab === "atendimento"
-          ? "gap-2 p-2 md:p-3 w-full max-w-none"
-          : "gap-5 p-4 md:p-6 max-w-[1600px]"
+          ? "h-[calc(100vh-4rem)] overflow-hidden gap-2 p-2 md:p-3 w-full max-w-none"
+          : "min-h-[calc(100vh-4rem)] gap-5 p-4 md:p-6 max-w-[1600px]"
       }`}
     >
       <div
@@ -3059,7 +3059,7 @@ function AdminWhatsappPageContent() {
       ) : null}
 
       {activeTab === "atendimento" ? (
-      <div className="flex flex-1 min-h-0 h-[calc(100vh-10.5rem)] max-h-[780px] gap-0 flex-col lg:flex-row border border-gray-200 rounded-xl overflow-hidden bg-white shadow-sm">
+      <div className="flex flex-1 min-h-0 gap-0 flex-col lg:flex-row border border-gray-200 rounded-xl overflow-hidden bg-white shadow-sm">
         <aside className="w-full lg:w-[min(100%,26rem)] xl:w-[30rem] shrink-0 border-b lg:border-b-0 lg:border-r border-gray-200 flex flex-col min-h-[45vh] lg:min-h-0 lg:h-full">
           <div className="px-2.5 py-2 border-b border-gray-100 space-y-1.5 shrink-0">
             <div className="flex flex-wrap items-center justify-between gap-2">
