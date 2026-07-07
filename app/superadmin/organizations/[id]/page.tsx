@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { formatBrlFromCents, superadminFetch } from "@/app/utils/superadminApi";
 import { applyImpersonationSession } from "@/app/utils/impersonation";
+import EstablishmentAccessPanel from "./EstablishmentAccessPanel";
 
 type OrgUser = {
   id: number;
@@ -43,8 +44,14 @@ type InvoiceRow = {
 
 type OrgDetail = {
   organization: Record<string, unknown>;
-  establishments: Array<Record<string, unknown>>;
+  establishments: Array<{
+    id: number;
+    name: string;
+    legacy_place_id: number | null;
+    legacy_bar_id: number | null;
+  }>;
   modules: Array<{ key: string; name: string; is_enabled: boolean }>;
+  moduleCatalog?: Array<{ key: string; name: string }>;
   invoices: InvoiceRow[];
   billingEvents: Array<Record<string, unknown>>;
 };
@@ -57,33 +64,6 @@ function parseMoneyToCents(value: string): number {
   const parsed = Math.round(parseFloat(value.replace(",", ".") || "0") * 100);
   return Number.isFinite(parsed) ? parsed : 0;
 }
-
-function slugifyEstablishmentName(value: string): string {
-  return value
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-}
-
-const ESTABLISHMENT_PROFILES = [
-  { value: "generic", label: "Genérico" },
-  { value: "pracinha", label: "Pracinha" },
-  { value: "highline", label: "HighLine" },
-  { value: "rooftop", label: "Rooftop" },
-  { value: "oh_fregues", label: "Oh Freguês" },
-  { value: "seu_justino", label: "Seu Justino" },
-  { value: "sitio_ilha", label: "Sítio Ilha" },
-];
-
-type ProvisionedEstablishment = {
-  establishmentId: number;
-  legacyPlaceId: number;
-  legacyBarId: number;
-  name: string;
-  slug: string;
-};
 
 export default function SuperadminOrganizationDetailPage() {
   const params = useParams();
@@ -101,16 +81,8 @@ export default function SuperadminOrganizationDetailPage() {
   const [savingMonthly, setSavingMonthly] = useState(false);
   const [payingInvoiceId, setPayingInvoiceId] = useState<number | null>(null);
   const [impersonatingId, setImpersonatingId] = useState<number | null>(null);
-  const [showAddEstablishment, setShowAddEstablishment] = useState(false);
-  const [addingEstablishment, setAddingEstablishment] = useState(false);
-  const [establishmentSuccess, setEstablishmentSuccess] = useState<string | null>(null);
-  const [estForm, setEstForm] = useState({
-    name: "",
-    slug: "",
-    profile: "generic",
-    cardapioOnly: false,
-  });
-  const [slugTouched, setSlugTouched] = useState(false);
+  const [memberEstablishmentId, setMemberEstablishmentId] = useState("");
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   const load = useCallback(() => {
     if (!Number.isFinite(id)) return;
@@ -214,9 +186,16 @@ export default function SuperadminOrganizationDetailPage() {
     try {
       await superadminFetch(`/organizations/${id}/memberships`, {
         method: "POST",
-        body: JSON.stringify({ userEmail: memberEmail.trim(), roleKey: memberRole }),
+        body: JSON.stringify({
+          userEmail: memberEmail.trim(),
+          roleKey: memberRole,
+          establishmentId: memberEstablishmentId
+            ? Number(memberEstablishmentId)
+            : undefined,
+        }),
       });
       setMemberEmail("");
+      setMemberEstablishmentId("");
       load();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro ao adicionar membro");
@@ -225,48 +204,27 @@ export default function SuperadminOrganizationDetailPage() {
     }
   };
 
-  const addEstablishment = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!estForm.name.trim()) return;
-    setAddingEstablishment(true);
-    setError(null);
-    setEstablishmentSuccess(null);
-    try {
-      const result = await superadminFetch<ProvisionedEstablishment>(
-        `/organizations/${id}/establishments`,
-        {
-          method: "POST",
-          body: JSON.stringify({
-            name: estForm.name.trim(),
-            slug: estForm.slug.trim() || slugifyEstablishmentName(estForm.name),
-            profile: estForm.profile,
-            cardapioOnly: estForm.cardapioOnly,
-          }),
-        },
-      );
-      setEstablishmentSuccess(
-        `Estabelecimento "${result.name}" criado. Place ID: ${result.legacyPlaceId} · Bar ID: ${result.legacyBarId}. ` +
-          `Em /admin/users, vincule usuários a este place e marque as permissões de cardápio.`,
-      );
-      setEstForm({ name: "", slug: "", profile: "generic", cardapioOnly: false });
-      setSlugTouched(false);
-      setShowAddEstablishment(false);
-      load();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Erro ao adicionar estabelecimento");
-    } finally {
-      setAddingEstablishment(false);
-    }
-  };
-
-  if (error) return <p className="text-red-400">{error}</p>;
   if (!detail) return <p className="text-slate-400">Carregando…</p>;
 
   const org = detail.organization;
   const currentMonthly = Number(org.monthly_amount_cents ?? org.price_cents ?? 0);
+  const moduleCatalog =
+    detail.moduleCatalog && detail.moduleCatalog.length > 0
+      ? detail.moduleCatalog
+      : detail.modules.map((m) => ({ key: m.key, name: m.name }));
 
   return (
     <div className="space-y-8">
+      {error && (
+        <p className="rounded-lg border border-red-900 bg-red-950/40 px-4 py-3 text-sm text-red-300">
+          {error}
+        </p>
+      )}
+      {successMessage && (
+        <p className="rounded-lg border border-emerald-800 bg-emerald-950/40 px-4 py-3 text-sm text-emerald-300">
+          {successMessage}
+        </p>
+      )}
       <div>
         <Link href="/superadmin/organizations" className="text-sm text-slate-400 hover:text-white">
           ← Organizações
@@ -345,6 +303,19 @@ export default function SuperadminOrganizationDetailPage() {
             <option value="hostess">Hostess</option>
             <option value="promoter">Promoter</option>
           </select>
+          <select
+            value={memberEstablishmentId}
+            onChange={(e) => setMemberEstablishmentId(e.target.value)}
+            className="rounded border border-slate-700 bg-slate-950 px-3 py-2 text-sm"
+            title="Opcional: restringe o role a um estabelecimento"
+          >
+            <option value="">Toda a organização</option>
+            {detail.establishments.map((est) => (
+              <option key={est.id} value={String(est.id)}>
+                {est.name}
+              </option>
+            ))}
+          </select>
           <button
             type="submit"
             disabled={addingMember}
@@ -419,118 +390,15 @@ export default function SuperadminOrganizationDetailPage() {
         </div>
       </section>
 
-      {error && <p className="mb-4 text-red-400">{error}</p>}
-      {establishmentSuccess && (
-        <p className="mb-4 rounded-lg border border-emerald-800 bg-emerald-950/40 px-4 py-3 text-sm text-emerald-300">
-          {establishmentSuccess}
-        </p>
-      )}
-
-      <section className="rounded-xl border border-slate-800 bg-slate-900/40 p-4">
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-          <h3 className="text-lg font-semibold">Estabelecimentos</h3>
-          <button
-            type="button"
-            onClick={() => setShowAddEstablishment((v) => !v)}
-            className="rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-slate-950"
-          >
-            {showAddEstablishment ? "Cancelar" : "Adicionar estabelecimento"}
-          </button>
-        </div>
-
-        {showAddEstablishment && (
-          <form
-            onSubmit={addEstablishment}
-            className="mb-4 grid gap-3 rounded-lg border border-slate-800 bg-slate-950/50 p-4 md:grid-cols-2"
-          >
-            <div className="md:col-span-2">
-              <label className="mb-1 block text-xs text-slate-400">Nome do estabelecimento</label>
-              <input
-                required
-                placeholder="Ex: Apê do Pracinha"
-                className="w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 text-sm"
-                value={estForm.name}
-                onChange={(e) => {
-                  const name = e.target.value;
-                  setEstForm((prev) => ({
-                    ...prev,
-                    name,
-                    slug: slugTouched ? prev.slug : slugifyEstablishmentName(name),
-                  }));
-                }}
-              />
-            </div>
-            <div>
-              <label className="mb-1 block text-xs text-slate-400">Slug (identificador único)</label>
-              <input
-                required
-                placeholder="ape-do-pracinha"
-                className="w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 text-sm"
-                value={estForm.slug}
-                onChange={(e) => {
-                  setSlugTouched(true);
-                  setEstForm((prev) => ({ ...prev, slug: e.target.value }));
-                }}
-              />
-            </div>
-            <div>
-              <label className="mb-1 block text-xs text-slate-400">Perfil operacional</label>
-              <select
-                className="w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 text-sm"
-                value={estForm.profile}
-                onChange={(e) => setEstForm((prev) => ({ ...prev, profile: e.target.value }))}
-              >
-                {ESTABLISHMENT_PROFILES.map((p) => (
-                  <option key={p.value} value={p.value}>
-                    {p.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <label className="md:col-span-2 flex items-start gap-2 text-sm text-slate-300">
-              <input
-                type="checkbox"
-                className="mt-1"
-                checked={estForm.cardapioOnly}
-                onChange={(e) =>
-                  setEstForm((prev) => ({ ...prev, cardapioOnly: e.target.checked }))
-                }
-              />
-              <span>
-                <strong>Apenas cardápio</strong> — habilita só o módulo de cardápio neste
-                estabelecimento (sem reservas, check-in, WhatsApp, etc.). Os outros
-                estabelecimentos da organização não são afetados.
-              </span>
-            </label>
-            <button
-              type="submit"
-              disabled={addingEstablishment}
-              className="md:col-span-2 rounded-lg bg-emerald-600 py-2 text-sm font-medium disabled:opacity-50"
-            >
-              {addingEstablishment ? "Criando…" : "Criar estabelecimento nesta organização"}
-            </button>
-          </form>
-        )}
-
-        <ul className="space-y-2 text-sm text-slate-300">
-          {detail.establishments.map((e) => (
-            <li
-              key={String(e.id)}
-              className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-800 bg-slate-950/40 px-3 py-2"
-            >
-              <span>
-                {String(e.name)} (place {String(e.legacy_place_id ?? "—")})
-              </span>
-              <Link
-                href={`/superadmin/organizations/${id}/establishments/${String(e.id)}`}
-                className="rounded bg-amber-700/80 px-3 py-1 text-xs font-medium text-amber-100 hover:bg-amber-600"
-              >
-                Editar regras
-              </Link>
-            </li>
-          ))}
-        </ul>
-      </section>
+      <EstablishmentAccessPanel
+        orgId={id}
+        establishments={detail.establishments}
+        moduleCatalog={moduleCatalog}
+        orgUsers={orgUsers}
+        onReload={load}
+        onError={setError}
+        onSuccess={setSuccessMessage}
+      />
 
       <section>
         <h3 className="mb-3 text-lg font-semibold">Faturas</h3>
