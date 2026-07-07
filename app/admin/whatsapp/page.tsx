@@ -397,9 +397,12 @@ function handoffActive(until: string | null | undefined): boolean {
 type InboxRowVisualState =
   | "human_handoff"
   | "unread_inbound"
+  | "unread_review"
   | "ai_active"
   | "never_opened"
   | "read";
+
+type InboxQueueFilter = "all" | "attention";
 
 const CAMPAIGN_INTENTS = new Set(["CAMPAIGN_SEND", "CAMPAIGN_BATCH"]);
 const AI_ACTIVE_INTENTS = new Set([
@@ -410,19 +413,31 @@ const AI_ACTIVE_INTENTS = new Set([
   "recovery_followup",
 ]);
 
+function conversationNeedsAttention(conversation: ConversationRow): boolean {
+  return (
+    Boolean(conversation.has_unread) ||
+    Boolean(conversation.never_opened_by_me) ||
+    handoffActive(conversation.human_takeover_until)
+  );
+}
+
+function isAiLastResponder(conversation: ConversationRow): boolean {
+  if (handoffActive(conversation.human_takeover_until)) return false;
+  const intent = String(conversation.last_intent || "").trim();
+  return (
+    conversation.last_direction === "outbound" &&
+    (AI_ACTIVE_INTENTS.has(intent) || (!intent && !CAMPAIGN_INTENTS.has(intent)))
+  );
+}
+
 function resolveInboxRowVisual(conversation: ConversationRow): InboxRowVisualState {
   if (handoffActive(conversation.human_takeover_until)) return "human_handoff";
   if (conversation.has_unread && conversation.last_direction === "inbound") {
     return "unread_inbound";
   }
+  if (conversation.has_unread) return "unread_review";
   if (conversation.never_opened_by_me) return "never_opened";
-  const intent = String(conversation.last_intent || "").trim();
-  if (
-    conversation.last_direction === "outbound" &&
-    (AI_ACTIVE_INTENTS.has(intent) || (!intent && !CAMPAIGN_INTENTS.has(intent)))
-  ) {
-    return "ai_active";
-  }
+  if (isAiLastResponder(conversation)) return "ai_active";
   return "read";
 }
 
@@ -445,19 +460,26 @@ function inboxRowVisualStyles(
         dot: "bg-sky-500",
         label: "Cliente aguardando",
       };
+    case "unread_review":
+      return {
+        row: active ? "bg-orange-100 ring-1 ring-orange-200" : "bg-orange-50",
+        name: "font-bold text-orange-950",
+        dot: "bg-orange-500",
+        label: "Nova para você",
+      };
     case "ai_active":
       return {
         row: active ? "bg-emerald-50 ring-1 ring-emerald-200" : "bg-emerald-50/70",
         name: "font-medium text-emerald-950",
         dot: "bg-emerald-500",
-        label: "IA ativa",
+        label: "IA respondeu",
       };
     case "never_opened":
       return {
         row: active ? "bg-violet-50 ring-1 ring-violet-200" : "bg-violet-50/50",
         name: "font-medium text-violet-950",
         dot: "bg-violet-400",
-        label: "Não aberta",
+        label: "Nunca aberta",
       };
     default:
       return {
@@ -511,13 +533,45 @@ function inboxRowSortPriority(state: InboxRowVisualState): number {
       return 0;
     case "unread_inbound":
       return 1;
-    case "never_opened":
+    case "unread_review":
       return 2;
-    case "ai_active":
+    case "never_opened":
       return 3;
-    default:
+    case "ai_active":
       return 4;
+    default:
+      return 5;
   }
+}
+
+const CONVERSATION_STATUS_LABELS: Record<ConversationRow["status"], string> = {
+  new: "Nova",
+  in_progress: "Em andamento",
+  waiting_customer: "Aguardando cliente",
+  resolved: "Resolvida",
+};
+
+function translateConversationStatus(
+  status: ConversationRow["status"] | string | null | undefined,
+): string {
+  const key = String(status || "new") as ConversationRow["status"];
+  return CONVERSATION_STATUS_LABELS[key] || key;
+}
+
+function formatRelativeInboxTime(value: string | null | undefined): string {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  const diffMs = Date.now() - date.getTime();
+  const diffMin = Math.floor(diffMs / 60_000);
+  if (diffMin < 1) return "agora";
+  if (diffMin < 60) return `há ${diffMin} min`;
+  const diffHours = Math.floor(diffMin / 60);
+  if (diffHours < 24) return `há ${diffHours}h`;
+  const diffDays = Math.floor(diffHours / 24);
+  if (diffDays === 1) return "ontem";
+  if (diffDays < 7) return `há ${diffDays} dias`;
+  return formatSaoPauloDateTime(value);
 }
 
 function pickLatestSuggestedReply(messages: MessageRow[]): string {
@@ -727,6 +781,7 @@ function AdminWhatsappPageContent() {
     useState<InboxEstablishmentFilter>(
       isWhatsappHighlineOnlyUser ? highlineEstablishmentId : "all",
     );
+  const [inboxQueueFilter, setInboxQueueFilter] = useState<InboxQueueFilter>("all");
 
   const adminTabs = useMemo(() => {
     const items: { id: WhatsappAdminTab; label: string }[] = [];
@@ -2293,6 +2348,9 @@ function AdminWhatsappPageContent() {
   const visibleInboxConversations = useMemo(() => {
     const query = inboxSearch.trim();
     let rows = filteredInboxConversations;
+    if (inboxQueueFilter === "attention") {
+      rows = rows.filter((c) => conversationNeedsAttention(c));
+    }
     if (query) {
       const norm = (value: string | null | undefined) =>
         (value || "")
@@ -2316,7 +2374,25 @@ function AdminWhatsappPageContent() {
       const tb = new Date(b.last_message_at || b.updated_at).getTime();
       return tb - ta;
     });
-  }, [filteredInboxConversations, inboxSearch]);
+  }, [filteredInboxConversations, inboxSearch, inboxQueueFilter]);
+
+  const inboxAttentionStats = useMemo(() => {
+    let unreadInbound = 0;
+    let unreadReview = 0;
+    let neverOpened = 0;
+    let handoff = 0;
+    let aiActive = 0;
+    for (const conv of filteredInboxConversations) {
+      const visual = resolveInboxRowVisual(conv);
+      if (visual === "unread_inbound") unreadInbound += 1;
+      if (visual === "unread_review") unreadReview += 1;
+      if (visual === "never_opened") neverOpened += 1;
+      if (visual === "human_handoff") handoff += 1;
+      if (visual === "ai_active") aiActive += 1;
+    }
+    const needsAttention = unreadInbound + unreadReview + neverOpened + handoff;
+    return { unreadInbound, unreadReview, neverOpened, handoff, aiActive, needsAttention };
+  }, [filteredInboxConversations]);
 
   const activeInboxEstablishmentTheme = useMemo(() => {
     if (inboxEstablishmentFilter === "all") {
@@ -2617,14 +2693,48 @@ function AdminWhatsappPageContent() {
           <p className="text-xs text-gray-500">
             {isWhatsappHighlineOnlyUser
               ? "Conversas HighLine"
-              : "Conversas ativas"}
+              : "Conversas na aba atual"}
           </p>
           <p className="text-2xl font-semibold text-gray-900">
-            {isWhatsappHighlineOnlyUser
-              ? filteredInboxConversations.length
-              : scopedConversationsCount}
+            {filteredInboxConversations.length}
           </p>
         </div>
+        <button
+          type="button"
+          onClick={() => {
+            setActiveTab("atendimento");
+            setInboxQueueFilter("attention");
+          }}
+          className={`rounded-xl border px-4 py-3 shadow-sm text-left transition-colors ${
+            inboxAttentionStats.needsAttention > 0
+              ? "border-orange-300 bg-orange-50 hover:bg-orange-100/80"
+              : "border-gray-200 bg-white hover:bg-gray-50"
+          }`}
+        >
+          <p
+            className={`text-xs ${
+              inboxAttentionStats.needsAttention > 0 ? "text-orange-800" : "text-gray-500"
+            }`}
+          >
+            Precisa ver
+          </p>
+          <p
+            className={`text-2xl font-semibold ${
+              inboxAttentionStats.needsAttention > 0 ? "text-orange-950" : "text-gray-900"
+            }`}
+          >
+            {inboxAttentionStats.needsAttention}
+          </p>
+          <p className="text-[10px] mt-0.5 text-gray-600 leading-snug">
+            {inboxAttentionStats.unreadInbound > 0
+              ? `${inboxAttentionStats.unreadInbound} cliente aguardando`
+              : inboxAttentionStats.unreadReview > 0
+                ? `${inboxAttentionStats.unreadReview} nova(s) para revisar`
+                : inboxAttentionStats.neverOpened > 0
+                  ? `${inboxAttentionStats.neverOpened} nunca aberta(s)`
+                  : "Tudo em dia nesta aba"}
+          </p>
+        </button>
         <div
           className={`rounded-xl border px-4 py-3 shadow-sm ${
             isWhatsappHighlineOnlyUser
@@ -2717,6 +2827,35 @@ function AdminWhatsappPageContent() {
                 );
               })}
             </div>
+            <div className="flex flex-wrap gap-1.5">
+              <button
+                type="button"
+                onClick={() => setInboxQueueFilter("all")}
+                className={`rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors ${
+                  inboxQueueFilter === "all"
+                    ? "bg-gray-900 text-white"
+                    : "bg-white text-gray-600 border border-gray-200 hover:bg-gray-50"
+                }`}
+              >
+                Todas
+              </button>
+              <button
+                type="button"
+                onClick={() => setInboxQueueFilter("attention")}
+                className={`rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors ${
+                  inboxQueueFilter === "attention"
+                    ? "bg-orange-600 text-white"
+                    : inboxAttentionStats.needsAttention > 0
+                      ? "bg-orange-50 text-orange-900 border border-orange-200 hover:bg-orange-100"
+                      : "bg-white text-gray-600 border border-gray-200 hover:bg-gray-50"
+                }`}
+              >
+                Precisa ver
+                {inboxAttentionStats.needsAttention > 0 ? (
+                  <span className="ml-1 tabular-nums">({inboxAttentionStats.needsAttention})</span>
+                ) : null}
+              </button>
+            </div>
             <div className="relative">
               <MdSearch
                 size={16}
@@ -2743,7 +2882,9 @@ function AdminWhatsappPageContent() {
             <p className="text-[11px] text-gray-500">
               {loadingList
                 ? "Carregando…"
-                : inboxSearch.trim()
+                : inboxQueueFilter === "attention"
+                  ? `${visibleInboxConversations.length} precisa(m) de atenção nesta aba`
+                  : inboxSearch.trim()
                   ? `${visibleInboxConversations.length} resultado(s) para “${inboxSearch.trim()}”`
                   : `${filteredInboxConversations.length} nesta aba${
                       inboxListMeta?.truncated
@@ -2761,19 +2902,23 @@ function AdminWhatsappPageContent() {
             <div className="flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-gray-600">
               <span className="inline-flex items-center gap-1">
                 <span className="h-2 w-2 rounded-full bg-sky-500" />
-                Cliente aguardando
+                Cliente aguardando (não lida)
+              </span>
+              <span className="inline-flex items-center gap-1">
+                <span className="h-2 w-2 rounded-full bg-orange-500" />
+                Nova para você (IA/equipe já respondeu)
               </span>
               <span className="inline-flex items-center gap-1">
                 <span className="h-2 w-2 rounded-full bg-amber-500" />
-                Humano
+                Humano assumiu
               </span>
               <span className="inline-flex items-center gap-1">
                 <span className="h-2 w-2 rounded-full bg-emerald-500" />
-                IA ativa
+                IA respondeu (já vista)
               </span>
               <span className="inline-flex items-center gap-1">
                 <span className="h-2 w-2 rounded-full bg-violet-400" />
-                Não aberta
+                Nunca aberta por você
               </span>
             </div>
           </div>
@@ -2792,6 +2937,11 @@ function AdminWhatsappPageContent() {
                   Nenhuma conversa encontrada para “{inboxSearch.trim()}”. Tente
                   outro nome, número ou trecho da conversa.
                 </p>
+              ) : inboxQueueFilter === "attention" ? (
+                <p className="p-4 text-sm text-gray-500">
+                  Nenhuma conversa precisa de atenção nesta aba. Use &quot;Todas&quot; para
+                  ver o histórico completo.
+                </p>
               ) : (
                 <p className="p-4 text-sm text-gray-500">
                   Nenhuma conversa nesta aba. Troque o estabelecimento ou aguarde
@@ -2805,6 +2955,8 @@ function AdminWhatsappPageContent() {
               const visual = resolveInboxRowVisual(c);
               const visualStyles = inboxRowVisualStyles(visual, active);
               const avatarInitials = contactAvatarInitials(c.contact_name, c.wa_id);
+              const relativeTime = formatRelativeInboxTime(c.last_message_at || c.updated_at);
+              const aiResponded = isAiLastResponder(c);
               return (
                 <button
                   key={c.wa_id}
@@ -2835,9 +2987,18 @@ function AdminWhatsappPageContent() {
                         <span className={`truncate ${visualStyles.name}`}>
                           {c.contact_name || c.wa_id}
                         </span>
-                        <div className="flex shrink-0 items-center gap-1">
+                        <div className="flex shrink-0 flex-col items-end gap-0.5">
+                          {relativeTime ? (
+                            <span
+                              className={`text-[10px] tabular-nums whitespace-nowrap ${
+                                c.has_unread ? "font-semibold text-gray-700" : "text-gray-400"
+                              }`}
+                            >
+                              {relativeTime}
+                            </span>
+                          ) : null}
                           {visualStyles.label ? (
-                            <span className="text-[9px] font-medium text-gray-500 hidden sm:inline">
+                            <span className="text-[9px] font-medium text-gray-500 hidden sm:inline max-w-[88px] text-right leading-tight">
                               {visualStyles.label}
                             </span>
                           ) : null}
@@ -2846,11 +3007,16 @@ function AdminWhatsappPageContent() {
                               Humano
                             </span>
                           )}
+                          {!ho && aiResponded && visual !== "unread_review" ? (
+                            <span className="text-[10px] font-medium text-emerald-800 bg-emerald-100 px-1.5 py-0.5 rounded">
+                              IA
+                            </span>
+                          ) : null}
                         </div>
                       </div>
                       <p
                         className={`text-xs truncate mt-0.5 ${
-                          visual === "unread_inbound" ? "text-gray-700 font-medium" : "text-gray-500"
+                          c.has_unread ? "text-gray-800 font-medium" : "text-gray-500"
                         }`}
                       >
                         {c.last_direction === "inbound" ? "← " : c.last_direction === "outbound" ? "→ " : ""}
@@ -2865,8 +3031,13 @@ function AdminWhatsappPageContent() {
                         <span
                           className={`text-[10px] rounded px-1.5 py-0.5 ${theme.statusBadge}`}
                         >
-                          {c.status || "new"}
+                          {translateConversationStatus(c.status)}
                         </span>
+                        {c.has_unread ? (
+                          <span className="text-[10px] rounded px-1.5 py-0.5 bg-orange-100 text-orange-900 font-semibold">
+                            Não lida
+                          </span>
+                        ) : null}
                       </div>
                     </div>
                   </div>
@@ -2904,7 +3075,18 @@ function AdminWhatsappPageContent() {
                     {selectedAssignee
                       ? `Responsável: ${selectedAssignee}`
                       : "Sem responsável"}
+                    {" · "}
+                    {translateConversationStatus(selectedStatus)}
                   </p>
+                  {!handoff ? (
+                    <p className="text-xs text-emerald-700 mt-0.5">
+                      IA ativa — responde automaticamente até você assumir a conversa
+                    </p>
+                  ) : (
+                    <p className="text-xs text-amber-800 mt-0.5">
+                      IA pausada — só você responde nesta conversa
+                    </p>
+                  )}
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <select
@@ -2921,10 +3103,10 @@ function AdminWhatsappPageContent() {
                     disabled={statusLoading}
                     className="px-2 py-1.5 rounded-lg border border-gray-200 text-xs bg-white"
                   >
-                    <option value="new">new</option>
-                    <option value="in_progress">in_progress</option>
-                    <option value="waiting_customer">waiting_customer</option>
-                    <option value="resolved">resolved</option>
+                    <option value="new">Nova</option>
+                    <option value="in_progress">Em andamento</option>
+                    <option value="waiting_customer">Aguardando cliente</option>
+                    <option value="resolved">Resolvida</option>
                   </select>
                   <button
                     type="button"
