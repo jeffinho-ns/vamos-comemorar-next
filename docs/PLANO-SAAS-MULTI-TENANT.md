@@ -13,7 +13,7 @@
 
 | Campo | Valor |
 |-------|-------|
-| Última atualização | 2026-07-03 (Fase 4 fechada — código) |
+| Última atualização | 2026-07-06 (hotfix RLS: organization_id em INSERTs de fluxo promoter/check-in) |
 | Modo atual | **`SAAS_MODE=on`** API · **`NEXT_PUBLIC_SAAS_MODE=on`** Vercel ✅ |
 | Fase em andamento | **Fase 3** — RBAC fino promoters + tenancy rotas legadas |
 | Próximo passo | Fase 3: `requirePermission` promoters; tenantMiddleware gift-rules/FAQ; checklist manual UI (`docs/FASE-4-CHECKLIST-UI.md`) |
@@ -280,6 +280,7 @@ Marque `[x]` conforme fechar cada fase nas próximas sessões.
 - 2026-07-03 — **Render estável + Bloco F:** fix `walkIns.js` (`wi.establishment_id`); POST `/api/users` com `organization_id` + RLS; smoke **24/24**; Flutter `PlaceService` filtra por `/api/me/entitlements` (`establishmentIds`); `organization_id` em GET `/api/places`.
 - 2026-07-03 — **Fase 4 (parcial):** `useRequireSaasModule`; useSaasAccess em restaurant-reservations, checkins, eventos/dashboard, eventos/listas; Gate check-in + configurar eventos; adminNavModules rotas extras.
 - 2026-07-03 — **Fase 4 (100% código):** `AdminSaasGuard` em 35+ páginas admin; Gate galeria/gifts/executive-events; `/reservar` + `filterPlacesByEntitlements`; `establishmentIds` no EntitlementsContext; removido SUPER_ADMIN_EMAILS reservas/galeria; checklist manual em `docs/FASE-4-CHECKLIST-UI.md`.
+- 2026-07-06 — **Hotfix RLS produção (fluxo promoter/check-in).** 3 incidentes, mesma causa (INSERT sem `organization_id` em tabela RLS): (1) `POST /promoter/:codigo/convidado` estourava **500** — `promoter_convidados.organization_id` é NOT NULL (019); agora propaga o org do promoter em todos os INSERTs (API `cab2d79`). (2) Vínculo promoter↔evento criava `listas` **sem org** → RLS rejeitava o INSERT (engolido por try/catch), promoter sumia do check-in; agora a lista automática recebe `organization_id` e a query de promoters do check-in também reconhece `promoter_eventos` (API `d7d9155`). (3) `listas_convidados` do fluxo público gravava **sem org** → convidado invisível no check-in (leitura sob contexto de org); agora usa o `organization_id` da lista. Documentada a **REGRA CRÍTICA** e o **fluxo de check-in** neste plano; aberta auditoria P1 de `INSERT`s restantes em `restaurant_reservations` (`reservas.js` camarote, `birthdayReservations.js`).
 
 ---
 
@@ -320,6 +321,53 @@ backfill. O sistema atual permanece em produção durante toda a migração.
 Shared DB + `organization_id` em todas as tabelas + RLS no Postgres. Três camadas:
 JWT com `organization_id`; `tenantMiddleware` que injeta `req.tenant` e `SET app.current_org`;
 policies RLS como rede de segurança. Queries usam sempre o tenant do token, nunca o query param.
+
+## ⚠️ REGRA CRÍTICA — `organization_id` em TODO `INSERT` de tabela RLS
+
+> **Origem:** 3 incidentes em produção (2026-07-06) no fluxo promoter/check-in. Todos com a
+> mesma causa-raiz. Ler antes de mexer em qualquer rota que grava em tabela da lista
+> `tenancy/rlsTables.js`.
+
+Como o `pool.query` é envolvido por `poolRlsWrap` e as rotas admin rodam sob
+`tenantMiddleware`, **toda escrita precisa preencher `organization_id`**. Dois modos de falha:
+
+1. **Tabela com `organization_id NOT NULL` (migration 019)** — `INSERT` sem o campo →
+   erro `23502` (NOT NULL) → **HTTP 500** para o cliente. Ex.: `promoter_convidados`.
+2. **Tabela RLS com `organization_id` anulável** — `INSERT` sem o campo grava com `org = NULL`.
+   A escrita passa (rotas públicas são fail-open, sem GUC), **mas a leitura sob contexto de
+   org (admin logado) esconde a linha** (`USING organization_id = current_org` → `NULL` nunca casa).
+   Resultado: "o dado sumiu / não aparece". Ex.: `listas`, `listas_convidados`.
+
+**Regras práticas (checklist ao escrever/alterar rotas):**
+- Todo `INSERT`/`UPSERT` em tabela de `RLS_SCOPED_TABLES` **deve** incluir `organization_id`.
+- Deriva o `organization_id` da **entidade-pai** já persistida (ex.: `promoters.organization_id`,
+  `listas.organization_id`, `establishments`/place → org), nunca do query param.
+- Ao criar **registros-filho automáticos** (ex.: lista criada junto do vínculo promoter↔evento),
+  propagar o `organization_id` do pai — senão o filho fica órfão de org.
+- Rotas **públicas** (sem token) também precisam setar `organization_id`, pois o dado será **lido**
+  depois por um admin sob contexto de org.
+- Não confiar em `try/catch` que "engole" o erro do filho: isso mascara a falha e some com o dado.
+- Ao **ler** para telas de admin, lembrar que linhas com `org = NULL` são invisíveis — priorizar o
+  backfill/gravação correta em vez de "afrouxar" a policy.
+
+### Fluxo crítico de produção a proteger — Check-in de evento
+Cadeia ponta-a-ponta que **não pode quebrar** (cada passo grava/lê tabela RLS):
+1. **Analista** — `/admin/workdays`: cria/clona evento → `INSERT eventos` (org obrigatório).
+2. **Dashboard** — `/admin/eventos/dashboard`: evento aparece em "Eventos Únicos Futuros".
+3. **Analista** — vincula promoter ao evento → `promoter_eventos` **+ cria `listas` automática**
+   (ambos precisam de `organization_id`).
+4. **Cliente (lista)** — página pública `/promoter/:codigo`: envia nome → `promoter_convidados`
+   **+ `listas_convidados`** (ambos precisam de `organization_id`).
+5. **Cliente (mesa)** — `/reservar`: `restaurant_reservations` (org obrigatório — NOT NULL).
+6. **Atendente** — `/admin/checkins` → `/admin/eventos/[id]/check-ins`: lê promoters, listas,
+   convidados e reservas **sob contexto de org**; só enxerga linhas com `org` correto.
+
+### Auditoria de `INSERT`s ainda SEM `organization_id` (P1 — validar/corrigir com teste)
+Pontos que gravam em `restaurant_reservations` (NOT NULL) sem `organization_id` — risco de 500
+ou de dado invisível no check-in. Corrigir com cuidado (derivar org do establishment) e testar:
+- `routes/reservas.js` — sync camarote → `restaurant_reservations` (INSERT completo e fallback).
+- `routes/birthdayReservations.js` — reserva de aniversário → `restaurant_reservations`.
+- Revisar demais `INSERT`/`UPDATE` em tabelas de `rlsTables.js` fora dos routers já auditados.
 
 ## Modularização / monetização
 - Entitlements resolvidos no login (`/api/me/entitlements`).
