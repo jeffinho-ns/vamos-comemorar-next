@@ -14,8 +14,10 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { io } from "socket.io-client";
 import {
   MdChat,
+  MdChevronRight,
   MdClose,
   MdContentCopy,
+  MdExpandMore,
   MdImage,
   MdLink,
   MdOpenInNew,
@@ -580,6 +582,72 @@ function formatRelativeInboxTime(value: string | null | undefined): string {
   return formatSaoPauloDateTime(value);
 }
 
+const SP_DATE_KEY_FORMATTER = new Intl.DateTimeFormat("en-CA", {
+  timeZone: "America/Sao_Paulo",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+});
+
+/** Chave de dia (yyyy-mm-dd) no fuso de São Paulo. */
+function saoPauloDateKey(value: string | null | undefined): string {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return SP_DATE_KEY_FORMATTER.format(date);
+}
+
+function dateKeyToUtc(key: string): number {
+  const [y, m, d] = key.split("-").map(Number);
+  if (!y || !m || !d) return 0;
+  return Date.UTC(y, m - 1, d);
+}
+
+/** Segunda-feira (UTC) da semana que contém a chave de dia informada. */
+function mondayUtcOfDateKey(key: string): number {
+  const base = dateKeyToUtc(key);
+  if (!base) return 0;
+  const dow = new Date(base).getUTCDay();
+  const offset = dow === 0 ? 6 : dow - 1;
+  return base - offset * 86_400_000;
+}
+
+function formatDayHeading(key: string): string {
+  const [y, m, d] = key.split("-").map(Number);
+  if (!y || !m || !d) return key;
+  const date = new Date(Date.UTC(y, m - 1, d, 12));
+  const weekday = new Intl.DateTimeFormat("pt-BR", {
+    timeZone: "UTC",
+    weekday: "short",
+  })
+    .format(date)
+    .replace(".", "");
+  const cap = weekday.charAt(0).toUpperCase() + weekday.slice(1);
+  return `${cap}, ${String(d).padStart(2, "0")}/${String(m).padStart(2, "0")}`;
+}
+
+function formatShortDate(utc: number): string {
+  const date = new Date(utc);
+  return `${String(date.getUTCDate()).padStart(2, "0")}/${String(
+    date.getUTCMonth() + 1,
+  ).padStart(2, "0")}`;
+}
+
+type InboxDayGroup = {
+  key: string;
+  label: string;
+  sortValue: number;
+  items: ConversationRow[];
+};
+
+type InboxWeekGroup = {
+  key: string;
+  label: string;
+  count: number;
+  sortValue: number;
+  days: InboxDayGroup[];
+};
+
 function pickLatestSuggestedReply(messages: MessageRow[]): string {
   for (let i = messages.length - 1; i >= 0; i -= 1) {
     const m = messages[i];
@@ -788,6 +856,17 @@ function AdminWhatsappPageContent() {
       isWhatsappHighlineOnlyUser ? highlineEstablishmentId : "all",
     );
   const [inboxQueueFilter, setInboxQueueFilter] = useState<InboxQueueFilter>("all");
+  const [openInboxWeeks, setOpenInboxWeeks] = useState<Set<string>>(
+    () => new Set(["esta-semana"]),
+  );
+  const toggleInboxWeek = useCallback((key: string) => {
+    setOpenInboxWeeks((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }, []);
 
   const adminTabs = useMemo(() => {
     const items: { id: WhatsappAdminTab; label: string }[] = [];
@@ -2399,6 +2478,89 @@ function AdminWhatsappPageContent() {
     return { unreadInbound, unreadReview, neverOpened, handoff, aiActive, needsAttention };
   }, [filteredInboxConversations]);
 
+  // Busca ou filtro "precisa ver" → lista simples (sem agrupar por data).
+  const inboxUsesFlatList =
+    Boolean(inboxSearch.trim()) || inboxQueueFilter === "attention";
+
+  const inboxGrouped = useMemo(() => {
+    const todayKey = saoPauloDateKey(new Date().toISOString());
+    const todayUtc = dateKeyToUtc(todayKey);
+    const todayMonday = mondayUtcOfDateKey(todayKey);
+
+    const today: ConversationRow[] = [];
+    const weekMap = new Map<
+      string,
+      {
+        label: string;
+        sortValue: number;
+        days: Map<string, InboxDayGroup>;
+      }
+    >();
+
+    for (const c of visibleInboxConversations) {
+      const key = saoPauloDateKey(c.last_message_at || c.updated_at);
+      if (!key || key === todayKey) {
+        today.push(c);
+        continue;
+      }
+
+      const convUtc = dateKeyToUtc(key);
+      const diffDays = Math.round((todayUtc - convUtc) / 86_400_000);
+      const convMonday = mondayUtcOfDateKey(key);
+      const weeksAgo = Math.round((todayMonday - convMonday) / (7 * 86_400_000));
+
+      let weekKey: string;
+      let weekLabel: string;
+      if (weeksAgo <= 0) {
+        weekKey = "esta-semana";
+        weekLabel = "Esta semana";
+      } else if (weeksAgo === 1) {
+        weekKey = "semana-passada";
+        weekLabel = "Semana passada";
+      } else {
+        weekKey = `week-${convMonday}`;
+        weekLabel = `${formatShortDate(convMonday)} – ${formatShortDate(
+          convMonday + 6 * 86_400_000,
+        )}`;
+      }
+
+      let week = weekMap.get(weekKey);
+      if (!week) {
+        week = { label: weekLabel, sortValue: convMonday, days: new Map() };
+        weekMap.set(weekKey, week);
+      }
+
+      let day = week.days.get(key);
+      if (!day) {
+        day = {
+          key,
+          label: diffDays === 1 ? "Ontem" : formatDayHeading(key),
+          sortValue: convUtc,
+          items: [],
+        };
+        week.days.set(key, day);
+      }
+      day.items.push(c);
+    }
+
+    const weeks: InboxWeekGroup[] = Array.from(weekMap.entries())
+      .map(([key, w]) => {
+        const days = Array.from(w.days.values()).sort(
+          (a, b) => b.sortValue - a.sortValue,
+        );
+        return {
+          key,
+          label: w.label,
+          sortValue: w.sortValue,
+          count: days.reduce((sum, d) => sum + d.items.length, 0),
+          days,
+        };
+      })
+      .sort((a, b) => b.sortValue - a.sortValue);
+
+    return { today, weeks };
+  }, [visibleInboxConversations]);
+
   const activeInboxEstablishmentTheme = useMemo(() => {
     if (inboxEstablishmentFilter === "all") {
       const estId =
@@ -2582,6 +2744,96 @@ function AdminWhatsappPageContent() {
       setSelectedWaId(null);
     }
   }, [inboxEstablishmentFilter, conversations, selectedWaId]);
+
+  const renderInboxRow = (c: ConversationRow) => {
+    const active = c.wa_id === selectedWaId;
+    const ho = handoffActive(c.human_takeover_until);
+    const theme = getInboxEstablishmentTheme(c.establishment_id);
+    const visual = resolveInboxRowVisual(c);
+    const visualStyles = inboxRowVisualStyles(visual, active);
+    const avatarInitials = contactAvatarInitials(c.contact_name, c.wa_id);
+    const relativeTime = formatRelativeInboxTime(c.last_message_at || c.updated_at);
+    const aiResponded = isAiLastResponder(c);
+    const showEstablishmentBadge = inboxEstablishmentFilter === "all";
+    return (
+      <button
+        key={c.wa_id}
+        type="button"
+        onClick={() => setSelectedWaId(c.wa_id)}
+        className={`w-full text-left px-2.5 py-2 border-b border-gray-50/80 transition-colors ${visualStyles.row || theme.listHover} ${
+          active && !visualStyles.row
+            ? `${theme.listActive} border-l-4 ${theme.listActiveBorder}`
+            : active
+              ? "border-l-4 border-l-gray-400"
+              : ""
+        } ${!active && !visualStyles.row ? theme.listHover : ""}`}
+      >
+        <div className="flex items-center gap-2">
+          <div
+            className={`relative flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold text-white shadow-sm ${contactAvatarClass(c.wa_id)}`}
+            title="Foto de perfil não disponível via WhatsApp — exibindo iniciais"
+          >
+            {avatarInitials}
+            {visualStyles.dot !== "bg-transparent" ? (
+              <span
+                className={`absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full ring-2 ring-white ${visualStyles.dot}`}
+              />
+            ) : null}
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-baseline justify-between gap-2">
+              <span className={`truncate text-sm leading-tight ${visualStyles.name}`}>
+                {c.contact_name || c.wa_id}
+              </span>
+              <div className="flex shrink-0 items-center gap-1">
+                {relativeTime ? (
+                  <span
+                    className={`text-[10px] tabular-nums whitespace-nowrap ${
+                      c.has_unread ? "font-semibold text-gray-700" : "text-gray-400"
+                    }`}
+                  >
+                    {relativeTime}
+                  </span>
+                ) : null}
+                {ho ? (
+                  <span className="text-[9px] font-bold uppercase text-amber-900 bg-amber-100 px-1 py-0.5 rounded">
+                    H
+                  </span>
+                ) : null}
+                {!ho && aiResponded ? (
+                  <span className="text-[9px] font-bold text-emerald-900 bg-emerald-100 px-1 py-0.5 rounded">
+                    IA
+                  </span>
+                ) : null}
+                {c.has_unread ? (
+                  <span className="text-[9px] font-bold text-orange-900 bg-orange-100 px-1 py-0.5 rounded">
+                    •
+                  </span>
+                ) : null}
+              </div>
+            </div>
+            <p
+              className={`text-xs truncate leading-snug ${
+                c.has_unread ? "text-gray-800 font-medium" : "text-gray-500"
+              }`}
+            >
+              {c.last_direction === "inbound" ? "← " : c.last_direction === "outbound" ? "→ " : ""}
+              {c.last_body || "—"}
+            </p>
+            {showEstablishmentBadge ? (
+              <div className="mt-0.5">
+                <span
+                  className={`text-[10px] rounded font-medium px-1 py-0.5 ${theme.badge}`}
+                >
+                  {c.establishment_name || "Sem casa"}
+                </span>
+              </div>
+            ) : null}
+          </div>
+        </div>
+      </button>
+    );
+  };
 
   if (permsLoading) {
     return (
@@ -2807,8 +3059,8 @@ function AdminWhatsappPageContent() {
       ) : null}
 
       {activeTab === "atendimento" ? (
-      <div className="flex flex-1 min-h-0 h-[calc(100vh-8.5rem)] gap-0 flex-col lg:flex-row border border-gray-200 rounded-xl overflow-hidden bg-white shadow-sm">
-        <aside className="w-full lg:w-[min(100%,28rem)] xl:w-[32rem] shrink-0 border-b lg:border-b-0 lg:border-r border-gray-200 flex flex-col min-h-[45vh] lg:min-h-0 lg:h-full">
+      <div className="flex flex-1 min-h-0 h-[calc(100vh-10.5rem)] max-h-[780px] gap-0 flex-col lg:flex-row border border-gray-200 rounded-xl overflow-hidden bg-white shadow-sm">
+        <aside className="w-full lg:w-[min(100%,26rem)] xl:w-[30rem] shrink-0 border-b lg:border-b-0 lg:border-r border-gray-200 flex flex-col min-h-[45vh] lg:min-h-0 lg:h-full">
           <div className="px-2.5 py-2 border-b border-gray-100 space-y-1.5 shrink-0">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <p className="text-xs font-semibold text-gray-700">
@@ -2823,7 +3075,7 @@ function AdminWhatsappPageContent() {
                 Ordem: novas → não lidas → IA → humano
               </p>
             </div>
-            <div className="flex flex-wrap gap-1 max-h-16 overflow-y-auto">
+            <div className="flex flex-wrap gap-1">
               {inboxEstablishmentTabs.map((tab) => {
                 const isActive = inboxEstablishmentFilter === tab.key;
                 return (
@@ -2937,95 +3189,59 @@ function AdminWhatsappPageContent() {
                   novos contatos pelo link da casa.
                 </p>
               ))}
-            {visibleInboxConversations.map((c) => {
-              const active = c.wa_id === selectedWaId;
-              const ho = handoffActive(c.human_takeover_until);
-              const theme = getInboxEstablishmentTheme(c.establishment_id);
-              const visual = resolveInboxRowVisual(c);
-              const visualStyles = inboxRowVisualStyles(visual, active);
-              const avatarInitials = contactAvatarInitials(c.contact_name, c.wa_id);
-              const relativeTime = formatRelativeInboxTime(c.last_message_at || c.updated_at);
-              const aiResponded = isAiLastResponder(c);
-              const showEstablishmentBadge = inboxEstablishmentFilter === "all";
-              return (
-                <button
-                  key={c.wa_id}
-                  type="button"
-                  onClick={() => setSelectedWaId(c.wa_id)}
-                  className={`w-full text-left px-2.5 py-2 border-b border-gray-50/80 transition-colors ${visualStyles.row || theme.listHover} ${
-                    active && !visualStyles.row
-                      ? `${theme.listActive} border-l-4 ${theme.listActiveBorder}`
-                      : active
-                        ? "border-l-4 border-l-gray-400"
-                        : ""
-                  } ${!active && !visualStyles.row ? theme.listHover : ""}`}
-                >
-                  <div className="flex items-center gap-2">
-                    <div
-                      className={`relative flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold text-white shadow-sm ${contactAvatarClass(c.wa_id)}`}
-                      title="Foto de perfil não disponível via WhatsApp — exibindo iniciais"
-                    >
-                      {avatarInitials}
-                      {visualStyles.dot !== "bg-transparent" ? (
-                        <span
-                          className={`absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full ring-2 ring-white ${visualStyles.dot}`}
-                        />
-                      ) : null}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-baseline justify-between gap-2">
-                        <span className={`truncate text-sm leading-tight ${visualStyles.name}`}>
-                          {c.contact_name || c.wa_id}
+
+            {inboxUsesFlatList
+              ? visibleInboxConversations.map((c) => renderInboxRow(c))
+              : (
+                <>
+                  {inboxGrouped.today.length > 0 ? (
+                    <div>
+                      <div className="sticky top-0 z-10 flex items-center justify-between gap-2 bg-emerald-600 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-white shadow-sm">
+                        <span>Hoje</span>
+                        <span className="tabular-nums opacity-90">
+                          {inboxGrouped.today.length}
                         </span>
-                        <div className="flex shrink-0 items-center gap-1">
-                          {relativeTime ? (
-                            <span
-                              className={`text-[10px] tabular-nums whitespace-nowrap ${
-                                c.has_unread ? "font-semibold text-gray-700" : "text-gray-400"
-                              }`}
-                            >
-                              {relativeTime}
-                            </span>
-                          ) : null}
-                          {ho ? (
-                            <span className="text-[9px] font-bold uppercase text-amber-900 bg-amber-100 px-1 py-0.5 rounded">
-                              H
-                            </span>
-                          ) : null}
-                          {!ho && aiResponded ? (
-                            <span className="text-[9px] font-bold text-emerald-900 bg-emerald-100 px-1 py-0.5 rounded">
-                              IA
-                            </span>
-                          ) : null}
-                          {c.has_unread ? (
-                            <span className="text-[9px] font-bold text-orange-900 bg-orange-100 px-1 py-0.5 rounded">
-                              •
-                            </span>
-                          ) : null}
-                        </div>
                       </div>
-                      <p
-                        className={`text-xs truncate leading-snug ${
-                          c.has_unread ? "text-gray-800 font-medium" : "text-gray-500"
-                        }`}
-                      >
-                        {c.last_direction === "inbound" ? "← " : c.last_direction === "outbound" ? "→ " : ""}
-                        {c.last_body || "—"}
-                      </p>
-                      {showEstablishmentBadge ? (
-                        <div className="mt-0.5">
-                          <span
-                            className={`text-[10px] rounded font-medium px-1 py-0.5 ${theme.badge}`}
-                          >
-                            {c.establishment_name || "Sem casa"}
-                          </span>
-                        </div>
-                      ) : null}
+                      {inboxGrouped.today.map((c) => renderInboxRow(c))}
                     </div>
-                  </div>
-                </button>
-              );
-            })}
+                  ) : null}
+
+                  {inboxGrouped.weeks.map((week) => {
+                    const open = openInboxWeeks.has(week.key);
+                    return (
+                      <div key={week.key}>
+                        <button
+                          type="button"
+                          onClick={() => toggleInboxWeek(week.key)}
+                          className="sticky top-0 z-10 flex w-full items-center justify-between gap-2 bg-gray-100 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-gray-600 hover:bg-gray-200 transition-colors"
+                        >
+                          <span className="flex items-center gap-1">
+                            {open ? (
+                              <MdExpandMore size={16} />
+                            ) : (
+                              <MdChevronRight size={16} />
+                            )}
+                            {week.label}
+                          </span>
+                          <span className="tabular-nums text-gray-500">
+                            {week.count}
+                          </span>
+                        </button>
+                        {open
+                          ? week.days.map((day) => (
+                              <div key={day.key}>
+                                <div className="bg-gray-50 px-3 py-1 text-[10px] font-medium text-gray-500 border-b border-gray-100">
+                                  {day.label} · {day.items.length}
+                                </div>
+                                {day.items.map((c) => renderInboxRow(c))}
+                              </div>
+                            ))
+                          : null}
+                      </div>
+                    );
+                  })}
+                </>
+              )}
           </div>
         </aside>
 
