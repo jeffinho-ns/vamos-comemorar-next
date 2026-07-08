@@ -3,6 +3,17 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { superadminFetch } from "@/app/utils/superadminApi";
+import {
+  ESTABLISHMENT_PERMISSION_GROUPS,
+  activePermissionLabels,
+  atendimentoOnlyPermissions,
+  cardapioOnlyPermissions,
+  emptyEstablishmentPermissions,
+  fullOperationPermissions,
+  permissionFlagsFromRow,
+  type EstablishmentPermissionFlags,
+  type EstablishmentPermissionKey,
+} from "@/app/config/establishmentPermissionCatalog";
 
 const DEFAULT_MODULE_CATALOG: ModuleCatalogItem[] = [
   { key: "reservas", name: "Reservas" },
@@ -27,17 +38,6 @@ export const ESTABLISHMENT_PROFILES = [
   { value: "sitio_ilha", label: "Sítio Ilha" },
 ];
 
-const PERM_FIELDS: { key: string; label: string }[] = [
-  { key: "can_manage_reservations", label: "Gerenciar reservas" },
-  { key: "can_create_edit_reservations", label: "Criar/editar reservas e lista de espera" },
-  { key: "can_manage_checkins", label: "Gerenciar check-ins" },
-  { key: "can_view_reports", label: "Ver relatórios" },
-  { key: "can_view_cardapio", label: "Ver cardápio" },
-  { key: "can_create_cardapio", label: "Criar cardápio" },
-  { key: "can_edit_cardapio", label: "Editar cardápio" },
-  { key: "can_delete_cardapio", label: "Excluir cardápio" },
-];
-
 type ModuleCatalogItem = { key: string; name: string };
 type EstablishmentRow = {
   id: number;
@@ -56,19 +56,7 @@ type EstablishmentPermission = {
   establishment_name: string;
   canonical_establishment_id: number;
   is_active: boolean;
-  can_manage_reservations?: boolean;
-  can_create_edit_reservations?: boolean;
-  can_manage_checkins?: boolean;
-  can_view_reports?: boolean;
-  can_view_cardapio?: boolean;
-  can_create_cardapio?: boolean;
-  can_edit_cardapio?: boolean;
-  can_delete_cardapio?: boolean;
-};
-
-const EMPTY_PERMS: Record<string, boolean> = Object.fromEntries(
-  PERM_FIELDS.map((f) => [f.key, false]),
-);
+} & Partial<Record<EstablishmentPermissionKey, boolean>>;
 
 function slugifyEstablishmentName(value: string): string {
   return value
@@ -83,27 +71,53 @@ function allModuleKeys(catalog: ModuleCatalogItem[]): string[] {
   return catalog.map((m) => m.key);
 }
 
-function cardapioOnlyPerms(): Record<string, boolean> {
-  return {
-    ...EMPTY_PERMS,
-    can_view_cardapio: true,
-    can_create_cardapio: true,
-    can_edit_cardapio: true,
-  };
-}
-
-function fullOpsPerms(): Record<string, boolean> {
-  return {
-    ...EMPTY_PERMS,
-    can_manage_reservations: true,
-    can_create_edit_reservations: true,
-    can_manage_checkins: true,
-    can_view_reports: true,
-    can_view_cardapio: true,
-    can_create_cardapio: true,
-    can_edit_cardapio: true,
-    can_delete_cardapio: true,
-  };
+function PermissionFieldsEditor({
+  value,
+  onChange,
+}: {
+  value: EstablishmentPermissionFlags;
+  onChange: (next: EstablishmentPermissionFlags) => void;
+}) {
+  return (
+    <div className="md:col-span-2 space-y-4">
+      {ESTABLISHMENT_PERMISSION_GROUPS.map((group) => (
+        <div
+          key={group.id}
+          className="rounded-lg border border-slate-800 bg-slate-950/40 p-3"
+        >
+          <p className="mb-1 text-sm font-medium text-slate-200">{group.title}</p>
+          {group.description && (
+            <p className="mb-2 text-xs text-slate-500">{group.description}</p>
+          )}
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            {group.fields.map((field) => (
+              <label
+                key={field.key}
+                className="flex items-start gap-2 text-xs text-slate-300"
+              >
+                <input
+                  type="checkbox"
+                  className="mt-0.5"
+                  checked={!!value[field.key]}
+                  onChange={(e) =>
+                    onChange({ ...value, [field.key]: e.target.checked })
+                  }
+                />
+                <span>
+                  {field.label}
+                  {field.hint && (
+                    <span className="mt-0.5 block text-[10px] text-slate-500">
+                      {field.hint}
+                    </span>
+                  )}
+                </span>
+              </label>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
 }
 
 type Props = {
@@ -145,7 +159,7 @@ export default function EstablishmentAccessPanel({
   const [permForm, setPermForm] = useState({
     userEmail: "",
     canonicalEstablishmentId: "",
-    perms: { ...EMPTY_PERMS },
+    perms: emptyEstablishmentPermissions(),
     is_active: true,
   });
 
@@ -284,7 +298,7 @@ export default function EstablishmentAccessPanel({
       setPermForm({
         userEmail: "",
         canonicalEstablishmentId: "",
-        perms: { ...EMPTY_PERMS },
+        perms: emptyEstablishmentPermissions(),
         is_active: true,
       });
       loadPermissions();
@@ -309,10 +323,19 @@ export default function EstablishmentAccessPanel({
     }
   };
 
-  const activePermLabels = (p: EstablishmentPermission) =>
-    PERM_FIELDS.filter((f) => p[f.key as keyof EstablishmentPermission] === true).map(
-      (f) => f.label,
-    );
+  const loadPermissionIntoForm = (p: EstablishmentPermission) => {
+    setPermForm({
+      userEmail: p.user_email,
+      canonicalEstablishmentId: String(p.canonical_establishment_id),
+      perms: permissionFlagsFromRow(p),
+      is_active: p.is_active !== false,
+    });
+    onSuccess(null);
+    onError(null);
+  };
+
+  const activePermLabelsForRow = (p: EstablishmentPermission) =>
+    activePermissionLabels(p);
 
   return (
     <div className="space-y-6">
@@ -543,42 +566,47 @@ export default function EstablishmentAccessPanel({
             <button
               type="button"
               className="text-amber-400 hover:underline"
-              onClick={() => setPermForm((p) => ({ ...p, perms: cardapioOnlyPerms() }))}
+              onClick={() =>
+                setPermForm((p) => ({ ...p, perms: fullOperationPermissions() }))
+              }
+            >
+              Preset: tudo liberado
+            </button>
+            <button
+              type="button"
+              className="text-amber-400 hover:underline"
+              onClick={() =>
+                setPermForm((p) => ({ ...p, perms: atendimentoOnlyPermissions() }))
+              }
+            >
+              Preset: só atendimento
+            </button>
+            <button
+              type="button"
+              className="text-amber-400 hover:underline"
+              onClick={() =>
+                setPermForm((p) => ({ ...p, perms: cardapioOnlyPermissions() }))
+              }
             >
               Preset: só cardápio
             </button>
             <button
               type="button"
-              className="text-amber-400 hover:underline"
-              onClick={() => setPermForm((p) => ({ ...p, perms: fullOpsPerms() }))}
-            >
-              Preset: operação completa
-            </button>
-            <button
-              type="button"
               className="text-slate-400 hover:underline"
-              onClick={() => setPermForm((p) => ({ ...p, perms: { ...EMPTY_PERMS } }))}
+              onClick={() =>
+                setPermForm((p) => ({
+                  ...p,
+                  perms: emptyEstablishmentPermissions(),
+                }))
+              }
             >
-              Limpar
+              Limpar tudo
             </button>
           </div>
-          <div className="md:col-span-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
-            {PERM_FIELDS.map((f) => (
-              <label key={f.key} className="flex items-center gap-2 text-xs text-slate-300">
-                <input
-                  type="checkbox"
-                  checked={!!permForm.perms[f.key]}
-                  onChange={(e) =>
-                    setPermForm((p) => ({
-                      ...p,
-                      perms: { ...p.perms, [f.key]: e.target.checked },
-                    }))
-                  }
-                />
-                {f.label}
-              </label>
-            ))}
-          </div>
+          <PermissionFieldsEditor
+            value={permForm.perms}
+            onChange={(perms) => setPermForm((p) => ({ ...p, perms }))}
+          />
           <label className="md:col-span-2 flex items-center gap-2 text-sm text-slate-300">
             <input
               type="checkbox"
@@ -615,8 +643,8 @@ export default function EstablishmentAccessPanel({
                   </p>
                   <p className="text-xs text-slate-500">{p.user_email}</p>
                   <p className="mt-1 text-xs text-slate-400">
-                    {activePermLabels(p).length
-                      ? activePermLabels(p).join(" · ")
+                    {activePermLabelsForRow(p).length
+                      ? activePermLabelsForRow(p).join(" · ")
                       : "Sem permissões marcadas"}
                   </p>
                   <span
@@ -625,13 +653,22 @@ export default function EstablishmentAccessPanel({
                     {p.is_active ? "ativo" : "inativo"}
                   </span>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => removePermission(p.id)}
-                  className="rounded border border-red-900 px-2 py-1 text-xs text-red-300 hover:bg-red-950"
-                >
-                  Remover
-                </button>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => loadPermissionIntoForm(p)}
+                    className="rounded border border-slate-700 px-2 py-1 text-xs text-slate-300 hover:bg-slate-800"
+                  >
+                    Editar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => removePermission(p.id)}
+                    className="rounded border border-red-900 px-2 py-1 text-xs text-red-300 hover:bg-red-950"
+                  >
+                    Remover
+                  </button>
+                </div>
               </li>
             ))}
           </ul>

@@ -57,6 +57,8 @@ export interface AppPermission {
   can_manage_checkins: boolean;
   can_view_reports: boolean;
   can_create_edit_reservations?: boolean;
+  can_manage_whatsapp?: boolean;
+  can_configure_ia?: boolean;
   can_view_cardapio?: boolean;
   can_create_cardapio?: boolean;
   can_edit_cardapio?: boolean;

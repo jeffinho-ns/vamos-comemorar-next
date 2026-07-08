@@ -49,6 +49,8 @@ export interface PermissionData {
   can_view_reports: boolean;
   /** Pode criar, editar e excluir reservas e lista de espera. Se false, apenas visualizar, check-in, check-out e alocar mesa. */
   can_create_edit_reservations?: boolean;
+  can_manage_whatsapp?: boolean;
+  can_configure_ia?: boolean;
   is_active: boolean;
 }
 

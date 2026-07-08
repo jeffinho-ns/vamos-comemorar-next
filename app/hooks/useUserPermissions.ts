@@ -32,6 +32,8 @@ export interface MyEstablishmentPermission {
   can_manage_checkins: boolean;
   can_view_reports: boolean;
   can_create_edit_reservations?: boolean;
+  can_manage_whatsapp?: boolean;
+  can_configure_ia?: boolean;
   can_view_cardapio?: boolean;
   can_create_cardapio?: boolean;
   can_edit_cardapio?: boolean;
@@ -142,11 +144,13 @@ export function useUserPermissions() {
   const canAccessWhatsapp =
     isSuperAdmin ||
     isWhatsappHighlineScopedUser ||
-    activeEstablishmentPermissions.some((p) => p.can_manage_reservations);
+    activeEstablishmentPermissions.some(
+      (p) => p.can_manage_whatsapp || p.can_manage_reservations,
+    );
   const canAccessIaTraining =
     isSuperAdmin ||
     ['admin', 'gerente', 'administrador', 'recepção', 'recepcao'].includes(safeRole) ||
-    activeEstablishmentPermissions.length > 0;
+    activeEstablishmentPermissions.some((p) => p.can_configure_ia);
   const canAccessCardapio = isSuperAdmin || hasCardapioAccess;
   /** Logs: super admin ou utilizador com pelo menos um estabelecimento ativo. */
   const canViewActionLogs =
