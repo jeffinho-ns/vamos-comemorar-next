@@ -1,5 +1,7 @@
 import { useCallback, useMemo } from "react";
 import { useAppContext } from "../context/AppContext";
+import { useEntitlements } from "../context/EntitlementsContext";
+import { filterPlacesByEntitlements } from "../utils/entitlementsPlaceFilter";
 import {
   filterEstablishmentListForUser,
   isGlobalAdminUser,
@@ -58,6 +60,7 @@ export function useEstablishmentPermissions() {
     role,
     error: contextError,
   } = useAppContext();
+  const { entitlements } = useEntitlements();
   const permissions = myPermissions as PermissionData[];
   const normalizedRole = (role || "").toLowerCase();
   const userConfig = useMemo<UserEstablishmentConfig | null>(() => {
@@ -156,8 +159,18 @@ export function useEstablishmentPermissions() {
       return visibilityScoped;
     }
 
+    const fromEntitlements = filterPlacesByEntitlements(
+      visibilityScoped,
+      entitlements,
+      (place) =>
+        typeof (place as { organization_id?: number }).organization_id === "number"
+          ? (place as { organization_id?: number }).organization_id
+          : null,
+    );
+    if (fromEntitlements.length > 0) return fromEntitlements;
+
     return [];
-  }, [permissionsResolved, userEmail, userConfig, permissions, normalizedRole]);
+  }, [permissionsResolved, userEmail, userConfig, permissions, normalizedRole, entitlements]);
 
   // Buscar permissão específica para um estabelecimento
   const getPermissionForEstablishment = useCallback((establishmentId: number): PermissionData | null => {

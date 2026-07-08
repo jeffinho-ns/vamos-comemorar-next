@@ -133,6 +133,7 @@ export default function RestaurantReservationsPage() {
   const [activeTab, setActiveTab] = useState<TabType>("reservations");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [reservationsError, setReservationsError] = useState<string | null>(null);
 
   // Refs para evitar loops infinitos
   const hasFilteredRef = useRef(false);
@@ -915,16 +916,37 @@ export default function RestaurantReservationsPage() {
           "🔍 Buscando TODOS os tipos de reservas para o estabelecimento:",
           selectedEstablishment.id,
         );
+        setReservationsError(null);
 
         const normalReservationsPromise = fetch(
           `${API_URL}/api/restaurant-reservations?establishment_id=${selectedEstablishment.id}`,
           { headers: authHeaders },
-        ).then((res) => (res.ok ? res.json() : { reservations: [] }));
+        ).then(async (res) => {
+          const body = await res.json().catch(() => ({}));
+          if (!res.ok) {
+            throw new Error(
+              body.error ||
+                body.message ||
+                `Erro ${res.status} ao carregar reservas`,
+            );
+          }
+          return body;
+        });
 
         const largeReservationsPromise = fetch(
           `${API_URL}/api/large-reservations?establishment_id=${selectedEstablishment.id}`,
           { headers: authHeaders },
-        ).then((res) => (res.ok ? res.json() : { reservations: [] }));
+        ).then(async (res) => {
+          const body = await res.json().catch(() => ({}));
+          if (!res.ok) {
+            throw new Error(
+              body.error ||
+                body.message ||
+                `Erro ${res.status} ao carregar reservas grandes`,
+            );
+          }
+          return body;
+        });
 
         const [normalData, largeData] = await Promise.all([
           normalReservationsPromise,
@@ -941,7 +963,10 @@ export default function RestaurantReservationsPage() {
         );
         setReservations(allReservations);
       } catch (e) {
+        const message =
+          e instanceof Error ? e.message : "Erro ao carregar reservas";
         console.error("❌ Erro ao carregar um ou mais tipos de reservas:", e);
+        setReservationsError(message);
         setReservations([]);
       }
 
@@ -2680,6 +2705,11 @@ export default function RestaurantReservationsPage() {
               {/* Aba de Reservas */}
               {activeTab === "reservations" && (
                 <div>
+                  {reservationsError && (
+                    <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                      {reservationsError}
+                    </div>
+                  )}
                   {/* Controles da Aba Reservas */}
                   <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-6">
                     <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
