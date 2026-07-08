@@ -52,7 +52,8 @@ import {
   isStaffAdminRole,
   readSessionRoleSync,
 } from "../utils/adminRole";
-import { uepAllowsModule, uepAllowsNavHref } from "../utils/uepModuleAccess";
+import { useUserPermissions } from "../hooks/useUserPermissions";
+import { uepAllowsNavHref } from "../utils/uepModuleAccess";
 
 // E-mail da analista com acesso restrito ao estabelecimento Pracinha do Seu Justino (menu próprio, não promoter)
 const ANALISTA_EMAIL = "analista.mkt03@ideiaum.com.br";
