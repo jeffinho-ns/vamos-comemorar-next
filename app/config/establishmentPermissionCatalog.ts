@@ -129,6 +129,39 @@ export function atendimentoOnlyPermissions(): EstablishmentPermissionFlags {
   };
 }
 
+/** Só liga flags de atendimento — use com merge para não apagar o resto. */
+export function additiveAtendimentoFlags(): Partial<EstablishmentPermissionFlags> {
+  return {
+    can_manage_whatsapp: true,
+    can_manage_reservations: true,
+    can_manage_checkins: true,
+    can_view_operational_detail: true,
+  };
+}
+
+export function additiveReservasFlags(): Partial<EstablishmentPermissionFlags> {
+  return {
+    can_manage_reservations: true,
+    can_create_edit_reservations: true,
+    can_manage_checkins: true,
+  };
+}
+
+export function additiveCardapioFlags(): Partial<EstablishmentPermissionFlags> {
+  return {
+    can_view_cardapio: true,
+    can_create_cardapio: true,
+    can_edit_cardapio: true,
+  };
+}
+
+export function mergePermissionFlags(
+  base: EstablishmentPermissionFlags,
+  patch: Partial<EstablishmentPermissionFlags>,
+): EstablishmentPermissionFlags {
+  return { ...base, ...patch };
+}
+
 export function fullOperationPermissions(): EstablishmentPermissionFlags {
   const all = emptyEstablishmentPermissions();
   for (const key of ALL_ESTABLISHMENT_PERMISSION_KEYS) {

@@ -65,13 +65,14 @@ export function filterNavByEntitlements<T extends { href: string }>(
   allowAll: boolean,
   permissions: string[] = [],
   legacyScoped = false,
+  legacyRouteAllowed?: (href: string, meta: NavModuleMeta) => boolean,
 ): T[] {
   if (allowAll || legacyScoped) return links;
-  // Usuários legados (UEP sem memberships): API devolve permissions=[] — não esvaziar sidebar.
   const skipFinePermissions = permissions.length === 0;
   return links.filter((link) => {
     const meta = NAV_MODULE_BY_HREF[link.href];
     if (!meta) return true;
+    if (legacyRouteAllowed?.(link.href, meta)) return true;
     if (!canModule(meta.module)) return false;
     if (
       meta.requiredPermission &&

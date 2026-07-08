@@ -5,6 +5,7 @@
  */
 import { useCan } from "./useCan";
 import { useUserPermissions } from "./useUserPermissions";
+import { useEntitlements } from "../context/EntitlementsContext";
 import {
   resolveSaasModuleAccess,
   resolveSaasPermissionAccess,
@@ -12,13 +13,24 @@ import {
 
 export function useSaasAccess() {
   const { canModule, canPermission, allowAll, loading: entitlementsLoading } = useCan();
+  const { entitlements } = useEntitlements();
   const legacy = useUserPermissions();
+  const legacyScoped = entitlements.legacyScoped === true;
 
   const resolveModule = (moduleKey: string, legacyAllowed: boolean) =>
-    resolveSaasModuleAccess(moduleKey, legacyAllowed, { allowAll, canModule });
+    resolveSaasModuleAccess(moduleKey, legacyAllowed, {
+      allowAll,
+      legacyScoped,
+      canModule,
+      canPermission,
+    });
 
   const resolvePermission = (permissionKey: string, legacyAllowed: boolean) =>
-    resolveSaasPermissionAccess(permissionKey, legacyAllowed, { allowAll, canPermission });
+    resolveSaasPermissionAccess(permissionKey, legacyAllowed, {
+      allowAll,
+      legacyScoped,
+      canPermission,
+    });
 
   return {
     ...legacy,

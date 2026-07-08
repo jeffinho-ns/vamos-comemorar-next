@@ -6,10 +6,14 @@ import { superadminFetch } from "@/app/utils/superadminApi";
 import {
   ESTABLISHMENT_PERMISSION_GROUPS,
   activePermissionLabels,
+  additiveAtendimentoFlags,
+  additiveCardapioFlags,
+  additiveReservasFlags,
   atendimentoOnlyPermissions,
   cardapioOnlyPermissions,
   emptyEstablishmentPermissions,
   fullOperationPermissions,
+  mergePermissionFlags,
   permissionFlagsFromRow,
   type EstablishmentPermissionFlags,
   type EstablishmentPermissionKey,
@@ -276,37 +280,92 @@ export default function EstablishmentAccessPanel({
     });
   };
 
-  const savePermission = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!permForm.userEmail.trim() || !permForm.canonicalEstablishmentId) {
-      onError("Informe o e-mail do usuário e o estabelecimento.");
-      return;
-    }
+  const findExistingPermission = useCallback(
+    (userEmail: string, canonicalEstablishmentId: string) => {
+      const email = userEmail.trim().toLowerCase();
+      const estId = Number(canonicalEstablishmentId);
+      if (!email || !Number.isFinite(estId) || estId <= 0) return null;
+      return (
+        permissions.find(
+          (p) =>
+            p.user_email.trim().toLowerCase() === email &&
+            Number(p.canonical_establishment_id) === estId,
+        ) ?? null
+      );
+    },
+    [permissions],
+  );
+
+  const savePermissionPayload = async (
+    payload: Record<string, unknown>,
+    successMessage: string,
+  ) => {
     setSavingPerm(true);
     onError(null);
     try {
       await superadminFetch(`/organizations/${orgId}/establishment-permissions`, {
         method: "POST",
-        body: JSON.stringify({
-          userEmail: permForm.userEmail.trim(),
-          canonicalEstablishmentId: Number(permForm.canonicalEstablishmentId),
-          ...permForm.perms,
-          is_active: permForm.is_active,
-        }),
+        body: JSON.stringify(payload),
       });
-      onSuccess("Permissões salvas para o usuário.");
-      setPermForm({
-        userEmail: "",
-        canonicalEstablishmentId: "",
-        perms: emptyEstablishmentPermissions(),
-        is_active: true,
-      });
+      onSuccess(successMessage);
       loadPermissions();
     } catch (err) {
       onError(err instanceof Error ? err.message : "Erro ao salvar permissões");
     } finally {
       setSavingPerm(false);
     }
+  };
+
+  const savePermission = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!permForm.userEmail.trim() || !permForm.canonicalEstablishmentId) {
+      onError("Informe o e-mail do usuário e o estabelecimento.");
+      return;
+    }
+    const existing = findExistingPermission(
+      permForm.userEmail,
+      permForm.canonicalEstablishmentId,
+    );
+    if (
+      existing &&
+      !confirm(
+        "Isso substitui todas as permissões deste usuário neste estabelecimento. Continuar?",
+      )
+    ) {
+      return;
+    }
+    await savePermissionPayload(
+      {
+        userEmail: permForm.userEmail.trim(),
+        canonicalEstablishmentId: Number(permForm.canonicalEstablishmentId),
+        ...permForm.perms,
+        is_active: permForm.is_active,
+      },
+      "Permissões salvas para o usuário.",
+    );
+    setPermForm({
+      userEmail: "",
+      canonicalEstablishmentId: "",
+      perms: emptyEstablishmentPermissions(),
+      is_active: true,
+    });
+  };
+
+  const grantAdditivePermission = async (
+    p: EstablishmentPermission,
+    patch: Partial<EstablishmentPermissionFlags>,
+    label: string,
+  ) => {
+    await savePermissionPayload(
+      {
+        userEmail: p.user_email,
+        canonicalEstablishmentId: p.canonical_establishment_id,
+        merge: true,
+        is_active: true,
+        ...patch,
+      },
+      `${label} adicionado para ${p.user_email}.`,
+    );
   };
 
   const removePermission = async (permId: number) => {
@@ -520,7 +579,10 @@ export default function EstablishmentAccessPanel({
       <section className="rounded-xl border border-slate-800 bg-slate-900/40 p-4">
         <h3 className="mb-1 text-lg font-semibold">Usuários por estabelecimento</h3>
         <p className="mb-4 text-sm text-slate-400">
-          Atribua ou remova o que cada usuário pode fazer em cada casa — sem sair do Super Admin.
+          Atribua ou remova o que cada usuário pode fazer em cada casa. Use{" "}
+          <strong className="text-slate-300">+ Atendimento</strong> na lista para adicionar sem
+          apagar o resto. O formulário abaixo <strong className="text-slate-300">substitui</strong>{" "}
+          tudo — clique em Editar antes de salvar.
         </p>
 
         <form onSubmit={savePermission} className="mb-6 grid gap-3 rounded-lg border border-slate-800 bg-slate-950/50 p-4 md:grid-cols-2">
@@ -550,9 +612,23 @@ export default function EstablishmentAccessPanel({
               required
               className="w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 text-sm"
               value={permForm.canonicalEstablishmentId}
-              onChange={(e) =>
-                setPermForm((p) => ({ ...p, canonicalEstablishmentId: e.target.value }))
-              }
+              onChange={(e) => {
+                const canonicalEstablishmentId = e.target.value;
+                const existing = findExistingPermission(
+                  permForm.userEmail,
+                  canonicalEstablishmentId,
+                );
+                setPermForm((p) => ({
+                  ...p,
+                  canonicalEstablishmentId,
+                  perms: existing
+                    ? permissionFlagsFromRow(existing)
+                    : p.canonicalEstablishmentId
+                      ? emptyEstablishmentPermissions()
+                      : p.perms,
+                  is_active: existing ? existing.is_active !== false : p.is_active,
+                }));
+              }}
             >
               <option value="">Selecione…</option>
               {establishments.map((est) => (
@@ -566,29 +642,86 @@ export default function EstablishmentAccessPanel({
             <button
               type="button"
               className="text-amber-400 hover:underline"
-              onClick={() =>
-                setPermForm((p) => ({ ...p, perms: fullOperationPermissions() }))
-              }
+              onClick={() => {
+                if (
+                  !confirm(
+                    "Substituir todas as permissões do formulário por acesso total?",
+                  )
+                ) {
+                  return;
+                }
+                setPermForm((p) => ({ ...p, perms: fullOperationPermissions() }));
+              }}
             >
-              Preset: tudo liberado
+              Substituir por: tudo liberado
             </button>
             <button
               type="button"
               className="text-amber-400 hover:underline"
-              onClick={() =>
-                setPermForm((p) => ({ ...p, perms: atendimentoOnlyPermissions() }))
-              }
+              onClick={() => {
+                if (
+                  !confirm(
+                    "Substituir todas as permissões do formulário pelo preset de atendimento?",
+                  )
+                ) {
+                  return;
+                }
+                setPermForm((p) => ({ ...p, perms: atendimentoOnlyPermissions() }));
+              }}
             >
-              Preset: só atendimento
+              Substituir por: só atendimento
             </button>
             <button
               type="button"
               className="text-amber-400 hover:underline"
+              onClick={() => {
+                if (
+                  !confirm(
+                    "Substituir todas as permissões do formulário pelo preset de cardápio?",
+                  )
+                ) {
+                  return;
+                }
+                setPermForm((p) => ({ ...p, perms: cardapioOnlyPermissions() }));
+              }}
+            >
+              Substituir por: só cardápio
+            </button>
+            <button
+              type="button"
+              className="text-emerald-400 hover:underline"
               onClick={() =>
-                setPermForm((p) => ({ ...p, perms: cardapioOnlyPermissions() }))
+                setPermForm((p) => ({
+                  ...p,
+                  perms: mergePermissionFlags(p.perms, additiveAtendimentoFlags()),
+                }))
               }
             >
-              Preset: só cardápio
+              + Adicionar atendimento (no formulário)
+            </button>
+            <button
+              type="button"
+              className="text-emerald-400 hover:underline"
+              onClick={() =>
+                setPermForm((p) => ({
+                  ...p,
+                  perms: mergePermissionFlags(p.perms, additiveReservasFlags()),
+                }))
+              }
+            >
+              + Adicionar reservas (no formulário)
+            </button>
+            <button
+              type="button"
+              className="text-emerald-400 hover:underline"
+              onClick={() =>
+                setPermForm((p) => ({
+                  ...p,
+                  perms: mergePermissionFlags(p.perms, additiveCardapioFlags()),
+                }))
+              }
+            >
+              + Adicionar cardápio (no formulário)
             </button>
             <button
               type="button"
@@ -654,6 +787,36 @@ export default function EstablishmentAccessPanel({
                   </span>
                 </div>
                 <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    disabled={savingPerm}
+                    onClick={() =>
+                      grantAdditivePermission(p, additiveAtendimentoFlags(), "Atendimento")
+                    }
+                    className="rounded border border-emerald-800 px-2 py-1 text-xs text-emerald-300 hover:bg-emerald-950 disabled:opacity-50"
+                  >
+                    + Atendimento
+                  </button>
+                  <button
+                    type="button"
+                    disabled={savingPerm}
+                    onClick={() =>
+                      grantAdditivePermission(p, additiveReservasFlags(), "Reservas")
+                    }
+                    className="rounded border border-emerald-800 px-2 py-1 text-xs text-emerald-300 hover:bg-emerald-950 disabled:opacity-50"
+                  >
+                    + Reservas
+                  </button>
+                  <button
+                    type="button"
+                    disabled={savingPerm}
+                    onClick={() =>
+                      grantAdditivePermission(p, additiveCardapioFlags(), "Cardápio")
+                    }
+                    className="rounded border border-emerald-800 px-2 py-1 text-xs text-emerald-300 hover:bg-emerald-950 disabled:opacity-50"
+                  >
+                    + Cardápio
+                  </button>
                   <button
                     type="button"
                     onClick={() => loadPermissionIntoForm(p)}

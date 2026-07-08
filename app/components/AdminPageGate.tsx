@@ -12,6 +12,7 @@ import { useEntitlements } from "../context/EntitlementsContext";
 import { useUserPermissions } from "../hooks/useUserPermissions";
 import { pathAllowedByEntitlements } from "../utils/adminRouteModules";
 import { isSaasModeEnabled } from "../utils/saasMode";
+import { uepAllowsModule } from "../utils/uepModuleAccess";
 
 function isCheckinAdminPath(pathname: string): boolean {
   const path = pathname.split("?")[0];
@@ -28,15 +29,16 @@ export function AdminPageGate({ children }: { children: ReactNode }) {
   const { canModule, canPermission, loading } = useCan();
   const { entitlements } = useEntitlements();
   const { myEstablishmentPermissions } = useUserPermissions();
+  const activeUep = myEstablishmentPermissions.filter((p) => p.is_active !== false);
 
   const saasOn = isSaasModeEnabled();
-  const hasUepCheckin = myEstablishmentPermissions.some(
-    (p) => p.is_active !== false && p.can_manage_checkins,
-  );
+  const hasUepCheckin = activeUep.some((p) => p.can_manage_checkins);
   const allowedByEntitlements = pathAllowedByEntitlements(pathname, canModule, canPermission, {
     allowAll: !saasOn || entitlements.allowAll,
     legacyScoped: entitlements.legacyScoped === true,
     permissions: entitlements.permissions,
+    legacyPathAllowed: (_path, meta) =>
+      uepAllowsModule(meta.module, activeUep) && canModule(meta.module),
   });
   const allowed =
     allowedByEntitlements || (hasUepCheckin && isCheckinAdminPath(pathname));

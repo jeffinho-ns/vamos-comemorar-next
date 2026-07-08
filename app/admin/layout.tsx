@@ -52,6 +52,7 @@ import {
   isStaffAdminRole,
   readSessionRoleSync,
 } from "../utils/adminRole";
+import { uepAllowsModule, uepAllowsNavHref } from "../utils/uepModuleAccess";
 
 // E-mail da analista com acesso restrito ao estabelecimento Pracinha do Seu Justino (menu próprio, não promoter)
 const ANALISTA_EMAIL = "analista.mkt03@ideiaum.com.br";
@@ -88,6 +89,10 @@ export default function DashboardLayout({
     canModule,
     canPermission,
   } = useSaasAccess();
+  const { myEstablishmentPermissions } = useUserPermissions();
+  const activeUep = myEstablishmentPermissions.filter((p) => p.is_active !== false);
+  const uepLegacyRouteAllowed = (href: string, meta: { module: string }) =>
+    uepAllowsNavHref(href, meta.module, activeUep) && canModule(meta.module);
   const { role: userRole, userEmail, isLoading } = useAppContext();
   const { entitlements } = useEntitlements();
   const [cookieRole, setCookieRole] = useState("");
@@ -248,7 +253,7 @@ export default function DashboardLayout({
           icon: MdRestaurant,
         });
       }
-      return isWhatsappHighlineScopedUser ? appendWhatsappLink(links) : links;
+      return appendWhatsappLink(links);
     } else if (isGerenteRole(effectiveRoleRaw)) {
       // Gerente - acesso às páginas administrativas restritas aos seus estabelecimentos
       const baseLinks = [
@@ -401,6 +406,7 @@ export default function DashboardLayout({
       entitlements.allowAll,
       entitlements.permissions,
       entitlements.legacyScoped === true,
+      uepLegacyRouteAllowed,
     );
   }
 

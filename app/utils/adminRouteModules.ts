@@ -23,11 +23,13 @@ export function pathAllowedByEntitlements(
     allowAll: boolean;
     legacyScoped: boolean;
     permissions: string[];
+    legacyPathAllowed?: (pathname: string, meta: NavModuleMeta) => boolean;
   },
 ): boolean {
   if (opts.allowAll || opts.legacyScoped) return true;
   const meta = resolveNavModuleForPath(pathname);
   if (!meta) return true;
+  if (opts.legacyPathAllowed?.(pathname, meta)) return true;
   if (!canModule(meta.module)) return false;
   if (
     meta.requiredPermission &&
