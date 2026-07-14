@@ -531,15 +531,15 @@ function contactAvatarClass(waId: string): string {
 
 function inboxRowSortPriority(state: InboxRowVisualState): number {
   switch (state) {
-    case "never_opened":
+    case "human_handoff":
       return 0;
     case "unread_inbound":
       return 1;
-    case "unread_review":
+    case "never_opened":
       return 2;
-    case "ai_active":
+    case "unread_review":
       return 3;
-    case "human_handoff":
+    case "ai_active":
       return 4;
     default:
       return 5;
