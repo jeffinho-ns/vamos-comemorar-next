@@ -22,8 +22,27 @@ export type MembershipRow = {
 export type EstablishmentRow = {
   id: number;
   name: string;
+  status?: string;
   legacy_place_id: number | null;
   legacy_bar_id: number | null;
+};
+
+export type EstablishmentUsageSummary = {
+  establishment: {
+    id: number;
+    name: string;
+    slug: string | null;
+    status: string;
+    legacyPlaceId: number | null;
+    legacyBarId: number | null;
+  };
+  usage: {
+    usersWithAccess: number;
+    activeMemberships: number;
+    reservations: number;
+    whatsappConversations: number;
+    menuItems: number;
+  };
 };
 
 export type ModuleCatalogItem = { key: string; name: string };

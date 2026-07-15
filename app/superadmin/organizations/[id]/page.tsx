@@ -47,6 +47,7 @@ export default function SuperadminOrganizationDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [impersonatingId, setImpersonatingId] = useState<number | null>(null);
+  const [suspendLoading, setSuspendLoading] = useState(false);
 
   const load = useCallback(() => {
     if (!Number.isFinite(id)) return;
@@ -107,6 +108,33 @@ export default function SuperadminOrganizationDetailPage() {
     }
   };
 
+  const toggleSuspension = async (suspend: boolean) => {
+    const confirmed = suspend
+      ? confirm(
+          "Suspender esta organização? Todos os usuários dela perderão acesso ao sistema até a reativação.",
+        )
+      : confirm("Reativar esta organização?");
+    if (!confirmed) return;
+    setError(null);
+    setSuspendLoading(true);
+    try {
+      await superadminFetch(
+        `/organizations/${id}/${suspend ? "suspend" : "reactivate"}`,
+        { method: "POST" },
+      );
+      setSuccessMessage(
+        suspend
+          ? "Organização suspensa. Os usuários não conseguem mais fazer login."
+          : "Organização reativada com sucesso.",
+      );
+      load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Erro ao atualizar organização");
+    } finally {
+      setSuspendLoading(false);
+    }
+  };
+
   if (!detail) return <p className="text-slate-400">Carregando…</p>;
 
   const org = detail.organization;
@@ -118,6 +146,9 @@ export default function SuperadminOrganizationDetailPage() {
   const openInvoices = detail.invoices.filter(
     (inv) => Math.max(Number(inv.amount_cents) - Number(inv.paid_cents || 0), 0) > 0,
   ).length;
+  const activeEstablishments = detail.establishments.filter(
+    (e) => (e.status || "active") !== "archived",
+  );
 
   return (
     <div className="space-y-6">
@@ -148,12 +179,31 @@ export default function SuperadminOrganizationDetailPage() {
           >
             SaaS {org.saas_enabled ? "ativado" : "desativado"}
           </span>
+          {String(org.status) !== "suspended" ? (
+            <button
+              type="button"
+              onClick={() => toggleSuspension(true)}
+              disabled={suspendLoading}
+              className="rounded border border-red-800 px-3 py-1 text-xs text-red-300 hover:bg-red-950 disabled:opacity-50"
+            >
+              {suspendLoading ? "Suspendendo…" : "Suspender organização"}
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => toggleSuspension(false)}
+              disabled={suspendLoading}
+              className="rounded border border-emerald-800 px-3 py-1 text-xs text-emerald-300 hover:bg-emerald-950 disabled:opacity-50"
+            >
+              {suspendLoading ? "Reativando…" : "Reativar organização"}
+            </button>
+          )}
         </div>
         <p className="mt-1 text-sm text-slate-400">
           {String(org.slug)} · {orgUsers.length}{" "}
           {orgUsers.length === 1 ? "usuário" : "usuários"} ·{" "}
-          {detail.establishments.length}{" "}
-          {detail.establishments.length === 1 ? "estabelecimento" : "estabelecimentos"}{" "}
+          {activeEstablishments.length}{" "}
+          {activeEstablishments.length === 1 ? "estabelecimento" : "estabelecimentos"}{" "}
           · mensalidade {formatBrlFromCents(currentMonthly)}
           {openInvoices > 0
             ? ` · ${openInvoices} ${openInvoices === 1 ? "fatura em aberto" : "faturas em aberto"}`
@@ -219,7 +269,7 @@ export default function SuperadminOrganizationDetailPage() {
           orgUsers={orgUsers}
           memberships={memberships}
           permissions={permissions}
-          establishments={detail.establishments}
+          establishments={activeEstablishments}
           impersonatingId={impersonatingId}
           onImpersonate={impersonateUser}
           onReload={load}

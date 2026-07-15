@@ -159,6 +159,23 @@ export default function UserAccessPanel({
       onReload();
     });
 
+  const toggleMembership = (m: MembershipRow) => {
+    if (
+      m.is_active &&
+      !confirm("Desativar este acesso? O usuário perde as permissões deste role.")
+    ) {
+      return;
+    }
+    return runAction(async () => {
+      await superadminFetch(`/organizations/${orgId}/memberships/${m.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ isActive: !m.is_active }),
+      });
+      onSuccess(m.is_active ? "Acesso desativado." : "Acesso reativado.");
+      onReload();
+    });
+  };
+
   const submitAddUser = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!addForm.email.trim()) return;
@@ -453,12 +470,26 @@ export default function UserAccessPanel({
                                 {m.role_name || m.role_key} ·{" "}
                                 {m.establishment_name || "org inteira"}
                               </span>
-                              <span
-                                className={
-                                  m.is_active ? "text-emerald-400" : "text-slate-500"
-                                }
-                              >
-                                {m.is_active ? "ativo" : "inativo"}
+                              <span className="flex items-center gap-2">
+                                <span
+                                  className={
+                                    m.is_active ? "text-emerald-400" : "text-slate-500"
+                                  }
+                                >
+                                  {m.is_active ? "ativo" : "inativo"}
+                                </span>
+                                <button
+                                  type="button"
+                                  disabled={saving}
+                                  onClick={() => toggleMembership(m)}
+                                  className={
+                                    m.is_active
+                                      ? "rounded border border-red-900 px-2 py-1 text-red-300 hover:bg-red-950 disabled:opacity-50"
+                                      : "rounded border border-emerald-800 px-2 py-1 text-emerald-300 hover:bg-emerald-950 disabled:opacity-50"
+                                  }
+                                >
+                                  {m.is_active ? "Desativar" : "Reativar"}
+                                </button>
                               </span>
                             </li>
                           ))}
