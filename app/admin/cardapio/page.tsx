@@ -88,11 +88,20 @@ interface MenuItemForm {
   isPriceOnRequest?: boolean; // Indica se o preço é "Sob Consulta"
 }
 
+interface EditableSubCategory {
+  id?: string | number;
+  name: string;
+  order: number;
+  originalName: string;
+  originalOrder: number;
+  count?: number;
+}
+
 interface MenuCategoryForm {
   name: string;
   barId: string;
   order: number;
-  subCategories: { id?: string | number; name: string; order: number }[]; // Adicionado para gerenciar sub-categorias
+  subCategories: EditableSubCategory[];
 }
 
 interface BarForm {
@@ -228,6 +237,322 @@ declare module 'react' {
 }
 
 const API_BASE_URL = 'https://api.agilizaiapp.com.br/api/cardapio';
+
+const isPersistedSubcategoryId = (id: string | number | undefined | null): boolean =>
+  id !== undefined && id !== null && String(id).trim() !== '' && /^\d+$/.test(String(id));
+
+const getItemSubcategoryName = (item: Pick<MenuItem, 'subCategoryName' | 'subCategory'>): string =>
+  String(item.subCategoryName || item.subCategory || '').trim();
+
+const fetchCategorySubcategoriesFromApi = async (
+  categoryId: string | number,
+  barId: string | number,
+): Promise<any[]> => {
+  const response = await fetch(`${API_BASE_URL}/subcategories/category/${categoryId}`);
+  if (!response.ok) return [];
+  const data = await response.json();
+  const list = Array.isArray(data) ? data : [];
+  const filtered = list.filter((sub: any) => {
+    if (sub.barId === undefined || sub.barId === null || sub.barId === '') return true;
+    return String(sub.barId) === String(barId);
+  });
+  // Se o filtro por bar esvaziar (barId inconsistente na API), usa a lista da categoria
+  return filtered.length > 0 || list.length === 0 ? filtered : list;
+};
+
+const buildEditableSubcategories = (
+  apiSubs: any[],
+  items: MenuItem[],
+  categoryId: string | number,
+  barId: string | number,
+): EditableSubCategory[] => {
+  const itemStats = new Map<string, { name: string; count: number; minOrder: number }>();
+
+  items.forEach((item) => {
+    if (String(item.categoryId) !== String(categoryId) || String(item.barId) !== String(barId)) {
+      return;
+    }
+    const name = getItemSubcategoryName(item);
+    if (!name) return;
+    const key = name.toLowerCase();
+    const itemOrder = item.order !== undefined && item.order !== null ? Number(item.order) : 999;
+    const existing = itemStats.get(key);
+    if (!existing) {
+      itemStats.set(key, { name, count: 1, minOrder: itemOrder });
+    } else {
+      existing.count += 1;
+      existing.minOrder = Math.min(existing.minOrder, itemOrder);
+    }
+  });
+
+  const byKey = new Map<string, EditableSubCategory>();
+
+  apiSubs.forEach((sub: any) => {
+    const name = String(sub.name || '').trim();
+    if (!name) return;
+    const key = name.toLowerCase();
+    const stats = itemStats.get(key);
+    // Ordem exibida prioriza itens (página pública usa ordem dos itens).
+    // ID oficial vem da API para permitir rename/delete.
+    const order =
+      stats !== undefined
+        ? stats.minOrder
+        : sub.order !== undefined && sub.order !== null
+          ? Number(sub.order)
+          : 999;
+    byKey.set(key, {
+      id: sub.id,
+      name,
+      order,
+      originalName: name,
+      originalOrder: order,
+      count: stats?.count ?? (Number(sub.itemsCount) || 0),
+    });
+  });
+
+  itemStats.forEach((stats, key) => {
+    if (byKey.has(key)) {
+      const current = byKey.get(key)!;
+      byKey.set(key, { ...current, count: stats.count });
+      return;
+    }
+    byKey.set(key, {
+      id: undefined,
+      name: stats.name,
+      order: stats.minOrder,
+      originalName: stats.name,
+      originalOrder: stats.minOrder,
+      count: stats.count,
+    });
+  });
+
+  return Array.from(byKey.values())
+    .sort((a, b) => {
+      if (a.order !== b.order) return a.order - b.order;
+      return a.name.localeCompare(b.name);
+    })
+    .map((sub, index) => ({
+      ...sub,
+      order: index,
+      originalOrder: index,
+    }));
+};
+
+const renameItemsSubcategory = async (
+  items: MenuItem[],
+  categoryId: string | number,
+  barId: string | number,
+  oldName: string,
+  newName: string,
+): Promise<number> => {
+  const matching = items.filter((item) => {
+    if (String(item.categoryId) !== String(categoryId) || String(item.barId) !== String(barId)) {
+      return false;
+    }
+    return getItemSubcategoryName(item) === oldName;
+  });
+
+  let updated = 0;
+  for (const item of matching) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/items/${item.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...item,
+          subCategory: newName,
+          subCategoryName: newName,
+        }),
+      });
+      if (response.ok) updated += 1;
+    } catch (error) {
+      console.error(`Erro ao renomear subcategoria no item ${item.id}:`, error);
+    }
+  }
+  return updated;
+};
+
+const syncItemOrdersToSubcategoryOrder = async (
+  items: MenuItem[],
+  categoryId: string | number,
+  barId: string | number,
+  orderedNames: string[],
+): Promise<number> => {
+  const categoryItems = items.filter(
+    (item) =>
+      String(item.categoryId) === String(categoryId) && String(item.barId) === String(barId),
+  );
+
+  let updated = 0;
+  for (let subIndex = 0; subIndex < orderedNames.length; subIndex += 1) {
+    const subName = orderedNames[subIndex];
+    const subItems = categoryItems
+      .filter((item) => getItemSubcategoryName(item) === subName)
+      .sort((a, b) => Number(a.order || 0) - Number(b.order || 0));
+
+    for (let itemIndex = 0; itemIndex < subItems.length; itemIndex += 1) {
+      const item = subItems[itemIndex];
+      const nextOrder = subIndex * 1000 + itemIndex;
+      if (Number(item.order) === nextOrder) continue;
+      try {
+        const response = await fetch(`${API_BASE_URL}/items/${item.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            ...item,
+            order: nextOrder,
+            subCategory: subName,
+            subCategoryName: subName,
+          }),
+        });
+        if (response.ok) updated += 1;
+      } catch (error) {
+        console.error(`Erro ao sincronizar ordem do item ${item.id}:`, error);
+      }
+    }
+  }
+  return updated;
+};
+
+const persistEditableSubcategories = async ({
+  categoryId,
+  barId,
+  subCategories,
+  items,
+}: {
+  categoryId: string | number;
+  barId: string | number;
+  subCategories: EditableSubCategory[];
+  items: MenuItem[];
+}): Promise<{ renamed: number; created: number; updatedItems: number; reordered: boolean }> => {
+  const valid = subCategories
+    .filter((sub) => sub.name.trim() !== '')
+    .map((sub, index) => ({ ...sub, name: sub.name.trim(), order: index }));
+
+  // Cópia local para sincronizar ordem após renomes (itens em memória ainda têm o nome antigo)
+  let workingItems: MenuItem[] = items.map((item) => ({ ...item }));
+
+  const applyLocalRename = (oldName: string, newName: string) => {
+    workingItems = workingItems.map((item) => {
+      if (
+        String(item.categoryId) !== String(categoryId) ||
+        String(item.barId) !== String(barId) ||
+        getItemSubcategoryName(item) !== oldName
+      ) {
+        return item;
+      }
+      return { ...item, subCategory: newName, subCategoryName: newName };
+    });
+  };
+
+  let renamed = 0;
+  let created = 0;
+  let updatedItems = 0;
+
+  for (const sub of valid) {
+    const hasPersistedId = isPersistedSubcategoryId(sub.id);
+    const originalName = (sub.originalName || '').trim();
+    const nameChanged = Boolean(originalName) && sub.name !== originalName;
+
+    if (hasPersistedId) {
+      if (nameChanged || sub.order !== sub.originalOrder) {
+        try {
+          const response = await fetch(`${API_BASE_URL}/subcategories/${sub.id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              name: sub.name,
+              order: sub.order,
+            }),
+          });
+          if (!response.ok) {
+            console.warn(`Falha ao atualizar subcategoria ${sub.id}:`, response.status);
+          }
+        } catch (error) {
+          console.error(`Erro ao atualizar subcategoria ${sub.id}:`, error);
+        }
+      }
+
+      if (nameChanged) {
+        const itemUpdates = await renameItemsSubcategory(
+          workingItems,
+          categoryId,
+          barId,
+          originalName,
+          sub.name,
+        );
+        updatedItems += itemUpdates;
+        applyLocalRename(originalName, sub.name);
+        renamed += 1;
+      }
+    } else if (!originalName) {
+      try {
+        const response = await fetch(`${API_BASE_URL}/subcategories`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: sub.name,
+            categoryId,
+            barId,
+            order: sub.order,
+          }),
+        });
+        if (response.ok) {
+          created += 1;
+        } else {
+          console.warn(`Falha ao criar subcategoria "${sub.name}":`, response.status);
+        }
+      } catch (error) {
+        console.error(`Erro ao criar subcategoria "${sub.name}":`, error);
+      }
+    } else if (nameChanged) {
+      const itemUpdates = await renameItemsSubcategory(
+        workingItems,
+        categoryId,
+        barId,
+        originalName,
+        sub.name,
+      );
+      updatedItems += itemUpdates;
+      applyLocalRename(originalName, sub.name);
+      if (itemUpdates > 0) renamed += 1;
+    }
+  }
+
+  const orderedNames = valid.map((sub) => sub.name);
+  const hasOrderChanges = valid.some((sub) => sub.order !== sub.originalOrder);
+  let reordered = false;
+
+  if (hasOrderChanges || renamed > 0 || created > 0) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/subcategories/reorder/${categoryId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          subcategoryNames: orderedNames,
+          barId,
+        }),
+      });
+      reordered = response.ok;
+      if (!response.ok) {
+        console.warn('Falha ao reordenar subcategorias via API:', response.status);
+      }
+    } catch (error) {
+      console.error('Erro ao reordenar subcategorias via API:', error);
+    }
+
+    // Página pública agrupa pelos itens: sincroniza order dos itens com a ordem salva
+    updatedItems += await syncItemOrdersToSubcategoryOrder(
+      workingItems,
+      categoryId,
+      barId,
+      orderedNames,
+    );
+    reordered = true;
+  }
+
+  return { renamed, created, updatedItems, reordered };
+};
 // Base sem o sufixo /cardapio, usada só para consultar enabled_modules em /api/bars
 const MODULES_API_URL = 'https://api.agilizaiapp.com.br';
 const FULL_CARDAPIO_ACCESS_EMAILS = new Set([
@@ -236,26 +561,6 @@ const FULL_CARDAPIO_ACCESS_EMAILS = new Set([
 
 // Placeholder local para todos os pontos do admin
 const PLACEHOLDER_IMAGE_URL = '/placeholder-cardapio.svg';
-const PRACINHA_BEBIDAS_SUBCATEGORY_ORDER = [
-  { canonical: 'EXCEPCIONAIS CAIPIRINHAS DO PRACINHA', aliases: ['Excepcionais Caipirinhas do Pracinha'] },
-  { canonical: 'SÓ TEM NO PRACINHA', aliases: ['Só tem no Pracinha'] },
-  { canonical: 'DRINKS BRASILEIROS', aliases: ['Drinks Brasileirinhos', 'Drinks Brasileiros'] },
-  { canonical: 'DRINKS CLÁSSICOS', aliases: ['Drinks Clássicos'] },
-  { canonical: 'CHOPPS E CERVEJA', aliases: ['Chopps & Cervejas', 'Chopps e Cervejas'] },
-  { canonical: 'DRINKS SEM ALCOOL', aliases: ['Drinks Sem Álcool', 'Drinks Sem Alcool'] },
-  { canonical: 'GIN NA TAÇA', aliases: ['Gin na Taça e Amor no Coração', 'Gin na Taça'] },
-  { canonical: 'SPRITZ', aliases: ['Spritz'] },
-  { canonical: 'SHOTS DA PRAÇA', aliases: ['Shotzins da Praça', 'Shots da Praça'] },
-  { canonical: 'OUTROS', aliases: ['Others', 'Outros'] },
-  { canonical: 'COMBOS', aliases: ['Combos'] },
-  { canonical: 'WHISKY', aliases: ['Whisky'] },
-  { canonical: 'GIN', aliases: ['Gin'] },
-  { canonical: 'VODKA', aliases: ['Vodka'] },
-  { canonical: 'LICOR', aliases: ['Liqueur', 'Licor'] },
-  { canonical: 'RUM', aliases: ['Rum'] },
-  { canonical: 'TEQUILA', aliases: ['Tequila'] },
-  { canonical: "SOFT'S", aliases: ['Soft Drinks', "Soft's"] },
-];
 
 // Índice em memória: resolve valores antigos (filename/objectPath) -> URL pública (Firebase/Cloudinary/etc)
 // Isso evita construir URLs quebradas do Cloudinary e melhora o preview ao selecionar da galeria.
@@ -263,16 +568,6 @@ const imageUrlIndex = new Map<string, string>();
 
 function isHttpUrl(value: string) {
   return /^https?:\/\//i.test(value);
-}
-
-function normalizeSortKey(value: string) {
-  return String(value || '')
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[`´']/g, "'")
-    .replace(/\s+/g, ' ')
-    .trim()
-    .toLowerCase();
 }
 
 function toThumbVariant(value: string) {
@@ -458,38 +753,6 @@ const resolveBarCoverImage = (bar: { coverImageUrl?: string; coverImages?: strin
   return firstCover || PLACEHOLDER_IMAGE_URL;
 };
 
-const applyPracinhaBebidasSubcategoryOrder = <T extends { name: string; order?: number }>(
-  subcategories: T[],
-  barName?: string,
-  categoryName?: string,
-) => {
-  const isPracinhaBar = normalizeSortKey(barName || '').includes(normalizeSortKey('Pracinha do Seu Justino'));
-  const isBebidasCategory = normalizeSortKey(categoryName || '') === normalizeSortKey('Bebidas');
-  if (!isPracinhaBar || !isBebidasCategory) {
-    return subcategories;
-  }
-
-  const orderMap = new Map<string, number>();
-  PRACINHA_BEBIDAS_SUBCATEGORY_ORDER.forEach((entry, index) => {
-    orderMap.set(normalizeSortKey(entry.canonical), index);
-    entry.aliases.forEach((alias) => orderMap.set(normalizeSortKey(alias), index));
-  });
-
-  return [...subcategories].sort((a, b) => {
-    const aRank = orderMap.get(normalizeSortKey(a.name));
-    const bRank = orderMap.get(normalizeSortKey(b.name));
-    const aHasRank = aRank !== undefined;
-    const bHasRank = bRank !== undefined;
-    if (aHasRank && bHasRank) return (aRank as number) - (bRank as number);
-    if (aHasRank) return -1;
-    if (bHasRank) return 1;
-    const aOrder = a.order !== undefined ? Number(a.order) : 999;
-    const bOrder = b.order !== undefined ? Number(b.order) : 999;
-    if (aOrder !== bOrder) return aOrder - bOrder;
-    return (a.name || '').localeCompare(b.name || '');
-  });
-};
-
 export default function CardapioAdminPage() {
   const {
     isAdmin,
@@ -507,7 +770,6 @@ export default function CardapioAdminPage() {
   const [showBarModal, setShowBarModal] = useState(false);
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [showItemModal, setShowItemModal] = useState(false);
-  const [showQuickEditModal, setShowQuickEditModal] = useState(false);
   const [showImageGalleryModal, setShowImageGalleryModal] = useState(false);
   const [showTrashModal, setShowTrashModal] = useState(false);
   const [showImageEditorModal, setShowImageEditorModal] = useState(false);
@@ -574,19 +836,6 @@ export default function CardapioAdminPage() {
   // Estados para controlar expansão de categorias e subcategorias na visualização em lista
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
   const [expandedSubCategories, setExpandedSubCategories] = useState<Set<string>>(new Set());
-
-  const [quickEditData, setQuickEditData] = useState<{
-    barId: string | number;
-    categoryId: string | number;
-    subCategories: Array<{
-      id: string | number;
-      name: string;
-      order: number;
-      originalName: string;
-      originalOrder: number;
-      count?: number;
-    }>;
-  } | null>(null);
 
   const promoterBarIdNum = promoterBar ? Number(promoterBar.barId) : null;
 
@@ -1364,610 +1613,64 @@ export default function CardapioAdminPage() {
     setAvailableSubCategories([]);
   }, []);
 
-  const handleOpenQuickEditModal = async (barId: string | number, categoryId: string | number) => {
-    const category = menuData.categories.find((c) => c.id === categoryId);
-    const bar = menuData.bars.find((b) => b.id === barId);
-
-    if (!category || !bar) {
-      console.error('❌ [QuickEdit] Categoria ou bar não encontrado:', { categoryId, barId });
-      return;
-    }
-
-    // Normalizar IDs para comparação
-    const normalizedCategoryId = String(categoryId);
-    const normalizedBarId = String(barId);
-
-    // Função auxiliar para extrair subcategorias dos itens locais
-    // IMPORTANTE: Busca TODOS os itens, incluindo temporários e ocultos
-    const extractSubCategoriesFromItems = () => {
-      const itemsInCategory = menuData.items.filter(
-        (item) => {
-          const matchesCategory = String(item.categoryId) === normalizedCategoryId;
-          const matchesBar = String(item.barId) === normalizedBarId;
-          // IMPORTANTE: Incluir TODOS os itens, mesmo os temporários (que começam com "[Nova Subcategoria]")
-          // e mesmo os ocultos (visible = 0 ou false)
-          return matchesCategory && matchesBar;
-        }
-      );
-
-      console.log('🔍 [QuickEdit] Itens na categoria (incluindo temporários):', {
-        categoryId: normalizedCategoryId,
-        barId: normalizedBarId,
-        itemsCount: itemsInCategory.length,
-        items: itemsInCategory.map((item: any) => ({
-          id: item.id,
-          name: item.name,
-          subCategoryName: item.subCategoryName || item.subCategory,
-          subCategory: item.subCategory || item.subCategoryName,
-          visible: item.visible,
-          isTemporary: item.name && item.name.startsWith('[Nova Subcategoria]'),
-        })),
-      });
-
-      const uniqueSubCategories = new Map();
-      itemsInCategory.forEach((item: any) => {
-        // Buscar subcategoria em ambos os campos possíveis
-        const subCategoryValue = item.subCategoryName || item.subCategory || null;
-        
-        if (subCategoryValue && subCategoryValue.trim() !== '') {
-          const subName = subCategoryValue.trim();
-          
-          // Verificar se já existe essa subcategoria
-          if (!uniqueSubCategories.has(subName)) {
-            // Buscar o order do item (pode estar no campo order do item)
-            const itemOrder = item.order !== undefined && item.order !== null ? Number(item.order) : uniqueSubCategories.size;
-            
-            uniqueSubCategories.set(subName, {
-              id: item.id || `${categoryId}-${barId}-${subName}`, // Usar ID do item se existir
-              name: subName,
-              order: itemOrder,
-              count: 1,
-              barId: item.barId,
-              categoryId: item.categoryId,
-              isTemporary: item.name && item.name.startsWith('[Nova Subcategoria]'),
-            });
-          } else {
-            const existing = uniqueSubCategories.get(subName);
-            existing.count++;
-            
-            // Se o item atual tem um ID válido (não é apenas um ID gerado), usar ele
-            if (item.id && !item.id.toString().includes('-') && !existing.id.toString().includes('-')) {
-              existing.id = item.id;
-            }
-            
-            // Atualizar order se o item atual tiver uma ordem válida
-            if (item.order !== undefined && item.order !== null) {
-              const itemOrder = Number(item.order);
-              if (itemOrder < existing.order) {
-                existing.order = itemOrder;
-              }
-            }
-          }
-        }
-      });
-
-      return Array.from(uniqueSubCategories.values())
-        .sort((a, b) => {
-          // Ordenar por order primeiro, depois por nome
-          const orderA = a.order !== undefined && a.order !== null ? Number(a.order) : 999;
-          const orderB = b.order !== undefined && b.order !== null ? Number(b.order) : 999;
-          if (orderA !== orderB) return orderA - orderB;
-          return (a.name || '').localeCompare(b.name || '');
-        })
-        .map((sub, index) => ({
-          ...sub,
-          originalName: sub.name,
-          originalOrder: sub.order !== undefined ? sub.order : index,
-          order: sub.order !== undefined ? sub.order : index,
-        }));
-    };
-
-    // Extrair subcategorias dos dados locais (para usar como fallback/complemento)
-    const localSubCategories = extractSubCategoriesFromItems();
-    
-    console.log('✅ [QuickEdit] Subcategorias extraídas dos itens locais:', {
-      count: localSubCategories.length,
-      subCategories: localSubCategories.map((s) => ({ name: s.name, count: s.count })),
+  const updateCategorySubCategory = (
+    index: number,
+    field: 'name' | 'order',
+    value: string | number,
+  ) => {
+    setCategoryForm((prev) => {
+      const next = [...prev.subCategories];
+      next[index] = {
+        ...next[index],
+        [field]: field === 'order' ? Number(value) : value,
+      };
+      return { ...prev, subCategories: next };
     });
-
-    // Variável para armazenar as subcategorias finais (começar com dados locais)
-    let finalSubCategories = localSubCategories;
-
-    try {
-      // Buscar subcategorias da API primeiro (pode ter dados mais completos, incluindo itens temporários)
-      console.log('🔍 [QuickEdit] Buscando subcategorias da API para categoryId:', categoryId);
-      const response = await fetch(`${API_BASE_URL}/subcategories/category/${categoryId}`);
-
-      if (response.ok) {
-        const apiSubCategories = await response.json();
-
-        // Normalizar barId para comparação (pode ser string ou number)
-        const normalizedBarId = String(barId);
-
-      console.log('🔍 [QuickEdit] Buscando subcategorias:', {
-        categoryId,
-        barId,
-        normalizedBarId,
-        totalSubCategories: apiSubCategories?.length || 0,
-        sampleSubCategories: apiSubCategories?.slice(0, 3).map((s: any) => ({
-          name: s.name,
-          barId: s.barId,
-          barIdType: typeof s.barId,
-          itemsCount: s.itemsCount,
-        })),
-      });
-
-      // Filtrar apenas subcategorias do bar específico (normalizando IDs para comparação)
-      const filteredSubCategories = (apiSubCategories || []).filter((sub: any) => {
-        const subBarId = String(sub.barId);
-        return subBarId === normalizedBarId;
-      });
-
-      console.log('🔍 [QuickEdit] Subcategorias da API filtradas:', {
-        filteredCount: filteredSubCategories.length,
-        filteredSubCategories: filteredSubCategories.map((s: any) => ({
-          name: s.name,
-          barId: s.barId,
-        })),
-      });
-
-      // Ordenar e mapear subcategorias da API
-      let apiSubCategoriesList = filteredSubCategories
-        .sort((a: any, b: any) => {
-          // Ordenar por order se existir, caso contrário por nome
-          const orderA = a.order !== undefined && a.order !== null ? Number(a.order) : 999;
-          const orderB = b.order !== undefined && b.order !== null ? Number(b.order) : 999;
-          if (orderA !== orderB) return orderA - orderB;
-          return (a.name || '').localeCompare(b.name || '');
-        })
-        .map((sub: any, index: number) => ({
-          ...sub,
-          id: sub.id || `${sub.categoryId}-${sub.barId}-${sub.name}`,
-          originalName: sub.name,
-          originalOrder: sub.order !== undefined && sub.order !== null ? Number(sub.order) : index,
-          order: sub.order !== undefined && sub.order !== null ? Number(sub.order) : index,
-          count: sub.itemsCount || 0,
-        }));
-
-      // Mesclar dados da API com dados locais
-      // Criar um mapa das subcategorias locais para fácil acesso
-      const localSubCategoriesMap = new Map();
-      localSubCategories.forEach((sub: any) => {
-        localSubCategoriesMap.set(sub.name.toLowerCase().trim(), sub);
-      });
-
-      // Mesclar: usar dados locais como base e complementar com dados da API
-      const mergedSubCategories = new Map();
-      
-      // Primeiro, adicionar todas as subcategorias locais (prioridade)
-      localSubCategories.forEach((sub: any) => {
-        mergedSubCategories.set(sub.name.toLowerCase().trim(), sub);
-      });
-      
-      // Depois, adicionar subcategorias da API que não estão nos dados locais
-      apiSubCategoriesList.forEach((apiSub: any) => {
-        const key = apiSub.name.toLowerCase().trim();
-        if (!mergedSubCategories.has(key)) {
-          mergedSubCategories.set(key, apiSub);
-        } else {
-          // Se já existe, atualizar com dados da API (pode ter mais informações)
-          const existing = mergedSubCategories.get(key);
-          mergedSubCategories.set(key, {
-            ...existing,
-            ...apiSub,
-            // Priorizar ordem da API (subcategory_order), que é a fonte oficial.
-            order:
-              apiSub.order !== undefined && apiSub.order !== null
-                ? Number(apiSub.order)
-                : existing.order,
-          });
-        }
-      });
-
-        // Converter para array e ordenar
-        finalSubCategories = applyPracinhaBebidasSubcategoryOrder(
-          Array.from(mergedSubCategories.values()),
-          bar.name,
-          category.name,
-        );
-
-        console.log('✅ [QuickEdit] Subcategorias mescladas (local + API):', {
-          count: finalSubCategories.length,
-          localCount: localSubCategories.length,
-          apiCount: apiSubCategoriesList.length,
-          subCategories: finalSubCategories.map((s) => ({
-            name: s.name,
-            barId: s.barId,
-            order: s.order,
-            count: s.count,
-          })),
-        });
-      } else {
-        // Se a API não respondeu, usar apenas dados locais (já está em finalSubCategories)
-        console.log('⚠️ [QuickEdit] API não respondeu, usando apenas dados locais');
-      }
-
-      // Garantir que subCategories seja sempre um array
-      const finalSubCategoriesToUse = finalSubCategories;
-
-      console.log('✅ [QuickEdit] Subcategorias finais a serem exibidas:', {
-        count: finalSubCategoriesToUse.length,
-        subCategories: finalSubCategoriesToUse.map((s) => ({
-          name: s.name,
-          barId: s.barId,
-          order: s.order,
-          count: s.count,
-        })),
-      });
-
-      // Numerar por posição (0, 1, 2...) para exibir ordem correta no modal; originalOrder para detectar mudanças reais
-      const subCategoriesWithOrder = finalSubCategoriesToUse.map((s: any, i: number) => ({
-        ...s,
-        order: i,
-        originalOrder: s.originalOrder ?? s.order ?? i,
-      }));
-
-      setQuickEditData({
-        barId,
-        categoryId,
-        subCategories: subCategoriesWithOrder,
-      });
-      setShowQuickEditModal(true);
-    } catch (error) {
-      console.error('❌ [QuickEdit] Erro ao buscar subcategorias:', error);
-      console.warn('⚠️ [QuickEdit] Usando dados locais como fallback devido ao erro');
-      
-      // Fallback: usar dados locais (já extraídos no início)
-      console.log('✅ [QuickEdit] Subcategorias do fallback (dados locais):', {
-        count: localSubCategories.length,
-        subCategories: localSubCategories.map((s) => ({ name: s.name, count: s.count })),
-      });
-
-      // Numerar por posição também no fallback (dados locais)
-      const localWithOrder = localSubCategories.map((s: any, i: number) => ({
-        ...s,
-        order: i,
-        originalOrder: s.originalOrder ?? s.order ?? i,
-      }));
-      setQuickEditData({
-        barId,
-        categoryId,
-        subCategories: localWithOrder,
-      });
-      setShowQuickEditModal(true);
-    }
   };
 
-  const handleCloseQuickEditModal = () => {
-    setShowQuickEditModal(false);
-    setQuickEditData(null);
-  };
-
-  const handleSaveQuickEdit = async () => {
-    if (!quickEditData) return;
-
-    // Validar se há subcategorias vazias
-    const emptySubCategories = quickEditData.subCategories.filter(
-      (sub) => sub.name.trim() === '',
-    );
-    if (emptySubCategories.length > 0) {
-      if (
-        !confirm(
-          `Existem ${emptySubCategories.length} subcategoria(s) com nome vazio. Deseja continuar? As subcategorias vazias serão ignoradas.`,
-        )
-      ) {
-        return;
-      }
-    }
-
-    // Filtrar subcategorias vazias
-    const validSubCategories = quickEditData.subCategories.filter((sub) => sub.name.trim() !== '');
-
-    if (validSubCategories.length === 0) {
-      alert('Nenhuma subcategoria válida para salvar. Adicione nomes às subcategorias.');
-      return;
-    }
-
-    try {
-      let updatedItemsCount = 0;
-      let newSubCategoriesCount = 0;
-      let renamedSubCategoriesCount = 0;
-      let useApiEndpoints = false;
-
-      // Verificar se os novos endpoints estão disponíveis
-      // Não bloquear o fluxo se houver erro - tentar usar os endpoints mesmo assim
-      try {
-        const testResponse = await fetch(`${API_BASE_URL}/subcategories`, { method: 'GET' });
-        if (testResponse.ok) {
-          useApiEndpoints = true;
-          console.log('✅ [SaveQuickEdit] Endpoints de subcategorias disponíveis');
-        } else {
-          console.warn('⚠️ [SaveQuickEdit] Endpoint /subcategories retornou status:', testResponse.status);
-          // Mesmo com erro, tentar usar os endpoints específicos (PUT, POST) que podem funcionar
-          useApiEndpoints = true;
-        }
-      } catch (error) {
-        console.warn('⚠️ [SaveQuickEdit] Erro ao verificar endpoints de subcategorias:', error);
-        // Mesmo com erro na verificação, tentar usar os endpoints específicos
-        useApiEndpoints = true;
-      }
-
-      if (useApiEndpoints) {
-        // Usar novos endpoints se disponíveis
-        for (const subCategory of validSubCategories) {
-          if (!subCategory.id.toString().includes('temp-')) {
-            if (subCategory.name !== subCategory.originalName) {
-              try {
-                const response = await fetch(`${API_BASE_URL}/subcategories/${subCategory.id}`, {
-                  method: 'PUT',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({
-                    name: subCategory.name,
-                  }),
-                });
-
-                if (response.ok) {
-                  renamedSubCategoriesCount++;
-                  const itemsWithThisSubCategory = menuData.items.filter(
-                    (item) =>
-                      item.categoryId === quickEditData.categoryId &&
-                      item.barId === quickEditData.barId &&
-                      item.subCategoryName === subCategory.originalName,
-                  );
-                  updatedItemsCount += itemsWithThisSubCategory.length;
-                }
-              } catch (error) {
-                console.error(
-                  `Erro ao atualizar subcategoria ${subCategory.originalName}:`,
-                  error,
-                );
-              }
-            }
-          } else {
-            try {
-              const response = await fetch(`${API_BASE_URL}/subcategories`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  name: subCategory.name,
-                  categoryId: quickEditData.categoryId,
-                  barId: quickEditData.barId,
-                  order: subCategory.order,
-                }),
-              });
-
-              if (response.ok) {
-                newSubCategoriesCount++;
-              }
-            } catch (error) {
-              console.error(`Erro ao criar subcategoria ${subCategory.name}:`, error);
-            }
-          }
-        }
-      } else {
-        // Fallback: usar endpoints tradicionais de itens
-        const itemsToUpdate = menuData.items.filter(
-          (item) => item.categoryId === quickEditData.categoryId && item.barId === quickEditData.barId,
-        );
-
-        for (const subCategory of validSubCategories) {
-          if (!subCategory.id.toString().includes('temp-')) {
-            // Buscar itens que têm essa subcategoria (verificando ambos os campos)
-            const itemsWithThisSubCategory = itemsToUpdate.filter(
-              (item: any) => {
-                const itemSubCategory = item.subCategoryName || item.subCategory;
-                return itemSubCategory === subCategory.originalName;
-              },
-            );
-
-            for (const item of itemsWithThisSubCategory) {
-              if (subCategory.name !== subCategory.originalName) {
-                try {
-                  const response = await fetch(`${API_BASE_URL}/items/${item.id}`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                      ...item,
-                      subCategory: subCategory.name,
-                      subCategoryName: subCategory.name, // Atualizar ambos os campos se existirem
-                    }),
-                  });
-
-                  if (response.ok) {
-                    updatedItemsCount++;
-                  }
-                } catch (error) {
-                  console.error(`Erro ao atualizar item ${item.id}:`, error);
-                }
-              }
-            }
-          } else {
-            newSubCategoriesCount++;
-          }
-        }
-      }
-
-      // Reordenar subcategorias se necessário
-      const hasOrderChanges = validSubCategories.some(
-        (sub) => sub.order !== sub.originalOrder,
-      );
-      if (hasOrderChanges) {
-        if (useApiEndpoints) {
-          try {
-            const subcategoryNames = validSubCategories
-              .sort((a, b) => a.order - b.order)
-              .map((sub) => sub.name);
-
-            const response = await fetch(
-              `${API_BASE_URL}/subcategories/reorder/${quickEditData.categoryId}`,
-              {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  subcategoryNames,
-                }),
-              },
-            );
-
-            if (!response.ok) {
-              console.warn('Erro ao reordenar subcategorias via API');
-            }
-          } catch (error) {
-            console.error('Erro ao reordenar subcategorias via API:', error);
-          }
-        } else {
-          // Fallback: reordenar itens individualmente
-          try {
-            const itemsToUpdate = menuData.items.filter(
-              (item) => item.categoryId === quickEditData.categoryId && item.barId === quickEditData.barId,
-            );
-
-            // Agrupar itens por subcategoria
-            const subcategoryGroups = new Map();
-            validSubCategories.forEach((sub) => {
-              if (sub.name.trim() !== '') {
-                subcategoryGroups.set(sub.name, {
-                  order: sub.order,
-                  items: itemsToUpdate.filter((item: any) => {
-                    const itemSubCategory = item.subCategoryName || item.subCategory;
-                    return itemSubCategory === sub.name;
-                  }),
-                });
-              }
-            });
-
-            // Atualizar ordem dos itens
-            for (const [subcategoryName, group] of subcategoryGroups) {
-              for (const item of group.items) {
-                try {
-                  const response = await fetch(`${API_BASE_URL}/items/${item.id}`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                      ...item,
-                      order: group.order,
-                    }),
-                  });
-
-                  if (response.ok) {
-                    updatedItemsCount++;
-                  }
-                } catch (error) {
-                  console.error(`Erro ao atualizar ordem do item ${item.id}:`, error);
-                }
-              }
-            }
-          } catch (error) {
-            console.error('Erro ao reordenar subcategorias via fallback:', error);
-          }
-        }
-      }
-
-      // Mostrar resumo das alterações
-      let message = '';
-      if (useApiEndpoints) {
-        if (renamedSubCategoriesCount > 0) {
-          message += `✅ ${renamedSubCategoriesCount} subcategoria(s) renomeada(s)!\n`;
-          message += `📝 ${updatedItemsCount} item(s) atualizado(s) automaticamente!\n\n`;
-        }
-
-        if (newSubCategoriesCount > 0) {
-          message += `🆕 ${newSubCategoriesCount} nova(s) subcategoria(s) criada(s)!\n\n`;
-          message += `💡 Para usar as novas subcategorias, adicione itens com esses nomes na aba "Itens do Menu".`;
-        }
-      } else {
-        if (updatedItemsCount > 0) {
-          message += `✅ ${updatedItemsCount} item(s) atualizado(s) com sucesso!\n\n`;
-        }
-
-        if (newSubCategoriesCount > 0) {
-          message += `📝 ${newSubCategoriesCount} nova(s) subcategoria(s) criada(s)!\n\n`;
-          message += `💡 Para usar as novas subcategorias, adicione itens com esses nomes na aba "Itens do Menu".`;
-        }
-      }
-
-      if (hasOrderChanges) {
-        message += `🔄 Ordem das subcategorias atualizada!\n`;
-      }
-
-      if (updatedItemsCount === 0 && newSubCategoriesCount === 0 && renamedSubCategoriesCount === 0 && !hasOrderChanges) {
-        message = 'ℹ️ Nenhuma alteração foi necessária.';
-      }
-
-      alert(message);
-
-      // Salvar os IDs antes de recarregar para reabrir o modal depois se necessário
-      const savedBarId = quickEditData.barId;
-      const savedCategoryId = quickEditData.categoryId;
-
-      // Recarregar dados do servidor
-      await fetchData();
-      
-      // Aguardar um momento para garantir que os dados foram atualizados
-      await new Promise(resolve => setTimeout(resolve, 300));
-      
-      // Fechar o modal
-      handleCloseQuickEditModal();
-      
-      // Nota: Quando o usuário reabrir o modal, a função handleOpenQuickEditModal
-      // irá buscar as subcategorias atualizadas automaticamente
-    } catch (err) {
-      console.error('Erro ao salvar edição rápida:', err);
-      alert(`Erro ao salvar alterações: ${err instanceof Error ? err.message : 'Erro desconhecido'}`);
-    }
-  };
-
-  const addSubCategoryToQuickEdit = () => {
-    if (!quickEditData) return;
-
-    // Mostrar aviso sobre como funciona
-    if (
-      !confirm(
-        'Atenção: Para criar uma nova subcategoria, você deve:\n\n1. Adicionar um item com a nova subcategoria\n2. Ou renomear uma subcategoria existente\n\nDeseja continuar adicionando uma subcategoria temporária?',
-      )
-    ) {
-      return;
-    }
-
-    setQuickEditData((prev) => {
-      if (!prev) return prev;
-      const newOrder = Math.max(...prev.subCategories.map((sub) => sub.order), -1) + 1;
-
+  const reorderCategorySubCategories = (fromIndex: number, toIndex: number) => {
+    setCategoryForm((prev) => {
+      const next = [...prev.subCategories];
+      const [moved] = next.splice(fromIndex, 1);
+      next.splice(toIndex, 0, moved);
       return {
         ...prev,
-        subCategories: [
-          ...prev.subCategories,
-          {
-            id: `temp-${Date.now()}`,
-            name: '',
-            order: newOrder,
-            originalName: '',
-            originalOrder: newOrder,
-            count: 0,
-          },
-        ],
+        subCategories: next.map((sub, index) => ({ ...sub, order: index })),
       };
     });
   };
 
-  const removeSubCategoryFromQuickEdit = async (index: number) => {
-    if (!quickEditData) return;
+  const addCategorySubCategory = () => {
+    setCategoryForm((prev) => ({
+      ...prev,
+      subCategories: [
+        ...prev.subCategories,
+        {
+          id: undefined,
+          name: '',
+          order: prev.subCategories.length,
+          originalName: '',
+          originalOrder: prev.subCategories.length,
+          count: 0,
+        },
+      ],
+    }));
+  };
 
-    const subCategory = quickEditData.subCategories[index];
+  const removeCategorySubCategory = async (index: number) => {
+    const subCategory = categoryForm.subCategories[index];
+    if (!subCategory) return;
 
-    // Se é uma subcategoria temporária, apenas remover da lista
-    if (subCategory.id.toString().includes('temp-')) {
-      setQuickEditData((prev) => {
-        if (!prev) return prev;
-        return {
-          ...prev,
-          subCategories: prev.subCategories.filter((_, i) => i !== index),
-        };
-      });
+    if (!isPersistedSubcategoryId(subCategory.id)) {
+      setCategoryForm((prev) => ({
+        ...prev,
+        subCategories: prev.subCategories
+          .filter((_, i) => i !== index)
+          .map((sub, i) => ({ ...sub, order: i })),
+      }));
       return;
     }
 
-    // Se é uma subcategoria existente, confirmar exclusão
     if (
       !confirm(
         `Tem certeza que deseja excluir a subcategoria '${subCategory.name}'?\n\n⚠️ Esta ação não pode ser desfeita.`,
@@ -1977,171 +1680,41 @@ export default function CardapioAdminPage() {
     }
 
     try {
-      // Verificar se os novos endpoints estão disponíveis
-      const testResponse = await fetch(`${API_BASE_URL}/subcategories`, { method: 'GET' });
-
-      if (testResponse.ok) {
-        // Usar novo endpoint de exclusão
-        const response = await fetch(`${API_BASE_URL}/subcategories/${subCategory.id}`, {
-          method: 'DELETE',
-        });
-
-        if (response.ok) {
-          setQuickEditData((prev) => {
-            if (!prev) return prev;
-            return {
-              ...prev,
-              subCategories: prev.subCategories.filter((_, i) => i !== index),
-            };
-          });
-
-          alert('Subcategoria excluída com sucesso!');
-        } else {
-          const errorData = await response.json();
-          alert(`Erro ao excluir subcategoria: ${errorData.error}`);
-        }
+      const response = await fetch(`${API_BASE_URL}/subcategories/${subCategory.id}`, {
+        method: 'DELETE',
+      });
+      if (response.ok) {
+        setCategoryForm((prev) => ({
+          ...prev,
+          subCategories: prev.subCategories
+            .filter((_, i) => i !== index)
+            .map((sub, i) => ({ ...sub, order: i })),
+        }));
+        alert('Subcategoria excluída com sucesso!');
       } else {
-        // Fallback: não permitir exclusão sem os novos endpoints
-        alert(
-          '⚠️ Funcionalidade de exclusão não disponível no momento. Use a funcionalidade de renomear ou aguarde a atualização do sistema.',
-        );
+        const errorData = await response.json().catch(() => ({}));
+        alert(`Erro ao excluir subcategoria: ${errorData.error || 'Erro desconhecido'}`);
       }
     } catch (error) {
       console.error('Erro ao excluir subcategoria:', error);
-      alert(
-        '⚠️ Erro ao conectar com o servidor. A funcionalidade de exclusão não está disponível no momento.',
-      );
+      alert('Erro ao excluir subcategoria. Tente novamente.');
     }
   };
 
-  const updateSubCategoryInQuickEdit = (
-    index: number,
-    field: 'name' | 'order',
-    value: string | number,
-  ) => {
-    if (!quickEditData) return;
-
-    setQuickEditData((prev) => {
-      if (!prev) return prev;
-      const newSubCategories = [...prev.subCategories];
-      newSubCategories[index] = {
-        ...newSubCategories[index],
-        [field]: field === 'order' ? Number(value) : value,
-      };
-      return {
-        ...prev,
-        subCategories: newSubCategories,
-      };
-    });
-  };
-
-  const reorderSubCategories = (fromIndex: number, toIndex: number) => {
-    if (!quickEditData) return;
-
-    setQuickEditData((prev) => {
-      if (!prev) return prev;
-      const newSubCategories = [...prev.subCategories];
-      const [movedItem] = newSubCategories.splice(fromIndex, 1);
-      newSubCategories.splice(toIndex, 0, movedItem);
-
-      // Atualizar ordens
-      newSubCategories.forEach((sub, index) => {
-        sub.order = index;
-      });
-
-      return {
-        ...prev,
-        subCategories: newSubCategories,
-      };
-    });
-  };
-
-  const duplicateSubCategory = (index: number) => {
-    if (!quickEditData) return;
-
-    // Mostrar aviso sobre como funciona
-    if (
-      !confirm(
-        'Atenção: Duplicar uma subcategoria criará uma versão temporária.\n\nPara que ela seja efetiva, você deve:\n\n1. Adicionar itens com a nova subcategoria, ou\n2. Renomear uma subcategoria existente\n\nDeseja continuar?',
-      )
-    ) {
-      return;
-    }
-
-    setQuickEditData((prev) => {
-      if (!prev) return prev;
-      const originalSub = prev.subCategories[index];
-      const newOrder = Math.max(...prev.subCategories.map((sub) => sub.order), -1) + 1;
-
-      return {
-        ...prev,
-        subCategories: [
-          ...prev.subCategories,
-          {
-            id: `temp-${Date.now()}`,
-            name: `${originalSub.name} (cópia)`,
-            order: newOrder,
-            originalName: '',
-            originalOrder: newOrder,
-            count: 0,
-          },
-        ],
-      };
-    });
-  };
-
-  const sortSubCategoriesByName = () => {
-    if (!quickEditData) return;
-
-    setQuickEditData((prev) => {
-      if (!prev) return prev;
-      const sortedSubCategories = [...prev.subCategories]
-        .filter((sub) => sub.name.trim() !== '')
-        .sort((a, b) => a.name.localeCompare(b.name))
-        .map((sub, index) => ({ ...sub, order: index }));
-
-      return {
-        ...prev,
-        subCategories: sortedSubCategories,
-      };
-    });
-  };
-
-  const sortSubCategoriesByOrder = () => {
-    if (!quickEditData) return;
-
-    setQuickEditData((prev) => {
-      if (!prev) return prev;
-      const sortedSubCategories = [...prev.subCategories]
-        .filter((sub) => sub.name.trim() !== '')
-        .sort((a, b) => a.order - b.order)
-        .map((sub, index) => ({ ...sub, order: index }));
-
-      return {
-        ...prev,
-        subCategories: sortedSubCategories,
-      };
-    });
-  };
-
-  const getChangesSummary = () => {
-    if (!quickEditData) return { added: 0, modified: 0, removed: 0 };
-
+  const getCategorySubcategoryChangesSummary = () => {
     let added = 0;
     let modified = 0;
-    let removed = 0;
-
-    quickEditData.subCategories.forEach((sub) => {
-      if (sub.id.toString().includes('temp-') && sub.name.trim() !== '') {
-        // Nova subcategoria com nome
-        added++;
-      } else if (sub.name !== sub.originalName || sub.order !== sub.originalOrder) {
-        // Subcategoria existente modificada
-        modified++;
+    categoryForm.subCategories.forEach((sub) => {
+      if (!sub.originalName && sub.name.trim() !== '') {
+        added += 1;
+      } else if (
+        sub.name.trim() !== sub.originalName ||
+        sub.order !== sub.originalOrder
+      ) {
+        modified += 1;
       }
     });
-
-    return { added, modified, removed };
+    return { added, modified };
   };
 
   const handleSaveBar = useCallback(async () => {
@@ -2300,68 +1873,31 @@ export default function CardapioAdminPage() {
         const savedCategory = await response.json();
         const categoryId = editingCategory ? editingCategory.id : savedCategory.id;
 
-        // Salvar subcategorias usando a API
-        if (categoryForm.subCategories.length > 0) {
-          console.log('🔄 Salvando subcategorias:', categoryForm.subCategories);
-          
-          // Filtrar apenas subcategorias com nome válido
-          const validSubCategories = categoryForm.subCategories.filter(
-            (sub) => sub.name && sub.name.trim() !== ''
-          );
+        console.log('🔄 Salvando subcategorias:', categoryForm.subCategories);
+        const subResult = await persistEditableSubcategories({
+          categoryId,
+          barId: categoryForm.barId,
+          subCategories: categoryForm.subCategories,
+          items: menuData.items,
+        });
 
-          for (const subCategory of validSubCategories) {
-            try {
-              // Se a subcategoria já tem ID, ela já existe no banco - não precisa criar novamente
-              if (subCategory.id) {
-                console.log(`ℹ️ Subcategoria "${subCategory.name}" já existe (ID: ${subCategory.id})`);
-                continue;
-              }
-
-              // Verificar se a subcategoria já existe (por nome)
-              const checkResponse = await fetch(
-                `${API_BASE_URL}/subcategories/category/${categoryId}`
-              );
-              
-              if (checkResponse.ok) {
-                const existingSubCategories = await checkResponse.json();
-                const exists = existingSubCategories.some(
-                  (sub: any) => sub.name === subCategory.name.trim()
-                );
-
-                if (!exists) {
-                  // Criar nova subcategoria
-                  const createResponse = await fetch(`${API_BASE_URL}/subcategories`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                      name: subCategory.name.trim(),
-                      categoryId: categoryId,
-                      barId: categoryForm.barId,
-                      order: subCategory.order || 0,
-                    }),
-                  });
-
-                  if (createResponse.ok) {
-                    console.log(`✅ Subcategoria "${subCategory.name}" criada com sucesso`);
-                  } else {
-                    console.error(`❌ Erro ao criar subcategoria "${subCategory.name}"`);
-                  }
-                } else {
-                  console.log(`ℹ️ Subcategoria "${subCategory.name}" já existe`);
-                }
-              }
-            } catch (subError) {
-              console.error(`❌ Erro ao salvar subcategoria "${subCategory.name}":`, subError);
-            }
-          }
-        }
-
-        console.log('✅ Categoria e sub-categorias salvas com sucesso');
+        console.log('✅ Categoria e sub-categorias salvas com sucesso', subResult);
         await fetchData();
         handleCloseCategoryModal();
-        alert(
-          editingCategory ? 'Categoria atualizada com sucesso!' : 'Categoria criada com sucesso!',
-        );
+
+        let message = editingCategory
+          ? 'Categoria atualizada com sucesso!'
+          : 'Categoria criada com sucesso!';
+        if (subResult.renamed > 0) {
+          message += `\n${subResult.renamed} subcategoria(s) renomeada(s).`;
+        }
+        if (subResult.created > 0) {
+          message += `\n${subResult.created} subcategoria(s) criada(s).`;
+        }
+        if (subResult.reordered) {
+          message += '\nOrdem das subcategorias atualizada.';
+        }
+        alert(message);
       } else {
         const errorText = await response.text();
         console.error('❌ Erro do servidor:', errorText);
@@ -2390,7 +1926,7 @@ export default function CardapioAdminPage() {
 
       alert(`Erro ao salvar categoria: ${errorMessage}`);
     }
-  }, [editingCategory, categoryForm, fetchData, handleCloseCategoryModal]);
+  }, [editingCategory, categoryForm, fetchData, handleCloseCategoryModal, menuData.items]);
 
   const handleSaveItem = useCallback(async () => {
     try {
@@ -2537,53 +2073,19 @@ export default function CardapioAdminPage() {
     async (category: MenuCategory) => {
       setEditingCategory(category);
 
-      // Carregar subcategorias da API
-      let categorySubCategories: { id?: string | number; name: string; order: number }[] = [];
-      
+      let apiSubCategories: any[] = [];
       try {
-        const response = await fetch(`${API_BASE_URL}/subcategories/category/${category.id}`);
-        if (response.ok) {
-          const apiSubCategories = await response.json();
-          categorySubCategories = apiSubCategories.map((sub: any) => ({
-            id: sub.id, // Salvar o ID para poder excluir depois
-            name: sub.name,
-            order: sub.order || 0,
-          }));
-        } else {
-          // Fallback: extrair dos itens locais
-          categorySubCategories = menuData.items
-            .filter(
-              (item) =>
-                item.categoryId === category.id &&
-                item.subCategoryName &&
-                item.subCategoryName.trim() !== '',
-            )
-            .reduce((acc: any[], item) => {
-              const existing = acc.find((sub) => sub.name === item.subCategoryName);
-              if (!existing) {
-                acc.push({ name: item.subCategoryName, order: 0 });
-              }
-              return acc;
-            }, []);
-        }
+        apiSubCategories = await fetchCategorySubcategoriesFromApi(category.id, category.barId);
       } catch (error) {
         console.error('❌ Erro ao carregar subcategorias:', error);
-        // Fallback: extrair dos itens locais
-        categorySubCategories = menuData.items
-          .filter(
-            (item) =>
-              item.categoryId === category.id &&
-              item.subCategoryName &&
-              item.subCategoryName.trim() !== '',
-          )
-          .reduce((acc: any[], item) => {
-            const existing = acc.find((sub) => sub.name === item.subCategoryName);
-            if (!existing) {
-              acc.push({ name: item.subCategoryName, order: 0 });
-            }
-            return acc;
-          }, []);
       }
+
+      const categorySubCategories = buildEditableSubcategories(
+        apiSubCategories,
+        menuData.items,
+        category.id,
+        category.barId,
+      );
 
       setCategoryForm({
         name: category.name,
@@ -3788,15 +3290,9 @@ export default function CardapioAdminPage() {
                             {(isAdmin || canManageBar(Number(category.barId)) || (promoterBar && menuData.bars.some((b) => Number(b.id) === Number(category.barId)))) && (
                               <>
                                 <button
-                                  onClick={() => handleOpenQuickEditModal(bar.id, category.id)}
-                                  className="text-green-600 hover:text-green-800"
-                                  title="Edição Rápida das Subcategorias"
-                                >
-                                  <MdEdit className="h-4 w-4" />
-                                </button>
-                                <button
                                   onClick={() => handleEditCategory(category)}
                                   className="text-blue-600 hover:text-blue-800"
+                                  title="Editar categoria e subcategorias"
                                 >
                                   <MdEdit className="h-4 w-4" />
                                 </button>
@@ -5571,106 +5067,103 @@ export default function CardapioAdminPage() {
             {/* Sub-categorias */}
             <div className="border-t pt-4">
               <div className="mb-3 flex items-center justify-between">
-                <label className="block text-sm font-medium text-gray-700">Sub-categorias</label>
+                <label className="block text-sm font-medium text-gray-700">Subcategorias</label>
                 <button
                   type="button"
-                  onClick={() => {
-                    setCategoryForm((prev) => ({
-                      ...prev,
-                      subCategories: [
-                        ...prev.subCategories,
-                        { name: '', order: prev.subCategories.length },
-                      ],
-                    }));
-                  }}
-                  className="rounded-md bg-blue-600 px-3 py-1 text-sm text-white hover:bg-blue-700"
+                  onClick={addCategorySubCategory}
+                  className="flex items-center gap-1 rounded-md bg-green-600 px-3 py-1 text-sm text-white hover:bg-green-700"
                 >
-                  + Adicionar Sub-categoria
+                  <MdAdd className="h-4 w-4" />
+                  Adicionar
                 </button>
               </div>
 
-              <div className="max-h-40 space-y-2 overflow-y-auto">
+              <div className="max-h-96 space-y-2 overflow-y-auto">
                 {categoryForm.subCategories.map((subCategory, index) => (
-                  <div key={index} className="flex gap-2">
+                  <div
+                    key={`${subCategory.id ?? 'new'}-${index}`}
+                    className={`flex items-center gap-2 rounded-lg border p-3 ${
+                      !isPersistedSubcategoryId(subCategory.id) && !subCategory.originalName
+                        ? 'border-orange-200 bg-orange-50'
+                        : 'border-gray-200'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2 text-gray-400">
+                      <span className="text-xs font-medium">#{index + 1}</span>
+                      <button
+                        type="button"
+                        onClick={() => index > 0 && reorderCategorySubCategories(index, index - 1)}
+                        disabled={index === 0}
+                        className="text-gray-400 hover:text-gray-600 disabled:opacity-50"
+                        title="Mover para cima"
+                      >
+                        ↑
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          index < categoryForm.subCategories.length - 1 &&
+                          reorderCategorySubCategories(index, index + 1)
+                        }
+                        disabled={index === categoryForm.subCategories.length - 1}
+                        className="text-gray-400 hover:text-gray-600 disabled:opacity-50"
+                        title="Mover para baixo"
+                      >
+                        ↓
+                      </button>
+                    </div>
+
                     <input
                       type="text"
                       value={subCategory.name || ''}
-                      onChange={(e) => {
-                        const newSubCategories = [...categoryForm.subCategories];
-                        newSubCategories[index] = {
-                          ...newSubCategories[index],
-                          name: e.target.value,
-                        };
-                        setCategoryForm((prev) => ({ ...prev, subCategories: newSubCategories }));
-                      }}
-                      placeholder="Nome da sub-categoria"
+                      onChange={(e) => updateCategorySubCategory(index, 'name', e.target.value)}
+                      placeholder="Nome da subcategoria"
                       className="flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
-                    <input
-                      type="number"
-                      min="0"
-                      value={subCategory.order || 0}
-                      onChange={(e) => {
-                        const newSubCategories = [...categoryForm.subCategories];
-                        newSubCategories[index] = {
-                          ...newSubCategories[index],
-                          order: parseInt(e.target.value) || 0,
-                        };
-                        setCategoryForm((prev) => ({ ...prev, subCategories: newSubCategories }));
-                      }}
-                      placeholder="Ordem"
-                      className="w-20 rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
+
+                    <div className="flex h-9 w-14 items-center justify-center rounded-md border border-gray-200 bg-gray-50 text-sm font-medium text-gray-700">
+                      {index + 1}
+                    </div>
+
+                    <div
+                      className={`rounded px-2 py-1 text-xs ${
+                        subCategory.count && subCategory.count > 0
+                          ? 'bg-green-100 text-green-600'
+                          : 'bg-gray-100 text-gray-500'
+                      }`}
+                    >
+                      {subCategory.count || 0} item(s)
+                    </div>
+
                     <button
                       type="button"
-                      onClick={async () => {
-                        const subCategoryToRemove = categoryForm.subCategories[index];
-                        
-                        // Se a subcategoria tem ID (já existe no banco), excluir via API
-                        if (subCategoryToRemove.id) {
-                          if (!confirm(`Tem certeza que deseja excluir a subcategoria "${subCategoryToRemove.name}"?\n\n⚠️ Esta ação não pode ser desfeita.`)) {
-                            return;
-                          }
-                          
-                          try {
-                            const response = await fetch(`${API_BASE_URL}/subcategories/${subCategoryToRemove.id}`, {
-                              method: 'DELETE',
-                            });
-                            
-                            if (response.ok) {
-                              // Remover do estado local
-                              const newSubCategories = categoryForm.subCategories.filter(
-                                (_, i) => i !== index,
-                              );
-                              setCategoryForm((prev) => ({ ...prev, subCategories: newSubCategories }));
-                              alert('Subcategoria excluída com sucesso!');
-                            } else {
-                              const errorData = await response.json();
-                              alert(`Erro ao excluir subcategoria: ${errorData.error || 'Erro desconhecido'}`);
-                            }
-                          } catch (error) {
-                            console.error('❌ Erro ao excluir subcategoria:', error);
-                            alert('Erro ao excluir subcategoria. Tente novamente.');
-                          }
-                        } else {
-                          // Se não tem ID (é nova e ainda não foi salva), apenas remover do estado local
-                          const newSubCategories = categoryForm.subCategories.filter(
-                            (_, i) => i !== index,
-                          );
-                          setCategoryForm((prev) => ({ ...prev, subCategories: newSubCategories }));
-                        }
-                      }}
+                      onClick={() => removeCategorySubCategory(index)}
                       className="px-2 py-2 text-red-600 hover:text-red-800"
-                      title={categoryForm.subCategories[index].id ? 'Excluir subcategoria do banco de dados' : 'Remover subcategoria (ainda não salva)'}
+                      title={
+                        isPersistedSubcategoryId(subCategory.id)
+                          ? 'Excluir subcategoria'
+                          : 'Remover subcategoria'
+                      }
                     >
                       <MdDelete className="h-4 w-4" />
                     </button>
                   </div>
                 ))}
                 {categoryForm.subCategories.length === 0 && (
-                  <p className="text-sm italic text-gray-500">Nenhuma sub-categoria adicionada.</p>
+                  <p className="text-sm italic text-gray-500">Nenhuma subcategoria adicionada.</p>
                 )}
               </div>
+
+              {(() => {
+                const changes = getCategorySubcategoryChangesSummary();
+                if (changes.added === 0 && changes.modified === 0) return null;
+                return (
+                  <div className="mt-3 rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-800">
+                    {changes.added > 0 && <span className="mr-3">+{changes.added} nova(s)</span>}
+                    {changes.modified > 0 && <span>~{changes.modified} modificada(s)</span>}
+                  </div>
+                );
+              })()}
             </div>
 
             <div className="flex justify-end gap-3 pt-4">
@@ -6146,259 +5639,6 @@ export default function CardapioAdminPage() {
               Salvar
             </button>
           </div>
-        </Modal>
-
-        {/* Quick Edit Modal para Subcategorias */}
-        <Modal
-          isOpen={showQuickEditModal}
-          onClose={handleCloseQuickEditModal}
-          title="Edição Rápida das Subcategorias"
-        >
-          {quickEditData && (
-            <div className="space-y-4">
-              <div className="rounded-lg border border-blue-200 bg-blue-50 p-4">
-                <h3 className="font-medium text-blue-900">
-                  Editando subcategorias da categoria:
-                  {menuData.categories.find((c) => c.id === quickEditData.categoryId)?.name}
-                </h3>
-                <p className="text-sm text-blue-700">
-                  Bar: {menuData.bars.find((b) => b.id === quickEditData.barId)?.name}
-                </p>
-
-                {/* Estatísticas rápidas */}
-                <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-                  <div className="rounded bg-white p-2 text-center">
-                    <div className="font-bold text-blue-600">
-                      {quickEditData.subCategories.length}
-                    </div>
-                    <div className="text-blue-700">Subcategorias</div>
-                  </div>
-                  <div className="rounded bg-white p-2 text-center">
-                    <div className="font-bold text-green-600">
-                      {
-                        menuData.items.filter(
-                          (item) =>
-                            item.categoryId === quickEditData.categoryId &&
-                            item.barId === quickEditData.barId,
-                        ).length
-                      }
-                    </div>
-                    <div className="text-green-700">Itens na categoria</div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <label className="text-sm font-medium text-gray-700">Subcategorias</label>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={sortSubCategoriesByName}
-                      className="rounded-md bg-purple-600 px-3 py-2 text-sm text-white hover:bg-purple-700"
-                      title="Ordenar por nome"
-                    >
-                      A-Z
-                    </button>
-                    <button
-                      onClick={sortSubCategoriesByOrder}
-                      className="rounded-md bg-purple-600 px-3 py-2 text-sm text-white hover:bg-purple-700"
-                      title="Ordenar por ordem atual"
-                    >
-                      1-9
-                    </button>
-                    <button
-                      onClick={addSubCategoryToQuickEdit}
-                      className="flex items-center gap-1 rounded-md bg-green-600 px-3 py-2 text-sm text-white hover:bg-green-700"
-                    >
-                      <MdAdd className="h-4 w-4" />
-                      Adicionar
-                    </button>
-                  </div>
-                </div>
-
-                <div className="max-h-96 space-y-2 overflow-y-auto">
-                  {quickEditData.subCategories.map((subCategory, index) => (
-                    <div
-                      key={index}
-                      className={`flex items-center gap-2 rounded-lg border p-3 ${
-                        subCategory.id.toString().includes('temp-')
-                          ? 'border-orange-200 bg-orange-50'
-                          : 'border-gray-200'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2 text-gray-400">
-                        <span className="text-xs font-medium">#{index + 1}</span>
-                        {subCategory.id.toString().includes('temp-') && (
-                          <span className="rounded bg-orange-100 px-2 py-1 text-xs text-orange-600">
-                            NOVA
-                          </span>
-                        )}
-                        <button
-                          onClick={() => index > 0 && reorderSubCategories(index, index - 1)}
-                          disabled={index === 0}
-                          className="text-gray-400 disabled:opacity-50 hover:text-gray-600"
-                          title="Mover para cima"
-                        >
-                          ↑
-                        </button>
-                        <button
-                          onClick={() =>
-                            index < quickEditData.subCategories.length - 1 &&
-                            reorderSubCategories(index, index + 1)
-                          }
-                          disabled={index === quickEditData.subCategories.length - 1}
-                          className="text-gray-400 disabled:opacity-50 hover:text-gray-600"
-                          title="Mover para baixo"
-                        >
-                          ↓
-                        </button>
-                      </div>
-
-                      <input
-                        type="text"
-                        value={subCategory.name || ''}
-                        onChange={(e) => updateSubCategoryInQuickEdit(index, 'name', e.target.value)}
-                        placeholder={
-                          subCategory.id.toString().includes('temp-')
-                            ? 'Nome da nova subcategoria'
-                            : 'Nome da subcategoria'
-                        }
-                        className="flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
-
-                      <div className="flex flex-col items-center">
-                        <span className="mb-0.5 text-xs font-medium text-gray-500">Ordem</span>
-                        <div className="flex h-9 w-14 items-center justify-center rounded-md border border-gray-200 bg-gray-50 text-sm font-medium text-gray-700">
-                          {index + 1}
-                        </div>
-                      </div>
-
-                      {/* Contador de itens */}
-                      <div
-                        className={`rounded px-2 py-1 text-xs ${
-                          subCategory.count && subCategory.count > 0
-                            ? 'bg-green-100 text-green-600'
-                            : 'bg-gray-100 text-gray-500'
-                        }`}
-                      >
-                        {subCategory.count || 0} item(s)
-                      </div>
-
-                      <button
-                        onClick={() => removeSubCategoryFromQuickEdit(index)}
-                        className="px-2 py-2 text-red-600 hover:text-red-800"
-                        title="Remover subcategoria"
-                      >
-                        <MdDelete className="h-4 w-4" />
-                      </button>
-
-                      <button
-                        onClick={() => duplicateSubCategory(index)}
-                        className="px-2 py-2 text-blue-600 hover:text-blue-800"
-                        title="Duplicar subcategoria"
-                      >
-                        <MdAdd className="h-4 w-4" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-
-                {quickEditData.subCategories.length === 0 && (
-                  <p className="py-4 text-center text-sm italic text-gray-500">
-                    Nenhuma subcategoria encontrada. Adicione uma nova subcategoria.
-                  </p>
-                )}
-              </div>
-
-              <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-4">
-                <h4 className="mb-2 font-medium text-yellow-900">⚠️ Como Funciona</h4>
-                <ul className="space-y-1 text-sm text-yellow-800">
-                  <li>
-                    • <strong>Renomear subcategorias existentes</strong>: Atualiza automaticamente
-                    todos os itens que as utilizam
-                  </li>
-                  <li>
-                    • <strong>Criar novas subcategorias</strong>: Adicione o nome e depois crie
-                    itens com essas subcategorias
-                  </li>
-                  <li>
-                    • <strong>Ordem</strong>: Determina a sequência de exibição no cardápio
-                  </li>
-                  <li>
-                    • <strong>Subcategorias vazias</strong>: São ignoradas automaticamente
-                  </li>
-                  <li>
-                    • <strong>Contador</strong>: Mostra quantos itens usam cada subcategoria
-                  </li>
-                </ul>
-              </div>
-
-              {/* Resumo das alterações */}
-              {(() => {
-                const changes = getChangesSummary();
-                if (changes.added === 0 && changes.modified === 0) return null;
-
-                return (
-                  <div className="rounded-lg border border-green-200 bg-green-50 p-4">
-                    <h4 className="mb-2 font-medium text-green-900">📝 Resumo das Alterações</h4>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-                      {changes.added > 0 && (
-                        <div className="text-center">
-                          <div className="font-bold text-green-600">+{changes.added}</div>
-                          <div className="text-green-700">Nova(s) subcategoria(s)</div>
-                        </div>
-                      )}
-                      {changes.modified > 0 && (
-                        <div className="text-center">
-                          <div className="font-bold text-blue-600">~{changes.modified}</div>
-                          <div className="text-blue-700">Modificada(s)</div>
-                        </div>
-                      )}
-                    </div>
-                    {changes.added > 0 && (
-                      <div className="mt-3 rounded bg-green-100 p-2 text-xs text-green-700">
-                        💡 <strong>Importante:</strong> Para usar as novas subcategorias, você
-                        precisará criar itens com esses nomes na aba &quot;Itens do Menu&quot;.
-                      </div>
-                    )}
-                  </div>
-                );
-              })()}
-
-              <div className="flex justify-end gap-3 pt-4">
-                <button
-                  onClick={handleCloseQuickEditModal}
-                  className="rounded-md bg-gray-100 px-4 py-2 text-gray-700 hover:bg-gray-200"
-                >
-                  Cancelar
-                </button>
-                {(() => {
-                  const changes = getChangesSummary();
-                  const hasChanges = changes.added > 0 || changes.modified > 0;
-
-                  return (
-                    <button
-                      onClick={handleSaveQuickEdit}
-                      className={`rounded-md px-4 py-2 text-white hover:opacity-90 ${
-                        hasChanges
-                          ? 'bg-green-600 hover:bg-green-700'
-                          : 'cursor-not-allowed bg-gray-400'
-                      }`}
-                      disabled={!hasChanges}
-                    >
-                      {hasChanges
-                        ? changes.added > 0 && changes.modified > 0
-                          ? 'Salvar Alterações e Novas Subcategorias'
-                          : changes.added > 0
-                          ? 'Salvar Novas Subcategorias'
-                          : 'Salvar Alterações'
-                        : 'Nenhuma Alteração'}
-                    </button>
-                  );
-                })()}
-              </div>
-            </div>
-          )}
         </Modal>
 
         {/* Image Gallery Modal */}

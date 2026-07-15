@@ -305,30 +305,44 @@ const groupItemsBySubcategory = (
 
   const result = Object.keys(grouped).map((name) => ({
     name,
-    items: grouped[name],
+    items: grouped[name].sort(
+      (a, b) => Number(a.order || 0) - Number(b.order || 0),
+    ),
   }));
+
+  const minItemOrder = (items: MenuItem[]) =>
+    items.reduce(
+      (min, item) => Math.min(min, Number(item.order || 0)),
+      Number.POSITIVE_INFINITY,
+    );
 
   const isPracinhaBebidas =
     normalizeSortKey(barSlug || "") === normalizeSortKey("pracinha") &&
     normalizeSortKey(categoryName || "") === normalizeSortKey("Bebidas");
-  if (!isPracinhaBebidas) {
-    return result;
+
+  const pracinhaOrderMap = new Map<string, number>();
+  if (isPracinhaBebidas) {
+    PRACINHA_BEBIDAS_SUBCATEGORY_ORDER.forEach((entry, index) => {
+      pracinhaOrderMap.set(normalizeSortKey(entry.canonical), index);
+      entry.aliases.forEach((alias) =>
+        pracinhaOrderMap.set(normalizeSortKey(alias), index),
+      );
+    });
   }
 
-  const orderMap = new Map<string, number>();
-  PRACINHA_BEBIDAS_SUBCATEGORY_ORDER.forEach((entry, index) => {
-    orderMap.set(normalizeSortKey(entry.canonical), index);
-    entry.aliases.forEach((alias) =>
-      orderMap.set(normalizeSortKey(alias), index),
-    );
-  });
-
+  // Ordem dos itens (salva no admin) tem prioridade; Pracinha só empatiza
   return [...result].sort((a, b) => {
-    const aRank = orderMap.get(normalizeSortKey(a.name));
-    const bRank = orderMap.get(normalizeSortKey(b.name));
-    if (aRank !== undefined && bRank !== undefined) return aRank - bRank;
-    if (aRank !== undefined) return -1;
-    if (bRank !== undefined) return 1;
+    const orderDiff = minItemOrder(a.items) - minItemOrder(b.items);
+    if (orderDiff !== 0) return orderDiff;
+
+    if (isPracinhaBebidas) {
+      const aRank = pracinhaOrderMap.get(normalizeSortKey(a.name));
+      const bRank = pracinhaOrderMap.get(normalizeSortKey(b.name));
+      if (aRank !== undefined && bRank !== undefined) return aRank - bRank;
+      if (aRank !== undefined) return -1;
+      if (bRank !== undefined) return 1;
+    }
+
     return a.name.localeCompare(b.name);
   });
 };
