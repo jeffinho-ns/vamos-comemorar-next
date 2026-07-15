@@ -75,6 +75,8 @@ export interface AppEstablishment {
   address?: string;
   status?: string;
   cnpj?: string;
+  /** Módulos habilitados no Super Admin. null/undefined = sem configuração (tudo liberado). */
+  enabledModules?: string[] | null;
 }
 
 interface AppContextValue {
@@ -119,6 +121,20 @@ function normalizeRole(value: string | undefined): string {
   return canonicalSessionRole(value);
 }
 
+function parseEnabledModules(value: unknown): string[] | null {
+  if (value == null) return null;
+  if (Array.isArray(value)) return value.map(String);
+  if (typeof value === "string") {
+    try {
+      const parsed = JSON.parse(value);
+      return Array.isArray(parsed) ? parsed.map(String) : null;
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
 function mapBar(item: Record<string, unknown>): AppEstablishment {
   return {
     id: String(item.id ?? ""),
@@ -129,6 +145,7 @@ function mapBar(item: Record<string, unknown>): AppEstablishment {
     address: String(item.address ?? "Endereço não informado"),
     status: String(item.status ?? "active"),
     cnpj: String(item.cnpj ?? ""),
+    enabledModules: parseEnabledModules(item.enabled_modules),
   };
 }
 
@@ -147,6 +164,7 @@ function mapPlace(item: Record<string, unknown>): AppEstablishment {
     address: composedAddress,
     status: String(item.status ?? "active"),
     cnpj: String(item.cnpj ?? ""),
+    enabledModules: parseEnabledModules(item.enabled_modules),
   };
 }
 

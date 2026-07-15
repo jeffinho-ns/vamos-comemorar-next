@@ -40,6 +40,7 @@ import {
 } from "recharts";
 import AdminSaasGuard from "@/app/components/AdminSaasGuard";
 import { useSaasAccess } from "@/app/hooks/useSaasAccess";
+import { establishmentAllowsModule } from "@/app/utils/establishmentModuleAccess";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://api.agilizaiapp.com.br";
 
@@ -181,15 +182,32 @@ export default function RelatoriosGeradorPage() {
   }, []);
 
   useEffect(() => {
-    fetch(`${API_URL}/api/relatorios/estabelecimentos`, {
-      headers: { Authorization: `Bearer ${getToken()}` },
-    })
-      .then((r) => r.json())
-      .then((data) => {
+    const headers = { Authorization: `Bearer ${getToken()}` };
+    Promise.all([
+      fetch(`${API_URL}/api/relatorios/estabelecimentos`, { headers }).then((r) => r.json()),
+      // A rota de relatórios não retorna enabled_modules; /api/places fornece os módulos
+      fetch(`${API_URL}/api/places`, { headers })
+        .then((r) => (r.ok ? r.json() : null))
+        .catch(() => null),
+    ])
+      .then(([data, placesData]) => {
         if (data.success && data.estabelecimentos?.length) {
-          setEstabelecimentos(data.estabelecimentos);
-          if (!establishmentId && data.estabelecimentos[0])
-            setEstablishmentId(String(data.estabelecimentos[0].id));
+          const places: any[] = Array.isArray(placesData)
+            ? placesData
+            : placesData?.data || [];
+          const modulesById = new Map(
+            places.map((p) => [Number(p.id), p.enabled_modules]),
+          );
+          const permitidos = (data.estabelecimentos as Estabelecimento[]).filter(
+            (est) =>
+              establishmentAllowsModule(
+                { enabled_modules: modulesById.get(Number(est.id)) },
+                "relatorios",
+              ),
+          );
+          setEstabelecimentos(permitidos);
+          if (!establishmentId && permitidos[0])
+            setEstablishmentId(String(permitidos[0].id));
         }
       })
       .catch((e) => setError("Erro ao carregar estabelecimentos"))

@@ -29,6 +29,7 @@ import {
 import { FaBirthdayCake, FaGlassCheers, FaUtensils } from "react-icons/fa";
 import { useAppContext } from "@/app/context/AppContext";
 import { filterEstablishmentListForUser } from "@/app/utils/establishmentAccessRules";
+import { filterEstablishmentsByModule } from "@/app/utils/establishmentModuleAccess";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL_LOCAL || 'https://api.agilizaiapp.com.br';
 
@@ -36,6 +37,7 @@ interface Establishment {
   id: number;
   name: string;
   logo?: string;
+  enabled_modules?: unknown;
 }
 
 interface BirthdayReservation {
@@ -163,6 +165,7 @@ export default function ReservesPage() {
             name: p.name || 'Sem nome',
             logo: logoUrl,
             slug: p.slug as string | undefined,
+            enabled_modules: p.enabled_modules,
           };
         });
         setEstablishments(
@@ -600,6 +603,13 @@ export default function ReservesPage() {
     
     return { birthday: filteredBirthday, restaurant: filteredRestaurant };
   }, [birthdayReservations, restaurantReservations, viewMode]);
+
+  // Opções do seletor: só estabelecimentos com o módulo de reservas habilitado.
+  // A lista completa continua sendo usada para agrupar/exibir reservas existentes.
+  const selectableEstablishments = useMemo(
+    () => filterEstablishmentsByModule(establishments, "reservas"),
+    [establishments],
+  );
 
   // Agrupar reservas por estabelecimento
   const groupedReservations = useMemo(() => {
@@ -1210,7 +1220,7 @@ export default function ReservesPage() {
                 className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:border-orange-500"
               >
                 <option value="">Todos os estabelecimentos</option>
-                {establishments.map((est) => (
+                {selectableEstablishments.map((est) => (
                   <option key={est.id} value={est.id}>
                     {est.name}
                   </option>

@@ -46,6 +46,7 @@ import {
   isReservationStatus,
   isReservationStatusOneOf,
 } from "@/app/utils/reservationStatus";
+import { filterEstablishmentsByModule } from "@/app/utils/establishmentModuleAccess";
 
 interface Establishment {
   id: number;
@@ -179,7 +180,10 @@ export default function RestaurantReservationsPage() {
       let formattedEstablishments: Establishment[] = [];
 
       if (Array.isArray(data)) {
-        formattedEstablishments = data.map((place: any) => ({
+        formattedEstablishments = filterEstablishmentsByModule(
+          data,
+          "reservas",
+        ).map((place: any) => ({
           id: place.id,
           name: place.name || "Sem nome",
           logo: place.logo || "",
@@ -189,7 +193,10 @@ export default function RestaurantReservationsPage() {
         }));
       } else if (data.data && Array.isArray(data.data)) {
         // Se os dados vêm em um objeto com propriedade data
-        formattedEstablishments = data.data.map((place: any) => ({
+        formattedEstablishments = filterEstablishmentsByModule(
+          data.data as any[],
+          "reservas",
+        ).map((place: any) => ({
           id: place.id,
           name: place.name || "Sem nome",
           logo: place.logo || "",

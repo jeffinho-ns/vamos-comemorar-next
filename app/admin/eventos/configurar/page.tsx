@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { useAppContext } from '@/app/context/AppContext';
 import { filterEstablishmentListForUser } from '@/app/utils/establishmentAccessRules';
+import { filterEstablishmentsByModule } from '@/app/utils/establishmentModuleAccess';
 import AdminSaasGuard from '@/app/components/AdminSaasGuard';
 import Gate from '@/app/components/Gate';
 import { useSaasAccess } from '@/app/hooks/useSaasAccess';
@@ -72,7 +73,10 @@ export default function ConfigurarEventosPage() {
 
       if (response.ok) {
         const data = await response.json();
-        const estabs = Array.isArray(data) ? data : data.data || [];
+        const estabs = filterEstablishmentsByModule(
+          (Array.isArray(data) ? data : data.data || []) as any[],
+          'eventos',
+        );
         const mapped = estabs.map((p: any) => ({
           id: p.id,
           name: p.name || '',

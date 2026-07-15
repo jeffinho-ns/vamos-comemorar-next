@@ -34,6 +34,7 @@ import MenuPauseScheduleModal, {
 import { useRouter } from 'next/navigation';
 import { uploadImage as uploadImageToFirebase } from '@/app/services/uploadService';
 import { filterEstablishmentListForUser } from '@/app/utils/establishmentAccessRules';
+import { establishmentAllowsModule } from '@/app/utils/establishmentModuleAccess';
 import { toCardapioBarIds } from '@/app/config/cardapioBarResolver';
 import { fetchCardapioMappings } from '@/app/utils/establishmentRulesClient';
 
@@ -227,6 +228,8 @@ declare module 'react' {
 }
 
 const API_BASE_URL = 'https://api.agilizaiapp.com.br/api/cardapio';
+// Base sem o sufixo /cardapio, usada só para consultar enabled_modules em /api/bars
+const MODULES_API_URL = 'https://api.agilizaiapp.com.br';
 const FULL_CARDAPIO_ACCESS_EMAILS = new Set([
   'luisfelipe@ideiaum.com.br',
 ]);
@@ -746,6 +749,23 @@ export default function CardapioAdminPage() {
       const bars = await barsRes.json();
       const barsList = Array.isArray(bars) ? bars : [];
 
+      // A rota /api/cardapio/bars não retorna enabled_modules; buscar de /api/bars
+      // (mesma tabela, mesmos ids) só para saber quais casas têm o módulo "cardapio".
+      let modulesByBarId = new Map<number, unknown>();
+      try {
+        const modulesRes = await fetch(`${MODULES_API_URL}/api/bars`);
+        if (modulesRes.ok) {
+          const modulesList = await modulesRes.json();
+          if (Array.isArray(modulesList)) {
+            modulesByBarId = new Map(
+              modulesList.map((b: any) => [Number(b.id), b.enabled_modules]),
+            );
+          }
+        }
+      } catch {
+        // Sem dados de módulos: nenhum estabelecimento é ocultado.
+      }
+
       const scopedBarIds = (() => {
         if (isSuperAdmin) return null;
         if (uniqueAllowedEstablishmentIds.length > 0) {
@@ -930,6 +950,14 @@ export default function CardapioAdminPage() {
         userEmail,
         barsData.map((b) => ({ ...b, name: String((b as { name?: string }).name || '') })),
       ) as typeof barsData;
+
+      // Só estabelecimentos com o módulo "cardapio" habilitado aparecem na gestão de cardápio
+      barsData = barsData.filter((bar) =>
+        establishmentAllowsModule(
+          { enabled_modules: modulesByBarId.get(Number(bar.id)) },
+          'cardapio',
+        ),
+      );
 
       if (scopedBarIds && scopedBarIds.length > 0) {
         const allowedBarIdSet = new Set(scopedBarIds.map((id) => Number(id)));

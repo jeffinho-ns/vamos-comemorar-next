@@ -7,6 +7,7 @@ import { useAppContext } from '@/app/context/AppContext';
 import { useEstablishmentPermissions } from '@/app/hooks/useEstablishmentPermissions';
 import { useSaasAccess } from '@/app/hooks/useSaasAccess';
 import { getActiveEstablishmentIds } from '@/app/utils/establishmentAccessRules';
+import { filterEstablishmentsByModule } from '@/app/utils/establishmentModuleAccess';
 import Gate from '@/app/components/Gate';
 import { motion } from 'framer-motion';
 import {
@@ -324,8 +325,11 @@ function PromotersPageContent() {
         console.log('📋 Dados recebidos da API places:', data);
         
         // A API places retorna { data: [...] }
-        const establishmentsData = data.data || [];
-        
+        const establishmentsData = filterEstablishmentsByModule(
+          (data.data || []) as any[],
+          'promoters',
+        );
+
         const formattedEstablishments = establishmentsData.map((place: any) => ({
           id: place.id,
           name: place.name || 'Sem nome'

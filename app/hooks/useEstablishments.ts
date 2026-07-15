@@ -10,6 +10,8 @@ export interface Establishment {
   address?: string;
   status?: string;
   cnpj?: string;
+  /** Módulos habilitados no Super Admin (vem do AppContext). null/undefined = tudo liberado. */
+  enabledModules?: string[] | null;
 }
 
 export interface UseEstablishmentsReturn {

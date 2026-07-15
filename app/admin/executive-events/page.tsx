@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import {
   MdAdd,
@@ -16,6 +16,7 @@ import {
   MdOpenInNew
 } from 'react-icons/md';
 import { useEstablishments } from '@/app/hooks/useEstablishments';
+import { filterEstablishmentsByModule } from '@/app/utils/establishmentModuleAccess';
 import { ExecutiveEvent } from '@/app/types/executiveEvents';
 import ExecutiveEventModal from '@/app/components/ExecutiveEventModal';
 import AdminSaasGuard from '@/app/components/AdminSaasGuard';
@@ -24,7 +25,12 @@ import { useSaasAccess } from '@/app/hooks/useSaasAccess';
 
 export default function ExecutiveEventsPage() {
   const { canAccessEventos } = useSaasAccess();
-  const { establishments, loading: establishmentsLoading } = useEstablishments();
+  const { establishments: allEstablishments, loading: establishmentsLoading } = useEstablishments();
+  // Seletor e modal só oferecem casas com o módulo "eventos" habilitado
+  const establishments = useMemo(
+    () => filterEstablishmentsByModule(allEstablishments, 'eventos'),
+    [allEstablishments],
+  );
   const [events, setEvents] = useState<ExecutiveEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

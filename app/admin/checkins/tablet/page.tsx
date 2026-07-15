@@ -15,6 +15,7 @@ import {
 } from '@/app/utils/checkinsVenueUtils';
 import { readAuthToken } from '@/app/utils/readAuthToken';
 import { parseCheckinsApiPayload } from '@/app/utils/tabletCheckinsLoader';
+import { filterEstablishmentsByModule } from '@/app/utils/establishmentModuleAccess';
 import EntradaStatusModal, { EntradaTipo } from '../../../components/EntradaStatusModal';
 import { BirthdayReservation } from '../../../services/birthdayService';
 
@@ -227,7 +228,10 @@ export default function TabletCheckInsPage() {
           console.error('Erro na requisição de places:', placesErr);
         }
 
-        const listaRaw: { id: number; nome: string }[] = places.map((p: any) => ({
+        const listaRaw: { id: number; nome: string }[] = filterEstablishmentsByModule(
+          places,
+          'checkin',
+        ).map((p: any) => ({
           id: Number(p.id),
           nome: (p.name || 'Sem nome').replace(/Jutino/gi, 'Justino'),
         }));

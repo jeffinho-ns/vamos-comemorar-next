@@ -5,6 +5,7 @@ import { MdDashboard, MdEvent, MdBookOnline, MdShoppingCart, MdList, MdStar, MdS
 import { useEstablishmentPermissions } from "@/app/hooks/useEstablishmentPermissions";
 import { useAppContext } from "@/app/context/AppContext";
 import { filterEstablishmentListForUser } from "@/app/utils/establishmentAccessRules";
+import { filterEstablishmentsByModule } from "@/app/utils/establishmentModuleAccess";
 import AdminSaasGuard from "@/app/components/AdminSaasGuard";
 import { useSaasAccess } from "@/app/hooks/useSaasAccess";
 
@@ -114,14 +115,20 @@ export default function PainelEventos() {
       let formattedEstablishments: Establishment[] = [];
       
       if (Array.isArray(data)) {
-        formattedEstablishments = data.map((place: any) => ({
+        formattedEstablishments = filterEstablishmentsByModule(
+          data,
+          "eventos",
+        ).map((place: any) => ({
           id: place.id,
           name: place.name || "Sem nome",
           logo: place.logo ? `${API_URL}/uploads/${place.logo}` : "/assets/default-logo.png",
           address: place.street ? `${place.street}, ${place.number || ''}`.trim() : "Endereço não informado"
         }));
       } else if (data.data && Array.isArray(data.data)) {
-        formattedEstablishments = data.data.map((place: any) => ({
+        formattedEstablishments = filterEstablishmentsByModule(
+          data.data as any[],
+          "eventos",
+        ).map((place: any) => ({
           id: place.id,
           name: place.name || "Sem nome",
           logo: place.logo ? `${API_URL}/uploads/${place.logo}` : "/assets/default-logo.png",

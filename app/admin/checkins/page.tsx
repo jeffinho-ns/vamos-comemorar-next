@@ -33,6 +33,7 @@ import {
   isTemporaryRegianeCheckinsVenue,
   LEGACY_HIGHLINE_PLACE_ID,
 } from '@/app/utils/checkinsVenueUtils';
+import { filterEstablishmentsByModule } from '@/app/utils/establishmentModuleAccess';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.agilizaiapp.com.br';
 
@@ -152,7 +153,10 @@ export default function CheckInsGeralPage() {
         else if (placesData?.data && Array.isArray(placesData.data)) places = placesData.data;
       }
 
-      const listaRaw: { id: number; nome: string }[] = places.map((p: any) => ({
+      const listaRaw: { id: number; nome: string }[] = filterEstablishmentsByModule(
+        places,
+        'checkin',
+      ).map((p: any) => ({
         id: Number(p.id),
         nome: (p.name || 'Sem nome').replace(/Jutino/gi, 'Justino'),
       }));

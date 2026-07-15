@@ -30,6 +30,7 @@ import { getApiUrl } from "@/app/config/api";
 import { getPublicSocketUrl } from "@/lib/publicApiUrl";
 import { useAppContext } from "@/app/context/AppContext";
 import { useSaasAccess } from "@/app/hooks/useSaasAccess";
+import { filterEstablishmentsByModule } from "@/app/utils/establishmentModuleAccess";
 import EstablishmentTrainingPanel from "@/app/components/admin/EstablishmentTrainingPanel";
 import AiConfigPanel from "@/app/components/admin/AiConfigPanel";
 
@@ -2306,7 +2307,7 @@ function AdminWhatsappPageContent() {
     }
 
     if (isSuperAdmin) {
-      return establishments
+      return filterEstablishmentsByModule(establishments, "whatsapp")
         .map((e) => ({ id: Number(e.id), name: e.name }))
         .filter((e) => Number.isFinite(e.id) && e.id > 0)
         .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));

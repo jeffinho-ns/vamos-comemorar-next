@@ -22,6 +22,7 @@ import PromoterEventosModal from '../../../components/PromoterEventosModal';
 import { useEstablishmentPermissions } from '@/app/hooks/useEstablishmentPermissions';
 import { useAppContext } from '@/app/context/AppContext';
 import { filterEstablishmentListForUser } from '@/app/utils/establishmentAccessRules';
+import { filterEstablishmentsByModule } from '@/app/utils/establishmentModuleAccess';
 import { useSaasAccess } from '@/app/hooks/useSaasAccess';
 import { useRequireSaasModule } from '@/app/hooks/useRequireSaasModule';
 import Gate from '@/app/components/Gate';
@@ -127,8 +128,11 @@ export default function EventosDashboard() {
       }
 
       const data = await response.json();
-      const estabs = Array.isArray(data) ? data : data.data || [];
-      
+      const estabs = filterEstablishmentsByModule(
+        (Array.isArray(data) ? data : data.data || []) as any[],
+        'eventos',
+      );
+
       const formatted = estabs.map((place: any) => ({
         id: place.id,
         name: place.name || 'Sem nome'
