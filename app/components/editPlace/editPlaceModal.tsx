@@ -1,7 +1,7 @@
 'use client';
 
-import Image from "next/image";
 import React, { useState, useEffect } from "react";
+import { MdClose, MdCloudUpload, MdImage } from "react-icons/md";
 import Modal from "../ui/Modal";
 import { uploadImage as uploadImageToFirebase } from "@/app/services/uploadService";
 
@@ -286,150 +286,267 @@ const EditPlaceModal: React.FC<EditPlaceModalProps> = ({
     }
   };
 
+  const inputClass =
+    "w-full rounded-lg border border-gray-300 px-3 py-2 text-gray-800 shadow-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30";
+  const labelClass = "mb-1 block text-sm font-medium text-gray-700";
+
+  const previewLogoSrc = (() => {
+    if (logo && (logo.startsWith("data:") || logo.startsWith("blob:"))) return logo;
+    if (!logoUrl) return "";
+    return logoUrl.startsWith("http") ? logoUrl : `${API_URL}/uploads/${logoUrl}`;
+  })();
+
+  const SectionTitle = ({ children }: { children: React.ReactNode }) => (
+    <h3 className="mb-4 border-b border-gray-100 pb-2 text-base font-semibold text-gray-800">
+      {children}
+    </h3>
+  );
+
   const renderCommoditiesSection = () => (
-    <div>
-      <h3 className="text-xl font-semibold mb-4">Selecione as Commodities</h3>
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+    <section>
+      <SectionTitle>Comodidades</SectionTitle>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         {commodities.map((commodity, index) => (
-          <label key={index} className={`cursor-pointer flex items-center p-2 border rounded-md ${commodity.enabled ? "bg-blue-500 text-white" : "bg-gray-100"}`}>
-            <input type="checkbox" checked={commodity.enabled} onChange={() => handleCommodityChange(index)} className="hidden" />
-            <span className="mr-2">{commodity.icon}</span>
-            {commodity.name}
+          <label
+            key={index}
+            className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm transition ${
+              commodity.enabled
+                ? "border-blue-500 bg-blue-50 text-blue-700"
+                : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"
+            }`}
+          >
+            <input
+              type="checkbox"
+              checked={commodity.enabled}
+              onChange={() => handleCommodityChange(index)}
+              className="hidden"
+            />
+            <span className="text-lg">{commodity.icon}</span>
+            <span className="truncate">{commodity.name}</span>
           </label>
         ))}
       </div>
-    </div>
+    </section>
   );
 
   const renderPhotosSection = () => (
-    <div>
-      <h3 className="text-xl font-semibold mb-4">Adicione Fotos</h3>
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+    <section>
+      <SectionTitle>Fotos</SectionTitle>
+      <div className="grid grid-cols-3 gap-3 sm:grid-cols-5">
         {photos.map((_, index) => (
-          <div key={index} className="flex flex-col items-center">
-            {previewPhotos[index] && (
-              <Image src={previewPhotos[index]} alt={`Preview ${index + 1}`} className="w-20 h-20 mb-2" />
+          <label
+            key={index}
+            className="group relative flex aspect-square cursor-pointer items-center justify-center overflow-hidden rounded-lg border-2 border-dashed border-gray-200 bg-gray-50 transition hover:border-blue-400"
+          >
+            {previewPhotos[index] ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={previewPhotos[index]}
+                alt={`Foto ${index + 1}`}
+                className="h-full w-full object-cover"
+              />
+            ) : (
+              <MdImage className="text-2xl text-gray-300 group-hover:text-blue-400" />
             )}
-            <input type="file" onChange={(e) => handlePhotoChange(index, e)} accept="image/*" />
-          </div>
+            <input
+              type="file"
+              onChange={(e) => handlePhotoChange(index, e)}
+              accept="image/*"
+              className="hidden"
+            />
+          </label>
         ))}
       </div>
-    </div>
+      <p className="mt-2 text-xs text-gray-400">Clique em um quadro para adicionar/trocar a foto.</p>
+    </section>
   );
 
   return (
-    <Modal isOpen={isOpen} onRequestClose={onRequestClose} contentLabel="Edit Place">
-      <form onSubmit={handleSubmit}>
-        <h2 className="text-2xl font-bold mb-6">Editar Local</h2>
-        {errorMessage && <p className="text-red-600">{errorMessage}</p>}
-        
+    <Modal
+      isOpen={isOpen}
+      onRequestClose={onRequestClose}
+      contentLabel="Editar Local"
+      className="mx-auto flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
+    >
+      <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
         <div>
-          <label className="block mb-1">Nome</label>
-          <input
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            className="border rounded p-2 w-full"
-            required
-          />
+          <h2 className="text-xl font-bold text-gray-900">Editar Local</h2>
+          <p className="text-sm text-gray-500">Atualize as informações do estabelecimento</p>
         </div>
-        <div>
-          <label className="block mb-1">E-mail</label>
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="border rounded p-2 w-full"
-            required
-          />
-        </div>
-        <div>
-          <label className="block mb-1">Descrição</label>
-          <textarea
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            className="border rounded p-2 w-full"
-          />
-        </div>
-        <div>
-          <label className="block mb-1">Endereço</label>
-          <input
-            type="text"
-            value={street}
-            onChange={(e) => setStreet(e.target.value)}
-            className="border rounded p-2 w-full"
-            placeholder="Rua"
-          />
-          <input
-            type="text"
-            value={number}
-            onChange={(e) => setNumber(e.target.value)}
-            className="border rounded p-2 w-full"
-            placeholder="Número"
-          />
-          <input
-            type="text"
-            value={neighborhood}
-            onChange={(e) => setNeighborhood(e.target.value)}
-            className="border rounded p-2 w-full"
-            placeholder="Bairro"
-          />
-          <input
-            type="text"
-            value={city}
-            onChange={(e) => setCity(e.target.value)}
-            className="border rounded p-2 w-full"
-            placeholder="Cidade"
-          />
-          <input
-            type="text"
-            value={state}
-            onChange={(e) => setState(e.target.value)}
-            className="border rounded p-2 w-full"
-            placeholder="Estado"
-          />
-          <input
-            type="text"
-            value={zipcode}
-            onChange={(e) => setZipcode(e.target.value)}
-            className="border rounded p-2 w-full"
-            placeholder="CEP"
-          />
-        </div>
-        <div>
-          <label className="block mb-1">Latitude</label>
-          <input
-            type="text"
-            value={latitude}
-            onChange={(e) => setLatitude(e.target.value)}
-            className="border rounded p-2 w-full"
-          />
-        </div>
-        <div>
-          <label className="block mb-1">Longitude</label>
-          <input
-            type="text"
-            value={longitude}
-            onChange={(e) => setLongitude(e.target.value)}
-            className="border rounded p-2 w-full"
-          />
-        </div>
-        <div>
-          <label className="block mb-1">Logo</label>
-          <input
-            type="file"
-            onChange={(e) => setSelectedFile(e.target.files ? e.target.files[0] : null)}
-            accept="image/*"
-          />
-          {logoUrl && <Image src={`${API_URL}/uploads/${logoUrl}`} alt="Logo" className="w-20 h-20 mt-2" />}
-        </div>
-        
-        {renderCommoditiesSection()}
-        {renderPhotosSection()}
-
-        <button type="submit" className="bg-blue-500 text-white py-2 px-4 rounded mt-4">
-          Atualizar Local
+        <button
+          type="button"
+          onClick={onRequestClose}
+          className="rounded-full p-2 text-gray-400 transition hover:bg-gray-100 hover:text-gray-600"
+          aria-label="Fechar"
+        >
+          <MdClose size={22} />
         </button>
+      </div>
+
+      <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
+        <div className="flex-1 space-y-8 overflow-y-auto px-6 py-6">
+          {errorMessage && (
+            <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              {errorMessage}
+            </div>
+          )}
+
+          <section>
+            <SectionTitle>Informações básicas</SectionTitle>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div>
+                <label className={labelClass}>Nome *</label>
+                <input
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className={inputClass}
+                  required
+                />
+              </div>
+              <div>
+                <label className={labelClass}>E-mail *</label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className={inputClass}
+                  required
+                />
+              </div>
+              <div className="sm:col-span-2">
+                <label className={labelClass}>Descrição</label>
+                <textarea
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  rows={3}
+                  className={`${inputClass} resize-none`}
+                />
+              </div>
+            </div>
+          </section>
+
+          <section>
+            <SectionTitle>Endereço</SectionTitle>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-6">
+              <div className="sm:col-span-4">
+                <label className={labelClass}>Rua</label>
+                <input
+                  type="text"
+                  value={street}
+                  onChange={(e) => setStreet(e.target.value)}
+                  className={inputClass}
+                />
+              </div>
+              <div className="sm:col-span-2">
+                <label className={labelClass}>Número</label>
+                <input
+                  type="text"
+                  value={number}
+                  onChange={(e) => setNumber(e.target.value)}
+                  className={inputClass}
+                />
+              </div>
+              <div className="sm:col-span-3">
+                <label className={labelClass}>Bairro</label>
+                <input
+                  type="text"
+                  value={neighborhood}
+                  onChange={(e) => setNeighborhood(e.target.value)}
+                  className={inputClass}
+                />
+              </div>
+              <div className="sm:col-span-2">
+                <label className={labelClass}>Cidade</label>
+                <input
+                  type="text"
+                  value={city}
+                  onChange={(e) => setCity(e.target.value)}
+                  className={inputClass}
+                />
+              </div>
+              <div className="sm:col-span-1">
+                <label className={labelClass}>Estado</label>
+                <input
+                  type="text"
+                  value={state}
+                  onChange={(e) => setState(e.target.value)}
+                  className={inputClass}
+                />
+              </div>
+              <div className="sm:col-span-2">
+                <label className={labelClass}>CEP</label>
+                <input
+                  type="text"
+                  value={zipcode}
+                  onChange={(e) => setZipcode(e.target.value)}
+                  className={inputClass}
+                />
+              </div>
+              <div className="sm:col-span-2">
+                <label className={labelClass}>Latitude</label>
+                <input
+                  type="text"
+                  value={latitude}
+                  onChange={(e) => setLatitude(e.target.value)}
+                  className={inputClass}
+                />
+              </div>
+              <div className="sm:col-span-2">
+                <label className={labelClass}>Longitude</label>
+                <input
+                  type="text"
+                  value={longitude}
+                  onChange={(e) => setLongitude(e.target.value)}
+                  className={inputClass}
+                />
+              </div>
+            </div>
+          </section>
+
+          <section>
+            <SectionTitle>Logo</SectionTitle>
+            <div className="flex items-center gap-4">
+              <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-gray-200 bg-gray-50">
+                {previewLogoSrc ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={previewLogoSrc} alt="Logo" className="h-full w-full object-cover" />
+                ) : (
+                  <MdImage className="text-2xl text-gray-300" />
+                )}
+              </div>
+              <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50">
+                <MdCloudUpload className="text-lg" />
+                Escolher imagem
+                <input
+                  type="file"
+                  onChange={(e) => setSelectedFile(e.target.files ? e.target.files[0] : null)}
+                  accept="image/*"
+                  className="hidden"
+                />
+              </label>
+            </div>
+          </section>
+
+          {renderCommoditiesSection()}
+          {renderPhotosSection()}
+        </div>
+
+        <div className="flex items-center justify-end gap-3 border-t border-gray-100 bg-gray-50 px-6 py-4">
+          <button
+            type="button"
+            onClick={onRequestClose}
+            className="rounded-lg border border-gray-300 bg-white px-5 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-100"
+          >
+            Cancelar
+          </button>
+          <button
+            type="submit"
+            className="rounded-lg bg-blue-600 px-5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700"
+          >
+            Atualizar Local
+          </button>
+        </div>
       </form>
     </Modal>
   );

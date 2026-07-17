@@ -41,6 +41,39 @@ export default function Businesses() {
   const [editModalIsOpen, setEditModalIsOpen] = useState<boolean>(false);
   const [selectedBusiness, setSelectedBusiness] = useState<Place | null>(null);
   const [token, setToken] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | number | null>(null);
+
+  const handleDelete = async (business: Business): Promise<void> => {
+    if (
+      !confirm(
+        `Tem certeza que deseja excluir "${business.name}"?\n\nEsta ação não pode ser desfeita.`,
+      )
+    ) {
+      return;
+    }
+    const authToken =
+      token || localStorage.getItem("authToken") || Cookies.get("authToken") || null;
+    setDeletingId(business.id);
+    try {
+      const res = await fetch(`${API_URL}/api/places/${business.id}`, {
+        method: "DELETE",
+        headers: authToken ? { Authorization: `Bearer ${authToken}` } : {},
+      });
+      if (res.ok) {
+        await refetch();
+      } else {
+        const data = await res.json().catch(() => ({}));
+        alert(
+          data.error ||
+            `Não foi possível excluir este estabelecimento (HTTP ${res.status}).`,
+        );
+      }
+    } catch {
+      alert("Erro de conexão ao excluir o estabelecimento.");
+    } finally {
+      setDeletingId(null);
+    }
+  };
 
   // Converter establishments para o formato Business esperado
   const businesses: Business[] = establishments
@@ -179,17 +212,23 @@ export default function Businesses() {
                       <tr key={business.id} className="hover:bg-gray-50/50 transition-colors">
                         <td className="px-6 py-4">
                           <div className="w-12 h-12 rounded-lg bg-gray-100 flex items-center justify-center overflow-hidden">
-                            <Image
-                              src={
-                                business.logo?.startsWith("http")
-                                  ? business.logo
-                                  : `${API_URL}/uploads/${business.logo || "default-logo.png"}`
-                              }
-                              alt={business.name || "Logo"}
-                              width={48}
-                              height={48}
-                              className="rounded-lg object-cover"
-                            />
+                            {business.logo && business.logo !== "default-logo.png" ? (
+                              <Image
+                                src={
+                                  business.logo.startsWith("http")
+                                    ? business.logo
+                                    : `${API_URL}/uploads/${business.logo}`
+                                }
+                                alt={business.name || "Logo"}
+                                width={48}
+                                height={48}
+                                className="rounded-lg object-cover"
+                              />
+                            ) : (
+                              <span className="text-xl" aria-hidden>
+                                🏢
+                              </span>
+                            )}
                           </div>
                         </td>
                         <td className="px-6 py-4 font-semibold text-gray-800">{business.name || "Sem nome"}</td>
@@ -209,10 +248,11 @@ export default function Businesses() {
                           >
                             <MdEdit size={20} />
                           </button>
-                          <button 
-                            onClick={() => {}} 
+                          <button
+                            onClick={() => handleDelete(business)}
+                            disabled={deletingId === business.id}
                             title="Excluir"
-                            className="text-red-600 hover:text-red-800 p-2 rounded-lg hover:bg-red-50 transition-all duration-200"
+                            className="text-red-600 hover:text-red-800 p-2 rounded-lg hover:bg-red-50 transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed"
                           >
                             <MdDelete size={20} />
                           </button>
