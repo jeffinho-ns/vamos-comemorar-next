@@ -31,6 +31,7 @@ import ReservationBlockDetailsModal from "../../components/ReservationBlockDetai
 import ReservationOperatingSettingsPanel, {
   type ReservationPolicyFlags,
 } from "../../components/ReservationOperatingSettingsPanel";
+import RestaurantAreasManager from "../../components/restaurant-areas/RestaurantAreasManager";
 import { Reservation } from "@/app/types/reservation";
 import {
   BirthdayService,
@@ -5531,26 +5532,12 @@ export default function RestaurantReservationsPage() {
                     Configurações
                   </h3>
                   <div className="space-y-6">
-                    <div className="bg-gray-50 rounded-lg p-6">
-                      <h4 className="text-lg font-semibold text-gray-800 mb-4">
-                        Áreas do Restaurante
-                      </h4>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {areas.map((area) => (
-                          <div
-                            key={area.id}
-                            className="bg-white rounded-lg p-4 border border-gray-200"
-                          >
-                            <h5 className="font-semibold text-gray-800">
-                              {area.name}
-                            </h5>
-                            <p className="text-sm text-gray-600">
-                              Capacidade: {area.capacity_dinner} pessoas
-                            </p>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
+                    <RestaurantAreasManager
+                      apiUrl={API_URL}
+                      establishmentId={selectedEstablishment?.id}
+                      establishmentName={selectedEstablishment?.name}
+                      onAreasChanged={loadEstablishmentData}
+                    />
 
                     <ReservationOperatingSettingsPanel
                       establishmentId={selectedEstablishment?.id}

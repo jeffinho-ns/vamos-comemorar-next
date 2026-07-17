@@ -33,6 +33,7 @@ import { useSaasAccess } from "@/app/hooks/useSaasAccess";
 import { filterEstablishmentsByModule } from "@/app/utils/establishmentModuleAccess";
 import EstablishmentTrainingPanel from "@/app/components/admin/EstablishmentTrainingPanel";
 import AiConfigPanel from "@/app/components/admin/AiConfigPanel";
+import AreasOverviewPanel from "@/app/components/restaurant-areas/AreasOverviewPanel";
 
 const API_URL = getApiUrl();
 const SOCKET_URL = getPublicSocketUrl();
@@ -2279,6 +2280,8 @@ function AdminWhatsappPageContent() {
     conversationMeta?.assigned_user_name || selectedConv?.assigned_user_name;
   const selectedEstablishmentName =
     conversationMeta?.establishment_name || selectedConv?.establishment_name;
+  const selectedConversationEstablishmentId =
+    selectedConv?.establishment_id ?? conversationMeta?.establishment_id ?? null;
   const envCentralWhatsappNumber = (
     process.env.NEXT_PUBLIC_WHATSAPP_CENTRAL_NUMBER || ""
   ).trim();
@@ -3351,6 +3354,22 @@ function AdminWhatsappPageContent() {
                   )}
                 </div>
               </header>
+
+              {selectedConversationEstablishmentId ? (
+                <details className="border-b border-gray-100 bg-white px-4 py-2">
+                  <summary className="cursor-pointer text-xs font-medium text-gray-500 hover:text-gray-700">
+                    Ver áreas e mesas do estabelecimento
+                  </summary>
+                  <div className="mt-2">
+                    <AreasOverviewPanel
+                      apiUrl={API_URL}
+                      establishmentId={selectedConversationEstablishmentId}
+                      establishmentName={selectedEstablishmentName || undefined}
+                      compact
+                    />
+                  </div>
+                </details>
+              ) : null}
 
               <div className="relative flex-1 min-h-0 flex flex-col">
                 <div
