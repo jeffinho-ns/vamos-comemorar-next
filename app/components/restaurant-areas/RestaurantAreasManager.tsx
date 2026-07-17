@@ -33,12 +33,18 @@ interface AreaDraft {
   name: string;
   capacity_lunch: number;
   capacity_dinner: number;
+  /** Somente na criação: gera N mesas automaticamente. */
+  tableCount: number;
+  /** Somente na criação: lugares (cadeiras) por mesa gerada. */
+  seatsPerTable: number;
 }
 
 const EMPTY_DRAFT: AreaDraft = {
   name: "",
   capacity_lunch: 0,
   capacity_dinner: 0,
+  tableCount: 0,
+  seatsPerTable: 4,
 };
 
 export default function RestaurantAreasManager({
@@ -134,6 +140,8 @@ export default function RestaurantAreasManager({
       name: area.name,
       capacity_lunch: Number(area.capacity_lunch) || 0,
       capacity_dinner: Number(area.capacity_dinner) || 0,
+      tableCount: 0,
+      seatsPerTable: 4,
     });
     setEditingId(area.id);
     setShowForm(true);
@@ -164,8 +172,27 @@ export default function RestaurantAreasManager({
       });
       const data = await res.json().catch(() => ({}));
       if (res.ok) {
+        // Na criação, gera as mesas solicitadas (quantidade x lugares por mesa).
+        const newAreaId = !isEdit ? data?.area?.id : null;
+        const count = Math.max(0, Math.floor(Number(draft.tableCount) || 0));
+        if (newAreaId && count > 0) {
+          const seats = Math.max(1, Number(draft.seatsPerTable) || 1);
+          for (let i = 1; i <= count; i += 1) {
+            await fetch(`${apiUrl}/api/restaurant-tables`, {
+              method: "POST",
+              headers: getAuthHeaders(),
+              body: JSON.stringify({
+                area_id: newAreaId,
+                establishment_id: establishmentId,
+                table_number: String(i),
+                capacity: seats,
+              }),
+            });
+          }
+        }
         resetForm();
         await loadAreas();
+        if (newAreaId) setExpanded(Number(newAreaId));
         onAreasChanged?.();
       } else {
         setMessage(data.error || "Erro ao salvar área.");
@@ -322,6 +349,49 @@ export default function RestaurantAreasManager({
               />
             </label>
           </div>
+
+          {editingId == null && (
+            <div className="mt-3 rounded-md border border-gray-200 bg-gray-50 p-3">
+              <p className="mb-2 text-xs font-medium text-gray-600">
+                Mesas iniciais (opcional) — você pode ajustar cada mesa depois.
+              </p>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <label className="text-xs text-gray-500">
+                  Quantidade de mesas
+                  <input
+                    type="number"
+                    min={0}
+                    value={draft.tableCount}
+                    onChange={(e) =>
+                      setDraft((d) => ({
+                        ...d,
+                        tableCount: Number(e.target.value),
+                      }))
+                    }
+                    placeholder="Ex.: 10"
+                    className="mt-0.5 block w-full rounded border border-gray-300 px-3 py-2 text-sm"
+                  />
+                </label>
+                <label className="text-xs text-gray-500">
+                  Lugares por mesa (cadeiras)
+                  <input
+                    type="number"
+                    min={1}
+                    value={draft.seatsPerTable}
+                    onChange={(e) =>
+                      setDraft((d) => ({
+                        ...d,
+                        seatsPerTable: Number(e.target.value),
+                      }))
+                    }
+                    placeholder="Ex.: 4"
+                    className="mt-0.5 block w-full rounded border border-gray-300 px-3 py-2 text-sm"
+                  />
+                </label>
+              </div>
+            </div>
+          )}
+
           <div className="mt-3 flex justify-end gap-2">
             <button
               type="button"
@@ -386,13 +456,14 @@ export default function RestaurantAreasManager({
                   <button
                     type="button"
                     onClick={() => setExpanded(isOpen ? null : area.id)}
-                    className="p-1 text-gray-500 hover:text-gray-700"
+                    className="flex items-center gap-1 rounded-md border border-gray-200 px-2 py-1 text-xs text-gray-600 hover:bg-gray-100"
                     title="Gerenciar mesas"
                   >
+                    Mesas
                     {isOpen ? (
-                      <MdExpandLess className="h-5 w-5" />
+                      <MdExpandLess className="h-4 w-4" />
                     ) : (
-                      <MdExpandMore className="h-5 w-5" />
+                      <MdExpandMore className="h-4 w-4" />
                     )}
                   </button>
                 </div>
