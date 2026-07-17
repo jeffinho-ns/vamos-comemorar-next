@@ -5536,6 +5536,10 @@ export default function RestaurantReservationsPage() {
                       apiUrl={API_URL}
                       establishmentId={selectedEstablishment?.id}
                       establishmentName={selectedEstablishment?.name}
+                      frozen={Boolean(
+                        establishmentRulesFlags?.isHighline ||
+                          establishmentRulesFlags?.isSeuJustino,
+                      )}
                       onAreasChanged={loadEstablishmentData}
                     />
 

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import {
   MdAdd,
+  MdAutoAwesome,
   MdDelete,
   MdEdit,
   MdExpandLess,
@@ -22,6 +23,8 @@ interface Props {
   apiUrl: string;
   establishmentId?: number | null;
   establishmentName?: string;
+  /** Highline/Seu Justino: áreas fixas do sistema (somente leitura). */
+  frozen?: boolean;
   /** Chamado quando áreas mudam, para o pai recarregar seu estado (ex.: modais). */
   onAreasChanged?: () => void;
 }
@@ -42,16 +45,52 @@ export default function RestaurantAreasManager({
   apiUrl,
   establishmentId,
   establishmentName,
+  frozen = false,
   onAreasChanged,
 }: Props) {
   const [areas, setAreas] = useState<RestaurantAreaDTO[]>([]);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<string>("");
   const [saving, setSaving] = useState(false);
+  const [adopting, setAdopting] = useState(false);
   const [expanded, setExpanded] = useState<number | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [draft, setDraft] = useState<AreaDraft>(EMPTY_DRAFT);
+
+  const hasOwned = areas.some((a) => isOwnedArea(a, establishmentId));
+  const needsAdoption = !frozen && areas.length > 0 && !hasOwned;
+
+  const handleAdopt = async () => {
+    if (!establishmentId) return;
+    if (
+      !confirm(
+        "Isso vai criar uma cópia editável das áreas e mesas atuais para este estabelecimento. Depois você poderá editar/excluir livremente. Continuar?",
+      )
+    ) {
+      return;
+    }
+    setAdopting(true);
+    setMessage("");
+    try {
+      const res = await fetch(`${apiUrl}/api/restaurant-areas/adopt`, {
+        method: "POST",
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ establishment_id: establishmentId }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) {
+        await loadAreas();
+        onAreasChanged?.();
+      } else {
+        setMessage(data.error || "Erro ao personalizar áreas.");
+      }
+    } catch {
+      setMessage("Erro de conexão ao personalizar áreas.");
+    } finally {
+      setAdopting(false);
+    }
+  };
 
   const loadAreas = useCallback(async () => {
     if (!establishmentId) return;
@@ -190,15 +229,43 @@ export default function RestaurantAreasManager({
             acordo com o layout operacional.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={startCreate}
-          className="flex items-center gap-1 rounded-md bg-blue-600 px-4 py-2 text-sm text-white hover:bg-blue-700"
-        >
-          <MdAdd className="h-4 w-4" />
-          Nova Área
-        </button>
+        {!frozen && (
+          <button
+            type="button"
+            onClick={startCreate}
+            className="flex items-center gap-1 rounded-md bg-blue-600 px-4 py-2 text-sm text-white hover:bg-blue-700"
+          >
+            <MdAdd className="h-4 w-4" />
+            Nova Área
+          </button>
+        )}
       </div>
+
+      {frozen && (
+        <p className="mb-3 rounded bg-amber-50 px-3 py-2 text-sm text-amber-700">
+          Este estabelecimento usa áreas fixas do sistema (layout operacional
+          específico) e não pode ser editado por aqui.
+        </p>
+      )}
+
+      {needsAdoption && (
+        <div className="mb-4 flex flex-col gap-2 rounded-lg border border-blue-200 bg-blue-50 p-4 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm text-blue-800">
+            As áreas exibidas são o <strong>catálogo padrão</strong> do sistema
+            (compartilhado). Para poder <strong>editar e excluir</strong> as
+            áreas deste estabelecimento, personalize-as primeiro.
+          </p>
+          <button
+            type="button"
+            onClick={handleAdopt}
+            disabled={adopting}
+            className="flex shrink-0 items-center gap-1 rounded-md bg-blue-600 px-4 py-2 text-sm text-white hover:bg-blue-700 disabled:opacity-60"
+          >
+            <MdAutoAwesome className="h-4 w-4" />
+            {adopting ? "Personalizando…" : "Personalizar áreas"}
+          </button>
+        </div>
+      )}
 
       {message && (
         <p className="mb-3 rounded bg-red-50 px-3 py-2 text-sm text-red-600">
