@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { formatBrlFromCents, superadminFetch } from "@/app/utils/superadminApi";
 
@@ -33,6 +34,7 @@ function parseMoneyToCents(value: string): number {
 
 type Props = {
   orgId: number;
+  organizationName: string;
   currentMonthlyCents: number;
   invoices: InvoiceRow[];
   billingEvents: Array<Record<string, unknown>>;
@@ -42,18 +44,39 @@ type Props = {
 
 export default function BillingPanel({
   orgId,
+  organizationName,
   currentMonthlyCents,
   invoices,
   billingEvents,
   onReload,
   onError,
 }: Props) {
+  const router = useRouter();
   const [monthlyAmount, setMonthlyAmount] = useState(
     toInputMoney(currentMonthlyCents),
   );
   const [savingMonthly, setSavingMonthly] = useState(false);
   const [invoiceAmount, setInvoiceAmount] = useState("0,00");
   const [payingInvoiceId, setPayingInvoiceId] = useState<number | null>(null);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
+  const [deleting, setDeleting] = useState(false);
+
+  const deleteConfirmed =
+    deleteConfirmText.trim().toLowerCase() ===
+    organizationName.trim().toLowerCase();
+
+  const deleteOrganization = async () => {
+    if (!deleteConfirmed) return;
+    setDeleting(true);
+    onError(null);
+    try {
+      await superadminFetch(`/organizations/${orgId}`, { method: "DELETE" });
+      router.push("/superadmin/organizations");
+    } catch (e) {
+      onError(e instanceof Error ? e.message : "Erro ao excluir organização");
+      setDeleting(false);
+    }
+  };
 
   const saveMonthlyAmount = async () => {
     setSavingMonthly(true);
@@ -248,6 +271,38 @@ export default function BillingPanel({
             ))}
           </ul>
         )}
+      </section>
+
+      <section className="rounded-xl border border-red-900/70 bg-red-950/20 p-4">
+        <h3 className="text-lg font-semibold text-red-200">Excluir organização</h3>
+        <p className="mt-1 text-sm text-slate-300">
+          A exclusão é <strong>segura</strong>: todos os estabelecimentos são
+          arquivados, todos os usuários perdem acesso e a assinatura é cancelada.
+          O histórico (reservas, faturas, pagamentos) é preservado.
+        </p>
+        <div className="mt-4">
+          <label className="mb-1 block text-xs text-slate-400">
+            Para confirmar, digite o nome da organização:{" "}
+            <strong className="text-slate-200">{organizationName}</strong>
+          </label>
+          <div className="flex flex-wrap gap-2">
+            <input
+              type="text"
+              className="rounded border border-slate-700 bg-slate-950 px-3 py-2 text-sm"
+              placeholder={organizationName}
+              value={deleteConfirmText}
+              onChange={(e) => setDeleteConfirmText(e.target.value)}
+            />
+            <button
+              type="button"
+              disabled={deleting || !deleteConfirmed}
+              onClick={deleteOrganization}
+              className="rounded bg-red-700 px-4 py-2 text-sm font-medium text-white disabled:opacity-40"
+            >
+              {deleting ? "Excluindo…" : "Excluir organização"}
+            </button>
+          </div>
+        </div>
       </section>
     </div>
   );

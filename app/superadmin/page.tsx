@@ -59,6 +59,47 @@ export default function SuperadminDashboardPage() {
   const [orgs, setOrgs] = useState<OrgRow[]>([]);
   const [error, setError] = useState<string | null>(null);
 
+  const [saForm, setSaForm] = useState({ name: "", email: "", password: "" });
+  const [saLoading, setSaLoading] = useState(false);
+  const [saSuccess, setSaSuccess] = useState<string | null>(null);
+  const [saError, setSaError] = useState<string | null>(null);
+
+  const createSuperAdmin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaError(null);
+    setSaSuccess(null);
+    if (saForm.password.length < 8) {
+      setSaError("A senha precisa ter pelo menos 8 caracteres.");
+      return;
+    }
+    setSaLoading(true);
+    try {
+      const result = await superadminFetch<{
+        userId: number;
+        email: string;
+        created: boolean;
+        promoted?: boolean;
+      }>("/super-admins", {
+        method: "POST",
+        body: JSON.stringify({
+          name: saForm.name.trim(),
+          email: saForm.email.trim(),
+          password: saForm.password,
+        }),
+      });
+      setSaSuccess(
+        result.promoted
+          ? "Usuário já existia e foi promovido a super admin (senha não foi alterada)."
+          : "Super admin criado. Envie o e-mail e a senha para a pessoa.",
+      );
+      setSaForm({ name: "", email: "", password: "" });
+    } catch (err) {
+      setSaError(err instanceof Error ? err.message : "Erro ao criar super admin");
+    } finally {
+      setSaLoading(false);
+    }
+  };
+
   useEffect(() => {
     const month = currentMonth();
     Promise.all([
@@ -243,6 +284,75 @@ export default function SuperadminDashboardPage() {
             ))}
           </ul>
         </div>
+      </section>
+
+      <section className="rounded-xl border border-slate-800 bg-slate-900/50 p-5">
+        <h3 className="text-lg font-semibold">Acesso Super Admin</h3>
+        <p className="mt-1 text-sm text-slate-400">
+          Crie um novo usuário com acesso de super admin ao sistema.
+        </p>
+
+        {saSuccess && (
+          <p className="mt-3 rounded-lg border border-emerald-800 bg-emerald-950/40 px-4 py-3 text-sm text-emerald-300">
+            {saSuccess}
+          </p>
+        )}
+        {saError && (
+          <p className="mt-3 rounded-lg border border-red-900 bg-red-950/40 px-4 py-3 text-sm text-red-300">
+            {saError}
+          </p>
+        )}
+
+        <form onSubmit={createSuperAdmin} className="mt-4 grid gap-3 md:grid-cols-3">
+          <div>
+            <label className="mb-1 block text-xs text-slate-400">Nome</label>
+            <input
+              required
+              type="text"
+              placeholder="Nome completo"
+              className="w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 text-sm"
+              value={saForm.name}
+              onChange={(e) => setSaForm((p) => ({ ...p, name: e.target.value }))}
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs text-slate-400">E-mail</label>
+            <input
+              required
+              type="email"
+              placeholder="email@exemplo.com"
+              className="w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 text-sm"
+              value={saForm.email}
+              onChange={(e) => setSaForm((p) => ({ ...p, email: e.target.value }))}
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs text-slate-400">
+              Senha (mín. 8 caracteres)
+            </label>
+            <input
+              required
+              type="password"
+              minLength={8}
+              placeholder="••••••••"
+              className="w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 text-sm"
+              value={saForm.password}
+              onChange={(e) => setSaForm((p) => ({ ...p, password: e.target.value }))}
+            />
+          </div>
+          <div className="md:col-span-3">
+            <button
+              type="submit"
+              disabled={saLoading}
+              className="rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-slate-950 disabled:opacity-50"
+            >
+              {saLoading ? "Criando…" : "Criar super admin"}
+            </button>
+          </div>
+        </form>
+        <p className="mt-3 text-xs text-slate-500">
+          Super admins têm acesso total ao sistema, incluindo este painel.
+        </p>
       </section>
     </div>
   );

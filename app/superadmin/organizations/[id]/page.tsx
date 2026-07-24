@@ -294,6 +294,7 @@ export default function SuperadminOrganizationDetailPage() {
         <BillingPanel
           key={`billing-${currentMonthly}`}
           orgId={id}
+          organizationName={String(org.name)}
           currentMonthlyCents={currentMonthly}
           invoices={detail.invoices}
           billingEvents={detail.billingEvents}
