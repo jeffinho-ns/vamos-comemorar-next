@@ -439,8 +439,9 @@ function resolveInboxRowVisual(conversation: ConversationRow): InboxRowVisualSta
   if (conversation.has_unread && conversation.last_direction === "inbound") {
     return "unread_inbound";
   }
-  if (conversation.has_unread) return "unread_review";
+  // Nova conversa nunca aberta sobe junto das não lidas (mesmo se a IA já respondeu).
   if (conversation.never_opened_by_me) return "never_opened";
+  if (conversation.has_unread) return "unread_review";
   if (isAiLastResponder(conversation)) return "ai_active";
   return "read";
 }
@@ -533,13 +534,13 @@ function contactAvatarClass(waId: string): string {
 
 function inboxRowSortPriority(state: InboxRowVisualState): number {
   switch (state) {
-    case "human_handoff":
-      return 0;
     case "unread_inbound":
-      return 1;
+      return 0;
     case "never_opened":
-      return 2;
+      return 1;
     case "unread_review":
+      return 2;
+    case "human_handoff":
       return 3;
     case "ai_active":
       return 4;
@@ -1028,7 +1029,8 @@ function AdminWhatsappPageContent() {
   const fetchConversations = useCallback(async (options?: { silent?: boolean }) => {
     const silent = options?.silent === true;
     if (!silent) setLoadingList(true);
-    setError(null);
+    // Poll silencioso não pode apagar erro de envio — senão a atendente não vê a falha.
+    if (!silent) setError(null);
     try {
       const params = new URLSearchParams();
       params.set("limit", "1000");
@@ -1060,18 +1062,22 @@ function AdminWhatsappPageContent() {
       const data = await res.json();
       setConversations(data.conversations || []);
       setInboxListMeta(data.meta || null);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Falha ao carregar conversas");
-    } finally {
-      if (!silent) setLoadingList(false);
-    }
-  }, [authHeaders, inboxEstablishmentFilter]);
+      } catch (e) {
+        const message = e instanceof Error ? e.message : "Falha ao carregar conversas";
+        if (!silent || /Sessão expirada|token inválido/i.test(message)) {
+          setError(message);
+        }
+      } finally {
+        if (!silent) setLoadingList(false);
+      }
+    }, [authHeaders, inboxEstablishmentFilter]);
 
   const fetchMessages = useCallback(
     async (waId: string, options?: { silent?: boolean }) => {
       const silent = options?.silent === true;
       if (!silent) setLoadingThread(true);
-      setError(null);
+      // Poll silencioso não pode apagar erro de envio — senão a atendente não vê a falha.
+      if (!silent) setError(null);
       try {
         const res = await fetch(
           `${API_URL}/api/admin/whatsapp/conversations/${encodeURIComponent(waId)}/messages`,
@@ -1107,7 +1113,12 @@ function AdminWhatsappPageContent() {
           setConversationMeta(null);
         }
         if (!draftDirtyRef.current) {
-          setComposeText(pickLatestSuggestedReply(list));
+          const takeoverUntil = data.conversation?.human_takeover_until;
+          const humanActive =
+            typeof takeoverUntil === "string" &&
+            Number.isFinite(Date.parse(takeoverUntil)) &&
+            Date.parse(takeoverUntil) > Date.now();
+          setComposeText(humanActive ? "" : pickLatestSuggestedReply(list));
         }
         const lastMsg = list.length > 0 ? list[list.length - 1] : null;
         await fetch(
@@ -1133,7 +1144,10 @@ function AdminWhatsappPageContent() {
           ),
         );
       } catch (e) {
-        setError(e instanceof Error ? e.message : "Falha ao carregar mensagens");
+        const message = e instanceof Error ? e.message : "Falha ao carregar mensagens";
+        if (!silent || /Sessão expirada|token inválido/i.test(message)) {
+          setError(message);
+        }
       } finally {
         if (!silent) setLoadingThread(false);
       }
@@ -2491,6 +2505,14 @@ function AdminWhatsappPageContent() {
     const todayUtc = dateKeyToUtc(todayKey);
     const todayMonday = mondayUtcOfDateKey(todayKey);
 
+    // Não lidas / novas ficam fixas no topo (fora do agrupamento por data).
+    const attention: ConversationRow[] = [];
+    const remainder: ConversationRow[] = [];
+    for (const c of visibleInboxConversations) {
+      if (conversationNeedsAttention(c)) attention.push(c);
+      else remainder.push(c);
+    }
+
     const today: ConversationRow[] = [];
     const weekMap = new Map<
       string,
@@ -2501,7 +2523,7 @@ function AdminWhatsappPageContent() {
       }
     >();
 
-    for (const c of visibleInboxConversations) {
+    for (const c of remainder) {
       const key = saoPauloDateKey(c.last_message_at || c.updated_at);
       if (!key || key === todayKey) {
         today.push(c);
@@ -2562,7 +2584,7 @@ function AdminWhatsappPageContent() {
       })
       .sort((a, b) => b.sortValue - a.sortValue);
 
-    return { today, weeks };
+    return { attention, today, weeks };
   }, [visibleInboxConversations]);
 
   const activeInboxEstablishmentTheme = useMemo(() => {
@@ -3198,6 +3220,18 @@ function AdminWhatsappPageContent() {
               ? visibleInboxConversations.map((c) => renderInboxRow(c))
               : (
                 <>
+                  {inboxGrouped.attention.length > 0 ? (
+                    <div>
+                      <div className="sticky top-0 z-10 flex items-center justify-between gap-2 bg-orange-600 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-white shadow-sm">
+                        <span>Não lidas</span>
+                        <span className="tabular-nums opacity-90">
+                          {inboxGrouped.attention.length}
+                        </span>
+                      </div>
+                      {inboxGrouped.attention.map((c) => renderInboxRow(c))}
+                    </div>
+                  ) : null}
+
                   {inboxGrouped.today.length > 0 ? (
                     <div>
                       <div className="sticky top-0 z-10 flex items-center justify-between gap-2 bg-emerald-600 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-white shadow-sm">
@@ -3443,7 +3477,9 @@ function AdminWhatsappPageContent() {
 
               <footer className="border-t border-gray-200 p-4 bg-white space-y-2">
                 <label className="block text-xs font-medium text-gray-600">
-                  Sugestão da IA (edite antes de enviar)
+                  {handoff
+                    ? "Sua resposta (atendimento humano)"
+                    : "Sugestão da IA (edite antes de enviar)"}
                 </label>
                 <textarea
                   value={composeText}
@@ -3451,10 +3487,27 @@ function AdminWhatsappPageContent() {
                     draftDirtyRef.current = true;
                     setComposeText(e.target.value);
                   }}
+                  onKeyDown={(e) => {
+                    if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+                      e.preventDefault();
+                      if (!sending && !uploadingImage && composeText.trim()) {
+                        void handleSend();
+                      }
+                    }
+                  }}
                   rows={4}
                   className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none resize-y min-h-[96px]"
-                  placeholder="A sugestão do Host Digital aparece aqui quando a IA processar a última mensagem…"
+                  placeholder={
+                    handoff
+                      ? "Digite a resposta para o cliente…"
+                      : "A sugestão do Host Digital aparece aqui quando a IA processar a última mensagem…"
+                  }
                 />
+                {error ? (
+                  <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-800">
+                    {error}
+                  </div>
+                ) : null}
                 <div className="flex items-center justify-between gap-2">
                   <input
                     ref={imageInputRef}
