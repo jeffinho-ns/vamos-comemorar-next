@@ -2030,7 +2030,7 @@ const handleSubmit = async (e: React.FormEvent) => {
               {/* Personal Information */}
               <div>
                 <h2 className="text-xl sm:text-2xl font-bold text-gray-800 mb-4 sm:mb-6">
-                  Reservas de Mesa
+                  Reservas
                 </h2>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
@@ -2293,6 +2293,9 @@ const handleSubmit = async (e: React.FormEvent) => {
                           </option>
                         ))}
                   </select>
+                  <p className="text-xs text-gray-500 mt-1.5">
+                    *Conforme disponibilidade.
+                  </p>
                   {errors.area_id && (
                     <p className="text-red-500 text-sm mt-1">{errors.area_id}</p>
                   )}
