@@ -555,6 +555,29 @@ function conversationSortTimestamp(conversation: ConversationRow): number {
   return Number.isFinite(ts) ? ts : 0;
 }
 
+/** Ordenação global: mais recentes primeiro (hoje sobe no limite da API/UI). */
+function sortConversationsForInbox(rows: ConversationRow[]): ConversationRow[] {
+  return [...rows].sort((a, b) => {
+    const ta = conversationSortTimestamp(a);
+    const tb = conversationSortTimestamp(b);
+    if (ta !== tb) return tb - ta;
+    const pa = inboxRowSortPriority(resolveInboxRowVisual(a));
+    const pb = inboxRowSortPriority(resolveInboxRowVisual(b));
+    if (pa !== pb) return pa - pb;
+    return 0;
+  });
+}
+
+/** Dentro do mesmo dia: não lidas / novas primeiro, depois horário. */
+function sortConversationsWithinDay(rows: ConversationRow[]): ConversationRow[] {
+  return [...rows].sort((a, b) => {
+    const pa = inboxRowSortPriority(resolveInboxRowVisual(a));
+    const pb = inboxRowSortPriority(resolveInboxRowVisual(b));
+    if (pa !== pb) return pa - pb;
+    return conversationSortTimestamp(b) - conversationSortTimestamp(a);
+  });
+}
+
 const CONVERSATION_STATUS_LABELS: Record<ConversationRow["status"], string> = {
   new: "Nova",
   in_progress: "Em andamento",
@@ -629,27 +652,65 @@ function formatDayHeading(key: string): string {
   return `${cap}, ${String(d).padStart(2, "0")}/${String(m).padStart(2, "0")}`;
 }
 
-function formatShortDate(utc: number): string {
-  const date = new Date(utc);
-  return `${String(date.getUTCDate()).padStart(2, "0")}/${String(
-    date.getUTCMonth() + 1,
-  ).padStart(2, "0")}`;
-}
-
 type InboxDayGroup = {
   key: string;
   label: string;
   sortValue: number;
   items: ConversationRow[];
+  /** Quantas precisam de atenção neste dia. */
+  attentionCount: number;
+  defaultOpen: boolean;
 };
 
-type InboxWeekGroup = {
-  key: string;
-  label: string;
-  count: number;
-  sortValue: number;
-  days: InboxDayGroup[];
-};
+/** Agrupa conversas por dia (SP), com Hoje/Ontem sempre no topo. */
+function buildInboxDayGroups(rows: ConversationRow[]): InboxDayGroup[] {
+  const todayKey = saoPauloDateKey(new Date().toISOString());
+  const todayUtc = dateKeyToUtc(todayKey);
+  const todayMonday = mondayUtcOfDateKey(todayKey);
+  const dayMap = new Map<string, ConversationRow[]>();
+
+  for (const c of rows) {
+    const key = saoPauloDateKey(c.last_message_at || c.updated_at) || todayKey || "unknown";
+    const list = dayMap.get(key);
+    if (list) list.push(c);
+    else dayMap.set(key, [c]);
+  }
+
+  // Garante seção Hoje mesmo vazia — deixa claro se não há movimento no dia.
+  if (todayKey && !dayMap.has(todayKey) && rows.length > 0) {
+    dayMap.set(todayKey, []);
+  }
+
+  return Array.from(dayMap.entries())
+    .map(([key, items]) => {
+      const convUtc = key === "unknown" ? 0 : dateKeyToUtc(key);
+      const diffDays =
+        key === "unknown" || !todayUtc
+          ? 999
+          : Math.round((todayUtc - convUtc) / 86_400_000);
+      let label: string;
+      if (key === todayKey || !key) label = "Hoje";
+      else if (diffDays === 1) label = "Ontem";
+      else if (key === "unknown") label = "Sem data";
+      else label = formatDayHeading(key);
+
+      const weeksAgo =
+        key === "unknown" || !todayMonday
+          ? 99
+          : Math.round((todayMonday - mondayUtcOfDateKey(key)) / (7 * 86_400_000));
+      const defaultOpen = diffDays <= 1 || weeksAgo <= 0;
+
+      return {
+        key,
+        label,
+        sortValue: convUtc || 0,
+        items: sortConversationsWithinDay(items),
+        attentionCount: items.filter((c) => conversationNeedsAttention(c)).length,
+        defaultOpen,
+      };
+    })
+    .sort((a, b) => b.sortValue - a.sortValue);
+}
 
 function pickLatestSuggestedReply(messages: MessageRow[]): string {
   for (let i = messages.length - 1; i >= 0; i -= 1) {
@@ -859,11 +920,10 @@ function AdminWhatsappPageContent() {
       isWhatsappHighlineOnlyUser ? highlineEstablishmentId : "all",
     );
   const [inboxQueueFilter, setInboxQueueFilter] = useState<InboxQueueFilter>("all");
-  const [openInboxWeeks, setOpenInboxWeeks] = useState<Set<string>>(
-    () => new Set(["esta-semana"]),
-  );
-  const toggleInboxWeek = useCallback((key: string) => {
-    setOpenInboxWeeks((prev) => {
+  const [openInboxDays, setOpenInboxDays] = useState<Set<string>>(() => new Set());
+  const inboxDayOpenInitialized = useRef(false);
+  const toggleInboxDay = useCallback((key: string) => {
+    setOpenInboxDays((prev) => {
       const next = new Set(prev);
       if (next.has(key)) next.delete(key);
       else next.add(key);
@@ -2470,12 +2530,7 @@ function AdminWhatsappPageContent() {
         return false;
       });
     }
-    return [...rows].sort((a, b) => {
-      const pa = inboxRowSortPriority(resolveInboxRowVisual(a));
-      const pb = inboxRowSortPriority(resolveInboxRowVisual(b));
-      if (pa !== pb) return pa - pb;
-      return conversationSortTimestamp(b) - conversationSortTimestamp(a);
-    });
+    return sortConversationsForInbox(rows);
   }, [filteredInboxConversations, inboxSearch, inboxQueueFilter]);
 
   const inboxAttentionStats = useMemo(() => {
@@ -2496,97 +2551,35 @@ function AdminWhatsappPageContent() {
     return { unreadInbound, unreadReview, neverOpened, handoff, aiActive, needsAttention };
   }, [filteredInboxConversations]);
 
-  // Busca ou filtro "precisa ver" → lista simples (sem agrupar por data).
-  const inboxUsesFlatList =
-    Boolean(inboxSearch.trim()) || inboxQueueFilter === "attention";
+  // Só busca textual fica plana; "Precisa ver" e "Todas" agrupam por dia.
+  const inboxUsesFlatList = Boolean(inboxSearch.trim());
 
-  const inboxGrouped = useMemo(() => {
-    const todayKey = saoPauloDateKey(new Date().toISOString());
-    const todayUtc = dateKeyToUtc(todayKey);
-    const todayMonday = mondayUtcOfDateKey(todayKey);
+  const inboxDayGroups = useMemo(
+    () => buildInboxDayGroups(visibleInboxConversations),
+    [visibleInboxConversations],
+  );
 
-    // Não lidas / novas ficam fixas no topo (fora do agrupamento por data).
-    const attention: ConversationRow[] = [];
-    const remainder: ConversationRow[] = [];
-    for (const c of visibleInboxConversations) {
-      if (conversationNeedsAttention(c)) attention.push(c);
-      else remainder.push(c);
-    }
-
-    const today: ConversationRow[] = [];
-    const weekMap = new Map<
-      string,
-      {
-        label: string;
-        sortValue: number;
-        days: Map<string, InboxDayGroup>;
+  useEffect(() => {
+    if (inboxDayGroups.length === 0) return;
+    setOpenInboxDays((prev) => {
+      const next = new Set(prev);
+      let changed = false;
+      for (const day of inboxDayGroups) {
+        if (day.defaultOpen && !next.has(day.key)) {
+          next.add(day.key);
+          changed = true;
+        }
+        if (!inboxDayOpenInitialized.current && (day.label === "Hoje" || day.label === "Ontem")) {
+          if (!next.has(day.key)) {
+            next.add(day.key);
+            changed = true;
+          }
+        }
       }
-    >();
-
-    for (const c of remainder) {
-      const key = saoPauloDateKey(c.last_message_at || c.updated_at);
-      if (!key || key === todayKey) {
-        today.push(c);
-        continue;
-      }
-
-      const convUtc = dateKeyToUtc(key);
-      const diffDays = Math.round((todayUtc - convUtc) / 86_400_000);
-      const convMonday = mondayUtcOfDateKey(key);
-      const weeksAgo = Math.round((todayMonday - convMonday) / (7 * 86_400_000));
-
-      let weekKey: string;
-      let weekLabel: string;
-      if (weeksAgo <= 0) {
-        weekKey = "esta-semana";
-        weekLabel = "Esta semana";
-      } else if (weeksAgo === 1) {
-        weekKey = "semana-passada";
-        weekLabel = "Semana passada";
-      } else {
-        weekKey = `week-${convMonday}`;
-        weekLabel = `${formatShortDate(convMonday)} – ${formatShortDate(
-          convMonday + 6 * 86_400_000,
-        )}`;
-      }
-
-      let week = weekMap.get(weekKey);
-      if (!week) {
-        week = { label: weekLabel, sortValue: convMonday, days: new Map() };
-        weekMap.set(weekKey, week);
-      }
-
-      let day = week.days.get(key);
-      if (!day) {
-        day = {
-          key,
-          label: diffDays === 1 ? "Ontem" : formatDayHeading(key),
-          sortValue: convUtc,
-          items: [],
-        };
-        week.days.set(key, day);
-      }
-      day.items.push(c);
-    }
-
-    const weeks: InboxWeekGroup[] = Array.from(weekMap.entries())
-      .map(([key, w]) => {
-        const days = Array.from(w.days.values()).sort(
-          (a, b) => b.sortValue - a.sortValue,
-        );
-        return {
-          key,
-          label: w.label,
-          sortValue: w.sortValue,
-          count: days.reduce((sum, d) => sum + d.items.length, 0),
-          days,
-        };
-      })
-      .sort((a, b) => b.sortValue - a.sortValue);
-
-    return { attention, today, weeks };
-  }, [visibleInboxConversations]);
-
+      inboxDayOpenInitialized.current = true;
+      return changed ? next : prev;
+    });
+  }, [inboxDayGroups]);
   const activeInboxEstablishmentTheme = useMemo(() => {
     if (inboxEstablishmentFilter === "all") {
       const estId =
@@ -3098,7 +3091,7 @@ function AdminWhatsappPageContent() {
                 ) : null}
               </p>
               <p className="text-[10px] text-gray-500 tabular-nums">
-                Ordem: novas → não lidas → IA → humano
+                Hoje no topo · não lidas por dia
               </p>
             </div>
             <div className="flex flex-wrap gap-1">
@@ -3220,38 +3213,30 @@ function AdminWhatsappPageContent() {
               ? visibleInboxConversations.map((c) => renderInboxRow(c))
               : (
                 <>
-                  {inboxGrouped.attention.length > 0 ? (
-                    <div>
-                      <div className="sticky top-0 z-10 flex items-center justify-between gap-2 bg-orange-600 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-white shadow-sm">
-                        <span>Não lidas</span>
-                        <span className="tabular-nums opacity-90">
-                          {inboxGrouped.attention.length}
-                        </span>
-                      </div>
-                      {inboxGrouped.attention.map((c) => renderInboxRow(c))}
-                    </div>
-                  ) : null}
-
-                  {inboxGrouped.today.length > 0 ? (
-                    <div>
-                      <div className="sticky top-0 z-10 flex items-center justify-between gap-2 bg-emerald-600 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-white shadow-sm">
-                        <span>Hoje</span>
-                        <span className="tabular-nums opacity-90">
-                          {inboxGrouped.today.length}
-                        </span>
-                      </div>
-                      {inboxGrouped.today.map((c) => renderInboxRow(c))}
-                    </div>
-                  ) : null}
-
-                  {inboxGrouped.weeks.map((week) => {
-                    const open = openInboxWeeks.has(week.key);
+                  {inboxDayGroups.length === 0 ? null : (
+                    <p className="px-3 py-1.5 text-[10px] text-gray-500 bg-gray-50 border-b border-gray-100">
+                      {inboxQueueFilter === "attention"
+                        ? "Só conversas que precisam de atenção, separadas por dia. Comece por Hoje."
+                        : "Conversas do dia no topo. Dentro de cada dia, não lidas primeiro."}
+                    </p>
+                  )}
+                  {inboxDayGroups.map((day) => {
+                    const isToday = day.label === "Hoje";
+                    const isYesterday = day.label === "Ontem";
+                    const open = openInboxDays.has(day.key) || isToday;
+                    const headerClass = isToday
+                      ? "bg-emerald-600 text-white hover:bg-emerald-700"
+                      : isYesterday
+                        ? "bg-sky-700 text-white hover:bg-sky-800"
+                        : day.attentionCount > 0
+                          ? "bg-orange-50 text-orange-950 hover:bg-orange-100 border-b border-orange-100"
+                          : "bg-gray-100 text-gray-700 hover:bg-gray-200";
                     return (
-                      <div key={week.key}>
+                      <div key={day.key}>
                         <button
                           type="button"
-                          onClick={() => toggleInboxWeek(week.key)}
-                          className="sticky top-0 z-10 flex w-full items-center justify-between gap-2 bg-gray-100 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-gray-600 hover:bg-gray-200 transition-colors"
+                          onClick={() => toggleInboxDay(day.key)}
+                          className={`sticky top-0 z-10 flex w-full items-center justify-between gap-2 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide transition-colors ${headerClass}`}
                         >
                           <span className="flex items-center gap-1">
                             {open ? (
@@ -3259,22 +3244,41 @@ function AdminWhatsappPageContent() {
                             ) : (
                               <MdChevronRight size={16} />
                             )}
-                            {week.label}
+                            {day.label}
+                            {day.attentionCount > 0 ? (
+                              <span
+                                className={`ml-1.5 rounded-full px-1.5 py-0.5 text-[10px] font-bold normal-case tracking-normal ${
+                                  isToday || isYesterday
+                                    ? "bg-white/20 text-white"
+                                    : "bg-orange-600 text-white"
+                                }`}
+                              >
+                                {day.attentionCount} não lida
+                                {day.attentionCount === 1 ? "" : "s"}
+                              </span>
+                            ) : null}
                           </span>
-                          <span className="tabular-nums text-gray-500">
-                            {week.count}
+                          <span
+                            className={`tabular-nums ${
+                              isToday || isYesterday ? "opacity-90" : "text-gray-500"
+                            }`}
+                          >
+                            {day.items.length}
                           </span>
                         </button>
-                        {open
-                          ? week.days.map((day) => (
-                              <div key={day.key}>
-                                <div className="bg-gray-50 px-3 py-1 text-[10px] font-medium text-gray-500 border-b border-gray-100">
-                                  {day.label} · {day.items.length}
-                                </div>
-                                {day.items.map((c) => renderInboxRow(c))}
-                              </div>
-                            ))
-                          : null}
+                        {open ? (
+                          day.items.length > 0 ? (
+                            day.items.map((c) => renderInboxRow(c))
+                          ) : (
+                            <p className="px-3 py-3 text-xs text-gray-500 bg-white border-b border-gray-100">
+                              {isToday
+                                ? inboxQueueFilter === "attention"
+                                  ? "Nenhuma conversa de hoje precisa de atenção agora."
+                                  : "Nenhuma conversa de hoje ainda."
+                                : "Nenhuma conversa neste dia."}
+                            </p>
+                          )
+                        ) : null}
                       </div>
                     );
                   })}
