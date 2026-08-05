@@ -4,7 +4,7 @@ import { useCallback, useState } from 'react';
 import { MdAdd, MdDelete, MdInfoOutline } from 'react-icons/md';
 import { AiAllowedNumber } from '@/app/types/aiAssistant';
 import { useAiSettings } from './useAiSettings';
-import { FeedbackBanner, INPUT_CLASS, SaveBar, SectionHeader, Toggle, useAiList } from './shared';
+import { FeedbackBanner, INPUT_CLASS, SaveBar, SectionHeader, useAiList } from './shared';
 
 function formatPhone(digits: string): string {
   const d = digits.replace(/\D/g, '');
@@ -17,7 +17,7 @@ function formatPhone(digits: string): string {
 export default function AllowedNumbersTab({ establishmentId }: { establishmentId: number | null }) {
   const settingsState = useAiSettings(establishmentId);
   const listState = useAiList<AiAllowedNumber>(establishmentId, 'ai-allowed-numbers');
-  const { settings, setSettings } = settingsState;
+  const { settings } = settingsState;
   const { items, setItems } = listState;
 
   const [newPhone, setNewPhone] = useState('');
@@ -52,29 +52,25 @@ export default function AllowedNumbersTab({ establishmentId }: { establishmentId
       <FeedbackBanner error={settingsState.error || listState.error} success={listState.success} />
       <SectionHeader
         title="Números habilitados"
-        description="Limite o atendimento da IA a um conjunto de números durante testes."
+        description="Modo piloto: com a IA ligada, limite o atendimento automático a estes números de teste."
       />
-
-      <div className="flex items-center justify-between gap-4 rounded-lg border border-gray-200 bg-white px-4 py-3">
-        <div>
-          <p className="text-sm font-medium text-gray-900">IA ativada globalmente</p>
-          <p className="text-xs text-gray-500">
-            Quando desligada, apenas os números abaixo recebem resposta da IA.
-          </p>
-        </div>
-        <Toggle
-          checked={settings.ai_globally_enabled}
-          onChange={(v) => setSettings((prev) => ({ ...prev, ai_globally_enabled: v }))}
-        />
-      </div>
 
       <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
         <MdInfoOutline size={18} className="mt-0.5 shrink-0" />
         <p>
-          <strong>Como funciona:</strong> com a IA desativada globalmente, só os números desta lista terão
-          acesso à IA. Útil para testar antes de liberar para todos.
+          <strong>Como funciona:</strong> use o botão <strong>IA ligada / desligada</strong> no topo
+          desta página para ligar ou silenciar a assistente. Com a IA desligada, ninguém recebe
+          resposta automática. Com a IA ligada e esta lista vazia, todos são atendidos. Com a IA
+          ligada e números cadastrados aqui, só esses números recebem a IA (modo piloto).
         </p>
       </div>
+
+      {settings.ai_globally_enabled === false && (
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+          A IA deste estabelecimento está <strong>desligada</strong>. Esta lista só vale quando você
+          religar a IA no topo da página.
+        </div>
+      )}
 
       <div>
         <div className="mb-3 flex items-center justify-between">
