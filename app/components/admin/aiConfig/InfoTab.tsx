@@ -122,7 +122,7 @@ export default function InfoTab({ establishmentId }: { establishmentId: number |
       <div className="flex items-start justify-between gap-3">
         <SectionHeader
           title="Informações adicionais"
-          description="Fatos sobre o estabelecimento que a IA pode consultar (estacionamento, aniversário, delivery...)."
+          description="Mesma base do Treinamento (Regras da Casa). Escreva respostas curtas e humanas (1–3 frases). Não descreva fluxo de reserva aqui — data, área e mesa a IA consulta o sistema."
         />
         <button
           type="button"

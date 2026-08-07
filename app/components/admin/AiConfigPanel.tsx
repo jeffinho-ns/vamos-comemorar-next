@@ -190,6 +190,11 @@ export default function AiConfigPanel() {
           <p className="text-xs text-gray-500">
             Ligue ou desligue o atendimento automático e defina como a assistente fala no WhatsApp.
           </p>
+          <p className="mt-2 max-w-2xl text-xs text-amber-900/90 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
+            <strong>Como a IA economiza e converte:</strong> Identidade/Comportamento = tom e regras.
+            Informações/Treinamento = fatos curtos (horário, dress, bolo). Reservas (data, pessoas,
+            área, mesa) a IA consulta o sistema em tempo real — não coloque fluxo de reserva na FAQ.
+          </p>
         </div>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
           <label className="flex items-center gap-2 text-sm">

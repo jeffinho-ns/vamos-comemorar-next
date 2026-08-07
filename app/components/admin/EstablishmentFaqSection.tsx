@@ -225,9 +225,14 @@ export default function EstablishmentFaqSection({ establishmentId }: Props) {
         <div>
           <h2 className="text-xl font-semibold text-gray-900">Treinamento da IA (Regras da Casa)</h2>
           <p className="text-sm text-gray-600 mt-1">
-            Informações oficiais que a IA usa no WhatsApp para {establishmentName}. Use os tópicos
-            sugeridos (melhor reconhecimento pela IA) ou crie tópicos personalizados para regras
-            específicas.
+            Fatos oficiais que a IA responde no WhatsApp para {establishmentName} — de preferência
+            1–3 frases, tom humano, sem listas e sem instruções do tipo &quot;chame a tool X&quot;.
+            Use os tópicos sugeridos (melhor reconhecimento) ou crie tópicos personalizados.
+          </p>
+          <p className="text-xs text-sky-900 bg-sky-50 border border-sky-200 rounded-lg px-3 py-2 mt-2">
+            <strong>Reservas:</strong> disponibilidade, áreas e mesas a IA consulta o painel em tempo
+            real. Aqui cadastre só o que é estático (horário, entrada, dress code, bolo, estacionamento,
+            aniversário). Respostas curtas = menos tokens e conversa mais natural.
           </p>
           {isHighline && (
             <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mt-2">
