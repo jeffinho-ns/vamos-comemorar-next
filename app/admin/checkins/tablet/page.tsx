@@ -16,6 +16,7 @@ import {
 import { readAuthToken } from '@/app/utils/readAuthToken';
 import { parseCheckinsApiPayload } from '@/app/utils/tabletCheckinsLoader';
 import { filterEstablishmentsByModule } from '@/app/utils/establishmentModuleAccess';
+import { getHighlineSubareaLabelForTable } from '@/app/config/highlineReservationAreas';
 import EntradaStatusModal, { EntradaTipo } from '../../../components/EntradaStatusModal';
 import { BirthdayReservation } from '../../../services/birthdayService';
 
@@ -694,50 +695,9 @@ export default function TabletCheckInsPage() {
   // Função para obter a subárea correta baseada no número da mesa (Highline)
   const getHighlineSubareaName = useCallback((tableNumber?: string | number): string | null => {
     if (!tableNumber) return null;
-    const n = String(tableNumber).padStart(2, '0');
-    
-    const subareaMap: Record<string, string> = {
-      '05': 'Área Deck - Frente',
-      '06': 'Área Deck - Frente',
-      '07': 'Área Deck - Frente',
-      '08': 'Área Deck - Frente',
-      '01': 'Área Deck - Esquerdo',
-      '02': 'Área Deck - Esquerdo',
-      '03': 'Área Deck - Esquerdo',
-      '04': 'Área Deck - Esquerdo',
-      '09': 'Área Deck - Direito',
-      '10': 'Área Deck - Direito',
-      '11': 'Área Deck - Direito',
-      '12': 'Área Deck - Direito',
-      '15': 'Área Bar',
-      '16': 'Área Bar',
-      '17': 'Área Bar',
-      '50': 'Área Rooftop - Direito',
-      '51': 'Área Rooftop - Direito',
-      '52': 'Área Rooftop - Direito',
-      '53': 'Área Rooftop - Direito',
-      '54': 'Área Rooftop - Direito',
-      '55': 'Área Rooftop - Direito',
-      '70': 'Área Rooftop - Bistrô',
-      '71': 'Área Rooftop - Bistrô',
-      '72': 'Área Rooftop - Bistrô',
-      '73': 'Área Rooftop - Bistrô',
-      '44': 'Área Rooftop - Centro',
-      '45': 'Área Rooftop - Centro',
-      '46': 'Área Rooftop - Centro',
-      '47': 'Área Rooftop - Centro',
-      '60': 'Área Rooftop - Esquerdo',
-      '61': 'Área Rooftop - Esquerdo',
-      '62': 'Área Rooftop - Esquerdo',
-      '63': 'Área Rooftop - Esquerdo',
-      '64': 'Área Rooftop - Esquerdo',
-      '65': 'Área Rooftop - Esquerdo',
-      '40': 'Área Rooftop - Vista',
-      '41': 'Área Rooftop - Vista',
-      '42': 'Área Rooftop - Vista'
-    };
-    
-    return subareaMap[n] || null;
+    const first = String(tableNumber).split(',')[0]?.trim();
+    const padded = first && /^\d+$/.test(first) ? first.padStart(2, '0') : first;
+    return getHighlineSubareaLabelForTable(padded) || getHighlineSubareaLabelForTable(first);
   }, []);
 
   // Filtrar eventos do estabelecimento selecionado (usando useMemo para evitar recálculos)

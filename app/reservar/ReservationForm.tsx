@@ -28,6 +28,7 @@ import {
   fallbackPhoneForEstablishment,
 } from '@/app/utils/establishmentRulesFlags';
 import { optionalAuthHeaders } from '@/app/utils/optionalAuthHeaders';
+import { getHighlineSubareasForSelect } from '@/app/config/highlineReservationAreas';
 
 // Configuração da API
 const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL_LOCAL || 'https://api.agilizaiapp.com.br';
@@ -397,18 +398,8 @@ export default function ReservationForm() {
     }
   };
 
-  // Subáreas específicas do Highline (mapeadas para area_id base 2 ou 5)
-  const highlineSubareas = [
-    { key: 'deck-frente', area_id: 2, label: 'Área Deck - Frente', tableNumbers: ['05','06','07','08'] },
-    { key: 'deck-esquerdo', area_id: 2, label: 'Área Deck - Esquerdo', tableNumbers: ['01','02','03','04'] },
-    { key: 'deck-direito', area_id: 2, label: 'Área Deck - Direito', tableNumbers: ['09','10','11','12'] },
-    { key: 'bar', area_id: 2, label: 'Área Bar', tableNumbers: ['15','16','17'] },
-    { key: 'roof-direito', area_id: 5, label: 'Área Rooftop - Direito', tableNumbers: ['50','51','52','53','54','55'] },
-    { key: 'roof-bistro', area_id: 5, label: 'Área Rooftop - Bistrô', tableNumbers: ['70','71','72','73'] },
-    { key: 'roof-centro', area_id: 5, label: 'Área Rooftop - Centro', tableNumbers: ['44','45','46','47'] },
-    { key: 'roof-esquerdo', area_id: 5, label: 'Área Rooftop - Esquerdo', tableNumbers: ['60','61','62','63','64','65'] },
-    { key: 'roof-vista', area_id: 5, label: 'Área Rooftop - Vista', tableNumbers: ['40','41','42'] },
-  ];
+  // Subáreas Highline (catálogo canônico)
+  const highlineSubareas = getHighlineSubareasForSelect();
 
   // Subáreas específicas do Seu Justino (mapeadas para area_id base 1 ou 2)
   const seuJustinoSubareas = [

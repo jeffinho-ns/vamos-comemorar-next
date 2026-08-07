@@ -93,41 +93,53 @@ const HIGHLINE_SUBAREA_BY_TABLE: Record<string, string> = {
   "02": "Deck",
   "03": "Deck",
   "04": "Deck",
-  "05": "Deck",
-  "06": "Deck",
-  "07": "Deck",
-  "08": "Deck",
   "09": "Deck",
   "10": "Deck",
   "11": "Deck",
   "12": "Deck",
-  "15": "Bar",
-  "16": "Bar",
-  "17": "Bar",
-  "40": "Vista",
-  "41": "Vista",
-  "42": "Vista",
-  "44": "Rooftop Centro",
-  "45": "Rooftop Centro",
-  "46": "Rooftop Centro",
-  "47": "Rooftop Centro",
-  "50": "Rooftop Direito",
-  "51": "Rooftop Direito",
-  "52": "Rooftop Direito",
-  "53": "Rooftop Direito",
-  "54": "Rooftop Direito",
-  "55": "Rooftop Direito",
-  "56": "Rooftop Direito",
-  "60": "Rooftop Esquerdo",
-  "61": "Rooftop Esquerdo",
-  "62": "Rooftop Esquerdo",
-  "63": "Rooftop Esquerdo",
-  "64": "Rooftop Esquerdo",
-  "65": "Rooftop Esquerdo",
-  "70": "Bistro",
-  "71": "Bistro",
-  "72": "Bistro",
-  "73": "Bistro",
+  "13": "Deck",
+  "14": "Deck",
+  "15": "Bar Central",
+  "16": "Bar Central",
+  "17": "Bar Central",
+  "20": "Balada",
+  "21": "Balada",
+  "22": "Balada",
+  "23": "Balada",
+  "24": "Balada",
+  "25": "Balada",
+  "26": "Balada",
+  "27": "Balada",
+  "30": "Balada",
+  "31": "Balada",
+  "32": "Balada",
+  "33": "Balada",
+  "34": "Balada",
+  "35": "Balada",
+  "40": "Rooftop Lounges",
+  "41": "Rooftop Lounges",
+  "42": "Rooftop Lounges",
+  "43": "Rooftop Lounges",
+  "50": "Rooftop Mesas",
+  "51": "Rooftop Mesas",
+  "52": "Rooftop Mesas",
+  "53": "Rooftop Mesas",
+  "54": "Rooftop Mesas",
+  "55": "Rooftop Mesas",
+  "56": "Rooftop Mesas",
+  "74": "Rooftop Mesas",
+  "75": "Rooftop Mesas",
+  "76": "Rooftop Mesas",
+  "60": "Rooftop Bangalôs",
+  "61": "Rooftop Bangalôs",
+  "62": "Rooftop Bangalôs",
+  "63": "Rooftop Bangalôs",
+  "64": "Rooftop Bangalôs",
+  "65": "Rooftop Bangalôs",
+  "70": "Rooftop Bistrôs",
+  "71": "Rooftop Bistrôs",
+  "72": "Rooftop Bistrôs",
+  "73": "Rooftop Bistrôs",
 };
 
 export const toBoolean = (value: unknown): boolean => {
@@ -224,13 +236,22 @@ const normalizeRooftopAreaName = (areaName?: string | null): string | undefined 
   if (lower.includes("pq 2") || lower.includes("pq2")) return "PQ 2";
   if (lower.includes("pq 3") || lower.includes("pq3")) return "PQ 3";
   if (lower.includes("pq 4") || lower.includes("pq4")) return "PQ 4";
-  if (lower.includes("vista")) return "Vista";
+  if (lower.includes("vista") || lower.includes("lounge")) return "Rooftop Lounges";
   if (lower.includes("deck")) return "Deck";
-  if (lower.includes("bar")) return "Bar";
-  if (lower.includes("bistro") || lower.includes("bistrô")) return "Bistro";
-  if (lower.includes("centro")) return "Rooftop Centro";
-  if (lower.includes("direito")) return "Rooftop Direito";
-  if (lower.includes("esquerdo")) return "Rooftop Esquerdo";
+  if (lower.includes("bar")) return "Bar Central";
+  if (lower.includes("balada") || lower.includes("camarote") || lower.includes("club")) {
+    return "Balada";
+  }
+  if (lower.includes("bangalo") || lower.includes("bangalô")) return "Rooftop Bangalôs";
+  if (lower.includes("bistro") || lower.includes("bistrô")) {
+    if (lower.includes("rooftop")) return "Rooftop Bistrôs";
+    if (lower.includes("rotativo") || lower.includes("espera")) return "Rotativo";
+    return "Bistro";
+  }
+  if (lower.includes("rotativo") || lower.includes("lista de espera")) return "Rotativo";
+  if (lower.includes("centro")) return "Rooftop Lounges";
+  if (lower.includes("direito") || lower.includes("mesa")) return "Rooftop Mesas";
+  if (lower.includes("esquerdo")) return "Rooftop Bangalôs";
 
   return original.replace(/^reserva rooftop\s*-\s*/i, "").trim() || original;
 };
