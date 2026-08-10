@@ -4,6 +4,36 @@
  */
 
 /**
+ * Extrai YYYY-MM-DD de strings do banco/API sem aplicar fuso.
+ * Evita o clássico "um dia a menos" ao fazer `new Date('2026-08-22')` (UTC).
+ */
+export function extractDateKey(dateString: string | null | undefined): string | null {
+  if (!dateString) return null;
+  const raw = String(dateString).trim();
+  if (!raw) return null;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+  const datePart = raw.split('T')[0]?.split(' ')[0] || '';
+  if (/^\d{4}-\d{2}-\d{2}$/.test(datePart)) return datePart;
+  return null;
+}
+
+/** Date local ao meio-dia a partir de YYYY-MM-DD / ISO date-only. */
+export function parseLocalDate(dateString: string | null | undefined): Date | null {
+  if (!dateString) return null;
+  try {
+    const key = extractDateKey(dateString);
+    if (key) {
+      const date = new Date(`${key}T12:00:00`);
+      return Number.isNaN(date.getTime()) ? null : date;
+    }
+    const date = new Date(dateString);
+    return Number.isNaN(date.getTime()) ? null : date;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Formata uma data do banco (YYYY-MM-DD) para exibição em pt-BR
  * Adiciona T12:00:00 para evitar problemas de timezone
  * 
@@ -14,18 +44,8 @@ export function formatDate(dateString: string | null | undefined): string {
   if (!dateString) return '';
   
   try {
-    // Se a data já tem hora, use diretamente
-    if (dateString.includes('T') || dateString.includes(' ')) {
-      const date = new Date(dateString);
-      return date.toLocaleDateString('pt-BR', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric',
-      });
-    }
-    
-    // Se é apenas data (YYYY-MM-DD), adiciona T12:00:00 para evitar timezone issues
-    const date = new Date(dateString + 'T12:00:00');
+    const date = parseLocalDate(dateString);
+    if (!date) return 'Data inválida';
     return date.toLocaleDateString('pt-BR', {
       day: '2-digit',
       month: '2-digit',
@@ -71,12 +91,8 @@ export function formatDateShort(dateString: string | null | undefined): string {
   if (!dateString) return '';
   
   try {
-    // Adiciona T12:00:00 para evitar timezone issues
-    const dateWithTime = dateString.includes('T') || dateString.includes(' ') 
-      ? dateString 
-      : dateString + 'T12:00:00';
-    
-    const date = new Date(dateWithTime);
+    const date = parseLocalDate(dateString);
+    if (!date) return '';
     return date.toLocaleDateString('pt-BR', {
       day: '2-digit',
       month: '2-digit',
@@ -91,18 +107,16 @@ export function formatDateShort(dateString: string | null | undefined): string {
  * Formata data para exibição com mês por extenso
  * 
  * @param dateString - String de data
- * @returns String formatada como "24 de Outubro de 2025"
+ * @returns String formatada como "sábado, 22 de agosto de 2026"
  */
 export function formatDateLong(dateString: string | null | undefined): string {
   if (!dateString) return '';
   
   try {
-    const dateWithTime = dateString.includes('T') || dateString.includes(' ') 
-      ? dateString 
-      : dateString + 'T12:00:00';
-    
-    const date = new Date(dateWithTime);
+    const date = parseLocalDate(dateString);
+    if (!date) return 'Data inválida';
     return date.toLocaleDateString('pt-BR', {
+      weekday: 'long',
       day: 'numeric',
       month: 'long',
       year: 'numeric',
@@ -123,7 +137,12 @@ export function formatDateForInput(date: Date | string | null | undefined): stri
   if (!date) return '';
   
   try {
-    const dateObj = typeof date === 'string' ? new Date(date + 'T12:00:00') : date;
+    if (typeof date === 'string') {
+      const key = extractDateKey(date);
+      if (key) return key;
+    }
+    const dateObj = typeof date === 'string' ? parseLocalDate(date) : date;
+    if (!dateObj) return '';
     const year = dateObj.getFullYear();
     const month = String(dateObj.getMonth() + 1).padStart(2, '0');
     const day = String(dateObj.getDate()).padStart(2, '0');
@@ -159,19 +178,7 @@ export function isValidDate(dateString: string | null | undefined): boolean {
  * @returns Date object
  */
 export function parseDateFromDB(dateString: string | null | undefined): Date | null {
-  if (!dateString) return null;
-  
-  try {
-    // Adiciona T12:00:00 para evitar timezone issues
-    const dateWithTime = dateString.includes('T') || dateString.includes(' ') 
-      ? dateString 
-      : dateString + 'T12:00:00';
-    
-    return new Date(dateWithTime);
-  } catch (error) {
-    console.error('Erro ao fazer parse de data:', dateString, error);
-    return null;
-  }
+  return parseLocalDate(dateString);
 }
 
 /**

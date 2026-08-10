@@ -23,6 +23,7 @@ import {
   MdVisibility
 } from "react-icons/md";
 import { getHighlineSubareaLabelForTable } from "@/app/config/highlineReservationAreas";
+import { formatDateLong } from "@/app/utils/dateUtils";
 
 import { Reservation } from '@/app/types/reservation';
 import LinkReservationToEventModal from './LinkReservationToEventModal';
@@ -561,14 +562,7 @@ export default function ReservationDetailsModal({
     return getReservationStatusText(status, { isReservaRooftop });
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('pt-BR', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
-  };
+  const formatDate = (dateString: string) => formatDateLong(dateString);
 
   const formatTime = (timeString: string) => {
     return timeString;
