@@ -1472,9 +1472,16 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
   const isReservaRooftop = selectedBar.slug === "reserva-rooftop";
   /** Banner para decoração-desativa navegação apenas neste cardápio. */
   const isSitioIlhaCardapio = slug?.toLowerCase() === "sitio-ilha";
-  const isJustinoCardapio = slug?.toLowerCase() === "justino";
-  const justinoGoogleReviewsUrl =
-    "https://www.google.com/search?sca_esv=66e1f1ab6540b637&rlz=1C1FKPE_enBR1145BR1145&sxsrf=ANbL-n7Dq4hNPcpUpKcUQtsV15QRr3hdpw:1777480707905&si=AL3DRZFIhG6pAqfNLal55wUTwygCG0fClF3UxiOmgw9Hq7nbWQGlgxtFyUkbDHQH9v-16pq27x8zurPmTlIRjNkiPNx8T65Mp6Ap__KdNcJ30Sx5e9csyuQt9g-YCcqZhE3pqTOdfepNoX2v9p0SMzboNACoyCDaxw%3D%3D&q=Seu+Justino+Vila+Madalena+Coment%C3%A1rios&sa=X&ved=2ahUKEwjcicLRv5OUAxXAALkGHdG4PDcQ0bkNegQILxAF&biw=1745&bih=859&dpr=1.1";
+  const reveillonBannerSlugs = new Set([
+    "justino",
+    "pracinha",
+    "ape-do-pracinha",
+  ]);
+  const isReveillonBannerCardapio = reveillonBannerSlugs.has(
+    slug?.toLowerCase() || "",
+  );
+  const reveillonIngresseUrl =
+    "https://www.ingresse.com/super-reveillon-harmonia-seu-justino-pracinha/";
   const categorySelectedBg =
     selectedBar.menu_category_bg_color ||
     (isCleanStyle ? "#1f1b16" : "#3b82f6");
@@ -1790,7 +1797,7 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
           </div>
         )}
 
-        {/* Banner de Decoração de Aniversário - Responsivo */}
+        {/* Banner promocional - Responsivo */}
         <div className="mt-8 mb-8">
           {isSitioIlhaCardapio ? (
             <div
@@ -1820,17 +1827,17 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
                 <div className="absolute transition-all duration-300"></div>
               </div>
             </div>
-          ) : isJustinoCardapio ? (
+          ) : isReveillonBannerCardapio ? (
             <a
-              href={justinoGoogleReviewsUrl}
+              href={reveillonIngresseUrl}
               target="_blank"
               rel="noopener noreferrer"
               className="block"
               onClick={() => {
                 trackClick(
                   window.innerWidth >= 768
-                    ? "banner-avalie-justino-desktop"
-                    : "banner-avalie-justino-mobile",
+                    ? "banner-reveillon-harmonia-desktop"
+                    : "banner-reveillon-harmonia-mobile",
                   `/cardapio/${slug}`,
                   "banner_click",
                 );
@@ -1838,8 +1845,8 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
             >
               <div className="relative overflow-hidden rounded-xl shadow-lg hover:shadow-xl transition-shadow duration-300">
                 <Image
-                  src="/avalie-seu-justino.png"
-                  alt="Avalie o Seu Justino no Google"
+                  src="/banner-reveillon-harmonia.png"
+                  alt="Super Réveillon Harmonia - Garanta já o seu ingresso"
                   width={1200}
                   height={300}
                   className="w-full h-auto object-cover hover:scale-105 transition-transform duration-300"
