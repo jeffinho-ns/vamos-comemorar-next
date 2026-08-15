@@ -211,7 +211,7 @@ export default function SuperadminOrganizationDetailPage() {
         </p>
         <div className="mt-3 flex flex-wrap items-center gap-2">
           <span className="text-xs uppercase tracking-wide text-slate-500">
-            Módulos do plano:
+            Módulos desta empresa (não mistura com outras organizações):
           </span>
           {detail.modules.map((m) => (
             <button
@@ -283,6 +283,7 @@ export default function SuperadminOrganizationDetailPage() {
           orgId={id}
           establishments={detail.establishments}
           moduleCatalog={moduleCatalog}
+          orgEnabledModules={detail.modules.filter((m) => m.is_enabled).map((m) => m.key)}
           permissions={permissions}
           onReload={load}
           onError={setError}

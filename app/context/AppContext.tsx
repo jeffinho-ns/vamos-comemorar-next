@@ -75,8 +75,9 @@ export interface AppEstablishment {
   address?: string;
   status?: string;
   cnpj?: string;
-  /** Módulos habilitados no Super Admin. null/undefined = sem configuração (tudo liberado). */
+  /** Módulos habilitados no Super Admin. null = casa legado; [] = nenhum módulo. */
   enabledModules?: string[] | null;
+  organizationId?: number | null;
 }
 
 interface AppContextValue {
@@ -146,6 +147,10 @@ function mapBar(item: Record<string, unknown>): AppEstablishment {
     status: String(item.status ?? "active"),
     cnpj: String(item.cnpj ?? ""),
     enabledModules: parseEnabledModules(item.enabled_modules),
+    organizationId:
+      item.organization_id != null && Number.isFinite(Number(item.organization_id))
+        ? Number(item.organization_id)
+        : null,
   };
 }
 
@@ -165,6 +170,10 @@ function mapPlace(item: Record<string, unknown>): AppEstablishment {
     status: String(item.status ?? "active"),
     cnpj: String(item.cnpj ?? ""),
     enabledModules: parseEnabledModules(item.enabled_modules),
+    organizationId:
+      item.organization_id != null && Number.isFinite(Number(item.organization_id))
+        ? Number(item.organization_id)
+        : null,
   };
 }
 

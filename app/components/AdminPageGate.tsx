@@ -10,8 +10,8 @@ import { usePathname, useRouter } from "next/navigation";
 import { useCan } from "../hooks/useCan";
 import { useEntitlements } from "../context/EntitlementsContext";
 import { useUserPermissions } from "../hooks/useUserPermissions";
-import { pathAllowedByEntitlements } from "../utils/adminRouteModules";
-import { isSaasModeEnabled } from "../utils/saasMode";
+import { firstAllowedAdminPath, pathAllowedByEntitlements } from "../utils/adminRouteModules";
+import { shouldEnforceEntitlements } from "../utils/saasMode";
 import { uepAllowsModule } from "../utils/uepModuleAccess";
 
 function isCheckinAdminPath(pathname: string): boolean {
@@ -31,11 +31,11 @@ export function AdminPageGate({ children }: { children: ReactNode }) {
   const { myEstablishmentPermissions } = useUserPermissions();
   const activeUep = myEstablishmentPermissions.filter((p) => p.is_active !== false);
 
-  const saasOn = isSaasModeEnabled();
+  const enforceEntitlements = shouldEnforceEntitlements(entitlements);
   const hasUepCheckin = activeUep.some((p) => p.can_manage_checkins);
   const allowedByEntitlements = pathAllowedByEntitlements(pathname, canModule, canPermission, {
-    allowAll: !saasOn || entitlements.allowAll,
-    legacyScoped: entitlements.legacyScoped === true,
+    allowAll: !enforceEntitlements || entitlements.allowAll,
+    legacyScoped: false,
     permissions: entitlements.permissions,
     legacyPathAllowed: (_path, meta) =>
       uepAllowsModule(meta.module, activeUep) && canModule(meta.module),
@@ -44,11 +44,12 @@ export function AdminPageGate({ children }: { children: ReactNode }) {
     allowedByEntitlements || (hasUepCheckin && isCheckinAdminPath(pathname));
 
   useEffect(() => {
-    if (!saasOn || loading || allowed) return;
-    router.replace("/acesso-negado");
-  }, [saasOn, loading, allowed, router]);
+    if (!enforceEntitlements || loading || allowed) return;
+    const fallback = firstAllowedAdminPath(canModule, entitlements.allowAll);
+    router.replace(fallback === pathname ? "/acesso-negado" : fallback);
+  }, [enforceEntitlements, loading, allowed, router, canModule, entitlements.allowAll, pathname]);
 
-  if (saasOn && loading && !entitlements.allowAll && !entitlements.legacyScoped && !hasUepCheckin) {
+  if (enforceEntitlements && loading && !entitlements.allowAll && !hasUepCheckin) {
     return (
       <div className="flex min-h-[40vh] items-center justify-center text-gray-500">
         Carregando permissões…
@@ -56,7 +57,7 @@ export function AdminPageGate({ children }: { children: ReactNode }) {
     );
   }
 
-  if (saasOn && !loading && !allowed && !entitlements.legacyScoped) {
+  if (enforceEntitlements && !loading && !allowed) {
     return null;
   }
 

@@ -37,6 +37,7 @@ import { filterEstablishmentListForUser } from '@/app/utils/establishmentAccessR
 import { establishmentAllowsModule } from '@/app/utils/establishmentModuleAccess';
 import { toCardapioBarIds } from '@/app/config/cardapioBarResolver';
 import { fetchCardapioMappings } from '@/app/utils/establishmentRulesClient';
+import { authHeaders } from '@/app/utils/readAuthToken';
 
 type MenuDisplayStyle = 'normal' | 'clean';
 
@@ -991,7 +992,9 @@ export default function CardapioAdminPage() {
     }
     setError(null);
     try {
-      const barsRes = await fetch(`${API_BASE_URL}/bars`);
+      const barsRes = await fetch(`${API_BASE_URL}/bars`, {
+        headers: authHeaders(),
+      });
       if (!barsRes.ok) {
         throw new Error('Erro ao carregar estabelecimentos');
       }
@@ -1002,7 +1005,9 @@ export default function CardapioAdminPage() {
       // (mesma tabela, mesmos ids) só para saber quais casas têm o módulo "cardapio".
       let modulesByBarId = new Map<number, unknown>();
       try {
-        const modulesRes = await fetch(`${MODULES_API_URL}/api/bars`);
+        const modulesRes = await fetch(`${MODULES_API_URL}/api/bars`, {
+          headers: authHeaders(),
+        });
         if (modulesRes.ok) {
           const modulesList = await modulesRes.json();
           if (Array.isArray(modulesList)) {

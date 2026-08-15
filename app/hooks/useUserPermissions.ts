@@ -139,11 +139,14 @@ export function useUserPermissions() {
   const isWhatsappHighlineScopedUser = isWhatsappHighlineScopedEmail(safeUserEmail);
   const canAccessAdmin =
     isSuperAdmin ||
+    isAdmin ||
+    safeRole === "administrador" ||
     ["gerente", "atendente", "recepcao", "recepção"].includes(safeRole) ||
     hasAnyEstablishmentAccess;
   const canAccessWhatsapp =
     isSuperAdmin ||
     isWhatsappHighlineScopedUser ||
+    isAdmin ||
     activeEstablishmentPermissions.some(
       (p) => p.can_manage_whatsapp || p.can_manage_reservations,
     );
@@ -151,7 +154,7 @@ export function useUserPermissions() {
     isSuperAdmin ||
     ['admin', 'gerente', 'administrador', 'recepção', 'recepcao'].includes(safeRole) ||
     activeEstablishmentPermissions.some((p) => p.can_configure_ia);
-  const canAccessCardapio = isSuperAdmin || hasCardapioAccess;
+  const canAccessCardapio = isSuperAdmin || isAdmin || hasCardapioAccess;
   /** Logs: super admin ou utilizador com pelo menos um estabelecimento ativo. */
   const canViewActionLogs =
     isSuperAdmin || activeEstablishmentPermissions.length > 0;

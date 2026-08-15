@@ -30,6 +30,7 @@ import { FaBirthdayCake, FaGlassCheers, FaUtensils } from "react-icons/fa";
 import { useAppContext } from "@/app/context/AppContext";
 import { filterEstablishmentListForUser } from "@/app/utils/establishmentAccessRules";
 import { filterEstablishmentsByModule } from "@/app/utils/establishmentModuleAccess";
+import { authHeaders } from "@/app/utils/readAuthToken";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL_LOCAL || 'https://api.agilizaiapp.com.br';
 
@@ -147,7 +148,9 @@ export default function ReservesPage() {
   // Carregar estabelecimentos
   const loadEstablishments = useCallback(async () => {
     try {
-      const response = await fetch(`${API_URL}/api/places`);
+      const response = await fetch(`${API_URL}/api/places`, {
+        headers: authHeaders(),
+      });
       if (response.ok) {
         const data = await response.json();
         const places = Array.isArray(data) ? data : (data.data || []);

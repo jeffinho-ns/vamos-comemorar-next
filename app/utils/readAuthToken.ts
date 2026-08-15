@@ -16,3 +16,8 @@ export function readAuthToken(): string {
   }
   return safeGetItem("authToken");
 }
+
+export function authHeaders(): HeadersInit {
+  const token = readAuthToken();
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}

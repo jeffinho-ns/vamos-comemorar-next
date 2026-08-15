@@ -1,16 +1,10 @@
 "use client";
 
 /**
- * EntitlementsContext — camada ADITIVA e INERTE para o modo SaaS multi-tenant.
+ * EntitlementsContext — módulos e casas da organização do usuário logado.
  *
- * FAIL-OPEN por padrão: enquanto `NEXT_PUBLIC_SAAS_MODE !== "on"`, o valor é
- * `allowAll = true` (tudo liberado) e NENHUMA requisição é feita. Ou seja, a UI
- * atual não muda em nada — mesmo que o provider não esteja montado, o valor
- * default do contexto já libera tudo.
- *
- * Quando a Fase 3/4 for ligada: montar <EntitlementsProvider> dentro do
- * AppProvider (app/layout.tsx) e definir NEXT_PUBLIC_SAAS_MODE=on. Aí ele
- * busca /api/me/entitlements e passa a refletir módulos/permissões reais.
+ * Tenant autenticado nunca começa em allowAll: isso vazava o menu da empresa
+ * antiga para uma organização nova. Superadmin continua com acesso total.
  */
 
 import {
@@ -23,7 +17,9 @@ import {
   type ReactNode,
 } from "react";
 import { getApiUrl } from "../config/api";
+import { AUTH_CHANGED_EVENT } from "../utils/authSession";
 import { readAuthToken } from "../utils/readAuthToken";
+import { readSuperAdminFromCookie } from "../utils/superAdminAccess";
 
 export interface Entitlements {
   allowAll: boolean;
@@ -51,38 +47,49 @@ const ALLOW_ALL: Entitlements = {
   organizationId: null,
 };
 
+const DENY_ALL: Entitlements = {
+  allowAll: false,
+  modules: [],
+  permissions: [],
+  organizationId: null,
+  establishmentIds: [],
+};
+
 const EntitlementsContext = createContext<EntitlementsContextValue>({
-  entitlements: ALLOW_ALL,
+  entitlements: DENY_ALL,
   loading: false,
   refresh: async () => {},
 });
-
-function isSaasMode(): boolean {
-  return String(process.env.NEXT_PUBLIC_SAAS_MODE || "").toLowerCase() === "on";
-}
 
 function readToken(): string {
   if (typeof window === "undefined") return "";
   return readAuthToken();
 }
 
+function initialEntitlements(): Entitlements {
+  if (typeof window === "undefined") return DENY_ALL;
+  if (readSuperAdminFromCookie()) return ALLOW_ALL;
+  if (readToken()) return DENY_ALL;
+  return ALLOW_ALL;
+}
+
 export function EntitlementsProvider({ children }: { children: ReactNode }) {
-  const [entitlements, setEntitlements] = useState<Entitlements>(ALLOW_ALL);
+  const [entitlements, setEntitlements] = useState<Entitlements>(initialEntitlements);
   const [loading, setLoading] = useState(() => {
     if (typeof window === "undefined") return false;
-    return isSaasMode() && !!readToken();
+    return !!readToken() && !readSuperAdminFromCookie();
   });
 
-const ENTITLEMENTS_TIMEOUT_MS = 20000;
+  const ENTITLEMENTS_TIMEOUT_MS = 20000;
 
   const refresh = useCallback(async () => {
-    // Inerte fora do modo SaaS: mantém allowAll e não chama a API.
-    if (!isSaasMode()) {
-      setEntitlements(ALLOW_ALL);
-      return;
-    }
     const token = readToken();
     if (!token) {
+      setEntitlements(ALLOW_ALL);
+      setLoading(false);
+      return;
+    }
+    if (readSuperAdminFromCookie()) {
       setEntitlements(ALLOW_ALL);
       setLoading(false);
       return;
@@ -98,24 +105,23 @@ const ENTITLEMENTS_TIMEOUT_MS = 20000;
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json = await res.json();
       const data = json?.data as Entitlements | undefined;
-      setEntitlements(
-        data && typeof data.allowAll === "boolean"
-          ? {
-              allowAll: data.allowAll,
-              modules: Array.isArray(data.modules) ? data.modules : [],
-              permissions: Array.isArray(data.permissions) ? data.permissions : [],
-              organizationId: data.organizationId ?? null,
-              establishmentIds: Array.isArray(data.establishmentIds)
-                ? data.establishmentIds.map(Number).filter((n) => n > 0)
-                : [],
-              legacyScoped: data.legacyScoped === true,
-              isAccountAdmin: data.isAccountAdmin === true,
-            }
-          : ALLOW_ALL,
-      );
+      if (data && typeof data.allowAll === "boolean") {
+        setEntitlements({
+          allowAll: data.allowAll,
+          modules: Array.isArray(data.modules) ? data.modules : [],
+          permissions: Array.isArray(data.permissions) ? data.permissions : [],
+          organizationId: data.organizationId ?? null,
+          establishmentIds: Array.isArray(data.establishmentIds)
+            ? data.establishmentIds.map(Number).filter((n) => n > 0)
+            : [],
+          legacyScoped: data.legacyScoped === true,
+          isAccountAdmin: data.isAccountAdmin === true,
+        });
+      } else {
+        setEntitlements(DENY_ALL);
+      }
     } catch {
-      // Fail-open: na dúvida, não trava a UI do cliente.
-      setEntitlements(ALLOW_ALL);
+      setEntitlements(readSuperAdminFromCookie() ? ALLOW_ALL : DENY_ALL);
     } finally {
       window.clearTimeout(timer);
       setLoading(false);
@@ -124,6 +130,15 @@ const ENTITLEMENTS_TIMEOUT_MS = 20000;
 
   useEffect(() => {
     void refresh();
+  }, [refresh]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const onAuthChanged = () => {
+      void refresh();
+    };
+    window.addEventListener(AUTH_CHANGED_EVENT, onAuthChanged);
+    return () => window.removeEventListener(AUTH_CHANGED_EVENT, onAuthChanged);
   }, [refresh]);
 
   const value = useMemo<EntitlementsContextValue>(
@@ -142,4 +157,4 @@ export function useEntitlements(): EntitlementsContextValue {
   return useContext(EntitlementsContext);
 }
 
-export { ALLOW_ALL };
+export { ALLOW_ALL, DENY_ALL };

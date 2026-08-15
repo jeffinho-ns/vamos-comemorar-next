@@ -15,7 +15,7 @@ export function useCan() {
 
   const canModule = useCallback(
     (moduleKey: string): boolean => {
-      if (entitlements.allowAll || entitlements.legacyScoped) return true;
+      if (entitlements.allowAll) return true;
       if (entitlements.modules.includes(moduleKey)) return true;
       const prefix = `${moduleKey}:`;
       return entitlements.permissions.some((p) => p.startsWith(prefix));

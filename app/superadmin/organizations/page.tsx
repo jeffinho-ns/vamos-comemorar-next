@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { formatBrlFromCents, superadminFetch } from "../../utils/superadminApi";
+import { MODULE_LABELS } from "./[id]/types";
 
 type OrgRow = {
   id: number;
@@ -31,6 +32,7 @@ export default function SuperadminOrganizationsPage() {
     adminName: "",
     establishmentName: "",
     monthlyAmount: "0",
+    enabledModules: [] as string[],
   });
   const [saving, setSaving] = useState(false);
 
@@ -62,6 +64,9 @@ export default function SuperadminOrganizationsPage() {
           adminName: form.adminName || undefined,
           establishmentName: form.establishmentName || undefined,
           monthlyAmountCents: Number.isFinite(parsed) ? parsed : undefined,
+          enabledModules: form.enabledModules.length
+            ? form.enabledModules
+            : undefined,
         }),
       });
       setShowForm(false);
@@ -73,6 +78,7 @@ export default function SuperadminOrganizationsPage() {
         adminName: "",
         establishmentName: "",
         monthlyAmount: "0",
+        enabledModules: [],
       });
       load();
     } catch (err) {
@@ -141,6 +147,63 @@ export default function SuperadminOrganizationsPage() {
             value={form.monthlyAmount}
             onChange={(e) => setForm({ ...form, monthlyAmount: e.target.value })}
           />
+          <div className="md:col-span-2 rounded border border-slate-800 bg-slate-950/60 p-3">
+            <p className="mb-2 text-sm text-slate-300">
+              Módulos desta empresa (separados da organização já existente)
+            </p>
+            <p className="mb-3 text-xs text-slate-500">
+              Se nenhum for marcado, vale o plano escolhido. Marque só o que
+              essa empresa vai usar — o login dela não enxerga as outras casas.
+            </p>
+            <div className="flex flex-wrap gap-3">
+              {Object.entries(MODULE_LABELS).map(([key, label]) => {
+                const on = form.enabledModules.includes(key);
+                return (
+                  <label
+                    key={key}
+                    className="inline-flex items-center gap-2 text-sm text-slate-200"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={on}
+                      onChange={() =>
+                        setForm((prev) => ({
+                          ...prev,
+                          enabledModules: on
+                            ? prev.enabledModules.filter((m) => m !== key)
+                            : [...prev.enabledModules, key],
+                        }))
+                      }
+                    />
+                    {label}
+                  </label>
+                );
+              })}
+            </div>
+            <div className="mt-2 flex gap-3">
+              <button
+                type="button"
+                className="text-xs text-amber-400 hover:underline"
+                onClick={() =>
+                  setForm((prev) => ({
+                    ...prev,
+                    enabledModules: Object.keys(MODULE_LABELS),
+                  }))
+                }
+              >
+                Marcar todos
+              </button>
+              <button
+                type="button"
+                className="text-xs text-slate-400 hover:underline"
+                onClick={() =>
+                  setForm((prev) => ({ ...prev, enabledModules: ["cardapio"] }))
+                }
+              >
+                Só cardápio
+              </button>
+            </div>
+          </div>
           <button
             type="submit"
             disabled={saving}

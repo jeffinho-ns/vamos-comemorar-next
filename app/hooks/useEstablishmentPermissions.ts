@@ -171,7 +171,7 @@ export function useEstablishmentPermissions() {
     );
     if (fromEntitlements.length > 0) return fromEntitlements;
 
-    return [];
+    return visibilityScoped;
   }, [permissionsResolved, userEmail, userConfig, permissions, normalizedRole, entitlements]);
 
   // Buscar permissão específica para um estabelecimento

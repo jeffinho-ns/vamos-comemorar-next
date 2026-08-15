@@ -36,6 +36,7 @@ type Props = {
   orgId: number;
   establishments: EstablishmentRow[];
   moduleCatalog: ModuleCatalogItem[];
+  orgEnabledModules?: string[];
   permissions: EstablishmentPermission[];
   onReload: () => void;
   onError: (msg: string | null) => void;
@@ -46,6 +47,7 @@ export default function EstablishmentsPanel({
   orgId,
   establishments,
   moduleCatalog,
+  orgEnabledModules = [],
   permissions,
   onReload,
   onError,
@@ -78,6 +80,8 @@ export default function EstablishmentsPanel({
   const [showArchived, setShowArchived] = useState(false);
 
   const catalogKeys = moduleCatalog.map((m) => m.key);
+  const defaultEstablishmentModules =
+    orgEnabledModules.length > 0 ? orgEnabledModules : catalogKeys;
 
   const activeEstablishments = establishments.filter(
     (e) => (e.status || "active") !== "archived",
@@ -138,7 +142,7 @@ export default function EstablishmentsPanel({
       name: "",
       slug: "",
       profile: "generic",
-      enabledModules: [...catalogKeys],
+      enabledModules: [...defaultEstablishmentModules],
     });
     setSlugTouched(false);
   };

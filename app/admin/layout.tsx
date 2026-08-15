@@ -43,7 +43,7 @@ import {
 import { readSuperAdminFromCookie } from "../utils/superAdminAccess";
 import { ensureAuthSessionFromStorage } from "../utils/authSession";
 import { readAuthToken } from "../utils/readAuthToken";
-import { isSaasModeEnabled } from "../utils/saasMode";
+import { shouldEnforceEntitlements } from "../utils/saasMode";
 import {
   isAdminRole as isAdminNavRole,
   isGerenteRole,
@@ -143,7 +143,7 @@ export default function DashboardLayout({
 
   const isAnalista = userEmail === ANALISTA_EMAIL;
   const isWhatsappHighlineScopedUser = isWhatsappHighlineScopedEmail(userEmail);
-  const saasOn = isSaasModeEnabled();
+  const enforceEntitlements = shouldEnforceEntitlements(entitlements);
 
   const appendWhatsappLink = <T extends { href: string; label: string; icon: typeof MdChat }>(
     links: T[],
@@ -387,7 +387,7 @@ export default function DashboardLayout({
 
   const showEquipeNav =
     isSuperAdmin ||
-    entitlements.allowAll ||
+    (entitlements.allowAll && isSuperAdmin) ||
     entitlements.isAccountAdmin === true;
   if (showEquipeNav && !navLinks.some((l) => l.href === "/admin/equipe")) {
     const usersIdx = navLinks.findIndex((l) => l.href === "/admin/users");
@@ -399,21 +399,24 @@ export default function DashboardLayout({
     ];
   }
 
-  if (saasOn) {
+  if (enforceEntitlements) {
     navLinks = filterNavByEntitlements(
       navLinks,
       canModule,
       canPermission,
       entitlements.allowAll,
       entitlements.permissions,
-      entitlements.legacyScoped === true,
+      false,
       uepLegacyRouteAllowed,
     );
   }
 
-  // Notebook lento / API demorada: mantém pelo menos check-in quando há sessão salva
   if (navLinks.length === 0 && hasStoredAuth && clientSessionReady) {
-    navLinks = [{ href: "/admin/checkins", label: "Check-ins", icon: MdCheckCircle }];
+    if (isSuperAdmin || entitlements.allowAll) {
+      navLinks = [{ href: "/admin/checkins", label: "Check-ins", icon: MdCheckCircle }];
+    } else if (canModule("cardapio")) {
+      navLinks = [{ href: "/admin/cardapio", label: "Cardápio", icon: MdRestaurant }];
+    }
   }
 
   const getActiveLabel = () => {

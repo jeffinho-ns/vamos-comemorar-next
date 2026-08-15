@@ -1,11 +1,10 @@
 import type { Entitlements } from "../context/EntitlementsContext";
-import { isSaasModeEnabled } from "./saasMode";
+import { shouldEnforceEntitlements } from "./saasMode";
 
 type PlaceLike = { id: number | string };
 
 /**
  * Filtra estabelecimentos pelo escopo SaaS (establishmentIds ou organizationId).
- * Fail-open com allowAll / legacyScoped (espelha sidebar e API).
  */
 export function filterPlacesByEntitlements<T extends PlaceLike>(
   places: T[],
@@ -15,7 +14,7 @@ export function filterPlacesByEntitlements<T extends PlaceLike>(
   >,
   getOrgId?: (place: T) => number | null | undefined,
 ): T[] {
-  if (!isSaasModeEnabled() || entitlements.allowAll || entitlements.legacyScoped) {
+  if (!shouldEnforceEntitlements(entitlements) || entitlements.allowAll) {
     return places;
   }
 
@@ -27,10 +26,7 @@ export function filterPlacesByEntitlements<T extends PlaceLike>(
 
   const orgId = entitlements.organizationId;
   if (orgId != null && getOrgId) {
-    return places.filter((p) => {
-      const placeOrg = getOrgId(p);
-      return placeOrg == null || placeOrg === orgId;
-    });
+    return places.filter((p) => getOrgId(p) === orgId);
   }
 
   return places;

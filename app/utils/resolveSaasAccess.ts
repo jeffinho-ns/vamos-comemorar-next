@@ -1,4 +1,4 @@
-import { isSaasModeEnabled } from "./saasMode";
+import { shouldEnforceEntitlements } from "./saasMode";
 
 /** Combina entitlements SaaS com fallback legado (UEP) durante a transição. */
 export function resolveSaasModuleAccess(
@@ -11,9 +11,11 @@ export function resolveSaasModuleAccess(
     canPermission?: (key: string) => boolean;
   },
 ): boolean {
-  if (!isSaasModeEnabled() || opts.allowAll) return legacyAllowed;
+  if (!shouldEnforceEntitlements({ allowAll: opts.allowAll }) || opts.allowAll) {
+    return legacyAllowed;
+  }
   if (!opts.canModule(moduleKey)) return false;
-  if (legacyAllowed || opts.legacyScoped) return true;
+  if (legacyAllowed) return true;
   const readPerm = `${moduleKey}:read`;
   if (opts.canPermission?.(readPerm)) return true;
   return false;
@@ -28,7 +30,9 @@ export function resolveSaasPermissionAccess(
     canPermission: (key: string) => boolean;
   },
 ): boolean {
-  if (!isSaasModeEnabled() || opts.allowAll) return legacyAllowed;
+  if (!shouldEnforceEntitlements({ allowAll: opts.allowAll }) || opts.allowAll) {
+    return legacyAllowed;
+  }
   if (legacyAllowed || opts.legacyScoped) return true;
   return opts.canPermission(permissionKey);
 }

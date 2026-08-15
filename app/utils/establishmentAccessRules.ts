@@ -12,7 +12,8 @@ export const REGIANE_RESTRICTED_EMAIL = "regianebrunno@gmail.com";
 /** Único usuário que enxerga o estabelecimento Sitio Ilha em todo o app (listas, admin filtrado, cardápio). */
 export const SITIO_ILHA_OWNER_EMAIL = "jeffinho_ns@hotmail.com";
 
-/** Admin global (todos os estabelecimentos) — flag JWT `is_super_admin` ou role admin sem escopo no banco. */
+/** Admin global (todos os estabelecimentos) — somente superadmin SaaS (`isSuperAdmin=1`).
+ * Admin de uma organização NÃO é global: vê só as casas da própria empresa. */
 
 export type EstablishmentPermissionLike = {
   is_active?: boolean;
@@ -29,19 +30,14 @@ export type GlobalAdminOptions = {
   permissionsResolved?: boolean;
 };
 
-/** Admin com permissões ativas por estabelecimento vê só o escopo; admin sem linhas no banco = global. */
+/** Superadmin SaaS. Admin de tenant (`role=admin` sem UEP) NÃO vê outras empresas. */
 export function isGlobalAdminUser(
   email: string | null | undefined,
-  role: string | null | undefined,
-  permissions: EstablishmentPermissionLike[] = [],
-  options: GlobalAdminOptions = {},
+  _role?: string | null,
+  _permissions: EstablishmentPermissionLike[] = [],
+  _options: GlobalAdminOptions = {},
 ): boolean {
-  if (isSuperAdminEmail(email)) return true;
-  const normalizedRole = (role || "").trim().toLowerCase();
-  if (normalizedRole !== "admin") return false;
-  if (options.permissionsResolved === false) return false;
-  const active = permissions.filter((p) => p.is_active !== false);
-  return active.length === 0;
+  return isSuperAdminEmail(email);
 }
 
 export function getActiveEstablishmentIds(
@@ -90,7 +86,10 @@ export function filterEstablishmentsByUserScope<
     return visibilityScoped;
   }
   const allowedIds = getActiveEstablishmentIds(permissions);
-  if (allowedIds.length === 0) return [];
+  if (allowedIds.length === 0) {
+    // Sem UEP: a API já devolve só as casas da organização do usuário.
+    return visibilityScoped;
+  }
   return visibilityScoped.filter((est) =>
     establishmentMatchesUserScope(est.id, allowedIds),
   );
