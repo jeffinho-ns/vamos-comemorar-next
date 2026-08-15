@@ -80,8 +80,12 @@ export default function EstablishmentsPanel({
   const [showArchived, setShowArchived] = useState(false);
 
   const catalogKeys = moduleCatalog.map((m) => m.key);
-  const defaultEstablishmentModules =
+  const contractedKeys =
     orgEnabledModules.length > 0 ? orgEnabledModules : catalogKeys;
+  const defaultEstablishmentModules = contractedKeys;
+  const visibleCatalog = moduleCatalog.filter((m) =>
+    contractedKeys.includes(m.key),
+  );
 
   const activeEstablishments = establishments.filter(
     (e) => (e.status || "active") !== "archived",
@@ -375,7 +379,7 @@ export default function EstablishmentsPanel({
               Funcionalidades deste estabelecimento (marque quantas quiser)
             </p>
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-              {moduleCatalog.map((m) => {
+              {visibleCatalog.map((m) => {
                 const on = estForm.enabledModules.includes(m.key);
                 return (
                   <label
@@ -397,7 +401,7 @@ export default function EstablishmentsPanel({
                 type="button"
                 className="text-xs text-amber-400 hover:underline"
                 onClick={() =>
-                  setEstForm((p) => ({ ...p, enabledModules: [...catalogKeys] }))
+                  setEstForm((p) => ({ ...p, enabledModules: [...contractedKeys] }))
                 }
               >
                 Marcar todos
@@ -540,7 +544,9 @@ export default function EstablishmentsPanel({
                       <p className="text-xs text-slate-500">Carregando módulos…</p>
                     ) : (
                       <div className="flex flex-wrap gap-2">
-                        {estModules.map((m) => (
+                        {estModules
+                          .filter((m) => contractedKeys.includes(m.key))
+                          .map((m) => (
                           <button
                             key={m.key}
                             type="button"

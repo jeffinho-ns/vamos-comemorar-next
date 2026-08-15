@@ -1,6 +1,6 @@
 /**
  * Mapeamento href → módulo SaaS para filtragem da sidebar (Fase 4).
- * Links sem entrada aqui permanecem visíveis (fail-open para rotas legadas).
+ * Links sem módulo mapeado somem quando o contrato da empresa está ativo.
  */
 
 export interface NavModuleMeta {
@@ -71,7 +71,7 @@ export function filterNavByEntitlements<T extends { href: string }>(
   const skipFinePermissions = permissions.length === 0;
   return links.filter((link) => {
     const meta = NAV_MODULE_BY_HREF[link.href];
-    if (!meta) return true;
+    if (!meta) return false;
     if (legacyRouteAllowed?.(link.href, meta)) return true;
     if (!canModule(meta.module)) return false;
     if (

@@ -38,6 +38,7 @@ type Props = {
   memberships: MembershipRow[];
   permissions: EstablishmentPermission[];
   establishments: EstablishmentRow[];
+  orgEnabledModules?: string[];
   impersonatingId: number | null;
   onImpersonate: (userId: number) => void;
   onReload: () => void;
@@ -55,6 +56,7 @@ export default function UserAccessPanel({
   memberships,
   permissions,
   establishments,
+  orgEnabledModules,
   impersonatingId,
   onImpersonate,
   onReload,
@@ -769,6 +771,7 @@ export default function UserAccessPanel({
                           </div>
                           <PermissionFieldsEditor
                             value={permEditor.perms}
+                            allowedModules={orgEnabledModules}
                             onChange={(perms) =>
                               setPermEditor((p) => (p ? { ...p, perms } : p))
                             }

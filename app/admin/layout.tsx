@@ -385,10 +385,7 @@ export default function DashboardLayout({
     ];
   }
 
-  const showEquipeNav =
-    isSuperAdmin ||
-    (entitlements.allowAll && isSuperAdmin) ||
-    entitlements.isAccountAdmin === true;
+  const showEquipeNav = isSuperAdmin;
   if (showEquipeNav && !navLinks.some((l) => l.href === "/admin/equipe")) {
     const usersIdx = navLinks.findIndex((l) => l.href === "/admin/users");
     const insertAt = usersIdx >= 0 ? usersIdx + 1 : navLinks.length;
@@ -409,6 +406,17 @@ export default function DashboardLayout({
       false,
       uepLegacyRouteAllowed,
     );
+  }
+
+  if (
+    !isSuperAdmin &&
+    entitlements.isAccountAdmin === true &&
+    !navLinks.some((l) => l.href === "/admin/equipe")
+  ) {
+    navLinks = [
+      ...navLinks,
+      { href: "/admin/equipe", label: "Equipe", icon: MdGroup },
+    ];
   }
 
   if (navLinks.length === 0 && hasStoredAuth && clientSessionReady) {

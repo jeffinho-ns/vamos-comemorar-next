@@ -77,6 +77,28 @@ export default function SuperadminOrganizationDetailPage() {
     return () => clearTimeout(timer);
   }, [successMessage]);
 
+  const applyOnlyModules = async (keys: string[]) => {
+    if (!detail) return;
+    setError(null);
+    try {
+      const wanted = new Set(keys);
+      await Promise.all(
+        detail.modules.map((m) =>
+          superadminFetch(`/organizations/${id}/modules/${m.key}`, {
+            method: "PUT",
+            body: JSON.stringify({ is_enabled: wanted.has(m.key) }),
+          }),
+        ),
+      );
+      setSuccessMessage(
+        "Módulos da empresa e das casas atualizados. Peça ao usuário para sair e entrar de novo.",
+      );
+      load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Erro ao atualizar módulos");
+    }
+  };
+
   const toggleModule = async (moduleKey: string, isEnabled: boolean) => {
     setError(null);
     try {
@@ -232,6 +254,13 @@ export default function SuperadminOrganizationDetailPage() {
               {MODULE_LABELS[m.key] || m.name || m.key}
             </button>
           ))}
+          <button
+            type="button"
+            className="text-xs text-amber-400 hover:underline"
+            onClick={() => applyOnlyModules(["cardapio"])}
+          >
+            Só cardápio
+          </button>
         </div>
       </div>
 
@@ -270,6 +299,7 @@ export default function SuperadminOrganizationDetailPage() {
           memberships={memberships}
           permissions={permissions}
           establishments={activeEstablishments}
+          orgEnabledModules={detail.modules.filter((m) => m.is_enabled).map((m) => m.key)}
           impersonatingId={impersonatingId}
           onImpersonate={impersonateUser}
           onReload={load}

@@ -100,6 +100,37 @@ export const ESTABLISHMENT_PERMISSION_GROUPS: PermissionGroup[] = [
   },
 ];
 
+/** Grupo da UI UEP → módulo contratado da organização. */
+export const PERMISSION_GROUP_MODULE: Record<string, string> = {
+  reservas: "reservas",
+  checkin: "checkin",
+  atendimento: "whatsapp",
+  ia: "whatsapp",
+  cardapio: "cardapio",
+  eventos: "eventos",
+  operacional: "reservas",
+  relatorios: "relatorios",
+};
+
+export const PERMISSION_FIELD_MODULE: Record<EstablishmentPermissionKey, string> =
+  Object.fromEntries(
+    ESTABLISHMENT_PERMISSION_GROUPS.flatMap((g) =>
+      g.fields.map((f) => [f.key, PERMISSION_GROUP_MODULE[g.id] || g.id]),
+    ),
+  ) as Record<EstablishmentPermissionKey, string>;
+
+export function permissionGroupsForModules(
+  moduleKeys?: string[] | null,
+): PermissionGroup[] {
+  if (!moduleKeys || moduleKeys.includes("*")) {
+    return ESTABLISHMENT_PERMISSION_GROUPS;
+  }
+  const allowed = new Set(moduleKeys);
+  return ESTABLISHMENT_PERMISSION_GROUPS.filter((g) =>
+    allowed.has(PERMISSION_GROUP_MODULE[g.id] || g.id),
+  );
+}
+
 export const ALL_ESTABLISHMENT_PERMISSION_KEYS: EstablishmentPermissionKey[] =
   ESTABLISHMENT_PERMISSION_GROUPS.flatMap((g) => g.fields.map((f) => f.key));
 

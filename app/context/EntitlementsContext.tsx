@@ -55,6 +55,22 @@ const DENY_ALL: Entitlements = {
   establishmentIds: [],
 };
 
+function contractEntitlements(data: Entitlements): Entitlements {
+  if (data.allowAll) return data;
+  const modules = Array.isArray(data.modules)
+    ? data.modules.filter((key) => key && key !== "*")
+    : [];
+  const allowed = new Set(modules);
+  const permissions = Array.isArray(data.permissions)
+    ? data.permissions.filter((key) => {
+        const idx = key.indexOf(":");
+        const moduleKey = idx > 0 ? key.slice(0, idx) : key;
+        return allowed.has(moduleKey);
+      })
+    : [];
+  return { ...data, modules, permissions };
+}
+
 const EntitlementsContext = createContext<EntitlementsContextValue>({
   entitlements: DENY_ALL,
   loading: false,
@@ -106,17 +122,19 @@ export function EntitlementsProvider({ children }: { children: ReactNode }) {
       const json = await res.json();
       const data = json?.data as Entitlements | undefined;
       if (data && typeof data.allowAll === "boolean") {
-        setEntitlements({
-          allowAll: data.allowAll,
-          modules: Array.isArray(data.modules) ? data.modules : [],
-          permissions: Array.isArray(data.permissions) ? data.permissions : [],
-          organizationId: data.organizationId ?? null,
-          establishmentIds: Array.isArray(data.establishmentIds)
-            ? data.establishmentIds.map(Number).filter((n) => n > 0)
-            : [],
-          legacyScoped: data.legacyScoped === true,
-          isAccountAdmin: data.isAccountAdmin === true,
-        });
+        setEntitlements(
+          contractEntitlements({
+            allowAll: data.allowAll,
+            modules: Array.isArray(data.modules) ? data.modules : [],
+            permissions: Array.isArray(data.permissions) ? data.permissions : [],
+            organizationId: data.organizationId ?? null,
+            establishmentIds: Array.isArray(data.establishmentIds)
+              ? data.establishmentIds.map(Number).filter((n) => n > 0)
+              : [],
+            legacyScoped: data.legacyScoped === true,
+            isAccountAdmin: data.isAccountAdmin === true,
+          }),
+        );
       } else {
         setEntitlements(DENY_ALL);
       }

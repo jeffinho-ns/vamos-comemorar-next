@@ -1,20 +1,23 @@
 "use client";
 
 import {
-  ESTABLISHMENT_PERMISSION_GROUPS,
+  permissionGroupsForModules,
   type EstablishmentPermissionFlags,
 } from "@/app/config/establishmentPermissionCatalog";
 
 export default function PermissionFieldsEditor({
   value,
   onChange,
+  allowedModules,
 }: {
   value: EstablishmentPermissionFlags;
   onChange: (next: EstablishmentPermissionFlags) => void;
+  allowedModules?: string[] | null;
 }) {
+  const groups = permissionGroupsForModules(allowedModules);
   return (
     <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-      {ESTABLISHMENT_PERMISSION_GROUPS.map((group) => (
+      {groups.map((group) => (
         <div
           key={group.id}
           className="rounded-lg border border-slate-800 bg-slate-950/40 p-3"

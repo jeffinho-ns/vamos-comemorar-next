@@ -28,11 +28,16 @@ export function resolveSaasPermissionAccess(
     allowAll: boolean;
     legacyScoped?: boolean;
     canPermission: (key: string) => boolean;
+    canModule?: (key: string) => boolean;
   },
 ): boolean {
   if (!shouldEnforceEntitlements({ allowAll: opts.allowAll }) || opts.allowAll) {
     return legacyAllowed;
   }
+  const moduleKey = permissionKey.includes(":")
+    ? permissionKey.slice(0, permissionKey.indexOf(":"))
+    : permissionKey;
+  if (opts.canModule && moduleKey && !opts.canModule(moduleKey)) return false;
   if (legacyAllowed || opts.legacyScoped) return true;
   return opts.canPermission(permissionKey);
 }

@@ -51,6 +51,11 @@ export default function SuperadminOrganizationsPage() {
     setSaving(true);
     setError(null);
     try {
+      if (!form.enabledModules.length) {
+        setError("Selecione ao menos um módulo desta empresa.");
+        setSaving(false);
+        return;
+      }
       const parsed = Math.round(
         parseFloat(form.monthlyAmount.replace(",", ".") || "0") * 100,
       );
@@ -64,9 +69,7 @@ export default function SuperadminOrganizationsPage() {
           adminName: form.adminName || undefined,
           establishmentName: form.establishmentName || undefined,
           monthlyAmountCents: Number.isFinite(parsed) ? parsed : undefined,
-          enabledModules: form.enabledModules.length
-            ? form.enabledModules
-            : undefined,
+          enabledModules: form.enabledModules,
         }),
       });
       setShowForm(false);
@@ -152,8 +155,8 @@ export default function SuperadminOrganizationsPage() {
               Módulos desta empresa (separados da organização já existente)
             </p>
             <p className="mb-3 text-xs text-slate-500">
-              Se nenhum for marcado, vale o plano escolhido. Marque só o que
-              essa empresa vai usar — o login dela não enxerga as outras casas.
+              Marque só o que essa empresa vai usar. Sem isso, o login dela
+              herda o plano completo (todas as funções).
             </p>
             <div className="flex flex-wrap gap-3">
               {Object.entries(MODULE_LABELS).map(([key, label]) => {

@@ -30,6 +30,7 @@ export function useSaasAccess() {
       allowAll,
       legacyScoped,
       canPermission,
+      canModule,
     });
 
   return {

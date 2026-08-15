@@ -16,6 +16,11 @@ import {
   getActiveEstablishmentIds,
 } from "@/app/utils/establishmentAccessRules";
 import Gate from "@/app/components/Gate";
+import { useEntitlements } from "@/app/context/EntitlementsContext";
+import {
+  PERMISSION_FIELD_MODULE,
+  type EstablishmentPermissionKey,
+} from "@/app/config/establishmentPermissionCatalog";
 
 const API_URL =
   process.env.NEXT_PUBLIC_API_URL ||
@@ -71,6 +76,35 @@ const ROLE_LABELS: Record<string, string> = {
   promoter: "Promoter",
   recepcao: "Recepcionista",
 };
+
+const ESTAB_PERM_FIELDS: { key: keyof EstablishmentPerms; label: string }[] = [
+  { key: "can_manage_reservations", label: "Gerenciar reservas" },
+  {
+    key: "can_create_edit_reservations",
+    label: "Criar/editar reservas e lista de espera",
+  },
+  { key: "can_manage_checkins", label: "Gerenciar check-ins" },
+  { key: "can_view_reports", label: "Ver relatórios" },
+  { key: "can_view_os", label: "Ver OS" },
+  { key: "can_download_os", label: "Baixar OS" },
+  { key: "can_view_operational_detail", label: "Ver detalhes operacionais" },
+  { key: "can_edit_os", label: "Editar OS" },
+  { key: "can_edit_operational_detail", label: "Editar detalhes operacionais" },
+  { key: "can_create_os", label: "Criar OS" },
+  { key: "can_create_operational_detail", label: "Criar detalhes operacionais" },
+  { key: "can_view_cardapio", label: "Ver Cardápio" },
+  { key: "can_create_cardapio", label: "Criar Cardápio" },
+  { key: "can_edit_cardapio", label: "Editar Cardápio" },
+  { key: "can_delete_cardapio", label: "Excluir Cardápio" },
+];
+
+function visibleEstabPermFields(allowAll: boolean, modules: string[]) {
+  if (allowAll || modules.includes("*")) return ESTAB_PERM_FIELDS;
+  const allowed = new Set(modules);
+  return ESTAB_PERM_FIELDS.filter((f) =>
+    allowed.has(PERMISSION_FIELD_MODULE[f.key as EstablishmentPermissionKey] || ""),
+  );
+}
 
 export default function UsersPage() {
   const { userEmail, role, myPermissions, isLoading: contextLoading } = useAppContext();
@@ -518,6 +552,11 @@ function CreateUserModal({
   apiUrl,
   canChangeGlobalUserRole,
 }: CreateUserModalProps) {
+  const { entitlements } = useEntitlements();
+  const estabPermFields = visibleEstabPermFields(
+    entitlements.allowAll,
+    entitlements.modules,
+  );
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -765,26 +804,7 @@ function CreateUserModal({
                       </button>
                     </div>
                     <div className="grid grid-cols-2 gap-2 text-xs">
-                      {[
-                        { key: "can_manage_reservations", label: "Gerenciar reservas" },
-                        {
-                          key: "can_create_edit_reservations",
-                          label: "Criar/editar reservas e lista de espera",
-                        },
-                        { key: "can_manage_checkins", label: "Gerenciar check-ins" },
-                        { key: "can_view_reports", label: "Ver relatórios" },
-                        { key: "can_view_os", label: "Ver OS" },
-                        { key: "can_download_os", label: "Baixar OS" },
-                        { key: "can_view_operational_detail", label: "Ver detalhes operacionais" },
-                        { key: "can_edit_os", label: "Editar OS" },
-                        { key: "can_edit_operational_detail", label: "Editar detalhes operacionais" },
-                        { key: "can_create_os", label: "Criar OS" },
-                        { key: "can_create_operational_detail", label: "Criar detalhes operacionais" },
-                        { key: "can_view_cardapio", label: "Ver Cardápio" },
-                        { key: "can_create_cardapio", label: "Criar Cardápio" },
-                        { key: "can_edit_cardapio", label: "Editar Cardápio" },
-                        { key: "can_delete_cardapio", label: "Excluir Cardápio" },
-                      ].map(({ key, label }) => (
+                      {estabPermFields.map(({ key, label }) => (
                         <label key={key} className="flex items-center gap-2">
                           <input
                             type="checkbox"
@@ -913,6 +933,11 @@ function EditUserModal({
   apiUrl,
   canChangeGlobalUserRole,
 }: EditUserModalProps) {
+  const { entitlements } = useEntitlements();
+  const estabPermFields = visibleEstabPermFields(
+    entitlements.allowAll,
+    entitlements.modules,
+  );
   const normalizeRole = (r: string | undefined): Role => {
     if (!r) return "usuario";
     const s = String(r).toLowerCase();
@@ -1259,26 +1284,7 @@ function EditUserModal({
                       </button>
                     </div>
                     <div className="grid grid-cols-2 gap-2 text-xs">
-                      {[
-                        { key: "can_manage_reservations", label: "Gerenciar reservas" },
-                        {
-                          key: "can_create_edit_reservations",
-                          label: "Criar/editar reservas e lista de espera",
-                        },
-                        { key: "can_manage_checkins", label: "Gerenciar check-ins" },
-                        { key: "can_view_reports", label: "Ver relatórios" },
-                        { key: "can_view_os", label: "Ver OS" },
-                        { key: "can_download_os", label: "Baixar OS" },
-                        { key: "can_view_operational_detail", label: "Ver detalhes operacionais" },
-                        { key: "can_edit_os", label: "Editar OS" },
-                        { key: "can_edit_operational_detail", label: "Editar detalhes operacionais" },
-                        { key: "can_create_os", label: "Criar OS" },
-                        { key: "can_create_operational_detail", label: "Criar detalhes operacionais" },
-                        { key: "can_view_cardapio", label: "Ver Cardápio" },
-                        { key: "can_create_cardapio", label: "Criar Cardápio" },
-                        { key: "can_edit_cardapio", label: "Editar Cardápio" },
-                        { key: "can_delete_cardapio", label: "Excluir Cardápio" },
-                      ].map(({ key, label }) => (
+                      {estabPermFields.map(({ key, label }) => (
                         <label key={key} className="flex items-center gap-2">
                           <input
                             type="checkbox"
