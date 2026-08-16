@@ -67,10 +67,11 @@ export default function UserAccessPanel({
   const [expandedKey, setExpandedKey] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
-  const [showAddUser, setShowAddUser] = useState(false);
   const [addForm, setAddForm] = useState({
+    name: "",
     email: "",
-    roleKey: "recepcao",
+    password: "",
+    roleKey: "account_admin",
     establishmentId: "",
   });
 
@@ -135,13 +136,15 @@ export default function UserAccessPanel({
     );
   }, [cards, search]);
 
-  const runAction = async (fn: () => Promise<void>) => {
+  const runAction = async (fn: () => Promise<void>): Promise<boolean> => {
     setSaving(true);
     onError(null);
     try {
       await fn();
+      return true;
     } catch (err) {
       onError(err instanceof Error ? err.message : "Erro ao salvar");
+      return false;
     } finally {
       setSaving(false);
     }
@@ -181,9 +184,42 @@ export default function UserAccessPanel({
   const submitAddUser = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!addForm.email.trim()) return;
-    await addMembership(addForm.email, addForm.roleKey, addForm.establishmentId);
-    setAddForm({ email: "", roleKey: "recepcao", establishmentId: "" });
-    setShowAddUser(false);
+    if (addForm.password.length < 8) {
+      onError("Defina uma senha com pelo menos 8 caracteres.");
+      return;
+    }
+    const establishmentId =
+      addForm.establishmentId ||
+      (establishments.length === 1 ? String(establishments[0].id) : "");
+    const ok = await runAction(async () => {
+      const result = await superadminFetch<{ created?: boolean; email: string }>(
+        `/organizations/${orgId}/users`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            name: addForm.name.trim() || undefined,
+            email: addForm.email.trim(),
+            password: addForm.password,
+            roleKey: addForm.roleKey,
+            establishmentId: establishmentId ? Number(establishmentId) : undefined,
+          }),
+        },
+      );
+      onSuccess(
+        result.created === false
+          ? `${addForm.email.trim()} já existia e foi vinculado a esta organização.`
+          : `Usuário ${addForm.email.trim()} criado. Use essa senha no login.`,
+      );
+      onReload();
+    });
+    if (!ok) return;
+    setAddForm({
+      name: "",
+      email: "",
+      password: "",
+      roleKey: "account_admin",
+      establishmentId: establishments.length === 1 ? String(establishments[0].id) : "",
+    });
   };
 
   const savePermPayload = (
@@ -294,41 +330,28 @@ export default function UserAccessPanel({
   };
 
   return (
-    <section className="rounded-xl border border-slate-800 bg-slate-900/40 p-4">
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h3 className="text-lg font-semibold">Usuários e acessos</h3>
-          <p className="text-sm text-slate-400">
-            Tudo de cada usuário em um lugar: roles SaaS, permissões por casa e suporte.
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <input
-            type="search"
-            placeholder="Buscar por nome ou e-mail…"
-            className="rounded border border-slate-700 bg-slate-950 px-3 py-2 text-sm"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-          <button
-            type="button"
-            onClick={() => setShowAddUser((v) => !v)}
-            className="rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-slate-950"
-          >
-            {showAddUser ? "Cancelar" : "Adicionar usuário"}
-          </button>
-        </div>
-      </div>
-
-      {showAddUser && (
+    <section className="space-y-4">
+      <div className="rounded-xl border border-amber-900/40 bg-slate-900/40 p-4">
+        <h3 className="text-lg font-semibold text-amber-200">Novo usuário desta organização</h3>
+        <p className="mb-4 text-sm text-slate-400">
+          Cria o login (e-mail e senha) já vinculado a esta empresa. O acesso segue os
+          módulos contratados — admin, gerente ou recepção só vê o que está liberado.
+        </p>
         <form
           onSubmit={submitAddUser}
-          className="mb-4 grid gap-3 rounded-lg border border-slate-800 bg-slate-950/50 p-4 sm:grid-cols-2 lg:grid-cols-4"
+          className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3"
         >
-          <div className="sm:col-span-2">
-            <label className="mb-1 block text-xs text-slate-400">
-              E-mail do usuário (precisa já ter cadastro)
-            </label>
+          <div>
+            <label className="mb-1 block text-xs text-slate-400">Nome</label>
+            <input
+              placeholder="Nome"
+              className="w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 text-sm"
+              value={addForm.name}
+              onChange={(e) => setAddForm((p) => ({ ...p, name: e.target.value }))}
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs text-slate-400">E-mail</label>
             <input
               type="email"
               required
@@ -339,7 +362,20 @@ export default function UserAccessPanel({
             />
           </div>
           <div>
-            <label className="mb-1 block text-xs text-slate-400">Role SaaS</label>
+            <label className="mb-1 block text-xs text-slate-400">Senha (mín. 8)</label>
+            <input
+              type="password"
+              required
+              minLength={8}
+              autoComplete="new-password"
+              placeholder="Senha de acesso"
+              className="w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 text-sm"
+              value={addForm.password}
+              onChange={(e) => setAddForm((p) => ({ ...p, password: e.target.value }))}
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs text-slate-400">Papel</label>
             <select
               className="w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 text-sm"
               value={addForm.roleKey}
@@ -353,15 +389,20 @@ export default function UserAccessPanel({
             </select>
           </div>
           <div>
-            <label className="mb-1 block text-xs text-slate-400">Escopo</label>
+            <label className="mb-1 block text-xs text-slate-400">Estabelecimento</label>
             <select
               className="w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 text-sm"
-              value={addForm.establishmentId}
+              value={
+                addForm.establishmentId ||
+                (establishments.length === 1 ? String(establishments[0].id) : "")
+              }
               onChange={(e) =>
                 setAddForm((p) => ({ ...p, establishmentId: e.target.value }))
               }
             >
-              <option value="">Toda a organização</option>
+              {establishments.length !== 1 && (
+                <option value="">Todos os estabelecimentos da empresa</option>
+              )}
               {establishments.map((est) => (
                 <option key={est.id} value={String(est.id)}>
                   {est.name}
@@ -369,16 +410,34 @@ export default function UserAccessPanel({
               ))}
             </select>
           </div>
-          <button
-            type="submit"
-            disabled={saving}
-            className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium disabled:opacity-50 sm:col-span-2 lg:col-span-4"
-          >
-            {saving ? "Adicionando…" : "Adicionar à organização"}
-          </button>
+          <div className="flex items-end">
+            <button
+              type="submit"
+              disabled={saving}
+              className="w-full rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-slate-950 disabled:opacity-50"
+            >
+              {saving ? "Criando…" : "Criar usuário"}
+            </button>
+          </div>
         </form>
-      )}
+      </div>
 
+      <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-4">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h3 className="text-lg font-semibold">Usuários desta organização</h3>
+          <p className="text-sm text-slate-400">
+            Roles, permissões por casa e acesso de suporte.
+          </p>
+        </div>
+        <input
+          type="search"
+          placeholder="Buscar por nome ou e-mail…"
+          className="rounded border border-slate-700 bg-slate-950 px-3 py-2 text-sm"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
+      </div>
       {filteredCards.length === 0 ? (
         <p className="text-sm text-slate-500">
           {cards.length === 0
@@ -818,6 +877,7 @@ export default function UserAccessPanel({
           })}
         </ul>
       )}
+      </div>
     </section>
   );
 }

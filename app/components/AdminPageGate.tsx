@@ -37,6 +37,7 @@ export function AdminPageGate({ children }: { children: ReactNode }) {
     allowAll: !enforceEntitlements || entitlements.allowAll,
     legacyScoped: false,
     permissions: entitlements.permissions,
+    isAccountAdmin: entitlements.isAccountAdmin === true,
     legacyPathAllowed: (_path, meta) =>
       uepAllowsModule(meta.module, activeUep) && canModule(meta.module),
   });
@@ -46,7 +47,12 @@ export function AdminPageGate({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!enforceEntitlements || loading || allowed) return;
     const fallback = firstAllowedAdminPath(canModule, entitlements.allowAll);
-    router.replace(fallback === pathname ? "/acesso-negado" : fallback);
+    if (fallback && fallback !== pathname) {
+      router.replace(fallback);
+      return;
+    }
+    if (pathname === "/admin" || pathname === "/admin/") return;
+    router.replace("/admin");
   }, [enforceEntitlements, loading, allowed, router, canModule, entitlements.allowAll, pathname]);
 
   if (enforceEntitlements && loading && !entitlements.allowAll && !hasUepCheckin) {

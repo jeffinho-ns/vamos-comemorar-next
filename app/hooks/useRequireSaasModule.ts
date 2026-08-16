@@ -1,32 +1,53 @@
 "use client";
 
 import { useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useSaasAccess } from "./useSaasAccess";
 import { useEntitlements } from "../context/EntitlementsContext";
-import { isSaasModeEnabled } from "../utils/saasMode";
+import { shouldEnforceEntitlements } from "../utils/saasMode";
+import { firstAllowedAdminPath } from "../utils/adminRouteModules";
+import { useCan } from "./useCan";
 
 /**
- * Redireciona para /acesso-negado quando SaaS está on e o usuário não tem o módulo.
- * Fail-open com allowAll ou legacyScoped (UEP sem memberships).
+ * Redireciona para o primeiro módulo contratado. Só cai em /acesso-negado
+ * se o usuário autenticado não tiver nenhum módulo e não estiver em /admin.
  */
 export function useRequireSaasModule(allowed: boolean) {
   const router = useRouter();
+  const pathname = usePathname();
   const { entitlementsLoading } = useSaasAccess();
+  const { canModule } = useCan();
   const { entitlements } = useEntitlements();
   const { allowAll, legacyScoped } = entitlements;
-  const saasOn = isSaasModeEnabled();
+  const enforce = shouldEnforceEntitlements(entitlements);
 
   useEffect(() => {
-    if (!saasOn || entitlementsLoading || allowAll || legacyScoped) return;
-    if (!allowed) router.replace("/acesso-negado");
-  }, [saasOn, entitlementsLoading, allowAll, legacyScoped, allowed, router]);
+    if (!enforce || entitlementsLoading || allowAll || legacyScoped || allowed) {
+      return;
+    }
+    const fallback = firstAllowedAdminPath(canModule, allowAll);
+    if (fallback && fallback !== pathname) {
+      router.replace(fallback);
+      return;
+    }
+    if (pathname === "/admin" || pathname === "/admin/") return;
+    router.replace("/admin");
+  }, [
+    enforce,
+    entitlementsLoading,
+    allowAll,
+    legacyScoped,
+    allowed,
+    router,
+    canModule,
+    pathname,
+  ]);
 
   const guardLoading =
-    saasOn && entitlementsLoading && !allowAll && !legacyScoped && !allowed;
+    enforce && entitlementsLoading && !allowAll && !legacyScoped && !allowed;
 
   const blocked =
-    saasOn && !entitlementsLoading && !allowed && !allowAll && !legacyScoped;
+    enforce && !entitlementsLoading && !allowed && !allowAll && !legacyScoped;
 
   return { guardLoading, blocked };
 }

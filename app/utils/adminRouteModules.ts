@@ -18,7 +18,7 @@ export function resolveNavModuleForPath(pathname: string): NavModuleMeta | null 
 export function firstAllowedAdminPath(
   canModule: (key: string) => boolean,
   allowAll: boolean,
-): string {
+): string | null {
   if (allowAll) return "/admin";
   const candidates = [
     "/admin/cardapio",
@@ -26,13 +26,13 @@ export function firstAllowedAdminPath(
     "/admin/checkins",
     "/admin/eventos",
     "/admin/whatsapp",
-    "/admin",
+    "/admin/equipe",
   ];
   for (const href of candidates) {
     const meta = NAV_MODULE_BY_HREF[href];
-    if (!meta || canModule(meta.module)) return href;
+    if (meta && canModule(meta.module)) return href;
   }
-  return "/admin/cardapio";
+  return null;
 }
 
 export function pathAllowedByEntitlements(
@@ -43,10 +43,21 @@ export function pathAllowedByEntitlements(
     allowAll: boolean;
     legacyScoped: boolean;
     permissions: string[];
+    isAccountAdmin?: boolean;
     legacyPathAllowed?: (pathname: string, meta: NavModuleMeta) => boolean;
   },
 ): boolean {
   if (opts.allowAll || opts.legacyScoped) return true;
+  const path = pathname.split("?")[0];
+  if (path === "/admin" || path === "/admin/") {
+    return true;
+  }
+  if (
+    (path === "/admin/equipe" || path.startsWith("/admin/equipe/")) &&
+    opts.isAccountAdmin === true
+  ) {
+    return true;
+  }
   const meta = resolveNavModuleForPath(pathname);
   if (!meta) return true;
   if (opts.legacyPathAllowed?.(pathname, meta)) return true;

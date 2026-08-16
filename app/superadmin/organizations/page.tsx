@@ -30,6 +30,7 @@ export default function SuperadminOrganizationsPage() {
     planKey: "full",
     adminEmail: "",
     adminName: "",
+    adminPassword: "",
     establishmentName: "",
     monthlyAmount: "0",
     enabledModules: [] as string[],
@@ -56,6 +57,11 @@ export default function SuperadminOrganizationsPage() {
         setSaving(false);
         return;
       }
+      if (form.adminEmail && form.adminPassword.length < 8) {
+        setError("Defina uma senha de pelo menos 8 caracteres para o admin inicial.");
+        setSaving(false);
+        return;
+      }
       const parsed = Math.round(
         parseFloat(form.monthlyAmount.replace(",", ".") || "0") * 100,
       );
@@ -67,6 +73,7 @@ export default function SuperadminOrganizationsPage() {
           planKey: form.planKey,
           adminEmail: form.adminEmail || undefined,
           adminName: form.adminName || undefined,
+          adminPassword: form.adminPassword || undefined,
           establishmentName: form.establishmentName || undefined,
           monthlyAmountCents: Number.isFinite(parsed) ? parsed : undefined,
           enabledModules: form.enabledModules,
@@ -79,6 +86,7 @@ export default function SuperadminOrganizationsPage() {
         planKey: "full",
         adminEmail: "",
         adminName: "",
+        adminPassword: "",
         establishmentName: "",
         monthlyAmount: "0",
         enabledModules: [],
@@ -135,6 +143,19 @@ export default function SuperadminOrganizationsPage() {
             className="rounded border border-slate-700 bg-slate-950 px-3 py-2"
             value={form.adminEmail}
             onChange={(e) => setForm({ ...form, adminEmail: e.target.value })}
+          />
+          <input
+            placeholder="Nome do admin inicial"
+            className="rounded border border-slate-700 bg-slate-950 px-3 py-2"
+            value={form.adminName}
+            onChange={(e) => setForm({ ...form, adminName: e.target.value })}
+          />
+          <input
+            type="password"
+            placeholder="Senha do admin inicial (mín. 8 caracteres)"
+            className="rounded border border-slate-700 bg-slate-950 px-3 py-2"
+            value={form.adminPassword}
+            onChange={(e) => setForm({ ...form, adminPassword: e.target.value })}
           />
           <input
             placeholder="Nome do estabelecimento (opcional)"
