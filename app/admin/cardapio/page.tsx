@@ -1336,11 +1336,16 @@ export default function CardapioAdminPage() {
   ]);
 
   useEffect(() => {
-    fetchCardapioMappings().catch(() => undefined);
-  }, []);
-
-  useEffect(() => {
-    fetchData();
+    let cancelled = false;
+    (async () => {
+      await fetchCardapioMappings().catch(() => undefined);
+      if (!cancelled) {
+        await fetchData();
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [fetchData]);
 
   // Índice de imagens: adiar em máquinas lentas (evita competir com o carregamento principal).
@@ -3187,7 +3192,7 @@ export default function CardapioAdminPage() {
 
   // Filtragem de itens com useMemo
   const filteredItems = useMemo(() => {
-    return menuData.items.filter((item) => {
+    return visibleItems.filter((item) => {
       // Filtro de busca por texto
       const matchesSearch = !searchTerm || 
         item.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -3213,7 +3218,7 @@ export default function CardapioAdminPage() {
 
       return matchesSearch && matchesCategory && matchesSubCategory && matchesStatus;
     });
-  }, [menuData.items, searchTerm, filterCategoryId, filterSubCategory, filterStatus]);
+  }, [visibleItems, searchTerm, filterCategoryId, filterSubCategory, filterStatus]);
 
   // Funções para controlar expansão de categorias e subcategorias
   const toggleCategory = useCallback((categoryKey: string) => {
@@ -3479,7 +3484,9 @@ export default function CardapioAdminPage() {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6 admin-grid-4">
                   {visibleCategories.map((category) => {
-                    const bar = visibleBars.find((b) => b.id === category.barId);
+                    const bar = visibleBars.find(
+                      (b) => Number(b.id) === Number(category.barId),
+                    );
                     if (!bar) return null;
 
                     return (
@@ -3810,7 +3817,7 @@ export default function CardapioAdminPage() {
                 )}
 
                 {/* Agrupamento de itens por bar */}
-                {menuData.bars.map((bar) => {
+                {visibleBars.map((bar) => {
                   const itemsForBar = filteredItems.filter(
                     (item) => Number(item.barId) === Number(bar.id),
                   );
@@ -4043,7 +4050,9 @@ export default function CardapioAdminPage() {
                             // Agrupar itens por categoria
                             const itemsByCategory = new Map<string, MenuItem[]>();
                             itemsForBar.forEach((item) => {
-                              const category = menuData.categories.find((c) => c.id === item.categoryId);
+                              const category = menuData.categories.find(
+                                (c) => String(c.id) === String(item.categoryId),
+                              );
                               const categoryName = category?.name || 'Sem Categoria';
                               const categoryKey = `${bar.id}-${item.categoryId}`;
                               
@@ -4055,7 +4064,7 @@ export default function CardapioAdminPage() {
 
                             return Array.from(itemsByCategory.entries()).map(([categoryKey, categoryItems]) => {
                               const category = menuData.categories.find(
-                                (c) => c.id === categoryItems[0].categoryId
+                                (c) => String(c.id) === String(categoryItems[0].categoryId),
                               );
                               const categoryName = category?.name || 'Sem Categoria';
                               const isCategoryExpanded = expandedCategories.has(categoryKey);

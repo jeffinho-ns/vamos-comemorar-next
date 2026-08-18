@@ -21,9 +21,11 @@ export async function fetchCardapioMappings(): Promise<Record<number, number>> {
       headers: token ? { Authorization: `Bearer ${token}` } : {},
     });
     const body = await res.json();
+    // Mapa estático vence: a API às vezes devolve place→place (ex.: 10→10)
+    // quando falta legacy_bar_id/config, e isso some com itens do bar real (15).
     cardapioMappingsCache = {
-      ...ESTABLISHMENT_TO_CARDAPIO_BAR_ID,
       ...(body.data || {}),
+      ...ESTABLISHMENT_TO_CARDAPIO_BAR_ID,
     };
   } catch {
     cardapioMappingsCache = { ...ESTABLISHMENT_TO_CARDAPIO_BAR_ID };
