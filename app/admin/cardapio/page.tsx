@@ -1039,14 +1039,18 @@ export default function CardapioAdminPage() {
       if (scopedBarIds && scopedBarIds.length > 0) {
         const catResults = await Promise.all(
           scopedBarIds.map((id) =>
-            fetch(`${API_BASE_URL}/categories?barId=${id}`).then((r) =>
+            fetch(`${API_BASE_URL}/categories?barId=${id}`, {
+              headers: authHeaders(),
+            }).then((r) =>
               r.ok ? r.json() : [],
             ),
           ),
         );
         const itemResults = await Promise.all(
           scopedBarIds.map((id) =>
-            fetch(`${API_BASE_URL}/items?barId=${id}`).then((r) =>
+            fetch(`${API_BASE_URL}/items?barId=${id}`, {
+              headers: authHeaders(),
+            }).then((r) =>
               r.ok ? r.json() : [],
             ),
           ),
@@ -1054,9 +1058,10 @@ export default function CardapioAdminPage() {
         categories = catResults.flat();
         items = itemResults.flat();
       } else {
+        // Super Admin (ou sem UEP ainda): API isola por JWT; nunca chamar sem Authorization.
         const [categoriesRes, itemsRes] = await Promise.all([
-          fetch(`${API_BASE_URL}/categories`),
-          fetch(`${API_BASE_URL}/items`),
+          fetch(`${API_BASE_URL}/categories`, { headers: authHeaders() }),
+          fetch(`${API_BASE_URL}/items`, { headers: authHeaders() }),
         ]);
         if (!categoriesRes.ok || !itemsRes.ok) {
           throw new Error('Erro ao carregar dados da API');

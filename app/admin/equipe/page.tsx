@@ -28,10 +28,7 @@ export default function EquipePage() {
   const [saving, setSaving] = useState(false);
 
   const isSuperAdmin = readSuperAdminFromCookie();
-  const canManage =
-    isSuperAdmin ||
-    entitlements.allowAll ||
-    entitlements.isAccountAdmin === true;
+  const canManage = isSuperAdmin;
 
   useEffect(() => {
     if (entLoading) return;

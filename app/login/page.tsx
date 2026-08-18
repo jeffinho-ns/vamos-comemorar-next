@@ -194,6 +194,12 @@ export default function Login() {
         
         const userEmail = emailCpf.toLowerCase().trim();
 
+        // Super Admin SaaS: painel de organizações (não o admin de uma casa).
+        if (isSuperAdminFromToken(data.token)) {
+          router.push("/superadmin");
+          return;
+        }
+
         const promoterDashboard = resolvePromoterDestination(
           data.role,
           userEmail,

@@ -13,6 +13,7 @@ import { useUserPermissions } from "../hooks/useUserPermissions";
 import { firstAllowedAdminPath, pathAllowedByEntitlements } from "../utils/adminRouteModules";
 import { shouldEnforceEntitlements } from "../utils/saasMode";
 import { uepAllowsModule } from "../utils/uepModuleAccess";
+import { readSuperAdminFromCookie } from "../utils/superAdminAccess";
 
 function isCheckinAdminPath(pathname: string): boolean {
   const path = pathname.split("?")[0];
@@ -23,6 +24,16 @@ function isCheckinAdminPath(pathname: string): boolean {
   );
 }
 
+function isSuperAdminOnlyPath(pathname: string): boolean {
+  const path = pathname.split("?")[0];
+  return (
+    path === "/admin/equipe" ||
+    path.startsWith("/admin/equipe/") ||
+    path === "/admin/reservas" ||
+    path.startsWith("/admin/reservas/")
+  );
+}
+
 export function AdminPageGate({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -30,6 +41,7 @@ export function AdminPageGate({ children }: { children: ReactNode }) {
   const { entitlements } = useEntitlements();
   const { myEstablishmentPermissions } = useUserPermissions();
   const activeUep = myEstablishmentPermissions.filter((p) => p.is_active !== false);
+  const isSuperAdmin = readSuperAdminFromCookie();
 
   const enforceEntitlements = shouldEnforceEntitlements(entitlements);
   const hasUepCheckin = activeUep.some((p) => p.can_manage_checkins);
@@ -38,13 +50,19 @@ export function AdminPageGate({ children }: { children: ReactNode }) {
     legacyScoped: false,
     permissions: entitlements.permissions,
     isAccountAdmin: entitlements.isAccountAdmin === true,
+    isSuperAdmin,
     legacyPathAllowed: (_path, meta) =>
       uepAllowsModule(meta.module, activeUep) && canModule(meta.module),
   });
   const allowed =
-    allowedByEntitlements || (hasUepCheckin && isCheckinAdminPath(pathname));
+    (allowedByEntitlements || (hasUepCheckin && isCheckinAdminPath(pathname))) &&
+    (!isSuperAdminOnlyPath(pathname) || isSuperAdmin);
 
   useEffect(() => {
+    if (isSuperAdminOnlyPath(pathname) && !isSuperAdmin) {
+      router.replace("/acesso-negado");
+      return;
+    }
     if (!enforceEntitlements || loading || allowed) return;
     const fallback = firstAllowedAdminPath(canModule, entitlements.allowAll);
     if (fallback && fallback !== pathname) {
@@ -53,7 +71,20 @@ export function AdminPageGate({ children }: { children: ReactNode }) {
     }
     if (pathname === "/admin" || pathname === "/admin/") return;
     router.replace("/admin");
-  }, [enforceEntitlements, loading, allowed, router, canModule, entitlements.allowAll, pathname]);
+  }, [
+    enforceEntitlements,
+    loading,
+    allowed,
+    router,
+    canModule,
+    entitlements.allowAll,
+    pathname,
+    isSuperAdmin,
+  ]);
+
+  if (isSuperAdminOnlyPath(pathname) && !isSuperAdmin) {
+    return null;
+  }
 
   if (enforceEntitlements && loading && !entitlements.allowAll && !hasUepCheckin) {
     return (

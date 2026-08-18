@@ -10,6 +10,7 @@ export async function GET(request: NextRequest) {
     const date = searchParams.get('date');
     const status = searchParams.get('status');
     const areaId = searchParams.get('area_id');
+    const establishmentId = searchParams.get('establishment_id');
 
     let url = `${API_BASE_URL}/api/restaurant-reservations`;
     const params = new URLSearchParams();
@@ -17,6 +18,7 @@ export async function GET(request: NextRequest) {
     if (date) params.append('date', date);
     if (status) params.append('status', status);
     if (areaId) params.append('area_id', areaId);
+    if (establishmentId) params.append('establishment_id', establishmentId);
     
     if (params.toString()) {
       url += `?${params.toString()}`;

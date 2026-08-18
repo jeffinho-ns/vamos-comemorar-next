@@ -31,6 +31,8 @@ import { useAppContext } from "@/app/context/AppContext";
 import { filterEstablishmentListForUser } from "@/app/utils/establishmentAccessRules";
 import { filterEstablishmentsByModule } from "@/app/utils/establishmentModuleAccess";
 import { authHeaders } from "@/app/utils/readAuthToken";
+import { readSuperAdminFromCookie } from "@/app/utils/superAdminAccess";
+import { useRouter } from "next/navigation";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL_LOCAL || 'https://api.agilizaiapp.com.br';
 
@@ -127,6 +129,15 @@ interface RevenueByPeriod {
 export default function ReservesPage() {
   const { userEmail } = useAppContext();
   const { canAccessReservas } = useSaasAccess();
+  const router = useRouter();
+  const isSuperAdmin = readSuperAdminFromCookie();
+
+  useEffect(() => {
+    if (!isSuperAdmin) {
+      router.replace("/acesso-negado");
+    }
+  }, [isSuperAdmin, router]);
+
   const [establishments, setEstablishments] = useState<Establishment[]>([]);
   const [birthdayReservations, setBirthdayReservations] = useState<BirthdayReservation[]>([]);
   const [restaurantReservations, setRestaurantReservations] = useState<RestaurantReservation[]>([]);
@@ -1067,7 +1078,8 @@ export default function ReservesPage() {
   }
 
   return (
-    <AdminSaasGuard allowed={canAccessReservas}>
+    <AdminSaasGuard allowed={isSuperAdmin && canAccessReservas}>
+      {!isSuperAdmin ? null : (
       <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white">
         <div className="max-w-7xl mx-auto p-6 lg:p-8">
         {/* Header */}
@@ -1881,6 +1893,7 @@ export default function ReservesPage() {
         </div>
       </div>
       </div>
+      )}
     </AdminSaasGuard>
   );
 }

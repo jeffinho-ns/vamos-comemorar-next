@@ -1,7 +1,8 @@
 /**
  * Regras de visibilidade de estabelecimentos (UI + alinhamento com API).
- * - Regiane: apenas Highline e grupo Seu Justino (inclui Pracinha). Sitio Ilha é outro estabelecimento (só cardápio).
- * - Sitio Ilha: visível apenas para o e-mail autorizado (demais usuários não veem em listagens nem cardápio público).
+ * - Regiane: apenas Highline e grupo Seu Justino (inclui Pracinha).
+ * - Isolamento Sitio Ilha / Grupo Ideia Um: vem da API (organization_id) +
+ *   UEP/entitlements — NÃO ocultar por e-mail hardcoded (staff da org precisa ver a própria casa).
  */
 
 import { SITIO_ILHA_PLACE_ID } from "../config/establishmentIds";
@@ -9,7 +10,7 @@ import { readSuperAdminFromCookie } from "./superAdminAccess";
 
 export const REGIANE_RESTRICTED_EMAIL = "regianebrunno@gmail.com";
 
-/** Único usuário que enxerga o estabelecimento Sitio Ilha em todo o app (listas, admin filtrado, cardápio). */
+/** @deprecated Preferir escopo por organization_id/entitlements. Mantido só para compat. */
 export const SITIO_ILHA_OWNER_EMAIL = "jeffinho_ns@hotmail.com";
 
 /** Admin global (todos os estabelecimentos) — somente superadmin SaaS (`isSuperAdmin=1`).
@@ -99,9 +100,16 @@ export function normalizeUserEmail(email: string | null | undefined): string {
   return (email || "").trim().toLowerCase();
 }
 
-/** Retorna true se o usuário pode ver dados do Sitio Ilha (listas, cardápio /cardapio/sitio-ilha, permissões). */
-export function canUserAccessSitioIlha(userEmail: string | null | undefined): boolean {
-  return normalizeUserEmail(userEmail) === normalizeUserEmail(SITIO_ILHA_OWNER_EMAIL);
+/**
+ * Acesso ao Sitio Ilha: Super Admin ou quem já tem a casa no escopo da API/UEP.
+ * Não amarra mais a um e-mail único (staff da org Sitio Ilha precisa ver a própria casa).
+ */
+export function canUserAccessSitioIlha(
+  userEmail?: string | null,
+  permissions: EstablishmentPermissionLike[] = [],
+): boolean {
+  if (isSuperAdminEmail(userEmail)) return true;
+  return getActiveEstablishmentIds(permissions).includes(SITIO_ILHA_PLACE_ID);
 }
 
 function stripDiacritics(s: string): string {
@@ -137,14 +145,6 @@ export function isHighlineOrSeuJustinoGroupName(name: string | undefined): boole
   return false;
 }
 
-function isSitioIlhaPermissionRow<T extends { establishment_name?: string; establishment_id?: number }>(
-  p: T,
-): boolean {
-  const estId = p.establishment_id;
-  if (estId != null && Number(estId) === SITIO_ILHA_PLACE_ID) return true;
-  return isSitioIlhaEstablishmentLike({ name: p.establishment_name });
-}
-
 export function filterEstablishmentPermissionsForUser<
   T extends { establishment_name?: string; establishment_id?: number },
 >(userEmail: string | null | undefined, permissions: T[]): T[] {
@@ -153,10 +153,6 @@ export function filterEstablishmentPermissionsForUser<
 
   if (e === REGIANE_RESTRICTED_EMAIL) {
     out = out.filter((p) => isHighlineOrSeuJustinoGroupName(p.establishment_name));
-  }
-
-  if (!canUserAccessSitioIlha(userEmail)) {
-    out = out.filter((p) => !isSitioIlhaPermissionRow(p));
   }
 
   return out;
@@ -172,9 +168,7 @@ export function filterEstablishmentListForUser<
     out = out.filter((est) => isHighlineOrSeuJustinoGroupName(est.name || ""));
   }
 
-  if (!canUserAccessSitioIlha(userEmail)) {
-    out = out.filter((est) => !isSitioIlhaEstablishmentLike(est));
-  }
-
+  // Isolamento entre orgs: responsabilidade da API (organization_id) + UEP.
+  // Não ocultar Sitio Ilha por e-mail — staff da org precisa ver a própria casa.
   return out;
 }

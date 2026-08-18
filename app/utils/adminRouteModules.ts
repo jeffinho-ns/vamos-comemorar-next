@@ -44,18 +44,24 @@ export function pathAllowedByEntitlements(
     legacyScoped: boolean;
     permissions: string[];
     isAccountAdmin?: boolean;
+    isSuperAdmin?: boolean;
     legacyPathAllowed?: (pathname: string, meta: NavModuleMeta) => boolean;
   },
 ): boolean {
-  if (opts.allowAll || opts.legacyScoped) return true;
   const path = pathname.split("?")[0];
-  if (path === "/admin" || path === "/admin/") {
-    return true;
-  }
+
+  // Equipe e Reservas consolidadas: apenas Super Admin SaaS.
   if (
-    (path === "/admin/equipe" || path.startsWith("/admin/equipe/")) &&
-    opts.isAccountAdmin === true
+    path === "/admin/equipe" ||
+    path.startsWith("/admin/equipe/") ||
+    path === "/admin/reservas" ||
+    path.startsWith("/admin/reservas/")
   ) {
+    return opts.isSuperAdmin === true;
+  }
+
+  if (opts.allowAll || opts.legacyScoped) return true;
+  if (path === "/admin" || path === "/admin/") {
     return true;
   }
   const meta = resolveNavModuleForPath(pathname);

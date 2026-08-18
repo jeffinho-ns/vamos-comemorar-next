@@ -408,15 +408,9 @@ export default function DashboardLayout({
     );
   }
 
-  if (
-    !isSuperAdmin &&
-    entitlements.isAccountAdmin === true &&
-    !navLinks.some((l) => l.href === "/admin/equipe")
-  ) {
-    navLinks = [
-      ...navLinks,
-      { href: "/admin/equipe", label: "Equipe", icon: MdGroup },
-    ];
+  // /admin/equipe: apenas Super Admin (não account admin de organização).
+  if (!isSuperAdmin) {
+    navLinks = navLinks.filter((l) => l.href !== "/admin/equipe");
   }
 
   if (navLinks.length === 0 && hasStoredAuth && clientSessionReady) {
