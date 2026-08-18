@@ -1822,11 +1822,17 @@ export default function CardapioAdminPage() {
         const errorText = await response.text();
         console.error('❌ Erro do servidor:', errorText);
 
-        let errorData: { error?: string; message?: string } = {};
+        let errorData: { error?: string; message?: string; code?: string } = {};
         try {
           errorData = JSON.parse(errorText);
         } catch (e) {
           errorData = { error: errorText };
+        }
+
+        if (errorData.code === 'MISSING_TOKEN' || response.status === 403) {
+          throw new Error(
+            'Sessão expirada ou sem token. Faça login de novo e clique em Salvar estabelecimento para publicar logo e capa no cardápio público.',
+          );
         }
 
         const errorMessage = errorData.error || errorData.message || `Erro ${response.status}: ${response.statusText}`;
@@ -2392,6 +2398,92 @@ export default function CardapioAdminPage() {
     }
   }, []);
 
+  // Persiste logo/capa no banco assim que o upload termina (bar já existente),
+  // para a página pública /cardapio/[slug] refletir sem depender só do "Salvar".
+  const persistBarMediaPatch = useCallback(
+    async (mediaPatch: {
+      logoUrl?: string;
+      coverImageUrl?: string;
+      coverImages?: string[];
+      popupImageUrl?: string;
+      partner_logos?: string[];
+    }) => {
+      if (!editingBar?.id) return;
+      const headers = authHeaders();
+      if (!('Authorization' in headers)) {
+        alert(
+          'Imagem carregada no formulário, mas não foi possível publicar sem login. Faça login e clique em Salvar estabelecimento.',
+        );
+        return;
+      }
+
+      const mergedLogo = mediaPatch.logoUrl !== undefined ? mediaPatch.logoUrl : barForm.logoUrl;
+      const mergedCovers =
+        mediaPatch.coverImages !== undefined ? mediaPatch.coverImages : barForm.coverImages;
+      const mergedCoverUrl =
+        mediaPatch.coverImageUrl !== undefined
+          ? mediaPatch.coverImageUrl
+          : barForm.coverImageUrl || (mergedCovers[0] || '');
+      const mergedPopup =
+        mediaPatch.popupImageUrl !== undefined ? mediaPatch.popupImageUrl : barForm.popupImageUrl;
+      const mergedPartners =
+        mediaPatch.partner_logos !== undefined ? mediaPatch.partner_logos : barForm.partner_logos;
+
+      const response = await fetch(`${API_BASE_URL}/bars/${editingBar.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          ...headers,
+        },
+        body: JSON.stringify({
+          name: barForm.name || editingBar.name,
+          slug: barForm.slug || editingBar.slug,
+          description: barForm.description ?? editingBar.description ?? '',
+          address: barForm.address ?? editingBar.address ?? '',
+          logoUrl: mergedLogo || '',
+          coverImageUrl: mergedCoverUrl || '',
+          coverImages: Array.isArray(mergedCovers) ? mergedCovers : [],
+          popupImageUrl: mergedPopup || '',
+          partner_logos: Array.isArray(mergedPartners) ? mergedPartners.slice(0, 5) : [],
+          amenities: barForm.amenities || [],
+          custom_seals: barForm.custom_seals || [],
+          facebook: barForm.facebook || '',
+          instagram: barForm.instagram || '',
+          whatsapp: barForm.whatsapp || '',
+          menu_category_bg_color: barForm.menu_category_bg_color || '',
+          menu_category_text_color: barForm.menu_category_text_color || '',
+          menu_subcategory_bg_color: barForm.menu_subcategory_bg_color || '',
+          menu_subcategory_text_color: barForm.menu_subcategory_text_color || '',
+          mobile_sidebar_bg_color: barForm.mobile_sidebar_bg_color || '',
+          mobile_sidebar_text_color: barForm.mobile_sidebar_text_color || '',
+          menu_display_style: barForm.menu_display_style || 'normal',
+          rating: barForm.rating ? parseFloat(String(barForm.rating)) : 0,
+          reviewsCount: barForm.reviewsCount ? parseInt(String(barForm.reviewsCount), 10) : 0,
+          latitude: barForm.latitude ? parseFloat(String(barForm.latitude)) : null,
+          longitude: barForm.longitude ? parseFloat(String(barForm.longitude)) : null,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        let errorData: { error?: string; message?: string } = {};
+        try {
+          errorData = JSON.parse(errorText);
+        } catch {
+          errorData = { error: errorText };
+        }
+        throw new Error(
+          errorData.error ||
+            errorData.message ||
+            `Não foi possível publicar a imagem (${response.status}).`,
+        );
+      }
+
+      await fetchData(false);
+    },
+    [editingBar, barForm, fetchData],
+  );
+
   // Função para fazer upload da imagem após o crop
   const uploadCroppedImage = useCallback(
     async (croppedBlob: Blob, field: string) => {
@@ -2422,37 +2514,46 @@ export default function CardapioAdminPage() {
             field,
             imageValue
           });
+
+          let barMediaPatch: {
+            logoUrl?: string;
+            coverImageUrl?: string;
+            coverImages?: string[];
+            popupImageUrl?: string;
+            partner_logos?: string[];
+          } | null = null;
           
           if (isGalleryUpload) {
             console.log('📸 Upload via galeria detectado (agora Firebase Storage)', { field, imageGalleryField, imageValue });
             
-            // Atualizar o formulário diretamente com a URL completa ou filename
-            // Usar o field que foi passado (que deve ser o mesmo do imageGalleryField)
             const targetField = field;
             
             if (targetField === 'coverImages') {
-              setBarForm((prev) => {
-                const nextCoverImages = [...prev.coverImages, imageValue];
-                const nextCoverImageUrl =
-                  prev.coverImageUrl && prev.coverImageUrl !== PLACEHOLDER_IMAGE_URL
-                    ? prev.coverImageUrl
-                    : imageValue;
-                return {
-                  ...prev,
-                  coverImages: nextCoverImages,
-                  coverImageUrl: nextCoverImageUrl,
-                };
-              });
+              const nextCoverImages = [...barForm.coverImages, imageValue];
+              const nextCoverImageUrl =
+                barForm.coverImageUrl && barForm.coverImageUrl !== PLACEHOLDER_IMAGE_URL
+                  ? barForm.coverImageUrl
+                  : imageValue;
+              barMediaPatch = {
+                coverImages: nextCoverImages,
+                coverImageUrl: nextCoverImageUrl,
+              };
+              setBarForm((prev) => ({
+                ...prev,
+                coverImages: nextCoverImages,
+                coverImageUrl: nextCoverImageUrl,
+              }));
             } else if (targetField === 'partner_logos') {
-              setBarForm((prev) => {
-                const current = prev.partner_logos || [];
-                if (current.length >= 5) return prev;
-                return { ...prev, partner_logos: [...current, imageValue] };
-              });
+              const current = barForm.partner_logos || [];
+              if (current.length < 5) {
+                const next = [...current, imageValue];
+                barMediaPatch = { partner_logos: next };
+                setBarForm((prev) => ({ ...prev, partner_logos: next }));
+              }
             } else if (targetField === 'logoUrl' || targetField === 'coverImageUrl' || targetField === 'popupImageUrl') {
+              barMediaPatch = { [targetField]: imageValue };
               setBarForm((prev) => ({ ...prev, [targetField]: imageValue }));
             } else if (targetField === 'imageUrl') {
-              // Para itens do menu (imageUrl) - usar a URL completa do Cloudinary se disponível
               console.log('🖼️ Atualizando itemForm.imageUrl com:', imageValue);
               setItemForm((prev) => {
                 const updated = { ...prev, imageUrl: imageValue };
@@ -2461,39 +2562,58 @@ export default function CardapioAdminPage() {
               });
             }
             
-            // Fechar o modal da galeria após selecionar
             setShowImageGalleryModal(false);
             setImageGalleryField('');
             setGallerySearchTerm('');
             
             console.log('✅ Imagem adicionada à galeria e selecionada automaticamente!');
           } else {
-            // Atualizar os formulários normalmente
             if (field === 'coverImages') {
-              setBarForm((prev) => {
-                const nextCoverImages = [...prev.coverImages, imageValue];
-                const nextCoverImageUrl =
-                  prev.coverImageUrl && prev.coverImageUrl !== PLACEHOLDER_IMAGE_URL
-                    ? prev.coverImageUrl
-                    : imageValue;
-                return {
-                  ...prev,
-                  coverImages: nextCoverImages,
-                  coverImageUrl: nextCoverImageUrl,
-                };
-              });
+              const nextCoverImages = [...barForm.coverImages, imageValue];
+              const nextCoverImageUrl =
+                barForm.coverImageUrl && barForm.coverImageUrl !== PLACEHOLDER_IMAGE_URL
+                  ? barForm.coverImageUrl
+                  : imageValue;
+              barMediaPatch = {
+                coverImages: nextCoverImages,
+                coverImageUrl: nextCoverImageUrl,
+              };
+              setBarForm((prev) => ({
+                ...prev,
+                coverImages: nextCoverImages,
+                coverImageUrl: nextCoverImageUrl,
+              }));
             } else if (field === 'partner_logos') {
-              setBarForm((prev) => {
-                const current = prev.partner_logos || [];
-                if (current.length >= 5) return prev;
-                return { ...prev, partner_logos: [...current, imageValue] };
-              });
+              const current = barForm.partner_logos || [];
+              if (current.length < 5) {
+                const next = [...current, imageValue];
+                barMediaPatch = { partner_logos: next };
+                setBarForm((prev) => ({ ...prev, partner_logos: next }));
+              }
             } else if (field === 'logoUrl' || field === 'coverImageUrl' || field === 'popupImageUrl') {
+              barMediaPatch = { [field]: imageValue };
               setBarForm((prev) => ({ ...prev, [field]: imageValue }));
             } else {
               setItemForm((prev) => ({ ...prev, imageUrl: imageValue }));
             }
             console.log('✅ Upload concluído com sucesso');
+          }
+
+          if (barMediaPatch && editingBar?.id) {
+            try {
+              await persistBarMediaPatch(barMediaPatch);
+              alert('Imagem publicada no cardápio com sucesso!');
+            } catch (persistErr) {
+              console.error('❌ Upload ok, mas falha ao publicar no bar:', persistErr);
+              alert(
+                `Imagem enviada, mas não entrou no cardápio público ainda. Clique em Salvar estabelecimento.\n\n${
+                  persistErr instanceof Error ? persistErr.message : ''
+                }`,
+              );
+            }
+          } else if (!isGalleryUpload && (field === 'logoUrl' || field === 'coverImages' || field === 'coverImageUrl' || field === 'popupImageUrl' || field === 'partner_logos')) {
+            alert('Imagem carregada! Clique em Salvar estabelecimento para publicar no cardápio.');
+          } else if (!isGalleryUpload && field === 'imageUrl') {
             alert('Imagem carregada com sucesso!');
           }
       } catch (error) {
@@ -2512,7 +2632,7 @@ export default function CardapioAdminPage() {
         throw error; // Re-throw para que o handleCropComplete possa tratar
       }
     },
-    [imageGalleryField],
+    [imageGalleryField, editingBar, persistBarMediaPatch, barForm],
   );
 
   // Handler quando o crop for completado
