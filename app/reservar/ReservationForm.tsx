@@ -910,55 +910,8 @@ const handleSubmit = async (e: React.FormEvent) => {
     delete payload.table_number;
   }
 
-  // 3.1 REGRA NOVA 2º GIRO (BISTRÔ) — APENAS Seu Justino (ID 1) e Pracinha (ID 8)
-  // - Terça a Sexta: 1º giro 18:00–21:00 | 2º giro a partir de 21:00 (inclui madrugada)
-  // - Sábado: 1º giro 12:00–15:00 | 2º giro a partir de 15:00 (inclui madrugada)
-  // - Domingo: 1º giro 12:00–15:00 | 2º giro a partir de 15:00
-  const isSeuJustinoId = !!isSeuJustino;
-  const isPracinhaId = !!isPracinha;
-  let isEsperaAntecipada = false;
-  
-  if ((isSeuJustinoId || isPracinhaId) && reservationData.reservation_date && reservationData.reservation_time) {
-    const reservationDate = new Date(`${reservationData.reservation_date}T00:00:00`);
-    const dayOfWeek = reservationDate.getDay(); // Domingo = 0, Terça = 2, Sexta = 5, Sábado = 6
-    const t = String(reservationData.reservation_time).slice(0, 5);
-    const [hh, mm] = t.split(':').map(Number);
-    if (!Number.isNaN(hh)) {
-      let minutes = hh * 60 + (Number.isNaN(mm) ? 0 : mm);
-      // madrugada (ex.: 01:00) é continuação do "após 21h/15h" do mesmo dia de operação
-      if (minutes < 6 * 60) minutes += 24 * 60;
-
-      const isSecondGiroBistro =
-        // Terça (2) a Sexta (5): após 21:00
-        (dayOfWeek >= 2 && dayOfWeek <= 5 && minutes >= 21 * 60) ||
-        // Sábado (6): após 15:00
-        (dayOfWeek === 6 && minutes >= 15 * 60) ||
-        // Domingo (0): após 15:00
-        (dayOfWeek === 0 && minutes >= 15 * 60);
-
-      if (isSecondGiroBistro) {
-      isEsperaAntecipada = true;
-      // Adicionar flag e nota no payload
-      payload.espera_antecipada = true;
-      payload.notes = (payload.notes ? payload.notes + ' | ' : '') + 'ESPERA ANTECIPADA (Bistrô)';
-      // Não atribuir mesa (remover table_number se existir)
-      delete payload.table_number;
-      
-      // Avisar o usuário
-      const userConfirmed = window.confirm(
-        '⚠️ ATENÇÃO: Este horário está no período de "Giro" de mesas.\n\n' +
-        'Sua reserva será convertida automaticamente para "Reserva em Espera Antecipada (Bistrô)".\n\n' +
-        'Você será atendido conforme a disponibilidade de mesas no momento da chegada.\n\n' +
-        'Deseja continuar com a reserva?'
-      );
-      
-      if (!userConfirmed) {
-        setLoading(false);
-        return;
-      }
-      }
-    }
-  }
+  // 2º giro: a API só converte para espera antecipada se o dia já tiver ocupação.
+  // Não forçar no cliente — dia vazio deve virar reserva normal.
 
   // 4. Lógica para reservas grandes (11+ pessoas vão para large-reservations, 4-10 vão para restaurant-reservations)
   const isLargeGroup = payload.number_of_people >= 11; // CORRIGIDO: apenas 11+ pessoas vão para large-reservations

@@ -37,6 +37,15 @@ import {
   BirthdayService,
   BirthdayReservation,
 } from "../../services/birthdayService";
+import {
+  extractLinkedReservationId,
+  notesIndicateEsperaAntecipada,
+  reservationApiBase,
+  stripEsperaAntecipadaNotes,
+  todayLocalDateKey,
+  toLocalDateKey,
+  type ReservationKind,
+} from "@/app/utils/bistroSecondGiro";
 import { useEstablishmentPermissions } from "@/app/hooks/useEstablishmentPermissions";
 import { useEstablishmentRules } from "@/app/hooks/useEstablishmentRules";
 import { useSaasAccess } from "@/app/hooks/useSaasAccess";
@@ -89,6 +98,8 @@ interface WaitlistEntry {
   position: number;
   estimated_wait_time?: number;
   created_at: string;
+  source?: "waitlist" | "reservation";
+  linked_reservation_id?: number;
 }
 
 interface RestaurantArea {
@@ -120,6 +131,24 @@ function getReservationEventLabel(r: { event_type?: string | null }): string {
   const raw = r.event_type != null ? String(r.event_type).trim() : "";
   if (!raw) return "";
   return EVENT_TYPE_LABELS[raw.toLowerCase()] || raw;
+}
+
+function mapLoadedReservation(
+  r: Record<string, unknown>,
+  kind: ReservationKind,
+): Reservation {
+  const selected = r.selected_tables;
+  let tableNumber = r.table_number != null ? String(r.table_number) : "";
+  if (!tableNumber && selected) {
+    tableNumber = Array.isArray(selected)
+      ? selected.map(String).join(",")
+      : String(selected);
+  }
+  return {
+    ...(r as unknown as Reservation),
+    reservation_kind: kind,
+    table_number: tableNumber || undefined,
+  };
 }
 
 export default function RestaurantReservationsPage() {
@@ -523,10 +552,9 @@ export default function RestaurantReservationsPage() {
     null,
   );
   // Filtro por dia na lista de espera: exibe apenas entradas do dia selecionado
-  const [waitlistDateFilter, setWaitlistDateFilter] = useState<string>(() => {
-    const d = new Date();
-    return d.toISOString().split("T")[0];
-  });
+  const [waitlistDateFilter, setWaitlistDateFilter] = useState<string>(() =>
+    todayLocalDateKey(),
+  );
 
   const [reservationPolicy, setReservationPolicy] =
     useState<ReservationPolicyFlags>({
@@ -962,8 +990,12 @@ export default function RestaurantReservationsPage() {
         ]);
 
         const allReservations = [
-          ...(normalData.reservations || []),
-          ...(largeData.reservations || []),
+          ...(normalData.reservations || []).map((r: Record<string, unknown>) =>
+            mapLoadedReservation(r, "restaurant"),
+          ),
+          ...(largeData.reservations || []).map((r: Record<string, unknown>) =>
+            mapLoadedReservation(r, "large"),
+          ),
         ];
 
         console.log(
@@ -1001,7 +1033,14 @@ export default function RestaurantReservationsPage() {
       });
       if (waitlistResponse.ok) {
         const waitlistData = await waitlistResponse.json();
-        setWaitlist(waitlistData.waitlist || []);
+        setWaitlist(
+          (waitlistData.waitlist || []).map((entry: WaitlistEntry) => ({
+            ...entry,
+            source: "waitlist" as const,
+            linked_reservation_id:
+              extractLinkedReservationId(entry.notes) ?? undefined,
+          })),
+        );
       } else {
         console.error(
           "Erro ao carregar waitlist:",
@@ -1097,10 +1136,12 @@ export default function RestaurantReservationsPage() {
   // Handlers para Reservas
   const handleDateSelect = (date: Date, dateReservations: Reservation[]) => {
     setSelectedDate(date);
+    setWaitlistDateFilter(toLocalDateKey(date));
   };
 
   const handleAddReservation = async (date: Date) => {
     setSelectedDate(date);
+    setWaitlistDateFilter(toLocalDateKey(date));
     setEditingReservation(null);
     await loadAreas();
     // Só checa capacidade aqui (sem hora). Trava por lista de espera é feita no submit, com dia+hora.
@@ -1284,7 +1325,7 @@ export default function RestaurantReservationsPage() {
       try {
         const token = localStorage.getItem("authToken");
         const response = await fetch(
-          `${API_URL}/api/restaurant-reservations/${reservation.id}`,
+          `${API_URL}${reservationApiBase(reservation.reservation_kind)}/${reservation.id}`,
           {
             method: "DELETE",
             headers: {
@@ -1327,7 +1368,7 @@ export default function RestaurantReservationsPage() {
   ) => {
     try {
       const response = await fetch(
-        `${API_URL}/api/restaurant-reservations/${reservation.id}`,
+        `${API_URL}${reservationApiBase(reservation.reservation_kind)}/${reservation.id}`,
         {
           method: "PUT",
           headers: {
@@ -1361,7 +1402,7 @@ export default function RestaurantReservationsPage() {
   const handleCheckIn = async (reservation: Reservation) => {
     try {
       const response = await fetch(
-        `${API_URL}/api/restaurant-reservations/${reservation.id}`,
+        `${API_URL}${reservationApiBase(reservation.reservation_kind)}/${reservation.id}`,
         {
           method: "PUT",
           headers: {
@@ -1398,7 +1439,7 @@ export default function RestaurantReservationsPage() {
   const handleCheckOut = async (reservation: Reservation) => {
     try {
       const response = await fetch(
-        `${API_URL}/api/restaurant-reservations/${reservation.id}`,
+        `${API_URL}${reservationApiBase(reservation.reservation_kind)}/${reservation.id}`,
         {
           method: "PUT",
           headers: {
@@ -1797,7 +1838,11 @@ export default function RestaurantReservationsPage() {
     ) {
       try {
         const token = localStorage.getItem("authToken");
-        const response = await fetch(`${API_URL}/api/waitlist/${entry.id}`, {
+        const isReservationSource = entry.source === "reservation";
+        const deleteUrl = isReservationSource
+          ? `${API_URL}/api/restaurant-reservations/${entry.linked_reservation_id || entry.id}`
+          : `${API_URL}/api/waitlist/${entry.id}`;
+        const response = await fetch(deleteUrl, {
           method: "DELETE",
           headers: {
             "Content-Type": "application/json",
@@ -1807,6 +1852,11 @@ export default function RestaurantReservationsPage() {
 
         if (response.ok) {
           setWaitlist((prev) => prev.filter((w) => w.id !== entry.id));
+          if (isReservationSource) {
+            setReservations((prev) =>
+              prev.filter((r) => Number(r.id) !== Number(entry.linked_reservation_id || entry.id)),
+            );
+          }
           await loadEstablishmentData(); // Recarregar dados
           alert(`✅ ${entry.client_name} removido da lista de espera.`);
         } else {
@@ -2352,8 +2402,11 @@ export default function RestaurantReservationsPage() {
   ) => {
     try {
       const token = localStorage.getItem("authToken");
+      const linkedReservationId =
+        entry.linked_reservation_id ||
+        extractLinkedReservationId(entry.notes);
       const dateString =
-        entry.preferred_date || new Date().toISOString().split("T")[0];
+        entry.preferred_date || todayLocalDateKey();
       let reservationTime = entry.preferred_time || "12:00";
 
       // Garantir formato correto do horário (HH:MM)
@@ -2362,6 +2415,49 @@ export default function RestaurantReservationsPage() {
         if (parts.length === 2) {
           reservationTime = `${parts[0].padStart(2, "0")}:${parts[1].padStart(2, "0")}`;
         }
+      }
+
+      if (linkedReservationId) {
+        const existing = reservations.find(
+          (r) => Number(r.id) === Number(linkedReservationId),
+        );
+        const updateResponse = await fetch(
+          `${API_URL}/api/restaurant-reservations/${linkedReservationId}`,
+          {
+            method: "PUT",
+            headers: {
+              "Content-Type": "application/json",
+              ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            },
+            body: JSON.stringify({
+              table_number: tableNumber,
+              area_id: areaId || entry.preferred_area_id || existing?.area_id,
+              status: "CONFIRMADA",
+              notes: stripEsperaAntecipadaNotes(existing?.notes || entry.notes),
+              has_bistro_table: false,
+              origin: "PESSOAL",
+            }),
+          },
+        );
+        if (!updateResponse.ok) {
+          const errorData = await updateResponse.json().catch(() => ({}));
+          throw new Error(errorData.error || "Erro ao alocar reserva existente");
+        }
+        if (entry.source !== "reservation") {
+          await fetch(`${API_URL}/api/waitlist/${entry.id}`, {
+            method: "DELETE",
+            headers: {
+              "Content-Type": "application/json",
+              ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            },
+          });
+        }
+        setWaitlist((prev) => prev.filter((w) => w.id !== entry.id));
+        await loadEstablishmentData();
+        alert(
+          `✅ Cliente ${entry.client_name} alocado na Mesa ${tableNumber} com sucesso!`,
+        );
+        return;
       }
 
       const reservationPayload = {
@@ -2523,7 +2619,39 @@ export default function RestaurantReservationsPage() {
   });
 
   const activeWalkIns = walkIns.filter((walkIn) => walkIn.status === "ATIVO");
-  const activeWaitlist = waitlist.filter(
+  const esperaAsWaitlist: WaitlistEntry[] = reservations
+    .filter((r) => {
+      if (r.reservation_kind === "large") return false;
+      if (!notesIndicateEsperaAntecipada(r.notes)) return false;
+      const alreadyLinked = waitlist.some(
+        (entry) =>
+          Number(entry.linked_reservation_id) === Number(r.id) ||
+          extractLinkedReservationId(entry.notes) === Number(r.id),
+      );
+      return !alreadyLinked;
+    })
+    .map((r, index) => {
+      const rawDate = String(r.reservation_date || "");
+      return {
+        id: Number(r.id),
+        establishment_id: r.establishment_id,
+        client_name: r.client_name,
+        client_phone: r.client_phone,
+        client_email: r.client_email,
+        number_of_people: r.number_of_people,
+        preferred_date: rawDate.includes("T") ? rawDate.split("T")[0] : rawDate,
+        preferred_time: String(r.reservation_time || "").slice(0, 5),
+        preferred_area_id: r.area_id,
+        notes: r.notes,
+        has_bistro_table: r.has_bistro_table,
+        status: "AGUARDANDO" as const,
+        position: 9000 + index,
+        created_at: r.created_at || new Date().toISOString(),
+        source: "reservation" as const,
+        linked_reservation_id: Number(r.id),
+      };
+    });
+  const activeWaitlist = [...waitlist, ...esperaAsWaitlist].filter(
     (entry) => entry.status === "AGUARDANDO",
   );
 
@@ -3043,7 +3171,7 @@ export default function RestaurantReservationsPage() {
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                       {filteredReservations.map((reservation) => (
                         <motion.div
-                          key={reservation.id}
+                          key={`${reservation.reservation_kind || "restaurant"}-${reservation.id}`}
                           initial={{ opacity: 0, y: 20 }}
                           animate={{ opacity: 1, y: 0 }}
                           className="bg-gray-50 rounded-lg p-4 border border-gray-200 hover:shadow-md transition-shadow"
@@ -5380,7 +5508,7 @@ export default function RestaurantReservationsPage() {
                     ) : (
                       waitlistForSelectedDay.map((entry, index) => (
                         <motion.div
-                          key={entry.id}
+                          key={`${entry.source || "waitlist"}-${entry.id}`}
                           initial={{ opacity: 0, y: 20 }}
                           animate={{ opacity: 1, y: 0 }}
                           className="bg-gray-50 rounded-lg p-4 border border-gray-200 hover:shadow-md transition-shadow"
@@ -5395,6 +5523,14 @@ export default function RestaurantReservationsPage() {
                               <div>
                                 <h4 className="font-semibold text-gray-800">
                                   {entry.client_name}
+                                  {(entry.source === "reservation" ||
+                                    notesIndicateEsperaAntecipada(
+                                      entry.notes,
+                                    )) && (
+                                    <span className="ml-2 text-xs font-medium text-orange-700 bg-orange-100 px-2 py-0.5 rounded-full">
+                                      Espera antecipada
+                                    </span>
+                                  )}
                                 </h4>
                                 <p className="text-sm text-gray-500">
                                   {entry.number_of_people} pessoas • Data:{" "}
@@ -5618,8 +5754,12 @@ export default function RestaurantReservationsPage() {
               try {
                 // Verificar se está editando uma reserva existente ou criando uma nova
                 const isEditing = editingReservation?.id;
+                const editingKind =
+                  (reservationData.reservation_kind as ReservationKind) ||
+                  editingReservation?.reservation_kind ||
+                  "restaurant";
                 const url = isEditing
-                  ? `${API_URL}/api/restaurant-reservations/${editingReservation.id}`
+                  ? `${API_URL}${reservationApiBase(editingKind)}/${editingReservation.id}`
                   : `${API_URL}/api/restaurant-reservations`;
                 const method = isEditing ? "PUT" : "POST";
 
@@ -5910,14 +6050,25 @@ export default function RestaurantReservationsPage() {
                   // Atualizar reserva existente
                   setReservations((prev) =>
                     prev.map((r) =>
-                      r.id === editingReservation.id ? result.reservation : r,
+                      r.id === editingReservation.id
+                        ? {
+                            ...result.reservation,
+                            reservation_kind: editingKind,
+                          }
+                        : r,
                     ),
                   );
                   alert("Reserva atualizada com sucesso!");
                   console.log("✅ Reserva atualizada com sucesso:", result);
                 } else {
                   // Adicionar nova reserva
-                  setReservations((prev) => [...prev, result.reservation]);
+                  setReservations((prev) => [
+                    ...prev,
+                    {
+                      ...result.reservation,
+                      reservation_kind: "restaurant" as const,
+                    },
+                  ]);
                   console.log("✅ Reserva salva com sucesso:", result);
 
                   // Se foi gerada uma lista de convidados, mostrar o link

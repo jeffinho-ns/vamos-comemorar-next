@@ -28,6 +28,11 @@ import {
   WeeklyOperatingSetting,
   DateOperatingOverride,
 } from "@/app/utils/reservationOperatingHours";
+import {
+  isSecondGiroBistro,
+  reservationApiBase,
+  type ReservationKind,
+} from "@/app/utils/bistroSecondGiro";
 
 // Configuração da API
 const API_URL =
@@ -208,6 +213,11 @@ export default function ReservationModal({
   const isSeuJustino = establishmentRulesFlags.isSeuJustino;
   const isPracinha = establishmentRulesFlags.isPracinha;
   const isReservaRooftop = establishmentRulesFlags.isRooftop;
+  const bistroProfile = isPracinha
+    ? "pracinha"
+    : isSeuJustino
+      ? "seu_justino"
+      : null;
 
   const matchesSelectedEstablishment = (reservation: any): boolean => {
     if (!establishment) return true;
@@ -380,37 +390,16 @@ export default function ReservationModal({
     });
   };
 
-  // 2º GIRO (BISTRÔ) — REGRA NOVA (apenas Seu Justino e Pracinha)
-  // - Terça a Sexta: 1º giro 18:00–21:00 | 2º giro a partir de 21:00 (inclui madrugada, ex. 01:00)
-  // - Sábado: 1º giro 12:00–15:00 | 2º giro a partir de 15:00 (inclui madrugada)
-  // - Domingo: 1º giro 12:00–15:00 | 2º giro a partir de 15:00
+  // 2º GIRO (BISTRÔ) — Seu Justino e Pracinha (Pracinha sábado: corte 21:00)
   const isSecondGiroBistroJustinoPracinha = (
     dateStr?: string,
     timeStr?: string,
   ) => {
-    if (!(isSeuJustino || isPracinha)) return false;
-    if (!dateStr || !timeStr) return false;
-
-    const d = new Date(`${dateStr}T00:00:00`);
-    if (Number.isNaN(d.getTime())) return false;
-    const weekday = d.getDay(); // 0=Dom, 2=Ter, 3=Qua, 4=Qui, 5=Sex, 6=Sáb
-
-    const t = String(timeStr).slice(0, 5);
-    const [hh, mm] = t.split(":").map(Number);
-    if (Number.isNaN(hh)) return false;
-    let minutes = hh * 60 + (Number.isNaN(mm) ? 0 : mm);
-
-    // Se cruza meia-noite (horários tipo 00:30, 01:00 etc), tratamos como continuação do "após 21h/15h"
-    // do mesmo dia de operação. Ex: Sexta 01:00 => 25:00 (>= 21:00) => 2º giro.
-    if (minutes < 6 * 60) minutes += 24 * 60;
-
-    // Terça (2) a Sexta (5): 2º giro após 21:00
-    if (weekday >= 2 && weekday <= 5) return minutes >= 21 * 60;
-    // Sábado (6): 2º giro após 15:00
-    if (weekday === 6) return minutes >= 15 * 60;
-    // Domingo (0): 2º giro após 15:00
-    if (weekday === 0) return minutes >= 15 * 60;
-    return false;
+    return isSecondGiroBistro({
+      date: dateStr,
+      time: timeStr,
+      profile: bistroProfile,
+    });
   };
 
   // Função para determinar o giro (1º/2º) com base na regra nova
@@ -522,8 +511,9 @@ export default function ReservationModal({
                 typeof window !== "undefined"
                   ? localStorage.getItem("authToken")
                   : null;
+              const kind = (reservation.reservation_kind || "restaurant") as ReservationKind;
               const res = await fetch(
-                `${API_URL}/api/restaurant-reservations/${reservation.id}/guest-list`,
+                `${API_URL}${reservationApiBase(kind)}/${reservation.id}/guest-list`,
                 {
                   headers: token ? { Authorization: `Bearer ${token}` } : {},
                 },
@@ -1485,37 +1475,8 @@ export default function ReservationModal({
       throw new Error("Número de pessoas deve ser maior que 0");
     }
 
-    // REGRA NOVA 2º GIRO (BISTRÔ): Seu Justino e Pracinha
-    const isJustinoOrPracinhaModal = isSeuJustino || isPracinha;
-    let isEsperaAntecipadaModal = false;
-    let finalTableNumberModal: string | undefined = finalTableNumber;
-    let finalNotesModal = finalNotes;
-
-    if (
-      isJustinoOrPracinhaModal &&
-      formData.reservation_date &&
-      reservation_time
-    ) {
-      const isSecondGiroBistro = isSecondGiroBistroJustinoPracinha(
-        formData.reservation_date,
-        reservation_time,
-      );
-      if (isSecondGiroBistro) {
-        isEsperaAntecipadaModal = true;
-        // Adicionar nota se não existir
-        if (
-          !finalNotesModal ||
-          !finalNotesModal.includes("ESPERA ANTECIPADA")
-        ) {
-          finalNotesModal =
-            (finalNotesModal ? finalNotesModal + " | " : "") +
-            "ESPERA ANTECIPADA (Bistrô)";
-        }
-        // Não atribuir mesa para espera antecipada (não desconta da contagem)
-        finalTableNumberModal = undefined;
-      }
-    }
-
+    // 2º giro: mesa continua opcional. A API só converte para espera antecipada
+    // se o dia já tiver ocupação real — não forçar aqui (dia vazio deve reservar mesa).
     const payload: any = {
       client_name: client_name,
       client_phone: formData.client_phone?.trim() || null,
@@ -1525,19 +1486,17 @@ export default function ReservationModal({
       reservation_time: reservation_time,
       number_of_people: number_of_people,
       area_id: area_id,
-      table_number: finalTableNumberModal || undefined,
+      table_number: finalTableNumber || undefined,
       status: formData.status || "NOVA",
       origin: "PESSOAL", // Sempre 'PESSOAL' para reservas criadas por admin (permite mesas virtuais)
-      notes: finalNotesModal || null,
+      notes: finalNotes || null,
       created_by: 1, // ID do usuário admin padrão
       establishment_id: establishment_id,
       evento_id: eventoSelecionado || null,
       send_email: sendEmailConfirmation,
       send_whatsapp: sendWhatsAppConfirmation,
       blocks_entire_area: blocksEntireArea && isAdmin, // Apenas admin pode bloquear área completa
-      espera_antecipada: isEsperaAntecipadaModal,
-      // Para espera antecipada, registrar como bistrô (fila)
-      has_bistro_table: isEsperaAntecipadaModal,
+      reservation_kind: reservation?.reservation_kind || "restaurant",
     };
 
     // Área exibida ao cliente (email, etc.): subárea (ex. Lounge Aquário TV) ou nome da área

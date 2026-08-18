@@ -571,7 +571,7 @@ export default function ReservationCalendar({
                       reservation.notes.includes("ESPERA ANTECIPADA");
                     return (
                       <div
-                        key={reservation.id}
+                        key={`${(reservation as { reservation_kind?: string }).reservation_kind || "restaurant"}-${reservation.id}`}
                         className={`text-xs p-1 rounded ${getStatusColor(
                           reservation.status,
                           reservation.notes,
