@@ -91,8 +91,18 @@ export function toCardapioBarIds(
     const estId = Number(raw);
     if (!Number.isFinite(estId) || estId <= 0) continue;
 
-    const mapped = resolveCardapioBarId(estId);
+    // Mapa estático local tem prioridade (place 10 → bar 15, place 4 → bar 2…).
+    const staticMapped = ESTABLISHMENT_TO_CARDAPIO_BAR_ID[estId];
+    const resolvedMapped = resolveCardapioBarId(estId);
+    const mapped =
+      Number.isFinite(staticMapped) && staticMapped > 0 ? staticMapped : resolvedMapped;
+
     if (Number.isFinite(mapped) && mapped > 0 && mapped !== estId) {
+      resolved.add(mapped);
+      continue;
+    }
+
+    if (Number.isFinite(mapped) && mapped > 0 && barById.has(mapped)) {
       resolved.add(mapped);
       continue;
     }
@@ -100,10 +110,12 @@ export function toCardapioBarIds(
     const nameMatched = matchBarIdByEstablishmentName(estId, barNameKeys);
     if (nameMatched != null) {
       resolved.add(nameMatched);
+      continue;
     }
 
-    if (barById.has(estId) && resolveCardapioBarId(estId) === estId) {
-      resolved.add(estId);
+    // Último recurso: se a API já devolveu um único bar no escopo da org, use-o.
+    if (barById.size === 1) {
+      resolved.add([...barById.keys()][0]);
     }
   }
 

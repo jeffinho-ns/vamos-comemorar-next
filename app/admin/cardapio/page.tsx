@@ -1026,39 +1026,47 @@ export default function CardapioAdminPage() {
           const mapped = toCardapioBarIds(uniqueAllowedEstablishmentIds, barsList);
           if (mapped.length > 0) return mapped;
         }
-        if (isPromoter && promoterBarIdNum != null) {
+        if (promoterBarIdNum != null) {
           const fromPromoter = toCardapioBarIds([promoterBarIdNum], barsList);
-          return fromPromoter.length > 0 ? fromPromoter : [promoterBarIdNum];
+          if (fromPromoter.length > 0) return fromPromoter;
+          if (barsList.some((b: { id?: string | number }) => Number(b.id) === promoterBarIdNum)) {
+            return [promoterBarIdNum];
+          }
         }
         return null;
       })();
 
+      // Sempre inclui os bars que a API já isolou por org (ex.: Sitio → 15),
+      // mesmo se o mapa place→bar da UEP ainda apontar para o place id.
+      const barIdsFromApiBars = barsList
+        .map((b: { id?: string | number }) => Number(b.id))
+        .filter((id: number) => Number.isFinite(id) && id > 0);
+      const barIdsToFetch = Array.from(
+        new Set([...(scopedBarIds || []), ...barIdsFromApiBars]),
+      );
+
       let categories: MenuCategory[] = [];
       let items: MenuItem[] = [];
 
-      if (scopedBarIds && scopedBarIds.length > 0) {
+      if (barIdsToFetch.length > 0 && !isSuperAdmin) {
         const catResults = await Promise.all(
-          scopedBarIds.map((id) =>
+          barIdsToFetch.map((id) =>
             fetch(`${API_BASE_URL}/categories?barId=${id}`, {
               headers: authHeaders(),
-            }).then((r) =>
-              r.ok ? r.json() : [],
-            ),
+            }).then((r) => (r.ok ? r.json() : [])),
           ),
         );
         const itemResults = await Promise.all(
-          scopedBarIds.map((id) =>
+          barIdsToFetch.map((id) =>
             fetch(`${API_BASE_URL}/items?barId=${id}`, {
               headers: authHeaders(),
-            }).then((r) =>
-              r.ok ? r.json() : [],
-            ),
+            }).then((r) => (r.ok ? r.json() : [])),
           ),
         );
         categories = catResults.flat();
         items = itemResults.flat();
       } else {
-        // Super Admin (ou sem UEP ainda): API isola por JWT; nunca chamar sem Authorization.
+        // Super Admin (ou sem bars no escopo): API isola por JWT.
         const [categoriesRes, itemsRes] = await Promise.all([
           fetch(`${API_BASE_URL}/categories`, { headers: authHeaders() }),
           fetch(`${API_BASE_URL}/items`, { headers: authHeaders() }),
@@ -1074,6 +1082,8 @@ export default function CardapioAdminPage() {
 
       console.log('📥 [API] Dados recebidos da API:', {
         totalBars: Array.isArray(bars) ? bars.length : 0,
+        barIdsToFetch,
+        scopedBarIds,
         totalCategories: Array.isArray(categories) ? categories.length : 0,
         totalItems: Array.isArray(items) ? items.length : 0,
         bars: bars?.slice(0, 3).map((b: any) => ({ id: b.id, name: b.name, idType: typeof b.id })),
@@ -1220,8 +1230,9 @@ export default function CardapioAdminPage() {
 
       if (scopedBarIds && scopedBarIds.length > 0) {
         const allowedBarIdSet = new Set(scopedBarIds.map((id) => Number(id)));
-        barsData = barsData.filter((bar) => allowedBarIdSet.has(Number(bar.id)));
-        // Garante bars do escopo mesmo se a listagem autenticada omitiu place≠bar.
+        const scopedBars = barsData.filter((bar) => allowedBarIdSet.has(Number(bar.id)));
+        // Se o mapa place→bar falhou, mantém os bars que a API já isolou (não zera a tela).
+        barsData = scopedBars.length > 0 ? scopedBars : barsData;
         for (const id of scopedBarIds) {
           const barIdNum = Number(id);
           if (!Number.isFinite(barIdNum) || barsData.some((b) => Number(b.id) === barIdNum)) {
@@ -1249,11 +1260,9 @@ export default function CardapioAdminPage() {
         : [];
 
       const visibleBarIds = new Set(barsData.map((b) => Number(b.id)));
-      if (scopedBarIds) {
-        for (const id of scopedBarIds) {
-          const n = Number(id);
-          if (Number.isFinite(n) && n > 0) visibleBarIds.add(n);
-        }
+      for (const id of barIdsToFetch) {
+        const n = Number(id);
+        if (Number.isFinite(n) && n > 0) visibleBarIds.add(n);
       }
       categoriesData = categoriesData.filter((c) =>
         visibleBarIds.has(Number(c.barId)),
@@ -1265,37 +1274,20 @@ export default function CardapioAdminPage() {
         visibleBarIds.has(Number(item.barId)),
       );
 
-      // Filtrar categorias e itens pelos ids dos bares permitidos (barsData já filtrado acima)
+      // Filtrar pelo bar visível; promoterBar.barId pode ser place id — normaliza.
       if (promoterBar && !hasFullCardapioAccessByEmail && barsData.length > 0) {
-        const allowedBarIds = new Set(barsData.map((b) => Number(b.id)));
-        categoriesData = categoriesData.filter((category) => {
-          const catBarId = Number(category.barId);
-          return allowedBarIds.has(catBarId);
-        });
-        subCategoriesData = subCategoriesData.filter((sub: any) => {
-          const subBarId = Number(sub.barId);
-          return allowedBarIds.has(subBarId);
-        });
-        itemsData = itemsData.filter((item) => {
-          const itemBarId = Number(item.barId);
-          return allowedBarIds.has(itemBarId);
-        });
-      } else if (promoterBar && !hasFullCardapioAccessByEmail) {
-        const promoterBarIdNum = Number(promoterBar.barId);
-        categoriesData = categoriesData.filter(
-          (category) =>
-            Number(category.barId) === promoterBarIdNum ||
-            String(category.barId) === String(promoterBar.barId),
+        const allowedBarIds = new Set([
+          ...barsData.map((b) => Number(b.id)),
+          ...toCardapioBarIds([Number(promoterBar.barId)], barsData),
+        ]);
+        categoriesData = categoriesData.filter((category) =>
+          allowedBarIds.has(Number(category.barId)),
         );
-        subCategoriesData = subCategoriesData.filter(
-          (sub: any) =>
-            Number(sub.barId) === promoterBarIdNum ||
-            String(sub.barId) === String(promoterBar.barId),
+        subCategoriesData = subCategoriesData.filter((sub: { barId: string | number }) =>
+          allowedBarIds.has(Number(sub.barId)),
         );
-        itemsData = itemsData.filter(
-          (item) =>
-            Number(item.barId) === promoterBarIdNum ||
-            String(item.barId) === String(promoterBar.barId),
+        itemsData = itemsData.filter((item) =>
+          allowedBarIds.has(Number(item.barId)),
         );
       }
 
