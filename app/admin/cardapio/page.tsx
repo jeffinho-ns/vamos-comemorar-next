@@ -1221,6 +1221,17 @@ export default function CardapioAdminPage() {
       if (scopedBarIds && scopedBarIds.length > 0) {
         const allowedBarIdSet = new Set(scopedBarIds.map((id) => Number(id)));
         barsData = barsData.filter((bar) => allowedBarIdSet.has(Number(bar.id)));
+        // Garante bars do escopo mesmo se a listagem autenticada omitiu place≠bar.
+        for (const id of scopedBarIds) {
+          const barIdNum = Number(id);
+          if (!Number.isFinite(barIdNum) || barsData.some((b) => Number(b.id) === barIdNum)) {
+            continue;
+          }
+          const missing = barsList.find((b: { id?: string | number }) => Number(b.id) === barIdNum);
+          if (missing) {
+            barsData = [...barsData, missing];
+          }
+        }
       }
 
       let categoriesData = Array.isArray(categories) ? categories : [];
@@ -1238,6 +1249,12 @@ export default function CardapioAdminPage() {
         : [];
 
       const visibleBarIds = new Set(barsData.map((b) => Number(b.id)));
+      if (scopedBarIds) {
+        for (const id of scopedBarIds) {
+          const n = Number(id);
+          if (Number.isFinite(n) && n > 0) visibleBarIds.add(n);
+        }
+      }
       categoriesData = categoriesData.filter((c) =>
         visibleBarIds.has(Number(c.barId)),
       );
@@ -1994,6 +2011,7 @@ export default function CardapioAdminPage() {
         method,
         headers: {
           'Content-Type': 'application/json',
+          ...authHeaders(),
         },
         body: JSON.stringify(itemData),
       });
@@ -2228,6 +2246,7 @@ export default function CardapioAdminPage() {
         try {
           const response = await fetch(`${API_BASE_URL}/categories/${categoryId}`, {
             method: 'DELETE',
+            headers: authHeaders(),
           });
           if (response.ok) {
             fetchData();
@@ -2247,7 +2266,10 @@ export default function CardapioAdminPage() {
     async (itemId: string | number) => {
       if (confirm('Tem certeza que deseja excluir este item? Ele será movido para a lixeira e poderá ser restaurado dentro de 30 dias.')) {
         try {
-          const response = await fetch(`${API_BASE_URL}/items/${itemId}`, { method: 'DELETE' });
+          const response = await fetch(`${API_BASE_URL}/items/${itemId}`, {
+            method: 'DELETE',
+            headers: authHeaders(),
+          });
           if (response.ok) {
             const result = await response.json();
             fetchData();
@@ -2296,6 +2318,7 @@ export default function CardapioAdminPage() {
       try {
         const response = await fetch(`${API_BASE_URL}/items/${itemId}/restore`, {
           method: 'PATCH',
+          headers: authHeaders(),
         });
         
         if (response.ok) {
@@ -2325,7 +2348,10 @@ export default function CardapioAdminPage() {
         
         const response = await fetch(`${API_BASE_URL}/items/${itemId}/visibility`, {
           method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            ...authHeaders(),
+          },
           body: JSON.stringify({ visible: newVisible }),
         });
 
@@ -2479,7 +2505,7 @@ export default function CardapioAdminPage() {
         );
       }
 
-      await fetchData(false);
+      await fetchData();
     },
     [editingBar, barForm, fetchData],
   );
@@ -2859,7 +2885,10 @@ export default function CardapioAdminPage() {
 
     try {
       const deletePromises = selectedItems.map((itemId) =>
-        fetch(`${API_BASE_URL}/items/${itemId}`, { method: 'DELETE' }),
+        fetch(`${API_BASE_URL}/items/${itemId}`, {
+          method: 'DELETE',
+          headers: authHeaders(),
+        }),
       );
       const results = await Promise.all(deletePromises);
 
@@ -2882,7 +2911,10 @@ export default function CardapioAdminPage() {
     try {
       const response = await fetch(`${API_BASE_URL}/items`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...authHeaders(),
+        },
         body: JSON.stringify({
           name: `${item.name} (Cópia)`,
           description: item.description,
@@ -2913,17 +2945,35 @@ export default function CardapioAdminPage() {
   // Função para atualização rápida de preço
   const handleQuickPriceUpdate = useCallback(async (itemId: string | number, newPrice: number) => {
     try {
+      const current = menuData.items.find((item) => String(item.id) === String(itemId));
+      if (!current) {
+        throw new Error('Item não encontrado.');
+      }
       const response = await fetch(`${API_BASE_URL}/items/${itemId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ price: newPrice }),
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          ...authHeaders(),
+        },
+        body: JSON.stringify({
+          name: current.name,
+          description: current.description,
+          price: newPrice,
+          imageUrl: current.imageUrl,
+          categoryId: current.categoryId,
+          barId: current.barId,
+          subCategory: current.subCategory || current.subCategoryName || '',
+          toppings: current.toppings || [],
+          order: current.order,
+          seals: current.seals || [],
+        }),
       });
 
       if (response.ok) {
         setMenuData((prev) => ({
           ...prev,
           items: prev.items.map((item) =>
-            item.id === itemId ? { ...item, price: newPrice } : item
+            String(item.id) === String(itemId) ? { ...item, price: newPrice } : item
           ),
         }));
       } else {
@@ -2933,7 +2983,7 @@ export default function CardapioAdminPage() {
       console.error(err);
       alert('Erro ao atualizar preço.');
     }
-  }, []);
+  }, [menuData.items]);
 
   // Ações em massa
   const handleBulkChangeCategory = useCallback(async (newCategoryId: string) => {
@@ -2944,13 +2994,31 @@ export default function CardapioAdminPage() {
     }
 
     try {
-      const updatePromises = selectedItems.map((itemId) =>
-        fetch(`${API_BASE_URL}/items/${itemId}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ categoryId: newCategoryId }),
-        })
-      );
+      const updatePromises = selectedItems.map((itemId) => {
+        const current = menuData.items.find((item) => String(item.id) === String(itemId));
+        if (!current) {
+          return Promise.resolve(new Response(null, { status: 404 }));
+        }
+        return fetch(`${API_BASE_URL}/items/${itemId}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            ...authHeaders(),
+          },
+          body: JSON.stringify({
+            name: current.name,
+            description: current.description,
+            price: current.price,
+            imageUrl: current.imageUrl,
+            categoryId: newCategoryId,
+            barId: current.barId,
+            subCategory: current.subCategory || current.subCategoryName || '',
+            toppings: current.toppings || [],
+            order: current.order,
+            seals: current.seals || [],
+          }),
+        });
+      });
       const results = await Promise.all(updatePromises);
       const failed = results.filter((res) => !res.ok);
       
@@ -2965,7 +3033,7 @@ export default function CardapioAdminPage() {
       console.error(err);
       alert(`Erro ao alterar categorias: ${err instanceof Error ? err.message : 'Erro desconhecido'}`);
     }
-  }, [selectedItems, fetchData]);
+  }, [selectedItems, fetchData, menuData.items]);
 
   const buildPauseScopeLabel = useCallback(
     (itemIds: Array<string | number>) => {
@@ -3743,7 +3811,9 @@ export default function CardapioAdminPage() {
 
                 {/* Agrupamento de itens por bar */}
                 {menuData.bars.map((bar) => {
-                  const itemsForBar = filteredItems.filter((item) => item.barId === bar.id);
+                  const itemsForBar = filteredItems.filter(
+                    (item) => Number(item.barId) === Number(bar.id),
+                  );
                   if (itemsForBar.length === 0) return null;
 
                   const isAllSelectedInBar = itemsForBar.every((item) =>
