@@ -20,6 +20,9 @@ export const ESTABLISHMENT_TO_CARDAPIO_BAR_ID: Record<number, number> = {
   1: 1,
   // Legado: alguns ambientes ainda referenciam bar/place 2 como Oh Freguês
   2: 2,
+  // Sitio Ilha: place 10 → bar 15 (org separada; só cardápio)
+  10: 15,
+  15: 15,
 };
 
 export type CardapioBarLike = {

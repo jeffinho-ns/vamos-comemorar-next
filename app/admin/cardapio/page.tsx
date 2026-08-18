@@ -1804,7 +1804,10 @@ export default function CardapioAdminPage() {
 
       const response = await fetch(url, {
         method,
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...authHeaders(),
+        },
         body: JSON.stringify(barData),
       });
 
@@ -1873,7 +1876,10 @@ export default function CardapioAdminPage() {
 
       const response = await fetch(url, {
         method,
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...authHeaders(),
+        },
         body: JSON.stringify(categoryData),
       });
 
@@ -2194,6 +2200,7 @@ export default function CardapioAdminPage() {
         try {
           const response = await fetch(`${API_BASE_URL}/bars/${barId}`, {
             method: 'DELETE',
+            headers: authHeaders(),
           });
           if (response.ok) {
             fetchData();
