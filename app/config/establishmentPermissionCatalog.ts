@@ -17,7 +17,10 @@ export type EstablishmentPermissionKey =
   | "can_view_operational_detail"
   | "can_create_operational_detail"
   | "can_edit_operational_detail"
-  | "can_view_reports";
+  | "can_view_reports"
+  | "can_access_justino360"
+  | "can_manage_justino360"
+  | "can_validate_justino360";
 
 export type EstablishmentPermissionFlags = Record<EstablishmentPermissionKey, boolean>;
 
@@ -98,6 +101,24 @@ export const ESTABLISHMENT_PERMISSION_GROUPS: PermissionGroup[] = [
     title: "Relatórios",
     fields: [{ key: "can_view_reports", label: "Ver relatórios e logs" }],
   },
+  {
+    id: "justino360",
+    title: "Justino360",
+    description: "Operação do Seu Justino — checklists, tarefas, ocorrências e mais.",
+    fields: [
+      { key: "can_access_justino360", label: "Acessar Justino360" },
+      {
+        key: "can_manage_justino360",
+        label: "Gerenciar Justino360",
+        hint: "Criar templates, comunicados, documentos e calendário",
+      },
+      {
+        key: "can_validate_justino360",
+        label: "Validar tarefas Justino360",
+        hint: "Fechar o ciclo de tarefas e inspeções",
+      },
+    ],
+  },
 ];
 
 /** Grupo da UI UEP → módulo contratado da organização. */
@@ -110,6 +131,7 @@ export const PERMISSION_GROUP_MODULE: Record<string, string> = {
   eventos: "eventos",
   operacional: "reservas",
   relatorios: "relatorios",
+  justino360: "justino360",
 };
 
 export const PERMISSION_FIELD_MODULE: Record<EstablishmentPermissionKey, string> =

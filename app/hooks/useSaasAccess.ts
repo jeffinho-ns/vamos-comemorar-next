@@ -51,6 +51,18 @@ export function useSaasAccess() {
         (p) => p.is_active !== false && p.can_manage_checkins,
       ),
     canAccessRelatorios: resolveModule("relatorios", legacy.canViewActionLogs),
+    canAccessJustino360: resolveModule(
+      "justino360",
+      legacy.myEstablishmentPermissions.some(
+        (p) =>
+          p.establishment_id === 1 &&
+          p.is_active !== false &&
+          (!!p.can_access_justino360 ||
+            !!p.can_manage_justino360 ||
+            legacy.isSuperAdmin ||
+            legacy.isAdmin),
+      ),
+    ),
     canViewActionLogs: resolvePermission("relatorios:read", legacy.canViewActionLogs),
     canDeleteUsers: resolvePermission("reservas:delete", legacy.canDeleteUsers),
     canEditCardapio: resolvePermission("cardapio:update", legacy.canAccessCardapio),

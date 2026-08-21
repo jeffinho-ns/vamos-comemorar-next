@@ -56,6 +56,7 @@ export const NAV_MODULE_BY_HREF: Record<string, NavModuleMeta> = {
   "/admin/eventos/hostess": { module: "eventos", requiredPermission: "eventos:read" },
   "/admin/checkins/tablet": { module: "checkin", requiredPermission: "checkin:update" },
   "/admin/contausuariopage": { module: "reservas" },
+  "/admin/justino360": { module: "justino360", requiredPermission: "justino360:read" },
 };
 
 export function filterNavByEntitlements<T extends { href: string }>(

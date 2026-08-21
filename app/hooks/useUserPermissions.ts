@@ -38,6 +38,9 @@ export interface MyEstablishmentPermission {
   can_create_cardapio?: boolean;
   can_edit_cardapio?: boolean;
   can_delete_cardapio?: boolean;
+  can_access_justino360?: boolean;
+  can_manage_justino360?: boolean;
+  can_validate_justino360?: boolean;
   is_active: boolean;
 }
 

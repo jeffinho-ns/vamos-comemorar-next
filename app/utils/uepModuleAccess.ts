@@ -16,6 +16,9 @@ type PermRow = Pick<
   | "can_edit_os"
   | "can_view_operational_detail"
   | "can_view_reports"
+  | "can_access_justino360"
+  | "can_manage_justino360"
+  | "can_validate_justino360"
 >;
 
 const MODULE_UEP_CHECK: Record<string, (p: PermRow) => boolean> = {
@@ -38,6 +41,7 @@ const MODULE_UEP_CHECK: Record<string, (p: PermRow) => boolean> = {
     !!p.can_manage_reservations ||
     !!p.can_manage_checkins,
   relatorios: (p) => !!p.can_view_reports,
+  justino360: (p) => !!p.can_access_justino360 || !!p.can_manage_justino360,
 };
 
 export function uepAllowsModule(

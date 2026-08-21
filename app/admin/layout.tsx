@@ -26,6 +26,7 @@ import {
   MdChat,
   MdAdminPanelSettings,
   MdGroup,
+  MdAssignmentTurnedIn,
 } from "react-icons/md";
 import logBrand from "../assets/logo-agilizai-h.png"; // Verifique o caminho
 import UserMenu from "../components/UserMenu/UserMenu"; // Verifique o caminho
@@ -85,6 +86,7 @@ export default function DashboardLayout({
     canAccessCardapio,
     canAccessWhatsapp,
     canViewActionLogs,
+    canAccessJustino360,
     isLoading: isLoadingPerms,
     entitlementsLoading,
     canModule,
@@ -295,10 +297,15 @@ export default function DashboardLayout({
         return [
           ...baseLinks.slice(0, 2),
           { href: "/admin/cardapio", label: "Cardápio", icon: MdRestaurant },
+          { href: "/admin/justino360", label: "Justino360", icon: MdAssignmentTurnedIn },
           ...baseLinks.slice(2),
         ];
       }
-      return baseLinks;
+      return [
+        ...baseLinks.slice(0, 2),
+        { href: "/admin/justino360", label: "Justino360", icon: MdAssignmentTurnedIn },
+        ...baseLinks.slice(2),
+      ];
     } else if (isAdminNavRole(effectiveRoleRaw)) {
       // Administrador pode ver tudo
       const links = [
@@ -336,6 +343,7 @@ export default function DashboardLayout({
         { href: "/admin/workdays", label: "Funcionamento", icon: MdTimer },
         { href: "/admin/cardapio", label: "Cardápio", icon: MdRestaurant },
         { href: "/admin/commodities", label: "Commodities", icon: MdFactory },
+        { href: "/admin/justino360", label: "Justino360", icon: MdAssignmentTurnedIn },
       ];
 
       // Super Admins: ver acesso à página de Galeria
@@ -361,6 +369,12 @@ export default function DashboardLayout({
   // /admin/reservas: apenas Super Admins
   if (!isSuperAdmin) {
     navLinks = navLinks.filter((l) => l.href !== "/admin/reservas");
+  }
+
+  // Justino360 é exclusivo do Seu Justino: sem UEP/módulo, o link não existe.
+  // Independe de enforceEntitlements — gerência de outras casas não deve vê-lo.
+  if (!canAccessJustino360 && !isSuperAdmin) {
+    navLinks = navLinks.filter((l) => l.href !== "/admin/justino360");
   }
 
   if (
