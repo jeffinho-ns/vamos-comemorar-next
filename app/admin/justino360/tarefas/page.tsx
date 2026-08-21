@@ -3,6 +3,7 @@
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import { AdminSaasGuard } from "../../../components/AdminSaasGuard";
 import { Justino360Shell } from "../../../components/justino360/Justino360Shell";
+import type { J360Assignee } from "../../../components/justino360/MeetingDecisionFields";
 import { useSaasAccess } from "../../../hooks/useSaasAccess";
 import { j360Fetch } from "../../../lib/justino360/api";
 import {
@@ -23,6 +24,7 @@ export default function AdminTarefasPage() {
 
   const [items, setItems] = useState<J360Task[]>([]);
   const [sectors, setSectors] = useState<Sector[]>([]);
+  const [team, setTeam] = useState<J360Assignee[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -30,6 +32,7 @@ export default function AdminTarefasPage() {
   const [title, setTitle] = useState("");
   const [priority, setPriority] = useState<Priority>("media");
   const [sectorId, setSectorId] = useState("");
+  const [assigneeId, setAssigneeId] = useState("");
   const [dueAt, setDueAt] = useState("");
 
   const load = useCallback(async () => {
@@ -48,13 +51,21 @@ export default function AdminTarefasPage() {
   }, [load]);
 
   useEffect(() => {
-    j360Fetch<Sector[]>("/sectors").then((res) => {
-      if (res.success && res.data) setSectors(res.data);
+    Promise.all([
+      j360Fetch<Sector[]>("/sectors"),
+      j360Fetch<J360Assignee[]>("/team"),
+    ]).then(([sectorsRes, teamRes]) => {
+      if (sectorsRes.success && sectorsRes.data) setSectors(sectorsRes.data);
+      if (teamRes.success && teamRes.data) setTeam(teamRes.data);
     });
   }, []);
 
   async function onCreate(e: FormEvent) {
     e.preventDefault();
+    if (!assigneeId) {
+      setError("Escolha um responsável. Sem isso a tarefa não aparece em /justino360/tarefas.");
+      return;
+    }
     setBusy(true);
     const res = await j360Fetch("/tasks", {
       method: "POST",
@@ -62,6 +73,7 @@ export default function AdminTarefasPage() {
         title,
         priority,
         sector_id: sectorId ? Number(sectorId) : undefined,
+        assigned_to: Number(assigneeId),
         due_at: dueAt || undefined,
       }),
     });
@@ -73,7 +85,9 @@ export default function AdminTarefasPage() {
     setTitle("");
     setPriority("media");
     setSectorId("");
+    setAssigneeId("");
     setDueAt("");
+    setError(null);
     await load();
   }
 
@@ -86,6 +100,22 @@ export default function AdminTarefasPage() {
     setBusy(false);
     if (!res.success) {
       setError(res.message || "Não foi possível atualizar a tarefa.");
+      return;
+    }
+    await load();
+  }
+
+  async function setAssignee(id: number, assignedTo: string) {
+    setBusy(true);
+    const res = await j360Fetch(`/tasks/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify({
+        assigned_to: assignedTo ? Number(assignedTo) : null,
+      }),
+    });
+    setBusy(false);
+    if (!res.success) {
+      setError(res.message || "Não foi possível atribuir a tarefa.");
       return;
     }
     await load();
@@ -153,6 +183,25 @@ export default function AdminTarefasPage() {
               ))}
             </select>
           </div>
+          <div className="min-w-[180px]">
+            <label htmlFor="task-assignee" className="mb-1 block text-xs text-gray-400">
+              Responsável
+            </label>
+            <select
+              id="task-assignee"
+              value={assigneeId}
+              onChange={(e) => setAssigneeId(e.target.value)}
+              className="w-full rounded-lg bg-black/30 px-3 py-2 text-sm outline-none ring-1 ring-white/10"
+              required
+            >
+              <option value="">Quem executa?</option>
+              {team.map((u) => (
+                <option key={u.id} value={u.id}>
+                  {u.name || u.email || `Usuário #${u.id}`}
+                </option>
+              ))}
+            </select>
+          </div>
           <div>
             <label htmlFor="task-due" className="mb-1 block text-xs text-gray-400">
               Prazo
@@ -204,9 +253,24 @@ export default function AdminTarefasPage() {
                         </div>
                         <p className="mt-1 text-xs text-gray-500">
                           {t.sector_name || "Geral"} · {t.origin}
-                          {t.assigned_to_name ? ` · ${t.assigned_to_name}` : " · sem responsável"}
                           {t.due_at ? ` · até ${formatDateTime(t.due_at)}` : ""}
                         </p>
+                        <label className="mt-2 block text-[10px] uppercase tracking-wide text-gray-500">
+                          Responsável
+                          <select
+                            value={t.assigned_to ?? ""}
+                            onChange={(e) => setAssignee(t.id, e.target.value)}
+                            disabled={busy}
+                            className="mt-0.5 w-full rounded bg-black/40 px-2 py-1 text-xs text-gray-100 outline-none ring-1 ring-white/10 disabled:opacity-50"
+                          >
+                            <option value="">Sem responsável</option>
+                            {team.map((u) => (
+                              <option key={u.id} value={u.id}>
+                                {u.name || u.email || `#${u.id}`}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
                         {t.evidence_url && (
                           <a
                             href={t.evidence_url}

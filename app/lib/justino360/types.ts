@@ -84,6 +84,7 @@ export type J360Task = {
   origin: string;
   due_at?: string | null;
   sector_name?: string | null;
+  assigned_to?: number | null;
   assigned_to_name?: string | null;
   evidence_url?: string | null;
   is_overdue?: boolean;

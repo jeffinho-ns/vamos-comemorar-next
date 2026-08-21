@@ -3,7 +3,7 @@
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import { Justino360Shell } from "../../components/justino360/Justino360Shell";
 import { useSaasAccess } from "../../hooks/useSaasAccess";
-import { j360Fetch, j360Upload } from "../../lib/justino360/api";
+import { J360_UPLOAD_ACCEPT, j360Fetch, j360Upload } from "../../lib/justino360/api";
 import {
   INCIDENT_STATUS_LABEL,
   PRIORITY_LABEL,
@@ -142,7 +142,7 @@ export default function StaffOcorrenciasPage() {
             <input
               id="staff-inc-file"
               type="file"
-              accept="image/*,video/*,application/pdf"
+              accept={J360_UPLOAD_ACCEPT}
               onChange={(e) => setFile(e.target.files?.[0] || null)}
               className="w-full cursor-pointer rounded-lg bg-black/30 px-3 py-2 text-sm text-gray-300 ring-1 ring-white/10 file:mr-3 file:rounded-md file:border-0 file:bg-amber-500 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-gray-900"
             />
