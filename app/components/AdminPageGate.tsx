@@ -24,6 +24,11 @@ function isCheckinAdminPath(pathname: string): boolean {
   );
 }
 
+function isJustino360AdminPath(pathname: string): boolean {
+  const path = pathname.split("?")[0];
+  return path === "/admin/justino360" || path.startsWith("/admin/justino360/");
+}
+
 function isSuperAdminOnlyPath(pathname: string): boolean {
   const path = pathname.split("?")[0];
   return (
@@ -45,17 +50,30 @@ export function AdminPageGate({ children }: { children: ReactNode }) {
 
   const enforceEntitlements = shouldEnforceEntitlements(entitlements);
   const hasUepCheckin = activeUep.some((p) => p.can_manage_checkins);
+  const hasUepJustino360 = activeUep.some(
+    (p) =>
+      p.establishment_id === 1 &&
+      (!!p.can_access_justino360 ||
+        !!p.can_manage_justino360 ||
+        !!p.can_validate_justino360),
+  );
   const allowedByEntitlements = pathAllowedByEntitlements(pathname, canModule, canPermission, {
     allowAll: !enforceEntitlements || entitlements.allowAll,
     legacyScoped: false,
     permissions: entitlements.permissions,
     isAccountAdmin: entitlements.isAccountAdmin === true,
     isSuperAdmin,
-    legacyPathAllowed: (_path, meta) =>
-      uepAllowsModule(meta.module, activeUep) && canModule(meta.module),
+    legacyPathAllowed: (_path, meta) => {
+      if (meta.module === "justino360") {
+        return uepAllowsModule(meta.module, activeUep);
+      }
+      return uepAllowsModule(meta.module, activeUep) && canModule(meta.module);
+    },
   });
   const allowed =
-    (allowedByEntitlements || (hasUepCheckin && isCheckinAdminPath(pathname))) &&
+    (allowedByEntitlements ||
+      (hasUepCheckin && isCheckinAdminPath(pathname)) ||
+      (hasUepJustino360 && isJustino360AdminPath(pathname))) &&
     (!isSuperAdminOnlyPath(pathname) || isSuperAdmin);
 
   useEffect(() => {
