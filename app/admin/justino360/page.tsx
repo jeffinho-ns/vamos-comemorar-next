@@ -143,6 +143,12 @@ export default function Justino360AdminPage() {
                 value={data.comunicados_sem_ciencia}
                 href="/admin/justino360/comunicados"
               />
+              <Stat
+                label="Manutenções abertas"
+                value={data.manutencoes_abertas ?? 0}
+                href="/admin/justino360/manutencao"
+                tone="alert"
+              />
             </section>
 
             <section className="grid gap-6 lg:grid-cols-2">

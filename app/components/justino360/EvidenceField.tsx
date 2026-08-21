@@ -8,26 +8,24 @@ import {
 } from "../../lib/justino360/api";
 
 /**
- * Campo de arquivo do documento: envia via API → Firebase Storage (j360Upload)
- * e devolve a URL final. Também aceita URL colada à mão (Drive, etc.).
+ * Evidência de manutenção: foto do serviço, laudo ou vídeo.
+ * Sobe pela API → Firebase Storage (j360Upload) e devolve a URL final.
  */
-export function DocumentFileField({
+export function EvidenceField({
   value,
   onChange,
+  label = "Foto do serviço ou laudo (até 15 MB)",
   disabled,
-  label = "Arquivo (PDF, imagem ou vídeo — até 15 MB)",
 }: {
   value: string;
   onChange: (url: string) => void;
-  disabled?: boolean;
-  /** Sobrescreve o rótulo quando o campo não é um documento (ex.: material de apoio). */
   label?: string;
+  disabled?: boolean;
 }) {
   const inputId = useId();
   const fileRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [fileName, setFileName] = useState<string | null>(null);
 
   async function handleFile(file: File | undefined) {
     if (!file) return;
@@ -41,12 +39,11 @@ export function DocumentFileField({
       const res = await j360Upload(file);
       if (res.success && res.data?.url) {
         onChange(res.data.url);
-        setFileName(file.name);
       } else {
         setError(res.message || "Falha no envio do arquivo.");
       }
     } catch (err) {
-      console.error("[j360] upload documento:", err);
+      console.error("[j360] upload evidência manutenção:", err);
       setError("Não foi possível enviar o arquivo. Tente novamente.");
     } finally {
       setUploading(false);
@@ -73,7 +70,7 @@ export function DocumentFileField({
       />
       {uploading && (
         <p className="text-xs text-amber-300" role="status">
-          Enviando arquivo…
+          Enviando evidência…
         </p>
       )}
       {error && (
@@ -81,32 +78,19 @@ export function DocumentFileField({
           {error}
         </p>
       )}
-      <input
-        type="url"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        disabled={disabled}
-        placeholder="ou cole aqui a URL do arquivo"
-        aria-label="URL do arquivo"
-        className="w-full rounded-lg bg-black/30 px-3 py-2 text-sm outline-none ring-1 ring-white/10 focus:ring-amber-400/60 disabled:opacity-60"
-      />
       {value && (
         <div className="flex items-center gap-2 text-xs text-gray-400">
-          <span className="truncate">{fileName || value}</span>
           <a
             href={value}
             target="_blank"
             rel="noopener noreferrer"
-            className="shrink-0 text-amber-400 hover:underline"
+            className="truncate text-amber-400 hover:underline"
           >
-            Conferir
+            Conferir evidência
           </a>
           <button
             type="button"
-            onClick={() => {
-              onChange("");
-              setFileName(null);
-            }}
+            onClick={() => onChange("")}
             className="shrink-0 text-gray-400 hover:text-red-300"
           >
             Remover

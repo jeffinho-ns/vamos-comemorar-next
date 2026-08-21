@@ -1,6 +1,13 @@
 /** Justino360 — rótulos e cores de status para a UI. */
 
-import type { IncidentStatus, Priority, RunItemStatus, TaskStatus } from "./types";
+import type {
+  IncidentStatus,
+  MaintenanceKind,
+  MaintenanceStatus,
+  Priority,
+  RunItemStatus,
+  TaskStatus,
+} from "./types";
 
 export const RUN_ITEM_STATUS_LABEL: Record<RunItemStatus, string> = {
   pendente: "Pendente",
@@ -31,6 +38,49 @@ export const PRIORITY_LABEL: Record<Priority, string> = {
   alta: "Alta",
   critica: "Crítica",
 };
+
+export const MAINTENANCE_KIND_LABEL: Record<MaintenanceKind, string> = {
+  corretiva: "Corretiva",
+  preventiva: "Preventiva",
+  inspecao: "Inspeção",
+};
+
+export const MAINTENANCE_STATUS_LABEL: Record<MaintenanceStatus, string> = {
+  aberta: "Aberta",
+  em_andamento: "Em andamento",
+  aguardando_peca: "Aguardando peça",
+  concluida: "Concluída",
+  cancelada: "Cancelada",
+};
+
+/** Status que o time pode escolher enquanto o chamado ainda está em campo. */
+export const MAINTENANCE_IN_PROGRESS_STATUSES: MaintenanceStatus[] = [
+  "aberta",
+  "em_andamento",
+  "aguardando_peca",
+];
+
+export function maintenanceStatusClass(status: MaintenanceStatus | string): string {
+  switch (status) {
+    case "concluida":
+      return "bg-emerald-500/20 text-emerald-200 ring-emerald-500/40";
+    case "cancelada":
+      return "bg-white/10 text-gray-300 ring-white/20";
+    case "aguardando_peca":
+      return "bg-orange-500/20 text-orange-200 ring-orange-500/40";
+    default:
+      return "bg-amber-500/20 text-amber-200 ring-amber-500/40";
+  }
+}
+
+/** Data pura (`YYYY-MM-DD` de next_maintenance_at) sem escorregar de fuso. */
+export function formatDate(value?: string | null): string {
+  if (!value) return "";
+  const iso = String(value).slice(0, 10);
+  const [year, month, day] = iso.split("-");
+  if (!year || !month || !day) return "";
+  return `${day}/${month}/${year}`;
+}
 
 export const TASK_STATUS_ORDER: TaskStatus[] = [
   "aberta",

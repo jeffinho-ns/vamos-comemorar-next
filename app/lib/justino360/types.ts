@@ -18,6 +18,15 @@ export type IncidentStatus =
 
 export type Priority = "baixa" | "media" | "alta" | "critica";
 
+export type MaintenanceKind = "corretiva" | "preventiva" | "inspecao";
+
+export type MaintenanceStatus =
+  | "aberta"
+  | "em_andamento"
+  | "aguardando_peca"
+  | "concluida"
+  | "cancelada";
+
 export type ChecklistRunItem = {
   id: number;
   title: string;
@@ -95,6 +104,72 @@ export type J360Incident = {
   created_at: string;
 };
 
+export type J360Sector = {
+  id: number;
+  name: string;
+  key?: string;
+};
+
+export type J360Asset = {
+  id: number;
+  name: string;
+  code?: string | null;
+  location?: string | null;
+  manufacturer?: string | null;
+  notes?: string | null;
+  sector_id?: number | null;
+  sector_name?: string | null;
+  next_maintenance_at?: string | null;
+  is_active?: boolean;
+  open_tickets?: number;
+  last_maintenance_at?: string | null;
+};
+
+export type J360Maintenance = {
+  id: number;
+  asset_id: number;
+  asset_name?: string | null;
+  asset_location?: string | null;
+  sector_name?: string | null;
+  kind: MaintenanceKind;
+  title: string;
+  description?: string | null;
+  resolution?: string | null;
+  status: MaintenanceStatus;
+  evidence_url?: string | null;
+  due_at?: string | null;
+  performed_at?: string | null;
+  performed_by_name?: string | null;
+  created_by_name?: string | null;
+  created_at: string;
+};
+
+/** Resposta de `GET /assets/:id`. */
+export type J360AssetDetail = {
+  asset: J360Asset;
+  maintenance: J360Maintenance[];
+  incidents: {
+    id: number;
+    title: string;
+    status: IncidentStatus;
+    priority: Priority;
+    created_at: string;
+    resolved_at?: string | null;
+    solution?: string | null;
+  }[];
+  can_manage?: boolean;
+};
+
+export type J360MaintenanceMetrics = {
+  abertos: number;
+  em_andamento: number;
+  concluidos: number;
+  concluidos_30d: number;
+  tempo_medio_horas: number | null;
+  preventivas_vencidas: number;
+  por_tipo: { kind: MaintenanceKind; abertos: number; concluidos: number }[];
+};
+
 export type J360HomeData = {
   tarefas: J360Task[];
   checklists: ChecklistRunSummary[];
@@ -122,6 +197,8 @@ export type J360DashboardData = {
   tarefas_concluidas_hoje: number;
   treinamentos_pendentes: number;
   comunicados_sem_ciencia: number;
+  /** Opcional: só existe depois do deploy da Fase 5 da API. */
+  manutencoes_abertas?: number;
   por_setor: { sector: string; tasks_open: number; incidents_open: number }[];
   problemas_recorrentes: { title: string; times: number }[];
 };

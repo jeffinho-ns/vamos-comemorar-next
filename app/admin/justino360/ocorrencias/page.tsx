@@ -11,7 +11,7 @@ import {
   formatDateTime,
   priorityClass,
 } from "../../../lib/justino360/labels";
-import type { J360Incident, Priority } from "../../../lib/justino360/types";
+import type { J360Asset, J360Incident, Priority } from "../../../lib/justino360/types";
 
 type Sector = { id: number; name: string };
 
@@ -27,6 +27,7 @@ export default function AdminOcorrenciasPage() {
 
   const [items, setItems] = useState<J360Incident[]>([]);
   const [sectors, setSectors] = useState<Sector[]>([]);
+  const [assets, setAssets] = useState<J360Asset[]>([]);
   const [filter, setFilter] = useState<(typeof FILTERS)[number]["key"]>("abertas");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -36,6 +37,7 @@ export default function AdminOcorrenciasPage() {
   const [description, setDescription] = useState("");
   const [priority, setPriority] = useState<Priority>("media");
   const [sectorId, setSectorId] = useState("");
+  const [assetId, setAssetId] = useState("");
 
   const [resolvingId, setResolvingId] = useState<number | null>(null);
   const [solution, setSolution] = useState("");
@@ -61,6 +63,9 @@ export default function AdminOcorrenciasPage() {
     j360Fetch<Sector[]>("/sectors").then((res) => {
       if (res.success && res.data) setSectors(res.data);
     });
+    j360Fetch<J360Asset[]>("/assets").then((res) => {
+      if (res.success && res.data) setAssets(res.data);
+    });
   }, []);
 
   async function onCreate(e: FormEvent) {
@@ -73,6 +78,7 @@ export default function AdminOcorrenciasPage() {
         description,
         priority,
         sector_id: sectorId ? Number(sectorId) : undefined,
+        asset_id: assetId ? Number(assetId) : undefined,
         create_task: true,
       }),
     });
@@ -85,6 +91,7 @@ export default function AdminOcorrenciasPage() {
     setDescription("");
     setPriority("media");
     setSectorId("");
+    setAssetId("");
     await load();
   }
 
@@ -175,6 +182,26 @@ export default function AdminOcorrenciasPage() {
                 ))}
               </select>
             </div>
+            {assets.length > 0 && (
+              <div>
+                <label htmlFor="inc-asset" className="mb-1 block text-xs text-gray-400">
+                  Equipamento
+                </label>
+                <select
+                  id="inc-asset"
+                  value={assetId}
+                  onChange={(e) => setAssetId(e.target.value)}
+                  className="rounded-lg bg-black/30 px-3 py-2 text-sm outline-none ring-1 ring-white/10"
+                >
+                  <option value="">Nenhum</option>
+                  {assets.map((a) => (
+                    <option key={a.id} value={a.id}>
+                      {a.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
           </div>
           <button
             type="submit"
