@@ -33,6 +33,11 @@ export function useSaasAccess() {
       canModule,
     });
 
+  const isOrgAccountAdmin =
+    entitlements.allowAll ||
+    entitlements.isAccountAdmin === true ||
+    legacy.isSuperAdmin;
+
   return {
     ...legacy,
     entitlementsLoading,
@@ -41,6 +46,8 @@ export function useSaasAccess() {
     canPermission,
     resolveModule,
     resolvePermission,
+    /** Account admin da org (ou super): gerencia funcionários em /admin/users. */
+    canManageOrgUsers: isOrgAccountAdmin || resolvePermission("reservas:update", legacy.isAdmin),
     canAccessCardapio: resolveModule("cardapio", legacy.canAccessCardapio),
     canAccessWhatsapp: resolveModule("whatsapp", legacy.canAccessWhatsapp),
     canAccessEventos: resolveModule("eventos", legacy.canAccessAdmin),
@@ -64,7 +71,8 @@ export function useSaasAccess() {
       ),
     ),
     canViewActionLogs: resolvePermission("relatorios:read", legacy.canViewActionLogs),
-    canDeleteUsers: resolvePermission("reservas:delete", legacy.canDeleteUsers),
+    canDeleteUsers:
+      isOrgAccountAdmin || resolvePermission("reservas:delete", legacy.canDeleteUsers),
     canEditCardapio: resolvePermission("cardapio:update", legacy.canAccessCardapio),
     canManageReservas: resolvePermission("reservas:update", legacy.canAccessAdmin),
     canReadReservas: resolvePermission("reservas:read", legacy.canAccessAdmin),

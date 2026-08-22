@@ -15,7 +15,6 @@ import {
   filterEstablishmentsByUserScope,
   getActiveEstablishmentIds,
 } from "@/app/utils/establishmentAccessRules";
-import Gate from "@/app/components/Gate";
 import { useEntitlements } from "@/app/context/EntitlementsContext";
 import {
   PERMISSION_FIELD_MODULE,
@@ -108,8 +107,13 @@ function visibleEstabPermFields(allowAll: boolean, modules: string[]) {
 
 export default function UsersPage() {
   const { userEmail, role, myPermissions, isLoading: contextLoading } = useAppContext();
-  const { canDeleteUsers, canChangeGlobalUserRole, isSuperAdmin, myEstablishmentPermissions } =
-    useSaasAccess();
+  const {
+    canDeleteUsers,
+    canManageOrgUsers,
+    canChangeGlobalUserRole,
+    isSuperAdmin,
+    myEstablishmentPermissions,
+  } = useSaasAccess();
   const scopedEstablishmentIds = useMemo(
     () => new Set(getActiveEstablishmentIds(myEstablishmentPermissions)),
     [myEstablishmentPermissions],
@@ -344,12 +348,14 @@ export default function UsersPage() {
             >
               <MdRefresh size={18} />
             </button>
-            <button
-              onClick={() => setCreateModalOpen(true)}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-yellow-500 hover:bg-yellow-400 text-slate-900 text-sm font-semibold transition-colors shadow-sm"
-            >
-              <MdAdd size={18} /> Novo usuário
-            </button>
+            {canManageOrgUsers ? (
+              <button
+                onClick={() => setCreateModalOpen(true)}
+                className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-yellow-500 hover:bg-yellow-400 text-slate-900 text-sm font-semibold transition-colors shadow-sm"
+              >
+                <MdAdd size={18} /> Novo usuário
+              </button>
+            ) : null}
           </div>
         </div>
 
@@ -473,7 +479,7 @@ export default function UsersPage() {
                       ID #{user.id}
                     </span>
                     <div className="flex items-center gap-2">
-                      <Gate permission="reservas:update">
+                      {canManageOrgUsers ? (
                         <button
                           onClick={() => openEdit(user)}
                           className="px-2.5 py-1 rounded-lg text-xs text-blue-100 bg-blue-600/20 border border-blue-500/40 hover:bg-blue-600/30"
@@ -481,17 +487,15 @@ export default function UsersPage() {
                         >
                           Editar
                         </button>
-                      </Gate>
+                      ) : null}
                       {canDeleteUsers ? (
-                        <Gate permission="reservas:delete">
-                          <button
-                            onClick={() => handleDelete(user.id)}
-                            className="px-2.5 py-1 rounded-lg text-xs text-red-100 bg-red-600/20 border border-red-500/40 hover:bg-red-600/30"
-                            type="button"
-                          >
-                            Remover
-                          </button>
-                        </Gate>
+                        <button
+                          onClick={() => handleDelete(user.id)}
+                          className="px-2.5 py-1 rounded-lg text-xs text-red-100 bg-red-600/20 border border-red-500/40 hover:bg-red-600/30"
+                          type="button"
+                        >
+                          Remover
+                        </button>
                       ) : null}
                     </div>
                   </div>
@@ -557,6 +561,10 @@ function CreateUserModal({
     entitlements.allowAll,
     entitlements.modules,
   );
+  const moduleDefaultPerms = defaultEstabPermsForModules(
+    entitlements.allowAll,
+    entitlements.modules,
+  );
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -573,7 +581,7 @@ function CreateUserModal({
     } else {
       setPermsByEstablishment((p) => ({
         ...p,
-        [id]: p[id] ?? { ...DEFAULT_ESTAB_PERMS },
+        [id]: p[id] ?? { ...moduleDefaultPerms },
       }));
       setEstablishmentIds((prev) => [...prev, id]);
     }
@@ -618,7 +626,7 @@ function CreateUserModal({
       if (!userId) throw new Error("Resposta da API sem ID do usuário");
 
       for (const estabId of establishmentIds) {
-        const perms = permsByEstablishment[estabId] ?? DEFAULT_ESTAB_PERMS;
+        const perms = permsByEstablishment[estabId] ?? moduleDefaultPerms;
         const resPerm = await fetch(`${apiUrl}/api/establishment-permissions`, {
           method: "POST",
           headers: {
@@ -782,7 +790,7 @@ function CreateUserModal({
             <div className="space-y-3 max-h-72 overflow-y-auto pr-1">
               {establishmentIds.map((id) => {
                 const est = establishments.find((e) => e.id === id);
-                const perms = permsByEstablishment[id] ?? DEFAULT_ESTAB_PERMS;
+                const perms = permsByEstablishment[id] ?? moduleDefaultPerms;
                 return (
                   <div
                     key={id}
@@ -813,7 +821,7 @@ function CreateUserModal({
                               setPermsByEstablishment((prev) => ({
                                 ...prev,
                                 [id]: {
-                                  ...(prev[id] ?? DEFAULT_ESTAB_PERMS),
+                                  ...(prev[id] ?? moduleDefaultPerms),
                                   [key]: e.target.checked,
                                 },
                               }))
@@ -894,6 +902,41 @@ const DEFAULT_ESTAB_PERMS: EstablishmentPerms = {
   can_delete_cardapio: true,
 };
 
+/** Defaults só para módulos contratados pela org (Sitio → só cardápio). */
+function defaultEstabPermsForModules(
+  allowAll: boolean,
+  modules: string[],
+): EstablishmentPerms {
+  if (allowAll || modules.includes("*")) {
+    return { ...DEFAULT_ESTAB_PERMS };
+  }
+  const base: EstablishmentPerms = {
+    can_manage_reservations: false,
+    can_create_edit_reservations: false,
+    can_manage_checkins: false,
+    can_view_reports: false,
+    can_view_os: false,
+    can_download_os: false,
+    can_view_operational_detail: false,
+    can_edit_os: false,
+    can_edit_operational_detail: false,
+    can_create_os: false,
+    can_create_operational_detail: false,
+    can_view_cardapio: false,
+    can_create_cardapio: false,
+    can_edit_cardapio: false,
+    can_delete_cardapio: false,
+  };
+  const allowed = new Set(modules);
+  (Object.keys(base) as (keyof EstablishmentPerms)[]).forEach((key) => {
+    const mod = PERMISSION_FIELD_MODULE[key as EstablishmentPermissionKey];
+    if (mod && allowed.has(mod)) {
+      base[key] = DEFAULT_ESTAB_PERMS[key];
+    }
+  });
+  return base;
+}
+
 function permFromRow(p: PermissionRow): EstablishmentPerms {
   return {
     can_manage_reservations: p.can_manage_reservations,
@@ -938,6 +981,10 @@ function EditUserModal({
     entitlements.allowAll,
     entitlements.modules,
   );
+  const moduleDefaultPerms = defaultEstabPermsForModules(
+    entitlements.allowAll,
+    entitlements.modules,
+  );
   const normalizeRole = (r: string | undefined): Role => {
     if (!r) return "usuario";
     const s = String(r).toLowerCase();
@@ -971,15 +1018,13 @@ function EditUserModal({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const perms = DEFAULT_ESTAB_PERMS;
-
   const toggleEstablishment = (id: number) => {
     if (establishmentIds.includes(id)) {
       setEstablishmentIds((prev) => prev.filter((x) => x !== id));
     } else {
       setPermsByEstablishment((p) => ({
         ...p,
-        [id]: p[id] ?? { ...DEFAULT_ESTAB_PERMS },
+        [id]: p[id] ?? { ...moduleDefaultPerms },
       }));
       setEstablishmentIds((prev) => [...prev, id]);
     }
@@ -988,7 +1033,7 @@ function EditUserModal({
   const setPermsForEstablishment = (estabId: number, key: keyof EstablishmentPerms, value: boolean) => {
     setPermsByEstablishment((prev) => ({
       ...prev,
-      [estabId]: { ...(prev[estabId] ?? DEFAULT_ESTAB_PERMS), [key]: value },
+      [estabId]: { ...(prev[estabId] ?? moduleDefaultPerms), [key]: value },
     }));
   };
 
@@ -1262,7 +1307,7 @@ function EditUserModal({
             <div className="space-y-3 max-h-80 overflow-y-auto pr-1">
               {establishmentIds.map((id) => {
                 const est = establishments.find((e) => e.id === id);
-                const estPerms = permsByEstablishment[id] ?? DEFAULT_ESTAB_PERMS;
+                const estPerms = permsByEstablishment[id] ?? moduleDefaultPerms;
                 return (
                   <div
                     key={id}

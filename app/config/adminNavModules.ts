@@ -1,12 +1,19 @@
 /**
  * Mapeamento href → módulo SaaS para filtragem da sidebar (Fase 4).
  * Links sem módulo mapeado somem quando o contrato da empresa está ativo.
+ *
+ * Capacidades-base da organização (sempre, independente do plano):
+ * - /admin/users — gestão de funcionários (account admin)
+ * - /admin/contausuariopage — perfil da conta (já tratado em pathAllowedByEntitlements)
  */
 
 export interface NavModuleMeta {
   module: string;
   requiredPermission?: string;
 }
+
+/** Rotas administrativas padrão de toda organização (não dependem de módulo do plano). */
+export const CORE_ORG_ADMIN_HREFS = new Set<string>(["/admin/users"]);
 
 export const NAV_MODULE_BY_HREF: Record<string, NavModuleMeta> = {
   "/admin": { module: "reservas" },
@@ -33,6 +40,7 @@ export const NAV_MODULE_BY_HREF: Record<string, NavModuleMeta> = {
   "/admin/gifts": { module: "reservas" },
   "/admin/enterprise": { module: "reservas" },
   "/admin/commodities": { module: "cardapio" },
+  // Capacidade-base: filtro em filterNavByEntitlements / pathAllowed (account admin).
   "/admin/users": { module: "reservas" },
   "/admin/equipe": { module: "reservas", requiredPermission: "reservas:update" },
   "/admin/places": { module: "reservas" },
@@ -55,7 +63,6 @@ export const NAV_MODULE_BY_HREF: Record<string, NavModuleMeta> = {
   "/admin/eventos/aniversarios": { module: "eventos", requiredPermission: "eventos:read" },
   "/admin/eventos/hostess": { module: "eventos", requiredPermission: "eventos:read" },
   "/admin/checkins/tablet": { module: "checkin", requiredPermission: "checkin:update" },
-  // /admin/contausuariopage: conta do usuário — sempre liberada (ver pathAllowedByEntitlements)
   "/admin/justino360": { module: "justino360", requiredPermission: "justino360:read" },
 };
 
@@ -67,10 +74,14 @@ export function filterNavByEntitlements<T extends { href: string }>(
   permissions: string[] = [],
   legacyScoped = false,
   legacyRouteAllowed?: (href: string, meta: NavModuleMeta) => boolean,
+  isAccountAdmin = false,
 ): T[] {
   if (allowAll || legacyScoped) return links;
   const skipFinePermissions = permissions.length === 0;
   return links.filter((link) => {
+    if (CORE_ORG_ADMIN_HREFS.has(link.href)) {
+      return isAccountAdmin;
+    }
     const meta = NAV_MODULE_BY_HREF[link.href];
     if (!meta) return false;
     if (legacyRouteAllowed?.(link.href, meta)) return true;

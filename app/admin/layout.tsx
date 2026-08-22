@@ -419,7 +419,22 @@ export default function DashboardLayout({
       entitlements.permissions,
       false,
       uepLegacyRouteAllowed,
+      entitlements.isAccountAdmin === true || isSuperAdmin,
     );
+  }
+
+  // Capacidade-base: Usuários para account admin mesmo em org só-cardápio.
+  if (
+    (entitlements.isAccountAdmin === true || isSuperAdmin) &&
+    !navLinks.some((l) => l.href === "/admin/users")
+  ) {
+    const cardapioIdx = navLinks.findIndex((l) => l.href === "/admin/cardapio");
+    const insertAt = cardapioIdx >= 0 ? cardapioIdx + 1 : Math.min(1, navLinks.length);
+    navLinks = [
+      ...navLinks.slice(0, insertAt),
+      { href: "/admin/users", label: "Usuários", icon: MdPerson },
+      ...navLinks.slice(insertAt),
+    ];
   }
 
   // /admin/equipe: apenas Super Admin (não account admin de organização).
@@ -432,6 +447,9 @@ export default function DashboardLayout({
       navLinks = [{ href: "/admin/checkins", label: "Check-ins", icon: MdCheckCircle }];
     } else if (canModule("cardapio")) {
       navLinks = [{ href: "/admin/cardapio", label: "Cardápio", icon: MdRestaurant }];
+      if (entitlements.isAccountAdmin === true) {
+        navLinks.push({ href: "/admin/users", label: "Usuários", icon: MdPerson });
+      }
     }
   }
 

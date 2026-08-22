@@ -1,4 +1,5 @@
 import {
+  CORE_ORG_ADMIN_HREFS,
   NAV_MODULE_BY_HREF,
   type NavModuleMeta,
 } from "../config/adminNavModules";
@@ -26,9 +27,11 @@ export function firstAllowedAdminPath(
     "/admin/checkins",
     "/admin/eventos",
     "/admin/whatsapp",
+    "/admin/users",
     "/admin/equipe",
   ];
   for (const href of candidates) {
+    if (CORE_ORG_ADMIN_HREFS.has(href)) continue;
     const meta = NAV_MODULE_BY_HREF[href];
     if (meta && canModule(meta.module)) return href;
   }
@@ -70,6 +73,10 @@ export function pathAllowedByEntitlements(
     path.startsWith("/admin/contausuariopage/")
   ) {
     return true;
+  }
+  // Gestão de funcionários: capacidade-base da org (account admin).
+  if (path === "/admin/users" || path.startsWith("/admin/users/")) {
+    return opts.isAccountAdmin === true || opts.isSuperAdmin === true;
   }
   const meta = resolveNavModuleForPath(pathname);
   if (!meta) return true;
