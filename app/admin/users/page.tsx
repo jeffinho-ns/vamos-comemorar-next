@@ -1113,7 +1113,7 @@ function EditUserModal({
       // Para cada estabelecimento SELECIONADO: atualiza/reativa (PUT) se já existe
       // linha (ativa ou inativa), senão cria (POST). Reativar via PUT evita o 409.
       for (const estabId of establishmentIds) {
-        const permsForEstab = permsByEstablishment[estabId] ?? perms;
+        const permsForEstab = permsByEstablishment[estabId] ?? moduleDefaultPerms;
         const existingRow = permByEstab.get(Number(estabId));
         if (existingRow) {
           const resUpdate = await fetch(`${apiUrl}/api/establishment-permissions/${existingRow.id}`, {
