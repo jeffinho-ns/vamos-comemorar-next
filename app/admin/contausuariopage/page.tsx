@@ -8,11 +8,8 @@ import ProfileTab from "../../components/userAccountTabs/ProfileTab";
 import ContactTab from "../../components/userAccountTabs/ContactTab";
 
 import React, { Suspense } from "react";
-import AdminSaasGuard from "@/app/components/AdminSaasGuard";
-import { useSaasAccess } from "@/app/hooks/useSaasAccess";
 
 function ContaUsuarioPageClient() {
-  const { canAccessReservas } = useSaasAccess();
   const searchParams = useSearchParams();
   const aba = searchParams.get("aba") || "settings";
 
@@ -33,8 +30,9 @@ function ContaUsuarioPageClient() {
     }
   };
 
+  // Conta do usuário: disponível a qualquer admin autenticado (não depende de módulo
+  // SaaS como reservas/cardápio). Orgs só-cardápio (ex.: Sitio Ilha) também acessam.
   return (
-    <AdminSaasGuard allowed={canAccessReservas}>
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-base">
       <div className="max-w-4xl mx-auto p-8">
         <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200/20 p-8">
@@ -43,7 +41,6 @@ function ContaUsuarioPageClient() {
         </div>
       </div>
     </div>
-    </AdminSaasGuard>
   );
 }
 

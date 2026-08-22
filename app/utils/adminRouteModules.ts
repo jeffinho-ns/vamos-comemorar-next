@@ -64,6 +64,13 @@ export function pathAllowedByEntitlements(
   if (path === "/admin" || path === "/admin/") {
     return true;
   }
+  // Perfil / dados da conta: qualquer admin autenticado (org só-cardápio inclusive).
+  if (
+    path === "/admin/contausuariopage" ||
+    path.startsWith("/admin/contausuariopage/")
+  ) {
+    return true;
+  }
   const meta = resolveNavModuleForPath(pathname);
   if (!meta) return true;
   if (opts.legacyPathAllowed?.(pathname, meta)) return true;
