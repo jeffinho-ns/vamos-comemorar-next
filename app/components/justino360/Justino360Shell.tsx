@@ -17,6 +17,7 @@ const ADMIN_LINKS = [
   { href: "/admin/justino360/reunioes", label: "Reuniões" },
   { href: "/admin/justino360/manutencao", label: "Manutenção" },
   { href: "/admin/justino360/ia", label: "IA" },
+  { href: "/admin/justino360/guia", label: "Como usar" },
 ];
 
 const STAFF_LINKS = [
@@ -28,6 +29,7 @@ const STAFF_LINKS = [
   { href: "/justino360/treinamentos", label: "Treinamentos" },
   { href: "/justino360/documentos", label: "Documentos" },
   { href: "/justino360/agenda", label: "Agenda" },
+  { href: "/justino360/guia", label: "Como usar" },
 ];
 
 export function Justino360Shell({
