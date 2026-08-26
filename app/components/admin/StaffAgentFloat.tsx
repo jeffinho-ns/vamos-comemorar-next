@@ -22,6 +22,7 @@ type StatusPayload = {
   establishment_enabled?: boolean;
   allow_all?: boolean;
   allowed_ids?: number[];
+  code_rev?: string;
   model?: string;
   error?: string;
 };
@@ -129,7 +130,9 @@ export default function StaffAgentFloat() {
   const globallyReady = Boolean(
     status?.enabled_globally && status?.groq_configured,
   );
-  const houseReady = Boolean(status?.establishment_enabled);
+  const houseReady = Boolean(
+    status?.establishment_enabled || status?.allow_all,
+  );
   const canChat = globallyReady && houseReady;
 
   /** Mantém o FAB visível enquanto carrega ou se Groq/flag global ok. */
@@ -262,11 +265,12 @@ export default function StaffAgentFloat() {
             </div>
           )}
 
-          {!statusLoading && globallyReady && !houseReady && !status?.allow_all && (
+          {!statusLoading && globallyReady && !houseReady && (
             <div className="px-3 py-2 text-xs text-amber-800 bg-amber-50 border-b border-amber-100">
-              Casa <strong>{establishmentId}</strong> ainda não liberada no
-              servidor. Aguarde o deploy da API ou peça para ligar o Staff Agent
-              nesta casa.
+              Casa <strong>{establishmentId}</strong> ainda no código antigo do
+              servidor (sem allow_all). Faça Redeploy da API no Render e dê hard
+              refresh.
+              {status?.code_rev ? ` Rev: ${status.code_rev}` : " Rev: (ausente)"}
             </div>
           )}
 
