@@ -14,6 +14,7 @@ import {
 import { useAppContext } from "@/app/context/AppContext";
 import { useEstablishmentPermissions } from "@/app/hooks/useEstablishmentPermissions";
 import AdminSaasGuard from "@/app/components/AdminSaasGuard";
+import StaffAgentBox from "@/app/components/admin/StaffAgentBox";
 import { useSaasAccess } from "@/app/hooks/useSaasAccess";
 import { getApiUrl } from "@/app/config/api";
 import { isSuperAdminEmail } from "@/app/hooks/useUserPermissions";
@@ -312,6 +313,8 @@ export default function AdminHomeDashboard() {
             </div>
           )}
         </header>
+
+        <StaffAgentBox token={token} establishmentId={selectedEstId} />
 
         {/* Linha 1: Guia + Atenção */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-5">
