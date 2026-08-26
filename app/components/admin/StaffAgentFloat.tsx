@@ -20,6 +20,7 @@ type StatusPayload = {
   enabled_globally?: boolean;
   groq_configured?: boolean;
   establishment_enabled?: boolean;
+  allow_all?: boolean;
   allowed_ids?: number[];
   model?: string;
   error?: string;
@@ -263,9 +264,14 @@ export default function StaffAgentFloat() {
 
           {!statusLoading && globallyReady && !houseReady && (
             <div className="px-3 py-2 text-xs text-amber-800 bg-amber-50 border-b border-amber-100">
-              Esta casa ainda não está na lista do Staff Agent. Inclua o ID{" "}
-              <strong>{establishmentId}</strong> em{" "}
-              <code>STAFF_AGENT_PHASE1_ESTABLISHMENT_IDS</code> no Render.
+              Casa <strong>{establishmentId}</strong> fora da lista do Staff
+              Agent.
+              {Array.isArray(status?.allowed_ids) && status.allowed_ids.length > 0
+                ? ` Liberadas agora: ${status.allowed_ids.join(", ")}.`
+                : null}{" "}
+              No Render, use{" "}
+              <code>STAFF_AGENT_PHASE1_ESTABLISHMENT_IDS=*</code> (todas) ou
+              inclua este ID.
             </div>
           )}
 
