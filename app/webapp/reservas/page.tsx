@@ -14,7 +14,7 @@ const Reservas = () => {
   const [logoSrc, setLogoSrc] = useState(defaultLogo.src);
   const [modalIsOpen, setModalIsOpen] = useState(false);
   const [expandedImage, setExpandedImage] = useState<string | null>(null);
-  const [quantidadePessoas, setQuantidadePessoas] = useState(1);
+  const [quantidadePessoas, setQuantidadePessoas] = useState<number | ''>(1);
   const [mesas, setMesas] = useState("1 Mesa / 6 cadeiras");
   const [userId, setUserId] = useState<number | null>(null);
   const [comboImage, setComboImage] = useState<string | null>(null);
@@ -63,10 +63,16 @@ const Reservas = () => {
       return;
     }
 
+    const partySize = Number(quantidadePessoas);
+    if (!Number.isFinite(partySize) || partySize < 1 || partySize > 10) {
+      alert("Informe o número de pessoas (entre 1 e 10).");
+      return;
+    }
+
     const reservationData = {
       userId,
       eventId: eventData.id,
-      quantidade_pessoas: quantidadePessoas,
+      quantidade_pessoas: partySize,
       mesas,
       data_da_reserva: new Date().toISOString().split("T")[0],
       casa_da_reserva: eventData.casa_do_evento,
@@ -131,10 +137,23 @@ const Reservas = () => {
               <label>Pessoas</label>
               <input
                 type="number"
+                inputMode="numeric"
                 min={1}
-                value={quantidadePessoas}
-                onChange={(e) => setQuantidadePessoas(Number(e.target.value || 0))}
+                max={10}
+                value={quantidadePessoas === '' ? '' : quantidadePessoas}
+                onChange={(e) => {
+                  const raw = e.target.value;
+                  if (raw === '') {
+                    setQuantidadePessoas('');
+                    return;
+                  }
+                  const n = parseInt(raw, 10);
+                  if (!Number.isFinite(n)) return;
+                  const capped = Math.min(10, Math.max(0, n));
+                  setQuantidadePessoas(capped === 0 ? '' : capped);
+                }}
               />
+              <p style={{ fontSize: '12px', opacity: 0.7, marginTop: 4 }}>Máximo de 10 pessoas.</p>
             </div>
             <div className={styles.formGroup}>
               <label>Mesas</label>

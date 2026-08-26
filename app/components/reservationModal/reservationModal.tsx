@@ -23,7 +23,7 @@ const ReservationModal: React.FC<ReservationModalProps> = ({
   onClose,
 }) => {
   const [modalIsOpen, setModalIsOpen] = useState(true);
-  const [quantidadePessoas, setQuantidadePessoas] = useState(1);
+  const [quantidadePessoas, setQuantidadePessoas] = useState<number | "">(1);
   const [mesas, setMesas] = useState("1 Mesa / 6 cadeiras");
   const [logoSrc, setLogoSrc] = useState<string | null>(null);
   const [comboImage, setComboImage] = useState<string | null>(null);
@@ -73,10 +73,16 @@ const ReservationModal: React.FC<ReservationModalProps> = ({
       return;
     }
 
+    const partySize = Number(quantidadePessoas);
+    if (!Number.isFinite(partySize) || partySize < 1 || partySize > 10) {
+      alert("Informe o número de pessoas (entre 1 e 10).");
+      return;
+    }
+
     const reservationData = {
       userId,
       eventId: eventData.id,
-      quantidade_pessoas: quantidadePessoas,
+      quantidade_pessoas: partySize,
       mesas,
       data_da_reserva: new Date().toISOString().split("T")[0],
       casa_da_reserva: eventData.casa_do_evento,
@@ -166,19 +172,31 @@ const ReservationModal: React.FC<ReservationModalProps> = ({
         <input
           id="quantidadePessoas"
           type="number"
+          inputMode="numeric"
           min={1}
-          value={quantidadePessoas}
+          max={10}
+          value={quantidadePessoas === "" ? "" : quantidadePessoas}
           onChange={(e) => {
-            const newQuantidadePessoas = Number(e.target.value || 0);
-            setQuantidadePessoas(newQuantidadePessoas);
+            const raw = e.target.value;
+            if (raw === "") {
+              setQuantidadePessoas("");
+              return;
+            }
+            const n = parseInt(raw, 10);
+            if (!Number.isFinite(n)) return;
+            const capped = Math.min(10, Math.max(0, n));
+            const next = capped === 0 ? "" : capped;
+            setQuantidadePessoas(next);
+            const people = typeof next === "number" ? next : 0;
             setMesas(
-              `${Math.ceil(newQuantidadePessoas / 6)} Mesa${
-                Math.ceil(newQuantidadePessoas / 6) > 1 ? "s" : ""
+              `${Math.max(1, Math.ceil(people / 6))} Mesa${
+                Math.ceil(Math.max(people, 1) / 6) > 1 ? "s" : ""
               } / 6 cadeiras`
             );
           }}
           className="border rounded px-2 py-1 w-full"
         />
+        <p className="text-xs text-gray-500 mt-1">Máximo de 10 pessoas.</p>
       </div>
 
       <div className="flex-1 min-w-[30%]">

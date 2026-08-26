@@ -55,7 +55,19 @@ export default function WaitlistModal({
   onCreateReservation,
   waitlistEntries = []
 }: WaitlistModalProps) {
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<{
+    preferred_date: string;
+    client_name: string;
+    client_phone: string;
+    client_email: string;
+    number_of_people: number | '';
+    preferred_time: string;
+    preferred_area_id: string;
+    preferred_table_number: string;
+    status: string;
+    notes: string;
+    has_bistro_table: boolean;
+  }>({
     preferred_date: '',
     client_name: '',
     client_phone: '',
@@ -447,8 +459,10 @@ export default function WaitlistModal({
       newErrors.preferred_date = 'Data preferida é obrigatória';
     }
 
-    if (formData.number_of_people < 1) {
-      newErrors.number_of_people = 'Número de pessoas deve ser maior que 0';
+    if (!Number.isFinite(Number(formData.number_of_people)) || Number(formData.number_of_people) < 1) {
+      newErrors.number_of_people = 'Informe o número de pessoas (mínimo 1).';
+    } else if (Number(formData.number_of_people) > 10) {
+      newErrors.number_of_people = 'O limite é de até 10 pessoas.';
     }
 
     setErrors(newErrors);
@@ -486,7 +500,7 @@ export default function WaitlistModal({
           client_email: formData.client_email || null,
           reservation_date: formData.preferred_date,
           reservation_time: formattedTime,
-          number_of_people: formData.number_of_people,
+          number_of_people: Number(formData.number_of_people),
           area_id: Number(formData.preferred_area_id),
           table_number: formData.preferred_table_number,
           status: 'CONFIRMADA',
@@ -688,15 +702,29 @@ export default function WaitlistModal({
                   </label>
                   <input
                     type="number"
-                    min="1"
-                    value={formData.number_of_people}
-                    onChange={(e) => handleInputChange('number_of_people', parseInt(e.target.value))}
+                    inputMode="numeric"
+                    min={1}
+                    max={10}
+                    value={formData.number_of_people === '' ? '' : formData.number_of_people}
+                    onChange={(e) => {
+                      const raw = e.target.value;
+                      if (raw === '') {
+                        handleInputChange('number_of_people', '');
+                        return;
+                      }
+                      const n = parseInt(raw, 10);
+                      if (!Number.isFinite(n)) return;
+                      handleInputChange('number_of_people', Math.min(10, Math.max(0, n)) || '');
+                    }}
                     className={`w-full px-3 py-2 bg-gray-700 border rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-yellow-500 ${
                       errors.number_of_people ? 'border-red-500' : 'border-gray-600'
                     }`}
                   />
                   {errors.number_of_people && (
                     <p className="text-red-500 text-sm mt-1">{errors.number_of_people}</p>
+                  )}
+                  {!errors.number_of_people && (
+                    <p className="text-gray-400 text-xs mt-1">Máximo de 10 pessoas.</p>
                   )}
                 </div>
               </div>

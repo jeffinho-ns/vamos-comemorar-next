@@ -1957,7 +1957,8 @@ export default function ReservationModal({
                       }
                       const n = parseInt(digits, 10);
                       if (!Number.isNaN(n)) {
-                        handleInputChange("number_of_people", n);
+                        // Admin pode criar grupos maiores; só evita valor absurdo na digitação
+                        handleInputChange("number_of_people", Math.min(n, 999));
                       }
                     }}
                     className={`w-full px-3 py-2 bg-gray-700 border rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-500 ${
@@ -1965,13 +1966,16 @@ export default function ReservationModal({
                         ? "border-red-500"
                         : "border-gray-600"
                     }`}
-                    placeholder="Digite apenas números"
+                    placeholder="Digite o número de pessoas"
                   />
                   {errors.number_of_people && (
                     <p className="text-red-500 text-sm mt-1">
                       {errors.number_of_people}
                     </p>
                   )}
+                  <p className="text-gray-400 text-xs mt-1">
+                    Apague e digite o número desejado.
+                  </p>
 
                   {formData.number_of_people >= 4 && (
                     <div className="mt-3 p-3 bg-orange-100 border border-orange-300 rounded-lg">

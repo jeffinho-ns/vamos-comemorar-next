@@ -165,7 +165,18 @@ export default function ReservationForm() {
   const [loading, setLoading] = useState(false);
   const [establishmentsLoading, setEstablishmentsLoading] = useState(true);
   const [step, setStep] = useState<'establishment' | 'form' | 'confirmation'>('establishment');
-  const [reservationData, setReservationData] = useState({
+  const [reservationData, setReservationData] = useState<{
+    client_name: string;
+    client_phone: string;
+    client_email: string;
+    client_birthdate: string;
+    reservation_date: string;
+    reservation_time: string;
+    number_of_people: number | '';
+    area_id: string;
+    table_number: string;
+    notes: string;
+  }>({
     client_name: '',
     client_phone: '',
     client_email: '',
@@ -205,7 +216,12 @@ export default function ReservationForm() {
   const isSeuJustino = establishmentRulesFlags.isSeuJustino;
   const isPracinha = establishmentRulesFlags.isPracinha;
   const isReservaRooftop = establishmentRulesFlags.isRooftop;
-  const rooftopMaxPartySize = establishmentRulesFlags.maxPartySize ?? 10;
+  /** Limite do formulário público /reservar: no máximo 10 pessoas (padronizado em todas as casas). */
+  const PUBLIC_MAX_PARTY_SIZE = 10;
+  const maxPartySize = Math.min(
+    PUBLIC_MAX_PARTY_SIZE,
+    establishmentRulesFlags.maxPartySize ?? PUBLIC_MAX_PARTY_SIZE,
+  );
 
   // Carregar estabelecimentos da API
   useEffect(() => {
@@ -813,15 +829,15 @@ export default function ReservationForm() {
       newErrors.area_id = 'Área é obrigatória';
     }
 
-    if (reservationData.number_of_people < 1) {
-      newErrors.number_of_people = 'Número de pessoas deve ser maior que 0';
-    }
-    if (isReservaRooftop && reservationData.number_of_people > rooftopMaxPartySize) {
-      newErrors.number_of_people = `Para o Reserva Rooftop, o limite é de até ${rooftopMaxPartySize} pessoas.`;
+    const partySize = Number(reservationData.number_of_people);
+    if (!Number.isFinite(partySize) || partySize < 1) {
+      newErrors.number_of_people = 'Informe o número de pessoas (mínimo 1).';
+    } else if (partySize > maxPartySize) {
+      newErrors.number_of_people = `O limite é de até ${maxPartySize} pessoas por reserva.`;
     }
 
     // Validação: tipo de reserva obrigatório para Highline com mais de 5 pessoas
-    if (isHighline && reservationData.number_of_people > 5 && !eventType) {
+    if (isHighline && partySize > 5 && !eventType) {
       newErrors.event_type = 'Tipo de reserva é obrigatório para grupos acima de 5 pessoas';
     }
 
@@ -993,18 +1009,40 @@ const handleSubmit = async (e: React.FormEvent) => {
 
 
   const handleInputChange = (field: string, value: any) => {
-    // Reserva Rooftop: limitar número de pessoas ao máximo configurado
-    if (field === 'number_of_people' && isReservaRooftop) {
-      const n = Number(value);
-      const capped = Number.isFinite(n)
-        ? Math.min(rooftopMaxPartySize, Math.max(1, n))
-        : 1;
-      setReservationData((prev) => ({ ...prev, [field]: capped }));
+    // Número de pessoas: permitir campo vazio enquanto digita; só limita o máximo.
+    // O mínimo (1) é validado no blur e no submit — forçar 1 no onChange impedia apagar.
+    if (field === 'number_of_people') {
+      if (value === '' || value === null || value === undefined) {
+        setReservationData((prev) => ({ ...prev, number_of_people: '' }));
+      } else {
+        const n = typeof value === 'number' ? value : parseInt(String(value), 10);
+        if (!Number.isFinite(n)) {
+          setReservationData((prev) => ({ ...prev, number_of_people: '' }));
+        } else {
+          const capped = Math.min(maxPartySize, Math.max(0, n));
+          setReservationData((prev) => ({ ...prev, number_of_people: capped === 0 ? '' : capped }));
+        }
+      }
     } else {
       setReservationData((prev) => ({ ...prev, [field]: value }));
     }
     if (errors[field]) {
       setErrors(prev => ({ ...prev, [field]: '' }));
+    }
+  };
+
+  const handlePartySizeBlur = () => {
+    const raw = reservationData.number_of_people;
+    if (raw === '' || raw === null || raw === undefined) {
+      return;
+    }
+    const n = Number(raw);
+    if (!Number.isFinite(n) || n < 1) {
+      setReservationData((prev) => ({ ...prev, number_of_people: 1 }));
+      return;
+    }
+    if (n > maxPartySize) {
+      setReservationData((prev) => ({ ...prev, number_of_people: maxPartySize }));
     }
   };
 
@@ -2061,17 +2099,26 @@ const handleSubmit = async (e: React.FormEvent) => {
                   </label>
                   <input
                     type="number"
+                    inputMode="numeric"
                     min={1}
-                    max={isReservaRooftop ? rooftopMaxPartySize : 999}
-                    value={reservationData.number_of_people}
+                    max={maxPartySize}
+                    value={reservationData.number_of_people === '' ? '' : reservationData.number_of_people}
                     onChange={(e) => {
-                      const newValue = parseInt(e.target.value || '0');
+                      const raw = e.target.value;
+                      if (raw === '') {
+                        handleInputChange('number_of_people', '');
+                        if (eventType) setEventType('');
+                        return;
+                      }
+                      const newValue = parseInt(raw, 10);
+                      if (!Number.isFinite(newValue)) return;
                       handleInputChange('number_of_people', newValue);
                       // Limpar eventType se o número de pessoas for reduzido para 5 ou menos
                       if (newValue <= 5 && eventType) {
                         setEventType('');
                       }
                     }}
+                    onBlur={handlePartySizeBlur}
                     className={`w-full px-3 sm:px-4 py-2 sm:py-3 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent text-sm sm:text-base ${
                       errors.number_of_people ? 'border-red-500' : 'border-gray-300'
                     }`}
@@ -2081,7 +2128,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                   )}
                   
                   {/* Indicador de reserva grande */}
-                  {reservationData.number_of_people >= 4 && (
+                  {Number(reservationData.number_of_people) >= 4 && (
                     <div className="mt-3 p-4 bg-gradient-to-r from-orange-100 to-red-100 border-2 border-orange-400 rounded-lg shadow-lg">
                       <div className="flex items-center gap-2 text-orange-900">
                         <MdPeople className="text-orange-600 text-lg" />
@@ -2093,9 +2140,9 @@ const handleSubmit = async (e: React.FormEvent) => {
                     </div>
                   )}
 
-                  {isReservaRooftop && !errors.number_of_people && (
+                  {!errors.number_of_people && (
                     <p className="text-gray-500 text-xs mt-1">
-                      No Reserva Rooftop, o limite máximo é de {rooftopMaxPartySize} pessoas por reserva.
+                      Máximo de {maxPartySize} pessoas por reserva.
                     </p>
                   )}
                 </div>
@@ -2446,7 +2493,7 @@ const handleSubmit = async (e: React.FormEvent) => {
               )}
 
               {/* Campo de tipo de reserva para reservas acima de 5 pessoas (apenas Highline) */}
-              {isHighline && reservationData.number_of_people > 5 && (
+              {isHighline && Number(reservationData.number_of_people) > 5 && (
                 <div className="p-4 bg-indigo-50 border border-indigo-200 rounded-lg">
                   <label className="block text-sm font-medium text-indigo-900 mb-2">
                     Tipo de Reserva *
@@ -2500,7 +2547,7 @@ const handleSubmit = async (e: React.FormEvent) => {
               )}
 
               {/* Lógica condicional sexta/sábado para reservas grandes */}
-              {reservationData.number_of_people >= 4 && reservationData.reservation_date && (
+              {Number(reservationData.number_of_people) >= 4 && reservationData.reservation_date && (
                 (() => {
                   const d = new Date(reservationData.reservation_date + 'T00:00:00');
                   const weekday = d.getDay(); // 5=sexta, 6=sábado
@@ -2674,7 +2721,7 @@ const handleSubmit = async (e: React.FormEvent) => {
       )}
 
       {/* Alerta de Reserva Grande */}
-      {reservationData.number_of_people >= 4 && (
+      {Number(reservationData.number_of_people) >= 4 && (
         <div className="bg-gradient-to-r from-orange-100 to-red-100 border-2 border-orange-400 rounded-lg p-4">
           <div className="flex items-center gap-2 mb-2">
             <span className="text-lg">⚠️</span>
