@@ -38,6 +38,8 @@ import { establishmentAllowsModule } from '@/app/utils/establishmentModuleAccess
 import { toCardapioBarIds } from '@/app/config/cardapioBarResolver';
 import { fetchCardapioMappings } from '@/app/utils/establishmentRulesClient';
 import { authHeaders } from '@/app/utils/readAuthToken';
+import { getPublicSocketUrl } from '@/lib/publicApiUrl';
+import { io, Socket } from 'socket.io-client';
 
 type MenuDisplayStyle = 'normal' | 'clean';
 
@@ -1339,6 +1341,63 @@ export default function CardapioAdminPage() {
       cancelled = true;
     };
   }, [fetchData]);
+
+  // Tempo real: Staff Agent (ou outro admin) pausa/reativa → atualiza a lista sem F5
+  useEffect(() => {
+    const barIds = Array.from(
+      new Set(
+        (menuData.bars || [])
+          .map((b) => Number(b.id))
+          .filter((id) => Number.isFinite(id) && id > 0),
+      ),
+    );
+    if (barIds.length === 0) return;
+
+    let socket: Socket | null = null;
+    try {
+      socket = io(getPublicSocketUrl(), {
+        transports: ['websocket', 'polling'],
+        withCredentials: true,
+      });
+      socket.on('connect', () => {
+        for (const barId of barIds) {
+          socket?.emit('join_cardapio', { barId });
+        }
+      });
+      socket.on(
+        'menu_item_visibility',
+        (payload: {
+          item_id?: number;
+          bar_id?: number;
+          visible?: boolean;
+          name?: string;
+        }) => {
+          const itemId = Number(payload?.item_id);
+          if (!Number.isFinite(itemId) || itemId <= 0) return;
+          const nextVisible = payload.visible ? 1 : 0;
+          setMenuData((prev) => ({
+            ...prev,
+            items: prev.items.map((item) =>
+              Number(item.id) === itemId
+                ? { ...item, visible: nextVisible }
+                : item,
+            ),
+          }));
+        },
+      );
+    } catch (e) {
+      console.warn('[cardapio] socket realtime indisponível', e);
+    }
+
+    return () => {
+      try {
+        socket?.removeAllListeners();
+        socket?.disconnect();
+      } catch {
+        /* ignore */
+      }
+    };
+  }, [menuData.bars]);
 
   // Índice de imagens: adiar em máquinas lentas (evita competir com o carregamento principal).
   useEffect(() => {
