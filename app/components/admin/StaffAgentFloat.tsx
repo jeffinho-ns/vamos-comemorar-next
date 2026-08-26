@@ -10,17 +10,19 @@ const STORAGE_KEY = "staffAgentEstablishmentId";
 
 type ChatMsg = {
   id: string;
-  role: "user" | "assistant" | "system";
+  role: "user" | "assistant";
   text: string;
-  confirmId?: string;
 };
 
+/** Campos alinhados com GET /api/staff-agent/status */
 type StatusPayload = {
   ok?: boolean;
   enabled_globally?: boolean;
   groq_configured?: boolean;
   establishment_enabled?: boolean;
+  allowed_ids?: number[];
   model?: string;
+  error?: string;
 };
 
 type TurnPayload = {
@@ -35,22 +37,33 @@ function uid() {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
+function toId(value: unknown): number | null {
+  const n = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
 /**
- * Widget flutuante do Staff Agent (canto inferior direito).
- * Disponível em todas as páginas /admin quando a casa estiver na feature flag.
+ * Widget flutuante do Staff Agent (canto inferior direito) em todas as /admin.
+ * Ao trocar de casa, o chat permanece aberto — só avisa se a casa não estiver na flag.
  */
 export default function StaffAgentFloat() {
   const { token, establishments } = useAppContext();
   const { getFilteredEstablishments } = useEstablishmentPermissions();
+
   const houses = useMemo(() => {
-    const filtered = getFilteredEstablishments(establishments || []);
-    if (filtered.length > 0) return filtered;
-    return establishments || [];
+    const list = Array.isArray(establishments) ? establishments : [];
+    try {
+      const filtered = getFilteredEstablishments(list);
+      return (filtered.length > 0 ? filtered : list).filter((h) => toId(h.id) != null);
+    } catch {
+      return list.filter((h) => toId(h.id) != null);
+    }
   }, [establishments, getFilteredEstablishments]);
 
   const [open, setOpen] = useState(false);
   const [establishmentId, setEstablishmentId] = useState<number | null>(null);
   const [status, setStatus] = useState<StatusPayload | null>(null);
+  const [statusLoading, setStatusLoading] = useState(false);
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<ChatMsg[]>([]);
   const [pendingConfirmId, setPendingConfirmId] = useState<string | null>(null);
@@ -59,16 +72,17 @@ export default function StaffAgentFloat() {
 
   useEffect(() => {
     if (!houses.length) return;
-    const saved = Number(localStorage.getItem(STORAGE_KEY) || 0);
-    const fromSaved = houses.find((h) => Number(h.id) === saved);
-    if (fromSaved) {
-      setEstablishmentId(Number(fromSaved.id));
+    const saved = toId(localStorage.getItem(STORAGE_KEY));
+    const savedHouse = saved != null ? houses.find((h) => toId(h.id) === saved) : null;
+    if (savedHouse) {
+      setEstablishmentId(toId(savedHouse.id));
       return;
     }
-    if (establishmentId == null) {
-      setEstablishmentId(Number(houses[0].id));
-    }
-  }, [houses, establishmentId]);
+    setEstablishmentId((prev) => {
+      if (prev != null && houses.some((h) => toId(h.id) === prev)) return prev;
+      return toId(houses[0].id);
+    });
+  }, [houses]);
 
   useEffect(() => {
     if (establishmentId != null) {
@@ -81,6 +95,7 @@ export default function StaffAgentFloat() {
       setStatus(null);
       return;
     }
+    setStatusLoading(true);
     try {
       const res = await fetch(
         `${getApiUrl()}/api/staff-agent/status?establishment_id=${establishmentId}`,
@@ -89,7 +104,15 @@ export default function StaffAgentFloat() {
       const data = (await res.json()) as StatusPayload;
       setStatus(data);
     } catch {
-      setStatus(null);
+      setStatus({
+        ok: false,
+        enabled_globally: false,
+        groq_configured: false,
+        establishment_enabled: false,
+        error: "Não foi possível verificar o assistente.",
+      });
+    } finally {
+      setStatusLoading(false);
     }
   }, [token, establishmentId]);
 
@@ -102,22 +125,33 @@ export default function StaffAgentFloat() {
     listRef.current.scrollTop = listRef.current.scrollHeight;
   }, [messages, open, loading]);
 
-  const enabled = Boolean(
-    status?.enabled_globally &&
-      status?.establishment_enabled &&
-      status?.groq_configured,
+  const globallyReady = Boolean(
+    status?.enabled_globally && status?.groq_configured,
   );
+  const houseReady = Boolean(status?.establishment_enabled);
+  const canChat = globallyReady && houseReady;
 
-  const pushAssistant = (text: string, confirmId?: string) => {
-    setMessages((prev) => [
-      ...prev,
-      { id: uid(), role: "assistant", text, confirmId },
-    ]);
+  /** Mantém o FAB visível enquanto carrega ou se Groq/flag global ok. */
+  const showFab = Boolean(token && (statusLoading || globallyReady || status?.error));
+
+  const pushAssistant = (text: string) => {
+    setMessages((prev) => [...prev, { id: uid(), role: "assistant", text }]);
+  };
+
+  const onSelectHouse = (raw: string) => {
+    const id = toId(raw);
+    if (id == null) return;
+    setEstablishmentId(id);
+    setMessages([]);
+    setPendingConfirmId(null);
+    setInput("");
   };
 
   const sendTurn = async () => {
     const text = input.trim();
-    if (!text || !token || !establishmentId || loading || pendingConfirmId) return;
+    if (!text || !token || !establishmentId || loading || pendingConfirmId || !canChat) {
+      return;
+    }
     setInput("");
     setMessages((prev) => [...prev, { id: uid(), role: "user", text }]);
     setLoading(true);
@@ -138,7 +172,7 @@ export default function StaffAgentFloat() {
       const reply = data.reply || "Pronto.";
       if ((data.type === "confirm" || data.confirm_id) && data.confirm_id) {
         setPendingConfirmId(data.confirm_id);
-        pushAssistant(reply, data.confirm_id);
+        pushAssistant(reply);
       } else {
         pushAssistant(reply);
       }
@@ -176,7 +210,11 @@ export default function StaffAgentFloat() {
     }
   };
 
-  if (!token || !enabled) return null;
+  if (!showFab) return null;
+
+  const houseLabel =
+    houses.find((h) => toId(h.id) === establishmentId)?.name ||
+    (establishmentId != null ? `Casa #${establishmentId}` : "Selecione");
 
   return (
     <div className="fixed bottom-5 right-5 z-[90] flex flex-col items-end gap-3 pointer-events-none">
@@ -186,7 +224,7 @@ export default function StaffAgentFloat() {
             <div className="min-w-0">
               <p className="text-sm font-semibold truncate">Assistente do turno</p>
               <p className="text-[11px] text-slate-300 truncate">
-                Groq · só esta casa · confirma antes de alterar
+                {houseLabel} · confirma antes de alterar
               </p>
             </div>
             <button
@@ -199,33 +237,40 @@ export default function StaffAgentFloat() {
             </button>
           </div>
 
-          {houses.length > 1 && (
+          {houses.length > 0 && (
             <div className="px-3 py-2 border-b border-slate-100 bg-slate-50">
               <label className="sr-only" htmlFor="staff-agent-house">
                 Estabelecimento
               </label>
               <select
                 id="staff-agent-house"
-                className="w-full text-xs rounded-lg border border-slate-200 bg-white px-2 py-1.5"
+                className="w-full text-xs rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-slate-800"
                 value={establishmentId ?? ""}
-                onChange={(e) => {
-                  const id = Number(e.target.value);
-                  setEstablishmentId(Number.isFinite(id) ? id : null);
-                  setMessages([]);
-                  setPendingConfirmId(null);
-                }}
+                onChange={(e) => onSelectHouse(e.target.value)}
               >
-                {houses.map((h) => (
-                  <option key={h.id} value={h.id}>
-                    {h.name}
-                  </option>
-                ))}
+                {houses.map((h) => {
+                  const id = toId(h.id);
+                  if (id == null) return null;
+                  return (
+                    <option key={id} value={id}>
+                      {h.name || `Casa #${id}`}
+                    </option>
+                  );
+                })}
               </select>
             </div>
           )}
 
+          {!statusLoading && globallyReady && !houseReady && (
+            <div className="px-3 py-2 text-xs text-amber-800 bg-amber-50 border-b border-amber-100">
+              Esta casa ainda não está na lista do Staff Agent. Inclua o ID{" "}
+              <strong>{establishmentId}</strong> em{" "}
+              <code>STAFF_AGENT_PHASE1_ESTABLISHMENT_IDS</code> no Render.
+            </div>
+          )}
+
           <div ref={listRef} className="flex-1 overflow-y-auto px-3 py-3 space-y-2 bg-slate-50">
-            {messages.length === 0 && (
+            {messages.length === 0 && canChat && (
               <p className="text-xs text-slate-500 leading-relaxed">
                 Ex.: “como está o dia de hoje?”, “quem está na espera?”, “pausar a
                 caipirinha”.
@@ -243,9 +288,7 @@ export default function StaffAgentFloat() {
                 {m.text}
               </div>
             ))}
-            {loading && (
-              <p className="text-xs text-slate-400">Pensando…</p>
-            )}
+            {loading && <p className="text-xs text-slate-400">Pensando…</p>}
           </div>
 
           {pendingConfirmId && (
@@ -273,7 +316,7 @@ export default function StaffAgentFloat() {
             <input
               type="text"
               value={input}
-              disabled={loading || Boolean(pendingConfirmId)}
+              disabled={loading || Boolean(pendingConfirmId) || !canChat}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
@@ -282,16 +325,18 @@ export default function StaffAgentFloat() {
                 }
               }}
               placeholder={
-                pendingConfirmId
-                  ? "Confirme ou cancele a ação…"
-                  : "Escreva seu pedido…"
+                !canChat
+                  ? "Selecione uma casa habilitada…"
+                  : pendingConfirmId
+                    ? "Confirme ou cancele a ação…"
+                    : "Escreva seu pedido…"
               }
-              className="flex-1 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500"
+              className="flex-1 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-60"
             />
             <button
               type="button"
               onClick={() => void sendTurn()}
-              disabled={loading || !input.trim() || Boolean(pendingConfirmId)}
+              disabled={loading || !input.trim() || Boolean(pendingConfirmId) || !canChat}
               className="rounded-xl bg-slate-900 text-white p-2.5 disabled:opacity-40"
               aria-label="Enviar"
             >
