@@ -262,16 +262,11 @@ export default function StaffAgentFloat() {
             </div>
           )}
 
-          {!statusLoading && globallyReady && !houseReady && (
+          {!statusLoading && globallyReady && !houseReady && !status?.allow_all && (
             <div className="px-3 py-2 text-xs text-amber-800 bg-amber-50 border-b border-amber-100">
-              Casa <strong>{establishmentId}</strong> fora da lista do Staff
-              Agent.
-              {Array.isArray(status?.allowed_ids) && status.allowed_ids.length > 0
-                ? ` Liberadas agora: ${status.allowed_ids.join(", ")}.`
-                : null}{" "}
-              No Render, use{" "}
-              <code>STAFF_AGENT_PHASE1_ESTABLISHMENT_IDS=*</code> (todas) ou
-              inclua este ID.
+              Casa <strong>{establishmentId}</strong> ainda não liberada no
+              servidor. Aguarde o deploy da API ou peça para ligar o Staff Agent
+              nesta casa.
             </div>
           )}
 
