@@ -1351,7 +1351,10 @@ export default function CardapioAdminPage() {
           .filter((id) => Number.isFinite(id) && id > 0),
       ),
     );
-    if (barIds.length === 0) return;
+    const establishmentIds = uniqueAllowedEstablishmentIds.filter(
+      (id) => Number.isFinite(id) && id > 0,
+    );
+    if (barIds.length === 0 && establishmentIds.length === 0) return;
 
     let socket: Socket | null = null;
     try {
@@ -1362,6 +1365,9 @@ export default function CardapioAdminPage() {
       socket.on('connect', () => {
         for (const barId of barIds) {
           socket?.emit('join_cardapio', { barId });
+        }
+        for (const establishmentId of establishmentIds) {
+          socket?.emit('join_cardapio', { establishmentId });
         }
       });
       socket.on(
@@ -1397,7 +1403,7 @@ export default function CardapioAdminPage() {
         /* ignore */
       }
     };
-  }, [menuData.bars]);
+  }, [menuData.bars, uniqueAllowedEstablishmentIds.join(',')]);
 
   // Índice de imagens: adiar em máquinas lentas (evita competir com o carregamento principal).
   useEffect(() => {
