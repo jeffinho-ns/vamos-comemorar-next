@@ -35,6 +35,7 @@ import { useSaasAccess } from "../hooks/useSaasAccess";
 import { useEntitlements } from "../context/EntitlementsContext";
 import { filterNavByEntitlements } from "../config/adminNavModules";
 import AdminPageGate from "../components/AdminPageGate";
+import StaffAgentFloat from "../components/admin/StaffAgentFloat";
 import { useAppContext } from "../context/AppContext";
 import { isWhatsappHighlineScopedEmail } from "../config/whatsapp-highline-access";
 import {
@@ -657,6 +658,7 @@ export default function DashboardLayout({
           <AdminPageViewLogger />
           <AdminPageGate>{children}</AdminPageGate>
         </main>
+        <StaffAgentFloat />
       </div>
     </div>
   );
