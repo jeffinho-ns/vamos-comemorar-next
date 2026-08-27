@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { io, type Socket } from 'socket.io-client';
 import { getPublicSocketUrl } from '@/lib/publicApiUrl';
@@ -39,6 +39,11 @@ export default function DetalhesOperacionaisPage() {
   const [editingDetail, setEditingDetail] = useState<OperationalDetail | null>(null);
   const [selectedEstablishment, setSelectedEstablishment] = useState<number | null>(null);
   const [filterDate, setFilterDate] = useState<string>('');
+  const [realtimeNotice, setRealtimeNotice] = useState<string | null>(null);
+  const filterDateRef = useRef(filterDate);
+  useEffect(() => {
+    filterDateRef.current = filterDate;
+  }, [filterDate]);
 
   const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.agilizaiapp.com.br';
 
@@ -105,6 +110,12 @@ export default function DetalhesOperacionaisPage() {
     fetchDetails();
   }, [selectedEstablishment, filterDate]);
 
+  // O listener do socket é montado uma vez; sem o ref ele recarregaria com o filtro antigo.
+  const fetchDetailsRef = useRef<() => void>(() => {});
+  useEffect(() => {
+    fetchDetailsRef.current = fetchDetails;
+  });
+
   // Tempo real: Staff Agent (ou outro admin) cria/edita/remove OS → lista atualiza sem F5
   useEffect(() => {
     if (!selectedEstablishment) return;
@@ -120,9 +131,15 @@ export default function DetalhesOperacionaisPage() {
       });
       socket.on(
         'operational_detail_changed',
-        (payload: { establishment_id?: number }) => {
+        (payload: { establishment_id?: number; date?: string | null }) => {
           if (Number(payload?.establishment_id) !== selectedEstablishment) return;
-          fetchDetails();
+          fetchDetailsRef.current();
+          // OS de outra data não entra na lista filtrada: avisa em vez de sumir sem explicação.
+          if (payload?.date && filterDateRef.current && payload.date !== filterDateRef.current) {
+            setRealtimeNotice(
+              `Uma OS foi criada para ${payload.date.split('-').reverse().join('/')}, fora do filtro de data atual.`,
+            );
+          }
         },
       );
     } catch (e) {
@@ -398,6 +415,22 @@ export default function DetalhesOperacionaisPage() {
         {error && (
           <div className="bg-red-500/20 border border-red-500/50 rounded-xl p-4 mb-6 text-red-400">
             {error}
+          </div>
+        )}
+
+        {realtimeNotice && (
+          <div className="bg-blue-500/20 border border-blue-500/50 rounded-xl p-4 mb-6 text-blue-200 flex items-center justify-between gap-4">
+            <span>{realtimeNotice}</span>
+            <button
+              type="button"
+              onClick={() => {
+                setFilterDate('');
+                setRealtimeNotice(null);
+              }}
+              className="text-sm font-semibold underline whitespace-nowrap"
+            >
+              Ver todas as datas
+            </button>
           </div>
         )}
 

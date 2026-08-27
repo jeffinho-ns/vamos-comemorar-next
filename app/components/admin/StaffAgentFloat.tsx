@@ -153,9 +153,11 @@ export default function StaffAgentFloat() {
 
   const sendTurn = async () => {
     const text = input.trim();
-    if (!text || !token || !establishmentId || loading || pendingConfirmId || !canChat) {
+    if (!text || !token || !establishmentId || loading || !canChat) {
       return;
     }
+    // Com ação pendente, a mensagem complementa a ação em vez de abrir outra.
+    const amendingId = pendingConfirmId;
     setInput("");
     setMessages((prev) => [...prev, { id: uid(), role: "user", text }]);
     setLoading(true);
@@ -166,7 +168,11 @@ export default function StaffAgentFloat() {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ establishment_id: establishmentId, message: text }),
+        body: JSON.stringify({
+          establishment_id: establishmentId,
+          message: text,
+          confirm_id: amendingId || undefined,
+        }),
       });
       const data = (await res.json()) as TurnPayload;
       if (!res.ok || data.ok === false) {
@@ -174,12 +180,12 @@ export default function StaffAgentFloat() {
         return;
       }
       const reply = data.reply || "Pronto.";
-      if ((data.type === "confirm" || data.confirm_id) && data.confirm_id) {
-        setPendingConfirmId(data.confirm_id);
-        pushAssistant(reply);
-      } else {
-        pushAssistant(reply);
-      }
+      setPendingConfirmId(
+        (data.type === "confirm" || data.confirm_id) && data.confirm_id
+          ? data.confirm_id
+          : null,
+      );
+      pushAssistant(reply);
     } catch {
       pushAssistant("Falha de conexão. Tente de novo.");
     } finally {
@@ -321,7 +327,7 @@ export default function StaffAgentFloat() {
             <input
               type="text"
               value={input}
-              disabled={loading || Boolean(pendingConfirmId) || !canChat}
+              disabled={loading || !canChat}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
@@ -333,7 +339,7 @@ export default function StaffAgentFloat() {
                 !canChat
                   ? "Selecione uma casa habilitada…"
                   : pendingConfirmId
-                    ? "Confirme ou cancele a ação…"
+                    ? "Confirme, cancele ou acrescente informações…"
                     : "Escreva seu pedido…"
               }
               className="flex-1 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-60"
@@ -341,7 +347,7 @@ export default function StaffAgentFloat() {
             <button
               type="button"
               onClick={() => void sendTurn()}
-              disabled={loading || !input.trim() || Boolean(pendingConfirmId) || !canChat}
+              disabled={loading || !input.trim() || !canChat}
               className="rounded-xl bg-slate-900 text-white p-2.5 disabled:opacity-40"
               aria-label="Enviar"
             >
