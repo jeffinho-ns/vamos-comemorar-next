@@ -19,6 +19,8 @@ import {
   MdLock,
 } from "react-icons/md";
 import { motion } from "framer-motion";
+import { io, type Socket } from "socket.io-client";
+import { getPublicSocketUrl } from "@/lib/publicApiUrl";
 import ReservationCalendar from "../../components/ReservationCalendar";
 import WeeklyCalendar from "../../components/WeeklyCalendar";
 import ReservationModal from "../../components/ReservationModal";
@@ -646,6 +648,41 @@ export default function RestaurantReservationsPage() {
       console.error("Erro ao carregar bloqueios de agenda:", error);
     }
   }, [API_URL, selectedEstablishment]);
+
+  // Tempo real: Staff Agent (ou outro admin) bloqueia/libera um dia → calendário atualiza sem F5
+  useEffect(() => {
+    const establishmentId = Number(selectedEstablishment?.id);
+    if (!Number.isFinite(establishmentId) || establishmentId <= 0) return;
+
+    let socket: Socket | null = null;
+    try {
+      socket = io(getPublicSocketUrl(), {
+        transports: ["websocket", "polling"],
+        withCredentials: true,
+      });
+      socket.on("connect", () => {
+        socket?.emit("join_agenda", { establishmentId });
+      });
+      socket.on(
+        "reservation_block_changed",
+        (payload: { establishment_id?: number }) => {
+          if (Number(payload?.establishment_id) !== establishmentId) return;
+          loadBlocks();
+        },
+      );
+    } catch (e) {
+      console.warn("[reservas] socket realtime indisponível", e);
+    }
+
+    return () => {
+      try {
+        socket?.removeAllListeners();
+        socket?.disconnect();
+      } catch {
+        /* ignore */
+      }
+    };
+  }, [selectedEstablishment?.id, loadBlocks]);
 
   useEffect(() => {
     if (!selectedEstablishment?.id) {
