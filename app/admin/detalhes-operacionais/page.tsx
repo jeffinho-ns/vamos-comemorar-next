@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
+import { io, type Socket } from 'socket.io-client';
+import { getPublicSocketUrl } from '@/lib/publicApiUrl';
 import {
   MdAdd,
   MdEdit,
@@ -102,6 +104,40 @@ export default function DetalhesOperacionaisPage() {
   useEffect(() => {
     fetchDetails();
   }, [selectedEstablishment, filterDate]);
+
+  // Tempo real: Staff Agent (ou outro admin) cria/edita/remove OS → lista atualiza sem F5
+  useEffect(() => {
+    if (!selectedEstablishment) return;
+
+    let socket: Socket | null = null;
+    try {
+      socket = io(getPublicSocketUrl(), {
+        transports: ['websocket', 'polling'],
+        withCredentials: true,
+      });
+      socket.on('connect', () => {
+        socket?.emit('join_os', { establishmentId: selectedEstablishment });
+      });
+      socket.on(
+        'operational_detail_changed',
+        (payload: { establishment_id?: number }) => {
+          if (Number(payload?.establishment_id) !== selectedEstablishment) return;
+          fetchDetails();
+        },
+      );
+    } catch (e) {
+      console.warn('[detalhes-operacionais] socket realtime indisponível', e);
+    }
+
+    return () => {
+      try {
+        socket?.removeAllListeners();
+        socket?.disconnect();
+      } catch {
+        /* ignore */
+      }
+    };
+  }, [selectedEstablishment]);
 
   const fetchDetails = async () => {
     setLoading(true);
