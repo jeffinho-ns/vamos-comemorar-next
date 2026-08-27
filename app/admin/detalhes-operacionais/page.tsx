@@ -393,20 +393,6 @@ export default function DetalhesOperacionaisPage() {
               >
                 <MdRefresh className="text-xl" />
               </button>
-              <button
-                onClick={() => setShowEventsModal(true)}
-                className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white px-6 py-3 rounded-xl shadow-lg transition-all duration-200 transform hover:scale-105 font-semibold flex items-center gap-2"
-              >
-                <MdEvent size={20} /> Ver Eventos
-              </button>
-              {establishmentPermissions.canCreateOperationalDetail() && (
-                <button
-                  onClick={handleAdd}
-                  className="bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-600 hover:to-yellow-700 text-gray-900 px-6 py-3 rounded-xl shadow-lg transition-all duration-200 transform hover:scale-105 font-semibold flex items-center gap-2"
-                >
-                  <MdAdd size={20} /> Novo Detalhe
-                </button>
-              )}
             </div>
           </div>
         </div>
@@ -445,7 +431,15 @@ export default function DetalhesOperacionaisPage() {
           />
         </div>
 
-        {/* Lista de Detalhes */}
+        {/* Lista de Detalhes: complementa a OS, sem ser obrigatório */}
+        <div className="mb-4">
+          <h2 className="text-2xl font-bold text-white">Detalhes por data</h2>
+          <p className="text-gray-400">
+            Aqui você pode complementar as informações de cada data — preços, promoções e
+            observações. É opcional: a OS acima já funciona sozinha.
+          </p>
+        </div>
+
         <div className="space-y-4">
           {details.map((detail, index) => (
             <motion.div
@@ -543,19 +537,11 @@ export default function DetalhesOperacionaisPage() {
               <h3 className="text-xl font-semibold text-gray-600 mb-2">
                 Nenhum detalhe operacional encontrado
               </h3>
-              <p className="text-gray-500 mb-6">
+              <p className="text-gray-500">
                 {selectedEstablishment || filterDate
-                  ? 'Ajuste os filtros ou crie novos detalhes'
-                  : 'Crie o primeiro detalhe operacional clicando no botão acima'}
+                  ? 'Ajuste os filtros para ver outros registros'
+                  : 'Selecione uma casa para ver os registros'}
               </p>
-              {establishmentPermissions.canCreateOperationalDetail() && (
-                <button
-                  onClick={handleAdd}
-                  className="bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-600 hover:to-yellow-700 text-gray-900 px-6 py-3 rounded-xl shadow-lg transition-all duration-200 transform hover:scale-105 font-semibold flex items-center gap-2 mx-auto"
-                >
-                  <MdAdd size={20} /> Criar Detalhe Operacional
-                </button>
-              )}
             </div>
           )}
         </div>
@@ -564,26 +550,30 @@ export default function DetalhesOperacionaisPage() {
         <div className="mt-8 bg-blue-50/50 border border-blue-200/50 rounded-xl p-6">
           <h3 className="text-lg font-semibold text-blue-900 mb-3 flex items-center gap-2">
             <MdInfo size={24} />
-            Sobre os Detalhes Operacionais
+            Como usar esta página
           </h3>
           <div className="space-y-2 text-sm text-blue-800">
             <p>
-              <strong>• Atrativos Artísticos:</strong> Informações sobre bandas, DJs e atrações do dia
+              <strong>1. Crie a OS do artista</strong> na seção acima, pelo botão de nova OS ou
+              pedindo ao assistente no chat (ex.: &quot;crie uma OS para 31/08, projeto Justa2.0,
+              das 17h às 05h&quot;). O número da OS é gerado automaticamente.
             </p>
             <p>
-              <strong>• Preços:</strong> Valores de entrada e produtos para exibição no site de reservas
+              <strong>2. Complete o que é sensível na tela</strong> — contrato, cachê e dados
+              bancários só podem ser preenchidos aqui, editando a OS. O assistente nunca pede
+              esses dados pelo chat.
             </p>
             <p>
-              <strong>• Promoções:</strong> Brindes e ofertas especiais do dia
+              <strong>3. Complemente os detalhes da data</strong> (opcional): preços, promoções e
+              observações que ajudam marketing e operação.
             </p>
             <p>
-              <strong>• Notas Administrativas:</strong> Informações internas para a equipe de marketing
+              <strong>Status Ativo:</strong> só o que está ativo aparece para o cliente no
+              formulário de reservas.
             </p>
             <p>
-              <strong>• Instruções Operacionais:</strong> Informações críticas para criação de Ordem de Serviço (OS)
-            </p>
-            <p>
-              <strong>• Status Ativo:</strong> Detalhes ativos aparecem no formulário de reservas para os clientes
+              <strong>Tempo real:</strong> OS criada pelo assistente ou por outro colega aparece
+              aqui sozinha, sem precisar recarregar a página.
             </p>
           </div>
         </div>
