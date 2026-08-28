@@ -176,7 +176,10 @@ export default function StaffAgentFloat() {
       });
       const data = (await res.json()) as TurnPayload;
       if (!res.ok || data.ok === false) {
-        pushAssistant(data.error || "Não foi possível processar agora.");
+        // Preview recusado (ok:false, HTTP 200) traz o motivo em reply; erros HTTP em error.
+        pushAssistant(
+          data.error || data.reply || "Não foi possível processar agora.",
+        );
         return;
       }
       const reply = data.reply || "Pronto.";
