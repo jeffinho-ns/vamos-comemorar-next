@@ -90,7 +90,7 @@ function flagsFromProfile(
       ? String(reservations.excludeAreaPrefix)
       : null,
     extendedGuestListWindow:
-      profile === "rooftop" || profile === "reserva" || !!events.extendedGuestListWindow,
+      profile === "rooftop" || (!!events.extendedGuestListWindow && profile !== "reserva"),
     tableBlocking: reservations.tableBlocking
       ? String(reservations.tableBlocking)
       : null,

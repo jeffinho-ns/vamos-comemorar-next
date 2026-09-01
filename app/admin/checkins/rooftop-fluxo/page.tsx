@@ -188,7 +188,9 @@ export default function RooftopFluxoPage() {
 
               const pickNotes = (o: Record<string, unknown>) =>
                 (o.notes ?? o.admin_notes ?? o.observacao ?? (o as { observação?: string }).observação) as string | undefined;
-              reservationsToday = (Array.isArray(rawReservas) ? rawReservas : []).map(
+              reservationsToday = (Array.isArray(rawReservas) ? rawReservas : [])
+                .filter((r) => r && r.id != null && isSameDateKey(String(r.reservation_date ?? ""), todayDateKey))
+                .map(
                 (r: Record<string, unknown>) =>
                   ({
                     id: r.id,
@@ -206,7 +208,14 @@ export default function RooftopFluxoPage() {
                     notes: pickNotes(r),
                   }) as RooftopReservationLike,
               );
-              guestListsToday = (Array.isArray(rawLists) ? rawLists : []).map(
+              guestListsToday = (Array.isArray(rawLists) ? rawLists : [])
+                .filter(
+                  (gl) =>
+                    gl &&
+                    (gl.guest_list_id ?? gl.id) != null &&
+                    isSameDateKey(String(gl.reservation_date ?? ""), todayDateKey),
+                )
+                .map(
                 (gl: Record<string, unknown>) =>
                   ({
                     guest_list_id: gl.guest_list_id ?? gl.id,
@@ -252,17 +261,11 @@ export default function RooftopFluxoPage() {
           reservationsToday = (Array.isArray(rawReservations) ? rawReservations : []).filter(
             (r: RooftopReservationLike) => r && r.id != null && isSameDateKey(r.reservation_date, todayDateKey),
           ) as RooftopReservationLike[];
-          if (reservationsToday.length === 0 && Array.isArray(rawReservations) && rawReservations.length > 0) {
-            reservationsToday = rawReservations as RooftopReservationLike[];
-          }
 
           guestListsToday = (Array.isArray(rawGuestLists) ? rawGuestLists : []).filter(
             (gl: RooftopGuestListLike) =>
               gl && gl.guest_list_id != null && isSameDateKey(gl.reservation_date, todayDateKey),
           ) as RooftopGuestListLike[];
-          if (guestListsToday.length === 0 && Array.isArray(rawGuestLists) && rawGuestLists.length > 0) {
-            guestListsToday = rawGuestLists as RooftopGuestListLike[];
-          }
         }
 
         const listsWithCheckedGuests = guestListsToday.filter(

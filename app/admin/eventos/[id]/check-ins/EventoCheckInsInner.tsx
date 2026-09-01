@@ -58,6 +58,7 @@ import RooftopUnifiedStatsHeader from "@/app/components/checkins/RooftopUnifiedS
 import {
   computeRooftopUnifiedMetrics,
   getRooftopSubareaName,
+  isSameDateKey,
   toDateKey,
 } from "@/app/utils/rooftopCheckins";
 import { useEstablishmentRules } from "@/app/hooks/useEstablishmentRules";
@@ -3709,29 +3710,28 @@ export default function EventoCheckInsPage() {
     return toDateKey(part) || "";
   }, [evento?.data_evento]);
 
-  // Para Reserva Rooftop o backend retorna vários dias; exibimos apenas o dia do evento.
+  // Check-ins por evento: exibir somente reservas do dia do evento (fonte da verdade: data_evento).
   const displayGuestListsRestaurante = useMemo(() => {
-    if (!isReservaRooftopEvent || !eventDateKey) return guestListsRestaurante;
-    return guestListsRestaurante.filter(
-      (gl) => toDateKey(gl.reservation_date) === eventDateKey,
+    if (!eventDateKey) return guestListsRestaurante;
+    return guestListsRestaurante.filter((gl) =>
+      isSameDateKey(gl.reservation_date, eventDateKey),
     );
-  }, [isReservaRooftopEvent, eventDateKey, guestListsRestaurante]);
+  }, [eventDateKey, guestListsRestaurante]);
 
   const displayReservasRestaurante = useMemo(() => {
-    if (!isReservaRooftopEvent || !eventDateKey) return reservasRestaurante;
-    return reservasRestaurante.filter(
-      (r) => toDateKey(r.reservation_date) === eventDateKey,
+    if (!eventDateKey) return reservasRestaurante;
+    return reservasRestaurante.filter((r) =>
+      isSameDateKey(r.reservation_date, eventDateKey),
     );
-  }, [isReservaRooftopEvent, eventDateKey, reservasRestaurante]);
+  }, [eventDateKey, reservasRestaurante]);
 
   const displayConvidadosReservasRestaurante = useMemo(() => {
-    if (!isReservaRooftopEvent || !eventDateKey) return convidadosReservasRestaurante;
+    if (!eventDateKey) return convidadosReservasRestaurante;
     const reservaIds = new Set(displayReservasRestaurante.map((r) => r.id));
     return convidadosReservasRestaurante.filter((c) =>
       reservaIds.has(Number(c.reserva_id)),
     );
   }, [
-    isReservaRooftopEvent,
     eventDateKey,
     displayReservasRestaurante,
     convidadosReservasRestaurante,
@@ -3753,16 +3753,16 @@ export default function EventoCheckInsPage() {
       };
     }
     return computeRooftopUnifiedMetrics({
-      reservations: reservasRestaurante,
-      guestLists: guestListsRestaurante,
+      reservations: displayReservasRestaurante,
+      guestLists: displayGuestListsRestaurante,
       dateKey: eventDateKey,
       guestsByList: guestsByList as Record<number, { id: number; checked_in?: boolean; checkin_time?: string | null }[]>,
     });
   }, [
     isReservaRooftopEvent,
     eventDateKey,
-    reservasRestaurante,
-    guestListsRestaurante,
+    displayReservasRestaurante,
+    displayGuestListsRestaurante,
     guestsByList,
   ]);
 
