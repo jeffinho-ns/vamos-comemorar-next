@@ -70,6 +70,8 @@ export interface RooftopUnifiedMetrics {
   reservationsCheckedIn: number;
   reservationsTotal: number;
   totalPeopleExpected: number;
+  /** Presente vs previsto por área (Deck, Salão…) — modo restaurante */
+  areasPresenceBreakdown: RooftopGiroAreaMetrics[];
   giroMetrics: RooftopGiroMetrics;
 }
 
@@ -545,6 +547,23 @@ export const computeRooftopUnifiedMetrics = (params: {
     0,
   );
 
+  const areaNamesPresence = new Set<string>([
+    ...areasMapExpected.keys(),
+    ...areasMapPresent.keys(),
+  ]);
+  const areasPresenceBreakdown: RooftopGiroAreaMetrics[] = Array.from(areaNamesPresence)
+    .map((name) => ({
+      name,
+      expected: Number(areasMapExpected.get(name) || 0),
+      present: Number(areasMapPresent.get(name) || 0),
+    }))
+    .filter((item) => item.expected > 0 || item.present > 0)
+    .sort((a, b) => {
+      if (b.present !== a.present) return b.present - a.present;
+      if (b.expected !== a.expected) return b.expected - a.expected;
+      return a.name.localeCompare(b.name, "pt-BR");
+    });
+
   const buildGiroGroup = (key: RooftopGiroKey): RooftopGiroGroupMetrics => {
     const expectedMap = giroExpectedMaps[key];
     const presentMap = giroPresentMaps[key];
@@ -594,6 +613,7 @@ export const computeRooftopUnifiedMetrics = (params: {
     reservationsCheckedIn,
     reservationsTotal,
     totalPeopleExpected,
+    areasPresenceBreakdown,
     giroMetrics,
   };
 };

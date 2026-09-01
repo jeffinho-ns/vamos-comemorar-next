@@ -390,13 +390,13 @@ export default function CheckInsGeralPage() {
 
   const showFluxoRooftopButton = useMemo(() => {
     const role = typeof window !== 'undefined' ? (localStorage.getItem('role') || '') : '';
-    const onlyRooftop =
+    const onlyReservaOperacional =
       estabelecimentos.length === 1 &&
       estabelecimentos[0] &&
-      primaryEstablishmentFlags.isRooftop;
+      (primaryEstablishmentFlags.isRooftop || primaryEstablishmentFlags.isReserva);
     const rooftopRoles = ['admin', 'atendente', 'recepcao', 'recepção'];
-    return rooftopRoles.includes(role) || onlyRooftop;
-  }, [estabelecimentos, primaryEstablishmentFlags.isRooftop]);
+    return rooftopRoles.includes(role) || onlyReservaOperacional;
+  }, [estabelecimentos, primaryEstablishmentFlags.isRooftop, primaryEstablishmentFlags.isReserva]);
 
   if (guardLoading) {
     return (

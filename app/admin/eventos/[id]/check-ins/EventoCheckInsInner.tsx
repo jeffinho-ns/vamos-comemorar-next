@@ -58,6 +58,7 @@ import RooftopUnifiedStatsHeader from "@/app/components/checkins/RooftopUnifiedS
 import {
   computeRooftopUnifiedMetrics,
   getRooftopSubareaName,
+  isReservaRooftopEstablishment,
   isSameDateKey,
   toDateKey,
 } from "@/app/utils/rooftopCheckins";
@@ -662,7 +663,13 @@ export default function EventoCheckInsPage() {
     evento?.establishment_name,
   );
   const isReservaRooftopEvent =
-    establishmentRulesFlags.isRooftop || establishmentRulesFlags.isReserva;
+    establishmentRulesFlags.isRooftop ||
+    establishmentRulesFlags.isReserva ||
+    isReservaRooftopEstablishment(evento?.establishment_name);
+  const checkinsStatsMode =
+    establishmentRulesFlags.isReserva && !establishmentRulesFlags.dualShift
+      ? ("restaurant-areas" as const)
+      : ("rooftop-giros" as const);
   const isSeuJustinoEvent = establishmentRulesFlags.isSeuJustino;
 
   const [expandedGuestListId, setExpandedGuestListId] = useState<number | null>(
@@ -3745,6 +3752,7 @@ export default function EventoCheckInsPage() {
         reservationsCheckedIn: 0,
         reservationsTotal: 0,
         totalPeopleExpected: 0,
+        areasPresenceBreakdown: [],
         giroMetrics: {
           first: { areas: [], totalExpected: 0, totalPresent: 0 },
           intermediate: { areas: [], totalExpected: 0, totalPresent: 0 },
@@ -4841,8 +4849,10 @@ export default function EventoCheckInsPage() {
           {isReservaRooftopEvent && (
             <RooftopUnifiedStatsHeader
               className="mb-3 md:mb-4"
+              mode={checkinsStatsMode}
               areaPeopleTotal={rooftopMetricsEventDay.areaPeopleTotal}
               areasBreakdown={rooftopMetricsEventDay.areasBreakdown}
+              areasPresence={rooftopMetricsEventDay.areasPresenceBreakdown}
               reservationsCheckedIn={rooftopMetricsEventDay.reservationsCheckedIn}
               reservationsTotal={rooftopMetricsEventDay.reservationsTotal}
               totalPeopleExpected={rooftopMetricsEventDay.totalPeopleExpected}

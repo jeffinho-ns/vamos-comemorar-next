@@ -12,6 +12,7 @@ import {
 import RooftopUnifiedStatsHeader from "@/app/components/checkins/RooftopUnifiedStatsHeader";
 import { useEstablishments } from "@/app/hooks/useEstablishments";
 import { useEstablishmentPermissions } from "@/app/hooks/useEstablishmentPermissions";
+import { useEstablishmentRules } from "@/app/hooks/useEstablishmentRules";
 import AdminSaasGuard from "@/app/components/AdminSaasGuard";
 import { useSaasAccess } from "@/app/hooks/useSaasAccess";
 import {
@@ -113,6 +114,14 @@ export default function RooftopFluxoPage() {
     ? Number(rooftopEstablishment.id)
     : null;
   const rooftopEstablishmentName = rooftopEstablishment?.name ?? "";
+  const { flags: rooftopRulesFlags } = useEstablishmentRules(
+    rooftopEstablishmentId,
+    rooftopEstablishmentName,
+  );
+  const checkinsStatsMode =
+    rooftopRulesFlags.isReserva && !rooftopRulesFlags.dualShift
+      ? ("restaurant-areas" as const)
+      : ("rooftop-giros" as const);
 
   const [todayDateKey] = useState(() => getTodayDateKey());
 
@@ -490,8 +499,10 @@ export default function RooftopFluxoPage() {
           <div className="sticky top-0 z-30 mb-2 md:mb-4">
             {canRenderQueue && (
               <RooftopUnifiedStatsHeader
+                mode={checkinsStatsMode}
                 areaPeopleTotal={unifiedMetrics.areaPeopleTotal}
                 areasBreakdown={unifiedMetrics.areasBreakdown}
+                areasPresence={unifiedMetrics.areasPresenceBreakdown}
                 reservationsCheckedIn={unifiedMetrics.reservationsCheckedIn}
                 reservationsTotal={unifiedMetrics.reservationsTotal}
                 totalPeopleExpected={unifiedMetrics.totalPeopleExpected}

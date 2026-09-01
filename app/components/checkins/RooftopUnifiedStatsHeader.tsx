@@ -10,8 +10,12 @@ import {
 } from "react-icons/md";
 import type {
   RooftopAreaCount,
+  RooftopGiroAreaMetrics,
   RooftopGiroMetrics,
 } from "@/app/utils/rooftopCheckins";
+import { RESERVA_SUBAREAS } from "@/app/config/reservaReservationAreas";
+
+export type CheckinsStatsHeaderMode = "rooftop-giros" | "restaurant-areas";
 
 interface RooftopUnifiedStatsHeaderProps {
   areaPeopleTotal: number;
@@ -20,6 +24,9 @@ interface RooftopUnifiedStatsHeaderProps {
   reservationsTotal: number;
   totalPeopleExpected: number;
   giroMetrics?: RooftopGiroMetrics;
+  /** Deck/Salão: presentes vs previstos (sem giros) */
+  areasPresence?: RooftopGiroAreaMetrics[];
+  mode?: CheckinsStatsHeaderMode;
   loading?: boolean;
   className?: string;
 }
@@ -31,6 +38,8 @@ export default function RooftopUnifiedStatsHeader({
   reservationsTotal,
   totalPeopleExpected,
   giroMetrics,
+  areasPresence = [],
+  mode = "rooftop-giros",
   loading = false,
   className = "",
 }: RooftopUnifiedStatsHeaderProps) {
@@ -58,17 +67,51 @@ export default function RooftopUnifiedStatsHeader({
     return () => window.removeEventListener("mousedown", onClickOutside);
   }, []);
 
+  const restaurantAreas = useMemo((): RooftopGiroAreaMetrics[] => {
+    const byName = new Map(
+      areasPresence.map((area) => [area.name.toLowerCase(), area]),
+    );
+    return RESERVA_SUBAREAS.map((subarea) => {
+      const match =
+        byName.get(subarea.label.toLowerCase()) ||
+        byName.get(subarea.areaName.toLowerCase()) ||
+        byName.get(subarea.key.toLowerCase());
+      return {
+        name: subarea.label,
+        expected: match?.expected ?? 0,
+        present: match?.present ?? 0,
+      };
+    });
+  }, [areasPresence]);
+
   const safeAreas = useMemo(() => {
-    if (!areasBreakdown.length) {
-      return [{ name: "Sem dados", people: 0 }];
+    if (mode === "restaurant-areas") {
+      return restaurantAreas.map((area) => ({
+        name: area.name,
+        people: area.present,
+        detail: `${area.present}/${area.expected}`,
+      }));
     }
-    return areasBreakdown;
-  }, [areasBreakdown]);
+    if (!areasBreakdown.length) {
+      return [{ name: "Sem dados", people: 0, detail: undefined as string | undefined }];
+    }
+    return areasBreakdown.map((area) => ({
+      ...area,
+      detail: undefined as string | undefined,
+    }));
+  }, [areasBreakdown, mode, restaurantAreas]);
 
   const safeGiroMetrics: RooftopGiroMetrics | null = useMemo(() => {
-    if (!giroMetrics) return null;
+    if (mode !== "rooftop-giros" || !giroMetrics) return null;
     return giroMetrics;
-  }, [giroMetrics]);
+  }, [giroMetrics, mode]);
+
+  const areaPeopleDisplayTotal = useMemo(() => {
+    if (mode === "restaurant-areas") {
+      return restaurantAreas.reduce((sum, area) => sum + area.present, 0);
+    }
+    return areaPeopleTotal;
+  }, [areaPeopleTotal, mode, restaurantAreas]);
 
   return (
     <div className={className}>
@@ -85,7 +128,7 @@ export default function RooftopUnifiedStatsHeader({
             </div>
             <div className="flex items-center justify-between gap-1 md:gap-2">
               <span className="text-base font-bold tabular-nums md:text-2xl">
-                {loading ? "..." : areaPeopleTotal}
+                {loading ? "..." : areaPeopleDisplayTotal}
               </span>
               <span className="inline-flex shrink-0 items-center gap-0.5 rounded-full bg-sky-500/30 px-1.5 py-0.5 text-[10px] text-sky-100 md:gap-1 md:px-2 md:py-1 md:text-xs">
                 <MdExpandMore
@@ -94,7 +137,9 @@ export default function RooftopUnifiedStatsHeader({
                 />
               </span>
             </div>
-            <div className="mt-0.5 hidden text-xs text-sky-200/80 md:mt-1 md:block">Previsto por área</div>
+            <div className="mt-0.5 hidden text-xs text-sky-200/80 md:mt-1 md:block">
+              {mode === "restaurant-areas" ? "Presentes por área" : "Previsto por área"}
+            </div>
           </button>
 
           <AnimatePresence>
@@ -112,7 +157,7 @@ export default function RooftopUnifiedStatsHeader({
                   >
                     <span className="truncate pr-3">{area.name}</span>
                     <span className="font-semibold tabular-nums text-sky-200">
-                      {area.people}
+                      {"detail" in area && area.detail ? area.detail : area.people}
                     </span>
                   </div>
                 ))}
@@ -145,6 +190,27 @@ export default function RooftopUnifiedStatsHeader({
           <div className="mt-0.5 hidden text-xs text-amber-200/80 md:mt-1 md:block">Previsto hoje</div>
         </div>
       </div>
+
+      {mode === "restaurant-areas" && (
+        <div className="mt-2 grid grid-cols-2 gap-1.5 md:mt-3 md:gap-3">
+          {restaurantAreas.map((area) => (
+            <div
+              key={area.name}
+              className="rounded-lg border border-violet-400/30 bg-violet-500/15 p-2 text-white md:rounded-xl md:p-4"
+            >
+              <div className="mb-0.5 text-[10px] font-medium text-violet-100 md:mb-1 md:text-xs">
+                {area.name}
+              </div>
+              <div className="text-base font-bold tabular-nums md:text-2xl">
+                {loading ? "..." : `${area.present}/${area.expected}`}
+              </div>
+              <div className="mt-0.5 hidden text-[10px] text-violet-50/90 md:mt-1 md:block md:text-xs">
+                No salão / previsto no turno
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       {safeGiroMetrics && (
         <div className="mt-2 grid grid-cols-1 gap-1.5 md:mt-3 md:grid-cols-3 md:gap-3">
