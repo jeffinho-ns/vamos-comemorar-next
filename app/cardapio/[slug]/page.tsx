@@ -418,7 +418,7 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
     if (!selectedBar) return false;
     return (
       selectedBar.menu_display_style === "clean" ||
-      (selectedBar.slug === "reserva-rooftop" ||
+      ((selectedBar.slug === "reserva-rooftop" ||
         selectedBar.slug === "reserva-pinheiros") &&
         selectedBar.menu_display_style !== "normal")
     );
