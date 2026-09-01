@@ -197,6 +197,7 @@ export const isReservaRooftopEstablishment = (
 ): boolean => {
   const normalized = String(establishmentName || "").toLowerCase();
   return (
+    normalized.includes("reserva pinheiros") ||
     normalized.includes("reserva rooftop") ||
     (normalized.includes("rooftop") && !normalized.includes("highline"))
   );
@@ -218,20 +219,27 @@ const normalizeRooftopAreaName = (areaName?: string | null): string | undefined 
   if (!original) return undefined;
   const lower = original.toLowerCase();
 
+  if (lower.includes("reserva - deck") || (lower.includes("deck") && lower.includes("reserva"))) {
+    return "Deck";
+  }
+  if (
+    lower.includes("reserva - sal") ||
+    lower.includes("salão") ||
+    lower.includes("salao")
+  ) {
+    return "Salão";
+  }
+  // Legado Rooftop (reservas antigas)
   if (lower.includes("reserva rooftop - corredor") || lower.includes("corredor")) {
     return "Corredor";
   }
   if (lower.includes("lg 1") || lower.includes("lg1")) return "LG 1";
   if (lower.includes("lg 2") || lower.includes("lg2")) return "LG 2";
   if (lower.includes("lg 3") || lower.includes("lg3")) return "LG 3";
-  if (lower.includes("gramado 1") || lower.includes("gramado1")) {
-    return "Gramado 1";
-  }
-  if (lower.includes("gramado 2") || lower.includes("gramado2")) {
-    return "Gramado 2";
-  }
+  if (lower.includes("gramado 1") || lower.includes("gramado1")) return "Gramado 1";
+  if (lower.includes("gramado 2") || lower.includes("gramado2")) return "Gramado 2";
   if (lower.includes("parrilha")) return "Parrilha";
-  if (lower.includes("redario") || lower.includes("redário")) return "Redario";
+  if (lower.includes("redario") || lower.includes("redário")) return "Redário";
   if (lower.includes("pq 1") || lower.includes("pq1")) return "PQ 1";
   if (lower.includes("pq 2") || lower.includes("pq2")) return "PQ 2";
   if (lower.includes("pq 3") || lower.includes("pq3")) return "PQ 3";
@@ -253,7 +261,12 @@ const normalizeRooftopAreaName = (areaName?: string | null): string | undefined 
   if (lower.includes("direito") || lower.includes("mesa")) return "Rooftop Mesas";
   if (lower.includes("esquerdo")) return "Rooftop Bangalôs";
 
-  return original.replace(/^reserva rooftop\s*-\s*/i, "").trim() || original;
+  return (
+    original
+      .replace(/^reserva\s*-\s*/i, "")
+      .replace(/^reserva rooftop\s*-\s*/i, "")
+      .trim() || original
+  );
 };
 
 export const getRooftopSubareaName = (

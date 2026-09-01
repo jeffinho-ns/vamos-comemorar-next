@@ -418,7 +418,8 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
     if (!selectedBar) return false;
     return (
       selectedBar.menu_display_style === "clean" ||
-      (selectedBar.slug === "reserva-rooftop" &&
+      (selectedBar.slug === "reserva-rooftop" ||
+        selectedBar.slug === "reserva-pinheiros") &&
         selectedBar.menu_display_style !== "normal")
     );
   }, [selectedBar]);
@@ -1171,7 +1172,9 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
       ) => { name: string; color: string } | null;
       eagerImage: boolean;
     }) => {
-      const isReservaRooftop = selectedBar?.slug === "reserva-rooftop";
+      const isReservaRooftop =
+        selectedBar?.slug === "reserva-rooftop" ||
+        selectedBar?.slug === "reserva-pinheiros";
       const isCleanStyle =
         selectedBar?.menu_display_style === "clean" ||
         (isReservaRooftop && selectedBar?.menu_display_style !== "normal");
@@ -1469,7 +1472,9 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
     );
   }
 
-  const isReservaRooftop = selectedBar.slug === "reserva-rooftop";
+  const isReservaRooftop =
+    selectedBar.slug === "reserva-rooftop" ||
+    selectedBar.slug === "reserva-pinheiros";
   /** Banner para decoração-desativa navegação apenas neste cardápio. */
   const isSitioIlhaCardapio = slug?.toLowerCase() === "sitio-ilha";
   const reveillonBannerSlugs = new Set([

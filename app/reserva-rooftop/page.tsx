@@ -148,6 +148,7 @@ const ReservaRooftopPage = () => {
           (b: any) =>
             b.slug === "reservaroftop" ||
             b.slug === "reserva-rooftop" ||
+            b.slug === "reserva-pinheiros" ||
             b.slug === "reserva_rooftop",
         );
 
@@ -209,7 +210,7 @@ const ReservaRooftopPage = () => {
       <div className="relative h-[500px] overflow-hidden">
         <Image
           src={imgBanner}
-          alt="Reserva Rooftop"
+          alt="Reserva Pinheiros"
           fill
           sizes="100vw"
           className="object-cover"
@@ -250,7 +251,7 @@ const ReservaRooftopPage = () => {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-center">
             <div className="space-y-4">
               <h1 className="text-4xl font-bold text-gray-800">
-                Reserva Rooftop
+                Reserva Pinheiros
               </h1>
               <div className="flex items-center gap-2 text-gray-600">
                 <MdLocationOn className="text-yellow-500 text-xl" />
@@ -275,7 +276,7 @@ const ReservaRooftopPage = () => {
               <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-200/20">
                 <Image
                   src={logoNew}
-                  alt="Reserva Rooftop Logo"
+                  alt="Reserva Pinheiros Logo"
                   width={200}
                   height={200}
                   className="rounded-xl"
@@ -332,7 +333,7 @@ const ReservaRooftopPage = () => {
           </div>
 
           <div className="text-center mt-8">
-            <Link href="/reservar/reserva-rooftop">
+            <Link href="/reservar/reserva-pinheiros">
               <button className="bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-600 hover:to-yellow-700 text-gray-900 px-8 py-4 rounded-xl font-bold text-lg transition-all duration-200 transform hover:scale-105 shadow-lg">
                 🎉 Fazer Reserva
               </button>
@@ -344,12 +345,12 @@ const ReservaRooftopPage = () => {
       <div className="bg-gradient-to-br from-gray-50 to-gray-100 py-16">
         <div className="container mx-auto px-8">
           <h2 className="text-3xl font-bold text-gray-800 mb-8 text-center">
-            Sobre o Reserva Rooftop
+            Sobre o Reserva Pinheiros
           </h2>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center max-w-6xl mx-auto">
             <div>
               <p className="text-gray-700 text-lg leading-relaxed">
-                No Reserva Rooftop, combinamos gastronomia e uma atmosfera
+                No Reserva Pinheiros, combinamos gastronomia e uma atmosfera
                 sofisticada com vista privilegiada, criando o cenário perfeito
                 para comemorações, encontros e experiências inesquecíveis.
               </p>
@@ -436,7 +437,7 @@ const ReservaRooftopPage = () => {
                 barId={3}
                 logo={logoImage.src}
                 location="Jardim das Perdizes, São Paulo - SP"
-                establishmentName="Reserva Rooftop"
+                establishmentName="Reserva Pinheiros"
               />
             </div>
           </div>
@@ -522,7 +523,7 @@ const ReservaRooftopPage = () => {
                         <span className="text-2xl font-bold text-yellow-600">
                           R$ {Number(item.price).toFixed(2).replace(".", ",")}
                         </span>
-                        <Link href="/cardapio/reserva-rooftop">
+                        <Link href="/cardapio/reserva-pinheiros">
                           <button className="px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-white rounded-lg font-semibold transition-colors">
                             Ver mais
                           </button>

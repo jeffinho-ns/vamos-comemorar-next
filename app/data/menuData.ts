@@ -59,9 +59,9 @@ export const bars: Bar[] = [
   },
   {
     id: '5',
-    name: 'Reserva Rooftop',
-    slug: 'reserva-rooftop',
-    description: 'No Reserva Rooftop, fusionamos sabores excepcionais com uma trilha sonora envolvente, destacando ingredientes frescos e locais em cada experiência única.',
+    name: 'Reserva Pinheiros',
+    slug: 'reserva-pinheiros',
+    description: 'No Reserva Pinheiros, fusionamos sabores excepcionais com uma trilha sonora envolvente — Deck ao ar livre e Salão com mesas, sofás e bar.',
     logoUrl: '/images/logo-reserva-rooftop.png',
     coverImageUrl: '/images/capa-reserva-rooftop.jpg',
     address: 'Em frente ao portão 2 - Rua Marc Chagal, Parque - Jardim das Perdizes, São Paulo - SP',

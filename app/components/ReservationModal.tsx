@@ -213,6 +213,9 @@ export default function ReservationModal({
   const isSeuJustino = establishmentRulesFlags.isSeuJustino;
   const isPracinha = establishmentRulesFlags.isPracinha;
   const isReservaRooftop = establishmentRulesFlags.isRooftop;
+  const isReserva = establishmentRulesFlags.isReserva;
+  const usesOverlapTableBlocking =
+    isSeuJustino || isPracinha || isReserva;
   const bistroProfile = isPracinha
     ? "pracinha"
     : isSeuJustino
@@ -604,11 +607,12 @@ export default function ReservationModal({
 
           const estId = establishment?.id ? Number(establishment.id) : null;
           const isJustinoOrPracinha = isSeuJustino || isPracinha;
+          const overlapTableFlow = usesOverlapTableBlocking;
 
           // 1. PRIMEIRO: Para Justino/Pracinha, SEMPRE resetar is_reserved ANTES de qualquer coisa
           // Isso garante que o valor do endpoint (que bloqueia dia todo) seja ignorado
           // IMPORTANTE: Este reset deve acontecer SEMPRE, independente de qualquer outra condição
-          if (isJustinoOrPracinha) {
+          if (overlapTableFlow) {
             fetched = fetched.map((t) => ({ ...t, is_reserved: false }));
             console.log(
               `[DEBUG] Reset is_reserved para Justino/Pracinha (ID: ${estId}). Total mesas: ${fetched.length}`,
@@ -716,7 +720,7 @@ export default function ReservationModal({
           // Se não tem horário selecionado OU não há reserva ativa com overlap, todas ficam disponíveis.
           // CRÍTICO: Esta lógica só roda para Justino/Pracinha e é completamente independente do Highline
           if (
-            isJustinoOrPracinha &&
+            overlapTableFlow &&
             formData.reservation_time &&
             formData.reservation_date &&
             formData.area_id
@@ -827,7 +831,7 @@ export default function ReservationModal({
             } catch (err) {
               console.error("Erro ao verificar disponibilidade:", err);
               // Em caso de erro, manter todas como disponíveis (não bloquear por segurança)
-              if (isSeuJustino || isPracinha) {
+              if (usesOverlapTableBlocking) {
                 fetched = fetched.map((t) => ({ ...t, is_reserved: false }));
               }
             }

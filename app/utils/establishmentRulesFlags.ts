@@ -21,6 +21,7 @@ export type EstablishmentRulesData = {
 export type EstablishmentRulesFlags = {
   profile: string;
   isRooftop: boolean;
+  isReserva: boolean;
   isPracinha: boolean;
   isSeuJustino: boolean;
   isHighline: boolean;
@@ -46,6 +47,7 @@ function normalizeName(name?: string | null): string {
 
 export function inferProfileFromEstablishmentName(name?: string | null): string {
   const lower = normalizeName(name);
+  if (lower.includes("pinheiros") || lower.includes("reserva pinheiros")) return "reserva";
   if (lower.includes("rooftop") || lower.includes("reserva rooftop")) return "rooftop";
   if (lower.includes("pracinha")) return "pracinha";
   if (lower.includes("highline") || lower.includes("high line") || lower.includes("high "))
@@ -66,6 +68,7 @@ function flagsFromProfile(
   return {
     profile,
     isRooftop: profile === "rooftop",
+    isReserva: profile === "reserva",
     isPracinha: profile === "pracinha",
     isSeuJustino: profile === "seu_justino",
     isHighline: profile === "highline",
@@ -87,7 +90,7 @@ function flagsFromProfile(
       ? String(reservations.excludeAreaPrefix)
       : null,
     extendedGuestListWindow:
-      profile === "rooftop" || !!events.extendedGuestListWindow,
+      profile === "rooftop" || profile === "reserva" || !!events.extendedGuestListWindow,
     tableBlocking: reservations.tableBlocking
       ? String(reservations.tableBlocking)
       : null,
@@ -129,7 +132,7 @@ export function fallbackPhoneForEstablishment(
 ): string {
   const flags = deriveEstablishmentRulesFlags(rules, establishmentName);
   if (flags.isHighline) return "(11) 3032-2934";
-  if (flags.isRooftop) return "(11) 4280-3345";
+  if (flags.isReserva || flags.isRooftop) return "(11) 4280-3345";
   if (flags.isSeuJustino) return "(11) 5200-3650";
   if (flags.isPracinha) return "(11) 2305-0938";
   return "(11) 99999-9999";

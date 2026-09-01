@@ -64,10 +64,10 @@ export const PROMOTER_BAR_MAPPINGS: PromoterBarMapping[] = [
   {
     userId: 63, // ID real do usuário 'analista@reserva.com'
     userEmail: "analista@reserva.com",
-    userName: "Analista Reserva Rooftop",
-    barId: 5, // ID do bar "Reserva Rooftop" - CORRIGIDO
-    barName: "Reserva Rooftop",
-    barSlug: "reserva-rooftop"
+    userName: "Analista Reserva Pinheiros",
+    barId: 5, // ID do bar "Reserva Pinheiros"
+    barName: "Reserva Pinheiros",
+    barSlug: "reserva-pinheiros"
   }
 ];
 

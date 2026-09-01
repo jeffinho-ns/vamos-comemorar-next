@@ -259,7 +259,7 @@ export default function SuperadminEstablishmentConfigPage() {
               type="text"
               value={form.areaNamePrefix}
               onChange={(e) => setForm({ ...form, areaNamePrefix: e.target.value })}
-              placeholder="Ex: Reserva Rooftop - "
+              placeholder="Ex: Reserva - "
               className="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-3 py-2"
             />
           </label>
@@ -269,7 +269,7 @@ export default function SuperadminEstablishmentConfigPage() {
               type="text"
               value={form.excludeAreaPrefix}
               onChange={(e) => setForm({ ...form, excludeAreaPrefix: e.target.value })}
-              placeholder="Ex: Reserva Rooftop - "
+              placeholder="Ex: Reserva - "
               className="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-3 py-2"
             />
           </label>

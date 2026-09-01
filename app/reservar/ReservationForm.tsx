@@ -29,6 +29,7 @@ import {
 } from '@/app/utils/establishmentRulesFlags';
 import { optionalAuthHeaders } from '@/app/utils/optionalAuthHeaders';
 import { getHighlineSubareasForSelect } from '@/app/config/highlineReservationAreas';
+import { getReservaSubareasForSelect } from '@/app/config/reservaReservationAreas';
 
 // Configuração da API
 const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL_LOCAL || 'https://api.agilizaiapp.com.br';
@@ -88,7 +89,7 @@ const detectAndCreateBirthdayGuestList = async (reservationId: number, payload: 
     // NOVA REGRA: Reservas de aniversário OU reservas grandes criam lista automaticamente
     // Critérios para reserva de aniversário:
     // 1. Nos dois dias de funcionamento (sexta ou sábado)
-    // 2. Estabelecimento HighLine ou Reserva Rooftop (paridade de funcionalidades)
+    // 2. Estabelecimento HighLine ou Reserva Pinheiros (paridade de funcionalidades)
     // 3. Qualquer quantidade de pessoas (para garantir benefícios)
     
     // Critérios para reserva grande:
@@ -101,12 +102,12 @@ const detectAndCreateBirthdayGuestList = async (reservationId: number, payload: 
     const isWeekend = dayOfWeek === 5 || dayOfWeek === 6; // Sexta ou Sábado
     const flags = deriveEstablishmentRulesFlags(null, establishmentName);
     const isHighLine = flags.isHighline;
-    const isReservaRooftop = flags.isRooftop;
+    const isReservaOperacional = flags.isReserva || flags.isRooftop;
     const isLargeGroup = payload.number_of_people >= 4;
     
-    // Criar lista para aniversário (HighLine ou Reserva Rooftop + fim de semana) OU reserva grande (4+ pessoas)
-    if ((isWeekend && (isHighLine || isReservaRooftop)) || isLargeGroup) {
-      const eventType = isWeekend && (isHighLine || isReservaRooftop) ? 'aniversario' : 'despedida';
+    // Criar lista para aniversário (HighLine ou Reserva Pinheiros + fim de semana) OU reserva grande (4+ pessoas)
+    if ((isWeekend && (isHighLine || isReservaOperacional)) || isLargeGroup) {
+      const eventType = isWeekend && (isHighLine || isReservaOperacional) ? 'aniversario' : 'despedida';
       console.log(`🎂 Detectada ${eventType}! Criando lista de convidados automaticamente...`);
       
       // Determinar o tipo de reserva baseado no número de pessoas
@@ -215,7 +216,11 @@ export default function ReservationForm() {
   const isHighline = establishmentRulesFlags.isHighline;
   const isSeuJustino = establishmentRulesFlags.isSeuJustino;
   const isPracinha = establishmentRulesFlags.isPracinha;
-  const isReservaRooftop = establishmentRulesFlags.isRooftop;
+  const isReservaOperacional =
+    establishmentRulesFlags.isReserva || establishmentRulesFlags.isRooftop;
+  const reservaUsesOverlap =
+    establishmentRulesFlags.tableBlocking === "overlap" ||
+    establishmentRulesFlags.isReserva;
   /** Limite do formulário público /reservar: no máximo 10 pessoas (padronizado em todas as casas). */
   const PUBLIC_MAX_PARTY_SIZE = 10;
   const maxPartySize = Math.min(
@@ -307,9 +312,9 @@ export default function ReservationForm() {
             },
             {
               id: 9,
-              name: "Reserva Rooftop",
+              name: "Reserva Pinheiros",
               logo: "/images/default-logo.png",
-              address: "Endereço do Reserva Rooftop",
+              address: "Endereço do Reserva Pinheiros",
               phone: "(11) 99999-5555",
               email: "contato@reservarooftop.com.br"
             }
@@ -353,9 +358,9 @@ export default function ReservationForm() {
           },
           {
             id: 9,
-            name: "Reserva Rooftop",
+            name: "Reserva Pinheiros",
             logo: "/images/default-logo.png",
-            address: "Endereço do Reserva Rooftop",
+            address: "Endereço do Reserva Pinheiros",
             phone: "(11) 99999-5555",
             email: "contato@reservarooftop.com.br"
           }
@@ -429,45 +434,17 @@ export default function ReservationForm() {
     { key: 'quintal-lateral-direito', area_id: 2, label: 'Quintal Lateral Direito', tableNumbers: ['50','52','54','56','58','60','62','64'] },
   ];
 
-  // Subáreas do Reserva Rooftop (nomes batem com restaurant_areas após migração add_reserva_rooftop_areas_postgresql)
-  const rooftopSubareas = [
-    { key: 'corredor', label: 'Reserva Rooftop - Corredor', areaName: 'Reserva Rooftop - Corredor' },
-    { key: 'lg1', label: 'Reserva Rooftop - LG 1', areaName: 'Reserva Rooftop - LG 1' },
-    { key: 'lg2', label: 'Reserva Rooftop - LG 2', areaName: 'Reserva Rooftop - LG 2' },
-    { key: 'lg3', label: 'Reserva Rooftop - LG 3', areaName: 'Reserva Rooftop - LG 3' },
-    { key: 'gramado1', label: 'Gramado 1 (Área de Sofás)', areaName: 'Reserva Rooftop - Gramado 1' },
-    { key: 'gramado2', label: 'Gramado 2 (Área de Giro/Fila)', areaName: 'Reserva Rooftop - Gramado 2' },
-    { key: 'parrilha', label: 'Reserva Rooftop - Parrilha', areaName: 'Reserva Rooftop - Parrilha' },
-    { key: 'redario', label: 'Reserva Rooftop - Redário', areaName: 'Reserva Rooftop - Redário' },
-    { key: 'pq1', label: 'Reserva Rooftop - PQ 1', areaName: 'Reserva Rooftop - PQ 1' },
-    { key: 'pq2', label: 'Reserva Rooftop - PQ 2', areaName: 'Reserva Rooftop - PQ 2' },
-    { key: 'pq3', label: 'Reserva Rooftop - PQ 3', areaName: 'Reserva Rooftop - PQ 3' },
-    { key: 'pq4', label: 'Reserva Rooftop - PQ 4', areaName: 'Reserva Rooftop - PQ 4' },
-  ];
+  // Subáreas do Reserva (Pinheiros) — Deck e Salão
+  const reservaSubareas = getReservaSubareasForSelect();
 
-  // Mapeamento simplificado de áreas do Reserva Rooftop para UI pública
-  const rooftopCoveredAreas = useMemo(() => {
-    if (!isReservaRooftop) return [] as RestaurantArea[];
-    const lower = (area: RestaurantArea) => (area.name || '').toLowerCase();
-    return areas.filter((a) => {
-      const n = lower(a);
-      return n.includes('interna') || n.includes('coberta') || n.includes('salão') || n.includes('lg');
-    });
-  }, [areas, isReservaRooftop]);
-
-  const rooftopUncoveredAreas = useMemo(() => {
-    if (!isReservaRooftop) return [] as RestaurantArea[];
-    const lower = (area: RestaurantArea) => (area.name || '').toLowerCase();
-    return areas.filter((a) => {
-      const n = lower(a);
-      if (n.includes('interna') || n.includes('coberta') || n.includes('salão') || n.includes('lg')) {
-        return false;
-      }
-      return n.includes('terraço') || n.includes('externa') || n.includes('descoberta') || n.includes('gramado') || n.includes('parrilha') || n.includes('pq ');
-    });
-  }, [areas, isReservaRooftop]);
-
-  const [rooftopAreaChoice, setRooftopAreaChoice] = useState<'' | 'covered' | 'uncovered'>('');
+  const resolveReservaAreaId = (subareaKey: string): string => {
+    const sub = reservaSubareas.find((s) => s.key === subareaKey);
+    if (!sub) return '';
+    const match = areas.find(
+      (a) => (a.name || '').trim().toLowerCase() === sub.areaName.toLowerCase(),
+    );
+    return match ? String(match.id) : '';
+  };
 
   // Carregar bloqueios de agenda para o dia selecionado (exibir apenas horários livres)
   useEffect(() => {
@@ -810,12 +787,12 @@ export default function ReservationForm() {
         }
       }
 
-      // Regra de horário de funcionamento do Reserva Rooftop (giros)
-      if (isReservaRooftop) {
-        const windows = getReservaRooftopTimeWindows(reservationData.reservation_date);
+      // Horário de funcionamento (Reserva Pinheiros — sem giros; janelas vêm do painel ou fallback)
+      if (isReservaOperacional) {
+        const windows = getReservaOperatingTimeWindows(reservationData.reservation_date);
         const hasWindows = windows.length > 0;
         if (!hasWindows) {
-          newErrors.reservation_time = 'Reservas fechadas para o dia selecionado no Reserva Rooftop.';
+          newErrors.reservation_time = 'Reservas fechadas para o dia selecionado no Reserva Pinheiros.';
         } else if (
           reservationData.reservation_time &&
           !isTimeWithinWindows(reservationData.reservation_time, windows)
@@ -833,7 +810,9 @@ export default function ReservationForm() {
     if (!Number.isFinite(partySize) || partySize < 1) {
       newErrors.number_of_people = 'Informe o número de pessoas (mínimo 1).';
     } else if (partySize > maxPartySize) {
-      newErrors.number_of_people = `O limite é de até ${maxPartySize} pessoas por reserva.`;
+      newErrors.number_of_people = isReservaOperacional
+        ? `Para o Reserva Pinheiros, o limite é de até ${maxPartySize} pessoas.`
+        : `O limite é de até ${maxPartySize} pessoas por reserva.`;
     }
 
     // Validação: tipo de reserva obrigatório para Highline com mais de 5 pessoas
@@ -1142,13 +1121,8 @@ const handleSubmit = async (e: React.FormEvent) => {
     return [{ start: '18:00', end: '22:30', label: 'Horário padrão' }];
   };
 
-  // Janelas de horário para o Reserva Rooftop (ID 9)
-  // Deve refletir os "giros" usados no admin (/admin/restaurant-reservations) e no backend:
-  // - Terça a Quinta: 18:00–22:30 (jantar)
-  // - Sexta e Sábado: 12:00–16:00 (almoço) e 17:00–22:30 (jantar)
-  // - Domingo: 12:00–16:00 (almoço) e 17:00–20:30 (jantar)
-  // - Segunda: fechado
-  const getReservaRooftopTimeWindows = (dateStr: string) => {
+  // Janelas de horário — Reserva Pinheiros (restaurante; múltiplas janelas no mesmo dia OK, sem cap por giro)
+  const getReservaOperatingTimeWindows = (dateStr: string) => {
     if (!dateStr) return [] as Array<{ start: string; end: string; label: string }>;
 
     if (dateStr === '2026-04-20') {
@@ -1174,14 +1148,12 @@ const handleSubmit = async (e: React.FormEvent) => {
     }
 
     if (weekday === 5 || weekday === 6) {
-      windows.push({ start: '12:00', end: '16:00', label: 'Almoço: 12:00–16:00' });
-      windows.push({ start: '17:00', end: '22:30', label: 'Jantar: 17:00–22:30' });
+      windows.push({ start: '12:00', end: '22:30', label: '12:00–22:30' });
       return windows;
     }
 
     if (weekday === 0) {
-      windows.push({ start: '12:00', end: '16:00', label: 'Almoço: 12:00–16:00' });
-      windows.push({ start: '17:00', end: '20:30', label: 'Jantar: 17:00–20:30' });
+      windows.push({ start: '12:00', end: '20:30', label: 'Domingo: 12:00–20:30' });
       return windows;
     }
 
@@ -1209,8 +1181,8 @@ const handleSubmit = async (e: React.FormEvent) => {
       return windows.flatMap((window) => createSlotsFromWindow(window.start, window.end));
     }
 
-    if (isReservaRooftop) {
-      const windows = getReservaRooftopTimeWindows(reservationData.reservation_date);
+    if (isReservaOperacional) {
+      const windows = getReservaOperatingTimeWindows(reservationData.reservation_date);
       return windows.flatMap((window) => createSlotsFromWindow(window.start, window.end));
     }
 
@@ -2142,7 +2114,9 @@ const handleSubmit = async (e: React.FormEvent) => {
 
                   {!errors.number_of_people && (
                     <p className="text-gray-500 text-xs mt-1">
-                      Máximo de {maxPartySize} pessoas por reserva.
+                      {isReservaOperacional
+                        ? `No Reserva Pinheiros, o limite máximo é de ${maxPartySize} pessoas por reserva.`
+                        : `Máximo de ${maxPartySize} pessoas por reserva.`}
                     </p>
                   )}
                 </div>
@@ -2212,10 +2186,8 @@ const handleSubmit = async (e: React.FormEvent) => {
                   </label>
                   <select
                     value={
-                      isHighline || isSeuJustino
+                      isHighline || isSeuJustino || (isReservaOperacional && !isPracinha)
                         ? selectedSubareaKey
-                        : isReservaRooftop && !isPracinha
-                        ? rooftopAreaChoice
                         : reservationData.area_id
                     }
                     onChange={(e) => {
@@ -2231,19 +2203,10 @@ const handleSubmit = async (e: React.FormEvent) => {
                         );
                         handleInputChange("table_number", "");
                         handleInputChange("reservation_time", "");
-                      } else if (isReservaRooftop && !isPracinha) {
-                        const choice = e.target.value as "" | "covered" | "uncovered";
-                        setRooftopAreaChoice(choice);
-                        let targetArea: RestaurantArea | undefined;
-                        if (choice === "covered" && rooftopCoveredAreas.length > 0) {
-                          targetArea = rooftopCoveredAreas[0];
-                        } else if (choice === "uncovered" && rooftopUncoveredAreas.length > 0) {
-                          targetArea = rooftopUncoveredAreas[0];
-                        }
-                        handleInputChange(
-                          "area_id",
-                          targetArea ? String(targetArea.id) : "",
-                        );
+                      } else if (isReservaOperacional && !isPracinha) {
+                        const key = e.target.value;
+                        setSelectedSubareaKey(key);
+                        handleInputChange("area_id", resolveReservaAreaId(key));
                         handleInputChange("table_number", "");
                         handleInputChange("reservation_time", "");
                       } else {
@@ -2269,15 +2232,12 @@ const handleSubmit = async (e: React.FormEvent) => {
                             {s.label}
                           </option>
                         ))
-                      : isReservaRooftop && !isPracinha
-                      ? [
-                          <option key="covered" value="covered">
-                            Área Coberta
-                          </option>,
-                          <option key="uncovered" value="uncovered">
-                            Área Descoberta
-                          </option>,
-                        ]
+                      : isReservaOperacional && !isPracinha
+                      ? reservaSubareas.map((s) => (
+                          <option key={s.key} value={s.key}>
+                            {s.label}
+                          </option>
+                        ))
                       : areas.map((area) => (
                           <option key={area.id} value={area.id}>
                             {area.name}

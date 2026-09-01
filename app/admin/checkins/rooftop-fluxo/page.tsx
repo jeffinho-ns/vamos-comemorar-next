@@ -98,7 +98,7 @@ export default function RooftopFluxoPage() {
     if (found) return found;
 
     if (hasRooftopPermission) {
-      return { id: ROOFTOP_ESTABLISHMENT_ID, name: "Reserva Rooftop" };
+      return { id: ROOFTOP_ESTABLISHMENT_ID, name: "Reserva Pinheiros" };
     }
     return null;
     // Objetos de permissão mudam só com dados; evitar depender do objeto inteiro (nova ref a cada render).
@@ -466,7 +466,7 @@ export default function RooftopFluxoPage() {
                   Fila em tempo real de clientes com check-in no térreo. As observações em cada card vêm da primeira recepção.
                 </p>
                 <p className="mt-0.5 hidden text-xs text-gray-300 md:block lg:text-sm">
-                  {rooftopEstablishmentName || "Reserva Rooftop"} - Hoje (
+                  {rooftopEstablishmentName || "Reserva Pinheiros"} - Hoje (
                   {todayDateKey.split("-").reverse().join("/")})
                 </p>
               </div>
@@ -512,7 +512,7 @@ export default function RooftopFluxoPage() {
 
           {!loading && !establishmentsLoading && !canRenderQueue && (
             <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-5 text-amber-100">
-              Nenhum estabelecimento Reserva Rooftop foi encontrado nas permissoes
+              Nenhum estabelecimento Reserva Pinheiros foi encontrado nas permissoes
               deste usuario.
             </div>
           )}

@@ -303,8 +303,11 @@ export default function Home() {
       return "/pracinha";
     }
 
-    if (lowerName.includes("reserva rooftop") || lowerName.includes("rooftop")) {
-      return "/reserva-rooftop";
+    if (lowerName.includes("reserva pinheiros") || lowerName.includes("reserva rooftop") || lowerName.includes("pinheiros")) {
+      return "/reserva-pinheiros";
+    }
+    if (lowerName.includes("rooftop")) {
+      return "/reserva-pinheiros";
     }
 
     if (lowerName.includes("justino")) {

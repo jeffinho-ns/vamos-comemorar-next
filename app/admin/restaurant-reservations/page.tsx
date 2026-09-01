@@ -190,7 +190,15 @@ export default function RestaurantReservationsPage() {
     selectedEstablishment?.name,
   );
   const isSeuJustino = establishmentRulesFlags.isSeuJustino;
+  const isReservaOperacional =
+    establishmentRulesFlags.isReserva || establishmentRulesFlags.isRooftop;
   const isReservaRooftop = establishmentRulesFlags.isRooftop;
+  const reservaRestaurantFlow =
+    establishmentRulesFlags.isReserva ||
+    establishmentRulesFlags.tableBlocking === "overlap";
+  const showGiroFilter =
+    isSeuJustino ||
+    (isReservaRooftop && establishmentRulesFlags.dualShift);
 
   const fetchEstablishments = useCallback(async () => {
     setLoading(true);
@@ -381,9 +389,9 @@ export default function RestaurantReservationsPage() {
         },
         {
           id: 9,
-          name: "Reserva Rooftop",
+          name: "Reserva Pinheiros",
           logo: "",
-          address: "Endereço do Reserva Rooftop",
+          address: "Pinheiros, São Paulo",
         },
       ]);
     } finally {
@@ -1438,24 +1446,32 @@ export default function RestaurantReservationsPage() {
   // Função para fazer check-in de uma reserva
   const handleCheckIn = async (reservation: Reservation) => {
     try {
+      const usePostCheckIn =
+        reservation.reservation_kind !== "large" && reservaRestaurantFlow;
       const response = await fetch(
-        `${API_URL}${reservationApiBase(reservation.reservation_kind)}/${reservation.id}`,
-        {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            status: "checked-in",
-            check_in_time: new Date().toISOString(),
-          }),
-        },
+        `${API_URL}${
+          usePostCheckIn
+            ? `/api/restaurant-reservations/${reservation.id}/checkin`
+            : `${reservationApiBase(reservation.reservation_kind)}/${reservation.id}`
+        }`,
+        usePostCheckIn
+          ? { method: "POST", headers: { "Content-Type": "application/json" } }
+          : {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                status: "checked-in",
+                check_in_time: new Date().toISOString(),
+              }),
+            },
       );
 
       if (response.ok) {
         setReservations((prev) =>
           prev.map((r) =>
-            r.id === reservation.id ? { ...r, status: "checked-in" as any } : r,
+            r.id === reservation.id
+              ? { ...r, status: "checked-in" as any, checked_in: true }
+              : r,
           ),
         );
         alert(`Check-in realizado para ${reservation.client_name}!`);
@@ -1475,28 +1491,40 @@ export default function RestaurantReservationsPage() {
   // Função para fazer check-out de uma reserva
   const handleCheckOut = async (reservation: Reservation) => {
     try {
+      const usePostCheckOut =
+        reservation.reservation_kind !== "large" && reservaRestaurantFlow;
       const response = await fetch(
-        `${API_URL}${reservationApiBase(reservation.reservation_kind)}/${reservation.id}`,
-        {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            status: "completed",
-            check_out_time: new Date().toISOString(),
-          }),
-        },
+        `${API_URL}${
+          usePostCheckOut
+            ? `/api/restaurant-reservations/${reservation.id}/checkout`
+            : `${reservationApiBase(reservation.reservation_kind)}/${reservation.id}`
+        }`,
+        usePostCheckOut
+          ? { method: "POST", headers: { "Content-Type": "application/json" } }
+          : {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                status: "completed",
+                check_out_time: new Date().toISOString(),
+              }),
+            },
       );
 
       if (response.ok) {
         setReservations((prev) =>
           prev.map((r) =>
-            r.id === reservation.id ? { ...r, status: "completed" as any } : r,
+            r.id === reservation.id
+              ? {
+                  ...r,
+                  status: "completed" as any,
+                  checked_in: true,
+                  checked_out: true,
+                }
+              : r,
           ),
         );
 
-        // Após check-out, verificar lista de espera e mostrar popup de confirmação
         await releaseTableAndCheckWaitlistWithConfirmation(reservation);
       } else {
         const errorData = await response.json();
@@ -2646,7 +2674,7 @@ export default function RestaurantReservationsPage() {
       if (isSeuJustino) {
         const giro = getGiroFromTime(reservation.reservation_time || "");
         if (giro !== giroFilter) return false;
-      } else if (isReservaRooftop) {
+      } else if (isReservaRooftop && establishmentRulesFlags.dualShift) {
         const giro = getRooftopGiroFromReservation(reservation);
         if (giro !== giroFilter) return false;
       }
@@ -2932,7 +2960,7 @@ export default function RestaurantReservationsPage() {
                       </div>
 
                       {/* Filtros de Giro (Seu Justino e Reserva Rooftop) */}
-                      {(isSeuJustino || isReservaRooftop) && (
+                      {showGiroFilter && (
                         <div className="w-full sm:w-auto overflow-x-auto">
                           <div className="flex w-max bg-orange-100 rounded-lg p-1 border border-orange-300 whitespace-nowrap">
                             <button

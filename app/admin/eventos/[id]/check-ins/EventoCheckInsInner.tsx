@@ -660,7 +660,8 @@ export default function EventoCheckInsPage() {
     evento?.establishment_id ?? null,
     evento?.establishment_name,
   );
-  const isReservaRooftopEvent = establishmentRulesFlags.isRooftop;
+  const isReservaRooftopEvent =
+    establishmentRulesFlags.isRooftop || establishmentRulesFlags.isReserva;
   const isSeuJustinoEvent = establishmentRulesFlags.isSeuJustino;
 
   const [expandedGuestListId, setExpandedGuestListId] = useState<number | null>(

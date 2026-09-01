@@ -73,12 +73,12 @@ const places = [
     },
     {
         image: img05,
-        title: "Reserva Rooftop",
+        title: "Reserva Pinheiros",
         address: "Em frente ao portão 2 - Rua Marc Chagal, Parque - Jardim das Perdizes",
         distance: "4.2km",
         rating: "4.8 (1.9K)",
-        description: "No Reserva Rooftop, fusionamos sabores excepcionais com uma trilha sonora envolvente, destacando ingredientes frescos e locais em cada experiência única.",
-        link: "/reserva-rooftop",
+        description: "No Reserva Pinheiros, fusionamos sabores excepcionais com uma trilha sonora envolvente, destacando ingredientes frescos e locais em cada experiência única.",
+        link: "/reserva-pinheiros",
         state: "sp",
         date: '2025-02-29'
     }
