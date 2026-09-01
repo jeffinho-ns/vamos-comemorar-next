@@ -29,6 +29,11 @@ function isJustino360AdminPath(pathname: string): boolean {
   return path === "/admin/justino360" || path.startsWith("/admin/justino360/");
 }
 
+function isRhIdeiaAdminPath(pathname: string): boolean {
+  const path = pathname.split("?")[0];
+  return path === "/admin/rh-ideia" || path.startsWith("/admin/rh-ideia/");
+}
+
 function isSuperAdminOnlyPath(pathname: string): boolean {
   const path = pathname.split("?")[0];
   return (
@@ -57,6 +62,12 @@ export function AdminPageGate({ children }: { children: ReactNode }) {
         !!p.can_manage_justino360 ||
         !!p.can_validate_justino360),
   );
+  const hasUepRhIdeia = activeUep.some(
+    (p) =>
+      !!p.can_access_rh_ideia ||
+      !!p.can_manage_rh_ideia ||
+      !!p.can_validate_rh_ideia,
+  );
   const allowedByEntitlements = pathAllowedByEntitlements(pathname, canModule, canPermission, {
     allowAll: !enforceEntitlements || entitlements.allowAll,
     legacyScoped: false,
@@ -64,7 +75,7 @@ export function AdminPageGate({ children }: { children: ReactNode }) {
     isAccountAdmin: entitlements.isAccountAdmin === true,
     isSuperAdmin,
     legacyPathAllowed: (_path, meta) => {
-      if (meta.module === "justino360") {
+      if (meta.module === "justino360" || meta.module === "rh_ideia") {
         return uepAllowsModule(meta.module, activeUep);
       }
       return uepAllowsModule(meta.module, activeUep) && canModule(meta.module);
@@ -73,7 +84,8 @@ export function AdminPageGate({ children }: { children: ReactNode }) {
   const allowed =
     (allowedByEntitlements ||
       (hasUepCheckin && isCheckinAdminPath(pathname)) ||
-      (hasUepJustino360 && isJustino360AdminPath(pathname))) &&
+      (hasUepJustino360 && isJustino360AdminPath(pathname)) ||
+      (hasUepRhIdeia && isRhIdeiaAdminPath(pathname))) &&
     (!isSuperAdminOnlyPath(pathname) || isSuperAdmin);
 
   useEffect(() => {

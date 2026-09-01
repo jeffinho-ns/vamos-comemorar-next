@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import Image from "next/image";
-import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation"; // Hook para pegar a URL atual
 import "./responsive.css";
 import {
@@ -27,6 +26,7 @@ import {
   MdAdminPanelSettings,
   MdGroup,
   MdAssignmentTurnedIn,
+  MdPeople,
 } from "react-icons/md";
 import logBrand from "../assets/logo-agilizai-h.png"; // Verifique o caminho
 import UserMenu from "../components/UserMenu/UserMenu"; // Verifique o caminho
@@ -34,8 +34,10 @@ import AdminPageViewLogger from "../components/AdminPageViewLogger";
 import { useSaasAccess } from "../hooks/useSaasAccess";
 import { useEntitlements } from "../context/EntitlementsContext";
 import { filterNavByEntitlements } from "../config/adminNavModules";
+import { groupNavLinks, flattenNavLinks } from "../config/adminNavGrouping";
 import AdminPageGate from "../components/AdminPageGate";
 import StaffAgentFloat from "../components/admin/StaffAgentFloat";
+import AdminSidebarNav from "../components/admin/AdminSidebarNav";
 import { useAppContext } from "../context/AppContext";
 import { isWhatsappHighlineScopedEmail } from "../config/whatsapp-highline-access";
 import {
@@ -88,6 +90,7 @@ export default function DashboardLayout({
     canAccessWhatsapp,
     canViewActionLogs,
     canAccessJustino360,
+    canAccessRhIdeia,
     isLoading: isLoadingPerms,
     entitlementsLoading,
     canModule,
@@ -378,6 +381,30 @@ export default function DashboardLayout({
     navLinks = navLinks.filter((l) => l.href !== "/admin/justino360");
   }
 
+  // Ideia RH: Grupo Ideia Um — visível com módulo rh_ideia ou super admin.
+  if (!canAccessRhIdeia && !isSuperAdmin) {
+    navLinks = navLinks.filter((l) => l.href !== "/admin/rh-ideia");
+  }
+
+  if (
+    (canAccessRhIdeia || isSuperAdmin) &&
+    !navLinks.some((l) => l.href === "/admin/rh-ideia")
+  ) {
+    const justinoIdx = navLinks.findIndex((l) => l.href === "/admin/justino360");
+    const usersIdx = navLinks.findIndex((l) => l.href === "/admin/users");
+    const insertAt =
+      justinoIdx >= 0
+        ? justinoIdx + 1
+        : usersIdx >= 0
+          ? usersIdx
+          : navLinks.length;
+    navLinks = [
+      ...navLinks.slice(0, insertAt),
+      { href: "/admin/rh-ideia", label: "Ideia RH", icon: MdPeople },
+      ...navLinks.slice(insertAt),
+    ];
+  }
+
   if (
     isSuperAdmin &&
     canViewActionLogs &&
@@ -454,8 +481,16 @@ export default function DashboardLayout({
     }
   }
 
+  const navItems = groupNavLinks(navLinks);
+
   const getActiveLabel = () => {
-    const activeLink = navLinks.find((link) => pathname.startsWith(link.href));
+    const flatLinks = flattenNavLinks(navItems);
+    const activeLink = flatLinks.find((link) =>
+      pathname === link.href ||
+      (link.href !== "/admin" && pathname.startsWith(link.href)) ||
+      (link.href === ATENDIMENTO_NAV_LINK.href &&
+        pathname.startsWith("/admin/estabelecimentos")),
+    );
     if (isAnalista) {
       return "Admin - Analista";
     }
@@ -584,33 +619,11 @@ export default function DashboardLayout({
           </div>
         </div>
 
-        <nav className="mt-6 space-y-2 p-4">
-          {navLinks.map(({ href, label, icon: Icon }) => {
-            const isActive =
-              pathname === href ||
-              (href !== "/admin" && pathname.startsWith(href)) ||
-              (href === ATENDIMENTO_NAV_LINK.href &&
-                pathname.startsWith("/admin/estabelecimentos"));
-            return (
-              <Link
-                key={href}
-                href={href}
-                onClick={() => setSidebarOpen(false)}
-                className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group ${
-                  isActive
-                    ? "bg-gradient-to-r from-yellow-500 to-yellow-600 text-gray-900 font-semibold shadow-lg"
-                    : "text-gray-300 hover:bg-gray-700/50 hover:text-white"
-                }`}
-              >
-                <Icon
-                  size={20}
-                  className={`${isActive ? "text-gray-900" : "text-gray-400 group-hover:text-white"}`}
-                />
-                <span className="font-medium">{label}</span>
-              </Link>
-            );
-          })}
-        </nav>
+        <AdminSidebarNav
+          items={navItems}
+          pathname={pathname}
+          onNavigate={() => setSidebarOpen(false)}
+        />
 
         {/* Mensagem para Analista (acesso ao estabelecimento Pracinha do Seu Justino) */}
         {isAnalista && (

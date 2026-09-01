@@ -146,6 +146,38 @@
   }
 }
 
+/* Submenus colapsáveis da sidebar */
+.admin-nav-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.admin-nav-group-toggle {
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  text-align: left;
+}
+
+.admin-nav-group-children {
+  overflow: hidden;
+}
+
+.admin-nav-group-children .admin-nav-item {
+  margin-left: 0.25rem;
+}
+
+@media (max-width: 768px) {
+  .admin-nav-group-children {
+    margin-left: 0.5rem;
+    padding-left: 0.75rem;
+  }
+
+  .admin-nav-group-children .admin-nav-text {
+    font-size: 0.8125rem;
+  }
+}
+
 /* Correções para sidebar */
 @media (max-width: 1024px) {
   .admin-sidebar {

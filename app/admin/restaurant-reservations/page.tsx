@@ -389,9 +389,16 @@ export default function RestaurantReservationsPage() {
         },
         {
           id: 9,
+          name: "Reserva Rooftop",
+          logo: "",
+          address:
+            "Em frente ao portão 2 - Rua Marc Chagal, Parque - Jardim das Perdizes",
+        },
+        {
+          id: Number(process.env.NEXT_PUBLIC_RESERVA_PINHEIROS_PLACE_ID) || 11,
           name: "Reserva Pinheiros",
           logo: "",
-          address: "Pinheiros, São Paulo",
+          address: "Pinheiros, São Paulo - SP",
         },
       ]);
     } finally {

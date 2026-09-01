@@ -59,9 +59,9 @@ export const bars: Bar[] = [
   },
   {
     id: '5',
-    name: 'Reserva Pinheiros',
-    slug: 'reserva-pinheiros',
-    description: 'No Reserva Pinheiros, fusionamos sabores excepcionais com uma trilha sonora envolvente — Deck ao ar livre e Salão com mesas, sofás e bar.',
+    name: 'Reserva Rooftop',
+    slug: 'reserva-rooftop',
+    description: 'Gastronomia, música e vista em Jardim das Perdizes.',
     logoUrl: '/images/logo-reserva-rooftop.png',
     coverImageUrl: '/images/capa-reserva-rooftop.jpg',
     address: 'Em frente ao portão 2 - Rua Marc Chagal, Parque - Jardim das Perdizes, São Paulo - SP',
@@ -70,6 +70,20 @@ export const bars: Bar[] = [
     amenities: ['Wi-Fi', 'Estacionamento', 'Música ao vivo', 'Rooftop', 'Vista Panorâmica'],
     latitude: -23.51824870,
     longitude: -46.67669430
+  },
+  {
+    id: '11',
+    name: 'Reserva Pinheiros',
+    slug: 'reserva-pinheiros',
+    description: 'Deck ao ar livre e Salão — restaurante Reserva em Pinheiros.',
+    logoUrl: '/images/logo-reserva-rooftop.png',
+    coverImageUrl: '/images/capa-reserva-rooftop.jpg',
+    address: 'Pinheiros, São Paulo - SP',
+    rating: 4.8,
+    reviewsCount: 1923,
+    amenities: ['Wi-Fi', 'Estacionamento', 'Música ao vivo', 'Deck', 'Salão'],
+    latitude: -23.561,
+    longitude: -46.689
   }
 ];
 

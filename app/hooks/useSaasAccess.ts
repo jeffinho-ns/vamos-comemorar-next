@@ -70,6 +70,26 @@ export function useSaasAccess() {
             legacy.isAdmin),
       ),
     ),
+    canAccessRhIdeia: resolveModule(
+      "rh_ideia",
+      legacy.myEstablishmentPermissions.some(
+        (p) =>
+          p.is_active !== false &&
+          (!!p.can_access_rh_ideia ||
+            !!p.can_manage_rh_ideia ||
+            !!p.can_validate_rh_ideia ||
+            legacy.isSuperAdmin ||
+            legacy.isAdmin),
+      ),
+    ),
+    canManageRhIdeia: resolveModule(
+      "rh_ideia",
+      legacy.myEstablishmentPermissions.some(
+        (p) =>
+          p.is_active !== false &&
+          (!!p.can_manage_rh_ideia || legacy.isSuperAdmin),
+      ),
+    ),
     canViewActionLogs: resolvePermission("relatorios:read", legacy.canViewActionLogs),
     canDeleteUsers:
       isOrgAccountAdmin || resolvePermission("reservas:delete", legacy.canDeleteUsers),

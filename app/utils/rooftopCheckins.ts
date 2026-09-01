@@ -198,11 +198,18 @@ export const isReservaRooftopEstablishment = (
   establishmentName?: string | null,
 ): boolean => {
   const normalized = String(establishmentName || "").toLowerCase();
+  if (normalized.includes("pinheiros")) return false;
   return (
-    normalized.includes("reserva pinheiros") ||
     normalized.includes("reserva rooftop") ||
     (normalized.includes("rooftop") && !normalized.includes("highline"))
   );
+};
+
+export const isReservaPinheirosEstablishment = (
+  establishmentName?: string | null,
+): boolean => {
+  const normalized = String(establishmentName || "").toLowerCase();
+  return normalized.includes("reserva pinheiros") || normalized.includes("pinheiros");
 };
 
 /** Preferir profile da API quando disponível. */

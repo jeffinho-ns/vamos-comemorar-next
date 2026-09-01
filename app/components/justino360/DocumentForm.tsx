@@ -33,14 +33,22 @@ export function DocumentForm({
   replaceTarget,
   onCancelReplace,
   onSubmit,
+  categories = DOCUMENT_CATEGORIES,
+  roles = DOCUMENT_ROLES,
+  defaultCategory = "pop",
+  uploadFn,
 }: {
   sectors: J360Sector[];
   replaceTarget: J360Document | null;
   onCancelReplace: () => void;
   onSubmit: (payload: DocumentPayload) => Promise<boolean>;
+  categories?: readonly { value: string; label: string }[];
+  roles?: readonly { value: string; label: string }[];
+  defaultCategory?: string;
+  uploadFn?: Parameters<typeof DocumentFileField>[0]["uploadFn"];
 }) {
   const [title, setTitle] = useState("");
-  const [category, setCategory] = useState<string>("pop");
+  const [category, setCategory] = useState<string>(defaultCategory);
   const [roleKey, setRoleKey] = useState("");
   const [sectorId, setSectorId] = useState("");
   const [description, setDescription] = useState("");
@@ -60,7 +68,7 @@ export function DocumentForm({
 
   function reset() {
     setTitle("");
-    setCategory("pop");
+    setCategory(defaultCategory);
     setRoleKey("");
     setSectorId("");
     setDescription("");
@@ -138,7 +146,7 @@ export function DocumentForm({
             value={category}
             onChange={(e) => setCategory(e.target.value)}
           >
-            {DOCUMENT_CATEGORIES.map((c) => (
+            {categories.map((c) => (
               <option key={c.value} value={c.value}>
                 {c.label}
               </option>
@@ -156,7 +164,7 @@ export function DocumentForm({
             onChange={(e) => setRoleKey(e.target.value)}
           >
             <option value="">Todas as funções</option>
-            {DOCUMENT_ROLES.map((r) => (
+            {roles.map((r) => (
               <option key={r.value} value={r.value}>
                 {r.label}
               </option>
@@ -204,7 +212,7 @@ export function DocumentForm({
         />
       </div>
 
-      <DocumentFileField value={fileUrl} onChange={setFileUrl} disabled={saving} />
+      <DocumentFileField value={fileUrl} onChange={setFileUrl} disabled={saving} uploadFn={uploadFn} />
 
       <button
         type="submit"

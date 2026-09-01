@@ -19,9 +19,13 @@ function Badge({ children, tone = "neutral" }: { children: ReactNode; tone?: "ne
 export function DocumentCard({
   doc,
   actions,
+  categoryLabelFn = categoryLabel,
+  roleLabelFn = roleLabel,
 }: {
   doc: J360Document;
   actions?: ReactNode;
+  categoryLabelFn?: (value: string) => string;
+  roleLabelFn?: (value?: string | null) => string;
 }) {
   return (
     <li className="rounded-xl bg-white/5 p-4 ring-1 ring-white/10">
@@ -29,9 +33,9 @@ export function DocumentCard({
         <div className="min-w-0">
           <p className="font-medium">{doc.title}</p>
           <div className="mt-2 flex flex-wrap items-center gap-2">
-            <Badge tone="amber">{categoryLabel(doc.category)}</Badge>
+            <Badge tone="amber">{categoryLabelFn(doc.category)}</Badge>
             <Badge>v{doc.version}</Badge>
-            <Badge tone="muted">{roleLabel(doc.role_key)}</Badge>
+            <Badge tone="muted">{roleLabelFn(doc.role_key)}</Badge>
             {doc.sector_name && <Badge tone="muted">{doc.sector_name}</Badge>}
             {!doc.is_current && <Badge tone="muted">Arquivado</Badge>}
           </div>

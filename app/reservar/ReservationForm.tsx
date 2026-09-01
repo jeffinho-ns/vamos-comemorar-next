@@ -312,12 +312,22 @@ export default function ReservationForm() {
             },
             {
               id: 9,
+              name: "Reserva Rooftop",
+              logo: "/images/default-logo.png",
+              address:
+                "Em frente ao portão 2 - Rua Marc Chagal, Parque - Jardim das Perdizes",
+              phone: "(11) 99999-5555",
+              email: "contato@reservarooftop.com.br",
+            },
+            {
+              id:
+                Number(process.env.NEXT_PUBLIC_RESERVA_PINHEIROS_PLACE_ID) || 11,
               name: "Reserva Pinheiros",
               logo: "/images/default-logo.png",
-              address: "Endereço do Reserva Pinheiros",
+              address: "Pinheiros, São Paulo - SP",
               phone: "(11) 99999-5555",
-              email: "contato@reservarooftop.com.br"
-            }
+              email: "contato@reservarooftop.com.br",
+            },
           ]));
         }
       } catch (error) {
@@ -358,12 +368,21 @@ export default function ReservationForm() {
           },
           {
             id: 9,
+            name: "Reserva Rooftop",
+            logo: "/images/default-logo.png",
+            address:
+              "Em frente ao portão 2 - Rua Marc Chagal, Parque - Jardim das Perdizes",
+            phone: "(11) 99999-5555",
+            email: "contato@reservarooftop.com.br",
+          },
+          {
+            id: Number(process.env.NEXT_PUBLIC_RESERVA_PINHEIROS_PLACE_ID) || 11,
             name: "Reserva Pinheiros",
             logo: "/images/default-logo.png",
-            address: "Endereço do Reserva Pinheiros",
+            address: "Pinheiros, São Paulo - SP",
             phone: "(11) 99999-5555",
-            email: "contato@reservarooftop.com.br"
-          }
+            email: "contato@reservarooftop.com.br",
+          },
         ]));
       } finally {
         setEstablishmentsLoading(false);

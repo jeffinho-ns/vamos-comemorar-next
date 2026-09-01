@@ -26,10 +26,14 @@ export function TrainingForm({
   editing,
   onCancelEdit,
   onSubmit,
+  uploadFn,
+  trainingRoles = TRAINING_ROLES,
 }: {
   editing: J360Training | null;
   onCancelEdit: () => void;
   onSubmit: (payload: TrainingPayload, id: number | null) => Promise<boolean>;
+  uploadFn?: Parameters<typeof DocumentFileField>[0]["uploadFn"];
+  trainingRoles?: readonly { value: string; label: string }[];
 }) {
   const [form, setForm] = useState(EMPTY);
   const [saving, setSaving] = useState(false);
@@ -116,7 +120,7 @@ export function TrainingForm({
             onChange={(e) => setForm({ ...form, roleKey: e.target.value })}
           >
             <option value="">Todas as funções</option>
-            {TRAINING_ROLES.map((role) => (
+            {trainingRoles.map((role) => (
               <option key={role.value} value={role.value}>
                 {role.label}
               </option>
@@ -171,6 +175,7 @@ export function TrainingForm({
           value={form.contentUrl}
           onChange={(url) => setForm({ ...form, contentUrl: url })}
           disabled={saving}
+          uploadFn={uploadFn}
         />
       </div>
 

@@ -7,6 +7,9 @@ import {
   j360Upload,
 } from "../../lib/justino360/api";
 
+type UploadResult = { success: boolean; data?: { url: string }; message?: string };
+type UploadFn = (file: File) => Promise<UploadResult>;
+
 /**
  * Campo de arquivo do documento: envia via API → Firebase Storage (j360Upload)
  * e devolve a URL final. Também aceita URL colada à mão (Drive, etc.).
@@ -16,12 +19,18 @@ export function DocumentFileField({
   onChange,
   disabled,
   label = "Arquivo (PDF, imagem ou vídeo — até 15 MB)",
+  uploadFn = j360Upload,
+  uploadAccept = J360_UPLOAD_ACCEPT,
+  uploadMaxBytes = J360_UPLOAD_MAX_BYTES,
 }: {
   value: string;
   onChange: (url: string) => void;
   disabled?: boolean;
   /** Sobrescreve o rótulo quando o campo não é um documento (ex.: material de apoio). */
   label?: string;
+  uploadFn?: UploadFn;
+  uploadAccept?: string;
+  uploadMaxBytes?: number;
 }) {
   const inputId = useId();
   const fileRef = useRef<HTMLInputElement>(null);
@@ -32,13 +41,13 @@ export function DocumentFileField({
   async function handleFile(file: File | undefined) {
     if (!file) return;
     setError(null);
-    if (file.size > J360_UPLOAD_MAX_BYTES) {
+    if (file.size > uploadMaxBytes) {
       setError("Arquivo maior que 15 MB. Reduza ou envie um link.");
       return;
     }
     setUploading(true);
     try {
-      const res = await j360Upload(file);
+      const res = await uploadFn(file);
       if (res.success && res.data?.url) {
         onChange(res.data.url);
         setFileName(file.name);
@@ -66,7 +75,7 @@ export function DocumentFileField({
         id={inputId}
         ref={fileRef}
         type="file"
-        accept={J360_UPLOAD_ACCEPT}
+        accept={uploadAccept}
         disabled={disabled || uploading}
         onChange={(e) => handleFile(e.target.files?.[0])}
         className="block w-full cursor-pointer rounded-lg bg-black/30 px-3 py-2 text-sm text-gray-300 ring-1 ring-white/10 file:mr-3 file:rounded-md file:border-0 file:bg-amber-500 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-gray-900 disabled:opacity-60"

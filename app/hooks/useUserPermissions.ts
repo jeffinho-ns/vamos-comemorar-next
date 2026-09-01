@@ -41,6 +41,9 @@ export interface MyEstablishmentPermission {
   can_access_justino360?: boolean;
   can_manage_justino360?: boolean;
   can_validate_justino360?: boolean;
+  can_access_rh_ideia?: boolean;
+  can_manage_rh_ideia?: boolean;
+  can_validate_rh_ideia?: boolean;
   is_active: boolean;
 }
 
