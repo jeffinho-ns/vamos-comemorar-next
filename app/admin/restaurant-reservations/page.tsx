@@ -59,6 +59,7 @@ import {
   isReservationStatusOneOf,
 } from "@/app/utils/reservationStatus";
 import { filterEstablishmentsByModule } from "@/app/utils/establishmentModuleAccess";
+import { RESERVA_PINHEIROS_PLACE_ID } from "@/app/config/reservaEstablishments";
 
 interface Establishment {
   id: number;
@@ -395,7 +396,7 @@ export default function RestaurantReservationsPage() {
             "Em frente ao portão 2 - Rua Marc Chagal, Parque - Jardim das Perdizes",
         },
         {
-          id: Number(process.env.NEXT_PUBLIC_RESERVA_PINHEIROS_PLACE_ID) || 11,
+          id: RESERVA_PINHEIROS_PLACE_ID,
           name: "Reserva Pinheiros",
           logo: "",
           address: "Pinheiros, São Paulo - SP",

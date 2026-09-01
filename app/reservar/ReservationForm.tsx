@@ -28,6 +28,7 @@ import {
   fallbackPhoneForEstablishment,
 } from '@/app/utils/establishmentRulesFlags';
 import { optionalAuthHeaders } from '@/app/utils/optionalAuthHeaders';
+import { RESERVA_PINHEIROS_PLACE_ID } from '@/app/config/reservaEstablishments';
 import { getHighlineSubareasForSelect } from '@/app/config/highlineReservationAreas';
 import { getReservaSubareasForSelect } from '@/app/config/reservaReservationAreas';
 
@@ -320,8 +321,7 @@ export default function ReservationForm() {
               email: "contato@reservarooftop.com.br",
             },
             {
-              id:
-                Number(process.env.NEXT_PUBLIC_RESERVA_PINHEIROS_PLACE_ID) || 11,
+              id: RESERVA_PINHEIROS_PLACE_ID,
               name: "Reserva Pinheiros",
               logo: "/images/default-logo.png",
               address: "Pinheiros, São Paulo - SP",
@@ -376,7 +376,7 @@ export default function ReservationForm() {
             email: "contato@reservarooftop.com.br",
           },
           {
-            id: Number(process.env.NEXT_PUBLIC_RESERVA_PINHEIROS_PLACE_ID) || 11,
+            id: RESERVA_PINHEIROS_PLACE_ID,
             name: "Reserva Pinheiros",
             logo: "/images/default-logo.png",
             address: "Pinheiros, São Paulo - SP",

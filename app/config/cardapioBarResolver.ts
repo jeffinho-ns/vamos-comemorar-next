@@ -10,7 +10,9 @@ export const ESTABLISHMENT_TO_CARDAPIO_BAR_ID: Record<number, number> = {
   // Reserva Rooftop: place 9 → bar 5
   9: 5,
   5: 5,
-  // Reserva Pinheiros: place dinâmico (NEXT_PUBLIC_RESERVA_PINHEIROS_PLACE_ID) → bar reserva-pinheiros via API
+  // Reserva Pinheiros: place 21 → bar 18
+  21: 18,
+  18: 18,
   // High Line: place 7 → bar 3
   7: 3,
   // Oh Freguês: place 4 → bar 2 (place 4 ≠ bar 4, que é a Pracinha no cardápio)
@@ -64,11 +66,6 @@ function matchBarIdByEstablishmentName(
 export function establishmentIdToCardapioBarId(establishmentId: number): number {
   const est = Number(establishmentId);
   if (!Number.isFinite(est) || est <= 0) return est;
-  const pinheirosPlace = Number(process.env.NEXT_PUBLIC_RESERVA_PINHEIROS_PLACE_ID);
-  if (Number.isFinite(pinheirosPlace) && pinheirosPlace > 0 && est === pinheirosPlace) {
-    const pinheirosBar = resolveCardapioBarId(est);
-    if (Number.isFinite(pinheirosBar) && pinheirosBar > 0) return pinheirosBar;
-  }
   const mapped = resolveCardapioBarId(est);
   if (Number.isFinite(mapped) && mapped > 0) return mapped;
   return est;
