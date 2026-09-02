@@ -103,23 +103,7 @@ const nextConfig = {
         return config;
     },
     async redirects() {
-        return [
-            {
-                source: '/reserva-rooftop',
-                destination: '/reserva-pinheiros',
-                permanent: true,
-            },
-            {
-                source: '/cardapio/reserva-rooftop',
-                destination: '/cardapio/reserva-pinheiros',
-                permanent: true,
-            },
-            {
-                source: '/reservar/reserva-rooftop',
-                destination: '/reservar/reserva-pinheiros',
-                permanent: true,
-            },
-        ];
+        return [];
     },
     async headers() {
         return [
