@@ -99,7 +99,7 @@ export default function RooftopFluxoPage() {
     if (found) return found;
 
     if (hasRooftopPermission) {
-      return { id: ROOFTOP_ESTABLISHMENT_ID, name: "Reserva Pinheiros" };
+      return { id: ROOFTOP_ESTABLISHMENT_ID, name: "Reserva Rooftop" };
     }
     return null;
     // Objetos de permissão mudam só com dados; evitar depender do objeto inteiro (nova ref a cada render).

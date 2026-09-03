@@ -40,7 +40,8 @@ const ReservationModal: React.FC<ReservationModalProps> = ({
         "Seu Justino": 1,
         "Pracinha do Seu Justino": 8,
         "High Line": 7,
-        "Reserva Rooftop": 5,
+        "Reserva Rooftop": 9,
+        "Reserva Pinheiros": 21,
       };
   
       const casaId = casaToIdMap[eventData.casa_do_evento];

@@ -1,6 +1,6 @@
 /**
  * Catálogo operacional Reserva (Pinheiros) — áreas de reserva.
- * establishment_id operacional = 9 (places.id).
+ * establishment_id operacional = 21 (places.id Reserva Pinheiros).
  * Nomes batem com restaurant_areas após migration 2026-08-31.
  */
 

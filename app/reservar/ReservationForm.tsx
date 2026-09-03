@@ -28,7 +28,11 @@ import {
   fallbackPhoneForEstablishment,
 } from '@/app/utils/establishmentRulesFlags';
 import { optionalAuthHeaders } from '@/app/utils/optionalAuthHeaders';
-import { RESERVA_PINHEIROS_PLACE_ID } from '@/app/config/reservaEstablishments';
+import {
+  RESERVA_PINHEIROS_PLACE_ID,
+  matchEstablishmentFromReserveQuery,
+  canonicalizeReservaEstablishmentId,
+} from '@/app/config/reservaEstablishments';
 import { getHighlineSubareasForSelect } from '@/app/config/highlineReservationAreas';
 import { getReservaSubareasForSelect } from '@/app/config/reservaReservationAreas';
 
@@ -217,11 +221,8 @@ export default function ReservationForm() {
   const isHighline = establishmentRulesFlags.isHighline;
   const isSeuJustino = establishmentRulesFlags.isSeuJustino;
   const isPracinha = establishmentRulesFlags.isPracinha;
-  const isReservaOperacional =
-    establishmentRulesFlags.isReserva || establishmentRulesFlags.isRooftop;
-  const reservaUsesOverlap =
-    establishmentRulesFlags.tableBlocking === "overlap" ||
-    establishmentRulesFlags.isReserva;
+  const isReservaPinheiros = establishmentRulesFlags.isReserva;
+  const isReservaRooftop = establishmentRulesFlags.isRooftop;
   /** Limite do formulário público /reservar: no máximo 10 pessoas (padronizado em todas as casas). */
   const PUBLIC_MAX_PARTY_SIZE = 10;
   const maxPartySize = Math.min(
@@ -404,9 +405,9 @@ export default function ReservationForm() {
     
     const establishmentParam = searchParams.get('establishment');
     if (establishmentParam) {
-      const establishment = establishments.find(
-        est => est.name.toLowerCase().includes(establishmentParam.toLowerCase()) ||
-               establishmentParam.toLowerCase().includes(est.name.toLowerCase())
+      const establishment = matchEstablishmentFromReserveQuery(
+        establishmentParam,
+        establishments,
       );
       if (establishment) {
         setSelectedEstablishment(establishment);
@@ -806,12 +807,16 @@ export default function ReservationForm() {
         }
       }
 
-      // Horário de funcionamento (Reserva Pinheiros — sem giros; janelas vêm do painel ou fallback)
-      if (isReservaOperacional) {
-        const windows = getReservaOperatingTimeWindows(reservationData.reservation_date);
+      // Horário de funcionamento Reserva Pinheiros / Rooftop
+      if (isReservaPinheiros || isReservaRooftop) {
+        const windows = isReservaRooftop
+          ? getRooftopOperatingTimeWindows(reservationData.reservation_date)
+          : getReservaOperatingTimeWindows(reservationData.reservation_date);
         const hasWindows = windows.length > 0;
         if (!hasWindows) {
-          newErrors.reservation_time = 'Reservas fechadas para o dia selecionado no Reserva Pinheiros.';
+          newErrors.reservation_time = isReservaRooftop
+            ? 'Reservas fechadas para o dia selecionado no Reserva Rooftop.'
+            : 'Reservas fechadas para o dia selecionado no Reserva Pinheiros.';
         } else if (
           reservationData.reservation_time &&
           !isTimeWithinWindows(reservationData.reservation_time, windows)
@@ -829,8 +834,10 @@ export default function ReservationForm() {
     if (!Number.isFinite(partySize) || partySize < 1) {
       newErrors.number_of_people = 'Informe o número de pessoas (mínimo 1).';
     } else if (partySize > maxPartySize) {
-      newErrors.number_of_people = isReservaOperacional
+      newErrors.number_of_people = isReservaPinheiros
         ? `Para o Reserva Pinheiros, o limite é de até ${maxPartySize} pessoas.`
+        : isReservaRooftop
+          ? `Para o Reserva Rooftop, o limite é de até ${maxPartySize} pessoas.`
         : `O limite é de até ${maxPartySize} pessoas por reserva.`;
     }
 
@@ -860,7 +867,7 @@ const handleSubmit = async (e: React.FormEvent) => {
       const preferredDate = now.toISOString().split('T')[0];
       const preferredTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
       const waitlistPayload = {
-        establishment_id: selectedEstablishment.id,
+        establishment_id: canonicalizeReservaEstablishmentId(selectedEstablishment.id),
         client_name: reservationData.client_name.trim(),
         client_phone: reservationData.client_phone.trim(),
         client_email: reservationData.client_email?.trim() || null,
@@ -895,7 +902,7 @@ const handleSubmit = async (e: React.FormEvent) => {
   // 1. Unifica a preparação do payload para TODAS as reservas
   const payload: any = {
     ...reservationData,
-    establishment_id: selectedEstablishment?.id,
+    establishment_id: canonicalizeReservaEstablishmentId(selectedEstablishment?.id),
     
     // Converte os campos para número, como o backend provavelmente espera
     number_of_people: Number(reservationData.number_of_people),
@@ -1179,6 +1186,42 @@ const handleSubmit = async (e: React.FormEvent) => {
     return windows;
   };
 
+  const getRooftopOperatingTimeWindows = (dateStr: string) => {
+    if (!dateStr) return [] as Array<{ start: string; end: string; label: string }>;
+
+    if (weeklyOperatingSettings.length > 0 || dateOperatingOverrides.length > 0) {
+      const configured = getConfiguredWindows(
+        dateStr,
+        weeklyOperatingSettings,
+        dateOperatingOverrides,
+      );
+      if (configured) return configured;
+    }
+
+    const date = new Date(`${dateStr}T00:00:00`);
+    const weekday = date.getDay();
+    const windows: Array<{ start: string; end: string; label: string }> = [];
+
+    if (weekday >= 2 && weekday <= 4) {
+      windows.push({ start: '18:00', end: '22:30', label: 'Jantar: 18:00–22:30' });
+      return windows;
+    }
+
+    if (weekday === 5 || weekday === 6) {
+      windows.push({ start: '12:00', end: '16:00', label: 'Almoço: 12:00–16:00' });
+      windows.push({ start: '17:00', end: '22:30', label: 'Jantar: 17:00–22:30' });
+      return windows;
+    }
+
+    if (weekday === 0) {
+      windows.push({ start: '12:00', end: '16:00', label: 'Almoço: 12:00–16:00' });
+      windows.push({ start: '17:00', end: '20:30', label: 'Jantar: 17:00–20:30' });
+      return windows;
+    }
+
+    return windows;
+  };
+
   const computeAvailableTimeSlots = () => {
     if (!reservationData.reservation_date) return [] as string[];
 
@@ -1200,7 +1243,12 @@ const handleSubmit = async (e: React.FormEvent) => {
       return windows.flatMap((window) => createSlotsFromWindow(window.start, window.end));
     }
 
-    if (isReservaOperacional) {
+    if (isReservaRooftop) {
+      const windows = getRooftopOperatingTimeWindows(reservationData.reservation_date);
+      return windows.flatMap((window) => createSlotsFromWindow(window.start, window.end));
+    }
+
+    if (isReservaPinheiros) {
       const windows = getReservaOperatingTimeWindows(reservationData.reservation_date);
       return windows.flatMap((window) => createSlotsFromWindow(window.start, window.end));
     }
@@ -2133,8 +2181,10 @@ const handleSubmit = async (e: React.FormEvent) => {
 
                   {!errors.number_of_people && (
                     <p className="text-gray-500 text-xs mt-1">
-                      {isReservaOperacional
+                      {isReservaPinheiros
                         ? `No Reserva Pinheiros, o limite máximo é de ${maxPartySize} pessoas por reserva.`
+                        : isReservaRooftop
+                          ? `No Reserva Rooftop, o limite máximo é de ${maxPartySize} pessoas por reserva (incluindo mesas de 2 pessoas).`
                         : `Máximo de ${maxPartySize} pessoas por reserva.`}
                     </p>
                   )}
@@ -2205,7 +2255,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                   </label>
                   <select
                     value={
-                      isHighline || isSeuJustino || (isReservaOperacional && !isPracinha)
+                      isHighline || isSeuJustino || isReservaPinheiros
                         ? selectedSubareaKey
                         : reservationData.area_id
                     }
@@ -2222,7 +2272,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                         );
                         handleInputChange("table_number", "");
                         handleInputChange("reservation_time", "");
-                      } else if (isReservaOperacional && !isPracinha) {
+                      } else if (isReservaPinheiros) {
                         const key = e.target.value;
                         setSelectedSubareaKey(key);
                         handleInputChange("area_id", resolveReservaAreaId(key));
@@ -2251,7 +2301,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                             {s.label}
                           </option>
                         ))
-                      : isReservaOperacional && !isPracinha
+                      : isReservaPinheiros
                       ? reservaSubareas.map((s) => (
                           <option key={s.key} value={s.key}>
                             {s.label}
