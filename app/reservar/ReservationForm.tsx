@@ -35,6 +35,11 @@ import {
 } from '@/app/config/reservaEstablishments';
 import { getHighlineSubareasForSelect } from '@/app/config/highlineReservationAreas';
 import { getReservaSubareasForSelect } from '@/app/config/reservaReservationAreas';
+import {
+  getReservaRooftopPublicSubareasForSelect,
+  resolveReservaRooftopPublicAreaId,
+  findReservaRooftopPublicSubareaByKey,
+} from '@/app/config/reservaRooftopPublicAreas';
 
 // Configuração da API
 const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL_LOCAL || 'https://api.agilizaiapp.com.br';
@@ -91,28 +96,25 @@ interface PromoterEvent {
 // 🎂 FUNÇÃO PARA DETECTAR E CRIAR LISTA DE CONVIDADOS PARA ANIVERSÁRIOS E RESERVAS GRANDES
 const detectAndCreateBirthdayGuestList = async (reservationId: number, payload: any, establishmentName?: string): Promise<boolean> => {
   try {
-    // NOVA REGRA: Reservas de aniversário OU reservas grandes criam lista automaticamente
-    // Critérios para reserva de aniversário:
-    // 1. Nos dois dias de funcionamento (sexta ou sábado)
-    // 2. Estabelecimento HighLine ou Reserva Pinheiros (paridade de funcionalidades)
-    // 3. Qualquer quantidade de pessoas (para garantir benefícios)
-    
+    // Critérios para reserva de aniversário (lista automática):
+    // 1. Sexta ou sábado
+    // 2. HighLine ou Reserva Pinheiros — NÃO Reserva Rooftop (casa distinta)
+    // 3. Qualquer quantidade de pessoas
+    //
     // Critérios para reserva grande:
-    // 1. Acima de 3 pessoas (4+)
-    // 2. Qualquer estabelecimento
-    // 3. Qualquer dia da semana
+    // 1. 4+ pessoas, qualquer estabelecimento/dia
     
     const reservationDate = new Date(`${payload.reservation_date}T00:00:00`);
     const dayOfWeek = reservationDate.getDay(); // Domingo = 0, Sexta = 5, Sábado = 6
     const isWeekend = dayOfWeek === 5 || dayOfWeek === 6; // Sexta ou Sábado
     const flags = deriveEstablishmentRulesFlags(null, establishmentName);
     const isHighLine = flags.isHighline;
-    const isReservaOperacional = flags.isReserva || flags.isRooftop;
+    const isReservaPinheiros = flags.isReserva;
     const isLargeGroup = payload.number_of_people >= 4;
+    const isBirthdayEligible = isWeekend && (isHighLine || isReservaPinheiros);
     
-    // Criar lista para aniversário (HighLine ou Reserva Pinheiros + fim de semana) OU reserva grande (4+ pessoas)
-    if ((isWeekend && (isHighLine || isReservaOperacional)) || isLargeGroup) {
-      const eventType = isWeekend && (isHighLine || isReservaOperacional) ? 'aniversario' : 'despedida';
+    if (isBirthdayEligible || isLargeGroup) {
+      const eventType = isBirthdayEligible ? 'aniversario' : 'despedida';
       console.log(`🎂 Detectada ${eventType}! Criando lista de convidados automaticamente...`);
       
       // Determinar o tipo de reserva baseado no número de pessoas
@@ -456,6 +458,7 @@ export default function ReservationForm() {
 
   // Subáreas do Reserva (Pinheiros) — Deck e Salão
   const reservaSubareas = getReservaSubareasForSelect();
+  const rooftopPublicSubareas = getReservaRooftopPublicSubareasForSelect();
 
   const resolveReservaAreaId = (subareaKey: string): string => {
     const sub = reservaSubareas.find((s) => s.key === subareaKey);
@@ -465,6 +468,24 @@ export default function ReservationForm() {
     );
     return match ? String(match.id) : '';
   };
+
+  const resolveRooftopPublicArea = (subareaKey: string): { areaId: string; label: string } => {
+    const sub = findReservaRooftopPublicSubareaByKey(subareaKey);
+    return {
+      areaId: resolveReservaRooftopPublicAreaId(subareaKey, areas),
+      label: sub?.label || '',
+    };
+  };
+
+  // Quando as áreas do Rooftop carregam depois da escolha do cliente, re-resolve o area_id
+  useEffect(() => {
+    if (!isReservaRooftop || !selectedSubareaKey || areas.length === 0) return;
+    const resolvedId = resolveReservaRooftopPublicAreaId(selectedSubareaKey, areas);
+    if (!resolvedId) return;
+    setReservationData((prev) =>
+      String(prev.area_id || '') === resolvedId ? prev : { ...prev, area_id: resolvedId },
+    );
+  }, [isReservaRooftop, selectedSubareaKey, areas]);
 
   // Carregar bloqueios de agenda para o dia selecionado (exibir apenas horários livres)
   useEffect(() => {
@@ -919,6 +940,14 @@ const handleSubmit = async (e: React.FormEvent) => {
     send_email: true,
     send_whatsapp: true,
   };
+
+  // Preferência pública do Rooftop (Área Interna / Externa / Salão) — admin vê o rótulo
+  if (isReservaRooftop && selectedSubareaKey) {
+    const rooftopPref = findReservaRooftopPublicSubareaByKey(selectedSubareaKey);
+    if (rooftopPref?.label) {
+      payload.area_display_name = rooftopPref.label;
+    }
+  }
   
   // 2. CORREÇÃO CRÍTICA: Garante que o horário esteja no formato HH:mm:ss
   if (payload.reservation_time && payload.reservation_time.split(':').length === 2) {
@@ -2255,7 +2284,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                   </label>
                   <select
                     value={
-                      isHighline || isSeuJustino || isReservaPinheiros
+                      isHighline || isSeuJustino || isReservaPinheiros || isReservaRooftop
                         ? selectedSubareaKey
                         : reservationData.area_id
                     }
@@ -2276,6 +2305,13 @@ const handleSubmit = async (e: React.FormEvent) => {
                         const key = e.target.value;
                         setSelectedSubareaKey(key);
                         handleInputChange("area_id", resolveReservaAreaId(key));
+                        handleInputChange("table_number", "");
+                        handleInputChange("reservation_time", "");
+                      } else if (isReservaRooftop) {
+                        const key = e.target.value;
+                        setSelectedSubareaKey(key);
+                        const resolved = resolveRooftopPublicArea(key);
+                        handleInputChange("area_id", resolved.areaId);
                         handleInputChange("table_number", "");
                         handleInputChange("reservation_time", "");
                       } else {
@@ -2303,6 +2339,12 @@ const handleSubmit = async (e: React.FormEvent) => {
                         ))
                       : isReservaPinheiros
                       ? reservaSubareas.map((s) => (
+                          <option key={s.key} value={s.key}>
+                            {s.label}
+                          </option>
+                        ))
+                      : isReservaRooftop
+                      ? rooftopPublicSubareas.map((s) => (
                           <option key={s.key} value={s.key}>
                             {s.label}
                           </option>
@@ -2668,7 +2710,8 @@ const handleSubmit = async (e: React.FormEvent) => {
           <h3 className="text-pink-800 font-bold text-lg">Lista de Convidados Criada!</h3>
         </div>
         <p className="text-pink-700 text-sm mb-3">
-          Como você fez uma reserva especial (aniversário no HighLine ou grupo grande), 
+          Como você fez uma reserva especial
+          {selectedEstablishment?.name ? ` no ${selectedEstablishment.name}` : ''},
           criamos automaticamente uma lista de convidados para você ter direito aos benefícios!
         </p>
         <div className="bg-white/70 rounded-lg p-3 text-xs text-pink-600">
