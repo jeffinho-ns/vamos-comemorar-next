@@ -94,7 +94,11 @@ export function AdminPageGate({ children }: { children: ReactNode }) {
       return;
     }
     if (!enforceEntitlements || loading || allowed) return;
-    const fallback = firstAllowedAdminPath(canModule, entitlements.allowAll);
+    const fallback = firstAllowedAdminPath(
+      canModule,
+      entitlements.allowAll,
+      canPermission,
+    );
     if (fallback && fallback !== pathname) {
       router.replace(fallback);
       return;

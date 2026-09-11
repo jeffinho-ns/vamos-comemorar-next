@@ -19,6 +19,7 @@ export function resolveNavModuleForPath(pathname: string): NavModuleMeta | null 
 export function firstAllowedAdminPath(
   canModule: (key: string) => boolean,
   allowAll: boolean,
+  canPermission?: (key: string) => boolean,
 ): string | null {
   if (allowAll) return "/admin";
   const candidates = [
@@ -33,7 +34,15 @@ export function firstAllowedAdminPath(
   for (const href of candidates) {
     if (CORE_ORG_ADMIN_HREFS.has(href)) continue;
     const meta = NAV_MODULE_BY_HREF[href];
-    if (meta && canModule(meta.module)) return href;
+    if (!meta || !canModule(meta.module)) continue;
+    if (
+      meta.requiredPermission &&
+      canPermission &&
+      !canPermission(meta.requiredPermission)
+    ) {
+      continue;
+    }
+    return href;
   }
   return null;
 }
@@ -82,11 +91,7 @@ export function pathAllowedByEntitlements(
   if (!meta) return true;
   if (opts.legacyPathAllowed?.(pathname, meta)) return true;
   if (!canModule(meta.module)) return false;
-  if (
-    meta.requiredPermission &&
-    opts.permissions.length > 0 &&
-    !canPermission(meta.requiredPermission)
-  ) {
+  if (meta.requiredPermission && !canPermission(meta.requiredPermission)) {
     return false;
   }
   return true;

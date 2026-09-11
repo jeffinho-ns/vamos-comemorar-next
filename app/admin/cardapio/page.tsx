@@ -998,6 +998,11 @@ export default function CardapioAdminPage() {
         headers: authHeaders(),
       });
       if (!barsRes.ok) {
+        if (barsRes.status === 401 || barsRes.status === 403) {
+          throw new Error(
+            'Sem permissão para acessar o cardápio deste estabelecimento. Peça ao administrador para liberar o módulo Cardápio (can_view_cardapio).',
+          );
+        }
         throw new Error('Erro ao carregar estabelecimentos');
       }
       const bars = await barsRes.json();
@@ -1314,7 +1319,15 @@ export default function CardapioAdminPage() {
       setSelectedItems([]);
     } catch (err) {
       console.error('Erro ao carregar dados:', err);
-      setError('Falha ao carregar os dados. Tente novamente mais tarde.');
+      const message =
+        err instanceof Error && err.message
+          ? err.message
+          : 'Falha ao carregar os dados. Tente novamente mais tarde.';
+      setError(
+        message.startsWith('Sem permissão')
+          ? message
+          : 'Falha ao carregar os dados. Tente novamente mais tarde.',
+      );
     } finally {
       setLoading(false);
     }

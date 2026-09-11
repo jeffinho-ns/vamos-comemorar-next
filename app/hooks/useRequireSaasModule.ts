@@ -16,7 +16,7 @@ export function useRequireSaasModule(allowed: boolean) {
   const router = useRouter();
   const pathname = usePathname();
   const { entitlementsLoading } = useSaasAccess();
-  const { canModule } = useCan();
+  const { canModule, canPermission } = useCan();
   const { entitlements } = useEntitlements();
   const { allowAll, legacyScoped } = entitlements;
   const enforce = shouldEnforceEntitlements(entitlements);
@@ -25,7 +25,7 @@ export function useRequireSaasModule(allowed: boolean) {
     if (!enforce || entitlementsLoading || allowAll || legacyScoped || allowed) {
       return;
     }
-    const fallback = firstAllowedAdminPath(canModule, allowAll);
+    const fallback = firstAllowedAdminPath(canModule, allowAll, canPermission);
     if (fallback && fallback !== pathname) {
       router.replace(fallback);
       return;
@@ -40,6 +40,7 @@ export function useRequireSaasModule(allowed: boolean) {
     allowed,
     router,
     canModule,
+    canPermission,
     pathname,
   ]);
 

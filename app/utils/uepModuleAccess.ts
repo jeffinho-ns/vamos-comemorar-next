@@ -27,12 +27,12 @@ type PermRow = Pick<
 const MODULE_UEP_CHECK: Record<string, (p: PermRow) => boolean> = {
   reservas: (p) => !!p.can_manage_reservations,
   checkin: (p) => !!p.can_manage_checkins,
+  // NULL/undefined = liberado (DEFAULT TRUE legado), igual ao backend UEP→RBAC.
   cardapio: (p) =>
-    p.can_view_cardapio !== false &&
-    (!!p.can_view_cardapio ||
-      !!p.can_create_cardapio ||
-      !!p.can_edit_cardapio ||
-      !!p.can_delete_cardapio),
+    p.can_view_cardapio !== false ||
+    !!p.can_create_cardapio ||
+    !!p.can_edit_cardapio ||
+    !!p.can_delete_cardapio,
   whatsapp: (p) => !!p.can_manage_whatsapp || !!p.can_manage_reservations,
   eventos: (p) =>
     !!p.can_view_os ||
