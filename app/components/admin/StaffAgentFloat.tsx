@@ -18,7 +18,11 @@ type ChatMsg = {
 type StatusPayload = {
   ok?: boolean;
   enabled_globally?: boolean;
+  /** Canônico desde a migração Groq → xAI/Grok */
+  xai_configured?: boolean;
+  /** Alias legado — API ainda envia para deploys mistos */
   groq_configured?: boolean;
+  provider?: string;
   establishment_enabled?: boolean;
   allow_all?: boolean;
   allowed_ids?: number[];
@@ -26,6 +30,10 @@ type StatusPayload = {
   model?: string;
   error?: string;
 };
+
+function isLlmConfigured(status: StatusPayload | null | undefined): boolean {
+  return Boolean(status?.xai_configured || status?.groq_configured);
+}
 
 type TurnPayload = {
   ok?: boolean;
@@ -109,6 +117,7 @@ export default function StaffAgentFloat() {
       setStatus({
         ok: false,
         enabled_globally: false,
+        xai_configured: false,
         groq_configured: false,
         establishment_enabled: false,
         error: "Não foi possível verificar o assistente.",
@@ -127,15 +136,13 @@ export default function StaffAgentFloat() {
     listRef.current.scrollTop = listRef.current.scrollHeight;
   }, [messages, open, loading]);
 
-  const globallyReady = Boolean(
-    status?.enabled_globally && status?.groq_configured,
-  );
+  const globallyReady = Boolean(status?.enabled_globally && isLlmConfigured(status));
   const houseReady = Boolean(
     status?.establishment_enabled || status?.allow_all,
   );
   const canChat = globallyReady && houseReady;
 
-  /** Mantém o FAB visível enquanto carrega ou se Groq/flag global ok. */
+  /** Mantém o FAB visível enquanto carrega ou se LLM/flag global ok. */
   const showFab = Boolean(token && (statusLoading || globallyReady || status?.error));
 
   const pushAssistant = (text: string) => {

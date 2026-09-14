@@ -8,7 +8,11 @@ Widget: `StaffAgentFloat.tsx` (este diretório), montado em `app/admin/layout.ts
 
 Em outro computador: `git pull` nos dois repos e cole no Cursor o prompt de retomada que está no topo desse arquivo da API.
 
-## Estado em 27/08/2026 (último commit: `d3ee6ef8`)
+## Estado em 14/09/2026
+
+**Provider:** Staff Agent usa **xAI/Grok** na API (`XAI_API_KEY`). WhatsApp continua OpenAI.
+O status aceita `xai_configured` (canônico) e `groq_configured` (alias legado).
+`code_rev` esperado após deploy: `staff-agent-xai-v1`.
 
 **Chat (`StaffAgentFloat.tsx`)** — com uma ação em preview, o campo de texto continua
 liberado: a mensagem vai para `POST /turn` com o `confirm_id` e complementa a ação
