@@ -10,13 +10,15 @@ Em outro computador: `git pull` nos dois repos e cole no Cursor o prompt de reto
 
 ## Estado em 14/09/2026
 
-**Provider:** Staff Agent usa **xAI/Grok** na API (`XAI_API_KEY`). WhatsApp continua OpenAI.
-O status aceita `xai_configured` (canônico) e `groq_configured` (alias legado).
-`code_rev` esperado após deploy: `staff-agent-xai-v1`.
+**Provider:** Staff Agent usa **xAI/Grok `grok-4.3`** + **modo guia** (playbooks).
+WhatsApp continua OpenAI. Status: `xai_configured`, `code_rev: staff-agent-guide-v1`.
 
 **Chat (`StaffAgentFloat.tsx`)** — com uma ação em preview, o campo de texto continua
 liberado: a mensagem vai para `POST /turn` com o `confirm_id` e complementa a ação
 pendente em vez de abrir outra. Responder "sim" ou "pode criar" aplica direto.
+
+**Modo guia (API):** se pedir algo sem tool (ex. criar item no cardápio), o Agent
+orienta passo a passo na tela e retoma com “pronto” / “parei em…”.
 
 **Tempo real** — três telas escutam Socket.IO e recarregam sozinhas:
 
