@@ -10,9 +10,10 @@ Em outro computador: `git pull` nos dois repos e cole no Cursor o prompt de reto
 
 ## Estado em 14/09/2026
 
-**Provider:** Staff Agent usa **xAI/Grok `grok-4.3`** + **modo guia** (playbooks v2 com botões/campos reais).
-WhatsApp continua OpenAI. Status: `xai_configured`, `code_rev: staff-agent-guide-v2`.
+**Provider:** Staff Agent usa **xAI/Grok `grok-4.3`** + modo guia + **memória do chat**.
+WhatsApp continua OpenAI. Status: `code_rev: staff-agent-memory-v1`.
 
+O float envia as últimas mensagens no `history` do `/turn` para não pedir datas de novo.
 **Chat (`StaffAgentFloat.tsx`)** — com uma ação em preview, o campo de texto continua
 liberado: a mensagem vai para `POST /turn` com o `confirm_id` e complementa a ação
 pendente em vez de abrir outra. Responder "sim" ou "pode criar" aplica direto.

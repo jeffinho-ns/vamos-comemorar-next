@@ -179,6 +179,10 @@ export default function StaffAgentFloat() {
           establishment_id: establishmentId,
           message: text,
           confirm_id: amendingId || undefined,
+          history: messages.slice(-8).map((m) => ({
+            role: m.role,
+            text: m.text,
+          })),
         }),
       });
       const data = (await res.json()) as TurnPayload;
