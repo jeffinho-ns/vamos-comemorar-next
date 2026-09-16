@@ -360,7 +360,7 @@ const renameItemsSubcategory = async (
     try {
       const response = await fetch(`${API_BASE_URL}/items/${item.id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
         body: JSON.stringify({
           ...item,
           subCategory: newName,
@@ -400,7 +400,7 @@ const syncItemOrdersToSubcategoryOrder = async (
       try {
         const response = await fetch(`${API_BASE_URL}/items/${item.id}`, {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', ...authHeaders() },
           body: JSON.stringify({
             ...item,
             order: nextOrder,
@@ -427,7 +427,13 @@ const persistEditableSubcategories = async ({
   barId: string | number;
   subCategories: EditableSubCategory[];
   items: MenuItem[];
-}): Promise<{ renamed: number; created: number; updatedItems: number; reordered: boolean }> => {
+}): Promise<{
+  renamed: number;
+  created: number;
+  updatedItems: number;
+  reordered: boolean;
+  errors: string[];
+}> => {
   const valid = subCategories
     .filter((sub) => sub.name.trim() !== '')
     .map((sub, index) => ({ ...sub, name: sub.name.trim(), order: index }));
@@ -451,6 +457,16 @@ const persistEditableSubcategories = async ({
   let renamed = 0;
   let created = 0;
   let updatedItems = 0;
+  const errors: string[] = [];
+
+  const readError = async (response: Response, fallback: string): Promise<string> => {
+    try {
+      const data = await response.json();
+      return data?.error || data?.message || `${fallback} (HTTP ${response.status})`;
+    } catch {
+      return `${fallback} (HTTP ${response.status})`;
+    }
+  };
 
   for (const sub of valid) {
     const hasPersistedId = isPersistedSubcategoryId(sub.id);
@@ -458,33 +474,48 @@ const persistEditableSubcategories = async ({
     const nameChanged = Boolean(originalName) && sub.name !== originalName;
 
     if (hasPersistedId) {
+      // O rename acontece no backend em um único UPDATE (todos os itens seguem na subcategoria).
+      let renamedByApi = false;
+      let apiRejected = false;
       if (nameChanged || sub.order !== sub.originalOrder) {
         try {
           const response = await fetch(`${API_BASE_URL}/subcategories/${sub.id}`, {
             method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', ...authHeaders() },
             body: JSON.stringify({
               name: sub.name,
               order: sub.order,
             }),
           });
-          if (!response.ok) {
-            console.warn(`Falha ao atualizar subcategoria ${sub.id}:`, response.status);
+          if (response.ok) {
+            const data = await response.json().catch(() => ({}));
+            renamedByApi = nameChanged && Number(data?.updatedItems || 0) > 0;
+            if (renamedByApi) updatedItems += Number(data.updatedItems);
+          } else {
+            // 409 (nome duplicado) / 403: não insistir item por item.
+            apiRejected = true;
+            errors.push(
+              await readError(response, `Não foi possível renomear "${originalName}"`),
+            );
           }
         } catch (error) {
           console.error(`Erro ao atualizar subcategoria ${sub.id}:`, error);
+          apiRejected = true;
+          errors.push(`Erro de conexão ao renomear "${originalName}".`);
         }
       }
 
-      if (nameChanged) {
-        const itemUpdates = await renameItemsSubcategory(
-          workingItems,
-          categoryId,
-          barId,
-          originalName,
-          sub.name,
-        );
-        updatedItems += itemUpdates;
+      if (nameChanged && !apiRejected) {
+        if (!renamedByApi) {
+          // Fallback item por item (bases antigas / subcategoria sem item de referência).
+          updatedItems += await renameItemsSubcategory(
+            workingItems,
+            categoryId,
+            barId,
+            originalName,
+            sub.name,
+          );
+        }
         applyLocalRename(originalName, sub.name);
         renamed += 1;
       }
@@ -492,7 +523,7 @@ const persistEditableSubcategories = async ({
       try {
         const response = await fetch(`${API_BASE_URL}/subcategories`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', ...authHeaders() },
           body: JSON.stringify({
             name: sub.name,
             categoryId,
@@ -503,10 +534,11 @@ const persistEditableSubcategories = async ({
         if (response.ok) {
           created += 1;
         } else {
-          console.warn(`Falha ao criar subcategoria "${sub.name}":`, response.status);
+          errors.push(await readError(response, `Não foi possível criar "${sub.name}"`));
         }
       } catch (error) {
         console.error(`Erro ao criar subcategoria "${sub.name}":`, error);
+        errors.push(`Erro de conexão ao criar "${sub.name}".`);
       }
     } else if (nameChanged) {
       const itemUpdates = await renameItemsSubcategory(
@@ -530,7 +562,7 @@ const persistEditableSubcategories = async ({
     try {
       const response = await fetch(`${API_BASE_URL}/subcategories/reorder/${categoryId}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
         body: JSON.stringify({
           subcategoryNames: orderedNames,
           barId,
@@ -538,23 +570,26 @@ const persistEditableSubcategories = async ({
       });
       reordered = response.ok;
       if (!response.ok) {
-        console.warn('Falha ao reordenar subcategorias via API:', response.status);
+        errors.push(await readError(response, 'Não foi possível salvar a ordem das subcategorias'));
       }
     } catch (error) {
       console.error('Erro ao reordenar subcategorias via API:', error);
     }
 
-    // Página pública agrupa pelos itens: sincroniza order dos itens com a ordem salva
-    updatedItems += await syncItemOrdersToSubcategoryOrder(
-      workingItems,
-      categoryId,
-      barId,
-      orderedNames,
-    );
-    reordered = true;
+    // A API grava subcategory_order e a listagem ordena por ele. Só se o endpoint falhar
+    // caímos na sincronização item por item (bases sem a coluna subcategory_order).
+    if (!reordered) {
+      updatedItems += await syncItemOrdersToSubcategoryOrder(
+        workingItems,
+        categoryId,
+        barId,
+        orderedNames,
+      );
+      reordered = true;
+    }
   }
 
-  return { renamed, created, updatedItems, reordered };
+  return { renamed, created, updatedItems, reordered, errors };
 };
 // Base sem o sufixo /cardapio, usada só para consultar enabled_modules em /api/bars
 const MODULES_API_URL = 'https://api.agilizaiapp.com.br';
@@ -1784,6 +1819,7 @@ export default function CardapioAdminPage() {
     try {
       const response = await fetch(`${API_BASE_URL}/subcategories/${subCategory.id}`, {
         method: 'DELETE',
+        headers: authHeaders(),
       });
       if (response.ok) {
         setCategoryForm((prev) => ({
@@ -2003,13 +2039,16 @@ export default function CardapioAdminPage() {
           ? 'Categoria atualizada com sucesso!'
           : 'Categoria criada com sucesso!';
         if (subResult.renamed > 0) {
-          message += `\n${subResult.renamed} subcategoria(s) renomeada(s).`;
+          message += `\n${subResult.renamed} subcategoria(s) renomeada(s) (${subResult.updatedItems} item(ns) atualizados).`;
         }
         if (subResult.created > 0) {
           message += `\n${subResult.created} subcategoria(s) criada(s).`;
         }
         if (subResult.reordered) {
           message += '\nOrdem das subcategorias atualizada.';
+        }
+        if (subResult.errors.length > 0) {
+          message += `\n\n⚠️ Pendências nas subcategorias:\n- ${subResult.errors.join('\n- ')}`;
         }
         alert(message);
       } else {
