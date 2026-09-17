@@ -21,11 +21,20 @@ export async function GET(
       );
     }
 
-    const response = await fetch(`${API_BASE_URL}/api/v1/operational-details/date/${date}`, {
+    // Sem establishment_id a API devolve o evento de qualquer casa naquela data,
+    // o que fazia a página de um estabelecimento exibir o evento de outro.
+    const establishmentId = new URL(request.url).searchParams.get('establishment_id');
+    const target = new URL(`${API_BASE_URL}/api/v1/operational-details/date/${date}`);
+    if (establishmentId) {
+      target.searchParams.set('establishment_id', establishmentId);
+    }
+
+    const response = await fetch(target.toString(), {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
       },
+      cache: 'no-store',
     });
 
     if (!response.ok) {

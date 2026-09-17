@@ -8,99 +8,42 @@ const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL_LOCAL ||
   'https://api.agilizaiapp.com.br';
 
-const formatDate = (date: Date) => date.toISOString().split('T')[0];
-
 export async function GET(request: NextRequest) {
   try {
     const url = new URL(request.url);
-    const daysParam = url.searchParams.get('days');
-    const startDateParam = url.searchParams.get('startDate');
 
-    let days = DEFAULT_DAYS;
-    if (daysParam) {
-      const parsed = parseInt(daysParam, 10);
-      if (!Number.isNaN(parsed) && parsed > 0) {
-        days = Math.min(parsed, MAX_DAYS);
-      }
+    const parsedDays = parseInt(url.searchParams.get('days') || '', 10);
+    const days = Number.isNaN(parsedDays) || parsedDays <= 0
+      ? DEFAULT_DAYS
+      : Math.min(parsedDays, MAX_DAYS);
+
+    const startDate = url.searchParams.get('startDate');
+    const establishmentId = url.searchParams.get('establishment_id');
+
+    // A API agrupa por establishment_id em uma única consulta de intervalo.
+    const target = new URL(`${API_BASE_URL}/api/v1/operational-details/upcoming`);
+    target.searchParams.set('days', String(days));
+    if (startDate && /^\d{4}-\d{2}-\d{2}$/.test(startDate)) {
+      target.searchParams.set('startDate', startDate);
+    }
+    if (establishmentId) {
+      target.searchParams.set('establishment_id', establishmentId);
     }
 
-    let startDate = new Date();
-    if (startDateParam && /^\d{4}-\d{2}-\d{2}$/.test(startDateParam)) {
-      const parsedDate = new Date(`${startDateParam}T00:00:00`);
-      if (!Number.isNaN(parsedDate.getTime())) {
-        startDate = parsedDate;
-      }
-    }
+    const response = await fetch(target.toString(), { cache: 'no-store' });
 
-    const details: any[] = [];
-
-    for (let i = 0; i < days; i += 1) {
-      const currentDate = new Date(startDate);
-      currentDate.setDate(currentDate.getDate() + i);
-      const formattedDate = formatDate(currentDate);
-
-      try {
-        const response = await fetch(
-          `${API_BASE_URL}/api/v1/operational-details/date/${formattedDate}`,
-          { cache: 'no-store' }
-        );
-
-        if (response.status === 404) {
-          continue;
-        }
-
-        if (!response.ok) {
-          console.warn(
-            `[upcoming-operational-details] Falha ao obter dados para ${formattedDate}: ${response.status}`
-          );
-          continue;
-        }
-
-        const payload = await response.json();
-        if (payload?.success && payload?.data) {
-          details.push(payload.data);
-        }
-      } catch (error) {
-        console.error(
-          `[upcoming-operational-details] Erro ao buscar dados para ${formattedDate}:`,
-          error
-        );
-      }
-    }
-
-    const grouped: Record<string, any[]> = {};
-
-    details.forEach((detail) => {
-      const key =
-        detail?.establishment_id !== null && detail?.establishment_id !== undefined
-          ? String(detail.establishment_id)
-          : 'unknown';
-
-      if (!grouped[key]) {
-        grouped[key] = [];
-      }
-
-      grouped[key].push(detail);
-    });
-
-    Object.values(grouped).forEach((events) => {
-      events.sort((a, b) =>
-        (a?.event_date || '').localeCompare(b?.event_date || '')
+    if (!response.ok) {
+      console.warn(
+        `[upcoming-operational-details] API respondeu ${response.status} para ${target.pathname}`,
       );
-    });
+      return NextResponse.json(
+        { success: false, error: 'Não foi possível carregar os próximos eventos.' },
+        { status: response.status === 404 ? 404 : 502 },
+      );
+    }
 
-    const rangeEnd = new Date(startDate);
-    rangeEnd.setDate(rangeEnd.getDate() + Math.max(days - 1, 0));
-
-    return NextResponse.json({
-      success: true,
-      data: grouped,
-      total: details.length,
-      range: {
-        start: formatDate(startDate),
-        end: formatDate(rangeEnd),
-      },
-    });
+    const payload = await response.json();
+    return NextResponse.json(payload);
   } catch (error) {
     console.error('[upcoming-operational-details] Erro inesperado:', error);
     return NextResponse.json(
@@ -112,4 +55,3 @@ export async function GET(request: NextRequest) {
     );
   }
 }
-

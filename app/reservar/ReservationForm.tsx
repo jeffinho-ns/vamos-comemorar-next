@@ -614,7 +614,8 @@ export default function ReservationForm() {
   // Buscar detalhes operacionais quando a data for selecionada
   useEffect(() => {
     const fetchOperationalDetails = async () => {
-      if (!reservationData.reservation_date) {
+      // Sem estabelecimento definido não há como saber de quem é o evento do dia.
+      if (!reservationData.reservation_date || !selectedEstablishment?.id) {
         setOperationalDetails(null);
         return;
       }
@@ -623,15 +624,18 @@ export default function ReservationForm() {
       try {
         // Formatar data para YYYY-MM-DD
         const dateFormatted = reservationData.reservation_date;
-        const response = await fetch(`/api/operational-details/date/${dateFormatted}`);
+        const response = await fetch(
+          `/api/operational-details/date/${dateFormatted}?establishment_id=${selectedEstablishment.id}`,
+        );
         
         if (response.ok) {
           const data = await response.json();
-          if (data.success && data.data) {
-            setOperationalDetails(data.data);
-          } else {
-            setOperationalDetails(null);
-          }
+          const detail = data?.success ? data.data : null;
+          // Segunda barreira: só exibe se o evento for realmente desta casa.
+          const belongsToEstablishment =
+            detail &&
+            String(detail.establishment_id ?? '') === String(selectedEstablishment.id);
+          setOperationalDetails(belongsToEstablishment ? detail : null);
         } else {
           // Se não encontrar, simplesmente não exibe o card (não é erro crítico)
           setOperationalDetails(null);
@@ -645,7 +649,7 @@ export default function ReservationForm() {
     };
 
     fetchOperationalDetails();
-  }, [reservationData.reservation_date]);
+  }, [reservationData.reservation_date, selectedEstablishment?.id]);
 
   useEffect(() => {
     if (!isHighline) {
@@ -1549,156 +1553,46 @@ const handleSubmit = async (e: React.FormEvent) => {
     return map;
   }, [establishments]);
 
+  // Eventos são agrupados pelo establishment_id (places.id) que veio da API.
+  // Casar por nome aproximado misturava casas diferentes ("Reserva Rooftop" x "Pracinha").
   const upcomingEventsByEstablishment = useMemo(() => {
     const eventsList = Object.entries(upcomingEvents)
       .map(([key, events]) => {
-        // Tentar encontrar estabelecimento por ID primeiro
-        let establishment = establishmentsMap.get(key);
-        
-        // Se não encontrou por ID, tentar encontrar por nome (busca mais flexível)
-        if (!establishment && events && events.length > 0) {
-          // Pegar o nome do estabelecimento do primeiro evento (se disponível)
-          const firstEvent = events[0];
-          if (firstEvent?.establishment_name) {
-            establishment = Array.from(establishmentsMap.values()).find(
-              est => est.name.toLowerCase().includes(firstEvent.establishment_name!.toLowerCase()) ||
-                     firstEvent.establishment_name!.toLowerCase().includes(est.name.toLowerCase())
-            );
-          }
-        }
-        
+        const establishment = establishmentsMap.get(key);
         if (!establishment || !events || events.length === 0) {
           return null;
         }
-        return {
-          establishment,
-          events,
-        };
+        return { establishment, events };
       })
       .filter((item): item is { establishment: Establishment; events: OperationalDetail[] } => Boolean(item))
       .sort((a, b) =>
         (a.events[0]?.event_date || '').localeCompare(b.events[0]?.event_date || '')
       );
-    
-    console.log('📊 Eventos agrupados por estabelecimento:', {
-      totalKeys: Object.keys(upcomingEvents).length,
-      eventsListLength: eventsList.length,
-      establishments: eventsList.map(e => ({ id: e.establishment.id, name: e.establishment.name, eventsCount: e.events.length }))
-    });
-    
-    // Se há um estabelecimento selecionado, filtrar apenas os eventos desse estabelecimento
-    // Caso contrário, mostrar todos os eventos
+
     if (selectedEstablishment) {
-      const filtered = eventsList.filter(item => {
-        // Comparar tanto por ID quanto por nome (para garantir compatibilidade)
-        const matchesId = item.establishment.id === selectedEstablishment.id;
-        const selectedNameLower = selectedEstablishment.name.toLowerCase();
-        const itemNameLower = item.establishment.name.toLowerCase();
-        const matchesName = itemNameLower.includes(selectedNameLower) ||
-                           selectedNameLower.includes(itemNameLower) ||
-                           selectedNameLower.includes('high') && itemNameLower.includes('high');
-        return matchesId || matchesName;
-      });
-      console.log('🔍 Eventos filtrados para estabelecimento selecionado:', {
-        selectedEstablishment: selectedEstablishment.name,
-        selectedId: selectedEstablishment.id,
-        totalEvents: eventsList.length,
-        filteredEvents: filtered.length,
-        filtered: filtered.map(f => ({ name: f.establishment.name, id: f.establishment.id, eventsCount: f.events.length }))
-      });
-      return filtered;
+      return eventsList.filter(
+        (item) => String(item.establishment.id) === String(selectedEstablishment.id),
+      );
     }
-    
+
     return eventsList;
   }, [upcomingEvents, establishmentsMap, selectedEstablishment]);
 
   const selectedEstablishmentEvents = useMemo(() => {
     if (!selectedEstablishment) return [] as OperationalDetail[];
-    
-    // Tentar encontrar eventos por ID do estabelecimento
-    const key = String(selectedEstablishment.id);
-    let events = upcomingEvents[key] || [];
-    
-    // Se não encontrou por ID, tentar encontrar por nome (para compatibilidade)
-    if (events.length === 0) {
-      const establishmentName = (selectedEstablishment.name || '').toLowerCase();
-      
-      // Primeiro, tentar encontrar por nome do estabelecimento nos eventos
-      for (const [eventKey, eventList] of Object.entries(upcomingEvents)) {
-        if (Array.isArray(eventList) && eventList.length > 0) {
-          // Verificar se algum evento tem o nome do estabelecimento correspondente
-          const firstEvent = eventList[0];
-          if (firstEvent?.establishment_name) {
-            const eventEstName = (firstEvent.establishment_name || '').toLowerCase();
-            if (eventEstName.includes(establishmentName) || establishmentName.includes(eventEstName) ||
-                (establishmentName.includes('high') && eventEstName.includes('high'))) {
-              events = eventList;
-              console.log('🔍 Eventos encontrados por nome do estabelecimento no evento:', {
-                selectedId: selectedEstablishment.id,
-                selectedName: selectedEstablishment.name,
-                foundKey: eventKey,
-                eventsCount: events.length,
-                eventEstablishmentName: firstEvent.establishment_name
-              });
-              break;
-            }
-          }
-          
-          // Também tentar encontrar pelo ID do estabelecimento nos eventos
-          const est = establishments.find(e => String(e.id) === eventKey);
-          if (est) {
-            const estName = (est.name || '').toLowerCase();
-            if (estName.includes(establishmentName) || establishmentName.includes(estName) ||
-                (establishmentName.includes('high') && estName.includes('high'))) {
-              events = eventList;
-              console.log('🔍 Eventos encontrados por nome do estabelecimento no mapa:', {
-                selectedId: selectedEstablishment.id,
-                selectedName: selectedEstablishment.name,
-                foundKey: eventKey,
-                eventsCount: events.length,
-                mappedEstablishmentName: est.name
-              });
-              break;
-            }
-          }
-        }
-      }
-    }
-    
-    console.log('📋 Eventos para estabelecimento selecionado:', {
-      establishmentId: selectedEstablishment.id,
-      establishmentName: selectedEstablishment.name,
-      key: key,
-      eventsFound: events.length,
-      allKeys: Object.keys(upcomingEvents),
-      sampleEvent: events.length > 0 ? {
-        id: events[0].id,
-        establishment_id: events[0].establishment_id,
-        establishment_name: events[0].establishment_name,
-        event_date: events[0].event_date
-      } : null
-    });
-    
-    // Filtrar apenas eventos futuros
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    
-    const futureEvents = events.filter((event) => {
-      if (!event.event_date) return false;
-      const eventDate = new Date(event.event_date);
-      eventDate.setHours(0, 0, 0, 0);
-      return eventDate >= today;
-    });
-    
-    console.log('✅ Eventos futuros filtrados:', {
-      total: events.length,
-      future: futureEvents.length,
-      returned: futureEvents.slice(0, 4).length,
-      futureEventDates: futureEvents.slice(0, 4).map(e => e.event_date)
-    });
-    
-    return futureEvents.slice(0, 4);
-  }, [selectedEstablishment, upcomingEvents, establishments]);
+
+    const events = upcomingEvents[String(selectedEstablishment.id)] || [];
+
+    // Comparação em YYYY-MM-DD: converter para Date deslocaria o dia por fuso.
+    const todayIso = new Date().toLocaleDateString('en-CA');
+
+    return events
+      .filter((event) => {
+        const eventIso = String(event.event_date || '').slice(0, 10);
+        return eventIso !== '' && eventIso >= todayIso;
+      })
+      .slice(0, 4);
+  }, [selectedEstablishment, upcomingEvents]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
@@ -2516,7 +2410,9 @@ const handleSubmit = async (e: React.FormEvent) => {
                   <div className="flex items-center gap-2 mb-4">
                     <MdEvent className="text-purple-600 text-xl" />
                     <h3 className="text-lg font-bold text-purple-900">
-                      Evento Especial - {new Date(operationalDetails.event_date + 'T12:00:00').toLocaleDateString('pt-BR', {
+                      Evento Especial - {new Date(
+                        `${String(operationalDetails.event_date).slice(0, 10)}T12:00:00`,
+                      ).toLocaleDateString('pt-BR', {
                         day: '2-digit',
                         month: 'long',
                         year: 'numeric'
