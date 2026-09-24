@@ -1,6 +1,7 @@
 "use client";
 
 import { RhIdeiaPlaybook } from "../../components/rhIdeia/RhIdeiaPlaybook";
+import { IRI_DENIED } from "../../components/rhIdeia/ui";
 import { useSaasAccess } from "../../hooks/useSaasAccess";
 
 export default function RhIdeiaStaffGuiaPage() {
@@ -9,8 +10,8 @@ export default function RhIdeiaStaffGuiaPage() {
 
   if (!allowed) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-indigo-950 via-slate-900 to-teal-950 text-white">
-        <p className="text-slate-400">Sem acesso ao Ideia RH.</p>
+      <div className={IRI_DENIED}>
+        <p>Sem acesso ao Ideia RH.</p>
       </div>
     );
   }

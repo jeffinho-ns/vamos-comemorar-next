@@ -4,6 +4,12 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { TrainingCard } from "../../components/justino360/TrainingCard";
 import { TrainingStatus } from "../../components/justino360/trainingMeta";
 import { RhIdeiaShell } from "../../components/rhIdeia/RhIdeiaShell";
+import {
+  IRI_ALERT,
+  IRI_DENIED,
+  IRI_MUTED,
+  IRI_OK,
+} from "../../components/rhIdeia/ui";
 import { useSaasAccess } from "../../hooks/useSaasAccess";
 import { iriFetch } from "../../lib/rhIdeia/api";
 import type { IriMyTraining } from "../../lib/rhIdeia/types";
@@ -87,8 +93,8 @@ export default function RhIdeiaStaffTreinamentosPage() {
 
   if (!allowed) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-indigo-950 via-slate-900 to-teal-950 text-white">
-        <p className="text-slate-400">Sem acesso</p>
+      <div className={IRI_DENIED}>
+        <p>Sem acesso</p>
       </div>
     );
   }
@@ -96,20 +102,13 @@ export default function RhIdeiaStaffTreinamentosPage() {
   return (
     <RhIdeiaShell mode="staff" title="Meus treinamentos">
       {feedback && (
-        <p
-          role="status"
-          className={`mb-4 rounded-lg px-3 py-2 text-sm ${
-            feedback.tone === "ok"
-              ? "bg-emerald-500/15 text-emerald-200"
-              : "bg-red-500/15 text-red-200"
-          }`}
-        >
+        <p role="status" className={`mb-4 ${feedback.tone === "ok" ? IRI_OK : IRI_ALERT}`}>
           {feedback.text}
         </p>
       )}
 
       {counts.vencido > 0 && tab !== "vencido" && (
-        <p className="mb-4 rounded-lg bg-red-500/15 px-3 py-2 text-sm text-red-200">
+        <p className={`mb-4 ${IRI_ALERT}`}>
           Você tem {counts.vencido} treinamento(s) para reciclar.
         </p>
       )}
@@ -120,10 +119,10 @@ export default function RhIdeiaStaffTreinamentosPage() {
             key={item.key}
             type="button"
             onClick={() => setTab(item.key)}
-            className={`rounded-lg px-3 py-1.5 text-sm transition ${
+            className={`rounded-full px-3.5 py-1.5 text-sm font-medium transition ${
               tab === item.key
-                ? "bg-teal-500 text-slate-900"
-                : "bg-white/5 text-slate-200 hover:bg-white/10"
+                ? "bg-teal-600 text-white shadow-sm"
+                : "bg-stone-100 text-slate-600 hover:bg-stone-200"
             }`}
           >
             {item.label} ({counts[item.key]})
@@ -133,18 +132,22 @@ export default function RhIdeiaStaffTreinamentosPage() {
 
       <ul className="space-y-3">
         {visible.map((item) => (
-          <TrainingCard key={item.id} item={item} onOpen={markStarted} onComplete={complete} />
+          <TrainingCard
+            key={item.id}
+            item={item}
+            tone="light"
+            onOpen={markStarted}
+            onComplete={complete}
+          />
         ))}
       </ul>
 
       {!loading && visible.length === 0 && (
-        <p className="text-sm text-slate-400">
-          {tab === "abertos"
-            ? "Nada pendente por aqui."
-            : "Nenhum treinamento nesta lista."}
+        <p className={`text-sm ${IRI_MUTED}`}>
+          {tab === "abertos" ? "Nada pendente por aqui." : "Nenhum treinamento nesta lista."}
         </p>
       )}
-      {loading && <p className="text-sm text-slate-400">Carregando treinamentos…</p>}
+      {loading && <p className={`text-sm ${IRI_MUTED}`}>Carregando treinamentos…</p>}
     </RhIdeiaShell>
   );
 }

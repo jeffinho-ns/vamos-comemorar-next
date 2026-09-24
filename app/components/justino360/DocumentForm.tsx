@@ -20,10 +20,6 @@ export type DocumentPayload = {
   replaces_id: number | null;
 };
 
-const FIELD =
-  "w-full rounded-lg bg-black/30 px-3 py-2 text-sm outline-none ring-1 ring-white/10 focus:ring-amber-400/60";
-const LABEL = "mb-1 block text-xs font-medium uppercase tracking-wide text-gray-400";
-
 /**
  * Formulário de documento. Quando `replaceTarget` está preenchido, o envio cria
  * uma nova versão e a anterior sai de circulação (regra aplicada na API).
@@ -37,6 +33,7 @@ export function DocumentForm({
   roles = DOCUMENT_ROLES,
   defaultCategory = "pop",
   uploadFn,
+  tone = "dark",
 }: {
   sectors: J360Sector[];
   replaceTarget: J360Document | null;
@@ -46,7 +43,28 @@ export function DocumentForm({
   roles?: readonly { value: string; label: string }[];
   defaultCategory?: string;
   uploadFn?: Parameters<typeof DocumentFileField>[0]["uploadFn"];
+  tone?: "dark" | "light";
 }) {
+  const light = tone === "light";
+  const FIELD = light
+    ? "w-full rounded-lg border border-stone-200 bg-white px-3 py-2 text-sm text-slate-800 outline-none shadow-sm focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20"
+    : "w-full rounded-lg bg-black/30 px-3 py-2 text-sm outline-none ring-1 ring-white/10 focus:ring-amber-400/60";
+  const LABEL = light
+    ? "mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500"
+    : "mb-1 block text-xs font-medium uppercase tracking-wide text-gray-400";
+  const formShell = light
+    ? "mb-8 space-y-4 rounded-xl border border-stone-200 bg-white p-4 shadow-sm"
+    : "mb-8 space-y-4 rounded-xl bg-white/5 p-4 ring-1 ring-white/10";
+  const cancelCls = light
+    ? "text-xs text-slate-500 underline hover:text-slate-800"
+    : "text-xs text-gray-400 underline hover:text-gray-200";
+  const warnCls = light
+    ? "rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800"
+    : "rounded-lg bg-amber-500/10 px-3 py-2 text-xs text-amber-200";
+  const hintCls = light ? "text-xs text-slate-500" : "text-xs text-gray-400";
+  const submitCls = light
+    ? "rounded-lg bg-teal-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-teal-500 disabled:opacity-60"
+    : "rounded-lg bg-amber-500 px-4 py-2 text-sm font-medium text-gray-900 transition hover:bg-amber-400 disabled:opacity-60";
   const [title, setTitle] = useState("");
   const [category, setCategory] = useState<string>(defaultCategory);
   const [roleKey, setRoleKey] = useState("");
@@ -95,10 +113,10 @@ export function DocumentForm({
   return (
     <form
       onSubmit={handleSubmit}
-      className="mb-8 space-y-4 rounded-xl bg-white/5 p-4 ring-1 ring-white/10"
+      className={formShell}
     >
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="font-medium">
+        <h2 className={`font-medium ${light ? "text-slate-900" : ""}`}>
           {replaceTarget ? `Nova versão de "${replaceTarget.title}"` : "Novo documento"}
         </h2>
         {replaceTarget && (
@@ -108,7 +126,7 @@ export function DocumentForm({
               onCancelReplace();
               reset();
             }}
-            className="text-xs text-gray-400 underline hover:text-gray-200"
+            className={cancelCls}
           >
             Cancelar versionamento
           </button>
@@ -116,7 +134,7 @@ export function DocumentForm({
       </div>
 
       {replaceTarget && (
-        <p className="rounded-lg bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
+        <p className={warnCls}>
           A versão v{replaceTarget.version} será arquivada automaticamente ao salvar.
         </p>
       )}
@@ -192,7 +210,7 @@ export function DocumentForm({
       </div>
 
       {category === "laudo" && (
-        <p className="text-xs text-gray-400">
+        <p className={hintCls}>
           Relatórios externos entram como laudo. Inclua o tipo no título — ex.:{" "}
           {EXTERNAL_REPORT_HINTS.join(", ")}.
         </p>
@@ -212,12 +230,12 @@ export function DocumentForm({
         />
       </div>
 
-      <DocumentFileField value={fileUrl} onChange={setFileUrl} disabled={saving} uploadFn={uploadFn} />
+      <DocumentFileField value={fileUrl} onChange={setFileUrl} disabled={saving} uploadFn={uploadFn} tone={tone} />
 
       <button
         type="submit"
         disabled={saving}
-        className="rounded-lg bg-amber-500 px-4 py-2 text-sm font-medium text-gray-900 transition hover:bg-amber-400 disabled:opacity-60"
+        className={submitCls}
       >
         {saving ? "Salvando…" : replaceTarget ? "Publicar nova versão" : "Salvar documento"}
       </button>

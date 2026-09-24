@@ -176,6 +176,72 @@ export type IriDashboardData = {
   por_unidade: IriUnitAckStats[];
 };
 
+export type IriPlaybookStatus = {
+  blocked: boolean;
+  reason?: "sem_ficha" | "manual_pendente" | null;
+  version: number;
+  sees_all?: boolean;
+  is_leader?: boolean;
+  chapters_required?: number;
+  chapters_read?: number;
+  term_accepted?: boolean;
+  quiz_passed?: boolean;
+  quiz_score?: number | null;
+  quiz_total?: number | null;
+  profile?: {
+    user_id: number;
+    user_name?: string | null;
+    role_key: string;
+    establishment_id: number;
+    sector_key?: string | null;
+    sector_name?: string | null;
+  } | null;
+};
+
+export type IriPlaybookChapter = {
+  id: number;
+  slug: string;
+  part: string;
+  title: string;
+  body: string;
+  version: number;
+  read: boolean;
+};
+
+export type IriPlaybookQuestion = {
+  id: number;
+  slug: string;
+  sort_order: number;
+  prompt: string;
+  options: string[];
+};
+
+export type IriTeamRow = {
+  user_id: number;
+  user_name?: string | null;
+  role_key: string;
+  establishment_id: number;
+  establishment_name?: string | null;
+  sector_key?: string | null;
+  chapters_required: number;
+  chapters_read: number;
+  term_accepted: boolean;
+  quiz_score?: number | null;
+  quiz_passed: boolean;
+  points: number;
+};
+
+export type IriPointRow = {
+  id: number;
+  user_id: number;
+  user_name?: string | null;
+  source: string;
+  points: number;
+  note?: string | null;
+  created_at: string;
+  role_key?: string | null;
+};
+
 export type IriUploadResult = {
   url: string;
   object_path?: string;

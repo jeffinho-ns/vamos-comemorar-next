@@ -22,6 +22,7 @@ export function DocumentFileField({
   uploadFn = j360Upload,
   uploadAccept = J360_UPLOAD_ACCEPT,
   uploadMaxBytes = J360_UPLOAD_MAX_BYTES,
+  tone = "dark",
 }: {
   value: string;
   onChange: (url: string) => void;
@@ -31,7 +32,9 @@ export function DocumentFileField({
   uploadFn?: UploadFn;
   uploadAccept?: string;
   uploadMaxBytes?: number;
+  tone?: "dark" | "light";
 }) {
+  const light = tone === "light";
   const inputId = useId();
   const fileRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
@@ -67,7 +70,7 @@ export function DocumentFileField({
     <div className="space-y-2">
       <label
         htmlFor={inputId}
-        className="block text-xs font-medium uppercase tracking-wide text-gray-400"
+        className={`block text-xs font-medium uppercase tracking-wide ${light ? "text-slate-500" : "text-gray-400"}`}
       >
         {label}
       </label>
@@ -78,15 +81,19 @@ export function DocumentFileField({
         accept={uploadAccept}
         disabled={disabled || uploading}
         onChange={(e) => handleFile(e.target.files?.[0])}
-        className="block w-full cursor-pointer rounded-lg bg-black/30 px-3 py-2 text-sm text-gray-300 ring-1 ring-white/10 file:mr-3 file:rounded-md file:border-0 file:bg-amber-500 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-gray-900 disabled:opacity-60"
+        className={
+          light
+            ? "block w-full cursor-pointer rounded-lg border border-stone-200 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm file:mr-3 file:rounded-md file:border-0 file:bg-teal-600 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-white disabled:opacity-60"
+            : "block w-full cursor-pointer rounded-lg bg-black/30 px-3 py-2 text-sm text-gray-300 ring-1 ring-white/10 file:mr-3 file:rounded-md file:border-0 file:bg-amber-500 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-gray-900 disabled:opacity-60"
+        }
       />
       {uploading && (
-        <p className="text-xs text-amber-300" role="status">
+        <p className={`text-xs ${light ? "text-teal-700" : "text-amber-300"}`} role="status">
           Enviando arquivo…
         </p>
       )}
       {error && (
-        <p className="text-xs text-red-300" role="alert">
+        <p className={`text-xs ${light ? "text-rose-600" : "text-red-300"}`} role="alert">
           {error}
         </p>
       )}
@@ -97,16 +104,20 @@ export function DocumentFileField({
         disabled={disabled}
         placeholder="ou cole aqui a URL do arquivo"
         aria-label="URL do arquivo"
-        className="w-full rounded-lg bg-black/30 px-3 py-2 text-sm outline-none ring-1 ring-white/10 focus:ring-amber-400/60 disabled:opacity-60"
+        className={
+          light
+            ? "w-full rounded-lg border border-stone-200 bg-white px-3 py-2 text-sm text-slate-800 outline-none shadow-sm focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 disabled:opacity-60"
+            : "w-full rounded-lg bg-black/30 px-3 py-2 text-sm outline-none ring-1 ring-white/10 focus:ring-amber-400/60 disabled:opacity-60"
+        }
       />
       {value && (
-        <div className="flex items-center gap-2 text-xs text-gray-400">
+        <div className={`flex items-center gap-2 text-xs ${light ? "text-slate-500" : "text-gray-400"}`}>
           <span className="truncate">{fileName || value}</span>
           <a
             href={value}
             target="_blank"
             rel="noopener noreferrer"
-            className="shrink-0 text-amber-400 hover:underline"
+            className={`shrink-0 hover:underline ${light ? "text-teal-700" : "text-amber-400"}`}
           >
             Conferir
           </a>
@@ -116,7 +127,7 @@ export function DocumentFileField({
               onChange("");
               setFileName(null);
             }}
-            className="shrink-0 text-gray-400 hover:text-red-300"
+            className={`shrink-0 ${light ? "text-slate-500 hover:text-rose-600" : "text-gray-400 hover:text-red-300"}`}
           >
             Remover
           </button>

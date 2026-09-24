@@ -2,7 +2,11 @@
 
 import Link from "next/link";
 import { ReactNode, useCallback, useEffect, useState } from "react";
+import { IriBarChart, IriBarMeter } from "../components/rhIdeia/RhIdeiaCharts";
+import { IriNotebookIllustration } from "../components/rhIdeia/RhIdeiaIllustrations";
+import { MyEvaluation } from "../components/rhIdeia/MyEvaluation";
 import { RhIdeiaShell } from "../components/rhIdeia/RhIdeiaShell";
+import { IRI_ALERT, IRI_CARD, IRI_DENIED, IRI_LINK, IRI_MUTED } from "../components/rhIdeia/ui";
 import { useSaasAccess } from "../hooks/useSaasAccess";
 import { iriFetch } from "../lib/rhIdeia/api";
 import type { IriHomeData } from "../lib/rhIdeia/types";
@@ -19,35 +23,20 @@ function Section({
   children: ReactNode;
 }) {
   return (
-    <section className="rounded-xl bg-white/5 p-5 ring-1 ring-white/10">
+    <section className={IRI_CARD}>
       <div className="mb-3 flex items-baseline justify-between gap-3">
         <div>
-          <h2 className="text-lg font-medium">{title}</h2>
-          {hint && <p className="text-xs text-slate-500">{hint}</p>}
+          <h2 className="text-lg font-semibold text-slate-900">{title}</h2>
+          {hint && <p className={`text-xs ${IRI_MUTED}`}>{hint}</p>}
         </div>
         {href && (
-          <Link href={href} className="text-sm text-teal-400 hover:underline">
+          <Link href={href} className={`text-sm ${IRI_LINK}`}>
             Ver todos
           </Link>
         )}
       </div>
       {children}
     </section>
-  );
-}
-
-function Summary({ label, value, tone }: { label: string; value: number; tone?: "alert" }) {
-  return (
-    <div className="rounded-xl bg-white/5 px-4 py-3 ring-1 ring-white/10">
-      <p className="text-xs uppercase tracking-wide text-slate-400">{label}</p>
-      <p
-        className={`mt-1 text-2xl font-semibold ${
-          tone === "alert" && value > 0 ? "text-red-300" : "text-teal-400"
-        }`}
-      >
-        {value}
-      </p>
-    </div>
   );
 }
 
@@ -75,8 +64,8 @@ export default function RhIdeiaStaffHomePage() {
 
   if (!allowed) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-indigo-950 via-slate-900 to-teal-950 text-white">
-        <p className="text-slate-400">Sem acesso ao Ideia RH.</p>
+      <div className={IRI_DENIED}>
+        <p>Sem acesso ao Ideia RH.</p>
       </div>
     );
   }
@@ -89,31 +78,71 @@ export default function RhIdeiaStaffHomePage() {
     data?.pending_training_count ??
     data?.treinamentos.filter((t) => t.status === "pendente" || t.status === "vencido").length ??
     0;
+  const chartMax = Math.max(pendingAck, pendingTrainings, 1);
 
   return (
     <RhIdeiaShell mode="staff" title="Minhas pendências">
       {error && (
-        <div className="mb-4 rounded-lg bg-red-500/20 px-4 py-3 text-red-200" role="alert">
+        <div className={`mb-4 ${IRI_ALERT}`} role="alert">
           {error}
         </div>
       )}
 
       {loading && !data ? (
-        <p className="text-slate-400">Carregando…</p>
+        <p className={IRI_MUTED}>Carregando…</p>
       ) : data ? (
         <div className="space-y-6">
-          <section className="grid gap-3 sm:grid-cols-2">
-            <Summary label="Comunicados sem ciência" value={pendingAck} tone="alert" />
-            <Summary label="Treinamentos pendentes" value={pendingTrainings} tone="alert" />
+          <section className={`${IRI_CARD} relative overflow-hidden`}>
+            <div className="absolute -right-2 -top-2 opacity-80">
+              <IriNotebookIllustration className="h-24 w-24" />
+            </div>
+            <h2 className="relative text-lg font-semibold text-slate-900">Resumo visual</h2>
+            <p className={`relative mt-1 text-sm ${IRI_MUTED}`}>
+              Comunicados e treinamentos que ainda pedem a sua atenção.
+            </p>
+            <div className="relative mt-5 grid gap-4 lg:grid-cols-2">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <IriBarMeter
+                  label="Comunicados sem ciência"
+                  value={pendingAck}
+                  max={chartMax}
+                  tone={pendingAck > 0 ? "rose" : "teal"}
+                />
+                <IriBarMeter
+                  label="Treinamentos pendentes"
+                  value={pendingTrainings}
+                  max={chartMax}
+                  tone={pendingTrainings > 0 ? "amber" : "teal"}
+                />
+              </div>
+              <div className="rounded-xl border border-stone-100 bg-stone-50/80 p-4">
+                <IriBarChart
+                  items={[
+                    {
+                      label: "Sem ciência",
+                      value: pendingAck,
+                      tone: pendingAck > 0 ? "rose" : "teal",
+                    },
+                    {
+                      label: "Treinos",
+                      value: pendingTrainings,
+                      tone: pendingTrainings > 0 ? "amber" : "indigo",
+                    },
+                  ]}
+                />
+              </div>
+            </div>
           </section>
+
+          <MyEvaluation />
 
           <div className="grid gap-6 lg:grid-cols-2">
             <Section title="Comunicados" href="/rh-ideia/comunicados">
               <ul className="space-y-2">
                 {data.comunicados.map((c) => (
-                  <li key={c.id} className="border-b border-white/5 py-2 text-sm">
-                    <span className="font-medium">{c.title}</span>
-                    <span className="ml-2 text-slate-500">
+                  <li key={c.id} className="border-b border-stone-100 py-2 text-sm last:border-0">
+                    <span className="font-medium text-slate-900">{c.title}</span>
+                    <span className={`ml-2 ${IRI_MUTED}`}>
                       {c.acked_at
                         ? "ciência ok"
                         : c.requires_ack
@@ -123,7 +152,7 @@ export default function RhIdeiaStaffHomePage() {
                   </li>
                 ))}
                 {data.comunicados.length === 0 && (
-                  <p className="text-sm text-slate-400">Nenhum comunicado pendente.</p>
+                  <p className={`text-sm ${IRI_MUTED}`}>Nenhum comunicado pendente.</p>
                 )}
               </ul>
             </Section>
@@ -131,16 +160,16 @@ export default function RhIdeiaStaffHomePage() {
             <Section title="Treinamentos" href="/rh-ideia/treinamentos">
               <ul className="space-y-2">
                 {data.treinamentos.map((t) => (
-                  <li key={t.id} className="border-b border-white/5 py-2 text-sm">
-                    <span className="font-medium">{t.title}</span>
-                    <span className="ml-2 text-slate-500">
+                  <li key={t.id} className="border-b border-stone-100 py-2 text-sm last:border-0">
+                    <span className="font-medium text-slate-900">{t.title}</span>
+                    <span className={`ml-2 ${IRI_MUTED}`}>
                       {t.status}
                       {t.is_mandatory && " · obrigatório"}
                     </span>
                   </li>
                 ))}
                 {data.treinamentos.length === 0 && (
-                  <p className="text-sm text-slate-400">Nenhum treinamento pendente.</p>
+                  <p className={`text-sm ${IRI_MUTED}`}>Nenhum treinamento pendente.</p>
                 )}
               </ul>
             </Section>

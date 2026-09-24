@@ -3,6 +3,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AnnouncementCard } from "../../components/justino360/AnnouncementCard";
 import { RhIdeiaShell } from "../../components/rhIdeia/RhIdeiaShell";
+import {
+  IRI_ALERT,
+  IRI_BTN_PRIMARY,
+  IRI_DENIED,
+  IRI_INFO,
+  IRI_MUTED,
+  IRI_OK,
+} from "../../components/rhIdeia/ui";
 import { useSaasAccess } from "../../hooks/useSaasAccess";
 import { iriFetch } from "../../lib/rhIdeia/api";
 import type { IriAnnouncement } from "../../lib/rhIdeia/types";
@@ -75,8 +83,8 @@ export default function RhIdeiaStaffComunicadosPage() {
 
   if (!allowed) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-indigo-950 via-slate-900 to-teal-950 text-white">
-        <p className="text-slate-400">Sem acesso</p>
+      <div className={IRI_DENIED}>
+        <p>Sem acesso</p>
       </div>
     );
   }
@@ -86,20 +94,13 @@ export default function RhIdeiaStaffComunicadosPage() {
   return (
     <RhIdeiaShell mode="staff" title="Comunicados">
       {feedback && (
-        <p
-          role="status"
-          className={`mb-4 rounded-lg px-3 py-2 text-sm ${
-            feedback.tone === "ok"
-              ? "bg-emerald-500/15 text-emerald-200"
-              : "bg-red-500/15 text-red-200"
-          }`}
-        >
+        <p role="status" className={`mb-4 ${feedback.tone === "ok" ? IRI_OK : IRI_ALERT}`}>
           {feedback.text}
         </p>
       )}
 
       {pendingAck > 0 && (
-        <p className="mb-4 rounded-lg bg-teal-500/10 px-3 py-2 text-sm text-teal-200">
+        <p className={`mb-4 ${IRI_INFO}`}>
           {pendingAck === 1
             ? "1 comunicado aguarda sua confirmação de ciência."
             : `${pendingAck} comunicados aguardam sua confirmação de ciência.`}
@@ -111,13 +112,14 @@ export default function RhIdeiaStaffComunicadosPage() {
           <AnnouncementCard
             key={item.id}
             item={item}
+            tone="light"
             actions={
               item.requires_ack && !item.acked_at ? (
                 <button
                   type="button"
                   onClick={() => ack(item.id)}
                   disabled={acking === item.id}
-                  className="rounded-lg bg-teal-500 px-3 py-1.5 text-sm font-medium text-slate-900 transition hover:bg-teal-400 disabled:opacity-60"
+                  className={IRI_BTN_PRIMARY}
                 >
                   {acking === item.id ? "Confirmando…" : "Confirmar ciência"}
                 </button>
@@ -126,9 +128,9 @@ export default function RhIdeiaStaffComunicadosPage() {
           />
         ))}
       </ul>
-      {loading && <p className="text-sm text-slate-400">Carregando…</p>}
+      {loading && <p className={`text-sm ${IRI_MUTED}`}>Carregando…</p>}
       {!loading && items.length === 0 && (
-        <p className="text-sm text-slate-400">Nenhum comunicado no momento.</p>
+        <p className={`text-sm ${IRI_MUTED}`}>Nenhum comunicado no momento.</p>
       )}
     </RhIdeiaShell>
   );

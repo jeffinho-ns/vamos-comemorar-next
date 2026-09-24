@@ -9,6 +9,14 @@ import {
 } from "../../../components/justino360/AnnouncementForm";
 import { J360Sector } from "../../../components/justino360/documentMeta";
 import { IRI_FIELD, RhIdeiaShell } from "../../../components/rhIdeia/RhIdeiaShell";
+import {
+  IRI_ALERT,
+  IRI_BTN_GHOST,
+  IRI_CARD,
+  IRI_MUTED,
+  IRI_OK,
+  IRI_SOFT,
+} from "../../../components/rhIdeia/ui";
 import { useSaasAccess } from "../../../hooks/useSaasAccess";
 import { formatDateTime } from "../../../lib/justino360/labels";
 import { iriFetch } from "../../../lib/rhIdeia/api";
@@ -93,25 +101,18 @@ export default function RhIdeiaAdminComunicadosPage() {
   return (
     <AdminSaasGuard allowed={allowed}>
       <RhIdeiaShell mode="admin" title="Comunicados">
-        <p className="mb-4 text-sm text-slate-400">
-          Publicações com escopo <strong className="text-slate-200">organização</strong> — todas as
+        <p className={`mb-4 text-sm ${IRI_MUTED}`}>
+          Publicações com escopo <strong className="text-slate-800">organização</strong> — todas as
           unidades do Grupo Ideia recebem.
         </p>
 
         {feedback && (
-          <p
-            role="status"
-            className={`mb-4 rounded-lg px-3 py-2 text-sm ${
-              feedback.tone === "ok"
-                ? "bg-emerald-500/15 text-emerald-200"
-                : "bg-red-500/15 text-red-200"
-            }`}
-          >
+          <p role="status" className={`mb-4 ${feedback.tone === "ok" ? IRI_OK : IRI_ALERT}`}>
             {feedback.text}
           </p>
         )}
 
-        <AnnouncementForm sectors={sectors} onSubmit={handleSubmit} />
+        <AnnouncementForm sectors={sectors} onSubmit={handleSubmit} tone="light" />
 
         <div className="mb-4 flex items-center gap-2">
           <select
@@ -126,19 +127,21 @@ export default function RhIdeiaAdminComunicadosPage() {
         </div>
 
         {receipts && (
-          <div className="mb-6 rounded-xl bg-black/30 p-4 ring-1 ring-white/10">
+          <div className={`mb-6 ${IRI_CARD}`}>
             <div className="mb-3 flex items-center justify-between gap-3">
-              <h3 className="text-sm font-medium">Ciência de “{receipts.item.title}”</h3>
+              <h3 className="text-sm font-semibold text-slate-900">
+                Ciência de “{receipts.item.title}”
+              </h3>
               <button
                 type="button"
                 onClick={() => setReceipts(null)}
-                className="text-xs text-slate-400 underline hover:text-slate-200"
+                className={`text-xs ${IRI_MUTED} underline hover:text-slate-800`}
               >
                 Fechar
               </button>
             </div>
             {receipts.rows.length === 0 ? (
-              <p className="text-sm text-slate-400">Ninguém abriu este comunicado ainda.</p>
+              <p className={`text-sm ${IRI_MUTED}`}>Ninguém abriu este comunicado ainda.</p>
             ) : (
               <ul className="space-y-2">
                 {receipts.rows.map((row) => (
@@ -146,13 +149,13 @@ export default function RhIdeiaAdminComunicadosPage() {
                     key={row.user_id}
                     className="flex flex-wrap items-center justify-between gap-2 text-sm"
                   >
-                    <span className="text-slate-200">
+                    <span className="text-slate-800">
                       {row.user_name || row.user_email || `Usuário ${row.user_id}`}
                       {row.establishment_name && (
-                        <span className="ml-2 text-xs text-slate-500">{row.establishment_name}</span>
+                        <span className={`ml-2 text-xs ${IRI_MUTED}`}>{row.establishment_name}</span>
                       )}
                     </span>
-                    <span className="text-xs text-slate-400">
+                    <span className={`text-xs ${IRI_SOFT}`}>
                       {row.acked_at
                         ? `Ciência em ${formatDateTime(row.acked_at)}`
                         : row.read_at
@@ -171,21 +174,14 @@ export default function RhIdeiaAdminComunicadosPage() {
             <AnnouncementCard
               key={item.id}
               item={item}
+              tone="light"
               showCounts
               actions={
                 <div className="flex flex-wrap items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => openReceipts(item)}
-                    className="rounded-lg bg-white/10 px-3 py-1.5 text-xs hover:bg-white/20"
-                  >
+                  <button type="button" onClick={() => openReceipts(item)} className={IRI_BTN_GHOST}>
                     Ver ciências
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => toggleActive(item)}
-                    className="rounded-lg bg-white/10 px-3 py-1.5 text-xs hover:bg-white/20"
-                  >
+                  <button type="button" onClick={() => toggleActive(item)} className={IRI_BTN_GHOST}>
                     {item.is_active ? "Encerrar" : "Reabrir"}
                   </button>
                 </div>
@@ -193,9 +189,9 @@ export default function RhIdeiaAdminComunicadosPage() {
             />
           ))}
         </ul>
-        {loading && <p className="text-sm text-slate-400">Carregando comunicados…</p>}
+        {loading && <p className={`text-sm ${IRI_MUTED}`}>Carregando comunicados…</p>}
         {!loading && items.length === 0 && (
-          <p className="text-sm text-slate-400">Nenhum comunicado publicado.</p>
+          <p className={`text-sm ${IRI_MUTED}`}>Nenhum comunicado publicado.</p>
         )}
       </RhIdeiaShell>
     </AdminSaasGuard>

@@ -15,6 +15,14 @@ import {
 } from "../../../components/justino360/trainingMeta";
 import { IRI_DOCUMENT_ROLES } from "../../../components/rhIdeia/documentMeta";
 import { IRI_FIELD, RhIdeiaShell } from "../../../components/rhIdeia/RhIdeiaShell";
+import {
+  IRI_ALERT,
+  IRI_BTN_GHOST,
+  IRI_CARD_COMPACT,
+  IRI_LINK,
+  IRI_MUTED,
+  IRI_OK,
+} from "../../../components/rhIdeia/ui";
 import { useSaasAccess } from "../../../hooks/useSaasAccess";
 import { iriFetch, iriUpload } from "../../../lib/rhIdeia/api";
 import type { IriTraining } from "../../../lib/rhIdeia/types";
@@ -141,14 +149,7 @@ export default function RhIdeiaAdminTreinamentosPage() {
     <AdminSaasGuard allowed={allowed}>
       <RhIdeiaShell mode="admin" title="Treinamentos">
         {feedback && (
-          <p
-            role="status"
-            className={`mb-4 rounded-lg px-3 py-2 text-sm ${
-              feedback.tone === "ok"
-                ? "bg-emerald-500/15 text-emerald-200"
-                : "bg-red-500/15 text-red-200"
-            }`}
-          >
+          <p role="status" className={`mb-4 ${feedback.tone === "ok" ? IRI_OK : IRI_ALERT}`}>
             {feedback.text}
           </p>
         )}
@@ -159,6 +160,7 @@ export default function RhIdeiaAdminTreinamentosPage() {
           onSubmit={handleSubmit}
           uploadFn={iriUpload}
           trainingRoles={IRI_DOCUMENT_ROLES}
+          tone="light"
         />
 
         <div className="mb-4 flex flex-wrap gap-2">
@@ -217,34 +219,32 @@ export default function RhIdeiaAdminTreinamentosPage() {
               setDetail(null);
               setTeam([]);
             }}
+            tone="light"
           />
         )}
 
         <ul className="space-y-3">
           {items.map((training) => (
-            <li
-              key={training.id}
-              className="rounded-xl bg-white/5 p-4 ring-1 ring-white/10"
-            >
+            <li key={training.id} className={IRI_CARD_COMPACT}>
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="min-w-[200px] flex-1">
-                  <p className="font-medium">
+                  <p className="font-medium text-slate-900">
                     {training.title}
                     {training.is_mandatory && (
-                      <span className="ml-2 rounded-md bg-teal-500/20 px-2 py-0.5 text-xs text-teal-200">
+                      <span className="ml-2 rounded-md bg-teal-50 px-2 py-0.5 text-xs text-teal-800">
                         obrigatório
                       </span>
                     )}
                     {!training.is_active && (
-                      <span className="ml-2 rounded-md bg-white/10 px-2 py-0.5 text-xs text-slate-300">
+                      <span className="ml-2 rounded-md bg-stone-100 px-2 py-0.5 text-xs text-slate-500">
                         arquivado
                       </span>
                     )}
                   </p>
                   {training.description && (
-                    <p className="mt-1 text-sm text-slate-400">{training.description}</p>
+                    <p className={`mt-1 text-sm ${IRI_MUTED}`}>{training.description}</p>
                   )}
-                  <p className="mt-2 text-xs text-slate-500">
+                  <p className={`mt-2 text-xs ${IRI_MUTED}`}>
                     {roleLabel(training.role_key)} · {validityHint(training.validity_days)}
                     {training.content_url && (
                       <>
@@ -253,7 +253,7 @@ export default function RhIdeiaAdminTreinamentosPage() {
                           href={training.content_url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-teal-400 hover:underline"
+                          className={IRI_LINK}
                         >
                           material
                         </a>
@@ -265,7 +265,7 @@ export default function RhIdeiaAdminTreinamentosPage() {
                   <button
                     type="button"
                     onClick={() => refreshPanel(training.id)}
-                    className="rounded-lg bg-white/10 px-3 py-1.5 text-xs hover:bg-white/20"
+                    className={IRI_BTN_GHOST}
                   >
                     Atribuir / progresso
                   </button>
@@ -275,14 +275,14 @@ export default function RhIdeiaAdminTreinamentosPage() {
                       setEditing(training);
                       window.scrollTo({ top: 0, behavior: "smooth" });
                     }}
-                    className="rounded-lg bg-white/10 px-3 py-1.5 text-xs hover:bg-white/20"
+                    className={IRI_BTN_GHOST}
                   >
                     Editar
                   </button>
                   <button
                     type="button"
                     onClick={() => toggleActive(training)}
-                    className="rounded-lg bg-white/10 px-3 py-1.5 text-xs hover:bg-white/20"
+                    className={IRI_BTN_GHOST}
                   >
                     {training.is_active ? "Arquivar" : "Reativar"}
                   </button>
@@ -290,18 +290,18 @@ export default function RhIdeiaAdminTreinamentosPage() {
               </div>
 
               <div className="mt-3">
-                <div className="h-1.5 w-full overflow-hidden rounded-full bg-white/10">
+                <div className="h-1.5 w-full overflow-hidden rounded-full bg-stone-100">
                   <div
-                    className="h-full rounded-full bg-emerald-400"
+                    className="h-full rounded-full bg-teal-500"
                     style={{ width: `${training.completion_rate ?? 0}%` }}
                   />
                 </div>
-                <p className="mt-1 text-xs text-slate-400">
+                <p className={`mt-1 text-xs ${IRI_MUTED}`}>
                   {training.completed_count ?? 0}/{training.assigned_count ?? 0} concluídos ·{" "}
                   {training.completion_rate ?? 0}%
                   {(training.pending_count ?? 0) > 0 && ` · ${training.pending_count} pendente(s)`}
                   {(training.expired_count ?? 0) > 0 && (
-                    <span className="text-red-300"> · {training.expired_count} vencido(s)</span>
+                    <span className="text-rose-600"> · {training.expired_count} vencido(s)</span>
                   )}
                 </p>
               </div>
@@ -309,9 +309,9 @@ export default function RhIdeiaAdminTreinamentosPage() {
           ))}
         </ul>
         {!loading && items.length === 0 && (
-          <p className="text-sm text-slate-400">Nenhum treinamento encontrado com esses filtros.</p>
+          <p className={`text-sm ${IRI_MUTED}`}>Nenhum treinamento encontrado com esses filtros.</p>
         )}
-        {loading && <p className="text-sm text-slate-400">Carregando treinamentos…</p>}
+        {loading && <p className={`text-sm ${IRI_MUTED}`}>Carregando treinamentos…</p>}
       </RhIdeiaShell>
     </AdminSaasGuard>
   );

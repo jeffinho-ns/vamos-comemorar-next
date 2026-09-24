@@ -12,6 +12,13 @@ import {
   iriRoleLabel,
 } from "../../../components/rhIdeia/documentMeta";
 import { IRI_FIELD, RhIdeiaShell } from "../../../components/rhIdeia/RhIdeiaShell";
+import {
+  IRI_ALERT,
+  IRI_BTN_GHOST,
+  IRI_CARD,
+  IRI_MUTED,
+  IRI_OK,
+} from "../../../components/rhIdeia/ui";
 import { useSaasAccess } from "../../../hooks/useSaasAccess";
 import { formatDateTime } from "../../../lib/justino360/labels";
 import { iriFetch, iriUpload } from "../../../lib/rhIdeia/api";
@@ -107,14 +114,7 @@ export default function RhIdeiaAdminDocumentosPage() {
     <AdminSaasGuard allowed={allowed}>
       <RhIdeiaShell mode="admin" title="Políticas e documentos">
         {feedback && (
-          <p
-            role="status"
-            className={`mb-4 rounded-lg px-3 py-2 text-sm ${
-              feedback.tone === "ok"
-                ? "bg-emerald-500/15 text-emerald-200"
-                : "bg-red-500/15 text-red-200"
-            }`}
-          >
+          <p role="status" className={`mb-4 ${feedback.tone === "ok" ? IRI_OK : IRI_ALERT}`}>
             {feedback.text}
           </p>
         )}
@@ -128,6 +128,7 @@ export default function RhIdeiaAdminDocumentosPage() {
           roles={IRI_DOCUMENT_ROLES}
           defaultCategory="regulamento"
           uploadFn={iriUpload}
+          tone="light"
         />
 
         <div className="mb-4 flex flex-wrap gap-2">
@@ -177,13 +178,13 @@ export default function RhIdeiaAdminDocumentosPage() {
         </div>
 
         {history && (
-          <div className="mb-6 rounded-xl bg-black/30 p-4 ring-1 ring-white/10">
+          <div className={`mb-6 ${IRI_CARD}`}>
             <div className="mb-3 flex items-center justify-between gap-3">
-              <h3 className="text-sm font-medium">Histórico de “{history.doc.title}”</h3>
+              <h3 className="text-sm font-semibold text-slate-900">Histórico de “{history.doc.title}”</h3>
               <button
                 type="button"
                 onClick={() => setHistory(null)}
-                className="text-xs text-slate-400 underline hover:text-slate-200"
+                className={`text-xs ${IRI_MUTED} underline hover:text-slate-800`}
               >
                 Fechar
               </button>
@@ -191,15 +192,15 @@ export default function RhIdeiaAdminDocumentosPage() {
             <ol className="space-y-2">
               {history.items.map((version) => (
                 <li key={version.id} className="flex flex-wrap items-center gap-2 text-sm">
-                  <span className="rounded-md bg-white/10 px-2 py-0.5 text-xs">v{version.version}</span>
-                  <span className="text-slate-300">{version.title}</span>
-                  <span className="text-xs text-slate-500">
+                  <span className="rounded-md bg-stone-100 px-2 py-0.5 text-xs text-slate-700">v{version.version}</span>
+                  <span className="text-slate-800">{version.title}</span>
+                  <span className={`text-xs ${IRI_MUTED}`}>
                     {iriCategoryLabel(version.category)}
                     {version.created_at ? ` · ${formatDateTime(version.created_at)}` : ""}
                     {version.uploaded_by_name ? ` · ${version.uploaded_by_name}` : ""}
                   </span>
                   {version.is_current && (
-                    <span className="rounded-md bg-emerald-500/20 px-2 py-0.5 text-xs text-emerald-300">
+                    <span className="rounded-md bg-emerald-50 px-2 py-0.5 text-xs text-emerald-700">
                       vigente
                     </span>
                   )}
@@ -208,7 +209,7 @@ export default function RhIdeiaAdminDocumentosPage() {
                       href={version.file_url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-xs text-teal-400 hover:underline"
+                      className="text-xs text-teal-700 hover:underline"
                     >
                       abrir
                     </a>
@@ -224,6 +225,7 @@ export default function RhIdeiaAdminDocumentosPage() {
             <DocumentCard
               key={doc.id}
               doc={doc}
+              tone="light"
               categoryLabelFn={iriCategoryLabel}
               roleLabelFn={(v) => iriRoleLabel(v)}
               actions={
@@ -234,21 +236,21 @@ export default function RhIdeiaAdminDocumentosPage() {
                       setReplaceTarget(doc);
                       window.scrollTo({ top: 0, behavior: "smooth" });
                     }}
-                    className="rounded-lg bg-white/10 px-3 py-1.5 text-xs hover:bg-white/20"
+                    className={IRI_BTN_GHOST}
                   >
                     Nova versão
                   </button>
                   <button
                     type="button"
                     onClick={() => openHistory(doc)}
-                    className="rounded-lg bg-white/10 px-3 py-1.5 text-xs hover:bg-white/20"
+                    className={IRI_BTN_GHOST}
                   >
                     Histórico
                   </button>
                   <button
                     type="button"
                     onClick={() => toggleArchive(doc)}
-                    className="rounded-lg bg-white/10 px-3 py-1.5 text-xs hover:bg-white/20"
+                    className={IRI_BTN_GHOST}
                   >
                     {doc.is_current ? "Arquivar" : "Reativar"}
                   </button>
@@ -258,9 +260,9 @@ export default function RhIdeiaAdminDocumentosPage() {
           ))}
         </ul>
         {!loading && items.length === 0 && (
-          <p className="text-sm text-slate-400">Nenhum documento encontrado com esses filtros.</p>
+          <p className={`text-sm ${IRI_MUTED}`}>Nenhum documento encontrado com esses filtros.</p>
         )}
-        {loading && <p className="text-sm text-slate-400">Carregando documentos…</p>}
+        {loading && <p className={`text-sm ${IRI_MUTED}`}>Carregando documentos…</p>}
       </RhIdeiaShell>
     </AdminSaasGuard>
   );

@@ -9,6 +9,7 @@ import {
   iriRoleLabel,
 } from "../../components/rhIdeia/documentMeta";
 import { IRI_FIELD, RhIdeiaShell } from "../../components/rhIdeia/RhIdeiaShell";
+import { IRI_ALERT, IRI_DENIED, IRI_MUTED, IRI_SOFT } from "../../components/rhIdeia/ui";
 import { useSaasAccess } from "../../hooks/useSaasAccess";
 import { iriFetch } from "../../lib/rhIdeia/api";
 import type { IriDocument } from "../../lib/rhIdeia/types";
@@ -60,15 +61,15 @@ export default function RhIdeiaStaffDocumentosPage() {
 
   if (!allowed) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-indigo-950 via-slate-900 to-teal-950 text-white">
-        <p className="text-slate-400">Sem acesso</p>
+      <div className={IRI_DENIED}>
+        <p>Sem acesso</p>
       </div>
     );
   }
 
   return (
     <RhIdeiaShell mode="staff" title="Políticas e documentos">
-      <p className="mb-4 text-sm text-slate-300">
+      <p className={`mb-4 text-sm ${IRI_SOFT}`}>
         Só aparecem aqui as versões vigentes do Grupo Ideia — regulamento, LGPD, benefícios e demais
         políticas.
       </p>
@@ -110,7 +111,7 @@ export default function RhIdeiaStaffDocumentosPage() {
       </div>
 
       {error && (
-        <p role="alert" className="mb-4 rounded-lg bg-red-500/15 px-3 py-2 text-sm text-red-200">
+        <p role="alert" className={`mb-4 ${IRI_ALERT}`}>
           {error}
         </p>
       )}
@@ -120,14 +121,15 @@ export default function RhIdeiaStaffDocumentosPage() {
           <DocumentCard
             key={doc.id}
             doc={doc}
+            tone="light"
             categoryLabelFn={iriCategoryLabel}
             roleLabelFn={iriRoleLabel}
           />
         ))}
       </ul>
-      {loading && <p className="text-sm text-slate-400">Carregando…</p>}
+      {loading && <p className={`text-sm ${IRI_MUTED}`}>Carregando…</p>}
       {!loading && items.length === 0 && (
-        <p className="text-sm text-slate-400">Nenhum documento disponível para esse filtro.</p>
+        <p className={`text-sm ${IRI_MUTED}`}>Nenhum documento disponível para esse filtro.</p>
       )}
     </RhIdeiaShell>
   );
