@@ -2,6 +2,7 @@
 
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import { IRI_FIELD, RhIdeiaShell } from "../../../components/rhIdeia/RhIdeiaShell";
+import { OpsWeekBoard } from "../../../components/rhIdeia/OpsWeekBoard";
 import { roleLabel } from "../../../components/rhIdeia/PlaybookTeamTable";
 import {
   IRI_BTN_PRIMARY,
@@ -14,12 +15,28 @@ import { useSaasAccess } from "../../../hooks/useSaasAccess";
 import { iriFetch } from "../../../lib/rhIdeia/api";
 import type { IriEstablishment, IriPointRow } from "../../../lib/rhIdeia/types";
 
+type RankRow = { user_name?: string; role_key: string; points: number };
+type CloseSnapshot =
+  | RankRow[]
+  | { ranking?: RankRow[]; operacao?: { aberturas: number; fechamentos: number; pontos_novos: number } };
+
 type CloseRow = {
   id: number;
   year_month: string;
   note?: string | null;
-  snapshot?: { user_name?: string; role_key: string; points: number }[];
+  snapshot?: CloseSnapshot;
 };
+
+function rankingOf(snapshot: CloseSnapshot | undefined): RankRow[] {
+  if (!snapshot) return [];
+  if (Array.isArray(snapshot)) return snapshot;
+  return snapshot.ranking || [];
+}
+
+function opsOf(snapshot: CloseSnapshot | undefined) {
+  if (!snapshot || Array.isArray(snapshot)) return null;
+  return snapshot.operacao || null;
+}
 
 export default function AdminPlaybookPointsPage() {
   const { canAccessRhIdeia, isSuperAdmin, isAdmin } = useSaasAccess();
@@ -67,7 +84,7 @@ export default function AdminPlaybookPointsPage() {
   return (
     <RhIdeiaShell mode="admin" title="Pontuação e premiação">
       <p className={`mb-4 text-sm ${IRI_SOFT}`}>
-        Prova, checklist conferido, avaliação, padrinho, treino semanal e ronda do líder. O ranking do fechamento é dos líderes.
+        Prova, checklist, avaliação, padrinho, treino, ronda e o que a casa abriu e fechou no Justino360. Cada abertura ou fechamento concluído vale 2 pontos para quem fez. O ranking do fechamento continua sendo dos líderes.
       </p>
       {message && <p className={`mb-4 text-sm ${IRI_SOFT}`}>{message}</p>}
       <form onSubmit={closeMonth} className={`mb-6 grid gap-3 ${IRI_CARD} md:grid-cols-4`}>
@@ -85,18 +102,33 @@ export default function AdminPlaybookPointsPage() {
           Fechar mês
         </button>
       </form>
+      {establishmentId ? (
+        <div className="mb-6">
+          <OpsWeekBoard establishmentId={Number(establishmentId)} />
+        </div>
+      ) : null}
       <ul className="mb-6 space-y-2 text-sm">
-        {closes.map((item) => (
-          <li key={item.id} className={IRI_CARD_COMPACT}>
-            <span className="font-medium text-slate-900">{item.year_month}</span>
-            {item.note ? ` · ${item.note}` : ""}
-            <span className={`mt-1 block ${IRI_MUTED}`}>
-              {(item.snapshot || [])
-                .map((row) => `${row.user_name || "Líder"} (${roleLabel(row.role_key)}): ${row.points}`)
-                .join(" · ") || "Sem pontos de líder nesse mês."}
-            </span>
-          </li>
-        ))}
+        {closes.map((item) => {
+          const ranking = rankingOf(item.snapshot);
+          const ops = opsOf(item.snapshot);
+          return (
+            <li key={item.id} className={IRI_CARD_COMPACT}>
+              <span className="font-medium text-slate-900">{item.year_month}</span>
+              {item.note ? ` · ${item.note}` : ""}
+              {ops ? (
+                <span className={`mt-1 block ${IRI_MUTED}`}>
+                  {ops.aberturas} abertura(s) · {ops.fechamentos} fechamento(s)
+                  {ops.pontos_novos > 0 ? ` · ${ops.pontos_novos} pts novos` : ""}
+                </span>
+              ) : null}
+              <span className={`mt-1 block ${IRI_MUTED}`}>
+                {ranking
+                  .map((row) => `${row.user_name || "Líder"} (${roleLabel(row.role_key)}): ${row.points}`)
+                  .join(" · ") || "Sem pontos de líder nesse mês."}
+              </span>
+            </li>
+          );
+        })}
       </ul>
       <ul className={`space-y-1 text-sm ${IRI_SOFT}`}>
         {points.map((row) => (
