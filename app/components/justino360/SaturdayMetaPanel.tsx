@@ -2,6 +2,19 @@
 
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import { j360Fetch } from "../../lib/justino360/api";
+import { SaturdaySalesSheet } from "./SaturdaySalesSheet";
+import {
+  CARD,
+  DraftSale,
+  FIELD,
+  GOLD,
+  blankSale,
+  brl,
+  moneyText,
+  parseCount,
+  parseMoney,
+  upcomingSaturday,
+} from "./saturdayEntry";
 
 type Sale = {
   id: number;
@@ -9,14 +22,16 @@ type Sale = {
   waiter_name: string;
   waiter_code: string | null;
   amount: number;
+  service_fee?: number;
+  people_count?: number | null;
   bonus_total?: number;
-  bonus_ranking?: number;
-  bonus_individual?: number;
   hit_individual?: boolean;
 };
 
 type Day = {
   service_date: string;
+  reservations_confirmed: number | null;
+  walkin_expected: number | null;
   people_expected: number | null;
   ticket_expected: number | null;
   revenue_goal: number | null;
@@ -25,317 +40,339 @@ type Day = {
   waiters_scheduled: number | null;
   sales: Sale[];
   bonus: {
-    tier: { label: string; trigger: number } | null;
-    cost: { ranking: number; individual: number; raffle: number; leadership: number; full_total: number };
+    tier: { label: string } | null;
+    cost: { full_total: number };
     leadership: { gerente: number; chefe_fila: number };
-    raffle: { per_sector: number; pot: number };
+    raffle: { per_sector: number };
     winners: Sale[];
   };
 };
 
-type Rank = {
-  rank: number;
-  waiter_name: string;
-  total: number;
-  appearances: number;
-  average: number;
-  best_position: number | null;
-  wins: number;
+type HistoryDay = {
+  service_date: string;
+  people_expected: number | null;
+  revenue_goal: number | null;
+  revenue_real: number | null;
 };
 
-const CARD = "rounded-3xl border border-white/10 bg-[#121214] p-5 shadow-lg";
-const FIELD = "w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2.5 text-sm text-white outline-none placeholder:text-zinc-500";
-const GOLD = "w-full rounded-full bg-[#e2b657] px-4 py-3 text-sm font-bold tracking-wide text-black disabled:opacity-40";
+type Rank = { rank: number; waiter_name: string; total: number; wins: number };
 
-function brl(value: number | null | undefined) {
-  return (Number(value) || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-}
+const STEPS = [
+  { id: "planejar", label: "Planejar" },
+  { id: "lancar", label: "Lançar" },
+  { id: "fechar", label: "Fechar" },
+  { id: "resultado", label: "Resultado" },
+] as const;
 
-function isoDate(value: string) {
-  return String(value).slice(0, 10);
+type Step = (typeof STEPS)[number]["id"];
+
+function draftsFrom(sales: Sale[]): DraftSale[] {
+  if (!sales.length) return [blankSale()];
+  return sales.map((sale) => ({
+    key: String(sale.id),
+    name: sale.waiter_name,
+    code: sale.waiter_code || "",
+    amount: moneyText(sale.amount),
+    fee: sale.service_fee ? moneyText(sale.service_fee) : "",
+    people: sale.people_count == null ? "" : String(sale.people_count),
+  }));
 }
 
 export function SaturdayMetaPanel({ canManage }: { canManage: boolean }) {
-  const [date, setDate] = useState("");
+  const [step, setStep] = useState<Step>("planejar");
+  const [date, setDate] = useState(upcomingSaturday);
   const [day, setDay] = useState<Day | null>(null);
+  const [history, setHistory] = useState<HistoryDay[]>([]);
   const [ranking, setRanking] = useState<Rank[]>([]);
   const [message, setMessage] = useState<string | null>(null);
-  const [people, setPeople] = useState("");
-  const [revenue, setRevenue] = useState("");
-  const [goal, setGoal] = useState("80000");
-  const [ticket, setTicket] = useState("");
-  const [waiter, setWaiter] = useState("");
-  const [code, setCode] = useState("");
-  const [amount, setAmount] = useState("");
-  const [rankTab, setRankTab] = useState<"hoje" | "geral">("hoje");
+  const [reservations, setReservations] = useState("");
+  const [walkin, setWalkin] = useState("");
+  const [ticket, setTicket] = useState("145");
+  const [waiters, setWaiters] = useState("");
+  const [peopleReal, setPeopleReal] = useState("");
+  const [revenueReal, setRevenueReal] = useState("");
+  const [rows, setRows] = useState<DraftSale[]>([blankSale()]);
 
-  const loadRanking = useCallback(async () => {
-    const res = await j360Fetch<Rank[]>("/saturday/ranking");
-    if (res.success && res.data) setRanking(res.data);
+  const applyDay = useCallback((next: Day) => {
+    setDay(next);
+    setReservations(next.reservations_confirmed == null ? "" : String(next.reservations_confirmed));
+    setWalkin(next.walkin_expected == null ? "" : String(next.walkin_expected));
+    setTicket(next.ticket_expected == null ? "145" : String(next.ticket_expected));
+    setWaiters(next.waiters_scheduled == null ? "" : String(next.waiters_scheduled));
+    setPeopleReal(next.people_real == null ? "" : String(next.people_real));
+    setRevenueReal(next.revenue_real == null ? "" : moneyText(next.revenue_real));
+    setRows(draftsFrom(next.sales || []));
   }, []);
 
   const loadDay = useCallback(async (serviceDate: string) => {
-    if (!serviceDate) return;
     const res = await j360Fetch<Day>(`/saturday/${serviceDate}`);
     if (!res.success || !res.data) {
       setDay(null);
+      setReservations("");
+      setWalkin("");
+      setTicket("145");
+      setWaiters("");
+      setPeopleReal("");
+      setRevenueReal("");
+      setRows([blankSale()]);
       return;
     }
-    setDay(res.data);
-    setPeople(res.data.people_real == null ? "" : String(res.data.people_real));
-    setRevenue(res.data.revenue_real == null ? "" : String(res.data.revenue_real));
-    setGoal(res.data.revenue_goal == null ? "80000" : String(res.data.revenue_goal));
-    setTicket(res.data.ticket_expected == null ? "" : String(res.data.ticket_expected));
-  }, []);
+    applyDay(res.data);
+  }, [applyDay]);
 
   useEffect(() => {
-    loadRanking();
-  }, [loadRanking]);
+    j360Fetch<HistoryDay[]>("/saturday").then((res) => {
+      if (res.success && res.data) setHistory(res.data);
+    });
+    j360Fetch<Rank[]>("/saturday/ranking").then((res) => {
+      if (res.success && res.data) setRanking(res.data);
+    });
+    loadDay(date);
+  }, [date, loadDay]);
 
-  async function saveDay(event: FormEvent) {
+  const peopleExpected = (parseCount(reservations) || 0) + (parseCount(walkin) || 0);
+  const ticketValue = parseMoney(ticket) || 0;
+  const waiterCount = parseCount(waiters) || 0;
+  const goal = peopleExpected > 0 && ticketValue > 0 ? Math.round(peopleExpected * ticketValue * 100) / 100 : Number(day?.revenue_goal || 0);
+  const individual = waiterCount > 0 && goal > 0 ? goal / waiterCount : 0;
+
+  async function savePlan(event: FormEvent) {
     event.preventDefault();
-    if (!date) return;
     const res = await j360Fetch<Day>(`/saturday/${date}`, {
       method: "PUT",
       body: JSON.stringify({
-        people_real: people === "" ? null : Number(people),
-        revenue_real: revenue === "" ? null : Number(revenue),
-        revenue_goal: goal === "" ? null : Number(goal),
-        ticket_expected: ticket === "" ? null : Number(ticket),
+        reservations_confirmed: parseCount(reservations),
+        walkin_expected: parseCount(walkin),
+        people_expected: peopleExpected || null,
+        ticket_expected: ticketValue || null,
+        waiters_scheduled: waiterCount || null,
+        revenue_goal: goal || null,
+        people_real: parseCount(peopleReal),
+        revenue_real: parseMoney(revenueReal),
       }),
     });
-    setMessage(res.success ? "Sábado salvo." : res.message || "Não foi possível salvar.");
-    if (res.success && res.data) setDay(res.data);
+    setMessage(res.success ? "Meta do sábado salva." : res.message || "Não foi possível salvar.");
+    if (res.success && res.data) applyDay(res.data);
   }
 
-  async function addSale(event: FormEvent) {
-    event.preventDefault();
-    if (!date) return;
+  async function saveSheet() {
+    const sales = rows
+      .filter((row) => row.name.trim())
+      .map((row) => ({
+        waiter_name: row.name.trim(),
+        waiter_code: row.code.trim(),
+        amount: parseMoney(row.amount),
+        service_fee: parseMoney(row.fee) || 0,
+        people_count: parseCount(row.people),
+      }));
+    const invalid = sales.find((sale) => sale.amount == null);
+    if (invalid) {
+      setMessage(`Informe a venda de ${invalid.waiter_name}. Use vírgula, como 12.099,60.`);
+      return;
+    }
     const res = await j360Fetch<Day>(`/saturday/${date}/sales`, {
-      method: "POST",
-      body: JSON.stringify({ waiter_name: waiter, waiter_code: code, amount: Number(amount) }),
+      method: "PUT",
+      body: JSON.stringify({ sales }),
     });
-    setMessage(res.success ? "Venda lançada." : res.message || "Não foi possível lançar.");
+    setMessage(res.success ? "Lançamentos salvos." : res.message || "Não foi possível salvar.");
     if (res.success && res.data) {
-      setDay(res.data);
-      setWaiter("");
-      setCode("");
-      setAmount("");
-      loadRanking();
+      applyDay(res.data);
+      const rank = await j360Fetch<Rank[]>("/saturday/ranking");
+      if (rank.success && rank.data) setRanking(rank.data);
     }
   }
 
-  const ticketReal =
-    day?.people_real && day.revenue_real ? Number(day.revenue_real) / Number(day.people_real) : null;
-  const rows = day?.bonus?.winners || day?.sales || [];
-  const salesTotal = rows.reduce((sum, sale) => sum + Number(sale.amount || 0), 0);
-  const goalValue = Number(day?.revenue_goal || goal || 0);
-  const realValue = Number(day?.revenue_real || 0);
-  const hitRate = goalValue > 0 && realValue > 0 ? Math.round((realValue / goalValue) * 100) : null;
-  const winner = rows[0];
-  const rankRows = rankTab === "hoje"
-    ? rows.slice(0, 8).map((sale) => ({
-        key: sale.id,
-        place: sale.position,
-        name: sale.waiter_name,
-        amount: sale.amount,
-        hint: sale.bonus_total ? `bônus ${brl(sale.bonus_total)}` : "",
-      }))
-    : ranking.slice(0, 8).map((row) => ({
-        key: row.rank,
-        place: row.rank,
-        name: row.waiter_name,
-        amount: row.total,
-        hint: `${row.wins} vitória${row.wins === 1 ? "" : "s"}`,
-      }));
+  async function saveClose(event: FormEvent) {
+    event.preventDefault();
+    const res = await j360Fetch<Day>(`/saturday/${date}`, {
+      method: "PUT",
+      body: JSON.stringify({
+        reservations_confirmed: parseCount(reservations),
+        walkin_expected: parseCount(walkin),
+        people_expected: peopleExpected || null,
+        ticket_expected: ticketValue || null,
+        waiters_scheduled: waiterCount || null,
+        revenue_goal: goal || null,
+        people_real: parseCount(peopleReal),
+        revenue_real: parseMoney(revenueReal),
+      }),
+    });
+    setMessage(res.success ? "Fechamento salvo." : res.message || "Não foi possível salvar.");
+    if (res.success && res.data) applyDay(res.data);
+  }
+
+  const realValue = parseMoney(revenueReal) || 0;
+  const hitRate = goal > 0 && realValue > 0 ? Math.round((realValue / goal) * 1000) / 10 : null;
+  const gap = realValue - goal;
+  const winners = day?.bonus?.winners || day?.sales || [];
 
   return (
-    <div className="space-y-4 text-white">
-      <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[#e2b657]">
-        Performance 360 · Seu Justino
+    <div className="space-y-4 pb-8 text-white">
+      <p className="text-sm text-zinc-300">
+        O sábado começa aqui. Primeiro a meta, depois a venda de cada garçom, e no fim o faturamento real.
       </p>
-      {message && <p className="text-sm text-[#e2b657]">{message}</p>}
+      {message && <p className="rounded-2xl bg-[#e2b657]/15 px-4 py-3 text-sm text-[#e2b657]">{message}</p>}
+      {!canManage && (
+        <p className="text-sm text-zinc-400">Você pode consultar. Quem gerencia a casa é quem salva os números.</p>
+      )}
+      <label className="block text-xs uppercase tracking-wide text-zinc-500">
+        Sábado
+        <input type="date" required value={date} onChange={(event) => setDate(event.target.value)} className={FIELD} />
+      </label>
+      <div className="flex gap-2 overflow-x-auto pb-1">
+        {STEPS.map((item) => (
+          <button
+            key={item.id}
+            type="button"
+            onClick={() => setStep(item.id)}
+            className={`min-h-11 shrink-0 rounded-full px-4 text-sm font-semibold ${step === item.id ? "bg-[#e2b657] text-black" : "bg-white/5 text-zinc-300"}`}
+          >
+            {item.label}
+          </button>
+        ))}
+      </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        <form onSubmit={saveDay} className={CARD}>
-          <div className="mb-4 flex items-start justify-between gap-3">
-            <div>
-              <h2 className="text-lg font-semibold">Planejamento diário</h2>
-              <p className="text-xs text-zinc-500">{date ? isoDate(date) : "Escolha o sábado"}</p>
-            </div>
-          </div>
-          <label className="mb-3 block text-xs uppercase tracking-wide text-zinc-500">
-            Data
-            <input type="date" required value={date} onChange={(event) => { setDate(event.target.value); loadDay(event.target.value); }} className={`${FIELD} mt-1`} />
+      {step === "planejar" && (
+        <form onSubmit={savePlan} className={`${CARD} space-y-3`}>
+          <h2 className="text-xl font-semibold">Planejamento diário</h2>
+          <p className="text-sm text-zinc-400">Meta = (reservas confirmadas + walk-in previsto) × ticket esperado.</p>
+          <CountField label="Reservas confirmadas" value={reservations} onChange={setReservations} />
+          <CountField label="Walk-in previsto" value={walkin} onChange={setWalkin} />
+          <label className="block text-xs uppercase tracking-wide text-zinc-500">
+            Ticket esperado
+            <input inputMode="decimal" value={ticket} onChange={(event) => setTicket(event.target.value)} className={FIELD} />
           </label>
-          <div className="grid grid-cols-2 gap-3">
-            <label className="text-xs uppercase tracking-wide text-zinc-500">
-              Pessoas
-              <input value={people} onChange={(event) => setPeople(event.target.value)} className={`${FIELD} mt-1`} />
-            </label>
-            <label className="text-xs uppercase tracking-wide text-zinc-500">
-              Ticket esperado
-              <input value={ticket} onChange={(event) => setTicket(event.target.value)} className={`${FIELD} mt-1`} />
-            </label>
-          </div>
-          <p className="mt-4 text-xs uppercase tracking-wide text-zinc-500">Meta do dia</p>
-          <p className="text-3xl font-semibold text-[#e2b657]">{brl(Number(goal) || 0)}</p>
-          <input value={goal} onChange={(event) => setGoal(event.target.value)} className={`${FIELD} mt-2`} />
-          <button type="submit" disabled={!canManage} className={`${GOLD} mt-5`}>
-            Salvar planejamento
-          </button>
-        </form>
-
-        <form onSubmit={saveDay} className={CARD}>
-          <h2 className="text-lg font-semibold">Fechamento do dia</h2>
-          <p className="text-xs text-zinc-500">{date ? isoDate(date) : "Sábado"}</p>
-          <p className="mt-4 text-xs uppercase tracking-wide text-zinc-500">Resultado real</p>
-          <div className="mt-2 grid grid-cols-2 gap-3">
-            <div>
-              <p className="text-xs text-zinc-500">Pessoas</p>
-              <p className="text-2xl font-semibold">{people || "—"}</p>
-            </div>
-            <div>
-              <p className="text-xs text-zinc-500">Ticket médio</p>
-              <p className="text-2xl font-semibold">{ticketReal == null ? "—" : brl(ticketReal)}</p>
-            </div>
-          </div>
-          <p className="mt-4 text-xs uppercase tracking-wide text-zinc-500">Faturamento real</p>
-          <input value={revenue} onChange={(event) => setRevenue(event.target.value)} className={`${FIELD} mt-1 text-lg`} placeholder="0,00" />
-          <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
-            <div>
-              <p className="text-xs text-zinc-500">Meta</p>
-              <p>{brl(goalValue)}</p>
-            </div>
-            <div>
-              <p className="text-xs text-zinc-500">Realizado</p>
-              <p>{brl(realValue)}</p>
-            </div>
-          </div>
-          <p className={`mt-4 text-4xl font-semibold ${hitRate != null && hitRate >= 100 ? "text-emerald-400" : "text-white"}`}>
-            {hitRate == null ? "—" : `${hitRate}%`}
-          </p>
-          <p className="text-xs uppercase tracking-wide text-zinc-500">
-            {day?.bonus.tier ? day.bonus.tier.label : "Meta ainda não batida"}
-          </p>
-          <button type="submit" disabled={!canManage} className={`${GOLD} mt-5`}>
-            Salvar fechamento
-          </button>
-        </form>
-
-        <section className={CARD}>
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-lg font-semibold">Vendas dos garçons</h2>
-            <span className="text-xs text-zinc-500">{date ? isoDate(date) : ""}</span>
-          </div>
-          <div className="overflow-hidden rounded-2xl border border-white/10">
-            <div className="grid grid-cols-[1fr_auto] bg-black/40 px-3 py-2 text-xs uppercase tracking-wide text-zinc-500">
-              <span>Garçom</span>
-              <span>Venda</span>
-            </div>
-            {rows.length === 0 && <p className="px-3 py-4 text-sm text-zinc-500">Nenhuma venda neste sábado.</p>}
-            {rows.map((sale) => (
-              <div key={sale.id} className="grid grid-cols-[1fr_auto] border-t border-white/5 px-3 py-2 text-sm">
-                <span>{sale.position}. {sale.waiter_name}</span>
-                <span className="font-medium text-[#e2b657]">{brl(sale.amount)}</span>
-              </div>
+          <div className="flex gap-2">
+            {["130", "145"].map((preset) => (
+              <button key={preset} type="button" onClick={() => setTicket(preset)} className="min-h-11 flex-1 rounded-full bg-white/5 text-sm">
+                R$ {preset}
+              </button>
             ))}
-            <div className="grid grid-cols-[1fr_auto] border-t border-white/10 px-3 py-2 text-sm font-semibold">
-              <span>Total do dia</span>
-              <span>{brl(day?.revenue_real || salesTotal)}</span>
-            </div>
           </div>
-          <form onSubmit={addSale} className="mt-4 grid gap-2">
-            <input placeholder="Nome do garçom" value={waiter} onChange={(event) => setWaiter(event.target.value)} className={FIELD} />
-            <div className="grid grid-cols-2 gap-2">
-              <input placeholder="Código" value={code} onChange={(event) => setCode(event.target.value)} className={FIELD} />
-              <input placeholder="Valor da venda" value={amount} onChange={(event) => setAmount(event.target.value)} className={FIELD} />
-            </div>
-            <button type="submit" disabled={!canManage || !date} className={GOLD}>
-              Adicionar venda
-            </button>
-          </form>
-        </section>
-
-        <section className={CARD}>
-          <div className="mb-4 flex items-center justify-between gap-3">
-            <h2 className="text-lg font-semibold">Ranking geral</h2>
-            <div className="flex rounded-full bg-black/40 p-1 text-xs">
-              {(["hoje", "geral"] as const).map((tab) => (
+          <CountField label="Garçons escalados" value={waiters} onChange={setWaiters} />
+          <div className="grid grid-cols-2 gap-2">
+            <Preview label="Pessoas previstas" value={String(peopleExpected || "—")} />
+            <Preview label="Meta individual" value={individual ? brl(individual) : "—"} />
+          </div>
+          <Preview label="Meta da casa" value={goal ? brl(goal) : "—"} gold />
+          <button type="submit" disabled={!canManage} className={GOLD}>Gerar e salvar meta</button>
+          {history.length > 0 && (
+            <div className="space-y-2 pt-2">
+              <p className="text-sm font-semibold">Últimos sábados</p>
+              {history.slice(0, 6).map((item) => (
                 <button
-                  key={tab}
+                  key={item.service_date}
                   type="button"
-                  onClick={() => setRankTab(tab)}
-                  className={`rounded-full px-3 py-1 capitalize ${rankTab === tab ? "bg-[#e2b657] text-black" : "text-zinc-400"}`}
+                  onClick={() => setDate(String(item.service_date).slice(0, 10))}
+                  className="flex min-h-12 w-full items-center justify-between rounded-2xl bg-black/30 px-3 text-left text-sm"
                 >
-                  {tab}
+                  <span>{String(item.service_date).slice(0, 10).split("-").reverse().join("/")}</span>
+                  <span className="text-[#e2b657]">{brl(Number(item.revenue_real || item.revenue_goal || 0))}</span>
                 </button>
               ))}
             </div>
-          </div>
-          <ol className="space-y-3">
-            {rankRows.map((row) => (
-              <li key={row.key} className="flex items-center gap-3">
-                <span className="w-6 text-sm font-semibold text-[#e2b657]">{row.place}</span>
-                <span className="flex h-9 w-9 items-center justify-center rounded-full bg-zinc-800 text-xs">
-                  {row.name.slice(0, 1)}
-                </span>
-                <span className="min-w-0 flex-1 truncate">{row.name}</span>
-                <span className="text-right">
-                  <span className="block font-semibold text-[#e2b657]">{brl(row.amount)}</span>
-                  {row.hint && <span className="block text-[11px] text-zinc-500">{row.hint}</span>}
-                </span>
-              </li>
-            ))}
-            {rankRows.length === 0 && <li className="text-sm text-zinc-500">Ainda não há vendas lançadas.</li>}
-          </ol>
-        </section>
-
-        <section className={`${CARD} bg-[radial-gradient(circle_at_top,_rgba(226,182,87,0.16),_transparent_45%)]`}>
-          <h2 className="text-lg font-semibold">Ganhadores do dia</h2>
-          {winner ? (
-            <div className="mt-4 text-center">
-              <p className="text-xs uppercase tracking-[0.2em] text-[#e2b657]">Maior venda</p>
-              <p className="mt-2 text-2xl font-semibold">{winner.waiter_name}</p>
-              <p className="text-3xl font-semibold text-[#e2b657]">{brl(winner.amount)}</p>
-              <p className="mt-1 text-sm text-zinc-400">
-                Prêmio {brl(winner.bonus_total || 0)}
-                {winner.hit_individual ? " · bateu a meta de R$ 8 mil" : ""}
-              </p>
-            </div>
-          ) : (
-            <p className="mt-4 text-sm text-zinc-500">Lance as vendas para ver quem ganhou o sábado.</p>
           )}
-          {day?.bonus.tier && (
-            <p className="mt-4 text-center text-xs text-zinc-400">
-              Gerente {brl(day.bonus.leadership.gerente)} · chefe de fila {brl(day.bonus.leadership.chefe_fila)}
-              {day.bonus.raffle.per_sector > 0 ? ` · ${day.bonus.raffle.per_sector} sorteios por setor` : ""}
-            </p>
-          )}
-        </section>
+        </form>
+      )}
 
-        <section className={CARD}>
-          <h2 className="text-lg font-semibold">Dashboard da liderança</h2>
-          <div className="mt-4 grid grid-cols-3 gap-2 text-center">
-            <div>
-              <p className="text-[11px] uppercase text-zinc-500">Meta</p>
-              <p className="mt-1 text-sm font-semibold">{brl(goalValue)}</p>
-            </div>
-            <div>
-              <p className="text-[11px] uppercase text-zinc-500">Resultado</p>
-              <p className="mt-1 text-sm font-semibold">{brl(realValue)}</p>
-            </div>
-            <div>
-              <p className={`mt-4 text-lg font-semibold ${hitRate != null && hitRate >= 100 ? "text-emerald-400" : "text-[#e2b657]"}`}>
-                {hitRate == null ? "—" : `${hitRate}%`}
-              </p>
-            </div>
-          </div>
-          <p className="mt-4 text-sm text-zinc-400">
-            Custo do bônus {day ? brl(day.bonus.cost.full_total) : brl(0)}. Top 5, meta individual, sorteios e liderança entram quando o degrau é atingido.
+      {step === "lancar" && (
+        <SaturdaySalesSheet
+          rows={rows}
+          individualGoal={individual}
+          canManage={canManage}
+          onChange={(key, patch) => setRows((current) => current.map((row) => (row.key === key ? { ...row, ...patch } : row)))}
+          onAdd={() => setRows((current) => [...current, blankSale()])}
+          onRemove={(key) => setRows((current) => current.filter((row) => row.key !== key))}
+          onSave={saveSheet}
+        />
+      )}
+
+      {step === "fechar" && (
+        <form onSubmit={saveClose} className={`${CARD} space-y-3`}>
+          <h2 className="text-xl font-semibold">Fechamento do dia</h2>
+          <CountField label="Pessoas reais" value={peopleReal} onChange={setPeopleReal} />
+          <label className="block text-xs uppercase tracking-wide text-zinc-500">
+            Faturamento real
+            <input inputMode="decimal" value={revenueReal} onChange={(event) => setRevenueReal(event.target.value)} className={FIELD} placeholder="0,00" />
+          </label>
+          <Preview label="Meta" value={brl(goal)} />
+          <Preview label="Realizado" value={brl(realValue)} gold />
+          <Preview label="Diferença" value={brl(gap)} />
+          <p className={`text-4xl font-semibold ${hitRate != null && hitRate >= 100 ? "text-emerald-400" : "text-[#e2b657]"}`}>
+            {hitRate == null ? "—" : `${hitRate.toLocaleString("pt-BR")}%`}
           </p>
-        </section>
-      </div>
+          <p className="text-sm text-zinc-400">{day?.bonus?.tier?.label || "Meta ainda não batida"}</p>
+          <button type="submit" disabled={!canManage} className={GOLD}>Salvar fechamento</button>
+        </form>
+      )}
+
+      {step === "resultado" && (
+        <div className="space-y-3">
+          <section className={CARD}>
+            <h2 className="text-lg font-semibold">Ranking de hoje</h2>
+            <ol className="mt-3 space-y-3">
+              {winners.slice(0, 8).map((sale) => (
+                <li key={sale.id} className="flex items-center gap-3">
+                  <span className="w-6 font-semibold text-[#e2b657]">{sale.position}</span>
+                  <span className="min-w-0 flex-1 truncate">{sale.waiter_name}</span>
+                  <span className="text-right text-sm">
+                    <span className="block font-semibold text-[#e2b657]">{brl(sale.amount)}</span>
+                    {sale.bonus_total ? <span className="text-zinc-500">bônus {brl(sale.bonus_total)}</span> : null}
+                  </span>
+                </li>
+              ))}
+              {winners.length === 0 && <li className="text-sm text-zinc-500">Salve os lançamentos para ver o ranking.</li>}
+            </ol>
+          </section>
+          <section className={CARD}>
+            <h2 className="text-lg font-semibold">Ranking geral</h2>
+            <ol className="mt-3 space-y-3">
+              {ranking.slice(0, 8).map((row) => (
+                <li key={row.rank} className="flex items-center gap-3 text-sm">
+                  <span className="w-6 text-[#e2b657]">{row.rank}</span>
+                  <span className="min-w-0 flex-1 truncate">{row.waiter_name}</span>
+                  <span className="text-[#e2b657]">{brl(row.total)}</span>
+                </li>
+              ))}
+            </ol>
+          </section>
+          <section className={CARD}>
+            <h2 className="text-lg font-semibold">Ganhadores</h2>
+            {winners[0] ? (
+              <div className="mt-3 text-center">
+                <p className="text-xs uppercase tracking-[0.2em] text-[#e2b657]">Maior venda</p>
+                <p className="mt-2 text-2xl font-semibold">{winners[0].waiter_name}</p>
+                <p className="text-3xl font-semibold text-[#e2b657]">{brl(winners[0].amount)}</p>
+              </div>
+            ) : (
+              <p className="mt-3 text-sm text-zinc-500">O primeiro lugar aparece depois do lançamento.</p>
+            )}
+            {day?.bonus?.tier && (
+              <p className="mt-4 text-center text-sm text-zinc-400">
+                Custo do bônus {brl(day.bonus.cost.full_total)}. Gerente {brl(day.bonus.leadership.gerente)}.
+              </p>
+            )}
+          </section>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CountField({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
+  return (
+    <label className="block text-xs uppercase tracking-wide text-zinc-500">
+      {label}
+      <input inputMode="numeric" value={value} onChange={(event) => onChange(event.target.value)} className={FIELD} placeholder="0" />
+    </label>
+  );
+}
+
+function Preview({ label, value, gold = false }: { label: string; value: string; gold?: boolean }) {
+  return (
+    <div className="rounded-2xl bg-black/30 p-3">
+      <p className="text-[11px] uppercase tracking-wide text-zinc-500">{label}</p>
+      <p className={`mt-1 text-2xl font-semibold ${gold ? "text-[#e2b657]" : "text-white"}`}>{value}</p>
     </div>
   );
 }
