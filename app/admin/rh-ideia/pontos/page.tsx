@@ -6,6 +6,7 @@ import { OpsWeekBoard } from "../../../components/rhIdeia/OpsWeekBoard";
 import { roleLabel } from "../../../components/rhIdeia/PlaybookTeamTable";
 import {
   IRI_BTN_PRIMARY,
+  IRI_BTN_SECONDARY,
   IRI_CARD,
   IRI_CARD_COMPACT,
   IRI_MUTED,
@@ -15,16 +16,19 @@ import { useSaasAccess } from "../../../hooks/useSaasAccess";
 import { iriFetch } from "../../../lib/rhIdeia/api";
 import type { IriEstablishment, IriPointRow } from "../../../lib/rhIdeia/types";
 
-type RankRow = { user_name?: string; role_key: string; points: number };
+type RankRow = { user_id?: number; user_name?: string; role_key: string; points: number };
+type GrantRow = { user_id: number; user_name?: string; status: "concedido" | "nao_desta_vez" };
 type CloseSnapshot =
   | RankRow[]
   | { ranking?: RankRow[]; operacao?: { aberturas: number; fechamentos: number; pontos_novos: number } };
 
 type CloseRow = {
   id: number;
+  establishment_id: number;
   year_month: string;
   note?: string | null;
   snapshot?: CloseSnapshot;
+  grants?: GrantRow[];
 };
 
 function rankingOf(snapshot: CloseSnapshot | undefined): RankRow[] {
@@ -64,6 +68,20 @@ export default function AdminPlaybookPointsPage() {
   useEffect(() => {
     if (allowed) load();
   }, [allowed, load]);
+
+  async function grant(close: CloseRow, userId: number, status: GrantRow["status"]) {
+    const res = await iriFetch("/playbook/rewards/grant", {
+      method: "POST",
+      body: JSON.stringify({
+        establishment_id: close.establishment_id,
+        year_month: String(close.year_month).trim(),
+        user_id: userId,
+        status,
+      }),
+    });
+    setMessage(res.success ? "Bonificação registrada." : res.message || "Não foi possível registrar.");
+    if (res.success) load();
+  }
 
   async function closeMonth(event: FormEvent) {
     event.preventDefault();
@@ -121,11 +139,33 @@ export default function AdminPlaybookPointsPage() {
                   {ops.pontos_novos > 0 ? ` · ${ops.pontos_novos} pts novos` : ""}
                 </span>
               ) : null}
-              <span className={`mt-1 block ${IRI_MUTED}`}>
-                {ranking
-                  .map((row) => `${row.user_name || "Líder"} (${roleLabel(row.role_key)}): ${row.points}`)
-                  .join(" · ") || "Sem pontos de líder nesse mês."}
-              </span>
+              <ul className="mt-3 space-y-2">
+                {ranking.length === 0 && (
+                  <li className={IRI_MUTED}>Sem pontos de líder nesse mês.</li>
+                )}
+                {ranking.map((row) => {
+                  const decision = item.grants?.find((grant) => grant.user_id === row.user_id);
+                  return (
+                    <li key={row.user_id || row.user_name} className="flex flex-wrap items-center justify-between gap-2">
+                      <span>
+                        {row.user_name || "Líder"} ({roleLabel(row.role_key)}): {row.points} pts
+                        {decision?.status === "concedido" ? " · bonificado" : ""}
+                        {decision?.status === "nao_desta_vez" ? " · não desta vez" : ""}
+                      </span>
+                      {row.user_id ? (
+                        <span className="flex gap-2">
+                          <button type="button" className={IRI_BTN_PRIMARY} onClick={() => grant(item, row.user_id!, "concedido")}>
+                            Conceder
+                          </button>
+                          <button type="button" className={IRI_BTN_SECONDARY} onClick={() => grant(item, row.user_id!, "nao_desta_vez")}>
+                            Não desta vez
+                          </button>
+                        </span>
+                      ) : null}
+                    </li>
+                  );
+                })}
+              </ul>
             </li>
           );
         })}

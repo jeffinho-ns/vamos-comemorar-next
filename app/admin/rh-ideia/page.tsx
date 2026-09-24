@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { AdminSaasGuard } from "../../components/AdminSaasGuard";
 import { IriBarChart, IriBarMeter, IriRingChart } from "../../components/rhIdeia/RhIdeiaCharts";
 import { IriTeamIllustration } from "../../components/rhIdeia/RhIdeiaIllustrations";
+import { WeekPeopleBoard } from "../../components/rhIdeia/WeekPeopleBoard";
 import { IRI_FIELD, RhIdeiaShell } from "../../components/rhIdeia/RhIdeiaShell";
 import {
   IRI_ALERT,
@@ -260,6 +261,8 @@ export default function RhIdeiaAdminDashboardPage() {
               />
               <Stat label="Colaboradores ativos" value={data.colaboradores_ativos ?? unidades.reduce((sum, unit) => sum + (unit.staff_count || 0), 0)} />
             </section>
+
+            <WeekPeopleBoard />
 
             <section className={IRI_CARD}>
               <h2 className="mb-3 text-lg font-semibold text-slate-900">Ciência por unidade</h2>

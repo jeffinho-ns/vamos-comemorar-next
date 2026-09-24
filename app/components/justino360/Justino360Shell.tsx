@@ -17,6 +17,7 @@ const ADMIN_LINKS = [
   { href: "/admin/justino360/calendario", label: "Calendário" },
   { href: "/admin/justino360/reunioes", label: "Reuniões" },
   { href: "/admin/justino360/manutencao", label: "Manutenção" },
+  { href: "/admin/justino360/meta", label: "Meta de sábado" },
   { href: "/admin/justino360/ia", label: "IA" },
   { href: "/admin/justino360/guia", label: "Como usar" },
 ];
@@ -30,6 +31,7 @@ const STAFF_LINKS = [
   { href: "/justino360/treinamentos", label: "Treinamentos" },
   { href: "/justino360/documentos", label: "Documentos" },
   { href: "/justino360/agenda", label: "Agenda" },
+  { href: "/justino360/meta", label: "Meta de sábado" },
   { href: "/justino360/guia", label: "Como usar" },
 ];
 

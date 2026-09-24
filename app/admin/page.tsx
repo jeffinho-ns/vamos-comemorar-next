@@ -16,6 +16,7 @@ import { useEstablishmentPermissions } from "@/app/hooks/useEstablishmentPermiss
 import AdminSaasGuard from "@/app/components/AdminSaasGuard";
 import { DashboardTips } from "@/app/components/painel/DashboardTips";
 import { ShiftCloseSummary } from "@/app/components/rhIdeia/ShiftCloseSummary";
+import { WeekPeopleBoard } from "@/app/components/rhIdeia/WeekPeopleBoard";
 import { useSaasAccess } from "@/app/hooks/useSaasAccess";
 import { getApiUrl } from "@/app/config/api";
 import { isSuperAdminEmail } from "@/app/hooks/useUserPermissions";
@@ -388,6 +389,7 @@ export default function AdminHomeDashboard() {
         </div>
 
         <ShiftCloseSummary establishmentId={selectedEstId} />
+        <WeekPeopleBoard />
 
         {/* Linha 2: Fim de semana + Calendário */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-5">
