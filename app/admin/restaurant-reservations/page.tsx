@@ -34,6 +34,11 @@ import ReservationOperatingSettingsPanel, {
   type ReservationPolicyFlags,
 } from "../../components/ReservationOperatingSettingsPanel";
 import RestaurantAreasManager from "../../components/restaurant-areas/RestaurantAreasManager";
+import AreaCapacityNotice, {
+  formatAreaCapacityError,
+  parseAreaCapacityPayload,
+  type AreaCapacityCheck,
+} from "../../components/reservas/AreaCapacityNotice";
 import { Reservation } from "@/app/types/reservation";
 import {
   BirthdayService,
@@ -168,6 +173,8 @@ export default function RestaurantReservationsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [reservationsError, setReservationsError] = useState<string | null>(null);
+  const [areaCapacityNotice, setAreaCapacityNotice] =
+    useState<AreaCapacityCheck | null>(null);
 
   // Refs para evitar loops infinitos
   const hasFilteredRef = useRef(false);
@@ -1419,7 +1426,36 @@ export default function RestaurantReservationsPage() {
     reservation: Reservation,
     newStatus: string,
   ) => {
+    const confirming =
+      String(newStatus).toLowerCase() === "confirmed" ||
+      String(newStatus).toLowerCase() === "confirmada";
+
     try {
+      // Aviso/bloqueio de capacidade (Camarote / Área VIP / Rooftop) antes de confirmar
+      if (confirming && reservation.reservation_kind !== "large") {
+        try {
+          const capRes = await fetch(
+            `${API_URL}/api/restaurant-reservations/${reservation.id}/area-capacity`,
+          );
+          const capJson: unknown = await capRes.json().catch(() => null);
+          const check = parseAreaCapacityPayload(capJson);
+          if (check?.applies) {
+            setAreaCapacityNotice(check);
+            if (!check.fits) {
+              const msg = formatAreaCapacityError(check);
+              setReservationsError(msg);
+              alert(msg);
+              return;
+            }
+            setReservationsError(null);
+          } else {
+            setAreaCapacityNotice(null);
+          }
+        } catch (capErr) {
+          console.error("Erro ao verificar capacidade por área:", capErr);
+        }
+      }
+
       const response = await fetch(
         `${API_URL}${reservationApiBase(reservation.reservation_kind)}/${reservation.id}`,
         {
@@ -1438,12 +1474,21 @@ export default function RestaurantReservationsPage() {
           ),
         );
       } else {
-        const errorData = await response.json();
+        const errorData = await response.json().catch(() => ({}));
         console.error("Erro ao atualizar status da reserva:", errorData);
-        alert(
-          "Erro ao atualizar status da reserva: " +
-            (errorData.error || "Erro desconhecido"),
-        );
+        const serverCheck = parseAreaCapacityPayload(errorData);
+        if (serverCheck?.applies) {
+          setAreaCapacityNotice(serverCheck);
+        }
+        const msg =
+          (errorData as { error?: string }).error ||
+          (serverCheck && !serverCheck.fits
+            ? formatAreaCapacityError(serverCheck)
+            : "Erro desconhecido");
+        if (response.status === 409 || (serverCheck && !serverCheck.fits)) {
+          setReservationsError(msg);
+        }
+        alert("Erro ao atualizar status da reserva: " + msg);
       }
     } catch (error) {
       console.error("Erro ao atualizar status da reserva:", error);
@@ -2918,6 +2963,12 @@ export default function RestaurantReservationsPage() {
                     <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
                       {reservationsError}
                     </div>
+                  )}
+                  {areaCapacityNotice?.applies && (
+                    <AreaCapacityNotice
+                      check={areaCapacityNotice}
+                      className="mb-4"
+                    />
                   )}
                   {/* Controles da Aba Reservas */}
                   <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-6">

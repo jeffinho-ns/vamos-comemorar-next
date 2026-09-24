@@ -14,6 +14,8 @@ import {
 import { useAppContext } from "@/app/context/AppContext";
 import { useEstablishmentPermissions } from "@/app/hooks/useEstablishmentPermissions";
 import AdminSaasGuard from "@/app/components/AdminSaasGuard";
+import { DashboardTips } from "@/app/components/painel/DashboardTips";
+import { ShiftCloseSummary } from "@/app/components/rhIdeia/ShiftCloseSummary";
 import { useSaasAccess } from "@/app/hooks/useSaasAccess";
 import { getApiUrl } from "@/app/config/api";
 import { isSuperAdminEmail } from "@/app/hooks/useUserPermissions";
@@ -380,24 +382,12 @@ export default function AdminHomeDashboard() {
                 </div>
               </div>
             ) : (
-              <div className="rounded-3xl bg-white border border-slate-100 shadow-md p-5 sm:p-6 h-full min-h-[220px] flex flex-col justify-center">
-                <div className="flex items-start gap-3">
-                  <MdWarning className="text-amber-500 shrink-0" size={26} />
-                  <div>
-                    <h3 className="text-lg font-bold text-slate-800">Atenção</h3>
-                    <p className="text-slate-600 mt-2 text-sm leading-relaxed">
-                      Não há comunicados administrativos ou do RH no momento. Quando houver avisos
-                      para o seu estabelecimento, eles aparecerão aqui em destaque.
-                    </p>
-                    <p className="text-xs text-slate-400 mt-4">
-                      Dúvidas? Procure seu gestor ou o RH.
-                    </p>
-                  </div>
-                </div>
-              </div>
+              <DashboardTips />
             )}
           </div>
         </div>
+
+        <ShiftCloseSummary establishmentId={selectedEstId} />
 
         {/* Linha 2: Fim de semana + Calendário */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-5">

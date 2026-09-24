@@ -61,7 +61,7 @@ function Summary({ label, value, tone }: { label: string; value: number; tone?: 
 
 export default function Justino360StaffHomePage() {
   const router = useRouter();
-  const { canAccessJustino360, isSuperAdmin, isAdmin } = useSaasAccess();
+  const { canAccessJustino360, canAccessRhIdeia, isSuperAdmin, isAdmin } = useSaasAccess();
   const allowed = canAccessJustino360 || isSuperAdmin || isAdmin;
   const [data, setData] = useState<J360HomeData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -129,6 +129,19 @@ export default function Justino360StaffHomePage() {
         </div>
       )}
       {busy && <p className="mb-4 text-sm text-amber-300">{busy}</p>}
+
+      {canAccessRhIdeia && (
+        <Link
+          href="/rh-ideia"
+          className="mb-4 flex items-center justify-between gap-3 rounded-xl bg-teal-500/10 px-4 py-3 text-sm ring-1 ring-teal-400/30 hover:bg-teal-500/15"
+        >
+          <span>
+            <span className="font-medium text-teal-100">Área do colaborador.</span>{" "}
+            <span className="text-gray-300">Manual da sua função, prova e equipe.</span>
+          </span>
+          <span className="shrink-0 text-teal-200">Abrir</span>
+        </Link>
+      )}
 
       {loading && !data ? (
         <p className="text-gray-400">Carregando…</p>

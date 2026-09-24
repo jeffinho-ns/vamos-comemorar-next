@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ReactNode } from "react";
+import { useSaasAccess } from "../../hooks/useSaasAccess";
 import { IsaCredit } from "./IsaCredit";
 
 const ADMIN_LINKS = [
@@ -43,6 +44,7 @@ export function Justino360Shell({
 }) {
   const pathname = usePathname();
   const links = mode === "admin" ? ADMIN_LINKS : STAFF_LINKS;
+  const { canAccessAdmin, canAccessRhIdeia } = useSaasAccess();
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white">
@@ -57,7 +59,25 @@ export function Justino360Shell({
               Tudo da operação. Em um só lugar.
             </p>
           </div>
-          <IsaCredit className="text-right" />
+          <div className="flex flex-wrap items-center gap-2 md:justify-end">
+            {canAccessAdmin && (
+              <Link
+                href="/admin"
+                className="rounded-lg bg-white px-3 py-2 text-sm font-semibold text-gray-900 hover:bg-gray-100"
+              >
+                Painel Agilizai
+              </Link>
+            )}
+            {canAccessRhIdeia && (
+              <Link
+                href="/rh-ideia"
+                className="rounded-lg bg-teal-500/20 px-3 py-2 text-sm font-medium text-teal-100 ring-1 ring-teal-400/40 hover:bg-teal-500/30"
+              >
+                Área do colaborador
+              </Link>
+            )}
+            <IsaCredit className="text-right" />
+          </div>
         </div>
         <nav className="mx-auto mt-4 flex max-w-6xl gap-2 overflow-x-auto pb-1">
           {links.map((link) => {

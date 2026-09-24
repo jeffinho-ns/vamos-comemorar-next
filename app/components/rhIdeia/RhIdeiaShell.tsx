@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ReactNode } from "react";
+import { useSaasAccess } from "../../hooks/useSaasAccess";
 import { IriHeroMark } from "./RhIdeiaIllustrations";
 import { useRhScope } from "./useRhScope";
 import { IRI_FIELD as IRI_FIELD_TOKEN } from "./ui";
@@ -52,6 +53,8 @@ export function RhIdeiaShell({
 }) {
   const pathname = usePathname();
   const scope = useRhScope();
+  const { canAccessAdmin, canAccessJustino360 } = useSaasAccess();
+  const justinoHref = mode === "admin" ? "/admin/justino360" : "/justino360";
   const links =
     mode === "admin"
       ? scope.seesAll
@@ -85,9 +88,25 @@ export function RhIdeiaShell({
               </p>
             </div>
           </div>
-          <p className="text-xs font-medium tracking-wide text-slate-400 md:text-right">
-            {areaLabel}
-          </p>
+          <div className="flex flex-wrap items-center gap-2 md:justify-end">
+            {canAccessAdmin && (
+              <Link
+                href="/admin"
+                className="rounded-full bg-slate-900 px-3.5 py-1.5 text-sm font-medium text-white hover:bg-slate-700"
+              >
+                Painel Agilizai
+              </Link>
+            )}
+            {canAccessJustino360 && (
+              <Link
+                href={justinoHref}
+                className="rounded-full bg-amber-100 px-3.5 py-1.5 text-sm font-medium text-amber-950 hover:bg-amber-200"
+              >
+                Justino360
+              </Link>
+            )}
+            <p className="text-xs font-medium tracking-wide text-slate-400">{areaLabel}</p>
+          </div>
         </div>
         <nav
           className="mx-auto flex max-w-6xl gap-1.5 overflow-x-auto px-4 pb-4 md:px-8"

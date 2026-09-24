@@ -3,6 +3,7 @@
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import { IRI_FIELD, RhIdeiaShell } from "../../components/rhIdeia/RhIdeiaShell";
 import { PlaybookTeamTable, roleLabel } from "../../components/rhIdeia/PlaybookTeamTable";
+import { ShiftCloseSummary } from "../../components/rhIdeia/ShiftCloseSummary";
 import {
   IRI_BTN_PRIMARY,
   IRI_BTN_SECONDARY,
@@ -103,6 +104,7 @@ export default function RhIdeiaEquipePage() {
         </p>
       ) : (
         <div className="space-y-6">
+          <ShiftCloseSummary />
           <section className={IRI_CARD}>
             <h2 className="mb-3 text-lg font-semibold text-slate-900">Andamento</h2>
             <PlaybookTeamTable rows={rows} />
