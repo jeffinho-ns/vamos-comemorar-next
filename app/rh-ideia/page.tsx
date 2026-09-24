@@ -70,14 +70,16 @@ export default function RhIdeiaStaffHomePage() {
     );
   }
 
+  const comunicados = data?.comunicados ?? [];
+  const treinamentos = data?.treinamentos_pendentes ?? data?.treinamentos ?? [];
   const pendingAck =
     data?.pending_ack_count ??
-    data?.comunicados.filter((c) => c.requires_ack && !c.acked_at).length ??
-    0;
+    data?.comunicados_sem_ciencia?.length ??
+    comunicados.filter((c) => c.requires_ack && !c.acked_at).length;
   const pendingTrainings =
     data?.pending_training_count ??
-    data?.treinamentos.filter((t) => t.status === "pendente" || t.status === "vencido").length ??
-    0;
+    treinamentos.filter((t) => t.status === "pendente" || t.status === "vencido" || t.status === "em_andamento")
+      .length;
   const chartMax = Math.max(pendingAck, pendingTrainings, 1);
 
   return (
@@ -139,7 +141,7 @@ export default function RhIdeiaStaffHomePage() {
           <div className="grid gap-6 lg:grid-cols-2">
             <Section title="Comunicados" href="/rh-ideia/comunicados">
               <ul className="space-y-2">
-                {data.comunicados.map((c) => (
+                {comunicados.map((c) => (
                   <li key={c.id} className="border-b border-stone-100 py-2 text-sm last:border-0">
                     <span className="font-medium text-slate-900">{c.title}</span>
                     <span className={`ml-2 ${IRI_MUTED}`}>
@@ -151,7 +153,7 @@ export default function RhIdeiaStaffHomePage() {
                     </span>
                   </li>
                 ))}
-                {data.comunicados.length === 0 && (
+                {comunicados.length === 0 && (
                   <p className={`text-sm ${IRI_MUTED}`}>Nenhum comunicado pendente.</p>
                 )}
               </ul>
@@ -159,7 +161,7 @@ export default function RhIdeiaStaffHomePage() {
 
             <Section title="Treinamentos" href="/rh-ideia/treinamentos">
               <ul className="space-y-2">
-                {data.treinamentos.map((t) => (
+                {treinamentos.map((t) => (
                   <li key={t.id} className="border-b border-stone-100 py-2 text-sm last:border-0">
                     <span className="font-medium text-slate-900">{t.title}</span>
                     <span className={`ml-2 ${IRI_MUTED}`}>
@@ -168,7 +170,7 @@ export default function RhIdeiaStaffHomePage() {
                     </span>
                   </li>
                 ))}
-                {data.treinamentos.length === 0 && (
+                {treinamentos.length === 0 && (
                   <p className={`text-sm ${IRI_MUTED}`}>Nenhum treinamento pendente.</p>
                 )}
               </ul>

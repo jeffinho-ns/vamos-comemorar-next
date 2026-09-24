@@ -120,14 +120,11 @@ export default function RhIdeiaAdminDashboardPage() {
     return Math.round((done / filteredTeam.length) * 100);
   }, [filteredTeam]);
 
-  const chartMax = data
-    ? Math.max(
-        data.comunicados_sem_ciencia,
-        data.treinamentos_pendentes,
-        data.treinamentos_vencidos,
-        1,
-      )
-    : 1;
+  const semCiencia = data?.comunicados_sem_ciencia ?? data?.comunicados_sem_ciencia_total ?? 0;
+  const treinosPendentes = data?.treinamentos_pendentes ?? data?.atribuicoes_pendentes ?? 0;
+  const treinosVencidos = data?.treinamentos_vencidos ?? data?.atribuicoes_vencidas ?? 0;
+  const unidades = data?.por_unidade ?? [];
+  const chartMax = Math.max(semCiencia, treinosPendentes, treinosVencidos, 1);
 
   return (
     <AdminSaasGuard allowed={allowed}>
@@ -184,23 +181,23 @@ export default function RhIdeiaAdminDashboardPage() {
                   <div className="grid gap-3 sm:grid-cols-3">
                     <IriBarMeter
                       label="Sem ciência"
-                      value={data.comunicados_sem_ciencia}
+                      value={semCiencia}
                       max={chartMax}
-                      tone={data.comunicados_sem_ciencia > 0 ? "rose" : "teal"}
+                      tone={semCiencia > 0 ? "rose" : "teal"}
                       href="/admin/rh-ideia/comunicados"
                     />
                     <IriBarMeter
                       label="Treinos pendentes"
-                      value={data.treinamentos_pendentes}
+                      value={treinosPendentes}
                       max={chartMax}
                       tone="indigo"
                       href="/admin/rh-ideia/treinamentos"
                     />
                     <IriBarMeter
                       label="Treinos vencidos"
-                      value={data.treinamentos_vencidos}
+                      value={treinosVencidos}
                       max={chartMax}
-                      tone={data.treinamentos_vencidos > 0 ? "amber" : "teal"}
+                      tone={treinosVencidos > 0 ? "amber" : "teal"}
                       href="/admin/rh-ideia/treinamentos"
                     />
                   </div>
@@ -209,17 +206,17 @@ export default function RhIdeiaAdminDashboardPage() {
                       items={[
                         {
                           label: "Sem ciência",
-                          value: data.comunicados_sem_ciencia,
+                          value: semCiencia,
                           tone: "rose",
                         },
                         {
                           label: "Pendentes",
-                          value: data.treinamentos_pendentes,
+                          value: treinosPendentes,
                           tone: "indigo",
                         },
                         {
                           label: "Vencidos",
-                          value: data.treinamentos_vencidos,
+                          value: treinosVencidos,
                           tone: "amber",
                         },
                       ]}
@@ -246,31 +243,31 @@ export default function RhIdeiaAdminDashboardPage() {
             <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <Stat
                 label="Comunicados sem ciência"
-                value={data.comunicados_sem_ciencia}
+                value={semCiencia}
                 href="/admin/rh-ideia/comunicados"
                 tone="alert"
               />
               <Stat
                 label="Treinamentos pendentes"
-                value={data.treinamentos_pendentes}
+                value={treinosPendentes}
                 href="/admin/rh-ideia/treinamentos"
               />
               <Stat
                 label="Treinamentos vencidos"
-                value={data.treinamentos_vencidos}
+                value={treinosVencidos}
                 href="/admin/rh-ideia/treinamentos"
                 tone="alert"
               />
-              <Stat label="Colaboradores ativos" value={data.colaboradores_ativos} />
+              <Stat label="Colaboradores ativos" value={data.colaboradores_ativos ?? unidades.reduce((sum, unit) => sum + (unit.staff_count || 0), 0)} />
             </section>
 
             <section className={IRI_CARD}>
               <h2 className="mb-3 text-lg font-semibold text-slate-900">Ciência por unidade</h2>
-              {data.por_unidade.length === 0 ? (
+              {unidades.length === 0 ? (
                 <p className={`text-sm ${IRI_MUTED}`}>Nenhuma unidade com dados ainda.</p>
               ) : (
                 <ul className="space-y-2">
-                  {data.por_unidade.map((unit) => (
+                  {unidades.map((unit) => (
                     <li
                       key={unit.establishment_id}
                       className="flex flex-wrap items-center justify-between gap-2 border-b border-stone-100 py-2 text-sm last:border-0"

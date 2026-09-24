@@ -139,22 +139,29 @@ export type IriTeamMember = {
   expires_at?: string | null;
 };
 
+export type IriHomeAnnouncement = {
+  id: number;
+  title: string;
+  requires_ack: boolean;
+  acked_at?: string | null;
+  expires_at?: string | null;
+  pending_ack?: boolean;
+};
+
+export type IriHomeTraining = {
+  id: number;
+  training_id?: number;
+  title: string;
+  status: IriTrainingStatus;
+  due_at?: string | null;
+  is_mandatory?: boolean;
+};
+
 export type IriHomeData = {
-  comunicados: {
-    id: number;
-    title: string;
-    requires_ack: boolean;
-    acked_at?: string | null;
-    expires_at?: string | null;
-  }[];
-  treinamentos: {
-    id: number;
-    training_id: number;
-    title: string;
-    status: IriTrainingStatus;
-    due_at?: string | null;
-    is_mandatory?: boolean;
-  }[];
+  comunicados?: IriHomeAnnouncement[];
+  comunicados_sem_ciencia?: IriHomeAnnouncement[];
+  treinamentos?: IriHomeTraining[];
+  treinamentos_pendentes?: IriHomeTraining[];
   pending_ack_count?: number;
   pending_training_count?: number;
 };
@@ -169,11 +176,14 @@ export type IriUnitAckStats = {
 };
 
 export type IriDashboardData = {
-  comunicados_sem_ciencia: number;
-  treinamentos_pendentes: number;
-  treinamentos_vencidos: number;
-  colaboradores_ativos: number;
-  por_unidade: IriUnitAckStats[];
+  comunicados_sem_ciencia?: number;
+  comunicados_sem_ciencia_total?: number;
+  treinamentos_pendentes?: number;
+  atribuicoes_pendentes?: number;
+  treinamentos_vencidos?: number;
+  atribuicoes_vencidas?: number;
+  colaboradores_ativos?: number;
+  por_unidade?: IriUnitAckStats[];
 };
 
 export type IriPlaybookStatus = {
