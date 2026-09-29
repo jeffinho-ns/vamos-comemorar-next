@@ -1584,7 +1584,9 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
               />
 
               <div
-                className={`logo-container absolute top-4 left-4 cursor-pointer md:cursor-default ${
+                className={`logo-container absolute top-4 cursor-pointer md:cursor-default ${
+                  isSitioIlhaCardapio ? "right-4" : "left-4"
+                } ${
                   isCleanStyle
                     ? "rounded-2xl border border-white/70 bg-white/80 p-3 shadow-lg backdrop-blur-sm transition-all duration-200 hover:shadow-xl"
                     : "p-2 bg-white rounded-xl shadow-md"
@@ -1602,7 +1604,11 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
                   className="rounded-lg"
                 />
 
-                <div className="menu-indicator absolute -top-1 -right-1 md:hidden">
+                <div
+                  className={`menu-indicator absolute -top-1 md:hidden ${
+                    isSitioIlhaCardapio ? "-left-1" : "-right-1"
+                  }`}
+                >
                   <div className="bg-blue-600 text-white rounded-full p-1.5 shadow-lg">
                     <MdMenu className="menu-icon w-4 h-4" />
                   </div>
