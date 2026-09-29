@@ -6294,7 +6294,10 @@ export default function CardapioAdminPage() {
             setCropImageField('');
           }}
           onCropComplete={handleCropComplete}
-          aspectRatio={1} // Quadrado obrigatório
+          aspectRatio={1}
+          defaultFullImage={
+            cropImageField === 'coverImages' || cropImageField === 'coverImageUrl'
+          }
           minZoom={1}
           maxZoom={3}
         />

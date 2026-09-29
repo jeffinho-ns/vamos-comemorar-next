@@ -19,6 +19,8 @@ interface ImageCropModalProps {
   onClose: () => void;
   onCropComplete: (croppedImageBlob: Blob) => void;
   aspectRatio?: number; // Se não fornecido, será quadrado (1:1)
+  /** Abre já em "imagem inteira" (capa). O quadrado continua disponível no modal. */
+  defaultFullImage?: boolean;
   minZoom?: number;
   maxZoom?: number;
 }
@@ -30,12 +32,55 @@ interface CropArea {
   height: number;
 }
 
+function computeCropArea(
+  imgWidth: number,
+  imgHeight: number,
+  aspectRatio: number,
+  fullImage: boolean,
+): CropArea {
+  if (fullImage) {
+    return { x: 0, y: 0, width: imgWidth, height: imgHeight };
+  }
+
+  if (aspectRatio === 1) {
+    const size = Math.min(imgWidth, imgHeight);
+    return {
+      x: (imgWidth - size) / 2,
+      y: (imgHeight - size) / 2,
+      width: size,
+      height: size,
+    };
+  }
+
+  const imgAspect = imgWidth / imgHeight;
+  if (imgAspect > aspectRatio) {
+    const cropHeight = imgHeight;
+    const cropWidth = imgHeight * aspectRatio;
+    return {
+      x: (imgWidth - cropWidth) / 2,
+      y: 0,
+      width: cropWidth,
+      height: cropHeight,
+    };
+  }
+
+  const cropWidth = imgWidth;
+  const cropHeight = imgWidth / aspectRatio;
+  return {
+    x: 0,
+    y: (imgHeight - cropHeight) / 2,
+    width: cropWidth,
+    height: cropHeight,
+  };
+}
+
 export default function ImageCropModal({
   isOpen,
   imageSrc,
   onClose,
   onCropComplete,
   aspectRatio = 1, // Quadrado por padrão
+  defaultFullImage = false,
   minZoom = 1,
   maxZoom = 3,
 }: ImageCropModalProps) {
@@ -55,7 +100,16 @@ export default function ImageCropModal({
   const [outputHeight, setOutputHeight] = useState<number | null>(null);
   const [imageLoaded, setImageLoaded] = useState(false);
   const [processedImageSrc, setProcessedImageSrc] = useState<string>("");
+  const [useFullImage, setUseFullImage] = useState(defaultFullImage);
+  const [imageSize, setImageSize] = useState<{ width: number; height: number } | null>(
+    null,
+  );
   const containerRef = useRef<HTMLDivElement>(null);
+
+  const activeAspect =
+    useFullImage && imageSize && imageSize.width > 0 && imageSize.height > 0
+      ? imageSize.width / imageSize.height
+      : aspectRatio;
 
   // Converter blob URL para data URL se necessário
   useEffect(() => {
@@ -130,6 +184,10 @@ export default function ImageCropModal({
         img.crossOrigin = "anonymous";
       }
       img.onload = () => {
+        setImageSize({
+          width: img.naturalWidth || img.width,
+          height: img.naturalHeight || img.height,
+        });
         console.log("✅ Imagem carregada com sucesso:", {
           src: processedImageSrc.substring(0, 50) + "...",
           width: img.width,
@@ -162,8 +220,21 @@ export default function ImageCropModal({
       // Resetar quando o modal fechar
       setImageLoaded(false);
       setCroppedAreaPixels(null);
+      setImageSize(null);
+      setUseFullImage(false);
     }
   }, [isOpen, processedImageSrc, aspectRatio]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    setUseFullImage(Boolean(defaultFullImage));
+    setCrop({ x: 0, y: 0 });
+    setZoom(1);
+    setRotation(0);
+    setOutputWidth(null);
+    setOutputHeight(null);
+    setCroppedAreaPixels(null);
+  }, [isOpen, imageSrc, defaultFullImage]);
 
   // Calcular área de crop quando imagem estiver carregada
   useEffect(() => {
@@ -175,41 +246,12 @@ export default function ImageCropModal({
         const imgWidth = img.naturalWidth || img.width;
         const imgHeight = img.naturalHeight || img.height;
 
-        // Calcular o crop inicial baseado no aspect ratio
-        let cropWidth: number;
-        let cropHeight: number;
-        let cropX = 0;
-        let cropY = 0;
-
-        if (aspectRatio === 1) {
-          // Quadrado: usar a menor dimensão
-          const size = Math.min(imgWidth, imgHeight);
-          cropWidth = size;
-          cropHeight = size;
-          cropX = (imgWidth - size) / 2;
-          cropY = (imgHeight - size) / 2;
-        } else {
-          // Outros aspect ratios
-          const imgAspect = imgWidth / imgHeight;
-          if (imgAspect > aspectRatio) {
-            // Imagem mais larga: altura é limitante
-            cropHeight = imgHeight;
-            cropWidth = imgHeight * aspectRatio;
-            cropX = (imgWidth - cropWidth) / 2;
-          } else {
-            // Imagem mais alta: largura é limitante
-            cropWidth = imgWidth;
-            cropHeight = imgWidth / aspectRatio;
-            cropY = (imgHeight - cropHeight) / 2;
-          }
-        }
-
-        const initialCrop: CropArea = {
-          x: cropX,
-          y: cropY,
-          width: cropWidth,
-          height: cropHeight,
-        };
+        const initialCrop = computeCropArea(
+          imgWidth,
+          imgHeight,
+          aspectRatio,
+          useFullImage,
+        );
 
         console.log(
           "📐 Área de crop inicial calculada manualmente:",
@@ -218,10 +260,10 @@ export default function ImageCropModal({
 
         // Validar antes de definir
         if (
-          !isNaN(cropWidth) &&
-          !isNaN(cropHeight) &&
-          cropWidth > 0 &&
-          cropHeight > 0
+          !isNaN(initialCrop.width) &&
+          !isNaN(initialCrop.height) &&
+          initialCrop.width > 0 &&
+          initialCrop.height > 0
         ) {
           console.log("✅ Definindo croppedAreaPixels com valores válidos");
           setCroppedAreaPixels(initialCrop);
@@ -234,7 +276,7 @@ export default function ImageCropModal({
       };
       img.src = processedImageSrc;
     }
-  }, [isOpen, imageLoaded, processedImageSrc, croppedAreaPixels, aspectRatio]);
+  }, [isOpen, imageLoaded, processedImageSrc, croppedAreaPixels, aspectRatio, useFullImage]);
 
   const onCropChange = useCallback((crop: { x: number; y: number }) => {
     setCrop(crop);
@@ -654,36 +696,12 @@ export default function ImageCropModal({
           const imgWidth = img.naturalWidth || img.width;
           const imgHeight = img.naturalHeight || img.height;
 
-          let cropWidth: number;
-          let cropHeight: number;
-          let cropX = 0;
-          let cropY = 0;
-
-          if (aspectRatio === 1) {
-            const size = Math.min(imgWidth, imgHeight);
-            cropWidth = size;
-            cropHeight = size;
-            cropX = (imgWidth - size) / 2;
-            cropY = (imgHeight - size) / 2;
-          } else {
-            const imgAspect = imgWidth / imgHeight;
-            if (imgAspect > aspectRatio) {
-              cropHeight = imgHeight;
-              cropWidth = imgHeight * aspectRatio;
-              cropX = (imgWidth - cropWidth) / 2;
-            } else {
-              cropWidth = imgWidth;
-              cropHeight = imgWidth / aspectRatio;
-              cropY = (imgHeight - cropHeight) / 2;
-            }
-          }
-
-          const calculatedCrop: CropArea = {
-            x: cropX,
-            y: cropY,
-            width: cropWidth,
-            height: cropHeight,
-          };
+          const calculatedCrop = computeCropArea(
+            imgWidth,
+            imgHeight,
+            aspectRatio,
+            useFullImage,
+          );
 
           console.log(
             "📐 Área de crop calculada no handleSave:",
@@ -760,6 +778,16 @@ export default function ImageCropModal({
     setFilter("none");
   };
 
+  const selectCropMode = (fullImage: boolean) => {
+    setUseFullImage(fullImage);
+    setCrop({ x: 0, y: 0 });
+    setZoom(1);
+    setRotation(0);
+    setOutputWidth(null);
+    setOutputHeight(null);
+    setCroppedAreaPixels(null);
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -784,11 +812,9 @@ export default function ImageCropModal({
             <h2 className="text-lg sm:text-xl font-bold text-gray-900 leading-tight">
               Recortar Imagem
             </h2>
-            {aspectRatio === 1 && (
-              <span className="text-[10px] text-blue-600 font-bold uppercase">
-                Quadrado Obrigatório
-              </span>
-            )}
+            <span className="text-[10px] text-blue-600 font-bold uppercase">
+              {useFullImage ? "Imagem inteira" : "Quadrado"}
+            </span>
           </div>
 
           <div className="flex items-center gap-2">
@@ -811,6 +837,38 @@ export default function ImageCropModal({
               className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
             >
               <MdClose className="w-6 h-6" />
+            </button>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 bg-gray-50 px-4 py-3">
+          <p className="text-sm text-gray-600">
+            {useFullImage
+              ? "A capa recebe a imagem completa."
+              : "Recorte quadrado, útil para logo e miniatura."}
+          </p>
+          <div className="flex shrink-0 rounded-lg bg-white p-1 ring-1 ring-gray-200">
+            <button
+              type="button"
+              onClick={() => selectCropMode(false)}
+              className={`rounded-md px-3 py-1.5 text-sm font-medium ${
+                useFullImage
+                  ? "text-gray-600 hover:bg-gray-100"
+                  : "bg-blue-600 text-white"
+              }`}
+            >
+              Quadrado
+            </button>
+            <button
+              type="button"
+              onClick={() => selectCropMode(true)}
+              className={`rounded-md px-3 py-1.5 text-sm font-medium ${
+                useFullImage
+                  ? "bg-blue-600 text-white"
+                  : "text-gray-600 hover:bg-gray-100"
+              }`}
+            >
+              Imagem inteira
             </button>
           </div>
         </div>
@@ -867,11 +925,12 @@ export default function ImageCropModal({
                 });
                 return (
                   <Cropper
+                    key={`${useFullImage ? "full" : "square"}-${activeAspect.toFixed(4)}`}
                     image={processedImageSrc}
                     crop={crop}
                     zoom={zoom}
                     rotation={rotation}
-                    aspect={aspectRatio}
+                    aspect={activeAspect}
                     onCropChange={onCropChange}
                     onZoomChange={onZoomChange}
                     onRotationChange={onRotationChange}
@@ -1105,7 +1164,10 @@ export default function ImageCropModal({
                   }}
                   className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
-                  {presetSizes.map((size) => (
+                  {(useFullImage
+                    ? presetSizes.filter((size) => size.width == null)
+                    : presetSizes
+                  ).map((size) => (
                     <option
                       key={size.label}
                       value={
