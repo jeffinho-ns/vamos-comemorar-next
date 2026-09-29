@@ -558,7 +558,11 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
               item.visible === null ||
               item.visible === 1 ||
               item.visible === true;
-        return matchesBar && isVisible;
+        const isPlaceholder = String(item.name || "")
+          .trim()
+          .toLowerCase()
+          .startsWith("[nova subcategoria]");
+        return matchesBar && isVisible && !isPlaceholder;
       });
 
       console.log("🔍 Debug fetchBarData:", {
