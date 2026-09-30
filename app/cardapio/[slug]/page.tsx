@@ -1604,18 +1604,15 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
             <div
               className={`relative ${
                 isSitioIlhaCardapio
-                  ? ""
+                  ? "h-64 md:h-[22rem]"
                   : isCleanStyle
                     ? "h-72 md:h-[22rem]"
                     : "h-64 md:h-80"
               }`}
             >
-              <ImageSlider
-                images={selectedBar.coverImages}
-                preserveImage={isSitioIlhaCardapio}
-              />
+              <ImageSlider images={selectedBar.coverImages} />
               <div
-                className={`absolute inset-0 ${
+                className={`pointer-events-none absolute inset-0 z-10 ${
                   isCleanStyle
                     ? "bg-gradient-to-t from-black/60 via-black/15 to-transparent md:from-black/40"
                     : "bg-gradient-to-t from-black/70 via-black/20 to-transparent"
@@ -1623,9 +1620,7 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
               />
 
               <div
-                className={`logo-container absolute top-4 cursor-pointer md:cursor-default ${
-                  isSitioIlhaCardapio ? "right-4" : "left-4"
-                } ${
+                className={`logo-container absolute top-4 left-4 z-20 cursor-pointer md:cursor-default ${
                   isCleanStyle
                     ? "rounded-2xl border border-white/70 bg-white/80 p-3 shadow-lg backdrop-blur-sm transition-all duration-200 hover:shadow-xl"
                     : "p-2 bg-white rounded-xl shadow-md"
@@ -1643,38 +1638,36 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
                   className="rounded-lg"
                 />
 
-                <div
-                  className={`menu-indicator absolute -top-1 md:hidden ${
-                    isSitioIlhaCardapio ? "-left-1" : "-right-1"
-                  }`}
-                >
+                <div className="menu-indicator absolute -top-1 -right-1 md:hidden">
                   <div className="bg-blue-600 text-white rounded-full p-1.5 shadow-lg">
                     <MdMenu className="menu-icon w-4 h-4" />
                   </div>
                 </div>
               </div>
 
-              <div className="bar-content absolute bottom-6 left-6 right-6 hidden md:block">
+              <div className="bar-content absolute bottom-3 left-4 right-4 z-20 md:bottom-6 md:left-6 md:right-6">
                 <h1
-                  className={`mb-3 ${
+                  className={`mb-1 md:mb-3 ${
                     isCleanStyle
-                      ? "text-[2.6rem] tracking-[0.32em] uppercase text-white drop-shadow-[0_14px_38px_rgba(0,0,0,0.55)]"
-                      : "text-white text-3xl md:text-4xl font-bold"
+                      ? "text-xl tracking-[0.2em] uppercase text-white drop-shadow-[0_14px_38px_rgba(0,0,0,0.55)] md:text-[2.6rem] md:tracking-[0.32em]"
+                      : "text-white text-xl md:text-4xl font-bold"
                   }`}
                 >
                   {selectedBar.name}
                 </h1>
-                <p
-                  className={`mb-3 ${
-                    isCleanStyle
-                      ? "text-white/80 text-base leading-relaxed max-w-2xl tracking-[0.08em]"
-                      : "text-white/90 text-lg"
-                  }`}
-                >
-                  {selectedBar.description}
-                </p>
+                {selectedBar.description ? (
+                  <p
+                    className={`mb-2 line-clamp-2 md:mb-3 ${
+                      isCleanStyle
+                        ? "text-white/80 text-sm leading-relaxed max-w-2xl tracking-[0.08em] md:text-base"
+                        : "text-white/90 text-sm md:text-lg"
+                    }`}
+                  >
+                    {selectedBar.description}
+                  </p>
+                ) : null}
 
-                <div className="flex items-center gap-4 text-white/90 mb-3">
+                <div className="mb-2 flex items-center gap-4 text-white/90 md:mb-3">
                   {selectedBar.facebook && (
                     <a
                       href={selectedBar.facebook}
@@ -1707,7 +1700,7 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
                   )}
                 </div>
 
-                <div className="flex items-center gap-4 text-white/90">
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-white/90">
                   <div className="flex items-center gap-1">
                     <MdStar className="w-5 h-5 text-yellow-400" />
                     <span className="font-semibold">
@@ -1715,9 +1708,9 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
                     </span>
                     <span>({selectedBar.reviewsCount || 0})</span>
                   </div>
-                  <div className="flex items-center gap-1">
-                    <MdLocationOn className="w-4 h-4" />
-                    <span className="text-sm">{selectedBar.address}</span>
+                  <div className="flex min-w-0 items-center gap-1">
+                    <MdLocationOn className="h-4 w-4 shrink-0" />
+                    <span className="truncate text-sm">{selectedBar.address}</span>
                   </div>
                 </div>
               </div>

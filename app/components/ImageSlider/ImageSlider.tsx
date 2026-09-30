@@ -39,8 +39,8 @@ const ImageSlider: React.FC<ImageSliderProps> = ({
     <div
       className={
         preserveImage
-          ? 'relative w-full overflow-hidden'
-          : 'relative h-full w-full overflow-hidden'
+          ? 'relative z-0 w-full overflow-hidden'
+          : 'relative z-0 h-full w-full overflow-hidden'
       }
       style={preserveImage ? { aspectRatio: String(activeRatio) } : undefined}
     >
