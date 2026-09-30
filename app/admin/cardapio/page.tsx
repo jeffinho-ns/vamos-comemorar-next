@@ -135,6 +135,8 @@ interface BarForm {
   menu_display_style: MenuDisplayStyle;
   /** Até 5 logos exibidos no cardápio público entre o banner e o menu de categorias */
   partner_logos?: string[];
+  /** Artes de propaganda no espaço do banner, em carrossel */
+  ad_images?: string[];
 }
 
 interface MenuItem {
@@ -231,6 +233,7 @@ interface Bar {
   custom_seals?: Array<{ id: string; name: string; color: string; type: 'food' | 'drink' }>;
   menu_display_style?: MenuDisplayStyle;
   partner_logos?: string[];
+  ad_images?: string[];
 }
 
 declare module 'react' {
@@ -994,6 +997,7 @@ export default function CardapioAdminPage() {
     custom_seals: [],
     menu_display_style: 'normal',
     partner_logos: [],
+    ad_images: [],
   });
 
   const [categoryForm, setCategoryForm] = useState<MenuCategoryForm>({
@@ -1194,6 +1198,11 @@ export default function CardapioAdminPage() {
                   ? JSON.parse(bar.coverImages).map((url: string) => processImageUrl(url))
                   : [],
               popupImageUrl: processImageUrl(bar.popupImageUrl),
+              ad_images: Array.isArray(bar.ad_images)
+                ? bar.ad_images.map((url: string) => processImageUrl(url))
+                : typeof bar.ad_images === 'string'
+                  ? JSON.parse(bar.ad_images).map((url: string) => processImageUrl(url))
+                  : [],
               menu_display_style:
                 bar.menu_display_style === 'clean'
                   ? 'clean'
@@ -1722,6 +1731,7 @@ export default function CardapioAdminPage() {
       whatsapp: '',
       menu_display_style: 'normal',
       partner_logos: [],
+      ad_images: [],
     });
   }, []);
 
@@ -1906,6 +1916,13 @@ export default function CardapioAdminPage() {
             .slice(0, 5)
         : [];
 
+      const normalizedAdImages = Array.isArray(barForm.ad_images)
+        ? barForm.ad_images
+            .map((u) => processUrlForSave(u))
+            .filter((u) => !!u)
+            .slice(0, 10)
+        : [];
+
       const barData = {
         ...barForm,
         logoUrl: processUrlForSave(barForm.logoUrl),
@@ -1913,6 +1930,7 @@ export default function CardapioAdminPage() {
         coverImages: normalizedCoverImages,
         popupImageUrl: processUrlForSave(barForm.popupImageUrl),
         partner_logos: normalizedPartnerLogos,
+        ad_images: normalizedAdImages,
         rating: barForm.rating ? parseFloat(barForm.rating) : 0,
         reviewsCount: barForm.reviewsCount ? parseInt(barForm.reviewsCount) : 0,
         latitude: barForm.latitude ? parseFloat(barForm.latitude) : null,
@@ -2218,6 +2236,9 @@ export default function CardapioAdminPage() {
             : 'normal',
       partner_logos: Array.isArray(bar.partner_logos)
         ? bar.partner_logos.map((u) => processUrlForForm(u)).filter(Boolean).slice(0, 5)
+        : [],
+      ad_images: Array.isArray(bar.ad_images)
+        ? bar.ad_images.map((u) => processUrlForForm(u)).filter(Boolean).slice(0, 10)
         : [],
     });
     setShowBarModal(true);
@@ -2547,6 +2568,7 @@ export default function CardapioAdminPage() {
       coverImages?: string[];
       popupImageUrl?: string;
       partner_logos?: string[];
+      ad_images?: string[];
     }) => {
       if (!editingBar?.id) return;
       const headers = authHeaders();
@@ -2568,6 +2590,8 @@ export default function CardapioAdminPage() {
         mediaPatch.popupImageUrl !== undefined ? mediaPatch.popupImageUrl : barForm.popupImageUrl;
       const mergedPartners =
         mediaPatch.partner_logos !== undefined ? mediaPatch.partner_logos : barForm.partner_logos;
+      const mergedAds =
+        mediaPatch.ad_images !== undefined ? mediaPatch.ad_images : barForm.ad_images;
 
       const response = await fetch(`${API_BASE_URL}/bars/${editingBar.id}`, {
         method: 'PUT',
@@ -2585,6 +2609,7 @@ export default function CardapioAdminPage() {
           coverImages: Array.isArray(mergedCovers) ? mergedCovers : [],
           popupImageUrl: mergedPopup || '',
           partner_logos: Array.isArray(mergedPartners) ? mergedPartners.slice(0, 5) : [],
+          ad_images: Array.isArray(mergedAds) ? mergedAds.slice(0, 10) : [],
           amenities: barForm.amenities || [],
           custom_seals: barForm.custom_seals || [],
           facebook: barForm.facebook || '',
@@ -2661,6 +2686,7 @@ export default function CardapioAdminPage() {
             coverImages?: string[];
             popupImageUrl?: string;
             partner_logos?: string[];
+            ad_images?: string[];
           } | null = null;
           
           if (isGalleryUpload) {
@@ -2689,6 +2715,13 @@ export default function CardapioAdminPage() {
                 const next = [...current, imageValue];
                 barMediaPatch = { partner_logos: next };
                 setBarForm((prev) => ({ ...prev, partner_logos: next }));
+              }
+            } else if (targetField === 'ad_images') {
+              const current = barForm.ad_images || [];
+              if (current.length < 10) {
+                const next = [...current, imageValue];
+                barMediaPatch = { ad_images: next };
+                setBarForm((prev) => ({ ...prev, ad_images: next }));
               }
             } else if (targetField === 'logoUrl' || targetField === 'coverImageUrl' || targetField === 'popupImageUrl') {
               barMediaPatch = { [targetField]: imageValue };
@@ -2730,6 +2763,13 @@ export default function CardapioAdminPage() {
                 barMediaPatch = { partner_logos: next };
                 setBarForm((prev) => ({ ...prev, partner_logos: next }));
               }
+            } else if (field === 'ad_images') {
+              const current = barForm.ad_images || [];
+              if (current.length < 10) {
+                const next = [...current, imageValue];
+                barMediaPatch = { ad_images: next };
+                setBarForm((prev) => ({ ...prev, ad_images: next }));
+              }
             } else if (field === 'logoUrl' || field === 'coverImageUrl' || field === 'popupImageUrl') {
               barMediaPatch = { [field]: imageValue };
               setBarForm((prev) => ({ ...prev, [field]: imageValue }));
@@ -2751,7 +2791,7 @@ export default function CardapioAdminPage() {
                 }`,
               );
             }
-          } else if (!isGalleryUpload && (field === 'logoUrl' || field === 'coverImages' || field === 'coverImageUrl' || field === 'popupImageUrl' || field === 'partner_logos')) {
+          } else if (!isGalleryUpload && (field === 'logoUrl' || field === 'coverImages' || field === 'coverImageUrl' || field === 'popupImageUrl' || field === 'partner_logos' || field === 'ad_images')) {
             alert('Imagem carregada! Clique em Salvar estabelecimento para publicar no cardápio.');
           } else if (!isGalleryUpload && field === 'imageUrl') {
             alert('Imagem carregada com sucesso!');
@@ -2834,6 +2874,13 @@ export default function CardapioAdminPage() {
     }));
   };
 
+  const handleRemoveAdImage = (urlToRemove: string) => {
+    setBarForm((prev) => ({
+      ...prev,
+      ad_images: (prev.ad_images || []).filter((url) => url !== urlToRemove),
+    }));
+  };
+
   const handleRemovePartnerLogo = (urlToRemove: string) => {
     setBarForm((prev) => ({
       ...prev,
@@ -2878,6 +2925,12 @@ export default function CardapioAdminPage() {
           coverImages: nextCoverImages,
           coverImageUrl: nextCoverImageUrl,
         };
+      });
+    } else if (imageGalleryField === 'ad_images') {
+      setBarForm((prev) => {
+        const current = prev.ad_images || [];
+        if (current.length >= 10) return prev;
+        return { ...prev, ad_images: [...current, imageValue] };
       });
     } else if (imageGalleryField === 'partner_logos') {
       setBarForm((prev) => {
@@ -4801,6 +4854,66 @@ export default function CardapioAdminPage() {
 
             <div className="rounded-lg border border-gray-200 bg-gray-50/80 p-4">
               <label className="mb-1 block text-sm font-semibold text-gray-800">
+                Imagens de propaganda (Carrossel)
+              </label>
+              <p className="mb-3 text-xs text-gray-500">
+                Até 10 artes no espaço do banner do cardápio público, em slide como a capa.
+                O estabelecimento pode usar esse espaço para anúncios de outras lojas.
+              </p>
+              <div className="mb-3 flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if ((barForm.ad_images || []).length >= 10) {
+                      alert('Limite de 10 imagens de propaganda.');
+                      return;
+                    }
+                    selectImageFile('ad_images');
+                  }}
+                  className="flex flex-1 items-center justify-center gap-1 rounded-md bg-green-600 px-3 py-2 text-sm text-white hover:bg-green-700 disabled:cursor-not-allowed disabled:bg-gray-400"
+                  disabled={(barForm.ad_images || []).length >= 10}
+                >
+                  <MdAdd className="h-4 w-4" />
+                  Adicionar Imagem(ns)
+                </button>
+                <span className="text-xs text-gray-500">
+                  {(barForm.ad_images || []).length}/10
+                </span>
+              </div>
+              {(barForm.ad_images || []).length > 0 && (
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  {(barForm.ad_images || []).map((url, index) => (
+                    <div key={`${url}-${index}`} className="group relative">
+                      <Image
+                        src={getValidImageUrl(url)}
+                        alt={`Propaganda ${index + 1}`}
+                        width={320}
+                        height={120}
+                        className="h-24 w-full rounded-lg border border-gray-200 bg-white object-contain"
+                        onError={(e) => {
+                          e.currentTarget.src = PLACEHOLDER_IMAGE_URL;
+                        }}
+                        unoptimized={
+                          url.startsWith('blob:') ||
+                          url.startsWith('https://res.cloudinary.com')
+                        }
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveAdImage(url)}
+                        className="absolute right-1 top-1 rounded-full bg-red-600 p-1 text-white opacity-0 transition-opacity group-hover:opacity-100"
+                        title="Remover"
+                      >
+                        <MdClose className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="rounded-lg border border-gray-200 bg-gray-50/80 p-4">
+              <label className="mb-1 block text-sm font-semibold text-gray-800">
                 Parceiros
               </label>
               <p className="mb-3 text-xs text-gray-500">
@@ -6296,7 +6409,9 @@ export default function CardapioAdminPage() {
           onCropComplete={handleCropComplete}
           aspectRatio={1}
           defaultFullImage={
-            cropImageField === 'coverImages' || cropImageField === 'coverImageUrl'
+            cropImageField === 'coverImages' ||
+            cropImageField === 'coverImageUrl' ||
+            cropImageField === 'ad_images'
           }
           minZoom={1}
           maxZoom={3}

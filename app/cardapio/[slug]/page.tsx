@@ -148,6 +148,7 @@ interface BarFromAPI {
   }>;
   menu_display_style?: MenuDisplayStyle;
   partner_logos?: string[] | string | null;
+  ad_images?: string[] | string | null;
 }
 
 interface Bar {
@@ -183,6 +184,7 @@ interface Bar {
   }>;
   menu_display_style: MenuDisplayStyle;
   partner_logos?: string[];
+  ad_images?: string[];
 }
 
 interface GroupedCategory {
@@ -200,6 +202,31 @@ interface CardapioBarPageProps {
 
 function parsePartnerLogosFromBar(bar: BarFromAPI): string[] {
   const raw = bar.partner_logos as unknown;
+  if (raw == null) return [];
+  if (Array.isArray(raw)) {
+    return raw.filter(
+      (x): x is string => typeof x === "string" && x.trim() !== "",
+    );
+  }
+  if (typeof raw === "string") {
+    const t = raw.trim();
+    if (!t) return [];
+    try {
+      const parsed = JSON.parse(t);
+      if (Array.isArray(parsed)) {
+        return parsed.filter(
+          (x): x is string => typeof x === "string" && x.trim() !== "",
+        );
+      }
+    } catch {
+      return [t];
+    }
+  }
+  return [];
+}
+
+function parseAdImagesFromBar(bar: BarFromAPI): string[] {
+  const raw = bar.ad_images as unknown;
   if (raw == null) return [];
   if (Array.isArray(raw)) {
     return raw.filter(
@@ -525,6 +552,9 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
         partner_logos: parsePartnerLogosFromBar(bar)
           .slice(0, 5)
           .map((img: string) => getValidImageUrl(img, "thumb")),
+        ad_images: parseAdImagesFromBar(bar)
+          .slice(0, 10)
+          .map((img: string) => getValidImageUrl(img, "medium")),
       };
 
       setSelectedBar(barWithImages);
@@ -1572,9 +1602,18 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
             }`}
           >
             <div
-              className={`relative ${isCleanStyle ? "h-72 md:h-[22rem]" : "h-64 md:h-80"}`}
+              className={`relative ${
+                isSitioIlhaCardapio
+                  ? ""
+                  : isCleanStyle
+                    ? "h-72 md:h-[22rem]"
+                    : "h-64 md:h-80"
+              }`}
             >
-              <ImageSlider images={selectedBar.coverImages} />
+              <ImageSlider
+                images={selectedBar.coverImages}
+                preserveImage={isSitioIlhaCardapio}
+              />
               <div
                 className={`absolute inset-0 ${
                   isCleanStyle
@@ -1812,7 +1851,15 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
           </div>
         )}
 
-        {/* Banner promocional - Responsivo */}
+        {selectedBar.ad_images && selectedBar.ad_images.length > 0 ? (
+          <div className="mt-8 mb-8 overflow-hidden rounded-xl shadow-lg">
+            <ImageSlider
+              images={selectedBar.ad_images}
+              interval={5000}
+              preserveImage
+            />
+          </div>
+        ) : (
         <div className="mt-8 mb-8">
           {isSitioIlhaCardapio ? (
             <div
@@ -1915,6 +1962,7 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
             </Link>
           )}
         </div>
+        )}
 
         {/*
           Renderização Condicional:
