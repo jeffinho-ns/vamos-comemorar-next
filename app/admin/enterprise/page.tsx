@@ -326,7 +326,12 @@ export default function Companies() {
         </div>
       </div>
     </div>
-    <Enterprise isOpen={modalIsOpen} onRequestClose={closeModal} company={selectedCompany || initialEnterpriseState} />
+    <Enterprise
+      isOpen={modalIsOpen}
+      onRequestClose={closeModal}
+      onSaved={fetchCompanies}
+      company={selectedCompany || initialEnterpriseState}
+    />
     </AdminSaasGuard>
   );
 }

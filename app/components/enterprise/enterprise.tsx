@@ -25,10 +25,11 @@ interface Company {
 interface EnterpriseProps {
   isOpen: boolean;
   onRequestClose: () => void;
+  onSaved?: () => void;
   company: Establishment | null; // A propriedade 'company' pode ser um objeto do tipo 'Establishment' ou null
 }
 
-const Enterprise: React.FC<EnterpriseProps> = ({ isOpen, onRequestClose, company }) => {
+const Enterprise: React.FC<EnterpriseProps> = ({ isOpen, onRequestClose, onSaved, company }) => {
   const initialEnterpriseState = useMemo<Establishment>(() => ({
     cnpj: "",
     nome: "",
@@ -47,6 +48,7 @@ const Enterprise: React.FC<EnterpriseProps> = ({ isOpen, onRequestClose, company
   }), []);
 
   const [enterprise, setEnterprise] = useState<Establishment>(initialEnterpriseState);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL_LOCAL;
 
   useEffect(() => {
@@ -76,47 +78,54 @@ const Enterprise: React.FC<EnterpriseProps> = ({ isOpen, onRequestClose, company
       ...enterprise,
     };
 
+    setSaveError(null);
+
     try {
       const token = localStorage.getItem('authToken');
       if (!token) {
-        console.error('Token não encontrado. Faça login novamente.');
+        setSaveError("Token não encontrado. Faça login novamente.");
         return;
       }
 
-      let url = `${API_URL}/companies`;
-      let response;
-
-      if (company && company.id) {
-        // Atualiza a empresa existente
-        response = await fetch(`${url}/${company.id}`, {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${token}`,
-          },
-          body: JSON.stringify(dataToSend),
-        });
-      } else {
-        // Adiciona uma nova empresa
-        response = await fetch(url, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${token}`,
-          },
-          body: JSON.stringify(dataToSend),
-        });
+      if (!company?.id || company.id === "0") {
+        setSaveError("Selecione um estabelecimento existente para atualizar o endereço.");
+        return;
       }
+
+      const response = await fetch(`${API_URL}/api/places/${company.id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          nome: dataToSend.nome,
+          email: dataToSend.email,
+          endereco: dataToSend.endereco,
+          numero: dataToSend.numero,
+          bairro: dataToSend.bairro,
+          complemento: dataToSend.complemento,
+          cidade: dataToSend.cidade,
+          estado: dataToSend.estado,
+          cep: dataToSend.cep,
+        }),
+      });
 
       if (response.ok) {
-        const savedEnterprise = await response.json();
-        console.log(company ? "Empresa atualizada:" : "Empresa adicionada:", savedEnterprise);
-        onRequestClose(); // Fecha o modal após o envio
-      } else {
-        console.error("Erro ao salvar empresa:", response.statusText);
+        onSaved?.();
+        onRequestClose();
+        return;
       }
+
+      const body = await response.json().catch(() => ({}));
+      setSaveError(
+        typeof body.error === "string"
+          ? body.error
+          : "Não foi possível salvar o endereço do estabelecimento.",
+      );
     } catch (error) {
       console.error("Erro ao enviar dados:", error);
+      setSaveError("Não foi possível salvar o endereço do estabelecimento.");
     }
   };
 
@@ -280,6 +289,9 @@ const Enterprise: React.FC<EnterpriseProps> = ({ isOpen, onRequestClose, company
               />
             </div>
           </div>
+          {saveError && (
+            <p className="text-left text-sm text-red-600">{saveError}</p>
+          )}
           <button
             type="submit"
             className="mt-6 bg-blue-600 text-white p-2 rounded hover:bg-blue-700 transition-colors"

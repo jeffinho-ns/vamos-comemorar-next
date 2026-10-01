@@ -73,6 +73,32 @@ interface Establishment {
   address: string;
 }
 
+function mergePermissionEstablishments(
+  filtered: Establishment[],
+  permissions: Array<{
+    is_active?: boolean;
+    establishment_id: number;
+    establishment_name?: string;
+  }>,
+): Establishment[] {
+  const present = new Set(filtered.map((item) => Number(item.id)));
+  const extra = permissions
+    .filter(
+      (permission) =>
+        permission.is_active !== false &&
+        !present.has(Number(permission.establishment_id)),
+    )
+    .map((permission) => ({
+      id: Number(permission.establishment_id),
+      name:
+        permission.establishment_name ||
+        `Estabelecimento ${permission.establishment_id}`,
+      logo: "",
+      address: "Endereço não informado",
+    }));
+  return extra.length > 0 ? [...filtered, ...extra] : filtered;
+}
+
 interface WalkIn {
   id: number;
   client_name: string;
@@ -267,30 +293,10 @@ export default function RestaurantReservationsPage() {
           establishmentPermissions.getFilteredEstablishments(
             formattedEstablishments,
           );
-
-        // Fallback: se não sobrou nenhum mas o usuário tem permissões,
-        // criar uma lista sintética a partir de user_establishment_permissions
-        if (
-          filteredEstablishments.length === 0 &&
-          establishmentPermissions.permissions.length > 0
-        ) {
-          const synthetic = establishmentPermissions.permissions
-            .filter((p) => p.is_active)
-            .map((p) => ({
-              id: p.establishment_id,
-              name:
-                p.establishment_name || `Estabelecimento ${p.establishment_id}`,
-              logo: "",
-              address: "Endereço não informado",
-            }));
-          if (synthetic.length > 0) {
-            filteredEstablishments = synthetic;
-            console.log(
-              "🔁 [RESTAURANT RESERVATIONS] Usando lista sintética de estabelecimentos a partir das permissões:",
-              synthetic,
-            );
-          }
-        }
+        filteredEstablishments = mergePermissionEstablishments(
+          filteredEstablishments,
+          establishmentPermissions.permissions,
+        );
 
         console.log(
           `📋 [RESTAURANT RESERVATIONS] Estabelecimentos filtrados: ${filteredEstablishments.length} de ${formattedEstablishments.length}`,
@@ -434,27 +440,10 @@ export default function RestaurantReservationsPage() {
       !hasFilteredRef.current
     ) {
       // Refiltrar estabelecimentos agora que as permissões estão carregadas
-      let filteredEstabs =
-        establishmentPermissions.getFilteredEstablishments(allEstablishments);
-
-      // Mesmo fallback: se nada sobrou mas há permissões, montar lista sintética
-      if (
-        filteredEstabs.length === 0 &&
-        establishmentPermissions.permissions.length > 0
-      ) {
-        const synthetic = establishmentPermissions.permissions
-          .filter((p) => p.is_active)
-          .map((p) => ({
-            id: p.establishment_id,
-            name:
-              p.establishment_name || `Estabelecimento ${p.establishment_id}`,
-            logo: "",
-            address: "Endereço não informado",
-          }));
-        if (synthetic.length > 0) {
-          filteredEstabs = synthetic;
-        }
-      }
+      let filteredEstabs = mergePermissionEstablishments(
+        establishmentPermissions.getFilteredEstablishments(allEstablishments),
+        establishmentPermissions.permissions,
+      );
 
       console.log(
         `🔄 [RESTAURANT RESERVATIONS] Refiltrando estabelecimentos após permissões carregarem: ${filteredEstabs.length} de ${allEstablishments.length}`,
