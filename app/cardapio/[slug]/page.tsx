@@ -6,6 +6,7 @@ import React, {
   useCallback,
   useMemo,
   useRef,
+  useSyncExternalStore,
   use,
 } from "react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -15,8 +16,14 @@ import {
   MdArrowBack,
   MdClose,
   MdMenu,
+  MdHome,
+  MdSearch,
+  MdViewList,
+  MdGridView,
+  MdCropSquare,
+  MdStarBorder,
 } from "react-icons/md";
-import { FaFacebook, FaInstagram, FaWhatsapp } from "react-icons/fa";
+import { FaFacebook, FaInstagram, FaWhatsapp, FaHeart, FaRegHeart } from "react-icons/fa";
 import Link from "next/link";
 import Image from "next/image";
 import { useMediaQuery } from "react-responsive"; // Importação do hook
@@ -106,6 +113,47 @@ interface MenuItem {
   effectiveVisible?: boolean;
   schedulePaused?: boolean;
   isPriceOnRequest?: boolean; // Indica se o preço é "Sob Consulta"
+  featured?: boolean;
+}
+
+function variationRank(label: string): number {
+  const normalized = label.trim().toLowerCase();
+  if (normalized.startsWith("dose")) return 0;
+  if (normalized === "garrafa") return 2;
+  return 1;
+}
+
+function getItemPriceVariations(item: MenuItem): {
+  id: string;
+  label: string;
+  price: number;
+}[] {
+  const toppings = item.toppings || [];
+  if (toppings.length === 0) return [];
+
+  const extras = toppings
+    .map((topping) => ({
+      id: String(topping.id),
+      label:
+        topping.name.trim().toLowerCase() === "garrafa"
+          ? "Garrafa"
+          : topping.name.trim(),
+      price: Number(topping.price),
+    }))
+    .sort((left, right) => variationRank(left.label) - variationRank(right.label));
+
+  const basePrice = Number(item.price);
+  if (!Number.isFinite(basePrice) || basePrice < 0) return extras;
+
+  const drinkStyle = extras.some((option) => variationRank(option.label) !== 1);
+  return [
+    {
+      id: "base",
+      label: drinkStyle ? "Dose" : "Tradicional",
+      price: basePrice,
+    },
+    ...extras,
+  ];
 }
 
 interface MenuCategory {
@@ -200,6 +248,159 @@ interface GroupedCategory {
 interface CardapioBarPageProps {
   params: Promise<{ slug: string }>;
 }
+
+type MenuSpySnapshot = { category: string; subcategory: string };
+
+type MenuSpy = {
+  get: () => MenuSpySnapshot;
+  set: (next: MenuSpySnapshot) => void;
+  subscribe: (listener: () => void) => () => void;
+};
+
+const EMPTY_MENU_SPY: MenuSpySnapshot = { category: "", subcategory: "" };
+
+function createMenuSpy(): MenuSpy {
+  let current = EMPTY_MENU_SPY;
+  const listeners = new Set<() => void>();
+  return {
+    get: () => current,
+    set: (next) => {
+      if (
+        current.category === next.category &&
+        current.subcategory === next.subcategory
+      ) {
+        return;
+      }
+      current = next;
+      listeners.forEach((listener) => listener());
+    },
+    subscribe: (listener) => {
+      listeners.add(listener);
+      return () => {
+        listeners.delete(listener);
+      };
+    },
+  };
+}
+
+function scrollChipIntoRow(button: HTMLButtonElement | null) {
+  const row = button?.parentElement;
+  if (!button || !row) return;
+  const target =
+    button.offsetLeft - row.clientWidth / 2 + button.offsetWidth / 2;
+  const nextLeft = Math.max(target, 0);
+  if (Math.abs(row.scrollLeft - nextLeft) < 12) return;
+  row.scrollTo({ left: nextLeft, behavior: "auto" });
+}
+
+function IdeiaumCategoryChips({
+  categories,
+  spy,
+  onSelectCategory,
+  onSelectSubcategory,
+  registerCategoryMenuRef,
+  registerSubcategoryMenuRef,
+}: {
+  categories: GroupedCategory[];
+  spy: MenuSpy;
+  onSelectCategory: (categoryName: string) => void;
+  onSelectSubcategory: (categoryName: string, subcategoryName: string) => void;
+  registerCategoryMenuRef: (
+    categoryName: string,
+    element: HTMLButtonElement | null,
+  ) => void;
+  registerSubcategoryMenuRef: (
+    categoryName: string,
+    subcategoryName: string,
+    element: HTMLButtonElement | null,
+  ) => void;
+}) {
+  const active = useSyncExternalStore(
+    spy.subscribe,
+    spy.get,
+    () => EMPTY_MENU_SPY,
+  );
+  const activeCategory =
+    categories.find((category) => category.name === active.category) ||
+    categories[0];
+
+  useEffect(() => {
+    if (!activeCategory || !active.subcategory) return;
+    scrollChipIntoRow(
+      document.querySelector<HTMLButtonElement>(
+        `[data-ideiaum-subcategory="${CSS.escape(activeCategory.name)}::${CSS.escape(active.subcategory)}"]`,
+      ),
+    );
+  }, [active.category, active.subcategory, activeCategory]);
+
+  if (!activeCategory) return null;
+
+  return (
+    <>
+      <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+        {categories.map((category) => {
+          const categoryIsActive = active.category
+            ? active.category === category.name
+            : category.name === activeCategory.name;
+          return (
+            <button
+              key={category.id}
+              ref={(element) => registerCategoryMenuRef(category.name, element)}
+              onClick={() => onSelectCategory(category.name)}
+              className={`category-tab whitespace-nowrap rounded-xl border border-neutral-900 px-4 py-2.5 text-sm font-semibold ${
+                categoryIsActive
+                  ? "bg-neutral-950 text-white"
+                  : "bg-white text-neutral-900"
+              }`}
+            >
+              {category.name}
+            </button>
+          );
+        })}
+      </div>
+      <div className="mt-2 flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+        {activeCategory.subCategories.map((subcat) => {
+          const subIsActive =
+            active.subcategory === subcat.name &&
+            (active.category || activeCategory.name) === activeCategory.name;
+          return (
+            <button
+              key={subcat.name}
+              data-ideiaum-subcategory={`${activeCategory.name}::${subcat.name}`}
+              ref={(element) =>
+                registerSubcategoryMenuRef(
+                  activeCategory.name,
+                  subcat.name,
+                  element,
+                )
+              }
+              onClick={() =>
+                onSelectSubcategory(activeCategory.name, subcat.name)
+              }
+              className={`subcategory-tab whitespace-nowrap rounded-xl border border-neutral-900 px-4 py-2 text-sm font-semibold ${
+                subIsActive
+                  ? "bg-neutral-950 text-white"
+                  : "bg-white text-neutral-900"
+              }`}
+            >
+              {subcat.name}
+            </button>
+          );
+        })}
+      </div>
+    </>
+  );
+}
+
+const ESTABLISHMENT_HOME_PATH: Record<string, string> = {
+  justino: "/justino",
+  pracinha: "/pracinha",
+  "ape-do-pracinha": "/pracinha",
+  highline: "/highline",
+  ohfregues: "/ohfregues",
+  "reserva-rooftop": "/reserva-rooftop",
+  "reserva-pinheiros": "/reserva-pinheiros",
+};
 
 function parsePartnerLogosFromBar(bar: BarFromAPI): string[] {
   const raw = bar.partner_logos as unknown;
@@ -430,9 +631,26 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
   const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null);
   const [imageError, setImageError] = useState<string | null>(null);
   const [showMobileSidebar, setShowMobileSidebar] = useState(false);
+  const [menuSearchOpen, setMenuSearchOpen] = useState(false);
+  const [menuSearchQuery, setMenuSearchQuery] = useState("");
   const [headerHeight, setHeaderHeight] = useState<number>(0);
   const [categoryBarHeight, setCategoryBarHeight] = useState<number>(0);
+  const [menuPinned, setMenuPinned] = useState(false);
+  const [menuItemView, setMenuItemView] = useState<"lista" | "grade" | "grande">(
+    "grade",
+  );
+  const [likedItemIds, setLikedItemIds] = useState<Record<string, boolean>>({});
+  const [likeCounts, setLikeCounts] = useState<Record<string, number>>({});
+  const [itemRatings, setItemRatings] = useState<Record<string, number>>({});
+  const [selectedVariationId, setSelectedVariationId] = useState("base");
   const categoryBarRef = useRef<HTMLDivElement | null>(null);
+  const menuAnchorRef = useRef<HTMLDivElement | null>(null);
+  const destaquesRowRef = useRef<HTMLDivElement | null>(null);
+  const menuSpyRef = useRef<MenuSpy | null>(null);
+  if (!menuSpyRef.current) {
+    menuSpyRef.current = createMenuSpy();
+  }
+  const menuSpy = menuSpyRef.current;
 
   // Refs para ScrollSpy
   const subcategoryRefs = useRef<Map<string, HTMLDivElement>>(new Map());
@@ -462,6 +680,7 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
   const handleItemClick = useCallback(
     (item: MenuItem) => {
       setSelectedItem(item);
+      setSelectedVariationId("base");
       setImageError(null); // Resetar erro de imagem ao selecionar novo item
 
       // Rastrear clique no item do cardápio
@@ -653,7 +872,12 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
       setMenuCategories(visibleCategories);
 
       if (visibleCategories.length > 0) {
-        setSelectedCategory(visibleCategories[0].name);
+        const firstCategory = visibleCategories[0];
+        setSelectedCategory(firstCategory.name);
+        menuSpyRef.current?.set({
+          category: firstCategory.name,
+          subcategory: firstCategory.subCategories[0]?.name || "",
+        });
       } else {
         setSelectedCategory("");
       }
@@ -720,7 +944,30 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
         resizeObserver.unobserve(categoryBarRef.current);
       }
     };
-  }, [menuCategories.length, isMobile, isCleanStyle]);
+  }, [isLoading, menuCategories.length, menuPinned]);
+
+  const isIdeiaumSlug = Boolean(
+    ESTABLISHMENT_HOME_PATH[(slug || "").toLowerCase()],
+  );
+
+  useEffect(() => {
+    if (!isIdeiaumSlug) return;
+    const anchor = menuAnchorRef.current;
+    if (!anchor) return;
+
+    const updatePin = () => {
+      setMenuPinned(anchor.getBoundingClientRect().top <= 0);
+    };
+
+    updatePin();
+    window.addEventListener("scroll", updatePin, { passive: true });
+    window.addEventListener("resize", updatePin);
+
+    return () => {
+      window.removeEventListener("scroll", updatePin);
+      window.removeEventListener("resize", updatePin);
+    };
+  }, [isIdeiaumSlug, isLoading, menuCategories.length]);
 
   // Rastreamento de categoria/subcategoria agora é feito diretamente no IntersectionObserver
   // para evitar re-renders. Este useEffect foi removido.
@@ -781,6 +1028,243 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
     return ids;
   }, [menuCategories]);
 
+  const categoriesOnScreen = useMemo(() => {
+    const query = menuSearchQuery.trim().toLowerCase();
+    if (!query) return menuCategories;
+
+    return menuCategories
+      .map((category) => ({
+        ...category,
+        subCategories: category.subCategories
+          .map((subcategory) => ({
+            ...subcategory,
+            items: subcategory.items.filter((item) =>
+              `${item.name} ${item.description || ""}`
+                .toLowerCase()
+                .includes(query),
+            ),
+          }))
+          .filter((subcategory) => subcategory.items.length > 0),
+      }))
+      .filter((category) => category.subCategories.length > 0);
+  }, [menuCategories, menuSearchQuery]);
+
+  const menuDestaques = useMemo(() => {
+    const chosen = categoriesOnScreen.flatMap((category) =>
+      category.subCategories.flatMap((subcategory) =>
+        subcategory.items
+          .filter((item) => item.featured === true)
+          .map((item) => {
+            const basePrice = Number(item.price);
+            const hasFromPrice = (item.toppings || []).some(
+              (topping) => Number(topping.price) > basePrice && basePrice > 0,
+            );
+            return {
+              key: String(item.id),
+              categoryName: category.name,
+              subcategoryName: subcategory.name,
+              item,
+              minPrice: basePrice,
+              hasFromPrice,
+            };
+          }),
+      ),
+    );
+    if (chosen.length > 0) return chosen;
+
+    const category =
+      categoriesOnScreen.find((entry) => entry.name === selectedCategory) ||
+      categoriesOnScreen[0];
+    if (!category) return [];
+
+    return category.subCategories.flatMap((subcategory) => {
+      const featured =
+        subcategory.items.find((item) => Boolean(item.imageUrl)) ||
+        subcategory.items[0];
+      if (!featured) return [];
+      const prices = subcategory.items
+        .map((item) => Number(item.price))
+        .filter((price) => price > 0);
+      const minPrice = prices.length
+        ? Math.min(...prices)
+        : Number(featured.price);
+      const maxPrice = prices.length ? Math.max(...prices) : minPrice;
+      return [
+        {
+          key: `${category.name}-${subcategory.name}`,
+          categoryName: category.name,
+          subcategoryName: subcategory.name,
+          item: featured,
+          minPrice,
+          hasFromPrice: maxPrice > minPrice,
+        },
+      ];
+    });
+  }, [categoriesOnScreen, selectedCategory]);
+
+  useEffect(() => {
+    const row = destaquesRowRef.current;
+    if (!row) return;
+
+    const onWheel = (event: WheelEvent) => {
+      if (row.scrollWidth <= row.clientWidth + 1) return;
+      const delta =
+        Math.abs(event.deltaX) > Math.abs(event.deltaY)
+          ? event.deltaX
+          : event.deltaY;
+      if (delta === 0) return;
+      const atStart = row.scrollLeft <= 0 && delta < 0;
+      const atEnd =
+        row.scrollLeft + row.clientWidth >= row.scrollWidth - 1 && delta > 0;
+      if (atStart || atEnd) return;
+      row.scrollLeft += delta;
+      event.preventDefault();
+    };
+
+    let dragging = false;
+    let moved = false;
+    let startX = 0;
+    let startScroll = 0;
+
+    const onPointerDown = (event: PointerEvent) => {
+      if (event.pointerType === "touch" || event.button !== 0) return;
+      dragging = true;
+      moved = false;
+      startX = event.clientX;
+      startScroll = row.scrollLeft;
+    };
+
+    const onPointerMove = (event: PointerEvent) => {
+      if (!dragging) return;
+      const distance = event.clientX - startX;
+      if (Math.abs(distance) < 6) return;
+      moved = true;
+      row.scrollLeft = startScroll - distance;
+    };
+
+    const endDrag = () => {
+      dragging = false;
+    };
+
+    const onClickCapture = (event: MouseEvent) => {
+      if (!moved) return;
+      event.preventDefault();
+      event.stopPropagation();
+      moved = false;
+    };
+
+    row.addEventListener("wheel", onWheel, { passive: false });
+    row.addEventListener("pointerdown", onPointerDown);
+    row.addEventListener("click", onClickCapture, true);
+    window.addEventListener("pointermove", onPointerMove);
+    window.addEventListener("pointerup", endDrag);
+    return () => {
+      row.removeEventListener("wheel", onWheel);
+      row.removeEventListener("pointerdown", onPointerDown);
+      row.removeEventListener("click", onClickCapture, true);
+      window.removeEventListener("pointermove", onPointerMove);
+      window.removeEventListener("pointerup", endDrag);
+    };
+  }, [menuDestaques.length, isLoading]);
+
+  useEffect(() => {
+    if (!slug || typeof window === "undefined") return;
+    try {
+      const raw = window.localStorage.getItem(`agilizai-cardapio-likes:${slug}`);
+      if (!raw) {
+        setLikedItemIds({});
+        setLikeCounts({});
+        return;
+      }
+      const parsed = JSON.parse(raw) as {
+        counts?: Record<string, number>;
+        liked?: string[];
+      };
+      setLikeCounts(parsed.counts || {});
+      setLikedItemIds(
+        Object.fromEntries((parsed.liked || []).map((id) => [id, true])),
+      );
+    } catch {
+      setLikedItemIds({});
+      setLikeCounts({});
+    }
+  }, [slug]);
+
+  const toggleItemLike = useCallback(
+    (itemId: string | number) => {
+      const key = String(itemId);
+      setLikedItemIds((previousLiked) => {
+        const willLike = !previousLiked[key];
+        const nextLiked = { ...previousLiked };
+        if (willLike) nextLiked[key] = true;
+        else delete nextLiked[key];
+
+        setLikeCounts((previousCounts) => {
+          const nextCounts = {
+            ...previousCounts,
+            [key]: Math.max(0, (previousCounts[key] || 0) + (willLike ? 1 : -1)),
+          };
+          try {
+            window.localStorage.setItem(
+              `agilizai-cardapio-likes:${slug}`,
+              JSON.stringify({
+                counts: nextCounts,
+                liked: Object.keys(nextLiked),
+              }),
+            );
+          } catch {
+            // O cardápio segue utilizável se o navegador bloquear o armazenamento.
+          }
+          return nextCounts;
+        });
+
+        return nextLiked;
+      });
+    },
+    [slug],
+  );
+
+  useEffect(() => {
+    if (!slug || typeof window === "undefined") return;
+    try {
+      const raw = window.localStorage.getItem(
+        `agilizai-cardapio-ratings:${slug}`,
+      );
+      setItemRatings(raw ? (JSON.parse(raw) as Record<string, number>) : {});
+    } catch {
+      setItemRatings({});
+    }
+  }, [slug]);
+
+  const rateItem = useCallback(
+    (itemId: string | number, stars: number) => {
+      const key = String(itemId);
+      setItemRatings((previous) => {
+        const next = { ...previous, [key]: stars };
+        try {
+          window.localStorage.setItem(
+            `agilizai-cardapio-ratings:${slug}`,
+            JSON.stringify(next),
+          );
+        } catch {
+          // A avaliação continua visível nesta abertura se o navegador bloquear o armazenamento.
+        }
+        return next;
+      });
+    },
+    [slug],
+  );
+
+  useEffect(() => {
+    if (!selectedItem || typeof document === "undefined") return;
+    if (!ESTABLISHMENT_HOME_PATH[(slug || "").toLowerCase()]) return;
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previous;
+    };
+  }, [selectedItem, slug]);
+
   const stickyCategoryOffset = useMemo(
     () => Math.max(headerHeight, 0),
     [headerHeight],
@@ -797,6 +1281,9 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
     (categoryName: string, subcategoryName: string) => {
       const bar = selectedBarRef.current;
       const activeSubcategoryKey = `${categoryName}-${subcategoryName}`;
+      const isIdeiaumBar = Boolean(
+        bar?.slug && ESTABLISHMENT_HOME_PATH[bar.slug.toLowerCase()],
+      );
 
       // 1. Atualizar botões de CATEGORIA PRINCIPAL via DOM direto
       categoryMenuRefs.current.forEach((button, key) => {
@@ -804,8 +1291,11 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
         const isActive = key === categoryName;
 
         if (isActive) {
-          // Botão ativo: aplicar cores do selectedBar
-          if (bar) {
+          if (isIdeiaumBar) {
+            button.style.backgroundColor = "#111111";
+            button.style.color = "#ffffff";
+            button.style.borderColor = "#111111";
+          } else if (bar) {
             button.style.backgroundColor =
               bar.menu_category_bg_color || "#3b82f6";
             button.style.color = bar.menu_category_text_color || "#ffffff";
@@ -817,7 +1307,11 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
           button.classList.add("active-category");
         } else {
           // Botão inativo: voltar para padrão
-          if (bar?.menu_display_style === "clean") {
+          if (isIdeiaumBar) {
+            button.style.backgroundColor = "#ffffff";
+            button.style.color = "#111111";
+            button.style.borderColor = "#111111";
+          } else if (bar?.menu_display_style === "clean") {
             button.style.backgroundColor = "#f6efe3";
             button.style.color = "#403a31";
           } else {
@@ -835,8 +1329,11 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
         const isActive = key === activeSubcategoryKey;
 
         if (isActive) {
-          // Botão ativo: aplicar cores do selectedBar
-          if (bar) {
+          if (isIdeiaumBar) {
+            button.style.backgroundColor = "#111111";
+            button.style.color = "#ffffff";
+            button.style.borderColor = "#111111";
+          } else if (bar) {
             button.style.backgroundColor =
               bar.menu_subcategory_bg_color || "#3b82f6";
             button.style.color = bar.menu_subcategory_text_color || "#ffffff";
@@ -848,8 +1345,14 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
           button.classList.add("active-subcategory");
         } else {
           // Botão inativo: voltar para padrão
-          button.style.backgroundColor = "";
-          button.style.color = "";
+          if (isIdeiaumBar) {
+            button.style.backgroundColor = "#ffffff";
+            button.style.color = "#111111";
+            button.style.borderColor = "#111111";
+          } else {
+            button.style.backgroundColor = "";
+            button.style.color = "";
+          }
           button.style.boxShadow = "";
           button.classList.remove("active-subcategory");
         }
@@ -859,11 +1362,7 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
       const menuButton = subcategoryMenuRefs.current.get(activeSubcategoryKey);
       if (menuButton) {
         requestAnimationFrame(() => {
-          menuButton.scrollIntoView({
-            behavior: "smooth",
-            block: "nearest",
-            inline: "center",
-          });
+          scrollChipIntoRow(menuButton);
         });
       }
     },
@@ -917,8 +1416,12 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
               // Atualizar refs imediatamente
               currentActiveCategoryRef.current = categoryName;
               currentActiveSubcategoryRef.current = subcategoryName;
+              menuSpyRef.current?.set({
+                category: categoryName,
+                subcategory: subcategoryName,
+              });
 
-              // Atualizar visualmente SEM RE-RENDER (DOM direto apenas)
+              // Só as abas mudam. A lista de itens não redesenha.
               updateActiveButton(categoryName, subcategoryName);
 
               // Rastreamento de Analytics (sem causar re-render)
@@ -1184,6 +1687,11 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
       renderWineSeal,
       getSealById,
       eagerImage,
+      viewMode = "grade",
+      appearance = "default",
+      likeCount = 0,
+      liked = false,
+      onToggleLike,
     }: {
       item: MenuItem;
       onClick: (item: MenuItem) => void;
@@ -1213,6 +1721,11 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
         bar?: BarFromAPI,
       ) => { name: string; color: string } | null;
       eagerImage: boolean;
+      viewMode?: "lista" | "grade" | "grande";
+      appearance?: "default" | "ideiaum";
+      likeCount?: number;
+      liked?: boolean;
+      onToggleLike?: (itemId: string | number) => void;
     }) => {
       const isReservaRooftop =
         selectedBar?.slug === "reserva-rooftop" ||
@@ -1279,6 +1792,111 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
         };
       }, [item, selectedBar, slug, menuCategories, trackMenuItemView]);
 
+      const isListView = viewMode === "lista";
+      const toggleLike = (event: React.MouseEvent) => {
+        event.stopPropagation();
+        onToggleLike?.(item.id);
+      };
+      const imageHeart = (
+        <button
+          type="button"
+          aria-label={liked ? "Remover curtida" : "Curtir"}
+          aria-pressed={liked}
+          onClick={toggleLike}
+          className="absolute right-2 top-2 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-white shadow"
+        >
+          {liked ? (
+            <FaHeart className="h-4 w-4 text-red-500" />
+          ) : (
+            <FaRegHeart className="h-4 w-4 text-neutral-800" />
+          )}
+        </button>
+      );
+      const likeCountButton = (
+        <button
+          type="button"
+          aria-label={liked ? "Remover curtida" : "Curtir"}
+          aria-pressed={liked}
+          onClick={toggleLike}
+          className="inline-flex items-center gap-1 text-sm text-neutral-800"
+        >
+          <FaHeart className="h-4 w-4 text-red-500" />
+          <span>{likeCount}</span>
+        </button>
+      );
+
+      if (appearance === "ideiaum") {
+        const priceLabel = formatPrice(item.price, item.isPriceOnRequest);
+        return (
+          <motion.div
+            ref={itemRef}
+            initial={false}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3 }}
+            onAnimationComplete={() => {
+              if (!hasAnimated.current) hasAnimated.current = true;
+            }}
+            className={`menu-item-card cursor-pointer overflow-hidden bg-white shadow-sm ${
+              isListView ? "flex flex-row items-stretch" : "flex flex-col"
+            }`}
+            onClick={() => onClick(item)}
+          >
+            {viewMode !== "lista" ? (
+              <div
+                className={`relative w-full overflow-hidden ${
+                  viewMode === "grande" ? "aspect-[4/5]" : "aspect-[3/4]"
+                }`}
+              >
+                <Image
+                  src={imageSrc}
+                  alt={item.name}
+                  fill
+                  sizes="(max-width: 768px) 100vw, 33vw"
+                  quality={68}
+                  className="object-cover"
+                />
+                {imageHeart}
+              </div>
+            ) : null}
+            <div
+              className={`flex min-w-0 flex-1 flex-col ${
+                viewMode === "grande" ? "items-center px-4 py-4 text-center" : "p-4"
+              }`}
+            >
+              <h3
+                className={`font-semibold text-neutral-900 ${
+                  viewMode === "grande" ? "text-lg" : "text-base"
+                }`}
+              >
+                {item.name}
+              </h3>
+              {item.description ? (
+                <p className="mt-1 line-clamp-3 text-sm text-neutral-500">
+                  {item.description}
+                </p>
+              ) : null}
+              <div className="mt-auto flex w-full items-end justify-between gap-3 pt-4">
+                <p className="text-sm font-medium text-neutral-900">{priceLabel}</p>
+                {likeCountButton}
+              </div>
+            </div>
+            {isListView ? (
+              <div className="relative min-h-36 w-32 shrink-0 self-stretch sm:w-40">
+                <Image
+                  src={imageSrc}
+                  alt=""
+                  fill
+                  sizes="160px"
+                  quality={68}
+                  className="object-cover"
+                />
+                {imageHeart}
+              </div>
+            ) : null}
+          </motion.div>
+        );
+      }
+
       return (
         <motion.div
           ref={itemRef}
@@ -1290,7 +1908,9 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
               hasAnimated.current = true;
             }
           }}
-          className={`menu-item-card cursor-pointer overflow-hidden transition-all duration-300 flex flex-col ${
+          className={`menu-item-card cursor-pointer overflow-hidden transition-all duration-300 ${
+            isListView ? "flex flex-row items-stretch" : "flex flex-col"
+          } ${
             isCleanStyle
               ? "rounded-[28px] border border-[#d7c4a2] bg-[#f9f5ed]/95 shadow-[0_18px_38px_rgba(25,18,10,0.18)] hover:shadow-[0_28px_60px_rgba(25,18,10,0.28)]"
               : "bg-white rounded-lg shadow-lg hover:shadow-xl"
@@ -1298,7 +1918,11 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
           onClick={() => onClick(item)}
         >
           <div
-            className={`relative overflow-hidden w-full aspect-[4/3] sm:aspect-square ${isCleanStyle ? "border-b border-[#e7d9c3]" : ""}`}
+            className={`relative overflow-hidden ${
+              isListView
+                ? "min-h-28 w-28 shrink-0 self-stretch sm:w-36"
+                : `w-full ${viewMode === "grande" ? "aspect-[16/10]" : "aspect-[4/3] sm:aspect-square"}`
+            } ${isCleanStyle ? "border-b border-[#e7d9c3]" : ""}`}
           >
             <Image
               src={imageSrc}
@@ -1448,10 +2072,20 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
       item,
       onClick,
       eagerImage,
+      viewMode = "grade",
+      appearance = "default",
+      likeCount = 0,
+      liked = false,
+      onToggleLike,
     }: {
       item: MenuItem;
       onClick: (item: MenuItem) => void;
       eagerImage: boolean;
+      viewMode?: "lista" | "grade" | "grande";
+      appearance?: "default" | "ideiaum";
+      likeCount?: number;
+      liked?: boolean;
+      onToggleLike?: (itemId: string | number) => void;
     }) => {
       return (
         <MenuItemCardWithTracking
@@ -1466,6 +2100,11 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
           renderWineSeal={renderWineSeal}
           getSealById={getSealById}
           eagerImage={eagerImage}
+          viewMode={viewMode}
+          appearance={appearance}
+          likeCount={likeCount}
+          liked={liked}
+          onToggleLike={onToggleLike}
         />
       );
     },
@@ -1478,6 +2117,7 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
       getValidImageUrl,
       renderWineSeal,
       getSealById,
+      toggleItemLike,
     ],
   );
 
@@ -1519,6 +2159,21 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
     selectedBar.slug === "reserva-pinheiros";
   /** Banner para decoração-desativa navegação apenas neste cardápio. */
   const isSitioIlhaCardapio = slug?.toLowerCase() === "sitio-ilha";
+  const isGrupoIdeiaumCardapio = new Set([
+    "justino",
+    "pracinha",
+    "ape-do-pracinha",
+    "highline",
+    "ohfregues",
+    "reserva-rooftop",
+    "reserva-pinheiros",
+  ]).has(slug?.toLowerCase() || "");
+  const ideiaumItemGridClass =
+    menuItemView === "lista"
+      ? "grid grid-cols-1 gap-3"
+      : menuItemView === "grande"
+        ? "grid grid-cols-1 gap-4 md:grid-cols-2"
+        : "grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4";
   const reveillonBannerSlugs = new Set([
     "justino",
     "pracinha",
@@ -1609,6 +2264,137 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
                 : "bg-white rounded-xl shadow-lg"
             }`}
           >
+            {isGrupoIdeiaumCardapio ? (
+              <>
+                <div
+                  className={`relative z-0 overflow-hidden ${
+                    isCleanStyle ? "h-72 md:h-[22rem]" : "h-64 md:h-80"
+                  }`}
+                >
+                  <ImageSlider images={selectedBar.coverImages} />
+                </div>
+                <div className="relative z-10 flex items-start gap-3 px-4 pb-5 md:gap-5 md:px-6">
+                  <div
+                    className="logo-container relative -mt-16 h-32 w-32 shrink-0 cursor-pointer md:-mt-20 md:h-40 md:w-40 md:cursor-default"
+                    onClick={() =>
+                      window.innerWidth < 768 && setShowMobileSidebar(true)
+                    }
+                  >
+                    <div className="relative h-full w-full overflow-hidden rounded-full border-4 border-white bg-white shadow-[0_10px_28px_rgba(0,0,0,0.18)]">
+                      <Image
+                        src={getValidImageUrl(selectedBar.logoUrl, "medium")}
+                        alt={`${selectedBar.name} logo`}
+                        fill
+                        sizes="160px"
+                        quality={75}
+                        priority
+                        className="object-cover"
+                      />
+                    </div>
+                    <div className="menu-indicator absolute -top-1 -right-1 md:hidden">
+                      <div className="rounded-full bg-blue-600 p-1.5 text-white shadow-lg">
+                        <MdMenu className="menu-icon h-4 w-4" />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="min-w-0 flex-1 pt-3 md:pt-4">
+                    <h1 className="-mt-[90px] hidden text-3xl font-extrabold leading-none tracking-tight text-white [text-shadow:0_2px_10px_rgba(0,0,0,0.85),0_1px_2px_rgba(0,0,0,0.9)] md:block md:text-4xl">
+                      {selectedBar.name}
+                    </h1>
+                    {selectedBar.description ? (
+                      <p className="mt-2 hidden text-base font-semibold leading-snug text-white [text-shadow:0_1px_8px_rgba(0,0,0,0.9),0_1px_2px_rgba(0,0,0,0.85)] md:line-clamp-2 md:text-lg">
+                        {selectedBar.description}
+                      </p>
+                    ) : null}
+                    <div className="mt-2 flex items-center gap-4 text-neutral-900">
+                      <Link
+                        href={
+                          ESTABLISHMENT_HOME_PATH[slug?.toLowerCase() || ""] ||
+                          "/"
+                        }
+                        className="transition-colors hover:text-neutral-500"
+                        aria-label="Página do estabelecimento"
+                      >
+                        <MdHome className="h-5 w-5" />
+                      </Link>
+                      <button
+                        type="button"
+                        className="transition-colors hover:text-neutral-500"
+                        aria-label="Buscar no cardápio"
+                        aria-expanded={menuSearchOpen}
+                        onClick={() => setMenuSearchOpen((open) => !open)}
+                      >
+                        <MdSearch className="h-6 w-6" />
+                      </button>
+                      {selectedBar.facebook && (
+                        <a
+                          href={selectedBar.facebook}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="transition-colors hover:text-blue-600"
+                          aria-label="Facebook"
+                        >
+                          <FaFacebook className="h-5 w-5" />
+                        </a>
+                      )}
+                      {selectedBar.instagram && (
+                        <a
+                          href={selectedBar.instagram}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="transition-colors hover:text-pink-600"
+                          aria-label="Instagram"
+                        >
+                          <FaInstagram className="h-5 w-5" />
+                        </a>
+                      )}
+                      {selectedBar.whatsapp && (
+                        <a
+                          href={selectedBar.whatsapp}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="transition-colors hover:text-green-600"
+                          aria-label="WhatsApp"
+                        >
+                          <FaWhatsapp className="h-5 w-5" />
+                        </a>
+                      )}
+                    </div>
+                    {menuSearchOpen ? (
+                      <input
+                        type="search"
+                        value={menuSearchQuery}
+                        onChange={(event) =>
+                          setMenuSearchQuery(event.target.value)
+                        }
+                        placeholder="Buscar no cardápio"
+                        aria-label="Buscar no cardápio"
+                        className="mt-3 w-full rounded-full border border-neutral-300 bg-white px-4 py-2 text-sm text-neutral-900 outline-none ring-neutral-900 focus:ring-2"
+                        autoFocus
+                      />
+                    ) : null}
+                    <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-neutral-700">
+                      <div className="flex items-center gap-1">
+                        <MdStar className="h-5 w-5 text-amber-500" />
+                        <span className="font-semibold">
+                          {selectedBar.rating || 0}
+                        </span>
+                        <span className="text-neutral-500">
+                          ({selectedBar.reviewsCount || 0})
+                        </span>
+                      </div>
+                      <div className="hidden min-w-0 items-center gap-1 md:flex">
+                        <MdLocationOn className="h-4 w-4 shrink-0" />
+                        <span className="truncate text-sm">
+                          {selectedBar.address}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </>
+            ) : (
             <div
               className={`relative ${
                 isSitioIlhaCardapio
@@ -1723,53 +2509,66 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
                 </div>
               </div>
             </div>
+            )}
           </div>
         </div>
 
-        {selectedBar.partner_logos && selectedBar.partner_logos.length > 0 && (
-          <div
-            className={`mb-7 px-3 py-2 sm:mb-8 sm:px-4 ${
-              isCleanStyle ? "text-[#5c5348]" : "text-gray-600"
-            }`}
-          >
-            <p
-              className={`mb-4 text-center text-[0.68rem] font-semibold uppercase tracking-[0.24em] sm:mb-5 ${
-                isCleanStyle ? "text-[#8a7d6b]" : "text-gray-500"
-              }`}
-            >
-              Marcas
-            </p>
-            <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-4 px-1 py-1 sm:gap-x-6 sm:gap-y-5">
-              {selectedBar.partner_logos.map((src, idx) => (
-                <div
-                  key={`partner-${idx}-${src.slice(0, 48)}`}
-                  className="relative flex min-h-[12rem] min-w-[165px] max-w-[220px] flex-1 items-center justify-center px-3 py-3 sm:min-h-[13rem] sm:min-w-[200px] sm:max-w-[260px] sm:px-4 sm:py-4"
-                >
-                  <Image
-                    src={src}
-                    alt=""
-                    width={500}
-                    height={340}
-                    className="max-h-[10.75rem] w-auto object-contain opacity-100"
-                    unoptimized={src.startsWith("https://res.cloudinary.com")}
-                  />
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
+        <div ref={menuAnchorRef} className="h-px w-full" aria-hidden />
 
-        {menuCategories.length > 0 && (
+        {menuCategories.length > 0 &&
+          (!isGrupoIdeiaumCardapio || menuPinned) && (
           // Menu de categorias fixo (visível em todas as telas)
           <div
             ref={categoryBarRef}
-            className={`sticky z-40 ${
-              isCleanStyle
-                ? "bg-[#f6f4ee]/95 backdrop-blur-sm"
-                : "bg-gradient-to-br from-gray-50 to-gray-100"
-            }`}
-            style={{ top: `${stickyCategoryOffset}px` }}
+            className={
+              isGrupoIdeiaumCardapio
+                ? "fixed inset-x-0 top-0 z-50 border-b border-neutral-200 bg-white shadow-[0_8px_24px_rgba(0,0,0,0.08)]"
+                : `sticky z-40 ${
+                    isCleanStyle
+                      ? "bg-[#f6f4ee]/95 backdrop-blur-sm"
+                      : "bg-gradient-to-br from-gray-50 to-gray-100"
+                  }`
+            }
+            style={
+              isGrupoIdeiaumCardapio
+                ? undefined
+                : { top: `${stickyCategoryOffset}px` }
+            }
           >
+            {isGrupoIdeiaumCardapio ? (
+              <div className="flex items-center justify-between gap-3 bg-neutral-950 px-4 py-3 text-white sm:px-6">
+                <p className="min-w-0 truncate text-lg font-medium">
+                  {selectedBar.name}
+                </p>
+                <div className="flex shrink-0 items-center gap-1">
+                  {(
+                    [
+                      ["lista", "Ver em lista", MdViewList],
+                      ["grade", "Ver em grade", MdGridView],
+                      ["grande", "Ver em tamanho grande", MdCropSquare],
+                    ] as const
+                  ).map(([mode, label, Icon]) => {
+                    const selected = menuItemView === mode;
+                    return (
+                      <button
+                        key={mode}
+                        type="button"
+                        aria-label={label}
+                        aria-pressed={selected}
+                        onClick={() => setMenuItemView(mode)}
+                        className={`rounded-lg p-2 ${
+                          selected
+                            ? "bg-white text-neutral-950"
+                            : "text-white/80 hover:bg-white/10 hover:text-white"
+                        }`}
+                      >
+                        <Icon className="h-5 w-5" />
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : null}
             {/* Indicador de categoria ativa (oculto para clientes) */}
             <div
               className={`hidden text-center py-2 px-4 ${
@@ -1802,9 +2601,65 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
                 </span>
               </span>
             </div>
-            <div className="pb-2">
-              <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
-                {menuCategories.map((category) => (
+            <div className={isGrupoIdeiaumCardapio ? "px-4 sm:px-6" : "pb-2"}>
+              {isGrupoIdeiaumCardapio ? (
+                <IdeiaumCategoryChips
+                  categories={categoriesOnScreen}
+                  spy={menuSpy}
+                  registerCategoryMenuRef={registerCategoryMenuRef}
+                  registerSubcategoryMenuRef={registerSubcategoryMenuRef}
+                  onSelectCategory={(categoryName) => {
+                    const category = categoriesOnScreen.find(
+                      (entry) => entry.name === categoryName,
+                    );
+                    const subcategoryName =
+                      category?.subCategories[0]?.name || "";
+                    menuSpy.set({
+                      category: categoryName,
+                      subcategory: subcategoryName,
+                    });
+                    setSelectedCategory(categoryName);
+                    currentActiveCategoryRef.current = categoryName;
+                    currentActiveSubcategoryRef.current = subcategoryName;
+                    updateActiveButton(categoryName, subcategoryName);
+
+                    if (selectedBar) {
+                      const pageLocation =
+                        typeof window !== "undefined"
+                          ? window.location.href
+                          : `/cardapio/${slug}`;
+                      trackCategoryView(
+                        categoryName,
+                        null,
+                        selectedBar.name,
+                        slug,
+                        pageLocation,
+                      );
+                    }
+
+                    scrollToIdWithOffset(
+                      getCategoryDomId(categoryName),
+                      Math.max(categoryBarHeight, 0) + 12,
+                    );
+                  }}
+                  onSelectSubcategory={(categoryName, subcategoryName) => {
+                    menuSpy.set({
+                      category: categoryName,
+                      subcategory: subcategoryName,
+                    });
+                    currentActiveCategoryRef.current = categoryName;
+                    currentActiveSubcategoryRef.current = subcategoryName;
+                    updateActiveButton(categoryName, subcategoryName);
+                    scrollToIdWithOffset(
+                      getSubcategoryDomId(categoryName, subcategoryName),
+                      Math.max(categoryBarHeight, 0) + 12,
+                    );
+                  }}
+                />
+              ) : (
+              <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+                {categoriesOnScreen.map((category) => {
+                  return (
                   <button
                     key={category.id}
                     ref={(el) => registerCategoryMenuRef(category.name, el)}
@@ -1812,7 +2667,6 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
                       setSelectedCategory(category.name);
                       currentActiveCategoryRef.current = category.name;
 
-                      // Rastrear visualização de categoria
                       if (selectedBar) {
                         const pageLocation =
                           typeof window !== "undefined"
@@ -1829,25 +2683,23 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
 
                       scrollToIdWithOffset(
                         getCategoryDomId(category.name),
-                        stickyCategoryOffset +
+                        (menuPinned ? 0 : stickyCategoryOffset) +
                           Math.max(categoryBarHeight, 0) +
                           12,
                       );
                     }}
-                    className={`category-tab rounded-full font-medium whitespace-nowrap transition-all duration-200 ${
+                    className={`category-tab whitespace-nowrap font-medium transition-all duration-200 ${
                       isCleanStyle
-                        ? "px-3 py-1.5 text-[0.7rem] uppercase tracking-[0.16em]"
-                        : "px-4 py-2 text-sm"
-                    } ${
-                      isCleanStyle
-                        ? "shadow-sm hover:shadow-md"
-                        : "hover:bg-gray-50 shadow-md"
-                    } ${isCleanStyle ? "border border-[#e7dbc4]/70 backdrop-blur-sm" : ""}`}
+                        ? "rounded-full px-3 py-1.5 text-[0.7rem] uppercase tracking-[0.16em] shadow-sm hover:shadow-md border border-[#e7dbc4]/70 backdrop-blur-sm"
+                        : "rounded-full px-4 py-2 text-sm hover:bg-gray-50 shadow-md"
+                    }`}
                   >
                     {category.name}
                   </button>
-                ))}
+                  );
+                })}
               </div>
+              )}
             </div>
           </div>
         )}
@@ -1970,9 +2822,114 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
           No mobile, renderiza todas as categorias de uma vez (rolagem infinita).
           No desktop, mantém a renderização de uma categoria por vez com AnimatePresence.
         */}
+        {isGrupoIdeiaumCardapio && menuDestaques.length > 0 ? (
+          <section className="mt-8 min-w-0 max-w-full">
+            <h2 className="mb-4 text-xl font-semibold text-neutral-900">
+              Destaques
+            </h2>
+            <div
+              ref={destaquesRowRef}
+              className="destaques-scroll flex w-full min-w-0 max-w-full cursor-grab gap-4 overflow-x-auto pb-3 active:cursor-grabbing"
+            >
+              {menuDestaques.map((destaque) => {
+                const liked = Boolean(likedItemIds[String(destaque.item.id)]);
+                const count = likeCounts[String(destaque.item.id)] || 0;
+                return (
+                  <button
+                    key={destaque.key}
+                    type="button"
+                    onClick={() =>
+                      scrollToIdWithOffset(
+                        getSubcategoryDomId(
+                          destaque.categoryName,
+                          destaque.subcategoryName,
+                        ),
+                        Math.max(categoryBarHeight, 0) + 12,
+                      )
+                    }
+                    className="w-64 shrink-0 overflow-hidden bg-white text-left shadow-sm"
+                  >
+                    <div className="relative aspect-[3/4] w-full">
+                      <Image
+                        src={getValidImageUrl(destaque.item.imageUrl, "medium")}
+                        alt={destaque.item.name}
+                        fill
+                        sizes="256px"
+                        className="object-cover"
+                      />
+                      <span
+                        role="button"
+                        tabIndex={0}
+                        aria-label={liked ? "Remover curtida" : "Curtir"}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          toggleItemLike(destaque.item.id);
+                        }}
+                        onKeyDown={(event) => {
+                          if (event.key !== "Enter" && event.key !== " ") return;
+                          event.preventDefault();
+                          event.stopPropagation();
+                          toggleItemLike(destaque.item.id);
+                        }}
+                        className="absolute right-2 top-2 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-white shadow"
+                      >
+                        {liked ? (
+                          <FaHeart className="h-4 w-4 text-red-500" />
+                        ) : (
+                          <FaRegHeart className="h-4 w-4 text-neutral-800" />
+                        )}
+                      </span>
+                      <span className="absolute inset-x-0 bottom-0 bg-neutral-950 px-3 py-2 text-center text-sm font-semibold text-white">
+                        {destaque.subcategoryName}
+                      </span>
+                    </div>
+                    <div className="px-3 py-3">
+                      <p className="font-medium text-neutral-900">
+                        {destaque.item.name}
+                      </p>
+                      <div className="mt-3 flex items-end justify-between gap-3">
+                        <p className="text-sm leading-snug text-neutral-800">
+                          {destaque.hasFromPrice ? (
+                            <>
+                              À partir de
+                              <br />
+                              {formatPrice(destaque.minPrice)}
+                            </>
+                          ) : (
+                            formatPrice(destaque.minPrice)
+                          )}
+                        </p>
+                        <span
+                          role="button"
+                          tabIndex={0}
+                          aria-label={liked ? "Remover curtida" : "Curtir"}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            toggleItemLike(destaque.item.id);
+                          }}
+                          onKeyDown={(event) => {
+                            if (event.key !== "Enter" && event.key !== " ") return;
+                            event.preventDefault();
+                            event.stopPropagation();
+                            toggleItemLike(destaque.item.id);
+                          }}
+                          className="inline-flex items-center gap-1 text-sm text-neutral-800"
+                        >
+                          <FaHeart className="h-4 w-4 text-red-500" />
+                          <span>{count}</span>
+                        </span>
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+        ) : null}
+
         {isMobile ? (
           <div className="mt-8">
-            {menuCategories.map((category) => (
+            {categoriesOnScreen.map((category) => (
               <div
                 key={category.id}
                 id={getCategoryDomId(category.name)} // ID para rolagem
@@ -1983,6 +2940,7 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
                 </h2>
 
                 {/* Menu de subcategorias fixo (apenas no mobile, para cada categoria) */}
+                {!isGrupoIdeiaumCardapio && (
                 <div
                   className="sticky z-30 bg-gradient-to-br from-gray-50 to-gray-100 pb-4 pt-2 -mt-4"
                   style={{ top: `${stickySubcategoryOffset}px` }}
@@ -2018,17 +2976,20 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
                             stickySubcategoryOffset + 12,
                           );
                         }}
-                        className={`subcategory-tab rounded-full font-medium whitespace-nowrap transition-all duration-200 ${
-                          isCleanStyle
-                            ? "px-3 py-1.5 text-[0.7rem] uppercase tracking-[0.14em]"
-                            : "px-3 py-1.5 text-xs"
-                        } hover:bg-gray-50`}
+                        className={`subcategory-tab whitespace-nowrap font-medium transition-all duration-200 ${
+                          isGrupoIdeiaumCardapio
+                            ? "rounded-xl border border-neutral-900 bg-white px-4 py-2 text-sm font-semibold text-neutral-900"
+                            : isCleanStyle
+                              ? "rounded-full px-3 py-1.5 text-[0.7rem] uppercase tracking-[0.14em] hover:bg-gray-50"
+                              : "rounded-full px-3 py-1.5 text-xs hover:bg-gray-50"
+                        }`}
                       >
                         {subcat.name}
                       </button>
                     ))}
                   </div>
                 </div>
+                )}
 
                 {category.subCategories.map((subcat) => (
                   <div
@@ -2045,11 +3006,15 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
                       {subcat.name}
                     </h3>
                     <div
-                      className={`grid gap-3 sm:gap-4 ${
-                        isCleanStyle
-                          ? "grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6"
-                          : "grid-cols-2 md:grid-cols-3 xl:grid-cols-4"
-                      }`}
+                      className={
+                        isGrupoIdeiaumCardapio
+                          ? ideiaumItemGridClass
+                          : `grid gap-3 sm:gap-4 ${
+                              isCleanStyle
+                                ? "grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6"
+                                : "grid-cols-2 md:grid-cols-3 xl:grid-cols-4"
+                            }`
+                      }
                     >
                       {subcat.items.map((item) => (
                         <MenuItemCard
@@ -2057,6 +3022,15 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
                           item={item}
                           onClick={handleItemClick}
                           eagerImage={eagerItemIds.has(item.id)}
+                          viewMode={
+                            isGrupoIdeiaumCardapio ? menuItemView : "grade"
+                          }
+                          appearance={
+                            isGrupoIdeiaumCardapio ? "ideiaum" : "default"
+                          }
+                          likeCount={likeCounts[String(item.id)] || 0}
+                          liked={Boolean(likedItemIds[String(item.id)])}
+                          onToggleLike={toggleItemLike}
                         />
                       ))}
                     </div>
@@ -2069,7 +3043,7 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
           // # INÍCIO DA CORREÇÃO
           // Agora o desktop também renderiza TODAS as categorias de uma vez.
           <div className="mt-8">
-            {menuCategories.map((category) => (
+            {categoriesOnScreen.map((category) => (
               <div
                 key={category.id}
                 id={getCategoryDomId(category.name)} // ID para rolagem
@@ -2080,6 +3054,7 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
                 </h2>
 
                 {/* Menu de subcategorias fixo (desktop) */}
+                {!isGrupoIdeiaumCardapio && (
                 <div
                   className="sticky z-30 bg-gradient-to-br from-gray-50 to-gray-100 pb-4 pt-2 -mt-4"
                   style={{ top: `${stickySubcategoryOffset}px` }}
@@ -2115,17 +3090,20 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
                             stickySubcategoryOffset + 12,
                           );
                         }}
-                        className={`subcategory-tab rounded-full font-medium whitespace-nowrap transition-all duration-200 ${
-                          isCleanStyle
-                            ? "px-3 py-2 text-[0.7rem] uppercase tracking-[0.14em]"
-                            : "px-4 py-2 text-sm"
-                        } bg-white text-gray-600 hover:bg-gray-50`}
+                        className={`subcategory-tab whitespace-nowrap font-medium transition-all duration-200 ${
+                          isGrupoIdeiaumCardapio
+                            ? "rounded-xl border border-neutral-900 bg-white px-4 py-2.5 text-sm font-semibold text-neutral-900"
+                            : isCleanStyle
+                              ? "rounded-full bg-white px-3 py-2 text-[0.7rem] uppercase tracking-[0.14em] text-gray-600 hover:bg-gray-50"
+                              : "rounded-full bg-white px-4 py-2 text-sm text-gray-600 hover:bg-gray-50"
+                        }`}
                       >
                         {subcat.name}
                       </button>
                     ))}
                   </div>
                 </div>
+                )}
 
                 {/* Itens da categoria (desktop) */}
                 {category.subCategories.map((subcat) => (
@@ -2143,11 +3121,15 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
                       {subcat.name}
                     </h3>
                     <div
-                      className={`grid gap-4 ${
-                        isCleanStyle
-                          ? "grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6"
-                          : "grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" // Classes de grid do desktop mantidas
-                      }`}
+                      className={
+                        isGrupoIdeiaumCardapio
+                          ? ideiaumItemGridClass
+                          : `grid gap-4 ${
+                              isCleanStyle
+                                ? "grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6"
+                                : "grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+                            }`
+                      }
                     >
                       {subcat.items.map((item) => (
                         <MenuItemCard
@@ -2155,6 +3137,15 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
                           item={item}
                           onClick={handleItemClick}
                           eagerImage={eagerItemIds.has(item.id)}
+                          viewMode={
+                            isGrupoIdeiaumCardapio ? menuItemView : "grade"
+                          }
+                          appearance={
+                            isGrupoIdeiaumCardapio ? "ideiaum" : "default"
+                          }
+                          likeCount={likeCounts[String(item.id)] || 0}
+                          liked={Boolean(likedItemIds[String(item.id)])}
+                          onToggleLike={toggleItemLike}
                         />
                       ))}
                     </div>
@@ -2164,6 +3155,45 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
             ))}
           </div>
           // # FIM DA CORREÇÃO
+        )}
+
+        {menuSearchQuery.trim() && categoriesOnScreen.length === 0 ? (
+          <p className="mt-8 text-center text-sm text-neutral-600">
+            Nenhum item encontrado para “{menuSearchQuery.trim()}”.
+          </p>
+        ) : null}
+
+        {selectedBar.partner_logos && selectedBar.partner_logos.length > 0 && (
+          <div
+            className={`mt-16 mb-4 px-3 py-2 sm:px-4 ${
+              isCleanStyle ? "text-[#5c5348]" : "text-gray-600"
+            }`}
+          >
+            <p
+              className={`mb-4 text-center text-[0.68rem] font-semibold uppercase tracking-[0.24em] sm:mb-5 ${
+                isCleanStyle ? "text-[#8a7d6b]" : "text-gray-500"
+              }`}
+            >
+              Marcas
+            </p>
+            <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-4 px-1 py-1 sm:gap-x-6 sm:gap-y-5">
+              {selectedBar.partner_logos.map((src, idx) => (
+                <div
+                  key={`partner-${idx}-${src.slice(0, 48)}`}
+                  className="relative flex min-h-[12rem] min-w-[165px] max-w-[220px] flex-1 items-center justify-center px-3 py-3 sm:min-h-[13rem] sm:min-w-[200px] sm:max-w-[260px] sm:px-4 sm:py-4"
+                >
+                  <Image
+                    src={src}
+                    alt=""
+                    width={500}
+                    height={340}
+                    className="max-h-[10.75rem] w-auto object-contain opacity-100"
+                    unoptimized={src.startsWith("https://res.cloudinary.com")}
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
         )}
       </div>
 
@@ -2359,7 +3389,148 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
 
       {/* Modal de Detalhes do Item */}
       <AnimatePresence>
-        {selectedItem && (
+        {selectedItem && isGrupoIdeiaumCardapio ? (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[70] flex justify-center bg-black/60"
+          >
+            <motion.div
+              initial={{ y: 24, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: 24, opacity: 0 }}
+              className="flex h-full w-full max-w-lg flex-col overflow-y-auto bg-white"
+            >
+              {(() => {
+                const variations = getItemPriceVariations(selectedItem);
+                const activeVariation =
+                  variations.find(
+                    (variation) => variation.id === selectedVariationId,
+                  ) || variations[0];
+                const modalPrice = activeVariation
+                  ? activeVariation.price
+                  : selectedItem.price;
+                const liked = Boolean(likedItemIds[String(selectedItem.id)]);
+                const likeCount = likeCounts[String(selectedItem.id)] || 0;
+                const rating = itemRatings[String(selectedItem.id)] || 0;
+                return (
+                  <>
+                    <div className="relative h-[48vh] min-h-[280px] w-full shrink-0 bg-neutral-950">
+                      <Image
+                        src={
+                          imageError
+                            ? PLACEHOLDER_IMAGE_URL
+                            : getValidImageUrl(selectedItem.imageUrl, "full")
+                        }
+                        alt={selectedItem.name}
+                        fill
+                        sizes="(max-width: 512px) 100vw, 512px"
+                        quality={80}
+                        className="object-cover"
+                        priority
+                        onError={() =>
+                          setImageError(selectedItem.imageUrl || "error")
+                        }
+                      />
+                      <button
+                        type="button"
+                        onClick={handleCloseModal}
+                        aria-label="Voltar"
+                        className="absolute left-4 top-4 flex h-11 w-11 items-center justify-center rounded-full bg-black/45 text-white"
+                      >
+                        <MdArrowBack className="h-6 w-6" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => toggleItemLike(selectedItem.id)}
+                        aria-label={liked ? "Remover curtida" : "Curtir"}
+                        aria-pressed={liked}
+                        className="absolute right-4 top-4 flex h-11 w-11 items-center justify-center rounded-full bg-white shadow"
+                      >
+                        {liked || likeCount > 0 ? (
+                          <FaHeart className="h-5 w-5 text-red-500" />
+                        ) : (
+                          <FaRegHeart className="h-5 w-5 text-neutral-800" />
+                        )}
+                        <span className="absolute -bottom-1 -right-1 text-xs font-semibold text-neutral-900">
+                          {likeCount}
+                        </span>
+                      </button>
+                    </div>
+                    <div className="flex flex-1 flex-col items-center px-6 pb-12 pt-10 text-center">
+                      <h2 className="text-2xl font-medium text-neutral-900">
+                        {selectedItem.name}
+                      </h2>
+                      {selectedItem.description ? (
+                        <p className="mt-3 max-w-md text-sm leading-relaxed text-neutral-500">
+                          {selectedItem.description}
+                        </p>
+                      ) : null}
+                      <p className="mt-8 text-2xl font-semibold text-neutral-900">
+                        {formatPrice(
+                          modalPrice,
+                          !activeVariation && selectedItem.isPriceOnRequest,
+                        )}
+                      </p>
+                      {variations.length > 1 ? (
+                        <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
+                          {variations.map((variation) => {
+                            const selected =
+                              (activeVariation?.id || "base") === variation.id;
+                            return (
+                              <button
+                                key={variation.id}
+                                type="button"
+                                aria-pressed={selected}
+                                onClick={() =>
+                                  setSelectedVariationId(variation.id)
+                                }
+                                className={`rounded-lg px-5 py-3 text-base font-medium ${
+                                  selected
+                                    ? "bg-neutral-950 text-white"
+                                    : "border border-neutral-900 bg-white text-neutral-900"
+                                }`}
+                              >
+                                {variation.label}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      ) : null}
+                      <p className="mt-16 text-lg text-neutral-800">
+                        Deixe sua avaliação para este item
+                      </p>
+                      <div className="mt-4 flex items-center justify-center gap-3">
+                        {[1, 2, 3, 4, 5].map((star) => {
+                          const StarIcon =
+                            rating >= star ? MdStar : MdStarBorder;
+                          return (
+                            <button
+                              key={star}
+                              type="button"
+                              aria-label={`Avaliar com ${star} ${star === 1 ? "estrela" : "estrelas"}`}
+                              onClick={() => rateItem(selectedItem.id, star)}
+                              className="text-neutral-300"
+                            >
+                              <StarIcon
+                                className={`h-10 w-10 ${
+                                  rating >= star
+                                    ? "text-neutral-700"
+                                    : "text-neutral-300"
+                                }`}
+                              />
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </>
+                );
+              })()}
+            </motion.div>
+          </motion.div>
+        ) : selectedItem ? (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -2403,19 +3574,10 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
                         sizes="(max-width: 768px) 90vw, 400px"
                         quality={78}
                         className="w-full h-full object-contain rounded-lg shadow-lg"
-                        onError={(e) => {
-                          console.error("❌ Erro ao carregar imagem do item:", {
-                            originalUrl: selectedItem.imageUrl,
-                            generatedUrl: getValidImageUrl(
-                              selectedItem.imageUrl,
-                              "medium",
-                            ),
-                            itemName: selectedItem.name,
-                          });
+                        onError={() => {
                           setImageError(selectedItem.imageUrl || "error");
                         }}
                         onLoad={() => {
-                          // Resetar erro se a imagem carregar com sucesso
                           if (imageError) {
                             setImageError(null);
                           }
@@ -2458,7 +3620,6 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
                     {selectedItem.description}
                   </p>
 
-                  {/* Exibir selos no modal - vinho + demais */}
                   {renderModalSeals(selectedItem.seals || [])}
 
                   {selectedItem.toppings &&
@@ -2486,7 +3647,7 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
               </div>
             </motion.div>
           </motion.div>
-        )}
+        ) : null}
       </AnimatePresence>
 
       <style jsx>{`
@@ -2514,6 +3675,25 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
         }
         .scrollbar-hide::-webkit-scrollbar {
           display: none;
+        }
+        .destaques-scroll {
+          scrollbar-width: thin;
+          scrollbar-color: #d4d4d4 transparent;
+        }
+        .destaques-scroll::-webkit-scrollbar {
+          height: 8px;
+        }
+        .destaques-scroll::-webkit-scrollbar-thumb {
+          background: #d4d4d4;
+          border-radius: 999px;
+        }
+        @media (max-width: 767px) {
+          .destaques-scroll {
+            scrollbar-width: none;
+          }
+          .destaques-scroll::-webkit-scrollbar {
+            display: none;
+          }
         }
       `}</style>
     </div>

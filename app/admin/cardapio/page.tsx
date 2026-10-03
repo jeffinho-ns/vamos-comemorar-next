@@ -89,6 +89,7 @@ interface MenuItemForm {
   order: number;
   seals: string[]; // IDs dos selos selecionados
   isPriceOnRequest?: boolean; // Indica se o preço é "Sob Consulta"
+  featured?: boolean;
 }
 
 interface EditableSubCategory {
@@ -164,6 +165,7 @@ interface MenuItem {
     end_time: string;
   }>;
   isPriceOnRequest?: boolean; // Indica se o preço é "Sob Consulta"
+  featured?: boolean;
 }
 
 function isItemEffectivelyPaused(item: MenuItem): boolean {
@@ -1019,6 +1021,7 @@ export default function CardapioAdminPage() {
     order: 0,
     seals: [],
     isPriceOnRequest: false,
+    featured: false,
   });
 
   const [newTopping, setNewTopping] = useState({ name: '', price: '' });
@@ -1755,6 +1758,8 @@ export default function CardapioAdminPage() {
       toppings: [],
       order: 0,
       seals: [],
+      isPriceOnRequest: false,
+      featured: false,
     });
     setNewTopping({ name: '', price: '' });
     setAvailableSubCategories([]);
@@ -2289,6 +2294,7 @@ export default function CardapioAdminPage() {
       order: item.order,
       seals: item.seals || [],
       isPriceOnRequest: isPriceOnRequest,
+      featured: item.featured === true,
     });
     
     // Carregar subcategorias da categoria selecionada
@@ -2348,6 +2354,7 @@ export default function CardapioAdminPage() {
         toppings: [],
         order: 0,
         seals: [],
+        featured: false,
       });
       setShowItemModal(true);
     }
@@ -5680,6 +5687,25 @@ export default function CardapioAdminPage() {
                 className="w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
+
+            <button
+              type="button"
+              onClick={() =>
+                setItemForm((prev) => ({ ...prev, featured: !prev.featured }))
+              }
+              className={`w-full rounded-md px-4 py-2 text-sm font-semibold ${
+                itemForm.featured
+                  ? "bg-neutral-950 text-white"
+                  : "border border-neutral-900 bg-white text-neutral-900"
+              }`}
+            >
+              {itemForm.featured
+                ? "Remover dos destaques"
+                : "Colocar como destaque"}
+            </button>
+            <p className="-mt-2 text-xs text-gray-500">
+              Itens marcados aparecem na faixa Destaques do cardápio.
+            </p>
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-[minmax(0,1fr)_140px] admin-form-grid">
               <div>
