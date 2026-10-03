@@ -23,6 +23,7 @@ import { useMediaQuery } from "react-responsive"; // Importação do hook
 import { useGoogleAnalytics } from "../../hooks/useGoogleAnalytics";
 
 import ImageSlider from "../../components/ImageSlider/ImageSlider";
+import { applySeuJustinoSubcategoryOrder } from "../seuJustinoMenuOrder";
 import { scrollToSection } from "../../utils/scrollToSection";
 
 import {
@@ -336,6 +337,13 @@ const groupItemsBySubcategory = (
       (a, b) => Number(a.order || 0) - Number(b.order || 0),
     ),
   }));
+
+  const justinoOrdered = applySeuJustinoSubcategoryOrder(
+    barSlug,
+    categoryName,
+    result,
+  );
+  if (justinoOrdered !== result) return justinoOrdered;
 
   const minItemOrder = (items: MenuItem[]) =>
     items.reduce(
