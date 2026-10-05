@@ -634,9 +634,8 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
     trackMenuPageView,
   } = useGoogleAnalytics();
 
-  const isHighlineMenuPair = isHighlineMenuSlug(slug);
-  const [showHighlineChoice, setShowHighlineChoice] =
-    useState(isHighlineMenuPair);
+  const isHighlineEntry = (slug || "").toLowerCase() === HIGHLINE_MENU_SLUG.bar;
+  const [showHighlineChoice, setShowHighlineChoice] = useState(isHighlineEntry);
   const [selectedBar, setSelectedBar] = useState<Bar | null>(null);
   const [menuCategories, setMenuCategories] = useState<GroupedCategory[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -1272,17 +1271,13 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
   );
 
   useEffect(() => {
-    if (!isHighlineMenuPair) {
+    if ((slug || "").toLowerCase() !== HIGHLINE_MENU_SLUG.bar) {
       setShowHighlineChoice(false);
       return;
     }
     const tipo = new URLSearchParams(window.location.search).get("tipo");
-    const current = (slug || "").toLowerCase();
-    const chosen =
-      (tipo === "bar" && current === HIGHLINE_MENU_SLUG.bar) ||
-      (tipo === "club" && current === HIGHLINE_MENU_SLUG.club);
-    setShowHighlineChoice(!chosen);
-  }, [isHighlineMenuPair, slug]);
+    setShowHighlineChoice(tipo !== "bar");
+  }, [slug]);
 
   const chooseHighlineVenue = (tipo: "bar" | "club") => {
     const target = HIGHLINE_MENU_SLUG[tipo];
@@ -2159,6 +2154,37 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
       toggleItemLike,
     ],
   );
+
+  if (showHighlineChoice) {
+    return (
+      <div className="fixed inset-0 z-[80] flex items-center justify-center bg-neutral-950 px-6 text-white">
+        <div className="w-full max-w-md text-center">
+          <p className="text-sm uppercase tracking-[0.22em] text-white/60">
+            High Line
+          </p>
+          <h1 className="mt-4 text-3xl font-semibold">
+            Você está no Bar ou no Club?
+          </h1>
+          <div className="mt-10 grid grid-cols-2 gap-4">
+            <button
+              type="button"
+              onClick={() => chooseHighlineVenue("bar")}
+              className="rounded-2xl bg-white px-4 py-10 text-xl font-semibold text-neutral-950"
+            >
+              Bar
+            </button>
+            <button
+              type="button"
+              onClick={() => chooseHighlineVenue("club")}
+              className="rounded-2xl border border-white px-4 py-10 text-xl font-semibold text-white"
+            >
+              Club
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (isLoading) {
     return (
@@ -3736,34 +3762,6 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
           }
         }
       `}</style>
-      {showHighlineChoice ? (
-        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-neutral-950 px-6 text-white">
-          <div className="w-full max-w-md text-center">
-            <p className="text-sm uppercase tracking-[0.22em] text-white/60">
-              High Line
-            </p>
-            <h1 className="mt-4 text-3xl font-semibold">
-              Você está no Bar ou no Club?
-            </h1>
-            <div className="mt-10 grid grid-cols-2 gap-4">
-              <button
-                type="button"
-                onClick={() => chooseHighlineVenue("bar")}
-                className="rounded-2xl bg-white px-4 py-10 text-xl font-semibold text-neutral-950"
-              >
-                Bar
-              </button>
-              <button
-                type="button"
-                onClick={() => chooseHighlineVenue("club")}
-                className="rounded-2xl border border-white px-4 py-10 text-xl font-semibold text-white"
-              >
-                Club
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
     </div>
   );
 }
