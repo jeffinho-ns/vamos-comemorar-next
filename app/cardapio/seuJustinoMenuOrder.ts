@@ -26,6 +26,13 @@ const FOOD_ORDER: OrderEntry[] = [
 ];
 
 const DRINK_ORDER: OrderEntry[] = [
+  {
+    aliases: [
+      "Presente Seu Justino - promoções especiais",
+      "Presente do Justino",
+      "Seleção Seu Justino - Promoções especiais",
+    ],
+  },
   { aliases: ["Vodka"] },
   { aliases: ["Gin"] },
   { aliases: ["Whisky", "Whiskey"] },
@@ -36,6 +43,7 @@ const DRINK_ORDER: OrderEntry[] = [
   { aliases: ["Chopp e cerveja", "Chopps & Cervejas", "Chopps e Cervejas"] },
   { aliases: ["Licor"] },
   { aliases: ["Tequila"] },
+  { aliases: ["Rum"] },
   {
     aliases: [
       "sem alcool",
