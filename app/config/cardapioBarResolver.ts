@@ -13,7 +13,7 @@ export const ESTABLISHMENT_TO_CARDAPIO_BAR_ID: Record<number, number> = {
   // Reserva Pinheiros: place 21 → bar 18
   21: 18,
   18: 18,
-  // High Line: place 7 → bar 3
+  // High Line Bar: place 7 → bar 3. O Club (bar 19) entra junto em toCardapioBarIds.
   7: 3,
   // Oh Freguês: place 4 → bar 2 (place 4 ≠ bar 4, que é a Pracinha no cardápio)
   4: 2,
@@ -43,10 +43,32 @@ function normalizeNameKey(value: string): string {
     .trim();
 }
 
+const HIGHLINE_BAR_ID = 3;
+const HIGHLINE_CLUB_BAR_ID = 19;
+const HIGHLINE_CLUB_SLUG = 'highlineclub';
+
 const ESTABLISHMENT_NAME_TO_BAR_NAME_HINTS: Record<number, string[]> = {
   4: ['oh fregues', 'oh freguês'],
   8: ['pracinha'],
 };
+
+function highlineClubBarId(bars: CardapioBarLike[]): number {
+  for (const bar of bars) {
+    if (String(bar.slug || '').toLowerCase() === HIGHLINE_CLUB_SLUG) {
+      const id = Number(bar.id);
+      if (Number.isFinite(id) && id > 0) return id;
+    }
+  }
+  return HIGHLINE_CLUB_BAR_ID;
+}
+
+function grantsHighlineBar(establishmentId: number, mappedBarId: number): boolean {
+  return (
+    mappedBarId === HIGHLINE_BAR_ID ||
+    establishmentId === HIGHLINE_BAR_ID ||
+    establishmentId === 7
+  );
+}
 
 function matchBarIdByEstablishmentName(
   establishmentId: number,
@@ -122,6 +144,11 @@ export function toCardapioBarIds(
     }
   }
 
+  // High Line Club não tem place. Quem edita o Bar também edita o Club.
+  if (resolved.has(HIGHLINE_BAR_ID)) {
+    resolved.add(highlineClubBarId(bars));
+  }
+
   return Array.from(resolved);
 }
 
@@ -134,6 +161,7 @@ export function establishmentGrantsCardapioBar(
   const bar = Number(cardapioBarId);
   if (!Number.isFinite(est) || !Number.isFinite(bar)) return false;
   const mapped = resolveCardapioBarId(est);
+  if (bar === HIGHLINE_CLUB_BAR_ID && grantsHighlineBar(est, mapped)) return true;
   if (Number.isFinite(mapped) && mapped > 0) return mapped === bar;
   return est === bar;
 }
