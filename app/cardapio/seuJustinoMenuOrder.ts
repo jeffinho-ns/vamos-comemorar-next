@@ -26,26 +26,26 @@ const FOOD_ORDER: OrderEntry[] = [
 ];
 
 const DRINK_ORDER: OrderEntry[] = [
-  { aliases: ["Seleção Seu Justino - Promoções especiais", "Combos Mais Vendidos"] },
   { aliases: ["Vodka"] },
   { aliases: ["Gin"] },
-  { aliases: ["Whisky"] },
+  { aliases: ["Whisky", "Whiskey"] },
   { aliases: ["Softs", "Soft Drinks", "Soft's"] },
-  { aliases: ["Licor"] },
-  { aliases: ["Tequila"] },
-  { aliases: ["Rum"] },
   { aliases: ["Autorais", "Só Tem no Justino"] },
   { aliases: ["Clássicos"] },
   { aliases: ["Caipirinjas", "Caipirinhas do Justa!", "Caipirinhas do Justa"] },
   { aliases: ["Chopp e cerveja", "Chopps & Cervejas", "Chopps e Cervejas"] },
+  { aliases: ["Licor"] },
+  { aliases: ["Tequila"] },
   {
     aliases: [
       "sem alcool",
       "sem álcool",
       "Drinks não Alcoólicos",
       "Drinks não Alcoolicos",
+      "Drink's não alcoolicos",
     ],
   },
+  { aliases: ["Outros"] },
 ];
 
 const FOOD_CATEGORIES = new Set(["menu principal", "comidas"]);
