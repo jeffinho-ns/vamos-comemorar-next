@@ -1284,6 +1284,20 @@ export default function CardapioAdminPage() {
 
       if (scopedBarIds && scopedBarIds.length > 0) {
         const allowedBarIdSet = new Set(scopedBarIds.map((id) => Number(id)));
+        const seesHighline = barsData.some(
+          (bar) =>
+            allowedBarIdSet.has(Number(bar.id)) &&
+            String(bar.slug || "").toLowerCase() === "highline",
+        );
+        if (seesHighline) {
+          const club = barsList.find(
+            (bar: { slug?: string }) =>
+              String(bar.slug || "").toLowerCase() === "highlineclub",
+          );
+          if (club && Number.isFinite(Number(club.id))) {
+            allowedBarIdSet.add(Number(club.id));
+          }
+        }
         const scopedBars = barsData.filter((bar) => allowedBarIdSet.has(Number(bar.id)));
         // Se o mapa place→bar falhou, mantém os bars que a API já isolou (não zera a tela).
         barsData = scopedBars.length > 0 ? scopedBars : barsData;
