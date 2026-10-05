@@ -741,8 +741,9 @@ export default function ImageCropModal({
         originalCrop: croppedAreaPixels,
       });
 
+      const source = processedImageSrc || imageSrc;
       const croppedImage = await getCroppedImg(
-        imageSrc,
+        source,
         croppedAreaPixels,
         rotation,
         finalWidth,
