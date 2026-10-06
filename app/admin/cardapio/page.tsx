@@ -38,6 +38,7 @@ import { establishmentAllowsModule } from '@/app/utils/establishmentModuleAccess
 import { toCardapioBarIds } from '@/app/config/cardapioBarResolver';
 import { fetchCardapioMappings } from '@/app/utils/establishmentRulesClient';
 import { authHeaders } from '@/app/utils/readAuthToken';
+import CardapioConfigPanel from './CardapioConfigPanel';
 import { getPublicSocketUrl } from '@/lib/publicApiUrl';
 import { io, Socket } from 'socket.io-client';
 
@@ -809,7 +810,7 @@ export default function CardapioAdminPage() {
   } = useSaasAccess();
   const router = useRouter();
 
-  const [activeTab, setActiveTab] = useState<'bars' | 'categories' | 'items'>('bars');
+  const [activeTab, setActiveTab] = useState<'bars' | 'categories' | 'items' | 'settings'>('bars');
   const [showBarModal, setShowBarModal] = useState(false);
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [showItemModal, setShowItemModal] = useState(false);
@@ -3493,6 +3494,7 @@ export default function CardapioAdminPage() {
                 { id: 'bars', name: 'Estabelecimentos', count: visibleBars.length },
                 { id: 'categories', name: 'Categorias', count: visibleCategories.length },
                 { id: 'items', name: 'Itens do Menu', count: visibleItems.length },
+                { id: 'settings', name: 'Configuração', count: visibleBars.length },
               ].map((tab) => (
                 <button
                   key={tab.id}
@@ -4705,6 +4707,17 @@ export default function CardapioAdminPage() {
                   );
                 })}
               </div>
+            )}
+
+            {activeTab === 'settings' && (
+              <CardapioConfigPanel
+                canEditBar={(barId) =>
+                  isAdmin || canManageBar(barId) || Boolean(promoterBar && Number(promoterBar.barId) === barId)
+                }
+                onMenuChanged={() => {
+                  void fetchData();
+                }}
+              />
             )}
           </motion.div>
         </AnimatePresence>
