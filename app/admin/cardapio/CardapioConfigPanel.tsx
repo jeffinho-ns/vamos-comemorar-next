@@ -4,6 +4,32 @@ import { useCallback, useEffect, useState } from 'react';
 import { authHeaders } from '@/app/utils/readAuthToken';
 
 const API_BASE_URL = 'https://api.agilizaiapp.com.br/api/cardapio';
+const SITIO_ILHA_CONFIG_EMAIL = 'jeffinho_ns@hotmail.com';
+
+export function isSitioIlhaConfigHouse(house: {
+  barId?: number;
+  id?: number | string;
+  name?: string | null;
+  slug?: string | null;
+}) {
+  const id = Number(house.barId ?? house.id);
+  if (id === 15) return true;
+  const slug = String(house.slug || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '');
+  if (slug.includes('sitioilha')) return true;
+  const name = String(house.name || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+  return name.includes('sitio') && name.includes('ilha');
+}
+
+export function canViewSitioIlhaConfig(email?: string | null) {
+  return String(email || '').trim().toLowerCase() === SITIO_ILHA_CONFIG_EMAIL;
+}
 
 type Seal = { id: string; name: string; color: string; type: 'food' | 'drink' };
 
@@ -31,6 +57,16 @@ type House = {
 };
 
 type Organization = { id: number; name: string; houses: House[] };
+
+function withoutHiddenSitio(organizations: Organization[], email?: string | null) {
+  if (canViewSitioIlhaConfig(email)) return organizations;
+  return organizations
+    .map((organization) => ({
+      ...organization,
+      houses: organization.houses.filter((house) => !isSitioIlhaConfigHouse(house)),
+    }))
+    .filter((organization) => organization.houses.length > 0);
+}
 
 type Backup = {
   id: number;
@@ -447,9 +483,11 @@ function HouseConfig({
 export default function CardapioConfigPanel({
   canEditBar,
   onMenuChanged,
+  viewerEmail,
 }: {
   canEditBar: (barId: number) => boolean;
   onMenuChanged: () => void;
+  viewerEmail?: string | null;
 }) {
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [openHouse, setOpenHouse] = useState<number | null>(null);
@@ -463,13 +501,13 @@ export default function CardapioConfigPanel({
     setError('');
     try {
       const body = await readJson(await fetch(`${API_BASE_URL}/config/houses`, { headers: authHeaders() }));
-      setOrganizations(body.organizations || []);
+      setOrganizations(withoutHiddenSitio(body.organizations || [], viewerEmail));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao carregar.');
     } finally {
       if (!silent) setLoading(false);
     }
-  }, []);
+  }, [viewerEmail]);
 
   useEffect(() => {
     load().catch(() => undefined);

@@ -38,7 +38,7 @@ import { establishmentAllowsModule } from '@/app/utils/establishmentModuleAccess
 import { toCardapioBarIds } from '@/app/config/cardapioBarResolver';
 import { fetchCardapioMappings } from '@/app/utils/establishmentRulesClient';
 import { authHeaders } from '@/app/utils/readAuthToken';
-import CardapioConfigPanel from './CardapioConfigPanel';
+import CardapioConfigPanel, { canViewSitioIlhaConfig, isSitioIlhaConfigHouse } from './CardapioConfigPanel';
 import { getPublicSocketUrl } from '@/lib/publicApiUrl';
 import { io, Socket } from 'socket.io-client';
 
@@ -959,6 +959,10 @@ export default function CardapioAdminPage() {
             return menuData.bars;
           })()
         : menuData.bars;
+
+  const configBars = canViewSitioIlhaConfig(userEmail)
+    ? visibleBars
+    : visibleBars.filter((bar) => !isSitioIlhaConfigHouse(bar));
 
   const visibleBarIdsForFiltering = Array.from(
     new Set(visibleBars.map((bar) => Number(bar.id)).filter((id) => !Number.isNaN(id)))
@@ -3494,7 +3498,7 @@ export default function CardapioAdminPage() {
                 { id: 'bars', name: 'Estabelecimentos', count: visibleBars.length },
                 { id: 'categories', name: 'Categorias', count: visibleCategories.length },
                 { id: 'items', name: 'Itens do Menu', count: visibleItems.length },
-                { id: 'settings', name: 'Configuração', count: visibleBars.length },
+                { id: 'settings', name: 'Configuração', count: configBars.length },
               ].map((tab) => (
                 <button
                   key={tab.id}
@@ -4711,6 +4715,7 @@ export default function CardapioAdminPage() {
 
             {activeTab === 'settings' && (
               <CardapioConfigPanel
+                viewerEmail={userEmail}
                 canEditBar={(barId) =>
                   isAdmin || canManageBar(barId) || Boolean(promoterBar && Number(promoterBar.barId) === barId)
                 }
