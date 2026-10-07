@@ -97,7 +97,50 @@ const minItemOrder = (items: { order?: number | string | null }[]) =>
     Number.POSITIVE_INFINITY,
   );
 
-type OrderedItem = { order?: number | string | null };
+type OrderedItem = {
+  order?: number | string | null;
+  subcategoryOrder?: number | string | null;
+};
+
+/** Ordem comum a todos os itens da seção. Null quando cada item ainda tem a sua. */
+export const sharedSubcategoryOrder = (items: OrderedItem[]): number | null => {
+  if (items.length === 0) return null;
+  const ranks = items.map((item) => {
+    if (item.subcategoryOrder === undefined || item.subcategoryOrder === null || item.subcategoryOrder === "") {
+      return null;
+    }
+    const value = Number(item.subcategoryOrder);
+    return Number.isFinite(value) ? value : null;
+  });
+  if (ranks.some((rank) => rank === null)) return null;
+  const first = ranks[0] as number;
+  return ranks.every((rank) => rank === first) ? first : null;
+};
+
+/**
+ * A ordem salva no admin existe quando todas as seções têm um único subcategoryOrder
+ * e ele não é só a cópia do order de cada item.
+ */
+export const categoryUsesSavedSubcategoryOrder = <T extends NamedSubcategoryGroup<OrderedItem>>(
+  groups: T[],
+): boolean => {
+  if (groups.length === 0) return false;
+  const ranks = groups.map((group) => sharedSubcategoryOrder(group.items));
+  if (ranks.some((rank) => rank === null)) return false;
+  return groups.some((group, index) => ranks[index] !== minItemOrder(group.items));
+};
+
+/** Devolve a lista ordenada pela ordem salva, ou null se essa ordem ainda não foi gravada. */
+export const sortBySavedSubcategoryOrder = <T extends NamedSubcategoryGroup<OrderedItem>>(
+  groups: T[],
+): T[] | null => {
+  if (!categoryUsesSavedSubcategoryOrder(groups)) return null;
+  return [...groups].sort((a, b) => {
+    const diff = (sharedSubcategoryOrder(a.items) ?? 0) - (sharedSubcategoryOrder(b.items) ?? 0);
+    if (diff !== 0) return diff;
+    return a.name.localeCompare(b.name, "pt-BR");
+  });
+};
 
 /** Reordena subcategorias do Seu Justino. Devolve a mesma lista se não for esse cardápio. */
 export const applySeuJustinoSubcategoryOrder = <T extends NamedSubcategoryGroup<OrderedItem>>(

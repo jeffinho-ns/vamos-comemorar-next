@@ -30,7 +30,10 @@ import { useMediaQuery } from "react-responsive"; // Importação do hook
 import { useGoogleAnalytics } from "../../hooks/useGoogleAnalytics";
 
 import ImageSlider from "../../components/ImageSlider/ImageSlider";
-import { applySeuJustinoSubcategoryOrder } from "../seuJustinoMenuOrder";
+import {
+  applySeuJustinoSubcategoryOrder,
+  sortBySavedSubcategoryOrder,
+} from "../seuJustinoMenuOrder";
 import { scrollToSection } from "../../utils/scrollToSection";
 
 import {
@@ -108,6 +111,7 @@ interface MenuItem {
   subCategoryName?: string;
   toppings: Topping[];
   order: number;
+  subcategoryOrder?: number | null;
   seals?: string[];
   visible?: boolean | number | null;
   effectiveVisible?: boolean;
@@ -583,6 +587,9 @@ const groupItemsBySubcategory = (
       (a, b) => Number(a.order || 0) - Number(b.order || 0),
     ),
   }));
+
+  const savedOrder = sortBySavedSubcategoryOrder(result);
+  if (savedOrder) return savedOrder;
 
   const justinoOrdered = applySeuJustinoSubcategoryOrder(
     barSlug,
