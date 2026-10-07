@@ -466,6 +466,38 @@ function parseAdImagesFromBar(bar: BarFromAPI): string[] {
 }
 
 const API_BASE_URL = "https://api.agilizaiapp.com.br/api/cardapio";
+const CARDAPIO_VISITOR_KEY = "agilizai-cardapio-visitor";
+
+function readCardapioVisitorKey(): string {
+  const existing = window.localStorage.getItem(CARDAPIO_VISITOR_KEY);
+  if (existing && /^[A-Za-z0-9-]{16,80}$/.test(existing)) return existing;
+  const created =
+    typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+      ? crypto.randomUUID()
+      : `visitor-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  window.localStorage.setItem(CARDAPIO_VISITOR_KEY, created);
+  return created;
+}
+
+function readLegacyCardapioLikes(menuSlug: string): {
+  counts: Record<string, number>;
+  liked: string[];
+} {
+  try {
+    const raw = window.localStorage.getItem(`agilizai-cardapio-likes:${menuSlug}`);
+    if (!raw) return { counts: {}, liked: [] };
+    const parsed = JSON.parse(raw) as {
+      counts?: Record<string, number>;
+      liked?: string[];
+    };
+    return {
+      counts: parsed.counts || {},
+      liked: Array.isArray(parsed.liked) ? parsed.liked.map(String) : [],
+    };
+  } catch {
+    return { counts: {}, liked: [] };
+  }
+}
 // Placeholders locais para evitar erros 404 externos
 const PLACEHOLDER_IMAGE_URL = "/placeholder-cardapio.svg";
 const PLACEHOLDER_LOGO_URL = getCardapioPlaceholderUrl();
@@ -656,6 +688,11 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
   );
   const [likedItemIds, setLikedItemIds] = useState<Record<string, boolean>>({});
   const [likeCounts, setLikeCounts] = useState<Record<string, number>>({});
+  const likesEpochRef = useRef(0);
+  const likedItemIdsRef = useRef(likedItemIds);
+  const likeCountsRef = useRef(likeCounts);
+  likedItemIdsRef.current = likedItemIds;
+  likeCountsRef.current = likeCounts;
   const [itemRatings, setItemRatings] = useState<Record<string, number>>({});
   const [selectedVariationId, setSelectedVariationId] = useState("base");
   const categoryBarRef = useRef<HTMLDivElement | null>(null);
@@ -1183,61 +1220,114 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
   }, [menuDestaques.length, isLoading]);
 
   useEffect(() => {
-    if (!slug || typeof window === "undefined") return;
-    try {
-      const raw = window.localStorage.getItem(`agilizai-cardapio-likes:${slug}`);
-      if (!raw) {
-        setLikedItemIds({});
-        setLikeCounts({});
-        return;
-      }
-      const parsed = JSON.parse(raw) as {
-        counts?: Record<string, number>;
-        liked?: string[];
-      };
-      setLikeCounts(parsed.counts || {});
-      setLikedItemIds(
-        Object.fromEntries((parsed.liked || []).map((id) => [id, true])),
-      );
-    } catch {
-      setLikedItemIds({});
-      setLikeCounts({});
-    }
-  }, [slug]);
+    if (!slug || !selectedBar || String(selectedBar.slug) !== String(slug)) return;
+    if (typeof window === "undefined") return;
 
-  const toggleItemLike = useCallback(
-    (itemId: string | number) => {
-      const key = String(itemId);
-      setLikedItemIds((previousLiked) => {
-        const willLike = !previousLiked[key];
-        const nextLiked = { ...previousLiked };
-        if (willLike) nextLiked[key] = true;
-        else delete nextLiked[key];
+    const epochAtStart = likesEpochRef.current;
+    const barId = selectedBar.id;
+    let cancelled = false;
 
-        setLikeCounts((previousCounts) => {
-          const nextCounts = {
-            ...previousCounts,
-            [key]: Math.max(0, (previousCounts[key] || 0) + (willLike ? 1 : -1)),
-          };
-          try {
-            window.localStorage.setItem(
-              `agilizai-cardapio-likes:${slug}`,
-              JSON.stringify({
-                counts: nextCounts,
-                liked: Object.keys(nextLiked),
-              }),
+    const applyLikes = (counts: Record<string, number>, liked: string[]) => {
+      if (cancelled || likesEpochRef.current !== epochAtStart) return;
+      const nextCounts = counts || {};
+      const nextLiked = Object.fromEntries((liked || []).map((id) => [String(id), true]));
+      likeCountsRef.current = nextCounts;
+      likedItemIdsRef.current = nextLiked;
+      setLikeCounts(nextCounts);
+      setLikedItemIds(nextLiked);
+    };
+
+    const loadLikes = async () => {
+      const visitorKey = readCardapioVisitorKey();
+      const legacy = readLegacyCardapioLikes(slug);
+      try {
+        const response = legacy.liked.length
+          ? await fetch(`${API_BASE_URL}/bars/${barId}/item-likes/sync`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ visitorKey, itemIds: legacy.liked }),
+            })
+          : await fetch(
+              `${API_BASE_URL}/bars/${barId}/item-likes?visitorKey=${encodeURIComponent(visitorKey)}`,
             );
-          } catch {
-            // O cardápio segue utilizável se o navegador bloquear o armazenamento.
-          }
-          return nextCounts;
-        });
+        if (!response.ok) throw new Error("Falha ao carregar curtidas");
+        const data = (await response.json()) as {
+          counts?: Record<string, number>;
+          liked?: string[];
+        };
+        if (legacy.liked.length) {
+          window.localStorage.removeItem(`agilizai-cardapio-likes:${slug}`);
+        }
+        applyLikes(data.counts || {}, data.liked || []);
+      } catch {
+        applyLikes(legacy.counts, legacy.liked);
+      }
+    };
 
-        return nextLiked;
-      });
-    },
-    [slug],
-  );
+    void loadLikes();
+    return () => {
+      cancelled = true;
+    };
+  }, [slug, selectedBar]);
+
+  const toggleItemLike = useCallback((itemId: string | number) => {
+    const key = String(itemId);
+    const requestEpoch = likesEpochRef.current + 1;
+    likesEpochRef.current = requestEpoch;
+    const visitorKey =
+      typeof window !== "undefined" ? readCardapioVisitorKey() : "";
+    const previousLiked = Boolean(likedItemIdsRef.current[key]);
+    const previousCount = likeCountsRef.current[key] || 0;
+    const desiredLiked = !previousLiked;
+    const nextLiked = { ...likedItemIdsRef.current };
+    if (desiredLiked) nextLiked[key] = true;
+    else delete nextLiked[key];
+    const nextCounts = {
+      ...likeCountsRef.current,
+      [key]: Math.max(0, previousCount + (desiredLiked ? 1 : -1)),
+    };
+    likedItemIdsRef.current = nextLiked;
+    likeCountsRef.current = nextCounts;
+    setLikedItemIds(nextLiked);
+    setLikeCounts(nextCounts);
+
+    void (async () => {
+      try {
+        const response = await fetch(
+          `${API_BASE_URL}/items/${encodeURIComponent(key)}/like`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ visitorKey, liked: desiredLiked }),
+          },
+        );
+        if (!response.ok) throw new Error("Falha ao curtir");
+        const data = (await response.json()) as { liked?: boolean; count?: number };
+        if (likesEpochRef.current !== requestEpoch) return;
+        const confirmedLiked = { ...likedItemIdsRef.current };
+        if (data.liked) confirmedLiked[key] = true;
+        else delete confirmedLiked[key];
+        const confirmedCounts = {
+          ...likeCountsRef.current,
+          [key]: typeof data.count === "number" ? data.count : nextCounts[key],
+        };
+        likedItemIdsRef.current = confirmedLiked;
+        likeCountsRef.current = confirmedCounts;
+        setLikedItemIds(confirmedLiked);
+        setLikeCounts(confirmedCounts);
+      } catch {
+        if (likesEpochRef.current !== requestEpoch) return;
+        const revertedLiked = { ...likedItemIdsRef.current };
+        if (previousLiked) revertedLiked[key] = true;
+        else delete revertedLiked[key];
+        const revertedCounts = { ...likeCountsRef.current, [key]: previousCount };
+        likedItemIdsRef.current = revertedLiked;
+        likeCountsRef.current = revertedCounts;
+        setLikedItemIds(revertedLiked);
+        setLikeCounts(revertedCounts);
+      }
+    })();
+  }, []);
 
   useEffect(() => {
     if (!slug || typeof window === "undefined") return;
@@ -3514,7 +3604,7 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
                         aria-pressed={liked}
                         className="absolute right-4 top-4 flex h-11 w-11 items-center justify-center rounded-full bg-white shadow"
                       >
-                        {liked || likeCount > 0 ? (
+                        {liked ? (
                           <FaHeart className="h-5 w-5 text-red-500" />
                         ) : (
                           <FaRegHeart className="h-5 w-5 text-neutral-800" />
