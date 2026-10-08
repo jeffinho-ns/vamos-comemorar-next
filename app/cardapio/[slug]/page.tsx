@@ -201,7 +201,7 @@ interface BarFromAPI {
   }>;
   menu_display_style?: MenuDisplayStyle;
   partner_logos?: string[] | string | null;
-  ad_images?: string[] | string | null;
+  ad_images?: Array<{ url: string; link?: string }> | string | null;
 }
 
 interface Bar {
@@ -238,6 +238,7 @@ interface Bar {
   menu_display_style: MenuDisplayStyle;
   partner_logos?: string[];
   ad_images?: string[];
+  ad_links?: string[];
 }
 
 interface GroupedCategory {
@@ -444,29 +445,35 @@ function parsePartnerLogosFromBar(bar: BarFromAPI): string[] {
   return [];
 }
 
-function parseAdImagesFromBar(bar: BarFromAPI): string[] {
+function parseAdImagesFromBar(bar: BarFromAPI): { url: string; link: string }[] {
   const raw = bar.ad_images as unknown;
+  let list: unknown[] = [];
   if (raw == null) return [];
-  if (Array.isArray(raw)) {
-    return raw.filter(
-      (x): x is string => typeof x === "string" && x.trim() !== "",
-    );
-  }
-  if (typeof raw === "string") {
+  if (Array.isArray(raw)) list = raw;
+  else if (typeof raw === "string") {
     const t = raw.trim();
     if (!t) return [];
     try {
       const parsed = JSON.parse(t);
-      if (Array.isArray(parsed)) {
-        return parsed.filter(
-          (x): x is string => typeof x === "string" && x.trim() !== "",
-        );
-      }
+      list = Array.isArray(parsed) ? parsed : [t];
     } catch {
-      return [t];
+      list = [t];
     }
   }
-  return [];
+  return list
+    .map((item) => {
+      if (typeof item === "string" && item.trim()) return { url: item.trim(), link: "" };
+      if (item && typeof item === "object") {
+        const rec = item as { url?: string; link?: string };
+        const url = String(rec.url || "").trim();
+        if (!url) return null;
+        const link = String(rec.link || "").trim();
+        return { url, link: /^https?:\/\//i.test(link) ? link : "" };
+      }
+      return null;
+    })
+    .filter((item): item is { url: string; link: string } => Boolean(item))
+    .slice(0, 10);
 }
 
 const API_BASE_URL = "https://api.agilizaiapp.com.br/api/cardapio";
@@ -840,7 +847,10 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
           .map((img: string) => getValidImageUrl(img, "thumb")),
         ad_images: parseAdImagesFromBar(bar)
           .slice(0, 10)
-          .map((img: string) => getValidImageUrl(img, "medium")),
+          .map((slide) => getValidImageUrl(slide.url, "medium")),
+        ad_links: parseAdImagesFromBar(bar)
+          .slice(0, 10)
+          .map((slide) => slide.link),
       };
 
       setSelectedBar(barWithImages);
@@ -2871,6 +2881,7 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
           <div className="mt-8 mb-8 overflow-hidden rounded-xl shadow-lg">
             <ImageSlider
               images={selectedBar.ad_images}
+              links={selectedBar.ad_links}
               interval={5000}
               preserveImage
             />

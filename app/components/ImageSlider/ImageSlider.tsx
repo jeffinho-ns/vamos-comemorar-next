@@ -6,6 +6,8 @@ import Image from 'next/image';
 
 interface ImageSliderProps {
   images: string[];
+  /** Link externo por slide, na mesma ordem de images. Vazio = não clicável. */
+  links?: string[];
   interval?: number;
   /** Mostra a imagem inteira, na proporção original, sem corte. */
   preserveImage?: boolean;
@@ -13,6 +15,7 @@ interface ImageSliderProps {
 
 const ImageSlider: React.FC<ImageSliderProps> = ({
   images,
+  links,
   interval = 5000,
   preserveImage = false,
 }) => {
@@ -34,8 +37,9 @@ const ImageSlider: React.FC<ImageSliderProps> = ({
   const safeIndex = currentIndex % images.length;
   const activeSrc = images[safeIndex];
   const activeRatio = ratios[activeSrc] ?? 16 / 9;
+  const activeLink = String(links?.[safeIndex] || '').trim();
 
-  return (
+  const frame = (
     <div
       className={
         preserveImage
@@ -76,6 +80,20 @@ const ImageSlider: React.FC<ImageSliderProps> = ({
         );
       })}
     </div>
+  );
+
+  if (!activeLink) return frame;
+
+  return (
+    <a
+      href={activeLink}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="block"
+      aria-label="Abrir anúncio"
+    >
+      {frame}
+    </a>
   );
 };
 

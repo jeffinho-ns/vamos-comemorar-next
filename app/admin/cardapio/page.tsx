@@ -109,6 +109,51 @@ interface MenuCategoryForm {
   subCategories: EditableSubCategory[];
 }
 
+/** Arte de propaganda do carrossel: imagem + link externo opcional (espaço vendido). */
+type AdSlide = { url: string; link: string };
+
+function normalizeAdLinkForSave(raw: string): string {
+  const t = String(raw || '').trim();
+  if (!t) return '';
+  if (/^(javascript|data):/i.test(t)) return '';
+  if (/^https?:\/\//i.test(t)) return t.slice(0, 500);
+  if (/^\/\//.test(t)) return `https:${t}`.slice(0, 500);
+  if (/^[\w.-]+\.[a-z]{2,}([/?#].*)?$/i.test(t)) return `https://${t}`.slice(0, 500);
+  return '';
+}
+
+function parseAdSlides(
+  raw: unknown,
+  processUrl: (url: string) => string,
+): AdSlide[] {
+  let list: unknown[] = [];
+  if (Array.isArray(raw)) list = raw;
+  else if (typeof raw === 'string' && raw.trim()) {
+    try {
+      const parsed = JSON.parse(raw);
+      list = Array.isArray(parsed) ? parsed : [raw];
+    } catch {
+      list = [raw];
+    }
+  }
+  return list
+    .map((item) => {
+      if (typeof item === 'string') {
+        const url = processUrl(item);
+        return url ? { url, link: '' } : null;
+      }
+      if (item && typeof item === 'object') {
+        const rec = item as { url?: string; link?: string };
+        const url = processUrl(String(rec.url || ''));
+        if (!url) return null;
+        return { url, link: String(rec.link || '').trim() };
+      }
+      return null;
+    })
+    .filter((item): item is AdSlide => Boolean(item))
+    .slice(0, 10);
+}
+
 interface BarForm {
   name: string;
   slug: string;
@@ -138,7 +183,7 @@ interface BarForm {
   /** Até 5 logos exibidos no cardápio público entre o banner e o menu de categorias */
   partner_logos?: string[];
   /** Artes de propaganda no espaço do banner, em carrossel */
-  ad_images?: string[];
+  ad_images?: AdSlide[];
 }
 
 interface MenuItem {
@@ -236,7 +281,7 @@ interface Bar {
   custom_seals?: Array<{ id: string; name: string; color: string; type: 'food' | 'drink' }>;
   menu_display_style?: MenuDisplayStyle;
   partner_logos?: string[];
-  ad_images?: string[];
+  ad_images?: AdSlide[];
 }
 
 declare module 'react' {
@@ -1206,11 +1251,7 @@ export default function CardapioAdminPage() {
                   ? JSON.parse(bar.coverImages).map((url: string) => processImageUrl(url))
                   : [],
               popupImageUrl: processImageUrl(bar.popupImageUrl),
-              ad_images: Array.isArray(bar.ad_images)
-                ? bar.ad_images.map((url: string) => processImageUrl(url))
-                : typeof bar.ad_images === 'string'
-                  ? JSON.parse(bar.ad_images).map((url: string) => processImageUrl(url))
-                  : [],
+              ad_images: parseAdSlides(bar.ad_images, processImageUrl),
               menu_display_style:
                 bar.menu_display_style === 'clean'
                   ? 'clean'
@@ -1942,8 +1983,15 @@ export default function CardapioAdminPage() {
 
       const normalizedAdImages = Array.isArray(barForm.ad_images)
         ? barForm.ad_images
-            .map((u) => processUrlForSave(u))
-            .filter((u) => !!u)
+            .map((slide) => {
+              const url = processUrlForSave(typeof slide === 'string' ? slide : slide?.url);
+              if (!url) return null;
+              return {
+                url,
+                link: normalizeAdLinkForSave(typeof slide === 'string' ? '' : slide?.link || ''),
+              };
+            })
+            .filter((slide): slide is AdSlide => Boolean(slide))
             .slice(0, 10)
         : [];
 
@@ -2261,9 +2309,7 @@ export default function CardapioAdminPage() {
       partner_logos: Array.isArray(bar.partner_logos)
         ? bar.partner_logos.map((u) => processUrlForForm(u)).filter(Boolean).slice(0, 5)
         : [],
-      ad_images: Array.isArray(bar.ad_images)
-        ? bar.ad_images.map((u) => processUrlForForm(u)).filter(Boolean).slice(0, 10)
-        : [],
+      ad_images: parseAdSlides(bar.ad_images, processUrlForForm),
     });
     setShowBarModal(true);
   }, []);
@@ -2594,7 +2640,7 @@ export default function CardapioAdminPage() {
       coverImages?: string[];
       popupImageUrl?: string;
       partner_logos?: string[];
-      ad_images?: string[];
+      ad_images?: AdSlide[];
     }) => {
       if (!editingBar?.id) return;
       const headers = authHeaders();
@@ -2712,7 +2758,7 @@ export default function CardapioAdminPage() {
             coverImages?: string[];
             popupImageUrl?: string;
             partner_logos?: string[];
-            ad_images?: string[];
+            ad_images?: AdSlide[];
           } | null = null;
           
           if (isGalleryUpload) {
@@ -2745,7 +2791,7 @@ export default function CardapioAdminPage() {
             } else if (targetField === 'ad_images') {
               const current = barForm.ad_images || [];
               if (current.length < 10) {
-                const next = [...current, imageValue];
+                const next = [...current, { url: imageValue, link: '' }];
                 barMediaPatch = { ad_images: next };
                 setBarForm((prev) => ({ ...prev, ad_images: next }));
               }
@@ -2792,7 +2838,7 @@ export default function CardapioAdminPage() {
             } else if (field === 'ad_images') {
               const current = barForm.ad_images || [];
               if (current.length < 10) {
-                const next = [...current, imageValue];
+                const next = [...current, { url: imageValue, link: '' }];
                 barMediaPatch = { ad_images: next };
                 setBarForm((prev) => ({ ...prev, ad_images: next }));
               }
@@ -2900,10 +2946,19 @@ export default function CardapioAdminPage() {
     }));
   };
 
-  const handleRemoveAdImage = (urlToRemove: string) => {
+  const handleRemoveAdImage = (indexToRemove: number) => {
     setBarForm((prev) => ({
       ...prev,
-      ad_images: (prev.ad_images || []).filter((url) => url !== urlToRemove),
+      ad_images: (prev.ad_images || []).filter((_, index) => index !== indexToRemove),
+    }));
+  };
+
+  const handleAdLinkChange = (index: number, link: string) => {
+    setBarForm((prev) => ({
+      ...prev,
+      ad_images: (prev.ad_images || []).map((slide, i) =>
+        i === index ? { ...slide, link } : slide,
+      ),
     }));
   };
 
@@ -2956,7 +3011,7 @@ export default function CardapioAdminPage() {
       setBarForm((prev) => {
         const current = prev.ad_images || [];
         if (current.length >= 10) return prev;
-        return { ...prev, ad_images: [...current, imageValue] };
+        return { ...prev, ad_images: [...current, { url: imageValue, link: '' }] };
       });
     } else if (imageGalleryField === 'partner_logos') {
       setBarForm((prev) => {
@@ -4897,7 +4952,7 @@ export default function CardapioAdminPage() {
               </label>
               <p className="mb-3 text-xs text-gray-500">
                 Até 10 artes no espaço do banner do cardápio público, em slide como a capa.
-                O estabelecimento pode usar esse espaço para anúncios de outras lojas.
+                Cada imagem pode ter um link externo — o visitante abre o site do anunciante ao clicar.
               </p>
               <div className="mb-3 flex items-center gap-2">
                 <button
@@ -4921,30 +4976,43 @@ export default function CardapioAdminPage() {
               </div>
               {(barForm.ad_images || []).length > 0 && (
                 <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                  {(barForm.ad_images || []).map((url, index) => (
-                    <div key={`${url}-${index}`} className="group relative">
-                      <Image
-                        src={getValidImageUrl(url)}
-                        alt={`Propaganda ${index + 1}`}
-                        width={320}
-                        height={120}
-                        className="h-24 w-full rounded-lg border border-gray-200 bg-white object-contain"
-                        onError={(e) => {
-                          e.currentTarget.src = PLACEHOLDER_IMAGE_URL;
-                        }}
-                        unoptimized={
-                          url.startsWith('blob:') ||
-                          url.startsWith('https://res.cloudinary.com')
-                        }
+                  {(barForm.ad_images || []).map((slide, index) => (
+                    <div key={`${slide.url}-${index}`} className="group relative rounded-lg border border-gray-200 bg-white p-2">
+                      <div className="relative">
+                        <Image
+                          src={getValidImageUrl(slide.url)}
+                          alt={`Propaganda ${index + 1}`}
+                          width={320}
+                          height={120}
+                          className="h-24 w-full rounded-lg border border-gray-200 bg-white object-contain"
+                          onError={(e) => {
+                            e.currentTarget.src = PLACEHOLDER_IMAGE_URL;
+                          }}
+                          unoptimized={
+                            slide.url.startsWith('blob:') ||
+                            slide.url.startsWith('https://res.cloudinary.com')
+                          }
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveAdImage(index)}
+                          className="absolute right-1 top-1 rounded-full bg-red-600 p-1 text-white opacity-0 transition-opacity group-hover:opacity-100"
+                          title="Remover"
+                        >
+                          <MdClose className="h-4 w-4" />
+                        </button>
+                      </div>
+                      <label className="mt-2 block text-[11px] font-medium text-gray-600">
+                        Link externo
+                      </label>
+                      <input
+                        type="url"
+                        inputMode="url"
+                        value={slide.link || ''}
+                        onChange={(e) => handleAdLinkChange(index, e.target.value)}
+                        placeholder="https://site-do-anunciante.com"
+                        className="mt-1 w-full rounded-md border border-gray-300 px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
                       />
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveAdImage(url)}
-                        className="absolute right-1 top-1 rounded-full bg-red-600 p-1 text-white opacity-0 transition-opacity group-hover:opacity-100"
-                        title="Remover"
-                      >
-                        <MdClose className="h-4 w-4" />
-                      </button>
                     </div>
                   ))}
                 </div>
