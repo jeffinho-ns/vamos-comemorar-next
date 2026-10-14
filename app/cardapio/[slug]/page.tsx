@@ -406,6 +406,8 @@ const ESTABLISHMENT_HOME_PATH: Record<string, string> = {
   ohfregues: "/ohfregues",
   "reserva-rooftop": "/reserva-rooftop",
   "reserva-pinheiros": "/reserva-pinheiros",
+  // Sem landing própria: o ícone de casa volta à lista pública de cardápios.
+  "sitio-ilha": "/cardapio",
 };
 
 const HIGHLINE_MENU_SLUG = {
@@ -2340,6 +2342,7 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
     "ohfregues",
     "reserva-rooftop",
     "reserva-pinheiros",
+    "sitio-ilha",
   ]).has(slug?.toLowerCase() || "");
   const ideiaumItemGridClass =
     menuItemView === "lista"
