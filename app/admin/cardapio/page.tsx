@@ -39,6 +39,8 @@ import { toCardapioBarIds } from '@/app/config/cardapioBarResolver';
 import { fetchCardapioMappings } from '@/app/utils/establishmentRulesClient';
 import { authHeaders } from '@/app/utils/readAuthToken';
 import CardapioConfigPanel, { canViewSitioIlhaConfig, isSitioIlhaConfigHouse } from './CardapioConfigPanel';
+import MenuItemPrice from '@/app/components/MenuItemPrice';
+import { parseOptionalMenuPrice } from '@/app/utils/menuItemPrice';
 import { getPublicSocketUrl } from '@/lib/publicApiUrl';
 import { io, Socket } from 'socket.io-client';
 
@@ -91,6 +93,8 @@ interface MenuItemForm {
   seals: string[]; // IDs dos selos selecionados
   isPriceOnRequest?: boolean; // Indica se o preço é "Sob Consulta"
   featured?: boolean;
+  priceFrom?: string;
+  priceTo?: string;
 }
 
 interface EditableSubCategory {
@@ -212,6 +216,8 @@ interface MenuItem {
   }>;
   isPriceOnRequest?: boolean; // Indica se o preço é "Sob Consulta"
   featured?: boolean;
+  priceFrom?: number | null;
+  priceTo?: number | null;
 }
 
 function isItemEffectivelyPaused(item: MenuItem): boolean {
@@ -1072,6 +1078,8 @@ export default function CardapioAdminPage() {
     seals: [],
     isPriceOnRequest: false,
     featured: false,
+    priceFrom: '',
+    priceTo: '',
   });
 
   const [newTopping, setNewTopping] = useState({ name: '', price: '' });
@@ -1820,6 +1828,8 @@ export default function CardapioAdminPage() {
       seals: [],
       isPriceOnRequest: false,
       featured: false,
+      priceFrom: '',
+      priceTo: '',
     });
     setNewTopping({ name: '', price: '' });
     setAvailableSubCategories([]);
@@ -2207,6 +2217,8 @@ export default function CardapioAdminPage() {
         ...itemForm,
         price: finalPrice,
         order: parseInt(itemForm.order.toString()) || 0,
+        priceFrom: itemForm.isPriceOnRequest ? null : parseOptionalMenuPrice(itemForm.priceFrom),
+        priceTo: itemForm.isPriceOnRequest ? null : parseOptionalMenuPrice(itemForm.priceTo),
       };
 
       console.log('🔄 Salvando item:', method, url, itemData);
@@ -2360,6 +2372,14 @@ export default function CardapioAdminPage() {
       seals: item.seals || [],
       isPriceOnRequest: isPriceOnRequest,
       featured: item.featured === true,
+      priceFrom:
+        !isPriceOnRequest && item.priceFrom != null && Number(item.priceFrom) > 0
+          ? String(item.priceFrom)
+          : '',
+      priceTo:
+        !isPriceOnRequest && item.priceTo != null && Number(item.priceTo) > 0
+          ? String(item.priceTo)
+          : '',
     });
     
     // Carregar subcategorias da categoria selecionada
@@ -2420,6 +2440,8 @@ export default function CardapioAdminPage() {
         order: 0,
         seals: [],
         featured: false,
+        priceFrom: '',
+        priceTo: '',
       });
       setShowItemModal(true);
     }
@@ -3175,6 +3197,8 @@ export default function CardapioAdminPage() {
           order: item.order,
           seals: item.seals || [],
           visible: item.visible !== undefined ? item.visible : 1,
+          priceFrom: item.priceFrom ?? null,
+          priceTo: item.priceTo ?? null,
         }),
       });
 
@@ -4235,7 +4259,11 @@ export default function CardapioAdminPage() {
                                   </div>
                                   <div className="absolute bottom-2 left-2 rounded-full bg-white px-2 py-1 shadow-md">
                                     <span className="text-sm font-bold text-green-600">
-                                      {formatPrice(item.price, item.isPriceOnRequest)}
+                                      <MenuItemPrice
+                                        item={item}
+                                        consultLabel="Sob Consulta"
+                                        promoClassName="text-rose-600"
+                                      />
                                     </span>
                                   </div>
                                 </div>
@@ -4508,7 +4536,11 @@ export default function CardapioAdminPage() {
                                                                   }}
                                                                   className="text-sm font-medium text-green-600 hover:text-green-700 hover:underline"
                                                                 >
-                                                                  {formatPrice(item.price, item.isPriceOnRequest)}
+                                                                  <MenuItemPrice
+                                                                    item={item}
+                                                                    consultLabel="Sob Consulta"
+                                                                    promoClassName="text-rose-600"
+                                                                  />
                                                                 </button>
                                                               )}
                                                             </td>
@@ -4681,7 +4713,11 @@ export default function CardapioAdminPage() {
                                                           }}
                                                           className="text-sm font-medium text-green-600 hover:text-green-700 hover:underline"
                                                         >
-                                                          {formatPrice(item.price, item.isPriceOnRequest)}
+                                                          <MenuItemPrice
+                                                            item={item}
+                                                            consultLabel="Sob Consulta"
+                                                            promoClassName="text-rose-600"
+                                                          />
                                                         </button>
                                                       )}
                                                     </td>
@@ -5748,7 +5784,7 @@ export default function CardapioAdminPage() {
                 />
               </div>
               <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">Preço</label>
+                <label className="mb-1 block text-sm font-medium text-gray-700">Preço normal</label>
                 <div className="space-y-2">
                   <input
                     type="number"
@@ -5768,6 +5804,8 @@ export default function CardapioAdminPage() {
                           ...prev,
                           isPriceOnRequest: e.target.checked,
                           price: e.target.checked ? '' : prev.price,
+                          priceFrom: e.target.checked ? '' : prev.priceFrom,
+                          priceTo: e.target.checked ? '' : prev.priceTo,
                         }));
                       }}
                       className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
@@ -5984,6 +6022,43 @@ export default function CardapioAdminPage() {
                   >
                     <MdAdd className="h-4 w-4" />
                   </button>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <p className="mb-2 text-sm font-medium text-gray-700">Faixa ou promoção</p>
+              <p className="mb-3 text-xs text-gray-500">
+                Opcionais. Deixe os dois vazios para mostrar só o preço normal. Com os dois
+                preenchidos e o Por maior que o De, a página pública mostra a faixa, por exemplo
+                De 900 até 1200. Se o Por for menor que o preço normal, o item aparece em
+                promoção. Se só um dos dois for preenchido, a página pública mostra só o preço
+                normal.
+              </p>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-gray-700">Preço De</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={itemForm.priceFrom || ''}
+                    onChange={(e) => setItemForm((prev) => ({ ...prev, priceFrom: e.target.value }))}
+                    disabled={itemForm.isPriceOnRequest}
+                    className="w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed disabled:bg-gray-100"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-gray-700">Preço Por</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={itemForm.priceTo || ''}
+                    onChange={(e) => setItemForm((prev) => ({ ...prev, priceTo: e.target.value }))}
+                    disabled={itemForm.isPriceOnRequest}
+                    className="w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed disabled:bg-gray-100"
+                  />
                 </div>
               </div>
             </div>

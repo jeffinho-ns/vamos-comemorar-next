@@ -42,6 +42,8 @@ import {
   resolveCardapioImageUrl,
   warmCardapioImageIndex,
 } from "@/app/utils/cardapioImageResolver";
+import MenuItemPrice from "@/app/components/MenuItemPrice";
+import { resolveMenuPriceDisplay } from "@/app/utils/menuItemPrice";
 
 // Constantes dos selos
 const FOOD_SEALS: { [key: string]: { name: string; color: string } } = {
@@ -118,6 +120,8 @@ interface MenuItem {
   schedulePaused?: boolean;
   isPriceOnRequest?: boolean; // Indica se o preço é "Sob Consulta"
   featured?: boolean;
+  priceFrom?: number | null;
+  priceTo?: number | null;
 }
 
 function variationRank(label: string): number {
@@ -1969,7 +1973,6 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
       );
 
       if (appearance === "ideiaum") {
-        const priceLabel = formatPrice(item.price, item.isPriceOnRequest);
         return (
           <motion.div
             ref={itemRef}
@@ -2019,7 +2022,9 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
                 </p>
               ) : null}
               <div className="mt-auto flex w-full items-end justify-between gap-3 pt-4">
-                <p className="text-sm font-medium text-neutral-900">{priceLabel}</p>
+                <p className="text-sm font-medium text-neutral-900">
+                  <MenuItemPrice item={item} promoClassName="text-rose-600" />
+                </p>
                 {likeCountButton}
               </div>
             </div>
@@ -2117,7 +2122,7 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
                       : "text-sm sm:text-base text-gray-700"
                   }`}
                 >
-                  {formatPrice(item.price, item.isPriceOnRequest)}
+                  <MenuItemPrice item={item} promoClassName="text-rose-600" />
                 </p>
               )}
               <p
@@ -2183,7 +2188,11 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
               {isReservaRooftop && (
                 <div className="mb-2 text-right">
                   <p className="font-serif text-[#2b241a] text-sm tracking-[0.25em] font-extralight">
-                    {formatPrice(item.price, item.isPriceOnRequest)}
+                    <MenuItemPrice
+                      item={item}
+                      className="items-end"
+                      promoClassName="text-rose-600"
+                    />
                   </p>
                 </div>
               )}
@@ -3011,6 +3020,7 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
               {menuDestaques.map((destaque) => {
                 const liked = Boolean(likedItemIds[String(destaque.item.id)]);
                 const count = likeCounts[String(destaque.item.id)] || 0;
+                const priceMode = resolveMenuPriceDisplay(destaque.item).mode;
                 return (
                   <button
                     key={destaque.key}
@@ -3066,7 +3076,12 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
                       </p>
                       <div className="mt-3 flex items-end justify-between gap-3">
                         <p className="text-sm leading-snug text-neutral-800">
-                          {destaque.hasFromPrice ? (
+                          {priceMode === "range" || priceMode === "promo" ? (
+                            <MenuItemPrice
+                              item={destaque.item}
+                              promoClassName="text-rose-600"
+                            />
+                          ) : destaque.hasFromPrice ? (
                             <>
                               À partir de
                               <br />
@@ -3645,9 +3660,14 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
                         </p>
                       ) : null}
                       <p className="mt-8 text-2xl font-semibold text-neutral-900">
-                        {formatPrice(
-                          modalPrice,
-                          !activeVariation && selectedItem.isPriceOnRequest,
+                        {activeVariation && activeVariation.id !== "base" ? (
+                          formatPrice(modalPrice)
+                        ) : (
+                          <MenuItemPrice
+                            item={selectedItem}
+                            className="items-center"
+                            promoClassName="text-rose-600"
+                          />
                         )}
                       </p>
                       {variations.length > 1 ? (
@@ -3779,18 +3799,19 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
                   {isReservaRooftop ? (
                     <div className="text-right mb-4">
                       <p className="font-serif text-[#2b241a] text-sm tracking-[0.25em] font-extralight">
-                        {formatPrice(
-                          selectedItem.price,
-                          selectedItem.isPriceOnRequest,
-                        )}
+                        <MenuItemPrice
+                          item={selectedItem}
+                          className="items-end"
+                          promoClassName="text-rose-600"
+                        />
                       </p>
                     </div>
                   ) : (
                     <p className="text-xl sm:text-2xl font-semibold text-green-600 mb-4">
-                      {formatPrice(
-                        selectedItem.price,
-                        selectedItem.isPriceOnRequest,
-                      )}
+                      <MenuItemPrice
+                        item={selectedItem}
+                        promoClassName="text-rose-600"
+                      />
                     </p>
                   )}
                   <p className="text-sm sm:text-base text-gray-700 mb-6 leading-relaxed">
