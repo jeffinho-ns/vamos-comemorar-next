@@ -76,28 +76,55 @@
     document.cookie = 'userEmail=' + encodeURIComponent(normalized) + '; path=/; max-age=' + maxAge + '; SameSite=Lax';
   }
 
-  function openWithProof(data) {
-    if (typeof apiPost !== 'function' || typeof startApp !== 'function') {
-      explain(data.email);
-      return Promise.resolve();
+  function keepGoogleFromClosingSession() {
+    if (typeof logout !== 'function' || logout.__agilizai) return;
+    var nativeLogout = logout;
+    var wrapped = function (msg) {
+      if (window.__biFromAgilizai && typeof msg === 'string' && msg.indexOf('Sessão expirada') === 0) return;
+      return nativeLogout(msg);
+    };
+    wrapped.__agilizai = true;
+    window.logout = wrapped;
+  }
+
+  function silenceGoogleLogin() {
+    if (!onAgilizaiSite()) return;
+    window.__biIgnoreGoogleGate = true;
+    if (typeof apiPing === 'function' && !apiPing.__agilizai) {
+      var skipped = function () { return Promise.resolve({ ok: true }); };
+      skipped.__agilizai = true;
+      window.apiPing = skipped;
     }
-    return apiPost('loginAgilizai', { proof: data.proof }, true, false).then(function (r) {
-      if (!r || !r.ok || !r.token) {
-        explain(data.email);
-        return;
+    keepGoogleFromClosingSession();
+    var el = document.getElementById('gateStatus');
+    if (!el || el.__agilizaiLock) return;
+    el.__agilizaiLock = true;
+    var desc = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'textContent');
+    Object.defineProperty(el, 'textContent', {
+      configurable: true,
+      get: function () { return desc.get.call(el); },
+      set: function (value) {
+        var text = value == null ? '' : String(value);
+        if (text.indexOf('Sem conexão') !== -1 || text.indexOf('Apps Script') !== -1) return;
+        desc.set.call(el, text);
       }
-      var session = {
-        token: r.token,
-        email: data.email,
-        role: r.role,
-        expiresAt: r.expiresAt,
-        areas: r.areas,
-        layouts: r.layouts || {}
-      };
-      try { localStorage.setItem('sjBIv2Session', JSON.stringify(session)); } catch (e) {}
-      startApp(session);
-    }).catch(function () {
-      explain(data.email);
+    });
+  }
+
+  function openFromApi(data) {
+    if (typeof startApp !== 'function') {
+      explain(data && data.email);
+      return;
+    }
+    keepGoogleFromClosingSession();
+    window.__biFromAgilizai = true;
+    startApp({
+      token: agilizaiToken() || 'agilizai',
+      email: (data && data.email) || agilizaiEmail(),
+      role: data && data.role === 'owner' ? 'owner' : 'user',
+      expiresAt: Date.now() + 12 * 60 * 60 * 1000,
+      areas: (data && data.areas) || 'all',
+      layouts: {}
     });
   }
 
@@ -110,6 +137,8 @@
       location.href = '/acesso-negado';
       return Promise.resolve();
     }
+    var status = document.getElementById('gateStatus');
+    if (status) status.textContent = 'Entrando com a conta do Agilizai…';
     return fetch(apiBase() + '/api/bi/justino/acesso', {
       method: 'GET',
       cache: 'no-store',
@@ -124,16 +153,12 @@
         return;
       }
       if (!result.res.ok || !result.data.ok) {
-        explain(email);
+        if (status) status.textContent = 'Não consegui confirmar o login na API do Agilizai.';
         return;
       }
-      if (!result.data.proof) {
-        explain(result.data.email || email);
-        return;
-      }
-      return openWithProof(result.data);
+      openFromApi(result.data);
     }).catch(function () {
-      explain(email);
+      if (status) status.textContent = 'Não consegui confirmar o login na API do Agilizai.';
     });
   }
 
@@ -144,7 +169,7 @@
     var email = emailInput ? String(emailInput.value || '').trim() : '';
     var password = passwordInput ? passwordInput.value || '' : '';
     if (!email || !password) return Promise.resolve();
-    if (status) status.textContent = 'Conferindo a conta do Agilizai…';
+    if (status) status.textContent = 'Entrando pela API do Agilizai…';
     return fetch(apiBase() + '/api/users/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -172,12 +197,9 @@
   }
 
   function hookPanelLogin() {
-    if (!onAgilizaiSite() || typeof doLogin !== 'function' || doLogin.__agilizaiHook) return;
-    var nativeDoLogin = doLogin;
-    var wrapped = async function () {
-      await nativeDoLogin();
-      if (!gateStillOpen()) return;
-      await loginWithAgilizaiPassword();
+    if (!onAgilizaiSite() || (typeof doLogin === 'function' && doLogin.__agilizaiHook)) return;
+    var wrapped = function () {
+      return loginWithAgilizaiPassword();
     };
     wrapped.__agilizaiHook = true;
     window.doLogin = wrapped;
@@ -261,6 +283,8 @@
   }
 
   try {
+    silenceGoogleLogin();
+    hookPanelLogin();
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start);
     else start();
   } catch (e) {}
