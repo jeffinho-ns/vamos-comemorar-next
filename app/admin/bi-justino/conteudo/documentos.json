@@ -1,0 +1,39 @@
+[
+  {
+    "id": "principal",
+    "label": "Documentações",
+    "blocos": [
+      {
+        "titulo": "+ Novo documento",
+        "campos": [
+          "Tipo",
+          "Qual (se \"Outro\")",
+          "Nome/descrição",
+          "Número",
+          "Órgão emissor",
+          "Data de emissão",
+          "Data de validade",
+          "Observação",
+          "Arquivo"
+        ]
+      },
+      {
+        "titulo": "Documentos cadastrados",
+        "campos": [],
+        "tabelas": [
+          {
+            "colunas": [
+              "Nome",
+              "Tipo",
+              "Número",
+              "Órgão",
+              "Validade",
+              "Situação",
+              "Arquivo"
+            ]
+          }
+        ]
+      }
+    ]
+  }
+]

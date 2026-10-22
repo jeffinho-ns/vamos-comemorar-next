@@ -1,0 +1,102 @@
+[
+  {
+    "id": "principal",
+    "label": "Diretoria",
+    "blocos": [
+      {
+        "titulo": "Indicadores",
+        "campos": [
+          "Faturamento Projetado (Marketing)",
+          "Faturamento do mês",
+          "Mesmo mês, ano anterior",
+          "Média mensal do ano",
+          "Semana: projetado × faturado",
+          "Semana atual vs ano anterior",
+          "Ticket médio • semana",
+          "Ticket médio • mês",
+          "Ticket médio • ano",
+          "Margem líquida",
+          "Economia vs. meta",
+          "CMV real",
+          "Bônus destravado"
+        ]
+      },
+      {
+        "titulo": "Projeção consolidada do mês (última data enviada por área)",
+        "campos": [
+          "Faturamento bruto mensal",
+          "CMV real consolidado",
+          "Custos controláveis acumulados",
+          "Custos estruturais + variáveis"
+        ]
+      },
+      {
+        "titulo": "Responsabilidade por área e impacto no resultado",
+        "campos": [
+          "Metodologia:",
+          "Bônus projetado"
+        ],
+        "tabelas": [
+          {
+            "colunas": [
+              "Área",
+              "Meta de custo",
+              "Real/previsto",
+              "Economia / excesso",
+              "Status",
+              "Bônus projetado"
+            ]
+          }
+        ]
+      },
+      {
+        "titulo": "Elegibilidade do bônus • salário e admissão",
+        "campos": [
+          "E-mail",
+          "Senha (mín. 6 caracteres)"
+        ],
+        "tabelas": [
+          {
+            "colunas": [
+              "Área",
+              "Nome",
+              "Admissão",
+              "Salário-base"
+            ]
+          }
+        ]
+      },
+      {
+        "titulo": "Acessos cadastrados",
+        "campos": [],
+        "tabelas": [
+          {
+            "colunas": [
+              "E-mail",
+              "Nível",
+              "Abas",
+              "Ação"
+            ]
+          }
+        ]
+      },
+      {
+        "titulo": "Histórico de exclusões",
+        "campos": [
+          "Acesso:"
+        ],
+        "tabelas": [
+          {
+            "colunas": [
+              "Quando",
+              "Quem apagou",
+              "Tipo",
+              "Referência",
+              "O que era"
+            ]
+          }
+        ]
+      }
+    ]
+  }
+]

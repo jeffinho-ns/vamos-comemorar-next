@@ -1,0 +1,103 @@
+[
+  {
+    "id": "principal",
+    "label": "CMV",
+    "blocos": [
+      {
+        "titulo": "Indicadores",
+        "campos": [
+          "CMV teórico (parcial) • comida",
+          "CMV teórico (parcial) • bebida",
+          "Cobertura ficha técnica",
+          "Bônus projetado",
+          "Comida • cobertura",
+          "Comida • CMV s/ cobertura",
+          "Bebida • cobertura",
+          "Bebida • CMV s/ cobertura"
+        ]
+      },
+      {
+        "titulo": "CMV teórico automático (parcial) • robô ZigPay × ficha técnica Everest",
+        "campos": [
+          "Correção imediata",
+          "não"
+        ],
+        "tabelas": [
+          {
+            "colunas": [
+              "Item",
+              "Categoria",
+              "Valor vendido (30d)"
+            ]
+          }
+        ]
+      },
+      {
+        "titulo": "Top itens vendidos e curva ABC",
+        "campos": [
+          "só tem histórico a partir de 25/09/2026"
+        ]
+      },
+      {
+        "titulo": "Top 6 bebida • mais vendido",
+        "campos": [],
+        "tabelas": [
+          {
+            "colunas": [
+              "Item",
+              "Qtd",
+              "Valor"
+            ]
+          }
+        ]
+      },
+      {
+        "titulo": "Top 6 comida • mais vendido",
+        "campos": [],
+        "tabelas": [
+          {
+            "colunas": [
+              "Item",
+              "Qtd",
+              "Valor"
+            ]
+          }
+        ]
+      },
+      {
+        "titulo": "Top 6 bebida • melhor CMV",
+        "campos": [],
+        "tabelas": [
+          {
+            "colunas": [
+              "Item",
+              "CMV%",
+              "Valor vendido"
+            ]
+          }
+        ]
+      },
+      {
+        "titulo": "Top 6 comida • melhor CMV",
+        "campos": [],
+        "tabelas": [
+          {
+            "colunas": [
+              "Item",
+              "CMV%",
+              "Valor vendido"
+            ]
+          },
+          {
+            "colunas": [
+              "Item",
+              "Valor vendido",
+              "% acumulado",
+              "Classe"
+            ]
+          }
+        ]
+      }
+    ]
+  }
+]

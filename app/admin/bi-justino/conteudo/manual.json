@@ -1,0 +1,22 @@
+[
+  {
+    "id": "principal",
+    "label": "Manual",
+    "blocos": [
+      {
+        "titulo": "Manual operacional",
+        "campos": [
+          "Buscar no manual",
+          "Página"
+        ]
+      },
+      {
+        "titulo": "Ficou com dúvida?",
+        "campos": [
+          "Para quem é a dúvida",
+          "Texto da dúvida"
+        ]
+      }
+    ]
+  }
+]

@@ -1,0 +1,232 @@
+[
+  {
+    "id": "daily",
+    "label": "Registro do dia",
+    "blocos": [
+      {
+        "titulo": "Envio do dia • Marketing",
+        "campos": [
+          "Data do registro",
+          "Enviado por",
+          "Editar",
+          "Investimento em tráfego pago",
+          "Gastos com atrações",
+          "Outros gastos de marketing",
+          "Reservas geradas no dia",
+          "Comparecimento das reservas",
+          "Ticket médio atribuído",
+          "Clientes sem reserva (passantes)",
+          "Total de clientes na casa (dia)",
+          "Observação do dia"
+        ]
+      },
+      {
+        "titulo": "Fechar mês • Marketing",
+        "campos": [
+          "Fechar mês"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "plan",
+    "label": "Projeção (agendamento futuro)",
+    "blocos": [
+      {
+        "titulo": "Indicadores",
+        "campos": [
+          "Faturamento projetado",
+          "Gasto total projetado",
+          "ROAS esperado",
+          "CAC esperado",
+          "Custo fixo médio por dia de abertura",
+          "Custo variável estimado do dia",
+          "Seu custo estimado (Marketing)",
+          "Margem de contribuição do dia"
+        ]
+      },
+      {
+        "titulo": "Projeção de gastos • agendamento futuro",
+        "campos": [
+          "Data",
+          "Tráfego projetado",
+          "Outros projetado",
+          "Atrações projetado",
+          "Público esperado",
+          "Ticket médio esperado",
+          "Observação da projeção"
+        ]
+      },
+      {
+        "titulo": "Projetado × Realizado",
+        "campos": [],
+        "tabelas": [
+          {
+            "colunas": [
+              "Data",
+              "Faturamento projetado",
+              "Faturamento realizado",
+              "Diferença (faturamento)",
+              "Gasto projetado",
+              "Gasto realizado",
+              "Diferença (gasto)",
+              "Status"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "dem",
+    "label": "Demandas",
+    "blocos": [
+      {
+        "titulo": "Indicadores",
+        "campos": [
+          "Demandas em aberto",
+          "Em andamento",
+          "Atrasadas",
+          "Vencem em 7 dias",
+          "Concluídas"
+        ]
+      },
+      {
+        "titulo": "+ Nova demanda / pauta / ata",
+        "campos": [
+          "Tipo",
+          "Título",
+          "Descrição / pontos da pauta",
+          "Participantes",
+          "Decisões e encaminhamentos",
+          "Responsável",
+          "Prazo",
+          "Prioridade",
+          "Status",
+          "Nasceu de qual reunião?",
+          "Observação"
+        ]
+      },
+      {
+        "titulo": "Demandas por responsável",
+        "campos": [],
+        "tabelas": [
+          {
+            "colunas": [
+              "Responsável",
+              "Em aberto",
+              "Em andamento",
+              "Atrasadas",
+              "Próximo prazo",
+              "Concluídas"
+            ]
+          }
+        ]
+      },
+      {
+        "titulo": "Demandas, pautas e atas",
+        "campos": [
+          "Tipo",
+          "Responsável",
+          "Status"
+        ],
+        "tabelas": [
+          {
+            "colunas": [
+              "Tipo",
+              "Data",
+              "Título",
+              "Responsável",
+              "Prazo",
+              "Prioridade",
+              "Status"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "graf",
+    "label": "Análise de gráficos",
+    "blocos": [
+      {
+        "titulo": "📊 Padrão semanal • faturamento e ticket médio por dia da semana",
+        "campos": [],
+        "tabelas": [
+          {
+            "colunas": [
+              "Dia da semana",
+              "Dias no período",
+              "Faturamento médio",
+              "Público médio",
+              "Ticket médio"
+            ]
+          }
+        ]
+      },
+      {
+        "titulo": "💰 Budget de atrações • bandas, DJs e voz e violão",
+        "campos": [
+          "faturamento do mesmo mês do ano anterior",
+          "reservas da semana",
+          "ticket médio",
+          "Mês",
+          "Semana (qualquer dia dela)",
+          "Faturamento-base do mês (R$) — vazio = DRE",
+          "Ticket médio (R$) — vazio = últimas 8 semanas",
+          "Reservas da semana (pax) — vazio = lançadas",
+          "Como é calculado:",
+          "mês",
+          "Semana",
+          "recomendado é o menor dos dois",
+          "lançadas até agora",
+          "Realizado",
+          "projetado"
+        ]
+      },
+      {
+        "titulo": "Top bandas • faturamento & público",
+        "campos": [],
+        "tabelas": [
+          {
+            "colunas": [
+              "Atração",
+              "Dias com dado real",
+              "Faturamento médio/dia",
+              "Público médio/dia"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "ins",
+    "label": "Insights",
+    "blocos": [
+      {
+        "titulo": "💡 Insights de Marketing • por dia da semana",
+        "campos": [
+          "Atualiza toda segunda-feira",
+          "como o dia funciona",
+          "o que os dados mostram",
+          "cruzamento dados × manual",
+          "sugestões"
+        ]
+      },
+      {
+        "titulo": "Por dia da semana",
+        "campos": [
+          "Segunda",
+          "Terça",
+          "Quarta",
+          "Quinta",
+          "Sexta",
+          "Sábado",
+          "Domingo"
+        ]
+      }
+    ]
+  }
+]

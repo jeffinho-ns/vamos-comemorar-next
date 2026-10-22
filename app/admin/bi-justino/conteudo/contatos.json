@@ -1,0 +1,34 @@
+[
+  {
+    "id": "principal",
+    "label": "Contatos",
+    "blocos": [
+      {
+        "titulo": "+ Adicionar contato de emergência",
+        "campos": [
+          "Nome",
+          "Categoria / especialidade",
+          "Telefone",
+          "Observação",
+          "Status"
+        ]
+      },
+      {
+        "titulo": "Contatos cadastrados",
+        "campos": [],
+        "tabelas": [
+          {
+            "colunas": [
+              "Nome",
+              "Categoria",
+              "Telefone",
+              "Observação",
+              "Status",
+              "Ação"
+            ]
+          }
+        ]
+      }
+    ]
+  }
+]

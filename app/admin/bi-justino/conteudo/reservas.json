@@ -1,0 +1,57 @@
+[
+  {
+    "id": "principal",
+    "label": "Reservas",
+    "blocos": [
+      {
+        "titulo": "Nova reserva • Seu Justino",
+        "campos": [
+          "Data",
+          "Pax (pessoas)",
+          "Tipo",
+          "Horário de chegada (opcional)",
+          "Origem da reserva",
+          "Ação do Instagram (opcional)",
+          "Nome do cliente",
+          "Telefone",
+          "E-mail",
+          "Enviado por",
+          "Observação",
+          "Lista de convidados (opcional)"
+        ]
+      },
+      {
+        "titulo": "Fechar mês • Reservas",
+        "campos": [
+          "Fechar mês"
+        ]
+      },
+      {
+        "titulo": "Quadro geral da semana",
+        "campos": [
+          "Visualização",
+          "Semana começando em (segunda-feira)",
+          "Mês"
+        ]
+      },
+      {
+        "titulo": "Lista de reservas",
+        "campos": [],
+        "tabelas": [
+          {
+            "colunas": [
+              "Data",
+              "Cliente",
+              "Telefone",
+              "E-mail",
+              "Pax",
+              "Tipo",
+              "Observação",
+              "Enviado por"
+            ]
+          }
+        ]
+      }
+    ]
+  }
+]

@@ -1,0 +1,237 @@
+[
+  {
+    "id": "insta",
+    "label": "Instagram",
+    "blocos": [
+      {
+        "titulo": "📸 Instagram • @seujustino — leitura da conta e plano",
+        "campos": [
+          "Como foi feita:",
+          "conectada pela API oficial do Instagram",
+          "Indicadores reais",
+          "Acompanhamento anual"
+        ]
+      },
+      {
+        "titulo": "📊 Indicadores reais da conta (API oficial do Instagram)",
+        "campos": [
+          "Ranking de posts"
+        ]
+      },
+      {
+        "titulo": "🗓️ Ativações do Instagram (o que foi executado)",
+        "campos": [
+          "Data da ação",
+          "Tipo",
+          "Título",
+          "Oferta / gancho (opcional)",
+          "Post vinculado (opcional)",
+          "Observação (opcional)"
+        ]
+      },
+      {
+        "titulo": "💰 Retorno em reservas por ação",
+        "campos": [
+          "Como ler:",
+          "Diretas",
+          "Janela",
+          "correlação, não prova"
+        ]
+      },
+      {
+        "titulo": "Avaliação com dados reais da conta (API oficial, 21/10/2026)",
+        "campos": [
+          "Fonte:",
+          "hipótese",
+          "Reel",
+          "Fato:",
+          "Hipótese:",
+          "emoção do público cantando",
+          "divulgação",
+          "utilidade",
+          "Limite dos dados:",
+          "não dá para concluir o melhor dia ainda",
+          "Reels de 1 por semana para 4",
+          "mediana",
+          "Reduzir fotos de divulgação",
+          "Não prometer viral:",
+          "Próxima medição:"
+        ],
+        "tabelas": [
+          {
+            "colunas": [
+              "Indicador",
+              "Valor",
+              "Leitura"
+            ]
+          },
+          {
+            "colunas": [
+              "Formato",
+              "Posts",
+              "Alcance médio",
+              "Alcance mediano",
+              "Salvos",
+              "Envios",
+              "Interações"
+            ]
+          }
+        ]
+      },
+      {
+        "titulo": "Ponto de partida: o que incomoda × o que fazer",
+        "campos": [
+          "Cruzamento com o BI (Insights, 8 semanas fechadas):"
+        ],
+        "tabelas": [
+          {
+            "colunas": [
+              "O que incomoda hoje",
+              "Causa provável",
+              "Correção neste plano"
+            ]
+          }
+        ]
+      },
+      {
+        "titulo": "1. Otimização do perfil (bio & @)",
+        "campos": [
+          "Mantenha o @seujustino.",
+          "campo Nome",
+          "Nome",
+          "Seu Justino Vila Madalena",
+          "Seu Justino | Bar & Samba",
+          "Seu Justino | Bar e Eventos",
+          "Bar",
+          "Prova social real hoje: 128 mil seguidores.",
+          "use só o que for verdadeiro e atual",
+          "Hoje:",
+          "nenhum de aniversário",
+          "audite os links ocultos de apostas",
+          "🎂 Reservar aniversário",
+          "🏢 Eventos corporativos e sociais",
+          "🍻 Reserva de mesa",
+          "📅 Programação da semana",
+          "🍽️ Cardápio",
+          "📍 Como chegar",
+          "um único destino principal"
+        ],
+        "tabelas": [
+          {
+            "colunas": [
+              "#",
+              "Bio",
+              "Foco"
+            ]
+          }
+        ]
+      },
+      {
+        "titulo": "2. Identidade visual e destaques",
+        "campos": [
+          "#C0622D",
+          "#1A1410",
+          "#F2B84B",
+          "#F6EFE6",
+          "#1F5B3E",
+          "Estilo:",
+          "Capas dos Reels e carrosséis",
+          "Hoje o perfil tem 7:",
+          "Aniversário",
+          "Eventos",
+          "Menu",
+          "Informações",
+          "Reservas",
+          "Programação",
+          "Justinou",
+          "Cardápio"
+        ],
+        "tabelas": [
+          {
+            "colunas": [
+              "Destaque",
+              "O que fixar dentro (para reter e converter)"
+            ]
+          }
+        ]
+      },
+      {
+        "titulo": "3. Linha editorial e pilares de conteúdo",
+        "campos": [
+          "Regra de ouro:"
+        ],
+        "tabelas": [
+          {
+            "colunas": [
+              "Pilar",
+              "O que publicar",
+              "Papel no funil",
+              "Peso"
+            ]
+          }
+        ]
+      },
+      {
+        "titulo": "4. Cronograma semanal e formatos",
+        "campos": [
+          "Ponto de partida real (API, 22/09–21/10):",
+          "Cadência sugerida por semana:",
+          "Programação da semana",
+          "Reel de convite:",
+          "Venda:",
+          "Roda de samba",
+          "Teaser do palco 360º",
+          "Jornada do dia em blocos",
+          "Feijoada + roda de samba 15h–18h",
+          "Reels",
+          "Carrosséis",
+          "Stories",
+          "Insights"
+        ],
+        "tabelas": [
+          {
+            "colunas": [
+              "Dia",
+              "Reels",
+              "Carrossel",
+              "Stories",
+              "Objetivo (cruzado com o BI)"
+            ]
+          }
+        ]
+      },
+      {
+        "titulo": "5. Scripts de validação (Reels + Carrossel)",
+        "campos": [
+          "Execução:",
+          "Legenda:",
+          "Sucesso:",
+          "Por que funciona:",
+          "Faturamento do mês (Financeiro)",
+          "Receita de entrada (Bilheteria)"
+        ],
+        "tabelas": [
+          {
+            "colunas": [
+              "Tempo",
+              "Cena / fala",
+              "Texto na tela"
+            ]
+          },
+          {
+            "colunas": [
+              "Slide",
+              "Conteúdo"
+            ]
+          }
+        ]
+      },
+      {
+        "titulo": "💡 Sugestão de horário pra banda/DJ",
+        "campos": [
+          "Duração de cada atração h"
+        ]
+      }
+    ]
+  }
+]

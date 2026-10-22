@@ -51,6 +51,24 @@
 }
 .sjTag { display: inline-block; margin-top: 4px; font-size: 10px; letter-spacing: 0.04em; text-transform: uppercase; color: #ffd271; border: 1px solid #5a4416; border-radius: 99px; padding: 2px 7px; }
 .sjTag.real { color: #78e8ad; border-color: #1e5b3e; }
+.sjFaixa { margin-bottom: 16px; }
+.sjFaixa .sjSub { margin: 8px 2px 0; }
+.sjBloco { grid-column: 1 / -1; }
+.sjBloco h3 { margin: 0; font-size: 16px; }
+.sjCampos { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 10px; margin-top: 12px; }
+.sjCampo { background: #120f0c; border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; }
+.sjCampo small { font-size: 11px; }
+.sjCampo .v { font-size: 16px; margin: 4px 0 0; }
+.sjNotas { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+.sjNota, .sjInsight { margin: 8px 0 0; color: #e6ddd4; font-size: 14px; line-height: 1.5; }
+.sjDias { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+.sjDias button { background: #221c17; color: #fff; border: 1px solid #3a2f26; border-radius: 10px; padding: 8px 12px; font-weight: 700; cursor: pointer; }
+.sjDias button.on { background: var(--txt); color: var(--bg); }
+.sjTableInner { margin-top: 12px; overflow: auto; }
+.sjTableInner table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.sjTableInner th, .sjTableInner td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--line); }
+.sjTableInner th { color: var(--muted); font-weight: 600; }
+.sjTableInner tr.is-fresh { background: #3a2418; }
 .sjTable { grid-column: 1 / -1; overflow: auto; }
 .sjTable table { width: 100%; border-collapse: collapse; font-size: 13px; }
 .sjTable th, .sjTable td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--line); }

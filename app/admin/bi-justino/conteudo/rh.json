@@ -1,0 +1,169 @@
+[
+  {
+    "id": "daily",
+    "label": "Envio do dia",
+    "blocos": [
+      {
+        "titulo": "Indicadores",
+        "campos": [
+          "RH estrutural",
+          "Extras",
+          "CMO / receita (sem taxa de serviço)",
+          "Economia vs meta",
+          "Colaboradores ativos",
+          "Serviço do mês",
+          "Bônus RH"
+        ]
+      },
+      {
+        "titulo": "Aprovação de freelancers",
+        "campos": [
+          "pendente"
+        ],
+        "tabelas": [
+          {
+            "colunas": [
+              "Data",
+              "Setor",
+              "Motivo",
+              "Turno",
+              "Qtd pedida",
+              "Sugestão do sistema",
+              "Custo",
+              "Pedido por"
+            ]
+          }
+        ]
+      },
+      {
+        "titulo": "Horário de funcionamento",
+        "campos": [],
+        "tabelas": [
+          {
+            "colunas": [
+              "Dia",
+              "Abre",
+              "Fecha",
+              "Duração",
+              "O que tem"
+            ]
+          }
+        ]
+      },
+      {
+        "titulo": "RH estrutural carregado",
+        "campos": [
+          "Mês de referência",
+          "Enviado por",
+          "RH estrutural carregado",
+          "Soma automática",
+          "Extras / freelancers",
+          "Horas extras + adicional noturno",
+          "Automático",
+          "Colaboradores ativos",
+          "Serviço do mês"
+        ]
+      },
+      {
+        "titulo": "Regra de bônus",
+        "campos": [
+          "Gatilho por margem da casa:",
+          "Peso:",
+          "Elegibilidade:"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "colab",
+    "label": "Colaboradores",
+    "blocos": [
+      {
+        "titulo": "Quadro mínimo por setor",
+        "campos": [
+          "CLT agora é automático",
+          "Cozinha tem teto fixo de 5 pessoas ao mesmo tempo"
+        ],
+        "tabelas": [
+          {
+            "colunas": [
+              "Setor",
+              "Atendimento por pessoa",
+              "CLT",
+              "PJ",
+              "Brigada padrão"
+            ]
+          }
+        ]
+      },
+      {
+        "titulo": "Colaboradores",
+        "campos": [],
+        "tabelas": [
+          {
+            "colunas": [
+              "Colaborador",
+              "Cargo",
+              "Nível",
+              "Contratação",
+              "Valor Total",
+              "Status"
+            ]
+          }
+        ]
+      },
+      {
+        "titulo": "Novo colaborador",
+        "campos": [
+          "Nome",
+          "Cargo",
+          "Qual cargo (se \"Outro\")",
+          "Função específica",
+          "Nível",
+          "Contratação",
+          "Status",
+          "Mês de referência",
+          "Data de admissão",
+          "Data de desligamento",
+          "Tipo de desligamento",
+          "Valor de rescisão",
+          "Observação",
+          "Documentos",
+          "Salário",
+          "Adicional salarial",
+          "Horas extras",
+          "Adicional noturno",
+          "FGTS",
+          "INSS",
+          "IRRF",
+          "Salário família",
+          "Quebra",
+          "Férias",
+          "Benefícios",
+          "Valor total",
+          "Turno de h",
+          "Período de férias (se aplicável)"
+        ],
+        "tabelas": [
+          {
+            "colunas": [
+              "Arquivo",
+              "Enviado por",
+              "Quando"
+            ]
+          },
+          {
+            "colunas": [
+              "Dia",
+              "Trabalha",
+              "Entrada",
+              "Saída",
+              "Pausa almoço",
+              "Pausa jantar"
+            ]
+          }
+        ]
+      }
+    ]
+  }
+]

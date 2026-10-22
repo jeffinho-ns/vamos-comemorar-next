@@ -1,0 +1,27 @@
+[
+  {
+    "id": "principal",
+    "label": "Histórico",
+    "blocos": [
+      {
+        "titulo": "Log de auditoria",
+        "campos": [
+          "Área",
+          "Ação"
+        ],
+        "tabelas": [
+          {
+            "colunas": [
+              "Quando",
+              "Quem",
+              "Ação",
+              "Área",
+              "Tipo",
+              "O que mudou"
+            ]
+          }
+        ]
+      }
+    ]
+  }
+]

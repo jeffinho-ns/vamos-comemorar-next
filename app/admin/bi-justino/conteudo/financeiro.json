@@ -1,0 +1,39 @@
+[
+  {
+    "id": "principal",
+    "label": "Financeiro",
+    "blocos": [
+      {
+        "titulo": "Indicadores",
+        "campos": [
+          "Faturamento do mês",
+          "Custos Financeiro",
+          "Economia vs meta",
+          "Utilidades",
+          "Cartões",
+          "Bônus projetado"
+        ]
+      },
+      {
+        "titulo": "Financeiro",
+        "campos": [
+          "Mês de referência",
+          "Enviado por",
+          "Faturamento bruto (acumulado do mês)",
+          "Total Impostos S/ Faturamento",
+          "Taxas de Cartões",
+          "Administração/Gestão",
+          "IRPJ + CSLL",
+          "Aluguel Bar + IPTU",
+          "Energia Elétrica",
+          "Água / Esgoto",
+          "Gás",
+          "Descartáveis",
+          "Segurança Noturna e Diurna / Rádios",
+          "Despesas Administrativas",
+          "Outras Despesas/Itens Extraordinários"
+        ]
+      }
+    ]
+  }
+]

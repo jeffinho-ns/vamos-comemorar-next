@@ -1,0 +1,80 @@
+[
+  {
+    "id": "principal",
+    "label": "Eventos",
+    "blocos": [
+      {
+        "titulo": "+ Novo evento",
+        "campos": [
+          "Data do evento",
+          "Cliente (nome)",
+          "CPF/CNPJ",
+          "Telefone",
+          "E-mail",
+          "Tipo de evento",
+          "Pax esperado",
+          "Valor do contrato",
+          "Valor do sinal",
+          "Data do sinal",
+          "Pagamento pendente",
+          "Status",
+          "Observação"
+        ]
+      },
+      {
+        "titulo": "Fechar mês • Eventos",
+        "campos": [
+          "Fechar mês"
+        ]
+      },
+      {
+        "titulo": "Eventos cadastrados",
+        "campos": [],
+        "tabelas": [
+          {
+            "colunas": [
+              "Data",
+              "Cliente",
+              "Tipo",
+              "Pax",
+              "Valor contrato",
+              "Sinal",
+              "Status",
+              "Pendências"
+            ]
+          }
+        ]
+      },
+      {
+        "titulo": "📄 Tabela de pacotes (referência)",
+        "campos": [
+          "Cotações",
+          "Submeter pra aprovação"
+        ]
+      },
+      {
+        "titulo": "Cotações cadastradas",
+        "campos": [],
+        "tabelas": [
+          {
+            "colunas": [
+              "Cliente",
+              "Evento",
+              "Data",
+              "Valor",
+              "Status",
+              "Ação"
+            ]
+          }
+        ]
+      },
+      {
+        "titulo": "Revisar e enviar contrato",
+        "campos": [
+          "Assunto",
+          "Mensagem"
+        ]
+      }
+    ]
+  }
+]

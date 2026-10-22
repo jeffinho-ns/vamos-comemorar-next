@@ -1,62 +1,55 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useState } from "react";
 import { AnimatedNumber } from "./AnimatedNumber";
-import { GRUPO_LABEL, PAGINAS, type Kpi, type Pagina, type RealKey } from "./paginas";
+import { CONTEUDO } from "./conteudo";
+import { PainelConteudo } from "./PainelConteudo";
+import { GRUPO_LABEL, PAGINAS, type Pagina } from "./paginas";
 import { useBiLive, type BiLiveData } from "./useBiLive";
 
-function realValor(live: BiLiveData | null, key: RealKey) {
-  if (!live) return 0;
-  if (key === "reservas") return live.hoje.reservas;
-  if (key === "pessoas") return live.hoje.pessoas;
-  if (key === "checkins") return live.hoje.checkins;
-  if (key === "convidados") return live.hoje.convidados ?? 0;
-  if (key === "agenda") return live.agenda?.reservas ?? 0;
-  if (key === "agendaPessoas") return live.agenda?.pessoas ?? 0;
-  return live.mes?.reservas ?? 0;
-}
-
-function valorDe(kpi: Kpi, live: BiLiveData | null, drift: number) {
-  if (kpi.real) return realValor(live, kpi.real);
-  return Math.max(0, kpi.base + drift);
+function FaixaAoVivo({ data }: { data: BiLiveData | null }) {
+  const itens = [
+    ["Reservas hoje", data?.hoje.reservas ?? 0],
+    ["Pessoas hoje", data?.hoje.pessoas ?? 0],
+    ["Check-ins", data?.hoje.checkins ?? 0],
+    ["Convidados", data?.hoje.convidados ?? 0],
+    ["Agenda em 30 dias", data?.agenda?.reservas ?? 0],
+    ["Reservas no mês", data?.mes?.reservas ?? 0],
+  ] as const;
+  const ultimo = data?.ultimoDia;
+  return (
+    <div className="sjFaixa">
+      <div className="sjGrid">
+        {itens.map(([label, value]) => (
+          <article key={label} className="sjCard">
+            <small>{label}</small>
+            <div className="v"><AnimatedNumber value={value} /></div>
+            <span className="sjTag real">banco</span>
+          </article>
+        ))}
+      </div>
+      {ultimo && (data?.hoje.reservas ?? 0) === 0 ? (
+        <p className="sjSub">Último dia com reserva no banco: {ultimo.data} · {ultimo.reservas} reserva · {ultimo.pessoas} pessoas.</p>
+      ) : null}
+    </div>
+  );
 }
 
 export function BiShell() {
   const { data, error, connected, freshIds, reload } = useBiLive();
   const [paginaId, setPaginaId] = useState(PAGINAS[0].id);
-  const [subId, setSubId] = useState(PAGINAS[0].subabas[0].id);
+  const [subId, setSubId] = useState(CONTEUDO[PAGINAS[0].id]?.[0]?.id ?? "principal");
   const [abertos, setAbertos] = useState<Record<string, boolean>>({
     setores: true,
     eventos: true,
     docs: false,
   });
-  const [drift, setDrift] = useState<Record<string, number>>({});
 
   const pagina = PAGINAS.find((item) => item.id === paginaId) ?? PAGINAS[0];
-  const sub = pagina.subabas.find((item) => item.id === subId) ?? pagina.subabas[0];
-
-  const mockIds = useMemo(
-    () => PAGINAS.flatMap((item) => item.subabas.flatMap((aba) => aba.kpis.filter((kpi) => !kpi.real).map((kpi) => kpi.id))),
-    [],
-  );
-
-  useEffect(() => {
-    const timer = window.setInterval(() => {
-      setDrift((atual) => {
-        const proximo = { ...atual };
-        for (const id of mockIds) {
-          const passo = Math.round((Math.random() - 0.35) * 3);
-          proximo[id] = (proximo[id] || 0) + passo;
-        }
-        return proximo;
-      });
-    }, 3000);
-    return () => window.clearInterval(timer);
-  }, [mockIds]);
 
   function abrir(item: Pagina) {
     setPaginaId(item.id);
-    setSubId(item.subabas[0].id);
+    setSubId(CONTEUDO[item.id]?.[0]?.id ?? "principal");
   }
 
   const grupos = ["topo", "setores", "eventos", "meio", "docs", "fim"] as const;
@@ -71,7 +64,7 @@ export function BiShell() {
         <div>
           <h1>Seu Justino BI</h1>
           <p className="sjSub">
-            Mesmos menus do painel. O que ainda não está no banco aparece como simulado e muda sozinho.
+            Mesmas abas e blocos do painel. O que ainda não está no banco entra preenchido, pra trocar depois, e os números de exemplo mudam sozinhos.
           </p>
         </div>
         <p className="sjLive">
@@ -112,69 +105,14 @@ export function BiShell() {
           })}
         </nav>
         <main className="sjMain">
-          {pagina.subabas.length > 1 ? (
-            <div className="sjSubs">
-              {pagina.subabas.map((aba) => (
-                <button key={aba.id} type="button" className={aba.id === sub.id ? "on" : ""} onClick={() => setSubId(aba.id)}>
-                  {aba.label}
-                </button>
-              ))}
-            </div>
-          ) : null}
-          <div className="sjGrid">
-            {sub.kpis.map((kpi) => (
-              <article key={kpi.id} className="sjCard">
-                <small>{kpi.label}</small>
-                <div className="v">
-                  <AnimatedNumber value={valorDe(kpi, data, drift[kpi.id] || 0)} kind={kpi.kind} />
-                </div>
-                <span className={`sjTag ${kpi.real ? "real" : ""}`}>{kpi.real ? "banco" : "simulado"}</span>
-              </article>
-            ))}
-            {pagina.id === "reservas" && sub.id === "hoje" ? (
-              <section className="sjCard sjTable">
-                <h3>{data?.recentesEm === "hoje" ? "Movimento de hoje" : "Último movimento no banco"}</h3>
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Nome</th>
-                      <th>Hora</th>
-                      <th>Pessoas</th>
-                      <th>Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {(data?.recentes ?? []).map((row) => (
-                      <tr key={row.id} style={freshIds.includes(row.id) ? { background: "#3a2418" } : undefined}>
-                        <td>{row.nome}</td>
-                        <td>{row.hora || "—"}</td>
-                        <td><AnimatedNumber value={row.pessoas} /></td>
-                        <td>{row.status}{row.checkedIn ? " · check-in" : ""}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </section>
-            ) : null}
-            {sub.tabela ? (
-              <section className="sjCard sjTable">
-                <h3>{sub.tabela.titulo}</h3>
-                <span className="sjTag">simulado</span>
-                <table>
-                  <thead>
-                    <tr>{sub.tabela.colunas.map((col) => <th key={col}>{col}</th>)}</tr>
-                  </thead>
-                  <tbody>
-                    {sub.tabela.linhas.map((linha) => (
-                      <tr key={linha.join("|")}>
-                        {linha.map((celula, indice) => <td key={`${indice}-${celula}`}>{celula}</td>)}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </section>
-            ) : null}
-          </div>
+          {pagina.id === "master" || pagina.id === "reservas" ? <FaixaAoVivo data={data} /> : null}
+          <PainelConteudo
+            paginaId={pagina.id}
+            subId={subId}
+            onSub={setSubId}
+            live={data}
+            freshIds={freshIds}
+          />
         </main>
       </div>
     </div>

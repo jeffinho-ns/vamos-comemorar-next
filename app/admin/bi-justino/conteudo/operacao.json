@@ -1,0 +1,199 @@
+[
+  {
+    "id": "reg",
+    "label": "📋 Registro do dia",
+    "blocos": [
+      {
+        "titulo": "Envio do dia • Gerente Operador",
+        "campos": [
+          "Data do registro",
+          "Enviado por",
+          "Ocorrências operacionais",
+          "Plano de ação do dia"
+        ]
+      },
+      {
+        "titulo": "Custos e público do dia",
+        "campos": [
+          "Público total do mês",
+          "Perdas / quebras / desperdícios (R$)",
+          "Manutenção solicitada (R$)",
+          "Descartáveis solicitados (R$)"
+        ]
+      },
+      {
+        "titulo": "Indicadores sensíveis • somente leitura",
+        "campos": [
+          "Energia",
+          "Água",
+          "Gás",
+          "Descartáveis",
+          "Segurança",
+          "CMV teórico (parcial)"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "ind",
+    "label": "📊 Indicadores",
+    "blocos": [
+      {
+        "titulo": "Indicadores",
+        "campos": [
+          "Público mês",
+          "Perdas / desperdício",
+          "Custo sensível visível",
+          "CMV teórico (parcial)",
+          "Cobertura ficha técnica",
+          "CMO / receita (sem taxa de serviço)",
+          "Bônus projetado"
+        ]
+      },
+      {
+        "titulo": "Alertas Operação",
+        "campos": [
+          "Definição do CMO:"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "esc",
+    "label": "👥 Escala e freelancers",
+    "blocos": [
+      {
+        "titulo": "Horário de funcionamento",
+        "campos": [],
+        "tabelas": [
+          {
+            "colunas": [
+              "Dia",
+              "Abre",
+              "Fecha",
+              "Duração",
+              "O que tem"
+            ]
+          }
+        ]
+      },
+      {
+        "titulo": "Solicitação semanal de freelancers",
+        "campos": [
+          "Um quadro só:",
+          "escala completa",
+          "Use esta para o planejamento normal da semana",
+          "Semana"
+        ],
+        "tabelas": [
+          {
+            "colunas": [
+              "Setor",
+              "Sugerido",
+              "Turno",
+              "Custo"
+            ]
+          }
+        ]
+      },
+      {
+        "titulo": "Escala do dia — CLT, INT, PJ e freelancers, tudo num lugar só",
+        "campos": [
+          "Compareceu/Faltou",
+          "Observação",
+          "salvos",
+          "Editar",
+          "Cancelar solicitação",
+          "Dia"
+        ],
+        "tabelas": [
+          {
+            "colunas": [
+              "Colaborador",
+              "Setor",
+              "Tipo",
+              "Horário",
+              "Presença hoje",
+              "Ação"
+            ]
+          }
+        ]
+      },
+      {
+        "titulo": "Solicitação de freelancers (avulsa)",
+        "campos": [
+          "Use esta só pra reforço de última hora",
+          "Data",
+          "Setor",
+          "Motivo",
+          "Turno",
+          "CLT ausente hoje (folga/férias/falta)",
+          "Quantidade",
+          "Observação (opcional)"
+        ],
+        "tabelas": [
+          {
+            "colunas": [
+              "Setor",
+              "Ausências",
+              "Freelancers a contratar"
+            ]
+          },
+          {
+            "colunas": [
+              "Data",
+              "Setor",
+              "Motivo",
+              "Turno",
+              "Qtd",
+              "Custo",
+              "Status",
+              "Presença"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "med",
+    "label": "⚡ Medidores",
+    "blocos": [
+      {
+        "titulo": "Leitura de medidores (foto)",
+        "campos": [
+          "leitura de consumo",
+          "Leitura (kWh)",
+          "Leitura (m³)"
+        ]
+      },
+      {
+        "titulo": "Últimos envios • Leitura de medidores",
+        "campos": [],
+        "tabelas": [
+          {
+            "colunas": [
+              "Data",
+              "Medidor",
+              "Leitura",
+              "Variação",
+              "Foto"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "fec",
+    "label": "🗓️ Fechamento e dúvidas",
+    "blocos": [
+      {
+        "titulo": "Fechar mês • Operação",
+        "campos": [
+          "Fechar mês"
+        ]
+      }
+    ]
+  }
+]

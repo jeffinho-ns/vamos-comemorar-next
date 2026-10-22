@@ -1,0 +1,77 @@
+[
+  {
+    "id": "principal",
+    "label": "Auditoria operacional",
+    "blocos": [
+      {
+        "titulo": "Indicadores",
+        "campos": [
+          "Aberto",
+          "Em andamento",
+          "Aguardando aprovação",
+          "Concluído",
+          "Atrasado",
+          "Valor estimado em aberto"
+        ]
+      },
+      {
+        "titulo": "+ Novo item",
+        "campos": [
+          "Data de identificação",
+          "Setor",
+          "Tipo de serviço",
+          "Descrição do problema",
+          "Impacto operacional",
+          "Responsável interno",
+          "Empresa executora",
+          "Necessita aprovação?",
+          "Valor estimado",
+          "Prioridade",
+          "Prazo",
+          "Data de início",
+          "Data de conclusão",
+          "Status",
+          "Observação",
+          "Evidências (fotos)"
+        ],
+        "tabelas": [
+          {
+            "colunas": [
+              "Foto",
+              "Quando",
+              "Descrição",
+              "Enviado por"
+            ]
+          }
+        ]
+      },
+      {
+        "titulo": "Fechar mês • Auditoria Operacional",
+        "campos": [
+          "Fechar mês"
+        ]
+      },
+      {
+        "titulo": "Itens de auditoria",
+        "campos": [
+          "Setor",
+          "Status"
+        ],
+        "tabelas": [
+          {
+            "colunas": [
+              "Data",
+              "Setor",
+              "Status",
+              "Tipo",
+              "Descrição",
+              "Responsável",
+              "Empresa executora",
+              "Prioridade"
+            ]
+          }
+        ]
+      }
+    ]
+  }
+]
