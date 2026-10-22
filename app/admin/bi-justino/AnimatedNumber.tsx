@@ -2,7 +2,21 @@
 
 import { useEffect, useRef, useState } from "react";
 
-/** Conta do valor anterior até o novo em menos de meio segundo. */
+const DURATION = 1100;
+
+function formatValue(value: number, kind: "int" | "money" | "pct") {
+  if (kind === "money") {
+    return value.toLocaleString("pt-BR", {
+      style: "currency",
+      currency: "BRL",
+      maximumFractionDigits: 0,
+    });
+  }
+  if (kind === "pct") return `${value.toLocaleString("pt-BR")}%`;
+  return value.toLocaleString("pt-BR");
+}
+
+/** Desliza do número anterior até o novo, desacelerando no final. */
 export function AnimatedNumber({
   value,
   kind = "int",
@@ -11,6 +25,7 @@ export function AnimatedNumber({
   kind?: "int" | "money" | "pct";
 }) {
   const [shown, setShown] = useState(value);
+  const [moving, setMoving] = useState(false);
   const shownRef = useRef(value);
 
   useEffect(() => {
@@ -18,25 +33,29 @@ export function AnimatedNumber({
     const to = Number.isFinite(value) ? value : 0;
     if (from === to) return;
     const start = performance.now();
-    const duration = 420;
     let frame = 0;
+    setMoving(true);
     const tick = (now: number) => {
-      const t = Math.min(1, (now - start) / duration);
-      const eased = 1 - (1 - t) * (1 - t);
+      const t = Math.min(1, (now - start) / DURATION);
+      const eased = 1 - Math.pow(1 - t, 5);
       const next = Math.round(from + (to - from) * eased);
-      shownRef.current = next;
-      setShown(next);
-      if (t < 1) frame = requestAnimationFrame(tick);
+      if (next !== shownRef.current) {
+        shownRef.current = next;
+        setShown(next);
+      }
+      if (t < 1) {
+        frame = requestAnimationFrame(tick);
+      } else {
+        shownRef.current = to;
+        setShown(to);
+        setMoving(false);
+      }
     };
     frame = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(frame);
   }, [value]);
 
-  const text =
-    kind === "money"
-      ? shown.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 })
-      : kind === "pct"
-        ? `${shown.toLocaleString("pt-BR")}%`
-        : shown.toLocaleString("pt-BR");
-  return <span>{text}</span>;
+  return (
+    <span className={`sjNum${moving ? " is-moving" : ""}`}>{formatValue(shown, kind)}</span>
+  );
 }

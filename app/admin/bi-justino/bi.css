@@ -39,6 +39,16 @@
 .sjCard::before { content: ""; position: absolute; top: 0; left: 16px; right: 16px; height: 2px; background: linear-gradient(90deg, transparent, var(--accent), transparent); }
 .sjCard small { color: var(--muted); display: block; }
 .sjCard .v { font-family: "Space Grotesk", Arial, sans-serif; font-size: 24px; font-weight: 700; margin: 6px 0; }
+.sjNum {
+  display: inline-block;
+  font-variant-numeric: tabular-nums;
+  color: var(--txt);
+  transition: color 0.9s ease, text-shadow 0.9s ease;
+}
+.sjNum.is-moving {
+  color: #ffe8d8;
+  text-shadow: 0 0 16px rgba(201, 103, 54, 0.45);
+}
 .sjTag { display: inline-block; margin-top: 4px; font-size: 10px; letter-spacing: 0.04em; text-transform: uppercase; color: #ffd271; border: 1px solid #5a4416; border-radius: 99px; padding: 2px 7px; }
 .sjTag.real { color: #78e8ad; border-color: #1e5b3e; }
 .sjTable { grid-column: 1 / -1; overflow: auto; }
