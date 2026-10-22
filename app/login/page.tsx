@@ -10,7 +10,6 @@ import { FaFacebook } from "react-icons/fa";
 import Link from "next/link";
 import {
   clearAuthSession,
-  ensureAuthSessionFromStorage,
   notifyAuthChanged,
   setAuthSessionCookies,
 } from "../utils/authSession";
@@ -22,7 +21,6 @@ import {
 } from "../utils/promoterPortalAccess";
 import { isSuperAdminFromToken } from "../utils/superAdminAccess";
 import { canonicalSessionRole } from "../utils/adminRole";
-import { biJustinoReturnPath, canOpenBiJustino } from "../utils/biJustinoAccess";
 
 export default function Login() {
   const [show, setShow] = useState(false);
@@ -53,20 +51,6 @@ export default function Login() {
     }
     return null;
   };
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const nextPath = biJustinoReturnPath(
-      new URLSearchParams(window.location.search).get("next"),
-    );
-    if (!nextPath) return;
-    ensureAuthSessionFromStorage();
-    const email = (localStorage.getItem("userEmail") || "").trim().toLowerCase();
-    const token = localStorage.getItem("authToken") || "";
-    if (token && (canOpenBiJustino(email) || isSuperAdminFromToken(token))) {
-      router.replace(nextPath);
-    }
-  }, [router]);
 
   // Carregar credenciais salvas quando o componente montar
   useEffect(() => {
@@ -209,17 +193,6 @@ export default function Login() {
         ];
         
         const userEmail = emailCpf.toLowerCase().trim();
-
-        const nextPath = biJustinoReturnPath(
-          new URLSearchParams(window.location.search).get("next"),
-        );
-        if (
-          nextPath &&
-          (canOpenBiJustino(userEmail) || isSuperAdminFromToken(data.token))
-        ) {
-          router.push(nextPath);
-          return;
-        }
 
         // Super Admin SaaS: painel de organizações (não o admin de uma casa).
         if (isSuperAdminFromToken(data.token)) {
