@@ -7,6 +7,7 @@ import {
 } from './app/utils/promoterPortalAccess';
 import { canonicalSessionRole } from './app/utils/adminRole';
 import { roleAllowedForAdminPath } from './app/utils/adminMiddlewareAccess';
+import { canOpenBiJustino } from './app/utils/biJustinoAccess';
 
 function safeDecodeURIComponent(value: string) {
   try {
@@ -38,6 +39,38 @@ function isLegacyProtectedPath(pathname: string) {
   );
 }
 
+function isBiJustinoPath(pathname: string) {
+  return pathname === '/bi-justino' || pathname.startsWith('/bi-justino/');
+}
+
+/** No site principal o BI só abre para quem já entrou com uma conta liberada. */
+function guardBiOnMainHost(request: NextRequest) {
+  const token = request.cookies.get('authToken')?.value;
+  const email = safeDecodeURIComponent(request.cookies.get('userEmail')?.value || '')
+    .toLowerCase()
+    .trim();
+  const isSuperAdmin = request.cookies.get('isSuperAdmin')?.value === '1';
+
+  if (!token) {
+    const login = new URL('/login', request.url);
+    login.searchParams.set('next', '/bi-justino');
+    return NextResponse.redirect(login);
+  }
+
+  if (email && !canOpenBiJustino(email) && !isSuperAdmin) {
+    return NextResponse.redirect(new URL('/acesso-negado', request.url));
+  }
+
+  const pathname = request.nextUrl.pathname;
+  if (pathname === '/bi-justino' || pathname === '/bi-justino/') {
+    const indexUrl = request.nextUrl.clone();
+    indexUrl.pathname = '/bi-justino/index.html';
+    return NextResponse.rewrite(indexUrl);
+  }
+
+  return NextResponse.next();
+}
+
 function rewriteBiHost(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
 
@@ -62,6 +95,10 @@ export function middleware(request: NextRequest) {
 
   if (host === BI_HOST) {
     return rewriteBiHost(request);
+  }
+
+  if (isBiJustinoPath(pathname)) {
+    return guardBiOnMainHost(request);
   }
 
   if (!isLegacyProtectedPath(pathname)) {
