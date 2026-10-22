@@ -61,6 +61,17 @@
     }
   }
 
+  function tokenIsSuperAdmin(token) {
+    try {
+      var part = String(token || '').split('.')[1];
+      if (!part) return false;
+      var json = JSON.parse(atob(part.replace(/-/g, '+').replace(/_/g, '/')));
+      return json.is_super_admin === true;
+    } catch (e) {
+      return false;
+    }
+  }
+
   function saveAgilizaiSession(email, data) {
     var normalized = String(email || '').trim().toLowerCase();
     try {
@@ -74,6 +85,9 @@
     document.cookie = 'authToken=' + data.token + '; path=/; max-age=' + maxAge + '; SameSite=Lax';
     if (data.role) document.cookie = 'role=' + encodeURIComponent(data.role) + '; path=/; max-age=' + maxAge + '; SameSite=Lax';
     document.cookie = 'userEmail=' + encodeURIComponent(normalized) + '; path=/; max-age=' + maxAge + '; SameSite=Lax';
+    if (tokenIsSuperAdmin(data.token)) {
+      document.cookie = 'isSuperAdmin=1; path=/; max-age=' + maxAge + '; SameSite=Lax';
+    }
   }
 
   function keepGoogleFromClosingSession() {
@@ -87,6 +101,14 @@
     window.logout = wrapped;
   }
 
+  function setStatus(text) {
+    var el = document.getElementById('gateStatus');
+    if (!el) return;
+    var desc = Object.getOwnPropertyDescriptor(Node.prototype, 'textContent');
+    if (desc && desc.set) desc.set.call(el, text);
+    else el.innerText = text;
+  }
+
   function silenceGoogleLogin() {
     if (!onAgilizaiSite()) return;
     window.__biIgnoreGoogleGate = true;
@@ -96,36 +118,27 @@
       window.apiPing = skipped;
     }
     keepGoogleFromClosingSession();
-    var el = document.getElementById('gateStatus');
-    if (!el || el.__agilizaiLock) return;
-    el.__agilizaiLock = true;
-    var desc = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'textContent');
-    Object.defineProperty(el, 'textContent', {
-      configurable: true,
-      get: function () { return desc.get.call(el); },
-      set: function (value) {
-        var text = value == null ? '' : String(value);
-        if (text.indexOf('Sem conexão') !== -1 || text.indexOf('Apps Script') !== -1) return;
-        desc.set.call(el, text);
-      }
-    });
   }
 
   function openFromApi(data) {
     if (typeof startApp !== 'function') {
-      explain(data && data.email);
+      setStatus('O login na API deu certo, mas o painel não está pronto nesta página.');
       return;
     }
     keepGoogleFromClosingSession();
     window.__biFromAgilizai = true;
-    startApp({
-      token: agilizaiToken() || 'agilizai',
-      email: (data && data.email) || agilizaiEmail(),
-      role: data && data.role === 'owner' ? 'owner' : 'user',
-      expiresAt: Date.now() + 12 * 60 * 60 * 1000,
-      areas: (data && data.areas) || 'all',
-      layouts: {}
-    });
+    try {
+      startApp({
+        token: agilizaiToken() || 'agilizai',
+        email: (data && data.email) || agilizaiEmail(),
+        role: data && data.role === 'owner' ? 'owner' : 'user',
+        expiresAt: Date.now() + 12 * 60 * 60 * 1000,
+        areas: (data && data.areas) || 'all',
+        layouts: {}
+      });
+    } catch (e) {
+      setStatus('O login na API deu certo, mas o painel não abriu.');
+    }
   }
 
   function enterFromAgilizai() {
@@ -137,8 +150,7 @@
       location.href = '/acesso-negado';
       return Promise.resolve();
     }
-    var status = document.getElementById('gateStatus');
-    if (status) status.textContent = 'Entrando com a conta do Agilizai…';
+    setStatus('Entrando com a conta do Agilizai…');
     return fetch(apiBase() + '/api/bi/justino/acesso', {
       method: 'GET',
       cache: 'no-store',
@@ -153,23 +165,22 @@
         return;
       }
       if (!result.res.ok || !result.data.ok) {
-        if (status) status.textContent = 'Não consegui confirmar o login na API do Agilizai.';
+        setStatus('Não consegui confirmar o login na API do Agilizai.');
         return;
       }
       openFromApi(result.data);
     }).catch(function () {
-      if (status) status.textContent = 'Não consegui confirmar o login na API do Agilizai.';
+      setStatus('Não consegui confirmar o login na API do Agilizai.');
     });
   }
 
   function loginWithAgilizaiPassword() {
     var emailInput = document.getElementById('gateEmail');
     var passwordInput = document.getElementById('gatePassword');
-    var status = document.getElementById('gateStatus');
     var email = emailInput ? String(emailInput.value || '').trim() : '';
     var password = passwordInput ? passwordInput.value || '' : '';
     if (!email || !password) return Promise.resolve();
-    if (status) status.textContent = 'Entrando pela API do Agilizai…';
+    setStatus('Entrando pela API do Agilizai…');
     return fetch(apiBase() + '/api/users/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -179,20 +190,20 @@
         return { res: res, data: data || {} };
       });
     }).then(function (result) {
-      if (!result.res.ok || !result.data.token) {
-        if (status) status.textContent = 'E-mail ou senha incorretos.';
+      if (!result.res.ok || !result.data.token || result.data.userId == null) {
+        setStatus((result.data && (result.data.error || result.data.message)) || 'E-mail ou senha incorretos.');
         return;
       }
       var normalized = email.toLowerCase();
       if (!ALLOWED[normalized]) {
-        if (status) status.textContent = 'Essa conta do Agilizai não abre o BI do Seu Justino.';
+        setStatus('Essa conta do Agilizai não abre o BI do Seu Justino.');
         return;
       }
       saveAgilizaiSession(normalized, result.data);
       if (passwordInput) passwordInput.value = '';
       return enterFromAgilizai();
     }).catch(function () {
-      if (status) status.textContent = 'Não consegui confirmar a conta do Agilizai agora.';
+      setStatus('Não consegui confirmar a conta do Agilizai agora.');
     });
   }
 
