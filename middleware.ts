@@ -16,7 +16,58 @@ function safeDecodeURIComponent(value: string) {
   }
 }
 
+const BI_HOST = 'bi.agilizaiapp.com.br';
+
+function requestHostname(request: NextRequest) {
+  const headerHost = request.headers.get('host');
+  if (headerHost) {
+    return headerHost.split(',')[0].trim().toLowerCase().replace(/:\d+$/, '');
+  }
+  return request.nextUrl.hostname.toLowerCase();
+}
+
+/** Rotas que o matcher antigo já protegia. O restante segue sem login. */
+function isLegacyProtectedPath(pathname: string) {
+  return (
+    pathname === '/admin' ||
+    pathname.startsWith('/admin/') ||
+    pathname === '/superadmin' ||
+    pathname.startsWith('/superadmin/') ||
+    pathname.startsWith('/gerente/') ||
+    pathname.startsWith('/cliente/')
+  );
+}
+
+function rewriteBiHost(request: NextRequest) {
+  const pathname = request.nextUrl.pathname;
+
+  if (pathname.startsWith('/bi-justino/') || pathname === '/bi-justino') {
+    if (pathname === '/bi-justino' || pathname === '/bi-justino/') {
+      const indexUrl = request.nextUrl.clone();
+      indexUrl.pathname = '/bi-justino/index.html';
+      return NextResponse.rewrite(indexUrl);
+    }
+    return NextResponse.next();
+  }
+
+  const url = request.nextUrl.clone();
+  // public/ não entrega index.html de diretório; /bi-justino sozinho responderia 404.
+  url.pathname = pathname === '/' ? '/bi-justino/index.html' : `/bi-justino${pathname}`;
+  return NextResponse.rewrite(url);
+}
+
 export function middleware(request: NextRequest) {
+  const host = requestHostname(request);
+  const pathname = request.nextUrl.pathname;
+
+  if (host === BI_HOST) {
+    return rewriteBiHost(request);
+  }
+
+  if (!isLegacyProtectedPath(pathname)) {
+    return NextResponse.next();
+  }
+
   const token = request.cookies.get('authToken')?.value;
   const roleRaw = request.cookies.get('role')?.value;
   const promoterCodigoRaw = request.cookies.get('promoterCodigo')?.value;
@@ -87,11 +138,18 @@ export function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
+    '/',
+    '/bi-justino',
+    '/bi-justino/:path*',
     '/admin',
     '/admin/:path*',
     '/superadmin',
     '/superadmin/:path*',
     '/gerente/:path*',
     '/cliente/:path*',
+    // /manual-index.js e /bi-agilizai.js são pedidos na raiz do host BI
+    // (o rewrite não muda a URL do navegador). Fora desse host, o early-return
+    // devolve next() antes de qualquer redirect de login.
+    '/((?!_next/static|_next/image|favicon.ico).*)',
   ],
 };
