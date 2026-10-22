@@ -46,6 +46,7 @@ import {
   shouldUseEventPromoterPortal,
 } from "../utils/promoterPortalAccess";
 import { readSuperAdminFromCookie } from "../utils/superAdminAccess";
+import { canAccessBiJustino } from "../utils/biJustinoAccess";
 import { ensureAuthSessionFromStorage } from "../utils/authSession";
 import { readAuthToken } from "../utils/readAuthToken";
 import { shouldEnforceEntitlements } from "../utils/saasMode";
@@ -360,11 +361,6 @@ export default function DashboardLayout({
           label: "Galeria",
           icon: MdPhotoLibrary,
         });
-        links.push({
-          href: "/admin/bi-justino",
-          label: "BI Seu Justino",
-          icon: MdQueryStats,
-        });
       }
 
       return links;
@@ -485,6 +481,16 @@ export default function DashboardLayout({
         navLinks.push({ href: "/admin/users", label: "Usuários", icon: MdPerson });
       }
     }
+  }
+
+  if (
+    (isSuperAdmin || canAccessBiJustino(effectiveEmail)) &&
+    !navLinks.some((l) => l.href === "/admin/bi-justino")
+  ) {
+    navLinks = [
+      ...navLinks,
+      { href: "/admin/bi-justino", label: "BI Seu Justino", icon: MdQueryStats },
+    ];
   }
 
   const navItems = groupNavLinks(navLinks);

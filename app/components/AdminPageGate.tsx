@@ -5,7 +5,7 @@
  * Fail-open quando SAAS off ou legacyScoped (UEP sem memberships).
  */
 
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useCan } from "../hooks/useCan";
 import { useEntitlements } from "../context/EntitlementsContext";
@@ -14,6 +14,7 @@ import { firstAllowedAdminPath, pathAllowedByEntitlements } from "../utils/admin
 import { shouldEnforceEntitlements } from "../utils/saasMode";
 import { uepAllowsModule } from "../utils/uepModuleAccess";
 import { readSuperAdminFromCookie } from "../utils/superAdminAccess";
+import { canAccessBiJustino } from "../utils/biJustinoAccess";
 
 function isCheckinAdminPath(pathname: string): boolean {
   const path = pathname.split("?")[0];
@@ -40,10 +41,26 @@ function isSuperAdminOnlyPath(pathname: string): boolean {
     path === "/admin/equipe" ||
     path.startsWith("/admin/equipe/") ||
     path === "/admin/reservas" ||
-    path.startsWith("/admin/reservas/") ||
-    path === "/admin/bi-justino" ||
-    path.startsWith("/admin/bi-justino/")
+    path.startsWith("/admin/reservas/")
   );
+}
+
+function isBiJustinoPath(pathname: string): boolean {
+  const path = pathname.split("?")[0];
+  return path === "/admin/bi-justino" || path.startsWith("/admin/bi-justino/");
+}
+
+function readSessionEmail(): string {
+  if (typeof document === "undefined") return "";
+  const match = document.cookie.match(/(?:^|;\s*)userEmail=([^;]*)/);
+  if (match) {
+    try {
+      return decodeURIComponent(match[1]).trim().toLowerCase();
+    } catch {
+      return "";
+    }
+  }
+  return (localStorage.getItem("userEmail") || "").trim().toLowerCase();
 }
 
 export function AdminPageGate({ children }: { children: ReactNode }) {
@@ -54,6 +71,13 @@ export function AdminPageGate({ children }: { children: ReactNode }) {
   const { myEstablishmentPermissions } = useUserPermissions();
   const activeUep = myEstablishmentPermissions.filter((p) => p.is_active !== false);
   const isSuperAdmin = readSuperAdminFromCookie();
+  const [sessionEmail, setSessionEmail] = useState("");
+  const [emailReady, setEmailReady] = useState(false);
+  useEffect(() => {
+    setSessionEmail(readSessionEmail());
+    setEmailReady(true);
+  }, []);
+  const biAllowed = isSuperAdmin || canAccessBiJustino(sessionEmail);
 
   const enforceEntitlements = shouldEnforceEntitlements(entitlements);
   const hasUepCheckin = activeUep.some((p) => p.can_manage_checkins);
@@ -88,11 +112,17 @@ export function AdminPageGate({ children }: { children: ReactNode }) {
       (hasUepCheckin && isCheckinAdminPath(pathname)) ||
       (hasUepJustino360 && isJustino360AdminPath(pathname)) ||
       (hasUepRhIdeia && isRhIdeiaAdminPath(pathname))) &&
-    (!isSuperAdminOnlyPath(pathname) || isSuperAdmin);
+    (!isSuperAdminOnlyPath(pathname) || isSuperAdmin) &&
+    (!isBiJustinoPath(pathname) || biAllowed);
 
   useEffect(() => {
     if (isSuperAdminOnlyPath(pathname) && !isSuperAdmin) {
       router.replace("/acesso-negado");
+      return;
+    }
+    if (isBiJustinoPath(pathname)) {
+      if (!emailReady) return;
+      if (!biAllowed) router.replace("/acesso-negado");
       return;
     }
     if (!enforceEntitlements || loading || allowed) return;
@@ -116,9 +146,15 @@ export function AdminPageGate({ children }: { children: ReactNode }) {
     entitlements.allowAll,
     pathname,
     isSuperAdmin,
+    emailReady,
+    biAllowed,
   ]);
 
   if (isSuperAdminOnlyPath(pathname) && !isSuperAdmin) {
+    return null;
+  }
+
+  if (isBiJustinoPath(pathname) && (!emailReady || !biAllowed)) {
     return null;
   }
 

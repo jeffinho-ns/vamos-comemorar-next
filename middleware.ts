@@ -7,6 +7,7 @@ import {
 } from './app/utils/promoterPortalAccess';
 import { canonicalSessionRole } from './app/utils/adminRole';
 import { roleAllowedForAdminPath } from './app/utils/adminMiddlewareAccess';
+import { canAccessBiJustino } from './app/utils/biJustinoAccess';
 
 function safeDecodeURIComponent(value: string) {
   try {
@@ -39,10 +40,15 @@ export function middleware(request: NextRequest) {
     url === '/admin/reservas' ||
     url.startsWith('/admin/reservas/') ||
     url === '/admin/equipe' ||
-    url.startsWith('/admin/equipe/') ||
-    url === '/admin/bi-justino' ||
-    url.startsWith('/admin/bi-justino/');
+    url.startsWith('/admin/equipe/');
   if (superAdminOnlyAdmin && !isSuperAdmin) {
+    return NextResponse.redirect(new URL('/acesso-negado', request.url));
+  }
+
+  const isBiJustino =
+    url === '/admin/bi-justino' || url.startsWith('/admin/bi-justino/');
+  const sessionEmail = safeDecodeURIComponent(userEmailRaw).toLowerCase().trim();
+  if (isBiJustino && !isSuperAdmin && !canAccessBiJustino(sessionEmail)) {
     return NextResponse.redirect(new URL('/acesso-negado', request.url));
   }
 

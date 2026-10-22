@@ -70,7 +70,7 @@ export function useBiLive() {
       });
       const json = await res.json().catch(() => null);
       if (!res.ok || !json?.ok) {
-        setError(res.status === 403 ? "Essa tela é só da conta de super admin." : "Não consegui ler o banco agora.");
+        setError(res.status === 403 ? "Sem permissão para ver este painel." : "Não consegui ler o banco agora.");
         return;
       }
       const next = json as BiLiveData;
