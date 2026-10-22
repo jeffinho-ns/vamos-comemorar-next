@@ -71,6 +71,7 @@ const NAV_GROUP_DEFS: ReadonlyArray<{
     icon: MdGroup,
     hrefs: [
       "/admin/justino360",
+      "/admin/bi-justino",
       "/admin/rh-ideia",
       "/admin/users",
       "/admin/equipe",

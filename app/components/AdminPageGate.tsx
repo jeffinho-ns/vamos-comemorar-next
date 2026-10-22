@@ -40,7 +40,9 @@ function isSuperAdminOnlyPath(pathname: string): boolean {
     path === "/admin/equipe" ||
     path.startsWith("/admin/equipe/") ||
     path === "/admin/reservas" ||
-    path.startsWith("/admin/reservas/")
+    path.startsWith("/admin/reservas/") ||
+    path === "/admin/bi-justino" ||
+    path.startsWith("/admin/bi-justino/")
   );
 }
 

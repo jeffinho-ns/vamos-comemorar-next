@@ -27,6 +27,7 @@ import {
   MdGroup,
   MdAssignmentTurnedIn,
   MdPeople,
+  MdQueryStats,
 } from "react-icons/md";
 import logBrand from "../assets/logo-agilizai-h.png"; // Verifique o caminho
 import UserMenu from "../components/UserMenu/UserMenu"; // Verifique o caminho
@@ -358,6 +359,11 @@ export default function DashboardLayout({
           href: "/admin/galeria",
           label: "Galeria",
           icon: MdPhotoLibrary,
+        });
+        links.push({
+          href: "/admin/bi-justino",
+          label: "BI Seu Justino",
+          icon: MdQueryStats,
         });
       }
 

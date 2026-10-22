@@ -39,7 +39,9 @@ export function middleware(request: NextRequest) {
     url === '/admin/reservas' ||
     url.startsWith('/admin/reservas/') ||
     url === '/admin/equipe' ||
-    url.startsWith('/admin/equipe/');
+    url.startsWith('/admin/equipe/') ||
+    url === '/admin/bi-justino' ||
+    url.startsWith('/admin/bi-justino/');
   if (superAdminOnlyAdmin && !isSuperAdmin) {
     return NextResponse.redirect(new URL('/acesso-negado', request.url));
   }
