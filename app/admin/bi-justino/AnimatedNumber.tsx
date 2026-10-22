@@ -3,7 +3,13 @@
 import { useEffect, useRef, useState } from "react";
 
 /** Conta do valor anterior até o novo em menos de meio segundo. */
-export function AnimatedNumber({ value }: { value: number }) {
+export function AnimatedNumber({
+  value,
+  kind = "int",
+}: {
+  value: number;
+  kind?: "int" | "money" | "pct";
+}) {
   const [shown, setShown] = useState(value);
   const shownRef = useRef(value);
 
@@ -26,5 +32,11 @@ export function AnimatedNumber({ value }: { value: number }) {
     return () => cancelAnimationFrame(frame);
   }, [value]);
 
-  return <span>{shown.toLocaleString("pt-BR")}</span>;
+  const text =
+    kind === "money"
+      ? shown.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 })
+      : kind === "pct"
+        ? `${shown.toLocaleString("pt-BR")}%`
+        : shown.toLocaleString("pt-BR");
+  return <span>{text}</span>;
 }
