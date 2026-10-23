@@ -6,6 +6,7 @@ import { CONTEUDO } from "./conteudo";
 import { PainelConteudo } from "./PainelConteudo";
 import { GRUPO_LABEL, PAGINAS, type Pagina } from "./paginas";
 import { useBiLive, type BiLiveData } from "./useBiLive";
+import { avisoZig } from "./zigValor";
 
 function FaixaAoVivo({ data }: { data: BiLiveData | null }) {
   const itens = [
@@ -64,8 +65,9 @@ export function BiShell() {
         <div>
           <h1>Seu Justino BI</h1>
           <p className="sjSub">
-            Mesmas abas e blocos do painel. O que ainda não está no banco entra preenchido, pra trocar depois, e os números de exemplo mudam sozinhos.
+            Reservas saem do banco. O faturamento da Zig sai do painel dele. O restante ainda é exemplo e muda sozinho.
           </p>
+          {avisoZig(data?.zig) ? <p className="sjSub">{avisoZig(data?.zig)}</p> : null}
         </div>
         <p className="sjLive">
           <span className={`sjDot ${connected ? "on" : ""}`} />

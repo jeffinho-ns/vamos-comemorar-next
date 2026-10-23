@@ -61,6 +61,7 @@
 .sjCampo .v { font-size: 16px; margin: 4px 0 0; }
 .sjNotas { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
 .sjNota, .sjInsight { margin: 8px 0 0; color: #e6ddd4; font-size: 14px; line-height: 1.5; }
+.sjMini { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.4; }
 .sjDias { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
 .sjDias button { background: #221c17; color: #fff; border: 1px solid #3a2f26; border-radius: 10px; padding: 8px 12px; font-weight: 700; cursor: pointer; }
 .sjDias button.on { background: var(--txt); color: var(--bg); }

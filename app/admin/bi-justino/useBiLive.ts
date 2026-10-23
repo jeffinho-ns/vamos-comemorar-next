@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { io, type Socket } from "socket.io-client";
 import { getApiUrl } from "../../config/api";
 import { getPublicSocketUrl } from "@/lib/publicApiUrl";
+import type { ZigAoVivo } from "./zigValor";
 
 export interface BiStatusRow {
   status: string;
@@ -39,6 +40,7 @@ export interface BiLiveData {
   porStatus: BiStatusRow[];
   recentesEm: string;
   recentes: BiRecente[];
+  zig?: ZigAoVivo | null;
   mapa: BiMapItem[];
 }
 
