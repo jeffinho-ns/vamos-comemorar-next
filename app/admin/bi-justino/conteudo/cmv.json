@@ -33,6 +33,49 @@
         ]
       },
       {
+        "titulo": "Alertas • Comida",
+        "campos": [],
+        "tabelas": [
+          {
+            "colunas": [
+              "Item",
+              "CMV",
+              "Meta",
+              "Situação"
+            ]
+          }
+        ]
+      },
+      {
+        "titulo": "Alertas • Bebida",
+        "campos": [],
+        "tabelas": [
+          {
+            "colunas": [
+              "Item",
+              "CMV",
+              "Meta",
+              "Situação"
+            ]
+          }
+        ]
+      },
+      {
+        "titulo": "Ficha técnica a corrigir",
+        "campos": [
+          "Itens com ficha divergente ainda não vêm do banco. Enquanto isso a lista aparece aqui como exemplo."
+        ],
+        "tabelas": [
+          {
+            "colunas": [
+              "Item",
+              "Problema",
+              "Origem"
+            ]
+          }
+        ]
+      },
+      {
         "titulo": "Top itens vendidos e curva ABC",
         "campos": [
           "só tem histórico a partir de 25/09/2026"

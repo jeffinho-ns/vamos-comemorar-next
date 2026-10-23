@@ -22,12 +22,77 @@
         ]
       },
       {
+        "titulo": "Faturamento",
+        "campos": [
+          "Visão junto soma ZigPay e eventos numa linha só. Visão separado mostra as duas séries."
+        ],
+        "seletor": [
+          "Mês",
+          "Ano"
+        ],
+        "tabelas": [
+          {
+            "colunas": [
+              "Período",
+              "ZigPay",
+              "Faturamento de eventos",
+              "Faturamento total"
+            ]
+          }
+        ]
+      },
+      {
+        "titulo": "Custo por área",
+        "campos": [],
+        "tabelas": [
+          {
+            "colunas": [
+              "Área",
+              "Custo",
+              "Participação"
+            ]
+          }
+        ]
+      },
+      {
         "titulo": "Projeção consolidada do mês (última data enviada por área)",
         "campos": [
           "Faturamento bruto mensal",
           "CMV real consolidado",
           "Custos controláveis acumulados",
           "Custos estruturais + variáveis"
+        ]
+      },
+      {
+        "titulo": "Alertas de diretoria",
+        "campos": [
+          "Alertas cruzam margem, CMV, custo por área e aprovações que ainda estão paradas."
+        ],
+        "tabelas": [
+          {
+            "colunas": [
+              "Nível",
+              "Área",
+              "Alerta"
+            ]
+          }
+        ]
+      },
+      {
+        "titulo": "Aprovações pendentes • Auditoria Operacional",
+        "campos": [
+          "Itens aguardando a diretoria aprovar ou negar, com observação no próprio quadro."
+        ],
+        "tabelas": [
+          {
+            "colunas": [
+              "Item",
+              "Setor",
+              "Prioridade",
+              "Valor estimado",
+              "Status"
+            ]
+          }
         ]
       },
       {

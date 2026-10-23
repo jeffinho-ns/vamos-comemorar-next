@@ -16,6 +16,20 @@
         ]
       },
       {
+        "titulo": "RH estrutural — envios recentes",
+        "campos": [],
+        "tabelas": [
+          {
+            "colunas": [
+              "Mês",
+              "RH estrutural",
+              "Extras",
+              "Colaboradores ativos"
+            ]
+          }
+        ]
+      },
+      {
         "titulo": "Aprovação de freelancers",
         "campos": [
           "pendente"
@@ -70,6 +84,34 @@
           "Gatilho por margem da casa:",
           "Peso:",
           "Elegibilidade:"
+        ]
+      },
+      {
+        "titulo": "Alertas RH",
+        "campos": [
+          "Cruza custo de pessoal, headcount e a regra de bônus da casa."
+        ],
+        "tabelas": [
+          {
+            "colunas": [
+              "Nível",
+              "Alerta"
+            ]
+          }
+        ]
+      },
+      {
+        "titulo": "Últimos envios • RH",
+        "campos": [],
+        "tabelas": [
+          {
+            "colunas": [
+              "Data",
+              "RH estrutural",
+              "Extras",
+              "Colaboradores ativos"
+            ]
+          }
         ]
       }
     ]

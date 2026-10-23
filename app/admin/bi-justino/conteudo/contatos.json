@@ -14,6 +14,24 @@
         ]
       },
       {
+        "titulo": "Solicitações de contatos",
+        "campos": [
+          "Pedidos de cadastro, edição ou exclusão aguardando a diretoria."
+        ],
+        "tabelas": [
+          {
+            "colunas": [
+              "Quando",
+              "Pedido",
+              "Contato",
+              "Quem pediu",
+              "Status",
+              "Ação"
+            ]
+          }
+        ]
+      },
+      {
         "titulo": "Contatos cadastrados",
         "campos": [],
         "tabelas": [

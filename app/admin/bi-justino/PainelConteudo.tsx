@@ -43,8 +43,8 @@ function celulaReserva(coluna: string, row: BiRecente, quando: string) {
   return "—";
 }
 
-function Indicador({ campo, drift }: { campo: string; drift: Record<string, number> }) {
-  const id = chaveCampo("Indicadores", campo);
+function Indicador({ campo, blocoTitulo, drift }: { campo: string; blocoTitulo: string; drift: Record<string, number> }) {
+  const id = chaveCampo(blocoTitulo, campo);
   const tipo = tipoCampo(campo);
   const valor = numeroDe(campo, drift[id] || 0);
   return (
@@ -87,12 +87,12 @@ function DiasSemana({ campos, drift }: { campos: string[]; drift: Record<string,
 }
 
 function TabelaMock({
-  titulo,
+  baseId,
   colunas,
   drift,
   aoVivo,
 }: {
-  titulo: string;
+  baseId: string;
   colunas: string[];
   drift: Record<string, number>;
   aoVivo: { quando: string; linhas: BiRecente[]; freshIds: number[] } | null;
@@ -123,7 +123,7 @@ function TabelaMock({
               <tr key={linha}>
                 {colunas.map((col, indice) => (
                   <td key={col}>
-                    <CelulaNumero label={`${col} ${linha}`} driftId={`t:${titulo}:${indice}:${linha}`} drift={drift} />
+                    <CelulaNumero label={`${col} ${linha}`} driftId={`t:${baseId}:${indice}:${linha}`} drift={drift} />
                   </td>
                 ))}
               </tr>
@@ -143,13 +143,30 @@ function Bloco({
   drift: Record<string, number>;
   aoVivo: { quando: string; linhas: BiRecente[]; freshIds: number[] } | null;
 }) {
+  const opcoes = bloco.seletor ?? [];
+  const [escolha, setEscolha] = useState(opcoes[0] ?? "");
   if (bloco.titulo === "Por dia da semana") return <DiasSemana campos={bloco.campos} drift={drift} />;
+  const baseId = opcoes.length ? `${bloco.titulo}:${escolha}` : bloco.titulo;
   const notas = bloco.campos.filter(ehNota);
   const campos = bloco.campos.filter((campo) => !ehNota(campo));
   const listaReservas = /lista de reservas/i.test(bloco.titulo);
+  const tabelas = bloco.tabelas ?? [];
+  const indiceSeletor = opcoes.indexOf(escolha);
+  const tabelasVisiveis = opcoes.length && tabelas.length === opcoes.length
+    ? [tabelas[Math.max(0, indiceSeletor)]]
+    : tabelas;
   return (
     <section className="sjCard sjBloco">
       <h3>{bloco.titulo}</h3>
+      {opcoes.length ? (
+        <div className="sjDias">
+          {opcoes.map((nome) => (
+            <button key={nome} type="button" className={nome === escolha ? "on" : ""} onClick={() => setEscolha(nome)}>
+              {nome}
+            </button>
+          ))}
+        </div>
+      ) : null}
       {notas.length ? (
         <div className="sjNotas">
           {notas.map((nota) => <p key={nota} className="sjNota">{nota}</p>)}
@@ -161,16 +178,16 @@ function Bloco({
             <div key={campo} className="sjCampo">
               <small>{campo}</small>
               <div className="v">
-                <CelulaNumero label={campo} driftId={chaveCampo(bloco.titulo, campo)} drift={drift} />
+                <CelulaNumero label={campo} driftId={chaveCampo(baseId, campo)} drift={drift} />
               </div>
             </div>
           ))}
         </div>
       ) : null}
-      {(bloco.tabelas ?? []).map((tabela) => (
+      {tabelasVisiveis.map((tabela) => (
         <TabelaMock
           key={tabela.colunas.join("|")}
-          titulo={bloco.titulo}
+          baseId={baseId}
           colunas={tabela.colunas}
           drift={drift}
           aoVivo={listaReservas ? aoVivo : null}
@@ -204,8 +221,18 @@ export function PainelConteudo({
     if (!aba) return [];
     const ids: string[] = [];
     for (const bloco of aba.blocos) {
-      for (const campo of bloco.campos) {
-        if (numeroDe(campo, 0) != null) ids.push(chaveCampo(bloco.titulo, campo));
+      const selecoes = bloco.seletor?.length ? bloco.seletor : [""];
+      for (const sel of selecoes) {
+        const base = sel ? `${bloco.titulo}:${sel}` : bloco.titulo;
+        for (const campo of bloco.campos) {
+          if (numeroDe(campo, 0) != null) ids.push(chaveCampo(base, campo));
+        }
+        for (const tabela of bloco.tabelas ?? []) {
+          tabela.colunas.forEach((col, indice) => {
+            if (numeroDe(col, 0) == null) return;
+            for (let linha = 0; linha < 3; linha += 1) ids.push(`t:${base}:${indice}:${linha}`);
+          });
+        }
       }
       if (bloco.titulo === "Por dia da semana") {
         for (const dia of bloco.campos) {
@@ -213,12 +240,6 @@ export function PainelConteudo({
             ids.push(chaveCampo(dia, campo));
           }
         }
-      }
-      for (const tabela of bloco.tabelas ?? []) {
-        tabela.colunas.forEach((col, indice) => {
-          if (numeroDe(col, 0) == null) return;
-          for (let linha = 0; linha < 3; linha += 1) ids.push(`t:${bloco.titulo}:${indice}:${linha}`);
-        });
       }
     }
     return ids;
@@ -260,8 +281,8 @@ export function PainelConteudo({
       ) : null}
       <div className="sjGrid">
         {aba.blocos.map((bloco) => (
-          bloco.titulo === "Indicadores"
-            ? bloco.campos.map((campo) => <Indicador key={campo} campo={campo} drift={drift} />)
+          bloco.titulo === "Indicadores" || bloco.titulo === "📊 Indicadores de Eventos"
+            ? bloco.campos.map((campo) => <Indicador key={campo} campo={campo} blocoTitulo={bloco.titulo} drift={drift} />)
             : <Bloco key={bloco.titulo} bloco={bloco} drift={drift} aoVivo={aoVivo} />
         ))}
       </div>

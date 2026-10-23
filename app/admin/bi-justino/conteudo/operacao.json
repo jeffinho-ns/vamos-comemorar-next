@@ -31,6 +31,21 @@
           "Segurança",
           "CMV teórico (parcial)"
         ]
+      },
+      {
+        "titulo": "Últimos envios • Operação",
+        "campos": [],
+        "tabelas": [
+          {
+            "colunas": [
+              "Data",
+              "Público",
+              "Perdas",
+              "Manutenção",
+              "Ocorrências"
+            ]
+          }
+        ]
       }
     ]
   },
@@ -54,6 +69,36 @@
         "titulo": "Alertas Operação",
         "campos": [
           "Definição do CMO:"
+        ]
+      },
+      {
+        "titulo": "Perdas / desperdício — envios recentes",
+        "campos": [],
+        "tabelas": [
+          {
+            "colunas": [
+              "Data",
+              "Perdas",
+              "Manutenção",
+              "Descartáveis"
+            ]
+          }
+        ]
+      },
+      {
+        "titulo": "Ticket médio semanal — últimos 3 meses",
+        "campos": [
+          "Semanas já fechadas. Ticket médio é faturamento dividido pelo público."
+        ],
+        "tabelas": [
+          {
+            "colunas": [
+              "Semana",
+              "Faturamento",
+              "Público",
+              "Ticket médio"
+            ]
+          }
         ]
       }
     ]

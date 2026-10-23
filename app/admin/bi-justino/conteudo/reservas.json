@@ -32,6 +32,35 @@
           "Visualização",
           "Semana começando em (segunda-feira)",
           "Mês"
+        ],
+        "seletor": [
+          "Semana",
+          "Mês"
+        ],
+        "tabelas": [
+          {
+            "colunas": [
+              "Indicador",
+              "Segunda",
+              "Terça",
+              "Quarta",
+              "Quinta",
+              "Sexta",
+              "Sábado",
+              "Domingo",
+              "Total"
+            ]
+          },
+          {
+            "colunas": [
+              "Data",
+              "Reservas (pax)",
+              "Happy Hour",
+              "Despedida",
+              "Aniversário",
+              "Eventos (pax)"
+            ]
+          }
         ]
       },
       {

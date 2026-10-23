@@ -9,15 +9,15 @@ export function semente(texto: string) {
 
 export function tipoCampo(label: string): TipoCampo {
   const t = label.toLowerCase();
-  if (/senha|e-mail|email|telefone|observa|buscar|texto da|para quem|nome|origem|tipo de|status|ação|acao/.test(t)) {
+  if (/senha|e-mail|email|telefone|observa|buscar|texto da|para quem|nome|origem|tipo de|status|ação|acao|extenso/.test(t)) {
     return "texto";
   }
   if (/^data|mês de|mes de|semana|admiss|página|pagina/.test(t)) return "data";
-  if (/margem|cmv|percent|cobertura/.test(t)) return "pct";
+  if (/margem|cmv|percent|cobertura|participação|participacao|varia/.test(t)) return "pct";
   if (/fatur|custo|gasto|invest|receita|aluguel|energia|água|agua|gás|gas|imposto|taxa|bônus|bonus|salár|salar|valor|economia|ticket|contrato|sinal/.test(t)) {
     return "money";
   }
-  if (/pax|pesso|reserv|clientes|seguidor|alcance|post|headcount|giro|leitura|qtd|quantidade|público|publico|colaborador/.test(t)) {
+  if (/roas|pax|pesso|reserv|clientes|seguidor|alcance|post|headcount|giro|leitura|qtd|quantidade|público|publico|colaborador|cota|eventos|segunda|terça|terca|quarta|quinta|sexta|sábado|sabado|domingo|^total$/.test(t)) {
     return "int";
   }
   return "texto";

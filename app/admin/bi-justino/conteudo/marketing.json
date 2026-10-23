@@ -25,6 +25,39 @@
         "campos": [
           "Fechar mês"
         ]
+      },
+      {
+        "titulo": "Alertas Marketing",
+        "campos": [
+          "O bônus não premia só corte de mídia: o BI olha o funil e a margem da casa antes de liberar."
+        ],
+        "tabelas": [
+          {
+            "colunas": [
+              "Nível",
+              "Alerta"
+            ]
+          }
+        ]
+      },
+      {
+        "titulo": "Últimos envios • Marketing",
+        "campos": [
+          "Mês"
+        ],
+        "tabelas": [
+          {
+            "colunas": [
+              "Data",
+              "Tráfego pago",
+              "Atrações",
+              "Outros",
+              "Reservas",
+              "Comparecimento",
+              "Faturamento gerado"
+            ]
+          }
+        ]
       }
     ]
   },
@@ -55,6 +88,25 @@
           "Público esperado",
           "Ticket médio esperado",
           "Observação da projeção"
+        ]
+      },
+      {
+        "titulo": "Vale a pena abrir nesse dia?",
+        "campos": [
+          "Custo fixo médio por dia de abertura",
+          "Custo variável estimado",
+          "Margem de contribuição",
+          "Veredito do dia",
+          "O custo fixo vem do último envio de Financeiro e RH, rateado pelos dias em que a casa abre."
+        ]
+      },
+      {
+        "titulo": "A atração e os gastos são condizentes com o faturamento esperado?",
+        "campos": [
+          "Teto de atrações",
+          "Gasto projetado em atrações",
+          "Folga até o teto",
+          "Leitura"
         ]
       },
       {
@@ -151,6 +203,52 @@
     "label": "Análise de gráficos",
     "blocos": [
       {
+        "titulo": "Faturamento e ticket médio semanal — últimos 6 meses",
+        "campos": [
+          "Semanas de segunda a domingo já fechadas. Ticket médio é faturamento dividido pelo público."
+        ],
+        "tabelas": [
+          {
+            "colunas": [
+              "Semana",
+              "Faturamento",
+              "Público",
+              "Ticket médio"
+            ]
+          }
+        ]
+      },
+      {
+        "titulo": "Faturamento histórico (DRE) — mês a mês",
+        "campos": [
+          "Faturamento bruto mensal, direto da DRE. O histórico anterior a 22/09/2026 vem daqui."
+        ],
+        "tabelas": [
+          {
+            "colunas": [
+              "Mês",
+              "Faturamento bruto"
+            ]
+          }
+        ]
+      },
+      {
+        "titulo": "Gasto vs Receita — últimos 30 dias",
+        "campos": [
+          "ROAS estimado é a receita atribuída dividida pelo gasto de marketing do dia."
+        ],
+        "tabelas": [
+          {
+            "colunas": [
+              "Data",
+              "Gasto",
+              "Receita",
+              "ROAS"
+            ]
+          }
+        ]
+      },
+      {
         "titulo": "📊 Padrão semanal • faturamento e ticket médio por dia da semana",
         "campos": [],
         "tabelas": [
@@ -161,6 +259,30 @@
               "Faturamento médio",
               "Público médio",
               "Ticket médio"
+            ]
+          }
+        ]
+      },
+      {
+        "titulo": "🕒 Venda por horário • média histórica por dia da semana",
+        "campos": [
+          "Média de cada bloco de 30 minutos. Dia fechado fica de fora. Geral junta todos os dias."
+        ],
+        "seletor": [
+          "Geral",
+          "Segunda",
+          "Terça",
+          "Quarta",
+          "Quinta",
+          "Sexta",
+          "Sábado",
+          "Domingo"
+        ],
+        "tabelas": [
+          {
+            "colunas": [
+              "Horário",
+              "Faturamento médio"
             ]
           }
         ]
@@ -197,6 +319,11 @@
               "Público médio/dia"
             ]
           }
+        ],
+        "seletor": [
+          "Voz e Violão",
+          "Banda",
+          "DJ"
         ]
       }
     ]

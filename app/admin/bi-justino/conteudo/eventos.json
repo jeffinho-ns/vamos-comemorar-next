@@ -4,6 +4,37 @@
     "label": "Eventos",
     "blocos": [
       {
+        "titulo": "Eventos privados e corporativos",
+        "campos": [
+          "Festa fechada, casamento ou corporativo, com contrato e sinal. Reserva de mesa do dia a dia continua na aba Reservas."
+        ]
+      },
+      {
+        "titulo": "📊 Indicadores de Eventos",
+        "campos": [
+          "Cotações em andamento",
+          "Eventos realizados",
+          "Faturamento do mês",
+          "Faturamento do ano (até hoje)",
+          "Cotações fechadas"
+        ]
+      },
+      {
+        "titulo": "📋 Tarefas de hoje e atrasadas",
+        "campos": [],
+        "tabelas": [
+          {
+            "colunas": [
+              "Tarefa",
+              "Evento",
+              "Responsável",
+              "Prazo",
+              "Status"
+            ]
+          }
+        ]
+      },
+      {
         "titulo": "+ Novo evento",
         "campos": [
           "Data do evento",
@@ -48,8 +79,55 @@
       {
         "titulo": "📄 Tabela de pacotes (referência)",
         "campos": [
-          "Cotações",
-          "Submeter pra aprovação"
+          "Catálogo de pacotes do Seu Justino, pra consultar preço e formato na hora da cotação."
+        ]
+      }
+    ]
+  },
+  {
+    "id": "cotacoes",
+    "label": "Cotações",
+    "blocos": [
+      {
+        "titulo": "Cotações",
+        "campos": [
+          "Monta a proposta, salva rascunho e submete pra aprovação. O envio do contrato pro cliente é um clique separado."
+        ]
+      },
+      {
+        "titulo": "+ Nova cotação • Cliente",
+        "campos": [
+          "Nome da empresa/cliente",
+          "Apelido (nome curto usado no contrato)",
+          "CNPJ",
+          "Endereço completo",
+          "Empresa aberta desde",
+          "Responsável (contato)",
+          "E-mail do cliente",
+          "Telefone do cliente"
+        ]
+      },
+      {
+        "titulo": "+ Nova cotação • Evento",
+        "campos": [
+          "Nome do evento",
+          "Data do evento",
+          "Hora de início",
+          "Hora de término",
+          "Duração por extenso",
+          "Pax contratado",
+          "Pax por extenso",
+          "Ambiente/espaço locado",
+          "Atração contratada",
+          "Menu acordado"
+        ]
+      },
+      {
+        "titulo": "+ Nova cotação • Financeiro",
+        "campos": [
+          "Valor total (R$)",
+          "Valor por extenso",
+          "Forma de pagamento"
         ]
       },
       {

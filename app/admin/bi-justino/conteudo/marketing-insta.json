@@ -13,9 +13,55 @@
         ]
       },
       {
+        "titulo": "🎯 Placar do plano",
+        "campos": [
+          "Plano: 4 Reels por semana e 2 carrosséis. A grade mostra o que foi publicado, sem cobrar o dia exato."
+        ],
+        "tabelas": [
+          {
+            "colunas": [
+              "Indicador",
+              "Linha de base",
+              "Agora",
+              "Variação"
+            ]
+          },
+          {
+            "colunas": [
+              "Semana",
+              "Reels",
+              "Carrosséis",
+              "Cumprimento"
+            ]
+          }
+        ]
+      },
+      {
         "titulo": "📊 Indicadores reais da conta (API oficial do Instagram)",
         "campos": [
           "Ranking de posts"
+        ]
+      },
+      {
+        "titulo": "📈 Acompanhamento anual • ano atual × ano anterior",
+        "campos": [
+          "Cada mês é a janela de 1 a 30. O mês corrente entra parcial."
+        ],
+        "seletor": [
+          "Alcance",
+          "Visitas ao perfil",
+          "Cliques no link",
+          "Engajamento"
+        ],
+        "tabelas": [
+          {
+            "colunas": [
+              "Mês",
+              "Ano atual",
+              "Ano anterior",
+              "Variação"
+            ]
+          }
         ]
       },
       {

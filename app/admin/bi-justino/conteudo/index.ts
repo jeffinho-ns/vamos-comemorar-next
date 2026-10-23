@@ -21,6 +21,8 @@ export interface BlocoConteudo {
   titulo: string;
   campos: string[];
   tabelas?: TabelaConteudo[];
+  /** Botões internos do bloco, como Voz e Violão / Banda / DJ ou Mês / Ano. */
+  seletor?: string[];
 }
 
 export interface AbaConteudo {
