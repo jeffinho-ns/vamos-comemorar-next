@@ -75,7 +75,105 @@
 .sjTable th { color: var(--muted); font-weight: 600; }
 @media (max-width: 1100px) { .sjCard { grid-column: span 6; } }
 @media (max-width: 900px) {
-  .sjBody { flex-direction: column; }
-  .sjSide { position: static; flex: none; width: 100%; max-height: none; }
-  .sjCard { grid-column: span 12; }
+  .sjbi {
+    margin: 0;
+    min-height: 0;
+    max-width: 100%;
+    overflow-x: clip;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .sjHead {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+    padding: 14px 14px 0;
+  }
+  .sjHead h1 { font-size: 20px; text-wrap: balance; }
+  .sjSub { font-size: 13px; text-wrap: pretty; }
+  .sjLive { align-self: flex-start; min-height: 44px; }
+  .sjLive button {
+    min-height: 44px;
+    padding: 0 12px;
+    border-radius: 10px;
+    border: 1px solid #3a2f26;
+    background: #221c17;
+    color: var(--txt);
+    font-weight: 700;
+  }
+  .sjBody { flex-direction: column; gap: 12px; padding: 8px 12px 28px; }
+  .sjSide {
+    position: sticky;
+    top: 0;
+    z-index: 4;
+    flex: none;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    align-items: center;
+    width: calc(100% + 24px);
+    max-height: none;
+    gap: 6px;
+    margin: 0 -12px;
+    padding: 8px 12px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    overscroll-behavior-x: contain;
+    background: #120e0b;
+    border-bottom: 1px solid var(--line);
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .sjSide::-webkit-scrollbar { display: none; }
+  .sjSide > div,
+  .sjGroup,
+  .sjKids,
+  .sjGroup.open .sjKids {
+    display: contents;
+  }
+  .sjSide .sjGroupHead { display: none; }
+  .sjSide .sjItem {
+    flex: 0 0 auto;
+    width: auto;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    white-space: nowrap;
+    padding: 8px 14px;
+  }
+  .sjMain { width: 100%; }
+  .sjGrid { grid-template-columns: 1fr 1fr; }
+  .sjCard { grid-column: span 1; min-width: 0; padding: 12px; }
+  .sjBloco { grid-column: 1 / -1; }
+  .sjCard small { overflow-wrap: break-word; }
+  .sjBloco h3 { text-wrap: balance; }
+  .sjCard .v { font-size: 20px; line-height: 1.15; overflow-wrap: anywhere; }
+  .sjCampos { grid-template-columns: 1fr; }
+  .sjCampo { min-width: 0; }
+  .sjCampo .v { overflow-wrap: anywhere; }
+  .sjSubs,
+  .sjDias {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 4px;
+    scrollbar-width: thin;
+  }
+  .sjSubs button,
+  .sjDias button {
+    flex: 0 0 auto;
+    min-height: 44px;
+    white-space: nowrap;
+  }
+  .sjTableInner {
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+  .sjTableInner table { min-width: 560px; }
+  .sjTableInner th,
+  .sjTableInner td { white-space: nowrap; }
+}
+@media (max-width: 380px) {
+  .sjGrid { grid-template-columns: 1fr; }
+  .sjCard { grid-column: 1 / -1; }
 }
