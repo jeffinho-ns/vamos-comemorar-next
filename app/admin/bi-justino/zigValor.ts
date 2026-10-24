@@ -18,8 +18,9 @@ export interface ZigAoVivo {
   ticketSemana?: number | null;
   ticketMes?: number | null;
   ticketAno?: number | null;
-  serieMes?: { dia: string; valor: number }[];
-  serieAno?: { mes: string; valor: number }[];
+  serieMes?: { dia: string; rotulo?: string; zig: number; eventos: number }[];
+  serieAno?: { mes: string; rotulo?: string; zig: number; eventos: number }[];
+  custos?: { label: string; valor: number }[];
   zigCarregando?: boolean;
 }
 

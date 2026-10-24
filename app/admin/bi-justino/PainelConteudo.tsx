@@ -5,7 +5,8 @@ import { AnimatedNumber } from "./AnimatedNumber";
 import { CONTEUDO, type BlocoConteudo } from "./conteudo";
 import { baseNumero, chaveCampo, ehNota, textoMock, tipoCampo, type TipoNumero } from "./mockValor";
 import type { BiLiveData, BiRecente } from "./useBiLive";
-import { avisoZig, campoUsaZig, campoZig, rotuloMes, type ZigAoVivo } from "./zigValor";
+import { GraficoFaturamento, BarrasCusto } from "./GraficoDiretoria";
+import { campoUsaZig, campoZig, type ZigAoVivo } from "./zigValor";
 
 const INSIGHT: Record<string, string> = {
   Segunda: "Noite mais curta. Exemplo: reserva de aniversário em mesa menor e atração acústica no primeiro horário.",
@@ -163,81 +164,6 @@ function TabelaMock({
   );
 }
 
-function LinhaZig({ pontos }: { pontos: { rotulo: string; valor: number }[] }) {
-  if (pontos.length < 2) return null;
-  const largura = 640;
-  const altura = 180;
-  const margem = 16;
-  const topo = Math.max(...pontos.map((ponto) => ponto.valor), 1);
-  const coords = pontos.map((ponto, indice) => {
-    const x = margem + (indice / (pontos.length - 1)) * (largura - margem * 2);
-    const y = altura - margem - (ponto.valor / topo) * (altura - margem * 2);
-    return `${x},${y}`;
-  }).join(" ");
-  const primeiro = pontos[0];
-  const ultimo = pontos[pontos.length - 1];
-  return (
-    <>
-      <div className="sjChart">
-        <svg viewBox={`0 0 ${largura} ${altura}`} role="img" aria-label="Linha de faturamento da ZigPay">
-          <polyline points={coords} />
-        </svg>
-      </div>
-      <div className="sjChartEixo">
-        <span>{primeiro.rotulo}</span>
-        <span>{ultimo.rotulo}</span>
-      </div>
-    </>
-  );
-}
-
-function TabelaFaturamento({ zig, ano }: { zig: ZigAoVivo | null; ano: boolean }) {
-  const pronto = Boolean(zig?.disponivel);
-  const pontos = ano
-    ? (zig?.serieAno || []).map((ponto) => ({ rotulo: rotuloMes(ponto.mes), valor: ponto.valor }))
-    : (zig?.serieMes || []).map((ponto) => ({ rotulo: ponto.dia.slice(8), valor: ponto.valor }));
-  return (
-    <>
-    <LinhaZig pontos={pronto ? pontos : []} />
-    <div className="sjTableInner">
-      <table>
-        <thead>
-          <tr>
-            <th>Período</th>
-            <th>ZigPay</th>
-            <th>Faturamento de eventos</th>
-            <th>Faturamento total</th>
-          </tr>
-        </thead>
-        <tbody>
-          {pronto && ano ? (
-            <tr>
-              <td>Média do ano</td>
-              <td>—</td>
-              <td>—</td>
-              <td><Dinheiro valor={zig?.mediaMensal ?? null} /></td>
-            </tr>
-          ) : null}
-          {pronto && !ano ? (
-            <tr>
-              <td>{rotuloMes(zig?.mes)}</td>
-              <td><Dinheiro valor={zig?.zigMes ?? null} /></td>
-              <td><Dinheiro valor={zig?.eventosMes ?? null} /></td>
-              <td><Dinheiro valor={zig?.faturamentoMes ?? null} /></td>
-            </tr>
-          ) : null}
-          {!pronto ? (
-            <tr>
-              <td colSpan={4}>{avisoZig(zig) || "—"}</td>
-            </tr>
-          ) : null}
-        </tbody>
-      </table>
-    </div>
-    </>
-  );
-}
-
 function Bloco({
   paginaId,
   bloco,
@@ -258,7 +184,6 @@ function Bloco({
   const notas = bloco.campos.filter(ehNota);
   const campos = bloco.campos.filter((campo) => !ehNota(campo));
   const listaReservas = /lista de reservas/i.test(bloco.titulo);
-  const tabelaZig = bloco.titulo === "Faturamento";
   const tabelas = bloco.tabelas ?? [];
   const indiceSeletor = opcoes.indexOf(escolha);
   const tabelasVisiveis = opcoes.length && tabelas.length === opcoes.length
@@ -304,7 +229,7 @@ function Bloco({
           })}
         </div>
       ) : null}
-      {tabelaZig ? <TabelaFaturamento zig={zig} ano={escolha === "Ano"} /> : tabelasVisiveis.map((tabela) => (
+      {tabelasVisiveis.map((tabela) => (
         <TabelaMock
           key={tabela.colunas.join("|")}
           baseId={baseId}
@@ -313,8 +238,8 @@ function Bloco({
           aoVivo={listaReservas ? aoVivo : null}
         />
       ))}
-      <span className={`sjTag ${(listaReservas && aoVivo?.linhas.length) || (tabelaZig && zig?.disponivel) ? "real" : ""}`}>
-        {listaReservas && aoVivo?.linhas.length ? "banco" : tabelaZig ? (zig?.disponivel ? "zig" : "aguardando") : "simulado"}
+      <span className={`sjTag ${listaReservas && aoVivo?.linhas.length ? "real" : ""}`}>
+        {listaReservas && aoVivo?.linhas.length ? "banco" : "simulado"}
       </span>
     </section>
   );
@@ -404,7 +329,11 @@ export function PainelConteudo({
       ) : null}
       <div className="sjGrid">
         {aba.blocos.map((bloco) => (
-          bloco.titulo === "Indicadores" || bloco.titulo === "📊 Indicadores de Eventos"
+          bloco.titulo === "Faturamento"
+            ? <GraficoFaturamento key={bloco.titulo} zig={zig} />
+            : bloco.titulo === "Custo por área"
+              ? <BarrasCusto key={bloco.titulo} custos={zig?.custos || []} carregando={Boolean(zig?.zigCarregando)} />
+              : bloco.titulo === "Indicadores" || bloco.titulo === "📊 Indicadores de Eventos"
             ? bloco.campos.map((campo) => (
               <Indicador key={campo} paginaId={paginaId} campo={campo} blocoTitulo={bloco.titulo} drift={drift} zig={zig} />
             ))
