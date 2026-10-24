@@ -18,6 +18,9 @@ export interface ZigAoVivo {
   ticketSemana?: number | null;
   ticketMes?: number | null;
   ticketAno?: number | null;
+  serieMes?: { dia: string; valor: number }[];
+  serieAno?: { mes: string; valor: number }[];
+  zigCarregando?: boolean;
 }
 
 export interface CampoZig {

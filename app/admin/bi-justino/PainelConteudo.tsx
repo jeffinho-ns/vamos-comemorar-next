@@ -163,9 +163,42 @@ function TabelaMock({
   );
 }
 
+function LinhaZig({ pontos }: { pontos: { rotulo: string; valor: number }[] }) {
+  if (pontos.length < 2) return null;
+  const largura = 640;
+  const altura = 180;
+  const margem = 16;
+  const topo = Math.max(...pontos.map((ponto) => ponto.valor), 1);
+  const coords = pontos.map((ponto, indice) => {
+    const x = margem + (indice / (pontos.length - 1)) * (largura - margem * 2);
+    const y = altura - margem - (ponto.valor / topo) * (altura - margem * 2);
+    return `${x},${y}`;
+  }).join(" ");
+  const primeiro = pontos[0];
+  const ultimo = pontos[pontos.length - 1];
+  return (
+    <>
+      <div className="sjChart">
+        <svg viewBox={`0 0 ${largura} ${altura}`} role="img" aria-label="Linha de faturamento da ZigPay">
+          <polyline points={coords} />
+        </svg>
+      </div>
+      <div className="sjChartEixo">
+        <span>{primeiro.rotulo}</span>
+        <span>{ultimo.rotulo}</span>
+      </div>
+    </>
+  );
+}
+
 function TabelaFaturamento({ zig, ano }: { zig: ZigAoVivo | null; ano: boolean }) {
   const pronto = Boolean(zig?.disponivel);
+  const pontos = ano
+    ? (zig?.serieAno || []).map((ponto) => ({ rotulo: rotuloMes(ponto.mes), valor: ponto.valor }))
+    : (zig?.serieMes || []).map((ponto) => ({ rotulo: ponto.dia.slice(8), valor: ponto.valor }));
   return (
+    <>
+    <LinhaZig pontos={pronto ? pontos : []} />
     <div className="sjTableInner">
       <table>
         <thead>
@@ -201,6 +234,7 @@ function TabelaFaturamento({ zig, ano }: { zig: ZigAoVivo | null; ano: boolean }
         </tbody>
       </table>
     </div>
+    </>
   );
 }
 
