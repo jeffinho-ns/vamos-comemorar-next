@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import type { ZigAoVivo } from "./zigValor";
 
 type Ponto = { rotulo: string; zig: number; eventos: number };
@@ -56,6 +56,8 @@ function analiseBarras(itens: { label: string; valor: number }[]) {
 }
 
 function LinhaSuave({ pontos, series }: { pontos: Ponto[]; series: Serie[] }) {
+  const caixa = useRef<HTMLDivElement>(null);
+  const [hover, setHover] = useState<{ indice: number; esquerda: number } | null>(null);
   const largura = 860;
   const altura = 260;
   const padL = 10;
@@ -73,8 +75,28 @@ function LinhaSuave({ pontos, series }: { pontos: Ponto[]; series: Serie[] }) {
   const base = padT + chartH;
   const passo = Math.max(1, Math.ceil(pontos.length / 12));
 
+  function aoMover(evento: React.PointerEvent<HTMLDivElement>) {
+    const svg = caixa.current?.querySelector("svg");
+    if (!svg || pontos.length < 2) return;
+    const rect = svg.getBoundingClientRect();
+    const xSvg = (evento.clientX - rect.left) * (largura / rect.width);
+    let indice = Math.round((xSvg - padL) / (chartW / (pontos.length - 1)));
+    indice = Math.max(0, Math.min(pontos.length - 1, indice));
+    const xPct = xDe(indice) / largura;
+    const larguraCaixa = caixa.current?.getBoundingClientRect().width || rect.width;
+    let esquerda = xPct * larguraCaixa + 14;
+    if (esquerda + 190 > larguraCaixa) esquerda = xPct * larguraCaixa - 204;
+    setHover({ indice, esquerda: Math.max(0, esquerda) });
+  }
+
   return (
     <>
+      <div
+        className="sjFatHover"
+        ref={caixa}
+        onPointerMove={aoMover}
+        onPointerLeave={() => setHover(null)}
+      >
       <svg viewBox={`0 0 ${largura} ${altura}`} className="sjFatSvg" role="img" aria-label="Faturamento ZigPay e eventos">
         <defs>
           <linearGradient id="fatAreaGrad" x1="0" y1="0" x2="0" y2="1">
@@ -95,6 +117,21 @@ function LinhaSuave({ pontos, series }: { pontos: Ponto[]; series: Serie[] }) {
           </g>
         ))}
       </svg>
+      {hover ? (
+        <>
+          <div className="sjCross" style={{ left: `${(xDe(hover.indice) / largura) * 100}%` }} />
+          <div className="sjTip" style={{ left: hover.esquerda }}>
+            <small>{pontos[hover.indice].rotulo}</small>
+            {series.map((serie) => (
+              <div key={serie.name}>
+                <span>{serie.name}</span>
+                <b>{reais(serie.values[hover.indice])}</b>
+              </div>
+            ))}
+          </div>
+        </>
+      ) : null}
+      </div>
       <div className="sjChartEixo">
         {pontos.map((ponto, indice) => <span key={`${ponto.rotulo}-${indice}`}>{indice % passo === 0 ? ponto.rotulo : ""}</span>)}
       </div>
