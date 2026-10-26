@@ -99,7 +99,7 @@ export function BiShell() {
                   onClick={() => setAbertos((atual) => ({ ...atual, [grupo]: !atual[grupo] }))}
                 >
                   {titulo}
-                  <span>{abertos[grupo] ? "▾" : "▸"}</span>
+                  <span className="sjCaret" aria-hidden="true">▾</span>
                 </button>
                 <div className="sjKids">{botoes}</div>
               </div>
@@ -107,7 +107,11 @@ export function BiShell() {
           })}
         </nav>
         <main className="sjMain">
-          {pagina.id === "master" || pagina.id === "reservas" ? <FaixaAoVivo data={data} /> : null}
+          {pagina.id === "master" || pagina.id === "reservas" ? (
+            <div key={pagina.id} className="sjStage">
+              <FaixaAoVivo data={data} />
+            </div>
+          ) : null}
           <PainelConteudo
             paginaId={pagina.id}
             subId={subId}

@@ -19,21 +19,26 @@
 .sjSub { color: var(--muted); margin: 4px 0 0; font-size: 13px; }
 .sjLive { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
 .sjDot { width: 9px; height: 9px; border-radius: 99px; background: var(--yellow); }
-.sjDot.on { background: var(--green); }
+.sjDot.on { background: var(--green); animation: sjPulse 2.4s ease-in-out infinite; }
 .sjBody { display: flex; gap: 18px; align-items: flex-start; padding: 8px 18px 28px; }
 .sjSide { flex: 0 0 232px; position: sticky; top: 8px; max-height: calc(100vh - 120px); overflow: auto; display: flex; flex-direction: column; gap: 3px; }
 .sjSide button { all: unset; cursor: pointer; box-sizing: border-box; }
 .sjItem, .sjGroupHead { display: block; width: 100%; padding: 9px 12px; border-radius: 8px; font-weight: 700; }
+.sjSide .sjItem, .sjSide .sjGroupHead { transition: background-color 180ms ease-out, color 180ms ease-out, transform 180ms ease-out; }
 .sjItem { color: var(--muted); font-size: 13px; }
 .sjItem:hover, .sjGroupHead:hover { background: #2a2219; color: var(--txt); }
+.sjSide .sjItem:active, .sjSide .sjGroupHead:active { transform: scale(0.98); }
 .sjItem.on { background: var(--accent); color: #1f140c; }
 .sjGroupHead { display: flex; justify-content: space-between; color: var(--txt); font-size: 11px; letter-spacing: 0.04em; text-transform: uppercase; }
-.sjKids { display: flex; flex-direction: column; gap: 2px; padding-left: 10px; max-height: 0; overflow: hidden; }
+.sjCaret { display: inline-block; transition: transform 220ms ease; }
+.sjGroup:not(.open) .sjCaret { transform: rotate(-90deg); }
+.sjKids { display: flex; flex-direction: column; gap: 2px; padding-left: 10px; max-height: 0; overflow: hidden; transition: max-height 320ms cubic-bezier(0.22, 1, 0.36, 1); }
 .sjGroup.open .sjKids { max-height: 360px; }
 .sjMain { flex: 1; min-width: 0; }
 .sjSubs { display: flex; gap: 8px; flex-wrap: wrap; margin: 4px 0 14px; }
-.sjSubs button { background: #221c17; color: #fff; border: 1px solid #3a2f26; border-radius: 10px; padding: 8px 12px; font-weight: 700; cursor: pointer; font-size: 13px; }
+.sjSubs button { background: #221c17; color: #fff; border: 1px solid #3a2f26; border-radius: 10px; padding: 8px 12px; font-weight: 700; cursor: pointer; font-size: 13px; transition: background-color 180ms ease-out, color 180ms ease-out, border-color 180ms ease-out, transform 180ms ease-out; }
 .sjSubs button.on { background: var(--txt); color: var(--bg); border-color: var(--txt); }
+.sjSubs button:active { transform: scale(0.97); }
 .sjGrid { display: grid; grid-template-columns: repeat(12, 1fr); gap: 12px; }
 .sjCard { position: relative; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 14px; grid-column: span 3; }
 .sjCard::before { content: ""; position: absolute; top: 0; left: 16px; right: 16px; height: 2px; background: linear-gradient(90deg, transparent, var(--accent), transparent); }
@@ -42,13 +47,9 @@
 .sjNum {
   display: inline-block;
   font-variant-numeric: tabular-nums;
-  color: var(--txt);
-  transition: color 0.9s ease, text-shadow 0.9s ease;
+  color: inherit;
 }
-.sjNum.is-moving {
-  color: #ffe8d8;
-  text-shadow: 0 0 16px rgba(201, 103, 54, 0.45);
-}
+.sjNum.is-moving { animation: sjNumIn 900ms cubic-bezier(0.22, 1, 0.36, 1); }
 .sjTag { display: inline-block; margin-top: 4px; font-size: 10px; letter-spacing: 0.04em; text-transform: uppercase; color: #ffd271; border: 1px solid #5a4416; border-radius: 99px; padding: 2px 7px; }
 .sjTag.real { color: #78e8ad; border-color: #1e5b3e; }
 .sjFaixa { margin-bottom: 16px; }
@@ -63,12 +64,14 @@
 .sjNota, .sjInsight { margin: 8px 0 0; color: #e6ddd4; font-size: 14px; line-height: 1.5; }
 .sjMini { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.4; }
 .sjDias { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
-.sjDias button { background: #221c17; color: #fff; border: 1px solid #3a2f26; border-radius: 10px; padding: 8px 12px; font-weight: 700; cursor: pointer; }
+.sjDias button { background: #221c17; color: #fff; border: 1px solid #3a2f26; border-radius: 10px; padding: 8px 12px; font-weight: 700; cursor: pointer; transition: background-color 180ms ease-out, color 180ms ease-out, transform 180ms ease-out; }
 .sjDias button.on { background: var(--txt); color: var(--bg); }
+.sjDias button:active { transform: scale(0.97); }
 .sjTableInner { margin-top: 12px; overflow: auto; }
 .sjTableInner table { width: 100%; border-collapse: collapse; font-size: 13px; }
 .sjTableInner th, .sjTableInner td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--line); }
 .sjTableInner th { color: var(--muted); font-weight: 600; }
+.sjTableInner tr { transition: background-color 420ms ease; }
 .sjTableInner tr.is-fresh { background: #3a2418; }
 .sjTable { grid-column: 1 / -1; overflow: auto; }
 .sjTable table { width: 100%; border-collapse: collapse; font-size: 13px; }
@@ -78,34 +81,65 @@
 .sjFatHead h3 { margin: 0; }
 .sjFatToggles { display: flex; gap: 8px; flex-wrap: wrap; }
 .sjSeg { display: flex; background: #221c17; border: 1px solid #3a2f26; border-radius: 999px; padding: 3px; }
-.sjSeg button { background: transparent; color: #d9cfc6; border: 0; border-radius: 999px; padding: 6px 12px; font-weight: 700; cursor: pointer; font-size: 13px; }
+.sjSeg button { background: transparent; color: #d9cfc6; border: 0; border-radius: 999px; padding: 6px 12px; font-weight: 700; cursor: pointer; font-size: 13px; transition: background-color 180ms ease-out, color 180ms ease-out, transform 180ms ease-out; }
 .sjSeg button.on { background: #c96736; color: #1f140c; }
+.sjSeg button:active { transform: scale(0.97); }
 .sjLegenda { display: flex; gap: 16px; color: var(--muted); font-size: 12px; margin: 10px 0 6px; }
 .sjLegenda span { display: flex; align-items: center; gap: 6px; }
 .sjLegenda i { width: 9px; height: 9px; border-radius: 3px; display: inline-block; }
 .sjFatSvg { width: 100%; height: auto; display: block; }
 .sjFatHover { position: relative; margin-top: 8px; touch-action: none; }
-.sjCross { position: absolute; top: 0; bottom: 0; width: 1px; background: #332b24; pointer-events: none; }
-.sjTip { position: absolute; z-index: 4; top: 6px; background: #211c18; border: 1px solid #332b24; border-radius: 10px; padding: 8px 10px; font-size: 12px; line-height: 1.5; color: var(--txt); box-shadow: 0 12px 32px #0008; pointer-events: none; white-space: nowrap; }
+.sjCross { position: absolute; top: 0; bottom: 0; width: 1px; background: #332b24; pointer-events: none; transition: left 90ms linear; animation: sjFade 140ms ease both; }
+.sjTip { position: absolute; z-index: 4; top: 6px; background: #211c18; border: 1px solid #332b24; border-radius: 10px; padding: 8px 10px; font-size: 12px; line-height: 1.5; color: var(--txt); box-shadow: 0 12px 32px #0008; pointer-events: none; white-space: nowrap; transition: left 90ms linear; animation: sjFade 140ms ease both; }
 .sjTip small { display: block; color: var(--muted); margin-bottom: 4px; }
 .sjTip div { display: flex; justify-content: space-between; gap: 10px; }
 .sjTip b { font-variant-numeric: tabular-nums; }
-.sjAnaliseBtn { margin-top: 10px; background: #221c17; color: #fff; border: 1px solid #3a2f26; border-radius: 10px; padding: 6px 10px; font-size: 12px; font-weight: 700; cursor: pointer; }
-.sjAnalise { margin: 8px 0 0; padding: 10px 12px; border-radius: 10px; background: #ffffff0a; border: 1px solid var(--line); font-size: 12px; line-height: 1.55; }
+.sjAnaliseBtn { margin-top: 10px; background: #221c17; color: #fff; border: 1px solid #3a2f26; border-radius: 10px; padding: 6px 10px; font-size: 12px; font-weight: 700; cursor: pointer; transition: background-color 180ms ease-out, transform 180ms ease-out; }
+.sjAnaliseBtn:active { transform: scale(0.98); }
+.sjAnalise { margin: 8px 0 0; padding: 10px 12px; border-radius: 10px; background: #ffffff0a; border: 1px solid var(--line); font-size: 12px; line-height: 1.55; animation: sjIn 240ms cubic-bezier(0.22, 1, 0.36, 1) both; }
 .sjBarra { margin: 0 0 14px; }
 .sjBarraTop { display: flex; justify-content: space-between; gap: 12px; font-size: 12.5px; margin-bottom: 6px; }
 .sjBarraTop span { font-weight: 600; }
 .sjBarraTop b { color: var(--muted); font-weight: 600; }
 .sjBarraTrilho { height: 8px; border-radius: 5px; background: #201a16; overflow: hidden; }
-.sjBarraTrilho div { height: 100%; border-radius: 5px; background: var(--accent); }
+.sjBarraTrilho div { height: 100%; border-radius: 5px; background: var(--accent); transition: width 680ms cubic-bezier(0.22, 1, 0.36, 1); }
 .sjChart { margin-top: 12px; }
 .sjChart svg { width: 100%; height: 180px; display: block; }
 .sjChart polyline { fill: none; stroke: #c96736; stroke-width: 2.5; stroke-linejoin: round; stroke-linecap: round; }
 .sjChartEixo { display: flex; justify-content: space-between; color: var(--muted); font-size: 11px; margin-top: 4px; }
 .sjZigNota { margin: 8px 0 0; color: var(--muted); font-size: 12px; line-height: 1.4; }
 .sjSubsZig { display: flex; gap: 8px; margin-top: 10px; }
-.sjSubsZig button { background: #221c17; color: #fff; border: 1px solid #3a2f26; border-radius: 10px; padding: 8px 12px; font-weight: 700; cursor: pointer; font-size: 13px; }
+.sjSubsZig button { background: #221c17; color: #fff; border: 1px solid #3a2f26; border-radius: 10px; padding: 8px 12px; font-weight: 700; cursor: pointer; font-size: 13px; transition: background-color 180ms ease-out, color 180ms ease-out, transform 180ms ease-out; }
 .sjSubsZig button.on { background: var(--txt); color: var(--bg); }
+.sjSubsZig button:active { transform: scale(0.97); }
+.sjStage .sjGrid > .sjCard { animation: sjIn 420ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+.sjStage .sjGrid > .sjCard:nth-child(2) { animation-delay: 35ms; }
+.sjStage .sjGrid > .sjCard:nth-child(3) { animation-delay: 70ms; }
+.sjStage .sjGrid > .sjCard:nth-child(4) { animation-delay: 105ms; }
+.sjStage .sjGrid > .sjCard:nth-child(5) { animation-delay: 140ms; }
+.sjStage .sjGrid > .sjCard:nth-child(6) { animation-delay: 175ms; }
+.sjStage .sjGrid > .sjCard:nth-child(7) { animation-delay: 210ms; }
+.sjStage .sjGrid > .sjCard:nth-child(n+8) { animation-delay: 245ms; }
+.sjSwap { animation: sjFade 240ms ease both; }
+.sjArea { animation: sjFade 700ms ease both; }
+.sjFatSvg circle { animation: sjFade 420ms ease 180ms both; }
+@keyframes sjIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes sjFade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes sjNumIn {
+  0% { transform: translateY(5px); opacity: 0.4; }
+  40% { transform: none; opacity: 1; }
+  100% { transform: none; opacity: 1; }
+}
+@keyframes sjPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
+}
 @media (max-width: 1100px) { .sjCard { grid-column: span 6; } }
 @media (max-width: 900px) {
   .sjbi {
@@ -212,4 +246,21 @@
 @media (max-width: 380px) {
   .sjGrid { grid-template-columns: 1fr; }
   .sjCard { grid-column: 1 / -1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sjDot.on,
+  .sjNum.is-moving,
+  .sjStage .sjGrid > .sjCard,
+  .sjSwap,
+  .sjArea,
+  .sjFatSvg circle,
+  .sjAnalise,
+  .sjCross,
+  .sjTip {
+    animation: none;
+  }
+  .sjSide .sjItem, .sjSide .sjGroupHead, .sjCaret, .sjKids, .sjSubs button, .sjDias button, .sjSeg button,
+  .sjAnaliseBtn, .sjSubsZig button, .sjBarraTrilho div, .sjTableInner tr, .sjCross, .sjTip {
+    transition: none;
+  }
 }

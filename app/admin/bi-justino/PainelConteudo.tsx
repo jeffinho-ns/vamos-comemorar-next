@@ -100,16 +100,18 @@ function DiasSemana({ campos, drift }: { campos: string[]; drift: Record<string,
           </button>
         ))}
       </div>
-      <p className="sjInsight">{INSIGHT[dia] ?? "Leitura de exemplo deste dia, pronta pra trocar pelo texto real."}</p>
-      <div className="sjCampos">
-        {["Público médio", "Ticket médio", "Faturamento médio"].map((campo) => (
-          <div key={campo} className="sjCampo">
-            <small>{campo}</small>
-            <div className="v">
-              <CelulaNumero label={`${dia} ${campo}`} driftId={chaveCampo(dia, campo)} drift={drift} />
+      <div key={dia} className="sjSwap">
+        <p className="sjInsight">{INSIGHT[dia] ?? "Leitura de exemplo deste dia, pronta pra trocar pelo texto real."}</p>
+        <div className="sjCampos">
+          {["Público médio", "Ticket médio", "Faturamento médio"].map((campo) => (
+            <div key={campo} className="sjCampo">
+              <small>{campo}</small>
+              <div className="v">
+                <CelulaNumero label={`${dia} ${campo}`} driftId={chaveCampo(dia, campo)} drift={drift} />
+              </div>
             </div>
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
       <span className="sjTag">simulado</span>
     </section>
@@ -201,46 +203,48 @@ function Bloco({
           ))}
         </div>
       ) : null}
-      {notas.length ? (
-        <div className="sjNotas">
-          {notas.map((nota) => <p key={nota} className="sjNota">{nota}</p>)}
-        </div>
-      ) : null}
-      {campos.length ? (
-        <div className="sjCampos">
-          {campos.map((campo) => {
-            const real = campoZig(paginaId, campo, zig);
-            return (
-              <div key={campo} className="sjCampo">
-                <small>{campo}</small>
-                {real ? (
-                  <>
-                    <div className="v"><Dinheiro valor={real.valor} /></div>
-                    {real.detalhe ? <p className="sjMini">{real.detalhe}</p> : null}
-                    <span className={`sjTag ${real.pronto ? "real" : ""}`}>{real.pronto ? "zig" : "aguardando"}</span>
-                  </>
-                ) : (
-                  <div className="v">
-                    <CelulaNumero label={campo} driftId={chaveCampo(baseId, campo)} drift={drift} />
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      ) : null}
-      {tabelasVisiveis.map((tabela) => (
-        <TabelaMock
-          key={tabela.colunas.join("|")}
-          baseId={baseId}
-          colunas={tabela.colunas}
-          drift={drift}
-          aoVivo={listaReservas ? aoVivo : null}
-        />
-      ))}
-      <span className={`sjTag ${listaReservas && aoVivo?.linhas.length ? "real" : ""}`}>
-        {listaReservas && aoVivo?.linhas.length ? "banco" : "simulado"}
-      </span>
+      <div key={escolha || "fixo"} className={opcoes.length ? "sjSwap" : undefined}>
+        {notas.length ? (
+          <div className="sjNotas">
+            {notas.map((nota) => <p key={nota} className="sjNota">{nota}</p>)}
+          </div>
+        ) : null}
+        {campos.length ? (
+          <div className="sjCampos">
+            {campos.map((campo) => {
+              const real = campoZig(paginaId, campo, zig);
+              return (
+                <div key={campo} className="sjCampo">
+                  <small>{campo}</small>
+                  {real ? (
+                    <>
+                      <div className="v"><Dinheiro valor={real.valor} /></div>
+                      {real.detalhe ? <p className="sjMini">{real.detalhe}</p> : null}
+                      <span className={`sjTag ${real.pronto ? "real" : ""}`}>{real.pronto ? "zig" : "aguardando"}</span>
+                    </>
+                  ) : (
+                    <div className="v">
+                      <CelulaNumero label={campo} driftId={chaveCampo(baseId, campo)} drift={drift} />
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        ) : null}
+        {tabelasVisiveis.map((tabela) => (
+          <TabelaMock
+            key={tabela.colunas.join("|")}
+            baseId={baseId}
+            colunas={tabela.colunas}
+            drift={drift}
+            aoVivo={listaReservas ? aoVivo : null}
+          />
+        ))}
+        <span className={`sjTag ${listaReservas && aoVivo?.linhas.length ? "real" : ""}`}>
+          {listaReservas && aoVivo?.linhas.length ? "banco" : "simulado"}
+        </span>
+      </div>
     </section>
   );
 }
@@ -327,6 +331,7 @@ export function PainelConteudo({
           ))}
         </div>
       ) : null}
+      <div key={`${paginaId}:${aba.id}`} className="sjStage">
       <div className="sjGrid">
         {aba.blocos.map((bloco) => (
           bloco.titulo === "Faturamento"
@@ -339,6 +344,7 @@ export function PainelConteudo({
             ))
             : <Bloco key={bloco.titulo} paginaId={paginaId} bloco={bloco} drift={drift} aoVivo={aoVivo} zig={zig} />
         ))}
+      </div>
       </div>
     </>
   );

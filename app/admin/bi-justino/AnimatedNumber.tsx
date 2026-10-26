@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 
-const DURATION = 1100;
+const DURATION = 900;
 
 function formatValue(value: number, kind: "int" | "money" | "pct") {
   if (kind === "money") {
@@ -25,7 +25,7 @@ export function AnimatedNumber({
   kind?: "int" | "money" | "pct";
 }) {
   const [shown, setShown] = useState(value);
-  const [moving, setMoving] = useState(false);
+  const [geracao, setGeracao] = useState(0);
   const shownRef = useRef(value);
 
   useEffect(() => {
@@ -34,10 +34,10 @@ export function AnimatedNumber({
     if (from === to) return;
     const start = performance.now();
     let frame = 0;
-    setMoving(true);
+    setGeracao((atual) => atual + 1);
     const tick = (now: number) => {
       const t = Math.min(1, (now - start) / DURATION);
-      const eased = 1 - Math.pow(1 - t, 5);
+      const eased = 1 - Math.pow(1 - t, 3);
       const next = Math.round(from + (to - from) * eased);
       if (next !== shownRef.current) {
         shownRef.current = next;
@@ -48,7 +48,6 @@ export function AnimatedNumber({
       } else {
         shownRef.current = to;
         setShown(to);
-        setMoving(false);
       }
     };
     frame = requestAnimationFrame(tick);
@@ -56,6 +55,6 @@ export function AnimatedNumber({
   }, [value]);
 
   return (
-    <span className={`sjNum${moving ? " is-moving" : ""}`}>{formatValue(shown, kind)}</span>
+    <span key={geracao} className={`sjNum${geracao ? " is-moving" : ""}`}>{formatValue(shown, kind)}</span>
   );
 }

@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { AnimatedNumber } from "./AnimatedNumber";
 import type { ZigAoVivo } from "./zigValor";
 
 type Ponto = { rotulo: string; zig: number; eventos: number };
@@ -55,6 +56,44 @@ function analiseBarras(itens: { label: string; valor: number }[]) {
   return `Total ${reais(total)} em ${positivos.length} áreas. Maior: ${positivos[0].label}, ${reais(positivos[0].valor)} (${fatia(positivos[0].valor)}).`;
 }
 
+function prefereParado() {
+  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
+
+function Traco({ d, color }: { d: string; color: string }) {
+  const ref = useRef<SVGPathElement>(null);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el || !d) return;
+    const len = el.getTotalLength();
+    if (!Number.isFinite(len) || len <= 0 || prefereParado()) {
+      el.style.transition = "none";
+      el.style.strokeDasharray = "none";
+      el.style.strokeDashoffset = "0";
+      return;
+    }
+    el.style.transition = "none";
+    el.style.strokeDasharray = String(len);
+    el.style.strokeDashoffset = String(len);
+    const frame = requestAnimationFrame(() => {
+      el.style.transition = "stroke-dashoffset 780ms cubic-bezier(0.22, 1, 0.36, 1)";
+      el.style.strokeDashoffset = "0";
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [d]);
+  return (
+    <path
+      ref={ref}
+      d={d}
+      fill="none"
+      stroke={color}
+      strokeWidth="2.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  );
+}
+
 function LinhaSuave({ pontos, series }: { pontos: Ponto[]; series: Serie[] }) {
   const caixa = useRef<HTMLDivElement>(null);
   const [hover, setHover] = useState<{ indice: number; esquerda: number } | null>(null);
@@ -106,16 +145,19 @@ function LinhaSuave({ pontos, series }: { pontos: Ponto[]; series: Serie[] }) {
         </defs>
         <line x1={padL} y1={base} x2={largura - padR} y2={base} stroke="#271f1a" strokeWidth="1" />
         {series.length === 1 ? (
-          <path d={`${curva(desenhos[0])} L${desenhos[0][desenhos[0].length - 1][0].toFixed(1)},${base.toFixed(1)} L${desenhos[0][0][0].toFixed(1)},${base.toFixed(1)} Z`} fill="url(#fatAreaGrad)" />
+          <path className="sjArea" d={`${curva(desenhos[0])} L${desenhos[0][desenhos[0].length - 1][0].toFixed(1)},${base.toFixed(1)} L${desenhos[0][0][0].toFixed(1)},${base.toFixed(1)} Z`} fill="url(#fatAreaGrad)" />
         ) : null}
-        {series.map((serie, indice) => (
-          <g key={serie.name}>
-            <path d={curva(desenhos[indice])} fill="none" stroke={serie.color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-            {desenhos[indice].map((ponto) => (
-              <circle key={`${serie.name}-${ponto[0]}`} cx={ponto[0]} cy={ponto[1]} r="3" fill="#0d0b0a" stroke={serie.color} strokeWidth="2" />
-            ))}
-          </g>
-        ))}
+        {series.map((serie, indice) => {
+          const traco = curva(desenhos[indice]);
+          return (
+            <g key={`${serie.name}:${traco}`}>
+              <Traco d={traco} color={serie.color} />
+              {desenhos[indice].map((ponto, pontoIndice) => (
+                <circle key={`${serie.name}-${pontoIndice}`} cx={ponto[0]} cy={ponto[1]} r="3" fill="#0d0b0a" stroke={serie.color} strokeWidth="2" />
+              ))}
+            </g>
+          );
+        })}
       </svg>
       {hover ? (
         <>
@@ -193,6 +235,7 @@ export function GraficoFaturamento({ zig }: { zig: ZigAoVivo | null }) {
         <p className="sjZigNota">{zig?.zigCarregando ? "Buscando o faturamento na ZigPay…" : "Sem dado de faturamento suficiente ainda."}</p>
       ) : (
         <>
+          <div key={`${visao}:${modo}:${pontos.length}`} className="sjSwap">
           {series.length > 1 ? (
             <div className="sjLegenda">
               {series.map((serie) => (
@@ -207,11 +250,36 @@ export function GraficoFaturamento({ zig }: { zig: ZigAoVivo | null }) {
             </p>
           ) : null}
           <LinhaSuave pontos={pontos} series={series} />
+          </div>
           <button type="button" className="sjAnaliseBtn" onClick={() => setAberta((atual) => !atual)}>📊 Análise do gráfico</button>
           {aberta ? <p className="sjAnalise">{analise(pontos.map((ponto) => ponto.rotulo), series)} Leitura automática dos números do gráfico. Indica o rumo dos dados, não é previsão.</p> : null}
         </>
       )}
     </section>
+  );
+}
+
+function BarraLinha({ label, valor, topo }: { label: string; valor: number; topo: number }) {
+  const alvo = Math.max(valor > 0 ? 2 : 0, Math.round((valor / topo) * 100));
+  const [largura, setLargura] = useState(0);
+  useEffect(() => {
+    if (prefereParado()) {
+      setLargura(alvo);
+      return undefined;
+    }
+    const id = window.setTimeout(() => setLargura(alvo), 40);
+    return () => window.clearTimeout(id);
+  }, [alvo]);
+  return (
+    <div className="sjBarra">
+      <div className="sjBarraTop">
+        <span>{label}</span>
+        <b><AnimatedNumber value={valor} kind="money" /></b>
+      </div>
+      <div className="sjBarraTrilho">
+        <div style={{ width: `${largura}%` }} />
+      </div>
+    </div>
   );
 }
 
@@ -222,15 +290,7 @@ export function BarrasCusto({ custos, carregando }: { custos: { label: string; v
     <section className="sjCard sjBloco">
       <h3>Custo por área</h3>
       {custos.length ? custos.map((item) => (
-        <div key={item.label} className="sjBarra">
-          <div className="sjBarraTop">
-            <span>{item.label}</span>
-            <b>{reais(item.valor)}</b>
-          </div>
-          <div className="sjBarraTrilho">
-            <div style={{ width: `${Math.max(item.valor > 0 ? 2 : 0, Math.round((item.valor / topo) * 100))}%` }} />
-          </div>
-        </div>
+        <BarraLinha key={item.label} label={item.label} valor={item.valor} topo={topo} />
       )) : <p className="sjZigNota">{carregando ? "Buscando os custos das áreas…" : "Sem dado ainda."}</p>}
       {custos.length ? (
         <>
