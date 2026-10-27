@@ -13,9 +13,30 @@ export type MenuPriceDisplay =
 
 export function parseOptionalMenuPrice(value: unknown): number | null {
   if (value === undefined || value === null || value === '') return null;
-  const amount = typeof value === 'number' ? value : parseFloat(String(value));
+  if (typeof value === 'number') {
+    return Number.isFinite(value) && value > 0 ? value : null;
+  }
+
+  let text = String(value).trim().replace(/\s/g, '').replace(/^R\$\s?/i, '');
+  if (!text) return null;
+  if (text.includes(',') && text.includes('.')) {
+    text = text.replace(/\./g, '').replace(',', '.');
+  } else if (text.includes(',')) {
+    text = text.replace(',', '.');
+  }
+
+  const amount = parseFloat(text);
   if (!Number.isFinite(amount) || amount <= 0) return null;
   return amount;
+}
+
+export function formatMenuPriceInput(value: unknown): string {
+  const amount = parseOptionalMenuPrice(value);
+  if (amount == null) return '';
+  return amount.toLocaleString('pt-BR', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
 }
 
 export function formatMenuCurrency(price: number): string {
@@ -41,8 +62,8 @@ export function resolveMenuPriceDisplay(item: MenuPriceFields): MenuPriceDisplay
   const to = parseOptionalMenuPrice(item.priceTo);
   const both = from != null && to != null;
 
-  if (both && to < normal) {
-    return { mode: 'promo', normal, promo: to };
+  if (both && to < from) {
+    return { mode: 'promo', normal: from, promo: to };
   }
   if (both && to > from) {
     return { mode: 'range', from, to };

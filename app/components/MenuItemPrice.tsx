@@ -36,10 +36,10 @@ export default function MenuItemPrice({
     return (
       <span className={`inline-flex flex-col leading-tight ${className}`}>
         <span className="text-[0.85em] font-medium text-neutral-400 line-through">
-          {formatMenuCurrency(display.normal)}
+          De {formatMenuCurrency(display.normal)}
         </span>
         <span className={`font-semibold ${promoClassName}`}>
-          {formatMenuCurrency(display.promo)}
+          Por {formatMenuCurrency(display.promo)}
         </span>
       </span>
     );

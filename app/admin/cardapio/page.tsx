@@ -40,7 +40,7 @@ import { fetchCardapioMappings } from '@/app/utils/establishmentRulesClient';
 import { authHeaders } from '@/app/utils/readAuthToken';
 import CardapioConfigPanel, { canViewSitioIlhaConfig, isSitioIlhaConfigHouse } from './CardapioConfigPanel';
 import MenuItemPrice from '@/app/components/MenuItemPrice';
-import { parseOptionalMenuPrice } from '@/app/utils/menuItemPrice';
+import { formatMenuPriceInput, parseOptionalMenuPrice } from '@/app/utils/menuItemPrice';
 import { getPublicSocketUrl } from '@/lib/publicApiUrl';
 import { io, Socket } from 'socket.io-client';
 
@@ -1166,6 +1166,7 @@ export default function CardapioAdminPage() {
         const itemResults = await Promise.all(
           barIdsToFetch.map((id) =>
             fetch(`${API_BASE_URL}/items?barId=${id}`, {
+              cache: 'no-store',
               headers: authHeaders(),
             }).then((r) => (r.ok ? r.json() : [])),
           ),
@@ -1176,7 +1177,7 @@ export default function CardapioAdminPage() {
         // Super Admin (ou sem bars no escopo): API isola por JWT.
         const [categoriesRes, itemsRes] = await Promise.all([
           fetch(`${API_BASE_URL}/categories`, { headers: authHeaders() }),
-          fetch(`${API_BASE_URL}/items`, { headers: authHeaders() }),
+          fetch(`${API_BASE_URL}/items`, { cache: 'no-store', headers: authHeaders() }),
         ]);
         if (!categoriesRes.ok || !itemsRes.ok) {
           throw new Error('Erro ao carregar dados da API');
@@ -2188,8 +2189,8 @@ export default function CardapioAdminPage() {
         return;
       }
 
-      // Se "Sob Consulta" estiver marcado, não validar o preço
-      if (!itemForm.isPriceOnRequest && (!itemForm.price || parseFloat(itemForm.price) <= 0)) {
+      const parsedPrice = parseOptionalMenuPrice(itemForm.price);
+      if (!itemForm.isPriceOnRequest && parsedPrice == null) {
         alert('Preço deve ser maior que zero ou marque "Sob Consulta"');
         return;
       }
@@ -2210,8 +2211,8 @@ export default function CardapioAdminPage() {
 
       const method = editingItem ? 'PUT' : 'POST';
 
-      // Se "Sob Consulta" estiver marcado, salvar preço como -1
-      const finalPrice = itemForm.isPriceOnRequest ? -1 : parseFloat(itemForm.price);
+      const finalPrice = itemForm.isPriceOnRequest ? -1 : parsedPrice;
+      const savedItemId = editingItem?.id;
 
       const itemData = {
         ...itemForm,
@@ -2237,6 +2238,22 @@ export default function CardapioAdminPage() {
       if (response.ok) {
         console.log('✅ Item salvo com sucesso');
         await fetchData();
+        if (savedItemId != null) {
+          setMenuData((prev) => ({
+            ...prev,
+            items: prev.items.map((item) =>
+              String(item.id) === String(savedItemId)
+                ? {
+                    ...item,
+                    price: finalPrice,
+                    isPriceOnRequest: itemForm.isPriceOnRequest === true,
+                    priceFrom: itemData.priceFrom,
+                    priceTo: itemData.priceTo,
+                  }
+                : item,
+            ),
+          }));
+        }
         handleCloseItemModal();
         alert(editingItem ? 'Item atualizado com sucesso!' : 'Item criado com sucesso!');
       } else {
@@ -2372,14 +2389,8 @@ export default function CardapioAdminPage() {
       seals: item.seals || [],
       isPriceOnRequest: isPriceOnRequest,
       featured: item.featured === true,
-      priceFrom:
-        !isPriceOnRequest && item.priceFrom != null && Number(item.priceFrom) > 0
-          ? String(item.priceFrom)
-          : '',
-      priceTo:
-        !isPriceOnRequest && item.priceTo != null && Number(item.priceTo) > 0
-          ? String(item.priceTo)
-          : '',
+      priceFrom: isPriceOnRequest ? '' : formatMenuPriceInput(item.priceFrom),
+      priceTo: isPriceOnRequest ? '' : formatMenuPriceInput(item.priceTo),
     });
     
     // Carregar subcategorias da categoria selecionada
@@ -6030,18 +6041,18 @@ export default function CardapioAdminPage() {
               <p className="mb-2 text-sm font-medium text-gray-700">Faixa ou promoção</p>
               <p className="mb-3 text-xs text-gray-500">
                 Opcionais. Deixe os dois vazios para mostrar só o preço normal. Com os dois
-                preenchidos e o Por maior que o De, a página pública mostra a faixa, por exemplo
-                De 900 até 1200. Se o Por for menor que o preço normal, o item aparece em
-                promoção. Se só um dos dois for preenchido, a página pública mostra só o preço
-                normal.
+                preenchidos, se o Por for menor que o De, a página pública mostra promoção: o De
+                riscado e o Por em destaque. Se o Por for maior que o De, mostra a faixa, por
+                exemplo De 900 até 1200. Se só um dos dois for preenchido, a página pública
+                continua mostrando só o preço normal.
               </p>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div>
                   <label className="mb-1 block text-sm font-medium text-gray-700">Preço De</label>
                   <input
-                    type="number"
-                    step="0.01"
-                    min="0"
+                    type="text"
+                    inputMode="decimal"
+                    placeholder="0,00"
                     value={itemForm.priceFrom || ''}
                     onChange={(e) => setItemForm((prev) => ({ ...prev, priceFrom: e.target.value }))}
                     disabled={itemForm.isPriceOnRequest}
@@ -6051,9 +6062,9 @@ export default function CardapioAdminPage() {
                 <div>
                   <label className="mb-1 block text-sm font-medium text-gray-700">Preço Por</label>
                   <input
-                    type="number"
-                    step="0.01"
-                    min="0"
+                    type="text"
+                    inputMode="decimal"
+                    placeholder="0,00"
                     value={itemForm.priceTo || ''}
                     onChange={(e) => setItemForm((prev) => ({ ...prev, priceTo: e.target.value }))}
                     disabled={itemForm.isPriceOnRequest}

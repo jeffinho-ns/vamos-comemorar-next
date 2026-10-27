@@ -864,7 +864,7 @@ export default function CardapioBarPage({ params }: CardapioBarPageProps) {
 
       const [categoriesResponse, itemsResponse] = await Promise.all([
         fetch(`${API_BASE_URL}/categories`),
-        fetch(`${API_BASE_URL}/items`),
+        fetch(`${API_BASE_URL}/items`, { cache: 'no-store' }),
       ]);
 
       if (!categoriesResponse.ok || !itemsResponse.ok)
