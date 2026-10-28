@@ -168,7 +168,7 @@ export function filterEstablishmentListForUser<
     out = out.filter((est) => isHighlineOrSeuJustinoGroupName(est.name || ""));
   }
 
-  // Isolamento entre orgs: responsabilidade da API (organization_id) + UEP.
-  // Não ocultar Sitio Ilha por e-mail — staff da org precisa ver a própria casa.
+  // Sítio Ilha é outra organização: não entra nas listas do Grupo Ideia.
+  out = out.filter((est) => !isSitioIlhaEstablishmentLike(est));
   return out;
 }

@@ -18,7 +18,6 @@ export const ESTABLISHMENT_PROFILES = [
   { value: "rooftop", label: "Rooftop" },
   { value: "oh_fregues", label: "Oh Freguês" },
   { value: "seu_justino", label: "Seu Justino" },
-  { value: "sitio_ilha", label: "Sítio Ilha" },
 ];
 
 type EstablishmentModule = { key: string; name: string; is_enabled: boolean };
