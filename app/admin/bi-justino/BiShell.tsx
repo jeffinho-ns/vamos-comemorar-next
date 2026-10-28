@@ -67,7 +67,7 @@ export function BiShell() {
         <div>
           <h1>Seu Justino BI</h1>
           <p className="sjSub">
-            Reservas saem do banco. O faturamento da Zig sai do painel dele. Impostos, aluguel e as demais despesas saem da DRE. O restante ainda é exemplo.
+            A tela lê só o banco. O servidor busca a Zig, a DRE e o painel e grava a cópia sozinho.
           </p>
           {avisoZig(data?.zig) ? <p className="sjSub">{avisoZig(data?.zig)}</p> : null}
           {avisoDre(data?.dre) ? <p className="sjSub">{avisoDre(data?.dre)}</p> : null}

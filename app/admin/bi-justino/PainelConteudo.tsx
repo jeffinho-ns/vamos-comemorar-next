@@ -1,15 +1,15 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useState } from "react";
 import { AnimatedNumber } from "./AnimatedNumber";
 import { CONTEUDO, type BlocoConteudo } from "./conteudo";
-import { baseNumero, chaveCampo, ehNota, textoMock, tipoCampo, type TipoNumero } from "./mockValor";
+import { ehNota } from "./mockValor";
 import type { BiLiveData, BiRecente } from "./useBiLive";
 import { GraficoFaturamento, BarrasCusto } from "./GraficoDiretoria";
 import { TabelaAlertasDre, TabelaCustoDre } from "./DreTabelas";
 import { FontesNovas } from "./FontesNovas";
-import { campoDre, campoUsaDre, type DreAoVivo } from "./dreValor";
-import { campoUsaZig, campoZig, type ZigAoVivo } from "./zigValor";
+import { campoDre, type DreAoVivo } from "./dreValor";
+import { campoZig, type ZigAoVivo } from "./zigValor";
 
 const INSIGHT: Record<string, string> = {
   Segunda: "Noite mais curta. Exemplo: reserva de aniversário em mesa menor e atração acústica no primeiro horário.",
@@ -20,21 +20,6 @@ const INSIGHT: Record<string, string> = {
   Sábado: "Maior público. Exemplo: dois horários de atração e pacote de aniversário com sinal.",
   Domingo: "Almoço e início da noite. Exemplo: feijoada, família e encerramento mais cedo.",
 };
-
-function numeroDe(label: string, drift: number) {
-  const tipo = tipoCampo(label);
-  if (tipo === "texto" || tipo === "data") return null;
-  const base = baseNumero(label, tipo);
-  const valor = Math.max(0, base + drift);
-  return tipo === "pct" ? Math.min(100, valor) : valor;
-}
-
-function CelulaNumero({ label, driftId, drift }: { label: string; driftId: string; drift: Record<string, number> }) {
-  const tipo = tipoCampo(label);
-  const valor = numeroDe(label, drift[driftId] || 0);
-  if (valor == null || tipo === "texto" || tipo === "data") return textoMock(label);
-  return <AnimatedNumber value={valor} kind={tipo as TipoNumero} />;
-}
 
 function celulaReserva(coluna: string, row: BiRecente, quando: string) {
   const c = coluna.toLowerCase();
@@ -59,26 +44,28 @@ function ValorReal({ valor, tipo, texto }: { valor: number | null; tipo: "money"
   return <AnimatedNumber value={valor} kind={tipo === "pct" ? "pct" : "money"} />;
 }
 
+function Aguardando() {
+  return (
+    <>
+      <div className="v">—</div>
+      <span className="sjTag">aguardando</span>
+    </>
+  );
+}
+
 function Indicador({
   paginaId,
   campo,
-  blocoTitulo,
-  drift,
   zig,
   dre,
 }: {
   paginaId: string;
   campo: string;
-  blocoTitulo: string;
-  drift: Record<string, number>;
   zig: ZigAoVivo | null;
   dre: DreAoVivo | null;
 }) {
   const real = campoZig(paginaId, campo, zig);
   const planilha = campoDre(paginaId, campo, dre, zig?.faturamentoMes);
-  const id = chaveCampo(blocoTitulo, campo);
-  const tipo = tipoCampo(campo);
-  const valor = numeroDe(campo, drift[id] || 0);
   return (
     <article className="sjCard">
       <small>{campo}</small>
@@ -94,19 +81,12 @@ function Indicador({
           {planilha.detalhe ? <p className="sjMini">{planilha.detalhe}</p> : null}
           <span className={`sjTag ${planilha.pronto ? "real" : ""}`}>{planilha.pronto ? "dre" : "aguardando"}</span>
         </>
-      ) : (
-        <>
-          <div className="v">
-            {valor == null || tipo === "texto" || tipo === "data" ? textoMock(campo) : <AnimatedNumber value={valor} kind={tipo as TipoNumero} />}
-          </div>
-          <span className="sjTag">simulado</span>
-        </>
-      )}
+      ) : <Aguardando />}
     </article>
   );
 }
 
-function DiasSemana({ campos, drift }: { campos: string[]; drift: Record<string, number> }) {
+function DiasSemana({ campos }: { campos: string[] }) {
   const [dia, setDia] = useState(campos[0] ?? "Quinta");
   return (
     <section className="sjCard sjBloco">
@@ -124,30 +104,24 @@ function DiasSemana({ campos, drift }: { campos: string[]; drift: Record<string,
           {["Público médio", "Ticket médio", "Faturamento médio"].map((campo) => (
             <div key={campo} className="sjCampo">
               <small>{campo}</small>
-              <div className="v">
-                <CelulaNumero label={`${dia} ${campo}`} driftId={chaveCampo(dia, campo)} drift={drift} />
-              </div>
+              <div className="v">—</div>
             </div>
           ))}
         </div>
       </div>
-      <span className="sjTag">simulado</span>
+      <span className="sjTag">aguardando</span>
     </section>
   );
 }
 
-function TabelaMock({
-  baseId,
+function TabelaBanco({
   colunas,
-  drift,
   aoVivo,
 }: {
-  baseId: string;
   colunas: string[];
-  drift: Record<string, number>;
   aoVivo: { quando: string; linhas: BiRecente[]; freshIds: number[] } | null;
 }) {
-  const linhas = [0, 1, 2];
+  const linhas = aoVivo?.linhas ?? [];
   return (
     <div className="sjTableInner">
       <table>
@@ -155,54 +129,52 @@ function TabelaMock({
           <tr>{colunas.map((col) => <th key={col}>{col}</th>)}</tr>
         </thead>
         <tbody>
-          {aoVivo && aoVivo.linhas.length
-            ? aoVivo.linhas.map((row) => (
-              <tr key={row.id} className={aoVivo.freshIds.includes(row.id) ? "is-fresh" : undefined}>
-                {colunas.map((col) => {
-                  const c = col.toLowerCase();
-                  const texto = celulaReserva(col, row, aoVivo.quando);
-                  return (
-                    <td key={col}>
-                      {c.includes("pax") || c.includes("pessoa") ? <AnimatedNumber value={row.pessoas} /> : texto}
-                    </td>
-                  );
-                })}
-              </tr>
-            ))
-            : linhas.map((linha) => (
-              <tr key={linha}>
-                {colunas.map((col, indice) => (
+          {linhas.length ? linhas.map((row) => (
+            <tr key={row.id} className={aoVivo?.freshIds.includes(row.id) ? "is-fresh" : undefined}>
+              {colunas.map((col) => {
+                const c = col.toLowerCase();
+                const texto = celulaReserva(col, row, aoVivo?.quando || "—");
+                return (
                   <td key={col}>
-                    <CelulaNumero label={`${col} ${linha}`} driftId={`t:${baseId}:${indice}:${linha}`} drift={drift} />
+                    {c.includes("pax") || c.includes("pessoa") ? <AnimatedNumber value={row.pessoas} /> : texto}
                   </td>
-                ))}
-              </tr>
-            ))}
+                );
+              })}
+            </tr>
+          )) : (
+            <tr><td colSpan={colunas.length}>Ainda sem cópia no banco.</td></tr>
+          )}
         </tbody>
       </table>
     </div>
   );
 }
 
+function etiquetaBloco(paginaId: string, campos: string[], temTabela: boolean, listaReservas: boolean, aoVivo: { linhas: BiRecente[] } | null, zig: ZigAoVivo | null, dre: DreAoVivo | null, titulo: string) {
+  if (listaReservas) return aoVivo?.linhas.length ? "banco" : "aguardando";
+  if (titulo === "Custo por categoria" || titulo === "Alertas Financeiro") return dre?.disponivel ? "dre" : "aguardando";
+  const comFonte = campos.some((campo) => campoZig(paginaId, campo, zig) || campoDre(paginaId, campo, dre, zig?.faturamentoMes));
+  const semFonte = campos.some((campo) => !campoZig(paginaId, campo, zig) && !campoDre(paginaId, campo, dre, zig?.faturamentoMes));
+  if (!comFonte && (semFonte || temTabela)) return "aguardando";
+  return null;
+}
+
 function Bloco({
   paginaId,
   bloco,
-  drift,
   aoVivo,
   zig,
   dre,
 }: {
   paginaId: string;
   bloco: BlocoConteudo;
-  drift: Record<string, number>;
   aoVivo: { quando: string; linhas: BiRecente[]; freshIds: number[] } | null;
   zig: ZigAoVivo | null;
   dre: DreAoVivo | null;
 }) {
   const opcoes = bloco.seletor ?? [];
   const [escolha, setEscolha] = useState(opcoes[0] ?? "");
-  if (bloco.titulo === "Por dia da semana") return <DiasSemana campos={bloco.campos} drift={drift} />;
-  const baseId = opcoes.length ? `${bloco.titulo}:${escolha}` : bloco.titulo;
+  if (bloco.titulo === "Por dia da semana") return <DiasSemana campos={bloco.campos} />;
   const notas = bloco.campos.filter(ehNota);
   const campos = bloco.campos.filter((campo) => !ehNota(campo));
   const listaReservas = /lista de reservas/i.test(bloco.titulo);
@@ -249,11 +221,7 @@ function Bloco({
                       {planilha.detalhe ? <p className="sjMini">{planilha.detalhe}</p> : null}
                       <span className={`sjTag ${planilha.pronto ? "real" : ""}`}>{planilha.pronto ? "dre" : "aguardando"}</span>
                     </>
-                  ) : (
-                    <div className="v">
-                      <CelulaNumero label={campo} driftId={chaveCampo(baseId, campo)} drift={drift} />
-                    </div>
-                  )}
+                  ) : <Aguardando />}
                 </div>
               );
             })}
@@ -262,17 +230,17 @@ function Bloco({
         {bloco.titulo === "Custo por categoria" ? <TabelaCustoDre dre={dre} /> : null}
         {bloco.titulo === "Alertas Financeiro" ? <TabelaAlertasDre dre={dre} faturamento={zig?.faturamentoMes ?? null} /> : null}
         {bloco.titulo === "Custo por categoria" || bloco.titulo === "Alertas Financeiro" ? null : tabelasVisiveis.map((tabela) => (
-          <TabelaMock
-            key={tabela.colunas.join("|")}
-            baseId={baseId}
-            colunas={tabela.colunas}
-            drift={drift}
-            aoVivo={listaReservas ? aoVivo : null}
-          />
+          listaReservas ? (
+            <TabelaBanco key={tabela.colunas.join("|")} colunas={tabela.colunas} aoVivo={aoVivo} />
+          ) : (
+            <p key={tabela.colunas.join("|")} className="sjMini">Ainda sem cópia no banco.</p>
+          )
         ))}
-        <span className={`sjTag ${(listaReservas && aoVivo?.linhas.length) || ((bloco.titulo === "Custo por categoria" || bloco.titulo === "Alertas Financeiro") && dre?.disponivel) ? "real" : ""}`}>
-          {listaReservas && aoVivo?.linhas.length ? "banco" : (bloco.titulo === "Custo por categoria" || bloco.titulo === "Alertas Financeiro") ? (dre?.disponivel ? "dre" : "aguardando") : "simulado"}
-        </span>
+        {(() => {
+          const etiqueta = etiquetaBloco(paginaId, campos, tabelasVisiveis.length > 0 && !listaReservas, listaReservas, aoVivo, zig, dre, bloco.titulo);
+          if (!etiqueta) return null;
+          return <span className={`sjTag ${etiqueta === "aguardando" ? "" : "real"}`}>{etiqueta}</span>;
+        })()}
       </div>
     </section>
   );
@@ -293,52 +261,6 @@ export function PainelConteudo({
 }) {
   const abas = CONTEUDO[paginaId] ?? [];
   const aba = abas.find((item) => item.id === subId) ?? abas[0];
-  const [drift, setDrift] = useState<Record<string, number>>({});
-
-  const chaves = useMemo(() => {
-    if (!aba) return [];
-    const ids: string[] = [];
-    for (const bloco of aba.blocos) {
-      const selecoes = bloco.seletor?.length ? bloco.seletor : [""];
-      for (const sel of selecoes) {
-        const base = sel ? `${bloco.titulo}:${sel}` : bloco.titulo;
-        for (const campo of bloco.campos) {
-          if (campoUsaZig(paginaId, campo) || campoUsaDre(paginaId, campo)) continue;
-          if (numeroDe(campo, 0) != null) ids.push(chaveCampo(base, campo));
-        }
-        if (bloco.titulo === "Faturamento" || bloco.titulo === "Custo por categoria" || bloco.titulo === "Alertas Financeiro") continue;
-        for (const tabela of bloco.tabelas ?? []) {
-          tabela.colunas.forEach((col, indice) => {
-            if (numeroDe(col, 0) == null) return;
-            for (let linha = 0; linha < 3; linha += 1) ids.push(`t:${base}:${indice}:${linha}`);
-          });
-        }
-      }
-      if (bloco.titulo === "Por dia da semana") {
-        for (const dia of bloco.campos) {
-          for (const campo of ["Público médio", "Ticket médio", "Faturamento médio"]) {
-            ids.push(chaveCampo(dia, campo));
-          }
-        }
-      }
-    }
-    return ids;
-  }, [aba, paginaId]);
-
-  useEffect(() => {
-    if (!chaves.length) return undefined;
-    const timer = window.setInterval(() => {
-      setDrift((atual) => {
-        const proximo = { ...atual };
-        for (const id of chaves) {
-          proximo[id] = (proximo[id] || 0) + Math.round((Math.random() - 0.35) * 3);
-        }
-        return proximo;
-      });
-    }, 3000);
-    return () => window.clearInterval(timer);
-  }, [chaves]);
-
   if (!aba) return null;
 
   const quando = live?.recentesEm === "hoje" ? "Hoje" : (live?.recentesEm ?? "—");
@@ -371,9 +293,9 @@ export function PainelConteudo({
               ? <BarrasCusto key={bloco.titulo} custos={zig?.custos || []} carregando={Boolean(zig?.zigCarregando)} />
               : bloco.titulo === "Indicadores" || bloco.titulo === "📊 Indicadores de Eventos"
             ? bloco.campos.map((campo) => (
-              <Indicador key={campo} paginaId={paginaId} campo={campo} blocoTitulo={bloco.titulo} drift={drift} zig={zig} dre={dre} />
+              <Indicador key={campo} paginaId={paginaId} campo={campo} zig={zig} dre={dre} />
             ))
-            : <Bloco key={bloco.titulo} paginaId={paginaId} bloco={bloco} drift={drift} aoVivo={aoVivo} zig={zig} dre={dre} />
+            : <Bloco key={bloco.titulo} paginaId={paginaId} bloco={bloco} aoVivo={aoVivo} zig={zig} dre={dre} />
         ))}
       </div>
       </div>
