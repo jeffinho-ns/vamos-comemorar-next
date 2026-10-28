@@ -142,7 +142,7 @@ export function avisoZig(zig: ZigAoVivo | null | undefined) {
   if (!zig || zig.disponivel) return null;
   if (zig.motivo === "credenciais_ausentes") return "Nada da planilha entra porque faltam, no serviço da API no Render, BI_APPS_SCRIPT_EMAIL e BI_APPS_SCRIPT_PASSWORD. Instagram, Microsoft e ZigPay não abrem essa planilha.";
   if (zig.motivo === "aguardando_coleta") return "A cópia da planilha ainda não está no banco. O servidor está gravando agora.";
-  if (zig.motivo === "login_recusado") return "O painel recusou o login do robô.";
+  if (zig.motivo === "login_recusado") return "O painel do Renato recusou o e-mail ou a senha. No Render, confira BI_APPS_SCRIPT_EMAIL e BI_APPS_SCRIPT_PASSWORD. ROBOT_EMAIL e ROBOT_PASSWORD também servem.";
   if (zig.motivo === "forbidden") return "A conta do robô ainda não tem acesso ao financeiro.";
   return "Não consegui ler o faturamento da Zig agora.";
 }
