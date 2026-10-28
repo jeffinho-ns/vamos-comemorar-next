@@ -39,11 +39,19 @@ function ValorReal({ valor, tipo, texto }: { valor: number | null; tipo: "money"
   return <AnimatedNumber value={valor} kind={tipo === "pct" ? "pct" : "money"} />;
 }
 
+function selo(pronto: boolean, origem: string, motivo?: string | null) {
+  if (pronto) return origem;
+  if (motivo === "credenciais_ausentes") return "sem login";
+  if (motivo === "login_recusado" || motivo === "forbidden") return "recusado";
+  if (motivo === "aguardando_coleta") return "gravando";
+  return "falhou";
+}
+
 function Aguardando() {
   return (
     <>
       <div className="v">—</div>
-      <span className="sjTag">aguardando</span>
+      <span className="sjTag">sem fonte</span>
     </>
   );
 }
@@ -68,13 +76,13 @@ function Indicador({
         <>
           <div className="v"><ValorReal valor={real.valor} tipo={real.tipo === "pct" ? "pct" : "money"} texto={null} /></div>
           {real.detalhe ? <p className="sjMini">{real.detalhe}</p> : null}
-          <span className={`sjTag ${real.pronto ? "real" : ""}`}>{real.pronto ? "zig" : "aguardando"}</span>
+          <span className={`sjTag ${real.pronto ? "real" : ""}`}>{selo(real.pronto, "zig", zig?.motivo)}</span>
         </>
       ) : planilha ? (
         <>
           <div className="v"><ValorReal valor={planilha.valor} tipo={planilha.tipo} texto={planilha.texto} /></div>
           {planilha.detalhe ? <p className="sjMini">{planilha.detalhe}</p> : null}
-          <span className={`sjTag ${planilha.pronto ? "real" : ""}`}>{planilha.pronto ? "dre" : "aguardando"}</span>
+          <span className={`sjTag ${planilha.pronto ? "real" : ""}`}>{selo(planilha.pronto, "dre", dre?.motivo)}</span>
         </>
       ) : <Aguardando />}
     </article>
@@ -104,7 +112,7 @@ function DiasSemana({ campos }: { campos: string[] }) {
           ))}
         </div>
       </div>
-      <span className="sjTag">aguardando</span>
+      <span className="sjTag">sem fonte</span>
     </section>
   );
 }
@@ -146,11 +154,11 @@ function TabelaBanco({
 }
 
 function etiquetaBloco(paginaId: string, campos: string[], temTabela: boolean, listaReservas: boolean, aoVivo: { linhas: BiRecente[] } | null, zig: ZigAoVivo | null, dre: DreAoVivo | null, titulo: string) {
-  if (listaReservas) return aoVivo?.linhas.length ? "banco" : "aguardando";
-  if (titulo === "Custo por categoria" || titulo === "Alertas Financeiro") return dre?.disponivel ? "dre" : "aguardando";
+  if (listaReservas) return aoVivo?.linhas.length ? "banco" : "sem fonte";
+  if (titulo === "Custo por categoria" || titulo === "Alertas Financeiro") return dre?.disponivel ? "dre" : selo(false, "dre", dre?.motivo);
   const comFonte = campos.some((campo) => campoZig(paginaId, campo, zig) || campoDre(paginaId, campo, dre, zig?.faturamentoMes));
   const semFonte = campos.some((campo) => !campoZig(paginaId, campo, zig) && !campoDre(paginaId, campo, dre, zig?.faturamentoMes));
-  if (!comFonte && (semFonte || temTabela)) return "aguardando";
+  if (!comFonte && (semFonte || temTabela)) return "sem fonte";
   return null;
 }
 
@@ -208,13 +216,13 @@ function Bloco({
                     <>
                       <div className="v"><ValorReal valor={real.valor} tipo={real.tipo === "pct" ? "pct" : "money"} texto={null} /></div>
                       {real.detalhe ? <p className="sjMini">{real.detalhe}</p> : null}
-                      <span className={`sjTag ${real.pronto ? "real" : ""}`}>{real.pronto ? "zig" : "aguardando"}</span>
+                      <span className={`sjTag ${real.pronto ? "real" : ""}`}>{selo(real.pronto, "zig", zig?.motivo)}</span>
                     </>
                   ) : planilha ? (
                     <>
                       <div className="v"><ValorReal valor={planilha.valor} tipo={planilha.tipo} texto={planilha.texto} /></div>
                       {planilha.detalhe ? <p className="sjMini">{planilha.detalhe}</p> : null}
-                      <span className={`sjTag ${planilha.pronto ? "real" : ""}`}>{planilha.pronto ? "dre" : "aguardando"}</span>
+                      <span className={`sjTag ${planilha.pronto ? "real" : ""}`}>{selo(planilha.pronto, "dre", dre?.motivo)}</span>
                     </>
                   ) : <Aguardando />}
                 </div>
@@ -234,7 +242,8 @@ function Bloco({
         {(() => {
           const etiqueta = etiquetaBloco(paginaId, campos, tabelasVisiveis.length > 0 && !listaReservas, listaReservas, aoVivo, zig, dre, bloco.titulo);
           if (!etiqueta) return null;
-          return <span className={`sjTag ${etiqueta === "aguardando" ? "" : "real"}`}>{etiqueta}</span>;
+          const real = etiqueta === "banco" || etiqueta === "dre" || etiqueta === "zig";
+          return <span className={`sjTag ${real ? "real" : ""}`}>{etiqueta}</span>;
         })()}
       </div>
     </section>

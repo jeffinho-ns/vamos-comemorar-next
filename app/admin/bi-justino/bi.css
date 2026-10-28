@@ -17,6 +17,7 @@
 .sjHead { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; padding: 18px 18px 0; }
 .sjHead h1 { margin: 0; font-family: "Space Grotesk", Arial, sans-serif; font-size: 22px; }
 .sjSub { color: var(--muted); margin: 4px 0 0; font-size: 13px; }
+.sjAlerta { margin: 10px 0 0; padding: 10px 12px; border-radius: 10px; background: #3a241c; color: #f6e7df; font-size: 14px; line-height: 1.4; }
 .sjLive { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
 .sjDot { width: 9px; height: 9px; border-radius: 99px; background: var(--yellow); }
 .sjDot.on { background: var(--green); animation: sjPulse 2.4s ease-in-out infinite; }

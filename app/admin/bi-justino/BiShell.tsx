@@ -67,10 +67,10 @@ export function BiShell() {
         <div>
           <h1>Seu Justino BI</h1>
           <p className="sjSub">
-            A tela lê só o banco. O servidor busca a Zig, a DRE e o painel e grava a cópia sozinho.
+            O que já está no banco aparece na hora. A planilha só entra depois que o servidor grava a cópia.
           </p>
-          {avisoZig(data?.zig) ? <p className="sjSub">{avisoZig(data?.zig)}</p> : null}
-          {avisoDre(data?.dre) ? <p className="sjSub">{avisoDre(data?.dre)}</p> : null}
+          {avisoZig(data?.zig) ? <p className="sjAlerta">{avisoZig(data?.zig)}</p> : null}
+          {avisoDre(data?.dre) && avisoDre(data?.dre) !== avisoZig(data?.zig) ? <p className="sjAlerta">{avisoDre(data?.dre)}</p> : null}
         </div>
         <p className="sjLive">
           <span className={`sjDot ${connected ? "on" : ""}`} />
