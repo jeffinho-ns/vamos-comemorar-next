@@ -21,6 +21,8 @@ export interface ZigAoVivo {
   serieMes?: { dia: string; rotulo?: string; zig: number; eventos: number }[];
   serieAno?: { mes: string; rotulo?: string; zig: number; eventos: number }[];
   custos?: { label: string; valor: number }[];
+  servicoMes?: number | null;
+  bilheteria?: { mes: string; receita: number; entradasQtd: number; publicoMes: number; pctClientesEntradas: number | null }[];
   zigCarregando?: boolean;
 }
 

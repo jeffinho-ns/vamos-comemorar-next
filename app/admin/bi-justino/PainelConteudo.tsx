@@ -6,6 +6,9 @@ import { CONTEUDO, type BlocoConteudo } from "./conteudo";
 import { baseNumero, chaveCampo, ehNota, textoMock, tipoCampo, type TipoNumero } from "./mockValor";
 import type { BiLiveData, BiRecente } from "./useBiLive";
 import { GraficoFaturamento, BarrasCusto } from "./GraficoDiretoria";
+import { TabelaAlertasDre, TabelaCustoDre } from "./DreTabelas";
+import { FontesNovas } from "./FontesNovas";
+import { campoDre, campoUsaDre, type DreAoVivo } from "./dreValor";
 import { campoUsaZig, campoZig, type ZigAoVivo } from "./zigValor";
 
 const INSIGHT: Record<string, string> = {
@@ -50,20 +53,29 @@ function Dinheiro({ valor }: { valor: number | null }) {
   return <AnimatedNumber value={valor} kind="money" />;
 }
 
+function ValorReal({ valor, tipo, texto }: { valor: number | null; tipo: "money" | "pct" | "texto"; texto: string | null }) {
+  if (tipo === "texto") return texto || "—";
+  if (valor == null) return "—";
+  return <AnimatedNumber value={valor} kind={tipo === "pct" ? "pct" : "money"} />;
+}
+
 function Indicador({
   paginaId,
   campo,
   blocoTitulo,
   drift,
   zig,
+  dre,
 }: {
   paginaId: string;
   campo: string;
   blocoTitulo: string;
   drift: Record<string, number>;
   zig: ZigAoVivo | null;
+  dre: DreAoVivo | null;
 }) {
   const real = campoZig(paginaId, campo, zig);
+  const planilha = campoDre(paginaId, campo, dre, zig?.faturamentoMes);
   const id = chaveCampo(blocoTitulo, campo);
   const tipo = tipoCampo(campo);
   const valor = numeroDe(campo, drift[id] || 0);
@@ -75,6 +87,12 @@ function Indicador({
           <div className="v"><Dinheiro valor={real.valor} /></div>
           {real.detalhe ? <p className="sjMini">{real.detalhe}</p> : null}
           <span className={`sjTag ${real.pronto ? "real" : ""}`}>{real.pronto ? "zig" : "aguardando"}</span>
+        </>
+      ) : planilha ? (
+        <>
+          <div className="v"><ValorReal valor={planilha.valor} tipo={planilha.tipo} texto={planilha.texto} /></div>
+          {planilha.detalhe ? <p className="sjMini">{planilha.detalhe}</p> : null}
+          <span className={`sjTag ${planilha.pronto ? "real" : ""}`}>{planilha.pronto ? "dre" : "aguardando"}</span>
         </>
       ) : (
         <>
@@ -172,12 +190,14 @@ function Bloco({
   drift,
   aoVivo,
   zig,
+  dre,
 }: {
   paginaId: string;
   bloco: BlocoConteudo;
   drift: Record<string, number>;
   aoVivo: { quando: string; linhas: BiRecente[]; freshIds: number[] } | null;
   zig: ZigAoVivo | null;
+  dre: DreAoVivo | null;
 }) {
   const opcoes = bloco.seletor ?? [];
   const [escolha, setEscolha] = useState(opcoes[0] ?? "");
@@ -213,6 +233,7 @@ function Bloco({
           <div className="sjCampos">
             {campos.map((campo) => {
               const real = campoZig(paginaId, campo, zig);
+              const planilha = campoDre(paginaId, campo, dre, zig?.faturamentoMes);
               return (
                 <div key={campo} className="sjCampo">
                   <small>{campo}</small>
@@ -221,6 +242,12 @@ function Bloco({
                       <div className="v"><Dinheiro valor={real.valor} /></div>
                       {real.detalhe ? <p className="sjMini">{real.detalhe}</p> : null}
                       <span className={`sjTag ${real.pronto ? "real" : ""}`}>{real.pronto ? "zig" : "aguardando"}</span>
+                    </>
+                  ) : planilha ? (
+                    <>
+                      <div className="v"><ValorReal valor={planilha.valor} tipo={planilha.tipo} texto={planilha.texto} /></div>
+                      {planilha.detalhe ? <p className="sjMini">{planilha.detalhe}</p> : null}
+                      <span className={`sjTag ${planilha.pronto ? "real" : ""}`}>{planilha.pronto ? "dre" : "aguardando"}</span>
                     </>
                   ) : (
                     <div className="v">
@@ -232,7 +259,9 @@ function Bloco({
             })}
           </div>
         ) : null}
-        {tabelasVisiveis.map((tabela) => (
+        {bloco.titulo === "Custo por categoria" ? <TabelaCustoDre dre={dre} /> : null}
+        {bloco.titulo === "Alertas Financeiro" ? <TabelaAlertasDre dre={dre} faturamento={zig?.faturamentoMes ?? null} /> : null}
+        {bloco.titulo === "Custo por categoria" || bloco.titulo === "Alertas Financeiro" ? null : tabelasVisiveis.map((tabela) => (
           <TabelaMock
             key={tabela.colunas.join("|")}
             baseId={baseId}
@@ -241,8 +270,8 @@ function Bloco({
             aoVivo={listaReservas ? aoVivo : null}
           />
         ))}
-        <span className={`sjTag ${listaReservas && aoVivo?.linhas.length ? "real" : ""}`}>
-          {listaReservas && aoVivo?.linhas.length ? "banco" : "simulado"}
+        <span className={`sjTag ${(listaReservas && aoVivo?.linhas.length) || ((bloco.titulo === "Custo por categoria" || bloco.titulo === "Alertas Financeiro") && dre?.disponivel) ? "real" : ""}`}>
+          {listaReservas && aoVivo?.linhas.length ? "banco" : (bloco.titulo === "Custo por categoria" || bloco.titulo === "Alertas Financeiro") ? (dre?.disponivel ? "dre" : "aguardando") : "simulado"}
         </span>
       </div>
     </section>
@@ -274,10 +303,10 @@ export function PainelConteudo({
       for (const sel of selecoes) {
         const base = sel ? `${bloco.titulo}:${sel}` : bloco.titulo;
         for (const campo of bloco.campos) {
-          if (campoUsaZig(paginaId, campo)) continue;
+          if (campoUsaZig(paginaId, campo) || campoUsaDre(paginaId, campo)) continue;
           if (numeroDe(campo, 0) != null) ids.push(chaveCampo(base, campo));
         }
-        if (bloco.titulo === "Faturamento") continue;
+        if (bloco.titulo === "Faturamento" || bloco.titulo === "Custo por categoria" || bloco.titulo === "Alertas Financeiro") continue;
         for (const tabela of bloco.tabelas ?? []) {
           tabela.colunas.forEach((col, indice) => {
             if (numeroDe(col, 0) == null) return;
@@ -319,6 +348,7 @@ export function PainelConteudo({
     freshIds,
   };
   const zig = live?.zig ?? null;
+  const dre = live?.dre ?? null;
 
   return (
     <>
@@ -333,6 +363,7 @@ export function PainelConteudo({
       ) : null}
       <div key={`${paginaId}:${aba.id}`} className="sjStage">
       <div className="sjGrid">
+        <FontesNovas paginaId={paginaId} zig={zig} novidades={live?.novidades ?? null} />
         {aba.blocos.map((bloco) => (
           bloco.titulo === "Faturamento"
             ? <GraficoFaturamento key={bloco.titulo} zig={zig} />
@@ -340,9 +371,9 @@ export function PainelConteudo({
               ? <BarrasCusto key={bloco.titulo} custos={zig?.custos || []} carregando={Boolean(zig?.zigCarregando)} />
               : bloco.titulo === "Indicadores" || bloco.titulo === "📊 Indicadores de Eventos"
             ? bloco.campos.map((campo) => (
-              <Indicador key={campo} paginaId={paginaId} campo={campo} blocoTitulo={bloco.titulo} drift={drift} zig={zig} />
+              <Indicador key={campo} paginaId={paginaId} campo={campo} blocoTitulo={bloco.titulo} drift={drift} zig={zig} dre={dre} />
             ))
-            : <Bloco key={bloco.titulo} paginaId={paginaId} bloco={bloco} drift={drift} aoVivo={aoVivo} zig={zig} />
+            : <Bloco key={bloco.titulo} paginaId={paginaId} bloco={bloco} drift={drift} aoVivo={aoVivo} zig={zig} dre={dre} />
         ))}
       </div>
       </div>

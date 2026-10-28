@@ -6,6 +6,7 @@ import { CONTEUDO } from "./conteudo";
 import { PainelConteudo } from "./PainelConteudo";
 import { GRUPO_LABEL, PAGINAS, type Pagina } from "./paginas";
 import { useBiLive, type BiLiveData } from "./useBiLive";
+import { avisoDre } from "./dreValor";
 import { avisoZig } from "./zigValor";
 
 function FaixaAoVivo({ data }: { data: BiLiveData | null }) {
@@ -57,6 +58,7 @@ export function BiShell() {
 
   return (
     <div className="sjbi">
+      <a className="sjSkip" href="#bi-conteudo">Pular para o conteúdo</a>
       <link
         rel="stylesheet"
         href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700&family=Space+Grotesk:wght@600;700&display=swap"
@@ -65,9 +67,10 @@ export function BiShell() {
         <div>
           <h1>Seu Justino BI</h1>
           <p className="sjSub">
-            Reservas saem do banco. O faturamento da Zig sai do painel dele. O restante ainda é exemplo e muda sozinho.
+            Reservas saem do banco. O faturamento da Zig sai do painel dele. Impostos, aluguel e as demais despesas saem da DRE. O restante ainda é exemplo.
           </p>
           {avisoZig(data?.zig) ? <p className="sjSub">{avisoZig(data?.zig)}</p> : null}
+          {avisoDre(data?.dre) ? <p className="sjSub">{avisoDre(data?.dre)}</p> : null}
         </div>
         <p className="sjLive">
           <span className={`sjDot ${connected ? "on" : ""}`} />
@@ -106,7 +109,7 @@ export function BiShell() {
             );
           })}
         </nav>
-        <main className="sjMain">
+        <main id="bi-conteudo" className="sjMain">
           {pagina.id === "master" || pagina.id === "reservas" ? (
             <div key={pagina.id} className="sjStage">
               <FaixaAoVivo data={data} />
