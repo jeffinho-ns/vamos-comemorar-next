@@ -2211,7 +2211,7 @@ export default function CardapioAdminPage() {
 
       const method = editingItem ? 'PUT' : 'POST';
 
-      const finalPrice = itemForm.isPriceOnRequest ? -1 : parsedPrice;
+      const finalPrice = itemForm.isPriceOnRequest ? -1 : (parsedPrice ?? 0);
       const savedItemId = editingItem?.id;
 
       const itemData = {
