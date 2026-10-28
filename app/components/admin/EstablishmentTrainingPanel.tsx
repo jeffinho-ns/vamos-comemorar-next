@@ -5,6 +5,7 @@ import { useEffect } from 'react';
 import { MdPsychology } from 'react-icons/md';
 import { useEstablishments } from '@/app/hooks/useEstablishments';
 import { useEstablishmentPermissions } from '@/app/hooks/useEstablishmentPermissions';
+import { establishmentsForModule } from '@/app/utils/establishmentModuleAccess';
 
 export default function EstablishmentTrainingPanel() {
   const { establishments, loading, fetchEstablishments } = useEstablishments();
@@ -14,7 +15,10 @@ export default function EstablishmentTrainingPanel() {
     fetchEstablishments();
   }, [fetchEstablishments]);
 
-  const visibleEstablishments = establishmentPermissions.getFilteredEstablishments(establishments);
+  const visibleEstablishments = establishmentsForModule(
+    establishmentPermissions.getFilteredEstablishments(establishments),
+    'whatsapp',
+  );
 
   if (loading || establishmentPermissions.isLoading) {
     return (

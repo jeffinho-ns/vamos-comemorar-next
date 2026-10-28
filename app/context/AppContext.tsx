@@ -78,6 +78,8 @@ export interface AppEstablishment {
   /** Módulos habilitados no Super Admin. null = casa legado; [] = nenhum módulo. */
   enabledModules?: string[] | null;
   organizationId?: number | null;
+  /** `place` é o id usado em reservas e atendimento. `bar` é o cardápio, com outro id. */
+  catalogSource?: "place" | "bar";
 }
 
 interface AppContextValue {
@@ -151,6 +153,7 @@ function mapBar(item: Record<string, unknown>): AppEstablishment {
       item.organization_id != null && Number.isFinite(Number(item.organization_id))
         ? Number(item.organization_id)
         : null,
+    catalogSource: "bar",
   };
 }
 
@@ -174,6 +177,7 @@ function mapPlace(item: Record<string, unknown>): AppEstablishment {
       item.organization_id != null && Number.isFinite(Number(item.organization_id))
         ? Number(item.organization_id)
         : null,
+    catalogSource: "place",
   };
 }
 

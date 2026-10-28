@@ -25,6 +25,7 @@ import FlyersTab from './aiConfig/FlyersTab';
 import AllowedNumbersTab from './aiConfig/AllowedNumbersTab';
 import { useAiSettings } from './aiConfig/useAiSettings';
 import { Toggle } from './aiConfig/shared';
+import { establishmentsForModule } from '@/app/utils/establishmentModuleAccess';
 
 type SubTabId =
   | 'identidade'
@@ -163,7 +164,11 @@ export default function AiConfigPanel() {
   }, [fetchEstablishments]);
 
   const visibleEstablishments = useMemo(
-    () => establishmentPermissions.getFilteredEstablishments(establishments),
+    () =>
+      establishmentsForModule(
+        establishmentPermissions.getFilteredEstablishments(establishments),
+        'whatsapp',
+      ),
     [establishmentPermissions, establishments],
   );
 

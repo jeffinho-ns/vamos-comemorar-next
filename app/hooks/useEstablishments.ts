@@ -12,6 +12,7 @@ export interface Establishment {
   cnpj?: string;
   /** Módulos habilitados no Super Admin (vem do AppContext). null/undefined = tudo liberado. */
   enabledModules?: string[] | null;
+  catalogSource?: "place" | "bar";
 }
 
 export interface UseEstablishmentsReturn {

@@ -30,7 +30,7 @@ import { getApiUrl } from "@/app/config/api";
 import { getPublicSocketUrl } from "@/lib/publicApiUrl";
 import { useAppContext } from "@/app/context/AppContext";
 import { useSaasAccess } from "@/app/hooks/useSaasAccess";
-import { filterEstablishmentsByModule } from "@/app/utils/establishmentModuleAccess";
+import { establishmentsForModule } from "@/app/utils/establishmentModuleAccess";
 import EstablishmentTrainingPanel from "@/app/components/admin/EstablishmentTrainingPanel";
 import AiConfigPanel from "@/app/components/admin/AiConfigPanel";
 import AreasOverviewPanel from "@/app/components/restaurant-areas/AreasOverviewPanel";
@@ -2383,19 +2383,22 @@ function AdminWhatsappPageContent() {
       ];
     }
 
+    const whatsappHouses = establishmentsForModule(establishments, "whatsapp")
+      .map((e) => ({ id: Number(e.id), name: e.name }))
+      .filter((e) => Number.isFinite(e.id) && e.id > 0);
+
     if (isSuperAdmin) {
-      return filterEstablishmentsByModule(establishments, "whatsapp")
-        .map((e) => ({ id: Number(e.id), name: e.name }))
-        .filter((e) => Number.isFinite(e.id) && e.id > 0)
-        .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
+      return whatsappHouses.sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
     }
 
+    const allowedIds = new Set(whatsappHouses.map((house) => house.id));
+    const namesById = new Map(whatsappHouses.map((house) => [house.id, house.name]));
     const map = new Map<number, string>();
     for (const p of myEstablishmentPermissions) {
       if (p.is_active === false) continue;
       const id = Number(p.establishment_id);
-      if (!Number.isFinite(id) || id <= 0) continue;
-      map.set(id, p.establishment_name || `Estabelecimento ${id}`);
+      if (!Number.isFinite(id) || id <= 0 || !allowedIds.has(id)) continue;
+      map.set(id, namesById.get(id) || p.establishment_name || `Estabelecimento ${id}`);
     }
     return Array.from(map.entries())
       .map(([id, name]) => ({ id, name }))
@@ -2430,11 +2433,6 @@ function AdminWhatsappPageContent() {
     const byId = new Map<number, string>();
     for (const opt of establishmentFilterOptions) {
       byId.set(opt.id, opt.name);
-    }
-    for (const conv of conversations) {
-      const id = conv.establishment_id;
-      if (!id || byId.has(id)) continue;
-      byId.set(id, conv.establishment_name || `Estabelecimento ${id}`);
     }
 
     const tabs: {
@@ -2492,9 +2490,10 @@ function AdminWhatsappPageContent() {
       scoped = conversations.filter(
         (c) => c.establishment_id === highlineEstablishmentId,
       );
-    } else if (!isSuperAdmin && allowedIds.size > 0) {
+    } else if (allowedIds.size > 0) {
       scoped = conversations.filter(
-        (c) => c.establishment_id != null && allowedIds.has(c.establishment_id),
+        (c) =>
+          c.establishment_id == null || allowedIds.has(c.establishment_id),
       );
     }
     return scoped.filter((c) =>
@@ -2607,51 +2606,65 @@ function AdminWhatsappPageContent() {
       ? conversations.filter(
           (conv) => conv.establishment_id === highlineEstablishmentId,
         )
-      : !isSuperAdmin && allowedIds.size > 0
-        ? conversations.filter(
-            (c) => c.establishment_id != null && allowedIds.has(c.establishment_id),
-          )
-        : conversations;
+      : conversations.filter(
+          (c) =>
+            c.establishment_id == null || allowedIds.has(c.establishment_id),
+        );
     return source.filter((conv) => handoffActive(conv.human_takeover_until)).length;
   }, [
     conversations,
     isWhatsappHighlineOnlyUser,
     highlineEstablishmentId,
-    isSuperAdmin,
     establishmentFilterOptions,
   ]);
 
   const scopedContacts = useMemo(() => {
-    if (isSuperAdmin) return contacts;
+    if (isWhatsappHighlineOnlyUser) {
+      return contacts.filter(
+        (c) => Number(c.last_establishment_id) === highlineEstablishmentId,
+      );
+    }
     const allowedIds = new Set(establishmentFilterOptions.map((opt) => opt.id));
-    if (allowedIds.size === 0) return contacts;
+    if (allowedIds.size === 0) return [];
     return contacts.filter(
       (c) =>
-        c.last_establishment_id != null &&
+        c.last_establishment_id == null ||
         allowedIds.has(Number(c.last_establishment_id)),
     );
-  }, [contacts, isSuperAdmin, establishmentFilterOptions]);
+  }, [
+    contacts,
+    isWhatsappHighlineOnlyUser,
+    highlineEstablishmentId,
+    establishmentFilterOptions,
+  ]);
 
   const scopedCampaigns = useMemo(() => {
-    if (isSuperAdmin) return campaigns;
     const allowedIds = new Set(establishmentFilterOptions.map((opt) => opt.id));
-    if (allowedIds.size === 0) return campaigns;
+    if (isWhatsappHighlineOnlyUser) {
+      return campaigns.filter(
+        (c) => Number(c.establishment_id) === highlineEstablishmentId,
+      );
+    }
+    if (allowedIds.size === 0) return [];
     return campaigns.filter((c) => allowedIds.has(Number(c.establishment_id)));
-  }, [campaigns, isSuperAdmin, establishmentFilterOptions]);
+  }, [
+    campaigns,
+    isWhatsappHighlineOnlyUser,
+    highlineEstablishmentId,
+    establishmentFilterOptions,
+  ]);
 
   const scopedConversationsCount = useMemo(() => {
     if (isWhatsappHighlineOnlyUser) return filteredInboxConversations.length;
-    if (isSuperAdmin) return conversations.length;
     const allowedIds = new Set(establishmentFilterOptions.map((opt) => opt.id));
-    if (allowedIds.size === 0) return conversations.length;
+    if (allowedIds.size === 0) return 0;
     return conversations.filter(
-      (c) => c.establishment_id != null && allowedIds.has(c.establishment_id),
+      (c) => c.establishment_id == null || allowedIds.has(c.establishment_id),
     ).length;
   }, [
     conversations,
     filteredInboxConversations.length,
     isWhatsappHighlineOnlyUser,
-    isSuperAdmin,
     establishmentFilterOptions,
   ]);
 
@@ -2664,7 +2677,7 @@ function AdminWhatsappPageContent() {
       string,
       { key: string; label: string; contactCount: number; contacts: ContactRow[] }
     >();
-    for (const contact of contacts) {
+    for (const contact of scopedContacts) {
       const id = contact.last_establishment_id || "sem_estabelecimento";
       const key = String(id);
       const label = contact.last_establishment_name || "Sem estabelecimento";
@@ -2680,7 +2693,7 @@ function AdminWhatsappPageContent() {
       if (b.contactCount !== a.contactCount) return b.contactCount - a.contactCount;
       return a.label.localeCompare(b.label, "pt-BR");
     });
-  }, [contacts]);
+  }, [scopedContacts]);
   const reportDerived = useMemo(() => {
     const conversations = reportSummary?.conversations_total ?? 0;
     const resolved = reportSummary?.conversations_resolved ?? 0;

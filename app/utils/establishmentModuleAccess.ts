@@ -51,3 +51,30 @@ export function filterEstablishmentsByModule<T extends WithModules>(
 ): T[] {
   return establishments.filter((est) => establishmentAllowsModule(est, moduleKey));
 }
+
+type OperationalCatalogItem = WithModules & {
+  id?: string | number;
+  /** Cardápio usa outro id. No atendimento fica só o cadastro da casa. */
+  catalogSource?: "place" | "bar" | null;
+};
+
+/**
+ * Casas de um módulo operacional, uma vez cada.
+ * O cardápio entra na lista geral com outro id e o mesmo nome; aqui ele sai.
+ */
+export function establishmentsForModule<T extends OperationalCatalogItem>(
+  establishments: T[],
+  moduleKey: string,
+): T[] {
+  const seen = new Set<string>();
+  const result: T[] = [];
+  for (const establishment of establishments) {
+    if (establishment.catalogSource === "bar") continue;
+    if (!establishmentAllowsModule(establishment, moduleKey)) continue;
+    const id = String(establishment.id ?? "");
+    if (!id || seen.has(id)) continue;
+    seen.add(id);
+    result.push(establishment);
+  }
+  return result;
+}
