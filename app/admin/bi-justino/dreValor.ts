@@ -173,8 +173,9 @@ function faixa(categoria: string, valor: number | null, saudavel: number, atenca
 
 export function avisoDre(dre: DreAoVivo | null | undefined) {
   if (!dre || dre.disponivel) return null;
-  if (dre.motivo === "credenciais_ausentes") return "A DRE aguarda as variáveis da Microsoft no Render.";
-  if (dre.motivo === "login_recusado") return "A Microsoft recusou o acesso à planilha da DRE.";
+  if (dre.motivo === "credenciais_ausentes") return "A DRE entra com o login do painel no Render, ou com as variáveis da Microsoft.";
+  if (dre.motivo === "forbidden") return "A conta do robô ainda não tem acesso ao financeiro da DRE.";
+  if (dre.motivo === "login_recusado") return "O acesso à DRE foi recusado. Confira o login do painel e as variáveis da Microsoft.";
   if (dre.motivo === "mes_nao_achado") return "A planilha da DRE não tem a coluna do mês anterior.";
   return "Não consegui ler a DRE agora.";
 }

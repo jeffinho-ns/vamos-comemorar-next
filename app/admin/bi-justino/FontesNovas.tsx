@@ -22,6 +22,7 @@ export interface NovidadesAoVivo {
     pendentes: number;
     itens: { nota: number; quando: string; status: string; texto: string; sugestao: string }[];
   } | null;
+  instagram?: { seguidores: number | null; alcance30: number | null; data: string; posts: number } | null;
   crm?: {
     reservas: { status: string; reservas: number; pessoas: number }[];
     funil: { periodo: string; conversas: number | null; reservas: number | null; comparecimentoPct: number | null; porIAPct: number | null } | null;
@@ -71,6 +72,19 @@ export function FontesNovas({
       </BlocoNovo>,
     );
   }
+  if (paginaId === "marketing" && novidades?.instagram) {
+    const insta = novidades.instagram;
+    blocos.push(
+      <BlocoNovo key="insta" titulo="Instagram">
+        <div className="sjCampos">
+          <div className="sjCampo"><small>Seguidores</small><div className="v">{insta.seguidores ?? "—"}</div></div>
+          <div className="sjCampo"><small>Alcance em 30 dias</small><div className="v">{insta.alcance30 ?? "—"}</div></div>
+          <div className="sjCampo"><small>Posts lidos</small><div className="v">{insta.posts}</div></div>
+        </div>
+        {insta.data ? <p className="sjMini">Última leitura da conta em {insta.data}.</p> : null}
+      </BlocoNovo>,
+    );
+  }
   if (paginaId === "marketing" && novidades?.food) {
     blocos.push(
       <BlocoNovo key="food" titulo="99Food">
@@ -110,6 +124,29 @@ export function FontesNovas({
         ))}
       </BlocoNovo>,
     );
+  }
+  if (paginaId === "cmv" && zig?.ranking) {
+    const listas = [
+      ["Bebida mais vendida", zig.ranking.bebida || []],
+      ["Comida mais vendida", zig.ranking.comida || []],
+    ] as const;
+    listas.forEach(([titulo, itens]) => {
+      if (!itens.length) return;
+      blocos.push(
+        <BlocoNovo key={titulo} titulo={titulo}>
+          <div className="sjTableInner">
+            <table>
+              <thead><tr><th>Item</th><th>Qtd</th><th>Valor</th></tr></thead>
+              <tbody>
+                {itens.slice(0, 6).map((item) => (
+                  <tr key={item.nome}><td>{item.nome}</td><td>{item.quantidade ?? "—"}</td><td>{reais(item.valorTotal)}</td></tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </BlocoNovo>,
+      );
+    });
   }
   if (paginaId === "reservas" && novidades?.crm) {
     const crm = novidades.crm;

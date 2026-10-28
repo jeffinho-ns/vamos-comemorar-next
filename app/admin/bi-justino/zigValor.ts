@@ -23,6 +23,11 @@ export interface ZigAoVivo {
   custos?: { label: string; valor: number }[];
   servicoMes?: number | null;
   bilheteria?: { mes: string; receita: number; entradasQtd: number; publicoMes: number; pctClientesEntradas: number | null }[];
+  cmvZig?: { date?: string; cmvComida: number | null; cmvBebida: number | null; cobertura: number | null }[];
+  ranking?: {
+    bebida?: { nome: string; quantidade?: number; valorTotal?: number }[];
+    comida?: { nome: string; quantidade?: number; valorTotal?: number }[];
+  } | null;
   zigCarregando?: boolean;
 }
 
@@ -30,6 +35,7 @@ export interface CampoZig {
   pronto: boolean;
   valor: number | null;
   detalhe: string | null;
+  tipo?: "money" | "pct";
 }
 
 const DIRETORIA = new Set([
@@ -51,10 +57,21 @@ const FINANCEIRO = new Set([
 
 const MESES = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
 
+const CMV = new Set([
+  "CMV teórico (parcial) • comida",
+  "Comida • CMV s/ cobertura",
+  "CMV teórico (parcial) • bebida",
+  "Bebida • CMV s/ cobertura",
+  "Cobertura ficha técnica",
+  "Comida • cobertura",
+  "Bebida • cobertura",
+]);
+
 export function campoUsaZig(paginaId: string, campo: string) {
   if (paginaId === "master") return DIRETORIA.has(campo);
   if (paginaId === "financeiro") return FINANCEIRO.has(campo);
   if (paginaId === "eventos") return campo === "Faturamento do mês";
+  if (paginaId === "cmv") return CMV.has(campo);
   return false;
 }
 
@@ -86,7 +103,22 @@ function detalheDe(campo: string, zig: ZigAoVivo) {
   return null;
 }
 
+function ultimoCmv(zig: ZigAoVivo) {
+  return Array.isArray(zig.cmvZig) && zig.cmvZig.length ? zig.cmvZig[0] : null;
+}
+
+function valorCmv(campo: string, zig: ZigAoVivo) {
+  const doc = ultimoCmv(zig);
+  if (!doc) return null;
+  const nome = campo.toLowerCase();
+  if (nome.includes("bebida") && nome.includes("cmv")) return doc.cmvBebida;
+  if (nome.includes("comida") && nome.includes("cmv")) return doc.cmvComida;
+  if (nome.includes("cobertura")) return doc.cobertura;
+  return null;
+}
+
 function valorDe(paginaId: string, campo: string, zig: ZigAoVivo) {
+  if (paginaId === "cmv") return valorCmv(campo, zig);
   if (paginaId === "eventos" && campo === "Faturamento do mês") return zig.eventosMes ?? null;
   if (campo === "Faturamento Projetado (Marketing)") return zig.projetadoMes ?? null;
   if (campo === "Faturamento do mês" || campo === "Faturamento bruto (acumulado do mês)") return zig.faturamentoMes ?? null;
@@ -102,13 +134,13 @@ function valorDe(paginaId: string, campo: string, zig: ZigAoVivo) {
 export function campoZig(paginaId: string, campo: string, zig: ZigAoVivo | null | undefined): CampoZig | null {
   if (!campoUsaZig(paginaId, campo)) return null;
   if (!zig?.disponivel) return { pronto: false, valor: null, detalhe: null };
-  const detalhe = paginaId === "eventos" ? null : detalheDe(campo, zig);
-  return { pronto: true, valor: valorDe(paginaId, campo, zig), detalhe };
+  const detalhe = paginaId === "eventos" || paginaId === "cmv" ? null : detalheDe(campo, zig);
+  return { pronto: true, valor: valorDe(paginaId, campo, zig), detalhe, tipo: paginaId === "cmv" ? "pct" : "money" };
 }
 
 export function avisoZig(zig: ZigAoVivo | null | undefined) {
   if (!zig || zig.disponivel) return null;
-  if (zig.motivo === "credenciais_ausentes") return "Faturamento da Zig aguardando o login do painel no Render.";
+  if (zig.motivo === "credenciais_ausentes") return "Falta no Render o login do painel: BI_APPS_SCRIPT_EMAIL e BI_APPS_SCRIPT_PASSWORD. Sem esses dois o servidor não entra nas planilhas.";
   if (zig.motivo === "aguardando_coleta") return "A primeira cópia da ZigPay ainda está sendo gravada no banco.";
   if (zig.motivo === "login_recusado") return "O painel recusou o login do robô.";
   if (zig.motivo === "forbidden") return "A conta do robô ainda não tem acesso ao financeiro.";

@@ -33,11 +33,6 @@ function celulaReserva(coluna: string, row: BiRecente, quando: string) {
   return "—";
 }
 
-function Dinheiro({ valor }: { valor: number | null }) {
-  if (valor == null) return "—";
-  return <AnimatedNumber value={valor} kind="money" />;
-}
-
 function ValorReal({ valor, tipo, texto }: { valor: number | null; tipo: "money" | "pct" | "texto"; texto: string | null }) {
   if (tipo === "texto") return texto || "—";
   if (valor == null) return "—";
@@ -71,7 +66,7 @@ function Indicador({
       <small>{campo}</small>
       {real ? (
         <>
-          <div className="v"><Dinheiro valor={real.valor} /></div>
+          <div className="v"><ValorReal valor={real.valor} tipo={real.tipo === "pct" ? "pct" : "money"} texto={null} /></div>
           {real.detalhe ? <p className="sjMini">{real.detalhe}</p> : null}
           <span className={`sjTag ${real.pronto ? "real" : ""}`}>{real.pronto ? "zig" : "aguardando"}</span>
         </>
@@ -211,7 +206,7 @@ function Bloco({
                   <small>{campo}</small>
                   {real ? (
                     <>
-                      <div className="v"><Dinheiro valor={real.valor} /></div>
+                      <div className="v"><ValorReal valor={real.valor} tipo={real.tipo === "pct" ? "pct" : "money"} texto={null} /></div>
                       {real.detalhe ? <p className="sjMini">{real.detalhe}</p> : null}
                       <span className={`sjTag ${real.pronto ? "real" : ""}`}>{real.pronto ? "zig" : "aguardando"}</span>
                     </>
