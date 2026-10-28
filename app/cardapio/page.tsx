@@ -11,8 +11,6 @@ import {
   resolveBarImageFromApi,
   warmCardapioImageIndex,
 } from '@/app/utils/cardapioImageResolver';
-import { isSitioIlhaEstablishmentLike } from '@/app/utils/establishmentAccessRules';
-
 interface Bar {
   id: string | number;
   name: string;
@@ -100,10 +98,7 @@ export default function CardapioPage() {
         };
       });
       
-      // Sítio Ilha é org separada — não listar no hub público do Grupo Ideia.
-      setAllBars(
-        processedBars.filter((bar: Bar) => !isSitioIlhaEstablishmentLike(bar)),
-      );
+      setAllBars(processedBars);
       
     } catch (err) {
       console.error("Erro ao carregar dados:", err);
