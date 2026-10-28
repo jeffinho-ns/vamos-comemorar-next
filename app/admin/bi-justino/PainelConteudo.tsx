@@ -10,6 +10,7 @@ import { TabelaAlertasDre, TabelaCustoDre } from "./DreTabelas";
 import { FontesNovas } from "./FontesNovas";
 import { campoDre, type DreAoVivo } from "./dreValor";
 import { campoZig, type ZigAoVivo } from "./zigValor";
+import { ehLancamento, temQuadroLido, TabelaQuadro } from "./quadroLido";
 
 const INSIGHT: Record<string, string> = {
   Segunda: "Noite mais curta. Exemplo: reserva de aniversário em mesa menor e atração acústica no primeiro horário.",
@@ -178,6 +179,14 @@ function Bloco({
   const opcoes = bloco.seletor ?? [];
   const [escolha, setEscolha] = useState(opcoes[0] ?? "");
   if (bloco.titulo === "Por dia da semana") return <DiasSemana campos={bloco.campos} />;
+  if (ehLancamento(bloco.titulo)) {
+    return (
+      <section className="sjCard sjBloco">
+        <h3>{bloco.titulo}</h3>
+        <p className="sjNota">Este lançamento continua no painel do Seu Justino. Aqui a tela só mostra leitura já gravada.</p>
+      </section>
+    );
+  }
   const notas = bloco.campos.filter(ehNota);
   const campos = bloco.campos.filter((campo) => !ehNota(campo));
   const listaReservas = /lista de reservas/i.test(bloco.titulo);
@@ -232,7 +241,9 @@ function Bloco({
         ) : null}
         {bloco.titulo === "Custo por categoria" ? <TabelaCustoDre dre={dre} /> : null}
         {bloco.titulo === "Alertas Financeiro" ? <TabelaAlertasDre dre={dre} faturamento={zig?.faturamentoMes ?? null} /> : null}
-        {bloco.titulo === "Custo por categoria" || bloco.titulo === "Alertas Financeiro" ? null : tabelasVisiveis.map((tabela) => (
+        {bloco.titulo === "Custo por categoria" || bloco.titulo === "Alertas Financeiro" ? null : temQuadroLido(bloco.titulo) ? (
+          <TabelaQuadro titulo={bloco.titulo} zig={zig} />
+        ) : tabelasVisiveis.map((tabela) => (
           listaReservas ? (
             <TabelaBanco key={tabela.colunas.join("|")} colunas={tabela.colunas} aoVivo={aoVivo} />
           ) : (

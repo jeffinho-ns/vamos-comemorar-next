@@ -125,29 +125,6 @@ export function FontesNovas({
       </BlocoNovo>,
     );
   }
-  if (paginaId === "cmv" && zig?.ranking) {
-    const listas = [
-      ["Bebida mais vendida", zig.ranking.bebida || []],
-      ["Comida mais vendida", zig.ranking.comida || []],
-    ] as const;
-    listas.forEach(([titulo, itens]) => {
-      if (!itens.length) return;
-      blocos.push(
-        <BlocoNovo key={titulo} titulo={titulo}>
-          <div className="sjTableInner">
-            <table>
-              <thead><tr><th>Item</th><th>Qtd</th><th>Valor</th></tr></thead>
-              <tbody>
-                {itens.slice(0, 6).map((item) => (
-                  <tr key={item.nome}><td>{item.nome}</td><td>{item.quantidade ?? "—"}</td><td>{reais(item.valorTotal)}</td></tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </BlocoNovo>,
-      );
-    });
-  }
   if (paginaId === "reservas" && novidades?.crm) {
     const crm = novidades.crm;
     blocos.push(

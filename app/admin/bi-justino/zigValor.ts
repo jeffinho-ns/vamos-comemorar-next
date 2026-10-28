@@ -25,14 +25,20 @@ export interface ZigAoVivo {
   bilheteria?: { mes: string; receita: number; entradasQtd: number; publicoMes: number; pctClientesEntradas: number | null }[];
   cmvZig?: { date?: string; cmvComida: number | null; cmvBebida: number | null; cobertura: number | null }[];
   ranking?: {
-    bebida?: { nome: string; quantidade?: number; valorTotal?: number }[];
-    comida?: { nome: string; quantidade?: number; valorTotal?: number }[];
+    bebida?: { nome: string; quantidade?: number; valorTotal?: number; cmvPct?: number | null }[];
+    comida?: { nome: string; quantidade?: number; valorTotal?: number; cmvPct?: number | null }[];
+    bebidaCmv?: { nome: string; quantidade?: number; valorTotal?: number; cmvPct?: number | null }[];
+    comidaCmv?: { nome: string; quantidade?: number; valorTotal?: number; cmvPct?: number | null }[];
+    curvaAbc?: { nome: string; valorTotal?: number; pctAcumulado?: number; classe?: string }[];
   } | null;
   projecao?: {
     faturamentoBruto: number | null;
     cmvReal: number | null;
     controlaveis: number | null;
     estruturais: number | null;
+    margem: number | null;
+    economia: number | null;
+    bonusDestravado: number | null;
     envios?: {
       financeiro?: string | null;
       marketing?: string | null;
@@ -56,6 +62,10 @@ const PROJECAO = new Set([
   "CMV real consolidado",
   "Custos controláveis acumulados",
   "Custos estruturais + variáveis",
+  "Margem líquida",
+  "Economia vs. meta",
+  "CMV real",
+  "Bônus destravado",
 ]);
 
 const DIRETORIA = new Set([
@@ -175,6 +185,38 @@ function valorProjecao(campo: string, zig: ZigAoVivo): CampoZig | null {
       valor: projecao.controlaveis,
       tipo: "money",
       detalhe: "Soma do último envio de Marketing, Financeiro, RH, Operação e CMV, sem impostos nem fee.",
+    };
+  }
+  if (campo === "Margem líquida") {
+    return {
+      pronto: projecao.margem != null,
+      valor: projecao.margem,
+      tipo: "pct",
+      detalhe: "Lucro do mês dividido pelo faturamento, com os últimos envios de cada área.",
+    };
+  }
+  if (campo === "Economia vs. meta") {
+    return {
+      pronto: projecao.economia != null,
+      valor: projecao.economia,
+      tipo: "money",
+      detalhe: "Meta saudável de cada área menos o custo do último envio.",
+    };
+  }
+  if (campo === "CMV real") {
+    return {
+      pronto: projecao.cmvReal != null,
+      valor: projecao.cmvReal,
+      tipo: "pct",
+      detalhe: detalheEnvio(projecao.envios?.cmv, "Último envio de CMV em", "CMV ainda sem envio. O número é a referência do painel."),
+    };
+  }
+  if (campo === "Bônus destravado") {
+    return {
+      pronto: projecao.bonusDestravado != null,
+      valor: projecao.bonusDestravado,
+      tipo: "pct",
+      detalhe: "Percentual do bônus liberado pela margem. Abaixo de 8% não destrava.",
     };
   }
   if (campo === "Custos estruturais + variáveis") {
