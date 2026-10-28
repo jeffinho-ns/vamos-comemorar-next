@@ -8,7 +8,8 @@
  *
  * Regra de compatibilidade: enabledModules null/undefined significa que o
  * estabelecimento nunca teve módulos configurados (casas antigas) — nesse
- * caso tudo é liberado.
+ * caso as telas gerais liberam tudo. A lista do atendimento não usa essa
+ * exceção: sem o módulo WhatsApp a casa não aparece.
  */
 
 type WithModules = {
@@ -54,27 +55,56 @@ export function filterEstablishmentsByModule<T extends WithModules>(
 
 type OperationalCatalogItem = WithModules & {
   id?: string | number;
+  name?: string;
+  email?: string;
   /** Cardápio usa outro id. No atendimento fica só o cadastro da casa. */
   catalogSource?: "place" | "bar" | null;
 };
 
+function canonicalHouseKey(name: string): string {
+  const normalized = name
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+  if (normalized === "high line bar" || normalized === "high line" || normalized === "highline") {
+    return "highline";
+  }
+  return normalized;
+}
+
+function hasRealEmail(email: string | undefined): boolean {
+  const value = String(email || "").trim().toLowerCase();
+  return value !== "" && value !== "não informado" && value !== "nao informado";
+}
+
+function prefers(candidate: OperationalCatalogItem, current: OperationalCatalogItem): boolean {
+  const candidateScore =
+    (candidate.catalogSource === "place" ? 4 : 0) + (hasRealEmail(candidate.email) ? 2 : 0);
+  const currentScore =
+    (current.catalogSource === "place" ? 4 : 0) + (hasRealEmail(current.email) ? 2 : 0);
+  return candidateScore > currentScore;
+}
+
 /**
  * Casas de um módulo operacional, uma vez cada.
- * O cardápio entra na lista geral com outro id e o mesmo nome; aqui ele sai.
+ * O cardápio entra na lista geral com outro id (High Line Bar x HighLine).
+ * Aqui só fica o cadastro da casa, e só se o módulo estiver ligado.
  */
 export function establishmentsForModule<T extends OperationalCatalogItem>(
   establishments: T[],
   moduleKey: string,
 ): T[] {
-  const seen = new Set<string>();
-  const result: T[] = [];
+  const byHouse = new Map<string, T>();
   for (const establishment of establishments) {
     if (establishment.catalogSource === "bar") continue;
-    if (!establishmentAllowsModule(establishment, moduleKey)) continue;
-    const id = String(establishment.id ?? "");
-    if (!id || seen.has(id)) continue;
-    seen.add(id);
-    result.push(establishment);
+    const modules = normalizeModules(establishment);
+    if (modules == null || !modules.includes(moduleKey)) continue;
+    const key = canonicalHouseKey(String(establishment.name || establishment.id || ""));
+    if (!key) continue;
+    const current = byHouse.get(key);
+    if (!current || prefers(establishment, current)) byHouse.set(key, establishment);
   }
-  return result;
+  return Array.from(byHouse.values());
 }
