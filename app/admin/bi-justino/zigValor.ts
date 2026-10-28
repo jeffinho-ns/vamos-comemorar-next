@@ -28,6 +28,19 @@ export interface ZigAoVivo {
     bebida?: { nome: string; quantidade?: number; valorTotal?: number }[];
     comida?: { nome: string; quantidade?: number; valorTotal?: number }[];
   } | null;
+  projecao?: {
+    faturamentoBruto: number | null;
+    cmvReal: number | null;
+    controlaveis: number | null;
+    estruturais: number | null;
+    envios?: {
+      financeiro?: string | null;
+      marketing?: string | null;
+      rh?: string | null;
+      operacao?: string | null;
+      cmv?: string | null;
+    };
+  } | null;
   zigCarregando?: boolean;
 }
 
@@ -37,6 +50,13 @@ export interface CampoZig {
   detalhe: string | null;
   tipo?: "money" | "pct";
 }
+
+const PROJECAO = new Set([
+  "Faturamento bruto mensal",
+  "CMV real consolidado",
+  "Custos controláveis acumulados",
+  "Custos estruturais + variáveis",
+]);
 
 const DIRETORIA = new Set([
   "Faturamento Projetado (Marketing)",
@@ -67,8 +87,19 @@ const CMV = new Set([
   "Bebida • cobertura",
 ]);
 
+function dataCurta(iso: string | null | undefined) {
+  if (!iso || !/^\d{4}-\d{2}-\d{2}$/.test(iso)) return null;
+  const [ano, mes, dia] = iso.split("-");
+  return `${dia}/${mes}/${ano}`;
+}
+
+function detalheEnvio(data: string | null | undefined, comEnvio: string, semEnvio: string) {
+  const curta = dataCurta(data);
+  return curta ? `${comEnvio} ${curta}.` : semEnvio;
+}
+
 export function campoUsaZig(paginaId: string, campo: string) {
-  if (paginaId === "master") return DIRETORIA.has(campo);
+  if (paginaId === "master") return DIRETORIA.has(campo) || PROJECAO.has(campo);
   if (paginaId === "financeiro") return FINANCEIRO.has(campo);
   if (paginaId === "eventos") return campo === "Faturamento do mês";
   if (paginaId === "cmv") return CMV.has(campo);
@@ -117,6 +148,46 @@ function valorCmv(campo: string, zig: ZigAoVivo) {
   return null;
 }
 
+function valorProjecao(campo: string, zig: ZigAoVivo): CampoZig | null {
+  const projecao = zig.projecao;
+  if (campo === "Faturamento bruto mensal") {
+    const valor = projecao?.faturamentoBruto ?? zig.faturamentoMes ?? null;
+    if (valor == null) return null;
+    return {
+      pronto: true,
+      valor,
+      tipo: "money",
+      detalhe: detalheEnvio(projecao?.envios?.financeiro, "Faturamento do mês. Último envio do Financeiro em", "Faturamento do mês, ZigPay mais eventos."),
+    };
+  }
+  if (!projecao) return null;
+  if (campo === "CMV real consolidado") {
+    return {
+      pronto: projecao.cmvReal != null,
+      valor: projecao.cmvReal,
+      tipo: "pct",
+      detalhe: detalheEnvio(projecao.envios?.cmv, "Último envio de CMV em", "CMV ainda sem envio. O número é a referência do painel."),
+    };
+  }
+  if (campo === "Custos controláveis acumulados") {
+    return {
+      pronto: projecao.controlaveis != null,
+      valor: projecao.controlaveis,
+      tipo: "money",
+      detalhe: "Soma do último envio de Marketing, Financeiro, RH, Operação e CMV, sem impostos nem fee.",
+    };
+  }
+  if (campo === "Custos estruturais + variáveis") {
+    return {
+      pronto: projecao.estruturais != null,
+      valor: projecao.estruturais,
+      tipo: "money",
+      detalhe: detalheEnvio(projecao.envios?.financeiro, "Impostos e fee do Financeiro em", "Impostos e fee ainda na referência do painel."),
+    };
+  }
+  return null;
+}
+
 function valorDe(paginaId: string, campo: string, zig: ZigAoVivo) {
   if (paginaId === "cmv") return valorCmv(campo, zig);
   if (paginaId === "eventos" && campo === "Faturamento do mês") return zig.eventosMes ?? null;
@@ -134,6 +205,7 @@ function valorDe(paginaId: string, campo: string, zig: ZigAoVivo) {
 export function campoZig(paginaId: string, campo: string, zig: ZigAoVivo | null | undefined): CampoZig | null {
   if (!campoUsaZig(paginaId, campo)) return null;
   if (!zig?.disponivel) return { pronto: false, valor: null, detalhe: null };
+  if (PROJECAO.has(campo)) return valorProjecao(campo, zig);
   const detalhe = paginaId === "eventos" || paginaId === "cmv" ? null : detalheDe(campo, zig);
   return { pronto: true, valor: valorDe(paginaId, campo, zig), detalhe, tipo: paginaId === "cmv" ? "pct" : "money" };
 }
