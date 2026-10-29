@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { MdAdd, MdDelete, MdEdit } from 'react-icons/md';
 import { EstablishmentInfo } from '@/app/types/aiAssistant';
+import { formatFaqTopicLabel } from '@/app/types/faqTopics';
 import { FeedbackBanner, INPUT_CLASS, SectionHeader, getApiBaseUrl, getAuthHeaders } from './shared';
 
 const CATEGORIES = [
@@ -240,7 +241,7 @@ export default function InfoTab({ establishmentId }: { establishmentId: number |
                   </button>
                 </div>
               </div>
-              <p className="text-sm font-semibold text-gray-900">{info.topic}</p>
+              <p className="text-sm font-semibold text-gray-900">{formatFaqTopicLabel(info.topic)}</p>
               <p className="mt-1 line-clamp-4 text-xs text-gray-500">{info.answer}</p>
             </div>
           ))}

@@ -147,9 +147,97 @@ export const DEFAULT_RECOMMENDED_TOPIC_VALUES = [
   'beneficios_aniversario',
 ] as const;
 
+/** Seu Justino (places.id = 1) — mesmos slugs gravados na API. */
+export const SEU_JUSTINO_ESTABLISHMENT_ID = 1;
+
+export const SEU_JUSTINO_RECOMMENDED_TOPIC_VALUES = [
+  'dias_horarios_funcionamento',
+  'valores_entrada',
+  'informacoes_terca',
+  'informacoes_quarta',
+  'informacoes_quinta',
+  'informacoes_sexta',
+  'informacoes_sabado',
+  'reservas_assentos_sabado',
+  'informacoes_domingo',
+  'programacao_15_11',
+  'programacao_02_11',
+  'programacao_01_11',
+  'reveillon',
+  'eventos_corporativos',
+  'beneficios_aniversario',
+  'flyer_aniversario',
+  'regras_bolo',
+  'mesas_assentos',
+  'tempo_permanencia',
+  'atraso_tolerancia',
+  'cancelamento_reserva',
+  'acessibilidade',
+  'guarda_volume',
+  'vagas_emprego',
+  'formas_pagamento',
+  'como_chegar',
+  'compras_fornecedor',
+  'estacionamento',
+  'entrada_bebidas',
+  'estrutura_funcionamento',
+  'delivery',
+  'menores_criancas',
+  'area_kids',
+  'documento_entrada',
+  'narguile',
+  'pet',
+  'musica',
+] as const;
+
+const SEU_JUSTINO_TOPIC_LABELS: Record<string, string> = {
+  informacoes_terca: 'Informações de terça-feira',
+  informacoes_quarta: 'Informações de quarta-feira',
+  informacoes_quinta: 'Informações de quinta-feira',
+  informacoes_sexta: 'Informações de sexta-feira',
+  informacoes_sabado: 'Informações de sábado',
+  reservas_assentos_sabado: 'Reservas e assentos aos sábados',
+  informacoes_domingo: 'Informações de domingo',
+  programacao_15_11: 'Feriado de 15/11',
+  programacao_02_11: 'Feriado de 02/11',
+  programacao_01_11: '01/11 — véspera de feriado',
+  reveillon: 'Réveillon',
+  eventos_corporativos: 'Eventos corporativos',
+  flyer_aniversario: 'Flyer de aniversário',
+  mesas_assentos: 'Mesas, lugares e assentos',
+  tempo_permanencia: 'Tempo de permanência',
+  atraso_tolerancia: 'Atraso e tolerância',
+  cancelamento_reserva: 'Cancelamento de reserva',
+  acessibilidade: 'Acessibilidade',
+  guarda_volume: 'Guarda-volumes e chapelaria',
+  vagas_emprego: 'Currículo, freelancer e vagas',
+  formas_pagamento: 'Formas de pagamento',
+  como_chegar: 'Como chegar',
+  compras_fornecedor: 'Compras e fornecedor',
+  entrada_bebidas: 'Entrada com bebidas',
+  estrutura_funcionamento: 'Estrutura e funcionamento',
+  delivery: 'Delivery',
+  menores_criancas: 'Menores e crianças',
+  area_kids: 'Área kids',
+  documento_entrada: 'Documento para entrada',
+  narguile: 'Narguilé',
+};
+
+for (const [value, label] of Object.entries(SEU_JUSTINO_TOPIC_LABELS)) {
+  FAQ_TOPIC_TEMPLATES.push({
+    value,
+    label,
+    description: 'Informação operacional do Seu Justino.',
+    placeholder: '',
+  });
+}
+
 export function getRecommendedTopicValues(establishmentId: number): readonly string[] {
   if (Number(establishmentId) === HIGHLINE_ESTABLISHMENT_ID) {
     return HIGHLINE_RECOMMENDED_TOPIC_VALUES;
+  }
+  if (Number(establishmentId) === SEU_JUSTINO_ESTABLISHMENT_ID) {
+    return SEU_JUSTINO_RECOMMENDED_TOPIC_VALUES;
   }
   return DEFAULT_RECOMMENDED_TOPIC_VALUES;
 }
