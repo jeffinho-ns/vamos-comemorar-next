@@ -30,7 +30,29 @@ export interface ZigAoVivo {
     bebidaCmv?: { nome: string; quantidade?: number; valorTotal?: number; cmvPct?: number | null }[];
     comidaCmv?: { nome: string; quantidade?: number; valorTotal?: number; cmvPct?: number | null }[];
     curvaAbc?: { nome: string; valorTotal?: number; pctAcumulado?: number; classe?: string }[];
+    semFicha?: { nome: string; categoria?: string; tipo?: string; quantidade?: number; valorTotal?: number }[];
   } | null;
+  horario?: { dias: number; pontos: { hora: string; valor: number }[]; porDia?: Record<string, { hora: string; valor: number }[]> } | null;
+  publicoMes?: number | null;
+  porDiaSemana?: {
+    nome: string;
+    dias: number;
+    faturamento: number;
+    publico: number;
+    faturamentoMedio: number | null;
+    publicoMedio: number | null;
+    ticketMedio: number | null;
+  }[];
+  semanas?: { inicio: string; fim: string; faturamento: number; publico: number; ticket: number | null }[];
+  eventosResumo?: {
+    cotacoesAndamento: number;
+    cotacoesFechadas: number;
+    realizados: number;
+    faturamentoMes: number;
+    faturamentoAno: number;
+    lista?: { data: string; cliente: string; tipo: string; pax: number; contrato: number; sinal: number; status: string }[];
+  } | null;
+  lancamentos?: Record<string, Record<string, number | string | null>[] > | null;
   projecao?: {
     faturamentoBruto: number | null;
     cmvReal: number | null;
@@ -54,7 +76,7 @@ export interface CampoZig {
   pronto: boolean;
   valor: number | null;
   detalhe: string | null;
-  tipo?: "money" | "pct";
+  tipo?: "money" | "pct" | "int";
 }
 
 const PROJECAO = new Set([
@@ -64,8 +86,11 @@ const PROJECAO = new Set([
   "Custos estruturais + variáveis",
   "Margem líquida",
   "Economia vs. meta",
+  "Economia vs meta",
   "CMV real",
   "Bônus destravado",
+  "Bônus projetado",
+  "Bônus RH",
 ]);
 
 const DIRETORIA = new Set([
@@ -108,11 +133,30 @@ function detalheEnvio(data: string | null | undefined, comEnvio: string, semEnvi
   return curta ? `${comEnvio} ${curta}.` : semEnvio;
 }
 
+const EXTRA_ZIG = new Set([
+  "Faturamento projetado",
+  "Público mês",
+  "Público total do mês",
+  "Serviço do mês",
+  "CMO / receita (sem taxa de serviço)",
+  "Cotações em andamento",
+  "Cotações fechadas",
+  "Eventos realizados",
+  "Faturamento do ano (até hoje)",
+  "ticket médio",
+  "Ticket médio (R$) — vazio = últimas 8 semanas",
+  "faturamento do mesmo mês do ano anterior",
+  "CMV teórico (parcial)",
+  "Cobertura ficha técnica",
+]);
+
 export function campoUsaZig(paginaId: string, campo: string) {
-  if (paginaId === "master") return DIRETORIA.has(campo) || PROJECAO.has(campo);
-  if (paginaId === "financeiro") return FINANCEIRO.has(campo);
-  if (paginaId === "eventos") return campo === "Faturamento do mês";
-  if (paginaId === "cmv") return CMV.has(campo);
+  if (PROJECAO.has(campo) || DIRETORIA.has(campo) || FINANCEIRO.has(campo) || CMV.has(campo) || EXTRA_ZIG.has(campo)) {
+    return true;
+  }
+  if (paginaId === "eventos") {
+    return campo === "Faturamento do mês" || campo === "Faturamento do ano (até hoje)";
+  }
   return false;
 }
 
@@ -195,7 +239,7 @@ function valorProjecao(campo: string, zig: ZigAoVivo): CampoZig | null {
       detalhe: "Lucro do mês dividido pelo faturamento, com os últimos envios de cada área.",
     };
   }
-  if (campo === "Economia vs. meta") {
+  if (campo === "Economia vs. meta" || campo === "Economia vs meta") {
     return {
       pronto: projecao.economia != null,
       valor: projecao.economia,
@@ -211,7 +255,7 @@ function valorProjecao(campo: string, zig: ZigAoVivo): CampoZig | null {
       detalhe: detalheEnvio(projecao.envios?.cmv, "Último envio de CMV em", "CMV ainda sem envio. O número é a referência do painel."),
     };
   }
-  if (campo === "Bônus destravado") {
+  if (campo === "Bônus destravado" || campo === "Bônus projetado" || campo === "Bônus RH") {
     return {
       pronto: projecao.bonusDestravado != null,
       valor: projecao.bonusDestravado,
@@ -230,17 +274,50 @@ function valorProjecao(campo: string, zig: ZigAoVivo): CampoZig | null {
   return null;
 }
 
+function custoArea(zig: ZigAoVivo, label: string) {
+  return (zig.custos || []).find((item) => item.label === label)?.valor ?? null;
+}
+
+function tipoDeCampo(paginaId: string, campo: string): CampoZig["tipo"] {
+  if (paginaId === "cmv" || /cobertura|cmv|cmo \/|bônus|bonus|margem/i.test(campo)) return "pct";
+  if (/cotações|eventos realizados|público|reservas da semana/i.test(campo)) return "int";
+  return "money";
+}
+
 function valorDe(paginaId: string, campo: string, zig: ZigAoVivo) {
-  if (paginaId === "cmv") return valorCmv(campo, zig);
-  if (paginaId === "eventos" && campo === "Faturamento do mês") return zig.eventosMes ?? null;
-  if (campo === "Faturamento Projetado (Marketing)") return zig.projetadoMes ?? null;
+  if (paginaId === "cmv" || CMV.has(campo) || campo === "CMV teórico (parcial)" || campo === "Cobertura ficha técnica") {
+    if (campo === "CMV teórico (parcial)") {
+      const doc = ultimoCmv(zig);
+      if (!doc) return null;
+      if (doc.cmvComida != null && doc.cmvBebida != null) return (doc.cmvComida + doc.cmvBebida) / 2;
+      return doc.cmvComida ?? doc.cmvBebida;
+    }
+    return valorCmv(campo, zig);
+  }
+  if (paginaId === "eventos" && campo === "Faturamento do mês") {
+    return zig.eventosResumo?.faturamentoMes ?? zig.eventosMes ?? null;
+  }
+  if (campo === "Faturamento Projetado (Marketing)" || campo === "Faturamento projetado") return zig.projetadoMes ?? null;
   if (campo === "Faturamento do mês" || campo === "Faturamento bruto (acumulado do mês)") return zig.faturamentoMes ?? null;
-  if (campo === "Mesmo mês, ano anterior") return zig.mesmoMesAnoAnterior ?? null;
+  if (campo === "Mesmo mês, ano anterior" || campo === "faturamento do mesmo mês do ano anterior") return zig.mesmoMesAnoAnterior ?? null;
   if (campo === "Média mensal do ano") return zig.mediaMensal ?? null;
   if (campo === "Semana: projetado × faturado" || campo === "Semana atual vs ano anterior") return zig.semanaFaturado ?? null;
-  if (campo === "Ticket médio • semana") return zig.ticketSemana ?? null;
+  if (campo === "Ticket médio • semana" || campo === "ticket médio" || campo === "Ticket médio (R$) — vazio = últimas 8 semanas") {
+    return zig.ticketSemana ?? zig.ticketMes ?? null;
+  }
   if (campo === "Ticket médio • mês") return zig.ticketMes ?? null;
   if (campo === "Ticket médio • ano") return zig.ticketAno ?? null;
+  if (campo === "Público mês" || campo === "Público total do mês") return zig.publicoMes ?? null;
+  if (campo === "Serviço do mês") return zig.servicoMes ?? null;
+  if (campo === "Cotações em andamento") return zig.eventosResumo?.cotacoesAndamento ?? null;
+  if (campo === "Cotações fechadas") return zig.eventosResumo?.cotacoesFechadas ?? null;
+  if (campo === "Eventos realizados") return zig.eventosResumo?.realizados ?? null;
+  if (campo === "Faturamento do ano (até hoje)") return zig.eventosResumo?.faturamentoAno ?? null;
+  if (campo === "CMO / receita (sem taxa de serviço)") {
+    const rh = custoArea(zig, "RH");
+    if (rh == null || !zig.faturamentoMes) return null;
+    return Math.round((rh / zig.faturamentoMes) * 10000) / 100;
+  }
   return null;
 }
 
@@ -249,7 +326,36 @@ export function campoZig(paginaId: string, campo: string, zig: ZigAoVivo | null 
   if (!zig?.disponivel) return { pronto: false, valor: null, detalhe: null };
   if (PROJECAO.has(campo)) return valorProjecao(campo, zig);
   const detalhe = paginaId === "eventos" || paginaId === "cmv" ? null : detalheDe(campo, zig);
-  return { pronto: true, valor: valorDe(paginaId, campo, zig), detalhe, tipo: paginaId === "cmv" ? "pct" : "money" };
+  const valor = valorDe(paginaId, campo, zig);
+  return { pronto: valor != null, valor, detalhe, tipo: tipoDeCampo(paginaId, campo) };
+}
+
+const DIAS_UTEIS = ["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado", "Domingo"];
+
+export function porDiaDaSemana(zig: ZigAoVivo | null | undefined) {
+  if (zig?.porDiaSemana?.length) return zig.porDiaSemana;
+  const acc: Record<string, { dias: number; faturamento: number }> = {};
+  DIAS_UTEIS.forEach((nome) => {
+    acc[nome] = { dias: 0, faturamento: 0 };
+  });
+  for (const ponto of zig?.serieMes || []) {
+    const dia = ponto.dia;
+    if (!dia || !/^\d{4}-\d{2}-\d{2}$/.test(dia)) continue;
+    const [ano, mes, d] = dia.split("-").map(Number);
+    const nome = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"][new Date(Date.UTC(ano, mes - 1, d)).getUTCDay()];
+    if (!nome || !acc[nome]) continue;
+    acc[nome].dias += 1;
+    acc[nome].faturamento += (ponto.zig || 0) + (ponto.eventos || 0);
+  }
+  return DIAS_UTEIS.map((nome) => ({
+    nome,
+    dias: acc[nome].dias,
+    faturamento: acc[nome].faturamento,
+    publico: 0,
+    faturamentoMedio: acc[nome].dias ? acc[nome].faturamento / acc[nome].dias : null,
+    publicoMedio: null,
+    ticketMedio: null,
+  }));
 }
 
 export function avisoZig(zig: ZigAoVivo | null | undefined) {

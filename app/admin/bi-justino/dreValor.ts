@@ -46,14 +46,29 @@ const CATEGORIAS: { chave: string; label: string }[] = [
   { chave: "financeOther", label: "Outras Despesas/Itens Extraordinários" },
 ];
 
+const ALIAS_DRE: Record<string, string> = {
+  Energia: "energy",
+  "Energia Elétrica": "energy",
+  Água: "water",
+  "Água / Esgoto": "water",
+  Gás: "gas",
+  Descartáveis: "disposable",
+  Segurança: "security",
+  "Segurança Noturna e Diurna / Rádios": "security",
+};
+
 export function campoUsaDre(paginaId: string, campo: string) {
-  if (paginaId !== "financeiro") return false;
-  return campo === "Mês de referência"
-    || campo === "Custos Financeiro"
-    || campo === "Economia vs meta"
-    || campo === "Utilidades"
-    || campo === "Cartões"
-    || Boolean(FORMULARIO[campo]);
+  if (paginaId === "financeiro" || paginaId === "operacao" || paginaId === "master") {
+    return campo === "Mês de referência"
+      || campo === "Custos Financeiro"
+      || campo === "Economia vs meta"
+      || campo === "Utilidades"
+      || campo === "Cartões"
+      || campo === "Custo sensível visível"
+      || Boolean(FORMULARIO[campo])
+      || Boolean(ALIAS_DRE[campo]);
+  }
+  return Boolean(ALIAS_DRE[campo]);
 }
 
 function numero(dre: DreAoVivo, chave: string) {
@@ -101,6 +116,12 @@ export function campoDre(
   if (!campoUsaDre(paginaId, campo)) return null;
   if (!dre?.disponivel) return { pronto: false, valor: null, tipo: "money", texto: null, detalhe: null };
   const base = faturamentoDe(dre, faturamento);
+  if (campo === "Custo sensível visível") {
+    return { pronto: true, valor: soma(dre, ["energy", "water", "gas", "disposable", "security"]), tipo: "money", texto: null, detalhe: "Energia, água, gás, descartáveis e segurança" };
+  }
+  if (ALIAS_DRE[campo] && !FORMULARIO[campo]) {
+    return { pronto: true, valor: numero(dre, ALIAS_DRE[campo]), tipo: "money", texto: null, detalhe: dre.fallbacks?.[ALIAS_DRE[campo]] ? `Usando ${dre.fallbacks[ALIAS_DRE[campo]]}` : null };
+  }
   if (campo === "Mês de referência") {
     return { pronto: true, valor: null, tipo: "texto", texto: dre.mes || "—", detalhe: null };
   }

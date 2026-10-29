@@ -21,7 +21,24 @@ export interface BiRecente {
   pessoas: number;
   hora: string | null;
   nome: string;
+  telefone?: string | null;
+  email?: string | null;
+  origem?: string | null;
   checkedIn: boolean;
+}
+
+export interface BiQuadroSemana {
+  indicadores: { reservas: number[]; pessoas: number[]; checkins: number[] };
+  dias: {
+    data: string;
+    dow: number;
+    reservas: number;
+    pessoas: number;
+    checkins: number;
+    aniversario: number;
+    despedida: number;
+    listaSexta: number;
+  }[];
 }
 
 export interface BiMapItem {
@@ -42,6 +59,7 @@ export interface BiLiveData {
   porStatus: BiStatusRow[];
   recentesEm: string;
   recentes: BiRecente[];
+  quadroSemana?: BiQuadroSemana | null;
   zig?: ZigAoVivo | null;
   dre?: DreAoVivo | null;
   novidades?: NovidadesAoVivo | null;

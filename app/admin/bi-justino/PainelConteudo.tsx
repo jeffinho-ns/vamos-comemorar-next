@@ -8,9 +8,23 @@ import type { BiLiveData, BiRecente } from "./useBiLive";
 import { GraficoFaturamento, BarrasCusto } from "./GraficoDiretoria";
 import { TabelaAlertasDre, TabelaCustoDre } from "./DreTabelas";
 import { FontesNovas } from "./FontesNovas";
-import { campoDre, type DreAoVivo } from "./dreValor";
-import { campoZig, type ZigAoVivo } from "./zigValor";
+import { type DreAoVivo } from "./dreValor";
+import { porDiaDaSemana, type ZigAoVivo } from "./zigValor";
+import { campoPainel } from "./campoPainel";
 import { ehLancamento, temQuadroLido, TabelaQuadro } from "./quadroLido";
+import {
+  TabelaCmvAlerta,
+  TabelaEventos,
+  TabelaFicha,
+  TabelaHistoricoDre,
+  TabelaHorario,
+  TabelaLancamentos,
+  TabelaPadraoSemanal,
+  TabelaQuadroSemana,
+  TabelaSemanas,
+  celulaReserva,
+  temTabelaReal,
+} from "./tabelasReais";
 
 const INSIGHT: Record<string, string> = {
   Segunda: "Noite mais curta. Exemplo: reserva de aniversário em mesa menor e atração acústica no primeiro horário.",
@@ -22,21 +36,18 @@ const INSIGHT: Record<string, string> = {
   Domingo: "Almoço e início da noite. Exemplo: feijoada, família e encerramento mais cedo.",
 };
 
-function celulaReserva(coluna: string, row: BiRecente, quando: string) {
-  const c = coluna.toLowerCase();
-  if (c.includes("data")) return quando;
-  if (c.includes("cliente") || c.includes("nome")) return row.nome;
-  if (c.includes("pax") || c.includes("pessoa")) return String(row.pessoas);
-  if (c.includes("tipo") || c.includes("status")) return row.status;
-  if (c.includes("hora")) return row.hora || "—";
-  if (c.includes("observ")) return row.checkedIn ? "Check-in feito" : "—";
-  if (c.includes("enviado")) return "Agilizai";
-  return "—";
-}
-
-function ValorReal({ valor, tipo, texto }: { valor: number | null; tipo: "money" | "pct" | "texto"; texto: string | null }) {
+function ValorReal({
+  valor,
+  tipo,
+  texto,
+}: {
+  valor: number | null;
+  tipo: "money" | "pct" | "texto" | "int";
+  texto: string | null;
+}) {
   if (tipo === "texto") return texto || "—";
   if (valor == null) return "—";
+  if (tipo === "int") return <AnimatedNumber value={valor} />;
   return <AnimatedNumber value={valor} kind={tipo === "pct" ? "pct" : "money"} />;
 }
 
@@ -62,36 +73,33 @@ function Indicador({
   campo,
   zig,
   dre,
+  live,
 }: {
   paginaId: string;
   campo: string;
   zig: ZigAoVivo | null;
   dre: DreAoVivo | null;
+  live: BiLiveData | null;
 }) {
-  const real = campoZig(paginaId, campo, zig);
-  const planilha = campoDre(paginaId, campo, dre, zig?.faturamentoMes);
+  const real = campoPainel(paginaId, campo, zig, dre, live);
   return (
     <article className="sjCard">
       <small>{campo}</small>
       {real ? (
         <>
-          <div className="v"><ValorReal valor={real.valor} tipo={real.tipo === "pct" ? "pct" : "money"} texto={null} /></div>
+          <div className="v"><ValorReal valor={real.valor} tipo={real.tipo} texto={real.texto} /></div>
           {real.detalhe ? <p className="sjMini">{real.detalhe}</p> : null}
-          <span className={`sjTag ${real.pronto ? "real" : ""}`}>{selo(real.pronto, "zig", zig?.motivo)}</span>
-        </>
-      ) : planilha ? (
-        <>
-          <div className="v"><ValorReal valor={planilha.valor} tipo={planilha.tipo} texto={planilha.texto} /></div>
-          {planilha.detalhe ? <p className="sjMini">{planilha.detalhe}</p> : null}
-          <span className={`sjTag ${planilha.pronto ? "real" : ""}`}>{selo(planilha.pronto, "dre", dre?.motivo)}</span>
+          <span className={`sjTag ${real.pronto ? "real" : ""}`}>{selo(real.pronto, real.origem, real.origem === "zig" ? zig?.motivo : dre?.motivo)}</span>
         </>
       ) : <Aguardando />}
     </article>
   );
 }
 
-function DiasSemana({ campos }: { campos: string[] }) {
+function DiasSemana({ campos, zig }: { campos: string[]; zig: ZigAoVivo | null }) {
   const [dia, setDia] = useState(campos[0] ?? "Quinta");
+  const leitura = porDiaDaSemana(zig).find((item) => item.nome === dia);
+  const temDia = Boolean(leitura && leitura.dias);
   return (
     <section className="sjCard sjBloco">
       <h3>Por dia da semana</h3>
@@ -103,17 +111,27 @@ function DiasSemana({ campos }: { campos: string[] }) {
         ))}
       </div>
       <div key={dia} className="sjSwap">
-        <p className="sjInsight">{INSIGHT[dia] ?? "Leitura de exemplo deste dia, pronta pra trocar pelo texto real."}</p>
+        <p className="sjInsight">
+          {temDia
+            ? `${dia}: média de ${leitura?.dias} dia(s) neste mês na ZigPay.`
+            : (INSIGHT[dia] ?? "Ainda sem faturamento deste dia no mês.")}
+        </p>
         <div className="sjCampos">
-          {["Público médio", "Ticket médio", "Faturamento médio"].map((campo) => (
-            <div key={campo} className="sjCampo">
-              <small>{campo}</small>
-              <div className="v">—</div>
-            </div>
-          ))}
+          <div className="sjCampo">
+            <small>Público médio</small>
+            <div className="v">{leitura?.publicoMedio == null ? "—" : <AnimatedNumber value={leitura.publicoMedio} />}</div>
+          </div>
+          <div className="sjCampo">
+            <small>Ticket médio</small>
+            <div className="v">{leitura?.ticketMedio == null ? "—" : <AnimatedNumber value={leitura.ticketMedio} kind="money" />}</div>
+          </div>
+          <div className="sjCampo">
+            <small>Faturamento médio</small>
+            <div className="v">{leitura?.faturamentoMedio == null ? "—" : <AnimatedNumber value={leitura.faturamentoMedio} kind="money" />}</div>
+          </div>
         </div>
       </div>
-      <span className="sjTag">sem fonte</span>
+      <span className={`sjTag ${temDia ? "real" : ""}`}>{temDia ? "zig" : "sem fonte"}</span>
     </section>
   );
 }
@@ -154,12 +172,60 @@ function TabelaBanco({
   );
 }
 
-function etiquetaBloco(paginaId: string, campos: string[], temTabela: boolean, listaReservas: boolean, aoVivo: { linhas: BiRecente[] } | null, zig: ZigAoVivo | null, dre: DreAoVivo | null, titulo: string) {
+function etiquetaBloco(
+  paginaId: string,
+  campos: string[],
+  temTabela: boolean,
+  listaReservas: boolean,
+  aoVivo: { linhas: BiRecente[] } | null,
+  zig: ZigAoVivo | null,
+  dre: DreAoVivo | null,
+  live: BiLiveData | null,
+  titulo: string,
+) {
   if (listaReservas) return aoVivo?.linhas.length ? "banco" : "sem fonte";
   if (titulo === "Custo por categoria" || titulo === "Alertas Financeiro") return dre?.disponivel ? "dre" : selo(false, "dre", dre?.motivo);
-  const comFonte = campos.some((campo) => campoZig(paginaId, campo, zig) || campoDre(paginaId, campo, dre, zig?.faturamentoMes));
-  const semFonte = campos.some((campo) => !campoZig(paginaId, campo, zig) && !campoDre(paginaId, campo, dre, zig?.faturamentoMes));
+  if (temTabelaReal(titulo)) return zig?.disponivel ? "zig" : live?.hoje ? "banco" : "sem fonte";
+  const comFonte = campos.some((campo) => campoPainel(paginaId, campo, zig, dre, live));
+  const semFonte = campos.some((campo) => !campoPainel(paginaId, campo, zig, dre, live));
   if (!comFonte && (semFonte || temTabela)) return "sem fonte";
+  return null;
+}
+
+function TabelasDoBloco({
+  titulo,
+  escolha,
+  zig,
+  dre,
+  live,
+}: {
+  titulo: string;
+  escolha: string;
+  zig: ZigAoVivo | null;
+  dre: DreAoVivo | null;
+  live: BiLiveData | null;
+}) {
+  if (/quadro geral da semana/i.test(titulo)) return <TabelaQuadroSemana live={live} />;
+  if (/padrão semanal/i.test(titulo)) return <TabelaPadraoSemanal zig={zig} />;
+  if (/ticket médio semanal/i.test(titulo)) return <TabelaSemanas zig={zig} />;
+  if (/venda por horário/i.test(titulo)) return <TabelaHorario zig={zig} escolha={escolha} />;
+  if (/eventos cadastrados/i.test(titulo)) return <TabelaEventos zig={zig} />;
+  if (/ficha técnica/i.test(titulo)) return <TabelaFicha zig={zig} />;
+  if (/alertas • comida/i.test(titulo)) return <TabelaCmvAlerta zig={zig} tipo="comida" />;
+  if (/alertas • bebida/i.test(titulo)) return <TabelaCmvAlerta zig={zig} tipo="bebida" />;
+  if (/faturamento histórico \(dre\)/i.test(titulo)) return <TabelaHistoricoDre dre={dre} />;
+  if (/últimos envios • financeiro/i.test(titulo)) {
+    return <TabelaLancamentos zig={zig} area="financeiro" colunas={["Data", "Faturamento", "Impostos", "Cartão", "Aluguel"]} chaves={["date", "fnRevenueInput", "fnTax", "fnCard", "fnRent"]} />;
+  }
+  if (/últimos envios • marketing/i.test(titulo)) {
+    return <TabelaLancamentos zig={zig} area="marketing" colunas={["Data", "Tráfego pago", "Atrações", "Outros", "Reservas", "Comparecimento", "Faturamento gerado"]} chaves={["date", "mkTraffic", "mkAttractions", "mkOther", "mkReservas", "mkAttendance", "mkRevenue"]} />;
+  }
+  if (/últimos envios • operação/i.test(titulo) || /perdas \/ desperdício/i.test(titulo)) {
+    return <TabelaLancamentos zig={zig} area="operacao" colunas={["Data", "Público", "Perdas", "Manutenção", "Ocorrências"]} chaves={["date", "opPublico", "opLoss", "opMaintenance", "date"]} />;
+  }
+  if (/rh estrutural — envios/i.test(titulo)) {
+    return <TabelaLancamentos zig={zig} area="rh" colunas={["Mês", "RH estrutural", "Extras", "Colaboradores ativos"]} chaves={["date", "rhCore", "rhExtras", "rhActive"]} />;
+  }
   return null;
 }
 
@@ -169,16 +235,18 @@ function Bloco({
   aoVivo,
   zig,
   dre,
+  live,
 }: {
   paginaId: string;
   bloco: BlocoConteudo;
   aoVivo: { quando: string; linhas: BiRecente[]; freshIds: number[] } | null;
   zig: ZigAoVivo | null;
   dre: DreAoVivo | null;
+  live: BiLiveData | null;
 }) {
   const opcoes = bloco.seletor ?? [];
   const [escolha, setEscolha] = useState(opcoes[0] ?? "");
-  if (bloco.titulo === "Por dia da semana") return <DiasSemana campos={bloco.campos} />;
+  if (bloco.titulo === "Por dia da semana") return <DiasSemana campos={bloco.campos} zig={zig} />;
   if (ehLancamento(bloco.titulo)) {
     return (
       <section className="sjCard sjBloco">
@@ -216,22 +284,15 @@ function Bloco({
         {campos.length ? (
           <div className="sjCampos">
             {campos.map((campo) => {
-              const real = campoZig(paginaId, campo, zig);
-              const planilha = campoDre(paginaId, campo, dre, zig?.faturamentoMes);
+              const real = campoPainel(paginaId, campo, zig, dre, live);
               return (
                 <div key={campo} className="sjCampo">
                   <small>{campo}</small>
                   {real ? (
                     <>
-                      <div className="v"><ValorReal valor={real.valor} tipo={real.tipo === "pct" ? "pct" : "money"} texto={null} /></div>
+                      <div className="v"><ValorReal valor={real.valor} tipo={real.tipo} texto={real.texto} /></div>
                       {real.detalhe ? <p className="sjMini">{real.detalhe}</p> : null}
-                      <span className={`sjTag ${real.pronto ? "real" : ""}`}>{selo(real.pronto, "zig", zig?.motivo)}</span>
-                    </>
-                  ) : planilha ? (
-                    <>
-                      <div className="v"><ValorReal valor={planilha.valor} tipo={planilha.tipo} texto={planilha.texto} /></div>
-                      {planilha.detalhe ? <p className="sjMini">{planilha.detalhe}</p> : null}
-                      <span className={`sjTag ${planilha.pronto ? "real" : ""}`}>{selo(planilha.pronto, "dre", dre?.motivo)}</span>
+                      <span className={`sjTag ${real.pronto ? "real" : ""}`}>{selo(real.pronto, real.origem, real.origem === "zig" ? zig?.motivo : dre?.motivo)}</span>
                     </>
                   ) : <Aguardando />}
                 </div>
@@ -243,6 +304,8 @@ function Bloco({
         {bloco.titulo === "Alertas Financeiro" ? <TabelaAlertasDre dre={dre} faturamento={zig?.faturamentoMes ?? null} /> : null}
         {bloco.titulo === "Custo por categoria" || bloco.titulo === "Alertas Financeiro" ? null : temQuadroLido(bloco.titulo) ? (
           <TabelaQuadro titulo={bloco.titulo} zig={zig} />
+        ) : temTabelaReal(bloco.titulo) ? (
+          <TabelasDoBloco titulo={bloco.titulo} escolha={escolha} zig={zig} dre={dre} live={live} />
         ) : tabelasVisiveis.map((tabela) => (
           listaReservas ? (
             <TabelaBanco key={tabela.colunas.join("|")} colunas={tabela.colunas} aoVivo={aoVivo} />
@@ -251,7 +314,7 @@ function Bloco({
           )
         ))}
         {(() => {
-          const etiqueta = etiquetaBloco(paginaId, campos, tabelasVisiveis.length > 0 && !listaReservas, listaReservas, aoVivo, zig, dre, bloco.titulo);
+          const etiqueta = etiquetaBloco(paginaId, campos, tabelasVisiveis.length > 0 && !listaReservas, listaReservas, aoVivo, zig, dre, live, bloco.titulo);
           if (!etiqueta) return null;
           const real = etiqueta === "banco" || etiqueta === "dre" || etiqueta === "zig";
           return <span className={`sjTag ${real ? "real" : ""}`}>{etiqueta}</span>;
@@ -308,9 +371,9 @@ export function PainelConteudo({
               ? <BarrasCusto key={bloco.titulo} custos={zig?.custos || []} carregando={Boolean(zig?.zigCarregando)} />
               : bloco.titulo === "Indicadores" || bloco.titulo === "📊 Indicadores de Eventos"
             ? bloco.campos.map((campo) => (
-              <Indicador key={campo} paginaId={paginaId} campo={campo} zig={zig} dre={dre} />
+              <Indicador key={campo} paginaId={paginaId} campo={campo} zig={zig} dre={dre} live={live} />
             ))
-            : <Bloco key={bloco.titulo} paginaId={paginaId} bloco={bloco} aoVivo={aoVivo} zig={zig} dre={dre} />
+            : <Bloco key={bloco.titulo} paginaId={paginaId} bloco={bloco} aoVivo={aoVivo} zig={zig} dre={dre} live={live} />
         ))}
       </div>
       </div>
