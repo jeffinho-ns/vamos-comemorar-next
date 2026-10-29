@@ -7,6 +7,7 @@
   --accent: #c96736;
   --green: #34d399;
   --yellow: #f5b942;
+  --red: #f76e7c;
   margin: -12px -16px -24px;
   min-height: calc(100vh - 88px);
   background: radial-gradient(circle at top right, #1f1712 0, #120e0b 42%, #0a0807 100%);
@@ -64,6 +65,54 @@
 .sjNotas { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
 .sjNota, .sjInsight { margin: 8px 0 0; color: #e6ddd4; font-size: 14px; line-height: 1.5; }
 .sjMini { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.4; }
+.sjField {
+  display: grid;
+  grid-template-columns: minmax(190px, 1.2fr) 155px minmax(220px, 1.7fr);
+  gap: 10px;
+  align-items: center;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--line);
+}
+.sjField:last-of-type { border-bottom: 0; }
+.sjField b { display: block; font-size: 14px; }
+.sjField .v { font-size: 18px; font-weight: 800; margin: 0; text-align: right; font-variant-numeric: tabular-nums; }
+.sjOk { color: var(--green); }
+.sjAlerts { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px; }
+.sjAlert {
+  flex: 1 1 300px;
+  display: flex;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: #0b1728;
+  font-size: 13px;
+  line-height: 1.4;
+}
+.sjAlert.g { background: #34d39914; border-color: #34d3993d; }
+.sjAlert.y { background: #f5b94214; border-color: #f5b9423d; }
+.sjAlert.r { background: #f76e7c14; border-color: #f76e7c3d; }
+.sjAlertIcon { color: var(--yellow); font-weight: 800; }
+.sjAlert.g .sjAlertIcon { color: var(--green); }
+.sjAlert.r .sjAlertIcon { color: var(--red); }
+.sjAlert b { display: block; margin-bottom: 2px; }
+.sjBadge {
+  display: inline-block;
+  border-radius: 99px;
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+}
+.sjBadge.g { color: #34d399; background: #34d3991f; }
+.sjBadge.y { color: #f5b942; background: #f5b9421f; }
+.sjBadge.r { color: #f76e7c; background: #f76e7c1f; }
+.sjPos { color: var(--green); }
+.sjNeg { color: var(--red); }
+@media (max-width: 720px) {
+  .sjField { grid-template-columns: 1fr; }
+  .sjField .v { text-align: left; }
+}
 .sjSkip { position: absolute; left: -999px; top: 8px; }
 .sjSkip:focus { left: 12px; z-index: 5; background: #fff; color: #111; padding: 8px 12px; border-radius: 8px; }
 .sjDias { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }

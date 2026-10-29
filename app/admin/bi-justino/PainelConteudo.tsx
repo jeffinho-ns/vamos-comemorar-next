@@ -6,6 +6,7 @@ import { CONTEUDO, type BlocoConteudo } from "./conteudo";
 import { ehNota } from "./mockValor";
 import type { BiLiveData, BiRecente } from "./useBiLive";
 import { GraficoFaturamento, BarrasCusto } from "./GraficoDiretoria";
+import { AlertasDiretoria, ProjecaoConsolidada, ResponsabilidadeArea } from "./DiretoriaQuadros";
 import { TabelaAlertasDre, TabelaCustoDre } from "./DreTabelas";
 import { FontesNovas } from "./FontesNovas";
 import { type DreAoVivo } from "./dreValor";
@@ -368,7 +369,21 @@ export function PainelConteudo({
           bloco.titulo === "Faturamento"
             ? <GraficoFaturamento key={bloco.titulo} zig={zig} />
             : bloco.titulo === "Custo por área"
-              ? <BarrasCusto key={bloco.titulo} custos={zig?.custos || []} carregando={Boolean(zig?.zigCarregando)} />
+              ? <BarrasCusto
+                  key={bloco.titulo}
+                  custos={
+                    zig?.projecao?.areas?.length
+                      ? zig.projecao.areas.map((area) => ({ label: area.label || "", valor: area.real || 0 }))
+                      : zig?.custos || []
+                  }
+                  carregando={Boolean(zig?.zigCarregando)}
+                />
+            : bloco.titulo === "Projeção consolidada do mês (última data enviada por área)"
+              ? <ProjecaoConsolidada key={bloco.titulo} zig={zig} />
+            : bloco.titulo === "Alertas de diretoria"
+              ? <AlertasDiretoria key={bloco.titulo} zig={zig} />
+            : bloco.titulo === "Responsabilidade por área e impacto no resultado"
+              ? <ResponsabilidadeArea key={bloco.titulo} zig={zig} />
               : bloco.titulo === "Indicadores" || bloco.titulo === "📊 Indicadores de Eventos"
             ? bloco.campos.map((campo) => (
               <Indicador key={campo} paginaId={paginaId} campo={campo} zig={zig} dre={dre} live={live} />

@@ -68,6 +68,26 @@ export interface ZigAoVivo {
       operacao?: string | null;
       cmv?: string | null;
     };
+    areas?: {
+      chave: string | null;
+      label: string | null;
+      meta: number | null;
+      real: number | null;
+      economia: number | null;
+      status: string | null;
+      nivel: string | null;
+      envio: string | null;
+      usandoReferencia: boolean;
+      envioHoje?: boolean;
+    }[];
+    alertas?: {
+      nivel: string | null;
+      titulo: string | null;
+      valor: string | number | null;
+      detalhe: string | null;
+      selo: string | null;
+      tipo: string | null;
+    }[];
   } | null;
   zigCarregando?: boolean;
 }
