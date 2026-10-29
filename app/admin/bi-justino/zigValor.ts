@@ -1,3 +1,19 @@
+export interface AlertaPainel {
+  nivel?: string | null;
+  titulo?: string | null;
+  valor?: string | number | null;
+  detalhe?: string | null;
+  selo?: string | null;
+  tipo?: string | null;
+}
+
+export interface QuadroArea {
+  kpis?: Record<string, number | string | null>;
+  alertas?: AlertaPainel[];
+  alertasComida?: AlertaPainel[];
+  alertasBebida?: AlertaPainel[];
+}
+
 export interface ZigAoVivo {
   disponivel: boolean;
   motivo?: string | null;
@@ -80,14 +96,14 @@ export interface ZigAoVivo {
       usandoReferencia: boolean;
       envioHoje?: boolean;
     }[];
-    alertas?: {
-      nivel: string | null;
-      titulo: string | null;
-      valor: string | number | null;
-      detalhe: string | null;
-      selo: string | null;
-      tipo: string | null;
-    }[];
+    alertas?: AlertaPainel[];
+  } | null;
+  quadros?: {
+    marketing?: QuadroArea | null;
+    financeiro?: QuadroArea | null;
+    rh?: QuadroArea | null;
+    operacao?: QuadroArea | null;
+    cmv?: QuadroArea | null;
   } | null;
   zigCarregando?: boolean;
 }
@@ -168,6 +184,10 @@ const EXTRA_ZIG = new Set([
   "faturamento do mesmo mês do ano anterior",
   "CMV teórico (parcial)",
   "Cobertura ficha técnica",
+  "RH estrutural",
+  "Extras",
+  "Perdas / desperdício",
+  "Custo sensível visível",
 ]);
 
 export function campoUsaZig(paginaId: string, campo: string) {
@@ -321,7 +341,11 @@ function valorDe(paginaId: string, campo: string, zig: ZigAoVivo) {
   if (campo === "Faturamento do mês" || campo === "Faturamento bruto (acumulado do mês)") return zig.faturamentoMes ?? null;
   if (campo === "Mesmo mês, ano anterior" || campo === "faturamento do mesmo mês do ano anterior") return zig.mesmoMesAnoAnterior ?? null;
   if (campo === "Média mensal do ano") return zig.mediaMensal ?? null;
-  if (campo === "Semana: projetado × faturado" || campo === "Semana atual vs ano anterior") return zig.semanaFaturado ?? null;
+  if (campo === "Semana: projetado × faturado") {
+    if (zig.semanaProjetado != null && zig.semanaFaturado != null) return zig.semanaFaturado - zig.semanaProjetado;
+    return zig.semanaFaturado ?? null;
+  }
+  if (campo === "Semana atual vs ano anterior") return zig.semanaFaturado ?? null;
   if (campo === "Ticket médio • semana" || campo === "ticket médio" || campo === "Ticket médio (R$) — vazio = últimas 8 semanas") {
     return zig.ticketSemana ?? zig.ticketMes ?? null;
   }
@@ -341,10 +365,52 @@ function valorDe(paginaId: string, campo: string, zig: ZigAoVivo) {
   return null;
 }
 
+function kpiQuadro(zig: ZigAoVivo, area: keyof NonNullable<ZigAoVivo["quadros"]>, chave: string) {
+  const valor = zig.quadros?.[area]?.kpis?.[chave];
+  return typeof valor === "number" && Number.isFinite(valor) ? valor : null;
+}
+
+function valorQuadro(paginaId: string, campo: string, zig: ZigAoVivo): CampoZig | null {
+  if (campo === "CMO / receita (sem taxa de serviço)") {
+    const valor = kpiQuadro(zig, "rh", "cmo");
+    if (valor == null) return null;
+    return { pronto: true, valor, tipo: "pct", detalhe: "RH estrutural + extras, sobre o faturamento sem a taxa de serviço." };
+  }
+  if (paginaId === "rh" && campo === "RH estrutural") {
+    const valor = kpiQuadro(zig, "rh", "estrutural");
+    return valor == null ? null : { pronto: true, valor, tipo: "money", detalhe: "Último envio de RH." };
+  }
+  if (paginaId === "rh" && campo === "Extras") {
+    const valor = kpiQuadro(zig, "rh", "extras");
+    return valor == null ? null : { pronto: true, valor, tipo: "money", detalhe: "Extras + freelancer aprovado no mês." };
+  }
+  if (paginaId === "rh" && (campo === "Economia vs meta" || campo === "Economia vs. meta")) {
+    const valor = kpiQuadro(zig, "rh", "economia");
+    return valor == null ? null : { pronto: true, valor, tipo: "money", detalhe: "Meta de 19% do faturamento sem serviço, menos o custo de pessoal." };
+  }
+  if (paginaId === "operacao" && campo === "Perdas / desperdício") {
+    const valor = kpiQuadro(zig, "operacao", "perdas");
+    return valor == null ? null : { pronto: true, valor, tipo: "money", detalhe: null };
+  }
+  if (paginaId === "cmv" && campo === "CMV teórico (parcial) • comida") {
+    const valor = kpiQuadro(zig, "cmv", "comida");
+    return valor == null ? null : { pronto: true, valor, tipo: "pct", detalhe: null };
+  }
+  if (paginaId === "cmv" && campo === "CMV teórico (parcial) • bebida") {
+    const valor = kpiQuadro(zig, "cmv", "bebida");
+    return valor == null ? null : { pronto: true, valor, tipo: "pct", detalhe: null };
+  }
+  return null;
+}
+
 export function campoZig(paginaId: string, campo: string, zig: ZigAoVivo | null | undefined): CampoZig | null {
   if (!campoUsaZig(paginaId, campo)) return null;
   if (!zig?.disponivel) return { pronto: false, valor: null, detalhe: null };
-  if (PROJECAO.has(campo)) return valorProjecao(campo, zig);
+  const quadro = valorQuadro(paginaId, campo, zig);
+  if (quadro) return quadro;
+  if (PROJECAO.has(campo) && (paginaId === "master" || /bônus|bonus/i.test(campo))) {
+    return valorProjecao(campo, zig);
+  }
   const detalhe = paginaId === "eventos" || paginaId === "cmv" ? null : detalheDe(campo, zig);
   const valor = valorDe(paginaId, campo, zig);
   return { pronto: valor != null, valor, detalhe, tipo: tipoDeCampo(paginaId, campo) };

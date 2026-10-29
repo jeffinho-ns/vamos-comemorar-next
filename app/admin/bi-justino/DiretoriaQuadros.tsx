@@ -76,11 +76,28 @@ export function ProjecaoConsolidada({ zig }: { zig: ZigAoVivo | null }) {
   );
 }
 
-export function AlertasDiretoria({ zig }: { zig: ZigAoVivo | null }) {
-  const alertas = zig?.projecao?.alertas || [];
+type AlertaQuadro = {
+  nivel?: string | null;
+  titulo?: string | null;
+  valor?: string | number | null;
+  detalhe?: string | null;
+  selo?: string | null;
+  tipo?: string | null;
+};
+
+export function AlertasFlow({
+  titulo,
+  alertas,
+  nota,
+}: {
+  titulo: string;
+  alertas: AlertaQuadro[];
+  nota?: string;
+}) {
   return (
     <section className="sjCard sjBloco">
-      <h3>Alertas de diretoria</h3>
+      <h3>{titulo}</h3>
+      {nota ? <p className="sjMini">{nota}</p> : null}
       <div className="sjAlerts">
         {alertas.length ? alertas.map((alerta) => (
           <article key={`${alerta.titulo}-${alerta.selo}`} className={`sjAlert ${alerta.nivel || "y"}`}>
@@ -95,10 +112,14 @@ export function AlertasDiretoria({ zig }: { zig: ZigAoVivo | null }) {
               {alerta.detalhe ? <p className="sjMini">{alerta.detalhe}</p> : null}
             </div>
           </article>
-        )) : <p className="sjMini">Ainda sem consolidado da diretoria no banco.</p>}
+        )) : <p className="sjMini">Ainda sem consolidado dessa área no banco.</p>}
       </div>
     </section>
   );
+}
+
+export function AlertasDiretoria({ zig }: { zig: ZigAoVivo | null }) {
+  return <AlertasFlow titulo="Alertas de diretoria" alertas={zig?.projecao?.alertas || []} />;
 }
 
 export function ResponsabilidadeArea({ zig }: { zig: ZigAoVivo | null }) {

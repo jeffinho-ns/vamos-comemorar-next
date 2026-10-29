@@ -6,8 +6,8 @@ import { CONTEUDO, type BlocoConteudo } from "./conteudo";
 import { ehNota } from "./mockValor";
 import type { BiLiveData, BiRecente } from "./useBiLive";
 import { GraficoFaturamento, BarrasCusto } from "./GraficoDiretoria";
-import { AlertasDiretoria, ProjecaoConsolidada, ResponsabilidadeArea } from "./DiretoriaQuadros";
-import { TabelaAlertasDre, TabelaCustoDre } from "./DreTabelas";
+import { AlertasDiretoria, AlertasFlow, ProjecaoConsolidada, ResponsabilidadeArea } from "./DiretoriaQuadros";
+import { TabelaCustoDre } from "./DreTabelas";
 import { FontesNovas } from "./FontesNovas";
 import { type DreAoVivo } from "./dreValor";
 import { porDiaDaSemana, type ZigAoVivo } from "./zigValor";
@@ -302,8 +302,7 @@ function Bloco({
           </div>
         ) : null}
         {bloco.titulo === "Custo por categoria" ? <TabelaCustoDre dre={dre} /> : null}
-        {bloco.titulo === "Alertas Financeiro" ? <TabelaAlertasDre dre={dre} faturamento={zig?.faturamentoMes ?? null} /> : null}
-        {bloco.titulo === "Custo por categoria" || bloco.titulo === "Alertas Financeiro" ? null : temQuadroLido(bloco.titulo) ? (
+        {bloco.titulo === "Custo por categoria" ? null : temQuadroLido(bloco.titulo) ? (
           <TabelaQuadro titulo={bloco.titulo} zig={zig} />
         ) : temTabelaReal(bloco.titulo) ? (
           <TabelasDoBloco titulo={bloco.titulo} escolha={escolha} zig={zig} dre={dre} live={live} />
@@ -384,6 +383,18 @@ export function PainelConteudo({
               ? <AlertasDiretoria key={bloco.titulo} zig={zig} />
             : bloco.titulo === "Responsabilidade por área e impacto no resultado"
               ? <ResponsabilidadeArea key={bloco.titulo} zig={zig} />
+            : bloco.titulo === "Alertas Marketing"
+              ? <AlertasFlow key={bloco.titulo} titulo={bloco.titulo} alertas={zig?.quadros?.marketing?.alertas || []} nota="O bônus não premia só corte de mídia: o BI olha o funil e a margem da casa antes de liberar." />
+            : bloco.titulo === "Alertas Financeiro"
+              ? <AlertasFlow key={bloco.titulo} titulo={bloco.titulo} alertas={zig?.quadros?.financeiro?.alertas || []} />
+            : bloco.titulo === "Alertas RH"
+              ? <AlertasFlow key={bloco.titulo} titulo={bloco.titulo} alertas={zig?.quadros?.rh?.alertas || []} />
+            : bloco.titulo === "Alertas Operação"
+              ? <AlertasFlow key={bloco.titulo} titulo={bloco.titulo} alertas={zig?.quadros?.operacao?.alertas || []} />
+            : bloco.titulo === "Alertas • Comida"
+              ? <AlertasFlow key={bloco.titulo} titulo={bloco.titulo} alertas={zig?.quadros?.cmv?.alertasComida || []} />
+            : bloco.titulo === "Alertas • Bebida"
+              ? <AlertasFlow key={bloco.titulo} titulo={bloco.titulo} alertas={zig?.quadros?.cmv?.alertasBebida || []} />
               : bloco.titulo === "Indicadores" || bloco.titulo === "📊 Indicadores de Eventos"
             ? bloco.campos.map((campo) => (
               <Indicador key={campo} paginaId={paginaId} campo={campo} zig={zig} dre={dre} live={live} />
