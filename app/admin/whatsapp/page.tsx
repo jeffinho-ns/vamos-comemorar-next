@@ -821,6 +821,7 @@ function AdminWhatsappPageContent() {
   const [uploadingImage, setUploadingImage] = useState(false);
   const [takeoverLoading, setTakeoverLoading] = useState(false);
   const [resumeLoading, setResumeLoading] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState<"conversation" | "contact" | null>(null);
   const [resumeBatchLoading, setResumeBatchLoading] = useState(false);
   const [statusLoading, setStatusLoading] = useState(false);
   const [assignLoading, setAssignLoading] = useState(false);
@@ -1482,6 +1483,46 @@ function AdminWhatsappPageContent() {
       setError(e instanceof Error ? e.message : "Falha ao retomar IA");
     } finally {
       setResumeLoading(false);
+    }
+  };
+
+  const handleDeleteInboxRecord = async (kind: "conversation" | "contact") => {
+    if (!selectedWaId || !token || deleteLoading) return;
+    const label = conversationMeta?.contact_name || selectedWaId;
+    const confirmed =
+      kind === "contact"
+        ? window.confirm(
+            `Excluir o contato ${label}? Isso apaga a conversa, a memória da IA e o cadastro desse número (nome, e-mail e nascimento). A próxima mensagem começa do zero.`,
+          )
+        : window.confirm(
+            `Excluir a conversa de ${label}? As mensagens, a memória da IA e a pausa somem. O contato continua na lista. A próxima mensagem desse número começa uma conversa nova.`,
+          );
+    if (!confirmed) return;
+
+    setDeleteLoading(kind);
+    setError(null);
+    try {
+      const path =
+        kind === "contact"
+          ? `${API_URL}/api/admin/whatsapp/conversations/${encodeURIComponent(selectedWaId)}/contact`
+          : `${API_URL}/api/admin/whatsapp/conversations/${encodeURIComponent(selectedWaId)}`;
+      const res = await fetch(path, { method: "DELETE", headers: authHeaders });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(readWhatsappApiError(data, res.status));
+      setSelectedWaId(null);
+      setMessages([]);
+      setConversationMeta(null);
+      setComposeText("");
+      setSuccessMessage(
+        kind === "contact"
+          ? "Contato excluído. Pode mandar mensagem de novo com esse número."
+          : "Conversa excluída. A próxima mensagem desse número começa do zero.",
+      );
+      await fetchConversations();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Falha ao excluir");
+    } finally {
+      setDeleteLoading(null);
     }
   };
 
@@ -3403,6 +3444,22 @@ function AdminWhatsappPageContent() {
                       {takeoverLoading ? "Assumindo…" : "Assumir conversa"}
                     </button>
                   )}
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteInboxRecord("conversation")}
+                    disabled={deleteLoading !== null}
+                    className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-red-200 bg-white text-sm text-red-700 hover:bg-red-50 disabled:opacity-50"
+                  >
+                    {deleteLoading === "conversation" ? "Excluindo…" : "Excluir conversa"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteInboxRecord("contact")}
+                    disabled={deleteLoading !== null}
+                    className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-red-300 bg-red-50 text-sm text-red-800 hover:bg-red-100 disabled:opacity-50"
+                  >
+                    {deleteLoading === "contact" ? "Excluindo…" : "Excluir contato"}
+                  </button>
                 </div>
               </header>
 
