@@ -45,6 +45,7 @@ interface RestaurantArea {
   name: string;
   capacity_lunch: number;
   capacity_dinner: number;
+  establishment_id?: number | null;
 }
 
 interface Establishment {
@@ -221,6 +222,28 @@ export default function ReservationModal({
     : isSeuJustino
       ? "seu_justino"
       : null;
+
+  const foldAreaName = (name?: string | null) =>
+    (name || "")
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .trim();
+
+  const selectableAreas = (() => {
+    if (!isPracinha) return areas;
+    const allowed = areas.filter((area) => {
+      const name = foldAreaName(area.name);
+      return name === "balcao" || name === "praca";
+    });
+    const owned = allowed.filter(
+      (area) => Number(area.establishment_id) === Number(establishment?.id),
+    );
+    const list = owned.length > 0 ? owned : allowed;
+    return [...list].sort((a, b) =>
+      foldAreaName(a.name).localeCompare(foldAreaName(b.name), "pt"),
+    );
+  })();
 
   const matchesSelectedEstablishment = (reservation: any): boolean => {
     if (!establishment) return true;
@@ -2254,7 +2277,7 @@ export default function ReservationModal({
                                 {s.label}
                               </option>
                             ))
-                        : areas
+                        : selectableAreas
                             .filter((area) => !blockedAreas.has(area.id))
                             .map((area) => (
                               <option key={area.id} value={area.id}>
