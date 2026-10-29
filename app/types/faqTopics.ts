@@ -221,6 +221,19 @@ const SEU_JUSTINO_TOPIC_LABELS: Record<string, string> = {
   area_kids: 'Área kids',
   documento_entrada: 'Documento para entrada',
   narguile: 'Narguilé',
+  programacao_19_11: '19/11 — sexta, véspera de feriado',
+  programacao_20_11: '20/11 — feriado',
+  programacao_21_11: 'Promoção de 21/11',
+  programacao_22_11: 'Promoção de 22/11',
+  programacao_27_11: 'Evento de 27/11',
+  reserva_ape: 'Reserva no Apê',
+  beneficios_despedida: 'Despedida e outras comemorações',
+  happy_hour: 'Happy hour',
+  promocoes_chopp: 'Promoções de chopp',
+  mencao_story: 'Menção no story do Instagram',
+  historia: 'História da casa',
+  parcerias: 'Parcerias',
+  taxa_rolha: 'Taxa de rolha',
 };
 
 for (const [value, label] of Object.entries(SEU_JUSTINO_TOPIC_LABELS)) {
