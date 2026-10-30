@@ -12,7 +12,9 @@ function formatValue(value: number, kind: "int" | "money" | "pct") {
       maximumFractionDigits: 0,
     });
   }
-  if (kind === "pct") return `${value.toLocaleString("pt-BR")}%`;
+  if (kind === "pct") {
+    return `${value.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%`;
+  }
   return value.toLocaleString("pt-BR");
 }
 

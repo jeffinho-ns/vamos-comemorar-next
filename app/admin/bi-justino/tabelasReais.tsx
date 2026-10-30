@@ -142,7 +142,7 @@ export function TabelaLancamentos({
       linhas={linhas.map((linha, indice) => ({
         key: `${linha.date}-${indice}`,
         cels: chaves.map((chave) => {
-          const valor = linha[chave];
+          const valor = linha[chave] ?? (chave === "opPublic" ? linha.opPublico : undefined);
           if (chave === "date") return String(valor || "—");
           return typeof valor === "number" ? reais(valor) : valor ?? "—";
         }),

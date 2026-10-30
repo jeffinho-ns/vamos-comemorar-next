@@ -121,6 +121,7 @@ export function BiShell() {
             onSub={setSubId}
             live={data}
             freshIds={freshIds}
+            onSalvo={reload}
           />
         </main>
       </div>

@@ -39,7 +39,16 @@ export interface ZigAoVivo {
   custos?: { label: string; valor: number }[];
   servicoMes?: number | null;
   bilheteria?: { mes: string; receita: number; entradasQtd: number; publicoMes: number; pctClientesEntradas: number | null }[];
-  cmvZig?: { date?: string; cmvComida: number | null; cmvBebida: number | null; cobertura: number | null }[];
+  cmvZig?: {
+    date?: string;
+    cmvComida: number | null;
+    cmvBebida: number | null;
+    cobertura: number | null;
+    custoComida?: number | null;
+    custoBebida?: number | null;
+    cobertoComida?: number | null;
+    cobertoBebida?: number | null;
+  }[];
   ranking?: {
     bebida?: { nome: string; quantidade?: number; valorTotal?: number; cmvPct?: number | null }[];
     comida?: { nome: string; quantidade?: number; valorTotal?: number; cmvPct?: number | null }[];
@@ -60,6 +69,45 @@ export interface ZigAoVivo {
     ticketMedio: number | null;
   }[];
   semanas?: { inicio: string; fim: string; faturamento: number; publico: number; ticket: number | null }[];
+  freelancers?: {
+    date: string;
+    sector: string;
+    reason: string;
+    shiftHours: number;
+    qty: number;
+    totalCost: number;
+    status: string;
+    attendance: string | null;
+  }[];
+  escala?: {
+    capacidade: number;
+    permanenciaH: number;
+    horario: { dia: string; fechado: boolean; abre: string | null; fecha: string | null; duracao: string | null; texto: string }[];
+    dias: {
+      date: string;
+      dia: string;
+      fechado: boolean;
+      pax: number;
+      fonte: string;
+      presentesPico: number;
+      abre?: string;
+      fecha?: string;
+      setores: {
+        chave: string;
+        label: string;
+        brigada: number;
+        limite: number | null;
+        necessario: number;
+        fixa: number;
+        sugerido: number;
+        turno: number;
+        custo: number;
+        manual: boolean;
+        referencia: boolean;
+      }[];
+    }[];
+    cmo: { total: number; faturamento: number | null; fonte: string | null; tetoPct: number; teto: number | null; pct: number | null; status: string };
+  } | null;
   eventosResumo?: {
     cotacoesAndamento: number;
     cotacoesFechadas: number;
@@ -106,6 +154,16 @@ export interface ZigAoVivo {
     cmv?: QuadroArea | null;
   } | null;
   zigCarregando?: boolean;
+  envioOperacao?: {
+    date: string | null;
+    submittedByName: string | null;
+    opPublic: number | null;
+    opLoss: number | null;
+    opMaintenance: number | null;
+    opDisposableReq: number | null;
+    opIncidents: string | null;
+    opAction: string | null;
+  } | null;
 }
 
 export interface CampoZig {
@@ -184,6 +242,9 @@ const EXTRA_ZIG = new Set([
   "faturamento do mesmo mês do ano anterior",
   "CMV teórico (parcial)",
   "Cobertura ficha técnica",
+  "Perdas / quebras / desperdícios (R$)",
+  "Manutenção solicitada (R$)",
+  "Descartáveis solicitados (R$)",
   "RH estrutural",
   "Extras",
   "Perdas / desperdício",
@@ -230,6 +291,17 @@ function detalheDe(campo: string, zig: ZigAoVivo) {
 
 function ultimoCmv(zig: ZigAoVivo) {
   return Array.isArray(zig.cmvZig) && zig.cmvZig.length ? zig.cmvZig[0] : null;
+}
+
+/** Custo teórico da ficha ÷ venda coberta, a mesma conta do painel. */
+export function cmvTeoricoBlend(zig: ZigAoVivo) {
+  const doc = ultimoCmv(zig);
+  if (!doc) return null;
+  const coberto = (doc.cobertoComida || 0) + (doc.cobertoBebida || 0);
+  const custo = (doc.custoComida || 0) + (doc.custoBebida || 0);
+  if (coberto > 0 && (doc.custoComida != null || doc.custoBebida != null)) return (custo / coberto) * 100;
+  if (doc.cmvComida != null && doc.cmvBebida != null) return (doc.cmvComida + doc.cmvBebida) / 2;
+  return doc.cmvComida ?? doc.cmvBebida;
 }
 
 function valorCmv(campo: string, zig: ZigAoVivo) {
@@ -326,12 +398,7 @@ function tipoDeCampo(paginaId: string, campo: string): CampoZig["tipo"] {
 
 function valorDe(paginaId: string, campo: string, zig: ZigAoVivo) {
   if (paginaId === "cmv" || CMV.has(campo) || campo === "CMV teórico (parcial)" || campo === "Cobertura ficha técnica") {
-    if (campo === "CMV teórico (parcial)") {
-      const doc = ultimoCmv(zig);
-      if (!doc) return null;
-      if (doc.cmvComida != null && doc.cmvBebida != null) return (doc.cmvComida + doc.cmvBebida) / 2;
-      return doc.cmvComida ?? doc.cmvBebida;
-    }
+    if (campo === "CMV teórico (parcial)") return cmvTeoricoBlend(zig);
     return valorCmv(campo, zig);
   }
   if (paginaId === "eventos" && campo === "Faturamento do mês") {
@@ -351,6 +418,12 @@ function valorDe(paginaId: string, campo: string, zig: ZigAoVivo) {
   }
   if (campo === "Ticket médio • mês") return zig.ticketMes ?? null;
   if (campo === "Ticket médio • ano") return zig.ticketAno ?? null;
+  if (campo === "Público total do mês" && zig.envioOperacao?.opPublic != null) return zig.envioOperacao.opPublic;
+  if (campo === "Perdas / quebras / desperdícios (R$)" || campo === "Perdas / desperdício") {
+    return zig.envioOperacao?.opLoss ?? null;
+  }
+  if (campo === "Manutenção solicitada (R$)") return zig.envioOperacao?.opMaintenance ?? null;
+  if (campo === "Descartáveis solicitados (R$)") return zig.envioOperacao?.opDisposableReq ?? null;
   if (campo === "Público mês" || campo === "Público total do mês") return zig.publicoMes ?? null;
   if (campo === "Serviço do mês") return zig.servicoMes ?? null;
   if (campo === "Cotações em andamento") return zig.eventosResumo?.cotacoesAndamento ?? null;

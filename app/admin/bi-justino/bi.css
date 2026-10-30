@@ -74,6 +74,21 @@
   border-bottom: 1px solid var(--line);
 }
 .sjField:last-of-type { border-bottom: 0; }
+.sjInput {
+  width: 100%;
+  box-sizing: border-box;
+  background: #17120e;
+  color: var(--txt);
+  border: 1px solid #3a2f26;
+  border-radius: 9px;
+  padding: 9px;
+  font: inherit;
+}
+.sjFormLinha { display: grid; grid-template-columns: 180px 1fr; gap: 10px; margin-top: 12px; }
+.sjFormBloco, .sjFormAcoes { display: flex; flex-direction: column; gap: 6px; margin-top: 12px; }
+.sjFormAcoes { flex-direction: row; align-items: center; }
+.sjFormTitulo { margin-top: 18px; }
+@media (max-width: 720px) { .sjFormLinha { grid-template-columns: 1fr; } }
 .sjField b { display: block; font-size: 14px; }
 .sjField .v { font-size: 18px; font-weight: 800; margin: 0; text-align: right; font-variant-numeric: tabular-nums; }
 .sjOk { color: var(--green); }
@@ -139,6 +154,7 @@
 .sjLegenda { display: flex; gap: 16px; color: var(--muted); font-size: 12px; margin: 10px 0 6px; }
 .sjLegenda span { display: flex; align-items: center; gap: 6px; }
 .sjLegenda i { width: 9px; height: 9px; border-radius: 3px; display: inline-block; }
+.sjLegenda i.sjDash { width: 16px; height: 0; border-radius: 0; border-top: 2px dashed #fbbf24; background: transparent; }
 .sjFatSvg { width: 100%; height: auto; display: block; }
 .sjFatHover { position: relative; margin-top: 8px; touch-action: none; }
 .sjCross { position: absolute; top: 0; bottom: 0; width: 1px; background: #332b24; pointer-events: none; transition: left 90ms linear; animation: sjFade 140ms ease both; }

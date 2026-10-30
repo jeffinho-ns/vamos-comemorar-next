@@ -6,11 +6,14 @@ import { CONTEUDO, type BlocoConteudo } from "./conteudo";
 import { ehNota } from "./mockValor";
 import type { BiLiveData, BiRecente } from "./useBiLive";
 import { GraficoFaturamento, BarrasCusto } from "./GraficoDiretoria";
+import { GraficoTicketSemanal } from "./GraficoTicketSemanal";
+import { EscalaDoDia, GradeFreelancers, HorarioCasa, PedidosFreelancer } from "./EscalaOperacao";
 import { AlertasDiretoria, AlertasFlow, ProjecaoConsolidada, ResponsabilidadeArea } from "./DiretoriaQuadros";
+import { EnvioOperacao } from "./EnvioOperacao";
 import { TabelaCustoDre } from "./DreTabelas";
 import { FontesNovas } from "./FontesNovas";
 import { type DreAoVivo } from "./dreValor";
-import { porDiaDaSemana, type ZigAoVivo } from "./zigValor";
+import { cmvTeoricoBlend, porDiaDaSemana, type ZigAoVivo } from "./zigValor";
 import { campoPainel } from "./campoPainel";
 import { ehLancamento, temQuadroLido, TabelaQuadro } from "./quadroLido";
 import {
@@ -94,6 +97,38 @@ function Indicador({
         </>
       ) : <Aguardando />}
     </article>
+  );
+}
+
+const SENSIVEIS: { titulo: string; ajuda: string }[] = [
+  { titulo: "Energia", ajuda: "Valor lançado pelo Financeiro." },
+  { titulo: "Água", ajuda: "Valor lançado pelo Financeiro." },
+  { titulo: "Gás", ajuda: "Valor lançado pelo Financeiro." },
+  { titulo: "Descartáveis", ajuda: "Valor validado pelo Financeiro." },
+  { titulo: "Segurança", ajuda: "Valor validado pelo Financeiro." },
+];
+
+function IndicadoresSensiveis({ zig, dre }: { zig: ZigAoVivo | null; dre: DreAoVivo | null }) {
+  const cmv = zig ? cmvTeoricoBlend(zig) : null;
+  return (
+    <section className="sjCard sjBloco">
+      <h3>Indicadores sensíveis • somente leitura</h3>
+      {SENSIVEIS.map((linha) => {
+        const real = campoPainel("operacao", linha.titulo, zig, dre, null);
+        return (
+          <div key={linha.titulo} className="sjField">
+            <div><b>{linha.titulo}</b></div>
+            <div className="v">{real?.valor == null ? "—" : <AnimatedNumber value={real.valor} kind="money" />}</div>
+            <p className="sjMini">{linha.ajuda}</p>
+          </div>
+        );
+      })}
+      <div className="sjField">
+        <div><b>CMV teórico (parcial)</b></div>
+        <div className="v">{cmv == null ? "—" : <AnimatedNumber value={cmv} kind="pct" />}</div>
+        <p className="sjMini">Automático: ficha técnica do Everest × venda por item da ZigPay. Não há mais CMV real medido manualmente pelo Márcio.</p>
+      </div>
+    </section>
   );
 }
 
@@ -222,7 +257,7 @@ function TabelasDoBloco({
     return <TabelaLancamentos zig={zig} area="marketing" colunas={["Data", "Tráfego pago", "Atrações", "Outros", "Reservas", "Comparecimento", "Faturamento gerado"]} chaves={["date", "mkTraffic", "mkAttractions", "mkOther", "mkReservas", "mkAttendance", "mkRevenue"]} />;
   }
   if (/últimos envios • operação/i.test(titulo) || /perdas \/ desperdício/i.test(titulo)) {
-    return <TabelaLancamentos zig={zig} area="operacao" colunas={["Data", "Público", "Perdas", "Manutenção", "Ocorrências"]} chaves={["date", "opPublico", "opLoss", "opMaintenance", "date"]} />;
+    return <TabelaLancamentos zig={zig} area="operacao" colunas={["Data", "Público", "Perdas", "Manutenção", "Ocorrências"]} chaves={["date", "opPublic", "opLoss", "opMaintenance", "opIncidents"]} />;
   }
   if (/rh estrutural — envios/i.test(titulo)) {
     return <TabelaLancamentos zig={zig} area="rh" colunas={["Mês", "RH estrutural", "Extras", "Colaboradores ativos"]} chaves={["date", "rhCore", "rhExtras", "rhActive"]} />;
@@ -330,12 +365,14 @@ export function PainelConteudo({
   onSub,
   live,
   freshIds,
+  onSalvo,
 }: {
   paginaId: string;
   subId: string;
   onSub: (id: string) => void;
   live: BiLiveData | null;
   freshIds: number[];
+  onSalvo?: () => void;
 }) {
   const abas = CONTEUDO[paginaId] ?? [];
   const aba = abas.find((item) => item.id === subId) ?? abas[0];
@@ -395,6 +432,22 @@ export function PainelConteudo({
               ? <AlertasFlow key={bloco.titulo} titulo={bloco.titulo} alertas={zig?.quadros?.cmv?.alertasComida || []} />
             : bloco.titulo === "Alertas • Bebida"
               ? <AlertasFlow key={bloco.titulo} titulo={bloco.titulo} alertas={zig?.quadros?.cmv?.alertasBebida || []} />
+            : bloco.titulo === "Indicadores sensíveis • somente leitura"
+              ? <IndicadoresSensiveis key={bloco.titulo} zig={zig} dre={dre} />
+            : bloco.titulo === "Envio do dia • Gerente Operador"
+              ? <EnvioOperacao key={`${bloco.titulo}-${zig?.envioOperacao?.date || "novo"}-${zig?.envioOperacao?.opLoss ?? ""}-${zig?.envioOperacao?.opMaintenance ?? ""}`} zig={zig} onSalvo={onSalvo || (() => undefined)} />
+            : bloco.titulo === "Custos e público do dia"
+              ? null
+            : bloco.titulo === "Ticket médio semanal — últimos 3 meses"
+              ? <GraficoTicketSemanal key={bloco.titulo} zig={zig} onAtualizar={onSalvo} />
+            : bloco.titulo === "Horário de funcionamento"
+              ? <HorarioCasa key={bloco.titulo} zig={zig} />
+            : bloco.titulo === "Solicitação semanal de freelancers"
+              ? <GradeFreelancers key={bloco.titulo} zig={zig} />
+            : bloco.titulo === "Escala do dia — CLT, INT, PJ e freelancers, tudo num lugar só"
+              ? <EscalaDoDia key={bloco.titulo} zig={zig} />
+            : bloco.titulo === "Solicitação de freelancers (avulsa)"
+              ? <PedidosFreelancer key={bloco.titulo} zig={zig} />
               : bloco.titulo === "Indicadores" || bloco.titulo === "📊 Indicadores de Eventos"
             ? bloco.campos.map((campo) => (
               <Indicador key={campo} paginaId={paginaId} campo={campo} zig={zig} dre={dre} live={live} />
