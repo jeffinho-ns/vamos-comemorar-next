@@ -7,7 +7,7 @@ import { ehNota } from "./mockValor";
 import type { BiLiveData, BiRecente } from "./useBiLive";
 import { GraficoFaturamento, BarrasCusto } from "./GraficoDiretoria";
 import { GraficoTicketSemanal } from "./GraficoTicketSemanal";
-import { EscalaDoDia, GradeFreelancers, HorarioCasa, PedidosFreelancer } from "./EscalaOperacao";
+import { EscalaPagina, HorarioCasa } from "./EscalaOperacao";
 import { AlertasDiretoria, AlertasFlow, ProjecaoConsolidada, ResponsabilidadeArea } from "./DiretoriaQuadros";
 import { EnvioOperacao } from "./EnvioOperacao";
 import { TabelaCustoDre } from "./DreTabelas";
@@ -440,14 +440,14 @@ export function PainelConteudo({
               ? null
             : bloco.titulo === "Ticket médio semanal — últimos 3 meses"
               ? <GraficoTicketSemanal key={bloco.titulo} zig={zig} onAtualizar={onSalvo} />
+            : bloco.titulo === "Horário de funcionamento" && paginaId === "operacao"
+              ? <EscalaPagina key="escala-operacao" zig={zig} />
             : bloco.titulo === "Horário de funcionamento"
               ? <HorarioCasa key={bloco.titulo} zig={zig} />
             : bloco.titulo === "Solicitação semanal de freelancers"
-              ? <GradeFreelancers key={bloco.titulo} zig={zig} />
-            : bloco.titulo === "Escala do dia — CLT, INT, PJ e freelancers, tudo num lugar só"
-              ? <EscalaDoDia key={bloco.titulo} zig={zig} />
-            : bloco.titulo === "Solicitação de freelancers (avulsa)"
-              ? <PedidosFreelancer key={bloco.titulo} zig={zig} />
+              || bloco.titulo === "Escala do dia — CLT, INT, PJ e freelancers, tudo num lugar só"
+              || bloco.titulo === "Solicitação de freelancers (avulsa)"
+              ? null
               : bloco.titulo === "Indicadores" || bloco.titulo === "📊 Indicadores de Eventos"
             ? bloco.campos.map((campo) => (
               <Indicador key={campo} paginaId={paginaId} campo={campo} zig={zig} dre={dre} live={live} />

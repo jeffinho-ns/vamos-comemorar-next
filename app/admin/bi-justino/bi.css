@@ -315,6 +315,27 @@
   .sjGrid { grid-template-columns: 1fr; }
   .sjCard { grid-column: 1 / -1; }
 }
+.sjCollapse { grid-column: 1 / -1; }
+.sjCollapse > summary { cursor: pointer; list-style: none; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 13px 15px; display: flex; align-items: center; gap: 9px; font-weight: 700; font-family: "Space Grotesk", Arial, sans-serif; }
+.sjCollapse > summary::-webkit-details-marker { display: none; }
+.sjCollapse > summary .sjChev { display: inline-block; font-size: 12px; color: var(--muted); transition: transform 150ms ease; }
+.sjCollapse[open] > summary .sjChev { transform: rotate(90deg); }
+.sjCollapse > summary .sjHint { margin-left: auto; font-weight: 400; font-size: 12px; color: var(--muted); }
+.sjCollapseBody { margin-top: 9px; }
+.sjRole { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 10px; flex-wrap: wrap; }
+.sjRole h3 { margin: 0; }
+.sjBadgeP { display: inline-flex; align-items: center; border-radius: 999px; padding: 4px 8px; font-size: 11px; font-weight: 800; letter-spacing: 0.04em; background: #8a442333; color: #f0c7a8; border: 1px solid #8a4423; }
+.sjBadgeG { display: inline-flex; margin-left: 4px; border-radius: 999px; padding: 1px 6px; font-size: 11px; background: #34d39922; color: var(--green); }
+.sjNote { font-size: 12px; line-height: 1.55; color: #c4b8a5; margin: 0 0 10px; }
+.sjToolbar { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end; margin: 8px 0 14px; padding: 12px; background: #16110c; border: 1px solid #332b24; border-radius: 12px; }
+.sjTb label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); }
+.sjTb select, .sjTb input { width: 170px; }
+.sjAlertG { padding: 10px 12px; border-radius: 10px; margin: 4px 0 10px; background: #34d39914; border: 1px solid #34d3993d; font-weight: 700; }
+.sjLinhaSel { background: #8a4423; font-weight: 800; }
+.sjQty { display: flex; gap: 4px; align-items: center; }
+.sjQty input { width: 56px; text-align: center; }
+.sjQty button { padding: 2px 9px; }
+
 @media (prefers-reduced-motion: reduce) {
   .sjDot.on,
   .sjNum.is-moving,
