@@ -88,7 +88,7 @@ export function MarketingPagina({
       </div>
       <div className="sjGrid">
         {aba === "daily" ? <MarketingRegistro zig={zig} onSalvo={onSalvo} /> : null}
-        {aba === "plan" ? <MarketingProjecaoPainel zig={zig} /> : null}
+        {aba === "plan" ? <MarketingProjecaoPainel zig={zig} onSalvo={onSalvo} /> : null}
         {aba === "dem" ? <MarketingDemandasPainel /> : null}
         {aba === "graf" ? <MarketingGraficosPainel zig={zig} dre={dre} onSalvo={onSalvo} /> : null}
         {aba === "ins" || aba === "insta" || aba === "deli" || aba === "aval" ? <MarketingCanaisPainel aba={aba} zig={zig} novidades={novidades} /> : null}

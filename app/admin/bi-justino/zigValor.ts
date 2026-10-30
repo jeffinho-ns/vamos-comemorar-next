@@ -155,6 +155,18 @@ export interface ZigAoVivo {
     mkWalkins: number | null;
     mkNote: string | null;
   } | null;
+  mkPlans?: {
+    date: string;
+    trafficPlan: number;
+    otherPlan: number;
+    attractionsPlan: number;
+    publicPlan: number;
+    ticketPlan: number;
+    revenuePlan: number;
+    note: string;
+    updatedAt: string;
+    updatedBy: string;
+  }[];
   projecao?: {
     faturamentoBruto: number | null;
     cmvReal: number | null;

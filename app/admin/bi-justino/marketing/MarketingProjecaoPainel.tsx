@@ -1,10 +1,42 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { getApiUrl } from "../../../config/api";
 import type { ZigAoVivo } from "../zigValor";
+import { margemDoDia } from "./margemDia";
 
 type Nivel = "g" | "y" | "r";
 type Plano = { data: string; trafego: number; outros: number; atracoes: number; publico: number; ticket: number; nota: string };
+
+function token() {
+  if (typeof window === "undefined") return null;
+  return localStorage.getItem("authToken") || localStorage.getItem("token");
+}
+
+function planosDoZig(zig: ZigAoVivo | null): Plano[] {
+  return (zig?.mkPlans || []).map((item) => ({
+    data: item.date,
+    trafego: item.trafficPlan,
+    outros: item.otherPlan,
+    atracoes: item.attractionsPlan,
+    publico: item.publicPlan,
+    ticket: item.ticketPlan,
+    nota: item.note,
+  }));
+}
+
+async function chamar(caminho: string, corpo: Record<string, unknown>) {
+  const acesso = token();
+  if (!acesso) return { ok: false, error: "sem_login", planilha: false };
+  const res = await fetch(`${getApiUrl()}${caminho}`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${acesso}`, "Content-Type": "application/json" },
+    body: JSON.stringify(corpo),
+  });
+  const json: unknown = await res.json().catch(() => null);
+  const registro = json && typeof json === "object" ? (json as Record<string, unknown>) : {};
+  return { ok: res.ok && registro.ok === true, error: typeof registro.error === "string" ? registro.error : "", planilha: registro.planilha === true };
+}
 type Leitura = { titulo: string; valor: string; nivel: Nivel; selo: string; detalhe: string };
 type LinhaZig = Record<string, number | string | null>;
 
@@ -84,7 +116,7 @@ function leituras(receita: number, gasto: number, trafego: number, atracoes: num
   ];
 }
 
-export function MarketingProjecaoPainel({ zig }: { zig: ZigAoVivo | null }) {
+export function MarketingProjecaoPainel({ zig, onSalvo }: { zig: ZigAoVivo | null; onSalvo: () => void }) {
   const [data, setData] = useState(() => somarDias(hojeSp(), 1));
   const [trafego, setTrafego] = useState("");
   const [outros, setOutros] = useState("");
@@ -93,7 +125,16 @@ export function MarketingProjecaoPainel({ zig }: { zig: ZigAoVivo | null }) {
   const [ticket, setTicket] = useState("");
   const [nota, setNota] = useState("");
   const [status, setStatus] = useState("");
-  const [planos, setPlanos] = useState<Plano[]>([]);
+  const [ocupado, setOcupado] = useState(false);
+  const [locais, setLocais] = useState<Plano[]>([]);
+  const [apagadas, setApagadas] = useState<string[]>([]);
+  const planos = useMemo(() => {
+    const mapa = new Map<string, Plano>();
+    planosDoZig(zig).forEach((plano) => mapa.set(plano.data, plano));
+    locais.forEach((plano) => mapa.set(plano.data, plano));
+    apagadas.forEach((dia) => mapa.delete(dia));
+    return [...mapa.values()];
+  }, [zig, locais, apagadas]);
   const trafegoN = numero(trafego);
   const outrosN = numero(outros);
   const atracoesN = numero(atracoes);
@@ -104,10 +145,11 @@ export function MarketingProjecaoPainel({ zig }: { zig: ZigAoVivo | null }) {
   const roas = gasto > 0 ? faturamento / gasto : 0;
   const cac = publicoN > 0 ? gasto / publicoN : 0;
   const checks = leituras(faturamento, gasto, trafegoN, atracoesN, roas);
+  const margem = margemDoDia(data, faturamento, gasto, zig?.projecao?.cmvReal);
 
   const linhas = useMemo(() => comparar(planos, zig, hojeSp()), [planos, zig]);
 
-  function salvar() {
+  async function salvar() {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(data)) {
       setStatus("Escolha uma data.");
       return;
@@ -116,9 +158,51 @@ export function MarketingProjecaoPainel({ zig }: { zig: ZigAoVivo | null }) {
       setStatus("Informe ao menos um valor para salvar.");
       return;
     }
-    const plano: Plano = { data, trafego: trafegoN, outros: outrosN, atracoes: atracoesN, publico: publicoN, ticket: ticketN, nota: nota.trim() };
-    setPlanos((lista) => [plano, ...lista.filter((item) => item.data !== data)]);
-    setStatus(`Projeção guardada nesta tela para ${dataCurta(data)}.`);
+    setOcupado(true);
+    setStatus("Salvando…");
+    try {
+      const r = await chamar("/api/bi/justino/marketing/projecao", {
+        date: data,
+        trafficPlan: trafegoN,
+        otherPlan: outrosN,
+        attractionsPlan: atracoesN,
+        publicPlan: publicoN,
+        ticketPlan: ticketN,
+        note: nota.trim(),
+      });
+      if (!r.ok) {
+        setStatus(r.error === "sem_login" ? "Entre de novo para salvar." : "Falha ao salvar, tenta de novo.");
+        return;
+      }
+      const plano: Plano = { data, trafego: trafegoN, outros: outrosN, atracoes: atracoesN, publico: publicoN, ticket: ticketN, nota: nota.trim() };
+      setLocais((lista) => [plano, ...lista.filter((item) => item.data !== data)]);
+      setApagadas((lista) => lista.filter((dia) => dia !== data));
+      setStatus(r.planilha ? `Projeção salva para ${dataCurta(data)}.` : `Projeção salva neste painel para ${dataCurta(data)}; a planilha recebe na próxima conexão.`);
+      onSalvo();
+    } catch {
+      setStatus("Falha ao salvar, tenta de novo.");
+    } finally {
+      setOcupado(false);
+    }
+  }
+
+  async function apagar(dia: string) {
+    if (!window.confirm(`Apagar a projeção de ${dataCurta(dia)}? Essa ação não tem volta.`)) return;
+    setOcupado(true);
+    try {
+      const r = await chamar("/api/bi/justino/marketing/projecao/apagar", { date: dia });
+      if (!r.ok) {
+        setStatus("Não consegui apagar essa projeção.");
+        return;
+      }
+      setApagadas((lista) => [...lista, dia]);
+      setStatus(`Projeção de ${dataCurta(dia)} apagada.`);
+      onSalvo();
+    } catch {
+      setStatus("Falha ao conectar.");
+    } finally {
+      setOcupado(false);
+    }
   }
 
   function limpar() {
@@ -142,11 +226,10 @@ export function MarketingProjecaoPainel({ zig }: { zig: ZigAoVivo | null }) {
           <div className="sjTb"><label>Atrações projetado<input className="sjInput" inputMode="decimal" value={atracoes} onChange={(evento) => setAtracoes(evento.target.value)} /></label></div>
           <div className="sjTb"><label>Público esperado<input className="sjInput" inputMode="numeric" value={publico} onChange={(evento) => setPublico(evento.target.value)} /></label></div>
           <div className="sjTb"><label>Ticket médio esperado<input className="sjInput" inputMode="decimal" value={ticket} onChange={(evento) => setTicket(evento.target.value)} /></label></div>
-          <button type="button" className="sjAnaliseBtn" onClick={salvar}>Salvar projeção</button>
+          <button type="button" className="sjAnaliseBtn" disabled={ocupado} onClick={salvar}>Salvar projeção</button>
           <button type="button" className="sjAnaliseBtn" style={{ background: "#3a1620" }} onClick={limpar}>Apagar dados digitados</button>
           <span className="sjMini" role="status">{status}</span>
         </div>
-        <p className="sjMini">A projeção fica nesta tela. O painel ainda não grava esse agendamento na planilha.</p>
         <label className="sjFormBloco">
           <b>Observação da projeção</b>
           <textarea className="sjInput" rows={2} value={nota} onChange={(evento) => setNota(evento.target.value)} />
@@ -163,13 +246,29 @@ export function MarketingProjecaoPainel({ zig }: { zig: ZigAoVivo | null }) {
         <div className="sjRole"><h3>Vale a pena abrir nesse dia?</h3><span className="sjBadgeP">MARGEM DE CONTRIBUIÇÃO</span></div>
         <p className="sjNote">Custo fixo médio por dia de abertura (aluguel, RH, administrativo, utilidades) vem do último envio real do Financeiro/RH, rateado pelos dias que a casa abre no mês (sem segunda-feira). Custo variável médio (impostos + cartão + fee de administração + CMV real) vem do histórico e é aplicado sobre o faturamento projetado. Você só preenche o que é seu: tráfego, atrações, outros e a expectativa de público/ticket, lá em cima.</p>
         <div className="sjCampos">
-          <div className="sjCampo"><small>Custo fixo médio por dia de abertura</small><div className="v">—</div></div>
-          <div className="sjCampo"><small>Custo variável médio (% da receita)</small><div className="v">—</div></div>
-          <div className="sjCampo"><small>Custo variável estimado do dia</small><div className="v">—</div></div>
+          <div className="sjCampo"><small>Custo fixo médio por dia de abertura</small><div className="v">{reais(margem.custoFixoDia)}</div><span className="sjMini">{reais(margem.custoFixoMensal)}/mês ÷ {margem.diasAbertos} dias abertos ({margem.diasNoMes} do mês − {margem.segundas} segunda(s) fechada(s))</span></div>
+          <div className="sjCampo"><small>Custo variável médio (% da receita)</small><div className="v">{pct(margem.custoVarPct)}</div><span className="sjMini">impostos + cartão + fee + CMV real</span></div>
+          <div className="sjCampo"><small>Custo variável estimado do dia</small><div className="v">{reais(margem.custoVarEstimado)}</div><span className="sjMini">% aplicado sobre o faturamento projetado</span></div>
           <div className="sjCampo"><small>Seu custo estimado (Marketing)</small><div className="v">{reais(gasto)}</div><span className="sjMini">mesmo valor do gasto projetado acima</span></div>
-          <div className="sjCampo"><small>Margem de contribuição do dia</small><div className="v">—</div><span className="sjMini">faturamento − custo fixo − custo variável − marketing</span></div>
+          <div className="sjCampo"><small>Margem de contribuição do dia</small><div className="v">{margem.resultado >= 0 ? "+" : ""}{reais(margem.resultado)}</div><span className="sjMini">faturamento − custo fixo − custo variável − marketing</span></div>
         </div>
-        <p className="sjMini">O painel não traz custo fixo nem custo variável por dia. Sem esses números, a margem fica em branco.</p>
+        <div className="sjAlerts">
+          {faturamento ? (
+            <article className={`sjAlert ${margem.nivel}`}>
+              <span className="sjAlertIcon" aria-hidden="true">{margem.nivel === "g" ? "✓" : "!"}</span>
+              <div>
+                <b>Veredito do dia • {margem.selo}</b>
+                <div>{reais(faturamento)} projetado − {reais(margem.custoTotalDia)} de custo = {reais(margem.resultado)} de margem</div>
+                <p className="sjMini">Custo fixo do dia {reais(margem.custoFixoDia)} + custo variável {reais(margem.custoVarEstimado)} ({pct(margem.custoVarPct)}) + seu custo de marketing {reais(gasto)}.</p>
+              </div>
+            </article>
+          ) : (
+            <article className="sjAlert y">
+              <span className="sjAlertIcon" aria-hidden="true">!</span>
+              <div><b>Preencha público esperado e ticket médio • ATENÇÃO</b><div>Sem faturamento projetado pra comparar com o custo do dia</div></div>
+            </article>
+          )}
+        </div>
       </section>
       <section className="sjCard sjBloco">
         <h3>A atração e os gastos são condizentes com o faturamento esperado?</h3>
@@ -190,8 +289,10 @@ export function MarketingProjecaoPainel({ zig }: { zig: ZigAoVivo | null }) {
       <details className="sjCollapse">
         <summary><span className="sjChev">▸</span>Projetado × Realizado<span className="sjHint">clique para abrir</span></summary>
         <section className="sjCard sjBloco sjCollapseBody">
-          <h3>Projetado × Realizado</h3>
-          <p className="sjMini">O realizado entra quando a data da projeção bate com a Zig (faturamento do dia) ou com um lançamento de marketing (gasto). Dia futuro não conta como realizado zerado.</p>
+          <div className="sjRole">
+            <h3>Projetado × Realizado</h3>
+            <button type="button" className="sjAnaliseBtn sjMkGrafBtn" onClick={onSalvo}>Atualizar</button>
+          </div>
           <div className="sjTableInner">
             <table>
               <thead>
@@ -218,9 +319,21 @@ export function MarketingProjecaoPainel({ zig }: { zig: ZigAoVivo | null }) {
                     <td>{linha.gastoReal == null ? "—" : reais(linha.gastoReal)}</td>
                     <td className={classeDelta(linha.diffGasto)}>{linha.diffGasto == null ? "—" : reaisDelta(linha.diffGasto)}</td>
                     <td>{linha.diffGasto == null ? "—" : linha.diffGasto >= 0 ? <span className="sjBadge g">DENTRO DO PLANO</span> : <span className="sjBadge r">ACIMA DO PLANO</span>}</td>
-                    <td>{linha.temPlano ? <button type="button" className="sjAnaliseBtn" onClick={() => setPlanos((lista) => lista.filter((item) => item.data !== linha.data))}>Apagar</button> : "—"}</td>
+                    <td>{linha.temPlano ? <button type="button" className="sjAnaliseBtn sjMkGrafBtn" disabled={ocupado} onClick={() => apagar(linha.data)}>Apagar</button> : "—"}</td>
                   </tr>
                 )) : <tr><td colSpan={9}>Sem projeção nem envio ainda.</td></tr>}
+                {linhas.length ? (
+                  <tr className="sjMkTotal">
+                    <td>Total ({linhas.length} dia(s))</td>
+                    <td>{reais(soma(linhas, "fatPlan"))}</td>
+                    <td>{reais(soma(linhas, "fatReal"))}</td>
+                    <td className={classeDelta(soma(linhas, "diffFat"))}>{reaisDelta(soma(linhas, "diffFat"))}</td>
+                    <td>{reais(soma(linhas, "gastoPlan"))}</td>
+                    <td>{reais(soma(linhas, "gastoReal"))}</td>
+                    <td className={classeDelta(soma(linhas, "diffGasto"))}>{reaisDelta(soma(linhas, "diffGasto"))}</td>
+                    <td /><td />
+                  </tr>
+                ) : null}
               </tbody>
             </table>
           </div>
@@ -228,6 +341,12 @@ export function MarketingProjecaoPainel({ zig }: { zig: ZigAoVivo | null }) {
       </details>
     </>
   );
+}
+
+type LinhaComparada = ReturnType<typeof comparar>[number];
+
+function soma(linhas: LinhaComparada[], chave: "fatPlan" | "fatReal" | "diffFat" | "gastoPlan" | "gastoReal" | "diffGasto") {
+  return linhas.reduce((total, linha) => total + (linha[chave] ?? 0), 0);
 }
 
 function classeDelta(valor: number | null) {
