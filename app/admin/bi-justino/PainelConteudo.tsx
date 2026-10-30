@@ -13,6 +13,7 @@ import { EnvioOperacao } from "./EnvioOperacao";
 import { TabelaCustoDre } from "./DreTabelas";
 import { FontesNovas } from "./FontesNovas";
 import { MarketingPagina } from "./MarketingPagina";
+import { paginaEspelho } from "./paginasEspelho";
 import { type DreAoVivo } from "./dreValor";
 import { cmvTeoricoBlend, porDiaDaSemana, type ZigAoVivo } from "./zigValor";
 import { campoPainel } from "./campoPainel";
@@ -387,6 +388,21 @@ export function PainelConteudo({
   };
   const zig = live?.zig ?? null;
   const dre = live?.dre ?? null;
+
+  const Espelho = paginaEspelho(paginaId);
+  if (Espelho) {
+    return (
+      <Espelho
+        subId={aba.id}
+        onSub={onSub}
+        live={live}
+        zig={zig}
+        dre={dre}
+        novidades={live?.novidades ?? null}
+        onSalvo={onSalvo || (() => undefined)}
+      />
+    );
+  }
 
   if (paginaId === "marketing") {
     return (
