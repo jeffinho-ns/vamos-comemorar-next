@@ -487,3 +487,19 @@
 @media (prefers-reduced-motion: reduce) {
   .sjMkBarraUso > div { transition: none; }
 }
+
+.sjMkMesNav { display: flex; align-items: center; justify-content: center; gap: 16px; margin: 2px 0 14px; }
+.sjMkMesNav button { background: none; border: 1px solid var(--line); border-radius: 8px; width: 30px; height: 30px; color: var(--txt); cursor: pointer; font-size: 16px; line-height: 1; }
+.sjMkMesNav div { text-align: center; min-width: 140px; }
+.sjMkMesNav b { font-size: 15px; display: block; }
+.sjMkHistKpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 10px; margin-bottom: 16px; }
+.sjMkHistKpi { background: var(--panel2, #16120f); border: 1px solid var(--line); border-radius: 12px; padding: 10px; text-align: center; }
+.sjMkHistKpi .v { font-size: 17px; font-weight: 800; margin-top: 2px; }
+.sjMkDia { display: flex; align-items: center; gap: 14px; width: 100%; text-align: left; padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px; margin-bottom: 8px; background: transparent; color: inherit; cursor: pointer; flex-wrap: wrap; font: inherit; }
+.sjMkDia:hover { border-color: var(--accent); background: #211c18; }
+.sjMkDiaPonto { width: 9px; height: 9px; border-radius: 50%; background: var(--accent); flex-shrink: 0; }
+.sjMkDiaMain { min-width: 130px; }
+.sjMkDiaMain b { display: block; font-size: 13.5px; }
+.sjMkDiaStats { flex: 1; display: flex; flex-wrap: wrap; gap: 16px; min-width: 200px; }
+.sjMkDiaStat .sjMini { display: block; }
+.sjMkDiaStat b { font-size: 12.5px; }

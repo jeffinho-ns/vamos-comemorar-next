@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { getApiUrl } from "../../config/api";
 import { AlertasFlow } from "./DiretoriaQuadros";
-import { TabelaLancamentos } from "./tabelasReais";
+import { UltimosEnviosMarketing } from "./marketing/UltimosEnviosMarketing";
 import type { ZigAoVivo } from "./zigValor";
 
 type ItemOutro = { id: string; descricao: string; valor: string };
@@ -50,6 +50,15 @@ function corpoEnvio(valor: unknown) {
     error: typeof registro.error === "string" ? registro.error : "",
     planilha: registro.planilha === true,
   };
+}
+
+function numLinha(valor: number | string | null | undefined) {
+  if (typeof valor === "number" && Number.isFinite(valor)) return valor;
+  if (typeof valor === "string" && valor.trim()) {
+    const n = Number(valor);
+    if (Number.isFinite(n)) return n;
+  }
+  return null;
 }
 
 function itemVazio(): ItemOutro {
@@ -129,6 +138,21 @@ export function MarketingRegistro({ zig, onSalvo }: { zig: ZigAoVivo | null; onS
     }
   }
 
+  function escolher(linha: Record<string, number | string | null>) {
+    setData(String(linha.date || hoje()));
+    if (typeof linha.submittedByName === "string" && linha.submittedByName) setNome(linha.submittedByName);
+    setTrafego(textoNumero(numLinha(linha.mkTraffic)));
+    setAtracoes(textoNumero(numLinha(linha.mkAttractions)));
+    setItens(itensIniciais(numLinha(linha.mkOther)));
+    setReservas(textoNumero(numLinha(linha.mkReservations ?? linha.mkReservas)));
+    setPessoas(textoNumero(numLinha(linha.mkPeople)));
+    setShow(textoNumero(numLinha(linha.mkShow ?? linha.mkAttendance)));
+    setTicket(textoNumero(numLinha(linha.mkTicket)));
+    setPassantes(textoNumero(numLinha(linha.mkWalkins)));
+    setNota(typeof linha.mkNote === "string" ? linha.mkNote : "");
+    setStatus("Dia carregado no formulário. Ajuste e envie de novo para substituir.");
+  }
+
   function limpar() {
     setTrafego("");
     setAtracoes("");
@@ -162,7 +186,7 @@ export function MarketingRegistro({ zig, onSalvo }: { zig: ZigAoVivo | null; onS
             <button type="button" className="sjAnaliseBtn" style={{ background: "#3a1620" }} onClick={limpar}>Apagar dados digitados</button>
             <span className="sjMini" role="status">{status}</span>
           </div>
-          <p className="sjMini">Pra corrigir um dia que já foi enviado: escolha a data, abra Últimos envios e ajuste os campos. O total de outros itens entra sozinho no gasto.</p>
+          <p className="sjMini">Pra corrigir um dia que já foi enviado, clique nele em Últimos envios. O total de outros itens entra sozinho no gasto.</p>
           <Campo titulo="Investimento em tráfego pago" ajuda="Base observada: R$ 4.500/mês • saudável inicial ≈ 0,85% do faturamento" valor={trafego} onChange={setTrafego} />
           <Campo titulo="Gastos com atrações" ajuda="Bandas, DJs, cantores. Média DRE: R$ 48,1 mil/mês • saudável ≤ 8% do faturamento" valor={atracoes} onChange={setAtracoes} />
           <div className="sjFormBloco">
@@ -222,10 +246,7 @@ export function MarketingRegistro({ zig, onSalvo }: { zig: ZigAoVivo | null; onS
           Últimos envios • Marketing
           <span className="sjHint">clique para abrir</span>
         </summary>
-        <section className="sjCard sjBloco sjCollapseBody">
-          <h3>Últimos envios • Marketing</h3>
-          <TabelaLancamentos zig={zig} area="marketing" colunas={["Data", "Tráfego pago", "Atrações", "Outros", "Reservas", "Comparecimento", "Faturamento gerado"]} chaves={["date", "mkTraffic", "mkAttractions", "mkOther", "mkReservas", "mkAttendance", "mkRevenue"]} />
-        </section>
+        <UltimosEnviosMarketing linhas={zig?.lancamentos?.marketing || []} onAtualizar={onSalvo} onEscolher={escolher} />
       </details>
     </>
   );
