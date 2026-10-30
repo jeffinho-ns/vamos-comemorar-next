@@ -142,6 +142,19 @@ export interface ZigAoVivo {
     lista?: { data: string; cliente: string; tipo: string; pax: number; contrato: number; sinal: number; status: string }[];
   } | null;
   lancamentos?: Record<string, Record<string, number | string | null>[] > | null;
+  envioMarketing?: {
+    date: string | null;
+    submittedByName: string | null;
+    mkTraffic: number | null;
+    mkAttractions: number | null;
+    mkOther: number | null;
+    mkReservations: number | null;
+    mkPeople: number | null;
+    mkShow: number | null;
+    mkTicket: number | null;
+    mkWalkins: number | null;
+    mkNote: string | null;
+  } | null;
   projecao?: {
     faturamentoBruto: number | null;
     cmvReal: number | null;

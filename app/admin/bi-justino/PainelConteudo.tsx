@@ -12,6 +12,7 @@ import { AlertasDiretoria, AlertasFlow, ProjecaoConsolidada, ResponsabilidadeAre
 import { EnvioOperacao } from "./EnvioOperacao";
 import { TabelaCustoDre } from "./DreTabelas";
 import { FontesNovas } from "./FontesNovas";
+import { MarketingPagina } from "./MarketingPagina";
 import { type DreAoVivo } from "./dreValor";
 import { cmvTeoricoBlend, porDiaDaSemana, type ZigAoVivo } from "./zigValor";
 import { campoPainel } from "./campoPainel";
@@ -386,6 +387,17 @@ export function PainelConteudo({
   };
   const zig = live?.zig ?? null;
   const dre = live?.dre ?? null;
+
+  if (paginaId === "marketing") {
+    return (
+      <MarketingPagina
+        zig={zig}
+        novidades={live?.novidades ?? null}
+        dre={dre}
+        onSalvo={onSalvo || (() => undefined)}
+      />
+    );
+  }
 
   return (
     <>
