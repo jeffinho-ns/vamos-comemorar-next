@@ -70,6 +70,7 @@ export interface ZigAoVivo {
   }[];
   semanas?: { inicio: string; fim: string; faturamento: number; publico: number; ticket: number | null }[];
   freelancers?: {
+    id?: string;
     date: string;
     sector: string;
     reason: string;
@@ -78,7 +79,31 @@ export interface ZigAoVivo {
     totalCost: number;
     status: string;
     attendance: string | null;
+    freelancerNames?: string;
+    horaEntrada?: string;
+    horaSaida?: string;
+    horaPausa?: string;
   }[];
+  colaboradores?: {
+    id: string;
+    nome: string;
+    cargo: string;
+    cargoOutro?: string;
+    funcaoCargo?: string;
+    nivel?: string;
+    contratacao: string;
+    horarioSemanal: { trabalha: boolean; entrada: string; saida: string; almoco: string; jantar: string }[];
+    feriasInicio?: string;
+    feriasFim?: string;
+  }[];
+  calor?: {
+    datas: string[];
+    recentes?: { date: string; blocos: { clock: string; fracao: number }[] }[];
+    porDia: { nome: string; nDias: number; blocos: { clock: string; fracao: number }[] }[];
+  } | null;
+  reservas?: { date: string; pax: number }[];
+  reservaFator?: { nome: string; fator: number | null; n: number }[];
+  diasZig?: { date: string; publico: number | null; receita: number }[];
   escala?: {
     capacidade: number;
     permanenciaH: number;

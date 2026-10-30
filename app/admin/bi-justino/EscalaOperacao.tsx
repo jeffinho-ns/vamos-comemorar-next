@@ -2,6 +2,7 @@
 
 import { useMemo, useState, type ReactNode } from "react";
 import type { ZigAoVivo } from "./zigValor";
+import { EscalaDia } from "./EscalaDia";
 
 type Dia = NonNullable<NonNullable<ZigAoVivo["escala"]>["dias"]>[number];
 type Setor = Dia["setores"][number];
@@ -80,12 +81,60 @@ export function HorarioCasa({ zig }: { zig: ZigAoVivo | null }) {
   );
 }
 
-type Rascunho = { qty: number; turno: number };
+type Rascunho = { qty: number; turno: number; aus: number };
+
+function deslocar(iso: string, dias: number) {
+  const [ano, mes, dia] = iso.split("-").map(Number);
+  const data = new Date(Date.UTC(ano, mes - 1, dia));
+  data.setUTCDate(data.getUTCDate() + dias);
+  return data.toISOString().slice(0, 10);
+}
+
+function indiceDia(iso: string) {
+  const [ano, mes, dia] = iso.split("-").map(Number);
+  return new Date(Date.UTC(ano, mes - 1, dia)).getUTCDay();
+}
+
+const NOME_DIA = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
+
+function semanaEscolhida(segunda: string, base: Dia[]) {
+  if (!segunda) return base;
+  return [0, 1, 2, 3, 4, 5, 6].map((passo) => {
+    const date = deslocar(segunda, passo);
+    const nome = NOME_DIA[indiceDia(date)];
+    const modelo = base.find((dia) => dia.dia === nome);
+    if (!modelo) return { date, dia: nome, fechado: true, pax: 0, fonte: "Casa fechada", presentesPico: 0, setores: [] };
+    return { ...modelo, date, dia: nome };
+  });
+}
+
+function semanasDoMes(ano: number, mes: number, segundaSel: string, hoje: string) {
+  const primeiro = new Date(Date.UTC(ano, mes - 1, 1));
+  const volta = primeiro.getUTCDay() === 0 ? 6 : primeiro.getUTCDay() - 1;
+  const inicio = new Date(Date.UTC(ano, mes - 1, 1 - volta));
+  return Array.from({ length: 6 }, (_, semana) => {
+    const monday = new Date(inicio);
+    monday.setUTCDate(inicio.getUTCDate() + semana * 7);
+    const mondayIso = monday.toISOString().slice(0, 10);
+    const days = Array.from({ length: 7 }, (__, dia) => {
+      const data = new Date(monday);
+      data.setUTCDate(monday.getUTCDate() + dia);
+      const iso = data.toISOString().slice(0, 10);
+      return { iso, n: data.getUTCDate(), fora: data.getUTCMonth() !== mes - 1, hoje: iso === hoje };
+    });
+    return { monday: mondayIso, days, on: mondayIso === segundaSel };
+  });
+}
 
 export function EscalaPagina({ zig }: { zig: ZigAoVivo | null }) {
-  const dias = zig?.escala?.dias || [];
+  const baseDias = zig?.escala?.dias || [];
+  const hoje = hojeSp();
+  const [segunda, setSegunda] = useState(baseDias[0]?.date || "");
+  const [calAberto, setCalAberto] = useState(false);
+  const [mesCal, setMesCal] = useState(() => (baseDias[0]?.date || hoje).slice(0, 7));
+  const dias = semanaEscolhida(segunda || baseDias[0]?.date || "", baseDias);
   const abertos = dias.filter((dia) => !dia.fechado);
-  const inicial = abertos.find((dia) => dia.date >= hojeSp())?.date || abertos[0]?.date || "";
+  const inicial = abertos.find((dia) => dia.date >= hoje)?.date || abertos[0]?.date || "";
   const [data, setData] = useState(inicial);
   const [rascunho, setRascunho] = useState<Record<string, Rascunho>>({});
   const [status, setStatus] = useState("");
@@ -105,7 +154,7 @@ export function EscalaPagina({ zig }: { zig: ZigAoVivo | null }) {
     return `${date}|${setor}`;
   }
   function ler(date: string, setor: Setor): Rascunho {
-    return rascunho[chave(date, setor.chave)] || { qty: 0, turno: setor.turno };
+    return rascunho[chave(date, setor.chave)] || { qty: 0, turno: setor.turno, aus: 0 };
   }
   function gravar(date: string, setor: string, proximo: Rascunho) {
     setRascunho((atual) => ({ ...atual, [chave(date, setor)]: proximo }));
@@ -118,12 +167,10 @@ export function EscalaPagina({ zig }: { zig: ZigAoVivo | null }) {
     const proximo = { ...rascunho };
     let n = 0;
     dia.setores.forEach((setor) => {
-      if (setor.sugerido > 0) {
-        proximo[chave(dia.date, setor.chave)] = { qty: setor.sugerido, turno: setor.turno };
-        n += 1;
-      } else {
-        proximo[chave(dia.date, setor.chave)] = { qty: 0, turno: setor.turno };
-      }
+      const aus = ler(dia.date, setor).aus;
+      const qtd = setor.manual ? 0 : setor.sugerido + Math.min(aus, setor.fixa);
+      proximo[chave(dia.date, setor.chave)] = { qty: qtd, turno: setor.turno, aus };
+      if (qtd > 0) n += 1;
     });
     setRascunho(proximo);
     setStatus(n ? `${n} setor(es) com sugestão (turno ótimo de 8 a 12h em cada um).` : "Nenhum setor precisa de reforço nesse dia.");
@@ -132,7 +179,7 @@ export function EscalaPagina({ zig }: { zig: ZigAoVivo | null }) {
     if (!dia) return;
     const proximo = { ...rascunho };
     dia.setores.forEach((setor) => {
-      proximo[chave(dia.date, setor.chave)] = { qty: 0, turno: setor.turno };
+      proximo[chave(dia.date, setor.chave)] = { qty: 0, turno: setor.turno, aus: ler(dia.date, setor).aus };
     });
     setRascunho(proximo);
     setStatus("Dia zerado.");
@@ -145,7 +192,6 @@ export function EscalaPagina({ zig }: { zig: ZigAoVivo | null }) {
   const pctTxt = pct == null ? "—" : `${pct.toFixed(1).replace(".", ",")}%`;
   const acima = pct != null && pct > 8;
   const pedidos = zig?.freelancers || [];
-  const pedidosDia = dia ? pedidos.filter((pedido) => pedido.date === dia.date && pedido.status !== "recusado") : [];
 
   return (
     <>
@@ -157,7 +203,32 @@ export function EscalaPagina({ zig }: { zig: ZigAoVivo | null }) {
         </div>
         <p className="sjNote"><b>Um quadro só:</b> escolha a semana, clique no dia e ajuste os extras de cada setor com <b>−</b> e <b>+</b> ao lado da quantidade sugerida (a sugestão usa o mapa de calor da Zig e as reservas por horário). Antes de enviar, a <b>escala completa</b> — equipe fixa + <b>1 freelancer por linha</b>, com o horário sugerido de cada um — abre para conferência. <b>Use esta para o planejamento normal da semana</b>; a &quot;Solicitação de freelancers (avulsa)&quot; é para reforço de última hora.</p>
         <div className="sjToolbar">
-          <div className="sjTb"><label>Semana<button type="button" className="sjAnaliseBtn">{rotuloSemana(dias)}</button></label></div>
+          <div className="sjTb" style={{ position: "relative" }}>
+            <label>Semana
+              <button type="button" className="sjSemanaBtn" onClick={() => setCalAberto((aberto) => !aberto)}>{rotuloSemana(dias)}</button>
+            </label>
+            {calAberto ? (
+              <div className="sjCalPop">
+                <div className="sjCalNav">
+                  <button type="button" onClick={() => setMesCal(deslocar(`${mesCal}-01`, -1).slice(0, 7))}>‹</button>
+                  <span>{MESES[Number(mesCal.slice(5, 7)) - 1]}/{mesCal.slice(2, 4)}</span>
+                  <button type="button" onClick={() => setMesCal(deslocar(`${mesCal}-01`, 32).slice(0, 7))}>›</button>
+                </div>
+                <div className="sjCalHead"><span>Seg</span><span>Ter</span><span>Qua</span><span>Qui</span><span>Sex</span><span>Sáb</span><span>Dom</span></div>
+                {semanasDoMes(Number(mesCal.slice(0, 4)), Number(mesCal.slice(5, 7)), segunda || dias[0]?.date || "", hoje).map((semana) => (
+                  <div
+                    key={semana.monday}
+                    className={semana.on ? "sjCalWeek on" : "sjCalWeek"}
+                    onClick={() => { setSegunda(semana.monday); setData(deslocar(semana.monday, 1)); setCalAberto(false); setStatus("Semana carregada."); }}
+                  >
+                    {semana.days.map((diaCal) => (
+                      <span key={diaCal.iso} className={`sjCalDay${diaCal.fora ? " fora" : ""}${diaCal.hoje ? " hoje" : ""}`}>{diaCal.n}</span>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            ) : null}
+          </div>
           <button type="button" className="sjAnaliseBtn" onClick={() => setStatus("Semana carregada com o público e o horário da ZigPay.")}>Carregar semana</button>
           <span className="sjMini">{status}</span>
         </div>
@@ -166,12 +237,18 @@ export function EscalaPagina({ zig }: { zig: ZigAoVivo | null }) {
             const qtd = item.setores.reduce((total, setor) => total + ler(item.date, setor).qty, 0);
             return (
               <button key={item.date} type="button" className={dia?.date === item.date ? "on" : ""} onClick={() => setData(item.date)}>
-                {item.dia.slice(0, 3)} {dataCurta(item.date)}{item.fechado ? " fechado" : ""}{qtd ? <span className="sjBadgeG">{qtd}</span> : null}
+                {item.dia.slice(0, 3).toLowerCase()} {dataCurta(item.date)}{item.fechado ? " fechado" : ""}{qtd ? <span className="sjBadgeG">{qtd}</span> : null}
               </button>
             );
           })}
         </div>
-        {dia && !dia.fechado ? <p className="sjAlertG">Público esperado nesse dia: {dia.pax.toLocaleString("pt-BR")} pessoas{dia.fonte.includes("média") ? " (méd. hist.)" : ""}. Presentes no pico: ~{Math.round(dia.presentesPico)}.</p> : null}
+        {dia && !dia.fechado ? (
+          <p className="sjPaxBar">
+            Pax esperado nesse dia: <b>{dia.pax.toLocaleString("pt-BR")}</b> pessoas
+            {dia.fonte.includes("média") ? <span className="sjMini"> (méd. hist.)</span> : null}
+            <span className="sjMini sjPaxSub">Mesmo valor em todo setor — só muda a distribuição por horário. Presentes no pico: ~{Math.round(dia.presentesPico)}.</span>
+          </p>
+        ) : null}
         <div className="sjToolbar">
           <button type="button" className="sjAnaliseBtn" style={{ background: "#233a1f", borderColor: "#3a5c30" }} onClick={sugerirDia}>Sugerir solicitação do dia</button>
           <button type="button" className="sjAnaliseBtn" style={{ background: "#3a1620", borderColor: "#5c2530" }} onClick={zerarDia}>Zerar o dia</button>
@@ -193,20 +270,23 @@ export function EscalaPagina({ zig }: { zig: ZigAoVivo | null }) {
               {dia && !dia.fechado ? dia.setores.map((setor) => {
                 const item = ler(dia.date, setor);
                 const custo = item.qty * (PAGAMENTO[item.turno] || 0);
+                const sugerido = setor.manual ? 0 : setor.sugerido + Math.min(item.aus, setor.fixa);
                 return (
                   <tr key={setor.chave} style={item.qty > 0 ? { background: "#241a12" } : undefined}>
-                    <td><b>{setor.label}</b>{setor.manual ? <span className="sjMini"> só manual</span> : null}{setor.limite != null ? <span className="sjMini"> (máx. {setor.limite})</span> : null}</td>
+                    <td><b>{setor.label}</b>{setor.manual ? <span className="sjMini"> • só manual</span> : null}{setor.limite != null ? <span className="sjMini"> (máx. {setor.limite})</span> : null}</td>
                     <td>{setor.brigada}</td>
                     <td>{setor.limite == null ? "—" : setor.limite}</td>
                     <td>{setor.necessario}</td>
-                    <td>{setor.fixa}{setor.referencia ? <span className="sjMini"> ref.</span> : null}</td>
-                    <td>0</td>
-                    <td>{setor.manual ? "—" : <b>{setor.sugerido}</b>}</td>
+                    <td>{Math.max(0, setor.fixa - item.aus)}{setor.referencia ? <span className="sjMini"> ref.</span> : null}</td>
+                    <td>
+                      <input className="sjInput sjAus" type="number" min={0} value={item.aus} onChange={(evento) => gravar(dia.date, setor.chave, { ...item, aus: Math.max(0, Number(evento.target.value) || 0) })} />
+                    </td>
+                    <td>{setor.manual || sugerido <= 0 ? "—" : <b>{sugerido} <span className="sjMini">({setor.turno}h)</span></b>}</td>
                     <td>
                       <div className="sjQty">
-                        <button type="button" className="sjAnaliseBtn" onClick={() => gravar(dia.date, setor.chave, { ...item, qty: Math.max(0, item.qty - 1) })}>−</button>
+                        <button type="button" onClick={() => gravar(dia.date, setor.chave, { ...item, qty: Math.max(0, item.qty - 1) })}>−</button>
                         <input className="sjInput" type="number" min={0} value={item.qty} onChange={(evento) => gravar(dia.date, setor.chave, { ...item, qty: Math.max(0, Number(evento.target.value) || 0) })} />
-                        <button type="button" className="sjAnaliseBtn" onClick={() => gravar(dia.date, setor.chave, { ...item, qty: item.qty + 1 })}>+</button>
+                        <button type="button" onClick={() => gravar(dia.date, setor.chave, { ...item, qty: item.qty + 1 })}>+</button>
                       </div>
                     </td>
                     <td>
@@ -223,59 +303,15 @@ export function EscalaPagina({ zig }: { zig: ZigAoVivo | null }) {
             </tbody>
           </table>
         </div>
+        {dias.every((item) => item.setores.every((setor) => ler(item.date, setor).qty === 0)) ? (
+          <p className="sjMini">Nenhum extra solicitado ainda nesta semana. Use Sugerir solicitação do dia ou os botões − e +.</p>
+        ) : null}
         <div className="sjFormAcoes">
           <button type="button" className="sjAnaliseBtn" onClick={() => setStatus("Escala completa aberta abaixo, pra conferência.")}>Visualizar escala completa</button>
           <button type="button" className="sjAnaliseBtn" style={{ background: "#8a4423" }} onClick={() => setStatus("Conferência pronta nesta tela. O envio ao RH grava na planilha do painel do Seu Justino.")}>Enviar semana ao RH</button>
         </div>
       </Cartao>
-      <Cartao titulo="Visualização da Escala Completa do dia">
-        <div className="sjRole">
-          <h3>Escala do dia — CLT, INT, PJ e freelancers, tudo num lugar só</h3>
-          <button type="button" className="sjAnaliseBtn" onClick={() => setStatus("Escala atualizada com a sugestão do dia.")}>Atualizar</button>
-        </div>
-        <p className="sjNote">Quem está escalado hoje, em uma tabela só: CLT/INT/PJ (cadastro em RH → Colaboradores) + cada freelancer aprovado pelo RH. A barrinha de calor ao lado do horário usa a venda por horário da ZigPay — vermelho é o maior fluxo, verde o menor.</p>
-        <div className="sjToolbar">
-          <div className="sjTb"><label>Dia<input className="sjInput" type="date" value={dia?.date || ""} onChange={(evento) => setData(evento.target.value)} /></label></div>
-        </div>
-        {dia && !dia.fechado ? <p className="sjMini">Público esperado: <b>{dia.pax.toLocaleString("pt-BR")}</b> ({dia.fonte}) • funcionamento {dia.abre}–{dia.fecha}</p> : null}
-        <div className="sjTableInner">
-          <table>
-            <thead><tr><th>Colaborador</th><th>Setor</th><th>Tipo</th><th>Horário</th><th>Presença hoje</th><th>Ação</th></tr></thead>
-            <tbody>
-              {dia && !dia.fechado ? dia.setores.flatMap((setor) => {
-                const item = ler(dia.date, setor);
-                const linhas = [];
-                if (setor.fixa > 0) {
-                  linhas.push(
-                    <tr key={`${setor.chave}-fixa`}>
-                      <td>Equipe fixa ({setor.fixa})</td><td>{setor.label}</td><td>CLT / INT / PJ</td><td>{dia.abre}–{dia.fecha}</td><td>A confirmar</td><td>—</td>
-                    </tr>,
-                  );
-                }
-                if (item.qty > 0) {
-                  linhas.push(
-                    <tr key={`${setor.chave}-extra`}>
-                      <td>Freelancer a contratar ({item.qty})</td><td>{setor.label}</td><td>Freelancer</td><td>{item.turno}h</td><td>—</td><td>Aguardando RH</td>
-                    </tr>,
-                  );
-                }
-                return linhas;
-              }) : null}
-              {pedidosDia.map((pedido, indice) => (
-                <tr key={`${pedido.date}-${indice}`}>
-                  <td>Pedido gravado ({pedido.qty})</td>
-                  <td>{SETOR[pedido.sector] || pedido.sector}</td>
-                  <td>Freelancer</td>
-                  <td>{pedido.shiftHours ? `${pedido.shiftHours}h` : "—"}</td>
-                  <td>{pedido.attendance || "—"}</td>
-                  <td>{pedido.status || "—"}</td>
-                </tr>
-              ))}
-              {dia?.fechado ? <tr><td colSpan={6}>Casa fechada nesse dia (Manual) — sem escala.</td></tr> : null}
-            </tbody>
-          </table>
-        </div>
-      </Cartao>
+      <EscalaDia zig={zig} />
       <Cartao titulo="Estudo de dimensionamento da escala">
         <div className="sjRole"><h3>Estudo de dimensionamento • como o BI calcula quantas pessoas cada setor precisa</h3></div>
         <p className="sjNote">A regra de &quot;atendimento por pessoa&quot; é de clientes atendidos por uma pessoa <b>ao mesmo tempo</b>. O estudo mostra, para o dia escolhido, o caminho completo: público do dia → chegadas por meia hora (mapa de calor da ZigPay) → clientes presentes ao mesmo tempo → pessoas necessárias por setor → o que a equipe fixa já cobre → freelancers.</p>
