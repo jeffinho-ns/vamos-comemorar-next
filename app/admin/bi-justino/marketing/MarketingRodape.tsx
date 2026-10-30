@@ -1,157 +1,126 @@
 "use client";
 
-import type { ZigAoVivo } from "../zigValor";
+import type { ReactNode } from "react";
+import { payloadDe, type DadosPlanilha } from "../usePlanilha";
+import { lerOverview, ultimoPorArea } from "./espelhoDados";
+import type { RevenueOverview, ZigBilheteriaResp } from "./espelhoTipos";
+import { reais } from "./numeros";
 
-const MESES = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
-const QUEDA_CRITICA = -20;
+const MES_ABREV = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
 
-function reais(valor: number | null | undefined) {
-  if (valor == null || Number.isNaN(valor)) return "—";
-  return valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
+function pct(v: number) {
+  return `${v.toFixed(1).replace(".", ",")}%`;
 }
-
-function reaisDelta(valor: number) {
-  const texto = Math.abs(valor).toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
-  if (valor > 0) return `+${texto}`;
-  if (valor < 0) return `-${texto}`;
-  return texto;
+function fmtDMA(iso: string) {
+  return `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(2, 4)}`;
 }
-
-function pct(atual: number | null | undefined, base: number | null | undefined) {
-  if (atual == null || base == null || !Number.isFinite(atual) || !Number.isFinite(base) || base === 0) return null;
-  return ((atual - base) / Math.abs(base)) * 100;
+function periodo(d1: string, d2: string) {
+  return `(${fmtDMA(d1)} até ${fmtDMA(d2)})`;
 }
-
-function tem(valor: number | null | undefined): valor is number {
-  return valor != null && Number.isFinite(valor);
-}
-
-function diaCurto(iso: string | null | undefined) {
-  if (!iso || !/^\d{4}-\d{2}-\d{2}$/.test(iso)) return "";
+function dataCurta(iso: string) {
   const [ano, mes, dia] = iso.split("-");
-  return `${dia}/${mes}/${ano.slice(2)}`;
+  return `${dia}/${mes}/${ano}`;
+}
+function mesLabel(mk: string) {
+  return `${MES_ABREV[Number(mk.slice(5, 7)) - 1]}/${mk.slice(2, 4)}`;
 }
 
-function mesCurto(mes: string | null | undefined) {
-  if (!mes || !/^\d{4}-\d{2}$/.test(mes)) return "";
-  const [ano, ordem] = mes.split("-");
-  return `${MESES[Number(ordem) - 1] || ordem}/${ano.slice(2)}`;
+/** Badge verde/vermelho com a diferença percentual (badge(...) do painel). */
+export function BadgeDiff({ diff, pctValor }: { diff: number; pctValor: number }) {
+  return <span className={diff >= 0 ? "sjBadgeG" : "sjBadgeR"}>{diff >= 0 ? "+" : ""}{pct(pctValor)}</span>;
 }
 
-function notaFinanceiro(zig: ZigAoVivo | null) {
-  const data = zig?.projecao?.envios?.financeiro;
-  if (data && /^\d{4}-\d{2}-\d{2}$/.test(data)) {
-    const [ano, mes, dia] = data.split("-");
-    return `último envio: ${dia}/${mes}/${ano}`;
-  }
-  return "Financeiro ainda não enviou — usando valor de referência";
+/** difAlerta do painel: realizado × projetado com faixas de alerta. */
+export function difAlerta(real: number, proj: number | null) {
+  if (!(proj && proj > 0)) return null;
+  const p = ((real - proj) / proj) * 100;
+  const cls = p >= -5 ? "sjBadgeG" : p >= -15 ? "sjBadgeY" : "sjBadgeR";
+  const txt = p >= 5 ? "ACIMA" : p >= -5 ? "NO RITMO" : p >= -15 ? "ATENÇÃO" : "CRÍTICO";
+  return <span className={cls}>{p >= 0 ? "+" : ""}{pct(p)} • {txt}</span>;
 }
 
-export function MarketingRodape({ zig }: { zig: ZigAoVivo | null }) {
-  const bilheteria = [...(zig?.bilheteria || [])].sort((a, b) => b.mes.localeCompare(a.mes));
+export function Ticket({ atual, anterior }: { atual: number | null; anterior: number | null }) {
+  if (atual == null) return <><div className="v">Sem público suficiente</div></>;
+  const diff = anterior == null ? null : atual - anterior;
+  return (
+    <>
+      <div className="v">{reais(atual)}</div>
+      {anterior == null ? <span className="sjMini">sem histórico</span> : <BadgeDiff diff={diff ?? 0} pctValor={anterior ? ((diff ?? 0) / anterior) * 100 : 0} />}
+    </>
+  );
+}
+
+function Mini({ rotulo, children, nota }: { rotulo: string; children: ReactNode; nota?: ReactNode }) {
+  return (
+    <article className="sjMkMini">
+      <small>{rotulo}</small>
+      {children}
+      {nota ? <p className="sjMini">{nota}</p> : null}
+    </article>
+  );
+}
+
+function periodoSemana(o: RevenueOverview) {
+  return o.weekStart && o.weekEnd ? `${periodo(o.weekStart, o.weekEnd)}${o.weekIsPrevious ? " • semana anterior" : ""}` : "";
+}
+
+/** Cards "Faturamento do mês (Financeiro)" e "Receita de entrada (Bilheteria)" do fim da aba Marketing. */
+export function MarketingRodape({ dados, onSalvo }: { dados: DadosPlanilha; onSalvo: () => void }) {
+  const o = lerOverview(dados);
+  const fin = ultimoPorArea(dados).financeiro;
+  const bilheteria = [...(payloadDe<ZigBilheteriaResp>(dados, "getZigBilheteria")?.docs ?? [])].sort((a, b) => b.mes.localeCompare(a.mes));
   const atual = bilheteria[0];
   const anterior = bilheteria[1];
-  const fat = zig?.faturamentoMes;
-  const projetado = zig?.projetadoMes;
-  const semana = zig?.semanaFaturado;
-  const semanaPlano = zig?.semanaProjetado;
-  const periodo = zig?.semanaInicio && zig?.semanaFim
-    ? `(${diaCurto(zig.semanaInicio)} até ${diaCurto(zig.semanaFim)})${zig.semanaAnterior ? " • semana anterior" : ""}`
-    : "";
-  const diffMes = tem(fat) && tem(projetado) && projetado > 0 ? fat - projetado : null;
-  const diffSemana = tem(semana) && tem(semanaPlano) && semanaPlano > 0 ? semana - semanaPlano : null;
+  const baseProj = o ? (o.monthProjectedToDate != null && o.monthProjectedToDate > 0 ? o.monthProjectedToDate : o.monthProjected) : 0;
 
   return (
     <>
       <section className="sjCard sjBloco">
         <div className="sjMkTopo">
-          <div>
-            <b>Faturamento do mês (Financeiro)</b>{" "}
-            <span className="sjMini">{notaFinanceiro(zig)}</span>
-          </div>
+          <div><b>Faturamento do mês (Financeiro)</b> <span className="sjMini">{fin ? `último envio: ${dataCurta(fin.date)}` : "Financeiro ainda não enviou — usando valor de referência"}</span></div>
           <div className="sjMkTopoValor">
-            <div className="v">{reais(fat)}</div>
-            <p className="sjMini">{zig?.zigMes == null && zig?.eventosMes == null ? "—" : `ZigPay ${reais(zig?.zigMes)} + Eventos ${reais(zig?.eventosMes)}`}</p>
+            <div className="v">{o ? reais(o.monthRevenue) : "—"}</div>
+            <p className="sjMini">{o ? `ZigPay ${reais(o.monthRevenueZig)} + Eventos ${reais(o.monthRevenueEventos)}` : ""}</p>
           </div>
         </div>
         <hr className="sjMkSep" />
         <div className="sjMkGrade">
-          <Mini rotulo="Mês vs mesmo mês ano anterior" valor={reais(zig?.mesmoMesAnoAnterior)} variacao={pct(fat, zig?.mesmoMesAnoAnterior)} />
-          <Mini
-            rotulo="Projetado do mês × realizado"
-            valor={diffMes == null ? "—" : reaisDelta(diffMes)}
-            variacao={pct(fat, projetado)}
-            critico
-            nota={tem(projetado) && projetado > 0 ? `Projetado ${reais(projetado)} • Realizado ${reais(fat)}` : tem(fat) ? `Realizado ${reais(fat)}` : undefined}
-          />
-          <Mini
-            rotulo="Semana: projetado × realizado"
-            valor={diffSemana == null ? "—" : reaisDelta(diffSemana)}
-            variacao={pct(semana, semanaPlano)}
-            critico
-            nota={tem(semanaPlano) && semanaPlano > 0 ? `Projetado ${reais(semanaPlano)} • Realizado ${reais(semana)}${periodo ? ` ${periodo}` : ""}` : tem(semana) || periodo ? `Realizado ${reais(semana)}${periodo ? ` ${periodo}` : ""}` : undefined}
-          />
-          <Mini rotulo="Semana vs mesma semana ano anterior" valor={reais(zig?.semanaAnoAnterior)} variacao={pct(semana, zig?.semanaAnoAnterior)} />
-          <Mini rotulo="Ticket médio • semana (vs ano anterior)" valor={reais(zig?.ticketSemana)} nota="sem o ticket do ano anterior neste painel" />
-          <Mini rotulo="Ticket médio • mês (vs ano anterior)" valor={reais(zig?.ticketMes)} nota="sem o ticket do ano anterior neste painel" />
-          <Mini rotulo="Ticket médio • ano (vs ano anterior)" valor={reais(zig?.ticketAno)} nota="sem o ticket do ano anterior neste painel" />
+          <Mini rotulo="Mês vs mesmo mês ano anterior">
+            {o && o.lastYearSameMonth != null ? <><div className="v">{reais(o.lastYearSameMonth)}</div><BadgeDiff diff={o.monthRevenue - o.lastYearSameMonth} pctValor={o.lastYearSameMonth ? ((o.monthRevenue - o.lastYearSameMonth) / o.lastYearSameMonth) * 100 : 0} /></> : <div className="v">Sem histórico</div>}
+          </Mini>
+          <Mini rotulo="Projetado do mês × realizado" nota={o ? (baseProj ? `Projetado até hoje ${reais(baseProj)} • Realizado ${reais(o.monthRevenue)}${o.monthProjected && o.monthProjected !== baseProj ? ` • Projeção do mês inteiro ${reais(o.monthProjected)}` : ""}` : `Realizado ${reais(o.monthRevenue)}`) : undefined}>
+            {o && baseProj ? <><div className="v">{o.monthRevenue - baseProj >= 0 ? "+" : ""}{reais(o.monthRevenue - baseProj)}</div>{difAlerta(o.monthRevenue, baseProj)}</> : <div className="v">Sem projeção</div>}
+          </Mini>
+          <Mini rotulo="Semana: projetado × realizado" nota={o ? (o.weekDiff == null ? `Realizado ${reais(o.weekActual)} ${periodoSemana(o)}` : `Projetado ${reais(o.weekProjected ?? 0)} • Realizado ${reais(o.weekActual)} ${periodoSemana(o)}`) : undefined}>
+            {o && o.weekDiff != null ? <><div className="v">{o.weekDiff >= 0 ? "+" : ""}{reais(o.weekDiff)}</div>{difAlerta(o.weekActual, o.weekProjected)}</> : <div className="v">Sem projeção</div>}
+          </Mini>
+          <Mini rotulo="Semana vs mesma semana ano anterior">
+            {o && o.weekActualLastYear != null ? <><div className="v">{reais(o.weekActualLastYear)}</div><BadgeDiff diff={o.weekActual - o.weekActualLastYear} pctValor={o.weekActualLastYear ? ((o.weekActual - o.weekActualLastYear) / o.weekActualLastYear) * 100 : 0} /></> : <div className="v">Sem histórico</div>}
+          </Mini>
+          <Mini rotulo="Ticket médio • semana (vs ano anterior)"><Ticket atual={o?.ticketSemana ?? null} anterior={o?.ticketSemanaAnoAnterior ?? null} /></Mini>
+          <Mini rotulo="Ticket médio • mês (vs ano anterior)"><Ticket atual={o?.ticketMes ?? null} anterior={o?.ticketMesAnoAnterior ?? null} /></Mini>
+          <Mini rotulo="Ticket médio • ano (vs ano anterior)"><Ticket atual={o?.ticketAno ?? null} anterior={o?.ticketAnoAnterior ?? null} /></Mini>
         </div>
       </section>
       <section className="sjCard sjBloco">
         <div className="sjMkTopo">
-          <div>
-            <b>Receita de entrada (Bilheteria)</b>{" "}
-            <span className="sjMini">{atual ? `(${mesCurto(atual.mes)})` : ""}</span>
+          <div><b>Receita de entrada (Bilheteria)</b> <span className="sjMini">{atual ? `(${mesLabel(atual.mes)})` : ""}</span></div>
+          <div className="sjMkTopoValor">
+            <button type="button" className="sjAnaliseBtn sjMkGrafBtn" onClick={onSalvo}>🔄 Atualizar</button>
+            <div className="v">{atual ? reais(atual.receita) : "Sem captura ainda"}</div>
           </div>
-          <div className="sjMkTopoValor"><div className="v">{atual ? reais(atual.receita) : "—"}</div></div>
         </div>
-        <p className="sjMini">Faturamento de entrada (bilheteria), direto da tela Relatórios de Bilheteria do ZigPay — captura mensal pelo robô, não diária.</p>
+        <p className="sjMini">Faturamento de entrada (bilheteria), direto da tela &quot;Relatórios de Bilheteria&quot; do ZigPay — captura mensal pelo robô, não diária.</p>
         <hr className="sjMkSep" />
         <div className="sjMkGrade">
-          <Mini
-            rotulo="Mês vs mês anterior"
-            valor={anterior ? reais(anterior.receita) : "—"}
-            variacao={atual && anterior ? pct(atual.receita, anterior.receita) : null}
-            nota={anterior ? mesCurto(anterior.mes) : undefined}
-          />
-          <Mini rotulo="Entradas vendidas no mês" valor={atual ? atual.entradasQtd.toLocaleString("pt-BR") : "—"} delta={false} />
-          <Mini rotulo="Público do mês (ZigPay)" valor={atual ? atual.publicoMes.toLocaleString("pt-BR") : "—"} delta={false} />
-          <Mini rotulo="% clientes × entradas" valor={pctEntrada(atual?.pctClientesEntradas)} delta={false} nota="entradas vendidas ÷ público do mês" />
+          <Mini rotulo="Mês vs mês anterior" nota={anterior ? mesLabel(anterior.mes) : undefined}>
+            {atual && anterior ? <><div className="v">{reais(anterior.receita)}</div><BadgeDiff diff={atual.receita - anterior.receita} pctValor={anterior.receita ? ((atual.receita - anterior.receita) / anterior.receita) * 100 : 0} /></> : <div className="v">Sem mês anterior</div>}
+          </Mini>
+          <Mini rotulo="Entradas vendidas no mês"><div className="v">{atual ? (atual.entradasQtd || 0).toLocaleString("pt-BR") : "—"}</div></Mini>
+          <Mini rotulo="Público do mês (ZigPay)"><div className="v">{atual ? (atual.publicoMes || 0).toLocaleString("pt-BR") : "—"}</div></Mini>
+          <Mini rotulo="% clientes × entradas" nota="entradas vendidas ÷ público do mês"><div className="v">{atual && atual.pctClientesEntradas != null ? pct(atual.pctClientesEntradas) : "—"}</div></Mini>
         </div>
       </section>
     </>
-  );
-}
-
-function pctEntrada(valor: number | null | undefined) {
-  if (valor == null || Number.isNaN(valor)) return "—";
-  return `${valor.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%`;
-}
-
-function Mini({
-  rotulo,
-  valor,
-  variacao = null,
-  delta = true,
-  critico = false,
-  nota,
-}: {
-  rotulo: string;
-  valor: string;
-  variacao?: number | null;
-  delta?: boolean;
-  critico?: boolean;
-  nota?: string;
-}) {
-  const classe = variacao == null || variacao === 0 ? "sjMini" : variacao < 0 ? "sjMkDown" : "sjMkUp";
-  const texto = variacao == null ? "—" : `${variacao > 0 ? "+" : ""}${variacao.toFixed(1).replace(".", ",")}%`;
-  const selo = critico && variacao != null && variacao < QUEDA_CRITICA;
-  return (
-    <article className="sjMkMini">
-      <small>{rotulo}</small>
-      <div className="v">{valor}</div>
-      {delta ? <span className={classe}>{texto}{selo ? <span className="sjMkSelo">CRÍTICO</span> : null}</span> : null}
-      {nota ? <p className="sjMini">{nota}</p> : null}
-    </article>
   );
 }

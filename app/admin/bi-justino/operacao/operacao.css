@@ -1,0 +1,64 @@
+/* Complementos da área Gerente Operador / Eventos / Reservas / Auditoria / Sistema (sem mexer no bi.css). */
+.sjCard.opNota, .sjCard.opFull, .sjGrid > .opFull, .sjGrid > .sjAlert.opFull { grid-column: 1 / -1; }
+.sjCard.opKpi { grid-column: span 3; }
+.sjCard.opKpiLargo { grid-column: span 4; }
+@media (max-width: 1100px) { .sjCard.opKpi, .sjCard.opKpiLargo { grid-column: span 6; } }
+@media (max-width: 720px) { .sjCard.opKpi, .sjCard.opKpiLargo { grid-column: 1 / -1; } }
+.sjGrid .sjToolbar .sjAnaliseBtn { margin-top: 0; }
+.opTip { margin-top: 8px; font-size: 12px; color: var(--muted); line-height: 1.45; }
+.opTipRow { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 4px; }
+.opBadge.b { color: #7cc4ff; background: #7cc4ff1f; }
+.opBadge.p { color: #f0c7a8; background: #8a442333; }
+.opBadge.bl { color: #a78bfa; background: #a78bfa1f; }
+.opBtnDestaque { background: #8a4423; border-color: #a65a30; }
+.opTabela table { width: 100%; border-collapse: collapse; }
+.opTabela th, .opTabela td { padding: 6px 8px; border-bottom: 1px solid var(--line); text-align: left; font-size: 13px; vertical-align: top; }
+.opTabela th { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; }
+.opTabela tr.opTotal td { font-weight: 900; border-top: 2px solid var(--line); }
+.opTabela tr.opSel td { background: #241a12; }
+.opAcoes { display: flex; gap: 4px; flex-wrap: wrap; justify-content: flex-end; white-space: nowrap; }
+.opForm { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px 14px; margin-top: 8px; }
+.opForm label, .opCampo { display: flex; flex-direction: column; gap: 4px; font-size: 13px; }
+.opForm label b, .opCampo b { font-size: 13px; }
+.opForm .opLargo { grid-column: 1 / -1; }
+.opForm .help, .opHelp { font-size: 11px; color: var(--muted); line-height: 1.4; }
+.opGrupo { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; margin-top: 8px; }
+.opGrupo > .sjMini { font-weight: 700; margin-bottom: 6px; }
+.opLinhaTempo > div { padding: 4px 0; border-bottom: 1px solid var(--line); }
+.opKanban { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 6px; margin-top: 8px; }
+.opKanbanCol { min-width: 220px; max-width: 260px; flex: 1; }
+.opKanbanHead { font-size: 12px; font-weight: 700; margin-bottom: 6px; display: flex; justify-content: space-between; color: var(--muted); }
+.opKanbanBody { min-height: 60px; background: #120f0c; border-radius: 8px; padding: 4px; }
+.opKanbanCard { background: #1b1612; border: 1px solid var(--line); border-radius: 8px; padding: 8px; margin-bottom: 8px; cursor: grab; }
+.opKanbanCard:active { cursor: grabbing; }
+.opGrafico { width: 100%; height: auto; display: block; margin-top: 6px; }
+.opMiniKpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; margin-top: 8px; }
+.opMiniKpi { background: #120f0c; border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; }
+.opMiniKpi small { display: block; color: var(--muted); font-size: 11px; }
+.opMiniKpi .v { font-size: 20px; font-weight: 800; margin: 4px 0 2px; }
+.opBarra { display: flex; align-items: center; gap: 10px; margin: 5px 0; }
+.opBarra .opBarraLabel { width: 230px; font-size: 12px; }
+.opBarra .opBarraTrilho { flex: 1; background: #221c17; border-radius: 6px; height: 16px; }
+.opBarra .opBarraFill { height: 16px; border-radius: 6px; }
+.opBarra .opBarraVal { width: 150px; font-size: 12px; text-align: right; }
+.opColunas { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 14px; margin-top: 14px; }
+.opColunas h4 { margin: 0 0 4px; font-size: 13px; }
+.opAlertaLinha { border-left: 4px solid var(--line); border-radius: 8px; padding: 8px 10px; margin: 8px 0; background: #16110c; font-size: 13px; }
+.opManual { display: grid; grid-template-columns: 280px 1fr; gap: 14px; }
+@media (max-width: 900px) { .opManual { grid-template-columns: 1fr; } }
+.opManualToc { max-height: 60vh; overflow: auto; display: flex; flex-direction: column; gap: 2px; }
+.opManualPart { font-size: 11px; color: var(--muted); font-weight: 800; margin: 8px 0 2px; text-transform: uppercase; }
+.opManualItem { text-align: left; background: transparent; border: 0; color: var(--txt); padding: 4px 6px; border-radius: 6px; cursor: pointer; font-size: 12px; }
+.opManualItem.on, .opManualItem:hover { background: #221c17; }
+.opManualViewer { border: 1px solid var(--line); border-radius: 10px; background: #0d0a08; min-height: 420px; position: relative; }
+.opManualViewer iframe { width: 100%; height: 75vh; border: 0; border-radius: 10px; }
+.opMarca { position: absolute; inset: 0; pointer-events: none; display: flex; align-items: center; justify-content: center; color: #ff5a5a22; font-weight: 800; font-size: 14px; transform: rotate(-20deg); }
+.opWarn { color: var(--red); }
+.opPendente { opacity: 0.7; }
+.opCheck { width: auto; }
+.opLinhaAcoes { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 8px; }
+.opSubsLocal { margin: 10px 0 6px; }
+.opDuvida { padding: 8px 0; border-bottom: 1px solid var(--line); }
+.opDuvidaMeta { font-size: 11px; color: var(--muted); margin-bottom: 2px; }
+.opResposta { display: flex; gap: 8px; align-items: flex-end; margin-top: 6px; }
+.opResposta textarea { flex: 1; resize: vertical; }

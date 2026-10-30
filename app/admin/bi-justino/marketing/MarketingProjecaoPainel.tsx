@@ -1,20 +1,21 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { getApiUrl } from "../../../config/api";
-import type { ZigAoVivo } from "../zigValor";
+import type { DadosPlanilha } from "../usePlanilha";
+import { lerEntradas, mkAtualPorData, planosPorData, type MkAtual } from "./espelhoDados";
 import { margemDoDia } from "./margemDia";
+import { comparar, ProjetadoRealizado, type Plano } from "./ProjetadoRealizado";
 
 type Nivel = "g" | "y" | "r";
-type Plano = { data: string; trafego: number; outros: number; atracoes: number; publico: number; ticket: number; nota: string };
 
 function token() {
   if (typeof window === "undefined") return null;
   return localStorage.getItem("authToken") || localStorage.getItem("token");
 }
 
-function planosDoZig(zig: ZigAoVivo | null): Plano[] {
-  return (zig?.mkPlans || []).map((item) => ({
+function planosDoEspelho(dados: DadosPlanilha): Plano[] {
+  return Object.values(planosPorData(dados)).map((item) => ({
     data: item.date,
     trafego: item.trafficPlan,
     outros: item.otherPlan,
@@ -38,7 +39,6 @@ async function chamar(caminho: string, corpo: Record<string, unknown>) {
   return { ok: res.ok && registro.ok === true, error: typeof registro.error === "string" ? registro.error : "", planilha: registro.planilha === true };
 }
 type Leitura = { titulo: string; valor: string; nivel: Nivel; selo: string; detalhe: string };
-type LinhaZig = Record<string, number | string | null>;
 
 const SEMANA = ["dom.", "seg.", "ter.", "qua.", "qui.", "sex.", "sáb."];
 const NOME: Record<Nivel, string> = { g: "SAUDÁVEL", y: "ATENÇÃO", r: "CRÍTICO" };
@@ -67,13 +67,6 @@ function reais(valor: number | null | undefined) {
   return valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
 }
 
-function reaisDelta(valor: number) {
-  const texto = Math.abs(valor).toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
-  if (valor > 0) return `+${texto}`;
-  if (valor < 0) return `-${texto}`;
-  return texto;
-}
-
 function pct(valor: number) {
   return `${valor.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%`;
 }
@@ -82,11 +75,6 @@ function dataCurta(iso: string) {
   const [ano, mes, dia] = iso.split("-").map(Number);
   const nome = SEMANA[new Date(Date.UTC(ano, mes - 1, dia)).getUTCDay()] || "";
   return `${nome} ${String(dia).padStart(2, "0")}/${String(mes).padStart(2, "0")}/${ano}`;
-}
-
-function numCampo(linha: LinhaZig | undefined, chave: string) {
-  const valor = linha?.[chave];
-  return typeof valor === "number" && Number.isFinite(valor) ? valor : null;
 }
 
 function faixaDe(valor: number, saudavel: number, atencao: number): Nivel {
@@ -116,7 +104,15 @@ function leituras(receita: number, gasto: number, trafego: number, atracoes: num
   ];
 }
 
-export function MarketingProjecaoPainel({ zig, onSalvo }: { zig: ZigAoVivo | null; onSalvo: () => void }) {
+export function MarketingProjecaoPainel({
+  dados,
+  onSalvo,
+  onGastoProjetado,
+}: {
+  dados: DadosPlanilha;
+  onSalvo: () => void;
+  onGastoProjetado: (gasto: number) => void;
+}) {
   const [data, setData] = useState(() => somarDias(hojeSp(), 1));
   const [trafego, setTrafego] = useState("");
   const [outros, setOutros] = useState("");
@@ -126,15 +122,18 @@ export function MarketingProjecaoPainel({ zig, onSalvo }: { zig: ZigAoVivo | nul
   const [nota, setNota] = useState("");
   const [status, setStatus] = useState("");
   const [ocupado, setOcupado] = useState(false);
+  const [statusLote, setStatusLote] = useState("");
   const [locais, setLocais] = useState<Plano[]>([]);
   const [apagadas, setApagadas] = useState<string[]>([]);
+  const [marcadas, setMarcadas] = useState<string[]>([]);
+  const mkAtual = useMemo(() => mkAtualPorData(lerEntradas(dados, "marketing")), [dados]);
   const planos = useMemo(() => {
     const mapa = new Map<string, Plano>();
-    planosDoZig(zig).forEach((plano) => mapa.set(plano.data, plano));
+    planosDoEspelho(dados).forEach((plano) => mapa.set(plano.data, plano));
     locais.forEach((plano) => mapa.set(plano.data, plano));
     apagadas.forEach((dia) => mapa.delete(dia));
     return [...mapa.values()];
-  }, [zig, locais, apagadas]);
+  }, [dados, locais, apagadas]);
   const trafegoN = numero(trafego);
   const outrosN = numero(outros);
   const atracoesN = numero(atracoes);
@@ -145,9 +144,14 @@ export function MarketingProjecaoPainel({ zig, onSalvo }: { zig: ZigAoVivo | nul
   const roas = gasto > 0 ? faturamento / gasto : 0;
   const cac = publicoN > 0 ? gasto / publicoN : 0;
   const checks = leituras(faturamento, gasto, trafegoN, atracoesN, roas);
-  const margem = margemDoDia(data, faturamento, gasto, zig?.projecao?.cmvReal);
+  // Fonte do CMV = BASE (DRE validada), decisão do Renato em 24/09 — não o envio ao vivo.
+  const margem = margemDoDia(data, faturamento, gasto, null);
 
-  const linhas = useMemo(() => comparar(planos, zig, hojeSp()), [planos, zig]);
+  useEffect(() => {
+    onGastoProjetado(gasto);
+  }, [gasto, onGastoProjetado]);
+
+  const linhas = useMemo(() => comparar(planos, mkAtual, hojeSp()), [planos, mkAtual]);
 
   async function salvar() {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(data)) {
@@ -187,7 +191,7 @@ export function MarketingProjecaoPainel({ zig, onSalvo }: { zig: ZigAoVivo | nul
   }
 
   async function apagar(dia: string) {
-    if (!window.confirm(`Apagar a projeção de ${dataCurta(dia)}? Essa ação não tem volta.`)) return;
+    if (!window.confirm(`Apagar a projeção de ${dataCurta(dia)}? Essa ação não tem volta (fica registrada no histórico de exclusões da Diretoria).`)) return;
     setOcupado(true);
     try {
       const r = await chamar("/api/bi/justino/marketing/projecao/apagar", { date: dia });
@@ -203,6 +207,37 @@ export function MarketingProjecaoPainel({ zig, onSalvo }: { zig: ZigAoVivo | nul
     } finally {
       setOcupado(false);
     }
+  }
+
+  async function apagarSelecionadas() {
+    const datas = marcadas.filter((dia) => planos.some((plano) => plano.data === dia));
+    if (!datas.length) {
+      setStatusLote("Marque pelo menos uma projeção.");
+      return;
+    }
+    if (!window.confirm(`Apagar ${datas.length} projeção(ões) selecionada(s)? Essa ação não tem volta.`)) return;
+    setOcupado(true);
+    let ok = 0;
+    let falhou = 0;
+    for (const dia of datas) {
+      try {
+        const r = await chamar("/api/bi/justino/marketing/projecao/apagar", { date: dia });
+        if (r.ok) ok += 1;
+        else falhou += 1;
+      } catch {
+        falhou += 1;
+      }
+      setStatusLote(`Apagando… (${ok + falhou}/${datas.length})`);
+    }
+    setApagadas((lista) => [...lista, ...datas]);
+    setMarcadas([]);
+    setStatusLote(`${ok} apagada(s)${falhou ? `, ${falhou} falhou(aram).` : "."}`);
+    setOcupado(false);
+    onSalvo();
+  }
+
+  function marcarTodas(ligado: boolean) {
+    setMarcadas(ligado ? planos.map((plano) => plano.data) : []);
   }
 
   function limpar() {
@@ -227,7 +262,7 @@ export function MarketingProjecaoPainel({ zig, onSalvo }: { zig: ZigAoVivo | nul
           <div className="sjTb"><label>Público esperado<input className="sjInput" inputMode="numeric" value={publico} onChange={(evento) => setPublico(evento.target.value)} /></label></div>
           <div className="sjTb"><label>Ticket médio esperado<input className="sjInput" inputMode="decimal" value={ticket} onChange={(evento) => setTicket(evento.target.value)} /></label></div>
           <button type="button" className="sjAnaliseBtn" disabled={ocupado} onClick={salvar}>Salvar projeção</button>
-          <button type="button" className="sjAnaliseBtn" style={{ background: "#3a1620" }} onClick={limpar}>Apagar dados digitados</button>
+          <button type="button" className="sjAnaliseBtn" style={{ background: "#3a1620" }} onClick={limpar}>🗑 Apagar dados digitados</button>
           <span className="sjMini" role="status">{status}</span>
         </div>
         <label className="sjFormBloco">
@@ -272,10 +307,10 @@ export function MarketingProjecaoPainel({ zig, onSalvo }: { zig: ZigAoVivo | nul
       </section>
       <section className="sjCard sjBloco">
         <h3>A atração e os gastos são condizentes com o faturamento esperado?</h3>
-        <p className="sjMini">O teto saudável da atração é 8% do faturamento projetado.</p>
+        <p className="sjMini">Passe o mouse sobre cada quadro abaixo pra ver como ele é calculado.</p>
         <div className="sjAlerts">
           {checks.map((item) => (
-            <article key={item.titulo} className={`sjAlert ${item.nivel}`}>
+            <article key={item.titulo} className={`sjAlert ${item.nivel}`} title={item.detalhe}>
               <span className="sjAlertIcon" aria-hidden="true">{item.nivel === "g" ? "✓" : "!"}</span>
               <div>
                 <b>{item.titulo} • {item.selo}</b>
@@ -286,103 +321,18 @@ export function MarketingProjecaoPainel({ zig, onSalvo }: { zig: ZigAoVivo | nul
           ))}
         </div>
       </section>
-      <details className="sjCollapse">
-        <summary><span className="sjChev">▸</span>Projetado × Realizado<span className="sjHint">clique para abrir</span></summary>
-        <section className="sjCard sjBloco sjCollapseBody">
-          <div className="sjRole">
-            <h3>Projetado × Realizado</h3>
-            <button type="button" className="sjAnaliseBtn sjMkGrafBtn" onClick={onSalvo}>Atualizar</button>
-          </div>
-          <div className="sjTableInner">
-            <table>
-              <thead>
-                <tr>
-                  <th scope="col">Data</th>
-                  <th scope="col">Faturamento projetado</th>
-                  <th scope="col">Faturamento realizado</th>
-                  <th scope="col">Diferença (faturamento)</th>
-                  <th scope="col">Gasto projetado</th>
-                  <th scope="col">Gasto realizado</th>
-                  <th scope="col">Diferença (gasto)</th>
-                  <th scope="col">Status</th>
-                  <th scope="col">Ação</th>
-                </tr>
-              </thead>
-              <tbody>
-                {linhas.length ? linhas.map((linha) => (
-                  <tr key={linha.data}>
-                    <td>{dataCurta(linha.data)}</td>
-                    <td>{linha.fatPlan == null ? "—" : reais(linha.fatPlan)}</td>
-                    <td>{linha.fatReal == null ? "—" : reais(linha.fatReal)}</td>
-                    <td className={classeDelta(linha.diffFat)}>{linha.diffFat == null ? "—" : reaisDelta(linha.diffFat)}</td>
-                    <td>{linha.gastoPlan == null ? "—" : reais(linha.gastoPlan)}</td>
-                    <td>{linha.gastoReal == null ? "—" : reais(linha.gastoReal)}</td>
-                    <td className={classeDelta(linha.diffGasto)}>{linha.diffGasto == null ? "—" : reaisDelta(linha.diffGasto)}</td>
-                    <td>{linha.diffGasto == null ? "—" : linha.diffGasto >= 0 ? <span className="sjBadge g">DENTRO DO PLANO</span> : <span className="sjBadge r">ACIMA DO PLANO</span>}</td>
-                    <td>{linha.temPlano ? <button type="button" className="sjAnaliseBtn sjMkGrafBtn" disabled={ocupado} onClick={() => apagar(linha.data)}>Apagar</button> : "—"}</td>
-                  </tr>
-                )) : <tr><td colSpan={9}>Sem projeção nem envio ainda.</td></tr>}
-                {linhas.length ? (
-                  <tr className="sjMkTotal">
-                    <td>Total ({linhas.length} dia(s))</td>
-                    <td>{reais(soma(linhas, "fatPlan"))}</td>
-                    <td>{reais(soma(linhas, "fatReal"))}</td>
-                    <td className={classeDelta(soma(linhas, "diffFat"))}>{reaisDelta(soma(linhas, "diffFat"))}</td>
-                    <td>{reais(soma(linhas, "gastoPlan"))}</td>
-                    <td>{reais(soma(linhas, "gastoReal"))}</td>
-                    <td className={classeDelta(soma(linhas, "diffGasto"))}>{reaisDelta(soma(linhas, "diffGasto"))}</td>
-                    <td /><td />
-                  </tr>
-                ) : null}
-              </tbody>
-            </table>
-          </div>
-        </section>
-      </details>
+      <ProjetadoRealizado
+        linhas={linhas}
+        totalPlanos={planos.length}
+        marcadas={marcadas}
+        ocupado={ocupado}
+        statusLote={statusLote}
+        onAtualizar={onSalvo}
+        onApagar={(dia) => { void apagar(dia); }}
+        onApagarSelecionadas={() => { void apagarSelecionadas(); }}
+        onMarcar={(dia, ligado) => setMarcadas((lista) => (ligado ? [...lista, dia] : lista.filter((d) => d !== dia)))}
+        onMarcarTodas={marcarTodas}
+      />
     </>
   );
-}
-
-type LinhaComparada = ReturnType<typeof comparar>[number];
-
-function soma(linhas: LinhaComparada[], chave: "fatPlan" | "fatReal" | "diffFat" | "gastoPlan" | "gastoReal" | "diffGasto") {
-  return linhas.reduce((total, linha) => total + (linha[chave] ?? 0), 0);
-}
-
-function classeDelta(valor: number | null) {
-  if (valor == null || valor === 0) return "";
-  return valor > 0 ? "sjMkUp" : "sjMkDown";
-}
-
-function comparar(planos: Plano[], zig: ZigAoVivo | null, hoje: string) {
-  const porPlano = new Map(planos.map((plano) => [plano.data, plano]));
-  const porGasto = new Map<string, LinhaZig>();
-  for (const linha of zig?.lancamentos?.marketing || []) {
-    const dia = String(linha.date || "").slice(0, 10);
-    if (/^\d{4}-\d{2}-\d{2}$/.test(dia)) porGasto.set(dia, linha);
-  }
-  const porFat = new Map((zig?.serieMes || []).map((ponto) => [ponto.dia, (ponto.zig || 0) + (ponto.eventos || 0)]));
-  const datas = new Set<string>([...porPlano.keys(), ...porGasto.keys()]);
-  porFat.forEach((valor, dia) => {
-    if (valor > 0) datas.add(dia);
-  });
-  return [...datas].sort((a, b) => b.localeCompare(a)).slice(0, 60).map((dia) => {
-    const plano = porPlano.get(dia);
-    const fatPlan = plano ? plano.publico * plano.ticket : null;
-    const gastoPlan = plano ? plano.trafego + plano.outros + plano.atracoes : null;
-    const passou = dia <= hoje;
-    const fatReal = passou && porFat.has(dia) ? porFat.get(dia) ?? null : null;
-    const gastoLinha = passou ? porGasto.get(dia) : undefined;
-    const gastoReal = gastoLinha ? (numCampo(gastoLinha, "mkTraffic") || 0) + (numCampo(gastoLinha, "mkOther") || 0) + (numCampo(gastoLinha, "mkAttractions") || 0) : null;
-    return {
-      data: dia,
-      temPlano: Boolean(plano),
-      fatPlan,
-      fatReal,
-      diffFat: fatPlan != null && fatReal != null ? fatReal - fatPlan : null,
-      gastoPlan,
-      gastoReal,
-      diffGasto: gastoPlan != null && gastoReal != null ? gastoPlan - gastoReal : null,
-    };
-  });
 }

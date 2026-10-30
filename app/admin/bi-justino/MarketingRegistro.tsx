@@ -1,24 +1,23 @@
 "use client";
 
-import { useState } from "react";
-import { getApiUrl } from "../../config/api";
+import { useEffect, useMemo, useState } from "react";
 import { AlertasFlow } from "./DiretoriaQuadros";
+import { DuvidasBox } from "./marketing/DuvidasBox";
+import { lerEntradas, linhasDeEnvios } from "./marketing/espelhoDados";
+import { FecharMes } from "./marketing/FecharMes";
+import type { KpisMarketing, RascunhoMarketing } from "./marketing/kpisMarketing";
 import { UltimosEnviosMarketing } from "./marketing/UltimosEnviosMarketing";
-import type { ZigAoVivo } from "./zigValor";
+import { chamarBi, type DadosPlanilha } from "./usePlanilha";
 
 type ItemOutro = { id: string; descricao: string; valor: string };
-
-function token() {
-  if (typeof window === "undefined") return null;
-  return localStorage.getItem("authToken") || localStorage.getItem("token");
-}
+type Linha = Record<string, number | string | null>;
 
 function hoje() {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
 }
 
-function textoNumero(valor: number | null | undefined) {
-  if (valor == null) return "";
+function textoNumero(valor: number | string | null | undefined) {
+  if (valor == null || valor === "") return "";
   return String(valor).replace(".", ",");
 }
 
@@ -42,94 +41,98 @@ function novoId() {
   return `outros-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
 }
 
-function corpoEnvio(valor: unknown) {
-  if (!valor || typeof valor !== "object") return null;
-  const registro = valor as Record<string, unknown>;
-  return {
-    ok: registro.ok === true,
-    error: typeof registro.error === "string" ? registro.error : "",
-    planilha: registro.planilha === true,
-  };
-}
-
-function numLinha(valor: number | string | null | undefined) {
-  if (typeof valor === "number" && Number.isFinite(valor)) return valor;
-  if (typeof valor === "string" && valor.trim()) {
-    const n = Number(valor);
-    if (Number.isFinite(n)) return n;
-  }
-  return null;
-}
-
 function itemVazio(): ItemOutro {
   return { id: novoId(), descricao: "", valor: "" };
 }
 
-function itensIniciais(valor: number | null | undefined): ItemOutro[] {
-  if (valor == null) return [itemVazio()];
-  return [{ id: novoId(), descricao: "Outros (importado)", valor: textoNumero(valor) }];
+function itensDe(linha: Linha, itensSalvos: unknown): ItemOutro[] {
+  if (Array.isArray(itensSalvos) && itensSalvos.length) {
+    return itensSalvos.map((item) => {
+      const registro = (item && typeof item === "object" ? item : {}) as { desc?: unknown; value?: unknown };
+      return { id: novoId(), descricao: typeof registro.desc === "string" ? registro.desc : "", valor: textoNumero(typeof registro.value === "number" ? registro.value : null) };
+    });
+  }
+  const total = linha.mkOther;
+  if (total == null || total === "" || Number(total) === 0) return [itemVazio()];
+  return [{ id: novoId(), descricao: "Outros (importado)", valor: textoNumero(total) }];
 }
 
-export function MarketingRegistro({ zig, onSalvo }: { zig: ZigAoVivo | null; onSalvo: () => void }) {
-  const salvo = zig?.envioMarketing;
-  const [data, setData] = useState(salvo?.date || hoje());
-  const [nome, setNome] = useState(salvo?.submittedByName || "");
-  const [trafego, setTrafego] = useState(textoNumero(salvo?.mkTraffic));
-  const [atracoes, setAtracoes] = useState(textoNumero(salvo?.mkAttractions));
-  const [itens, setItens] = useState<ItemOutro[]>(() => itensIniciais(salvo?.mkOther));
-  const [reservas, setReservas] = useState(textoNumero(salvo?.mkReservations));
-  const [pessoas, setPessoas] = useState(textoNumero(salvo?.mkPeople));
-  const [show, setShow] = useState(textoNumero(salvo?.mkShow));
-  const [ticket, setTicket] = useState(textoNumero(salvo?.mkTicket));
-  const [passantes, setPassantes] = useState(textoNumero(salvo?.mkWalkins));
-  const [nota, setNota] = useState(salvo?.mkNote || "");
-  const [mes, setMes] = useState("");
+function mensagemErro(erro: string | undefined) {
+  if (erro === "registro_em_branco") return "Preencha ao menos um valor. Use 0 só onde realmente não houve.";
+  if (erro === "valores_invalidos") return "Preencha todos os números. Zero vale; em branco não.";
+  if (erro === "nome_obrigatorio") return "Informe quem está enviando.";
+  if (erro === "data_invalida" || erro === "data_futura") return "Escolha a data do registro, até hoje.";
+  return "Não consegui gravar agora. Tente de novo.";
+}
+
+export function MarketingRegistro({
+  dados,
+  kpis,
+  onSalvo,
+  onRascunho,
+}: {
+  dados: DadosPlanilha;
+  kpis: KpisMarketing;
+  onSalvo: () => void;
+  onRascunho: (rascunho: RascunhoMarketing) => void;
+}) {
+  const [data, setData] = useState(hoje);
+  const [nome, setNome] = useState("");
+  const [trafego, setTrafego] = useState("");
+  const [atracoes, setAtracoes] = useState("");
+  const [itens, setItens] = useState<ItemOutro[]>(() => [itemVazio()]);
+  const [reservas, setReservas] = useState("");
+  const [pessoas, setPessoas] = useState("");
+  const [show, setShow] = useState("");
+  const [ticket, setTicket] = useState("");
+  const [passantes, setPassantes] = useState("");
+  const [nota, setNota] = useState("");
   const [status, setStatus] = useState("");
   const [enviando, setEnviando] = useState(false);
+  const envios = useMemo(() => lerEntradas(dados, "marketing"), [dados]);
+  const linhas = useMemo(() => linhasDeEnvios(envios), [envios]);
   const outrosTotal = centavos(itens.reduce((soma, item) => soma + numero(item.valor), 0));
   const totalClientes = numero(show) + numero(passantes);
+
+  useEffect(() => {
+    onRascunho({
+      date: data,
+      trafego: numero(trafego),
+      atracoes: numero(atracoes),
+      outros: outrosTotal,
+      reservas: numero(reservas),
+      pessoasPorReserva: numero(pessoas),
+      comparecimento: numero(show),
+      passantes: numero(passantes),
+    });
+  }, [data, trafego, atracoes, outrosTotal, reservas, pessoas, show, passantes, onRascunho]);
 
   function atualizarItem(id: string, campo: "descricao" | "valor", valor: string) {
     setItens((lista) => lista.map((item) => (item.id === id ? { ...item, [campo]: valor } : item)));
   }
 
   async function enviar() {
-    const acesso = token();
-    if (!acesso) {
-      setStatus("Entre de novo para enviar o registro.");
-      return;
-    }
     setEnviando(true);
     setStatus("Enviando…");
     try {
-      const res = await fetch(`${getApiUrl()}/api/bi/justino/envio/marketing`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${acesso}`, "Content-Type": "application/json" },
-        body: JSON.stringify({
-          date: data,
-          submittedByName: nome,
-          mkTraffic: trafego,
-          mkAttractions: atracoes,
-          mkOther: outrosTotal,
-          mkReservations: reservas,
-          mkPeople: pessoas,
-          mkShow: show,
-          mkTicket: ticket,
-          mkWalkins: passantes,
-          mkNote: nota,
-        }),
+      const r = await chamarBi<{ ok?: boolean; error?: string; planilha?: boolean }>("/api/bi/justino/envio/marketing", {
+        date: data,
+        submittedByName: nome,
+        mkTraffic: trafego,
+        mkAttractions: atracoes,
+        mkOther: outrosTotal,
+        mkReservations: reservas,
+        mkPeople: pessoas,
+        mkShow: show,
+        mkTicket: ticket,
+        mkWalkins: passantes,
+        mkNote: nota,
       });
-      const json = corpoEnvio(await res.json().catch(() => null));
-      if (!res.ok || !json?.ok) {
-        const erro = json?.error;
-        if (erro === "registro_em_branco") setStatus("Preencha ao menos um valor. Use 0 só onde realmente não houve.");
-        else if (erro === "valores_invalidos") setStatus("Preencha todos os números. Zero vale; em branco não.");
-        else if (erro === "nome_obrigatorio") setStatus("Informe quem está enviando.");
-        else if (erro === "data_invalida" || erro === "data_futura") setStatus("Escolha a data do registro, até hoje.");
-        else setStatus("Não consegui gravar agora. Tente de novo.");
+      if (!r.ok || !r.json?.ok) {
+        setStatus(r.status === 403 ? "Sem permissão para enviar." : mensagemErro(r.json?.error));
         return;
       }
-      setStatus(json.planilha ? "Registro gravado e enviado à planilha." : "Registro gravado neste painel.");
+      setStatus(r.json.planilha ? "Registro gravado e enviado à planilha." : "Registro gravado neste painel.");
       onSalvo();
     } catch {
       setStatus("Não consegui gravar agora. Tente de novo.");
@@ -138,17 +141,18 @@ export function MarketingRegistro({ zig, onSalvo }: { zig: ZigAoVivo | null; onS
     }
   }
 
-  function escolher(linha: Record<string, number | string | null>) {
+  function escolher(linha: Linha) {
+    const doc = envios.find((item) => item.date === linha.date);
     setData(String(linha.date || hoje()));
     if (typeof linha.submittedByName === "string" && linha.submittedByName) setNome(linha.submittedByName);
-    setTrafego(textoNumero(numLinha(linha.mkTraffic)));
-    setAtracoes(textoNumero(numLinha(linha.mkAttractions)));
-    setItens(itensIniciais(numLinha(linha.mkOther)));
-    setReservas(textoNumero(numLinha(linha.mkReservations ?? linha.mkReservas)));
-    setPessoas(textoNumero(numLinha(linha.mkPeople)));
-    setShow(textoNumero(numLinha(linha.mkShow ?? linha.mkAttendance)));
-    setTicket(textoNumero(numLinha(linha.mkTicket)));
-    setPassantes(textoNumero(numLinha(linha.mkWalkins)));
+    setTrafego(textoNumero(linha.mkTraffic));
+    setAtracoes(textoNumero(linha.mkAttractions));
+    setItens(itensDe(linha, doc?.values?.mkOtherItems));
+    setReservas(textoNumero(linha.mkReservations ?? linha.mkReservas));
+    setPessoas(textoNumero(linha.mkPeople));
+    setShow(textoNumero(linha.mkShow ?? linha.mkAttendance));
+    setTicket(textoNumero(linha.mkTicket));
+    setPassantes(textoNumero(linha.mkWalkins));
     setNota(typeof linha.mkNote === "string" ? linha.mkNote : "");
     setStatus("Dia carregado no formulário. Ajuste e envie de novo para substituir.");
   }
@@ -163,7 +167,7 @@ export function MarketingRegistro({ zig, onSalvo }: { zig: ZigAoVivo | null; onS
     setTicket("");
     setPassantes("");
     setNota("");
-    setStatus("Campos limpos. Nada foi apagado do banco.");
+    setStatus("Dados digitados apagados. Nada foi apagado da planilha.");
   }
 
   return (
@@ -182,13 +186,13 @@ export function MarketingRegistro({ zig, onSalvo }: { zig: ZigAoVivo | null; onS
           <div className="sjToolbar">
             <div className="sjTb"><label>Data do registro<input className="sjInput" type="date" value={data} onChange={(evento) => setData(evento.target.value)} /></label></div>
             <div className="sjTb"><label>Enviado por<input className="sjInput" value={nome} placeholder="Seu nome" onChange={(evento) => setNome(evento.target.value)} /></label></div>
-            <button type="button" className="sjAnaliseBtn" disabled={enviando} onClick={enviar}>Enviar registro do dia</button>
-            <button type="button" className="sjAnaliseBtn" style={{ background: "#3a1620" }} onClick={limpar}>Apagar dados digitados</button>
+            <button type="button" className="sjAnaliseBtn" disabled={enviando} onClick={() => { void enviar(); }}>Enviar registro do dia</button>
+            <button type="button" className="sjAnaliseBtn" style={{ background: "#3a1620" }} onClick={limpar}>🗑 Apagar dados digitados</button>
             <span className="sjMini" role="status">{status}</span>
           </div>
-          <p className="sjMini">Pra corrigir um dia que já foi enviado, clique nele em Últimos envios. O total de outros itens entra sozinho no gasto.</p>
+          <p className="sjMini">Pra corrigir um dia que já foi enviado: escolha a data acima, abra &quot;Últimos envios&quot; mais abaixo e clique na linha da data — os campos aqui em cima são preenchidos automaticamente com o que já foi enviado, só ajustar e enviar de novo.</p>
           <Campo titulo="Investimento em tráfego pago" ajuda="Base observada: R$ 4.500/mês • saudável inicial ≈ 0,85% do faturamento" valor={trafego} onChange={setTrafego} />
-          <Campo titulo="Gastos com atrações" ajuda="Bandas, DJs, cantores. Média DRE: R$ 48,1 mil/mês • saudável ≤ 8% do faturamento" valor={atracoes} onChange={setAtracoes} />
+          <Campo titulo="Gastos com atrações" sub="Bandas, DJs, cantores." ajuda="Média DRE: R$ 48,1 mil/mês • saudável ≤ 8% do faturamento" valor={atracoes} onChange={setAtracoes} />
           <div className="sjFormBloco">
             <b>Outros gastos de marketing</b>
             <p className="sjMini">Adicione quantos itens precisar; o total entra sozinho no gasto de marketing.</p>
@@ -208,19 +212,19 @@ export function MarketingRegistro({ zig, onSalvo }: { zig: ZigAoVivo | null; onS
           </div>
           <div className="sjFormBloco">
             <b>Reservas geradas no dia</b>
-            <p className="sjMini">Base operacional: 150/mês.</p>
+            <p className="sjMini">Base operacional: <b>150/mês</b> • hoje: <b>{numero(reservas) || 0}</b> reserva(s)</p>
             <div className="sjMkPar">
               <label>Reservas<input className="sjInput" inputMode="numeric" value={reservas} onChange={(evento) => setReservas(evento.target.value)} /></label>
               <label>Pessoas/reserva<input className="sjInput" inputMode="numeric" value={pessoas} onChange={(evento) => setPessoas(evento.target.value)} /></label>
             </div>
-            <p className="sjMini">Reservas e pessoas por dia. Base informada: 12 pessoas por reserva.</p>
+            <p className="sjMini">Reservas/Pessoas por dia (média de pessoas por reserva) • base informada: <b>12/reserva</b> • hoje: <b>{numero(pessoas) || 0}</b>/reserva</p>
           </div>
-          <Campo titulo="Comparecimento das reservas" ajuda="Total de público que compareceu de reservas" valor={show} onChange={setShow} />
+          <Campo titulo="Comparecimento das reservas" ajuda="Total de público que compareceram de reservas" valor={show} onChange={setShow} inteiro />
           <Campo titulo="Ticket médio atribuído" ajuda="Base informada: R$ 130 • vale pra reserva comparecida e pra passante" valor={ticket} onChange={setTicket} />
-          <Campo titulo="Clientes sem reserva (passantes)" ajuda="Público que entrou sem reserva prévia — também gera faturamento (entra no ticket médio)." valor={passantes} onChange={setPassantes} />
+          <Campo titulo="Clientes sem reserva (passantes)" ajuda="Público que entrou sem reserva prévia — também gera faturamento (entra no ticket médio)." valor={passantes} onChange={setPassantes} inteiro />
           <div className="sjFormBloco">
             <b>Total de clientes na casa (dia)</b>
-            <input className="sjInput" readOnly aria-readonly="true" value={totalClientes} />
+            <input className="sjInput" readOnly aria-readonly="true" value={Math.round(totalClientes).toLocaleString("pt-BR")} />
             <p className="sjMini">Comparecimento das reservas + passantes.</p>
           </div>
           <label className="sjFormBloco">
@@ -230,33 +234,27 @@ export function MarketingRegistro({ zig, onSalvo }: { zig: ZigAoVivo | null; onS
           </label>
         </section>
       </details>
-      <section className="sjCard sjBloco">
-        <h3>Fechar mês • Marketing</h3>
-        <div className="sjToolbar">
-          <div className="sjTb">
-            <label>Fechar mês<input className="sjInput" type="month" value={mes} onChange={(evento) => setMes(evento.target.value)} /></label>
-          </div>
-        </div>
-        <p className="sjMini">O fechamento continua na planilha.</p>
-      </section>
-      <AlertasFlow titulo="Alertas Marketing" alertas={zig?.quadros?.marketing?.alertas || []} nota="O bônus não premia apenas corte de mídia: o BI verifica eficiência do funil e a margem global da casa antes de destravar pagamento." />
+      <FecharMes area="marketing" dados={dados} onSalvo={onSalvo} />
+      <AlertasFlow titulo="Alertas Marketing" alertas={kpis.alertas} nota="O bônus não premia apenas corte de mídia: o BI verifica eficiência do funil e a margem global da casa antes de destravar pagamento." />
       <details className="sjCollapse">
         <summary>
           <span className="sjChev">▸</span>
           Últimos envios • Marketing
           <span className="sjHint">clique para abrir</span>
         </summary>
-        <UltimosEnviosMarketing linhas={zig?.lancamentos?.marketing || []} onAtualizar={onSalvo} onEscolher={escolher} />
+        <UltimosEnviosMarketing linhas={linhas} onAtualizar={onSalvo} onEscolher={escolher} />
       </details>
+      <DuvidasBox area="gestores" dados={dados} onSalvo={onSalvo} />
     </>
   );
 }
 
-function Campo({ titulo, ajuda, valor, onChange }: { titulo: string; ajuda: string; valor: string; onChange: (valor: string) => void }) {
+function Campo({ titulo, sub, ajuda, valor, onChange, inteiro }: { titulo: string; sub?: string; ajuda: string; valor: string; onChange: (valor: string) => void; inteiro?: boolean }) {
   return (
     <label className="sjFormBloco">
       <b>{titulo}</b>
-      <input className="sjInput" inputMode="decimal" value={valor} onChange={(evento) => onChange(evento.target.value)} />
+      {sub ? <p className="sjMini">{sub}</p> : null}
+      <input className="sjInput" inputMode={inteiro ? "numeric" : "decimal"} value={valor} onChange={(evento) => onChange(evento.target.value)} />
       <p className="sjMini">{ajuda}</p>
     </label>
   );

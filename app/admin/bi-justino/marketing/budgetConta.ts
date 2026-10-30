@@ -1,7 +1,11 @@
-import { porDiaDaSemana, rotuloMes, type ZigAoVivo } from "../zigValor";
-import { addDias, diaSemanaUtc, diasNoMes, hojeSp, numeroDe, segundaDe } from "./numeros";
+import { rotuloMes } from "../zigValor";
+import type { EntryDoc, MkPlanDoc } from "./espelhoTipos";
+import type { ZigPorData } from "./espelhoDados";
+import { addDias, diasNoMes, hojeSp, numeroDe, segundaDe } from "./numeros";
+import { BANDA_SUGESTOES_POR_DIA } from "./sugestaoAtracao";
 
 const NOMES = ["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado", "Domingo"] as const;
+const MESES = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
 
 export type BudgetForm = {
   teto: string;
@@ -14,146 +18,142 @@ export type BudgetForm = {
   part: string;
 };
 
-function atracoes(indice: number) {
-  if (indice === 4) return 2;
-  if (indice === 5) return 3;
-  return 1;
+export const BUDGET_FORM_PADRAO: BudgetForm = { teto: "8", cresc: "0", mes: "", semana: "", baseManual: "", ticket: "", pax: "", part: "" };
+
+export interface EntradaBudget {
+  zig: ZigPorData;
+  serieDre: { mes: string; valor: number }[];
+  paxPorData: Record<string, number>;
+  temPax: boolean;
+  mkDocs: EntryDoc[];
+  planos: Record<string, MkPlanDoc>;
 }
 
-function ticketOito(zig: ZigAoVivo | null, seg: string) {
-  const inicio = addDias(seg, -56);
-  let publico = 0;
-  let ponderado = 0;
-  for (const semana of zig?.semanas || []) {
-    if (semana.inicio < inicio || semana.inicio >= seg) continue;
-    if (semana.ticket == null || !(semana.publico > 0)) continue;
-    publico += semana.publico;
-    ponderado += semana.ticket * semana.publico;
-  }
-  return publico > 0 ? ponderado / publico : null;
+function mesLongo(mk: string) {
+  return `${MESES[Number(mk.slice(5, 7)) - 1]}/${mk.slice(0, 4)}`;
 }
 
-function participacao(zig: ZigAoVivo | null, inicio: string, fim: string) {
-  const publico = new Map<string, number>();
-  for (const dia of zig?.diasZig || []) {
-    if (dia.publico != null && dia.publico > 0) publico.set(dia.date, dia.publico);
-  }
-  if (!publico.size || !zig?.reservas?.length) return null;
-  let pax = 0;
-  let pessoas = 0;
-  for (const reserva of zig.reservas) {
-    if (reserva.date < inicio || reserva.date > fim) continue;
-    const pub = publico.get(reserva.date);
-    if (!(reserva.pax > 0) || pub == null) continue;
-    pax += reserva.pax;
-    pessoas += pub;
-  }
-  if (pessoas <= 0) return null;
-  return Math.min(100, Math.max(5, (pax / pessoas) * 100));
+function baseMes(entrada: EntradaBudget, mk: string, manual: number | null) {
+  if (manual != null && manual > 0) return { base: manual, fonte: "informado" };
+  const ant = `${Number(mk.slice(0, 4)) - 1}-${mk.slice(5)}`;
+  const x = entrada.serieDre.find((item) => item.mes === ant);
+  if (x && x.valor > 0) return { base: x.valor, fonte: `DRE de ${mesLongo(ant)}` };
+  return { base: null, fonte: null };
 }
 
-function paxEntre(zig: ZigAoVivo | null, inicio: string, fim: string) {
-  if (!zig?.reservas) return null;
-  return zig.reservas.reduce((total, reserva) => (
-    reserva.date >= inicio && reserva.date <= fim ? total + reserva.pax : total
-  ), 0);
+function somaAtracoes(docs: EntryDoc[], ini: string, fim: string) {
+  return docs.filter((doc) => doc.date >= ini && doc.date <= fim).reduce((total, doc) => total + (numeroDe(doc.values?.mkAttractions as number | string | null | undefined) ?? 0), 0);
 }
 
-function pesosOito(zig: ZigAoVivo | null, seg: string) {
-  if (!zig?.diasZig?.length) return null;
-  const inicio = addDias(seg, -56);
-  const fim = addDias(seg, -1);
-  const soma = [0, 0, 0, 0, 0, 0, 0];
-  const n = [0, 0, 0, 0, 0, 0, 0];
-  for (const dia of zig.diasZig) {
-    if (dia.date < inicio || dia.date > fim || !(dia.receita > 0)) continue;
-    const indice = (diaSemanaUtc(dia.date) + 6) % 7;
-    soma[indice] += dia.receita;
-    n[indice] += 1;
-  }
-  if (!n.some((item) => item > 0)) return null;
-  return soma.map((valor, indice) => (n[indice] ? valor / n[indice] : null));
+function somaPlano(planos: Record<string, MkPlanDoc>, ini: string, fim: string) {
+  return Object.keys(planos).filter((d) => d >= ini && d <= fim).reduce((total, d) => total + (Number(planos[d].attractionsPlan) || 0), 0);
 }
 
-function pesosPadrao(zig: ZigAoVivo | null) {
-  const porNome = new Map(porDiaDaSemana(zig).map((dia) => [dia.nome, dia.faturamentoMedio]));
-  return NOMES.map((nome) => {
-    const valor = porNome.get(nome);
-    return valor != null && valor > 0 ? valor : null;
-  });
+function paraDias(ini: string, fim: string, fn: (d: string) => void) {
+  for (let d = ini; d <= fim; d = addDias(d, 1)) fn(d);
 }
 
-function somaAtracoes(zig: ZigAoVivo | null, inicio: string, fim: string) {
-  return (zig?.lancamentos?.marketing || []).reduce((total, linha) => {
-    const data = typeof linha.date === "string" ? linha.date.slice(0, 10) : "";
-    if (data < inicio || data > fim) return total;
-    return total + (numeroDe(linha.mkAttractions) ?? 0);
-  }, 0);
-}
-
-function fatMes(zig: ZigAoVivo | null, mk: string, hoje: string) {
-  return (zig?.serieMes || []).reduce((total, ponto) => {
-    if (!ponto.dia.startsWith(mk) || ponto.dia > hoje) return total;
-    return total + (ponto.zig || 0);
-  }, 0);
-}
-
-export function montarBudget(zig: ZigAoVivo | null, form: BudgetForm) {
+/** baRender do painel do Renato (Budget de atrações): mês, semana (bases A e B) e divisão por dia. */
+export function montarBudget(entrada: EntradaBudget, form: BudgetForm) {
   const hoje = hojeSp();
   const tetoNum = numeroDe(form.teto);
   const teto = (tetoNum == null || tetoNum === 0 ? 8 : tetoNum) / 100;
-  const crescNum = numeroDe(form.cresc);
-  const cresc = (crescNum == null ? 0 : crescNum) / 100;
-  const mes = /^\d{4}-\d{2}$/.test(form.mes) ? form.mes : hoje.slice(0, 7);
+  const cresc = (numeroDe(form.cresc) ?? 0) / 100;
+  const mk = /^\d{4}-\d{2}$/.test(form.mes) ? form.mes : hoje.slice(0, 7);
   const manual = numeroDe(form.baseManual);
-  const base = manual != null && manual > 0 ? manual : null;
-  const baseAjustada = base == null ? null : base * (1 + cresc);
+  const B = baseMes(entrada, mk, manual);
+  const ini = `${mk}-01`;
+  const fim = `${mk}-31`;
+  const realMes = somaAtracoes(entrada.mkDocs, ini, fim);
+  const planMes = somaPlano(entrada.planos, ini, fim);
+  const fatMesReal = Object.keys(entrada.zig.revenue).filter((d) => d >= ini && d <= fim && d <= hoje).reduce((t, d) => t + (entrada.zig.revenue[d] || 0), 0);
+  const baseAjustada = B.base == null ? null : B.base * (1 + cresc);
   const budgetMes = baseAjustada == null ? null : baseAjustada * teto;
+
+  // semana
   const ref = /^\d{4}-\d{2}-\d{2}$/.test(form.semana) ? form.semana : hoje;
   const seg = segundaDe(ref);
   const dom = addDias(seg, 6);
-  const baseSemana = seg.slice(0, 7) === mes ? base : null;
-  const fatA = baseSemana == null ? null : (baseSemana * (1 + cresc) / diasNoMes(seg.slice(0, 7))) * 7;
-  const budA = fatA == null ? null : fatA * teto;
-  const ticketAuto = ticketOito(zig, seg);
+  const dias = [0, 1, 2, 3, 4, 5, 6].map((i) => addDias(seg, i));
+  const mkSem = seg.slice(0, 7);
+  const BS = baseMes(entrada, mkSem, mkSem === mk ? manual : null);
+  const iniH = addDias(seg, -56);
+  const fimH = addDias(seg, -1);
+  let rev = 0;
+  let pub = 0;
+  paraDias(iniH, fimH, (d) => {
+    const r = entrada.zig.revenue[d] || 0;
+    const p = entrada.zig.publico[d] || 0;
+    if (r > 0 && p > 0) {
+      rev += r;
+      pub += p;
+    }
+  });
+  const ticketAuto = pub > 0 ? rev / pub : null;
   const ticketManual = numeroDe(form.ticket);
   const ticketUsado = ticketManual != null && ticketManual > 0 ? ticketManual : ticketAuto;
-  const paxAuto = paxEntre(zig, seg, dom);
+  let paxAuto = 0;
+  paraDias(seg, dom, (d) => { paxAuto += entrada.paxPorData[d] || 0; });
   const paxManual = numeroDe(form.pax);
   const paxSem = paxManual != null ? paxManual : paxAuto;
-  const partAuto = participacao(zig, addDias(seg, -56), addDias(seg, -1));
+  let pxH = 0;
+  let pbH = 0;
+  paraDias(iniH, fimH, (d) => {
+    const x = entrada.paxPorData[d] || 0;
+    const p = entrada.zig.publico[d] || 0;
+    if (x > 0 && p > 0) {
+      pxH += x;
+      pbH += p;
+    }
+  });
+  const partAuto = pbH > 0 ? Math.min(100, Math.max(5, (pxH / pbH) * 100)) : null;
   const partManual = numeroDe(form.part);
   const part = partManual != null && partManual > 0 ? partManual : partAuto;
-  const fatB = ticketUsado != null && part != null && paxSem != null && paxSem > 0
-    ? (paxSem / (part / 100)) * ticketUsado
-    : null;
+  const fatA = BS.base == null ? null : ((BS.base * (1 + cresc)) / diasNoMes(mkSem)) * 7;
+  const fatB = ticketUsado && part && paxSem > 0 ? (paxSem / (part / 100)) * ticketUsado : null;
+  const budA = fatA == null ? null : fatA * teto;
   const budB = fatB == null ? null : fatB * teto;
-  const candidatos = [budA, budB].filter((valor): valor is number => valor != null);
+  const candidatos = [budA, budB].filter((v): v is number => v != null);
   const recomendado = candidatos.length ? Math.min(...candidatos) : null;
-  const pesosDiretos = pesosOito(zig, seg);
-  const pesos = pesosDiretos ?? pesosPadrao(zig);
-  const origemPeso = pesosDiretos ? "8semanas" as const : pesos.some((valor) => valor != null) ? "padrao" as const : "nenhum" as const;
-  const totalPeso = pesos.reduce<number>((total, valor) => total + (valor || 0), 0);
-  const dias = recomendado == null || !totalPeso ? [] : [0, 1, 2, 3, 4, 5, 6].flatMap((indice) => {
-    const medio = pesos[indice];
-    if (!medio) return [];
-    const data = addDias(seg, indice);
-    const peso = medio / totalPeso;
-    const n = atracoes(indice);
-    const budget = recomendado * peso;
-    const pax = Array.isArray(zig?.reservas)
-      ? zig.reservas.reduce((total, reserva) => (reserva.date === data ? total + reserva.pax : total), 0)
-      : null;
-    return [{ nome: NOMES[indice], data, pesoPct: peso * 100, budget, pax, atracoes: n, maximo: budget / n }];
+  const realizadoSem = somaAtracoes(entrada.mkDocs, seg, dom);
+  const planSem = somaPlano(entrada.planos, seg, dom);
+
+  // dia a dia: peso = faturamento médio de cada dia da semana nas 8 semanas anteriores
+  const peso: Record<number, number> = {};
+  const cnt: Record<number, number> = {};
+  paraDias(iniH, fimH, (d) => {
+    const r = entrada.zig.revenue[d] || 0;
+    if (r <= 0) return;
+    const wd = (new Date(`${d}T12:00:00`).getDay() + 6) % 7;
+    peso[wd] = (peso[wd] || 0) + r;
+    cnt[wd] = (cnt[wd] || 0) + 1;
   });
+  const med: Record<number, number> = {};
+  let tot = 0;
+  Object.keys(peso).map(Number).forEach((k) => {
+    med[k] = peso[k] / cnt[k];
+    tot += med[k];
+  });
+  const linhasDia = recomendado == null || !tot ? [] : dias.flatMap((d, i) => {
+    if (!med[i]) return [];
+    const w = med[i] / tot;
+    const bd = recomendado * w;
+    const jsDay = new Date(`${d}T12:00:00`).getDay();
+    const n = BANDA_SUGESTOES_POR_DIA[jsDay] || 1;
+    return [{ nome: NOMES[i], data: d, pesoPct: w * 100, budget: bd, pax: entrada.paxPorData[d] || 0, atracoes: n, maximo: bd / n }];
+  });
+
   return {
-    mes,
-    mesAnterior: rotuloMes(`${Number(mes.slice(0, 4)) - 1}-${mes.slice(5)}`),
+    mes: mk,
+    mesAnteriorLabel: mesLongo(`${Number(mk.slice(0, 4)) - 1}-${mk.slice(5)}`),
+    mesLabel: rotuloMes(mk),
+    base: B.base,
+    fonteBase: B.fonte,
     baseAjustada,
-    fonteBase: base == null ? null : "informado",
     budgetMes,
-    realizadoMes: somaAtracoes(zig, `${mes}-01`, `${mes}-31`),
-    fatRealMes: fatMes(zig, mes, hoje),
+    realizadoMes: realMes,
+    planMes,
+    fatRealMes: fatMesReal,
     teto,
     cresc,
     seg,
@@ -163,16 +163,16 @@ export function montarBudget(zig: ZigAoVivo | null, form: BudgetForm) {
     budB,
     fatB,
     recomendado,
-    realizadoSem: somaAtracoes(zig, seg, dom),
+    realizadoSem,
+    planSem,
     paxSem,
     part,
     ticketUsado,
     ticketAuto,
     partAuto,
-    reservasNoPainel: Array.isArray(zig?.reservas),
+    temPax: entrada.temPax,
     divergencia: budA != null && budB != null && Math.abs(budA - budB) / Math.max(budA, budB) > 0.3,
-    dias,
-    origemPeso,
+    dias: linhasDia,
     bases: candidatos.length,
   };
 }

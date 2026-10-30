@@ -1,10 +1,12 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
+import { chamarBi, payloadDe, type DadosPlanilha } from "../usePlanilha";
+import type { MkReuniaoItem, MkReunioesResp } from "./espelhoTipos";
 
-type Tipo = "demanda" | "pauta" | "ata";
-type Status = "aberto" | "andamento" | "concluido" | "cancelado";
-type Prioridade = "alta" | "media" | "baixa";
+type Tipo = MkReuniaoItem["tipo"];
+type Status = MkReuniaoItem["status"];
+type Prioridade = MkReuniaoItem["prioridade"];
 type FiltroStatus = "" | Status | "atrasado" | "todos";
 
 type Item = {
@@ -23,6 +25,22 @@ type Item = {
   observacao: string;
 };
 
+function doEspelho(item: MkReuniaoItem): Item {
+  return {
+    id: item.id, tipo: item.tipo, data: item.dataReuniao || "", titulo: item.titulo || "", descricao: item.descricao || "",
+    participantes: item.participantes || "", decisoes: item.decisoes || "", responsavel: item.responsavel || "", prazo: item.prazo || "",
+    prioridade: item.prioridade || "media", status: item.status || "aberto", reuniaoId: item.reuniaoId || "", observacao: item.observacao || "",
+  };
+}
+
+function paraPlanilha(item: Item) {
+  return {
+    id: item.id || undefined, tipo: item.tipo, titulo: item.titulo, descricao: item.descricao, dataReuniao: item.data,
+    participantes: item.participantes, decisoes: item.decisoes, responsavel: item.responsavel, prazo: item.prazo,
+    prioridade: item.prioridade, status: item.status, reuniaoId: item.reuniaoId, observacao: item.observacao,
+  };
+}
+
 const TIPO: Record<Tipo, string> = { demanda: "Demanda", pauta: "Pauta", ata: "Ata" };
 const STATUS: Record<Status, string> = { aberto: "Aberto", andamento: "Em andamento", concluido: "Concluído", cancelado: "Cancelado" };
 const PRIO: Record<Prioridade, string> = { alta: "Alta", media: "Média", baixa: "Baixa" };
@@ -36,10 +54,6 @@ function somarDias(iso: string, dias: number) {
   const data = new Date(Date.UTC(ano, mes - 1, dia));
   data.setUTCDate(data.getUTCDate() + dias);
   return data.toISOString().slice(0, 10);
-}
-
-function novoId() {
-  return `dem-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
 }
 
 function dataCurta(iso: string) {
@@ -63,13 +77,14 @@ function atrasada(item: Item, hoje: string) {
   return item.tipo === "demanda" && item.status !== "concluido" && item.status !== "cancelado" && Boolean(item.prazo) && item.prazo < hoje;
 }
 
-export function MarketingDemandasPainel() {
+export function MarketingDemandasPainel({ dados, onSalvo }: { dados: DadosPlanilha; onSalvo: () => void }) {
   const hoje = hojeSp();
   const limite = somarDias(hoje, 7);
   const formRef = useRef<HTMLDetailsElement>(null);
-  const [itens, setItens] = useState<Item[]>([]);
+  const itens = useMemo(() => (payloadDe<MkReunioesResp>(dados, "getMkReunioes")?.items ?? []).map(doEspelho), [dados]);
   const [form, setForm] = useState<Item>(vazio);
   const [aviso, setAviso] = useState("");
+  const [ocupado, setOcupado] = useState(false);
   const [filtroTipo, setFiltroTipo] = useState<"" | Tipo>("");
   const [filtroResp, setFiltroResp] = useState("");
   const [filtroStatus, setFiltroStatus] = useState<FiltroStatus>("");
@@ -92,7 +107,21 @@ export function MarketingDemandasPainel() {
     setForm((atual) => ({ ...atual, [chave]: valor }));
   }
 
-  function salvar() {
+  async function gravar(item: Item, mensagem: string) {
+    setOcupado(true);
+    setAviso("Salvando…");
+    const r = await chamarBi("/api/bi/justino/marketing/demandas", paraPlanilha(item));
+    setOcupado(false);
+    if (!r.ok) {
+      setAviso(r.status === 403 ? "Sem permissão para salvar." : "Não consegui salvar.");
+      return false;
+    }
+    setAviso(mensagem);
+    onSalvo();
+    return true;
+  }
+
+  async function salvar() {
     const titulo = form.titulo.trim();
     if (!titulo) {
       setAviso("Informe o título.");
@@ -100,7 +129,6 @@ export function MarketingDemandasPainel() {
     }
     const item: Item = {
       ...form,
-      id: form.id || novoId(),
       titulo,
       descricao: form.descricao.trim(),
       participantes: ehDemanda ? "" : form.participantes.trim(),
@@ -109,9 +137,20 @@ export function MarketingDemandasPainel() {
       reuniaoId: ehDemanda ? form.reuniaoId : "",
       observacao: form.observacao.trim(),
     };
-    setItens((lista) => (lista.some((atual) => atual.id === item.id) ? lista.map((atual) => (atual.id === item.id ? item : atual)) : [item, ...lista]));
-    setForm(vazio());
-    setAviso("Salvo nesta tela.");
+    if (await gravar(item, "Salvo.")) setForm(vazio());
+  }
+
+  async function concluir(item: Item) {
+    await gravar({ ...item, status: "concluido" }, "Demanda concluída.");
+  }
+
+  async function apagar(item: Item) {
+    if (!window.confirm("Apagar este item? Fica registrado no histórico de exclusões da Diretoria.")) return;
+    setOcupado(true);
+    const r = await chamarBi("/api/bi/justino/marketing/demandas/apagar", { id: item.id });
+    setOcupado(false);
+    setAviso(r.ok ? "Item apagado." : "Não consegui apagar.");
+    if (r.ok) onSalvo();
   }
 
   function editar(item: Item) {
@@ -151,13 +190,13 @@ export function MarketingDemandasPainel() {
           {form.tipo === "ata" ? <label className="sjFormBloco"><b>Decisões e encaminhamentos</b><textarea className="sjInput" rows={3} placeholder="O que foi decidido na reunião" value={form.decisoes} onChange={(evento) => campo("decisoes", evento.target.value)} /></label> : null}
           <label className="sjFormBloco"><b>Observação</b><textarea className="sjInput" rows={2} value={form.observacao} onChange={(evento) => campo("observacao", evento.target.value)} /></label>
           <div className="sjToolbar">
-            <button type="button" className="sjAnaliseBtn" onClick={salvar}>Salvar</button>
+            <button type="button" className="sjAnaliseBtn" disabled={ocupado} onClick={() => { void salvar(); }}>Salvar</button>
             {form.id ? <button type="button" className="sjAnaliseBtn" style={{ background: "#3a1620" }} onClick={() => { setForm(vazio()); setAviso(""); }}>Cancelar edição</button> : null}
             <span className="sjMini" role="status">{aviso}</span>
           </div>
         </div>
       </details>
-      <details className="sjCollapse">
+      <details className="sjCollapse" open>
         <summary><span className="sjChev">▸</span>Demandas por responsável<span className="sjHint">clique para abrir</span></summary>
         <section className="sjCard sjBloco sjCollapseBody">
           <h3>Demandas por responsável</h3>
@@ -165,7 +204,7 @@ export function MarketingDemandasPainel() {
             <thead><tr><th scope="col">Responsável</th><th scope="col">Em aberto</th><th scope="col">Em andamento</th><th scope="col">Atrasadas</th><th scope="col">Próximo prazo</th><th scope="col">Concluídas</th></tr></thead>
             <tbody>
               {porResp.length ? porResp.map((linha) => (
-                <tr key={linha.nome}><td>{linha.nome}</td><td>{linha.aberto}</td><td>{linha.andamento}</td><td>{linha.atrasadas}</td><td>{linha.prazo ? dataCurta(linha.prazo) : "—"}</td><td>{linha.concluidas}</td></tr>
+                <tr key={linha.nome}><td>{linha.nome}</td><td>{linha.aberto}</td><td>{linha.andamento}</td><td>{linha.atrasadas ? <span className="sjBadgeR">{linha.atrasadas}</span> : 0}</td><td>{linha.prazo ? dataCurta(linha.prazo) : "—"}</td><td>{linha.concluidas}</td></tr>
               )) : <tr><td colSpan={6}>Nenhuma demanda cadastrada ainda.</td></tr>}
             </tbody>
           </table></div>
@@ -174,7 +213,10 @@ export function MarketingDemandasPainel() {
       <details className="sjCollapse" open>
         <summary><span className="sjChev">▸</span>Demandas, pautas e atas<span className="sjHint">clique para abrir</span></summary>
         <section className="sjCard sjBloco sjCollapseBody">
-          <h3>Demandas, pautas e atas</h3>
+          <div className="sjRole">
+            <h3>Demandas, pautas e atas</h3>
+            <button type="button" className="sjAnaliseBtn sjMkGrafBtn" onClick={onSalvo}>🔄 Atualizar</button>
+          </div>
           <div className="sjToolbar">
             <div className="sjTb"><label>Tipo<select className="sjInput" value={filtroTipo} onChange={(evento) => setFiltroTipo(evento.target.value as "" | Tipo)}><option value="">Todos</option><option value="demanda">Demandas</option><option value="pauta">Pautas</option><option value="ata">Atas</option></select></label></div>
             <div className="sjTb"><label>Responsável<select className="sjInput" value={filtroResp} onChange={(evento) => setFiltroResp(evento.target.value)}><option value="">Todos</option>{responsaveis.map((nome) => <option key={nome} value={nome}>{nome}</option>)}</select></label></div>
@@ -193,22 +235,22 @@ export function MarketingDemandasPainel() {
                     <td>
                       <b>{item.titulo}</b>
                       {item.descricao ? <p className="sjMini">{item.descricao}</p> : null}
-                      {item.decisoes ? <p className="sjMini">{item.decisoes}</p> : null}
-                      {item.participantes ? <p className="sjMini">{item.participantes}</p> : null}
-                      {origem ? <p className="sjMini">de: {origem.titulo}</p> : null}
+                      {item.decisoes ? <p className="sjMini sjMkOk">✔ {item.decisoes}</p> : null}
+                      {item.participantes ? <p className="sjMini">👥 {item.participantes}</p> : null}
+                      {origem ? <p className="sjMini">↳ de: {origem.titulo}</p> : null}
                     </td>
                     <td>{item.responsavel || "—"}</td>
                     <td>{item.prazo ? dataCurta(item.prazo) : "—"}</td>
                     <td><span className={item.prioridade === "alta" ? "sjBadgeR" : "sjBadge"}>{PRIO[item.prioridade]}</span></td>
                     <td>{tarde ? <span className="sjBadgeR">Atrasada</span> : <span className={item.status === "concluido" ? "sjBadgeG" : item.status === "andamento" ? "sjBadgeY" : item.status === "cancelado" ? "sjBadgeR" : "sjBadge"}>{STATUS[item.status]}</span>}</td>
                     <td>
-                      {item.tipo === "demanda" && pendente(item) ? <button type="button" className="sjAnaliseBtn" onClick={() => setItens((lista) => lista.map((atual) => atual.id === item.id ? { ...atual, status: "concluido" } : atual))}>Concluir</button> : null}
+                      {item.tipo === "demanda" && pendente(item) ? <button type="button" className="sjAnaliseBtn" style={{ background: "#1e5b3e" }} disabled={ocupado} onClick={() => { void concluir(item); }}>✓ Concluir</button> : null}
                       <button type="button" className="sjAnaliseBtn" onClick={() => editar(item)}>Editar</button>
-                      <button type="button" className="sjAnaliseBtn" style={{ background: "#3a1620" }} onClick={() => { if (window.confirm("Apagar este item? Ele sai só desta tela.")) setItens((lista) => lista.filter((atual) => atual.id !== item.id)); }}>Apagar</button>
+                      <button type="button" className="sjAnaliseBtn" style={{ background: "#3a1620" }} disabled={ocupado} onClick={() => { void apagar(item); }}>Apagar</button>
                     </td>
                   </tr>
                 );
-              }) : <tr><td colSpan={8}>Nada para aqui.</td></tr>}
+              }) : <tr><td colSpan={8}>Nada por aqui.</td></tr>}
             </tbody>
           </table></div>
         </section>

@@ -1,0 +1,61 @@
+/* Estilos extras das páginas Financeiro, RH e CMV (os globais ficam em bi.css). */
+.sjBtn { background: #221c17; color: #fff; border: 1px solid #3a2f26; border-radius: 10px; padding: 8px 12px; font-weight: 700; cursor: pointer; font-size: 13px; font: inherit; transition: background-color 180ms ease-out, transform 180ms ease-out; }
+.sjBtn:active { transform: scale(0.97); }
+.sjBtn:disabled { opacity: 0.55; cursor: not-allowed; }
+.sjBtnP { padding: 6px 10px; font-size: 12px; }
+.sjBtnR { background: #3a1620; border-color: #5c2530; }
+.sjBtnLaranja { background: #8a4423; border-color: #8a4423; }
+.sjBtnAccent { background: var(--accent); border-color: var(--accent); color: #fff; }
+.sjKpiSub { display: block; margin-top: 2px; }
+.sjKpiTip { margin-top: 8px; font-size: 12px; line-height: 1.5; color: var(--muted); border-top: 1px dashed var(--line); padding-top: 8px; }
+.sjKpiTipRow { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 6px; }
+.sjSpark { margin-top: 6px; height: 28px; }
+.sjSpark svg { width: 100%; height: 28px; display: block; }
+.sjFaixaMes { font-size: 17px; font-weight: 800; margin: 2px 0 6px; }
+.sjAviso { margin: 4px 0 6px; font-size: 12px; line-height: 1.5; color: var(--yellow); }
+.sjAvisoRed { color: var(--red); }
+.sjCampoAjuda { font-size: 12px; color: var(--muted); line-height: 1.45; }
+.sjCampoAjuda b { display: inline; font-size: 12px; color: var(--txt); }
+.sjInputRo { opacity: 0.85; }
+.sjLinhaAcoes { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; padding: 12px 0 2px; }
+.sjSep { border: 0; border-top: 1px solid var(--line); margin: 14px 0; }
+.sjSecao { margin: 10px 0 6px; font-weight: 800; letter-spacing: 0.02em; }
+.sjSecao .sjMini { display: inline; margin-left: 6px; }
+.sjAlertaBox { padding: 10px 12px; border-radius: 10px; margin-top: 8px; font-size: 13px; line-height: 1.5; border: 1px solid var(--line); }
+.sjAlertaBox.y { background: #f5b94214; border-color: #f5b9423d; }
+.sjAlertaBox.r { background: #f76e7c14; border-color: #f76e7c3d; }
+.sjAlertaBox code { font-size: 12px; background: #ffffff12; padding: 1px 5px; border-radius: 5px; }
+.sjGridInterno { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-top: 8px; }
+.sjGridInterno > .sjCard { grid-column: auto; }
+.sjGridMeio { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; margin-top: 8px; }
+.sjGridMeio > .sjCard { grid-column: auto; }
+.sjCheck { width: auto !important; }
+.sjSticky { white-space: nowrap; }
+.sjCabSetor td { padding: 9px 8px !important; font-weight: 800; letter-spacing: 0.3px; background: #1d1611; }
+.sjCabSetor .sjMini { display: inline; font-weight: 400; margin-left: 4px; }
+.sjTotalLinha td { font-weight: 700; background: #16110c; }
+.sjFaixaInfo td { padding: 8px !important; background: #16110c; }
+.sjCampoInline { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.sjCampoInline .sjInput { width: auto; min-width: 0; flex: 1; }
+.sjEfGrade { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 10px 14px; margin-top: 8px; }
+.sjEfGrade .sjEfCampo { display: flex; flex-direction: column; gap: 4px; }
+.sjEfGrade .sjEfCampo b { font-size: 13px; }
+.sjEfGrade .sjEfCampo.largo { grid-column: 1 / -1; }
+.sjEfGrade textarea.sjInput { min-height: 56px; resize: vertical; }
+.sjTabela { margin-top: 10px; overflow: auto; }
+.sjTabela table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.sjTabela th, .sjTabela td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+.sjTabela th { color: var(--muted); font-weight: 600; }
+.sjTabela input.sjInput { padding: 5px 7px; }
+.sjMiniLaranja { color: #e2a33d; }
+.sjMiniRoxo { color: #a78bfa; }
+.sjNotaRobo { margin-top: 8px; line-height: 1.55; }
+.sjCmvChart { margin-top: 12px; }
+.sjCmvChart svg { width: 100%; height: 240px; display: block; }
+.sjHistDia { display: flex; align-items: center; gap: 14px; width: 100%; text-align: left; padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px; margin-bottom: 8px; background: transparent; color: inherit; flex-wrap: wrap; }
+.sjHistDia:hover { border-color: var(--accent); background: #211c18; }
+.sjHistDiaAcoes { display: flex; gap: 8px; align-items: center; }
+.sjBadgeB { display: inline-flex; border-radius: 999px; padding: 1px 7px; font-size: 11px; font-weight: 800; background: #2b3a5c; color: #9ec1ff; }
+@media (max-width: 720px) {
+  .sjEfGrade { grid-template-columns: 1fr; }
+}
