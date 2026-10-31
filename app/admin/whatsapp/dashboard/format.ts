@@ -19,6 +19,16 @@ export function fmtHoras(valor: number | null | undefined) {
   return `${fmt1(valor)}h`;
 }
 
+export function fmtSegundos(valor: number | null | undefined) {
+  if (valor == null) return "—";
+  return `${fmt1(valor)}s`;
+}
+
+export function fmtMinutos(valor: number | null | undefined) {
+  if (valor == null) return "—";
+  return `${fmt1(valor)} min`;
+}
+
 export function fmtVar(valor: number | null | undefined) {
   if (valor == null) return "sem base";
   const sinal = valor > 0 ? "+" : "";

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import {
   CartesianGrid,
   Legend,
@@ -13,6 +13,7 @@ import {
 } from "recharts";
 import { FunilBarras } from "./FunilBarras";
 import { MapaCalor } from "./MapaCalor";
+import { OperacaoPainel } from "./OperacaoPainel";
 import { dataCurta, fmt1, fmtHoras, fmtInt, fmtPct, fmtVar, ultimaJanela } from "./format";
 import type { CasaOpcao, WhatsappDashboardSummary } from "./tipos";
 
@@ -59,6 +60,7 @@ export function WhatsappDashboard({
   onEstablishmentId,
   onAtualizar,
 }: Props) {
+  const [aba, setAba] = useState<"vendas" | "operacao">("vendas");
   const kpis = summary?.kpis;
   const funil = summary?.funil ?? [];
   const origens = summary?.origens ?? [];
@@ -111,6 +113,30 @@ export function WhatsappDashboard({
         </div>
       </div>
 
+      <div role="tablist" aria-label="Seções do dashboard" className="flex gap-1 border-b border-slate-200">
+        {([
+          { id: "vendas" as const, label: "Vendas" },
+          { id: "operacao" as const, label: "Operação" },
+        ]).map((item) => (
+          <button
+            key={item.id}
+            type="button"
+            role="tab"
+            aria-selected={aba === item.id}
+            onClick={() => setAba(item.id)}
+            className={`px-4 py-2 text-sm ${
+              aba === item.id
+                ? "border-b-2 border-amber-600 font-semibold text-slate-900"
+                : "text-slate-500 hover:text-slate-800"
+            }`}
+          >
+            {item.label}
+          </button>
+        ))}
+      </div>
+
+      {aba === "operacao" ? <OperacaoPainel summary={summary} /> : (
+      <>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <Kpi titulo="Reservas geradas" valor={fmtInt(kpis?.reservas)} nota={fmtVar(kpis?.variacaoReservasPct)} />
         <Kpi titulo="Pessoas por reserva" valor={fmt1(kpis?.pessoasPorReserva)} nota={`${fmtInt(kpis?.pessoas)} pessoas no período`} />
@@ -271,6 +297,8 @@ export function WhatsappDashboard({
           )}
         </div>
       </div>
+      </>
+      )}
     </section>
   );
 }

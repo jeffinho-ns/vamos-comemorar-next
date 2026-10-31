@@ -3,16 +3,30 @@ import type { WhatsappDashboardSummary } from "./tipos";
 const DIAS = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];
 const HORAS = Array.from({ length: 24 }, (_, i) => i);
 
-function tom(n: number, max: number) {
+function tom(n: number, max: number, paleta: "amber" | "violet") {
   if (!n || !max) return "bg-slate-100";
   const t = n / max;
+  if (paleta === "violet") {
+    if (t > 0.75) return "bg-violet-700";
+    if (t > 0.5) return "bg-violet-500";
+    if (t > 0.25) return "bg-violet-300";
+    return "bg-violet-200";
+  }
   if (t > 0.75) return "bg-amber-700";
   if (t > 0.5) return "bg-amber-500";
   if (t > 0.25) return "bg-amber-300";
   return "bg-amber-200";
 }
 
-export function MapaCalor({ heatmap }: { heatmap: NonNullable<WhatsappDashboardSummary["heatmap"]> }) {
+export function MapaCalor({
+  heatmap,
+  unidade = "reserva(s)",
+  paleta = "amber",
+}: {
+  heatmap: NonNullable<WhatsappDashboardSummary["heatmap"]>;
+  unidade?: string;
+  paleta?: "amber" | "violet";
+}) {
   const max = Math.max(1, ...heatmap.map((c) => c.n));
   const mapa = new Map(heatmap.map((c) => [`${c.dow}-${c.hora}`, c.n]));
   return (
@@ -35,8 +49,8 @@ export function MapaCalor({ heatmap }: { heatmap: NonNullable<WhatsappDashboardS
                   return (
                     <span
                       key={`${dow}-${hora}`}
-                      title={`${nome} ${hora}h · ${n} reserva(s)`}
-                      className={`h-4 rounded-sm ${tom(n, max)}`}
+                      title={`${nome} ${hora}h · ${n} ${unidade}`}
+                      className={`h-4 rounded-sm ${tom(n, max, paleta)}`}
                     />
                   );
                 })}

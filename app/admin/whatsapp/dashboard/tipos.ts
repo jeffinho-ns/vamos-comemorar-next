@@ -52,6 +52,31 @@ export type WhatsappDashboardSummary = {
     handoffAtivo: number;
     passaramHumano: number;
   };
+  operacao?: OperacaoSummary | null;
+};
+
+export type OperacaoPontoSemana = {
+  dia: string;
+  dow: number;
+  valor: number;
+};
+
+export type OperacaoSummary = {
+  taxaResolucaoPct: number;
+  taxaIaPct: number;
+  resolvidas: number;
+  total: number;
+  primeiraRespostaSegundos: number | null;
+  primeiraRespostaMediana: number | null;
+  resolucaoAutomatica: { ia: number; humano: number };
+  origemSessoes: { label: string; n: number; pct: number }[];
+  heatmapConversas: { dow: number; hora: number; n: number }[];
+  pico: { dia: string; hora: number; n: number } | null;
+  resolvidosPorDia: OperacaoPontoSemana[];
+  primeiraRespostaPorDia: OperacaoPontoSemana[];
+  tempoAtendimentoPorDia: OperacaoPontoSemana[];
+  categorias: { tema: string; n: number }[];
+  cancelamentos: { motivo: string; n: number; pct: number }[];
 };
 
 export type CasaOpcao = { id: number; name: string };
