@@ -57,9 +57,9 @@ function SerieSemana({
         {temDado ? (
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={dados} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-              <XAxis dataKey="dia" tick={{ fontSize: 11, fill: "#64748b" }} />
-              <YAxis tick={{ fontSize: 11, fill: "#64748b" }} tickFormatter={(v) => formatar(Number(v))} />
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--wa-grid, #e2e8f0)" />
+              <XAxis dataKey="dia" tick={{ fontSize: 11, fill: "var(--wa-eixo, #64748b)" }} />
+              <YAxis tick={{ fontSize: 11, fill: "var(--wa-eixo, #64748b)" }} tickFormatter={(v) => formatar(Number(v))} />
               <Tooltip formatter={(valor) => formatar(Number(valor ?? 0))} />
               <Line type="monotone" dataKey="valor" name={titulo} stroke={cor} strokeWidth={2} dot={false} />
             </LineChart>

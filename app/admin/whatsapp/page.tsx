@@ -13,6 +13,7 @@ import {
 import { useRouter, useSearchParams } from "next/navigation";
 import { io } from "socket.io-client";
 import {
+  MdArrowBack,
   MdChat,
   MdChevronRight,
   MdClose,
@@ -37,6 +38,9 @@ import AreasOverviewPanel from "@/app/components/restaurant-areas/AreasOverviewP
 import { WhatsappDashboard } from "./dashboard/WhatsappDashboard";
 import { ultimaJanela } from "./dashboard/format";
 import type { WhatsappDashboardSummary } from "./dashboard/tipos";
+import { TemaToggle } from "./TemaToggle";
+import { useTemaAtendimento } from "./tema";
+import "./atendimento.css";
 
 const API_URL = getApiUrl();
 const SOCKET_URL = getPublicSocketUrl();
@@ -913,6 +917,7 @@ function AdminWhatsappPageContent() {
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<WhatsappAdminTab>("relatorios");
+  const { tema, alternar } = useTemaAtendimento();
   const [inboxEstablishmentFilter, setInboxEstablishmentFilter] =
     useState<InboxEstablishmentFilter>(
       isWhatsappHighlineOnlyUser ? highlineEstablishmentId : "all",
@@ -1002,7 +1007,8 @@ function AdminWhatsappPageContent() {
     if (tabInitializedRef.current) return;
     tabInitializedRef.current = true;
     if (canAccessWhatsapp) {
-      setActiveTab("relatorios");
+      const mobile = window.matchMedia("(max-width: 1023px)").matches;
+      setActiveTab(mobile ? "atendimento" : "relatorios");
     } else if (canAccessIaTraining) {
       setActiveTab("treinamento");
     }
@@ -2831,7 +2837,7 @@ function AdminWhatsappPageContent() {
       >
         <div className="flex items-center gap-2">
           <div
-            className={`relative flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold text-white shadow-sm ${contactAvatarClass(c.wa_id)}`}
+            className={`relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold text-white shadow-sm ${contactAvatarClass(c.wa_id)}`}
             title="Foto de perfil não disponível via WhatsApp — exibindo iniciais"
           >
             {avatarInitials}
@@ -2914,14 +2920,15 @@ function AdminWhatsappPageContent() {
 
   return (
     <div
-      className={`flex flex-col mx-auto ${
+      data-wa-tema={tema}
+      className={`wa-shell flex flex-col mx-auto ${
         activeTab === "atendimento"
-          ? "h-[calc(100vh-4rem)] overflow-hidden gap-2 p-2 md:p-3 w-full max-w-none"
+          ? `wa-aba-conversas ${selectedWaId ? "wa-chat-aberta" : "wa-lista"} h-[calc(100vh-4rem)] overflow-hidden gap-2 p-2 md:p-3 w-full max-w-none`
           : "min-h-[calc(100vh-4rem)] gap-5 p-4 md:p-6 max-w-[1600px]"
       }`}
     >
       <div
-        className={`flex flex-wrap items-center justify-between gap-3 rounded-2xl border px-4 ${
+        className={`wa-chrome flex flex-wrap items-center justify-between gap-3 rounded-2xl border px-4 ${
           activeTab === "atendimento" ? "py-2 md:px-4" : "py-4 md:px-5"
         } ${
           isWhatsappHighlineOnlyUser
@@ -2954,6 +2961,7 @@ function AdminWhatsappPageContent() {
         </div>
         {showWhatsappInbox ? (
           <div className="flex flex-wrap items-center gap-2">
+            <TemaToggle tema={tema} onAlternar={alternar} />
             {handoffConversationsCount > 0 ? (
               <button
                 type="button"
@@ -2977,11 +2985,13 @@ function AdminWhatsappPageContent() {
               Atualizar
             </button>
           </div>
-        ) : null}
+        ) : (
+          <TemaToggle tema={tema} onAlternar={alternar} />
+        )}
       </div>
 
       {adminTabs.length > 1 ? (
-        <div className="rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+        <div className="wa-chrome rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden">
           <div className="flex gap-2 overflow-x-auto border-b border-gray-100 p-3 bg-gray-50/70">
             {adminTabs.map((tab) => {
               const isActive = activeTab === tab.id;
@@ -3122,7 +3132,7 @@ function AdminWhatsappPageContent() {
       ) : null}
 
       {activeTab === "atendimento" ? (
-      <div className="flex flex-1 min-h-0 gap-0 flex-col lg:flex-row border border-gray-200 rounded-xl overflow-hidden bg-white shadow-sm">
+      <div className={`wa-inbox flex flex-1 min-h-0 gap-0 flex-col lg:flex-row border border-gray-200 rounded-xl overflow-hidden bg-white shadow-sm ${selectedWaId ? "wa-chat-aberta" : ""}`}>
         <aside className="w-full lg:w-[min(100%,26rem)] xl:w-[30rem] shrink-0 border-b lg:border-b-0 lg:border-r border-gray-200 flex flex-col min-h-[45vh] lg:min-h-0 lg:h-full">
           <div className="px-2.5 py-2 border-b border-gray-100 space-y-1.5 shrink-0">
             <div className="flex flex-wrap items-center justify-between gap-2">
@@ -3339,9 +3349,18 @@ function AdminWhatsappPageContent() {
           ) : (
             <>
               <header
-                className={`px-4 py-3 border-b flex flex-wrap items-center justify-between gap-2 ${activeInboxEstablishmentTheme.headerBg} ${activeInboxEstablishmentTheme.headerBorder}`}
+                className={`px-3 py-2.5 lg:px-4 lg:py-3 border-b flex flex-wrap items-center justify-between gap-2 ${activeInboxEstablishmentTheme.headerBg} ${activeInboxEstablishmentTheme.headerBorder}`}
               >
-                <div>
+                <div className="flex min-w-0 items-start gap-2">
+                  <button
+                    type="button"
+                    className="wa-voltar mt-0.5 rounded-full p-1.5 text-gray-700 hover:bg-black/5"
+                    onClick={() => setSelectedWaId(null)}
+                    aria-label="Voltar às conversas"
+                  >
+                    <MdArrowBack size={22} />
+                  </button>
+                  <div>
                   <div className="flex flex-wrap items-center gap-2 mb-1">
                     <h2 className="font-semibold text-gray-900">
                       {conversationMeta?.contact_name ||
@@ -3354,8 +3373,8 @@ function AdminWhatsappPageContent() {
                       {selectedEstablishmentName || "Sem estabelecimento"}
                     </span>
                   </div>
-                  <p className="text-xs text-gray-500 font-mono">{selectedWaId}</p>
-                  <p className="text-xs text-gray-600">
+                  <p className="hidden text-xs text-gray-500 font-mono lg:block">{selectedWaId}</p>
+                  <p className="hidden text-xs text-gray-600 lg:block">
                     {selectedAssignee
                       ? `Responsável: ${selectedAssignee}`
                       : "Sem responsável"}
@@ -3371,6 +3390,7 @@ function AdminWhatsappPageContent() {
                       IA pausada — só você responde nesta conversa
                     </p>
                   )}
+                  </div>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <select
@@ -3385,7 +3405,7 @@ function AdminWhatsappPageContent() {
                       )
                     }
                     disabled={statusLoading}
-                    className="px-2 py-1.5 rounded-lg border border-gray-200 text-xs bg-white"
+                    className="wa-acoes-desktop px-2 py-1.5 rounded-lg border border-gray-200 text-xs bg-white"
                   >
                     <option value="new">Nova</option>
                     <option value="in_progress">Em andamento</option>
@@ -3396,7 +3416,7 @@ function AdminWhatsappPageContent() {
                     type="button"
                     onClick={handleAssignSelf}
                     disabled={assignLoading}
-                    className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-300 bg-white text-sm hover:bg-gray-50 disabled:opacity-50"
+                    className="wa-acoes-desktop inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-300 bg-white text-sm hover:bg-gray-50 disabled:opacity-50"
                   >
                     {assignLoading ? "Salvando…" : "Assumir pra mim"}
                   </button>
@@ -3404,7 +3424,7 @@ function AdminWhatsappPageContent() {
                     type="button"
                     onClick={handleUnassign}
                     disabled={assignLoading}
-                    className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-300 bg-white text-sm hover:bg-gray-50 disabled:opacity-50"
+                    className="wa-acoes-desktop inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-300 bg-white text-sm hover:bg-gray-50 disabled:opacity-50"
                   >
                     Liberar
                   </button>
@@ -3438,7 +3458,7 @@ function AdminWhatsappPageContent() {
                     type="button"
                     onClick={() => handleDeleteInboxRecord("conversation")}
                     disabled={deleteLoading !== null}
-                    className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-red-200 bg-white text-sm text-red-700 hover:bg-red-50 disabled:opacity-50"
+                    className="wa-acoes-desktop inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-red-200 bg-white text-sm text-red-700 hover:bg-red-50 disabled:opacity-50"
                   >
                     {deleteLoading === "conversation" ? "Excluindo…" : "Excluir conversa"}
                   </button>
@@ -3446,7 +3466,7 @@ function AdminWhatsappPageContent() {
                     type="button"
                     onClick={() => handleDeleteInboxRecord("contact")}
                     disabled={deleteLoading !== null}
-                    className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-red-300 bg-red-50 text-sm text-red-800 hover:bg-red-100 disabled:opacity-50"
+                    className="wa-acoes-desktop inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-red-300 bg-red-50 text-sm text-red-800 hover:bg-red-100 disabled:opacity-50"
                   >
                     {deleteLoading === "contact" ? "Excluindo…" : "Excluir contato"}
                   </button>
@@ -3454,7 +3474,7 @@ function AdminWhatsappPageContent() {
               </header>
 
               {selectedConversationEstablishmentId ? (
-                <details className="border-b border-gray-100 bg-white px-4 py-2">
+                <details className="hidden border-b border-gray-100 bg-white px-4 py-2 lg:block">
                   <summary className="cursor-pointer text-xs font-medium text-gray-500 hover:text-gray-700">
                     Ver áreas e mesas do estabelecimento
                   </summary>
@@ -3473,7 +3493,7 @@ function AdminWhatsappPageContent() {
                 <div
                   ref={messagesContainerRef}
                   onScroll={updateScrollPinState}
-                  className="flex-1 min-h-0 overflow-y-auto p-4 space-y-3 bg-gray-50/80"
+                  className="wa-chat-fundo flex-1 min-h-0 overflow-y-auto p-4 space-y-3"
                 >
                   {loadingThread && messages.length === 0 ? (
                     <p className="text-sm text-gray-500">Carregando mensagens…</p>
@@ -3486,8 +3506,8 @@ function AdminWhatsappPageContent() {
                       <div
                         className={`max-w-[85%] rounded-2xl px-4 py-2 text-sm shadow-sm ${
                         m.direction === "outbound"
-                          ? `${activeInboxEstablishmentTheme.outboundBubble} text-white rounded-br-md`
-                          : "bg-white text-gray-900 border border-gray-100 rounded-bl-md"
+                          ? `wa-bolha-out ${activeInboxEstablishmentTheme.outboundBubble} text-white rounded-br-md`
+                          : "wa-bolha-in bg-white text-gray-900 border border-gray-100 rounded-bl-md"
                         }`}
                       >
                         {m.media_url && m.message_type === "image" ? (
@@ -3539,7 +3559,7 @@ function AdminWhatsappPageContent() {
                 ) : null}
               </div>
 
-              <footer className="border-t border-gray-200 p-4 bg-white space-y-2">
+              <footer className="wa-compose border-t border-gray-200 p-4 bg-white space-y-2">
                 <label className="block text-xs font-medium text-gray-600">
                   {handoff
                     ? "Sua resposta (atendimento humano)"
@@ -3559,7 +3579,7 @@ function AdminWhatsappPageContent() {
                       }
                     }
                   }}
-                  rows={4}
+                  rows={2}
                   className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none resize-y min-h-[96px]"
                   placeholder={
                     handoff

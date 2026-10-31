@@ -303,14 +303,14 @@ export function WhatsappDashboard({
           {serie.length ? (
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={serie} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                <XAxis dataKey="label" tick={{ fontSize: 11, fill: "#64748b" }} />
-                <YAxis yAxisId="esq" allowDecimals={false} tick={{ fontSize: 11, fill: "#64748b" }} />
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--wa-grid, #e2e8f0)" />
+                <XAxis dataKey="label" tick={{ fontSize: 11, fill: "var(--wa-eixo, #64748b)" }} />
+                <YAxis yAxisId="esq" allowDecimals={false} tick={{ fontSize: 11, fill: "var(--wa-eixo, #64748b)" }} />
                 {zig ? (
                   <YAxis
                     yAxisId="dir"
                     orientation="right"
-                    tick={{ fontSize: 11, fill: "#64748b" }}
+                    tick={{ fontSize: 11, fill: "var(--wa-eixo, #64748b)" }}
                     tickFormatter={(valor) => fmtReais(Number(valor))}
                   />
                 ) : null}
