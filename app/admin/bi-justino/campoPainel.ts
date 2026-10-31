@@ -43,7 +43,7 @@ function doBanco(
 
 function campoLive(campo: string, live: BiLiveData | null | undefined): CampoPainel | null {
   if (!live) return null;
-  if (campo === "Reservas geradas no dia") return doBanco(live.hoje.reservas, "int", "Reservas de hoje no Agilizai");
+  if (campo === "Reservas geradas no dia") return doBanco(live.hoje.reservas, "int", "Reservas de hoje (Agilizaiapp + Dionísio, sem duplicar)");
   if (campo === "Comparecimento das reservas") {
     if (!live.hoje.reservas) return doBanco(null, "pct", "Sem reserva hoje para calcular o comparecimento");
     return doBanco(

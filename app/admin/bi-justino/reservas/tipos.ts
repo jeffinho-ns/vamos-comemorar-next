@@ -1,5 +1,7 @@
 /** Tipos e rótulos da aba Reservas (iguais ao painel do Renato). */
 
+export type ReservaFonte = "agilizai" | "dionisio" | "ambos";
+
 export interface ReservaEntry {
   id: string;
   date: string;
@@ -15,6 +17,9 @@ export interface ReservaEntry {
   origem: string;
   ativacaoId: string;
   hora: string;
+  fonte?: ReservaFonte;
+  idAgilizai?: number | null;
+  idDionisio?: string;
 }
 
 /** Documento de getReservations (soma por dia). */
@@ -66,6 +71,11 @@ export interface CrmConfigLeitura {
 
 export const RESERVATION_TIPO_LABEL: Record<string, string> = { normal: "Normal", happyHour: "Happy Hour", despedida: "Despedida", aniversario: "Aniversário" };
 export const RESERVA_ORIGEM_LABEL: Record<string, string> = { instagram: "📸 Instagram", whatsapp: "WhatsApp direto", indicacao: "Indicação", google: "Google/site", porta: "Passou na porta", outro: "Outro" };
+export const RESERVA_FONTE_LABEL: Record<ReservaFonte, string> = { agilizai: "Agilizaiapp", dionisio: "Dionísio", ambos: "Ambos" };
+
+export function reservaSoDionisio(e: ReservaEntry) {
+  return !e.fonte || e.fonte === "dionisio";
+}
 export const CRM_META = { cancel: 10, noshow: 8, comparece: 90 };
 
 export function parseConvidados(raw: string) {

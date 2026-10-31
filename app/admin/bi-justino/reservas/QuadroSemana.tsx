@@ -25,6 +25,7 @@ export function QuadroSemana({ porData, eventosPax, live, recarregar }: { porDat
   return (
     <Cartao titulo="Quadro geral da semana" aberto={false}>
       <div className="sjRole"><h3>{modo === "mes" ? "Quadro geral do mês" : "Quadro geral da semana"}</h3><span className="opLinhaAcoes" style={{ marginTop: 0 }}><button type="button" className="sjAnaliseBtn" style={{ marginTop: 0 }} onClick={recarregar}>🔄 Atualizar</button><button type="button" className="sjAnaliseBtn" style={{ marginTop: 0 }} onClick={() => window.print()}>🖨 Imprimir</button></span></div>
+      <p className="sjNote">Pax do quadro: Agilizaiapp + Dionísio, sem contar duas vezes a mesma reserva.</p>
       <div className="sjToolbar">
         <div className="sjTb"><label>Visualização<select className="sjInput" value={modo} onChange={(e) => setModo(e.target.value as "semana" | "mes")}><option value="semana">Semana</option><option value="mes">Mês completo</option></select></label></div>
         {modo === "semana" ? (
@@ -55,7 +56,7 @@ export function QuadroSemana({ porData, eventosPax, live, recarregar }: { porDat
           </table>
         )}
       </div>
-      <h3 className="sjFormTitulo" style={{ fontSize: 14 }}>Reservas do Agilizai (nosso banco) — semana atual</h3>
+      <h3 className="sjFormTitulo" style={{ fontSize: 14 }}>Check-in ao vivo no Agilizaiapp — semana atual</h3>
       <TabelaQuadroSemana live={live} />
     </Cartao>
   );

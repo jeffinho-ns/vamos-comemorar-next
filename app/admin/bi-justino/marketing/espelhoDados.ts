@@ -37,6 +37,8 @@ export const CHAVES_MARKETING = [
   "getZigBilheteria",
   "getFreelancerRequests",
   "getMonthClosures:marketing",
+  "getReservations",
+  "getReservationEntries",
   "getDuvidas",
 ] as const;
 

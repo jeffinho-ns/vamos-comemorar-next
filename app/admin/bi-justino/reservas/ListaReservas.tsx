@@ -8,7 +8,7 @@ import { mesFechado } from "../operacao/FecharMes";
 import { fmtData, fmtHora } from "../operacao/formato";
 import type { BiLiveData } from "../useBiLive";
 import { celulaReserva } from "../tabelasReais";
-import { RESERVA_ORIGEM_LABEL, RESERVATION_TIPO_LABEL, parseConvidados, type ReservaEntry } from "./tipos";
+import { RESERVA_FONTE_LABEL, RESERVA_ORIGEM_LABEL, RESERVATION_TIPO_LABEL, parseConvidados, reservaSoDionisio, type ReservaEntry } from "./tipos";
 
 function abrirListaConvidados(e: ReservaEntry) {
   const nomes = parseConvidados(e.convidados);
@@ -20,10 +20,11 @@ function abrirListaConvidados(e: ReservaEntry) {
   return "";
 }
 
-/** "Lista de reservas" da planilha (renderReservasHistory) + reservas recentes do NOSSO banco. */
+/** Lista unificada: Dionísio + Agilizaiapp (`/admin/restaurant-reservations`), duplicata conta uma vez. */
 export function ListaReservas({ entradas, fechamentos, diretoria, live, aoEditar, aoMudar, recarregar }: { entradas: ReservaEntry[]; fechamentos: FechamentoMes[]; diretoria: boolean; live: BiLiveData | null; aoEditar: (e: ReservaEntry) => void; aoMudar: () => void; recarregar: () => void }) {
   const [sel, setSel] = useState<Set<string>>(new Set());
   const [status, setStatus] = useState("");
+  const apagaveis = entradas.filter(reservaSoDionisio);
 
   async function apagar(id: string, confirmar = true) {
     if (confirmar && !window.confirm("Apagar essa reserva? Essa ação não tem volta (fica registrada no histórico de exclusões da Diretoria).")) return false;
@@ -33,8 +34,8 @@ export function ListaReservas({ entradas, fechamentos, diretoria, live, aoEditar
   }
   async function apagarSelecionadas() {
     const ids = Array.from(sel);
-    if (!ids.length) { setStatus("Marque pelo menos uma reserva."); return; }
-    if (!window.confirm(`Apagar ${ids.length} reserva(s)? Essa ação não tem volta (fica registrada no histórico de exclusões da Diretoria).`)) return;
+    if (!ids.length) { setStatus("Marque pelo menos uma reserva do Dionísio."); return; }
+    if (!window.confirm(`Apagar ${ids.length} reserva(s) do Dionísio? Essa ação não tem volta (fica registrada no histórico de exclusões da Diretoria).`)) return;
     let ok = 0;
     for (const id of ids) { if (await apagar(id, false)) ok += 1; setStatus(`Apagando… (${ok}/${ids.length})`); }
     setSel(new Set());
@@ -55,31 +56,35 @@ export function ListaReservas({ entradas, fechamentos, diretoria, live, aoEditar
           <span className="sjMini">{status}</span>
         </span>
       </div>
+      <p className="sjNote">Junta as reservas do <b>Agilizaiapp</b> (página de reservas do restaurante) com as do <b>Dionísio</b>. Se a mesma pessoa estiver nos dois, conta uma vez (telefone + data). Edição e exclusão daqui só valem para o que ainda está só no Dionísio.</p>
       <div className="sjTableInner opTabela">
         <table>
-          <thead><tr><th>Data</th><th>Cliente</th><th>Telefone</th><th>E-mail</th><th>Pax</th><th>Tipo</th><th>Observação</th><th>Enviado por</th><th>Hora</th><th>Ação</th><th><input type="checkbox" className="opCheck" title="Selecionar todas" checked={entradas.length > 0 && entradas.every((e) => sel.has(e.id))} onChange={(e) => setSel(e.target.checked ? new Set(entradas.map((x) => x.id)) : new Set())} /></th></tr></thead>
+          <thead><tr><th>Fonte</th><th>Data</th><th>Cliente</th><th>Telefone</th><th>E-mail</th><th>Pax</th><th>Tipo</th><th>Observação</th><th>Enviado por</th><th>Hora</th><th>Ação</th><th><input type="checkbox" className="opCheck" title="Selecionar as do Dionísio" checked={apagaveis.length > 0 && apagaveis.every((e) => sel.has(e.id))} onChange={(e) => setSel(e.target.checked ? new Set(apagaveis.map((x) => x.id)) : new Set())} /></th></tr></thead>
           <tbody>
             {entradas.length ? entradas.map((e) => {
               const nomes = parseConvidados(e.convidados);
               const travada = !diretoria && mesFechado(fechamentos, e.date);
+              const soDionisio = reservaSoDionisio(e);
+              const fonte = e.fonte && RESERVA_FONTE_LABEL[e.fonte] ? RESERVA_FONTE_LABEL[e.fonte] : "Dionísio";
               return (
                 <tr key={e.id}>
+                  <td><span className="sjMini">{fonte}</span></td>
                   <td>{fmtData(e.date)}{e.hora ? <><br /><span className="sjMini">chega {e.hora}</span></> : null}</td>
                   <td>{e.nomeCliente || "—"}</td><td className="sjMini">{e.telefone || "—"}</td><td className="sjMini">{e.email || "—"}</td><td>{e.pax}</td>
                   <td>{RESERVATION_TIPO_LABEL[e.tipo] ?? e.tipo}{e.origem ? <><br /><span className="sjMini">{RESERVA_ORIGEM_LABEL[e.origem] ?? e.origem}</span></> : null}</td>
                   <td className="sjMini">{e.observacao || "—"}</td><td className="sjMini">{e.submittedByName || "—"}</td><td>{fmtHora(e.submittedAt)}</td>
                   <td><div className="opAcoes">
                     {nomes.length ? <BotaoAcao destaque onClick={() => { const m = abrirListaConvidados(e); if (m) setStatus(m); }}>👥 Lista ({nomes.length})</BotaoAcao> : null}
-                    {travada ? <span className="sjMini">🔒 mês fechado</span> : <><BotaoAcao onClick={() => aoEditar(e)}>Editar</BotaoAcao><BotaoAcao perigo onClick={async () => { if (await apagar(e.id)) aoMudar(); }}>Apagar</BotaoAcao></>}
+                    {soDionisio ? (travada ? <span className="sjMini">🔒 mês fechado</span> : <><BotaoAcao onClick={() => aoEditar(e)}>Editar</BotaoAcao><BotaoAcao perigo onClick={async () => { if (await apagar(e.id)) aoMudar(); }}>Apagar</BotaoAcao></>) : <span className="sjMini">{e.fonte === "ambos" ? "já no Agilizaiapp" : "gerida no Agilizaiapp"}</span>}
                   </div></td>
-                  <td><input type="checkbox" className="opCheck" checked={sel.has(e.id)} onChange={(ev) => setSel((a) => { const n = new Set(a); if (ev.target.checked) n.add(e.id); else n.delete(e.id); return n; })} /></td>
+                  <td>{soDionisio ? <input type="checkbox" className="opCheck" checked={sel.has(e.id)} onChange={(ev) => setSel((a) => { const n = new Set(a); if (ev.target.checked) n.add(e.id); else n.delete(e.id); return n; })} /> : null}</td>
                 </tr>
               );
-            }) : <tr><td colSpan={11} className="sjMini">Sem reservas ainda.</td></tr>}
+            }) : <tr><td colSpan={12} className="sjMini">Sem reservas ainda.</td></tr>}
           </tbody>
         </table>
       </div>
-      <h3 className="sjFormTitulo" style={{ fontSize: 14 }}>Reservas recentes do Agilizai (nosso banco) • {quando}</h3>
+      <h3 className="sjFormTitulo" style={{ fontSize: 14 }}>Check-in ao vivo no Agilizaiapp • {quando}</h3>
       <div className="sjTableInner opTabela">
         <table>
           <thead><tr>{colunasBanco.map((c) => <th key={c}>{c}</th>)}</tr></thead>
