@@ -713,6 +713,26 @@ function buildInboxDayGroups(rows: ConversationRow[]): InboxDayGroup[] {
     .sort((a, b) => b.sortValue - a.sortValue);
 }
 
+function renderWhatsappBody(body: string) {
+  const parts = body.split(/(https?:\/\/[^\s]+)/gi);
+  return parts.map((part, index) => {
+    if (!/^https?:\/\//i.test(part)) {
+      return part;
+    }
+    return (
+      <a
+        key={`link-${index}`}
+        href={part}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="underline break-all"
+      >
+        {part}
+      </a>
+    );
+  });
+}
+
 function pickLatestSuggestedReply(messages: MessageRow[]): string {
   for (let i = messages.length - 1; i >= 0; i -= 1) {
     const m = messages[i];
@@ -3502,10 +3522,10 @@ function AdminWhatsappPageContent() {
                   {messages.map((m) => (
                     <div
                       key={m.id}
-                      className={`flex ${m.direction === "outbound" ? "justify-end" : "justify-start"}`}
+                      className={`flex w-full min-w-0 ${m.direction === "outbound" ? "justify-end" : "justify-start"}`}
                     >
                       <div
-                        className={`max-w-[85%] rounded-2xl px-4 py-2 text-sm shadow-sm ${
+                        className={`min-w-0 max-w-[85%] rounded-2xl px-4 py-2 text-sm shadow-sm ${
                         m.direction === "outbound"
                           ? `wa-bolha-out ${activeInboxEstablishmentTheme.outboundBubble} text-white rounded-br-md`
                           : "wa-bolha-in bg-white text-gray-900 border border-gray-100 rounded-bl-md"
@@ -3527,7 +3547,9 @@ function AdminWhatsappPageContent() {
                           </a>
                         ) : null}
                         {m.body ? (
-                          <p className="whitespace-pre-wrap">{m.body}</p>
+                          <p className="whitespace-pre-wrap break-words [overflow-wrap:anywhere]">
+                            {renderWhatsappBody(m.body)}
+                          </p>
                         ) : null}
                         {m.direction === "inbound" && m.intent ? (
                           <p className="text-[10px] mt-1 opacity-80">

@@ -111,10 +111,25 @@
   color: #e9edef !important;
 }
 
+.wa-inbox,
+.wa-inbox section,
+.wa-inbox .relative.flex-1 {
+  min-width: 0;
+}
+
 .wa-inbox .wa-chat-fundo {
+  min-width: 0;
+  overflow-x: hidden;
   background-color: var(--wa-chat);
   background-image: radial-gradient(rgba(0, 0, 0, 0.04) 0.6px, transparent 0.6px);
   background-size: 14px 14px;
+}
+
+.wa-bolha-in,
+.wa-bolha-out {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .wa-shell[data-wa-tema="escuro"] .wa-inbox .wa-chat-fundo {
@@ -245,7 +260,9 @@
 
   .wa-inbox.wa-chat-aberta section {
     display: flex;
+    min-width: 0;
     min-height: 0;
+    width: 100%;
   }
 
   .wa-inbox aside .overflow-y-auto button.w-full {
