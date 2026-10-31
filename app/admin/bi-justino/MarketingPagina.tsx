@@ -57,7 +57,6 @@ export function MarketingPagina({
   dre: DreAoVivo | null;
   onSalvo: () => void;
 }) {
-  void zig;
   void novidades;
   void dre;
   const [aba, setAba] = useState<AbaId>("daily");
@@ -121,7 +120,7 @@ export function MarketingPagina({
       <div key={aba} className="sjGrid sjStage">
         {carregando && !Object.keys(dados).length ? <p className="sjMini">Carregando a cópia da planilha…</p> : null}
         {aba === "daily" ? <MarketingRegistro dados={dados} kpis={kpis} onSalvo={salvo} onRascunho={setRascunho} /> : null}
-        {aba === "plan" ? <MarketingProjecaoPainel dados={dados} onSalvo={salvo} onGastoProjetado={setGastoProjetado} /> : null}
+        {aba === "plan" ? <MarketingProjecaoPainel dados={dados} zig={zig} onSalvo={salvo} onGastoProjetado={setGastoProjetado} /> : null}
         {aba === "dem" ? <MarketingDemandasPainel dados={dados} onSalvo={salvo} /> : null}
         {aba === "graf" ? <MarketingGraficosPainel dados={dados} onSalvo={salvo} /> : null}
         {aba === "ins" || aba === "insta" || aba === "deli" || aba === "aval" ? <MarketingCanaisPainel aba={aba} dados={dados} onSalvo={salvo} /> : null}

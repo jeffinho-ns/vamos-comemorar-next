@@ -2,25 +2,30 @@
 
 import type { MkAtual } from "./espelhoDados";
 
-export type Plano = { data: string; trafego: number; outros: number; atracoes: number; publico: number; ticket: number; nota: string };
+export type Plano = {
+  data: string;
+  trafego: number;
+  outros: number;
+  atracoes: number;
+  publico: number;
+  ticket: number;
+  receita: number;
+  nota: string;
+};
 
 const SEMANA = ["dom.", "seg.", "ter.", "qua.", "qui.", "sex.", "sáb."];
 
-function reais(valor: number) {
-  return valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
+/** Mesmo `brl` do painel do Renato. */
+function brl(valor: number) {
+  return (Number(valor) || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
 }
 
-function reaisDelta(valor: number) {
-  const texto = Math.abs(valor).toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
-  if (valor > 0) return `+${texto}`;
-  if (valor < 0) return `-${texto}`;
-  return texto;
-}
-
-function dataCurta(iso: string) {
-  const [ano, mes, dia] = iso.split("-").map(Number);
-  const nome = SEMANA[new Date(Date.UTC(ano, mes - 1, dia)).getUTCDay()] || "";
-  return `${nome} ${String(dia).padStart(2, "0")}/${String(mes).padStart(2, "0")}/${ano}`;
+/** Mesmo `fmtDate` do painel do Renato (`s+'T12:00:00'`). */
+function fmtDate(iso: string) {
+  if (!iso) return "—";
+  const [, mes, dia] = iso.split("-");
+  const nome = SEMANA[new Date(`${iso}T12:00:00`).getDay()] || "";
+  return `${nome} ${dia}/${mes}/${iso.slice(0, 4)}`;
 }
 
 export type LinhaComparada = ReturnType<typeof comparar>[number];
@@ -43,7 +48,7 @@ export function comparar(planos: Plano[], mkAtual: Record<string, MkAtual>, hoje
   const datas = new Set<string>([...porPlano.keys(), ...Object.keys(mkAtual)]);
   return [...datas].sort((a, b) => b.localeCompare(a)).slice(0, 60).map((dia) => {
     const plano = porPlano.get(dia);
-    const fatPlan = plano ? plano.publico * plano.ticket : null;
+    const fatPlan = plano ? plano.receita : null;
     const gastoPlan = plano ? plano.trafego + plano.outros + plano.atracoes : null;
     const atual = dia <= hoje ? mkAtual[dia] : undefined;
     const fatReal = atual ? atual.revenue : null;
@@ -86,7 +91,7 @@ export function ProjetadoRealizado({
   onMarcarTodas: (ligado: boolean) => void;
 }) {
   return (
-      <details className="sjCollapse">
+      <details className="sjCollapse" open>
         <summary><span className="sjChev">▸</span>Projetado × Realizado<span className="sjHint">clique para abrir</span></summary>
         <section className="sjCard sjBloco sjCollapseBody">
           <div className="sjRole">
@@ -97,7 +102,7 @@ export function ProjetadoRealizado({
               <span className="sjMini" role="status">{statusLote}</span>
             </span>
           </div>
-          <div className="sjTableInner">
+          <div className="sjTableInner sjMkCmp">
             <table>
               <thead>
                 <tr>
@@ -116,13 +121,13 @@ export function ProjetadoRealizado({
               <tbody>
                 {linhas.length ? linhas.map((linha) => (
                   <tr key={linha.data}>
-                    <td>{dataCurta(linha.data)}</td>
-                    <td>{linha.fatPlan == null ? "—" : reais(linha.fatPlan)}</td>
-                    <td>{linha.fatReal == null ? "—" : reais(linha.fatReal)}</td>
-                    <td className={classeDelta(linha.diffFat)}>{linha.diffFat == null ? "—" : reaisDelta(linha.diffFat)}</td>
-                    <td>{linha.gastoPlan == null ? "—" : reais(linha.gastoPlan)}</td>
-                    <td>{linha.gastoReal == null ? "—" : reais(linha.gastoReal)}</td>
-                    <td className={classeDelta(linha.diffGasto)}>{linha.diffGasto == null ? "—" : reaisDelta(linha.diffGasto)}</td>
+                    <td>{fmtDate(linha.data)}</td>
+                    <td>{linha.fatPlan == null ? "—" : brl(linha.fatPlan)}</td>
+                    <td>{linha.fatReal == null ? "—" : brl(linha.fatReal)}</td>
+                    <td className={classeDelta(linha.diffFat)}>{linha.diffFat == null ? "—" : brl(linha.diffFat)}</td>
+                    <td>{linha.gastoPlan == null ? "—" : brl(linha.gastoPlan)}</td>
+                    <td>{linha.gastoReal == null ? "—" : brl(linha.gastoReal)}</td>
+                    <td className={classeDelta(linha.diffGasto)}>{linha.diffGasto == null ? "—" : brl(linha.diffGasto)}</td>
                     <td>{linha.diffGasto == null ? "—" : linha.diffGasto >= 0 ? <span className="sjBadge g">DENTRO DO PLANO</span> : <span className="sjBadge r">ACIMA DO PLANO</span>}</td>
                     <td>{linha.temPlano ? <button type="button" className="sjAnaliseBtn sjMkGrafBtn" style={{ background: "#3a1620" }} disabled={ocupado} onClick={() => onApagar(linha.data)}>Apagar</button> : "—"}</td>
                     <td>
@@ -139,12 +144,12 @@ export function ProjetadoRealizado({
                 {linhas.length ? (
                   <tr className="sjMkTotal">
                     <td>Total ({linhas.length} dia(s))</td>
-                    <td>{reais(soma(linhas, "fatPlan"))}</td>
-                    <td>{reais(soma(linhas, "fatReal"))}</td>
-                    <td className={classeDelta(soma(linhas, "diffFat"))}>{reaisDelta(soma(linhas, "diffFat"))}</td>
-                    <td>{reais(soma(linhas, "gastoPlan"))}</td>
-                    <td>{reais(soma(linhas, "gastoReal"))}</td>
-                    <td className={classeDelta(soma(linhas, "diffGasto"))}>{reaisDelta(soma(linhas, "diffGasto"))}</td>
+                    <td>{brl(soma(linhas, "fatPlan"))}</td>
+                    <td>{brl(soma(linhas, "fatReal"))}</td>
+                    <td className={classeDelta(soma(linhas, "diffFat"))}>{brl(soma(linhas, "diffFat"))}</td>
+                    <td>{brl(soma(linhas, "gastoPlan"))}</td>
+                    <td>{brl(soma(linhas, "gastoReal"))}</td>
+                    <td className={classeDelta(soma(linhas, "diffGasto"))}>{brl(soma(linhas, "diffGasto"))}</td>
                     <td /><td /><td />
                   </tr>
                 ) : null}

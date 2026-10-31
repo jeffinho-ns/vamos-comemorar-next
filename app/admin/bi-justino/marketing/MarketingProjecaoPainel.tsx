@@ -3,7 +3,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { getApiUrl } from "../../../config/api";
 import type { DadosPlanilha } from "../usePlanilha";
+import type { ZigAoVivo } from "../zigValor";
 import { lerEntradas, mkAtualPorData, planosPorData, type MkAtual } from "./espelhoDados";
+import type { MkPlanDoc } from "./espelhoTipos";
 import { margemDoDia } from "./margemDia";
 import { comparar, ProjetadoRealizado, type Plano } from "./ProjetadoRealizado";
 
@@ -14,16 +16,40 @@ function token() {
   return localStorage.getItem("authToken") || localStorage.getItem("token");
 }
 
-function planosDoEspelho(dados: DadosPlanilha): Plano[] {
-  return Object.values(planosPorData(dados)).map((item) => ({
+function paraPlano(item: Pick<MkPlanDoc, "date" | "trafficPlan" | "otherPlan" | "attractionsPlan" | "publicPlan" | "ticketPlan" | "revenuePlan" | "note">): Plano {
+  const publico = Number(item.publicPlan) || 0;
+  const ticket = Number(item.ticketPlan) || 0;
+  const receita = item.revenuePlan != null && Number.isFinite(Number(item.revenuePlan))
+    ? Number(item.revenuePlan)
+    : publico * ticket;
+  return {
     data: item.date,
-    trafego: item.trafficPlan,
-    outros: item.otherPlan,
-    atracoes: item.attractionsPlan,
-    publico: item.publicPlan,
-    ticket: item.ticketPlan,
-    nota: item.note,
-  }));
+    trafego: Number(item.trafficPlan) || 0,
+    outros: Number(item.otherPlan) || 0,
+    atracoes: Number(item.attractionsPlan) || 0,
+    publico,
+    ticket,
+    receita,
+    nota: item.note || "",
+  };
+}
+
+function planosDoEspelho(dados: DadosPlanilha, zig: ZigAoVivo | null): Plano[] {
+  return Object.values(planosPorData(dados, zig?.mkPlans ?? [])).map(paraPlano);
+}
+
+function mkAtualUnido(dados: DadosPlanilha, zig: ZigAoVivo | null): Record<string, MkAtual> {
+  const saida: Record<string, MkAtual> = {};
+  for (const linha of zig?.lancamentos?.marketing ?? []) {
+    const dia = String(linha.date || "").slice(0, 10);
+    if (!dia) continue;
+    const n = (chave: string) => Number(linha[chave]) || 0;
+    saida[dia] = {
+      spend: n("mkTraffic") + n("mkOther") + n("mkAttractions"),
+      revenue: (n("mkShow") + n("mkWalkins")) * n("mkTicket"),
+    };
+  }
+  return { ...saida, ...mkAtualPorData(lerEntradas(dados, "marketing")) };
 }
 
 async function chamar(caminho: string, corpo: Record<string, unknown>) {
@@ -106,10 +132,12 @@ function leituras(receita: number, gasto: number, trafego: number, atracoes: num
 
 export function MarketingProjecaoPainel({
   dados,
+  zig,
   onSalvo,
   onGastoProjetado,
 }: {
   dados: DadosPlanilha;
+  zig: ZigAoVivo | null;
   onSalvo: () => void;
   onGastoProjetado: (gasto: number) => void;
 }) {
@@ -126,14 +154,14 @@ export function MarketingProjecaoPainel({
   const [locais, setLocais] = useState<Plano[]>([]);
   const [apagadas, setApagadas] = useState<string[]>([]);
   const [marcadas, setMarcadas] = useState<string[]>([]);
-  const mkAtual = useMemo(() => mkAtualPorData(lerEntradas(dados, "marketing")), [dados]);
+  const mkAtual = useMemo(() => mkAtualUnido(dados, zig), [dados, zig]);
   const planos = useMemo(() => {
     const mapa = new Map<string, Plano>();
-    planosDoEspelho(dados).forEach((plano) => mapa.set(plano.data, plano));
+    planosDoEspelho(dados, zig).forEach((plano) => mapa.set(plano.data, plano));
     locais.forEach((plano) => mapa.set(plano.data, plano));
     apagadas.forEach((dia) => mapa.delete(dia));
     return [...mapa.values()];
-  }, [dados, locais, apagadas]);
+  }, [dados, zig, locais, apagadas]);
   const trafegoN = numero(trafego);
   const outrosN = numero(outros);
   const atracoesN = numero(atracoes);
@@ -178,7 +206,7 @@ export function MarketingProjecaoPainel({
         setStatus(r.error === "sem_login" ? "Entre de novo para salvar." : "Falha ao salvar, tenta de novo.");
         return;
       }
-      const plano: Plano = { data, trafego: trafegoN, outros: outrosN, atracoes: atracoesN, publico: publicoN, ticket: ticketN, nota: nota.trim() };
+      const plano: Plano = { data, trafego: trafegoN, outros: outrosN, atracoes: atracoesN, publico: publicoN, ticket: ticketN, receita: publicoN * ticketN, nota: nota.trim() };
       setLocais((lista) => [plano, ...lista.filter((item) => item.data !== data)]);
       setApagadas((lista) => lista.filter((dia) => dia !== data));
       setStatus(r.planilha ? `Projeção salva para ${dataCurta(data)}.` : `Projeção salva neste painel para ${dataCurta(data)}; a planilha recebe na próxima conexão.`);

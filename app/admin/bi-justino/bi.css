@@ -504,3 +504,4 @@
 .sjMkDiaStat .sjMini { display: block; }
 .sjMkDiaStat b { font-size: 12.5px; }
 .sjMkTotal td { font-weight: 900; border-top: 2px solid var(--line); }
+.sjTableInner.sjMkCmp table { min-width: 1080px; }

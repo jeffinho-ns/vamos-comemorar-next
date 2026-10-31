@@ -63,9 +63,22 @@ export function lerZig(dados: DadosPlanilha): ZigPorData {
   return { revenue, publico, servico };
 }
 
+/** Aceita { docs }, { items }, { mkPlans } ou o array cru — o coletor às vezes guarda o JSON inteiro da ação. */
+export function listaDocs<T>(bruto: unknown): T[] {
+  if (!bruto) return [];
+  if (Array.isArray(bruto)) return bruto as T[];
+  if (typeof bruto !== "object") return [];
+  const obj = bruto as Record<string, unknown>;
+  if (Array.isArray(obj.docs)) return obj.docs as T[];
+  if (Array.isArray(obj.items)) return obj.items as T[];
+  if (Array.isArray(obj.mkPlans)) return obj.mkPlans as T[];
+  if (obj.payload) return listaDocs<T>(obj.payload);
+  return [];
+}
+
 export function lerEntradas(dados: DadosPlanilha, area: string): EntryDoc[] {
   const resp = payloadDe<EntriesResp>(dados, `getEntries:${area}`);
-  return (resp?.docs ?? []).filter((doc) => doc && typeof doc.date === "string");
+  return listaDocs<EntryDoc>(resp).filter((doc) => doc && typeof doc.date === "string");
 }
 
 export function valorDe(doc: EntryDoc | null | undefined, chave: string): number | null {
@@ -102,10 +115,12 @@ export function ultimoPorArea(dados: DadosPlanilha): Record<AreaEnvio, EntryDoc 
   return saida;
 }
 
-export function planosPorData(dados: DadosPlanilha): Record<string, MkPlanDoc> {
-  const resp = payloadDe<MkPlansResp>(dados, "getMkPlans");
+export function planosPorData(dados: DadosPlanilha, extras: MkPlanDoc[] = []): Record<string, MkPlanDoc> {
   const saida: Record<string, MkPlanDoc> = {};
-  for (const doc of resp?.docs ?? []) {
+  for (const doc of extras) {
+    if (doc?.date) saida[doc.date] = doc;
+  }
+  for (const doc of listaDocs<MkPlanDoc>(payloadDe<MkPlansResp>(dados, "getMkPlans"))) {
     if (doc?.date) saida[doc.date] = doc;
   }
   return saida;
