@@ -11,6 +11,7 @@ import {
   MdEmojiEmotions,
   MdImage,
   MdVerifiedUser,
+  MdPhotoCamera,
 } from 'react-icons/md';
 import { useEstablishments } from '@/app/hooks/useEstablishments';
 import { useEstablishmentPermissions } from '@/app/hooks/useEstablishmentPermissions';
@@ -23,6 +24,7 @@ import InfoTab from './aiConfig/InfoTab';
 import StickersTab from './aiConfig/StickersTab';
 import FlyersTab from './aiConfig/FlyersTab';
 import AllowedNumbersTab from './aiConfig/AllowedNumbersTab';
+import InstagramTab from './aiConfig/InstagramTab';
 import { useAiSettings } from './aiConfig/useAiSettings';
 import { Toggle } from './aiConfig/shared';
 import { establishmentsForModule } from '@/app/utils/establishmentModuleAccess';
@@ -36,6 +38,7 @@ type SubTabId =
   | 'informacoes'
   | 'figurinhas'
   | 'flyers'
+  | 'instagram'
   | 'numeros';
 
 type SubTab = {
@@ -54,6 +57,7 @@ const SUB_TABS: SubTab[] = [
   { id: 'informacoes', label: 'Informações', group: 'CONTEÚDO', icon: <MdInfoOutline size={18} /> },
   { id: 'figurinhas', label: 'Figurinhas', group: 'CONTEÚDO', icon: <MdEmojiEmotions size={18} /> },
   { id: 'flyers', label: 'Flyers', group: 'CONTEÚDO', icon: <MdImage size={18} /> },
+  { id: 'instagram', label: 'Instagram', group: 'ACESSO & CRM', icon: <MdPhotoCamera size={18} /> },
   { id: 'numeros', label: 'Números habilitados', group: 'ACESSO & CRM', icon: <MdVerifiedUser size={18} /> },
 ];
 
@@ -304,6 +308,8 @@ function ActiveTab({
       return <StickersTab key={key} establishmentId={establishmentId} />;
     case 'flyers':
       return <FlyersTab key={key} establishmentId={establishmentId} />;
+    case 'instagram':
+      return <InstagramTab key={key} establishmentId={establishmentId} />;
     case 'numeros':
       return <AllowedNumbersTab key={key} establishmentId={establishmentId} />;
     default:
