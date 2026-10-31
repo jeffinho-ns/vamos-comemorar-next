@@ -14,7 +14,8 @@ import {
 import { FunilBarras } from "./FunilBarras";
 import { MapaCalor } from "./MapaCalor";
 import { OperacaoPainel } from "./OperacaoPainel";
-import { dataCurta, fmt1, fmtHoras, fmtInt, fmtPct, fmtVar, ultimaJanela } from "./format";
+import { ZigCasaPainel } from "./ZigCasaPainel";
+import { dataCurta, fmt1, fmtHoras, fmtInt, fmtPct, fmtReais, fmtVar, ultimaJanela } from "./format";
 import type { CasaOpcao, WhatsappDashboardSummary } from "./tipos";
 
 type Props = {
@@ -68,10 +69,25 @@ export function WhatsappDashboard({
   const maxTema = Math.max(1, ...temas.map((t) => t.n));
   const ia = summary?.ia;
   const status = summary?.statusReservas;
-  const serie = useMemo(
-    () => (summary?.serie ?? []).map((p) => ({ ...p, label: dataCurta(p.date) })),
-    [summary?.serie],
-  );
+  const zig = summary?.zig ?? null;
+  const serie = useMemo(() => {
+    const fat = new Map((summary?.zig?.serie ?? []).map((p) => [p.date, p.faturamento]));
+    const porDia = new Map(
+      (summary?.serie ?? []).map((p) => [
+        p.date,
+        {
+          ...p,
+          label: dataCurta(p.date),
+          faturamento: fat.has(p.date) ? fat.get(p.date) ?? null : p.faturamento ?? null,
+        },
+      ]),
+    );
+    fat.forEach((valor, date) => {
+      if (porDia.has(date)) return;
+      porDia.set(date, { date, conversas: 0, reservas: 0, label: dataCurta(date), faturamento: valor });
+    });
+    return [...porDia.values()].sort((a, b) => a.date.localeCompare(b.date));
+  }, [summary?.serie, summary?.zig?.serie]);
   const taxaConversao = kpis?.conversas ? ((summary?.reservations_whatsapp ?? 0) / kpis.conversas) * 100 : 0;
 
   return (
@@ -165,6 +181,8 @@ export function WhatsappDashboard({
           </div>
         </div>
       </div>
+
+      {zig ? <ZigCasaPainel zig={zig} /> : null}
 
       <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
         <div className="mb-3 flex items-baseline justify-between gap-2">
@@ -278,18 +296,31 @@ export function WhatsappDashboard({
       </div>
 
       <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-        <h3 className="text-sm font-semibold text-slate-900">Evolução de conversas e reservas</h3>
+        <h3 className="text-sm font-semibold text-slate-900">
+          {zig ? "Evolução de conversas, reservas e faturamento Zig" : "Evolução de conversas e reservas"}
+        </h3>
         <div className="mt-2 h-56">
           {serie.length ? (
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={serie} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                 <XAxis dataKey="label" tick={{ fontSize: 11, fill: "#64748b" }} />
-                <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: "#64748b" }} />
-                <Tooltip />
+                <YAxis yAxisId="esq" allowDecimals={false} tick={{ fontSize: 11, fill: "#64748b" }} />
+                {zig ? (
+                  <YAxis
+                    yAxisId="dir"
+                    orientation="right"
+                    tick={{ fontSize: 11, fill: "#64748b" }}
+                    tickFormatter={(valor) => fmtReais(Number(valor))}
+                  />
+                ) : null}
+                <Tooltip formatter={(valor, nome) => (nome === "Faturamento Zig" ? fmtReais(Number(valor ?? 0)) : fmtInt(Number(valor ?? 0)))} />
                 <Legend />
-                <Line type="monotone" dataKey="conversas" name="Conversas" stroke="#0f172a" strokeWidth={2} dot={false} />
-                <Line type="monotone" dataKey="reservas" name="Reservas" stroke="#d97706" strokeWidth={2} dot={false} />
+                <Line yAxisId="esq" type="monotone" dataKey="conversas" name="Conversas" stroke="#0f172a" strokeWidth={2} dot={false} />
+                <Line yAxisId="esq" type="monotone" dataKey="reservas" name="Reservas" stroke="#d97706" strokeWidth={2} dot={false} />
+                {zig ? (
+                  <Line yAxisId="dir" type="monotone" dataKey="faturamento" name="Faturamento Zig" stroke="#16a34a" strokeWidth={2} dot={false} />
+                ) : null}
               </LineChart>
             </ResponsiveContainer>
           ) : (

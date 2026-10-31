@@ -1,8 +1,14 @@
 const BRL = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 0 });
 const BRL1 = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 1 });
+const REAIS = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 
 export function fmtInt(valor: number | null | undefined) {
   return BRL.format(Number(valor) || 0);
+}
+
+export function fmtReais(valor: number | null | undefined) {
+  if (valor == null || Number.isNaN(Number(valor))) return "—";
+  return REAIS.format(Number(valor));
 }
 
 export function fmt1(valor: number | null | undefined) {

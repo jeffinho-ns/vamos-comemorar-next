@@ -40,7 +40,8 @@ export type WhatsappDashboardSummary = {
   origens?: OrigemLinha[];
   temas?: { tema: string; n: number }[];
   heatmap?: { dow: number; hora: number; n: number }[];
-  serie?: { date: string; conversas: number; reservas: number }[];
+  serie?: { date: string; conversas: number; reservas: number; faturamento?: number | null }[];
+  zig?: ZigCasaSummary | null;
   statusReservas?: {
     confirmadas: number;
     compareceram: number;
@@ -77,6 +78,23 @@ export type OperacaoSummary = {
   tempoAtendimentoPorDia: OperacaoPontoSemana[];
   categorias: { tema: string; n: number }[];
   cancelamentos: { motivo: string; n: number; pct: number }[];
+};
+
+export type ZigCasaSummary = {
+  fonte: string;
+  casa: string;
+  inicio: string | null;
+  fim: string | null;
+  capturedAt: string | null;
+  faturamento: number;
+  publico: number;
+  ticketMedio: number | null;
+  pessoasCompareceram: number;
+  pessoasWhatsapp: number;
+  receitaEstimadaReservas: number | null;
+  receitaEstimadaWhatsapp: number | null;
+  diasComFaturamento: number;
+  serie: { date: string; faturamento: number; publico: number | null }[];
 };
 
 export type CasaOpcao = { id: number; name: string };
