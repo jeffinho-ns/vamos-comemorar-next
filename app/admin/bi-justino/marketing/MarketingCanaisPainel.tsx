@@ -1,6 +1,7 @@
 "use client";
 
 import type { DadosPlanilha } from "../usePlanilha";
+import { FalhaAba } from "./FalhaAba";
 import { MarketingDelivery } from "./MarketingDelivery";
 import { MarketingGoogle } from "./MarketingGoogle";
 import { MarketingInsights } from "./MarketingInsights";
@@ -15,8 +16,8 @@ export function MarketingCanaisPainel({
   dados: DadosPlanilha;
   onSalvo: () => void;
 }) {
-  if (aba === "ins") return <MarketingInsights dados={dados} onSalvo={onSalvo} />;
-  if (aba === "insta") return <MarketingInstagram dados={dados} onSalvo={onSalvo} />;
-  if (aba === "deli") return <MarketingDelivery dados={dados} onSalvo={onSalvo} />;
-  return <MarketingGoogle dados={dados} onSalvo={onSalvo} />;
+  if (aba === "ins") return <FalhaAba nome="Insights"><MarketingInsights dados={dados} onSalvo={onSalvo} /></FalhaAba>;
+  if (aba === "insta") return <FalhaAba nome="Instagram"><MarketingInstagram dados={dados} onSalvo={onSalvo} /></FalhaAba>;
+  if (aba === "deli") return <FalhaAba nome="Delivery"><MarketingDelivery dados={dados} onSalvo={onSalvo} /></FalhaAba>;
+  return <FalhaAba nome="Avaliações Google"><MarketingGoogle dados={dados} onSalvo={onSalvo} /></FalhaAba>;
 }

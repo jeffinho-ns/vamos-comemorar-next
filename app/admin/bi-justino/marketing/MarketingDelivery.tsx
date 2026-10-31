@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { payloadDe, type DadosPlanilha } from "../usePlanilha";
-import { dBR, DELI_NOMES, PERIODOS, PLATAFORMAS, pctDe, resumoDelivery, variacao, type LinhaDelivery } from "./deliveryCalculo";
+import { dBR, DELI_NOMES, PERIODOS, PLATAFORMAS, linhasDelivery, pctDe, resumoDelivery, variacao } from "./deliveryCalculo";
 import { lerZig } from "./espelhoDados";
 import type { Food99Resp, Food99Snap, ZigDeliveryResp } from "./espelhoTipos";
 import { reais } from "./numeros";
@@ -72,10 +72,13 @@ function lerMarcados(): string[] {
 
 function Leitura99({ snap, capturedAt }: { snap: Food99Snap; capturedAt: number | string }) {
   const it = snap.itens || { vendidos: [], conversao: [] };
-  const comImp = (it.conversao || []).filter((x) => x.impressoes > 0).sort((a, b) => b.impressoes - a.impressoes).slice(0, 5).map((x) => `${x.nome} ${x.impressoes}${x.carrinho ? ` (carrinho ${x.carrinho})` : ""}`).join(" • ") || "—";
-  const vend = (it.vendidos || []).filter((x) => x.volume > 0).map((x) => `${x.nome} (${x.volume})`).join(" • ") || "nenhum";
-  const semVer = (it.conversao || []).filter((x) => x.impressoes === 0).map((x) => x.nome).join(", ");
-  const quando = new Date(Number(capturedAt) || Date.now());
+  const conversao = Array.isArray(it.conversao) ? it.conversao : [];
+  const vendidos = Array.isArray(it.vendidos) ? it.vendidos : [];
+  const comImp = conversao.filter((x) => x && x.impressoes > 0).sort((a, b) => b.impressoes - a.impressoes).slice(0, 5).map((x) => `${x.nome} ${x.impressoes}${x.carrinho ? ` (carrinho ${x.carrinho})` : ""}`).join(" • ") || "—";
+  const vend = vendidos.filter((x) => x && x.volume > 0).map((x) => `${x.nome} (${x.volume})`).join(" • ") || "nenhum";
+  const semVer = conversao.filter((x) => x && x.impressoes === 0).map((x) => x.nome).join(", ");
+  const ts = typeof capturedAt === "number" ? capturedAt : Number(capturedAt);
+  const quando = new Date(Number.isFinite(ts) && ts > 0 ? ts : Date.now());
   const rk = snap.rankGanhos ? `#${snap.rankGanhos} de ${snap.lojasNoRaio}` : "—";
   const linhas: [string, string, string][] = [
     ["Pedidos concluídos", n(snap.pedidosConcluidos), "Volume de vendas da loja no período do painel."],
@@ -110,10 +113,10 @@ export function MarketingDelivery({ dados, onSalvo }: { dados: DadosPlanilha; on
   useEffect(() => { setMarcados(lerMarcados()); }, []);
   const zig = useMemo(() => lerZig(dados), [dados]);
   const deliResp = payloadDe<ZigDeliveryResp>(dados, "getZigDelivery");
-  const rows = useMemo<LinhaDelivery[]>(() => (deliResp?.rows ?? []).map((r) => ({ date: String(r[0]), plataforma: String(r[1]), valor: Number(r[2]) || 0 })), [deliResp]);
-  const resumo = useMemo(() => resumoDelivery(rows, periodo, zig.revenue), [rows, periodo, zig.revenue]);
+  const rows = useMemo(() => linhasDelivery(deliResp), [deliResp]);
+  const resumo = useMemo(() => resumoDelivery(rows, periodo, zig.revenue || {}), [rows, periodo, zig.revenue]);
   const food = payloadDe<Food99Resp>(dados, "get99Food");
-  const ultima = food?.rows?.[0] ?? null;
+  const ultima = Array.isArray(food?.rows) ? food.rows[0] ?? null : null;
 
   function alternar(id: string, ligado: boolean) {
     setMarcados((atual) => {
