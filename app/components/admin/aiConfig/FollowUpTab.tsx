@@ -50,7 +50,7 @@ export default function FollowUpTab({ establishmentId }: { establishmentId: numb
       <FeedbackBanner error={error} success={success} />
       <SectionHeader
         title="Follow-up"
-        description="Reativa conversas paradas — quando insistir e quando deixar quieto."
+        description="Reativa conversas paradas. Depois que a reserva já foi criada, a IA não manda mais esse toque."
       />
 
       <div className="flex items-center justify-between gap-4 rounded-lg border border-gray-200 bg-white px-4 py-3">
