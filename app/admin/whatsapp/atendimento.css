@@ -121,6 +121,20 @@
   background-image: radial-gradient(rgba(255, 255, 255, 0.03) 0.6px, transparent 0.6px);
 }
 
+.wa-scroll {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.wa-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.wa-scroll > * {
+  flex-shrink: 0;
+}
+
 @media (max-width: 1023px) {
   .wa-shell.wa-aba-conversas {
     padding: 0;
@@ -133,11 +147,80 @@
     display: none;
   }
 
-  .wa-shell.wa-aba-conversas.wa-lista .wa-chrome {
+  .wa-scroll {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    padding-bottom: 0.15rem;
+  }
+
+  .wa-shell.wa-aba-conversas.wa-lista .wa-chrome-topo {
     display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: nowrap;
+    gap: 0.5rem;
     border-radius: 0;
     margin: 0;
-    padding: 0.5rem 0.75rem;
+    padding: 0.4rem 0.75rem;
+  }
+
+  .wa-shell.wa-aba-conversas.wa-lista .wa-chrome-topo h1 {
+    font-size: 1.05rem;
+    line-height: 1.2;
+    white-space: nowrap;
+  }
+
+  .wa-shell.wa-aba-conversas.wa-lista .wa-chrome-topo p {
+    display: none;
+  }
+
+  .wa-shell.wa-aba-conversas.wa-lista .wa-tabs {
+    display: block;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+    margin: 0;
+  }
+
+  .wa-shell.wa-aba-conversas.wa-lista .wa-tabs-row {
+    padding: 0.2rem 0.75rem 0.45rem;
+    border: 0;
+    background: transparent;
+  }
+
+  .wa-shell.wa-aba-conversas.wa-lista .wa-tabs-row button {
+    font-size: 0.75rem;
+    padding: 0.32rem 0.8rem;
+  }
+
+  .wa-acoes-mobile {
+    flex-wrap: nowrap;
+    flex-shrink: 0;
+    gap: 0.4rem;
+  }
+
+  .wa-acoes-mobile .wa-btn-texto {
+    display: none;
+  }
+
+  .wa-acoes-mobile button {
+    height: 2.25rem;
+    min-width: 2.25rem;
+    padding-left: 0.55rem;
+    padding-right: 0.55rem;
+    border-radius: 999px;
+  }
+
+  .wa-hint,
+  .wa-lista-titulo {
+    display: none;
+  }
+
+  .wa-inbox aside input[type="text"] {
+    font-size: 16px;
+    border-radius: 1.15rem;
   }
 
   .wa-inbox {
@@ -165,7 +248,7 @@
     min-height: 0;
   }
 
-  .wa-inbox aside button {
+  .wa-inbox aside .overflow-y-auto button.w-full {
     padding-top: 0.7rem;
     padding-bottom: 0.7rem;
   }

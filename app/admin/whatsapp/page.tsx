@@ -2928,7 +2928,7 @@ function AdminWhatsappPageContent() {
       }`}
     >
       <div
-        className={`wa-chrome flex flex-wrap items-center justify-between gap-3 rounded-2xl border px-4 ${
+        className={`wa-chrome wa-chrome-topo flex flex-wrap items-center justify-between gap-3 rounded-2xl border px-4 ${
           activeTab === "atendimento" ? "py-2 md:px-4" : "py-4 md:px-5"
         } ${
           isWhatsappHighlineOnlyUser
@@ -2936,14 +2936,14 @@ function AdminWhatsappPageContent() {
             : "border-amber-100 bg-gradient-to-r from-amber-50 via-white to-orange-50"
         }`}
       >
-        <div className="flex items-center gap-2">
+        <div className="flex min-w-0 items-center gap-2">
           <MdChat
-            className={`text-2xl ${
+            className={`shrink-0 text-2xl ${
               isWhatsappHighlineOnlyUser ? "text-indigo-600" : "text-amber-600"
             }`}
           />
-          <div>
-            <h1 className={`font-semibold text-gray-900 ${activeTab === "atendimento" ? "text-lg" : "text-xl"}`}>
+          <div className="min-w-0">
+            <h1 className={`truncate font-semibold text-gray-900 ${activeTab === "atendimento" ? "text-lg" : "text-xl"}`}>
               {isWhatsappHighlineOnlyUser
                 ? "Atendimento HighLine"
                 : "Atendimento"}
@@ -2960,17 +2960,18 @@ function AdminWhatsappPageContent() {
           </div>
         </div>
         {showWhatsappInbox ? (
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="wa-acoes-mobile flex flex-wrap items-center gap-2">
             <TemaToggle tema={tema} onAlternar={alternar} />
             {handoffConversationsCount > 0 ? (
               <button
                 type="button"
                 onClick={handleResumeUnassignedAI}
                 disabled={resumeBatchLoading}
+                title="Retomar IA sem atendente"
                 className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-emerald-600 text-white text-sm hover:bg-emerald-700 disabled:opacity-50"
               >
                 <MdSupportAgent />
-                {resumeBatchLoading ? "Retomando…" : "Retomar IA sem atendente"}
+                <span className="wa-btn-texto">{resumeBatchLoading ? "Retomando…" : "Retomar IA sem atendente"}</span>
               </button>
             ) : null}
             <button
@@ -2979,10 +2980,11 @@ function AdminWhatsappPageContent() {
                 fetchConversations();
                 if (selectedWaId) fetchMessages(selectedWaId);
               }}
+              title="Atualizar conversas"
               className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 bg-white text-sm hover:bg-gray-50"
             >
               <MdRefresh />
-              Atualizar
+              <span className="wa-btn-texto">Atualizar</span>
             </button>
           </div>
         ) : (
@@ -2991,8 +2993,8 @@ function AdminWhatsappPageContent() {
       </div>
 
       {adminTabs.length > 1 ? (
-        <div className="wa-chrome rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden">
-          <div className="flex gap-2 overflow-x-auto border-b border-gray-100 p-3 bg-gray-50/70">
+        <div className="wa-chrome wa-tabs rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+          <div className="wa-tabs-row wa-scroll border-b border-gray-100 p-3 bg-gray-50/70">
             {adminTabs.map((tab) => {
               const isActive = activeTab === tab.id;
               return (
@@ -3135,7 +3137,7 @@ function AdminWhatsappPageContent() {
       <div className={`wa-inbox flex flex-1 min-h-0 gap-0 flex-col lg:flex-row border border-gray-200 rounded-xl overflow-hidden bg-white shadow-sm ${selectedWaId ? "wa-chat-aberta" : ""}`}>
         <aside className="w-full lg:w-[min(100%,26rem)] xl:w-[30rem] shrink-0 border-b lg:border-b-0 lg:border-r border-gray-200 flex flex-col min-h-[45vh] lg:min-h-0 lg:h-full">
           <div className="px-2.5 py-2 border-b border-gray-100 space-y-1.5 shrink-0">
-            <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="wa-lista-titulo flex flex-wrap items-center justify-between gap-2">
               <p className="text-xs font-semibold text-gray-700">
                 Conversas
                 {inboxAttentionStats.needsAttention > 0 ? (
@@ -3144,60 +3146,9 @@ function AdminWhatsappPageContent() {
                   </span>
                 ) : null}
               </p>
-              <p className="text-[10px] text-gray-500 tabular-nums">
+              <p className="wa-hint text-[10px] text-gray-500 tabular-nums">
                 Hoje no topo · não lidas por dia
               </p>
-            </div>
-            <div className="flex flex-wrap gap-1">
-              {inboxEstablishmentTabs.map((tab) => {
-                const isActive = inboxEstablishmentFilter === tab.key;
-                return (
-                  <button
-                    key={String(tab.key)}
-                    type="button"
-                    onClick={() => setInboxEstablishmentFilter(tab.key)}
-                    className={`rounded-full px-2.5 py-1 text-[11px] font-medium whitespace-nowrap transition-colors ${
-                      isActive ? tab.theme.tabActive : tab.theme.tabInactive
-                    }`}
-                  >
-                    {tab.label}
-                    <span
-                      className={`ml-1 tabular-nums ${isActive ? "opacity-90" : "opacity-70"}`}
-                    >
-                      ({tab.count})
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-            <div className="flex flex-wrap gap-1.5">
-              <button
-                type="button"
-                onClick={() => setInboxQueueFilter("all")}
-                className={`rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors ${
-                  inboxQueueFilter === "all"
-                    ? "bg-gray-900 text-white"
-                    : "bg-white text-gray-600 border border-gray-200 hover:bg-gray-50"
-                }`}
-              >
-                Todas
-              </button>
-              <button
-                type="button"
-                onClick={() => setInboxQueueFilter("attention")}
-                className={`rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors ${
-                  inboxQueueFilter === "attention"
-                    ? "bg-orange-600 text-white"
-                    : inboxAttentionStats.needsAttention > 0
-                      ? "bg-orange-50 text-orange-900 border border-orange-200 hover:bg-orange-100"
-                      : "bg-white text-gray-600 border border-gray-200 hover:bg-gray-50"
-                }`}
-              >
-                Precisa ver
-                {inboxAttentionStats.needsAttention > 0 ? (
-                  <span className="ml-1 tabular-nums">({inboxAttentionStats.needsAttention})</span>
-                ) : null}
-              </button>
             </div>
             <div className="relative">
               <MdSearch
@@ -3222,7 +3173,57 @@ function AdminWhatsappPageContent() {
                 </button>
               )}
             </div>
-            <p className="text-[10px] text-gray-500 leading-tight">
+            <div className="wa-filtros wa-scroll">
+              <button
+                type="button"
+                onClick={() => setInboxQueueFilter("all")}
+                className={`rounded-full px-2.5 py-1 text-[11px] font-medium whitespace-nowrap transition-colors ${
+                  inboxQueueFilter === "all"
+                    ? "bg-gray-900 text-white"
+                    : "bg-white text-gray-600 border border-gray-200 hover:bg-gray-50"
+                }`}
+              >
+                Todas
+              </button>
+              <button
+                type="button"
+                onClick={() => setInboxQueueFilter("attention")}
+                className={`rounded-full px-2.5 py-1 text-[11px] font-medium whitespace-nowrap transition-colors ${
+                  inboxQueueFilter === "attention"
+                    ? "bg-orange-600 text-white"
+                    : inboxAttentionStats.needsAttention > 0
+                      ? "bg-orange-50 text-orange-900 border border-orange-200 hover:bg-orange-100"
+                      : "bg-white text-gray-600 border border-gray-200 hover:bg-gray-50"
+                }`}
+              >
+                Precisa ver
+                {inboxAttentionStats.needsAttention > 0 ? (
+                  <span className="ml-1 tabular-nums">({inboxAttentionStats.needsAttention})</span>
+                ) : null}
+              </button>
+              <span className="mx-0.5 h-4 w-px shrink-0 self-center bg-gray-200" aria-hidden />
+              {inboxEstablishmentTabs.map((tab) => {
+                const isActive = inboxEstablishmentFilter === tab.key;
+                return (
+                  <button
+                    key={String(tab.key)}
+                    type="button"
+                    onClick={() => setInboxEstablishmentFilter(tab.key)}
+                    className={`rounded-full px-2.5 py-1 text-[11px] font-medium whitespace-nowrap transition-colors ${
+                      isActive ? tab.theme.tabActive : tab.theme.tabInactive
+                    }`}
+                  >
+                    {tab.label}
+                    <span
+                      className={`ml-1 tabular-nums ${isActive ? "opacity-90" : "opacity-70"}`}
+                    >
+                      ({tab.count})
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+            <p className="wa-hint text-[10px] text-gray-500 leading-tight">
               {loadingList
                 ? "Carregando…"
                 : inboxQueueFilter === "attention"
@@ -3268,7 +3269,7 @@ function AdminWhatsappPageContent() {
               : (
                 <>
                   {inboxDayGroups.length === 0 ? null : (
-                    <p className="px-3 py-1.5 text-[10px] text-gray-500 bg-gray-50 border-b border-gray-100">
+                    <p className="wa-hint px-3 py-1.5 text-[10px] text-gray-500 bg-gray-50 border-b border-gray-100">
                       {inboxQueueFilter === "attention"
                         ? "Só conversas que precisam de atenção, separadas por dia. Comece por Hoje."
                         : "Conversas do dia no topo. Dentro de cada dia, não lidas primeiro."}
