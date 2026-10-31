@@ -13,6 +13,7 @@ import { EnvioOperacao } from "./EnvioOperacao";
 import { TabelaCustoDre } from "./DreTabelas";
 import { FontesNovas } from "./FontesNovas";
 import { MarketingPagina } from "./MarketingPagina";
+import { FalhaAba } from "./FalhaAba";
 import { paginaEspelho } from "./paginasEspelho";
 import { type DreAoVivo } from "./dreValor";
 import { cmvTeoricoBlend, porDiaDaSemana, type ZigAoVivo } from "./zigValor";
@@ -392,26 +393,30 @@ export function PainelConteudo({
   const Espelho = paginaEspelho(paginaId);
   if (Espelho) {
     return (
-      <Espelho
-        subId={aba.id}
-        onSub={onSub}
-        live={live}
-        zig={zig}
-        dre={dre}
-        novidades={live?.novidades ?? null}
-        onSalvo={onSalvo || (() => undefined)}
-      />
+      <FalhaAba nome={aba.label}>
+        <Espelho
+          subId={aba.id}
+          onSub={onSub}
+          live={live}
+          zig={zig}
+          dre={dre}
+          novidades={live?.novidades ?? null}
+          onSalvo={onSalvo || (() => undefined)}
+        />
+      </FalhaAba>
     );
   }
 
   if (paginaId === "marketing") {
     return (
-      <MarketingPagina
-        zig={zig}
-        novidades={live?.novidades ?? null}
-        dre={dre}
-        onSalvo={onSalvo || (() => undefined)}
-      />
+      <FalhaAba nome="Marketing">
+        <MarketingPagina
+          zig={zig}
+          novidades={live?.novidades ?? null}
+          dre={dre}
+          onSalvo={onSalvo || (() => undefined)}
+        />
+      </FalhaAba>
     );
   }
 

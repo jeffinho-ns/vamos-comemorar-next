@@ -5,7 +5,7 @@ import { CONTEUDO } from "../conteudo";
 import { mensagemErro, postArea, usePermissoesArea } from "../operacao/apiArea";
 import { Badge, BotaoAcao, Cartao } from "../operacao/Cartao";
 import type { PaginaEspelhoProps } from "../paginaEspelho";
-import { payloadDe, usePlanilha } from "../usePlanilha";
+import { itensDe, payloadDe, usePlanilha } from "../usePlanilha";
 import "../operacao/operacao.css";
 
 /** Vire para true quando a página estiver montada a partir do espelho da planilha. */
@@ -19,21 +19,28 @@ const SOLIC_TIPO: Record<string, string> = { criar: "Cadastrar", editar: "Editar
 type Form = { nome: string; categoria: string; telefone: string; observacao: string; ativo: string };
 const VAZIO: Form = { nome: "", categoria: "", telefone: "", observacao: "", ativo: "1" };
 
+function textoDe(valor: unknown) {
+  return valor == null ? "" : String(valor);
+}
+
+function telHref(telefone: unknown) {
+  return `tel:${textoDe(telefone).replace(/[^\d+]/g, "")}`;
+}
+
 export function ContatosPagina({ subId, onSub, onSalvo }: PaginaEspelhoProps) {
   const abas = CONTEUDO.contatos ?? [];
   const aba = abas.find((item) => item.id === subId) ?? abas[0];
   const { dados, erro, recarregar } = usePlanilha(CHAVES);
   const { diretoria } = usePermissoesArea();
-  const contatos = payloadDe<{ items?: Contato[] }>(dados, "getContatosEmergencia")?.items ?? [];
-  const solicPayload = payloadDe<{ items?: Solicitacao[]; diretoria?: boolean }>(dados, "getContatoSolicitacoes");
-  const solicitacoes = solicPayload?.items ?? [];
+  const contatos = itensDe<Contato>(payloadDe(dados, "getContatosEmergencia")).filter((c) => c && textoDe(c.id));
+  const solicitacoes = itensDe<Solicitacao>(payloadDe(dados, "getContatoSolicitacoes")).filter((x) => x && textoDe(x.id));
   const pendentes = solicitacoes.filter((x) => x.status === "pendente").length;
   const [editando, setEditando] = useState<Contato | null>(null);
   const [form, setForm] = useState<Form>(VAZIO);
   const [status, setStatus] = useState("");
   const [statusLista, setStatusLista] = useState("");
   const [sel, setSel] = useState<Set<string>>(new Set());
-  useEffect(() => { setForm(editando ? { nome: editando.nome || "", categoria: editando.categoria || "", telefone: editando.telefone || "", observacao: editando.observacao || "", ativo: editando.ativo ? "1" : "0" } : VAZIO); }, [editando]);
+  useEffect(() => { setForm(editando ? { nome: textoDe(editando.nome), categoria: textoDe(editando.categoria), telefone: textoDe(editando.telefone), observacao: textoDe(editando.observacao), ativo: editando.ativo ? "1" : "0" } : VAZIO); }, [editando]);
   const set = (c: keyof Form, v: string) => setForm((a) => ({ ...a, [c]: v }));
   const aoMudar = () => { onSalvo(); recarregar(); };
 
@@ -96,8 +103,8 @@ export function ContatosPagina({ subId, onSub, onSalvo }: PaginaEspelhoProps) {
                 <tbody>
                   {solicitacoes.length ? solicitacoes.map((x) => (
                     <tr key={x.id}>
-                      <td className="sjMini">{String(x.solicitadoEm || "").slice(0, 16).replace("T", " ")}</td><td>{SOLIC_TIPO[x.tipo] ?? x.tipo}</td>
-                      <td>{x.contatoNome || "—"}{x.tipo !== "apagar" ? <><br /><span className="sjMini">{(x.dados?.categoria || "") + (x.dados?.telefone ? ` • ${x.dados.telefone}` : "")}</span></> : null}</td>
+                      <td className="sjMini">{textoDe(x.solicitadoEm).slice(0, 16).replace("T", " ")}</td><td>{SOLIC_TIPO[x.tipo] ?? textoDe(x.tipo)}</td>
+                      <td>{textoDe(x.contatoNome) || "—"}{x.tipo !== "apagar" ? <><br /><span className="sjMini">{textoDe(x.dados?.categoria) + (x.dados?.telefone ? ` • ${textoDe(x.dados.telefone)}` : "")}</span></> : null}</td>
                       <td className="sjMini">{x.solicitadoPorEmail || ""}</td>
                       <td><Badge nivel={x.status === "aprovado" ? "g" : x.status === "recusado" ? "r" : "y"}>{x.status}</Badge>{x.nota ? <><br /><span className="sjMini">{x.nota}</span></> : null}</td>
                       <td>{diretoria && x.status === "pendente" ? <div className="opAcoes" style={{ justifyContent: "flex-start" }}><BotaoAcao onClick={() => decidir(x.id, true)}>Aprovar</BotaoAcao><BotaoAcao perigo onClick={() => decidir(x.id, false)}>Recusar</BotaoAcao></div> : <span className="sjMini">{x.decididoPorEmail || "—"}</span>}</td>
@@ -115,7 +122,7 @@ export function ContatosPagina({ subId, onSub, onSalvo }: PaginaEspelhoProps) {
                 <tbody>
                   {contatos.length ? contatos.map((c) => (
                     <tr key={c.id}>
-                      <td>{c.nome}</td><td className="sjMini">{c.categoria || "—"}</td><td><a href={`tel:${c.telefone.replace(/[^\d+]/g, "")}`} style={{ color: "inherit" }}>{c.telefone}</a></td><td className="sjMini">{c.observacao || "—"}</td>
+                      <td>{textoDe(c.nome)}</td><td className="sjMini">{textoDe(c.categoria) || "—"}</td><td>{textoDe(c.telefone) ? <a href={telHref(c.telefone)} style={{ color: "inherit" }}>{textoDe(c.telefone)}</a> : "—"}</td><td className="sjMini">{textoDe(c.observacao) || "—"}</td>
                       <td>{c.ativo ? <Badge nivel="g">Ativo</Badge> : <Badge nivel="y">Inativo</Badge>}</td>
                       <td><div className="opAcoes" style={{ justifyContent: "flex-start" }}><BotaoAcao onClick={() => setEditando(c)}>Editar</BotaoAcao><BotaoAcao perigo onClick={async () => { if (await apagar(c.id)) aoMudar(); }}>Apagar</BotaoAcao></div></td>
                       <td><input type="checkbox" className="opCheck" checked={sel.has(c.id)} onChange={(e) => setSel((a) => { const n = new Set(a); if (e.target.checked) n.add(c.id); else n.delete(c.id); return n; })} /></td>

@@ -2,7 +2,7 @@
 
 import { Component, type ReactNode } from "react";
 
-/** Impede que um erro de uma sub-aba derrube o BI inteiro. */
+/** Impede que um erro de uma página derrube o BI inteiro. */
 export class FalhaAba extends Component<{ children: ReactNode; nome: string }, { msg: string | null }> {
   state = { msg: null as string | null };
 

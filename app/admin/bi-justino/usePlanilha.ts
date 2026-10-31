@@ -92,6 +92,17 @@ export function payloadDe<T>(dados: DadosPlanilha, chave: string): T | null {
   return copia ? (copia.payload as unknown as T) : null;
 }
 
+/** Lista `items`/`docs` do payload, ou o próprio array — nunca devolve algo que não seja array. */
+export function itensDe<T>(bruto: unknown): T[] {
+  if (Array.isArray(bruto)) return bruto as T[];
+  if (!bruto || typeof bruto !== "object") return [];
+  const obj = bruto as Record<string, unknown>;
+  if (Array.isArray(obj.items)) return obj.items as T[];
+  if (Array.isArray(obj.docs)) return obj.docs as T[];
+  if (obj.payload) return itensDe<T>(obj.payload);
+  return [];
+}
+
 /** POST autenticado para as rotas de escrita do BI (`/api/bi/justino/...`). */
 export async function chamarBi<T = Record<string, unknown>>(caminho: string, corpo: unknown): Promise<{ ok: boolean; status: number; json: T | null }> {
   const token = tokenPainel();

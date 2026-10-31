@@ -1,7 +1,7 @@
 "use client";
 
 import type { DadosPlanilha } from "../usePlanilha";
-import { FalhaAba } from "./FalhaAba";
+import { FalhaAba } from "../FalhaAba";
 import { MarketingDelivery } from "./MarketingDelivery";
 import { MarketingGoogle } from "./MarketingGoogle";
 import { MarketingInsights } from "./MarketingInsights";
