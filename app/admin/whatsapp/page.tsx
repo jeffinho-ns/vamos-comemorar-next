@@ -219,6 +219,7 @@ type ConversationRow = {
   id: number;
   wa_id: string;
   contact_name: string | null;
+  source_channel?: string | null;
   establishment_id: number | null;
   establishment_name: string | null;
   status: "new" | "in_progress" | "waiting_customer" | "resolved";
@@ -516,6 +517,26 @@ function hashWaId(value: string): number {
   return hash;
 }
 
+function isInstagramConversation(conversation: {
+  wa_id?: string | null;
+  source_channel?: string | null;
+}): boolean {
+  const channel = String(conversation.source_channel || "").toLowerCase();
+  if (channel === "instagram") return true;
+  return String(conversation.wa_id || "").toLowerCase().startsWith("ig:");
+}
+
+function inboxContactLabel(conversation: {
+  contact_name?: string | null;
+  wa_id?: string | null;
+  source_channel?: string | null;
+}): string {
+  const name = String(conversation.contact_name || "").trim();
+  if (name) return name;
+  if (isInstagramConversation(conversation)) return "Instagram";
+  return conversation.wa_id || "Conversa";
+}
+
 function contactAvatarInitials(name: string | null, waId: string): string {
   const base = (name || "").trim();
   if (base) {
@@ -525,6 +546,7 @@ function contactAvatarInitials(name: string | null, waId: string): string {
     }
     return base.slice(0, 2).toUpperCase();
   }
+  if (String(waId || "").toLowerCase().startsWith("ig:")) return "IG";
   const digits = waId.replace(/\D/g, "");
   return digits.slice(-2) || "??";
 }
@@ -2596,6 +2618,7 @@ function AdminWhatsappPageContent() {
       rows = rows.filter((c) => {
         if (norm(c.contact_name).includes(nq)) return true;
         if (norm(c.last_body).includes(nq)) return true;
+        if (isInstagramConversation(c) && nq.includes("instagram")) return true;
         if (digitsQuery && (c.wa_id || "").includes(digitsQuery)) return true;
         return false;
       });
@@ -2869,8 +2892,15 @@ function AdminWhatsappPageContent() {
           </div>
           <div className="min-w-0 flex-1">
             <div className="flex items-baseline justify-between gap-2">
-              <span className={`truncate text-sm leading-tight ${visualStyles.name}`}>
-                {c.contact_name || c.wa_id}
+              <span className="flex min-w-0 items-center gap-1.5">
+                <span className={`truncate text-sm leading-tight ${visualStyles.name}`}>
+                  {inboxContactLabel(c)}
+                </span>
+                {isInstagramConversation(c) ? (
+                  <span className="shrink-0 rounded bg-gradient-to-r from-fuchsia-500 to-amber-400 px-1 py-0.5 text-[9px] font-bold uppercase text-white">
+                    IG
+                  </span>
+                ) : null}
               </span>
               <div className="flex shrink-0 items-center gap-1">
                 {relativeTime ? (
@@ -3384,17 +3414,35 @@ function AdminWhatsappPageContent() {
                   <div>
                   <div className="flex flex-wrap items-center gap-2 mb-1">
                     <h2 className="font-semibold text-gray-900">
-                      {conversationMeta?.contact_name ||
-                        selectedConv?.contact_name ||
-                        selectedWaId}
+                      {inboxContactLabel({
+                        contact_name:
+                          conversationMeta?.contact_name || selectedConv?.contact_name || null,
+                        wa_id: selectedWaId,
+                        source_channel: selectedConv?.source_channel,
+                      })}
                     </h2>
+                    {isInstagramConversation({
+                      wa_id: selectedWaId,
+                      source_channel: selectedConv?.source_channel,
+                    }) ? (
+                      <span className="rounded bg-gradient-to-r from-fuchsia-500 to-amber-400 px-1.5 py-0.5 text-[10px] font-bold uppercase text-white">
+                        Instagram
+                      </span>
+                    ) : null}
                     <span
                       className={`text-[10px] font-semibold rounded-full px-2 py-0.5 ${activeInboxEstablishmentTheme.badge}`}
                     >
                       {selectedEstablishmentName || "Sem estabelecimento"}
                     </span>
                   </div>
-                  <p className="hidden text-xs text-gray-500 font-mono lg:block">{selectedWaId}</p>
+                  <p className="hidden text-xs text-gray-500 font-mono lg:block">
+                    {isInstagramConversation({
+                      wa_id: selectedWaId,
+                      source_channel: selectedConv?.source_channel,
+                    })
+                      ? "Direct do Instagram"
+                      : selectedWaId}
+                  </p>
                   <p className="hidden text-xs text-gray-600 lg:block">
                     {selectedAssignee
                       ? `Responsável: ${selectedAssignee}`
