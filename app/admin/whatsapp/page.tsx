@@ -34,6 +34,9 @@ import { establishmentsForModule } from "@/app/utils/establishmentModuleAccess";
 import EstablishmentTrainingPanel from "@/app/components/admin/EstablishmentTrainingPanel";
 import AiConfigPanel from "@/app/components/admin/AiConfigPanel";
 import AreasOverviewPanel from "@/app/components/restaurant-areas/AreasOverviewPanel";
+import { WhatsappDashboard } from "./dashboard/WhatsappDashboard";
+import { ultimaJanela } from "./dashboard/format";
+import type { WhatsappDashboardSummary } from "./dashboard/tipos";
 
 const API_URL = getApiUrl();
 const SOCKET_URL = getPublicSocketUrl();
@@ -286,13 +289,7 @@ type CampaignRow = {
   updated_at: string;
 };
 
-type ReportSummary = {
-  conversations_total: number;
-  conversations_resolved: number;
-  contacts_total: number;
-  contacts_opt_in: number;
-  reservations_whatsapp: number;
-};
+type ReportSummary = WhatsappDashboardSummary;
 
 type CampaignBatchRow = {
   id: number;
@@ -873,8 +870,8 @@ function AdminWhatsappPageContent() {
   );
   const [reportSummary, setReportSummary] = useState<ReportSummary | null>(null);
   const [loadingReport, setLoadingReport] = useState(false);
-  const [reportStartDate, setReportStartDate] = useState("");
-  const [reportEndDate, setReportEndDate] = useState("");
+  const [reportStartDate, setReportStartDate] = useState(() => ultimaJanela(30).inicio);
+  const [reportEndDate, setReportEndDate] = useState(() => ultimaJanela(30).fim);
   const [batchCampaignId, setBatchCampaignId] = useState<number | "">("");
   const [batchChunkSize, setBatchChunkSize] = useState(25);
   const [batchDelayMs, setBatchDelayMs] = useState(400);
@@ -915,7 +912,7 @@ function AdminWhatsappPageContent() {
   const [copiedLinkId, setCopiedLinkId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<WhatsappAdminTab>("treinamento");
+  const [activeTab, setActiveTab] = useState<WhatsappAdminTab>("relatorios");
   const [inboxEstablishmentFilter, setInboxEstablishmentFilter] =
     useState<InboxEstablishmentFilter>(
       isWhatsappHighlineOnlyUser ? highlineEstablishmentId : "all",
@@ -946,11 +943,11 @@ function AdminWhatsappPageContent() {
     }
     if (canAccessWhatsapp) {
       items.push(
-        { id: "atendimento", label: "Atendimento" },
+        { id: "relatorios", label: "Dashboard" },
+        { id: "atendimento", label: "Conversas" },
         { id: "crm", label: "CRM de contatos" },
         { id: "campanhas", label: "Campanhas" },
         { id: "links", label: "Links de entrada" },
-        { id: "relatorios", label: "Relatórios" },
       );
     }
     return items;
@@ -968,11 +965,7 @@ function AdminWhatsappPageContent() {
     (tab: WhatsappAdminTab) => {
       setActiveTab(tab);
       const params = new URLSearchParams(searchParams.toString());
-      if (tab === "treinamento") {
-        params.set("tab", "treinamento");
-      } else {
-        params.delete("tab");
-      }
+      params.set("tab", tab);
       const query = params.toString();
       router.replace(query ? `/admin/whatsapp?${query}` : "/admin/whatsapp", {
         scroll: false,
@@ -990,15 +983,26 @@ function AdminWhatsappPageContent() {
       setInboxEstablishmentFilter(highlineEstablishmentId);
       return;
     }
-    const tabParam = searchParams.get("tab");
-    if (tabParam === "treinamento" && canAccessIaTraining) {
-      setActiveTab("treinamento");
+    const tabParam = searchParams.get("tab") as WhatsappAdminTab | null;
+    const tabsValidas: WhatsappAdminTab[] = [
+      "treinamento",
+      "config-ia",
+      "atendimento",
+      "links",
+      "crm",
+      "campanhas",
+      "relatorios",
+    ];
+    if (tabParam && tabsValidas.includes(tabParam)) {
+      if (tabParam === "treinamento" && !canAccessIaTraining) return;
+      if (tabParam === "config-ia" && !canAccessIaTraining) return;
+      setActiveTab(tabParam);
       return;
     }
     if (tabInitializedRef.current) return;
     tabInitializedRef.current = true;
     if (canAccessWhatsapp) {
-      setActiveTab("atendimento");
+      setActiveTab("relatorios");
     } else if (canAccessIaTraining) {
       setActiveTab("treinamento");
     }
@@ -2735,22 +2739,6 @@ function AdminWhatsappPageContent() {
       return a.label.localeCompare(b.label, "pt-BR");
     });
   }, [scopedContacts]);
-  const reportDerived = useMemo(() => {
-    const conversations = reportSummary?.conversations_total ?? 0;
-    const resolved = reportSummary?.conversations_resolved ?? 0;
-    const contactsTotal = reportSummary?.contacts_total ?? 0;
-    const contactsOptIn = reportSummary?.contacts_opt_in ?? 0;
-    const reservationsWhatsapp = reportSummary?.reservations_whatsapp ?? 0;
-    const resolutionRate = conversations > 0 ? (resolved / conversations) * 100 : 0;
-    const optInRate = contactsTotal > 0 ? (contactsOptIn / contactsTotal) * 100 : 0;
-    const reservationConversion =
-      contactsTotal > 0 ? (reservationsWhatsapp / contactsTotal) * 100 : 0;
-    return {
-      resolutionRate,
-      optInRate,
-      reservationConversion,
-    };
-  }, [reportSummary]);
   const establishmentEntryLinks = useMemo(
     () =>
       establishmentFilterOptions.map((opt) => {
@@ -2958,7 +2946,9 @@ function AdminWhatsappPageContent() {
                 ? "Conversas do WhatsApp vinculadas ao HighLine (#EST_7). Demais estabelecimentos não aparecem aqui."
                 : activeTab === "treinamento"
                   ? "Treine a IA com as regras e o comportamento de cada casa."
-                  : "WhatsApp em tempo real, CRM, campanhas e treinamento da IA."}
+                  : activeTab === "relatorios"
+                    ? "Painel do atendimento: conversas, funil da IA e reservas do Agilizaiapp."
+                    : "WhatsApp em tempo real, CRM, campanhas e treinamento da IA."}
             </p>
           </div>
         </div>
@@ -3038,7 +3028,7 @@ function AdminWhatsappPageContent() {
         </div>
       )}
 
-      {showWhatsappArea && activeTab !== "atendimento" ? (
+      {showWhatsappArea && activeTab !== "atendimento" && activeTab !== "relatorios" ? (
       <div
         className={`grid gap-3 ${
           isWhatsappHighlineOnlyUser
@@ -4766,101 +4756,18 @@ function AdminWhatsappPageContent() {
       ) : null}
 
       {showWhatsappArea && activeTab === "relatorios" ? (
-        <section className="rounded-2xl border border-gray-200 bg-white shadow-sm">
-        <div className="px-4 py-3 border-b border-gray-100 bg-gradient-to-r from-amber-50/80 via-white to-white flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h2 className="text-base font-semibold text-gray-900">
-              Relatórios de desempenho do WhatsApp
-            </h2>
-            <p className="text-xs text-gray-500">
-              Acompanhe volume, qualidade de atendimento, opt-in e conversão em reservas.
-            </p>
-          </div>
-          <div className="flex gap-2">
-            <input
-              type="date"
-              value={reportStartDate}
-              onChange={(e) => setReportStartDate(e.target.value)}
-              className="rounded-lg border border-gray-200 px-2 py-1.5 text-sm"
-            />
-            <input
-              type="date"
-              value={reportEndDate}
-              onChange={(e) => setReportEndDate(e.target.value)}
-              className="rounded-lg border border-gray-200 px-2 py-1.5 text-sm"
-            />
-            <button
-              type="button"
-              onClick={fetchReportSummary}
-              disabled={loadingReport}
-              className="inline-flex items-center px-3 py-2 rounded-lg bg-gray-900 text-white text-sm hover:bg-gray-800 disabled:opacity-50"
-            >
-              {loadingReport ? "Carregando…" : "Atualizar resumo"}
-            </button>
-          </div>
-        </div>
-        <div className="p-4 grid grid-cols-2 md:grid-cols-5 gap-3">
-          <div className="rounded-lg border border-gray-200 bg-white p-3">
-            <p className="text-xs text-gray-500">Conversas</p>
-            <p className="text-xl font-semibold text-gray-900">
-              {reportSummary?.conversations_total ?? 0}
-            </p>
-          </div>
-          <div className="rounded-lg border border-gray-200 bg-white p-3">
-            <p className="text-xs text-gray-500">Resolvidas</p>
-            <p className="text-xl font-semibold text-gray-900">
-              {reportSummary?.conversations_resolved ?? 0}
-            </p>
-          </div>
-          <div className="rounded-lg border border-gray-200 bg-white p-3">
-            <p className="text-xs text-gray-500">Contatos</p>
-            <p className="text-xl font-semibold text-gray-900">
-              {reportSummary?.contacts_total ?? 0}
-            </p>
-          </div>
-          <div className="rounded-lg border border-gray-200 bg-white p-3">
-            <p className="text-xs text-gray-500">Opt-in</p>
-            <p className="text-xl font-semibold text-gray-900">
-              {reportSummary?.contacts_opt_in ?? 0}
-            </p>
-          </div>
-          <div className="rounded-lg border border-gray-200 bg-white p-3">
-            <p className="text-xs text-gray-500">Reservas WhatsApp</p>
-            <p className="text-xl font-semibold text-gray-900">
-              {reportSummary?.reservations_whatsapp ?? 0}
-            </p>
-          </div>
-        </div>
-        <div className="px-4 pb-4 grid grid-cols-1 md:grid-cols-3 gap-3">
-          <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3">
-            <p className="text-xs text-emerald-700">Taxa de resolução</p>
-            <p className="text-2xl font-semibold text-emerald-900">
-              {reportDerived.resolutionRate.toFixed(1)}%
-            </p>
-            <p className="text-[11px] text-emerald-800 mt-1">
-              Conversas resolvidas em relação ao total no período.
-            </p>
-          </div>
-          <div className="rounded-lg border border-indigo-200 bg-indigo-50 p-3">
-            <p className="text-xs text-indigo-700">Taxa de opt-in</p>
-            <p className="text-2xl font-semibold text-indigo-900">
-              {reportDerived.optInRate.toFixed(1)}%
-            </p>
-            <p className="text-[11px] text-indigo-800 mt-1">
-              Contatos com permissão para campanhas de marketing.
-            </p>
-          </div>
-          <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
-            <p className="text-xs text-amber-700">Conversão em reservas</p>
-            <p className="text-2xl font-semibold text-amber-900">
-              {reportDerived.reservationConversion.toFixed(1)}%
-            </p>
-            <p className="text-[11px] text-amber-800 mt-1">
-              Reservas geradas via WhatsApp sobre base de contatos.
-            </p>
-          </div>
-        </div>
-        </section>
+        <WhatsappDashboard
+          summary={reportSummary}
+          loading={loadingReport}
+          startDate={reportStartDate}
+          endDate={reportEndDate}
+          onStartDate={setReportStartDate}
+          onEndDate={setReportEndDate}
+          establishmentId={contactEstablishmentId}
+          casas={establishmentFilterOptions}
+          onEstablishmentId={setContactEstablishmentId}
+          onAtualizar={fetchReportSummary}
+        />
       ) : null}
     </div>
   );
