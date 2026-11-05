@@ -45,7 +45,7 @@ import {
   resolveEventPromoterDashboardPath,
   shouldUseEventPromoterPortal,
 } from "../utils/promoterPortalAccess";
-import { readSuperAdminFromCookie } from "../utils/superAdminAccess";
+import { decodeJwtPayload, readSuperAdminFromCookie } from "../utils/superAdminAccess";
 import { canAccessBiJustino } from "../utils/biJustinoAccess";
 import { ensureAuthSessionFromStorage } from "../utils/authSession";
 import { readAuthToken } from "../utils/readAuthToken";
@@ -112,13 +112,18 @@ export default function DashboardLayout({
     ensureAuthSessionFromStorage();
     setCookieRole(readSessionRoleSync());
     const emailMatch = document.cookie.match(/(?:^|;\s*)userEmail=([^;]*)/);
-    setCookieEmail(
-      emailMatch ? decodeURIComponent(emailMatch[1]).trim().toLowerCase() : "",
-    );
-    if (!emailMatch && typeof window !== "undefined") {
-      const storedEmail = (localStorage.getItem("userEmail") || "").trim().toLowerCase();
-      if (storedEmail) setCookieEmail(storedEmail);
+    let resolvedEmail = emailMatch
+      ? decodeURIComponent(emailMatch[1]).trim().toLowerCase()
+      : "";
+    if (!resolvedEmail && typeof window !== "undefined") {
+      resolvedEmail = (localStorage.getItem("userEmail") || "").trim().toLowerCase();
     }
+    if (!resolvedEmail && typeof window !== "undefined") {
+      const token = localStorage.getItem("authToken") || "";
+      const payload = token ? decodeJwtPayload(token) : null;
+      resolvedEmail = String(payload?.email || "").trim().toLowerCase();
+    }
+    setCookieEmail(resolvedEmail);
     setIsSuperAdmin(readSuperAdminFromCookie());
     setClientSessionReady(true);
   }, []);

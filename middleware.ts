@@ -48,7 +48,14 @@ export function middleware(request: NextRequest) {
   const isBiJustino =
     url === '/admin/bi-justino' || url.startsWith('/admin/bi-justino/');
   const sessionEmail = safeDecodeURIComponent(userEmailRaw).toLowerCase().trim();
-  if (isBiJustino && !isSuperAdmin && !canAccessBiJustino(sessionEmail)) {
+  // Sem e-mail no cookie, o Bearer fica no localStorage — o gate no client decide.
+  // Só bloqueia aqui quando o cookie existe e não está na lista do BI.
+  if (
+    isBiJustino &&
+    !isSuperAdmin &&
+    sessionEmail &&
+    !canAccessBiJustino(sessionEmail)
+  ) {
     return NextResponse.redirect(new URL('/acesso-negado', request.url));
   }
 

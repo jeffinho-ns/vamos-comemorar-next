@@ -190,6 +190,8 @@ export default function Login() {
           'coordenadora.reservas@ideiaum.com.br',
           'analista.mkt02@ideiaum.com.br',
           'luisfelipe@ideiaum.com.br',
+          'renatocury@ideiaum.com.br',
+          'carolline.moreira@ideiaum.com.br',
         ];
         
         const userEmail = emailCpf.toLowerCase().trim();

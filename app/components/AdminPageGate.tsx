@@ -13,7 +13,7 @@ import { useUserPermissions } from "../hooks/useUserPermissions";
 import { firstAllowedAdminPath, pathAllowedByEntitlements } from "../utils/adminRouteModules";
 import { shouldEnforceEntitlements } from "../utils/saasMode";
 import { uepAllowsModule } from "../utils/uepModuleAccess";
-import { readSuperAdminFromCookie } from "../utils/superAdminAccess";
+import { decodeJwtPayload, readSuperAdminFromCookie } from "../utils/superAdminAccess";
 import { canAccessBiJustino } from "../utils/biJustinoAccess";
 
 function isCheckinAdminPath(pathname: string): boolean {
@@ -55,12 +55,17 @@ function readSessionEmail(): string {
   const match = document.cookie.match(/(?:^|;\s*)userEmail=([^;]*)/);
   if (match) {
     try {
-      return decodeURIComponent(match[1]).trim().toLowerCase();
+      const fromCookie = decodeURIComponent(match[1]).trim().toLowerCase();
+      if (fromCookie) return fromCookie;
     } catch {
-      return "";
+      // segue para localStorage / JWT
     }
   }
-  return (localStorage.getItem("userEmail") || "").trim().toLowerCase();
+  const stored = (localStorage.getItem("userEmail") || "").trim().toLowerCase();
+  if (stored) return stored;
+  const token = localStorage.getItem("authToken") || "";
+  const payload = token ? decodeJwtPayload(token) : null;
+  return String(payload?.email || "").trim().toLowerCase();
 }
 
 export function AdminPageGate({ children }: { children: ReactNode }) {
