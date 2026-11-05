@@ -5,6 +5,7 @@ const BI_JUSTINO_EMAILS = new Set([
   "coordenadora.reservas@ideiaum.com.br",
   "luisfelipe@ideiaum.com.br",
   "gabrielmenda@ideiaum.com.br",
+  "carolline.moreira@ideiaum.com.br",
 ]);
 
 export function canAccessBiJustino(email?: string | null): boolean {
