@@ -18,6 +18,7 @@ import {
   type ReactNode,
 } from "react";
 import { getApiUrl } from "../config/api";
+import { parseMenuAccessKeys } from "../config/adminMenuAccess";
 import { AUTH_CHANGED_EVENT } from "../utils/authSession";
 import { readAuthToken } from "../utils/readAuthToken";
 import { readSuperAdminFromCookie } from "../utils/superAdminAccess";
@@ -33,6 +34,8 @@ export interface Entitlements {
   legacyScoped?: boolean;
   /** Membership role account_admin na org — pode gerenciar /admin/equipe. */
   isAccountAdmin?: boolean;
+  /** Menu salvo (entitlements ∪ UEP). Vazio/ausente = comportamento legado. */
+  menuAccess?: string[];
 }
 
 interface EntitlementsContextValue {
@@ -152,7 +155,9 @@ export function EntitlementsProvider({ children }: { children: ReactNode }) {
         }
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const json = await res.json();
-        const data = json?.data as Entitlements | undefined;
+        const data = json?.data as
+          | (Entitlements & { menu_access?: unknown })
+          | undefined;
         if (!data || typeof data.allowAll !== "boolean") {
           throw new Error("payload_invalido");
         }
@@ -167,6 +172,7 @@ export function EntitlementsProvider({ children }: { children: ReactNode }) {
               : [],
             legacyScoped: data.legacyScoped === true,
             isAccountAdmin: data.isAccountAdmin === true,
+            menuAccess: parseMenuAccessKeys(data.menuAccess ?? data.menu_access),
           }),
         );
         setFailed(false);

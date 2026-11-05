@@ -48,15 +48,13 @@ export function middleware(request: NextRequest) {
   const isBiJustino =
     url === '/admin/bi-justino' || url.startsWith('/admin/bi-justino/');
   const sessionEmail = safeDecodeURIComponent(userEmailRaw).toLowerCase().trim();
-  // Sem e-mail no cookie, o Bearer fica no localStorage — o gate no client decide.
-  // Só bloqueia aqui quando o cookie existe e não está na lista do BI.
+  // Allowlist de e-mail libera no edge. Fora dela, o AdminPageGate decide
+  // (e-mail OR menuAccess OR UEP) — o cookie não carrega menu_access.
   if (
     isBiJustino &&
-    !isSuperAdmin &&
-    sessionEmail &&
-    !canAccessBiJustino(sessionEmail)
+    (isSuperAdmin || (sessionEmail && canAccessBiJustino(sessionEmail)))
   ) {
-    return NextResponse.redirect(new URL('/acesso-negado', request.url));
+    return NextResponse.next();
   }
 
   // Demais /admin: não bloquear por role no edge (Bearer no localStorage).

@@ -64,6 +64,7 @@ export interface AppPermission {
   can_edit_cardapio?: boolean;
   can_delete_cardapio?: boolean;
   is_active: boolean;
+  menu_access?: string[];
 }
 
 export interface AppEstablishment {

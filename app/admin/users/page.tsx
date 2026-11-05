@@ -20,6 +20,13 @@ import {
   PERMISSION_FIELD_MODULE,
   type EstablishmentPermissionKey,
 } from "@/app/config/establishmentPermissionCatalog";
+import {
+  inferMenuAccessFromLegacyFlags,
+  MENU_KEY_LEGACY_FLAGS,
+  presetsForRole,
+  sanitizeMenuAccessForEstablishment,
+} from "@/app/config/adminMenuAccess";
+import UserMenuAccessFields from "@/app/components/admin/UserMenuAccessFields";
 
 const API_URL =
   process.env.NEXT_PUBLIC_API_URL ||
@@ -40,6 +47,7 @@ interface UserRow {
 interface Establishment {
   id: number;
   name: string;
+  slug?: string;
 }
 
 interface PermissionRow {
@@ -63,6 +71,11 @@ interface PermissionRow {
   can_create_cardapio?: boolean;
   can_edit_cardapio?: boolean;
   can_delete_cardapio?: boolean;
+  can_manage_whatsapp?: boolean;
+  can_access_justino360?: boolean;
+  can_manage_justino360?: boolean;
+  can_validate_justino360?: boolean;
+  menu_access?: string[] | null;
   is_active: boolean;
 }
 
@@ -75,35 +88,6 @@ const ROLE_LABELS: Record<string, string> = {
   promoter: "Promoter",
   recepcao: "Recepcionista",
 };
-
-const ESTAB_PERM_FIELDS: { key: keyof EstablishmentPerms; label: string }[] = [
-  { key: "can_manage_reservations", label: "Gerenciar reservas" },
-  {
-    key: "can_create_edit_reservations",
-    label: "Criar/editar reservas e lista de espera",
-  },
-  { key: "can_manage_checkins", label: "Gerenciar check-ins" },
-  { key: "can_view_reports", label: "Ver relatórios" },
-  { key: "can_view_os", label: "Ver OS" },
-  { key: "can_download_os", label: "Baixar OS" },
-  { key: "can_view_operational_detail", label: "Ver detalhes operacionais" },
-  { key: "can_edit_os", label: "Editar OS" },
-  { key: "can_edit_operational_detail", label: "Editar detalhes operacionais" },
-  { key: "can_create_os", label: "Criar OS" },
-  { key: "can_create_operational_detail", label: "Criar detalhes operacionais" },
-  { key: "can_view_cardapio", label: "Ver Cardápio" },
-  { key: "can_create_cardapio", label: "Criar Cardápio" },
-  { key: "can_edit_cardapio", label: "Editar Cardápio" },
-  { key: "can_delete_cardapio", label: "Excluir Cardápio" },
-];
-
-function visibleEstabPermFields(allowAll: boolean, modules: string[]) {
-  if (allowAll || modules.includes("*")) return ESTAB_PERM_FIELDS;
-  const allowed = new Set(modules);
-  return ESTAB_PERM_FIELDS.filter((f) =>
-    allowed.has(PERMISSION_FIELD_MODULE[f.key as EstablishmentPermissionKey] || ""),
-  );
-}
 
 export default function UsersPage() {
   const { userEmail, role, myPermissions, isLoading: contextLoading } = useAppContext();
@@ -183,7 +167,11 @@ export default function UsersPage() {
         mapped,
       );
       setEstablishments(
-        filtered.map((p) => ({ id: p.id as number, name: p.name || "" })),
+        filtered.map((p) => ({
+          id: p.id as number,
+          name: p.name || "",
+          slug: typeof p.slug === "string" ? p.slug : undefined,
+        })),
       );
     } catch {
       setEstablishments([]);
@@ -557,10 +545,6 @@ function CreateUserModal({
   canChangeGlobalUserRole,
 }: CreateUserModalProps) {
   const { entitlements } = useEntitlements();
-  const estabPermFields = visibleEstabPermFields(
-    entitlements.allowAll,
-    entitlements.modules,
-  );
   const moduleDefaultPerms = defaultEstabPermsForModules(
     entitlements.allowAll,
     entitlements.modules,
@@ -571,17 +555,31 @@ function CreateUserModal({
   const [telefone, setTelefone] = useState("");
   const [role, setRole] = useState<Role>("usuario");
   const [establishmentIds, setEstablishmentIds] = useState<number[]>([]);
-  const [permsByEstablishment, setPermsByEstablishment] = useState<Record<number, EstablishmentPerms>>({});
+  const [menuAccessByEstablishment, setMenuAccessByEstablishment] = useState<
+    Record<number, string[]>
+  >({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const applyRolePresetToSelected = (nextRole: Role, ids: number[]) => {
+    setMenuAccessByEstablishment((prev) => {
+      const next = { ...prev };
+      for (const id of ids) {
+        const est = establishments.find((e) => e.id === id);
+        next[id] = sanitizeMenuAccessForEstablishment(presetsForRole(nextRole), est);
+      }
+      return next;
+    });
+  };
 
   const toggleEstablishment = (id: number) => {
     if (establishmentIds.includes(id)) {
       setEstablishmentIds((prev) => prev.filter((x) => x !== id));
     } else {
-      setPermsByEstablishment((p) => ({
+      const est = establishments.find((e) => e.id === id);
+      setMenuAccessByEstablishment((p) => ({
         ...p,
-        [id]: p[id] ?? { ...moduleDefaultPerms },
+        [id]: p[id] ?? sanitizeMenuAccessForEstablishment(presetsForRole(role), est),
       }));
       setEstablishmentIds((prev) => [...prev, id]);
     }
@@ -626,7 +624,15 @@ function CreateUserModal({
       if (!userId) throw new Error("Resposta da API sem ID do usuário");
 
       for (const estabId of establishmentIds) {
-        const perms = permsByEstablishment[estabId] ?? moduleDefaultPerms;
+        const est = establishments.find((e) => e.id === estabId);
+        const menu_access = sanitizeMenuAccessForEstablishment(
+          menuAccessByEstablishment[estabId] ?? presetsForRole(role),
+          est,
+        );
+        const perms = mergeModuleDefaults(
+          permsFromMenuAccess(menu_access),
+          moduleDefaultPerms,
+        );
         const resPerm = await fetch(`${apiUrl}/api/establishment-permissions`, {
           method: "POST",
           headers: {
@@ -638,6 +644,7 @@ function CreateUserModal({
             user_email: email,
             establishment_id: estabId,
             ...perms,
+            menu_access,
             is_active: true,
           }),
         });
@@ -739,7 +746,11 @@ function CreateUserModal({
                 <label className="block text-xs font-medium text-slate-400 mb-1">Cargo global (role)</label>
                 <select
                   value={role}
-                  onChange={(e) => setRole(e.target.value as Role)}
+                  onChange={(e) => {
+                    const nextRole = e.target.value as Role;
+                    setRole(nextRole);
+                    applyRolePresetToSelected(nextRole, establishmentIds);
+                  }}
                   disabled={!canChangeGlobalUserRole}
                   className="w-full px-3 py-2 rounded-lg border border-slate-700 bg-slate-900/80 text-slate-50 text-sm focus:ring-2 focus:ring-yellow-500 focus:border-transparent disabled:opacity-60 disabled:cursor-not-allowed"
                 >
@@ -761,7 +772,7 @@ function CreateUserModal({
           <section className="border-t border-slate-800 pt-4">
             <h3 className="text-sm font-semibold text-slate-200 mb-2">Estabelecimentos e permissões</h3>
             <p className="text-xs text-slate-400 mb-3">
-              Selecione os estabelecimentos aos quais este usuário terá acesso e configure as permissões.
+              Selecione os estabelecimentos e, para cada um, os menus do painel. O cargo pré-seleciona os itens.
             </p>
 
             <div className="flex flex-wrap gap-2 mb-4">
@@ -787,10 +798,12 @@ function CreateUserModal({
               )}
             </div>
 
-            <div className="space-y-3 max-h-72 overflow-y-auto pr-1">
+            <div className="space-y-3 max-h-80 overflow-y-auto pr-1">
               {establishmentIds.map((id) => {
                 const est = establishments.find((e) => e.id === id);
-                const perms = permsByEstablishment[id] ?? moduleDefaultPerms;
+                const menuKeys =
+                  menuAccessByEstablishment[id] ??
+                  sanitizeMenuAccessForEstablishment(presetsForRole(role), est);
                 return (
                   <div
                     key={id}
@@ -801,7 +814,7 @@ function CreateUserModal({
                         <p className="text-sm font-semibold text-slate-100">
                           {est?.name || `Estabelecimento #${id}`}
                         </p>
-                        <p className="text-xs text-slate-500">Permissões de acesso</p>
+                        <p className="text-xs text-slate-500">Menus do painel</p>
                       </div>
                       <button
                         type="button"
@@ -811,27 +824,16 @@ function CreateUserModal({
                         Remover acesso
                       </button>
                     </div>
-                    <div className="grid grid-cols-2 gap-2 text-xs">
-                      {estabPermFields.map(({ key, label }) => (
-                        <label key={key} className="flex items-center gap-2">
-                          <input
-                            type="checkbox"
-                            checked={perms[key as keyof EstablishmentPerms]}
-                            onChange={(e) =>
-                              setPermsByEstablishment((prev) => ({
-                                ...prev,
-                                [id]: {
-                                  ...(prev[id] ?? moduleDefaultPerms),
-                                  [key]: e.target.checked,
-                                },
-                              }))
-                            }
-                            className="w-3 h-3 rounded border-slate-600 bg-slate-900 text-yellow-500 focus:ring-yellow-500"
-                          />
-                          <span className="text-slate-200">{label}</span>
-                        </label>
-                      ))}
-                    </div>
+                    <UserMenuAccessFields
+                      establishment={est || { id, name: `Estabelecimento #${id}` }}
+                      selectedKeys={menuKeys}
+                      onChange={(keys) =>
+                        setMenuAccessByEstablishment((prev) => ({
+                          ...prev,
+                          [id]: keys,
+                        }))
+                      }
+                    />
                   </div>
                 );
               })}
@@ -882,6 +884,11 @@ type EstablishmentPerms = {
   can_create_cardapio: boolean;
   can_edit_cardapio: boolean;
   can_delete_cardapio: boolean;
+  can_manage_whatsapp: boolean;
+  can_access_justino360: boolean;
+  can_manage_justino360: boolean;
+  can_validate_justino360: boolean;
+  can_access_rh_ideia: boolean;
 };
 
 const DEFAULT_ESTAB_PERMS: EstablishmentPerms = {
@@ -900,6 +907,11 @@ const DEFAULT_ESTAB_PERMS: EstablishmentPerms = {
   can_create_cardapio: true,
   can_edit_cardapio: true,
   can_delete_cardapio: true,
+  can_manage_whatsapp: true,
+  can_access_justino360: false,
+  can_manage_justino360: false,
+  can_validate_justino360: false,
+  can_access_rh_ideia: false,
 };
 
 /** Defaults só para módulos contratados pela org (Sitio → só cardápio). */
@@ -926,6 +938,11 @@ function defaultEstabPermsForModules(
     can_create_cardapio: false,
     can_edit_cardapio: false,
     can_delete_cardapio: false,
+    can_manage_whatsapp: false,
+    can_access_justino360: false,
+    can_manage_justino360: false,
+    can_validate_justino360: false,
+    can_access_rh_ideia: false,
   };
   const allowed = new Set(modules);
   (Object.keys(base) as (keyof EstablishmentPerms)[]).forEach((key) => {
@@ -937,24 +954,78 @@ function defaultEstabPermsForModules(
   return base;
 }
 
-function permFromRow(p: PermissionRow): EstablishmentPerms {
+function emptyEstabPerms(): EstablishmentPerms {
   return {
-    can_manage_reservations: p.can_manage_reservations,
-    can_create_edit_reservations: p.can_create_edit_reservations !== false,
-    can_manage_checkins: p.can_manage_checkins,
-    can_view_reports: p.can_view_reports,
-    can_view_os: p.can_view_os,
-    can_download_os: p.can_download_os,
-    can_view_operational_detail: p.can_view_operational_detail,
-    can_edit_os: p.can_edit_os,
-    can_edit_operational_detail: p.can_edit_operational_detail,
-    can_create_os: p.can_create_os,
-    can_create_operational_detail: p.can_create_operational_detail,
-    can_view_cardapio: p.can_view_cardapio !== false,
-    can_create_cardapio: p.can_create_cardapio !== false,
-    can_edit_cardapio: p.can_edit_cardapio !== false,
-    can_delete_cardapio: p.can_delete_cardapio !== false,
+    can_manage_reservations: false,
+    can_create_edit_reservations: false,
+    can_manage_checkins: false,
+    can_view_reports: false,
+    can_view_os: false,
+    can_download_os: false,
+    can_view_operational_detail: false,
+    can_edit_os: false,
+    can_edit_operational_detail: false,
+    can_create_os: false,
+    can_create_operational_detail: false,
+    can_view_cardapio: false,
+    can_create_cardapio: false,
+    can_edit_cardapio: false,
+    can_delete_cardapio: false,
+    can_manage_whatsapp: false,
+    can_access_justino360: false,
+    can_manage_justino360: false,
+    can_validate_justino360: false,
+    can_access_rh_ideia: false,
   };
+}
+
+function permsFromMenuAccess(keys: string[]): EstablishmentPerms {
+  const base = emptyEstabPerms();
+  for (const key of keys) {
+    const flags = MENU_KEY_LEGACY_FLAGS[key as keyof typeof MENU_KEY_LEGACY_FLAGS];
+    if (!flags) continue;
+    for (const flag of flags) {
+      if (flag in base) {
+        (base as Record<string, boolean>)[flag] = true;
+      }
+    }
+  }
+  return base;
+}
+
+/** Não liga flags de módulos que a org não contratou. */
+function mergeModuleDefaults(
+  fromMenu: EstablishmentPerms,
+  moduleDefaults: EstablishmentPerms,
+): EstablishmentPerms {
+  const orgHasAllModules = (
+    Object.keys(DEFAULT_ESTAB_PERMS) as (keyof EstablishmentPerms)[]
+  ).every((key) => moduleDefaults[key] === DEFAULT_ESTAB_PERMS[key]);
+  if (orgHasAllModules) return fromMenu;
+  const next = { ...fromMenu };
+  (Object.keys(next) as (keyof EstablishmentPerms)[]).forEach((key) => {
+    const mod = PERMISSION_FIELD_MODULE[key as EstablishmentPermissionKey];
+    if (mod && next[key] && !moduleDefaults[key]) {
+      next[key] = false;
+    }
+  });
+  return next;
+}
+
+function menuAccessFromPermissionRow(
+  p: PermissionRow,
+  role: string,
+  estab?: Establishment,
+): string[] {
+  if (p.menu_access != null) {
+    return sanitizeMenuAccessForEstablishment(p.menu_access, estab);
+  }
+  const inferred = sanitizeMenuAccessForEstablishment(
+    inferMenuAccessFromLegacyFlags(p),
+    estab,
+  );
+  if (inferred.length > 0) return inferred;
+  return sanitizeMenuAccessForEstablishment(presetsForRole(role), estab);
 }
 
 interface EditUserModalProps {
@@ -977,10 +1048,6 @@ function EditUserModal({
   canChangeGlobalUserRole,
 }: EditUserModalProps) {
   const { entitlements } = useEntitlements();
-  const estabPermFields = visibleEstabPermFields(
-    entitlements.allowAll,
-    entitlements.modules,
-  );
   const moduleDefaultPerms = defaultEstabPermsForModules(
     entitlements.allowAll,
     entitlements.modules,
@@ -1006,35 +1073,45 @@ function EditUserModal({
         .map((p) => Number(p.establishment_id))
         .filter((id, i, a) => a.indexOf(id) === i)
   );
-  const [permsByEstablishment, setPermsByEstablishment] = useState<Record<number, EstablishmentPerms>>(() => {
-    const map: Record<number, EstablishmentPerms> = {};
+  const [menuAccessByEstablishment, setMenuAccessByEstablishment] = useState<
+    Record<number, string[]>
+  >(() => {
+    const map: Record<number, string[]> = {};
+    const initialRole = normalizeRole(user.role);
     permissions
       .filter((p) => p.is_active)
       .forEach((p) => {
-        map[Number(p.establishment_id)] = permFromRow(p);
+        const id = Number(p.establishment_id);
+        const est = establishments.find((e) => e.id === id);
+        map[id] = menuAccessFromPermissionRow(p, initialRole, est);
       });
     return map;
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const applyRolePresetToSelected = (nextRole: Role, ids: number[]) => {
+    setMenuAccessByEstablishment((prev) => {
+      const next = { ...prev };
+      for (const id of ids) {
+        const est = establishments.find((e) => e.id === id);
+        next[id] = sanitizeMenuAccessForEstablishment(presetsForRole(nextRole), est);
+      }
+      return next;
+    });
+  };
+
   const toggleEstablishment = (id: number) => {
     if (establishmentIds.includes(id)) {
       setEstablishmentIds((prev) => prev.filter((x) => x !== id));
     } else {
-      setPermsByEstablishment((p) => ({
+      const est = establishments.find((e) => e.id === id);
+      setMenuAccessByEstablishment((p) => ({
         ...p,
-        [id]: p[id] ?? { ...moduleDefaultPerms },
+        [id]: p[id] ?? sanitizeMenuAccessForEstablishment(presetsForRole(role), est),
       }));
       setEstablishmentIds((prev) => [...prev, id]);
     }
-  };
-
-  const setPermsForEstablishment = (estabId: number, key: keyof EstablishmentPerms, value: boolean) => {
-    setPermsByEstablishment((prev) => ({
-      ...prev,
-      [estabId]: { ...(prev[estabId] ?? moduleDefaultPerms), [key]: value },
-    }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -1113,7 +1190,15 @@ function EditUserModal({
       // Para cada estabelecimento SELECIONADO: atualiza/reativa (PUT) se já existe
       // linha (ativa ou inativa), senão cria (POST). Reativar via PUT evita o 409.
       for (const estabId of establishmentIds) {
-        const permsForEstab = permsByEstablishment[estabId] ?? moduleDefaultPerms;
+        const est = establishments.find((e) => e.id === estabId);
+        const menu_access = sanitizeMenuAccessForEstablishment(
+          menuAccessByEstablishment[estabId] ?? presetsForRole(nextRole),
+          est,
+        );
+        const permsForEstab = mergeModuleDefaults(
+          permsFromMenuAccess(menu_access),
+          moduleDefaultPerms,
+        );
         const existingRow = permByEstab.get(Number(estabId));
         if (existingRow) {
           const resUpdate = await fetch(`${apiUrl}/api/establishment-permissions/${existingRow.id}`, {
@@ -1122,7 +1207,7 @@ function EditUserModal({
               "Content-Type": "application/json",
               Authorization: `Bearer ${token}`,
             },
-            body: JSON.stringify({ ...permsForEstab, is_active: true }),
+            body: JSON.stringify({ ...permsForEstab, menu_access, is_active: true }),
           });
           if (!resUpdate.ok) {
             const errBody = await resUpdate.json().catch(() => ({}));
@@ -1140,6 +1225,7 @@ function EditUserModal({
               user_email: email,
               establishment_id: estabId,
               ...permsForEstab,
+              menu_access,
               is_active: true,
             }),
           });
@@ -1256,7 +1342,11 @@ function EditUserModal({
                 {canChangeGlobalUserRole ? (
                   <select
                     value={role}
-                    onChange={(e) => setRole(e.target.value as Role)}
+                    onChange={(e) => {
+                      const nextRole = e.target.value as Role;
+                      setRole(nextRole);
+                      applyRolePresetToSelected(nextRole, establishmentIds);
+                    }}
                     className="w-full px-3 py-2 rounded-lg border border-slate-700 bg-slate-900/80 text-slate-50 text-sm focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
                   >
                     {allRoles.map((r) => (
@@ -1278,7 +1368,7 @@ function EditUserModal({
           <section className="border-t border-slate-800 pt-4">
             <h3 className="text-sm font-semibold text-slate-200 mb-2">Estabelecimentos e permissões</h3>
             <p className="text-xs text-slate-400 mb-3">
-              Selecione os estabelecimentos e, para cada um, defina as permissões granulares.
+              Selecione os estabelecimentos e, para cada um, os menus do painel. Trocar o cargo aplica o preset em todos os selecionados.
             </p>
 
             <div className="flex flex-wrap gap-2 mb-4">
@@ -1307,7 +1397,9 @@ function EditUserModal({
             <div className="space-y-3 max-h-80 overflow-y-auto pr-1">
               {establishmentIds.map((id) => {
                 const est = establishments.find((e) => e.id === id);
-                const estPerms = permsByEstablishment[id] ?? moduleDefaultPerms;
+                const menuKeys =
+                  menuAccessByEstablishment[id] ??
+                  sanitizeMenuAccessForEstablishment(presetsForRole(role), est);
                 return (
                   <div
                     key={id}
@@ -1318,7 +1410,7 @@ function EditUserModal({
                         <p className="text-sm font-semibold text-slate-100">
                           {est?.name || `Estabelecimento #${id}`}
                         </p>
-                        <p className="text-xs text-slate-500">Permissões de acesso</p>
+                        <p className="text-xs text-slate-500">Menus do painel</p>
                       </div>
                       <button
                         type="button"
@@ -1328,21 +1420,16 @@ function EditUserModal({
                         Remover acesso
                       </button>
                     </div>
-                    <div className="grid grid-cols-2 gap-2 text-xs">
-                      {estabPermFields.map(({ key, label }) => (
-                        <label key={key} className="flex items-center gap-2">
-                          <input
-                            type="checkbox"
-                            checked={estPerms[key as keyof EstablishmentPerms]}
-                            onChange={(e) =>
-                              setPermsForEstablishment(id, key as keyof EstablishmentPerms, e.target.checked)
-                            }
-                            className="w-3 h-3 rounded border-slate-600 bg-slate-900 text-yellow-500 focus:ring-yellow-500"
-                          />
-                          <span className="text-slate-200">{label}</span>
-                        </label>
-                      ))}
-                    </div>
+                    <UserMenuAccessFields
+                      establishment={est || { id, name: `Estabelecimento #${id}` }}
+                      selectedKeys={menuKeys}
+                      onChange={(keys) =>
+                        setMenuAccessByEstablishment((prev) => ({
+                          ...prev,
+                          [id]: keys,
+                        }))
+                      }
+                    />
                   </div>
                 );
               })}

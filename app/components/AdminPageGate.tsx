@@ -15,6 +15,12 @@ import { shouldEnforceEntitlements } from "../utils/saasMode";
 import { uepAllowsModule } from "../utils/uepModuleAccess";
 import { decodeJwtPayload, readSuperAdminFromCookie } from "../utils/superAdminAccess";
 import { canAccessBiJustino } from "../utils/biJustinoAccess";
+import {
+  hasActiveMenuAccess,
+  menuAccessIncludes,
+  pathAllowedByMenuAccess,
+  uepRowsHaveMenuKey,
+} from "../config/adminMenuAccess";
 
 function isCheckinAdminPath(pathname: string): boolean {
   const path = pathname.split("?")[0];
@@ -82,7 +88,15 @@ export function AdminPageGate({ children }: { children: ReactNode }) {
     setSessionEmail(readSessionEmail());
     setEmailReady(true);
   }, []);
-  const biAllowed = isSuperAdmin || canAccessBiJustino(sessionEmail);
+  const menuAccess = entitlements.menuAccess;
+  const menuRestricted = !isSuperAdmin && hasActiveMenuAccess(menuAccess);
+  const biFromMenu = menuAccessIncludes(menuAccess, "bi-justino");
+  const biFromUep = uepRowsHaveMenuKey(activeUep, "bi-justino");
+  const biAllowed =
+    isSuperAdmin ||
+    biFromMenu ||
+    biFromUep ||
+    (!menuRestricted && canAccessBiJustino(sessionEmail));
 
   const enforceEntitlements = shouldEnforceEntitlements(entitlements);
   const hasUepCheckin = activeUep.some((p) => p.can_manage_checkins);
@@ -112,13 +126,18 @@ export function AdminPageGate({ children }: { children: ReactNode }) {
       return uepAllowsModule(meta.module, activeUep) && canModule(meta.module);
     },
   });
+  const allowedByMenu =
+    !menuRestricted ||
+    pathAllowedByMenuAccess(pathname, menuAccess ?? []) ||
+    (isBiJustinoPath(pathname) && biAllowed);
   const allowed =
     (allowedByEntitlements ||
       (hasUepCheckin && isCheckinAdminPath(pathname)) ||
       (hasUepJustino360 && isJustino360AdminPath(pathname)) ||
       (hasUepRhIdeia && isRhIdeiaAdminPath(pathname))) &&
     (!isSuperAdminOnlyPath(pathname) || isSuperAdmin) &&
-    (!isBiJustinoPath(pathname) || biAllowed);
+    (!isBiJustinoPath(pathname) || biAllowed) &&
+    allowedByMenu;
 
   useEffect(() => {
     if (isSuperAdminOnlyPath(pathname) && !isSuperAdmin) {
@@ -128,6 +147,10 @@ export function AdminPageGate({ children }: { children: ReactNode }) {
     if (isBiJustinoPath(pathname)) {
       if (!emailReady) return;
       if (!biAllowed) router.replace("/acesso-negado");
+      return;
+    }
+    if (menuRestricted && !allowedByMenu) {
+      router.replace("/admin");
       return;
     }
     if (!enforceEntitlements || loading || allowed) return;
@@ -153,6 +176,8 @@ export function AdminPageGate({ children }: { children: ReactNode }) {
     isSuperAdmin,
     emailReady,
     biAllowed,
+    menuRestricted,
+    allowedByMenu,
   ]);
 
   if (isSuperAdminOnlyPath(pathname) && !isSuperAdmin) {
@@ -160,6 +185,10 @@ export function AdminPageGate({ children }: { children: ReactNode }) {
   }
 
   if (isBiJustinoPath(pathname) && (!emailReady || !biAllowed)) {
+    return null;
+  }
+
+  if (menuRestricted && !allowedByMenu) {
     return null;
   }
 

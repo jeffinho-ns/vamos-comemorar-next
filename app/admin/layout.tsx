@@ -35,6 +35,12 @@ import AdminPageViewLogger from "../components/AdminPageViewLogger";
 import { useSaasAccess } from "../hooks/useSaasAccess";
 import { useEntitlements } from "../context/EntitlementsContext";
 import { filterNavByEntitlements } from "../config/adminNavModules";
+import {
+  filterNavByMenuAccess,
+  hasActiveMenuAccess,
+  menuAccessIncludes,
+  uepRowsHaveMenuKey,
+} from "../config/adminMenuAccess";
 import { groupNavLinks, flattenNavLinks } from "../config/adminNavGrouping";
 import AdminPageGate from "../components/AdminPageGate";
 import StaffAgentFloat from "../components/admin/StaffAgentFloat";
@@ -493,10 +499,28 @@ export default function DashboardLayout({
     }
   }
 
-  if (
-    (isSuperAdmin || canAccessBiJustino(effectiveEmail)) &&
-    !navLinks.some((l) => l.href === "/admin/bi-justino")
-  ) {
+  if (!isSuperAdmin && hasActiveMenuAccess(entitlements.menuAccess)) {
+    navLinks = filterNavByMenuAccess(navLinks, entitlements.menuAccess);
+    if (
+      navLinks.length > 0 &&
+      !navLinks.some((l) => l.href === "/admin")
+    ) {
+      navLinks = [
+        { href: "/admin", label: "Dashboard", icon: MdDashboard },
+        ...navLinks,
+      ];
+    }
+  }
+
+  const menuScoped = hasActiveMenuAccess(entitlements.menuAccess);
+  const biFromMenu = menuAccessIncludes(entitlements.menuAccess, "bi-justino");
+  const biFromUep = uepRowsHaveMenuKey(activeUep, "bi-justino");
+  const biAllowed =
+    isSuperAdmin ||
+    biFromMenu ||
+    biFromUep ||
+    (!menuScoped && canAccessBiJustino(effectiveEmail));
+  if (biAllowed && !navLinks.some((l) => l.href === "/admin/bi-justino")) {
     navLinks = [
       ...navLinks,
       { href: "/admin/bi-justino", label: "BI Seu Justino", icon: MdQueryStats },
