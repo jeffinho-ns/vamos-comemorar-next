@@ -68,7 +68,9 @@ export function BiShell() {
   }, [userEmail]);
   const visiveis = useMemo(() => paginasVisiveisBiJustino(email, PAGINAS), [email]);
   const podeAoVivo = Boolean(email)
-    && (podePaginaBiJustino(email, "master") || podePaginaBiJustino(email, "reservas"));
+    && (podePaginaBiJustino(email, "master")
+      || podePaginaBiJustino(email, "reservas")
+      || podePaginaBiJustino(email, "operacao"));
   const { data, error, connected, freshIds, reload } = useBiLive(podeAoVivo);
   const primeira = visiveis[0] ?? PAGINAS[0];
   const [paginaId, setPaginaId] = useState(primeira.id);

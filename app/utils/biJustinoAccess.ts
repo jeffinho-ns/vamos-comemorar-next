@@ -1,8 +1,9 @@
 /**
  * Mesma lista da API (services/biJustino/access.js). Não abre o BI para a equipe inteira.
  * renatocury@ideiaum.com.br é o Renato Cury. renato@ideiaum.com.br (promoter) não entra.
- * carolline.moreira@ideiaum.com.br entra só em RH, Documentos, Manual e Contatos.
+ * carolline.moreira@ideiaum.com.br entra em tudo, menos na Diretoria.
  * gabrielmenda@ideiaum.com.br entra só em Marketing, Eventos, Reservas, Documentos, Manual e Contatos.
+ * gerente.sjm@seujustino.com.br entra só em Gerente Operador, Documentos, Manual e Contatos.
  */
 
 const BI_JUSTINO_EMAILS = new Set([
@@ -12,6 +13,7 @@ const BI_JUSTINO_EMAILS = new Set([
   "luisfelipe@ideiaum.com.br",
   "gabrielmenda@ideiaum.com.br",
   "carolline.moreira@ideiaum.com.br",
+  "gerente.sjm@seujustino.com.br",
 ]);
 
 export const BI_JUSTINO_PAGINAS = [
@@ -31,8 +33,9 @@ export const BI_JUSTINO_PAGINAS = [
 ] as const;
 
 const BI_JUSTINO_ESCOPOS: Record<string, readonly string[]> = {
-  "carolline.moreira@ideiaum.com.br": ["rh", "documentos", "manual", "contatos"],
+  "carolline.moreira@ideiaum.com.br": BI_JUSTINO_PAGINAS.filter((id) => id !== "master"),
   "gabrielmenda@ideiaum.com.br": ["marketing", "eventos", "reservas", "documentos", "manual", "contatos"],
+  "gerente.sjm@seujustino.com.br": ["operacao", "documentos", "manual", "contatos"],
 };
 
 function normalizeEmail(email?: string | null): string {
